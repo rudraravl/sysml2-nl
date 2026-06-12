@@ -1,0 +1,1125 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0qq7hnlp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb55c-366d-7f62-a8ee-08efdda296eb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Heat flux sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HeatFluxSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def HeatFlux :> Real {
+        unit = "W/m^2";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Resistance :> Real {
+        unit = "Ohm";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def DigitalCount :> Integer;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def HeatFluxSensitivity :> Real {
+        unit = "uV/(W/m^2)";
+    }
+
+    attribute def SampleIndex :> Integer;
+
+    item def ThermalContact {
+        attribute contactTemperature : Temperature;
+        attribute normalHeatFlux : HeatFlux;
+        attribute contactPressure : Real {
+            unit = "kPa";
+        }
+    }
+
+    item def AnalogSignal {
+        attribute voltage : Voltage;
+        attribute sourceImpedance : Resistance;
+        attribute noiseRms : Voltage;
+    }
+
+    item def DigitalSample {
+        attribute sampleIndex : SampleIndex;
+        attribute rawCounts : DigitalCount;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def HeatFluxMeasurement {
+        attribute heatFlux : HeatFlux;
+        attribute sensorTemperature : Temperature;
+        attribute uncertainty : HeatFlux;
+        attribute timestamp : TimeDuration;
+        attribute valid : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute availablePower : Power;
+    }
+
+    item def ConfigurationData {
+        attribute sensitivity : HeatFluxSensitivity;
+        attribute zeroOffsetVoltage : Voltage;
+        attribute sampleRate : Frequency;
+        attribute averagingWindow : Integer;
+        attribute alarmThreshold : HeatFlux;
+    }
+
+    port def ThermalSurfacePort {
+        in item thermalContact : ThermalContact;
+    }
+
+    port def AnalogOutputPort {
+        out item signal : AnalogSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : HeatFluxMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ConfigPort {
+        in item configuration : ConfigurationData;
+    }
+
+    port def StatusPort {
+        out item health : SensorHealthStatus;
+    }
+
+    enum def SensorHealthStatus {
+        nominal;
+        warmingUp;
+        calibrating;
+        saturated;
+        faulted;
+        powerLow;
+    }
+
+    enum def MeasurementMode {
+        standby;
+        continuous;
+        triggered;
+        calibration;
+        fault;
+    }
+
+    part def HeatFluxSensor {
+        attribute sensitivity : HeatFluxSensitivity = 62.0;
+        attribute activeArea : Real = 0.0001 {
+            unit = "m^2";
+        }
+        attribute responseTime : TimeDuration = 0.35;
+        attribute minHeatFlux : HeatFlux = -20000.0;
+        attribute maxHeatFlux : HeatFlux = 20000.0;
+        attribute sensorResistance : Resistance = 180.0;
+        attribute surfaceTemperature : Temperature;
+        attribute measuredHeatFlux : HeatFlux;
+        attribute generatedVoltage : Voltage;
+        attribute offsetVoltage : Voltage = 0.0;
+        attribute saturated : Boolean = false;
+
+        port sensingFace : ThermalSurfacePort;
+        port analogOut : AnalogOutputPort;
+
+        action def ConvertHeatFluxToVoltage {
+            in flux : HeatFlux;
+            in sensitivity : HeatFluxSensitivity;
+            in offset : Voltage;
+            out voltage : Voltage;
+
+            calc voltage = offset + flux * sensitivity * 0.000001;
+        }
+
+        action sense {
+            in item sensingFace.thermalContact;
+            out item analogOut.signal;
+
+            then ConvertHeatFluxToVoltage(
+                flux = sensingFace.thermalContact.normalHeatFlux,
+                sensitivity = sensitivity,
+                offset = offsetVoltage,
+                voltage = generatedVoltage
+            );
+
+            bind surfaceTemperature = sensingFace.thermalContact.contactTemperature;
+            bind measuredHeatFlux = sensingFace.thermalContact.normalHeatFlux;
+            bind saturated = measuredHeatFlux > maxHeatFlux or measuredHeatFlux < minHeatFlux;
+            bind analogOut.signal.voltage = generatedVoltage;
+            bind analogOut.signal.sourceImpedance = sensorResistance;
+            bind analogOut.signal.noiseRms = 0.000002;
+        }
+    }
+
+    part def LowNoiseAmplifier {
+        attribute gain : Real = 500.0;
+        attribute inputImpedance : Resistance = 10000000.0;
+        attribute outputNoiseRms : Voltage = 0.001;
+        attribute outputVoltage : Voltage;
+        attribute saturated : Boolean = false;
+        attribute minOutputVoltage : Voltage = 0.05;
+        attribute maxOutputVoltage : Voltage = 3.25;
+
+        port analogIn : AnalogInputPort;
+        port analogOut : AnalogOutputPort;
+
+        action amplify {
+            in item analogIn.signal;
+            out item analogOut.signal;
+
+            bind outputVoltage = analogIn.signal.voltage * gain;
+            bind saturated = outputVoltage > maxOutputVoltage or outputVoltage < minOutputVoltage;
+            bind analogOut.signal.voltage =
+                if outputVoltage > maxOutputVoltage then maxOutputVoltage
+                else if outputVoltage < minOutputVoltage then minOutputVoltage
+                else outputVoltage;
+            bind analogOut.signal.sourceImpedance = 100.0;
+            bind analogOut.signal.noiseRms = outputNoiseRms;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 16;
+        attribute referenceVoltage : Voltage = 3.3;
+        attribute sampleRate : Frequency = 100.0;
+        attribute rawCounts : DigitalCount;
+        attribute sampleIndex : SampleIndex = 0;
+        attribute conversionPeriod : TimeDuration = 0.01;
+
+        port analogIn : AnalogInputPort;
+        port digitalOut : DigitalSamplePort;
+
+        action sampleAnalogSignal {
+            in item analogIn.signal;
+            out item digitalOut.sample;
+
+            bind rawCounts = Integer((analogIn.signal.voltage / referenceVoltage) * 65535.0);
+            bind sampleIndex = sampleIndex + 1;
+            bind digitalOut.sample.rawCounts =
+                if rawCounts < 0 then 0
+                else if rawCounts > 65535 then 65535
+                else rawCounts;
+            bind digitalOut.sample.sampleIndex = sampleIndex;
+            bind digitalOut.sample.timestamp = sampleIndex * conversionPeriod;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.5;
+        attribute measuredTemperature : Temperature;
+
+        port thermalIn : ThermalSurfacePort;
+        port measurementOut : MeasurementPort;
+
+        action measureTemperature {
+            in item thermalIn.thermalContact;
+            out item measurementOut.measurement;
+
+            bind measuredTemperature = thermalIn.thermalContact.contactTemperature;
+            bind measurementOut.measurement.sensorTemperature = measuredTemperature;
+            bind measurementOut.measurement.timestamp = 0.0;
+            bind measurementOut.measurement.valid = true;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute sensitivity : HeatFluxSensitivity = 62.0;
+        attribute zeroOffsetVoltage : Voltage = 0.0;
+        attribute amplifierGain : Real = 500.0;
+        attribute referenceVoltage : Voltage = 3.3;
+        attribute adcFullScaleCounts : DigitalCount = 65535;
+        attribute averagingWindow : Integer = 16;
+        attribute alarmThreshold : HeatFlux = 15000.0;
+        attribute calculatedVoltage : Voltage;
+        attribute compensatedSensorVoltage : Voltage;
+        attribute calculatedHeatFlux : HeatFlux;
+        attribute filteredHeatFlux : HeatFlux;
+        attribute uncertainty : HeatFlux = 25.0;
+        attribute measurementValid : Boolean = false;
+        attribute overThreshold : Boolean = false;
+
+        port digitalIn : DigitalSamplePort;
+        port configIn : ConfigPort;
+        port measurementOut : MeasurementPort;
+        port statusOut : StatusPort;
+
+        action applyConfiguration {
+            in item configIn.configuration;
+
+            bind sensitivity = configIn.configuration.sensitivity;
+            bind zeroOffsetVoltage = configIn.configuration.zeroOffsetVoltage;
+            bind averagingWindow = configIn.configuration.averagingWindow;
+            bind alarmThreshold = configIn.configuration.alarmThreshold;
+        }
+
+        action computeHeatFlux {
+            in item digitalIn.sample;
+            out item measurementOut.measurement;
+
+            bind calculatedVoltage = (Real(digitalIn.sample.rawCounts) / Real(adcFullScaleCounts)) * referenceVoltage;
+            bind compensatedSensorVoltage = (calculatedVoltage / amplifierGain) - zeroOffsetVoltage;
+            bind calculatedHeatFlux = compensatedSensorVoltage / (sensitivity * 0.000001);
+            bind filteredHeatFlux = ((filteredHeatFlux * Real(averagingWindow - 1)) + calculatedHeatFlux) / Real(averagingWindow);
+            bind measurementValid = digitalIn.sample.rawCounts > 16 and digitalIn.sample.rawCounts < adcFullScaleCounts - 16;
+            bind overThreshold = abs(filteredHeatFlux) >= alarmThreshold;
+            bind measurementOut.measurement.heatFlux = filteredHeatFlux;
+            bind measurementOut.measurement.uncertainty = uncertainty;
+            bind measurementOut.measurement.timestamp = digitalIn.sample.timestamp;
+            bind measurementOut.measurement.valid = measurementValid;
+            bind statusOut.health =
+                if not measurementValid then SensorHealthStatus::saturated
+                else SensorHealthStatus::nominal;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltage : Voltage;
+        attribute regulatedVoltage : Voltage = 3.3;
+        attribute loadCurrent : Current = 0.045;
+        attribute efficiency : Percent = 88.0;
+        attribute powerGood : Boolean = false;
+
+        port powerIn : PowerInputPort;
+        port sensorPowerOut : PowerInputPort;
+        port electronicsPowerOut : PowerInputPort;
+        port statusOut : StatusPort;
+
+        action regulate {
+            in item powerIn.power;
+            out item sensorPowerOut.power;
+            out item electronicsPowerOut.power;
+
+            bind inputVoltage = powerIn.power.voltage;
+            bind powerGood = inputVoltage >= 4.5 and powerIn.power.availablePower >= 0.25;
+            bind sensorPowerOut.power.voltage = regulatedVoltage;
+            bind sensorPowerOut.power.current = 0.005;
+            bind sensorPowerOut.power.availablePower = 0.0165;
+            bind electronicsPowerOut.power.voltage = regulatedVoltage;
+            bind electronicsPowerOut.power.current = loadCurrent;
+            bind electronicsPowerOut.power.availablePower = regulatedVoltage * loadCurrent;
+            bind statusOut.health =
+                if powerGood then SensorHealthStatus::nominal
+                else SensorHealthStatus::powerLow;
+        }
+    }
+
+    part def HeatFluxSensingUnit {
+        attribute mode : MeasurementMode = MeasurementMode::standby;
+        attribute requiredSampleRate : Frequency = 100.0;
+        attribute operatingTemperatureMin : Temperature = 233.15;
+        attribute operatingTemperatureMax : Temperature = 358.15;
+        attribute measurementRangeMin : HeatFlux = -20000.0;
+        attribute measurementRangeMax : HeatFlux = 20000.0;
+        attribute totalPowerConsumption : Power = 0.18;
+        attribute startupTime : TimeDuration = 2.0;
+
+        port measuredSurface : ThermalSurfacePort;
+        port powerInput : PowerInputPort;
+        port configurationInput : ConfigPort;
+        port heatFluxOutput : MeasurementPort;
+        port healthOutput : StatusPort;
+
+        part sensor : HeatFluxSensor {
+            sensitivity = 62.0;
+        }
+
+        part amplifier : LowNoiseAmplifier {
+            gain = 500.0;
+        }
+
+        part adc : AnalogToDigitalConverter {
+            resolutionBits = 16;
+            sampleRate = requiredSampleRate;
+        }
+
+        part processor : MeasurementProcessor {
+            sensitivity = sensor.sensitivity;
+            amplifierGain = amplifier.gain;
+            referenceVoltage = adc.referenceVoltage;
+        }
+
+        part temperatureSensor : TemperatureSensor;
+
+        part regulator : PowerRegulator;
+
+        connect measuredSurface to sensor.sensingFace;
+        connect measuredSurface to temperatureSensor.thermalIn;
+        connect sensor.analogOut to amplifier.analogIn;
+        connect amplifier.analogOut to adc.analogIn;
+        connect adc.digitalOut to processor.digitalIn;
+        connect processor.measurementOut to heatFluxOutput;
+        connect configurationInput to processor.configIn;
+        connect powerInput to regulator.powerIn;
+        connect regulator.statusOut to healthOutput;
+        connect processor.statusOut to healthOutput;
+
+        action initialize {
+            first regulator.regulate;
+            then processor.applyConfiguration;
+            then assign mode = MeasurementMode::continuous;
+        }
+
+        action acquireMeasurement {
+            first sensor.sense;
+            then amplifier.amplify;
+            then adc.sampleAnalogSignal;
+            then processor.computeHeatFlux;
+        }
+
+        state def UnitOperationalState {
+            state off;
+            state startup;
+            state standby;
+            state measuring;
+            state calibrating;
+            state alarm;
+            state fault;
+
+            transition initial then off;
+
+            transition powerApplied
+                first off
+                accept when powerInput.power.voltage >= 4.5
+                then startup;
+
+            transition startupComplete
+                first startup
+                accept after startupTime
+                do initialize
+                then standby;
+
+            transition beginContinuousMeasurement
+                first standby
+                accept when mode == MeasurementMode::continuous
+                then measuring;
+
+            transition performMeasurementCycle
+                first measuring
+                accept after 1.0 / requiredSampleRate
+                do acquireMeasurement
+                then measuring;
+
+            transition enterCalibration
+                first standby
+                accept when mode == MeasurementMode::calibration
+                then calibrating;
+
+            transition calibrationComplete
+                first calibrating
+                accept after 5.0
+                then standby;
+
+            transition thresholdExceeded
+                first measuring
+                accept when abs(processor.filteredHeatFlux) >= processor.alarmThreshold
+                then alarm;
+
+            transition thresholdCleared
+                first alarm
+                accept when abs(processor.filteredHeatFlux) < processor.alarmThreshold * 0.95
+                then measuring;
+
+            transition signalSaturated
+                first measuring
+                accept when sensor.saturated or amplifier.saturated or not processor.measurementValid
+                then fault;
+
+            transition resetFault
+                first fault
+                accept when mode == MeasurementMode::standby
+                then standby;
+
+            transition powerRemoved
+                first standby
+                accept when powerInput.power.voltage < 4.0
+                then off;
+        }
+
+        exhibit state UnitOperationalState;
+    }
+
+    requirement def HeatFluxMeasurementRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin <= -20000.0 and
+            unit.measurementRangeMax >= 20000.0
+        }
+
+        require constraint {
+            unit.requiredSampleRate >= 100.0
+        }
+
+        require constraint {
+            unit.processor.uncertainty <= 50.0
+        }
+    }
+
+    requirement def HeatFluxSensorUseRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.sensor.sensitivity > 0.0
+        }
+
+        require constraint {
+            unit.sensor.activeArea >= 0.00005
+        }
+    }
+
+    requirement def OutputValidityRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.heatFluxOutput.measurement.valid implies
+            unit.heatFluxOutput.measurement.heatFlux >= unit.measurementRangeMin and
+            unit.heatFluxOutput.measurement.heatFlux <= unit.measurementRangeMax
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.totalPowerConsumption <= 0.25
+        }
+
+        require constraint {
+            unit.powerInput.power.voltage >= 4.5 and unit.powerInput.power.voltage <= 5.5
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.sensor.surfaceTemperature >= unit.operatingTemperatureMin and
+            unit.sensor.surfaceTemperature <= unit.operatingTemperatureMax
+        }
+    }
+
+    requirement def AlarmRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            abs(unit.processor.filteredHeatFlux) >= unit.processor.alarmThreshold implies
+            unit.healthOutput.health == SensorHealthStatus::nominal or
+            unit.healthOutput.health == SensorHealthStatus::saturated
+        }
+    }
+
+    part heatFluxSensingUnit : HeatFluxSensingUnit;
+
+    satisfy HeatFluxMeasurementRequirement by heatFluxSensingUnit;
+    satisfy HeatFluxSensorUseRequirement by heatFluxSensingUnit;
+    satisfy OutputValidityRequirement by heatFluxSensingUnit;
+    satisfy PowerRequirement by heatFluxSensingUnit;
+    satisfy EnvironmentalRequirement by heatFluxSensingUnit;
+    satisfy AlarmRequirement by heatFluxSensingUnit;
+}
+tokens used
+4,076
+package HeatFluxSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def HeatFlux :> Real {
+        unit = "W/m^2";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "K";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Resistance :> Real {
+        unit = "Ohm";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def DigitalCount :> Integer;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def HeatFluxSensitivity :> Real {
+        unit = "uV/(W/m^2)";
+    }
+
+    attribute def SampleIndex :> Integer;
+
+    item def ThermalContact {
+        attribute contactTemperature : Temperature;
+        attribute normalHeatFlux : HeatFlux;
+        attribute contactPressure : Real {
+            unit = "kPa";
+        }
+    }
+
+    item def AnalogSignal {
+        attribute voltage : Voltage;
+        attribute sourceImpedance : Resistance;
+        attribute noiseRms : Voltage;
+    }
+
+    item def DigitalSample {
+        attribute sampleIndex : SampleIndex;
+        attribute rawCounts : DigitalCount;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def HeatFluxMeasurement {
+        attribute heatFlux : HeatFlux;
+        attribute sensorTemperature : Temperature;
+        attribute uncertainty : HeatFlux;
+        attribute timestamp : TimeDuration;
+        attribute valid : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute availablePower : Power;
+    }
+
+    item def ConfigurationData {
+        attribute sensitivity : HeatFluxSensitivity;
+        attribute zeroOffsetVoltage : Voltage;
+        attribute sampleRate : Frequency;
+        attribute averagingWindow : Integer;
+        attribute alarmThreshold : HeatFlux;
+    }
+
+    port def ThermalSurfacePort {
+        in item thermalContact : ThermalContact;
+    }
+
+    port def AnalogOutputPort {
+        out item signal : AnalogSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : HeatFluxMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ConfigPort {
+        in item configuration : ConfigurationData;
+    }
+
+    port def StatusPort {
+        out item health : SensorHealthStatus;
+    }
+
+    enum def SensorHealthStatus {
+        nominal;
+        warmingUp;
+        calibrating;
+        saturated;
+        faulted;
+        powerLow;
+    }
+
+    enum def MeasurementMode {
+        standby;
+        continuous;
+        triggered;
+        calibration;
+        fault;
+    }
+
+    part def HeatFluxSensor {
+        attribute sensitivity : HeatFluxSensitivity = 62.0;
+        attribute activeArea : Real = 0.0001 {
+            unit = "m^2";
+        }
+        attribute responseTime : TimeDuration = 0.35;
+        attribute minHeatFlux : HeatFlux = -20000.0;
+        attribute maxHeatFlux : HeatFlux = 20000.0;
+        attribute sensorResistance : Resistance = 180.0;
+        attribute surfaceTemperature : Temperature;
+        attribute measuredHeatFlux : HeatFlux;
+        attribute generatedVoltage : Voltage;
+        attribute offsetVoltage : Voltage = 0.0;
+        attribute saturated : Boolean = false;
+
+        port sensingFace : ThermalSurfacePort;
+        port analogOut : AnalogOutputPort;
+
+        action def ConvertHeatFluxToVoltage {
+            in flux : HeatFlux;
+            in sensitivity : HeatFluxSensitivity;
+            in offset : Voltage;
+            out voltage : Voltage;
+
+            calc voltage = offset + flux * sensitivity * 0.000001;
+        }
+
+        action sense {
+            in item sensingFace.thermalContact;
+            out item analogOut.signal;
+
+            then ConvertHeatFluxToVoltage(
+                flux = sensingFace.thermalContact.normalHeatFlux,
+                sensitivity = sensitivity,
+                offset = offsetVoltage,
+                voltage = generatedVoltage
+            );
+
+            bind surfaceTemperature = sensingFace.thermalContact.contactTemperature;
+            bind measuredHeatFlux = sensingFace.thermalContact.normalHeatFlux;
+            bind saturated = measuredHeatFlux > maxHeatFlux or measuredHeatFlux < minHeatFlux;
+            bind analogOut.signal.voltage = generatedVoltage;
+            bind analogOut.signal.sourceImpedance = sensorResistance;
+            bind analogOut.signal.noiseRms = 0.000002;
+        }
+    }
+
+    part def LowNoiseAmplifier {
+        attribute gain : Real = 500.0;
+        attribute inputImpedance : Resistance = 10000000.0;
+        attribute outputNoiseRms : Voltage = 0.001;
+        attribute outputVoltage : Voltage;
+        attribute saturated : Boolean = false;
+        attribute minOutputVoltage : Voltage = 0.05;
+        attribute maxOutputVoltage : Voltage = 3.25;
+
+        port analogIn : AnalogInputPort;
+        port analogOut : AnalogOutputPort;
+
+        action amplify {
+            in item analogIn.signal;
+            out item analogOut.signal;
+
+            bind outputVoltage = analogIn.signal.voltage * gain;
+            bind saturated = outputVoltage > maxOutputVoltage or outputVoltage < minOutputVoltage;
+            bind analogOut.signal.voltage =
+                if outputVoltage > maxOutputVoltage then maxOutputVoltage
+                else if outputVoltage < minOutputVoltage then minOutputVoltage
+                else outputVoltage;
+            bind analogOut.signal.sourceImpedance = 100.0;
+            bind analogOut.signal.noiseRms = outputNoiseRms;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 16;
+        attribute referenceVoltage : Voltage = 3.3;
+        attribute sampleRate : Frequency = 100.0;
+        attribute rawCounts : DigitalCount;
+        attribute sampleIndex : SampleIndex = 0;
+        attribute conversionPeriod : TimeDuration = 0.01;
+
+        port analogIn : AnalogInputPort;
+        port digitalOut : DigitalSamplePort;
+
+        action sampleAnalogSignal {
+            in item analogIn.signal;
+            out item digitalOut.sample;
+
+            bind rawCounts = Integer((analogIn.signal.voltage / referenceVoltage) * 65535.0);
+            bind sampleIndex = sampleIndex + 1;
+            bind digitalOut.sample.rawCounts =
+                if rawCounts < 0 then 0
+                else if rawCounts > 65535 then 65535
+                else rawCounts;
+            bind digitalOut.sample.sampleIndex = sampleIndex;
+            bind digitalOut.sample.timestamp = sampleIndex * conversionPeriod;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.5;
+        attribute measuredTemperature : Temperature;
+
+        port thermalIn : ThermalSurfacePort;
+        port measurementOut : MeasurementPort;
+
+        action measureTemperature {
+            in item thermalIn.thermalContact;
+            out item measurementOut.measurement;
+
+            bind measuredTemperature = thermalIn.thermalContact.contactTemperature;
+            bind measurementOut.measurement.sensorTemperature = measuredTemperature;
+            bind measurementOut.measurement.timestamp = 0.0;
+            bind measurementOut.measurement.valid = true;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute sensitivity : HeatFluxSensitivity = 62.0;
+        attribute zeroOffsetVoltage : Voltage = 0.0;
+        attribute amplifierGain : Real = 500.0;
+        attribute referenceVoltage : Voltage = 3.3;
+        attribute adcFullScaleCounts : DigitalCount = 65535;
+        attribute averagingWindow : Integer = 16;
+        attribute alarmThreshold : HeatFlux = 15000.0;
+        attribute calculatedVoltage : Voltage;
+        attribute compensatedSensorVoltage : Voltage;
+        attribute calculatedHeatFlux : HeatFlux;
+        attribute filteredHeatFlux : HeatFlux;
+        attribute uncertainty : HeatFlux = 25.0;
+        attribute measurementValid : Boolean = false;
+        attribute overThreshold : Boolean = false;
+
+        port digitalIn : DigitalSamplePort;
+        port configIn : ConfigPort;
+        port measurementOut : MeasurementPort;
+        port statusOut : StatusPort;
+
+        action applyConfiguration {
+            in item configIn.configuration;
+
+            bind sensitivity = configIn.configuration.sensitivity;
+            bind zeroOffsetVoltage = configIn.configuration.zeroOffsetVoltage;
+            bind averagingWindow = configIn.configuration.averagingWindow;
+            bind alarmThreshold = configIn.configuration.alarmThreshold;
+        }
+
+        action computeHeatFlux {
+            in item digitalIn.sample;
+            out item measurementOut.measurement;
+
+            bind calculatedVoltage = (Real(digitalIn.sample.rawCounts) / Real(adcFullScaleCounts)) * referenceVoltage;
+            bind compensatedSensorVoltage = (calculatedVoltage / amplifierGain) - zeroOffsetVoltage;
+            bind calculatedHeatFlux = compensatedSensorVoltage / (sensitivity * 0.000001);
+            bind filteredHeatFlux = ((filteredHeatFlux * Real(averagingWindow - 1)) + calculatedHeatFlux) / Real(averagingWindow);
+            bind measurementValid = digitalIn.sample.rawCounts > 16 and digitalIn.sample.rawCounts < adcFullScaleCounts - 16;
+            bind overThreshold = abs(filteredHeatFlux) >= alarmThreshold;
+            bind measurementOut.measurement.heatFlux = filteredHeatFlux;
+            bind measurementOut.measurement.uncertainty = uncertainty;
+            bind measurementOut.measurement.timestamp = digitalIn.sample.timestamp;
+            bind measurementOut.measurement.valid = measurementValid;
+            bind statusOut.health =
+                if not measurementValid then SensorHealthStatus::saturated
+                else SensorHealthStatus::nominal;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltage : Voltage;
+        attribute regulatedVoltage : Voltage = 3.3;
+        attribute loadCurrent : Current = 0.045;
+        attribute efficiency : Percent = 88.0;
+        attribute powerGood : Boolean = false;
+
+        port powerIn : PowerInputPort;
+        port sensorPowerOut : PowerInputPort;
+        port electronicsPowerOut : PowerInputPort;
+        port statusOut : StatusPort;
+
+        action regulate {
+            in item powerIn.power;
+            out item sensorPowerOut.power;
+            out item electronicsPowerOut.power;
+
+            bind inputVoltage = powerIn.power.voltage;
+            bind powerGood = inputVoltage >= 4.5 and powerIn.power.availablePower >= 0.25;
+            bind sensorPowerOut.power.voltage = regulatedVoltage;
+            bind sensorPowerOut.power.current = 0.005;
+            bind sensorPowerOut.power.availablePower = 0.0165;
+            bind electronicsPowerOut.power.voltage = regulatedVoltage;
+            bind electronicsPowerOut.power.current = loadCurrent;
+            bind electronicsPowerOut.power.availablePower = regulatedVoltage * loadCurrent;
+            bind statusOut.health =
+                if powerGood then SensorHealthStatus::nominal
+                else SensorHealthStatus::powerLow;
+        }
+    }
+
+    part def HeatFluxSensingUnit {
+        attribute mode : MeasurementMode = MeasurementMode::standby;
+        attribute requiredSampleRate : Frequency = 100.0;
+        attribute operatingTemperatureMin : Temperature = 233.15;
+        attribute operatingTemperatureMax : Temperature = 358.15;
+        attribute measurementRangeMin : HeatFlux = -20000.0;
+        attribute measurementRangeMax : HeatFlux = 20000.0;
+        attribute totalPowerConsumption : Power = 0.18;
+        attribute startupTime : TimeDuration = 2.0;
+
+        port measuredSurface : ThermalSurfacePort;
+        port powerInput : PowerInputPort;
+        port configurationInput : ConfigPort;
+        port heatFluxOutput : MeasurementPort;
+        port healthOutput : StatusPort;
+
+        part sensor : HeatFluxSensor {
+            sensitivity = 62.0;
+        }
+
+        part amplifier : LowNoiseAmplifier {
+            gain = 500.0;
+        }
+
+        part adc : AnalogToDigitalConverter {
+            resolutionBits = 16;
+            sampleRate = requiredSampleRate;
+        }
+
+        part processor : MeasurementProcessor {
+            sensitivity = sensor.sensitivity;
+            amplifierGain = amplifier.gain;
+            referenceVoltage = adc.referenceVoltage;
+        }
+
+        part temperatureSensor : TemperatureSensor;
+
+        part regulator : PowerRegulator;
+
+        connect measuredSurface to sensor.sensingFace;
+        connect measuredSurface to temperatureSensor.thermalIn;
+        connect sensor.analogOut to amplifier.analogIn;
+        connect amplifier.analogOut to adc.analogIn;
+        connect adc.digitalOut to processor.digitalIn;
+        connect processor.measurementOut to heatFluxOutput;
+        connect configurationInput to processor.configIn;
+        connect powerInput to regulator.powerIn;
+        connect regulator.statusOut to healthOutput;
+        connect processor.statusOut to healthOutput;
+
+        action initialize {
+            first regulator.regulate;
+            then processor.applyConfiguration;
+            then assign mode = MeasurementMode::continuous;
+        }
+
+        action acquireMeasurement {
+            first sensor.sense;
+            then amplifier.amplify;
+            then adc.sampleAnalogSignal;
+            then processor.computeHeatFlux;
+        }
+
+        state def UnitOperationalState {
+            state off;
+            state startup;
+            state standby;
+            state measuring;
+            state calibrating;
+            state alarm;
+            state fault;
+
+            transition initial then off;
+
+            transition powerApplied
+                first off
+                accept when powerInput.power.voltage >= 4.5
+                then startup;
+
+            transition startupComplete
+                first startup
+                accept after startupTime
+                do initialize
+                then standby;
+
+            transition beginContinuousMeasurement
+                first standby
+                accept when mode == MeasurementMode::continuous
+                then measuring;
+
+            transition performMeasurementCycle
+                first measuring
+                accept after 1.0 / requiredSampleRate
+                do acquireMeasurement
+                then measuring;
+
+            transition enterCalibration
+                first standby
+                accept when mode == MeasurementMode::calibration
+                then calibrating;
+
+            transition calibrationComplete
+                first calibrating
+                accept after 5.0
+                then standby;
+
+            transition thresholdExceeded
+                first measuring
+                accept when abs(processor.filteredHeatFlux) >= processor.alarmThreshold
+                then alarm;
+
+            transition thresholdCleared
+                first alarm
+                accept when abs(processor.filteredHeatFlux) < processor.alarmThreshold * 0.95
+                then measuring;
+
+            transition signalSaturated
+                first measuring
+                accept when sensor.saturated or amplifier.saturated or not processor.measurementValid
+                then fault;
+
+            transition resetFault
+                first fault
+                accept when mode == MeasurementMode::standby
+                then standby;
+
+            transition powerRemoved
+                first standby
+                accept when powerInput.power.voltage < 4.0
+                then off;
+        }
+
+        exhibit state UnitOperationalState;
+    }
+
+    requirement def HeatFluxMeasurementRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin <= -20000.0 and
+            unit.measurementRangeMax >= 20000.0
+        }
+
+        require constraint {
+            unit.requiredSampleRate >= 100.0
+        }
+
+        require constraint {
+            unit.processor.uncertainty <= 50.0
+        }
+    }
+
+    requirement def HeatFluxSensorUseRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.sensor.sensitivity > 0.0
+        }
+
+        require constraint {
+            unit.sensor.activeArea >= 0.00005
+        }
+    }
+
+    requirement def OutputValidityRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.heatFluxOutput.measurement.valid implies
+            unit.heatFluxOutput.measurement.heatFlux >= unit.measurementRangeMin and
+            unit.heatFluxOutput.measurement.heatFlux <= unit.measurementRangeMax
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.totalPowerConsumption <= 0.25
+        }
+
+        require constraint {
+            unit.powerInput.power.voltage >= 4.5 and unit.powerInput.power.voltage <= 5.5
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            unit.sensor.surfaceTemperature >= unit.operatingTemperatureMin and
+            unit.sensor.surfaceTemperature <= unit.operatingTemperatureMax
+        }
+    }
+
+    requirement def AlarmRequirement {
+        subject unit : HeatFluxSensingUnit;
+
+        require constraint {
+            abs(unit.processor.filteredHeatFlux) >= unit.processor.alarmThreshold implies
+            unit.healthOutput.health == SensorHealthStatus::nominal or
+            unit.healthOutput.health == SensorHealthStatus::saturated
+        }
+    }
+
+    part heatFluxSensingUnit : HeatFluxSensingUnit;
+
+    satisfy HeatFluxMeasurementRequirement by heatFluxSensingUnit;
+    satisfy HeatFluxSensorUseRequirement by heatFluxSensingUnit;
+    satisfy OutputValidityRequirement by heatFluxSensingUnit;
+    satisfy PowerRequirement by heatFluxSensingUnit;
+    satisfy EnvironmentalRequirement by heatFluxSensingUnit;
+    satisfy AlarmRequirement by heatFluxSensingUnit;
+}

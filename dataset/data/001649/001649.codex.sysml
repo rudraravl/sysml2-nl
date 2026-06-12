@@ -1,0 +1,423 @@
+package DynaliteLightingControlSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Lux :> Real {
+        unit = "lx";
+    }
+
+    attribute def Watt :> Real {
+        unit = "W";
+    }
+
+    attribute def Volt :> Real {
+        unit = "V";
+    }
+
+    attribute def Ampere :> Real {
+        unit = "A";
+    }
+
+    attribute def Second :> Real {
+        unit = "s";
+    }
+
+    item def DynetMessage {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute areaId : Integer;
+        attribute channelId : Integer;
+        attribute command : DynetCommand;
+        attribute level : Percent;
+        attribute fadeTime : Second;
+    }
+
+    enum def DynetCommand {
+        enum switchOn;
+        enum switchOff;
+        enum recallPreset;
+        enum dimToLevel;
+        enum reportStatus;
+        enum emergencyOverride;
+    }
+
+    item def OccupancySignal {
+        attribute occupied : Boolean;
+        attribute confidence : Percent;
+    }
+
+    item def AmbientLightSignal {
+        attribute illuminance : Lux;
+    }
+
+    item def UserLightingRequest {
+        attribute requestedPreset : Integer;
+        attribute requestedLevel : Percent;
+        attribute manualOverride : Boolean;
+    }
+
+    item def LightingPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute activePower : Watt;
+    }
+
+    port def DynetPort {
+        in item receivedMessage : DynetMessage;
+        out item transmittedMessage : DynetMessage;
+    }
+
+    port def SensorPort {
+        in item occupancy : OccupancySignal;
+        in item ambientLight : AmbientLightSignal;
+    }
+
+    port def UserInterfacePort {
+        in item userRequest : UserLightingRequest;
+        out item userFeedback : DynetMessage;
+    }
+
+    port def LoadOutputPort {
+        out item powerCommand : LightingPower;
+        out item levelCommand : Percent;
+    }
+
+    part def DynaliteController {
+        attribute controllerId : String;
+        attribute nominalSupplyVoltage : Volt = 24 [V];
+        attribute processorHealthy : Boolean;
+        attribute activeArea : Integer;
+        attribute currentPreset : Integer;
+        attribute targetLevel : Percent;
+
+        port dynet : DynetPort;
+        port sensors : SensorPort;
+        port userInterface : UserInterfacePort;
+        port loadControl : LoadOutputPort;
+
+        action evaluateInputs {
+            in item occupancy : OccupancySignal;
+            in item ambientLight : AmbientLightSignal;
+            in item request : UserLightingRequest;
+            out item command : DynetMessage;
+        }
+
+        action calculateTargetLevel {
+            in attribute occupied : Boolean;
+            in attribute measuredLux : Lux;
+            in attribute requestedLevel : Percent;
+            out attribute targetLevel : Percent;
+        }
+
+        state def ControllerStateMachine {
+            state initializing;
+            state standby;
+            state automaticControl;
+            state manualOverride;
+            state emergencyMode;
+            state fault;
+
+            transition first initializing then standby
+                accept after 5 [s];
+
+            transition standby then automaticControl
+                accept OccupancySignal
+                if occupied == true;
+
+            transition automaticControl then standby
+                accept OccupancySignal
+                if occupied == false;
+
+            transition automaticControl then manualOverride
+                accept UserLightingRequest
+                if manualOverride == true;
+
+            transition manualOverride then automaticControl
+                accept after 900 [s];
+
+            transition standby then emergencyMode
+                accept DynetMessage
+                if command == DynetCommand::emergencyOverride;
+
+            transition automaticControl then emergencyMode
+                accept DynetMessage
+                if command == DynetCommand::emergencyOverride;
+
+            transition manualOverride then emergencyMode
+                accept DynetMessage
+                if command == DynetCommand::emergencyOverride;
+
+            transition emergencyMode then standby
+                accept DynetMessage
+                if command == DynetCommand::switchOff;
+
+            transition initializing then fault
+                if processorHealthy == false;
+
+            transition standby then fault
+                if processorHealthy == false;
+
+            transition automaticControl then fault
+                if processorHealthy == false;
+        }
+    }
+
+    part def WallSwitchPanel {
+        attribute panelId : String;
+        attribute buttonCount : Integer = 8;
+        attribute ledFeedbackEnabled : Boolean = true;
+
+        port userInterface : UserInterfacePort;
+        port dynet : DynetPort;
+
+        action captureButtonPress {
+            out item request : UserLightingRequest;
+        }
+
+        action showPresetFeedback {
+            in item feedback : DynetMessage;
+        }
+    }
+
+    part def OccupancySensor {
+        attribute sensorId : String;
+        attribute detectionTimeout : Second = 600 [s];
+        attribute detectionRange : Real;
+
+        port sensorOutput : SensorPort;
+
+        action detectOccupancy {
+            out item occupancy : OccupancySignal;
+        }
+    }
+
+    part def LightLevelSensor {
+        attribute sensorId : String;
+        attribute calibratedRange : Lux = 2000 [lx];
+
+        port sensorOutput : SensorPort;
+
+        action measureAmbientIlluminance {
+            out item ambientLight : AmbientLightSignal;
+        }
+    }
+
+    part def DimmingActuator {
+        attribute actuatorId : String;
+        attribute channelCount : Integer = 4;
+        attribute maxChannelPower : Watt = 500 [W];
+        attribute outputVoltage : Volt = 230 [V];
+
+        port dynet : DynetPort;
+        port loadOutput : LoadOutputPort;
+
+        action convertDynetCommandToDimLevel {
+            in item message : DynetMessage;
+            out attribute dimLevel : Percent;
+        }
+
+        action regulateLightingPower {
+            in attribute dimLevel : Percent;
+            out item deliveredPower : LightingPower;
+        }
+
+        state def ActuatorStateMachine {
+            state deEnergized;
+            state energized;
+            state dimming;
+            state overloadProtected;
+
+            transition first deEnergized then energized
+                accept DynetMessage
+                if command == DynetCommand::switchOn;
+
+            transition energized then dimming
+                accept DynetMessage
+                if command == DynetCommand::dimToLevel;
+
+            transition dimming then energized
+                accept DynetMessage
+                if command == DynetCommand::recallPreset;
+
+            transition energized then deEnergized
+                accept DynetMessage
+                if command == DynetCommand::switchOff;
+
+            transition dimming then overloadProtected
+                if activePower > maxChannelPower;
+
+            transition energized then overloadProtected
+                if activePower > maxChannelPower;
+
+            transition overloadProtected then deEnergized
+                accept after 30 [s];
+        }
+    }
+
+    part def LightingLoad {
+        attribute loadId : String;
+        attribute lampType : String = "LED luminaire";
+        attribute ratedPower : Watt = 80 [W];
+        attribute commandedLevel : Percent;
+        attribute emittedIlluminance : Lux;
+
+        port loadInput : LoadOutputPort;
+
+        action emitLight {
+            in attribute commandedLevel : Percent;
+            out attribute emittedIlluminance : Lux;
+        }
+    }
+
+    part def DynaliteLightingSystem {
+        attribute systemName : String = "Dynalite Based Lighting Control System";
+        attribute primaryFunction : String =
+            "Coordinate user inputs, occupancy sensing, daylight measurement, and dimming actuators to automatically and manually control architectural lighting scenes.";
+
+        part controller : DynaliteController {
+            controllerId = "DLC-AREA-01";
+        }
+
+        part wallPanel : WallSwitchPanel {
+            panelId = "DPN-01";
+        }
+
+        part occupancySensor : OccupancySensor {
+            sensorId = "PIR-01";
+        }
+
+        part daylightSensor : LightLevelSensor {
+            sensorId = "LLS-01";
+        }
+
+        part dimmer : DimmingActuator {
+            actuatorId = "DDMC802-01";
+        }
+
+        part zoneLuminaire[4] : LightingLoad;
+
+        connection dynetPanelToController
+            connect wallPanel.dynet to controller.dynet;
+
+        connection dynetControllerToDimmer
+            connect controller.dynet to dimmer.dynet;
+
+        connection panelUserRequest
+            connect wallPanel.userInterface to controller.userInterface;
+
+        connection occupancyToController
+            connect occupancySensor.sensorOutput to controller.sensors;
+
+        connection daylightToController
+            connect daylightSensor.sensorOutput to controller.sensors;
+
+        connection controllerToDimmerOutput
+            connect controller.loadControl to dimmer.loadOutput;
+
+        connection dimmerToLuminaire1
+            connect dimmer.loadOutput to zoneLuminaire[1].loadInput;
+
+        connection dimmerToLuminaire2
+            connect dimmer.loadOutput to zoneLuminaire[2].loadInput;
+
+        connection dimmerToLuminaire3
+            connect dimmer.loadOutput to zoneLuminaire[3].loadInput;
+
+        connection dimmerToLuminaire4
+            connect dimmer.loadOutput to zoneLuminaire[4].loadInput;
+
+        action performPrimaryLightingControl {
+            in item userRequest : UserLightingRequest;
+            in item occupancy : OccupancySignal;
+            in item daylight : AmbientLightSignal;
+            out item dynetCommand : DynetMessage;
+            out attribute commandedLightingLevel : Percent;
+
+            first start;
+            then senseSpace;
+            then chooseScene;
+            then issueDynetCommand;
+            then driveLightingLoad;
+            then done;
+
+            action senseSpace {
+                in item occupancy;
+                in item daylight;
+            }
+
+            action chooseScene {
+                in item userRequest;
+                in item occupancy;
+                in item daylight;
+                out attribute commandedLightingLevel;
+            }
+
+            action issueDynetCommand {
+                in attribute commandedLightingLevel;
+                out item dynetCommand;
+            }
+
+            action driveLightingLoad {
+                in item dynetCommand;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : DynaliteLightingSystem;
+
+        doc /* The system shall provide centralized Dynalite-based control of lighting zones by interpreting user commands, occupancy status, and daylight level, then issuing Dynet-compatible commands to dimming actuators. */
+    }
+
+    requirement def AutomaticLightingRequirement {
+        subject controller : DynaliteController;
+
+        attribute minimumOccupiedLevel : Percent = 35 [%];
+        attribute maximumOccupiedLevel : Percent = 100 [%];
+        attribute unoccupiedLevel : Percent = 0 [%];
+
+        doc /* When the controlled area is occupied, the controller shall maintain lighting between the configured minimum and maximum levels according to daylight contribution; when unoccupied for the timeout period, the controller shall command lighting off. */
+    }
+
+    requirement def ManualOverrideRequirement {
+        subject wallPanel : WallSwitchPanel;
+
+        attribute overrideDuration : Second = 900 [s];
+
+        doc /* The wall switch panel shall allow a user to recall lighting presets and temporarily override automatic control for the configured override duration. */
+    }
+
+    requirement def DimmingPerformanceRequirement {
+        subject dimmer : DimmingActuator;
+
+        attribute minimumDimLevel : Percent = 1 [%];
+        attribute maximumDimLevel : Percent = 100 [%];
+        attribute maximumFadeTime : Second = 60 [s];
+
+        doc /* The dimming actuator shall translate Dynet scene and level commands into stable lighting output from minimum dim level to maximum dim level within the requested fade time. */
+    }
+
+    requirement def SafetyRequirement {
+        subject dimmer : DimmingActuator;
+
+        doc /* The actuator shall enter overload protection and de-energize lighting outputs when measured channel power exceeds rated channel power. */
+    }
+
+    requirement def FeedbackRequirement {
+        subject system : DynaliteLightingSystem;
+
+        doc /* The system shall provide user feedback indicating active preset, current lighting state, and emergency override status through the wall panel indicators. */
+    }
+
+    satisfy PrimaryFunctionRequirement by DynaliteLightingSystem;
+    satisfy AutomaticLightingRequirement by DynaliteController;
+    satisfy ManualOverrideRequirement by WallSwitchPanel;
+    satisfy DimmingPerformanceRequirement by DimmingActuator;
+    satisfy SafetyRequirement by DimmingActuator;
+    satisfy FeedbackRequirement by DynaliteLightingSystem;
+}

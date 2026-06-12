@@ -1,0 +1,468 @@
+package ElectronicNoseSystemModel {
+
+    attribute def Concentration {
+        value amount : Real;
+        value unit : String;
+    }
+
+    attribute def Temperature {
+        value celsius : Real;
+    }
+
+    attribute def RelativeHumidity {
+        value percent : Real;
+    }
+
+    attribute def Voltage {
+        value volts : Real;
+    }
+
+    attribute def Confidence {
+        value probability : Real;
+    }
+
+    attribute def TimeDuration {
+        value seconds : Real;
+    }
+
+    item def AmbientAirSample {
+        attribute flowRate_L_per_min : Real;
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute volatileOrganicCompoundEstimate_ppb : Real;
+    }
+
+    item def ConditionedAirSample {
+        attribute flowRate_L_per_min : Real;
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute filteredParticulateLevel_ug_per_m3 : Real;
+    }
+
+    item def SensorSignal {
+        attribute channelId : Integer;
+        attribute resistance_ohm : Real;
+        attribute voltage : Voltage;
+        attribute timestamp_s : Real;
+    }
+
+    item def FeatureVector {
+        attribute baselineCorrectedValues : Real[*];
+        attribute responseSlopes : Real[*];
+        attribute recoveryRates : Real[*];
+        attribute temperatureCompensationFactor : Real;
+        attribute humidityCompensationFactor : Real;
+    }
+
+    item def OdorClassification {
+        attribute className : String;
+        attribute confidence : Confidence;
+        attribute estimatedConcentration_ppm : Real;
+        attribute alarmRequired : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthPercent : Real;
+        attribute pumpHealthPercent : Real;
+        attribute calibrationValid : Boolean;
+        attribute faultCode : String;
+    }
+
+    port def AirInletPort {
+        in item sample : AmbientAirSample;
+    }
+
+    port def AirTransferPort {
+        out item sample : ConditionedAirSample;
+    }
+
+    port def SensorSignalPort {
+        out item signal : SensorSignal;
+    }
+
+    port def FeaturePort {
+        out item features : FeatureVector;
+    }
+
+    port def ClassificationPort {
+        out item result : OdorClassification;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+    }
+
+    part def AirSamplingSubsystem {
+        port inlet : AirInletPort;
+        port outlet : AirTransferPort;
+        port power : PowerPort;
+
+        attribute nominalFlowRate_L_per_min : Real = 0.35;
+        attribute maxParticulateSize_um : Real = 2.5;
+        attribute sampleAcquisitionTime : TimeDuration = (seconds = 8.0);
+
+        part microPump {
+            attribute commandedFlow_L_per_min : Real = 0.35;
+            attribute actualFlow_L_per_min : Real;
+            attribute healthPercent : Real;
+        }
+
+        part particulateFilter {
+            attribute removalEfficiencyPercent : Real = 96.0;
+        }
+
+        part humidityEqualizer {
+            attribute targetHumidityPercent : Real = 45.0;
+        }
+
+        action conditionAirSample {
+            in item raw : AmbientAirSample;
+            out item conditioned : ConditionedAirSample;
+        }
+    }
+
+    part def SensorArraySubsystem {
+        port sampleIn : AirTransferPort;
+        port signalOut : SensorSignalPort;
+        port power : PowerPort;
+
+        attribute operatingTemperature_C : Real = 325.0;
+        attribute warmupTime : TimeDuration = (seconds = 90.0);
+        attribute sensorCount : Integer = 8;
+
+        part sensor1_MOS_Ethanol {
+            attribute targetAnalyte : String = "ethanol";
+            attribute baselineResistance_ohm : Real;
+        }
+
+        part sensor2_MOS_Ammonia {
+            attribute targetAnalyte : String = "ammonia";
+            attribute baselineResistance_ohm : Real;
+        }
+
+        part sensor3_MOS_Methane {
+            attribute targetAnalyte : String = "methane";
+            attribute baselineResistance_ohm : Real;
+        }
+
+        part sensor4_MOS_HydrogenSulfide {
+            attribute targetAnalyte : String = "hydrogen sulfide";
+            attribute baselineResistance_ohm : Real;
+        }
+
+        part sensor5_ConductingPolymer {
+            attribute targetAnalyte : String = "aromatic hydrocarbons";
+            attribute baselineResistance_ohm : Real;
+        }
+
+        part sensor6_QCM {
+            attribute targetAnalyte : String = "ketones";
+            attribute resonantFrequency_Hz : Real;
+        }
+
+        part sensor7_ElectrochemicalCO {
+            attribute targetAnalyte : String = "carbon monoxide";
+            attribute baselineCurrent_uA : Real;
+        }
+
+        part sensor8_PID_TotalVOC {
+            attribute targetAnalyte : String = "total volatile organic compounds";
+            attribute baselineVoltage_V : Real;
+        }
+
+        action senseOdorPattern {
+            in item conditioned : ConditionedAirSample;
+            out item signal : SensorSignal[8];
+        }
+    }
+
+    part def SignalProcessingSubsystem {
+        port sensorInput : SensorSignalPort;
+        port featureOutput : FeaturePort;
+
+        attribute adcResolution_bits : Integer = 16;
+        attribute sampleRate_Hz : Real = 20.0;
+        attribute baselineWindow_s : Real = 30.0;
+
+        action digitizeAndFilter {
+            in item analogSignal : SensorSignal[8];
+            out item filteredSignal : SensorSignal[8];
+        }
+
+        action extractFeatures {
+            in item filteredSignal : SensorSignal[8];
+            out item odorFeatures : FeatureVector;
+        }
+    }
+
+    part def OdorRecognitionSubsystem {
+        port featureInput : FeaturePort;
+        port classificationOutput : ClassificationPort;
+        port diagnosticsOutput : DiagnosticPort;
+
+        attribute modelName : String = "embedded odor fingerprint classifier";
+        attribute minimumConfidenceForAlarm : Real = 0.85;
+        attribute calibrationInterval_h : Real = 168.0;
+
+        action classifyOdor {
+            in item features : FeatureVector;
+            out item result : OdorClassification;
+        }
+
+        action evaluateDiagnostics {
+            out item status : DiagnosticStatus;
+        }
+    }
+
+    part def UserInterfaceSubsystem {
+        port classificationInput : ClassificationPort;
+        port diagnosticsInput : DiagnosticPort;
+        port power : PowerPort;
+
+        attribute displayRefreshRate_Hz : Real = 2.0;
+        attribute audibleAlarmLevel_dBA : Real = 75.0;
+
+        part display {
+            attribute shownClassName : String;
+            attribute shownConfidencePercent : Real;
+        }
+
+        part alarmIndicator {
+            attribute active : Boolean;
+        }
+
+        action presentResult {
+            in item classification : OdorClassification;
+            in item diagnostics : DiagnosticStatus;
+        }
+    }
+
+    part def ElectronicNose {
+        port airInlet : AirInletPort;
+        port classificationOut : ClassificationPort;
+        port diagnosticsOut : DiagnosticPort;
+        port powerIn : PowerPort;
+
+        attribute primaryFunction : String =
+            "Detect, characterize, and classify odors by sampling air, measuring chemical sensor responses, extracting odor fingerprints, and reporting likely odor identity with confidence.";
+
+        part sampling : AirSamplingSubsystem;
+        part sensorArray : SensorArraySubsystem;
+        part processing : SignalProcessingSubsystem;
+        part recognition : OdorRecognitionSubsystem;
+        part interface : UserInterfaceSubsystem;
+
+        connect airInlet to sampling.inlet;
+        connect powerIn to sampling.power;
+        connect powerIn to sensorArray.power;
+        connect powerIn to interface.power;
+        connect sampling.outlet to sensorArray.sampleIn;
+        connect sensorArray.signalOut to processing.sensorInput;
+        connect processing.featureOutput to recognition.featureInput;
+        connect recognition.classificationOutput to interface.classificationInput;
+        connect recognition.diagnosticsOutput to interface.diagnosticsInput;
+        connect recognition.classificationOutput to classificationOut;
+        connect recognition.diagnosticsOutput to diagnosticsOut;
+
+        action performOdorAnalysis {
+            in item sample : AmbientAirSample;
+            out item classification : OdorClassification;
+            out item diagnosticStatus : DiagnosticStatus;
+
+            first startSampling;
+            then stabilizeFlow;
+            then exposeSensorArray;
+            then acquireSensorSignals;
+            then extractOdorFingerprint;
+            then classifyOdorPattern;
+            then reportResult;
+
+            action startSampling {
+                in item sample : AmbientAirSample;
+            }
+
+            action stabilizeFlow {
+                out item conditioned : ConditionedAirSample;
+            }
+
+            action exposeSensorArray {
+                in item conditioned : ConditionedAirSample;
+            }
+
+            action acquireSensorSignals {
+                out item signals : SensorSignal[8];
+            }
+
+            action extractOdorFingerprint {
+                in item signals : SensorSignal[8];
+                out item features : FeatureVector;
+            }
+
+            action classifyOdorPattern {
+                in item features : FeatureVector;
+                out item classification : OdorClassification;
+            }
+
+            action reportResult {
+                in item classification : OdorClassification;
+                out item diagnosticStatus : DiagnosticStatus;
+            }
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state initializing;
+            state warmingSensors;
+            state ready;
+            state samplingAir;
+            state analyzing;
+            state reporting;
+            state calibrating;
+            state fault;
+
+            transition off_to_initializing
+                first off
+                accept PowerApplied
+                then initializing;
+
+            transition initializing_to_warming
+                first initializing
+                accept SelfTestPassed
+                then warmingSensors;
+
+            transition initializing_to_fault
+                first initializing
+                accept SelfTestFailed
+                then fault;
+
+            transition warming_to_ready
+                first warmingSensors
+                accept WarmupComplete
+                then ready;
+
+            transition ready_to_sampling
+                first ready
+                accept MeasurementRequested
+                then samplingAir;
+
+            transition sampling_to_analyzing
+                first samplingAir
+                accept SampleAcquired
+                then analyzing;
+
+            transition analyzing_to_reporting
+                first analyzing
+                accept ClassificationComplete
+                then reporting;
+
+            transition reporting_to_ready
+                first reporting
+                accept ResultAcknowledged
+                then ready;
+
+            transition ready_to_calibrating
+                first ready
+                accept CalibrationRequested
+                then calibrating;
+
+            transition calibrating_to_ready
+                first calibrating
+                accept CalibrationValid
+                then ready;
+
+            transition calibrating_to_fault
+                first calibrating
+                accept CalibrationInvalid
+                then fault;
+
+            transition any_to_fault
+                first ready
+                accept CriticalFaultDetected
+                then fault;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ElectronicNose;
+        require constraint {
+            system.primaryFunction ==
+            "Detect, characterize, and classify odors by sampling air, measuring chemical sensor responses, extracting odor fingerprints, and reporting likely odor identity with confidence."
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject sampling : AirSamplingSubsystem;
+        require constraint {
+            sampling.nominalFlowRate_L_per_min >= 0.2 and
+            sampling.nominalFlowRate_L_per_min <= 0.6 and
+            sampling.sampleAcquisitionTime.seconds <= 10.0
+        }
+    }
+
+    requirement def SensorArrayRequirement {
+        subject array : SensorArraySubsystem;
+        require constraint {
+            array.sensorCount >= 6 and
+            array.warmupTime.seconds <= 120.0
+        }
+    }
+
+    requirement def ClassificationRequirement {
+        subject recognition : OdorRecognitionSubsystem;
+        require constraint {
+            recognition.minimumConfidenceForAlarm >= 0.80
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject system : ElectronicNose;
+        require constraint {
+            system.diagnosticsOut.status.calibrationValid == true or
+            system.diagnosticsOut.status.faultCode != "NONE"
+        }
+    }
+
+    part deployedElectronicNose : ElectronicNose {
+        attribute primaryFunction =
+            "Detect, characterize, and classify odors by sampling air, measuring chemical sensor responses, extracting odor fingerprints, and reporting likely odor identity with confidence.";
+
+        part sampling {
+            attribute nominalFlowRate_L_per_min = 0.35;
+            attribute maxParticulateSize_um = 2.5;
+            attribute sampleAcquisitionTime = (seconds = 8.0);
+        }
+
+        part sensorArray {
+            attribute operatingTemperature_C = 325.0;
+            attribute warmupTime = (seconds = 90.0);
+            attribute sensorCount = 8;
+        }
+
+        part processing {
+            attribute adcResolution_bits = 16;
+            attribute sampleRate_Hz = 20.0;
+            attribute baselineWindow_s = 30.0;
+        }
+
+        part recognition {
+            attribute modelName = "embedded odor fingerprint classifier";
+            attribute minimumConfidenceForAlarm = 0.85;
+            attribute calibrationInterval_h = 168.0;
+        }
+
+        part interface {
+            attribute displayRefreshRate_Hz = 2.0;
+            attribute audibleAlarmLevel_dBA = 75.0;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by deployedElectronicNose;
+    satisfy SamplingRequirement by deployedElectronicNose.sampling;
+    satisfy SensorArrayRequirement by deployedElectronicNose.sensorArray;
+    satisfy ClassificationRequirement by deployedElectronicNose.recognition;
+    satisfy DiagnosticRequirement by deployedElectronicNose;
+}

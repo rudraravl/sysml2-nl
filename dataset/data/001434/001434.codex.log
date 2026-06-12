@@ -1,0 +1,1099 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7yw1_bj1
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6b0-608d-7bf3-816c-1ba45cfa4e5f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Geography of robotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RoboticsGeography {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Latitude : Real {
+        :>> unit = deg;
+    }
+
+    attribute def Longitude : Real {
+        :>> unit = deg;
+    }
+
+    attribute def Altitude : Real {
+        :>> unit = m;
+    }
+
+    attribute def Distance : Real {
+        :>> unit = m;
+    }
+
+    attribute def Speed : Real {
+        :>> unit = m / s;
+    }
+
+    attribute def Area : Real {
+        :>> unit = m^2;
+    }
+
+    attribute def Energy : Real {
+        :>> unit = J;
+    }
+
+    attribute def Power : Real {
+        :>> unit = W;
+    }
+
+    attribute def TimeDuration : Real {
+        :>> unit = s;
+    }
+
+    attribute def Confidence : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    item def GeoCoordinate {
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute altitude : Altitude;
+    }
+
+    item def GeoBoundary {
+        attribute vertices : GeoCoordinate[3..*];
+        attribute enclosedArea : Area;
+    }
+
+    item def GeoCell {
+        attribute cellId : String;
+        attribute center : GeoCoordinate;
+        attribute resolution : Distance;
+        attribute terrainClass : TerrainClass;
+        attribute traversability : Confidence;
+        attribute lastObservedAge : TimeDuration;
+    }
+
+    enum def TerrainClass {
+        urban;
+        indoor;
+        road;
+        roughGround;
+        waterEdge;
+        vegetation;
+        restricted;
+        unknown;
+    }
+
+    enum def RobotDomain {
+        aerial;
+        ground;
+        indoorService;
+        aquaticShoreline;
+    }
+
+    enum def MissionMode {
+        survey;
+        inspect;
+        deliver;
+        monitor;
+        assist;
+        returnToBase;
+    }
+
+    item def MissionRequest {
+        attribute requestId : String;
+        attribute mode : MissionMode;
+        attribute targetArea : GeoBoundary;
+        attribute priority : Integer;
+        attribute requiredCoverage : Confidence;
+        attribute deadline : TimeDuration;
+    }
+
+    item def RobotStatus {
+        attribute robotId : String;
+        attribute domain : RobotDomain;
+        attribute position : GeoCoordinate;
+        attribute velocity : Speed;
+        attribute batteryEnergy : Energy;
+        attribute localizationConfidence : Confidence;
+        attribute activeMode : MissionMode;
+    }
+
+    item def GeographyUpdate {
+        attribute observedCells : GeoCell[1..*];
+        attribute sourceRobotId : String;
+        attribute updateConfidence : Confidence;
+    }
+
+    item def RoutePlan {
+        attribute routeId : String;
+        attribute waypoints : GeoCoordinate[2..*];
+        attribute estimatedDistance : Distance;
+        attribute estimatedDuration : TimeDuration;
+        attribute expectedEnergyUse : Energy;
+        attribute routeRisk : Confidence;
+    }
+
+    port def MissionCommandPort {
+        out item mission : MissionRequest;
+    }
+
+    port def StatusTelemetryPort {
+        in item status : RobotStatus;
+    }
+
+    port def GeographyDataPort {
+        in item geographyUpdate : GeographyUpdate;
+        out item assignedCells : GeoCell[1..*];
+    }
+
+    port def RoutePlanPort {
+        out item route : RoutePlan;
+    }
+
+    port def RobotCommandPort {
+        in item mission : MissionRequest;
+        in item route : RoutePlan;
+        out item status : RobotStatus;
+        out item geographyUpdate : GeographyUpdate;
+    }
+
+    part def GeographicRoboticsSystem {
+        doc /* Primary function: coordinate heterogeneous robots by geographic region, terrain, and mission context so that each robot can perceive, navigate, and act in the locations best matched to its mobility domain. */
+
+        attribute operatingRegion : GeoBoundary;
+        attribute minimumCoverageConfidence : Confidence = 0.95;
+        attribute maximumDispatchLatency : TimeDuration = 30.0;
+        attribute minimumRobotReserveEnergy : Energy = 72000.0;
+
+        port missionInput : MissionCommandPort;
+        port fleetTelemetry : StatusTelemetryPort;
+        port geographyExchange : GeographyDataPort;
+        port routeDistribution : RoutePlanPort;
+
+        part geographyModel : GeographyModel;
+        part missionManager : MissionManager;
+        part fleetCoordinator : FleetCoordinator;
+        part routePlanner : RoutePlanner;
+        part safetySupervisor : SafetySupervisor;
+
+        part aerialRobots : Robot[0..*] {
+            :>> domain = RobotDomain::aerial;
+        }
+
+        part groundRobots : Robot[0..*] {
+            :>> domain = RobotDomain::ground;
+        }
+
+        part indoorRobots : Robot[0..*] {
+            :>> domain = RobotDomain::indoorService;
+        }
+
+        connect missionInput.mission to missionManager.missionInput.mission;
+        connect missionManager.assignmentOutput.mission to fleetCoordinator.assignmentInput.mission;
+        connect fleetCoordinator.geographyOutput.assignedCells to geographyModel.assignmentInput.assignedCells;
+        connect geographyModel.geographyOutput.assignedCells to routePlanner.geographyInput.assignedCells;
+        connect routePlanner.routeOutput.route to fleetCoordinator.routeInput.route;
+        connect fleetCoordinator.routeOutput.route to routeDistribution.route;
+        connect fleetCoordinator.statusOutput.status to safetySupervisor.statusInput.status;
+        connect safetySupervisor.safeMissionOutput.mission to fleetCoordinator.assignmentInput.mission;
+
+        action performPrimaryFunction {
+            in item requestedMission : MissionRequest;
+            out item completedCoverage : GeographyUpdate;
+
+            first start;
+            then ingestMission;
+            then partitionGeography;
+            then assignRobots;
+            then generateRoutes;
+            then executeDistributedMission;
+            then fuseGeographicObservations;
+            then assessCompletion;
+            then done;
+
+            action ingestMission {
+                in item requestedMission : MissionRequest;
+                out item acceptedMission : MissionRequest;
+            }
+
+            action partitionGeography {
+                in item acceptedMission : MissionRequest;
+                out item candidateCells : GeoCell[1..*];
+            }
+
+            action assignRobots {
+                in item candidateCells : GeoCell[1..*];
+                out item assignedMission : MissionRequest;
+            }
+
+            action generateRoutes {
+                in item assignedMission : MissionRequest;
+                out item plans : RoutePlan[1..*];
+            }
+
+            action executeDistributedMission {
+                in item plans : RoutePlan[1..*];
+                out item observations : GeographyUpdate[1..*];
+            }
+
+            action fuseGeographicObservations {
+                in item observations : GeographyUpdate[1..*];
+                out item completedCoverage : GeographyUpdate;
+            }
+
+            action assessCompletion {
+                in item completedCoverage : GeographyUpdate;
+                out attribute coverageAcceptable : Boolean;
+            }
+        }
+    }
+
+    part def GeographyModel {
+        attribute cells : GeoCell[1..*];
+        attribute mapCurrencyLimit : TimeDuration = 300.0;
+
+        port assignmentInput : GeographyDataPort;
+        port geographyOutput : GeographyDataPort;
+
+        action updateMap {
+            in item update : GeographyUpdate;
+            out item revisedCells : GeoCell[1..*];
+        }
+
+        action selectCellsForMission {
+            in item mission : MissionRequest;
+            out item selectedCells : GeoCell[1..*];
+        }
+    }
+
+    part def MissionManager {
+        port missionInput : MissionCommandPort;
+        port assignmentOutput : MissionCommandPort;
+
+        attribute activeMissionCount : Integer;
+        attribute maximumConcurrentMissions : Integer = 12;
+
+        action validateMission {
+            in item candidate : MissionRequest;
+            out attribute accepted : Boolean;
+        }
+
+        action prioritizeMission {
+            in item acceptedMission : MissionRequest;
+            out item prioritizedMission : MissionRequest;
+        }
+    }
+
+    part def FleetCoordinator {
+        port assignmentInput : MissionCommandPort;
+        port routeInput : RoutePlanPort;
+        port routeOutput : RoutePlanPort;
+        port geographyOutput : GeographyDataPort;
+        port statusOutput : StatusTelemetryPort;
+
+        attribute availableRobotCount : Integer;
+        attribute minimumAssignmentConfidence : Confidence = 0.80;
+
+        action allocateRobotByGeography {
+            in item mission : MissionRequest;
+            in item robotStates : RobotStatus[1..*];
+            out item allocatedCells : GeoCell[1..*];
+        }
+
+        action dispatchRoute {
+            in item plan : RoutePlan;
+            out item dispatchedPlan : RoutePlan;
+        }
+    }
+
+    part def RoutePlanner {
+        port geographyInput : GeographyDataPort;
+        port routeOutput : RoutePlanPort;
+
+        attribute maximumAllowedRouteRisk : Confidence = 0.25;
+        attribute replanningInterval : TimeDuration = 10.0;
+
+        action computeRoute {
+            in item startPosition : GeoCoordinate;
+            in item assignedCells : GeoCell[1..*];
+            out item plan : RoutePlan;
+        }
+
+        action replanAroundRestrictedTerrain {
+            in item currentPlan : RoutePlan;
+            in item restrictedCells : GeoCell[1..*];
+            out item revisedPlan : RoutePlan;
+        }
+    }
+
+    part def SafetySupervisor {
+        port statusInput : StatusTelemetryPort;
+        port safeMissionOutput : MissionCommandPort;
+
+        attribute emergencyReturnEnergyThreshold : Energy = 54000.0;
+        attribute minimumLocalizationConfidence : Confidence = 0.70;
+        attribute maximumSafeSpeedUrban : Speed = 2.5;
+
+        action evaluateSafety {
+            in item status : RobotStatus;
+            out attribute safeToContinue : Boolean;
+        }
+
+        action commandReturnToBase {
+            in item unsafeStatus : RobotStatus;
+            out item returnMission : MissionRequest;
+        }
+    }
+
+    part def Robot {
+        attribute robotId : String;
+        attribute domain : RobotDomain;
+        attribute nominalSpeed : Speed;
+        attribute maximumSpeed : Speed;
+        attribute batteryCapacity : Energy;
+        attribute currentEnergy : Energy;
+        attribute payloadPowerDraw : Power;
+        attribute currentPosition : GeoCoordinate;
+
+        port commandPort : RobotCommandPort;
+
+        part localizationUnit : LocalizationUnit;
+        part perceptionUnit : PerceptionUnit;
+        part mobilityUnit : MobilityUnit;
+        part energyUnit : EnergyUnit;
+        part taskExecutor : TaskExecutor;
+
+        connect localizationUnit.statusOutput.status to commandPort.status;
+        connect perceptionUnit.geographyOutput.geographyUpdate to commandPort.geographyUpdate;
+        connect commandPort.route to mobilityUnit.routeInput.route;
+        connect commandPort.mission to taskExecutor.missionInput.mission;
+
+        state operatingState {
+            entry; then idle;
+
+            state idle;
+            state receivingMission;
+            state navigating;
+            state performingTask;
+            state reportingGeography;
+            state returningToBase;
+            state safeHold;
+
+            transition idle_to_receiving
+                first idle
+                accept missionAssigned
+                then receivingMission;
+
+            transition receiving_to_navigating
+                first receivingMission
+                if currentEnergy > 72000.0
+                then navigating;
+
+            transition navigating_to_task
+                first navigating
+                accept arrivedAtAssignedCell
+                then performingTask;
+
+            transition task_to_reporting
+                first performingTask
+                accept observationComplete
+                then reportingGeography;
+
+            transition reporting_to_navigating
+                first reportingGeography
+                if currentEnergy > 54000.0
+                then navigating;
+
+            transition any_to_return
+                first navigating
+                if currentEnergy <= 54000.0
+                then returningToBase;
+
+            transition any_to_hold
+                first navigating
+                if localizationUnit.localizationConfidence < 0.70
+                then safeHold;
+
+            transition return_to_idle
+                first returningToBase
+                accept docked
+                then idle;
+        }
+    }
+
+    part def LocalizationUnit {
+        attribute localizationConfidence : Confidence;
+        attribute estimatedPosition : GeoCoordinate;
+
+        port statusOutput : StatusTelemetryPort;
+
+        action estimatePosition {
+            out item status : RobotStatus;
+        }
+    }
+
+    part def PerceptionUnit {
+        attribute sensorRange : Distance;
+        attribute classificationConfidence : Confidence;
+
+        port geographyOutput : GeographyDataPort;
+
+        action observeTerrain {
+            in item currentPosition : GeoCoordinate;
+            out item update : GeographyUpdate;
+        }
+    }
+
+    part def MobilityUnit {
+        attribute currentSpeed : Speed;
+        attribute obstacleClearance : Distance;
+
+        port routeInput : RoutePlanPort;
+
+        action followRoute {
+            in item plan : RoutePlan;
+            out attribute progressDistance : Distance;
+        }
+
+        action avoidObstacle {
+            in item obstaclePosition : GeoCoordinate;
+            out item localRoute : RoutePlan;
+        }
+    }
+
+    part def EnergyUnit {
+        attribute storedEnergy : Energy;
+        attribute chargingPower : Power;
+
+        action estimateRemainingRange {
+            in attribute speed : Speed;
+            out attribute range : Distance;
+        }
+    }
+
+    part def TaskExecutor {
+        port missionInput : MissionCommandPort;
+
+        action executeMissionMode {
+            in item mission : MissionRequest;
+            out item observation : GeographyUpdate;
+        }
+    }
+
+    requirement def GeographicCoverageRequirement {
+        subject system : GeographicRoboticsSystem;
+
+        require constraint {
+            system.minimumCoverageConfidence >= 0.95
+        }
+
+        doc /* The system shall achieve at least 95 percent confidence in geographic coverage for accepted survey and monitoring missions. */
+    }
+
+    requirement def DomainAppropriateAssignmentRequirement {
+        subject robot : Robot;
+        subject assignedCell : GeoCell;
+
+        require constraint {
+            assignedCell.terrainClass != TerrainClass::waterEdge or robot.domain == RobotDomain::aquaticShoreline
+        }
+
+        doc /* The system shall assign robots only to geographic cells compatible with their mobility domain and terrain constraints. */
+    }
+
+    requirement def DispatchLatencyRequirement {
+        subject system : GeographicRoboticsSystem;
+
+        require constraint {
+            system.maximumDispatchLatency <= 30.0
+        }
+
+        doc /* The system shall dispatch an initial route plan within 30 seconds after accepting a mission request. */
+    }
+
+    requirement def EnergyReserveRequirement {
+        subject robot : Robot;
+
+        require constraint {
+            robot.currentEnergy >= 54000.0
+        }
+
+        doc /* Each robot shall preserve enough energy to return to base from its assigned geography under nominal conditions. */
+    }
+
+    requirement def LocalizationSafetyRequirement {
+        subject supervisor : SafetySupervisor;
+
+        require constraint {
+            supervisor.minimumLocalizationConfidence >= 0.70
+        }
+
+        doc /* The system shall command a safe hold or return-to-base behavior when robot localization confidence falls below 0.70. */
+    }
+
+    requirement def GeographicCurrencyRequirement {
+        subject geographyModel : GeographyModel;
+
+        require constraint {
+            geographyModel.mapCurrencyLimit <= 300.0
+        }
+
+        doc /* Mission planning shall use geographic cells observed or validated within the previous 300 seconds unless no current data exists. */
+    }
+
+    satisfy GeographicCoverageRequirement by GeographicRoboticsSystem::performPrimaryFunction;
+    satisfy DispatchLatencyRequirement by RoutePlanner::computeRoute;
+    satisfy EnergyReserveRequirement by SafetySupervisor::evaluateSafety;
+    satisfy LocalizationSafetyRequirement by Robot::operatingState;
+    satisfy GeographicCurrencyRequirement by GeographyModel::updateMap;
+}
+tokens used
+4,627
+package RoboticsGeography {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Latitude : Real {
+        :>> unit = deg;
+    }
+
+    attribute def Longitude : Real {
+        :>> unit = deg;
+    }
+
+    attribute def Altitude : Real {
+        :>> unit = m;
+    }
+
+    attribute def Distance : Real {
+        :>> unit = m;
+    }
+
+    attribute def Speed : Real {
+        :>> unit = m / s;
+    }
+
+    attribute def Area : Real {
+        :>> unit = m^2;
+    }
+
+    attribute def Energy : Real {
+        :>> unit = J;
+    }
+
+    attribute def Power : Real {
+        :>> unit = W;
+    }
+
+    attribute def TimeDuration : Real {
+        :>> unit = s;
+    }
+
+    attribute def Confidence : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    item def GeoCoordinate {
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute altitude : Altitude;
+    }
+
+    item def GeoBoundary {
+        attribute vertices : GeoCoordinate[3..*];
+        attribute enclosedArea : Area;
+    }
+
+    item def GeoCell {
+        attribute cellId : String;
+        attribute center : GeoCoordinate;
+        attribute resolution : Distance;
+        attribute terrainClass : TerrainClass;
+        attribute traversability : Confidence;
+        attribute lastObservedAge : TimeDuration;
+    }
+
+    enum def TerrainClass {
+        urban;
+        indoor;
+        road;
+        roughGround;
+        waterEdge;
+        vegetation;
+        restricted;
+        unknown;
+    }
+
+    enum def RobotDomain {
+        aerial;
+        ground;
+        indoorService;
+        aquaticShoreline;
+    }
+
+    enum def MissionMode {
+        survey;
+        inspect;
+        deliver;
+        monitor;
+        assist;
+        returnToBase;
+    }
+
+    item def MissionRequest {
+        attribute requestId : String;
+        attribute mode : MissionMode;
+        attribute targetArea : GeoBoundary;
+        attribute priority : Integer;
+        attribute requiredCoverage : Confidence;
+        attribute deadline : TimeDuration;
+    }
+
+    item def RobotStatus {
+        attribute robotId : String;
+        attribute domain : RobotDomain;
+        attribute position : GeoCoordinate;
+        attribute velocity : Speed;
+        attribute batteryEnergy : Energy;
+        attribute localizationConfidence : Confidence;
+        attribute activeMode : MissionMode;
+    }
+
+    item def GeographyUpdate {
+        attribute observedCells : GeoCell[1..*];
+        attribute sourceRobotId : String;
+        attribute updateConfidence : Confidence;
+    }
+
+    item def RoutePlan {
+        attribute routeId : String;
+        attribute waypoints : GeoCoordinate[2..*];
+        attribute estimatedDistance : Distance;
+        attribute estimatedDuration : TimeDuration;
+        attribute expectedEnergyUse : Energy;
+        attribute routeRisk : Confidence;
+    }
+
+    port def MissionCommandPort {
+        out item mission : MissionRequest;
+    }
+
+    port def StatusTelemetryPort {
+        in item status : RobotStatus;
+    }
+
+    port def GeographyDataPort {
+        in item geographyUpdate : GeographyUpdate;
+        out item assignedCells : GeoCell[1..*];
+    }
+
+    port def RoutePlanPort {
+        out item route : RoutePlan;
+    }
+
+    port def RobotCommandPort {
+        in item mission : MissionRequest;
+        in item route : RoutePlan;
+        out item status : RobotStatus;
+        out item geographyUpdate : GeographyUpdate;
+    }
+
+    part def GeographicRoboticsSystem {
+        doc /* Primary function: coordinate heterogeneous robots by geographic region, terrain, and mission context so that each robot can perceive, navigate, and act in the locations best matched to its mobility domain. */
+
+        attribute operatingRegion : GeoBoundary;
+        attribute minimumCoverageConfidence : Confidence = 0.95;
+        attribute maximumDispatchLatency : TimeDuration = 30.0;
+        attribute minimumRobotReserveEnergy : Energy = 72000.0;
+
+        port missionInput : MissionCommandPort;
+        port fleetTelemetry : StatusTelemetryPort;
+        port geographyExchange : GeographyDataPort;
+        port routeDistribution : RoutePlanPort;
+
+        part geographyModel : GeographyModel;
+        part missionManager : MissionManager;
+        part fleetCoordinator : FleetCoordinator;
+        part routePlanner : RoutePlanner;
+        part safetySupervisor : SafetySupervisor;
+
+        part aerialRobots : Robot[0..*] {
+            :>> domain = RobotDomain::aerial;
+        }
+
+        part groundRobots : Robot[0..*] {
+            :>> domain = RobotDomain::ground;
+        }
+
+        part indoorRobots : Robot[0..*] {
+            :>> domain = RobotDomain::indoorService;
+        }
+
+        connect missionInput.mission to missionManager.missionInput.mission;
+        connect missionManager.assignmentOutput.mission to fleetCoordinator.assignmentInput.mission;
+        connect fleetCoordinator.geographyOutput.assignedCells to geographyModel.assignmentInput.assignedCells;
+        connect geographyModel.geographyOutput.assignedCells to routePlanner.geographyInput.assignedCells;
+        connect routePlanner.routeOutput.route to fleetCoordinator.routeInput.route;
+        connect fleetCoordinator.routeOutput.route to routeDistribution.route;
+        connect fleetCoordinator.statusOutput.status to safetySupervisor.statusInput.status;
+        connect safetySupervisor.safeMissionOutput.mission to fleetCoordinator.assignmentInput.mission;
+
+        action performPrimaryFunction {
+            in item requestedMission : MissionRequest;
+            out item completedCoverage : GeographyUpdate;
+
+            first start;
+            then ingestMission;
+            then partitionGeography;
+            then assignRobots;
+            then generateRoutes;
+            then executeDistributedMission;
+            then fuseGeographicObservations;
+            then assessCompletion;
+            then done;
+
+            action ingestMission {
+                in item requestedMission : MissionRequest;
+                out item acceptedMission : MissionRequest;
+            }
+
+            action partitionGeography {
+                in item acceptedMission : MissionRequest;
+                out item candidateCells : GeoCell[1..*];
+            }
+
+            action assignRobots {
+                in item candidateCells : GeoCell[1..*];
+                out item assignedMission : MissionRequest;
+            }
+
+            action generateRoutes {
+                in item assignedMission : MissionRequest;
+                out item plans : RoutePlan[1..*];
+            }
+
+            action executeDistributedMission {
+                in item plans : RoutePlan[1..*];
+                out item observations : GeographyUpdate[1..*];
+            }
+
+            action fuseGeographicObservations {
+                in item observations : GeographyUpdate[1..*];
+                out item completedCoverage : GeographyUpdate;
+            }
+
+            action assessCompletion {
+                in item completedCoverage : GeographyUpdate;
+                out attribute coverageAcceptable : Boolean;
+            }
+        }
+    }
+
+    part def GeographyModel {
+        attribute cells : GeoCell[1..*];
+        attribute mapCurrencyLimit : TimeDuration = 300.0;
+
+        port assignmentInput : GeographyDataPort;
+        port geographyOutput : GeographyDataPort;
+
+        action updateMap {
+            in item update : GeographyUpdate;
+            out item revisedCells : GeoCell[1..*];
+        }
+
+        action selectCellsForMission {
+            in item mission : MissionRequest;
+            out item selectedCells : GeoCell[1..*];
+        }
+    }
+
+    part def MissionManager {
+        port missionInput : MissionCommandPort;
+        port assignmentOutput : MissionCommandPort;
+
+        attribute activeMissionCount : Integer;
+        attribute maximumConcurrentMissions : Integer = 12;
+
+        action validateMission {
+            in item candidate : MissionRequest;
+            out attribute accepted : Boolean;
+        }
+
+        action prioritizeMission {
+            in item acceptedMission : MissionRequest;
+            out item prioritizedMission : MissionRequest;
+        }
+    }
+
+    part def FleetCoordinator {
+        port assignmentInput : MissionCommandPort;
+        port routeInput : RoutePlanPort;
+        port routeOutput : RoutePlanPort;
+        port geographyOutput : GeographyDataPort;
+        port statusOutput : StatusTelemetryPort;
+
+        attribute availableRobotCount : Integer;
+        attribute minimumAssignmentConfidence : Confidence = 0.80;
+
+        action allocateRobotByGeography {
+            in item mission : MissionRequest;
+            in item robotStates : RobotStatus[1..*];
+            out item allocatedCells : GeoCell[1..*];
+        }
+
+        action dispatchRoute {
+            in item plan : RoutePlan;
+            out item dispatchedPlan : RoutePlan;
+        }
+    }
+
+    part def RoutePlanner {
+        port geographyInput : GeographyDataPort;
+        port routeOutput : RoutePlanPort;
+
+        attribute maximumAllowedRouteRisk : Confidence = 0.25;
+        attribute replanningInterval : TimeDuration = 10.0;
+
+        action computeRoute {
+            in item startPosition : GeoCoordinate;
+            in item assignedCells : GeoCell[1..*];
+            out item plan : RoutePlan;
+        }
+
+        action replanAroundRestrictedTerrain {
+            in item currentPlan : RoutePlan;
+            in item restrictedCells : GeoCell[1..*];
+            out item revisedPlan : RoutePlan;
+        }
+    }
+
+    part def SafetySupervisor {
+        port statusInput : StatusTelemetryPort;
+        port safeMissionOutput : MissionCommandPort;
+
+        attribute emergencyReturnEnergyThreshold : Energy = 54000.0;
+        attribute minimumLocalizationConfidence : Confidence = 0.70;
+        attribute maximumSafeSpeedUrban : Speed = 2.5;
+
+        action evaluateSafety {
+            in item status : RobotStatus;
+            out attribute safeToContinue : Boolean;
+        }
+
+        action commandReturnToBase {
+            in item unsafeStatus : RobotStatus;
+            out item returnMission : MissionRequest;
+        }
+    }
+
+    part def Robot {
+        attribute robotId : String;
+        attribute domain : RobotDomain;
+        attribute nominalSpeed : Speed;
+        attribute maximumSpeed : Speed;
+        attribute batteryCapacity : Energy;
+        attribute currentEnergy : Energy;
+        attribute payloadPowerDraw : Power;
+        attribute currentPosition : GeoCoordinate;
+
+        port commandPort : RobotCommandPort;
+
+        part localizationUnit : LocalizationUnit;
+        part perceptionUnit : PerceptionUnit;
+        part mobilityUnit : MobilityUnit;
+        part energyUnit : EnergyUnit;
+        part taskExecutor : TaskExecutor;
+
+        connect localizationUnit.statusOutput.status to commandPort.status;
+        connect perceptionUnit.geographyOutput.geographyUpdate to commandPort.geographyUpdate;
+        connect commandPort.route to mobilityUnit.routeInput.route;
+        connect commandPort.mission to taskExecutor.missionInput.mission;
+
+        state operatingState {
+            entry; then idle;
+
+            state idle;
+            state receivingMission;
+            state navigating;
+            state performingTask;
+            state reportingGeography;
+            state returningToBase;
+            state safeHold;
+
+            transition idle_to_receiving
+                first idle
+                accept missionAssigned
+                then receivingMission;
+
+            transition receiving_to_navigating
+                first receivingMission
+                if currentEnergy > 72000.0
+                then navigating;
+
+            transition navigating_to_task
+                first navigating
+                accept arrivedAtAssignedCell
+                then performingTask;
+
+            transition task_to_reporting
+                first performingTask
+                accept observationComplete
+                then reportingGeography;
+
+            transition reporting_to_navigating
+                first reportingGeography
+                if currentEnergy > 54000.0
+                then navigating;
+
+            transition any_to_return
+                first navigating
+                if currentEnergy <= 54000.0
+                then returningToBase;
+
+            transition any_to_hold
+                first navigating
+                if localizationUnit.localizationConfidence < 0.70
+                then safeHold;
+
+            transition return_to_idle
+                first returningToBase
+                accept docked
+                then idle;
+        }
+    }
+
+    part def LocalizationUnit {
+        attribute localizationConfidence : Confidence;
+        attribute estimatedPosition : GeoCoordinate;
+
+        port statusOutput : StatusTelemetryPort;
+
+        action estimatePosition {
+            out item status : RobotStatus;
+        }
+    }
+
+    part def PerceptionUnit {
+        attribute sensorRange : Distance;
+        attribute classificationConfidence : Confidence;
+
+        port geographyOutput : GeographyDataPort;
+
+        action observeTerrain {
+            in item currentPosition : GeoCoordinate;
+            out item update : GeographyUpdate;
+        }
+    }
+
+    part def MobilityUnit {
+        attribute currentSpeed : Speed;
+        attribute obstacleClearance : Distance;
+
+        port routeInput : RoutePlanPort;
+
+        action followRoute {
+            in item plan : RoutePlan;
+            out attribute progressDistance : Distance;
+        }
+
+        action avoidObstacle {
+            in item obstaclePosition : GeoCoordinate;
+            out item localRoute : RoutePlan;
+        }
+    }
+
+    part def EnergyUnit {
+        attribute storedEnergy : Energy;
+        attribute chargingPower : Power;
+
+        action estimateRemainingRange {
+            in attribute speed : Speed;
+            out attribute range : Distance;
+        }
+    }
+
+    part def TaskExecutor {
+        port missionInput : MissionCommandPort;
+
+        action executeMissionMode {
+            in item mission : MissionRequest;
+            out item observation : GeographyUpdate;
+        }
+    }
+
+    requirement def GeographicCoverageRequirement {
+        subject system : GeographicRoboticsSystem;
+
+        require constraint {
+            system.minimumCoverageConfidence >= 0.95
+        }
+
+        doc /* The system shall achieve at least 95 percent confidence in geographic coverage for accepted survey and monitoring missions. */
+    }
+
+    requirement def DomainAppropriateAssignmentRequirement {
+        subject robot : Robot;
+        subject assignedCell : GeoCell;
+
+        require constraint {
+            assignedCell.terrainClass != TerrainClass::waterEdge or robot.domain == RobotDomain::aquaticShoreline
+        }
+
+        doc /* The system shall assign robots only to geographic cells compatible with their mobility domain and terrain constraints. */
+    }
+
+    requirement def DispatchLatencyRequirement {
+        subject system : GeographicRoboticsSystem;
+
+        require constraint {
+            system.maximumDispatchLatency <= 30.0
+        }
+
+        doc /* The system shall dispatch an initial route plan within 30 seconds after accepting a mission request. */
+    }
+
+    requirement def EnergyReserveRequirement {
+        subject robot : Robot;
+
+        require constraint {
+            robot.currentEnergy >= 54000.0
+        }
+
+        doc /* Each robot shall preserve enough energy to return to base from its assigned geography under nominal conditions. */
+    }
+
+    requirement def LocalizationSafetyRequirement {
+        subject supervisor : SafetySupervisor;
+
+        require constraint {
+            supervisor.minimumLocalizationConfidence >= 0.70
+        }
+
+        doc /* The system shall command a safe hold or return-to-base behavior when robot localization confidence falls below 0.70. */
+    }
+
+    requirement def GeographicCurrencyRequirement {
+        subject geographyModel : GeographyModel;
+
+        require constraint {
+            geographyModel.mapCurrencyLimit <= 300.0
+        }
+
+        doc /* Mission planning shall use geographic cells observed or validated within the previous 300 seconds unless no current data exists. */
+    }
+
+    satisfy GeographicCoverageRequirement by GeographicRoboticsSystem::performPrimaryFunction;
+    satisfy DispatchLatencyRequirement by RoutePlanner::computeRoute;
+    satisfy EnergyReserveRequirement by SafetySupervisor::evaluateSafety;
+    satisfy LocalizationSafetyRequirement by Robot::operatingState;
+    satisfy GeographicCurrencyRequirement by GeographyModel::updateMap;
+}

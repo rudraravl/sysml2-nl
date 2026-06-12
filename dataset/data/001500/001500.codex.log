@@ -1,0 +1,1373 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zpqksoos
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6f4-1b43-7e23-a608-564d89ec7909
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a robotic system that performs its primary task using a Military robot.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MilitaryRobotMissionModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  // Value and item definitions
+
+  value def Percent {
+    specializes Real;
+    unit = "%";
+  }
+
+  value def Meter {
+    specializes Real;
+    unit = "m";
+  }
+
+  value def MeterPerSecond {
+    specializes Real;
+    unit = "m/s";
+  }
+
+  value def Kilogram {
+    specializes Real;
+    unit = "kg";
+  }
+
+  value def Second {
+    specializes Real;
+    unit = "s";
+  }
+
+  value def WattHour {
+    specializes Real;
+    unit = "Wh";
+  }
+
+  value def Celsius {
+    specializes Real;
+    unit = "degC";
+  }
+
+  value def Newton {
+    specializes Real;
+    unit = "N";
+  }
+
+  value def Lux {
+    specializes Real;
+    unit = "lx";
+  }
+
+  enum def MissionPhase {
+    enum idle;
+    enum deploy;
+    enum navigateToArea;
+    enum inspectObject;
+    enum collectEvidence;
+    enum deliverPayload;
+    enum returnToBase;
+    enum safeShutdown;
+  }
+
+  enum def MobilityMode {
+    enum wheeled;
+    enum tracked;
+    enum obstacleClimb;
+    enum stationary;
+  }
+
+  enum def LinkStatus {
+    enum connected;
+    enum degraded;
+    enum lost;
+  }
+
+  enum def ThreatAssessment {
+    enum clear;
+    enum suspectedHazard;
+    enum confirmedHazard;
+    enum unknown;
+  }
+
+  item def CommandPacket {
+    attribute commandId : String;
+    attribute targetWaypointId : String;
+    attribute requestedPhase : MissionPhase;
+    attribute operatorAuthorization : Boolean;
+  }
+
+  item def TelemetryPacket {
+    attribute robotId : String;
+    attribute batteryState : Percent;
+    attribute positionX : Meter;
+    attribute positionY : Meter;
+    attribute headingDeg : Real;
+    attribute linkStatus : LinkStatus;
+    attribute activePhase : MissionPhase;
+    attribute faultPresent : Boolean;
+  }
+
+  item def VideoFrame {
+    attribute timestamp : Second;
+    attribute widthPixels : Integer;
+    attribute heightPixels : Integer;
+    attribute illumination : Lux;
+  }
+
+  item def LidarScan {
+    attribute timestamp : Second;
+    attribute rangeMax : Meter;
+    attribute pointCount : Integer;
+  }
+
+  item def HazardReport {
+    attribute reportId : String;
+    attribute positionX : Meter;
+    attribute positionY : Meter;
+    attribute assessment : ThreatAssessment;
+    attribute confidence : Percent;
+    attribute humanReviewed : Boolean;
+  }
+
+  item def EvidenceSample {
+    attribute sampleId : String;
+    attribute mass : Kilogram;
+    attribute sealed : Boolean;
+    attribute contaminationFlag : Boolean;
+  }
+
+  item def MissionPayload {
+    attribute payloadId : String;
+    attribute mass : Kilogram;
+    attribute nonLethal : Boolean;
+    attribute delivered : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute energyRemaining : WattHour;
+  }
+
+  port def CommandPort {
+    in command : CommandPacket;
+  }
+
+  port def TelemetryPort {
+    out telemetry : TelemetryPacket;
+  }
+
+  port def VideoPort {
+    out frame : VideoFrame;
+  }
+
+  port def ScanPort {
+    out scan : LidarScan;
+  }
+
+  port def HazardReportPort {
+    out report : HazardReport;
+  }
+
+  port def SamplePort {
+    out sample : EvidenceSample;
+  }
+
+  port def PayloadPort {
+    in payload : MissionPayload;
+    out deliveredPayload : MissionPayload;
+  }
+
+  port def PowerPort {
+    in powerIn : ElectricalPower;
+    out powerOut : ElectricalPower;
+  }
+
+  // System structure
+
+  part def MilitaryRobotSystem {
+    attribute systemId : String = "MRS-EOD-01";
+    attribute primaryTask : String = "Remote reconnaissance, hazard inspection, evidence collection, and non-lethal mission payload delivery";
+    attribute maxOperatingRange : Meter = 1500;
+    attribute maxSpeed : MeterPerSecond = 2.5;
+    attribute minSafeBatteryReturn : Percent = 25;
+    attribute autonomousUseOfForceEnabled : Boolean = false;
+
+    part operatorStation : OperatorControlStation;
+    part militaryRobot : MilitaryRobot;
+    part relayNode : CommunicationsRelay;
+    part missionBase : MissionBase;
+
+    port commandToRobot : CommandPort;
+    port telemetryFromRobot : TelemetryPort;
+    port videoFromRobot : VideoPort;
+    port scanFromRobot : ScanPort;
+    port reportFromRobot : HazardReportPort;
+    port payloadInterface : PayloadPort;
+
+    connect operatorStation.commandOut to relayNode.commandIn;
+    connect relayNode.commandOut to militaryRobot.commandIn;
+
+    connect militaryRobot.telemetryOut to relayNode.telemetryIn;
+    connect relayNode.telemetryOut to operatorStation.telemetryIn;
+
+    connect militaryRobot.videoOut to operatorStation.videoIn;
+    connect militaryRobot.scanOut to operatorStation.scanIn;
+    connect militaryRobot.hazardReportOut to operatorStation.hazardReportIn;
+
+    connect missionBase.payloadOut to militaryRobot.payloadIn;
+    connect militaryRobot.deliveredPayloadOut to missionBase.payloadReceiptIn;
+  }
+
+  part def OperatorControlStation {
+    attribute operatorAuthenticated : Boolean;
+    attribute manualOverrideAvailable : Boolean = true;
+    attribute commandLatencyLimit : Second = 0.5;
+
+    port commandOut : CommandPort;
+    port telemetryIn : TelemetryPort;
+    port videoIn : VideoPort;
+    port scanIn : ScanPort;
+    port hazardReportIn : HazardReportPort;
+
+    perform action authorizeMissionCommand;
+    perform action displayRobotSituation;
+    perform action issueEmergencyStop;
+  }
+
+  part def CommunicationsRelay {
+    attribute linkStatus : LinkStatus;
+    attribute encrypted : Boolean = true;
+    attribute maxRange : Meter = 2000;
+
+    port commandIn : CommandPort;
+    port commandOut : CommandPort;
+    port telemetryIn : TelemetryPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def MissionBase {
+    attribute basePositionX : Meter = 0;
+    attribute basePositionY : Meter = 0;
+
+    port payloadOut : PayloadPort;
+    port payloadReceiptIn : PayloadPort;
+  }
+
+  part def MilitaryRobot {
+    attribute robotId : String = "MR-17";
+    attribute mass : Kilogram = 185;
+    attribute payloadCapacity : Kilogram = 35;
+    attribute topSpeed : MeterPerSecond = 2.5;
+    attribute obstacleClimbHeight : Meter = 0.45;
+    attribute batteryReserveForReturn : Percent = 25;
+    attribute currentPhase : MissionPhase;
+    attribute currentMobilityMode : MobilityMode;
+    attribute linkStatus : LinkStatus;
+    attribute emergencyStopped : Boolean = false;
+
+    part chassis : RuggedChassis;
+    part mobility : MobilitySubsystem;
+    part power : PowerSubsystem;
+    part compute : MissionComputer;
+    part perception : PerceptionSubsystem;
+    part manipulator : ManipulatorArm;
+    part payloadBay : PayloadBay;
+    part safety : SafetySupervisor;
+    part comms : RobotCommunications;
+
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+    port videoOut : VideoPort;
+    port scanOut : ScanPort;
+    port hazardReportOut : HazardReportPort;
+    port payloadIn : PayloadPort;
+    port deliveredPayloadOut : PayloadPort;
+
+    connect commandIn to comms.commandIn;
+    connect comms.commandOut to compute.commandIn;
+
+    connect compute.motionCommandOut to mobility.motionCommandIn;
+    connect mobility.odometryOut to compute.odometryIn;
+
+    connect perception.videoOut to videoOut;
+    connect perception.scanOut to scanOut;
+    connect perception.hazardReportOut to hazardReportOut;
+    connect perception.hazardReportOut to compute.hazardReportIn;
+
+    connect compute.armCommandOut to manipulator.armCommandIn;
+    connect manipulator.sampleOut to payloadBay.sampleIn;
+
+    connect payloadIn to payloadBay.payloadIn;
+    connect payloadBay.payloadOut to deliveredPayloadOut;
+
+    connect power.powerOut to mobility.powerIn;
+    connect power.powerOut to compute.powerIn;
+    connect power.powerOut to perception.powerIn;
+    connect power.powerOut to manipulator.powerIn;
+    connect power.powerOut to comms.powerIn;
+
+    connect safety.stopCommandOut to mobility.stopIn;
+    connect safety.stopCommandOut to compute.stopIn;
+    connect safety.stopCommandOut to manipulator.stopIn;
+
+    connect compute.telemetryOut to telemetryOut;
+
+    perform behavior MilitaryRobotMissionBehavior;
+  }
+
+  part def RuggedChassis {
+    attribute armorRating : String = "STANAG fragments and weather protection";
+    attribute ingressProtection : String = "IP67";
+    attribute maxExternalTemperature : Celsius = 55;
+    attribute minExternalTemperature : Celsius = -25;
+  }
+
+  part def MobilitySubsystem {
+    attribute mode : MobilityMode;
+    attribute maxTractionForce : Newton = 4200;
+    attribute maxSlopeDeg : Real = 35;
+    attribute odometryErrorPer100m : Meter = 1.5;
+
+    port motionCommandIn : CommandPort;
+    port stopIn : CommandPort;
+    port powerIn : PowerPort;
+    port odometryOut : TelemetryPort;
+
+    action driveToWaypoint {
+      in waypointX : Meter;
+      in waypointY : Meter;
+      out arrived : Boolean;
+    }
+
+    action holdPosition {
+      out stabilized : Boolean;
+    }
+  }
+
+  part def PowerSubsystem {
+    attribute batteryCapacity : WattHour = 5200;
+    attribute batteryState : Percent;
+    attribute hotSwapCapable : Boolean = true;
+    attribute estimatedEndurance : Second = 14400;
+
+    port powerOut : PowerPort;
+
+    action monitorEnergy {
+      out reserveBelowLimit : Boolean;
+    }
+  }
+
+  part def MissionComputer {
+    attribute processorHealth : Percent;
+    attribute autonomousNavigationEnabled : Boolean = true;
+    attribute autonomousUseOfForceEnabled : Boolean = false;
+    attribute routeConfidence : Percent;
+
+    port commandIn : CommandPort;
+    port motionCommandOut : CommandPort;
+    port armCommandOut : CommandPort;
+    port odometryIn : TelemetryPort;
+    port hazardReportIn : HazardReportPort;
+    port telemetryOut : TelemetryPort;
+    port stopIn : CommandPort;
+    port powerIn : PowerPort;
+
+    action planRoute {
+      in destinationX : Meter;
+      in destinationY : Meter;
+      out routeAccepted : Boolean;
+    }
+
+    action classifyMissionObject {
+      in scan : LidarScan;
+      in frame : VideoFrame;
+      out assessment : ThreatAssessment;
+      out confidence : Percent;
+    }
+
+    action composeTelemetry {
+      out telemetry : TelemetryPacket;
+    }
+  }
+
+  part def PerceptionSubsystem {
+    attribute cameraCount : Integer = 6;
+    attribute lidarRange : Meter = 80;
+    attribute thermalCameraAvailable : Boolean = true;
+    attribute lowLightModeAvailable : Boolean = true;
+
+    part dayCamera : OpticalCamera;
+    part thermalCamera : ThermalCamera;
+    part lidar : LidarSensor;
+    part hazardClassifier : HazardClassifier;
+
+    port videoOut : VideoPort;
+    port scanOut : ScanPort;
+    port hazardReportOut : HazardReportPort;
+    port powerIn : PowerPort;
+
+    connect dayCamera.videoOut to videoOut;
+    connect thermalCamera.videoOut to videoOut;
+    connect lidar.scanOut to scanOut;
+    connect hazardClassifier.reportOut to hazardReportOut;
+  }
+
+  part def OpticalCamera {
+    attribute horizontalFieldOfViewDeg : Real = 120;
+    attribute minimumIllumination : Lux = 0.05;
+    port videoOut : VideoPort;
+  }
+
+  part def ThermalCamera {
+    attribute temperatureResolution : Celsius = 0.05;
+    attribute detectionRange : Meter = 250;
+    port videoOut : VideoPort;
+  }
+
+  part def LidarSensor {
+    attribute range : Meter = 80;
+    attribute scanRateHz : Real = 20;
+    port scanOut : ScanPort;
+  }
+
+  part def HazardClassifier {
+    attribute minimumReportConfidence : Percent = 70;
+    attribute requiresHumanReview : Boolean = true;
+    port reportOut : HazardReportPort;
+
+    action assessHazard {
+      in scan : LidarScan;
+      in frame : VideoFrame;
+      out report : HazardReport;
+    }
+  }
+
+  part def ManipulatorArm {
+    attribute degreesOfFreedom : Integer = 6;
+    attribute reach : Meter = 1.8;
+    attribute liftCapacity : Kilogram = 18;
+    attribute maxGripForce : Newton = 650;
+
+    port armCommandIn : CommandPort;
+    port stopIn : CommandPort;
+    port powerIn : PowerPort;
+    port sampleOut : SamplePort;
+
+    action inspectObject {
+      in standoffDistance : Meter;
+      out inspectionComplete : Boolean;
+    }
+
+    action collectEvidenceSample {
+      out sample : EvidenceSample;
+    }
+
+    action placePayload {
+      in payload : MissionPayload;
+      out delivered : Boolean;
+    }
+  }
+
+  part def PayloadBay {
+    attribute maxPayloadMass : Kilogram = 35;
+    attribute sealedCompartment : Boolean = true;
+    attribute payloadInstalled : Boolean;
+
+    port payloadIn : PayloadPort;
+    port payloadOut : PayloadPort;
+    port sampleIn : SamplePort;
+  }
+
+  part def SafetySupervisor {
+    attribute geofenceEnabled : Boolean = true;
+    attribute humanAuthorizationRequired : Boolean = true;
+    attribute autonomousWeaponEngagementProhibited : Boolean = true;
+    attribute emergencyStopLatency : Second = 0.2;
+
+    port stopCommandOut : CommandPort;
+
+    action validateCommand {
+      in command : CommandPacket;
+      out accepted : Boolean;
+    }
+
+    action triggerEmergencyStop {
+      out stopCommand : CommandPacket;
+    }
+  }
+
+  part def RobotCommunications {
+    attribute encrypted : Boolean = true;
+    attribute linkStatus : LinkStatus;
+    attribute fallbackReturnOnLostLink : Boolean = true;
+    attribute lostLinkTimeout : Second = 10;
+
+    port commandIn : CommandPort;
+    port commandOut : CommandPort;
+    port powerIn : PowerPort;
+  }
+
+  // Behavior
+
+  action def AuthorizeMissionCommand {
+    in command : CommandPacket;
+    out accepted : Boolean;
+  }
+
+  action def NavigateToWaypoint {
+    in targetX : Meter;
+    in targetY : Meter;
+    out arrived : Boolean;
+    out hazardDetected : Boolean;
+  }
+
+  action def InspectSuspectObject {
+    in standoffDistance : Meter;
+    out report : HazardReport;
+  }
+
+  action def CollectEvidence {
+    out sample : EvidenceSample;
+  }
+
+  action def DeliverNonLethalPayload {
+    in payload : MissionPayload;
+    out deliveredPayload : MissionPayload;
+  }
+
+  action def ReturnToBase {
+    out arrivedAtBase : Boolean;
+  }
+
+  action def SafeShutdown {
+    out shutdownComplete : Boolean;
+  }
+
+  state def MilitaryRobotMissionBehavior {
+    entry action initializeRobot;
+    exit action storeMissionLog;
+
+    state idle;
+    state deployment;
+    state navigating;
+    state inspection;
+    state evidenceCollection;
+    state payloadDelivery;
+    state return;
+    state shutdown;
+    state emergencyStop;
+
+    initial then idle;
+
+    transition idle_to_deployment
+      first idle
+      accept CommandPacket
+      if command.operatorAuthorization == true
+      then deployment;
+
+    transition deployment_to_navigating
+      first deployment
+      do NavigateToWaypoint
+      then navigating;
+
+    transition navigating_to_inspection
+      first navigating
+      if hazardDetected == true
+      then inspection;
+
+    transition navigating_to_payloadDelivery
+      first navigating
+      if hazardDetected == false
+      then payloadDelivery;
+
+    transition inspection_to_evidenceCollection
+      first inspection
+      if report.assessment == ThreatAssessment::confirmedHazard and report.humanReviewed == true
+      then evidenceCollection;
+
+    transition inspection_to_return
+      first inspection
+      if report.assessment == ThreatAssessment::clear
+      then return;
+
+    transition evidenceCollection_to_payloadDelivery
+      first evidenceCollection
+      if sample.sealed == true
+      then payloadDelivery;
+
+    transition payloadDelivery_to_return
+      first payloadDelivery
+      if deliveredPayload.delivered == true
+      then return;
+
+    transition return_to_shutdown
+      first return
+      if arrivedAtBase == true
+      then shutdown;
+
+    transition any_to_emergencyStop
+      first idle, deployment, navigating, inspection, evidenceCollection, payloadDelivery, return
+      accept CommandPacket
+      if command.requestedPhase == MissionPhase::safeShutdown or command.operatorAuthorization == false
+      then emergencyStop;
+
+    transition emergencyStop_to_shutdown
+      first emergencyStop
+      do SafeShutdown
+      then shutdown;
+  }
+
+  // Requirements
+
+  requirement def PrimaryTaskRequirement {
+    id = "REQ-MRS-001";
+    text = "The robotic system shall perform remote military support tasks using a military robot for reconnaissance, hazard inspection, evidence collection, and non-lethal payload delivery.";
+  }
+
+  requirement def HumanAuthorizationRequirement {
+    id = "REQ-MRS-002";
+    text = "The military robot shall execute mission phase changes only after receiving authenticated human operator authorization.";
+  }
+
+  requirement def NoAutonomousUseOfForceRequirement {
+    id = "REQ-MRS-003";
+    text = "The military robot shall not perform autonomous use of force or autonomous weapon engagement.";
+  }
+
+  requirement def ReturnReserveRequirement {
+    id = "REQ-MRS-004";
+    text = "The military robot shall begin return-to-base behavior when battery state reaches 25 percent or lower unless overridden by an authenticated emergency command.";
+  }
+
+  requirement def LostLinkRequirement {
+    id = "REQ-MRS-005";
+    text = "The military robot shall enter fallback return-to-base behavior when command link is lost for more than 10 seconds.";
+  }
+
+  requirement def HazardReportRequirement {
+    id = "REQ-MRS-006";
+    text = "The military robot shall produce a hazard report including position, assessment, confidence, and human review status for each suspected hazardous object.";
+  }
+
+  requirement def EvidenceContainmentRequirement {
+    id = "REQ-MRS-007";
+    text = "The military robot shall store collected evidence samples in a sealed compartment and mark contamination status.";
+  }
+
+  requirement def EmergencyStopRequirement {
+    id = "REQ-MRS-008";
+    text = "The military robot shall stop mobility and manipulator motion within 0.2 seconds after receiving an emergency stop command.";
+  }
+
+  requirement def OperatingRangeRequirement {
+    id = "REQ-MRS-009";
+    text = "The military robot shall support operation at distances up to 1500 meters from the operator station through encrypted communications.";
+  }
+
+  requirement def PayloadRequirement {
+    id = "REQ-MRS-010";
+    text = "The military robot shall carry and deliver mission payloads up to 35 kilograms, and payloads shall be marked non-lethal before delivery.";
+  }
+
+  satisfy PrimaryTaskRequirement by MilitaryRobotSystem;
+  satisfy HumanAuthorizationRequirement by OperatorControlStation;
+  satisfy HumanAuthorizationRequirement by SafetySupervisor;
+  satisfy NoAutonomousUseOfForceRequirement by MilitaryRobot;
+  satisfy ReturnReserveRequirement by PowerSubsystem;
+  satisfy LostLinkRequirement by RobotCommunications;
+  satisfy HazardReportRequirement by PerceptionSubsystem;
+  satisfy EvidenceContainmentRequirement by PayloadBay;
+  satisfy EmergencyStopRequirement by SafetySupervisor;
+  satisfy OperatingRangeRequirement by CommunicationsRelay;
+  satisfy PayloadRequirement by PayloadBay;
+}
+tokens used
+4,675
+package MilitaryRobotMissionModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  // Value and item definitions
+
+  value def Percent {
+    specializes Real;
+    unit = "%";
+  }
+
+  value def Meter {
+    specializes Real;
+    unit = "m";
+  }
+
+  value def MeterPerSecond {
+    specializes Real;
+    unit = "m/s";
+  }
+
+  value def Kilogram {
+    specializes Real;
+    unit = "kg";
+  }
+
+  value def Second {
+    specializes Real;
+    unit = "s";
+  }
+
+  value def WattHour {
+    specializes Real;
+    unit = "Wh";
+  }
+
+  value def Celsius {
+    specializes Real;
+    unit = "degC";
+  }
+
+  value def Newton {
+    specializes Real;
+    unit = "N";
+  }
+
+  value def Lux {
+    specializes Real;
+    unit = "lx";
+  }
+
+  enum def MissionPhase {
+    enum idle;
+    enum deploy;
+    enum navigateToArea;
+    enum inspectObject;
+    enum collectEvidence;
+    enum deliverPayload;
+    enum returnToBase;
+    enum safeShutdown;
+  }
+
+  enum def MobilityMode {
+    enum wheeled;
+    enum tracked;
+    enum obstacleClimb;
+    enum stationary;
+  }
+
+  enum def LinkStatus {
+    enum connected;
+    enum degraded;
+    enum lost;
+  }
+
+  enum def ThreatAssessment {
+    enum clear;
+    enum suspectedHazard;
+    enum confirmedHazard;
+    enum unknown;
+  }
+
+  item def CommandPacket {
+    attribute commandId : String;
+    attribute targetWaypointId : String;
+    attribute requestedPhase : MissionPhase;
+    attribute operatorAuthorization : Boolean;
+  }
+
+  item def TelemetryPacket {
+    attribute robotId : String;
+    attribute batteryState : Percent;
+    attribute positionX : Meter;
+    attribute positionY : Meter;
+    attribute headingDeg : Real;
+    attribute linkStatus : LinkStatus;
+    attribute activePhase : MissionPhase;
+    attribute faultPresent : Boolean;
+  }
+
+  item def VideoFrame {
+    attribute timestamp : Second;
+    attribute widthPixels : Integer;
+    attribute heightPixels : Integer;
+    attribute illumination : Lux;
+  }
+
+  item def LidarScan {
+    attribute timestamp : Second;
+    attribute rangeMax : Meter;
+    attribute pointCount : Integer;
+  }
+
+  item def HazardReport {
+    attribute reportId : String;
+    attribute positionX : Meter;
+    attribute positionY : Meter;
+    attribute assessment : ThreatAssessment;
+    attribute confidence : Percent;
+    attribute humanReviewed : Boolean;
+  }
+
+  item def EvidenceSample {
+    attribute sampleId : String;
+    attribute mass : Kilogram;
+    attribute sealed : Boolean;
+    attribute contaminationFlag : Boolean;
+  }
+
+  item def MissionPayload {
+    attribute payloadId : String;
+    attribute mass : Kilogram;
+    attribute nonLethal : Boolean;
+    attribute delivered : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute energyRemaining : WattHour;
+  }
+
+  port def CommandPort {
+    in command : CommandPacket;
+  }
+
+  port def TelemetryPort {
+    out telemetry : TelemetryPacket;
+  }
+
+  port def VideoPort {
+    out frame : VideoFrame;
+  }
+
+  port def ScanPort {
+    out scan : LidarScan;
+  }
+
+  port def HazardReportPort {
+    out report : HazardReport;
+  }
+
+  port def SamplePort {
+    out sample : EvidenceSample;
+  }
+
+  port def PayloadPort {
+    in payload : MissionPayload;
+    out deliveredPayload : MissionPayload;
+  }
+
+  port def PowerPort {
+    in powerIn : ElectricalPower;
+    out powerOut : ElectricalPower;
+  }
+
+  // System structure
+
+  part def MilitaryRobotSystem {
+    attribute systemId : String = "MRS-EOD-01";
+    attribute primaryTask : String = "Remote reconnaissance, hazard inspection, evidence collection, and non-lethal mission payload delivery";
+    attribute maxOperatingRange : Meter = 1500;
+    attribute maxSpeed : MeterPerSecond = 2.5;
+    attribute minSafeBatteryReturn : Percent = 25;
+    attribute autonomousUseOfForceEnabled : Boolean = false;
+
+    part operatorStation : OperatorControlStation;
+    part militaryRobot : MilitaryRobot;
+    part relayNode : CommunicationsRelay;
+    part missionBase : MissionBase;
+
+    port commandToRobot : CommandPort;
+    port telemetryFromRobot : TelemetryPort;
+    port videoFromRobot : VideoPort;
+    port scanFromRobot : ScanPort;
+    port reportFromRobot : HazardReportPort;
+    port payloadInterface : PayloadPort;
+
+    connect operatorStation.commandOut to relayNode.commandIn;
+    connect relayNode.commandOut to militaryRobot.commandIn;
+
+    connect militaryRobot.telemetryOut to relayNode.telemetryIn;
+    connect relayNode.telemetryOut to operatorStation.telemetryIn;
+
+    connect militaryRobot.videoOut to operatorStation.videoIn;
+    connect militaryRobot.scanOut to operatorStation.scanIn;
+    connect militaryRobot.hazardReportOut to operatorStation.hazardReportIn;
+
+    connect missionBase.payloadOut to militaryRobot.payloadIn;
+    connect militaryRobot.deliveredPayloadOut to missionBase.payloadReceiptIn;
+  }
+
+  part def OperatorControlStation {
+    attribute operatorAuthenticated : Boolean;
+    attribute manualOverrideAvailable : Boolean = true;
+    attribute commandLatencyLimit : Second = 0.5;
+
+    port commandOut : CommandPort;
+    port telemetryIn : TelemetryPort;
+    port videoIn : VideoPort;
+    port scanIn : ScanPort;
+    port hazardReportIn : HazardReportPort;
+
+    perform action authorizeMissionCommand;
+    perform action displayRobotSituation;
+    perform action issueEmergencyStop;
+  }
+
+  part def CommunicationsRelay {
+    attribute linkStatus : LinkStatus;
+    attribute encrypted : Boolean = true;
+    attribute maxRange : Meter = 2000;
+
+    port commandIn : CommandPort;
+    port commandOut : CommandPort;
+    port telemetryIn : TelemetryPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def MissionBase {
+    attribute basePositionX : Meter = 0;
+    attribute basePositionY : Meter = 0;
+
+    port payloadOut : PayloadPort;
+    port payloadReceiptIn : PayloadPort;
+  }
+
+  part def MilitaryRobot {
+    attribute robotId : String = "MR-17";
+    attribute mass : Kilogram = 185;
+    attribute payloadCapacity : Kilogram = 35;
+    attribute topSpeed : MeterPerSecond = 2.5;
+    attribute obstacleClimbHeight : Meter = 0.45;
+    attribute batteryReserveForReturn : Percent = 25;
+    attribute currentPhase : MissionPhase;
+    attribute currentMobilityMode : MobilityMode;
+    attribute linkStatus : LinkStatus;
+    attribute emergencyStopped : Boolean = false;
+
+    part chassis : RuggedChassis;
+    part mobility : MobilitySubsystem;
+    part power : PowerSubsystem;
+    part compute : MissionComputer;
+    part perception : PerceptionSubsystem;
+    part manipulator : ManipulatorArm;
+    part payloadBay : PayloadBay;
+    part safety : SafetySupervisor;
+    part comms : RobotCommunications;
+
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+    port videoOut : VideoPort;
+    port scanOut : ScanPort;
+    port hazardReportOut : HazardReportPort;
+    port payloadIn : PayloadPort;
+    port deliveredPayloadOut : PayloadPort;
+
+    connect commandIn to comms.commandIn;
+    connect comms.commandOut to compute.commandIn;
+
+    connect compute.motionCommandOut to mobility.motionCommandIn;
+    connect mobility.odometryOut to compute.odometryIn;
+
+    connect perception.videoOut to videoOut;
+    connect perception.scanOut to scanOut;
+    connect perception.hazardReportOut to hazardReportOut;
+    connect perception.hazardReportOut to compute.hazardReportIn;
+
+    connect compute.armCommandOut to manipulator.armCommandIn;
+    connect manipulator.sampleOut to payloadBay.sampleIn;
+
+    connect payloadIn to payloadBay.payloadIn;
+    connect payloadBay.payloadOut to deliveredPayloadOut;
+
+    connect power.powerOut to mobility.powerIn;
+    connect power.powerOut to compute.powerIn;
+    connect power.powerOut to perception.powerIn;
+    connect power.powerOut to manipulator.powerIn;
+    connect power.powerOut to comms.powerIn;
+
+    connect safety.stopCommandOut to mobility.stopIn;
+    connect safety.stopCommandOut to compute.stopIn;
+    connect safety.stopCommandOut to manipulator.stopIn;
+
+    connect compute.telemetryOut to telemetryOut;
+
+    perform behavior MilitaryRobotMissionBehavior;
+  }
+
+  part def RuggedChassis {
+    attribute armorRating : String = "STANAG fragments and weather protection";
+    attribute ingressProtection : String = "IP67";
+    attribute maxExternalTemperature : Celsius = 55;
+    attribute minExternalTemperature : Celsius = -25;
+  }
+
+  part def MobilitySubsystem {
+    attribute mode : MobilityMode;
+    attribute maxTractionForce : Newton = 4200;
+    attribute maxSlopeDeg : Real = 35;
+    attribute odometryErrorPer100m : Meter = 1.5;
+
+    port motionCommandIn : CommandPort;
+    port stopIn : CommandPort;
+    port powerIn : PowerPort;
+    port odometryOut : TelemetryPort;
+
+    action driveToWaypoint {
+      in waypointX : Meter;
+      in waypointY : Meter;
+      out arrived : Boolean;
+    }
+
+    action holdPosition {
+      out stabilized : Boolean;
+    }
+  }
+
+  part def PowerSubsystem {
+    attribute batteryCapacity : WattHour = 5200;
+    attribute batteryState : Percent;
+    attribute hotSwapCapable : Boolean = true;
+    attribute estimatedEndurance : Second = 14400;
+
+    port powerOut : PowerPort;
+
+    action monitorEnergy {
+      out reserveBelowLimit : Boolean;
+    }
+  }
+
+  part def MissionComputer {
+    attribute processorHealth : Percent;
+    attribute autonomousNavigationEnabled : Boolean = true;
+    attribute autonomousUseOfForceEnabled : Boolean = false;
+    attribute routeConfidence : Percent;
+
+    port commandIn : CommandPort;
+    port motionCommandOut : CommandPort;
+    port armCommandOut : CommandPort;
+    port odometryIn : TelemetryPort;
+    port hazardReportIn : HazardReportPort;
+    port telemetryOut : TelemetryPort;
+    port stopIn : CommandPort;
+    port powerIn : PowerPort;
+
+    action planRoute {
+      in destinationX : Meter;
+      in destinationY : Meter;
+      out routeAccepted : Boolean;
+    }
+
+    action classifyMissionObject {
+      in scan : LidarScan;
+      in frame : VideoFrame;
+      out assessment : ThreatAssessment;
+      out confidence : Percent;
+    }
+
+    action composeTelemetry {
+      out telemetry : TelemetryPacket;
+    }
+  }
+
+  part def PerceptionSubsystem {
+    attribute cameraCount : Integer = 6;
+    attribute lidarRange : Meter = 80;
+    attribute thermalCameraAvailable : Boolean = true;
+    attribute lowLightModeAvailable : Boolean = true;
+
+    part dayCamera : OpticalCamera;
+    part thermalCamera : ThermalCamera;
+    part lidar : LidarSensor;
+    part hazardClassifier : HazardClassifier;
+
+    port videoOut : VideoPort;
+    port scanOut : ScanPort;
+    port hazardReportOut : HazardReportPort;
+    port powerIn : PowerPort;
+
+    connect dayCamera.videoOut to videoOut;
+    connect thermalCamera.videoOut to videoOut;
+    connect lidar.scanOut to scanOut;
+    connect hazardClassifier.reportOut to hazardReportOut;
+  }
+
+  part def OpticalCamera {
+    attribute horizontalFieldOfViewDeg : Real = 120;
+    attribute minimumIllumination : Lux = 0.05;
+    port videoOut : VideoPort;
+  }
+
+  part def ThermalCamera {
+    attribute temperatureResolution : Celsius = 0.05;
+    attribute detectionRange : Meter = 250;
+    port videoOut : VideoPort;
+  }
+
+  part def LidarSensor {
+    attribute range : Meter = 80;
+    attribute scanRateHz : Real = 20;
+    port scanOut : ScanPort;
+  }
+
+  part def HazardClassifier {
+    attribute minimumReportConfidence : Percent = 70;
+    attribute requiresHumanReview : Boolean = true;
+    port reportOut : HazardReportPort;
+
+    action assessHazard {
+      in scan : LidarScan;
+      in frame : VideoFrame;
+      out report : HazardReport;
+    }
+  }
+
+  part def ManipulatorArm {
+    attribute degreesOfFreedom : Integer = 6;
+    attribute reach : Meter = 1.8;
+    attribute liftCapacity : Kilogram = 18;
+    attribute maxGripForce : Newton = 650;
+
+    port armCommandIn : CommandPort;
+    port stopIn : CommandPort;
+    port powerIn : PowerPort;
+    port sampleOut : SamplePort;
+
+    action inspectObject {
+      in standoffDistance : Meter;
+      out inspectionComplete : Boolean;
+    }
+
+    action collectEvidenceSample {
+      out sample : EvidenceSample;
+    }
+
+    action placePayload {
+      in payload : MissionPayload;
+      out delivered : Boolean;
+    }
+  }
+
+  part def PayloadBay {
+    attribute maxPayloadMass : Kilogram = 35;
+    attribute sealedCompartment : Boolean = true;
+    attribute payloadInstalled : Boolean;
+
+    port payloadIn : PayloadPort;
+    port payloadOut : PayloadPort;
+    port sampleIn : SamplePort;
+  }
+
+  part def SafetySupervisor {
+    attribute geofenceEnabled : Boolean = true;
+    attribute humanAuthorizationRequired : Boolean = true;
+    attribute autonomousWeaponEngagementProhibited : Boolean = true;
+    attribute emergencyStopLatency : Second = 0.2;
+
+    port stopCommandOut : CommandPort;
+
+    action validateCommand {
+      in command : CommandPacket;
+      out accepted : Boolean;
+    }
+
+    action triggerEmergencyStop {
+      out stopCommand : CommandPacket;
+    }
+  }
+
+  part def RobotCommunications {
+    attribute encrypted : Boolean = true;
+    attribute linkStatus : LinkStatus;
+    attribute fallbackReturnOnLostLink : Boolean = true;
+    attribute lostLinkTimeout : Second = 10;
+
+    port commandIn : CommandPort;
+    port commandOut : CommandPort;
+    port powerIn : PowerPort;
+  }
+
+  // Behavior
+
+  action def AuthorizeMissionCommand {
+    in command : CommandPacket;
+    out accepted : Boolean;
+  }
+
+  action def NavigateToWaypoint {
+    in targetX : Meter;
+    in targetY : Meter;
+    out arrived : Boolean;
+    out hazardDetected : Boolean;
+  }
+
+  action def InspectSuspectObject {
+    in standoffDistance : Meter;
+    out report : HazardReport;
+  }
+
+  action def CollectEvidence {
+    out sample : EvidenceSample;
+  }
+
+  action def DeliverNonLethalPayload {
+    in payload : MissionPayload;
+    out deliveredPayload : MissionPayload;
+  }
+
+  action def ReturnToBase {
+    out arrivedAtBase : Boolean;
+  }
+
+  action def SafeShutdown {
+    out shutdownComplete : Boolean;
+  }
+
+  state def MilitaryRobotMissionBehavior {
+    entry action initializeRobot;
+    exit action storeMissionLog;
+
+    state idle;
+    state deployment;
+    state navigating;
+    state inspection;
+    state evidenceCollection;
+    state payloadDelivery;
+    state return;
+    state shutdown;
+    state emergencyStop;
+
+    initial then idle;
+
+    transition idle_to_deployment
+      first idle
+      accept CommandPacket
+      if command.operatorAuthorization == true
+      then deployment;
+
+    transition deployment_to_navigating
+      first deployment
+      do NavigateToWaypoint
+      then navigating;
+
+    transition navigating_to_inspection
+      first navigating
+      if hazardDetected == true
+      then inspection;
+
+    transition navigating_to_payloadDelivery
+      first navigating
+      if hazardDetected == false
+      then payloadDelivery;
+
+    transition inspection_to_evidenceCollection
+      first inspection
+      if report.assessment == ThreatAssessment::confirmedHazard and report.humanReviewed == true
+      then evidenceCollection;
+
+    transition inspection_to_return
+      first inspection
+      if report.assessment == ThreatAssessment::clear
+      then return;
+
+    transition evidenceCollection_to_payloadDelivery
+      first evidenceCollection
+      if sample.sealed == true
+      then payloadDelivery;
+
+    transition payloadDelivery_to_return
+      first payloadDelivery
+      if deliveredPayload.delivered == true
+      then return;
+
+    transition return_to_shutdown
+      first return
+      if arrivedAtBase == true
+      then shutdown;
+
+    transition any_to_emergencyStop
+      first idle, deployment, navigating, inspection, evidenceCollection, payloadDelivery, return
+      accept CommandPacket
+      if command.requestedPhase == MissionPhase::safeShutdown or command.operatorAuthorization == false
+      then emergencyStop;
+
+    transition emergencyStop_to_shutdown
+      first emergencyStop
+      do SafeShutdown
+      then shutdown;
+  }
+
+  // Requirements
+
+  requirement def PrimaryTaskRequirement {
+    id = "REQ-MRS-001";
+    text = "The robotic system shall perform remote military support tasks using a military robot for reconnaissance, hazard inspection, evidence collection, and non-lethal payload delivery.";
+  }
+
+  requirement def HumanAuthorizationRequirement {
+    id = "REQ-MRS-002";
+    text = "The military robot shall execute mission phase changes only after receiving authenticated human operator authorization.";
+  }
+
+  requirement def NoAutonomousUseOfForceRequirement {
+    id = "REQ-MRS-003";
+    text = "The military robot shall not perform autonomous use of force or autonomous weapon engagement.";
+  }
+
+  requirement def ReturnReserveRequirement {
+    id = "REQ-MRS-004";
+    text = "The military robot shall begin return-to-base behavior when battery state reaches 25 percent or lower unless overridden by an authenticated emergency command.";
+  }
+
+  requirement def LostLinkRequirement {
+    id = "REQ-MRS-005";
+    text = "The military robot shall enter fallback return-to-base behavior when command link is lost for more than 10 seconds.";
+  }
+
+  requirement def HazardReportRequirement {
+    id = "REQ-MRS-006";
+    text = "The military robot shall produce a hazard report including position, assessment, confidence, and human review status for each suspected hazardous object.";
+  }
+
+  requirement def EvidenceContainmentRequirement {
+    id = "REQ-MRS-007";
+    text = "The military robot shall store collected evidence samples in a sealed compartment and mark contamination status.";
+  }
+
+  requirement def EmergencyStopRequirement {
+    id = "REQ-MRS-008";
+    text = "The military robot shall stop mobility and manipulator motion within 0.2 seconds after receiving an emergency stop command.";
+  }
+
+  requirement def OperatingRangeRequirement {
+    id = "REQ-MRS-009";
+    text = "The military robot shall support operation at distances up to 1500 meters from the operator station through encrypted communications.";
+  }
+
+  requirement def PayloadRequirement {
+    id = "REQ-MRS-010";
+    text = "The military robot shall carry and deliver mission payloads up to 35 kilograms, and payloads shall be marked non-lethal before delivery.";
+  }
+
+  satisfy PrimaryTaskRequirement by MilitaryRobotSystem;
+  satisfy HumanAuthorizationRequirement by OperatorControlStation;
+  satisfy HumanAuthorizationRequirement by SafetySupervisor;
+  satisfy NoAutonomousUseOfForceRequirement by MilitaryRobot;
+  satisfy ReturnReserveRequirement by PowerSubsystem;
+  satisfy LostLinkRequirement by RobotCommunications;
+  satisfy HazardReportRequirement by PerceptionSubsystem;
+  satisfy EvidenceContainmentRequirement by PayloadBay;
+  satisfy EmergencyStopRequirement by SafetySupervisor;
+  satisfy OperatingRangeRequirement by CommunicationsRelay;
+  satisfy PayloadRequirement by PayloadBay;
+}

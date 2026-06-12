@@ -1,0 +1,386 @@
+package BreathalyzerSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def EthanolConcentration {
+        attribute value : Real;
+        attribute unit : String = "mg/L";
+    }
+
+    attribute def BloodAlcoholConcentration {
+        attribute value : Real;
+        attribute unit : String = "%BAC";
+    }
+
+    attribute def FlowRate {
+        attribute value : Real;
+        attribute unit : String = "L/min";
+    }
+
+    attribute def TemperatureCelsius {
+        attribute value : Real;
+        attribute unit : String = "degC";
+    }
+
+    attribute def PressureKPa {
+        attribute value : Real;
+        attribute unit : String = "kPa";
+    }
+
+    attribute def Voltage {
+        attribute value : Real;
+        attribute unit : String = "V";
+    }
+
+    attribute def TimeSeconds {
+        attribute value : Real;
+        attribute unit : String = "s";
+    }
+
+    attribute def SampleVolume {
+        attribute value : Real;
+        attribute unit : String = "L";
+    }
+
+    item def BreathSample {
+        attribute volume : SampleVolume;
+        attribute flowRate : FlowRate;
+        attribute temperature : TemperatureCelsius;
+        attribute pressure : PressureKPa;
+        attribute ethanolConcentration : EthanolConcentration;
+        attribute isEndTidal : Boolean;
+    }
+
+    item def AlcoholMeasurement {
+        attribute breathAlcohol : EthanolConcentration;
+        attribute estimatedBAC : BloodAlcoholConcentration;
+        attribute confidence : Real;
+        attribute timestampSeconds : TimeSeconds;
+        attribute validSample : Boolean;
+    }
+
+    item def UserPrompt {
+        attribute message : String;
+        attribute audible : Boolean;
+        attribute visual : Boolean;
+    }
+
+    item def TestResult {
+        attribute bac : BloodAlcoholConcentration;
+        attribute pass : Boolean;
+        attribute valid : Boolean;
+        attribute reason : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute currentAmpere : Real;
+    }
+
+    port def BreathInletPort {
+        in item breath : BreathSample;
+    }
+
+    port def SamplePort {
+        out item breath : BreathSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : AlcoholMeasurement;
+    }
+
+    port def DisplayPort {
+        in item prompt : UserPrompt;
+        in item result : TestResult;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    part def Mouthpiece {
+        port inlet : BreathInletPort;
+        port outlet : SamplePort;
+
+        attribute disposable : Boolean = true;
+        attribute oneWayValvePresent : Boolean = true;
+        attribute contaminationBarrierEfficiency : Real = 0.995;
+    }
+
+    part def BreathFlowController {
+        port inlet : BreathInletPort;
+        port sampleOut : SamplePort;
+
+        attribute minimumFlow : FlowRate = (value = 6.0; unit = "L/min");
+        attribute maximumFlow : FlowRate = (value = 18.0; unit = "L/min");
+        attribute requiredVolume : SampleVolume = (value = 1.2; unit = "L");
+
+        action validateSample {
+            in item rawBreath : BreathSample;
+            out item acceptedBreath : BreathSample;
+            out valid : Boolean;
+
+            first start;
+            then checkFlow;
+            then checkVolume;
+            then checkEndTidal;
+            then finish;
+
+            action checkFlow {
+                in item rawBreath : BreathSample;
+                out flowOk : Boolean;
+            }
+
+            action checkVolume {
+                in item rawBreath : BreathSample;
+                out volumeOk : Boolean;
+            }
+
+            action checkEndTidal {
+                in item rawBreath : BreathSample;
+                out endTidalOk : Boolean;
+            }
+        }
+    }
+
+    part def EthanolSensor {
+        port sampleIn : BreathInletPort;
+        port measurementOut : MeasurementPort;
+        port power : PowerPort;
+
+        attribute warmupTime : TimeSeconds = (value = 20.0; unit = "s");
+        attribute operatingTemperature : TemperatureCelsius = (value = 34.0; unit = "degC");
+        attribute measurementRangeLow : EthanolConcentration = (value = 0.0; unit = "mg/L");
+        attribute measurementRangeHigh : EthanolConcentration = (value = 2.0; unit = "mg/L");
+        attribute resolution : EthanolConcentration = (value = 0.001; unit = "mg/L");
+
+        action senseEthanol {
+            in item acceptedBreath : BreathSample;
+            out item measuredAlcohol : AlcoholMeasurement;
+        }
+    }
+
+    part def CalibrationReference {
+        attribute referenceConcentration : EthanolConcentration = (value = 0.400; unit = "mg/L");
+        attribute lastCalibrationAgeDays : Real;
+        attribute maximumCalibrationAgeDays : Real = 30.0;
+
+        action applyCalibration {
+            in item uncalibratedMeasurement : AlcoholMeasurement;
+            out item calibratedMeasurement : AlcoholMeasurement;
+        }
+    }
+
+    part def Processor {
+        port measurementIn : MeasurementPort;
+        port displayOut : DisplayPort;
+
+        attribute legalLimit : BloodAlcoholConcentration = (value = 0.080; unit = "%BAC");
+        attribute breathToBloodRatio : Real = 2100.0;
+        attribute minimumConfidence : Real = 0.95;
+
+        action computeBAC {
+            in item breathMeasurement : AlcoholMeasurement;
+            out item result : TestResult;
+
+            first convertBreathAlcoholToBAC;
+            then compareLimit;
+            then publishResult;
+
+            action convertBreathAlcoholToBAC {
+                in item breathMeasurement : AlcoholMeasurement;
+                out attribute bac : BloodAlcoholConcentration;
+            }
+
+            action compareLimit {
+                in attribute bac : BloodAlcoholConcentration;
+                out pass : Boolean;
+            }
+
+            action publishResult {
+                in attribute bac : BloodAlcoholConcentration;
+                in pass : Boolean;
+                out item result : TestResult;
+            }
+        }
+    }
+
+    part def UserInterface {
+        port display : DisplayPort;
+
+        attribute displayBrightness : Real = 0.85;
+        attribute buzzerVolume : Real = 0.70;
+
+        action promptUser {
+            out item prompt : UserPrompt;
+        }
+
+        action showResult {
+            in item result : TestResult;
+        }
+    }
+
+    part def BatteryPack {
+        port output : PowerPort;
+
+        attribute nominalVoltage : Voltage = (value = 3.7; unit = "V");
+        attribute minimumOperatingVoltage : Voltage = (value = 3.2; unit = "V");
+        attribute capacityMilliAmpHours : Real = 2200.0;
+        attribute stateOfCharge : Real;
+    }
+
+    part def Breathalyzer {
+        port breathInput : BreathInletPort;
+        port resultDisplay : DisplayPort;
+
+        part mouthpiece : Mouthpiece;
+        part flowController : BreathFlowController;
+        part sensor : EthanolSensor;
+        part calibration : CalibrationReference;
+        part processor : Processor;
+        part ui : UserInterface;
+        part battery : BatteryPack;
+
+        connect breathInput to mouthpiece.inlet;
+        connect mouthpiece.outlet to flowController.inlet;
+        connect flowController.sampleOut to sensor.sampleIn;
+        connect sensor.measurementOut to processor.measurementIn;
+        connect processor.displayOut to ui.display;
+        connect ui.display to resultDisplay;
+        connect battery.output to sensor.power;
+
+        action performBreathAlcoholTest {
+            in item userBreath : BreathSample;
+            out item finalResult : TestResult;
+
+            first receiveBreath;
+            then validateBreathSample;
+            then measureAlcohol;
+            then calibrateMeasurement;
+            then calculateResult;
+            then presentResult;
+
+            action receiveBreath {
+                in item userBreath : BreathSample;
+                out item rawSample : BreathSample;
+            }
+
+            action validateBreathSample {
+                in item rawSample : BreathSample;
+                out item acceptedSample : BreathSample;
+                out valid : Boolean;
+            }
+
+            action measureAlcohol {
+                in item acceptedSample : BreathSample;
+                out item rawMeasurement : AlcoholMeasurement;
+            }
+
+            action calibrateMeasurement {
+                in item rawMeasurement : AlcoholMeasurement;
+                out item calibratedMeasurement : AlcoholMeasurement;
+            }
+
+            action calculateResult {
+                in item calibratedMeasurement : AlcoholMeasurement;
+                out item finalResult : TestResult;
+            }
+
+            action presentResult {
+                in item finalResult : TestResult;
+            }
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state selfTest;
+            state warmingSensor;
+            state readyForBreath;
+            state samplingBreath;
+            state analyzingSample;
+            state displayingResult;
+            state error;
+
+            transition initial then off;
+            transition off then selfTest
+                accept PowerButtonPressed;
+            transition selfTest then warmingSensor
+                if battery.stateOfCharge > 0.10;
+            transition selfTest then error
+                if battery.stateOfCharge <= 0.10;
+            transition warmingSensor then readyForBreath
+                after sensor.warmupTime;
+            transition readyForBreath then samplingBreath
+                accept BreathDetected;
+            transition samplingBreath then analyzingSample
+                accept ValidSampleCollected;
+            transition samplingBreath then readyForBreath
+                accept InvalidSampleCollected;
+            transition analyzingSample then displayingResult
+                accept AnalysisComplete;
+            transition displayingResult then readyForBreath
+                after (value = 10.0; unit = "s");
+            transition error then off
+                accept PowerButtonPressed;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The breathalyzer shall estimate a person's blood alcohol concentration from an exhaled breath sample and present a clear pass/fail and numeric result. */
+        subject breathalyzer : Breathalyzer;
+
+        require constraint {
+            breathalyzer.processor.minimumConfidence >= 0.95
+        }
+    }
+
+    requirement def SampleValidityRequirement {
+        doc /* The system shall accept only breath samples with sufficient volume, controlled flow rate, and end-tidal indication. */
+        subject flowController : BreathFlowController;
+
+        require constraint {
+            flowController.requiredVolume.value >= 1.2 and
+            flowController.minimumFlow.value >= 6.0 and
+            flowController.maximumFlow.value <= 18.0
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The ethanol sensor shall measure breath alcohol concentration over the expected personal screening range. */
+        subject sensor : EthanolSensor;
+
+        require constraint {
+            sensor.measurementRangeLow.value == 0.0 and
+            sensor.measurementRangeHigh.value >= 2.0 and
+            sensor.resolution.value <= 0.001
+        }
+    }
+
+    requirement def UserFeedbackRequirement {
+        doc /* The system shall guide the user through readiness, sampling, analysis, and result presentation using visual and audible prompts. */
+        subject ui : UserInterface;
+
+        require constraint {
+            ui.displayBrightness >= 0.5 and ui.buzzerVolume >= 0.5
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The system shall operate from an internal battery and detect insufficient charge before accepting a test. */
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.nominalVoltage.value >= 3.7 and
+            battery.minimumOperatingVoltage.value >= 3.2
+        }
+    }
+
+    part breathalyzerSystem : Breathalyzer;
+
+    satisfy PrimaryFunctionRequirement by breathalyzerSystem;
+    satisfy SampleValidityRequirement by breathalyzerSystem.flowController;
+    satisfy MeasurementRangeRequirement by breathalyzerSystem.sensor;
+    satisfy UserFeedbackRequirement by breathalyzerSystem.ui;
+    satisfy PowerRequirement by breathalyzerSystem.battery;
+}

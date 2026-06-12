@@ -1,0 +1,558 @@
+package StructuredLight3DScannerModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    /* Value and item types */
+
+    attribute def LengthMm :> Real {
+        unit = "mm";
+    }
+
+    attribute def AngleDeg :> Real {
+        unit = "deg";
+    }
+
+    attribute def FrequencyHz :> Real {
+        unit = "Hz";
+    }
+
+    attribute def TimeMs :> Real {
+        unit = "ms";
+    }
+
+    attribute def TemperatureC :> Real {
+        unit = "degC";
+    }
+
+    attribute def LuminousFluxLm :> Real {
+        unit = "lm";
+    }
+
+    attribute def PowerW :> Real {
+        unit = "W";
+    }
+
+    attribute def DataRateMbps :> Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def PixelCount :> Integer;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def StructuredLightPattern {
+        attribute patternId : Integer;
+        attribute spatialFrequency : FrequencyHz;
+        attribute phaseStepCount : Integer;
+        attribute exposureTime : TimeMs;
+        attribute brightness : Percent;
+    }
+
+    item def OpticalImageFrame {
+        attribute frameId : Integer;
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute exposureTime : TimeMs;
+        attribute gain : Real;
+        attribute timestamp : TimeMs;
+    }
+
+    item def CalibrationData {
+        attribute baseline : LengthMm;
+        attribute focalLength : LengthMm;
+        attribute projectorPrincipalPointX : LengthMm;
+        attribute projectorPrincipalPointY : LengthMm;
+        attribute cameraPrincipalPointX : LengthMm;
+        attribute cameraPrincipalPointY : LengthMm;
+        attribute reprojectionError : LengthMm;
+    }
+
+    item def Point3D {
+        attribute x : LengthMm;
+        attribute y : LengthMm;
+        attribute z : LengthMm;
+        attribute confidence : Percent;
+    }
+
+    item def PointCloud {
+        attribute pointCount : Integer;
+        attribute averageSpacing : LengthMm;
+        attribute rmsNoise : LengthMm;
+        attribute coverage : Percent;
+    }
+
+    item def MeshModel {
+        attribute vertexCount : Integer;
+        attribute triangleCount : Integer;
+        attribute watertightness : Percent;
+        attribute textureResolutionPixels : PixelCount;
+    }
+
+    item def ScanCommand {
+        attribute requestedResolution : LengthMm;
+        attribute scanVolumeWidth : LengthMm;
+        attribute scanVolumeHeight : LengthMm;
+        attribute scanVolumeDepth : LengthMm;
+        attribute colorCaptureEnabled : Boolean;
+    }
+
+    item def ScanStatus {
+        attribute progress : Percent;
+        attribute currentPhase : String;
+        attribute estimatedRemainingTime : TimeMs;
+        attribute faultActive : Boolean;
+    }
+
+    item def ScanResult {
+        attribute accepted : Boolean;
+        attribute measurementUncertainty : LengthMm;
+        item cloud : PointCloud;
+        item mesh : MeshModel;
+    }
+
+    item def PowerInput {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : PowerW;
+    }
+
+    /* Ports */
+
+    port def PatternProjectionPort {
+        out item projectedPattern : StructuredLightPattern;
+    }
+
+    port def ImageCapturePort {
+        in item observedPatternImage : OpticalImageFrame;
+    }
+
+    port def IlluminationSyncPort {
+        out attribute triggerTime : TimeMs;
+        out attribute patternIndex : Integer;
+    }
+
+    port def ProcessingDataPort {
+        in item rawFrame : OpticalImageFrame;
+        out item reconstructedCloud : PointCloud;
+        out item reconstructedMesh : MeshModel;
+    }
+
+    port def OperatorControlPort {
+        in item command : ScanCommand;
+        out item status : ScanStatus;
+        out item result : ScanResult;
+    }
+
+    port def PowerPort {
+        in item inputPower : PowerInput;
+    }
+
+    port def ThermalPort {
+        out attribute componentTemperature : TemperatureC;
+    }
+
+    port def NetworkPort {
+        in item command : ScanCommand;
+        out item result : ScanResult;
+        attribute sustainedDataRate : DataRateMbps;
+    }
+
+    /* Interfaces */
+
+    interface def PatternToObjectInterface {
+        end projector : PatternProjectionPort;
+        end objectSurface : ImageCapturePort;
+        item pattern : StructuredLightPattern;
+    }
+
+    interface def CameraToProcessorInterface {
+        end camera : ProcessingDataPort;
+        end processor : ProcessingDataPort;
+        item image : OpticalImageFrame;
+    }
+
+    interface def ProcessorToOperatorInterface {
+        end processor : OperatorControlPort;
+        end operator : OperatorControlPort;
+        item status : ScanStatus;
+        item result : ScanResult;
+    }
+
+    /* Parts */
+
+    part def ProjectionSubsystem {
+        attribute maximumBrightness : LuminousFluxLm = 450.0;
+        attribute nativeWidth : PixelCount = 1920;
+        attribute nativeHeight : PixelCount = 1080;
+        attribute projectionAngle : AngleDeg = 18.0;
+        attribute patternRefreshRate : FrequencyHz = 120.0;
+        attribute operatingPower : PowerW = 35.0;
+
+        port patternOut : PatternProjectionPort;
+        port syncOut : IlluminationSyncPort;
+        port powerIn : PowerPort;
+        port thermalOut : ThermalPort;
+
+        action generatePhaseShiftPattern {
+            in attribute requestedStep : Integer;
+            out item pattern : StructuredLightPattern;
+            assign pattern.patternId := requestedStep;
+            assign pattern.phaseStepCount := 8;
+            assign pattern.spatialFrequency := 60.0;
+            assign pattern.exposureTime := 8.0;
+            assign pattern.brightness := 85.0;
+        }
+    }
+
+    part def StereoCameraSubsystem {
+        attribute leftSensorWidth : PixelCount = 2448;
+        attribute leftSensorHeight : PixelCount = 2048;
+        attribute rightSensorWidth : PixelCount = 2448;
+        attribute rightSensorHeight : PixelCount = 2048;
+        attribute frameRate : FrequencyHz = 60.0;
+        attribute baseline : LengthMm = 120.0;
+        attribute lensFocalLength : LengthMm = 12.0;
+        attribute operatingPower : PowerW = 18.0;
+
+        port captureIn : ImageCapturePort;
+        port dataOut : ProcessingDataPort;
+        port syncIn : IlluminationSyncPort;
+        port powerIn : PowerPort;
+        port thermalOut : ThermalPort;
+
+        action captureSynchronizedFrame {
+            in attribute patternIndex : Integer;
+            out item frame : OpticalImageFrame;
+            assign frame.frameId := patternIndex;
+            assign frame.widthPixels := 2448;
+            assign frame.heightPixels := 2048;
+            assign frame.exposureTime := 8.0;
+            assign frame.gain := 1.2;
+        }
+    }
+
+    part def TurntableFixture {
+        attribute tableDiameter : LengthMm = 300.0;
+        attribute angularResolution : AngleDeg = 0.1;
+        attribute maximumObjectMassKg : Real = 8.0;
+        attribute currentAngle : AngleDeg;
+        attribute operatingPower : PowerW = 12.0;
+
+        port powerIn : PowerPort;
+
+        action rotateToNextView {
+            in attribute targetAngle : AngleDeg;
+            out attribute reachedAngle : AngleDeg;
+            assign reachedAngle := targetAngle;
+            assign currentAngle := targetAngle;
+        }
+    }
+
+    part def ProcessingSubsystem {
+        attribute processorFrameBufferCount : Integer = 32;
+        attribute minimumPointSpacing : LengthMm = 0.05;
+        attribute nominalAccuracy : LengthMm = 0.08;
+        attribute sustainedThroughput : DataRateMbps = 2500.0;
+        attribute operatingPower : PowerW = 65.0;
+
+        item calibration : CalibrationData;
+
+        port imageIn : ProcessingDataPort;
+        port operatorIo : OperatorControlPort;
+        port networkIo : NetworkPort;
+        port powerIn : PowerPort;
+        port thermalOut : ThermalPort;
+
+        action decodeStructuredLight {
+            in item frames : OpticalImageFrame;
+            in item calibration : CalibrationData;
+            out item cloud : PointCloud;
+            assign cloud.pointCount := 2200000;
+            assign cloud.averageSpacing := 0.08;
+            assign cloud.rmsNoise := 0.035;
+            assign cloud.coverage := 96.0;
+        }
+
+        action registerViews {
+            in item partialCloud : PointCloud;
+            out item registeredCloud : PointCloud;
+            assign registeredCloud.pointCount := partialCloud.pointCount;
+            assign registeredCloud.averageSpacing := partialCloud.averageSpacing;
+            assign registeredCloud.rmsNoise := partialCloud.rmsNoise + 0.01;
+            assign registeredCloud.coverage := partialCloud.coverage;
+        }
+
+        action generateMesh {
+            in item cloud : PointCloud;
+            out item mesh : MeshModel;
+            assign mesh.vertexCount := cloud.pointCount;
+            assign mesh.triangleCount := cloud.pointCount * 2;
+            assign mesh.watertightness := 92.0;
+            assign mesh.textureResolutionPixels := 4096;
+        }
+    }
+
+    part def OperatorInterface {
+        attribute displayWidthPixels : PixelCount = 1920;
+        attribute displayHeightPixels : PixelCount = 1080;
+
+        port control : OperatorControlPort;
+
+        action requestScan {
+            out item command : ScanCommand;
+            assign command.requestedResolution := 0.10;
+            assign command.scanVolumeWidth := 250.0;
+            assign command.scanVolumeHeight := 250.0;
+            assign command.scanVolumeDepth := 250.0;
+            assign command.colorCaptureEnabled := true;
+        }
+    }
+
+    part def PowerSupply {
+        attribute inputVoltageVac : Real = 120.0;
+        attribute outputVoltageVdc : Real = 24.0;
+        attribute maximumOutputPower : PowerW = 180.0;
+
+        port projectorPower : PowerPort;
+        port cameraPower : PowerPort;
+        port processorPower : PowerPort;
+        port turntablePower : PowerPort;
+    }
+
+    part def StructuredLight3DScanner {
+        doc /* Primary function: project known structured-light patterns onto an object, capture their deformation with calibrated cameras, compute dense surface geometry by triangulation, and deliver a metrically accurate 3D point cloud and mesh for inspection, reverse engineering, or digital archiving. */
+
+        attribute scanVolumeWidth : LengthMm = 250.0;
+        attribute scanVolumeHeight : LengthMm = 250.0;
+        attribute scanVolumeDepth : LengthMm = 250.0;
+        attribute nominalAccuracy : LengthMm = 0.08;
+        attribute minimumPointSpacing : LengthMm = 0.05;
+        attribute scanCycleTime : TimeMs = 12000.0;
+        attribute totalOperatingPower : PowerW = 130.0;
+
+        part projector : ProjectionSubsystem;
+        part cameras : StereoCameraSubsystem;
+        part processor : ProcessingSubsystem;
+        part turntable : TurntableFixture;
+        part operatorPanel : OperatorInterface;
+        part powerSupply : PowerSupply;
+
+        port operatorPort : OperatorControlPort;
+        port networkPort : NetworkPort;
+        port powerInput : PowerPort;
+
+        connect projector.patternOut to cameras.captureIn;
+        connect projector.syncOut to cameras.syncIn;
+        connect cameras.dataOut to processor.imageIn;
+        connect processor.operatorIo to operatorPanel.control;
+        connect processor.operatorIo to operatorPort;
+        connect processor.networkIo to networkPort;
+
+        connect powerInput to powerSupply.projectorPower;
+        connect powerSupply.projectorPower to projector.powerIn;
+        connect powerSupply.cameraPower to cameras.powerIn;
+        connect powerSupply.processorPower to processor.powerIn;
+        connect powerSupply.turntablePower to turntable.powerIn;
+
+        perform action performScan {
+            in item command : ScanCommand;
+            out item result : ScanResult;
+
+            first startScan;
+            then calibrateOptics;
+            then projectAndCapturePatterns;
+            then reconstructPointCloud;
+            then registerAllViews;
+            then produceMesh;
+            then publishResult;
+
+            action startScan {
+                out item status : ScanStatus;
+                assign status.progress := 0.0;
+                assign status.currentPhase := "Initializing scan";
+                assign status.faultActive := false;
+            }
+
+            action calibrateOptics {
+                out item calibration : CalibrationData;
+                assign calibration.baseline := 120.0;
+                assign calibration.focalLength := 12.0;
+                assign calibration.projectorPrincipalPointX := 960.0;
+                assign calibration.projectorPrincipalPointY := 540.0;
+                assign calibration.cameraPrincipalPointX := 1224.0;
+                assign calibration.cameraPrincipalPointY := 1024.0;
+                assign calibration.reprojectionError := 0.025;
+            }
+
+            action projectAndCapturePatterns {
+                in item command : ScanCommand;
+                out item capturedFrame : OpticalImageFrame;
+                assign capturedFrame.widthPixels := 2448;
+                assign capturedFrame.heightPixels := 2048;
+                assign capturedFrame.exposureTime := 8.0;
+                assign capturedFrame.gain := 1.2;
+            }
+
+            action reconstructPointCloud {
+                in item capturedFrame : OpticalImageFrame;
+                out item cloud : PointCloud;
+                assign cloud.pointCount := 2200000;
+                assign cloud.averageSpacing := command.requestedResolution;
+                assign cloud.rmsNoise := 0.035;
+                assign cloud.coverage := 96.0;
+            }
+
+            action registerAllViews {
+                in item cloud : PointCloud;
+                out item registeredCloud : PointCloud;
+                assign registeredCloud.pointCount := 8500000;
+                assign registeredCloud.averageSpacing := cloud.averageSpacing;
+                assign registeredCloud.rmsNoise := 0.045;
+                assign registeredCloud.coverage := 98.0;
+            }
+
+            action produceMesh {
+                in item registeredCloud : PointCloud;
+                out item mesh : MeshModel;
+                assign mesh.vertexCount := registeredCloud.pointCount;
+                assign mesh.triangleCount := 17000000;
+                assign mesh.watertightness := 92.0;
+                assign mesh.textureResolutionPixels := 4096;
+            }
+
+            action publishResult {
+                in item registeredCloud : PointCloud;
+                in item mesh : MeshModel;
+                out item result : ScanResult;
+                assign result.accepted := true;
+                assign result.measurementUncertainty := 0.08;
+                bind result.cloud = registeredCloud;
+                bind result.mesh = mesh;
+            }
+        }
+
+        state def ScannerOperationalState {
+            entry action initializeHardware;
+
+            state Off;
+            state Idle;
+            state Calibrating;
+            state Scanning;
+            state Processing;
+            state Complete;
+            state Fault;
+
+            transition first Off then Idle
+                accept PowerInput;
+
+            transition Idle then Calibrating
+                accept ScanCommand
+                if command.requestedResolution >= 0.05 and command.requestedResolution <= 0.50;
+
+            transition Calibrating then Scanning
+                if processor.calibration.reprojectionError <= 0.05;
+
+            transition Scanning then Processing
+                if scanCycleTime <= 12000.0;
+
+            transition Processing then Complete
+                if processor.nominalAccuracy <= 0.08;
+
+            transition Complete then Idle
+                accept ScanCommand;
+
+            transition Idle then Fault
+                if projector.thermalOut.componentTemperature > 70.0;
+
+            transition Calibrating then Fault
+                if processor.calibration.reprojectionError > 0.05;
+
+            transition Scanning then Fault
+                if cameras.thermalOut.componentTemperature > 75.0;
+
+            transition Processing then Fault
+                if totalOperatingPower > 180.0;
+
+            transition Fault then Idle
+                accept ScanCommand
+                if projector.thermalOut.componentTemperature < 55.0 and cameras.thermalOut.componentTemperature < 55.0;
+        }
+    }
+
+    /* Requirements */
+
+    requirement def PrimaryFunctionRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall project structured-light patterns, capture pattern deformation, reconstruct dense 3D geometry, and output a calibrated point cloud and mesh representing the visible object surface. */
+        require constraint {
+            scanner.nominalAccuracy <= 0.10 and
+            scanner.minimumPointSpacing <= 0.10 and
+            scanner.scanVolumeWidth >= 250.0 and
+            scanner.scanVolumeHeight >= 250.0 and
+            scanner.scanVolumeDepth >= 250.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall achieve nominal dimensional accuracy of 0.08 mm or better within the rated scan volume after calibration. */
+        require constraint {
+            scanner.nominalAccuracy <= 0.08
+        }
+    }
+
+    requirement def ResolutionRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall produce surface samples with average spacing of 0.10 mm or finer for standard scan mode. */
+        require constraint {
+            scanner.minimumPointSpacing <= 0.10
+        }
+    }
+
+    requirement def ScanCycleRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall complete projection, capture, reconstruction, and result publication within 12 seconds for a standard object scan. */
+        require constraint {
+            scanner.scanCycleTime <= 12000.0
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall enter a fault state when projector or camera operating temperature exceeds the allowed thermal limit. */
+        require constraint {
+            scanner.projector.thermalOut.componentTemperature <= 70.0 and
+            scanner.cameras.thermalOut.componentTemperature <= 75.0
+        }
+    }
+
+    requirement def PowerBudgetRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall operate within the rated power supply capacity. */
+        require constraint {
+            scanner.totalOperatingPower <= scanner.powerSupply.maximumOutputPower
+        }
+    }
+
+    requirement def DataOutputRequirement {
+        subject scanner : StructuredLight3DScanner;
+        doc /* The scanner shall provide both point cloud and triangle mesh outputs for downstream metrology and visualization workflows. */
+        require constraint {
+            scanner.processor.sustainedThroughput >= 1000.0
+        }
+    }
+
+    part structuredLightScanner : StructuredLight3DScanner;
+
+    satisfy PrimaryFunctionRequirement by structuredLightScanner;
+    satisfy AccuracyRequirement by structuredLightScanner;
+    satisfy ResolutionRequirement by structuredLightScanner;
+    satisfy ScanCycleRequirement by structuredLightScanner;
+    satisfy ThermalSafetyRequirement by structuredLightScanner;
+    satisfy PowerBudgetRequirement by structuredLightScanner;
+    satisfy DataOutputRequirement by structuredLightScanner;
+}

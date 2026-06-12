@@ -1,0 +1,405 @@
+package BernoulliLiftSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure :> ISQ::pressure {
+    unit = SI::pascal;
+  }
+
+  attribute def Velocity :> ISQ::speed {
+    unit = SI::metrePerSecond;
+  }
+
+  attribute def Density :> ISQ::massDensity {
+    unit = SI::kilogramPerCubicMetre;
+  }
+
+  attribute def Area :> ISQ::area {
+    unit = SI::squareMetre;
+  }
+
+  attribute def Force :> ISQ::force {
+    unit = SI::newton;
+  }
+
+  attribute def Length :> ISQ::length {
+    unit = SI::metre;
+  }
+
+  attribute def Angle :> ISQ::planeAngle {
+    unit = SI::degree;
+  }
+
+  attribute def Mass :> ISQ::mass {
+    unit = SI::kilogram;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Ratio :> ScalarValues::Real;
+
+  item def Air {
+    attribute staticPressure : Pressure;
+    attribute dynamicPressure : Pressure;
+    attribute density : Density;
+    attribute velocity : Velocity;
+    attribute temperature : ISQ::thermodynamicTemperature;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ISQ::electricPotential;
+    attribute current : ISQ::electricCurrent;
+    attribute power : Power;
+  }
+
+  item def ControlSignal {
+    attribute commandedFanSpeed : Ratio;
+    attribute commandedFlapAngle : Angle;
+    attribute enableLift : Boolean;
+  }
+
+  item def LiftTelemetry {
+    attribute upperSurfaceVelocity : Velocity;
+    attribute lowerSurfaceVelocity : Velocity;
+    attribute pressureDifferential : Pressure;
+    attribute generatedLift : Force;
+    attribute stableFlow : Boolean;
+  }
+
+  port def AirInletPort {
+    in item ambientAir : Air;
+  }
+
+  port def AirOutletPort {
+    out item acceleratedAir : Air;
+  }
+
+  port def PowerInputPort {
+    in item suppliedPower : ElectricalPower;
+  }
+
+  port def ControlInputPort {
+    in item command : ControlSignal;
+  }
+
+  port def TelemetryOutputPort {
+    out item telemetry : LiftTelemetry;
+  }
+
+  port def LiftOutputPort {
+    out item liftForce : Force;
+  }
+
+  action def AccelerateAir {
+    in item inletAir : Air;
+    in attribute fanSpeedCommand : Ratio;
+    out item outletAir : Air;
+
+    attribute velocityGain : Ratio;
+
+    constraint {
+      velocityGain >= 1.0;
+      outletAir.velocity == inletAir.velocity * velocityGain;
+      outletAir.density == inletAir.density;
+      outletAir.staticPressure < inletAir.staticPressure;
+    }
+  }
+
+  action def ShapeFlowOverAirfoil {
+    in item inletAir : Air;
+    in attribute flapAngle : Angle;
+    out item upperFlow : Air;
+    out item lowerFlow : Air;
+
+    attribute camberVelocityRatio : Ratio;
+
+    constraint {
+      camberVelocityRatio > 1.0;
+      upperFlow.velocity == inletAir.velocity * camberVelocityRatio;
+      lowerFlow.velocity < upperFlow.velocity;
+      upperFlow.density == inletAir.density;
+      lowerFlow.density == inletAir.density;
+    }
+  }
+
+  action def ApplyBernoulliRelation {
+    in item upperFlow : Air;
+    in item lowerFlow : Air;
+    out attribute pressureDifference : Pressure;
+
+    constraint bernoulliPressureDifference {
+      pressureDifference ==
+        (0.5 * lowerFlow.density * lowerFlow.velocity * lowerFlow.velocity) -
+        (0.5 * upperFlow.density * upperFlow.velocity * upperFlow.velocity);
+    }
+  }
+
+  action def GenerateLift {
+    in attribute pressureDifference : Pressure;
+    in attribute liftingArea : Area;
+    out attribute lift : Force;
+
+    constraint {
+      lift == pressureDifference * liftingArea;
+      lift >= 0.0 [SI::newton];
+    }
+  }
+
+  state def LiftSystemOperatingState {
+    entry action initializeTelemetry;
+
+    state Off;
+    state Standby;
+    state FlowAcceleration;
+    state LiftGeneration;
+    state Fault;
+
+    transition initial then Off;
+
+    transition powerAvailable
+      first Off
+      then Standby;
+
+    transition enableCommandReceived
+      first Standby
+      then FlowAcceleration;
+
+    transition flowStable
+      first FlowAcceleration
+      then LiftGeneration;
+
+    transition disableCommandReceived
+      first LiftGeneration
+      then Standby;
+
+    transition unstableFlowDetected
+      first FlowAcceleration
+      then Fault;
+
+    transition insufficientPressureDifferential
+      first LiftGeneration
+      then Fault;
+
+    transition resetCommandReceived
+      first Fault
+      then Standby;
+  }
+
+  part def FanAssembly {
+    port powerIn : PowerInputPort;
+    port controlIn : ControlInputPort;
+    port airIn : AirInletPort;
+    port airOut : AirOutletPort;
+
+    attribute maximumElectricalPower : Power = 1800 [SI::watt];
+    attribute maximumVelocityGain : Ratio = 4.0;
+    attribute rotorDiameter : Length = 0.32 [SI::metre];
+
+    action accelerate : AccelerateAir {
+      in inletAir = airIn.ambientAir;
+      in fanSpeedCommand = controlIn.command.commandedFanSpeed;
+      out outletAir = airOut.acceleratedAir;
+      velocityGain = 1.0 + (maximumVelocityGain - 1.0) * controlIn.command.commandedFanSpeed;
+    }
+  }
+
+  part def AirfoilDuct {
+    port airIn : AirInletPort;
+    port airOut : AirOutletPort;
+
+    attribute chordLength : Length = 0.75 [SI::metre];
+    attribute span : Length = 1.20 [SI::metre];
+    attribute liftingArea : Area = 0.90 [SI::squareMetre];
+    attribute nominalFlapAngle : Angle = 8 [SI::degree];
+    attribute maximumFlapAngle : Angle = 22 [SI::degree];
+
+    item upperSurfaceFlow : Air;
+    item lowerSurfaceFlow : Air;
+
+    action shapeFlow : ShapeFlowOverAirfoil {
+      in inletAir = airIn.ambientAir;
+      in flapAngle = nominalFlapAngle;
+      out upperFlow = upperSurfaceFlow;
+      out lowerFlow = lowerSurfaceFlow;
+      camberVelocityRatio = 1.28;
+    }
+  }
+
+  part def PressureSensorPair {
+    port telemetryOut : TelemetryOutputPort;
+
+    item measuredUpperFlow : Air;
+    item measuredLowerFlow : Air;
+
+    attribute measuredPressureDifferential : Pressure;
+    attribute sensorAccuracy : Pressure = 12 [SI::pascal];
+
+    action estimatePressureDifference : ApplyBernoulliRelation {
+      in upperFlow = measuredUpperFlow;
+      in lowerFlow = measuredLowerFlow;
+      out pressureDifference = measuredPressureDifferential;
+    }
+  }
+
+  part def LiftController {
+    port controlOut : ControlInputPort;
+    port telemetryIn : TelemetryOutputPort;
+
+    attribute targetLift : Force = 120 [SI::newton];
+    attribute minimumStablePressureDifferential : Pressure = 75 [SI::pascal];
+    attribute maximumAllowedPressureDifferential : Pressure = 950 [SI::pascal];
+    attribute fanSpeedCommand : Ratio;
+    attribute flapAngleCommand : Angle;
+
+    behavior operatingState : LiftSystemOperatingState;
+
+    action regulateLift {
+      in item telemetry : LiftTelemetry;
+      out item command : ControlSignal;
+
+      constraint {
+        command.enableLift == true;
+        command.commandedFanSpeed >= 0.0;
+        command.commandedFanSpeed <= 1.0;
+        command.commandedFlapAngle >= 0 [SI::degree];
+        command.commandedFlapAngle <= 22 [SI::degree];
+      }
+    }
+  }
+
+  part def BernoulliLiftGenerator {
+    port ambientAirIn : AirInletPort;
+    port electricalPowerIn : PowerInputPort;
+    port controlIn : ControlInputPort;
+    port telemetryOut : TelemetryOutputPort;
+    port liftOut : LiftOutputPort;
+
+    part fan : FanAssembly;
+    part duct : AirfoilDuct;
+    part sensors : PressureSensorPair;
+    part controller : LiftController;
+
+    item acceleratedAir : Air;
+    item upperAir : Air;
+    item lowerAir : Air;
+
+    attribute ambientAirDensity : Density = 1.225 [SI::kilogramPerCubicMetre];
+    attribute designUpperSurfaceVelocity : Velocity = 42 [SI::metrePerSecond];
+    attribute designLowerSurfaceVelocity : Velocity = 26 [SI::metrePerSecond];
+    attribute designPressureDifferential : Pressure;
+    attribute designLift : Force;
+
+    action calculatePressureDifference : ApplyBernoulliRelation {
+      in upperFlow = upperAir;
+      in lowerFlow = lowerAir;
+      out pressureDifference = designPressureDifferential;
+    }
+
+    action produceLift : GenerateLift {
+      in pressureDifference = designPressureDifferential;
+      in liftingArea = duct.liftingArea;
+      out lift = designLift;
+    }
+
+    connect ambientAirIn to fan.airIn;
+    connect electricalPowerIn to fan.powerIn;
+    connect controlIn to fan.controlIn;
+    connect fan.airOut to duct.airIn;
+    connect duct.airOut to ambientAirIn;
+    connect sensors.telemetryOut to telemetryOut;
+    connect controller.controlOut to controlIn;
+    connect controller.telemetryIn to telemetryOut;
+    connect liftOut.liftForce to designLift;
+
+    constraint bernoulliPrinciple {
+      upperAir.velocity > lowerAir.velocity;
+      upperAir.staticPressure < lowerAir.staticPressure;
+      designPressureDifferential > 0 [SI::pascal];
+      designLift == designPressureDifferential * duct.liftingArea;
+    }
+
+    constraint highLevelPrimaryFunction {
+      designLift >= 100 [SI::newton];
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : BernoulliLiftGenerator;
+
+    doc
+    /* The system shall generate upward lift by accelerating airflow over a curved ducted airfoil so that the upper-surface flow velocity exceeds the lower-surface flow velocity, creating a lower static pressure above the airfoil and a net upward force according to Bernoulli's principle. */
+
+    require constraint {
+      system.designLift >= 100 [SI::newton];
+      system.designPressureDifferential >= 75 [SI::pascal];
+    }
+  }
+
+  requirement def FlowVelocityRequirement {
+    subject system : BernoulliLiftGenerator;
+
+    require constraint {
+      system.upperAir.velocity >= 1.20 * system.lowerAir.velocity;
+    }
+  }
+
+  requirement def PressureDifferentialRequirement {
+    subject system : BernoulliLiftGenerator;
+
+    require constraint {
+      system.upperAir.staticPressure < system.lowerAir.staticPressure;
+      system.designPressureDifferential <= 950 [SI::pascal];
+    }
+  }
+
+  requirement def ControlSafetyRequirement {
+    subject system : BernoulliLiftGenerator;
+
+    require constraint {
+      system.controller.fanSpeedCommand >= 0.0;
+      system.controller.fanSpeedCommand <= 1.0;
+      system.controller.flapAngleCommand >= 0 [SI::degree];
+      system.controller.flapAngleCommand <= system.duct.maximumFlapAngle;
+    }
+  }
+
+  requirement def TelemetryRequirement {
+    subject system : BernoulliLiftGenerator;
+
+    require constraint {
+      system.telemetryOut.telemetry.stableFlow == true;
+      system.telemetryOut.telemetry.generatedLift == system.designLift;
+      system.telemetryOut.telemetry.pressureDifferential == system.designPressureDifferential;
+    }
+  }
+
+  part bernoulliDemonstrator : BernoulliLiftGenerator {
+    upperAir = Air {
+      density = 1.225 [SI::kilogramPerCubicMetre];
+      velocity = 42 [SI::metrePerSecond];
+      staticPressure = 100185 [SI::pascal];
+      dynamicPressure = 1080.45 [SI::pascal];
+    }
+
+    lowerAir = Air {
+      density = 1.225 [SI::kilogramPerCubicMetre];
+      velocity = 26 [SI::metrePerSecond];
+      staticPressure = 100850 [SI::pascal];
+      dynamicPressure = 414.05 [SI::pascal];
+    }
+
+    designPressureDifferential = 666.4 [SI::pascal];
+    designLift = 599.76 [SI::newton];
+  }
+
+  satisfy PrimaryFunctionRequirement by bernoulliDemonstrator;
+  satisfy FlowVelocityRequirement by bernoulliDemonstrator;
+  satisfy PressureDifferentialRequirement by bernoulliDemonstrator;
+  satisfy ControlSafetyRequirement by bernoulliDemonstrator;
+  satisfy TelemetryRequirement by bernoulliDemonstrator;
+
+}

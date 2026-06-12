@@ -1,0 +1,431 @@
+package RoboticNavigationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String = "m";
+    }
+
+    attribute def SpeedValue {
+        attribute value : Real;
+        attribute unit : String = "m/s";
+    }
+
+    attribute def AngleValue {
+        attribute value : Real;
+        attribute unit : String = "deg";
+    }
+
+    attribute def TimeValue {
+        attribute value : Real;
+        attribute unit : String = "s";
+    }
+
+    attribute def ConfidenceValue {
+        attribute value : Real;
+        attribute unit : String = "1";
+    }
+
+    item def Pose3D {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : AngleValue;
+        attribute pitch : AngleValue;
+        attribute yaw : AngleValue;
+        attribute timestamp : TimeValue;
+        attribute covarianceTrace : Real;
+    }
+
+    item def VelocityCommand {
+        attribute linearX : SpeedValue;
+        attribute linearY : SpeedValue;
+        attribute angularZ : AngleValue;
+        attribute validityDuration : TimeValue;
+    }
+
+    item def OccupancyGrid {
+        attribute width : Integer;
+        attribute height : Integer;
+        attribute resolution : LengthValue;
+        attribute occupiedProbabilityThreshold : Real = 0.65;
+        attribute timestamp : TimeValue;
+    }
+
+    item def LidarScan {
+        attribute rangeCount : Integer;
+        attribute minRange : LengthValue;
+        attribute maxRange : LengthValue;
+        attribute horizontalFov : AngleValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def CameraFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRateHz : Real;
+        attribute timestamp : TimeValue;
+    }
+
+    item def ImuSample {
+        attribute angularRateX : Real;
+        attribute angularRateY : Real;
+        attribute angularRateZ : Real;
+        attribute accelerationX : Real;
+        attribute accelerationY : Real;
+        attribute accelerationZ : Real;
+        attribute timestamp : TimeValue;
+    }
+
+    item def WheelOdometry {
+        attribute leftWheelDistance : LengthValue;
+        attribute rightWheelDistance : LengthValue;
+        attribute linearSpeed : SpeedValue;
+        attribute angularSpeed : AngleValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def NavigationGoal {
+        attribute targetPose : Pose3D;
+        attribute acceptablePositionError : LengthValue;
+        attribute acceptableHeadingError : AngleValue;
+        attribute priority : Integer;
+    }
+
+    item def PlannedPath {
+        attribute waypointCount : Integer;
+        attribute totalLength : LengthValue;
+        attribute expectedTraversalTime : TimeValue;
+        attribute confidence : ConfidenceValue;
+    }
+
+    item def DiagnosticStatus {
+        attribute healthy : Boolean;
+        attribute localizationConfidence : ConfidenceValue;
+        attribute obstacleClearance : LengthValue;
+        attribute batteryStateOfCharge : Real;
+        attribute message : String;
+    }
+
+    port def LidarOutputPort {
+        out item scan : LidarScan;
+    }
+
+    port def CameraOutputPort {
+        out item frame : CameraFrame;
+    }
+
+    port def ImuOutputPort {
+        out item sample : ImuSample;
+    }
+
+    port def OdometryOutputPort {
+        out item odometry : WheelOdometry;
+    }
+
+    port def GoalInputPort {
+        in item goal : NavigationGoal;
+    }
+
+    port def MapPort {
+        inout item grid : OccupancyGrid;
+    }
+
+    port def PosePort {
+        out item pose : Pose3D;
+    }
+
+    port def PathPort {
+        out item path : PlannedPath;
+    }
+
+    port def CommandPort {
+        out item command : VelocityCommand;
+    }
+
+    port def MotorCommandPort {
+        in item command : VelocityCommand;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def LidarSensor {
+        attribute scanRateHz : Real = 20.0;
+        attribute maxRange : LengthValue = (value = 30.0; unit = "m");
+        port lidarOut : LidarOutputPort;
+    }
+
+    part def StereoCamera {
+        attribute frameRateHz : Real = 30.0;
+        attribute horizontalFov : AngleValue = (value = 90.0; unit = "deg");
+        port cameraOut : CameraOutputPort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute sampleRateHz : Real = 200.0;
+        attribute gyroBiasStability : Real = 0.02;
+        port imuOut : ImuOutputPort;
+    }
+
+    part def WheelEncoderSet {
+        attribute ticksPerRevolution : Integer = 4096;
+        attribute wheelRadius : LengthValue = (value = 0.12; unit = "m");
+        port odometryOut : OdometryOutputPort;
+    }
+
+    part def LocalizationComputer {
+        attribute minimumConfidence : ConfidenceValue = (value = 0.80; unit = "1");
+        port lidarIn : LidarOutputPort;
+        port cameraIn : CameraOutputPort;
+        port imuIn : ImuOutputPort;
+        port odometryIn : OdometryOutputPort;
+        port poseOut : PosePort;
+
+        action fuseSensorData {
+            in item scan : LidarScan;
+            in item frame : CameraFrame;
+            in item imu : ImuSample;
+            in item odometry : WheelOdometry;
+            out item estimatedPose : Pose3D;
+        }
+    }
+
+    part def MappingComputer {
+        attribute mapResolution : LengthValue = (value = 0.05; unit = "m");
+        attribute localMapRadius : LengthValue = (value = 20.0; unit = "m");
+        port lidarIn : LidarOutputPort;
+        port poseIn : PosePort;
+        port mapOut : MapPort;
+
+        action updateOccupancyGrid {
+            in item scan : LidarScan;
+            in item pose : Pose3D;
+            out item grid : OccupancyGrid;
+        }
+    }
+
+    part def PathPlanner {
+        attribute replanningPeriod : TimeValue = (value = 0.25; unit = "s");
+        attribute minimumObstacleClearance : LengthValue = (value = 0.40; unit = "m");
+        attribute maximumPathLength : LengthValue = (value = 250.0; unit = "m");
+        port goalIn : GoalInputPort;
+        port poseIn : PosePort;
+        port mapIn : MapPort;
+        port pathOut : PathPort;
+
+        action computeGlobalPath {
+            in item goal : NavigationGoal;
+            in item pose : Pose3D;
+            in item grid : OccupancyGrid;
+            out item path : PlannedPath;
+        }
+
+        action repairPathAroundObstacle {
+            in item currentPath : PlannedPath;
+            in item grid : OccupancyGrid;
+            out item revisedPath : PlannedPath;
+        }
+    }
+
+    part def MotionController {
+        attribute controlRateHz : Real = 50.0;
+        attribute maximumLinearSpeed : SpeedValue = (value = 1.5; unit = "m/s");
+        attribute maximumAngularSpeed : AngleValue = (value = 120.0; unit = "deg/s");
+        attribute goalPositionTolerance : LengthValue = (value = 0.10; unit = "m");
+        port poseIn : PosePort;
+        port pathIn : PathPort;
+        port commandOut : CommandPort;
+
+        action trackPath {
+            in item pose : Pose3D;
+            in item path : PlannedPath;
+            out item command : VelocityCommand;
+        }
+
+        action stopSafely {
+            out item command : VelocityCommand;
+        }
+    }
+
+    part def DriveBase {
+        attribute trackWidth : LengthValue = (value = 0.56; unit = "m");
+        attribute maximumPayloadMassKg : Real = 20.0;
+        port motorCommandIn : MotorCommandPort;
+    }
+
+    part def NavigationSupervisor {
+        attribute lostLocalizationTimeout : TimeValue = (value = 2.0; unit = "s");
+        attribute minimumBatteryForMission : Real = 0.20;
+        port goalIn : GoalInputPort;
+        port poseIn : PosePort;
+        port pathIn : PathPort;
+        port commandOut : CommandPort;
+        port diagnosticOut : DiagnosticPort;
+
+        state navigationStateMachine {
+            state Idle;
+            state ValidatingGoal;
+            state Localizing;
+            state Planning;
+            state Navigating;
+            state AvoidingObstacle;
+            state GoalReached;
+            state Faulted;
+            state EmergencyStop;
+
+            entry action initializeNavigation {
+                out item status : DiagnosticStatus;
+            }
+
+            transition first Idle;
+            transition Idle_to_ValidatingGoal
+                first Idle
+                then ValidatingGoal
+                accept item goal : NavigationGoal;
+
+            transition ValidatingGoal_to_Localizing
+                first ValidatingGoal
+                then Localizing
+                if goal.acceptablePositionError.value <= 0.50;
+
+            transition Localizing_to_Planning
+                first Localizing
+                then Planning
+                if diagnosticOut.status.localizationConfidence.value >= 0.80;
+
+            transition Planning_to_Navigating
+                first Planning
+                then Navigating
+                if pathIn.path.confidence.value >= 0.75;
+
+            transition Navigating_to_AvoidingObstacle
+                first Navigating
+                then AvoidingObstacle
+                if diagnosticOut.status.obstacleClearance.value < 0.40;
+
+            transition AvoidingObstacle_to_Planning
+                first AvoidingObstacle
+                then Planning
+                if diagnosticOut.status.obstacleClearance.value >= 0.60;
+
+            transition Navigating_to_GoalReached
+                first Navigating
+                then GoalReached
+                if poseIn.pose.covarianceTrace <= 0.05;
+
+            transition Any_to_Faulted
+                first Localizing
+                then Faulted
+                if diagnosticOut.status.localizationConfidence.value < 0.30;
+
+            transition Any_to_EmergencyStop
+                first Navigating
+                then EmergencyStop
+                if diagnosticOut.status.healthy == false;
+        }
+    }
+
+    part def RoboticNavigationSystem {
+        doc /* Primary function: autonomously determine the robot pose, build and maintain a local navigable map, plan a collision-free path to a commanded goal, and command the drive base to reach the goal while preserving safety constraints. */
+
+        attribute nominalUpdatePeriod : TimeValue = (value = 0.02; unit = "s");
+        attribute requiredAvailability : Real = 0.995;
+
+        port goalInput : GoalInputPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part lidar : LidarSensor;
+        part camera : StereoCamera;
+        part imu : InertialMeasurementUnit;
+        part encoders : WheelEncoderSet;
+        part localization : LocalizationComputer;
+        part mapping : MappingComputer;
+        part planner : PathPlanner;
+        part controller : MotionController;
+        part driveBase : DriveBase;
+        part supervisor : NavigationSupervisor;
+
+        connect lidar.lidarOut to localization.lidarIn;
+        connect lidar.lidarOut to mapping.lidarIn;
+        connect camera.cameraOut to localization.cameraIn;
+        connect imu.imuOut to localization.imuIn;
+        connect encoders.odometryOut to localization.odometryIn;
+
+        connect localization.poseOut to mapping.poseIn;
+        connect localization.poseOut to planner.poseIn;
+        connect localization.poseOut to controller.poseIn;
+        connect localization.poseOut to supervisor.poseIn;
+
+        connect mapping.mapOut to planner.mapIn;
+        connect planner.pathOut to controller.pathIn;
+        connect planner.pathOut to supervisor.pathIn;
+
+        connect goalInput to planner.goalIn;
+        connect goalInput to supervisor.goalIn;
+
+        connect controller.commandOut to driveBase.motorCommandIn;
+        connect controller.commandOut to supervisor.commandOut;
+
+        connect supervisor.diagnosticOut to diagnosticOutput;
+    }
+
+    requirement def NavigateToGoalRequirement {
+        subject system : RoboticNavigationSystem;
+        doc /* The robotic navigation system shall navigate from its current pose to a received goal pose without operator steering. */
+        require constraint {
+            system.planner.minimumObstacleClearance.value >= 0.40
+        }
+    }
+
+    requirement def LocalizationAccuracyRequirement {
+        subject localization : LocalizationComputer;
+        doc /* The localization function shall maintain sufficient pose confidence for closed-loop navigation. */
+        require constraint {
+            localization.minimumConfidence.value >= 0.80
+        }
+    }
+
+    requirement def MotionLimitRequirement {
+        subject controller : MotionController;
+        doc /* The motion controller shall limit commanded motion to drive-base-safe speeds. */
+        require constraint {
+            controller.maximumLinearSpeed.value <= 1.5
+        }
+    }
+
+    requirement def ReplanningLatencyRequirement {
+        subject planner : PathPlanner;
+        doc /* The path planner shall refresh the selected path quickly enough to react to dynamic obstacles. */
+        require constraint {
+            planner.replanningPeriod.value <= 0.25
+        }
+    }
+
+    requirement def GoalToleranceRequirement {
+        subject controller : MotionController;
+        doc /* The system shall consider the goal reached only when the robot is within the configured position tolerance. */
+        require constraint {
+            controller.goalPositionTolerance.value <= 0.10
+        }
+    }
+
+    requirement def SafeStopRequirement {
+        subject supervisor : NavigationSupervisor;
+        doc /* The supervisor shall command safe stop behavior when health status is false or localization is lost. */
+        require constraint {
+            supervisor.lostLocalizationTimeout.value <= 2.0
+        }
+    }
+
+    satisfy NavigateToGoalRequirement by RoboticNavigationSystem;
+    satisfy LocalizationAccuracyRequirement by LocalizationComputer;
+    satisfy MotionLimitRequirement by MotionController;
+    satisfy ReplanningLatencyRequirement by PathPlanner;
+    satisfy GoalToleranceRequirement by MotionController;
+    satisfy SafeStopRequirement by NavigationSupervisor;
+}

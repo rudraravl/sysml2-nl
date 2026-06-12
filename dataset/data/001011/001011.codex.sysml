@@ -1,0 +1,403 @@
+package ChemiresistorSystemModel {
+
+  value type ElectricPotential {
+    unit V;
+  }
+
+  value type ElectricCurrent {
+    unit A;
+  }
+
+  value type ElectricResistance {
+    unit ohm;
+  }
+
+  value type ElectricPower {
+    unit W;
+  }
+
+  value type Temperature {
+    unit degC;
+  }
+
+  value type Time {
+    unit s;
+  }
+
+  value type GasConcentration {
+    unit ppm;
+  }
+
+  value type RelativeHumidity {
+    unit percent;
+  }
+
+  value type DimensionlessRatio {
+    unit one;
+  }
+
+  value type DataRate {
+    unit Hz;
+  }
+
+  enum def SensorMode {
+    enum idle;
+    enum warmUp;
+    enum baselineStabilization;
+    enum sensing;
+    enum fault;
+    enum shutdown;
+  }
+
+  enum def HealthStatus {
+    enum nominal;
+    enum degraded;
+    enum sensorOpenCircuit;
+    enum sensorShortCircuit;
+    enum heaterFault;
+    enum signalSaturation;
+  }
+
+  item def GasMixture {
+    attribute targetGasConcentration : GasConcentration;
+    attribute interferentGasConcentration : GasConcentration;
+    attribute humidity : RelativeHumidity;
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalBias {
+    attribute voltage : ElectricPotential;
+    attribute maximumCurrent : ElectricCurrent;
+  }
+
+  item def SensorCurrent {
+    attribute current : ElectricCurrent;
+  }
+
+  item def HeaterCommand {
+    attribute powerSetpoint : ElectricPower;
+    attribute temperatureSetpoint : Temperature;
+  }
+
+  item def ResistanceMeasurement {
+    attribute resistance : ElectricResistance;
+    attribute baselineResistance : ElectricResistance;
+    attribute normalizedResponse : DimensionlessRatio;
+    attribute sampleAge : Time;
+  }
+
+  item def GasReading {
+    attribute estimatedTargetGasConcentration : GasConcentration;
+    attribute confidence : DimensionlessRatio;
+    attribute responseTime : Time;
+    attribute mode : SensorMode;
+    attribute health : HealthStatus;
+  }
+
+  port def GasExposurePort {
+    in item gas : GasMixture;
+  }
+
+  port def BiasPort {
+    in item bias : ElectricalBias;
+    out item current : SensorCurrent;
+  }
+
+  port def HeaterPort {
+    in item command : HeaterCommand;
+    out attribute measuredTemperature : Temperature;
+  }
+
+  port def ResistanceSignalPort {
+    out item resistanceMeasurement : ResistanceMeasurement;
+  }
+
+  port def MeasurementPort {
+    out item gasReading : GasReading;
+  }
+
+  port def DiagnosticPort {
+    out attribute health : HealthStatus;
+    out attribute activeMode : SensorMode;
+  }
+
+  part def ChemicallySensitiveFilm {
+    attribute materialName : String = "tin oxide nanoparticle film";
+    attribute operatingTemperature : Temperature = 250 [degC];
+    attribute nominalBaselineResistance : ElectricResistance = 100000 [ohm];
+    attribute minimumDetectableConcentration : GasConcentration = 1 [ppm];
+
+    port exposure : GasExposurePort;
+  }
+
+  part def InterdigitatedElectrode {
+    attribute electrodeGap : Length = 10 [um];
+    attribute electrodeCount : Integer = 64;
+    attribute contactResistance : ElectricResistance = 5 [ohm];
+
+    port biasPort : BiasPort;
+  }
+
+  part def ChemiresistorElement {
+    part film : ChemicallySensitiveFilm;
+    part electrode : InterdigitatedElectrode;
+
+    attribute instantaneousResistance : ElectricResistance;
+    attribute baselineResistance : ElectricResistance = 100000 [ohm];
+    attribute sensitivitySlope : DimensionlessRatio = 0.018 [one];
+
+    port gasIn : GasExposurePort;
+    port electrical : BiasPort;
+    port resistanceOut : ResistanceSignalPort;
+
+    connect gasIn to film.exposure;
+    connect electrical to electrode.biasPort;
+
+    action def AdsorbGasAndChangeConductivity {
+      in item gas : GasMixture;
+      in attribute baseline : ElectricResistance;
+      out attribute changedResistance : ElectricResistance;
+
+      objective {
+        Change electrical resistance as target gas molecules adsorb onto the sensitive film surface.
+      }
+    }
+
+    action def MeasureResistance {
+      in item bias : ElectricalBias;
+      in item current : SensorCurrent;
+      out item measurement : ResistanceMeasurement;
+
+      objective {
+        Compute film resistance from applied electrical bias and sensed current.
+      }
+    }
+  }
+
+  part def MicroHeater {
+    attribute maximumPower : ElectricPower = 0.5 [W];
+    attribute warmUpTime : Time = 30 [s];
+    attribute controlledTemperature : Temperature = 250 [degC];
+
+    port heaterControl : HeaterPort;
+
+    action def RegulateTemperature {
+      in item command : HeaterCommand;
+      out attribute measuredTemperature : Temperature;
+
+      objective {
+        Maintain the chemically sensitive film at the temperature required for stable adsorption and desorption kinetics.
+      }
+    }
+  }
+
+  part def BiasAndReadoutCircuit {
+    attribute biasVoltage : ElectricPotential = 1.8 [V];
+    attribute currentLimit : ElectricCurrent = 0.001 [A];
+    attribute samplingRate : DataRate = 10 [Hz];
+
+    port sensorInterface : BiasPort;
+    port resistanceOutput : ResistanceSignalPort;
+
+    action def ApplyBiasAndAcquireCurrent {
+      out item bias : ElectricalBias;
+      in item current : SensorCurrent;
+      out item resistance : ResistanceMeasurement;
+
+      objective {
+        Apply a controlled voltage across the chemiresistor and convert the resulting current into a resistance measurement.
+      }
+    }
+  }
+
+  part def BaselineCompensator {
+    attribute baselineUpdateTimeConstant : Time = 300 [s];
+    attribute humidityCompensationEnabled : Boolean = true;
+    attribute temperatureCompensationEnabled : Boolean = true;
+
+    port rawResistanceIn : ResistanceSignalPort;
+    port compensatedResistanceOut : ResistanceSignalPort;
+
+    action def CompensateBaselineDrift {
+      in item rawMeasurement : ResistanceMeasurement;
+      in item gas : GasMixture;
+      out item compensatedMeasurement : ResistanceMeasurement;
+
+      objective {
+        Remove slow baseline drift and environmental cross-sensitivity from the chemiresistor response.
+      }
+    }
+  }
+
+  part def ConcentrationEstimator {
+    attribute calibrationSlope : DimensionlessRatio = 55 [one];
+    attribute calibrationOffset : GasConcentration = 0 [ppm];
+    attribute validRangeMinimum : GasConcentration = 1 [ppm];
+    attribute validRangeMaximum : GasConcentration = 500 [ppm];
+
+    port resistanceInput : ResistanceSignalPort;
+    port readingOutput : MeasurementPort;
+
+    action def EstimateGasConcentration {
+      in item compensatedMeasurement : ResistanceMeasurement;
+      out item reading : GasReading;
+
+      objective {
+        Convert normalized resistance change into an estimated target gas concentration using the stored calibration model.
+      }
+    }
+  }
+
+  part def SensorController {
+    attribute mode : SensorMode = SensorMode::idle;
+    attribute health : HealthStatus = HealthStatus::nominal;
+    attribute maximumResponseTime : Time = 60 [s];
+
+    port readingOut : MeasurementPort;
+    port diagnostics : DiagnosticPort;
+
+    perform action SuperviseMeasurementCycle;
+    exhibit state OperatingStateMachine;
+
+    action def SuperviseMeasurementCycle {
+      objective {
+        Coordinate heater warm-up, baseline stabilization, resistance acquisition, concentration estimation, and fault handling.
+      }
+    }
+
+    state def OperatingStateMachine {
+      entry action initialize {
+        then mode = SensorMode::idle;
+        then health = HealthStatus::nominal;
+      }
+
+      state idle;
+      state warmUp;
+      state baselineStabilization;
+      state sensing;
+      state fault;
+      state shutdown;
+
+      transition startCycle first idle then warmUp;
+      transition heaterStable first warmUp then baselineStabilization;
+      transition baselineStable first baselineStabilization then sensing;
+      transition continueSampling first sensing then sensing;
+      transition detectedFault first idle then fault;
+      transition detectedFaultDuringWarmUp first warmUp then fault;
+      transition detectedFaultDuringBaseline first baselineStabilization then fault;
+      transition detectedFaultDuringSensing first sensing then fault;
+      transition clearFault first fault then idle;
+      transition commandShutdown first idle then shutdown;
+      transition commandShutdownFromSensing first sensing then shutdown;
+    }
+  }
+
+  part def CommunicationInterface {
+    attribute outputUpdateRate : DataRate = 1 [Hz];
+
+    port measurementOutput : MeasurementPort;
+    port diagnosticOutput : DiagnosticPort;
+  }
+
+  part def ChemiresistorGasDetectionSystem {
+    attribute primaryFunction : String =
+      "Detect a target gas by exposing a chemically sensitive resistive film to the gas, measuring the film resistance change under electrical bias, compensating environmental effects, and reporting estimated gas concentration.";
+
+    part chemiresistor : ChemiresistorElement;
+    part heater : MicroHeater;
+    part readout : BiasAndReadoutCircuit;
+    part baselineCompensator : BaselineCompensator;
+    part estimator : ConcentrationEstimator;
+    part controller : SensorController;
+    part communications : CommunicationInterface;
+
+    port ambientGasInput : GasExposurePort;
+    port gasMeasurementOutput : MeasurementPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    connect ambientGasInput to chemiresistor.gasIn;
+    connect readout.sensorInterface to chemiresistor.electrical;
+    connect chemiresistor.resistanceOut to readout.resistanceOutput;
+    connect readout.resistanceOutput to baselineCompensator.rawResistanceIn;
+    connect baselineCompensator.compensatedResistanceOut to estimator.resistanceInput;
+    connect estimator.readingOutput to controller.readingOut;
+    connect controller.readingOut to communications.measurementOutput;
+    connect controller.diagnostics to communications.diagnosticOutput;
+    connect communications.measurementOutput to gasMeasurementOutput;
+    connect communications.diagnosticOutput to diagnosticOutput;
+
+    perform action DetectTargetGas;
+
+    action def DetectTargetGas {
+      in item gas : GasMixture;
+      out item reading : GasReading;
+
+      first start heater.RegulateTemperature;
+      then start chemiresistor.AdsorbGasAndChangeConductivity;
+      then start readout.ApplyBiasAndAcquireCurrent;
+      then start baselineCompensator.CompensateBaselineDrift;
+      then start estimator.EstimateGasConcentration;
+
+      objective {
+        Provide the system-level function of transforming chemical exposure into an electrical resistance change and then into a calibrated gas concentration reading.
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject sensorSystem : ChemiresistorGasDetectionSystem;
+
+    require constraint {
+      sensorSystem.primaryFunction ==
+      "Detect a target gas by exposing a chemically sensitive resistive film to the gas, measuring the film resistance change under electrical bias, compensating environmental effects, and reporting estimated gas concentration."
+    }
+  }
+
+  requirement def DetectionRangeRequirement {
+    subject estimator : ConcentrationEstimator;
+
+    require constraint {
+      estimator.validRangeMinimum <= 1 [ppm] and estimator.validRangeMaximum >= 500 [ppm]
+    }
+  }
+
+  requirement def ResponseTimeRequirement {
+    subject controller : SensorController;
+
+    require constraint {
+      controller.maximumResponseTime <= 60 [s]
+    }
+  }
+
+  requirement def HeaterControlRequirement {
+    subject heater : MicroHeater;
+
+    require constraint {
+      heater.controlledTemperature >= 200 [degC] and heater.controlledTemperature <= 350 [degC]
+    }
+  }
+
+  requirement def ElectricalSafetyRequirement {
+    subject readout : BiasAndReadoutCircuit;
+
+    require constraint {
+      readout.biasVoltage <= 3.3 [V] and readout.currentLimit <= 0.001 [A]
+    }
+  }
+
+  requirement def HealthReportingRequirement {
+    subject controller : SensorController;
+
+    require constraint {
+      controller.health == HealthStatus::nominal or
+      controller.health == HealthStatus::degraded or
+      controller.health == HealthStatus::sensorOpenCircuit or
+      controller.health == HealthStatus::sensorShortCircuit or
+      controller.health == HealthStatus::heaterFault or
+      controller.health == HealthStatus::signalSaturation
+    }
+  }
+
+  part chemiresistorGasDetector : ChemiresistorGasDetectionSystem;
+
+}

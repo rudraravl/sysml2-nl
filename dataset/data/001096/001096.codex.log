@@ -1,0 +1,871 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1jb6gphf
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb56a-4cc2-7a13-ba17-5d7ea4b0fa37
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a sensing unit that measures the relevant quantity using a Image sensor format.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ImageSensorSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PixelCount :> ScalarValues::Integer;
+    attribute def BitDepth :> ScalarValues::Integer;
+    attribute def FrameRate {
+        :>> unit = "frame/s";
+    }
+    attribute def ExposureTime {
+        :>> unit = "ms";
+    }
+    attribute def OpticalWavelength {
+        :>> unit = "nm";
+    }
+    attribute def Irradiance {
+        :>> unit = "W/m^2";
+    }
+    attribute def Temperature {
+        :>> unit = "degC";
+    }
+    attribute def Voltage {
+        :>> unit = "V";
+    }
+    attribute def Current {
+        :>> unit = "mA";
+    }
+    attribute def Power {
+        :>> unit = "W";
+    }
+    attribute def DataRate {
+        :>> unit = "Mbit/s";
+    }
+    attribute def SignalToNoiseRatio {
+        :>> unit = "dB";
+    }
+
+    item def IncidentLight {
+        attribute wavelength : OpticalWavelength;
+        attribute irradiance : Irradiance;
+        attribute arrivalAngleDeg : Real;
+    }
+
+    item def RawPixelSample {
+        attribute row : PixelCount;
+        attribute column : PixelCount;
+        attribute chargeElectrons : Real;
+        attribute digitalNumber : Integer;
+    }
+
+    item def ImageFrame {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute bitsPerPixel : BitDepth;
+        attribute frameIndex : Integer;
+        attribute exposure : ExposureTime;
+        attribute timestampUs : Integer;
+        attribute format : String = "monochrome raw Bayer-compatible image sensor format";
+    }
+
+    item def HealthStatus {
+        attribute sensorTemperature : Temperature;
+        attribute supplyVoltage : Voltage;
+        attribute faultPresent : Boolean;
+        attribute saturatedPixelRatio : Real;
+        attribute droppedFrameCount : Integer;
+    }
+
+    port def OpticalInputPort {
+        in item light : IncidentLight;
+    }
+
+    port def ImageDataPort {
+        out item frame : ImageFrame;
+    }
+
+    port def CommandPort {
+        in item command : AcquisitionCommand;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    item def AcquisitionCommand {
+        attribute enable : Boolean;
+        attribute requestedFrameRate : FrameRate;
+        attribute requestedExposure : ExposureTime;
+        attribute gainDb : Real;
+    }
+
+    part def LensAssembly {
+        attribute focalLengthMm : Real = 6.0;
+        attribute apertureFNumber : Real = 2.8;
+        attribute transmissionEfficiency : Real = 0.86;
+        port opticalIn : OpticalInputPort;
+        port focusedLight : OpticalInputPort;
+    }
+
+    part def ImageSensorArray {
+        attribute activeWidth : PixelCount = 1920;
+        attribute activeHeight : PixelCount = 1080;
+        attribute pixelPitchUm : Real = 2.4;
+        attribute fullWellCapacityElectrons : Real = 9500.0;
+        attribute quantumEfficiency : Real = 0.62;
+        attribute darkCurrentElectronsPerSecond : Real = 18.0;
+        attribute readNoiseElectronsRms : Real = 2.1;
+        attribute minWavelength : OpticalWavelength = 400;
+        attribute maxWavelength : OpticalWavelength = 700;
+        port photonsIn : OpticalInputPort;
+        port pixelSamplesOut : ImageDataPort;
+    }
+
+    part def AnalogFrontEnd {
+        attribute programmableGainDb : Real = 0.0;
+        attribute adcResolution : BitDepth = 12;
+        attribute conversionRate : DataRate = 1600;
+        attribute inputReferredNoiseElectrons : Real = 1.4;
+        port pixelChargeIn : ImageDataPort;
+        port digitalPixelsOut : ImageDataPort;
+    }
+
+    part def ImageProcessor {
+        attribute blackLevelCorrectionEnabled : Boolean = true;
+        attribute defectivePixelCorrectionEnabled : Boolean = true;
+        attribute frameTimestampingEnabled : Boolean = true;
+        attribute outputBitDepth : BitDepth = 12;
+        port rawFrameIn : ImageDataPort;
+        port processedFrameOut : ImageDataPort;
+    }
+
+    part def TimingController {
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute exposureTime : ExposureTime = 10.0;
+        attribute rowReadoutTimeUs : Real = 18.5;
+        port commandIn : CommandPort;
+        port timingStatusOut : StatusPort;
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltage : Voltage = 5.0;
+        attribute sensorCoreVoltage : Voltage = 1.2;
+        attribute ioVoltage : Voltage = 1.8;
+        attribute analogVoltage : Voltage = 2.8;
+        attribute maximumOutputCurrent : Current = 420;
+        attribute conversionEfficiency : Real = 0.91;
+    }
+
+    part def ThermalMonitor {
+        attribute warningTemperature : Temperature = 70;
+        attribute shutdownTemperature : Temperature = 85;
+        port statusOut : StatusPort;
+    }
+
+    part def ImageSensorSensingUnit {
+        attribute measuredQuantity : String = "spatially resolved visible optical irradiance";
+        attribute sensorFormat : String = "image sensor format";
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute maximumFrameRate : FrameRate = 60;
+        attribute minimumExposure : ExposureTime = 0.05;
+        attribute maximumExposure : ExposureTime = 33.0;
+        attribute outputDataRate : DataRate = 746;
+        attribute dynamicRangeDb : Real = 72.0;
+        attribute operatingTemperatureMin : Temperature = -20;
+        attribute operatingTemperatureMax : Temperature = 70;
+        attribute peakPower : Power = 2.4;
+
+        port opticalInput : OpticalInputPort;
+        port commandInput : CommandPort;
+        port imageOutput : ImageDataPort;
+        port statusOutput : StatusPort;
+
+        part lens : LensAssembly;
+        part sensor : ImageSensorArray;
+        part afe : AnalogFrontEnd;
+        part processor : ImageProcessor;
+        part timing : TimingController;
+        part power : PowerRegulator;
+        part thermal : ThermalMonitor;
+
+        connect opticalInput to lens.opticalIn;
+        connect lens.focusedLight to sensor.photonsIn;
+        connect sensor.pixelSamplesOut to afe.pixelChargeIn;
+        connect afe.digitalPixelsOut to processor.rawFrameIn;
+        connect processor.processedFrameOut to imageOutput;
+        connect commandInput to timing.commandIn;
+        connect timing.timingStatusOut to statusOutput;
+        connect thermal.statusOut to statusOutput;
+
+        perform action acquireImage;
+        exhibit state sensingLifecycle;
+    }
+
+    action def ConfigureAcquisition {
+        in item command : AcquisitionCommand;
+        out attribute configuredExposure : ExposureTime;
+        out attribute configuredFrameRate : FrameRate;
+
+        constraint exposureWithinRange {
+            configuredExposure >= 0.05 and configuredExposure <= 33.0
+        }
+
+        constraint frameRateWithinRange {
+            configuredFrameRate >= 1 and configuredFrameRate <= 60
+        }
+    }
+
+    action def IntegratePhotons {
+        in item light : IncidentLight;
+        in attribute exposure : ExposureTime;
+        out item sample : RawPixelSample;
+
+        constraint spectralAcceptance {
+            light.wavelength >= 400 and light.wavelength <= 700
+        }
+    }
+
+    action def ConvertToDigitalImage {
+        in item sample : RawPixelSample;
+        out item frame : ImageFrame;
+
+        constraint validImageFormat {
+            frame.widthPixels == 1920 and
+            frame.heightPixels == 1080 and
+            frame.bitsPerPixel == 12
+        }
+    }
+
+    action def PublishFrame {
+        in item frame : ImageFrame;
+        out item status : HealthStatus;
+
+        constraint frameQuality {
+            status.saturatedPixelRatio <= 0.01
+        }
+    }
+
+    action def AcquireImage {
+        in item command : AcquisitionCommand;
+        in item light : IncidentLight;
+        out item frame : ImageFrame;
+        out item status : HealthStatus;
+
+        action configure : ConfigureAcquisition {
+            in command = command;
+        }
+
+        action integrate : IntegratePhotons {
+            in light = light;
+            in exposure = configure.configuredExposure;
+        }
+
+        action digitize : ConvertToDigitalImage {
+            in sample = integrate.sample;
+        }
+
+        action publish : PublishFrame {
+            in frame = digitize.frame;
+        }
+
+        bind frame = digitize.frame;
+        bind status = publish.status;
+    }
+
+    state def SensingLifecycle {
+        entry action initialize {
+            out item status : HealthStatus;
+        }
+
+        state poweredOff;
+        state initializing;
+        state idle;
+        state acquiring;
+        state publishing;
+        state fault;
+        state thermalShutdown;
+
+        transition first then poweredOff;
+
+        transition powerApplied
+            first poweredOff
+            then initializing;
+
+        transition initializationComplete
+            first initializing
+            then idle;
+
+        transition acquisitionEnabled
+            first idle
+            accept AcquisitionCommand
+            if command.enable == true
+            then acquiring;
+
+        transition frameIntegrated
+            first acquiring
+            then publishing;
+
+        transition framePublished
+            first publishing
+            then idle;
+
+        transition faultDetected
+            first idle
+            then fault;
+
+        transition acquisitionFaultDetected
+            first acquiring
+            then fault;
+
+        transition overTemperature
+            first fault
+            if status.sensorTemperature >= 85
+            then thermalShutdown;
+
+        transition resetFault
+            first fault
+            accept AcquisitionCommand
+            if command.enable == false
+            then idle;
+
+        transition powerRemoved
+            first idle
+            then poweredOff;
+    }
+
+    requirement def ImageSensorFormatRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.sensorFormat == "image sensor format"
+        }
+    }
+
+    requirement def OpticalMeasurementRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "spatially resolved visible optical irradiance"
+        }
+    }
+
+    requirement def ResolutionRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.sensor.activeWidth >= 1920 and
+            unit.sensor.activeHeight >= 1080
+        }
+    }
+
+    requirement def FrameRateRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.nominalFrameRate >= 30 and
+            unit.maximumFrameRate >= 60
+        }
+    }
+
+    requirement def ExposureControlRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.minimumExposure <= 0.05 and
+            unit.maximumExposure >= 33.0
+        }
+    }
+
+    requirement def SpectralRangeRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.sensor.minWavelength <= 400 and
+            unit.sensor.maxWavelength >= 700
+        }
+    }
+
+    requirement def ImageOutputRequirement {
+        subject frame : ImageFrame;
+
+        require constraint {
+            frame.widthPixels == 1920 and
+            frame.heightPixels == 1080 and
+            frame.bitsPerPixel == 12
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject status : HealthStatus;
+
+        require constraint {
+            status.sensorTemperature < 85 and
+            status.supplyVoltage >= 1.1 and
+            status.faultPresent == false
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.peakPower <= 2.4
+        }
+    }
+
+    requirement def DynamicRangeRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.dynamicRangeDb >= 70
+        }
+    }
+
+    part imageSensingUnit : ImageSensorSensingUnit;
+
+    satisfy ImageSensorFormatRequirement by imageSensingUnit;
+    satisfy OpticalMeasurementRequirement by imageSensingUnit;
+    satisfy ResolutionRequirement by imageSensingUnit;
+    satisfy FrameRateRequirement by imageSensingUnit;
+    satisfy ExposureControlRequirement by imageSensingUnit;
+    satisfy SpectralRangeRequirement by imageSensingUnit;
+    satisfy PowerRequirement by imageSensingUnit;
+    satisfy DynamicRangeRequirement by imageSensingUnit;
+}
+tokens used
+3,216
+package ImageSensorSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PixelCount :> ScalarValues::Integer;
+    attribute def BitDepth :> ScalarValues::Integer;
+    attribute def FrameRate {
+        :>> unit = "frame/s";
+    }
+    attribute def ExposureTime {
+        :>> unit = "ms";
+    }
+    attribute def OpticalWavelength {
+        :>> unit = "nm";
+    }
+    attribute def Irradiance {
+        :>> unit = "W/m^2";
+    }
+    attribute def Temperature {
+        :>> unit = "degC";
+    }
+    attribute def Voltage {
+        :>> unit = "V";
+    }
+    attribute def Current {
+        :>> unit = "mA";
+    }
+    attribute def Power {
+        :>> unit = "W";
+    }
+    attribute def DataRate {
+        :>> unit = "Mbit/s";
+    }
+    attribute def SignalToNoiseRatio {
+        :>> unit = "dB";
+    }
+
+    item def IncidentLight {
+        attribute wavelength : OpticalWavelength;
+        attribute irradiance : Irradiance;
+        attribute arrivalAngleDeg : Real;
+    }
+
+    item def RawPixelSample {
+        attribute row : PixelCount;
+        attribute column : PixelCount;
+        attribute chargeElectrons : Real;
+        attribute digitalNumber : Integer;
+    }
+
+    item def ImageFrame {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute bitsPerPixel : BitDepth;
+        attribute frameIndex : Integer;
+        attribute exposure : ExposureTime;
+        attribute timestampUs : Integer;
+        attribute format : String = "monochrome raw Bayer-compatible image sensor format";
+    }
+
+    item def HealthStatus {
+        attribute sensorTemperature : Temperature;
+        attribute supplyVoltage : Voltage;
+        attribute faultPresent : Boolean;
+        attribute saturatedPixelRatio : Real;
+        attribute droppedFrameCount : Integer;
+    }
+
+    port def OpticalInputPort {
+        in item light : IncidentLight;
+    }
+
+    port def ImageDataPort {
+        out item frame : ImageFrame;
+    }
+
+    port def CommandPort {
+        in item command : AcquisitionCommand;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    item def AcquisitionCommand {
+        attribute enable : Boolean;
+        attribute requestedFrameRate : FrameRate;
+        attribute requestedExposure : ExposureTime;
+        attribute gainDb : Real;
+    }
+
+    part def LensAssembly {
+        attribute focalLengthMm : Real = 6.0;
+        attribute apertureFNumber : Real = 2.8;
+        attribute transmissionEfficiency : Real = 0.86;
+        port opticalIn : OpticalInputPort;
+        port focusedLight : OpticalInputPort;
+    }
+
+    part def ImageSensorArray {
+        attribute activeWidth : PixelCount = 1920;
+        attribute activeHeight : PixelCount = 1080;
+        attribute pixelPitchUm : Real = 2.4;
+        attribute fullWellCapacityElectrons : Real = 9500.0;
+        attribute quantumEfficiency : Real = 0.62;
+        attribute darkCurrentElectronsPerSecond : Real = 18.0;
+        attribute readNoiseElectronsRms : Real = 2.1;
+        attribute minWavelength : OpticalWavelength = 400;
+        attribute maxWavelength : OpticalWavelength = 700;
+        port photonsIn : OpticalInputPort;
+        port pixelSamplesOut : ImageDataPort;
+    }
+
+    part def AnalogFrontEnd {
+        attribute programmableGainDb : Real = 0.0;
+        attribute adcResolution : BitDepth = 12;
+        attribute conversionRate : DataRate = 1600;
+        attribute inputReferredNoiseElectrons : Real = 1.4;
+        port pixelChargeIn : ImageDataPort;
+        port digitalPixelsOut : ImageDataPort;
+    }
+
+    part def ImageProcessor {
+        attribute blackLevelCorrectionEnabled : Boolean = true;
+        attribute defectivePixelCorrectionEnabled : Boolean = true;
+        attribute frameTimestampingEnabled : Boolean = true;
+        attribute outputBitDepth : BitDepth = 12;
+        port rawFrameIn : ImageDataPort;
+        port processedFrameOut : ImageDataPort;
+    }
+
+    part def TimingController {
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute exposureTime : ExposureTime = 10.0;
+        attribute rowReadoutTimeUs : Real = 18.5;
+        port commandIn : CommandPort;
+        port timingStatusOut : StatusPort;
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltage : Voltage = 5.0;
+        attribute sensorCoreVoltage : Voltage = 1.2;
+        attribute ioVoltage : Voltage = 1.8;
+        attribute analogVoltage : Voltage = 2.8;
+        attribute maximumOutputCurrent : Current = 420;
+        attribute conversionEfficiency : Real = 0.91;
+    }
+
+    part def ThermalMonitor {
+        attribute warningTemperature : Temperature = 70;
+        attribute shutdownTemperature : Temperature = 85;
+        port statusOut : StatusPort;
+    }
+
+    part def ImageSensorSensingUnit {
+        attribute measuredQuantity : String = "spatially resolved visible optical irradiance";
+        attribute sensorFormat : String = "image sensor format";
+        attribute nominalFrameRate : FrameRate = 30;
+        attribute maximumFrameRate : FrameRate = 60;
+        attribute minimumExposure : ExposureTime = 0.05;
+        attribute maximumExposure : ExposureTime = 33.0;
+        attribute outputDataRate : DataRate = 746;
+        attribute dynamicRangeDb : Real = 72.0;
+        attribute operatingTemperatureMin : Temperature = -20;
+        attribute operatingTemperatureMax : Temperature = 70;
+        attribute peakPower : Power = 2.4;
+
+        port opticalInput : OpticalInputPort;
+        port commandInput : CommandPort;
+        port imageOutput : ImageDataPort;
+        port statusOutput : StatusPort;
+
+        part lens : LensAssembly;
+        part sensor : ImageSensorArray;
+        part afe : AnalogFrontEnd;
+        part processor : ImageProcessor;
+        part timing : TimingController;
+        part power : PowerRegulator;
+        part thermal : ThermalMonitor;
+
+        connect opticalInput to lens.opticalIn;
+        connect lens.focusedLight to sensor.photonsIn;
+        connect sensor.pixelSamplesOut to afe.pixelChargeIn;
+        connect afe.digitalPixelsOut to processor.rawFrameIn;
+        connect processor.processedFrameOut to imageOutput;
+        connect commandInput to timing.commandIn;
+        connect timing.timingStatusOut to statusOutput;
+        connect thermal.statusOut to statusOutput;
+
+        perform action acquireImage;
+        exhibit state sensingLifecycle;
+    }
+
+    action def ConfigureAcquisition {
+        in item command : AcquisitionCommand;
+        out attribute configuredExposure : ExposureTime;
+        out attribute configuredFrameRate : FrameRate;
+
+        constraint exposureWithinRange {
+            configuredExposure >= 0.05 and configuredExposure <= 33.0
+        }
+
+        constraint frameRateWithinRange {
+            configuredFrameRate >= 1 and configuredFrameRate <= 60
+        }
+    }
+
+    action def IntegratePhotons {
+        in item light : IncidentLight;
+        in attribute exposure : ExposureTime;
+        out item sample : RawPixelSample;
+
+        constraint spectralAcceptance {
+            light.wavelength >= 400 and light.wavelength <= 700
+        }
+    }
+
+    action def ConvertToDigitalImage {
+        in item sample : RawPixelSample;
+        out item frame : ImageFrame;
+
+        constraint validImageFormat {
+            frame.widthPixels == 1920 and
+            frame.heightPixels == 1080 and
+            frame.bitsPerPixel == 12
+        }
+    }
+
+    action def PublishFrame {
+        in item frame : ImageFrame;
+        out item status : HealthStatus;
+
+        constraint frameQuality {
+            status.saturatedPixelRatio <= 0.01
+        }
+    }
+
+    action def AcquireImage {
+        in item command : AcquisitionCommand;
+        in item light : IncidentLight;
+        out item frame : ImageFrame;
+        out item status : HealthStatus;
+
+        action configure : ConfigureAcquisition {
+            in command = command;
+        }
+
+        action integrate : IntegratePhotons {
+            in light = light;
+            in exposure = configure.configuredExposure;
+        }
+
+        action digitize : ConvertToDigitalImage {
+            in sample = integrate.sample;
+        }
+
+        action publish : PublishFrame {
+            in frame = digitize.frame;
+        }
+
+        bind frame = digitize.frame;
+        bind status = publish.status;
+    }
+
+    state def SensingLifecycle {
+        entry action initialize {
+            out item status : HealthStatus;
+        }
+
+        state poweredOff;
+        state initializing;
+        state idle;
+        state acquiring;
+        state publishing;
+        state fault;
+        state thermalShutdown;
+
+        transition first then poweredOff;
+
+        transition powerApplied
+            first poweredOff
+            then initializing;
+
+        transition initializationComplete
+            first initializing
+            then idle;
+
+        transition acquisitionEnabled
+            first idle
+            accept AcquisitionCommand
+            if command.enable == true
+            then acquiring;
+
+        transition frameIntegrated
+            first acquiring
+            then publishing;
+
+        transition framePublished
+            first publishing
+            then idle;
+
+        transition faultDetected
+            first idle
+            then fault;
+
+        transition acquisitionFaultDetected
+            first acquiring
+            then fault;
+
+        transition overTemperature
+            first fault
+            if status.sensorTemperature >= 85
+            then thermalShutdown;
+
+        transition resetFault
+            first fault
+            accept AcquisitionCommand
+            if command.enable == false
+            then idle;
+
+        transition powerRemoved
+            first idle
+            then poweredOff;
+    }
+
+    requirement def ImageSensorFormatRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.sensorFormat == "image sensor format"
+        }
+    }
+
+    requirement def OpticalMeasurementRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "spatially resolved visible optical irradiance"
+        }
+    }
+
+    requirement def ResolutionRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.sensor.activeWidth >= 1920 and
+            unit.sensor.activeHeight >= 1080
+        }
+    }
+
+    requirement def FrameRateRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.nominalFrameRate >= 30 and
+            unit.maximumFrameRate >= 60
+        }
+    }
+
+    requirement def ExposureControlRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.minimumExposure <= 0.05 and
+            unit.maximumExposure >= 33.0
+        }
+    }
+
+    requirement def SpectralRangeRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.sensor.minWavelength <= 400 and
+            unit.sensor.maxWavelength >= 700
+        }
+    }
+
+    requirement def ImageOutputRequirement {
+        subject frame : ImageFrame;
+
+        require constraint {
+            frame.widthPixels == 1920 and
+            frame.heightPixels == 1080 and
+            frame.bitsPerPixel == 12
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject status : HealthStatus;
+
+        require constraint {
+            status.sensorTemperature < 85 and
+            status.supplyVoltage >= 1.1 and
+            status.faultPresent == false
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.peakPower <= 2.4
+        }
+    }
+
+    requirement def DynamicRangeRequirement {
+        subject unit : ImageSensorSensingUnit;
+
+        require constraint {
+            unit.dynamicRangeDb >= 70
+        }
+    }
+
+    part imageSensingUnit : ImageSensorSensingUnit;
+
+    satisfy ImageSensorFormatRequirement by imageSensingUnit;
+    satisfy OpticalMeasurementRequirement by imageSensingUnit;
+    satisfy ResolutionRequirement by imageSensingUnit;
+    satisfy FrameRateRequirement by imageSensingUnit;
+    satisfy ExposureControlRequirement by imageSensingUnit;
+    satisfy SpectralRangeRequirement by imageSensingUnit;
+    satisfy PowerRequirement by imageSensingUnit;
+    satisfy DynamicRangeRequirement by imageSensingUnit;
+}

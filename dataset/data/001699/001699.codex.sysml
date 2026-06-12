@@ -1,0 +1,434 @@
+package EcobeeThermostatSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def TemperatureCelsius {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def RelativeHumidity {
+        :> ScalarValues::Real;
+        unit = "%RH";
+    }
+
+    attribute def AirQualityIndex {
+        :> ScalarValues::Integer;
+        unit = "AQI";
+    }
+
+    attribute def PowerWatt {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def VoltageAC {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def TimeMinute {
+        :> ScalarValues::Real;
+        unit = "min";
+    }
+
+    attribute def DataRate {
+        :> ScalarValues::Real;
+        unit = "Mb/s";
+    }
+
+    item def TemperatureReading {
+        attribute value : TemperatureCelsius;
+        attribute timestamp : ScalarValues::String;
+        attribute sourceId : ScalarValues::String;
+    }
+
+    item def HumidityReading {
+        attribute value : RelativeHumidity;
+        attribute timestamp : ScalarValues::String;
+    }
+
+    item def OccupancyReading {
+        attribute occupied : ScalarValues::Boolean;
+        attribute confidence : Percent;
+        attribute roomId : ScalarValues::String;
+    }
+
+    item def AirQualityReading {
+        attribute index : AirQualityIndex;
+        attribute vocLevel : Percent;
+        attribute timestamp : ScalarValues::String;
+    }
+
+    item def WeatherForecast {
+        attribute outdoorTemperature : TemperatureCelsius;
+        attribute outdoorHumidity : RelativeHumidity;
+        attribute expectedHigh : TemperatureCelsius;
+        attribute expectedLow : TemperatureCelsius;
+    }
+
+    item def UserSchedule {
+        attribute homeHeatSetpoint : TemperatureCelsius;
+        attribute homeCoolSetpoint : TemperatureCelsius;
+        attribute awayHeatSetpoint : TemperatureCelsius;
+        attribute awayCoolSetpoint : TemperatureCelsius;
+        attribute sleepHeatSetpoint : TemperatureCelsius;
+        attribute sleepCoolSetpoint : TemperatureCelsius;
+    }
+
+    item def HVACCommand {
+        attribute mode : HVACMode;
+        attribute fanRequest : FanMode;
+        attribute heatStage : ScalarValues::Integer;
+        attribute coolStage : ScalarValues::Integer;
+    }
+
+    enum def HVACMode {
+        enum off;
+        enum heat;
+        enum cool;
+        enum auto;
+        enum auxiliaryHeat;
+        enum ventilation;
+    }
+
+    enum def FanMode {
+        enum automatic;
+        enum circulate;
+        enum continuous;
+    }
+
+    enum def ComfortProfile {
+        enum home;
+        enum away;
+        enum sleep;
+        enum vacation;
+    }
+
+    port def TemperatureSensorPort {
+        out item reading : TemperatureReading;
+    }
+
+    port def HumiditySensorPort {
+        out item reading : HumidityReading;
+    }
+
+    port def OccupancySensorPort {
+        out item reading : OccupancyReading;
+    }
+
+    port def AirQualitySensorPort {
+        out item reading : AirQualityReading;
+    }
+
+    port def WeatherServicePort {
+        in item forecast : WeatherForecast;
+    }
+
+    port def SchedulePort {
+        in item schedule : UserSchedule;
+    }
+
+    port def HVACControlPort {
+        out item command : HVACCommand;
+    }
+
+    port def PowerPort {
+        in attribute voltage : VoltageAC;
+        in attribute availablePower : PowerWatt;
+    }
+
+    port def NetworkPort {
+        inout item forecast : WeatherForecast;
+        in item schedule : UserSchedule;
+        out item telemetry : TemperatureReading;
+        attribute minimumRate : DataRate;
+    }
+
+    port def UserInterfacePort {
+        in item schedule : UserSchedule;
+        out item currentTemperature : TemperatureReading;
+        out item currentHumidity : HumidityReading;
+    }
+
+    action def SenseIndoorEnvironment {
+        in item thermostatTemperature : TemperatureReading;
+        in item roomTemperature : TemperatureReading;
+        in item humidity : HumidityReading;
+        in item occupancy : OccupancyReading;
+        out item effectiveTemperature : TemperatureReading;
+        out item effectiveHumidity : HumidityReading;
+        out item effectiveOccupancy : OccupancyReading;
+    }
+
+    action def SelectComfortProfile {
+        in item occupancy : OccupancyReading;
+        in item schedule : UserSchedule;
+        in attribute manualOverrideActive : ScalarValues::Boolean;
+        out attribute selectedProfile : ComfortProfile;
+    }
+
+    action def ComputeThermalDemand {
+        in item currentTemperature : TemperatureReading;
+        in item currentHumidity : HumidityReading;
+        in item forecast : WeatherForecast;
+        in attribute profile : ComfortProfile;
+        in item schedule : UserSchedule;
+        out item command : HVACCommand;
+    }
+
+    action def DispatchHVACCommand {
+        in item command : HVACCommand;
+        out item dispatchedCommand : HVACCommand;
+    }
+
+    state def ThermostatOperatingState {
+        entry action initializeController;
+        state Initializing;
+        state Idle;
+        state Heating;
+        state Cooling;
+        state Ventilating;
+        state EnergySavingAway;
+        state Fault;
+
+        transition first Initializing then Idle;
+
+        transition Idle then Heating
+            if thermalDemand.mode == HVACMode::heat;
+
+        transition Idle then Cooling
+            if thermalDemand.mode == HVACMode::cool;
+
+        transition Idle then Ventilating
+            if thermalDemand.mode == HVACMode::ventilation;
+
+        transition Heating then Idle
+            if thermalDemand.mode == HVACMode::off;
+
+        transition Cooling then Idle
+            if thermalDemand.mode == HVACMode::off;
+
+        transition Ventilating then Idle
+            if thermalDemand.mode == HVACMode::off;
+
+        transition Idle then EnergySavingAway
+            if selectedProfile == ComfortProfile::away;
+
+        transition EnergySavingAway then Idle
+            if selectedProfile == ComfortProfile::home;
+
+        transition Initializing then Fault
+            if sensorAvailable == false;
+
+        transition Idle then Fault
+            if hvacResponseValid == false;
+    }
+
+    part def EcobeeSmartThermostat {
+        attribute firmwareVersion : ScalarValues::String;
+        attribute targetHeatSetpoint : TemperatureCelsius;
+        attribute targetCoolSetpoint : TemperatureCelsius;
+        attribute displayedTemperature : TemperatureCelsius;
+        attribute displayedHumidity : RelativeHumidity;
+        attribute connectedToCloud : ScalarValues::Boolean;
+        attribute manualOverrideActive : ScalarValues::Boolean;
+        attribute sensorAvailable : ScalarValues::Boolean;
+        attribute hvacResponseValid : ScalarValues::Boolean;
+        attribute selectedProfile : ComfortProfile;
+        attribute thermalDemand : HVACCommand;
+
+        port indoorTemperaturePort : TemperatureSensorPort;
+        port indoorHumidityPort : HumiditySensorPort;
+        port occupancyPort : OccupancySensorPort;
+        port airQualityPort : AirQualitySensorPort;
+        port networkPort : NetworkPort;
+        port uiPort : UserInterfacePort;
+        port hvacPort : HVACControlPort;
+        port powerPort : PowerPort;
+
+        behavior stateMachine : ThermostatOperatingState;
+
+        perform action sense : SenseIndoorEnvironment;
+        perform action selectProfile : SelectComfortProfile;
+        perform action computeDemand : ComputeThermalDemand;
+        perform action dispatchCommand : DispatchHVACCommand;
+    }
+
+    part def RemoteRoomSensor {
+        attribute roomId : ScalarValues::String;
+        attribute batteryLevel : Percent;
+        attribute measuredTemperature : TemperatureCelsius;
+        attribute occupied : ScalarValues::Boolean;
+
+        port temperaturePort : TemperatureSensorPort;
+        port occupancyPort : OccupancySensorPort;
+    }
+
+    part def HVACEquipment {
+        attribute heatingCapacity : PowerWatt;
+        attribute coolingCapacity : PowerWatt;
+        attribute fanPower : PowerWatt;
+        attribute supportsAuxiliaryHeat : ScalarValues::Boolean;
+        attribute activeMode : HVACMode;
+
+        port controlPort : HVACControlPort;
+        port powerPort : PowerPort;
+    }
+
+    part def CloudService {
+        attribute serviceAvailable : ScalarValues::Boolean;
+        attribute forecastRefreshInterval : TimeMinute;
+        attribute scheduleSynchronized : ScalarValues::Boolean;
+
+        port networkPort : NetworkPort;
+        port weatherPort : WeatherServicePort;
+        port schedulePort : SchedulePort;
+    }
+
+    part def MobileApplication {
+        attribute authenticated : ScalarValues::Boolean;
+        attribute userRequestedProfile : ComfortProfile;
+
+        port userInterfacePort : UserInterfacePort;
+        port networkPort : NetworkPort;
+    }
+
+    part def HomePowerSupply {
+        attribute nominalVoltage : VoltageAC = 24.0;
+        attribute maximumThermostatPower : PowerWatt = 12.0;
+
+        port thermostatPower : PowerPort;
+        port hvacPower : PowerPort;
+    }
+
+    part def EcobeeBasedClimateControlSystem {
+        doc
+        /*
+         * Primary function:
+         * Maintain indoor comfort and reduce energy use by sensing room
+         * temperature, humidity, occupancy, air quality, schedule, and weather,
+         * then commanding HVAC heating, cooling, fan, and ventilation equipment.
+         */
+
+        attribute normalHeatSetpoint : TemperatureCelsius = 20.0;
+        attribute normalCoolSetpoint : TemperatureCelsius = 24.0;
+        attribute awayHeatSetpoint : TemperatureCelsius = 16.5;
+        attribute awayCoolSetpoint : TemperatureCelsius = 28.0;
+        attribute maximumControlLatency : TimeMinute = 1.0;
+
+        part thermostat : EcobeeSmartThermostat;
+        part livingRoomSensor : RemoteRoomSensor {
+            attribute roomId = "living-room";
+        }
+        part bedroomSensor : RemoteRoomSensor {
+            attribute roomId = "bedroom";
+        }
+        part hvac : HVACEquipment;
+        part cloud : CloudService;
+        part app : MobileApplication;
+        part powerSupply : HomePowerSupply;
+
+        connect livingRoomSensor.temperaturePort to thermostat.indoorTemperaturePort;
+        connect bedroomSensor.temperaturePort to thermostat.indoorTemperaturePort;
+        connect livingRoomSensor.occupancyPort to thermostat.occupancyPort;
+        connect bedroomSensor.occupancyPort to thermostat.occupancyPort;
+
+        connect thermostat.hvacPort to hvac.controlPort;
+        connect thermostat.networkPort to cloud.networkPort;
+        connect app.networkPort to cloud.networkPort;
+        connect app.userInterfacePort to thermostat.uiPort;
+
+        connect powerSupply.thermostatPower to thermostat.powerPort;
+        connect powerSupply.hvacPower to hvac.powerPort;
+    }
+
+    requirement def MaintainComfortRequirement {
+        subject system : EcobeeBasedClimateControlSystem;
+
+        require constraint {
+            system.thermostat.displayedTemperature >= system.awayHeatSetpoint and
+            system.thermostat.displayedTemperature <= system.awayCoolSetpoint
+        }
+
+        doc
+        /*
+         * The system shall maintain occupied-space temperature within the
+         * active comfort profile setpoint band unless HVAC equipment is
+         * unavailable or a fault state is active.
+         */
+    }
+
+    requirement def EnergySavingRequirement {
+        subject system : EcobeeBasedClimateControlSystem;
+
+        require constraint {
+            system.thermostat.selectedProfile == ComfortProfile::away implies
+            system.thermostat.targetHeatSetpoint <= system.normalHeatSetpoint and
+            system.thermostat.targetCoolSetpoint >= system.normalCoolSetpoint
+        }
+
+        doc
+        /*
+         * The system shall automatically widen temperature setpoints when
+         * occupancy sensing and schedule indicate the home is away.
+         */
+    }
+
+    requirement def HVACDispatchRequirement {
+        subject system : EcobeeBasedClimateControlSystem;
+
+        require constraint {
+            system.maximumControlLatency <= 1.0
+        }
+
+        doc
+        /*
+         * The thermostat shall issue a heating, cooling, fan, or off command
+         * within one minute after detecting a comfort demand change.
+         */
+    }
+
+    requirement def CloudResilienceRequirement {
+        subject system : EcobeeBasedClimateControlSystem;
+
+        require constraint {
+            system.thermostat.connectedToCloud == false implies
+            system.thermostat.sensorAvailable == true
+        }
+
+        doc
+        /*
+         * The thermostat shall continue local climate control using onboard
+         * and paired room sensors when cloud connectivity is unavailable.
+         */
+    }
+
+    requirement def AirQualityAwarenessRequirement {
+        subject system : EcobeeBasedClimateControlSystem;
+
+        require constraint {
+            system.thermostat.thermalDemand.mode == HVACMode::ventilation implies
+            system.hvac.activeMode == HVACMode::ventilation
+        }
+
+        doc
+        /*
+         * The system shall request ventilation when measured indoor air quality
+         * exceeds the configured healthy operating threshold.
+         */
+    }
+
+    satisfy MaintainComfortRequirement by EcobeeBasedClimateControlSystem;
+    satisfy EnergySavingRequirement by EcobeeBasedClimateControlSystem;
+    satisfy HVACDispatchRequirement by EcobeeBasedClimateControlSystem;
+    satisfy CloudResilienceRequirement by EcobeeBasedClimateControlSystem;
+    satisfy AirQualityAwarenessRequirement by EcobeeBasedClimateControlSystem;
+}

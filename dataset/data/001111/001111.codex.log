@@ -1,0 +1,1053 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-v4wv9sc1
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb578-6130-7b92-a0aa-8238b64c33d9
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a sensing unit that measures the relevant quantity using a LED as light sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LedLightSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+    import Time::*;
+    import StateMachines::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = V;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = A;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = Ohm;
+    }
+
+    attribute def Capacitance :> ISQ::capacitance {
+        unit = F;
+    }
+
+    attribute def Illuminance :> ISQ::illuminance {
+        unit = lx;
+    }
+
+    attribute def Irradiance :> ISQ::irradiance {
+        unit = W / m^2;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = K;
+    }
+
+    attribute def TimeInterval :> ISQ::time {
+        unit = s;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = Hz;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    attribute def Ratio :> ScalarValues::Real;
+
+    attribute def StatusCode :> ScalarValues::Integer;
+
+    enum def SensorMode {
+        enum idle;
+        enum dischargeIntegration;
+        enum adcSampling;
+        enum calibratingDark;
+        enum fault;
+    }
+
+    enum def FaultKind {
+        enum none;
+        enum saturation;
+        enum underRange;
+        enum excessiveDarkCurrent;
+        enum ledOpenCircuit;
+        enum adcFailure;
+        enum supplyOutOfRange;
+        enum temperatureOutOfRange;
+    }
+
+    item def OpticalFlux {
+        attribute illuminance : Illuminance;
+        attribute irradiance : Irradiance;
+        attribute dominantWavelength_nm : ScalarValues::Real;
+        attribute incidenceAngle_deg : ScalarValues::Real;
+    }
+
+    item def AnalogVoltage {
+        attribute value : ElectricPotential;
+        attribute sourceImpedance : Resistance;
+    }
+
+    item def DigitalSample {
+        attribute adcCode : DigitalCount;
+        attribute sampleTime : TimeInterval;
+        attribute referenceVoltage : ElectricPotential;
+    }
+
+    item def LightMeasurement {
+        attribute illuminance : Illuminance;
+        attribute irradiance : Irradiance;
+        attribute integrationTime : TimeInterval;
+        attribute temperature : Temperature;
+        attribute uncertaintyPercent : Ratio;
+        attribute saturated : Boolean;
+    }
+
+    item def DiagnosticReport {
+        attribute status : StatusCode;
+        attribute activeFault : FaultKind;
+        attribute supplyVoltage : ElectricPotential;
+        attribute darkOffsetCode : DigitalCount;
+        attribute ledReverseLeakage : ElectricCurrent;
+    }
+
+    port def OpticalInputPort {
+        in item incidentLight : OpticalFlux;
+    }
+
+    port def AnalogVoltagePort {
+        out item voltageSignal : AnalogVoltage;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : LightMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : ElectricPotential;
+        in attribute supplyCurrent : ElectricCurrent;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute reset : Boolean;
+        in attribute requestedIntegrationTime : TimeInterval;
+        out attribute ready : Boolean;
+        out attribute activeMode : SensorMode;
+    }
+
+    part def ReverseBiasedLedSensor {
+        attribute ledForwardVoltage : ElectricPotential = 2.05 [V];
+        attribute reverseBiasVoltage : ElectricPotential = 1.8 [V];
+        attribute junctionCapacitance : Capacitance = 45.0e-12 [F];
+        attribute darkCurrent_25C : ElectricCurrent = 2.0e-9 [A];
+        attribute photocurrentResponsivity : ElectricCurrent = 1.4e-8 [A];
+        attribute peakSensitivityWavelength_nm : ScalarValues::Real = 630.0;
+        attribute opticalAcceptanceAngle_deg : ScalarValues::Real = 55.0;
+        attribute maxSafeReverseVoltage : ElectricPotential = 5.0 [V];
+
+        port optical : OpticalInputPort;
+        port analog : AnalogVoltagePort;
+
+        perform action convertLightToPhotocurrent {
+            in item light : OpticalFlux;
+            out attribute photocurrent : ElectricCurrent;
+            out attribute junctionVoltage : ElectricPotential;
+
+            first start;
+            then computeSpectralResponse;
+            then integrateChargeOnJunction;
+            then emitAnalogVoltage;
+            then done;
+
+            action computeSpectralResponse {
+                in item light : OpticalFlux;
+                out attribute spectralFactor : Ratio;
+            }
+
+            action integrateChargeOnJunction {
+                in attribute photocurrent : ElectricCurrent;
+                in attribute capacitance : Capacitance = junctionCapacitance;
+                in attribute biasVoltage : ElectricPotential = reverseBiasVoltage;
+                out attribute junctionVoltage : ElectricPotential;
+            }
+
+            action emitAnalogVoltage {
+                out item analogVoltage : AnalogVoltage;
+            }
+        }
+    }
+
+    part def ChargeDischargeInterface {
+        attribute pullupResistance : Resistance = 1.0e6 [Ohm];
+        attribute dischargeResistance : Resistance = 220.0 [Ohm];
+        attribute comparatorThreshold : ElectricPotential = 0.9 [V];
+        attribute maximumIntegrationTime : TimeInterval = 0.250 [s];
+        attribute minimumIntegrationTime : TimeInterval = 0.001 [s];
+
+        port analogIn : AnalogVoltagePort;
+        port conditionedOut : AnalogVoltagePort;
+        port control : ControlPort;
+
+        perform action integrateLedDischarge {
+            in item ledVoltage : AnalogVoltage;
+            in attribute requestedIntegrationTime : TimeInterval;
+            out item conditionedVoltage : AnalogVoltage;
+            out attribute saturated : Boolean;
+
+            first chargeJunction;
+            then releaseToPhotodischarge;
+            then captureVoltage;
+            then evaluateSaturation;
+            then done;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : ScalarValues::Integer = 12;
+        attribute referenceVoltage : ElectricPotential = 3.3 [V];
+        attribute sampleRate : Frequency = 2000 [Hz];
+        attribute inputRangeLow : ElectricPotential = 0.0 [V];
+        attribute inputRangeHigh : ElectricPotential = 3.3 [V];
+        attribute integralNonlinearity_lsb : ScalarValues::Real = 1.5;
+
+        port analogIn : AnalogVoltagePort;
+        port digitalOut : DigitalSamplePort;
+
+        perform action sampleVoltage {
+            in item voltage : AnalogVoltage;
+            out item sample : DigitalSample;
+
+            first acquire;
+            then quantize;
+            then publish;
+            then done;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute nominalAccuracy : Temperature = 1.0 [K];
+        attribute updatePeriod : TimeInterval = 0.5 [s];
+        attribute measuredTemperature : Temperature;
+
+        perform action measureTemperature {
+            out attribute temperature : Temperature;
+        }
+    }
+
+    part def CalibrationStore {
+        attribute darkOffsetCode : DigitalCount = 18;
+        attribute gainLuxPerCount : ScalarValues::Real = 0.42;
+        attribute irradiancePerCount : ScalarValues::Real = 0.0031;
+        attribute temperatureCoefficientPerK : Ratio = 0.002;
+        attribute referenceTemperature : Temperature = 298.15 [K];
+        attribute saturationCode : DigitalCount = 4090;
+        attribute underRangeCode : DigitalCount = 3;
+    }
+
+    part def MeasurementProcessor {
+        part calibration : CalibrationStore;
+
+        port sampleIn : DigitalSamplePort;
+        port measurementOut : MeasurementPort;
+        port diagnostics : DiagnosticPort;
+        port control : ControlPort;
+
+        attribute lastSampleCode : DigitalCount;
+        attribute correctedCode : DigitalCount;
+        attribute currentTemperature : Temperature;
+        attribute calculatedIlluminance : Illuminance;
+        attribute calculatedIrradiance : Irradiance;
+        attribute uncertaintyPercent : Ratio = 6.0;
+        attribute activeFault : FaultKind = FaultKind::none;
+
+        perform action computeLightMeasurement {
+            in item rawSample : DigitalSample;
+            in attribute temperature : Temperature;
+            out item measurement : LightMeasurement;
+            out item diagnostic : DiagnosticReport;
+
+            first subtractDarkOffset;
+            then compensateTemperature;
+            then scaleToIlluminanceAndIrradiance;
+            then checkRange;
+            then publishMeasurementAndDiagnostics;
+            then done;
+
+            action subtractDarkOffset {
+                in attribute adcCode : DigitalCount;
+                in attribute darkOffset : DigitalCount = calibration.darkOffsetCode;
+                out attribute correctedCode : DigitalCount;
+            }
+
+            action compensateTemperature {
+                in attribute correctedCode : DigitalCount;
+                in attribute temperature : Temperature;
+                in attribute coefficient : Ratio = calibration.temperatureCoefficientPerK;
+                out attribute compensatedCode : DigitalCount;
+            }
+
+            action scaleToIlluminanceAndIrradiance {
+                in attribute compensatedCode : DigitalCount;
+                out attribute illuminance : Illuminance;
+                out attribute irradiance : Irradiance;
+            }
+
+            action checkRange {
+                in attribute adcCode : DigitalCount;
+                out attribute fault : FaultKind;
+                out attribute saturated : Boolean;
+            }
+        }
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltageMin : ElectricPotential = 2.7 [V];
+        attribute inputVoltageMax : ElectricPotential = 5.5 [V];
+        attribute regulatedVoltage : ElectricPotential = 3.3 [V];
+        attribute quiescentCurrent : ElectricCurrent = 250.0e-6 [A];
+        attribute maximumSensorCurrent : ElectricCurrent = 8.0e-3 [A];
+
+        port powerIn : PowerPort;
+        port regulatedPower : PowerPort;
+
+        perform action regulateSupply {
+            in attribute supplyVoltage : ElectricPotential;
+            out attribute regulatedVoltage : ElectricPotential;
+            out attribute supplyOk : Boolean;
+        }
+    }
+
+    part def LedBasedLightSensingUnit {
+        part powerConditioner : PowerConditioner;
+        part ledSensor : ReverseBiasedLedSensor;
+        part chargeInterface : ChargeDischargeInterface;
+        part adc : AnalogToDigitalConverter;
+        part temperatureSensor : TemperatureSensor;
+        part processor : MeasurementProcessor;
+
+        port opticalInput : OpticalInputPort;
+        port powerInput : PowerPort;
+        port control : ControlPort;
+        port measurementOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        attribute measurementRangeLow : Illuminance = 1.0 [lx];
+        attribute measurementRangeHigh : Illuminance = 10000.0 [lx];
+        attribute nominalIntegrationTime : TimeInterval = 0.020 [s];
+        attribute startupTime : TimeInterval = 0.050 [s];
+        attribute updatePeriod : TimeInterval = 0.100 [s];
+
+        connect opticalInput.incidentLight to ledSensor.optical.incidentLight;
+        connect powerInput.supplyVoltage to powerConditioner.powerIn.supplyVoltage;
+        connect powerInput.supplyCurrent to powerConditioner.powerIn.supplyCurrent;
+        connect powerConditioner.regulatedPower.supplyVoltage to chargeInterface.control.enable;
+        connect ledSensor.analog.voltageSignal to chargeInterface.analogIn.voltageSignal;
+        connect chargeInterface.conditionedOut.voltageSignal to adc.analogIn.voltageSignal;
+        connect adc.digitalOut.sample to processor.sampleIn.sample;
+        connect processor.measurementOut.measurement to measurementOutput.measurement;
+        connect processor.diagnostics.report to diagnosticOutput.report;
+        connect control.enable to chargeInterface.control.enable;
+        connect control.reset to chargeInterface.control.reset;
+        connect control.requestedIntegrationTime to chargeInterface.control.requestedIntegrationTime;
+        connect processor.control.ready to control.ready;
+        connect processor.control.activeMode to control.activeMode;
+
+        state def OperationalStateMachine {
+            entry action initialize {
+                then clearFaults;
+                then loadCalibration;
+                then biasLedSensor;
+            }
+
+            state off;
+            state selfTest;
+            state idle;
+            state measure;
+            state process;
+            state publish;
+            state calibrateDark;
+            state fault;
+
+            transition initial then off;
+
+            transition off_to_selfTest
+                first off
+                accept when control.enable
+                then selfTest;
+
+            transition selfTest_to_idle
+                first selfTest
+                accept after startupTime
+                if powerInput.supplyVoltage >= powerConditioner.inputVoltageMin and
+                   powerInput.supplyVoltage <= powerConditioner.inputVoltageMax
+                then idle;
+
+            transition selfTest_to_fault
+                first selfTest
+                if powerInput.supplyVoltage < powerConditioner.inputVoltageMin or
+                   powerInput.supplyVoltage > powerConditioner.inputVoltageMax
+                then fault;
+
+            transition idle_to_measure
+                first idle
+                accept after updatePeriod
+                then measure;
+
+            transition measure_to_process
+                first measure
+                accept after nominalIntegrationTime
+                then process;
+
+            transition process_to_publish
+                first process
+                then publish;
+
+            transition publish_to_idle
+                first publish
+                then idle;
+
+            transition idle_to_calibrateDark
+                first idle
+                accept when control.requestedIntegrationTime == 0.0 [s]
+                then calibrateDark;
+
+            transition calibrateDark_to_idle
+                first calibrateDark
+                accept after 0.100 [s]
+                then idle;
+
+            transition any_to_off
+                first off, selfTest, idle, measure, process, publish, calibrateDark, fault
+                accept when not control.enable
+                then off;
+
+            transition any_to_fault
+                first idle, measure, process, publish, calibrateDark
+                if processor.activeFault != FaultKind::none
+                then fault;
+
+            transition fault_to_selfTest
+                first fault
+                accept when control.reset
+                then selfTest;
+        }
+
+        perform action sensingCycle {
+            first verifySupply;
+            then temperatureSensor.measureTemperature;
+            then ledSensor.convertLightToPhotocurrent;
+            then chargeInterface.integrateLedDischarge;
+            then adc.sampleVoltage;
+            then processor.computeLightMeasurement;
+            then done;
+        }
+    }
+
+    requirement def MeasureLightUsingLedRequirement {
+        subject sensingUnit : LedBasedLightSensingUnit;
+
+        require constraint {
+            sensingUnit.ledSensor.photocurrentResponsivity > 0.0 [A] and
+            sensingUnit.measurementRangeLow <= 1.0 [lx] and
+            sensingUnit.measurementRangeHigh >= 10000.0 [lx]
+        }
+
+        doc /* The sensing unit shall use an LED junction as the light-sensitive element, operated without emitting light, to measure incident visible light. */
+    }
+
+    requirement def ReverseBiasProtectionRequirement {
+        subject led : ReverseBiasedLedSensor;
+
+        require constraint {
+            led.reverseBiasVoltage <= led.maxSafeReverseVoltage
+        }
+
+        doc /* The LED shall be reverse-biased only below its maximum safe reverse voltage during light measurement. */
+    }
+
+    requirement def MeasurementOutputRequirement {
+        subject sensingUnit : LedBasedLightSensingUnit;
+
+        require constraint {
+            sensingUnit.updatePeriod <= 0.100 [s] and
+            sensingUnit.processor.uncertaintyPercent <= 10.0
+        }
+
+        doc /* The unit shall publish compensated illuminance and irradiance measurements at least every 100 ms with no more than 10 percent nominal uncertainty across the specified range. */
+    }
+
+    requirement def SaturationDiagnosticRequirement {
+        subject processor : MeasurementProcessor;
+
+        require constraint {
+            processor.calibration.saturationCode < 4096
+        }
+
+        doc /* The unit shall report a saturation fault when the digitized LED discharge signal reaches the calibrated upper ADC limit. */
+    }
+
+    requirement def DarkCalibrationRequirement {
+        subject processor : MeasurementProcessor;
+
+        require constraint {
+            processor.calibration.darkOffsetCode >= 0
+        }
+
+        doc /* The unit shall maintain a dark offset calibration value used to subtract LED leakage and ADC offset from each light measurement. */
+    }
+
+    requirement def SupplyOperatingRequirement {
+        subject power : PowerConditioner;
+
+        require constraint {
+            power.inputVoltageMin == 2.7 [V] and
+            power.inputVoltageMax == 5.5 [V] and
+            power.regulatedVoltage == 3.3 [V]
+        }
+
+        doc /* The sensing unit shall operate from a 2.7 V to 5.5 V input supply and internally regulate the measurement electronics to 3.3 V. */
+    }
+
+    satisfy MeasureLightUsingLedRequirement by LedBasedLightSensingUnit;
+    satisfy ReverseBiasProtectionRequirement by ReverseBiasedLedSensor;
+    satisfy MeasurementOutputRequirement by LedBasedLightSensingUnit;
+    satisfy SaturationDiagnosticRequirement by MeasurementProcessor;
+    satisfy DarkCalibrationRequirement by CalibrationStore;
+    satisfy SupplyOperatingRequirement by PowerConditioner;
+}
+tokens used
+3,981
+package LedLightSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+    import Time::*;
+    import StateMachines::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = V;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = A;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = Ohm;
+    }
+
+    attribute def Capacitance :> ISQ::capacitance {
+        unit = F;
+    }
+
+    attribute def Illuminance :> ISQ::illuminance {
+        unit = lx;
+    }
+
+    attribute def Irradiance :> ISQ::irradiance {
+        unit = W / m^2;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = K;
+    }
+
+    attribute def TimeInterval :> ISQ::time {
+        unit = s;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = Hz;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    attribute def Ratio :> ScalarValues::Real;
+
+    attribute def StatusCode :> ScalarValues::Integer;
+
+    enum def SensorMode {
+        enum idle;
+        enum dischargeIntegration;
+        enum adcSampling;
+        enum calibratingDark;
+        enum fault;
+    }
+
+    enum def FaultKind {
+        enum none;
+        enum saturation;
+        enum underRange;
+        enum excessiveDarkCurrent;
+        enum ledOpenCircuit;
+        enum adcFailure;
+        enum supplyOutOfRange;
+        enum temperatureOutOfRange;
+    }
+
+    item def OpticalFlux {
+        attribute illuminance : Illuminance;
+        attribute irradiance : Irradiance;
+        attribute dominantWavelength_nm : ScalarValues::Real;
+        attribute incidenceAngle_deg : ScalarValues::Real;
+    }
+
+    item def AnalogVoltage {
+        attribute value : ElectricPotential;
+        attribute sourceImpedance : Resistance;
+    }
+
+    item def DigitalSample {
+        attribute adcCode : DigitalCount;
+        attribute sampleTime : TimeInterval;
+        attribute referenceVoltage : ElectricPotential;
+    }
+
+    item def LightMeasurement {
+        attribute illuminance : Illuminance;
+        attribute irradiance : Irradiance;
+        attribute integrationTime : TimeInterval;
+        attribute temperature : Temperature;
+        attribute uncertaintyPercent : Ratio;
+        attribute saturated : Boolean;
+    }
+
+    item def DiagnosticReport {
+        attribute status : StatusCode;
+        attribute activeFault : FaultKind;
+        attribute supplyVoltage : ElectricPotential;
+        attribute darkOffsetCode : DigitalCount;
+        attribute ledReverseLeakage : ElectricCurrent;
+    }
+
+    port def OpticalInputPort {
+        in item incidentLight : OpticalFlux;
+    }
+
+    port def AnalogVoltagePort {
+        out item voltageSignal : AnalogVoltage;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : LightMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : ElectricPotential;
+        in attribute supplyCurrent : ElectricCurrent;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute reset : Boolean;
+        in attribute requestedIntegrationTime : TimeInterval;
+        out attribute ready : Boolean;
+        out attribute activeMode : SensorMode;
+    }
+
+    part def ReverseBiasedLedSensor {
+        attribute ledForwardVoltage : ElectricPotential = 2.05 [V];
+        attribute reverseBiasVoltage : ElectricPotential = 1.8 [V];
+        attribute junctionCapacitance : Capacitance = 45.0e-12 [F];
+        attribute darkCurrent_25C : ElectricCurrent = 2.0e-9 [A];
+        attribute photocurrentResponsivity : ElectricCurrent = 1.4e-8 [A];
+        attribute peakSensitivityWavelength_nm : ScalarValues::Real = 630.0;
+        attribute opticalAcceptanceAngle_deg : ScalarValues::Real = 55.0;
+        attribute maxSafeReverseVoltage : ElectricPotential = 5.0 [V];
+
+        port optical : OpticalInputPort;
+        port analog : AnalogVoltagePort;
+
+        perform action convertLightToPhotocurrent {
+            in item light : OpticalFlux;
+            out attribute photocurrent : ElectricCurrent;
+            out attribute junctionVoltage : ElectricPotential;
+
+            first start;
+            then computeSpectralResponse;
+            then integrateChargeOnJunction;
+            then emitAnalogVoltage;
+            then done;
+
+            action computeSpectralResponse {
+                in item light : OpticalFlux;
+                out attribute spectralFactor : Ratio;
+            }
+
+            action integrateChargeOnJunction {
+                in attribute photocurrent : ElectricCurrent;
+                in attribute capacitance : Capacitance = junctionCapacitance;
+                in attribute biasVoltage : ElectricPotential = reverseBiasVoltage;
+                out attribute junctionVoltage : ElectricPotential;
+            }
+
+            action emitAnalogVoltage {
+                out item analogVoltage : AnalogVoltage;
+            }
+        }
+    }
+
+    part def ChargeDischargeInterface {
+        attribute pullupResistance : Resistance = 1.0e6 [Ohm];
+        attribute dischargeResistance : Resistance = 220.0 [Ohm];
+        attribute comparatorThreshold : ElectricPotential = 0.9 [V];
+        attribute maximumIntegrationTime : TimeInterval = 0.250 [s];
+        attribute minimumIntegrationTime : TimeInterval = 0.001 [s];
+
+        port analogIn : AnalogVoltagePort;
+        port conditionedOut : AnalogVoltagePort;
+        port control : ControlPort;
+
+        perform action integrateLedDischarge {
+            in item ledVoltage : AnalogVoltage;
+            in attribute requestedIntegrationTime : TimeInterval;
+            out item conditionedVoltage : AnalogVoltage;
+            out attribute saturated : Boolean;
+
+            first chargeJunction;
+            then releaseToPhotodischarge;
+            then captureVoltage;
+            then evaluateSaturation;
+            then done;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : ScalarValues::Integer = 12;
+        attribute referenceVoltage : ElectricPotential = 3.3 [V];
+        attribute sampleRate : Frequency = 2000 [Hz];
+        attribute inputRangeLow : ElectricPotential = 0.0 [V];
+        attribute inputRangeHigh : ElectricPotential = 3.3 [V];
+        attribute integralNonlinearity_lsb : ScalarValues::Real = 1.5;
+
+        port analogIn : AnalogVoltagePort;
+        port digitalOut : DigitalSamplePort;
+
+        perform action sampleVoltage {
+            in item voltage : AnalogVoltage;
+            out item sample : DigitalSample;
+
+            first acquire;
+            then quantize;
+            then publish;
+            then done;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute nominalAccuracy : Temperature = 1.0 [K];
+        attribute updatePeriod : TimeInterval = 0.5 [s];
+        attribute measuredTemperature : Temperature;
+
+        perform action measureTemperature {
+            out attribute temperature : Temperature;
+        }
+    }
+
+    part def CalibrationStore {
+        attribute darkOffsetCode : DigitalCount = 18;
+        attribute gainLuxPerCount : ScalarValues::Real = 0.42;
+        attribute irradiancePerCount : ScalarValues::Real = 0.0031;
+        attribute temperatureCoefficientPerK : Ratio = 0.002;
+        attribute referenceTemperature : Temperature = 298.15 [K];
+        attribute saturationCode : DigitalCount = 4090;
+        attribute underRangeCode : DigitalCount = 3;
+    }
+
+    part def MeasurementProcessor {
+        part calibration : CalibrationStore;
+
+        port sampleIn : DigitalSamplePort;
+        port measurementOut : MeasurementPort;
+        port diagnostics : DiagnosticPort;
+        port control : ControlPort;
+
+        attribute lastSampleCode : DigitalCount;
+        attribute correctedCode : DigitalCount;
+        attribute currentTemperature : Temperature;
+        attribute calculatedIlluminance : Illuminance;
+        attribute calculatedIrradiance : Irradiance;
+        attribute uncertaintyPercent : Ratio = 6.0;
+        attribute activeFault : FaultKind = FaultKind::none;
+
+        perform action computeLightMeasurement {
+            in item rawSample : DigitalSample;
+            in attribute temperature : Temperature;
+            out item measurement : LightMeasurement;
+            out item diagnostic : DiagnosticReport;
+
+            first subtractDarkOffset;
+            then compensateTemperature;
+            then scaleToIlluminanceAndIrradiance;
+            then checkRange;
+            then publishMeasurementAndDiagnostics;
+            then done;
+
+            action subtractDarkOffset {
+                in attribute adcCode : DigitalCount;
+                in attribute darkOffset : DigitalCount = calibration.darkOffsetCode;
+                out attribute correctedCode : DigitalCount;
+            }
+
+            action compensateTemperature {
+                in attribute correctedCode : DigitalCount;
+                in attribute temperature : Temperature;
+                in attribute coefficient : Ratio = calibration.temperatureCoefficientPerK;
+                out attribute compensatedCode : DigitalCount;
+            }
+
+            action scaleToIlluminanceAndIrradiance {
+                in attribute compensatedCode : DigitalCount;
+                out attribute illuminance : Illuminance;
+                out attribute irradiance : Irradiance;
+            }
+
+            action checkRange {
+                in attribute adcCode : DigitalCount;
+                out attribute fault : FaultKind;
+                out attribute saturated : Boolean;
+            }
+        }
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltageMin : ElectricPotential = 2.7 [V];
+        attribute inputVoltageMax : ElectricPotential = 5.5 [V];
+        attribute regulatedVoltage : ElectricPotential = 3.3 [V];
+        attribute quiescentCurrent : ElectricCurrent = 250.0e-6 [A];
+        attribute maximumSensorCurrent : ElectricCurrent = 8.0e-3 [A];
+
+        port powerIn : PowerPort;
+        port regulatedPower : PowerPort;
+
+        perform action regulateSupply {
+            in attribute supplyVoltage : ElectricPotential;
+            out attribute regulatedVoltage : ElectricPotential;
+            out attribute supplyOk : Boolean;
+        }
+    }
+
+    part def LedBasedLightSensingUnit {
+        part powerConditioner : PowerConditioner;
+        part ledSensor : ReverseBiasedLedSensor;
+        part chargeInterface : ChargeDischargeInterface;
+        part adc : AnalogToDigitalConverter;
+        part temperatureSensor : TemperatureSensor;
+        part processor : MeasurementProcessor;
+
+        port opticalInput : OpticalInputPort;
+        port powerInput : PowerPort;
+        port control : ControlPort;
+        port measurementOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        attribute measurementRangeLow : Illuminance = 1.0 [lx];
+        attribute measurementRangeHigh : Illuminance = 10000.0 [lx];
+        attribute nominalIntegrationTime : TimeInterval = 0.020 [s];
+        attribute startupTime : TimeInterval = 0.050 [s];
+        attribute updatePeriod : TimeInterval = 0.100 [s];
+
+        connect opticalInput.incidentLight to ledSensor.optical.incidentLight;
+        connect powerInput.supplyVoltage to powerConditioner.powerIn.supplyVoltage;
+        connect powerInput.supplyCurrent to powerConditioner.powerIn.supplyCurrent;
+        connect powerConditioner.regulatedPower.supplyVoltage to chargeInterface.control.enable;
+        connect ledSensor.analog.voltageSignal to chargeInterface.analogIn.voltageSignal;
+        connect chargeInterface.conditionedOut.voltageSignal to adc.analogIn.voltageSignal;
+        connect adc.digitalOut.sample to processor.sampleIn.sample;
+        connect processor.measurementOut.measurement to measurementOutput.measurement;
+        connect processor.diagnostics.report to diagnosticOutput.report;
+        connect control.enable to chargeInterface.control.enable;
+        connect control.reset to chargeInterface.control.reset;
+        connect control.requestedIntegrationTime to chargeInterface.control.requestedIntegrationTime;
+        connect processor.control.ready to control.ready;
+        connect processor.control.activeMode to control.activeMode;
+
+        state def OperationalStateMachine {
+            entry action initialize {
+                then clearFaults;
+                then loadCalibration;
+                then biasLedSensor;
+            }
+
+            state off;
+            state selfTest;
+            state idle;
+            state measure;
+            state process;
+            state publish;
+            state calibrateDark;
+            state fault;
+
+            transition initial then off;
+
+            transition off_to_selfTest
+                first off
+                accept when control.enable
+                then selfTest;
+
+            transition selfTest_to_idle
+                first selfTest
+                accept after startupTime
+                if powerInput.supplyVoltage >= powerConditioner.inputVoltageMin and
+                   powerInput.supplyVoltage <= powerConditioner.inputVoltageMax
+                then idle;
+
+            transition selfTest_to_fault
+                first selfTest
+                if powerInput.supplyVoltage < powerConditioner.inputVoltageMin or
+                   powerInput.supplyVoltage > powerConditioner.inputVoltageMax
+                then fault;
+
+            transition idle_to_measure
+                first idle
+                accept after updatePeriod
+                then measure;
+
+            transition measure_to_process
+                first measure
+                accept after nominalIntegrationTime
+                then process;
+
+            transition process_to_publish
+                first process
+                then publish;
+
+            transition publish_to_idle
+                first publish
+                then idle;
+
+            transition idle_to_calibrateDark
+                first idle
+                accept when control.requestedIntegrationTime == 0.0 [s]
+                then calibrateDark;
+
+            transition calibrateDark_to_idle
+                first calibrateDark
+                accept after 0.100 [s]
+                then idle;
+
+            transition any_to_off
+                first off, selfTest, idle, measure, process, publish, calibrateDark, fault
+                accept when not control.enable
+                then off;
+
+            transition any_to_fault
+                first idle, measure, process, publish, calibrateDark
+                if processor.activeFault != FaultKind::none
+                then fault;
+
+            transition fault_to_selfTest
+                first fault
+                accept when control.reset
+                then selfTest;
+        }
+
+        perform action sensingCycle {
+            first verifySupply;
+            then temperatureSensor.measureTemperature;
+            then ledSensor.convertLightToPhotocurrent;
+            then chargeInterface.integrateLedDischarge;
+            then adc.sampleVoltage;
+            then processor.computeLightMeasurement;
+            then done;
+        }
+    }
+
+    requirement def MeasureLightUsingLedRequirement {
+        subject sensingUnit : LedBasedLightSensingUnit;
+
+        require constraint {
+            sensingUnit.ledSensor.photocurrentResponsivity > 0.0 [A] and
+            sensingUnit.measurementRangeLow <= 1.0 [lx] and
+            sensingUnit.measurementRangeHigh >= 10000.0 [lx]
+        }
+
+        doc /* The sensing unit shall use an LED junction as the light-sensitive element, operated without emitting light, to measure incident visible light. */
+    }
+
+    requirement def ReverseBiasProtectionRequirement {
+        subject led : ReverseBiasedLedSensor;
+
+        require constraint {
+            led.reverseBiasVoltage <= led.maxSafeReverseVoltage
+        }
+
+        doc /* The LED shall be reverse-biased only below its maximum safe reverse voltage during light measurement. */
+    }
+
+    requirement def MeasurementOutputRequirement {
+        subject sensingUnit : LedBasedLightSensingUnit;
+
+        require constraint {
+            sensingUnit.updatePeriod <= 0.100 [s] and
+            sensingUnit.processor.uncertaintyPercent <= 10.0
+        }
+
+        doc /* The unit shall publish compensated illuminance and irradiance measurements at least every 100 ms with no more than 10 percent nominal uncertainty across the specified range. */
+    }
+
+    requirement def SaturationDiagnosticRequirement {
+        subject processor : MeasurementProcessor;
+
+        require constraint {
+            processor.calibration.saturationCode < 4096
+        }
+
+        doc /* The unit shall report a saturation fault when the digitized LED discharge signal reaches the calibrated upper ADC limit. */
+    }
+
+    requirement def DarkCalibrationRequirement {
+        subject processor : MeasurementProcessor;
+
+        require constraint {
+            processor.calibration.darkOffsetCode >= 0
+        }
+
+        doc /* The unit shall maintain a dark offset calibration value used to subtract LED leakage and ADC offset from each light measurement. */
+    }
+
+    requirement def SupplyOperatingRequirement {
+        subject power : PowerConditioner;
+
+        require constraint {
+            power.inputVoltageMin == 2.7 [V] and
+            power.inputVoltageMax == 5.5 [V] and
+            power.regulatedVoltage == 3.3 [V]
+        }
+
+        doc /* The sensing unit shall operate from a 2.7 V to 5.5 V input supply and internally regulate the measurement electronics to 3.3 V. */
+    }
+
+    satisfy MeasureLightUsingLedRequirement by LedBasedLightSensingUnit;
+    satisfy ReverseBiasProtectionRequirement by ReverseBiasedLedSensor;
+    satisfy MeasurementOutputRequirement by LedBasedLightSensingUnit;
+    satisfy SaturationDiagnosticRequirement by MeasurementProcessor;
+    satisfy DarkCalibrationRequirement by CalibrationStore;
+    satisfy SupplyOperatingRequirement by PowerConditioner;
+}

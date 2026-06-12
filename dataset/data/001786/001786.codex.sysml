@@ -1,0 +1,422 @@
+package GasTurbineSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = K;
+  }
+
+  attribute def Pressure :> Real {
+    unit = Pa;
+  }
+
+  attribute def MassFlowRate :> Real {
+    unit = kg/s;
+  }
+
+  attribute def RotationalSpeed :> Real {
+    unit = rpm;
+  }
+
+  attribute def Power :> Real {
+    unit = W;
+  }
+
+  attribute def Energy :> Real {
+    unit = J;
+  }
+
+  attribute def FuelHeatingValue :> Real {
+    unit = J/kg;
+  }
+
+  attribute def Ratio :> Real;
+  attribute def Percent :> Real;
+
+  item def AmbientAir {
+    attribute temperature : Temperature;
+    attribute pressure : Pressure;
+    attribute massFlow : MassFlowRate;
+    attribute oxygenFraction : Ratio;
+  }
+
+  item def CompressedAir {
+    attribute temperature : Temperature;
+    attribute pressure : Pressure;
+    attribute massFlow : MassFlowRate;
+    attribute pressureRatio : Ratio;
+  }
+
+  item def Fuel {
+    attribute massFlow : MassFlowRate;
+    attribute lowerHeatingValue : FuelHeatingValue;
+    attribute supplyPressure : Pressure;
+  }
+
+  item def CombustionGas {
+    attribute temperature : Temperature;
+    attribute pressure : Pressure;
+    attribute massFlow : MassFlowRate;
+    attribute fuelAirRatio : Ratio;
+  }
+
+  item def ExhaustGas {
+    attribute temperature : Temperature;
+    attribute pressure : Pressure;
+    attribute massFlow : MassFlowRate;
+    attribute residualOxygenFraction : Ratio;
+  }
+
+  item def ShaftPower {
+    attribute deliveredPower : Power;
+    attribute shaftSpeed : RotationalSpeed;
+    attribute torquePower : Power;
+  }
+
+  item def ControlSignal {
+    attribute commandPercent : Percent;
+    attribute valid : Boolean;
+  }
+
+  item def HealthStatus {
+    attribute ready : Boolean;
+    attribute faulted : Boolean;
+    attribute overspeedTrip : Boolean;
+    attribute overtemperatureTrip : Boolean;
+    attribute flameoutDetected : Boolean;
+  }
+
+  port def AirInletPort {
+    in item air : AmbientAir;
+  }
+
+  port def CompressedAirPort {
+    out item compressedAir : CompressedAir;
+  }
+
+  port def FuelInletPort {
+    in item fuel : Fuel;
+  }
+
+  port def HotGasPort {
+    out item hotGas : CombustionGas;
+  }
+
+  port def ExhaustPort {
+    out item exhaust : ExhaustGas;
+  }
+
+  port def ShaftPowerPort {
+    out item power : ShaftPower;
+  }
+
+  port def ControlInputPort {
+    in item command : ControlSignal;
+  }
+
+  port def StatusOutputPort {
+    out item status : HealthStatus;
+  }
+
+  part def GasTurbinePowerPlant {
+    attribute ratedPower : Power = 25000000 [W];
+    attribute designPressureRatio : Ratio = 18.0;
+    attribute designTurbineInletTemperature : Temperature = 1450 [K];
+    attribute targetShaftSpeed : RotationalSpeed = 3600 [rpm];
+    attribute netEfficiency : Percent = 36.0;
+
+    port airInlet : AirInletPort;
+    port fuelSupply : FuelInletPort;
+    port controlInput : ControlInputPort;
+    port electricalShaftOutput : ShaftPowerPort;
+    port exhaustOutlet : ExhaustPort;
+    port statusOutput : StatusOutputPort;
+
+    part intake : AirIntake;
+    part compressor : AxialCompressor;
+    part combustor : AnnularCombustor;
+    part turbine : ExpansionTurbine;
+    part shaftTrain : ShaftTrain;
+    part starter : StarterMotor;
+    part fuelSystem : FuelControlSystem;
+    part lubricationSystem : LubricationSystem;
+    part controlSystem : TurbineController;
+    part exhaustSystem : ExhaustDiffuser;
+
+    connect airInlet to intake.externalAir;
+    connect intake.conditionedAir to compressor.airIn;
+    connect compressor.compressedAirOut to combustor.airIn;
+    connect fuelSupply to fuelSystem.externalFuel;
+    connect fuelSystem.meteredFuelOut to combustor.fuelIn;
+    connect combustor.hotGasOut to turbine.hotGasIn;
+    connect turbine.exhaustOut to exhaustSystem.exhaustIn;
+    connect exhaustSystem.stackOut to exhaustOutlet;
+    connect turbine.shaftPowerOut to shaftTrain.turbineInput;
+    connect shaftTrain.netPowerOutput to electricalShaftOutput;
+    connect controlInput to controlSystem.operatorCommand;
+    connect controlSystem.fuelCommand to fuelSystem.fuelCommand;
+    connect controlSystem.starterCommand to starter.starterCommand;
+    connect controlSystem.statusOut to statusOutput;
+
+    perform action ConvertFuelEnergyToShaftPower {
+      in item ambientAir : AmbientAir;
+      in item fuel : Fuel;
+      out item shaftPower : ShaftPower;
+      out item exhaust : ExhaustGas;
+
+      first start;
+      then compressAir;
+      then burnFuel;
+      then expandHotGas;
+      then deliverUsefulPower;
+      then dischargeExhaust;
+
+      action start;
+      action compressAir {
+        in item inletAir : AmbientAir;
+        out item compressedAir : CompressedAir;
+      }
+      action burnFuel {
+        in item compressedAir : CompressedAir;
+        in item meteredFuel : Fuel;
+        out item combustionGas : CombustionGas;
+      }
+      action expandHotGas {
+        in item combustionGas : CombustionGas;
+        out item mechanicalPower : ShaftPower;
+        out item exhaustGas : ExhaustGas;
+      }
+      action deliverUsefulPower {
+        in item mechanicalPower : ShaftPower;
+        out item netShaftPower : ShaftPower;
+      }
+      action dischargeExhaust {
+        in item exhaustGas : ExhaustGas;
+      }
+    }
+
+    exhibit state GasTurbineOperatingState {
+      entry; then Off;
+
+      state Off;
+      state Starting;
+      state Accelerating;
+      state Synchronized;
+      state GeneratingPower;
+      state Shutdown;
+      state Cooldown;
+      state Trip;
+
+      transition Off_to_Starting
+        first Off
+        accept StartCommand
+        then Starting;
+
+      transition Starting_to_Accelerating
+        first Starting
+        accept IgnitionConfirmed
+        then Accelerating;
+
+      transition Accelerating_to_Synchronized
+        first Accelerating
+        accept RatedSpeedReached
+        then Synchronized;
+
+      transition Synchronized_to_GeneratingPower
+        first Synchronized
+        accept LoadCommandAccepted
+        then GeneratingPower;
+
+      transition GeneratingPower_to_Shutdown
+        first GeneratingPower
+        accept StopCommand
+        then Shutdown;
+
+      transition Shutdown_to_Cooldown
+        first Shutdown
+        accept FuelValveClosed
+        then Cooldown;
+
+      transition Cooldown_to_Off
+        first Cooldown
+        accept RotorStopped
+        then Off;
+
+      transition Any_to_Trip
+        first Off
+        accept CriticalFaultDetected
+        then Trip;
+
+      transition Trip_to_Off
+        first Trip
+        accept FaultReset
+        then Off;
+    }
+  }
+
+  part def AirIntake {
+    attribute pressureRecovery : Percent = 98.0;
+    attribute filtrationEfficiency : Percent = 99.5;
+    attribute inletPressureLoss : Pressure = 1200 [Pa];
+
+    port externalAir : AirInletPort;
+    port conditionedAir : AirInletPort;
+  }
+
+  part def AxialCompressor {
+    attribute stages : Integer = 14;
+    attribute pressureRatio : Ratio = 18.0;
+    attribute isentropicEfficiency : Percent = 87.0;
+    attribute designAirFlow : MassFlowRate = 78 [kg/s];
+    attribute outletTemperatureLimit : Temperature = 720 [K];
+
+    port airIn : AirInletPort;
+    port compressedAirOut : CompressedAirPort;
+  }
+
+  part def AnnularCombustor {
+    attribute combustionEfficiency : Percent = 99.0;
+    attribute pressureLossFraction : Percent = 4.0;
+    attribute turbineInletTemperatureLimit : Temperature = 1500 [K];
+    attribute leanBlowoutFuelAirRatio : Ratio = 0.012;
+    attribute nominalFuelAirRatio : Ratio = 0.021;
+
+    port airIn : AirInletPort;
+    port fuelIn : FuelInletPort;
+    port hotGasOut : HotGasPort;
+  }
+
+  part def ExpansionTurbine {
+    attribute stages : Integer = 4;
+    attribute isentropicEfficiency : Percent = 90.0;
+    attribute maximumRotorSpeed : RotationalSpeed = 3960 [rpm];
+    attribute inletTemperatureLimit : Temperature = 1500 [K];
+    attribute nominalExhaustTemperature : Temperature = 820 [K];
+
+    port hotGasIn : HotGasPort;
+    port exhaustOut : ExhaustPort;
+    port shaftPowerOut : ShaftPowerPort;
+  }
+
+  part def ShaftTrain {
+    attribute mechanicalEfficiency : Percent = 98.5;
+    attribute nominalSpeed : RotationalSpeed = 3600 [rpm];
+    attribute vibrationTripLimit : Real = 8.0;
+
+    port turbineInput : ShaftPowerPort;
+    port netPowerOutput : ShaftPowerPort;
+  }
+
+  part def StarterMotor {
+    attribute starterPower : Power = 1200000 [W];
+    attribute disengageSpeed : RotationalSpeed = 2200 [rpm];
+
+    port starterCommand : ControlInputPort;
+  }
+
+  part def FuelControlSystem {
+    attribute minimumFuelPressure : Pressure = 2400000 [Pa];
+    attribute maximumFuelFlow : MassFlowRate = 1.7 [kg/s];
+    attribute shutoffValveClosureTime : Real = 0.4;
+
+    port externalFuel : FuelInletPort;
+    port fuelCommand : ControlInputPort;
+    port meteredFuelOut : FuelInletPort;
+  }
+
+  part def LubricationSystem {
+    attribute oilSupplyPressure : Pressure = 520000 [Pa];
+    attribute oilTemperatureLimit : Temperature = 370 [K];
+    attribute bearingProtectionAvailable : Boolean = true;
+  }
+
+  part def TurbineController {
+    attribute commandedLoad : Percent;
+    attribute speedSetpoint : RotationalSpeed = 3600 [rpm];
+    attribute exhaustTemperatureSetpoint : Temperature = 820 [K];
+    attribute overspeedTripSetpoint : RotationalSpeed = 3960 [rpm];
+
+    port operatorCommand : ControlInputPort;
+    port fuelCommand : ControlInputPort;
+    port starterCommand : ControlInputPort;
+    port statusOut : StatusOutputPort;
+
+    perform action RegulateGasTurbine {
+      in item command : ControlSignal;
+      in item health : HealthStatus;
+      out item fuelValveCommand : ControlSignal;
+      out item starterMotorCommand : ControlSignal;
+
+      first evaluateCommand;
+      then checkProtectionLimits;
+      then computeFuelDemand;
+      then issueActuatorCommands;
+
+      action evaluateCommand;
+      action checkProtectionLimits;
+      action computeFuelDemand;
+      action issueActuatorCommands;
+    }
+  }
+
+  part def ExhaustDiffuser {
+    attribute pressureRecovery : Percent = 85.0;
+    attribute stackBackPressureLimit : Pressure = 3500 [Pa];
+
+    port exhaustIn : ExhaustPort;
+    port stackOut : ExhaustPort;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The gas turbine system shall convert chemical energy in supplied fuel and oxygen from ambient air into continuous rotating shaft power by compressing air, combusting fuel in the compressed air stream, expanding hot gas through a turbine, and discharging exhaust gas. */
+  }
+
+  requirement def RatedPowerRequirement {
+    attribute requiredNetPower : Power = 25000000 [W];
+    doc /* The gas turbine system shall deliver at least the required net shaft power at rated ambient conditions. */
+  }
+
+  requirement def SpeedControlRequirement {
+    attribute nominalSpeed : RotationalSpeed = 3600 [rpm];
+    attribute allowedSteadyStateDeviation : Percent = 0.5;
+    doc /* The control system shall regulate shaft speed within the allowed steady-state deviation during synchronized operation. */
+  }
+
+  requirement def TurbineTemperatureProtectionRequirement {
+    attribute maximumTurbineInletTemperature : Temperature = 1500 [K];
+    doc /* The system shall reduce fuel flow or trip when turbine inlet temperature exceeds the maximum permitted limit. */
+  }
+
+  requirement def OverspeedProtectionRequirement {
+    attribute tripSpeed : RotationalSpeed = 3960 [rpm];
+    doc /* The system shall command immediate fuel shutoff and trip when rotor speed reaches or exceeds the overspeed trip setpoint. */
+  }
+
+  requirement def ExhaustHandlingRequirement {
+    attribute maximumStackBackPressure : Pressure = 3500 [Pa];
+    doc /* The exhaust system shall route turbine exhaust to the stack while maintaining back pressure below the maximum limit. */
+  }
+
+  requirement def StartupSequenceRequirement {
+    doc /* The system shall motor the rotor, admit fuel, ignite the combustor, accelerate to rated speed, synchronize, and accept load only after health status is ready and no trip condition is active. */
+  }
+
+  satisfy PrimaryFunctionRequirement by GasTurbinePowerPlant;
+  satisfy RatedPowerRequirement by GasTurbinePowerPlant;
+  satisfy SpeedControlRequirement by TurbineController;
+  satisfy TurbineTemperatureProtectionRequirement by TurbineController;
+  satisfy OverspeedProtectionRequirement by TurbineController;
+  satisfy ExhaustHandlingRequirement by ExhaustDiffuser;
+  satisfy StartupSequenceRequirement by GasTurbinePowerPlant;
+
+  part gasTurbinePlant : GasTurbinePowerPlant {
+    attribute ratedPower = 25000000 [W];
+    attribute designPressureRatio = 18.0;
+    attribute designTurbineInletTemperature = 1450 [K];
+    attribute targetShaftSpeed = 3600 [rpm];
+    attribute netEfficiency = 36.0;
+  }
+
+}

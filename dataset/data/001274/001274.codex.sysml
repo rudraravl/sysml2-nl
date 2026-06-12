@@ -1,0 +1,531 @@
+package TachometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def RevolutionsPerMinute :> ScalarValues::Real {
+        unit = "rpm";
+    }
+
+    attribute def Hertz :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def Volt :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def Ampere :> ScalarValues::Real {
+        unit = "A";
+    }
+
+    attribute def Millisecond :> ScalarValues::Real {
+        unit = "ms";
+    }
+
+    attribute def Percent :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def Celsius :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    item def ShaftRotation {
+        attribute rotationalSpeed : RevolutionsPerMinute;
+        attribute pulseFrequency : Hertz;
+        attribute direction : RotationDirection;
+    }
+
+    enum def RotationDirection {
+        enum clockwise;
+        enum counterClockwise;
+        enum stopped;
+        enum unknown;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+    }
+
+    item def SensorPulse {
+        attribute pulseFrequency : Hertz;
+        attribute pulseAmplitude : Volt;
+        attribute dutyCycle : Percent;
+        attribute timestamp : Millisecond;
+    }
+
+    item def SpeedMeasurement {
+        attribute measuredSpeed : RevolutionsPerMinute;
+        attribute confidence : Percent;
+        attribute sampleTime : Millisecond;
+        attribute direction : RotationDirection;
+    }
+
+    item def SpeedDisplayData {
+        attribute displayedSpeed : RevolutionsPerMinute;
+        attribute updatePeriod : Millisecond;
+        attribute alarmActive : Boolean;
+    }
+
+    item def SpeedLimitSetting {
+        attribute overspeedLimit : RevolutionsPerMinute;
+        attribute underspeedLimit : RevolutionsPerMinute;
+    }
+
+    item def AlarmSignal {
+        attribute active : Boolean;
+        attribute severity : AlarmSeverity;
+        attribute triggeringSpeed : RevolutionsPerMinute;
+    }
+
+    enum def AlarmSeverity {
+        enum none;
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    port def RotationInputPort {
+        in item rotation : ShaftRotation;
+    }
+
+    port def PulsePort {
+        out item pulse : SensorPulse;
+    }
+
+    port def MeasurementPort {
+        out item measurement : SpeedMeasurement;
+    }
+
+    port def DisplayPort {
+        in item displayData : SpeedDisplayData;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmSignal;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def SettingsPort {
+        in item limits : SpeedLimitSetting;
+    }
+
+    part def MagneticPickupSensor {
+        port rotationIn : RotationInputPort;
+        port pulseOut : PulsePort;
+        port powerIn : PowerInputPort;
+
+        attribute pulsesPerRevolution : Integer = 60;
+        attribute minimumDetectableSpeed : RevolutionsPerMinute = 30;
+        attribute maximumDetectableSpeed : RevolutionsPerMinute = 12000;
+        attribute outputHighVoltage : Volt = 5.0;
+        attribute operatingTemperature : Celsius;
+
+        action convertRotationToPulse {
+            in item shaft : ShaftRotation;
+            out item pulses : SensorPulse;
+
+            first start;
+            then calculateFrequency;
+            then generatePulseTrain;
+            then done;
+
+            action calculateFrequency {
+                in item shaft : ShaftRotation;
+                out attribute frequency : Hertz;
+            }
+
+            action generatePulseTrain {
+                in attribute frequency : Hertz;
+                out item pulses : SensorPulse;
+            }
+        }
+    }
+
+    part def SignalConditioner {
+        port rawPulseIn {
+            in item pulse : SensorPulse;
+        }
+        port cleanPulseOut : PulsePort;
+        port powerIn : PowerInputPort;
+
+        attribute noiseRejectionThreshold : Volt = 0.8;
+        attribute debounceTime : Millisecond = 2.0;
+        attribute maximumInputFrequency : Hertz = 12000.0;
+
+        action conditionPulseSignal {
+            in item rawPulse : SensorPulse;
+            out item conditionedPulse : SensorPulse;
+
+            first receiveRawPulse;
+            then filterNoise;
+            then squareWaveNormalize;
+            then outputConditionedPulse;
+            then done;
+        }
+    }
+
+    part def SpeedProcessor {
+        port conditionedPulseIn {
+            in item pulse : SensorPulse;
+        }
+        port settingIn : SettingsPort;
+        port measurementOut : MeasurementPort;
+        port alarmOut : AlarmPort;
+        port powerIn : PowerInputPort;
+
+        attribute pulsesPerRevolution : Integer = 60;
+        attribute calculationWindow : Millisecond = 100.0;
+        attribute measurementAccuracy : Percent = 0.5;
+        attribute lastMeasuredSpeed : RevolutionsPerMinute;
+        attribute overspeedLimit : RevolutionsPerMinute = 6000;
+        attribute underspeedLimit : RevolutionsPerMinute = 100;
+
+        action calculateRotationalSpeed {
+            in item pulse : SensorPulse;
+            out item measurement : SpeedMeasurement;
+
+            first capturePulseFrequency;
+            then computeRpm;
+            then validateMeasurement;
+            then publishMeasurement;
+            then done;
+
+            action capturePulseFrequency {
+                in item pulse : SensorPulse;
+                out attribute frequency : Hertz;
+            }
+
+            action computeRpm {
+                in attribute frequency : Hertz;
+                out attribute rpm : RevolutionsPerMinute;
+            }
+
+            action validateMeasurement {
+                in attribute rpm : RevolutionsPerMinute;
+                out attribute confidence : Percent;
+            }
+        }
+
+        action evaluateSpeedLimits {
+            in item measurement : SpeedMeasurement;
+            in item limits : SpeedLimitSetting;
+            out item alarm : AlarmSignal;
+
+            first compareAgainstLimits;
+            then assignSeverity;
+            then publishAlarm;
+            then done;
+        }
+
+        state def ProcessorOperatingState {
+            entry action initializeProcessor;
+            state initializing;
+            state measuring;
+            state validating;
+            state alarmEvaluation;
+            state faultDetected;
+
+            transition first initializing;
+            transition initializing_to_measuring
+                first initializing
+                then measuring;
+
+            transition measuring_to_validating
+                first measuring
+                then validating;
+
+            transition validating_to_alarmEvaluation
+                first validating
+                then alarmEvaluation;
+
+            transition alarmEvaluation_to_measuring
+                first alarmEvaluation
+                then measuring;
+
+            transition validating_to_faultDetected
+                first validating
+                then faultDetected
+                if measurementConfidenceBelowThreshold;
+
+            transition faultDetected_to_initializing
+                first faultDetected
+                then initializing
+                if resetRequested;
+        }
+    }
+
+    part def DigitalDisplay {
+        port measurementIn {
+            in item measurement : SpeedMeasurement;
+        }
+        port displayDataIn : DisplayPort;
+        port powerIn : PowerInputPort;
+
+        attribute refreshPeriod : Millisecond = 250.0;
+        attribute displayedSpeed : RevolutionsPerMinute;
+        attribute brightness : Percent = 80.0;
+
+        action updateDisplay {
+            in item measurement : SpeedMeasurement;
+            out item displayData : SpeedDisplayData;
+
+            first receiveMeasurement;
+            then formatSpeedValue;
+            then refreshNumericDisplay;
+            then done;
+        }
+    }
+
+    part def AlarmIndicator {
+        port alarmIn {
+            in item alarm : AlarmSignal;
+        }
+        port powerIn : PowerInputPort;
+
+        attribute audibleLevel : Percent = 70.0;
+        attribute visualIntensity : Percent = 90.0;
+
+        action indicateAlarm {
+            in item alarm : AlarmSignal;
+
+            first receiveAlarm;
+            then selectIndicationMode;
+            then activateVisualIndicator;
+            then activateAudibleIndicator;
+            then done;
+        }
+
+        state def AlarmIndicatorState {
+            state inactive;
+            state advisoryIndication;
+            state warningIndication;
+            state criticalIndication;
+
+            transition first inactive;
+
+            transition inactive_to_advisory
+                first inactive
+                then advisoryIndication
+                if advisoryAlarmReceived;
+
+            transition inactive_to_warning
+                first inactive
+                then warningIndication
+                if warningAlarmReceived;
+
+            transition inactive_to_critical
+                first inactive
+                then criticalIndication
+                if criticalAlarmReceived;
+
+            transition advisory_to_inactive
+                first advisoryIndication
+                then inactive
+                if alarmCleared;
+
+            transition warning_to_inactive
+                first warningIndication
+                then inactive
+                if alarmCleared;
+
+            transition critical_to_inactive
+                first criticalIndication
+                then inactive
+                if alarmCleared;
+        }
+    }
+
+    part def PowerSupply {
+        port powerOut {
+            out item power : ElectricalPower;
+        }
+
+        attribute nominalVoltage : Volt = 12.0;
+        attribute maximumCurrent : Ampere = 2.0;
+        attribute outputVoltageTolerance : Percent = 5.0;
+
+        action regulatePower {
+            out item power : ElectricalPower;
+        }
+    }
+
+    part def Tachometer {
+        port shaftRotationInput : RotationInputPort;
+        port speedMeasurementOutput : MeasurementPort;
+        port alarmOutput : AlarmPort;
+        port speedLimitInput : SettingsPort;
+
+        part sensor : MagneticPickupSensor;
+        part conditioner : SignalConditioner;
+        part processor : SpeedProcessor;
+        part display : DigitalDisplay;
+        part alarmIndicator : AlarmIndicator;
+        part powerSupply : PowerSupply;
+
+        attribute measurementRangeMinimum : RevolutionsPerMinute = 30;
+        attribute measurementRangeMaximum : RevolutionsPerMinute = 12000;
+        attribute nominalAccuracy : Percent = 0.5;
+        attribute displayUpdatePeriod : Millisecond = 250.0;
+
+        connect shaftRotationInput.rotation to sensor.rotationIn.rotation;
+        connect sensor.pulseOut.pulse to conditioner.rawPulseIn.pulse;
+        connect conditioner.cleanPulseOut.pulse to processor.conditionedPulseIn.pulse;
+        connect processor.measurementOut.measurement to display.measurementIn.measurement;
+        connect processor.measurementOut.measurement to speedMeasurementOutput.measurement;
+        connect processor.alarmOut.alarm to alarmIndicator.alarmIn.alarm;
+        connect processor.alarmOut.alarm to alarmOutput.alarm;
+        connect speedLimitInput.limits to processor.settingIn.limits;
+
+        connect powerSupply.powerOut.power to sensor.powerIn.power;
+        connect powerSupply.powerOut.power to conditioner.powerIn.power;
+        connect powerSupply.powerOut.power to processor.powerIn.power;
+        connect powerSupply.powerOut.power to display.powerIn.power;
+        connect powerSupply.powerOut.power to alarmIndicator.powerIn.power;
+
+        action performTachometerFunction {
+            in item shaftRotation : ShaftRotation;
+            in item limits : SpeedLimitSetting;
+            out item speedMeasurement : SpeedMeasurement;
+            out item alarm : AlarmSignal;
+
+            first senseShaftRotation;
+            then conditionSensorPulses;
+            then calculateSpeed;
+            then evaluateLimits;
+            then presentSpeed;
+            then reportAlarmStatus;
+            then done;
+        }
+
+        state def TachometerOperationalState {
+            state poweredOff;
+            state startup;
+            state ready;
+            state measuring;
+            state overspeedAlarm;
+            state underspeedAlarm;
+            state sensorFault;
+
+            transition first poweredOff;
+
+            transition poweredOff_to_startup
+                first poweredOff
+                then startup
+                if powerApplied;
+
+            transition startup_to_ready
+                first startup
+                then ready
+                if selfTestPassed;
+
+            transition ready_to_measuring
+                first ready
+                then measuring
+                if rotationDetected;
+
+            transition measuring_to_overspeedAlarm
+                first measuring
+                then overspeedAlarm
+                if measuredSpeedAboveOverspeedLimit;
+
+            transition measuring_to_underspeedAlarm
+                first measuring
+                then underspeedAlarm
+                if measuredSpeedBelowUnderspeedLimit;
+
+            transition overspeedAlarm_to_measuring
+                first overspeedAlarm
+                then measuring
+                if measuredSpeedWithinLimits;
+
+            transition underspeedAlarm_to_measuring
+                first underspeedAlarm
+                then measuring
+                if measuredSpeedWithinLimits;
+
+            transition measuring_to_sensorFault
+                first measuring
+                then sensorFault
+                if pulseSignalInvalid;
+
+            transition sensorFault_to_startup
+                first sensorFault
+                then startup
+                if resetRequested;
+        }
+    }
+
+    requirement def TachometerPrimaryFunctionRequirement {
+        subject tachometer : Tachometer;
+
+        doc /* The tachometer shall determine the rotational speed of an input shaft by sensing shaft rotation, converting rotation into electrical pulses, calculating speed in revolutions per minute, displaying the measured speed, and issuing alarms when configured speed limits are violated. */
+    }
+
+    requirement def SpeedMeasurementRangeRequirement {
+        subject tachometer : Tachometer;
+
+        require constraint {
+            tachometer.measurementRangeMinimum <= 30 and
+            tachometer.measurementRangeMaximum >= 12000
+        }
+
+        doc /* The tachometer shall measure shaft speed from 30 rpm through 12000 rpm. */
+    }
+
+    requirement def SpeedAccuracyRequirement {
+        subject tachometer : Tachometer;
+
+        require constraint {
+            tachometer.nominalAccuracy <= 0.5
+        }
+
+        doc /* The tachometer shall report rotational speed with accuracy equal to or better than 0.5 percent of reading over the specified measurement range. */
+    }
+
+    requirement def DisplayUpdateRequirement {
+        subject tachometer : Tachometer;
+
+        require constraint {
+            tachometer.displayUpdatePeriod <= 250
+        }
+
+        doc /* The tachometer shall update the displayed speed at least once every 250 milliseconds during normal measuring operation. */
+    }
+
+    requirement def OverspeedAlarmRequirement {
+        subject processor : SpeedProcessor;
+
+        doc /* The tachometer shall generate a critical alarm when the measured shaft speed exceeds the configured overspeed limit. */
+    }
+
+    requirement def SignalConditioningRequirement {
+        subject conditioner : SignalConditioner;
+
+        require constraint {
+            conditioner.noiseRejectionThreshold >= 0.8
+        }
+
+        doc /* The tachometer shall reject sensor pulse noise below the configured voltage threshold before speed calculation. */
+    }
+
+    satisfy TachometerPrimaryFunctionRequirement by Tachometer::performTachometerFunction;
+    satisfy SpeedMeasurementRangeRequirement by Tachometer;
+    satisfy SpeedAccuracyRequirement by SpeedProcessor::calculateRotationalSpeed;
+    satisfy DisplayUpdateRequirement by DigitalDisplay::updateDisplay;
+    satisfy OverspeedAlarmRequirement by SpeedProcessor::evaluateSpeedLimits;
+    satisfy SignalConditioningRequirement by SignalConditioner::conditionPulseSignal;
+
+    part tachometerSystem : Tachometer {
+        attribute measurementRangeMinimum = 30;
+        attribute measurementRangeMaximum = 12000;
+        attribute nominalAccuracy = 0.5;
+        attribute displayUpdatePeriod = 250.0;
+    }
+}

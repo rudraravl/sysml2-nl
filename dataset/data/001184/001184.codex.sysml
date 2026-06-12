@@ -1,0 +1,650 @@
+package PhotomultiplierSystemSpecification {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+    import Quantities::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential;
+    attribute def ElectricCurrent :> ISQ::electricCurrent;
+    attribute def ElectricCharge :> ISQ::electricCharge;
+    attribute def Time :> ISQ::time;
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Power :> ISQ::power;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Length :> ISQ::length;
+    attribute def Irradiance :> ISQ::powerPerArea;
+    attribute def Gain;
+    attribute def CountRate;
+    attribute def QuantumEfficiency;
+    attribute def DarkCurrent;
+    attribute def SignalToNoiseRatio;
+
+    item def Photon {
+        attribute wavelength : Length;
+        attribute energy : ISQ::energy;
+        attribute arrivalTime : Time;
+    }
+
+    item def Photoelectron {
+        attribute charge : ElectricCharge = -1.602176634e-19 [C];
+        attribute creationTime : Time;
+        attribute kineticEnergy : ISQ::energy;
+    }
+
+    item def ElectronAvalanche {
+        attribute electronCount : Integer;
+        attribute totalCharge : ElectricCharge;
+        attribute transitTime : Time;
+    }
+
+    item def AnalogPulse {
+        attribute peakVoltage : ElectricPotential;
+        attribute pulseCharge : ElectricCharge;
+        attribute riseTime : Time;
+        attribute fallTime : Time;
+        attribute timestamp : Time;
+    }
+
+    item def DigitalCount {
+        attribute countValue : Integer;
+        attribute timestamp : Time;
+        attribute integrationWindow : Time;
+    }
+
+    item def HighVoltageEnergy {
+        attribute voltage : ElectricPotential;
+        attribute currentLimit : ElectricCurrent;
+        attribute ripple : ElectricPotential;
+    }
+
+    item def LowVoltageEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    port def OpticalInputPort {
+        in item incidentPhoton : Photon;
+    }
+
+    port def ElectronPort {
+        out item emittedElectron : Photoelectron;
+    }
+
+    port def AvalanchePort {
+        in item inputElectron : Photoelectron;
+        out item avalanche : ElectronAvalanche;
+    }
+
+    port def AnalogSignalPort {
+        out item pulse : AnalogPulse;
+    }
+
+    port def DigitalSignalPort {
+        out item count : DigitalCount;
+    }
+
+    port def HighVoltagePort {
+        in item supply : HighVoltageEnergy;
+    }
+
+    port def LowVoltagePort {
+        in item supply : LowVoltageEnergy;
+    }
+
+    port def ThermalPort {
+        out attribute dissipatedPower : Power;
+        in attribute ambientTemperature : Temperature;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute requestedGain : Gain;
+        in attribute discriminatorThreshold : ElectricPotential;
+        out attribute ready : Boolean;
+        out attribute fault : Boolean;
+    }
+
+    part def Photocathode {
+        attribute activeDiameter : Length = 25 [mm];
+        attribute spectralMinWavelength : Length = 185 [nm];
+        attribute spectralMaxWavelength : Length = 650 [nm];
+        attribute peakQuantumEfficiency : QuantumEfficiency = 0.28;
+        attribute darkEmissionRate : CountRate = 500 [1/s];
+
+        port opticalInput : OpticalInputPort;
+        port electronOutput : ElectronPort;
+
+        action convertPhotonToPhotoelectron {
+            in item photon : Photon;
+            out item electron : Photoelectron;
+
+            first start;
+            then evaluateSpectralResponse;
+            then probabilisticEmission;
+            then done;
+
+            action evaluateSpectralResponse {
+                in item photon : Photon;
+                out attribute withinBand : Boolean;
+            }
+
+            action probabilisticEmission {
+                in attribute withinBand : Boolean;
+                out item electron : Photoelectron;
+            }
+        }
+    }
+
+    part def DynodeStage {
+        attribute stageNumber : Integer;
+        attribute secondaryEmissionRatio : Real;
+        attribute biasVoltage : ElectricPotential;
+
+        port avalancheInput : AvalanchePort;
+
+        action multiplyElectrons {
+            in item primaryElectrons : ElectronAvalanche;
+            out item secondaryElectrons : ElectronAvalanche;
+        }
+    }
+
+    part def DynodeChain {
+        attribute numberOfStages : Integer = 10;
+        attribute nominalGain : Gain = 1.0e6;
+        attribute transitTimeSpread : Time = 1.5 [ns];
+        attribute maximumAverageAnodeCurrent : ElectricCurrent = 100 [uA];
+
+        port electronInput : AvalanchePort;
+        port highVoltageInput : HighVoltagePort;
+        port avalancheOutput : AvalanchePort;
+
+        part dynode1 : DynodeStage {
+            attribute stageNumber = 1;
+            attribute secondaryEmissionRatio = 4.0;
+            attribute biasVoltage = 120 [V];
+        }
+
+        part dynode2 : DynodeStage {
+            attribute stageNumber = 2;
+            attribute secondaryEmissionRatio = 3.8;
+            attribute biasVoltage = 110 [V];
+        }
+
+        part dynode3 : DynodeStage {
+            attribute stageNumber = 3;
+            attribute secondaryEmissionRatio = 3.6;
+            attribute biasVoltage = 105 [V];
+        }
+
+        part dynode4 : DynodeStage {
+            attribute stageNumber = 4;
+            attribute secondaryEmissionRatio = 3.4;
+            attribute biasVoltage = 100 [V];
+        }
+
+        part dynode5 : DynodeStage {
+            attribute stageNumber = 5;
+            attribute secondaryEmissionRatio = 3.2;
+            attribute biasVoltage = 95 [V];
+        }
+
+        part dynode6 : DynodeStage {
+            attribute stageNumber = 6;
+            attribute secondaryEmissionRatio = 3.0;
+            attribute biasVoltage = 90 [V];
+        }
+
+        part dynode7 : DynodeStage {
+            attribute stageNumber = 7;
+            attribute secondaryEmissionRatio = 2.9;
+            attribute biasVoltage = 85 [V];
+        }
+
+        part dynode8 : DynodeStage {
+            attribute stageNumber = 8;
+            attribute secondaryEmissionRatio = 2.8;
+            attribute biasVoltage = 80 [V];
+        }
+
+        part dynode9 : DynodeStage {
+            attribute stageNumber = 9;
+            attribute secondaryEmissionRatio = 2.7;
+            attribute biasVoltage = 75 [V];
+        }
+
+        part dynode10 : DynodeStage {
+            attribute stageNumber = 10;
+            attribute secondaryEmissionRatio = 2.6;
+            attribute biasVoltage = 70 [V];
+        }
+
+        connect electronInput.avalanche to dynode1.avalancheInput.inputElectron;
+        connect dynode1.avalancheInput.avalanche to dynode2.avalancheInput.inputElectron;
+        connect dynode2.avalancheInput.avalanche to dynode3.avalancheInput.inputElectron;
+        connect dynode3.avalancheInput.avalanche to dynode4.avalancheInput.inputElectron;
+        connect dynode4.avalancheInput.avalanche to dynode5.avalancheInput.inputElectron;
+        connect dynode5.avalancheInput.avalanche to dynode6.avalancheInput.inputElectron;
+        connect dynode6.avalancheInput.avalanche to dynode7.avalancheInput.inputElectron;
+        connect dynode7.avalancheInput.avalanche to dynode8.avalancheInput.inputElectron;
+        connect dynode8.avalancheInput.avalanche to dynode9.avalancheInput.inputElectron;
+        connect dynode9.avalancheInput.avalanche to dynode10.avalancheInput.inputElectron;
+        connect dynode10.avalancheInput.avalanche to avalancheOutput.avalanche;
+    }
+
+    part def AnodeCollector {
+        attribute collectionEfficiency : Real = 0.95;
+        attribute outputImpedance : Real = 50.0;
+        attribute nominalPulseWidth : Time = 8 [ns];
+
+        port avalancheInput : AvalanchePort;
+        port analogOutput : AnalogSignalPort;
+
+        action collectCharge {
+            in item avalanche : ElectronAvalanche;
+            out item pulse : AnalogPulse;
+        }
+    }
+
+    part def HighVoltageDivider {
+        attribute inputVoltage : ElectricPotential = 1100 [V];
+        attribute dividerCurrent : ElectricCurrent = 500 [uA];
+        attribute regulationAccuracy : Real = 0.01;
+        attribute maximumRipple : ElectricPotential = 2 [mV];
+
+        port highVoltageInput : HighVoltagePort;
+        port thermalOutput : ThermalPort;
+
+        action distributeBias {
+            in item highVoltage : HighVoltageEnergy;
+            out attribute photocathodeBias : ElectricPotential;
+            out attribute dynodeBiases : ElectricPotential[10];
+            out attribute anodeBias : ElectricPotential;
+        }
+    }
+
+    part def LowNoisePreamplifier {
+        attribute bandwidth : Frequency = 250 [MHz];
+        attribute transimpedanceGain : Real = 10000.0;
+        attribute inputReferredNoise : ElectricCurrent = 2 [pA];
+        attribute saturationVoltage : ElectricPotential = 2.5 [V];
+
+        port lowVoltageInput : LowVoltagePort;
+        port analogInput : AnalogSignalPort;
+        port analogOutput : AnalogSignalPort;
+
+        action amplifyPulse {
+            in item rawPulse : AnalogPulse;
+            out item amplifiedPulse : AnalogPulse;
+        }
+    }
+
+    part def PulseDiscriminator {
+        attribute threshold : ElectricPotential = 20 [mV];
+        attribute deadTime : Time = 25 [ns];
+        attribute maximumCountRate : CountRate = 1.0e7 [1/s];
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalSignalPort;
+        port control : ControlPort;
+
+        action discriminatePulse {
+            in item amplifiedPulse : AnalogPulse;
+            out item count : DigitalCount;
+        }
+    }
+
+    part def Controller {
+        attribute enabled : Boolean = false;
+        attribute commandedGain : Gain = 1.0e6;
+        attribute measuredCountRate : CountRate;
+        attribute faultPresent : Boolean = false;
+        attribute readyPresent : Boolean = false;
+        attribute operatingTemperature : Temperature;
+
+        port controlInterface : ControlPort;
+        port lowVoltageInput : LowVoltagePort;
+
+        state machine controlStateMachine {
+            state Off;
+            state Initializing;
+            state StabilizingHighVoltage;
+            state Ready;
+            state Measuring;
+            state Fault;
+
+            initial then Off;
+
+            transition Off_to_Initializing
+                first Off
+                accept controlInterface.enable
+                if controlInterface.enable == true
+                then Initializing;
+
+            transition Initializing_to_StabilizingHighVoltage
+                first Initializing
+                if faultPresent == false
+                then StabilizingHighVoltage;
+
+            transition StabilizingHighVoltage_to_Ready
+                first StabilizingHighVoltage
+                if readyPresent == true
+                then Ready;
+
+            transition Ready_to_Measuring
+                first Ready
+                if controlInterface.enable == true
+                then Measuring;
+
+            transition Measuring_to_Ready
+                first Measuring
+                if controlInterface.enable == false
+                then Ready;
+
+            transition Any_to_Fault
+                first Off
+                then Fault
+                if faultPresent == true;
+
+            transition Fault_to_Off
+                first Fault
+                accept controlInterface.enable
+                if controlInterface.enable == false
+                then Off;
+        }
+
+        action superviseOperation {
+            in attribute enableCommand : Boolean;
+            in attribute requestedGain : Gain;
+            in attribute temperature : Temperature;
+            out attribute ready : Boolean;
+            out attribute fault : Boolean;
+        }
+    }
+
+    part def ThermalManager {
+        attribute maximumTubeTemperature : Temperature = 323.15 [K];
+        attribute nominalAmbientTemperature : Temperature = 293.15 [K];
+        attribute thermalResistanceToAmbient : Real = 12.0;
+
+        port thermalInput : ThermalPort;
+        port control : ControlPort;
+
+        action monitorTemperature {
+            in attribute ambientTemperature : Temperature;
+            in attribute dissipatedPower : Power;
+            out attribute overTemperature : Boolean;
+        }
+    }
+
+    part def PhotomultiplierTube {
+        attribute tubeDiameter : Length = 30 [mm];
+        attribute tubeLength : Length = 85 [mm];
+        attribute nominalSupplyVoltage : ElectricPotential = 1100 [V];
+        attribute nominalGain : Gain = 1.0e6;
+        attribute darkCurrent : DarkCurrent = 1 [nA];
+        attribute riseTime : Time = 2.5 [ns];
+
+        port opticalInput : OpticalInputPort;
+        port highVoltageInput : HighVoltagePort;
+        port analogOutput : AnalogSignalPort;
+        port thermalOutput : ThermalPort;
+
+        part photocathode : Photocathode;
+        part dynodes : DynodeChain;
+        part anode : AnodeCollector;
+        part divider : HighVoltageDivider;
+
+        connect opticalInput.incidentPhoton to photocathode.opticalInput.incidentPhoton;
+        connect photocathode.electronOutput.emittedElectron to dynodes.electronInput.inputElectron;
+        connect highVoltageInput.supply to divider.highVoltageInput.supply;
+        connect highVoltageInput.supply to dynodes.highVoltageInput.supply;
+        connect dynodes.avalancheOutput.avalanche to anode.avalancheInput.avalanche;
+        connect anode.analogOutput.pulse to analogOutput.pulse;
+        connect divider.thermalOutput.dissipatedPower to thermalOutput.dissipatedPower;
+
+        action detectLight {
+            in item photon : Photon;
+            out item pulse : AnalogPulse;
+
+            first receivePhoton;
+            then emitPhotoelectron;
+            then multiplyElectronCascade;
+            then collectAvalancheCharge;
+            then outputPulse;
+
+            action receivePhoton {
+                in item photon : Photon;
+            }
+
+            action emitPhotoelectron {
+                in item photon : Photon;
+                out item electron : Photoelectron;
+            }
+
+            action multiplyElectronCascade {
+                in item electron : Photoelectron;
+                out item avalanche : ElectronAvalanche;
+            }
+
+            action collectAvalancheCharge {
+                in item avalanche : ElectronAvalanche;
+                out item pulse : AnalogPulse;
+            }
+
+            action outputPulse {
+                in item pulse : AnalogPulse;
+            }
+        }
+    }
+
+    part def PhotomultiplierDetectionSystem {
+        attribute primaryFunction : String = "Convert very low intensity optical photon events into measurable electrical pulses or digital counts using photoelectric conversion, electron multiplication, charge collection, and pulse discrimination.";
+        attribute minimumDetectablePhotonRate : CountRate = 10 [1/s];
+        attribute maximumLinearPhotonRate : CountRate = 1.0e6 [1/s];
+        attribute requiredSignalToNoiseRatio : SignalToNoiseRatio = 10.0;
+        attribute measurementIntegrationWindow : Time = 1 [ms];
+        attribute operatingAmbientMin : Temperature = 273.15 [K];
+        attribute operatingAmbientMax : Temperature = 313.15 [K];
+
+        port opticalInput : OpticalInputPort;
+        port highVoltagePowerInput : HighVoltagePort;
+        port lowVoltagePowerInput : LowVoltagePort;
+        port countOutput : DigitalSignalPort;
+        port commandAndStatus : ControlPort;
+        port thermalInterface : ThermalPort;
+
+        part tube : PhotomultiplierTube;
+        part preamplifier : LowNoisePreamplifier;
+        part discriminator : PulseDiscriminator;
+        part controller : Controller;
+        part thermalManager : ThermalManager;
+
+        connect opticalInput.incidentPhoton to tube.opticalInput.incidentPhoton;
+        connect highVoltagePowerInput.supply to tube.highVoltageInput.supply;
+        connect lowVoltagePowerInput.supply to preamplifier.lowVoltageInput.supply;
+        connect lowVoltagePowerInput.supply to controller.lowVoltageInput.supply;
+        connect tube.analogOutput.pulse to preamplifier.analogInput.pulse;
+        connect preamplifier.analogOutput.pulse to discriminator.analogInput.pulse;
+        connect discriminator.digitalOutput.count to countOutput.count;
+        connect commandAndStatus.enable to controller.controlInterface.enable;
+        connect commandAndStatus.requestedGain to controller.controlInterface.requestedGain;
+        connect commandAndStatus.discriminatorThreshold to discriminator.control.discriminatorThreshold;
+        connect controller.controlInterface.ready to commandAndStatus.ready;
+        connect controller.controlInterface.fault to commandAndStatus.fault;
+        connect tube.thermalOutput.dissipatedPower to thermalManager.thermalInput.dissipatedPower;
+        connect thermalInterface.ambientTemperature to thermalManager.thermalInput.ambientTemperature;
+        connect thermalManager.control.fault to commandAndStatus.fault;
+
+        action performPhotonCounting {
+            in item incidentPhoton : Photon;
+            out item count : DigitalCount;
+
+            first acceptOpticalEvent;
+            then tube.detectLight;
+            then preamplifier.amplifyPulse;
+            then discriminator.discriminatePulse;
+            then publishCount;
+
+            action acceptOpticalEvent {
+                in item incidentPhoton : Photon;
+            }
+
+            action publishCount {
+                in item count : DigitalCount;
+            }
+        }
+
+        state machine detectionLifecycle {
+            state Disabled;
+            state BiasRamp;
+            state GainStabilization;
+            state PhotonCounting;
+            state Saturated;
+            state ProtectiveShutdown;
+
+            initial then Disabled;
+
+            transition Disabled_to_BiasRamp
+                first Disabled
+                accept commandAndStatus.enable
+                if commandAndStatus.enable == true
+                then BiasRamp;
+
+            transition BiasRamp_to_GainStabilization
+                first BiasRamp
+                if highVoltagePowerInput.supply.voltage >= 1000 [V]
+                then GainStabilization;
+
+            transition GainStabilization_to_PhotonCounting
+                first GainStabilization
+                if commandAndStatus.ready == true
+                then PhotonCounting;
+
+            transition PhotonCounting_to_Saturated
+                first PhotonCounting
+                if discriminator.maximumCountRate < maximumLinearPhotonRate
+                then Saturated;
+
+            transition Saturated_to_PhotonCounting
+                first Saturated
+                if discriminator.maximumCountRate >= maximumLinearPhotonRate
+                then PhotonCounting;
+
+            transition PhotonCounting_to_ProtectiveShutdown
+                first PhotonCounting
+                if commandAndStatus.fault == true
+                then ProtectiveShutdown;
+
+            transition ProtectiveShutdown_to_Disabled
+                first ProtectiveShutdown
+                accept commandAndStatus.enable
+                if commandAndStatus.enable == false
+                then Disabled;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall convert low-level incident optical photon events into electrical output signals that represent detected light intensity or photon count rate. */
+        subject system : PhotomultiplierDetectionSystem;
+        require constraint {
+            system.minimumDetectablePhotonRate <= 10 [1/s] and
+            system.maximumLinearPhotonRate >= 1.0e6 [1/s]
+        }
+    }
+
+    requirement def GainRequirement {
+        doc /* The photomultiplier tube shall provide electron multiplication sufficient to produce measurable output pulses from single photon events. */
+        subject system : PhotomultiplierDetectionSystem;
+        require constraint {
+            system.tube.nominalGain >= 1.0e6
+        }
+    }
+
+    requirement def SpectralResponseRequirement {
+        doc /* The photocathode shall accept ultraviolet through visible photons within the specified operating wavelength band. */
+        subject tube : PhotomultiplierTube;
+        require constraint {
+            tube.photocathode.spectralMinWavelength <= 185 [nm] and
+            tube.photocathode.spectralMaxWavelength >= 650 [nm]
+        }
+    }
+
+    requirement def TimingRequirement {
+        doc /* The detector shall preserve nanosecond-scale event timing for fast photon counting applications. */
+        subject tube : PhotomultiplierTube;
+        require constraint {
+            tube.riseTime <= 3 [ns] and
+            tube.dynodes.transitTimeSpread <= 2 [ns]
+        }
+    }
+
+    requirement def NoiseRequirement {
+        doc /* The system shall limit internally generated dark signal so weak optical input can be distinguished from detector noise. */
+        subject system : PhotomultiplierDetectionSystem;
+        require constraint {
+            system.tube.darkCurrent <= 2 [nA] and
+            system.requiredSignalToNoiseRatio >= 10.0
+        }
+    }
+
+    requirement def HighVoltageRequirement {
+        doc /* The high voltage supply and divider shall bias the photocathode, dynodes, and anode with stable voltage for repeatable gain. */
+        subject tube : PhotomultiplierTube;
+        require constraint {
+            tube.nominalSupplyVoltage >= 900 [V] and
+            tube.nominalSupplyVoltage <= 1300 [V] and
+            tube.divider.maximumRipple <= 5 [mV]
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        doc /* The system shall identify over-temperature conditions and command a protective shutdown before tube temperature exceeds its limit. */
+        subject system : PhotomultiplierDetectionSystem;
+        require constraint {
+            system.thermalManager.maximumTubeTemperature <= 323.15 [K]
+        }
+    }
+
+    requirement def OutputRequirement {
+        doc /* The system shall provide a digital count output derived from analog photomultiplier pulses that exceed the configured discrimination threshold. */
+        subject system : PhotomultiplierDetectionSystem;
+        require constraint {
+            system.discriminator.threshold >= 5 [mV] and
+            system.discriminator.threshold <= 100 [mV]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhotomultiplierDetectionSystem;
+    satisfy GainRequirement by PhotomultiplierDetectionSystem::tube;
+    satisfy SpectralResponseRequirement by PhotomultiplierDetectionSystem::tube::photocathode;
+    satisfy TimingRequirement by PhotomultiplierDetectionSystem::tube;
+    satisfy NoiseRequirement by PhotomultiplierDetectionSystem;
+    satisfy HighVoltageRequirement by PhotomultiplierDetectionSystem::tube::divider;
+    satisfy ThermalProtectionRequirement by PhotomultiplierDetectionSystem::thermalManager;
+    satisfy OutputRequirement by PhotomultiplierDetectionSystem::discriminator;
+
+    part photomultiplierSystem : PhotomultiplierDetectionSystem {
+        attribute minimumDetectablePhotonRate = 5 [1/s];
+        attribute maximumLinearPhotonRate = 2.0e6 [1/s];
+        attribute measurementIntegrationWindow = 100 [us];
+
+        part tube {
+            attribute nominalSupplyVoltage = 1100 [V];
+            attribute nominalGain = 1.2e6;
+            attribute darkCurrent = 0.8 [nA];
+            attribute riseTime = 2.2 [ns];
+        }
+
+        part preamplifier {
+            attribute bandwidth = 300 [MHz];
+            attribute inputReferredNoise = 1.5 [pA];
+        }
+
+        part discriminator {
+            attribute threshold = 25 [mV];
+            attribute deadTime = 20 [ns];
+            attribute maximumCountRate = 1.2e7 [1/s];
+        }
+    }
+}

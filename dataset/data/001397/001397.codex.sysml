@@ -1,0 +1,599 @@
+package DevelopmentalRoboticsSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    enum def LearningMode {
+        enum exploration;
+        enum imitation;
+        enum guidedPractice;
+        enum consolidation;
+        enum socialInteraction;
+        enum safeShutdown;
+    }
+
+    enum def AffectState {
+        enum calm;
+        enum curious;
+        enum uncertain;
+        enum overloaded;
+        enum engaged;
+    }
+
+    enum def SafetyState {
+        enum nominal;
+        enum constrained;
+        enum stopRequested;
+        enum fault;
+    }
+
+    item def VisualFrame {
+        attribute width : Integer;
+        attribute height : Integer;
+        attribute frameRate : Real;
+        attribute timestamp : Time;
+    }
+
+    item def AudioSample {
+        attribute sampleRate : Real;
+        attribute soundPressureLevel : Real;
+        attribute timestamp : Time;
+    }
+
+    item def TactileContact {
+        attribute contactForce : Force;
+        attribute contactArea : Area;
+        attribute bodyRegionId : String;
+        attribute timestamp : Time;
+    }
+
+    item def ProprioceptiveState {
+        attribute jointAngles : JointAngleVector;
+        attribute jointVelocities : JointVelocityVector;
+        attribute bodyPoseConfidence : Real;
+        attribute timestamp : Time;
+    }
+
+    item def JointAngleVector {
+        attribute shoulderYaw : Angle;
+        attribute shoulderPitch : Angle;
+        attribute elbowPitch : Angle;
+        attribute wristPitch : Angle;
+        attribute neckYaw : Angle;
+        attribute neckPitch : Angle;
+    }
+
+    item def JointVelocityVector {
+        attribute shoulderYawRate : AngularVelocity;
+        attribute shoulderPitchRate : AngularVelocity;
+        attribute elbowPitchRate : AngularVelocity;
+        attribute wristPitchRate : AngularVelocity;
+        attribute neckYawRate : AngularVelocity;
+        attribute neckPitchRate : AngularVelocity;
+    }
+
+    item def SocialCue {
+        attribute speakerId : String;
+        attribute gazeDirection : Angle;
+        attribute facialEngagement : Real;
+        attribute prosodyArousal : Real;
+        attribute gestureClass : String;
+        attribute timestamp : Time;
+    }
+
+    item def MotorCommand {
+        attribute targetJointAngles : JointAngleVector;
+        attribute maximumSpeed : AngularVelocity;
+        attribute maximumTorque : Torque;
+        attribute complianceGain : Real;
+        attribute issuedAt : Time;
+    }
+
+    item def SkillRepresentation {
+        attribute skillId : String;
+        attribute confidence : Real;
+        attribute noveltyScore : Real;
+        attribute practiceCount : Integer;
+        attribute lastUpdated : Time;
+    }
+
+    item def LearningEpisode {
+        attribute episodeId : String;
+        attribute mode : LearningMode;
+        attribute duration : Time;
+        attribute rewardEstimate : Real;
+        attribute safetyInterruptions : Integer;
+    }
+
+    item def CaregiverInstruction {
+        attribute utterance : String;
+        attribute demonstrationLabel : String;
+        attribute approvalScore : Real;
+        attribute timestamp : Time;
+    }
+
+    item def SafetyConstraint {
+        attribute maximumContactForce : Force;
+        attribute maximumJointTorque : Torque;
+        attribute minimumHumanDistance : Length;
+        attribute maximumSurfaceTemperature : Temperature;
+    }
+
+    item def PowerStatus {
+        attribute batteryCharge : Real;
+        attribute busVoltage : ElectricPotential;
+        attribute currentDraw : ElectricCurrent;
+        attribute estimatedRuntime : Time;
+    }
+
+    port def VisualInputPort {
+        in item frame : VisualFrame;
+    }
+
+    port def AudioInputPort {
+        in item sample : AudioSample;
+    }
+
+    port def TactileInputPort {
+        in item contact : TactileContact;
+    }
+
+    port def ProprioceptionPort {
+        in item proprioception : ProprioceptiveState;
+    }
+
+    port def SocialCuePort {
+        out item cue : SocialCue;
+    }
+
+    port def InstructionPort {
+        in item instruction : CaregiverInstruction;
+    }
+
+    port def MotorCommandPort {
+        out item command : MotorCommand;
+    }
+
+    port def SkillMemoryPort {
+        inout item skill : SkillRepresentation;
+    }
+
+    port def SafetyPort {
+        inout item constraint : SafetyConstraint;
+        out attribute safetyState : SafetyState;
+    }
+
+    port def PowerPort {
+        inout item power : PowerStatus;
+    }
+
+    part def StereoVisionSensor {
+        attribute baseline : Length = 0.065 [m];
+        attribute horizontalFieldOfView : Angle = 90 [deg];
+        attribute frameRate : Real = 60;
+        attribute depthRange : Length = 5 [m];
+
+        port visualOut : VisualInputPort;
+    }
+
+    part def MicrophoneArray {
+        attribute microphoneCount : Integer = 6;
+        attribute sampleRate : Real = 48000;
+        attribute localizationAccuracy : Angle = 8 [deg];
+
+        port audioOut : AudioInputPort;
+    }
+
+    part def ArtificialSkin {
+        attribute taxelCount : Integer = 2048;
+        attribute forceResolution : Force = 0.02 [N];
+        attribute maximumDetectableForce : Force = 35 [N];
+
+        port tactileOut : TactileInputPort;
+    }
+
+    part def JointEncoderSet {
+        attribute encoderResolution : Angle = 0.1 [deg];
+        attribute updateRate : Real = 500;
+
+        port proprioceptionOut : ProprioceptionPort;
+    }
+
+    part def SocialPerceptionUnit {
+        attribute gazeTrackingAccuracy : Angle = 5 [deg];
+        attribute speechEmotionAccuracy : Real = 0.82;
+        attribute gestureVocabularySize : Integer = 64;
+
+        port visualIn : VisualInputPort;
+        port audioIn : AudioInputPort;
+        port tactileIn : TactileInputPort;
+        port socialCueOut : SocialCuePort;
+    }
+
+    part def SensorimotorBodySchema {
+        attribute predictionHorizon : Time = 0.35 [s];
+        attribute bodyModelConfidence : Real = 0.70;
+        attribute adaptationRate : Real = 0.04;
+
+        port proprioceptionIn : ProprioceptionPort;
+        port tactileIn : TactileInputPort;
+        port skillMemory : SkillMemoryPort;
+    }
+
+    part def CuriosityDrivenLearningEngine {
+        attribute intrinsicMotivationGain : Real = 0.75;
+        attribute noveltyThreshold : Real = 0.30;
+        attribute consolidationInterval : Time = 600 [s];
+        attribute maximumEpisodeDuration : Time = 180 [s];
+
+        port socialCueIn : SocialCuePort;
+        port instructionIn : InstructionPort;
+        port skillMemory : SkillMemoryPort;
+        port motorPlanOut : MotorCommandPort;
+
+        action selectLearningGoal {
+            in item cue : SocialCue;
+            in item currentSkill : SkillRepresentation;
+            out item selectedSkill : SkillRepresentation;
+        }
+
+        action updateSkillModel {
+            in item episode : LearningEpisode;
+            in item priorSkill : SkillRepresentation;
+            out item updatedSkill : SkillRepresentation;
+        }
+
+        state learningController {
+            entry action initializeExplorationPolicy;
+
+            state Idle;
+            state Explore;
+            state Imitate;
+            state Practice;
+            state Consolidate;
+            state SociallyEngage;
+            state Suspended;
+
+            initial then Idle;
+
+            transition Idle_to_Explore
+                first Idle
+                accept after 2 [s]
+                then Explore;
+
+            transition Explore_to_Imitate
+                first Explore
+                accept CaregiverInstruction
+                if instruction.approvalScore > 0.65
+                then Imitate;
+
+            transition Imitate_to_Practice
+                first Imitate
+                accept after 30 [s]
+                then Practice;
+
+            transition Practice_to_Consolidate
+                first Practice
+                if selectedSkill.confidence >= 0.80
+                then Consolidate;
+
+            transition Explore_to_SociallyEngage
+                first Explore
+                if cue.facialEngagement > 0.70
+                then SociallyEngage;
+
+            transition SociallyEngage_to_Practice
+                first SociallyEngage
+                accept CaregiverInstruction
+                then Practice;
+
+            transition Any_to_Suspended
+                first Idle
+                then Suspended;
+        }
+    }
+
+    part def EpisodicSkillMemory {
+        attribute maximumEpisodes : Integer = 100000;
+        attribute retentionHalfLife : Time = 2592000 [s];
+        attribute minimumSkillConfidenceForAutonomy : Real = 0.74;
+
+        port skillAccess : SkillMemoryPort;
+    }
+
+    part def MotionController {
+        attribute servoUpdateRate : Real = 1000;
+        attribute nominalComplianceGain : Real = 0.55;
+        attribute maximumArmSpeed : AngularVelocity = 1.2 [rad/s];
+        attribute maximumNeckSpeed : AngularVelocity = 1.6 [rad/s];
+
+        port motorCommandIn : MotorCommandPort;
+        port safetyIn : SafetyPort;
+        port proprioceptionIn : ProprioceptionPort;
+        port motorCommandOut : MotorCommandPort;
+
+        action limitMotionBySafetyEnvelope {
+            in item requestedCommand : MotorCommand;
+            in item constraint : SafetyConstraint;
+            out item safeCommand : MotorCommand;
+        }
+    }
+
+    part def HumanoidManipulator {
+        attribute degreesOfFreedom : Integer = 18;
+        attribute reach : Length = 0.62 [m];
+        attribute payload : Mass = 1.5 [kg];
+        attribute maximumJointTorque : Torque = 18 [N*m];
+
+        port commandIn : MotorCommandPort;
+        port proprioceptionOut : ProprioceptionPort;
+        port tactileOut : TactileInputPort;
+    }
+
+    part def SafetySupervisor {
+        attribute humanMinimumDistance : Length = 0.35 [m];
+        attribute maximumAllowedContactForce : Force = 12 [N];
+        attribute maximumAllowedJointTorque : Torque = 14 [N*m];
+        attribute emergencyStopLatency : Time = 0.08 [s];
+
+        port visualIn : VisualInputPort;
+        port tactileIn : TactileInputPort;
+        port proprioceptionIn : ProprioceptionPort;
+        port safetyOut : SafetyPort;
+
+        state safetyMonitor {
+            state Nominal;
+            state ConstrainedMotion;
+            state EmergencyStop;
+            state FaultRecovery;
+
+            initial then Nominal;
+
+            transition Nominal_to_ConstrainedMotion
+                first Nominal
+                if constraint.minimumHumanDistance < humanMinimumDistance
+                then ConstrainedMotion;
+
+            transition ConstrainedMotion_to_Nominal
+                first ConstrainedMotion
+                if constraint.minimumHumanDistance >= humanMinimumDistance
+                then Nominal;
+
+            transition Nominal_to_EmergencyStop
+                first Nominal
+                if constraint.maximumContactForce > maximumAllowedContactForce
+                then EmergencyStop;
+
+            transition ConstrainedMotion_to_EmergencyStop
+                first ConstrainedMotion
+                if constraint.maximumContactForce > maximumAllowedContactForce
+                then EmergencyStop;
+
+            transition EmergencyStop_to_FaultRecovery
+                first EmergencyStop
+                accept CaregiverInstruction
+                then FaultRecovery;
+
+            transition FaultRecovery_to_Nominal
+                first FaultRecovery
+                accept after 5 [s]
+                then Nominal;
+        }
+    }
+
+    part def HumanInteractionInterface {
+        attribute supportedLanguages : Integer = 3;
+        attribute instructionLatency : Time = 0.25 [s];
+        attribute minimumApprovalConfidence : Real = 0.60;
+
+        port instructionOut : InstructionPort;
+        port socialCueIn : SocialCuePort;
+    }
+
+    part def PowerManagementUnit {
+        attribute batteryCapacity : ElectricCharge = 18000 [C];
+        attribute nominalVoltage : ElectricPotential = 24 [V];
+        attribute lowPowerThreshold : Real = 0.15;
+        attribute shutdownReserveTime : Time = 120 [s];
+
+        port powerBus : PowerPort;
+    }
+
+    part def DevelopmentalRobot {
+        attribute systemMass : Mass = 32 [kg];
+        attribute nominalOperatingDuration : Time = 14400 [s];
+        attribute primaryFunction : String = "Acquire and refine sensorimotor and social skills through safe exploration, imitation, caregiver feedback, and memory-based consolidation.";
+
+        part vision : StereoVisionSensor;
+        part microphones : MicrophoneArray;
+        part skin : ArtificialSkin;
+        part encoders : JointEncoderSet;
+        part socialPerception : SocialPerceptionUnit;
+        part bodySchema : SensorimotorBodySchema;
+        part learner : CuriosityDrivenLearningEngine;
+        part skillMemory : EpisodicSkillMemory;
+        part controller : MotionController;
+        part body : HumanoidManipulator;
+        part safety : SafetySupervisor;
+        part interface : HumanInteractionInterface;
+        part power : PowerManagementUnit;
+
+        port caregiverInstruction : InstructionPort;
+        port externalPower : PowerPort;
+
+        connect vision.visualOut to socialPerception.visualIn;
+        connect vision.visualOut to safety.visualIn;
+
+        connect microphones.audioOut to socialPerception.audioIn;
+        connect skin.tactileOut to socialPerception.tactileIn;
+        connect skin.tactileOut to bodySchema.tactileIn;
+        connect skin.tactileOut to safety.tactileIn;
+
+        connect encoders.proprioceptionOut to bodySchema.proprioceptionIn;
+        connect encoders.proprioceptionOut to controller.proprioceptionIn;
+        connect encoders.proprioceptionOut to safety.proprioceptionIn;
+
+        connect socialPerception.socialCueOut to learner.socialCueIn;
+        connect socialPerception.socialCueOut to interface.socialCueIn;
+
+        connect caregiverInstruction to learner.instructionIn;
+        connect interface.instructionOut to learner.instructionIn;
+
+        connect learner.skillMemory to skillMemory.skillAccess;
+        connect bodySchema.skillMemory to skillMemory.skillAccess;
+
+        connect learner.motorPlanOut to controller.motorCommandIn;
+        connect safety.safetyOut to controller.safetyIn;
+        connect controller.motorCommandOut to body.commandIn;
+
+        connect body.proprioceptionOut to encoders.proprioceptionOut;
+        connect body.tactileOut to skin.tactileOut;
+
+        connect externalPower to power.powerBus;
+
+        action developmentalCycle {
+            in item visualFrame : VisualFrame;
+            in item audioSample : AudioSample;
+            in item contact : TactileContact;
+            in item proprioception : ProprioceptiveState;
+            in item caregiverInput : CaregiverInstruction;
+            out item motorOutput : MotorCommand;
+            out item learnedSkill : SkillRepresentation;
+
+            first start;
+            then perceiveSocialContext;
+            then estimateBodyState;
+            then selectDevelopmentalGoal;
+            then generateMotorExperiment;
+            then applySafetyEnvelope;
+            then executeMovement;
+            then evaluateOutcome;
+            then updateMemory;
+            then done;
+        }
+
+        state operatingLifecycle {
+            state Boot;
+            state CalibrateBodySchema;
+            state AutonomousDevelopment;
+            state GuidedLearning;
+            state SkillConsolidation;
+            state SafeStop;
+            state PowerDown;
+
+            initial then Boot;
+
+            transition Boot_to_CalibrateBodySchema
+                first Boot
+                accept after 10 [s]
+                then CalibrateBodySchema;
+
+            transition CalibrateBodySchema_to_AutonomousDevelopment
+                first CalibrateBodySchema
+                if bodySchema.bodyModelConfidence >= 0.65
+                then AutonomousDevelopment;
+
+            transition AutonomousDevelopment_to_GuidedLearning
+                first AutonomousDevelopment
+                accept CaregiverInstruction
+                then GuidedLearning;
+
+            transition GuidedLearning_to_AutonomousDevelopment
+                first GuidedLearning
+                accept after 180 [s]
+                then AutonomousDevelopment;
+
+            transition AutonomousDevelopment_to_SkillConsolidation
+                first AutonomousDevelopment
+                accept after learner.consolidationInterval
+                then SkillConsolidation;
+
+            transition SkillConsolidation_to_AutonomousDevelopment
+                first SkillConsolidation
+                accept after 60 [s]
+                then AutonomousDevelopment;
+
+            transition AutonomousDevelopment_to_SafeStop
+                first AutonomousDevelopment
+                if safety.maximumAllowedContactForce < 1 [N]
+                then SafeStop;
+
+            transition GuidedLearning_to_SafeStop
+                first GuidedLearning
+                if safety.maximumAllowedContactForce < 1 [N]
+                then SafeStop;
+
+            transition SafeStop_to_PowerDown
+                first SafeStop
+                if power.lowPowerThreshold >= 0.15
+                then PowerDown;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The developmental robot shall learn reusable sensorimotor and social interaction skills by combining multimodal perception, curiosity-driven exploration, imitation of caregiver demonstrations, safety supervision, and episodic memory consolidation. */
+    }
+
+    requirement def SafeExplorationRequirement {
+        doc /* The developmental robot shall constrain exploratory actions so that contact force, joint torque, and human proximity remain within configured safety limits during all learning modes. */
+    }
+
+    requirement def IncrementalLearningRequirement {
+        doc /* The developmental robot shall update skill confidence and novelty estimates after each learning episode and retain learned skills for future task selection. */
+    }
+
+    requirement def SocialGuidanceRequirement {
+        doc /* The developmental robot shall accept caregiver instructions and demonstrations as guidance signals that can change learning mode from autonomous exploration to imitation or guided practice. */
+    }
+
+    requirement def EmbodiedAdaptationRequirement {
+        doc /* The developmental robot shall maintain an adaptive body schema using proprioceptive and tactile feedback to improve prediction of movement outcomes. */
+    }
+
+    requirement def RuntimeRequirement {
+        doc /* The developmental robot shall operate for at least four hours in nominal developmental learning mode before requiring recharge. */
+    }
+
+    part developmentalRoboticsSystem : DevelopmentalRobot;
+
+    satisfy PrimaryFunctionRequirement by developmentalRoboticsSystem;
+    satisfy SafeExplorationRequirement by developmentalRoboticsSystem.safety;
+    satisfy IncrementalLearningRequirement by developmentalRoboticsSystem.learner;
+    satisfy IncrementalLearningRequirement by developmentalRoboticsSystem.skillMemory;
+    satisfy SocialGuidanceRequirement by developmentalRoboticsSystem.interface;
+    satisfy SocialGuidanceRequirement by developmentalRoboticsSystem.learner;
+    satisfy EmbodiedAdaptationRequirement by developmentalRoboticsSystem.bodySchema;
+    satisfy RuntimeRequirement by developmentalRoboticsSystem.power;
+
+    constraint def ContactForceLimit {
+        in force : Force;
+        in limit : Force;
+        force <= limit;
+    }
+
+    constraint def HumanDistanceLimit {
+        in distance : Length;
+        in minimumDistance : Length;
+        distance >= minimumDistance;
+    }
+
+    constraint def BatteryRuntimeLimit {
+        in runtime : Time;
+        runtime >= 14400 [s];
+    }
+
+    assert constraint ContactForceLimit {
+        force = developmentalRoboticsSystem.safety.maximumAllowedContactForce;
+        limit = 12 [N];
+    }
+
+    assert constraint HumanDistanceLimit {
+        distance = developmentalRoboticsSystem.safety.humanMinimumDistance;
+        minimumDistance = 0.35 [m];
+    }
+
+    assert constraint BatteryRuntimeLimit {
+        runtime = developmentalRoboticsSystem.nominalOperatingDuration;
+    }
+}

@@ -1,0 +1,1041 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-dskcf2ip
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6b6-33df-7043-8807-7e44c32db18f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a HD Hyundai Robotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HDHyundaiRoboticsCellModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  attribute def PayloadMass : Real {
+    unit = "kg";
+  }
+
+  attribute def ReachLength : Real {
+    unit = "m";
+  }
+
+  attribute def CycleTime : Real {
+    unit = "s";
+  }
+
+  attribute def Voltage : Real {
+    unit = "V";
+  }
+
+  attribute def Current : Real {
+    unit = "A";
+  }
+
+  attribute def Power : Real {
+    unit = "kW";
+  }
+
+  attribute def Force : Real {
+    unit = "N";
+  }
+
+  attribute def Temperature : Real {
+    unit = "degC";
+  }
+
+  attribute def PositionAccuracy : Real {
+    unit = "mm";
+  }
+
+  item def Workpiece {
+    attribute mass : PayloadMass;
+    attribute length : ReachLength;
+    attribute width : ReachLength;
+    attribute height : ReachLength;
+    attribute material : String;
+    attribute processState : WorkpieceState;
+  }
+
+  enum def WorkpieceState {
+    enum raw;
+    enum picked;
+    enum positioned;
+    enum processed;
+    enum placed;
+    enum rejected;
+  }
+
+  item def MotionCommand {
+    attribute targetX : ReachLength;
+    attribute targetY : ReachLength;
+    attribute targetZ : ReachLength;
+    attribute targetRx : Real;
+    attribute targetRy : Real;
+    attribute targetRz : Real;
+    attribute speedOverride : Percent;
+    attribute accelerationOverride : Percent;
+  }
+
+  item def GripperCommand {
+    attribute closeRequested : Boolean;
+    attribute gripForce : Force;
+  }
+
+  item def RobotStatus {
+    attribute enabled : Boolean;
+    attribute inAutomaticMode : Boolean;
+    attribute emergencyStopActive : Boolean;
+    attribute servoPowerOn : Boolean;
+    attribute currentCycleTime : CycleTime;
+    attribute toolCenterPointError : PositionAccuracy;
+  }
+
+  item def SafetySignal {
+    attribute safeToMove : Boolean;
+    attribute guardDoorClosed : Boolean;
+    attribute lightCurtainClear : Boolean;
+    attribute emergencyStopHealthy : Boolean;
+  }
+
+  port def WorkpiecePort {
+    inout item workpiece : Workpiece;
+  }
+
+  port def MotionCommandPort {
+    in item command : MotionCommand;
+  }
+
+  port def GripperCommandPort {
+    in item command : GripperCommand;
+  }
+
+  port def RobotStatusPort {
+    out item status : RobotStatus;
+  }
+
+  port def SafetyPort {
+    in item safety : SafetySignal;
+  }
+
+  port def PowerPort {
+    in attribute voltage : Voltage;
+    in attribute current : Current;
+    out attribute consumedPower : Power;
+  }
+
+  part def HDHyundaiIndustrialRobot {
+    attribute manufacturer : String = "HD Hyundai Robotics";
+    attribute axes : Integer = 6;
+    attribute ratedPayload : PayloadMass = 20;
+    attribute maximumReach : ReachLength = 1.72;
+    attribute repeatability : PositionAccuracy = 0.06;
+    attribute controllerTemperature : Temperature;
+
+    port power : PowerPort;
+    port motionCommand : MotionCommandPort;
+    port gripperCommand : GripperCommandPort;
+    port workpieceInterface : WorkpiecePort;
+    port safetyInput : SafetyPort;
+    port statusOutput : RobotStatusPort;
+
+    part base;
+    part shoulderJoint;
+    part elbowJoint;
+    part wristJoint1;
+    part wristJoint2;
+    part wristJoint3;
+    part servoDrive[6];
+    part encoder[6];
+    part robotController;
+    part teachPendant;
+    part endEffectorAdapter;
+
+    action moveToTarget {
+      in item command : MotionCommand;
+      in item safety : SafetySignal;
+      out item status : RobotStatus;
+
+      first start;
+      then verifySafety;
+      then energizeServoPower;
+      then executeCoordinatedMotion;
+      then verifyPosition;
+      then done;
+
+      assert constraint {
+        safety.safeToMove == true and
+        safety.guardDoorClosed == true and
+        safety.lightCurtainClear == true and
+        safety.emergencyStopHealthy == true
+      }
+    }
+
+    action gripWorkpiece {
+      in item command : GripperCommand;
+      inout item workpiece : Workpiece;
+
+      first approach;
+      then closeTool;
+      then confirmGrip;
+      then updateState;
+
+      assert constraint {
+        command.closeRequested == true and
+        command.gripForce >= 80 [N]
+      }
+    }
+
+    state def RobotOperatingState {
+      entry; then Idle;
+
+      state Idle;
+      state ServoReady;
+      state AutomaticCycle;
+      state ManualJog;
+      state Faulted;
+      state EmergencyStopped;
+
+      transition Idle_to_ServoReady
+        first Idle
+        accept event powerEnabled
+        then ServoReady;
+
+      transition ServoReady_to_AutomaticCycle
+        first ServoReady
+        accept event automaticStart
+        then AutomaticCycle;
+
+      transition ServoReady_to_ManualJog
+        first ServoReady
+        accept event manualModeSelected
+        then ManualJog;
+
+      transition AutomaticCycle_to_Idle
+        first AutomaticCycle
+        accept event cycleComplete
+        then Idle;
+
+      transition ManualJog_to_Idle
+        first ManualJog
+        accept event manualModeExited
+        then Idle;
+
+      transition Any_to_EStop
+        first Idle
+        accept event emergencyStopPressed
+        then EmergencyStopped;
+
+      transition FaultRecovery
+        first Faulted
+        accept event faultReset
+        then Idle;
+    }
+  }
+
+  part def ElectricParallelGripper {
+    attribute maximumGripForce : Force = 250;
+    attribute openingWidth : ReachLength = 0.08;
+    attribute gripConfirmed : Boolean;
+
+    port power : PowerPort;
+    port commandInput : GripperCommandPort;
+    port workpieceInterface : WorkpiecePort;
+
+    action close {
+      in item command : GripperCommand;
+      out attribute gripConfirmed : Boolean;
+    }
+
+    action open {
+      out attribute gripConfirmed : Boolean;
+    }
+  }
+
+  part def VisionInspectionStation {
+    attribute cameraResolutionMegapixels : Real = 12;
+    attribute inspectionPassRate : Percent;
+    attribute localizationAccuracy : PositionAccuracy = 0.15;
+
+    port workpieceInterface : WorkpiecePort;
+    out item locatedWorkpiece : Workpiece;
+
+    action locateWorkpiece {
+      in item rawWorkpiece : Workpiece;
+      out item locatedWorkpiece : Workpiece;
+    }
+
+    action inspectProcessedWorkpiece {
+      in item processedWorkpiece : Workpiece;
+      out attribute accepted : Boolean;
+    }
+  }
+
+  part def ConveyorModule {
+    attribute nominalSpeed : ReachLength = 0.35;
+    attribute maximumLoad : PayloadMass = 50;
+
+    port inputWorkpiece : WorkpiecePort;
+    port outputWorkpiece : WorkpiecePort;
+    port power : PowerPort;
+
+    action indexWorkpiece {
+      inout item workpiece : Workpiece;
+    }
+  }
+
+  part def FixtureTable {
+    attribute fixtureRepeatability : PositionAccuracy = 0.03;
+    attribute clampingForce : Force = 1200;
+
+    port workpieceInterface : WorkpiecePort;
+
+    action clamp {
+      inout item workpiece : Workpiece;
+    }
+
+    action release {
+      inout item workpiece : Workpiece;
+    }
+  }
+
+  part def RobotSafetySystem {
+    attribute performanceLevel : String = "PL d";
+    attribute safeStopTime : CycleTime = 0.45;
+
+    port safetyOutput : SafetyPort;
+
+    part emergencyStopCircuit;
+    part interlockedGuardDoor;
+    part lightCurtain;
+    part safetyController;
+
+    action evaluateCellSafety {
+      out item safety : SafetySignal;
+    }
+  }
+
+  part def CellController {
+    attribute programName : String = "HighLevelMaterialHandlingCycle";
+    attribute commandedCycleTime : CycleTime = 8.5;
+    attribute targetAvailability : Percent = 95;
+
+    port robotMotionOutput : MotionCommandPort;
+    port gripperCommandOutput : GripperCommandPort;
+    port robotStatusInput : RobotStatusPort;
+    port safetyInput : SafetyPort;
+
+    action runProductionCycle {
+      in item incomingWorkpiece : Workpiece;
+      out item finishedWorkpiece : Workpiece;
+
+      first receiveWorkpiece;
+      then requestVisionLocalization;
+      then commandRobotPick;
+      then commandRobotPlaceInFixture;
+      then requestProcessPositioning;
+      then commandRobotUnload;
+      then releaseFinishedWorkpiece;
+    }
+  }
+
+  part def HDHyundaiRoboticHandlingCell {
+    attribute primaryFunction : String =
+      "Automatically pick, position, transfer, and unload industrial workpieces using an HD Hyundai Robotics six-axis robot integrated with safety, vision, gripping, fixture, conveyor, and cell control subsystems.";
+    attribute nominalCellCycleTime : CycleTime = 8.5;
+    attribute maximumHandledPayload : PayloadMass = 20;
+    attribute installedPower : Power = 12.5;
+
+    part robot : HDHyundaiIndustrialRobot;
+    part gripper : ElectricParallelGripper;
+    part visionStation : VisionInspectionStation;
+    part infeedConveyor : ConveyorModule;
+    part outfeedConveyor : ConveyorModule;
+    part fixture : FixtureTable;
+    part safetySystem : RobotSafetySystem;
+    part controller : CellController;
+
+    port rawWorkpieceInput : WorkpiecePort;
+    port finishedWorkpieceOutput : WorkpiecePort;
+    port cellPower : PowerPort;
+
+    connect rawWorkpieceInput to infeedConveyor.inputWorkpiece;
+    connect infeedConveyor.outputWorkpiece to visionStation.workpieceInterface;
+    connect visionStation.workpieceInterface to robot.workpieceInterface;
+    connect robot.workpieceInterface to gripper.workpieceInterface;
+    connect robot.workpieceInterface to fixture.workpieceInterface;
+    connect fixture.workpieceInterface to outfeedConveyor.inputWorkpiece;
+    connect outfeedConveyor.outputWorkpiece to finishedWorkpieceOutput;
+
+    connect controller.robotMotionOutput to robot.motionCommand;
+    connect controller.gripperCommandOutput to robot.gripperCommand;
+    connect robot.statusOutput to controller.robotStatusInput;
+    connect safetySystem.safetyOutput to robot.safetyInput;
+    connect safetySystem.safetyOutput to controller.safetyInput;
+
+    connect cellPower to robot.power;
+    connect cellPower to gripper.power;
+    connect cellPower to infeedConveyor.power;
+    connect cellPower to outfeedConveyor.power;
+
+    action performPrimaryFunction {
+      in item rawWorkpiece : Workpiece;
+      out item completedWorkpiece : Workpiece;
+
+      first receiveRawPart;
+      then localizePart;
+      then pickWithRobot;
+      then transferToFixture;
+      then holdForProcessing;
+      then unloadFixture;
+      then placeOnOutfeed;
+      then reportCycleComplete;
+    }
+
+    state def CellState {
+      entry; then Stopped;
+
+      state Stopped;
+      state Starting;
+      state Ready;
+      state RunningAutomaticCycle;
+      state Paused;
+      state Faulted;
+      state SafeStopped;
+
+      transition StartRequested
+        first Stopped
+        accept event startButtonPressed
+        then Starting;
+
+      transition StartupComplete
+        first Starting
+        accept event allSubsystemsReady
+        then Ready;
+
+      transition BeginCycle
+        first Ready
+        accept event workpieceDetected
+        then RunningAutomaticCycle;
+
+      transition CycleFinished
+        first RunningAutomaticCycle
+        accept event finishedWorkpieceReleased
+        then Ready;
+
+      transition PauseRequested
+        first RunningAutomaticCycle
+        accept event pauseButtonPressed
+        then Paused;
+
+      transition ResumeRequested
+        first Paused
+        accept event resumeButtonPressed
+        then RunningAutomaticCycle;
+
+      transition FaultDetected
+        first RunningAutomaticCycle
+        accept event subsystemFault
+        then Faulted;
+
+      transition SafetyStop
+        first RunningAutomaticCycle
+        accept event safetyDemand
+        then SafeStopped;
+
+      transition ResetFromFault
+        first Faulted
+        accept event resetButtonPressed
+        then Stopped;
+
+      transition ResetFromSafeStop
+        first SafeStopped
+        accept event resetButtonPressed
+        then Stopped;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The robotic cell shall use an HD Hyundai Robotics industrial robot to automatically transfer workpieces between the infeed conveyor, inspection station, fixture, and outfeed conveyor. */
+
+    require constraint {
+      cell.maximumHandledPayload <= cell.robot.ratedPayload and
+      cell.nominalCellCycleTime <= 10 [s]
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The cell shall inhibit robot motion unless all safety inputs indicate that automatic movement is permitted. */
+
+    require constraint {
+      cell.safetySystem.safeStopTime <= 0.5 [s]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The robot and fixture shall position each handled workpiece with repeatable accuracy suitable for automated industrial handling. */
+
+    require constraint {
+      cell.robot.repeatability <= 0.1 [mm] and
+      cell.fixture.fixtureRepeatability <= 0.05 [mm]
+    }
+  }
+
+  requirement def PayloadRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The cell shall handle workpieces up to the rated payload of the installed robot without exceeding gripper or robot limits. */
+
+    require constraint {
+      cell.maximumHandledPayload <= 20 [kg] and
+      cell.maximumHandledPayload <= cell.robot.ratedPayload
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The cell control architecture shall support high-volume production with a target operating availability of at least 95 percent. */
+
+    require constraint {
+      cell.controller.targetAvailability >= 95 [%]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HDHyundaiRoboticHandlingCell;
+  satisfy SafetyRequirement by RobotSafetySystem;
+  satisfy AccuracyRequirement by HDHyundaiIndustrialRobot;
+  satisfy PayloadRequirement by HDHyundaiRoboticHandlingCell;
+  satisfy AvailabilityRequirement by CellController;
+}
+tokens used
+3,458
+package HDHyundaiRoboticsCellModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  attribute def PayloadMass : Real {
+    unit = "kg";
+  }
+
+  attribute def ReachLength : Real {
+    unit = "m";
+  }
+
+  attribute def CycleTime : Real {
+    unit = "s";
+  }
+
+  attribute def Voltage : Real {
+    unit = "V";
+  }
+
+  attribute def Current : Real {
+    unit = "A";
+  }
+
+  attribute def Power : Real {
+    unit = "kW";
+  }
+
+  attribute def Force : Real {
+    unit = "N";
+  }
+
+  attribute def Temperature : Real {
+    unit = "degC";
+  }
+
+  attribute def PositionAccuracy : Real {
+    unit = "mm";
+  }
+
+  item def Workpiece {
+    attribute mass : PayloadMass;
+    attribute length : ReachLength;
+    attribute width : ReachLength;
+    attribute height : ReachLength;
+    attribute material : String;
+    attribute processState : WorkpieceState;
+  }
+
+  enum def WorkpieceState {
+    enum raw;
+    enum picked;
+    enum positioned;
+    enum processed;
+    enum placed;
+    enum rejected;
+  }
+
+  item def MotionCommand {
+    attribute targetX : ReachLength;
+    attribute targetY : ReachLength;
+    attribute targetZ : ReachLength;
+    attribute targetRx : Real;
+    attribute targetRy : Real;
+    attribute targetRz : Real;
+    attribute speedOverride : Percent;
+    attribute accelerationOverride : Percent;
+  }
+
+  item def GripperCommand {
+    attribute closeRequested : Boolean;
+    attribute gripForce : Force;
+  }
+
+  item def RobotStatus {
+    attribute enabled : Boolean;
+    attribute inAutomaticMode : Boolean;
+    attribute emergencyStopActive : Boolean;
+    attribute servoPowerOn : Boolean;
+    attribute currentCycleTime : CycleTime;
+    attribute toolCenterPointError : PositionAccuracy;
+  }
+
+  item def SafetySignal {
+    attribute safeToMove : Boolean;
+    attribute guardDoorClosed : Boolean;
+    attribute lightCurtainClear : Boolean;
+    attribute emergencyStopHealthy : Boolean;
+  }
+
+  port def WorkpiecePort {
+    inout item workpiece : Workpiece;
+  }
+
+  port def MotionCommandPort {
+    in item command : MotionCommand;
+  }
+
+  port def GripperCommandPort {
+    in item command : GripperCommand;
+  }
+
+  port def RobotStatusPort {
+    out item status : RobotStatus;
+  }
+
+  port def SafetyPort {
+    in item safety : SafetySignal;
+  }
+
+  port def PowerPort {
+    in attribute voltage : Voltage;
+    in attribute current : Current;
+    out attribute consumedPower : Power;
+  }
+
+  part def HDHyundaiIndustrialRobot {
+    attribute manufacturer : String = "HD Hyundai Robotics";
+    attribute axes : Integer = 6;
+    attribute ratedPayload : PayloadMass = 20;
+    attribute maximumReach : ReachLength = 1.72;
+    attribute repeatability : PositionAccuracy = 0.06;
+    attribute controllerTemperature : Temperature;
+
+    port power : PowerPort;
+    port motionCommand : MotionCommandPort;
+    port gripperCommand : GripperCommandPort;
+    port workpieceInterface : WorkpiecePort;
+    port safetyInput : SafetyPort;
+    port statusOutput : RobotStatusPort;
+
+    part base;
+    part shoulderJoint;
+    part elbowJoint;
+    part wristJoint1;
+    part wristJoint2;
+    part wristJoint3;
+    part servoDrive[6];
+    part encoder[6];
+    part robotController;
+    part teachPendant;
+    part endEffectorAdapter;
+
+    action moveToTarget {
+      in item command : MotionCommand;
+      in item safety : SafetySignal;
+      out item status : RobotStatus;
+
+      first start;
+      then verifySafety;
+      then energizeServoPower;
+      then executeCoordinatedMotion;
+      then verifyPosition;
+      then done;
+
+      assert constraint {
+        safety.safeToMove == true and
+        safety.guardDoorClosed == true and
+        safety.lightCurtainClear == true and
+        safety.emergencyStopHealthy == true
+      }
+    }
+
+    action gripWorkpiece {
+      in item command : GripperCommand;
+      inout item workpiece : Workpiece;
+
+      first approach;
+      then closeTool;
+      then confirmGrip;
+      then updateState;
+
+      assert constraint {
+        command.closeRequested == true and
+        command.gripForce >= 80 [N]
+      }
+    }
+
+    state def RobotOperatingState {
+      entry; then Idle;
+
+      state Idle;
+      state ServoReady;
+      state AutomaticCycle;
+      state ManualJog;
+      state Faulted;
+      state EmergencyStopped;
+
+      transition Idle_to_ServoReady
+        first Idle
+        accept event powerEnabled
+        then ServoReady;
+
+      transition ServoReady_to_AutomaticCycle
+        first ServoReady
+        accept event automaticStart
+        then AutomaticCycle;
+
+      transition ServoReady_to_ManualJog
+        first ServoReady
+        accept event manualModeSelected
+        then ManualJog;
+
+      transition AutomaticCycle_to_Idle
+        first AutomaticCycle
+        accept event cycleComplete
+        then Idle;
+
+      transition ManualJog_to_Idle
+        first ManualJog
+        accept event manualModeExited
+        then Idle;
+
+      transition Any_to_EStop
+        first Idle
+        accept event emergencyStopPressed
+        then EmergencyStopped;
+
+      transition FaultRecovery
+        first Faulted
+        accept event faultReset
+        then Idle;
+    }
+  }
+
+  part def ElectricParallelGripper {
+    attribute maximumGripForce : Force = 250;
+    attribute openingWidth : ReachLength = 0.08;
+    attribute gripConfirmed : Boolean;
+
+    port power : PowerPort;
+    port commandInput : GripperCommandPort;
+    port workpieceInterface : WorkpiecePort;
+
+    action close {
+      in item command : GripperCommand;
+      out attribute gripConfirmed : Boolean;
+    }
+
+    action open {
+      out attribute gripConfirmed : Boolean;
+    }
+  }
+
+  part def VisionInspectionStation {
+    attribute cameraResolutionMegapixels : Real = 12;
+    attribute inspectionPassRate : Percent;
+    attribute localizationAccuracy : PositionAccuracy = 0.15;
+
+    port workpieceInterface : WorkpiecePort;
+    out item locatedWorkpiece : Workpiece;
+
+    action locateWorkpiece {
+      in item rawWorkpiece : Workpiece;
+      out item locatedWorkpiece : Workpiece;
+    }
+
+    action inspectProcessedWorkpiece {
+      in item processedWorkpiece : Workpiece;
+      out attribute accepted : Boolean;
+    }
+  }
+
+  part def ConveyorModule {
+    attribute nominalSpeed : ReachLength = 0.35;
+    attribute maximumLoad : PayloadMass = 50;
+
+    port inputWorkpiece : WorkpiecePort;
+    port outputWorkpiece : WorkpiecePort;
+    port power : PowerPort;
+
+    action indexWorkpiece {
+      inout item workpiece : Workpiece;
+    }
+  }
+
+  part def FixtureTable {
+    attribute fixtureRepeatability : PositionAccuracy = 0.03;
+    attribute clampingForce : Force = 1200;
+
+    port workpieceInterface : WorkpiecePort;
+
+    action clamp {
+      inout item workpiece : Workpiece;
+    }
+
+    action release {
+      inout item workpiece : Workpiece;
+    }
+  }
+
+  part def RobotSafetySystem {
+    attribute performanceLevel : String = "PL d";
+    attribute safeStopTime : CycleTime = 0.45;
+
+    port safetyOutput : SafetyPort;
+
+    part emergencyStopCircuit;
+    part interlockedGuardDoor;
+    part lightCurtain;
+    part safetyController;
+
+    action evaluateCellSafety {
+      out item safety : SafetySignal;
+    }
+  }
+
+  part def CellController {
+    attribute programName : String = "HighLevelMaterialHandlingCycle";
+    attribute commandedCycleTime : CycleTime = 8.5;
+    attribute targetAvailability : Percent = 95;
+
+    port robotMotionOutput : MotionCommandPort;
+    port gripperCommandOutput : GripperCommandPort;
+    port robotStatusInput : RobotStatusPort;
+    port safetyInput : SafetyPort;
+
+    action runProductionCycle {
+      in item incomingWorkpiece : Workpiece;
+      out item finishedWorkpiece : Workpiece;
+
+      first receiveWorkpiece;
+      then requestVisionLocalization;
+      then commandRobotPick;
+      then commandRobotPlaceInFixture;
+      then requestProcessPositioning;
+      then commandRobotUnload;
+      then releaseFinishedWorkpiece;
+    }
+  }
+
+  part def HDHyundaiRoboticHandlingCell {
+    attribute primaryFunction : String =
+      "Automatically pick, position, transfer, and unload industrial workpieces using an HD Hyundai Robotics six-axis robot integrated with safety, vision, gripping, fixture, conveyor, and cell control subsystems.";
+    attribute nominalCellCycleTime : CycleTime = 8.5;
+    attribute maximumHandledPayload : PayloadMass = 20;
+    attribute installedPower : Power = 12.5;
+
+    part robot : HDHyundaiIndustrialRobot;
+    part gripper : ElectricParallelGripper;
+    part visionStation : VisionInspectionStation;
+    part infeedConveyor : ConveyorModule;
+    part outfeedConveyor : ConveyorModule;
+    part fixture : FixtureTable;
+    part safetySystem : RobotSafetySystem;
+    part controller : CellController;
+
+    port rawWorkpieceInput : WorkpiecePort;
+    port finishedWorkpieceOutput : WorkpiecePort;
+    port cellPower : PowerPort;
+
+    connect rawWorkpieceInput to infeedConveyor.inputWorkpiece;
+    connect infeedConveyor.outputWorkpiece to visionStation.workpieceInterface;
+    connect visionStation.workpieceInterface to robot.workpieceInterface;
+    connect robot.workpieceInterface to gripper.workpieceInterface;
+    connect robot.workpieceInterface to fixture.workpieceInterface;
+    connect fixture.workpieceInterface to outfeedConveyor.inputWorkpiece;
+    connect outfeedConveyor.outputWorkpiece to finishedWorkpieceOutput;
+
+    connect controller.robotMotionOutput to robot.motionCommand;
+    connect controller.gripperCommandOutput to robot.gripperCommand;
+    connect robot.statusOutput to controller.robotStatusInput;
+    connect safetySystem.safetyOutput to robot.safetyInput;
+    connect safetySystem.safetyOutput to controller.safetyInput;
+
+    connect cellPower to robot.power;
+    connect cellPower to gripper.power;
+    connect cellPower to infeedConveyor.power;
+    connect cellPower to outfeedConveyor.power;
+
+    action performPrimaryFunction {
+      in item rawWorkpiece : Workpiece;
+      out item completedWorkpiece : Workpiece;
+
+      first receiveRawPart;
+      then localizePart;
+      then pickWithRobot;
+      then transferToFixture;
+      then holdForProcessing;
+      then unloadFixture;
+      then placeOnOutfeed;
+      then reportCycleComplete;
+    }
+
+    state def CellState {
+      entry; then Stopped;
+
+      state Stopped;
+      state Starting;
+      state Ready;
+      state RunningAutomaticCycle;
+      state Paused;
+      state Faulted;
+      state SafeStopped;
+
+      transition StartRequested
+        first Stopped
+        accept event startButtonPressed
+        then Starting;
+
+      transition StartupComplete
+        first Starting
+        accept event allSubsystemsReady
+        then Ready;
+
+      transition BeginCycle
+        first Ready
+        accept event workpieceDetected
+        then RunningAutomaticCycle;
+
+      transition CycleFinished
+        first RunningAutomaticCycle
+        accept event finishedWorkpieceReleased
+        then Ready;
+
+      transition PauseRequested
+        first RunningAutomaticCycle
+        accept event pauseButtonPressed
+        then Paused;
+
+      transition ResumeRequested
+        first Paused
+        accept event resumeButtonPressed
+        then RunningAutomaticCycle;
+
+      transition FaultDetected
+        first RunningAutomaticCycle
+        accept event subsystemFault
+        then Faulted;
+
+      transition SafetyStop
+        first RunningAutomaticCycle
+        accept event safetyDemand
+        then SafeStopped;
+
+      transition ResetFromFault
+        first Faulted
+        accept event resetButtonPressed
+        then Stopped;
+
+      transition ResetFromSafeStop
+        first SafeStopped
+        accept event resetButtonPressed
+        then Stopped;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The robotic cell shall use an HD Hyundai Robotics industrial robot to automatically transfer workpieces between the infeed conveyor, inspection station, fixture, and outfeed conveyor. */
+
+    require constraint {
+      cell.maximumHandledPayload <= cell.robot.ratedPayload and
+      cell.nominalCellCycleTime <= 10 [s]
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The cell shall inhibit robot motion unless all safety inputs indicate that automatic movement is permitted. */
+
+    require constraint {
+      cell.safetySystem.safeStopTime <= 0.5 [s]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The robot and fixture shall position each handled workpiece with repeatable accuracy suitable for automated industrial handling. */
+
+    require constraint {
+      cell.robot.repeatability <= 0.1 [mm] and
+      cell.fixture.fixtureRepeatability <= 0.05 [mm]
+    }
+  }
+
+  requirement def PayloadRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The cell shall handle workpieces up to the rated payload of the installed robot without exceeding gripper or robot limits. */
+
+    require constraint {
+      cell.maximumHandledPayload <= 20 [kg] and
+      cell.maximumHandledPayload <= cell.robot.ratedPayload
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject cell : HDHyundaiRoboticHandlingCell;
+
+    doc /* The cell control architecture shall support high-volume production with a target operating availability of at least 95 percent. */
+
+    require constraint {
+      cell.controller.targetAvailability >= 95 [%]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HDHyundaiRoboticHandlingCell;
+  satisfy SafetyRequirement by RobotSafetySystem;
+  satisfy AccuracyRequirement by HDHyundaiIndustrialRobot;
+  satisfy PayloadRequirement by HDHyundaiRoboticHandlingCell;
+  satisfy AvailabilityRequirement by CellController;
+}

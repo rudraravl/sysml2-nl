@@ -1,0 +1,312 @@
+package CeilometerModel {
+    enum def LengthUnit { m; km; }
+    enum def TimeUnit { s; ms; ns; }
+    enum def PowerUnit { W; }
+    enum def TemperatureUnit { degC; }
+    enum def WavelengthUnit { nm; }
+    enum def PercentUnit { percent; }
+
+    attribute def LengthValue {
+        attribute value: Real;
+        attribute unit: LengthUnit;
+    }
+
+    attribute def TimeValue {
+        attribute value: Real;
+        attribute unit: TimeUnit;
+    }
+
+    attribute def PowerValue {
+        attribute value: Real;
+        attribute unit: PowerUnit;
+    }
+
+    attribute def TemperatureValue {
+        attribute value: Real;
+        attribute unit: TemperatureUnit;
+    }
+
+    attribute def WavelengthValue {
+        attribute value: Real;
+        attribute unit: WavelengthUnit;
+    }
+
+    attribute def PercentValue {
+        attribute value: Real;
+        attribute unit: PercentUnit;
+    }
+
+    item def ElectricalPower {
+        attribute voltage: Real;
+        attribute current: Real;
+        attribute consumedPower: PowerValue;
+    }
+
+    item def LaserPulse {
+        attribute wavelength: WavelengthValue;
+        attribute pulseWidth: TimeValue;
+        attribute emittedEnergy: PowerValue;
+        attribute beamDivergence_mrad: Real;
+    }
+
+    item def AtmosphericBackscatter {
+        attribute returnDelay: TimeValue;
+        attribute intensity: Real;
+        attribute range: LengthValue;
+    }
+
+    item def CloudBaseReport {
+        attribute firstCloudBaseHeight: LengthValue;
+        attribute secondCloudBaseHeight: LengthValue;
+        attribute thirdCloudBaseHeight: LengthValue;
+        attribute verticalVisibility: LengthValue;
+        attribute confidence: PercentValue;
+        attribute observationAge: TimeValue;
+    }
+
+    item def HealthStatus {
+        attribute laserReady: Boolean;
+        attribute receiverReady: Boolean;
+        attribute windowClear: Boolean;
+        attribute internalTemperature: TemperatureValue;
+        attribute faultCode: String;
+    }
+
+    item def OperatorCommand {
+        attribute startMeasurement: Boolean;
+        attribute stopMeasurement: Boolean;
+        attribute requestSelfTest: Boolean;
+        attribute resetFaults: Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power: ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command: OperatorCommand;
+    }
+
+    port def ReportPort {
+        out item report: CloudBaseReport;
+        out item status: HealthStatus;
+    }
+
+    port def OpticalTransmitPort {
+        out item pulse: LaserPulse;
+    }
+
+    port def OpticalReceivePort {
+        in item scatter: AtmosphericBackscatter;
+    }
+
+    port def InternalPulsePort {
+        out item pulse: LaserPulse;
+    }
+
+    port def InternalScatterPort {
+        in item scatter: AtmosphericBackscatter;
+    }
+
+    part def LaserTransmitter {
+        port powerIn: PowerInputPort;
+        port pulseOut: OpticalTransmitPort;
+
+        attribute nominalWavelength: WavelengthValue = (value = 905.0, unit = nm);
+        attribute pulseRepetitionPeriod: TimeValue = (value = 1.0, unit = s);
+        attribute maximumOpticalPower: PowerValue = (value = 25.0, unit = W);
+
+        action emitPulse {
+            in item command: OperatorCommand;
+            out item pulse: LaserPulse;
+        }
+    }
+
+    part def ReceiverOptics {
+        port scatterIn: OpticalReceivePort;
+        port focusedScatterOut: InternalScatterPort;
+
+        attribute apertureDiameter: LengthValue = (value = 0.15, unit = m);
+        attribute opticalWindowTransmission: PercentValue = (value = 92.0, unit = percent);
+
+        action collectBackscatter {
+            in item scatter: AtmosphericBackscatter;
+            out item focusedScatter: AtmosphericBackscatter;
+        }
+    }
+
+    part def Photodetector {
+        port scatterIn: InternalScatterPort;
+        port signalOut: InternalScatterPort;
+
+        attribute detectorGain: Real = 1250000.0;
+        attribute darkCurrent_nA: Real = 2.5;
+
+        action convertPhotonsToSignal {
+            in item focusedScatter: AtmosphericBackscatter;
+            out item rangeSignal: AtmosphericBackscatter;
+        }
+    }
+
+    part def SignalProcessor {
+        port signalIn: InternalScatterPort;
+        port reportOut: ReportPort;
+
+        attribute minimumDetectableHeight: LengthValue = (value = 10.0, unit = m);
+        attribute maximumReportableHeight: LengthValue = (value = 7500.0, unit = m);
+        attribute rangeResolution: LengthValue = (value = 5.0, unit = m);
+
+        action calculateRangeProfile {
+            in item signal: AtmosphericBackscatter;
+            out item profile: AtmosphericBackscatter;
+        }
+
+        action deriveCloudBase {
+            in item profile: AtmosphericBackscatter;
+            out item report: CloudBaseReport;
+        }
+    }
+
+    part def EnvironmentalController {
+        port powerIn: PowerInputPort;
+        port statusOut: ReportPort;
+
+        attribute heaterSetPoint: TemperatureValue = (value = 5.0, unit = degC);
+        attribute maximumInternalTemperature: TemperatureValue = (value = 55.0, unit = degC);
+
+        action regulateWindowAndEnclosure {
+            out item status: HealthStatus;
+        }
+    }
+
+    part def CommunicationUnit {
+        port commandIn: CommandPort;
+        port reportOut: ReportPort;
+
+        action publishObservation {
+            in item report: CloudBaseReport;
+            in item status: HealthStatus;
+        }
+    }
+
+    part def Ceilometer {
+        port sitePower: PowerInputPort;
+        port operatorCommands: CommandPort;
+        port observations: ReportPort;
+        port laserAperture: OpticalTransmitPort;
+        port receiverAperture: OpticalReceivePort;
+
+        part transmitter: LaserTransmitter;
+        part receiver: ReceiverOptics;
+        part detector: Photodetector;
+        part processor: SignalProcessor;
+        part environment: EnvironmentalController;
+        part communications: CommunicationUnit;
+
+        connection powerToTransmitter connect sitePower to transmitter.powerIn;
+        connection powerToEnvironment connect sitePower to environment.powerIn;
+        connection emittedBeam connect transmitter.pulseOut to laserAperture;
+        connection atmosphericReturn connect receiverAperture to receiver.scatterIn;
+        connection focusedReturn connect receiver.focusedScatterOut to detector.scatterIn;
+        connection detectedSignal connect detector.signalOut to processor.signalIn;
+        connection observationOutput connect processor.reportOut to observations;
+        connection healthOutput connect environment.statusOut to observations;
+        connection commandInput connect operatorCommands to communications.commandIn;
+        connection publicationOutput connect communications.reportOut to observations;
+
+        attribute measurementCycle: TimeValue = (value = 15.0, unit = s);
+        attribute operatingRange: LengthValue = (value = 7500.0, unit = m);
+        attribute primaryFunction: String =
+            "Measure atmospheric optical backscatter from emitted laser pulses to estimate and report cloud base height and vertical visibility above the installation site.";
+
+        state def OperatingState {
+            state Off;
+            state Standby;
+            state SelfTest;
+            state Measuring;
+            state Reporting;
+            state Fault;
+
+            transition initial then Off;
+            transition powerApplied first Off then Standby;
+            transition selfTestRequested first Standby then SelfTest;
+            transition selfTestPassed first SelfTest then Measuring;
+            transition pulseProcessed first Measuring then Reporting;
+            transition reportPublished first Reporting then Measuring;
+            transition stopRequested first Measuring then Standby;
+            transition faultDetected first Standby then Fault;
+            transition measurementFault first Measuring then Fault;
+            transition resetAccepted first Fault then Standby;
+        }
+
+        exhibit state operatingState: OperatingState;
+
+        action performMeasurementCycle {
+            in item command: OperatorCommand;
+            out item report: CloudBaseReport;
+            out item status: HealthStatus;
+
+            first start;
+            then action transmit: transmitter.emitPulse;
+            then action collect: receiver.collectBackscatter;
+            then action detect: detector.convertPhotonsToSignal;
+            then action profile: processor.calculateRangeProfile;
+            then action compute: processor.deriveCloudBase;
+            then action regulate: environment.regulateWindowAndEnclosure;
+            then action publish: communications.publishObservation;
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject ceilometer: Ceilometer;
+
+        require constraint {
+            ceilometer.primaryFunction ==
+            "Measure atmospheric optical backscatter from emitted laser pulses to estimate and report cloud base height and vertical visibility above the installation site."
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject ceilometer: Ceilometer;
+
+        require constraint {
+            ceilometer.operatingRange.value >= 7500.0
+        }
+    }
+
+    requirement def CycleTimeRequirement {
+        subject ceilometer: Ceilometer;
+
+        require constraint {
+            ceilometer.measurementCycle.value <= 15.0
+        }
+    }
+
+    requirement def CloudBaseReportRequirement {
+        subject report: CloudBaseReport;
+
+        require constraint {
+            report.firstCloudBaseHeight.value >= 0.0 and
+            report.firstCloudBaseHeight.value <= 7500.0 and
+            report.confidence.value >= 0.0 and
+            report.confidence.value <= 100.0
+        }
+    }
+
+    requirement def SafeLaserOperationRequirement {
+        subject transmitter: LaserTransmitter;
+
+        require constraint {
+            transmitter.nominalWavelength.value == 905.0 and
+            transmitter.maximumOpticalPower.value <= 25.0
+        }
+    }
+
+    part operationalCeilometer: Ceilometer;
+
+    satisfy PrimaryFunctionRequirement by operationalCeilometer;
+    satisfy MeasurementRangeRequirement by operationalCeilometer;
+    satisfy CycleTimeRequirement by operationalCeilometer;
+    satisfy SafeLaserOperationRequirement by operationalCeilometer.transmitter;
+}

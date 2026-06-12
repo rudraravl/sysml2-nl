@@ -1,0 +1,293 @@
+package RS232HighLevelSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Voltage {
+    unit = V;
+  }
+
+  value def Current {
+    unit = A;
+  }
+
+  value def Time {
+    unit = s;
+  }
+
+  value def DataRate {
+    unit = bit / s;
+  }
+
+  value def CableLength {
+    unit = m;
+  }
+
+  value def BitCount;
+  value def ParityKind {
+    enum none;
+    enum even;
+    enum odd;
+  }
+
+  item def SerialPayload {
+    attribute byteCount : BitCount;
+  }
+
+  item def RS232Frame {
+    attribute startBits : BitCount = 1;
+    attribute dataBits : BitCount = 8;
+    attribute parity : ParityKind = ParityKind::none;
+    attribute stopBits : BitCount = 1;
+    attribute payload : SerialPayload;
+  }
+
+  item def RS232LogicSignal {
+    attribute markVoltage : Voltage = -12[V];
+    attribute spaceVoltage : Voltage = 12[V];
+    attribute nominalBitRate : DataRate = 9600[bit/s];
+  }
+
+  port def RS232SignalPort {
+    out signalOut : RS232LogicSignal;
+    in signalIn : RS232LogicSignal;
+  }
+
+  port def DataPort {
+    in receivedFrame : RS232Frame;
+    out transmittedFrame : RS232Frame;
+  }
+
+  interface def RS232NullModemInterface {
+    end dtePort : RS232SignalPort;
+    end dcePort : RS232SignalPort;
+  }
+
+  action def EncodePayloadToFrame {
+    in payload : SerialPayload;
+    out frame : RS232Frame;
+  }
+
+  action def DriveRS232Voltage {
+    in frame : RS232Frame;
+    out signal : RS232LogicSignal;
+  }
+
+  action def DecodeFrameFromVoltage {
+    in signal : RS232LogicSignal;
+    out frame : RS232Frame;
+  }
+
+  action def DeliverReceivedPayload {
+    in frame : RS232Frame;
+    out payload : SerialPayload;
+  }
+
+  state def LinkStateMachine {
+    entry action initializeLine {
+      out idleSignal : RS232LogicSignal;
+    }
+
+    state poweredOff;
+    state idle;
+    state transmitting;
+    state receiving;
+    state flowControlled;
+    state faulted;
+
+    initial then poweredOff;
+
+    transition powerApplied
+      first poweredOff
+      then idle;
+
+    transition transmitRequest
+      first idle
+      then transmitting;
+
+    transition transmitComplete
+      first transmitting
+      then idle;
+
+    transition carrierDetected
+      first idle
+      then receiving;
+
+    transition receiveComplete
+      first receiving
+      then idle;
+
+    transition clearToSendLost
+      first transmitting
+      then flowControlled;
+
+    transition clearToSendRestored
+      first flowControlled
+      then transmitting;
+
+    transition framingError
+      first receiving
+      then faulted;
+
+    transition reset
+      first faulted
+      then idle;
+  }
+
+  part def DTEController {
+    attribute configuredBaudRate : DataRate = 9600[bit/s];
+    attribute transmitBufferCapacity : BitCount = 8192;
+    attribute receiveBufferCapacity : BitCount = 8192;
+
+    port applicationData : DataPort;
+    port txd : RS232SignalPort;
+    port rxd : RS232SignalPort;
+    port rts : RS232SignalPort;
+    port cts : RS232SignalPort;
+    port dtr : RS232SignalPort;
+    port dsr : RS232SignalPort;
+    port gnd : RS232SignalPort;
+
+    perform encode : EncodePayloadToFrame;
+    perform driveVoltage : DriveRS232Voltage;
+    exhibit linkBehavior : LinkStateMachine;
+  }
+
+  part def DCEPeripheral {
+    attribute configuredBaudRate : DataRate = 9600[bit/s];
+    attribute supportedDataBits : BitCount = 8;
+    attribute supportedStopBits : BitCount = 1;
+
+    port deviceData : DataPort;
+    port txd : RS232SignalPort;
+    port rxd : RS232SignalPort;
+    port rts : RS232SignalPort;
+    port cts : RS232SignalPort;
+    port dtr : RS232SignalPort;
+    port dsr : RS232SignalPort;
+    port dcd : RS232SignalPort;
+    port gnd : RS232SignalPort;
+
+    perform decodeVoltage : DecodeFrameFromVoltage;
+    perform deliverPayload : DeliverReceivedPayload;
+    exhibit linkBehavior : LinkStateMachine;
+  }
+
+  part def RS232CableAssembly {
+    attribute maximumLength : CableLength = 15[m];
+    attribute conductorCount : BitCount = 9;
+    attribute shielded : Boolean = true;
+
+    port dteTx : RS232SignalPort;
+    port dteRx : RS232SignalPort;
+    port dteRts : RS232SignalPort;
+    port dteCts : RS232SignalPort;
+    port dteDtr : RS232SignalPort;
+    port dteDsr : RS232SignalPort;
+    port dteGnd : RS232SignalPort;
+
+    port dceTx : RS232SignalPort;
+    port dceRx : RS232SignalPort;
+    port dceRts : RS232SignalPort;
+    port dceCts : RS232SignalPort;
+    port dceDtr : RS232SignalPort;
+    port dceDsr : RS232SignalPort;
+    port dceDcd : RS232SignalPort;
+    port dceGnd : RS232SignalPort;
+  }
+
+  part def RS232CommunicationSystem {
+    attribute primaryFunction : String =
+      "Provide asynchronous point-to-point serial communication between a data terminal and a peripheral using RS-232 voltage signaling, framing, and optional hardware flow control.";
+
+    attribute nominalBaudRate : DataRate = 9600[bit/s];
+    attribute allowableCableLength : CableLength = 15[m];
+    attribute markVoltageMinimum : Voltage = -3[V];
+    attribute markVoltageMaximum : Voltage = -15[V];
+    attribute spaceVoltageMinimum : Voltage = 3[V];
+    attribute spaceVoltageMaximum : Voltage = 15[V];
+
+    part terminal : DTEController;
+    part cable : RS232CableAssembly;
+    part peripheral : DCEPeripheral;
+
+    connect terminal.txd to cable.dteTx;
+    connect cable.dceRx to peripheral.rxd;
+
+    connect peripheral.txd to cable.dceTx;
+    connect cable.dteRx to terminal.rxd;
+
+    connect terminal.rts to cable.dteRts;
+    connect cable.dceCts to peripheral.cts;
+
+    connect peripheral.rts to cable.dceRts;
+    connect cable.dteCts to terminal.cts;
+
+    connect terminal.dtr to cable.dteDtr;
+    connect cable.dceDsr to peripheral.dsr;
+
+    connect peripheral.dsr to cable.dceDsr;
+    connect cable.dteDsr to terminal.dsr;
+
+    connect peripheral.dcd to cable.dceDcd;
+    connect terminal.gnd to cable.dteGnd;
+    connect cable.dceGnd to peripheral.gnd;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    subject system : RS232CommunicationSystem;
+
+    require constraint {
+      system.nominalBaudRate >= 1200[bit/s] and
+      system.nominalBaudRate <= 115200[bit/s]
+    }
+
+    doc /* The system shall exchange asynchronous serial data between one terminal endpoint and one peripheral endpoint using RS-232 electrical signaling. */
+  }
+
+  requirement def VoltageLevelRequirement {
+    subject system : RS232CommunicationSystem;
+
+    require constraint {
+      system.markVoltageMinimum <= -3[V] and
+      system.spaceVoltageMinimum >= 3[V]
+    }
+
+    doc /* The system shall distinguish logical mark and space states using bipolar RS-232 voltage levels. */
+  }
+
+  requirement def FramingRequirement {
+    subject frame : RS232Frame;
+
+    require constraint {
+      frame.startBits == 1 and
+      frame.dataBits == 8 and
+      frame.stopBits >= 1
+    }
+
+    doc /* Each transferred character shall be framed with a start bit, data bits, optional parity, and stop bit timing. */
+  }
+
+  requirement def CableLengthRequirement {
+    subject system : RS232CommunicationSystem;
+
+    require constraint {
+      system.allowableCableLength <= 15[m]
+    }
+
+    doc /* The cable assembly shall support reliable RS-232 communication across the specified installed length. */
+  }
+
+  requirement def FlowControlRequirement {
+    subject system : RS232CommunicationSystem;
+
+    doc /* The system shall use RTS and CTS signals to pause and resume transmission when the receiving endpoint cannot accept additional data. */
+  }
+
+  part rs232System : RS232CommunicationSystem;
+
+  satisfy HighLevelFunctionRequirement by rs232System;
+  satisfy VoltageLevelRequirement by rs232System;
+  satisfy CableLengthRequirement by rs232System;
+  satisfy FlowControlRequirement by rs232System;
+}

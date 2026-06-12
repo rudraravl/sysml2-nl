@@ -1,0 +1,777 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ljuo12wx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb54a-0e55-7850-8849-de6ac622de46
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Fuel level sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FuelLevelSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Volt :> Real {
+        unit = "V";
+    }
+
+    attribute def Ampere :> Real {
+        unit = "A";
+    }
+
+    attribute def Ohm :> Real {
+        unit = "Ohm";
+    }
+
+    attribute def Liter :> Real {
+        unit = "L";
+    }
+
+    attribute def Millimeter :> Real {
+        unit = "mm";
+    }
+
+    attribute def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    attribute def DegreeCelsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def FuelLevel {
+        attribute height : Millimeter;
+        attribute volume : Liter;
+        attribute percentFull : Percent;
+    }
+
+    attribute def SensorVoltage {
+        attribute value : Volt;
+    }
+
+    attribute def FilteredFuelLevel {
+        attribute percentFull : Percent;
+        attribute volume : Liter;
+        attribute valid : Boolean;
+    }
+
+    attribute def DiagnosticStatus {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute signalOutOfRange : Boolean;
+        attribute calibrationFault : Boolean;
+        attribute communicationFault : Boolean;
+        attribute measurementValid : Boolean;
+    }
+
+    attribute def PowerSupply {
+        attribute voltage : Volt;
+        attribute currentLimit : Ampere;
+    }
+
+    item def Fuel {
+        attribute density : Real;
+        attribute temperature : DegreeCelsius;
+    }
+
+    item def RawLevelSignal {
+        attribute voltage : Volt;
+        attribute sensorResistance : Ohm;
+    }
+
+    item def FuelLevelMessage {
+        attribute fuelLevelPercent : Percent;
+        attribute fuelVolume : Liter;
+        attribute sensorHealthValid : Boolean;
+        attribute lowFuelWarning : Boolean;
+        attribute updatePeriod : Millisecond;
+    }
+
+    port def FuelInterfacePort {
+        in item fuel : Fuel;
+        in attribute level : FuelLevel;
+    }
+
+    port def AnalogSignalPort {
+        out item rawSignal : RawLevelSignal;
+    }
+
+    port def AnalogInputPort {
+        in item rawSignal : RawLevelSignal;
+    }
+
+    port def DigitalMessagePort {
+        out item message : FuelLevelMessage;
+    }
+
+    port def PowerInputPort {
+        in attribute supply : PowerSupply;
+    }
+
+    port def DiagnosticPort {
+        out attribute status : DiagnosticStatus;
+    }
+
+    part def FuelTank {
+        attribute capacity : Liter = 65.0;
+        attribute usableVolume : Liter = 60.0;
+        attribute reserveVolume : Liter = 5.0;
+        attribute currentFuelLevel : FuelLevel;
+
+        port fuelLevelAccess : FuelInterfacePort;
+    }
+
+    part def FuelLevelSensor {
+        attribute measurementRangeMin : Millimeter = 0.0;
+        attribute measurementRangeMax : Millimeter = 420.0;
+        attribute resistanceAtEmpty : Ohm = 240.0;
+        attribute resistanceAtFull : Ohm = 33.0;
+        attribute excitationVoltage : Volt = 5.0;
+        attribute responseTime : Millisecond = 150.0;
+        attribute accuracy : Percent = 2.0;
+        attribute operatingTemperatureMin : DegreeCelsius = -40.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 85.0;
+
+        port sensedFuel : FuelInterfacePort;
+        port analogOutput : AnalogSignalPort;
+        port powerInput : PowerInputPort;
+
+        action measureFuelLevel {
+            in attribute actualLevel : FuelLevel;
+            out item rawSignal : RawLevelSignal;
+
+            attribute normalizedLevel : Percent;
+            attribute calculatedResistance : Ohm;
+            attribute calculatedVoltage : Volt;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute inputVoltageMin : Volt = 0.2;
+        attribute inputVoltageMax : Volt = 4.8;
+        attribute samplePeriod : Millisecond = 50.0;
+        attribute lowPassFilterTimeConstant : Millisecond = 500.0;
+        attribute adcResolutionBits : Integer = 12;
+        attribute referenceVoltage : Volt = 5.0;
+
+        port analogInput : AnalogInputPort;
+        port conditionedOutput : DigitalMessagePort;
+        port diagnostics : DiagnosticPort;
+        port powerInput : PowerInputPort;
+
+        action convertAndFilter {
+            in item rawSignal : RawLevelSignal;
+            out attribute filteredLevel : FilteredFuelLevel;
+            out attribute diagnosticStatus : DiagnosticStatus;
+
+            attribute adcCounts : Integer;
+            attribute unfilteredPercent : Percent;
+            attribute filteredPercent : Percent;
+        }
+    }
+
+    part def CalibrationMap {
+        attribute emptyHeight : Millimeter = 12.0;
+        attribute fullHeight : Millimeter = 410.0;
+        attribute emptyVolume : Liter = 0.0;
+        attribute fullVolume : Liter = 65.0;
+        attribute lowFuelThreshold : Percent = 12.0;
+        attribute sensorOpenResistanceThreshold : Ohm = 1000.0;
+        attribute sensorShortResistanceThreshold : Ohm = 5.0;
+
+        action mapVoltageToFuelLevel {
+            in item rawSignal : RawLevelSignal;
+            out attribute calibratedLevel : FilteredFuelLevel;
+
+            attribute inferredHeight : Millimeter;
+            attribute inferredVolume : Liter;
+            attribute inferredPercent : Percent;
+        }
+    }
+
+    part def FuelLevelController {
+        attribute updatePeriod : Millisecond = 100.0;
+        attribute lowFuelThreshold : Percent = 12.0;
+        attribute lastValidFuelLevel : Percent = 0.0;
+        attribute lowFuelWarningActive : Boolean = false;
+
+        port conditionedInput : DigitalMessagePort;
+        port fuelLevelOutput : DigitalMessagePort;
+        port diagnostics : DiagnosticPort;
+        port powerInput : PowerInputPort;
+
+        action publishFuelLevel {
+            in attribute level : FilteredFuelLevel;
+            in attribute status : DiagnosticStatus;
+            out item message : FuelLevelMessage;
+
+            attribute warning : Boolean;
+        }
+
+        state def FuelLevelProcessingState {
+            state initializing;
+            state normalMeasurement;
+            state lowFuel;
+            state degradedMeasurement;
+            state faulted;
+
+            transition first initializing then normalMeasurement
+                if startupComplete;
+
+            transition normalMeasurement then lowFuel
+                if measuredFuelPercent <= lowFuelThreshold and measurementValid;
+
+            transition lowFuel then normalMeasurement
+                if measuredFuelPercent > lowFuelThreshold + 3.0 and measurementValid;
+
+            transition normalMeasurement then degradedMeasurement
+                if signalOutOfRange or calibrationFault;
+
+            transition lowFuel then degradedMeasurement
+                if signalOutOfRange or calibrationFault;
+
+            transition degradedMeasurement then normalMeasurement
+                if measurementValid and not signalOutOfRange and not calibrationFault;
+
+            transition degradedMeasurement then faulted
+                if sensorOpenCircuit or sensorShortCircuit or communicationFault;
+
+            transition normalMeasurement then faulted
+                if sensorOpenCircuit or sensorShortCircuit or communicationFault;
+
+            transition lowFuel then faulted
+                if sensorOpenCircuit or sensorShortCircuit or communicationFault;
+
+            transition faulted then normalMeasurement
+                if faultCleared and measurementValid;
+        }
+    }
+
+    part def Housing {
+        attribute ingressProtectionRating : String = "IP67";
+        attribute material : String = "glass-filled nylon";
+        attribute connectorPinCount : Integer = 4;
+        attribute mass : Real = 0.18;
+    }
+
+    part def VehiclePowerInterface {
+        attribute nominalSupplyVoltage : Volt = 12.0;
+        attribute regulatedSensorVoltage : Volt = 5.0;
+        attribute maxSupplyCurrent : Ampere = 0.15;
+
+        port powerOutput : PowerInputPort;
+    }
+
+    part def FuelLevelSensingUnit {
+        attribute measurementUpdatePeriod : Millisecond = 100.0;
+        attribute requiredAccuracy : Percent = 3.0;
+        attribute usableFuelCapacity : Liter = 60.0;
+
+        part tank : FuelTank;
+        part sensor : FuelLevelSensor;
+        part conditioner : SignalConditioner;
+        part calibration : CalibrationMap;
+        part controller : FuelLevelController;
+        part housing : Housing;
+        part powerInterface : VehiclePowerInterface;
+
+        port fuelInterface : FuelInterfacePort;
+        port outputMessage : DigitalMessagePort;
+        port diagnosticOutput : DiagnosticPort;
+        port powerInput : PowerInputPort;
+
+        connect fuelInterface to tank.fuelLevelAccess;
+        connect tank.fuelLevelAccess to sensor.sensedFuel;
+        connect sensor.analogOutput to conditioner.analogInput;
+        connect conditioner.conditionedOutput to controller.conditionedInput;
+        connect controller.fuelLevelOutput to outputMessage;
+        connect conditioner.diagnostics to diagnosticOutput;
+        connect controller.diagnostics to diagnosticOutput;
+        connect powerInput to powerInterface.powerOutput;
+        connect powerInterface.powerOutput to sensor.powerInput;
+        connect powerInterface.powerOutput to conditioner.powerInput;
+        connect powerInterface.powerOutput to controller.powerInput;
+
+        action senseAndReportFuelLevel {
+            in attribute tankLevel : FuelLevel;
+            out item reportedFuelLevel : FuelLevelMessage;
+            out attribute reportedDiagnostics : DiagnosticStatus;
+
+            perform sensor.measureFuelLevel;
+            perform conditioner.convertAndFilter;
+            perform calibration.mapVoltageToFuelLevel;
+            perform controller.publishFuelLevel;
+        }
+    }
+
+    requirement def MeasureFuelLevelRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.requiredAccuracy <= 3.0
+        }
+
+        doc
+        /*
+         The sensing unit shall measure fuel level using a fuel level sensor and report calibrated fuel level as percent full and fuel volume.
+        */
+    }
+
+    requirement def UpdateRateRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementUpdatePeriod <= 100.0
+        }
+
+        doc
+        /*
+         The sensing unit shall provide a fuel level message at least every 100 ms during normal operation.
+        */
+    }
+
+    requirement def LowFuelWarningRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.controller.lowFuelThreshold == 12.0
+        }
+
+        doc
+        /*
+         The sensing unit shall set a low fuel warning when calibrated fuel level is at or below 12 percent of usable capacity.
+        */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.conditioner.inputVoltageMin == 0.2 and
+            sensingUnit.conditioner.inputVoltageMax == 4.8
+        }
+
+        doc
+        /*
+         The sensing unit shall detect open circuit, short circuit, out-of-range signal, calibration fault, and communication fault conditions.
+        */
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.operatingTemperatureMin <= -40.0 and
+            sensingUnit.sensor.operatingTemperatureMax >= 85.0
+        }
+
+        doc
+        /*
+         The fuel level sensor shall operate across the specified automotive temperature range.
+        */
+    }
+
+    satisfy MeasureFuelLevelRequirement by FuelLevelSensingUnit;
+    satisfy UpdateRateRequirement by FuelLevelSensingUnit;
+    satisfy LowFuelWarningRequirement by FuelLevelSensingUnit;
+    satisfy DiagnosticRequirement by FuelLevelSensingUnit;
+    satisfy EnvironmentalRequirement by FuelLevelSensingUnit;
+
+    part fuelLevelSensingUnit : FuelLevelSensingUnit;
+
+}
+tokens used
+2,867
+package FuelLevelSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Volt :> Real {
+        unit = "V";
+    }
+
+    attribute def Ampere :> Real {
+        unit = "A";
+    }
+
+    attribute def Ohm :> Real {
+        unit = "Ohm";
+    }
+
+    attribute def Liter :> Real {
+        unit = "L";
+    }
+
+    attribute def Millimeter :> Real {
+        unit = "mm";
+    }
+
+    attribute def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    attribute def DegreeCelsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def FuelLevel {
+        attribute height : Millimeter;
+        attribute volume : Liter;
+        attribute percentFull : Percent;
+    }
+
+    attribute def SensorVoltage {
+        attribute value : Volt;
+    }
+
+    attribute def FilteredFuelLevel {
+        attribute percentFull : Percent;
+        attribute volume : Liter;
+        attribute valid : Boolean;
+    }
+
+    attribute def DiagnosticStatus {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute signalOutOfRange : Boolean;
+        attribute calibrationFault : Boolean;
+        attribute communicationFault : Boolean;
+        attribute measurementValid : Boolean;
+    }
+
+    attribute def PowerSupply {
+        attribute voltage : Volt;
+        attribute currentLimit : Ampere;
+    }
+
+    item def Fuel {
+        attribute density : Real;
+        attribute temperature : DegreeCelsius;
+    }
+
+    item def RawLevelSignal {
+        attribute voltage : Volt;
+        attribute sensorResistance : Ohm;
+    }
+
+    item def FuelLevelMessage {
+        attribute fuelLevelPercent : Percent;
+        attribute fuelVolume : Liter;
+        attribute sensorHealthValid : Boolean;
+        attribute lowFuelWarning : Boolean;
+        attribute updatePeriod : Millisecond;
+    }
+
+    port def FuelInterfacePort {
+        in item fuel : Fuel;
+        in attribute level : FuelLevel;
+    }
+
+    port def AnalogSignalPort {
+        out item rawSignal : RawLevelSignal;
+    }
+
+    port def AnalogInputPort {
+        in item rawSignal : RawLevelSignal;
+    }
+
+    port def DigitalMessagePort {
+        out item message : FuelLevelMessage;
+    }
+
+    port def PowerInputPort {
+        in attribute supply : PowerSupply;
+    }
+
+    port def DiagnosticPort {
+        out attribute status : DiagnosticStatus;
+    }
+
+    part def FuelTank {
+        attribute capacity : Liter = 65.0;
+        attribute usableVolume : Liter = 60.0;
+        attribute reserveVolume : Liter = 5.0;
+        attribute currentFuelLevel : FuelLevel;
+
+        port fuelLevelAccess : FuelInterfacePort;
+    }
+
+    part def FuelLevelSensor {
+        attribute measurementRangeMin : Millimeter = 0.0;
+        attribute measurementRangeMax : Millimeter = 420.0;
+        attribute resistanceAtEmpty : Ohm = 240.0;
+        attribute resistanceAtFull : Ohm = 33.0;
+        attribute excitationVoltage : Volt = 5.0;
+        attribute responseTime : Millisecond = 150.0;
+        attribute accuracy : Percent = 2.0;
+        attribute operatingTemperatureMin : DegreeCelsius = -40.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 85.0;
+
+        port sensedFuel : FuelInterfacePort;
+        port analogOutput : AnalogSignalPort;
+        port powerInput : PowerInputPort;
+
+        action measureFuelLevel {
+            in attribute actualLevel : FuelLevel;
+            out item rawSignal : RawLevelSignal;
+
+            attribute normalizedLevel : Percent;
+            attribute calculatedResistance : Ohm;
+            attribute calculatedVoltage : Volt;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute inputVoltageMin : Volt = 0.2;
+        attribute inputVoltageMax : Volt = 4.8;
+        attribute samplePeriod : Millisecond = 50.0;
+        attribute lowPassFilterTimeConstant : Millisecond = 500.0;
+        attribute adcResolutionBits : Integer = 12;
+        attribute referenceVoltage : Volt = 5.0;
+
+        port analogInput : AnalogInputPort;
+        port conditionedOutput : DigitalMessagePort;
+        port diagnostics : DiagnosticPort;
+        port powerInput : PowerInputPort;
+
+        action convertAndFilter {
+            in item rawSignal : RawLevelSignal;
+            out attribute filteredLevel : FilteredFuelLevel;
+            out attribute diagnosticStatus : DiagnosticStatus;
+
+            attribute adcCounts : Integer;
+            attribute unfilteredPercent : Percent;
+            attribute filteredPercent : Percent;
+        }
+    }
+
+    part def CalibrationMap {
+        attribute emptyHeight : Millimeter = 12.0;
+        attribute fullHeight : Millimeter = 410.0;
+        attribute emptyVolume : Liter = 0.0;
+        attribute fullVolume : Liter = 65.0;
+        attribute lowFuelThreshold : Percent = 12.0;
+        attribute sensorOpenResistanceThreshold : Ohm = 1000.0;
+        attribute sensorShortResistanceThreshold : Ohm = 5.0;
+
+        action mapVoltageToFuelLevel {
+            in item rawSignal : RawLevelSignal;
+            out attribute calibratedLevel : FilteredFuelLevel;
+
+            attribute inferredHeight : Millimeter;
+            attribute inferredVolume : Liter;
+            attribute inferredPercent : Percent;
+        }
+    }
+
+    part def FuelLevelController {
+        attribute updatePeriod : Millisecond = 100.0;
+        attribute lowFuelThreshold : Percent = 12.0;
+        attribute lastValidFuelLevel : Percent = 0.0;
+        attribute lowFuelWarningActive : Boolean = false;
+
+        port conditionedInput : DigitalMessagePort;
+        port fuelLevelOutput : DigitalMessagePort;
+        port diagnostics : DiagnosticPort;
+        port powerInput : PowerInputPort;
+
+        action publishFuelLevel {
+            in attribute level : FilteredFuelLevel;
+            in attribute status : DiagnosticStatus;
+            out item message : FuelLevelMessage;
+
+            attribute warning : Boolean;
+        }
+
+        state def FuelLevelProcessingState {
+            state initializing;
+            state normalMeasurement;
+            state lowFuel;
+            state degradedMeasurement;
+            state faulted;
+
+            transition first initializing then normalMeasurement
+                if startupComplete;
+
+            transition normalMeasurement then lowFuel
+                if measuredFuelPercent <= lowFuelThreshold and measurementValid;
+
+            transition lowFuel then normalMeasurement
+                if measuredFuelPercent > lowFuelThreshold + 3.0 and measurementValid;
+
+            transition normalMeasurement then degradedMeasurement
+                if signalOutOfRange or calibrationFault;
+
+            transition lowFuel then degradedMeasurement
+                if signalOutOfRange or calibrationFault;
+
+            transition degradedMeasurement then normalMeasurement
+                if measurementValid and not signalOutOfRange and not calibrationFault;
+
+            transition degradedMeasurement then faulted
+                if sensorOpenCircuit or sensorShortCircuit or communicationFault;
+
+            transition normalMeasurement then faulted
+                if sensorOpenCircuit or sensorShortCircuit or communicationFault;
+
+            transition lowFuel then faulted
+                if sensorOpenCircuit or sensorShortCircuit or communicationFault;
+
+            transition faulted then normalMeasurement
+                if faultCleared and measurementValid;
+        }
+    }
+
+    part def Housing {
+        attribute ingressProtectionRating : String = "IP67";
+        attribute material : String = "glass-filled nylon";
+        attribute connectorPinCount : Integer = 4;
+        attribute mass : Real = 0.18;
+    }
+
+    part def VehiclePowerInterface {
+        attribute nominalSupplyVoltage : Volt = 12.0;
+        attribute regulatedSensorVoltage : Volt = 5.0;
+        attribute maxSupplyCurrent : Ampere = 0.15;
+
+        port powerOutput : PowerInputPort;
+    }
+
+    part def FuelLevelSensingUnit {
+        attribute measurementUpdatePeriod : Millisecond = 100.0;
+        attribute requiredAccuracy : Percent = 3.0;
+        attribute usableFuelCapacity : Liter = 60.0;
+
+        part tank : FuelTank;
+        part sensor : FuelLevelSensor;
+        part conditioner : SignalConditioner;
+        part calibration : CalibrationMap;
+        part controller : FuelLevelController;
+        part housing : Housing;
+        part powerInterface : VehiclePowerInterface;
+
+        port fuelInterface : FuelInterfacePort;
+        port outputMessage : DigitalMessagePort;
+        port diagnosticOutput : DiagnosticPort;
+        port powerInput : PowerInputPort;
+
+        connect fuelInterface to tank.fuelLevelAccess;
+        connect tank.fuelLevelAccess to sensor.sensedFuel;
+        connect sensor.analogOutput to conditioner.analogInput;
+        connect conditioner.conditionedOutput to controller.conditionedInput;
+        connect controller.fuelLevelOutput to outputMessage;
+        connect conditioner.diagnostics to diagnosticOutput;
+        connect controller.diagnostics to diagnosticOutput;
+        connect powerInput to powerInterface.powerOutput;
+        connect powerInterface.powerOutput to sensor.powerInput;
+        connect powerInterface.powerOutput to conditioner.powerInput;
+        connect powerInterface.powerOutput to controller.powerInput;
+
+        action senseAndReportFuelLevel {
+            in attribute tankLevel : FuelLevel;
+            out item reportedFuelLevel : FuelLevelMessage;
+            out attribute reportedDiagnostics : DiagnosticStatus;
+
+            perform sensor.measureFuelLevel;
+            perform conditioner.convertAndFilter;
+            perform calibration.mapVoltageToFuelLevel;
+            perform controller.publishFuelLevel;
+        }
+    }
+
+    requirement def MeasureFuelLevelRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.requiredAccuracy <= 3.0
+        }
+
+        doc
+        /*
+         The sensing unit shall measure fuel level using a fuel level sensor and report calibrated fuel level as percent full and fuel volume.
+        */
+    }
+
+    requirement def UpdateRateRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementUpdatePeriod <= 100.0
+        }
+
+        doc
+        /*
+         The sensing unit shall provide a fuel level message at least every 100 ms during normal operation.
+        */
+    }
+
+    requirement def LowFuelWarningRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.controller.lowFuelThreshold == 12.0
+        }
+
+        doc
+        /*
+         The sensing unit shall set a low fuel warning when calibrated fuel level is at or below 12 percent of usable capacity.
+        */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.conditioner.inputVoltageMin == 0.2 and
+            sensingUnit.conditioner.inputVoltageMax == 4.8
+        }
+
+        doc
+        /*
+         The sensing unit shall detect open circuit, short circuit, out-of-range signal, calibration fault, and communication fault conditions.
+        */
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensingUnit : FuelLevelSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.operatingTemperatureMin <= -40.0 and
+            sensingUnit.sensor.operatingTemperatureMax >= 85.0
+        }
+
+        doc
+        /*
+         The fuel level sensor shall operate across the specified automotive temperature range.
+        */
+    }
+
+    satisfy MeasureFuelLevelRequirement by FuelLevelSensingUnit;
+    satisfy UpdateRateRequirement by FuelLevelSensingUnit;
+    satisfy LowFuelWarningRequirement by FuelLevelSensingUnit;
+    satisfy DiagnosticRequirement by FuelLevelSensingUnit;
+    satisfy EnvironmentalRequirement by FuelLevelSensingUnit;
+
+    part fuelLevelSensingUnit : FuelLevelSensingUnit;
+
+}

@@ -1,0 +1,873 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-pc23ij5h
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb680-c810-7273-ad2e-4b5f384eb0a5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Collingridge dilemma and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CollingridgeAdaptiveGovernanceSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    /* Primary high-level function:
+       The system continuously governs an emerging technology by monitoring uncertainty,
+       societal impact, adoption lock-in, and intervention cost, then selecting proportionate
+       governance actions before the technology becomes difficult to change. */
+
+    attribute def Probability : Real {
+        doc /* Unitless probability in range 0.0 .. 1.0. */
+    }
+
+    attribute def RiskScore : Real {
+        doc /* Unitless normalized risk score in range 0.0 .. 100.0. */
+    }
+
+    attribute def TrustScore : Real {
+        doc /* Unitless normalized public trust score in range 0.0 .. 100.0. */
+    }
+
+    attribute def AdoptionFraction : Real {
+        doc /* Unitless fraction in range 0.0 .. 1.0. */
+    }
+
+    attribute def CostIndex : Real {
+        doc /* Unitless normalized intervention cost index in range 0.0 .. 100.0. */
+    }
+
+    attribute def TimeToLockIn {
+        :>> unit = SI::second;
+        :>> quantityKind = ISQ::duration;
+    }
+
+    attribute def CurrencyAmount : Real {
+        doc /* Governance program cost expressed in system accounting units. */
+    }
+
+    attribute def PolicySeverity : Integer {
+        doc /* Discrete intervention level: 0 none, 1 observe, 2 guide, 3 constrain, 4 pause, 5 prohibit. */
+    }
+
+    item def EvidencePacket {
+        attribute sourceId : String;
+        attribute observationTime {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::time;
+        }
+        attribute uncertainty : Probability;
+        attribute confidence : Probability;
+        attribute observedBenefit : RiskScore;
+        attribute observedHarm : RiskScore;
+        attribute adoption : AdoptionFraction;
+        attribute interventionCost : CostIndex;
+    }
+
+    item def SocialImpactReport {
+        attribute affectedPopulationCount : Integer;
+        attribute equityRisk : RiskScore;
+        attribute safetyRisk : RiskScore;
+        attribute privacyRisk : RiskScore;
+        attribute laborDisplacementRisk : RiskScore;
+        attribute environmentalRisk : RiskScore;
+        attribute publicTrust : TrustScore;
+        attribute irreversibleHarmProbability : Probability;
+    }
+
+    item def TechnicalTrajectoryReport {
+        attribute deploymentVelocity : AdoptionFraction;
+        attribute dependencyDepth : RiskScore;
+        attribute standardizationProgress : AdoptionFraction;
+        attribute switchingCost : CostIndex;
+        attribute estimatedTimeToLockIn : TimeToLockIn;
+        attribute designReversibility : Probability;
+    }
+
+    item def GovernanceDecision {
+        attribute decisionId : String;
+        attribute severity : PolicySeverity;
+        attribute rationale : String;
+        attribute expectedRiskReduction : RiskScore;
+        attribute expectedBenefitLoss : RiskScore;
+        attribute reviewInterval {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        }
+        attribute legallyBinding : Boolean;
+    }
+
+    item def PolicyInstrument {
+        attribute instrumentName : String;
+        attribute severity : PolicySeverity;
+        attribute reversible : Boolean;
+        attribute implementationCost : CurrencyAmount;
+        attribute targetRisk : String;
+    }
+
+    item def StakeholderInput {
+        attribute stakeholderGroup : String;
+        attribute legitimacyWeight : Probability;
+        attribute consentConcern : RiskScore;
+        attribute benefitClaim : RiskScore;
+        attribute harmClaim : RiskScore;
+        attribute requestedAction : PolicySeverity;
+    }
+
+    port def EvidenceInPort {
+        in item evidence : EvidencePacket;
+    }
+
+    port def ImpactReportPort {
+        out item impactReport : SocialImpactReport;
+    }
+
+    port def TrajectoryReportPort {
+        out item trajectoryReport : TechnicalTrajectoryReport;
+    }
+
+    port def StakeholderPort {
+        in item stakeholderInput : StakeholderInput;
+        out item decisionNotice : GovernanceDecision;
+    }
+
+    port def GovernanceDecisionPort {
+        out item decision : GovernanceDecision;
+    }
+
+    port def PolicyExecutionPort {
+        in item policy : PolicyInstrument;
+        out item executionStatus : GovernanceDecision;
+    }
+
+    port def AuditPort {
+        in item decisionRecord : GovernanceDecision;
+        out item auditFinding : SocialImpactReport;
+    }
+
+    action def AggregateEvidence {
+        in item rawEvidence : EvidencePacket;
+        out item aggregatedEvidence : EvidencePacket;
+        attribute minimumConfidence : Probability = 0.70;
+        attribute maximumAcceptedUncertainty : Probability = 0.60;
+    }
+
+    action def AssessSocietalImpact {
+        in item evidence : EvidencePacket;
+        in item stakeholderInput : StakeholderInput;
+        out item impactReport : SocialImpactReport;
+        attribute harmWeight : Real = 0.65;
+        attribute benefitWeight : Real = 0.35;
+    }
+
+    action def EstimateLockIn {
+        in item evidence : EvidencePacket;
+        out item trajectoryReport : TechnicalTrajectoryReport;
+        attribute lockInAdoptionThreshold : AdoptionFraction = 0.45;
+        attribute lockInCostThreshold : CostIndex = 60.0;
+    }
+
+    action def ResolveCollingridgeTension {
+        in item impactReport : SocialImpactReport;
+        in item trajectoryReport : TechnicalTrajectoryReport;
+        out item decision : GovernanceDecision;
+        attribute earlyUncertaintyThreshold : Probability = 0.50;
+        attribute lateLockInThreshold : AdoptionFraction = 0.65;
+        attribute precautionaryRiskThreshold : RiskScore = 55.0;
+        attribute adaptiveReviewPeriod {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 2592000 [SI::second];
+    }
+
+    action def SelectPolicyInstrument {
+        in item decision : GovernanceDecision;
+        out item policy : PolicyInstrument;
+        attribute maximumAcceptableBenefitLoss : RiskScore = 30.0;
+    }
+
+    action def ExecutePolicy {
+        in item policy : PolicyInstrument;
+        out item executionStatus : GovernanceDecision;
+    }
+
+    action def PublishAccountabilityRecord {
+        in item decision : GovernanceDecision;
+        in item impactReport : SocialImpactReport;
+        out item publicNotice : GovernanceDecision;
+    }
+
+    state def GovernanceLifecycle {
+        entry action initializeMonitoring;
+        state MonitoringUncertainTechnology;
+        state EvaluatingImpacts;
+        state EstimatingLockIn;
+        state Deliberating;
+        state SoftGuidance;
+        state BindingConstraint;
+        state DeploymentPause;
+        state SunsetOrRelease;
+        state PostDeploymentAudit;
+
+        transition first MonitoringUncertainTechnology;
+
+        transition monitoringToEvaluation
+            first MonitoringUncertainTechnology
+            then EvaluatingImpacts;
+
+        transition evaluationToLockIn
+            first EvaluatingImpacts
+            then EstimatingLockIn;
+
+        transition lockInToDeliberation
+            first EstimatingLockIn
+            then Deliberating;
+
+        transition deliberateToSoftGuidance
+            first Deliberating
+            then SoftGuidance;
+
+        transition deliberateToConstraint
+            first Deliberating
+            then BindingConstraint;
+
+        transition deliberateToPause
+            first Deliberating
+            then DeploymentPause;
+
+        transition guidanceToAudit
+            first SoftGuidance
+            then PostDeploymentAudit;
+
+        transition constraintToAudit
+            first BindingConstraint
+            then PostDeploymentAudit;
+
+        transition pauseToDeliberation
+            first DeploymentPause
+            then Deliberating;
+
+        transition auditToMonitoring
+            first PostDeploymentAudit
+            then MonitoringUncertainTechnology;
+
+        transition auditToSunset
+            first PostDeploymentAudit
+            then SunsetOrRelease;
+    }
+
+    part def EvidenceCollector {
+        port evidenceIn : EvidenceInPort;
+        port evidenceOut : EvidenceInPort;
+        attribute samplingPeriod {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 86400 [SI::second];
+        attribute minimumSourceDiversity : Integer = 5;
+        perform action aggregate : AggregateEvidence;
+    }
+
+    part def ImpactAssessmentEngine {
+        port evidenceIn : EvidenceInPort;
+        port stakeholderIn : StakeholderPort;
+        port impactOut : ImpactReportPort;
+        attribute vulnerableGroupWeight : Real = 1.8;
+        attribute irreversibleHarmWeight : Real = 2.2;
+        perform action assess : AssessSocietalImpact;
+    }
+
+    part def LockInForecaster {
+        port evidenceIn : EvidenceInPort;
+        port trajectoryOut : TrajectoryReportPort;
+        attribute forecastHorizon {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 31536000 [SI::second];
+        attribute lockInWarningTime {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 7776000 [SI::second];
+        perform action estimate : EstimateLockIn;
+    }
+
+    part def StakeholderDeliberationForum {
+        port stakeholderInterface : StakeholderPort;
+        port decisionNoticeOut : GovernanceDecisionPort;
+        attribute minimumConsultationDays {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 1209600 [SI::second];
+        attribute requiredAffectedGroupRepresentation : Probability = 0.80;
+    }
+
+    part def DecisionEngine {
+        port impactIn : ImpactReportPort;
+        port trajectoryIn : TrajectoryReportPort;
+        port stakeholderIn : StakeholderPort;
+        port decisionOut : GovernanceDecisionPort;
+        attribute uncertaintySensitivity : Real = 0.75;
+        attribute lockInSensitivity : Real = 0.85;
+        attribute harmAsymmetryFactor : Real = 1.6;
+        perform action resolve : ResolveCollingridgeTension;
+        exhibit state lifecycle : GovernanceLifecycle;
+    }
+
+    part def PolicyActuator {
+        port decisionIn : GovernanceDecisionPort;
+        port policyOut : PolicyExecutionPort;
+        attribute defaultSoftGuidanceCost : CurrencyAmount = 100000.0;
+        attribute defaultConstraintCost : CurrencyAmount = 1200000.0;
+        attribute defaultPauseCost : CurrencyAmount = 5000000.0;
+        perform action selectPolicy : SelectPolicyInstrument;
+        perform action execute : ExecutePolicy;
+    }
+
+    part def AccountabilityLedger {
+        port decisionRecordIn : AuditPort;
+        port publicNoticeOut : GovernanceDecisionPort;
+        attribute retentionPeriod {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 315360000 [SI::second];
+        attribute tamperEvidenceRequired : Boolean = true;
+        perform action publish : PublishAccountabilityRecord;
+    }
+
+    part def CollingridgeAdaptiveGovernanceSystem {
+        attribute primaryFunction : String =
+            "Govern an emerging technology by balancing early uncertainty against later social and technical lock-in, applying reversible and escalating interventions when evidence indicates rising irreversible harm or intervention difficulty.";
+
+        attribute currentUncertainty : Probability;
+        attribute currentAdoption : AdoptionFraction;
+        attribute currentInterventionCost : CostIndex;
+        attribute currentCompositeRisk : RiskScore;
+        attribute currentPublicTrust : TrustScore;
+
+        port externalEvidence : EvidenceInPort;
+        port stakeholderAccess : StakeholderPort;
+        port governanceDecision : GovernanceDecisionPort;
+        port policyExecution : PolicyExecutionPort;
+        port auditAccess : AuditPort;
+
+        part collector : EvidenceCollector;
+        part impactEngine : ImpactAssessmentEngine;
+        part forecaster : LockInForecaster;
+        part forum : StakeholderDeliberationForum;
+        part decisionEngine : DecisionEngine;
+        part actuator : PolicyActuator;
+        part ledger : AccountabilityLedger;
+
+        connect externalEvidence.evidence to collector.evidenceIn.evidence;
+        connect collector.evidenceOut.evidence to impactEngine.evidenceIn.evidence;
+        connect collector.evidenceOut.evidence to forecaster.evidenceIn.evidence;
+
+        connect stakeholderAccess.stakeholderInput to impactEngine.stakeholderIn.stakeholderInput;
+        connect stakeholderAccess.stakeholderInput to forum.stakeholderInterface.stakeholderInput;
+        connect forum.decisionNoticeOut.decision to decisionEngine.stakeholderIn.decisionNotice;
+
+        connect impactEngine.impactOut.impactReport to decisionEngine.impactIn.impactReport;
+        connect forecaster.trajectoryOut.trajectoryReport to decisionEngine.trajectoryIn.trajectoryReport;
+
+        connect decisionEngine.decisionOut.decision to governanceDecision.decision;
+        connect decisionEngine.decisionOut.decision to actuator.decisionIn.decision;
+        connect actuator.policyOut.executionStatus to ledger.decisionRecordIn.decisionRecord;
+        connect ledger.publicNoticeOut.decision to stakeholderAccess.decisionNotice;
+        connect ledger.publicNoticeOut.decision to auditAccess.decisionRecord;
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        doc /* The system shall provide adaptive governance for an emerging technology by detecting the Collingridge dilemma condition where knowledge of impacts is initially uncertain but control becomes harder as adoption increases. */
+    }
+
+    requirement def EarlyWarningRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute maxWarningLatency {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 604800 [SI::second];
+        doc /* The system shall issue a governance decision within maxWarningLatency after composite societal risk exceeds 55.0 while estimated time to lock-in is less than 90 days. */
+    }
+
+    requirement def ReversibilityRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute minimumReversibleShare : Probability = 0.70;
+        doc /* At least 70 percent of selected policy instruments before lock-in shall be reversible or subject to scheduled review. */
+    }
+
+    requirement def ProportionalityRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute benefitLossLimit : RiskScore = 35.0;
+        doc /* A binding constraint or deployment pause shall only be selected when expected risk reduction exceeds expected benefit loss by at least 20 normalized points. */
+    }
+
+    requirement def StakeholderLegitimacyRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute minimumAffectedRepresentation : Probability = 0.80;
+        doc /* The deliberation process shall include weighted input from affected stakeholder groups representing at least 80 percent of identified affected population categories. */
+    }
+
+    requirement def AccountabilityRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute publicationDeadline {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 259200 [SI::second];
+        doc /* Every governance decision shall be published with rationale, severity, expected risk reduction, expected benefit loss, review interval, and binding status within three days. */
+    }
+
+    requirement def AdaptationRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute maximumReviewInterval {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 2592000 [SI::second];
+        doc /* When uncertainty remains greater than 0.50, the system shall schedule a review interval no longer than 30 days. */
+    }
+
+    satisfy HighLevelFunctionRequirement by CollingridgeAdaptiveGovernanceSystem;
+    satisfy EarlyWarningRequirement by CollingridgeAdaptiveGovernanceSystem::decisionEngine;
+    satisfy ReversibilityRequirement by CollingridgeAdaptiveGovernanceSystem::actuator;
+    satisfy ProportionalityRequirement by CollingridgeAdaptiveGovernanceSystem::decisionEngine;
+    satisfy StakeholderLegitimacyRequirement by CollingridgeAdaptiveGovernanceSystem::forum;
+    satisfy AccountabilityRequirement by CollingridgeAdaptiveGovernanceSystem::ledger;
+    satisfy AdaptationRequirement by CollingridgeAdaptiveGovernanceSystem::decisionEngine;
+}
+tokens used
+4,815
+package CollingridgeAdaptiveGovernanceSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    /* Primary high-level function:
+       The system continuously governs an emerging technology by monitoring uncertainty,
+       societal impact, adoption lock-in, and intervention cost, then selecting proportionate
+       governance actions before the technology becomes difficult to change. */
+
+    attribute def Probability : Real {
+        doc /* Unitless probability in range 0.0 .. 1.0. */
+    }
+
+    attribute def RiskScore : Real {
+        doc /* Unitless normalized risk score in range 0.0 .. 100.0. */
+    }
+
+    attribute def TrustScore : Real {
+        doc /* Unitless normalized public trust score in range 0.0 .. 100.0. */
+    }
+
+    attribute def AdoptionFraction : Real {
+        doc /* Unitless fraction in range 0.0 .. 1.0. */
+    }
+
+    attribute def CostIndex : Real {
+        doc /* Unitless normalized intervention cost index in range 0.0 .. 100.0. */
+    }
+
+    attribute def TimeToLockIn {
+        :>> unit = SI::second;
+        :>> quantityKind = ISQ::duration;
+    }
+
+    attribute def CurrencyAmount : Real {
+        doc /* Governance program cost expressed in system accounting units. */
+    }
+
+    attribute def PolicySeverity : Integer {
+        doc /* Discrete intervention level: 0 none, 1 observe, 2 guide, 3 constrain, 4 pause, 5 prohibit. */
+    }
+
+    item def EvidencePacket {
+        attribute sourceId : String;
+        attribute observationTime {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::time;
+        }
+        attribute uncertainty : Probability;
+        attribute confidence : Probability;
+        attribute observedBenefit : RiskScore;
+        attribute observedHarm : RiskScore;
+        attribute adoption : AdoptionFraction;
+        attribute interventionCost : CostIndex;
+    }
+
+    item def SocialImpactReport {
+        attribute affectedPopulationCount : Integer;
+        attribute equityRisk : RiskScore;
+        attribute safetyRisk : RiskScore;
+        attribute privacyRisk : RiskScore;
+        attribute laborDisplacementRisk : RiskScore;
+        attribute environmentalRisk : RiskScore;
+        attribute publicTrust : TrustScore;
+        attribute irreversibleHarmProbability : Probability;
+    }
+
+    item def TechnicalTrajectoryReport {
+        attribute deploymentVelocity : AdoptionFraction;
+        attribute dependencyDepth : RiskScore;
+        attribute standardizationProgress : AdoptionFraction;
+        attribute switchingCost : CostIndex;
+        attribute estimatedTimeToLockIn : TimeToLockIn;
+        attribute designReversibility : Probability;
+    }
+
+    item def GovernanceDecision {
+        attribute decisionId : String;
+        attribute severity : PolicySeverity;
+        attribute rationale : String;
+        attribute expectedRiskReduction : RiskScore;
+        attribute expectedBenefitLoss : RiskScore;
+        attribute reviewInterval {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        }
+        attribute legallyBinding : Boolean;
+    }
+
+    item def PolicyInstrument {
+        attribute instrumentName : String;
+        attribute severity : PolicySeverity;
+        attribute reversible : Boolean;
+        attribute implementationCost : CurrencyAmount;
+        attribute targetRisk : String;
+    }
+
+    item def StakeholderInput {
+        attribute stakeholderGroup : String;
+        attribute legitimacyWeight : Probability;
+        attribute consentConcern : RiskScore;
+        attribute benefitClaim : RiskScore;
+        attribute harmClaim : RiskScore;
+        attribute requestedAction : PolicySeverity;
+    }
+
+    port def EvidenceInPort {
+        in item evidence : EvidencePacket;
+    }
+
+    port def ImpactReportPort {
+        out item impactReport : SocialImpactReport;
+    }
+
+    port def TrajectoryReportPort {
+        out item trajectoryReport : TechnicalTrajectoryReport;
+    }
+
+    port def StakeholderPort {
+        in item stakeholderInput : StakeholderInput;
+        out item decisionNotice : GovernanceDecision;
+    }
+
+    port def GovernanceDecisionPort {
+        out item decision : GovernanceDecision;
+    }
+
+    port def PolicyExecutionPort {
+        in item policy : PolicyInstrument;
+        out item executionStatus : GovernanceDecision;
+    }
+
+    port def AuditPort {
+        in item decisionRecord : GovernanceDecision;
+        out item auditFinding : SocialImpactReport;
+    }
+
+    action def AggregateEvidence {
+        in item rawEvidence : EvidencePacket;
+        out item aggregatedEvidence : EvidencePacket;
+        attribute minimumConfidence : Probability = 0.70;
+        attribute maximumAcceptedUncertainty : Probability = 0.60;
+    }
+
+    action def AssessSocietalImpact {
+        in item evidence : EvidencePacket;
+        in item stakeholderInput : StakeholderInput;
+        out item impactReport : SocialImpactReport;
+        attribute harmWeight : Real = 0.65;
+        attribute benefitWeight : Real = 0.35;
+    }
+
+    action def EstimateLockIn {
+        in item evidence : EvidencePacket;
+        out item trajectoryReport : TechnicalTrajectoryReport;
+        attribute lockInAdoptionThreshold : AdoptionFraction = 0.45;
+        attribute lockInCostThreshold : CostIndex = 60.0;
+    }
+
+    action def ResolveCollingridgeTension {
+        in item impactReport : SocialImpactReport;
+        in item trajectoryReport : TechnicalTrajectoryReport;
+        out item decision : GovernanceDecision;
+        attribute earlyUncertaintyThreshold : Probability = 0.50;
+        attribute lateLockInThreshold : AdoptionFraction = 0.65;
+        attribute precautionaryRiskThreshold : RiskScore = 55.0;
+        attribute adaptiveReviewPeriod {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 2592000 [SI::second];
+    }
+
+    action def SelectPolicyInstrument {
+        in item decision : GovernanceDecision;
+        out item policy : PolicyInstrument;
+        attribute maximumAcceptableBenefitLoss : RiskScore = 30.0;
+    }
+
+    action def ExecutePolicy {
+        in item policy : PolicyInstrument;
+        out item executionStatus : GovernanceDecision;
+    }
+
+    action def PublishAccountabilityRecord {
+        in item decision : GovernanceDecision;
+        in item impactReport : SocialImpactReport;
+        out item publicNotice : GovernanceDecision;
+    }
+
+    state def GovernanceLifecycle {
+        entry action initializeMonitoring;
+        state MonitoringUncertainTechnology;
+        state EvaluatingImpacts;
+        state EstimatingLockIn;
+        state Deliberating;
+        state SoftGuidance;
+        state BindingConstraint;
+        state DeploymentPause;
+        state SunsetOrRelease;
+        state PostDeploymentAudit;
+
+        transition first MonitoringUncertainTechnology;
+
+        transition monitoringToEvaluation
+            first MonitoringUncertainTechnology
+            then EvaluatingImpacts;
+
+        transition evaluationToLockIn
+            first EvaluatingImpacts
+            then EstimatingLockIn;
+
+        transition lockInToDeliberation
+            first EstimatingLockIn
+            then Deliberating;
+
+        transition deliberateToSoftGuidance
+            first Deliberating
+            then SoftGuidance;
+
+        transition deliberateToConstraint
+            first Deliberating
+            then BindingConstraint;
+
+        transition deliberateToPause
+            first Deliberating
+            then DeploymentPause;
+
+        transition guidanceToAudit
+            first SoftGuidance
+            then PostDeploymentAudit;
+
+        transition constraintToAudit
+            first BindingConstraint
+            then PostDeploymentAudit;
+
+        transition pauseToDeliberation
+            first DeploymentPause
+            then Deliberating;
+
+        transition auditToMonitoring
+            first PostDeploymentAudit
+            then MonitoringUncertainTechnology;
+
+        transition auditToSunset
+            first PostDeploymentAudit
+            then SunsetOrRelease;
+    }
+
+    part def EvidenceCollector {
+        port evidenceIn : EvidenceInPort;
+        port evidenceOut : EvidenceInPort;
+        attribute samplingPeriod {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 86400 [SI::second];
+        attribute minimumSourceDiversity : Integer = 5;
+        perform action aggregate : AggregateEvidence;
+    }
+
+    part def ImpactAssessmentEngine {
+        port evidenceIn : EvidenceInPort;
+        port stakeholderIn : StakeholderPort;
+        port impactOut : ImpactReportPort;
+        attribute vulnerableGroupWeight : Real = 1.8;
+        attribute irreversibleHarmWeight : Real = 2.2;
+        perform action assess : AssessSocietalImpact;
+    }
+
+    part def LockInForecaster {
+        port evidenceIn : EvidenceInPort;
+        port trajectoryOut : TrajectoryReportPort;
+        attribute forecastHorizon {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 31536000 [SI::second];
+        attribute lockInWarningTime {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 7776000 [SI::second];
+        perform action estimate : EstimateLockIn;
+    }
+
+    part def StakeholderDeliberationForum {
+        port stakeholderInterface : StakeholderPort;
+        port decisionNoticeOut : GovernanceDecisionPort;
+        attribute minimumConsultationDays {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 1209600 [SI::second];
+        attribute requiredAffectedGroupRepresentation : Probability = 0.80;
+    }
+
+    part def DecisionEngine {
+        port impactIn : ImpactReportPort;
+        port trajectoryIn : TrajectoryReportPort;
+        port stakeholderIn : StakeholderPort;
+        port decisionOut : GovernanceDecisionPort;
+        attribute uncertaintySensitivity : Real = 0.75;
+        attribute lockInSensitivity : Real = 0.85;
+        attribute harmAsymmetryFactor : Real = 1.6;
+        perform action resolve : ResolveCollingridgeTension;
+        exhibit state lifecycle : GovernanceLifecycle;
+    }
+
+    part def PolicyActuator {
+        port decisionIn : GovernanceDecisionPort;
+        port policyOut : PolicyExecutionPort;
+        attribute defaultSoftGuidanceCost : CurrencyAmount = 100000.0;
+        attribute defaultConstraintCost : CurrencyAmount = 1200000.0;
+        attribute defaultPauseCost : CurrencyAmount = 5000000.0;
+        perform action selectPolicy : SelectPolicyInstrument;
+        perform action execute : ExecutePolicy;
+    }
+
+    part def AccountabilityLedger {
+        port decisionRecordIn : AuditPort;
+        port publicNoticeOut : GovernanceDecisionPort;
+        attribute retentionPeriod {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 315360000 [SI::second];
+        attribute tamperEvidenceRequired : Boolean = true;
+        perform action publish : PublishAccountabilityRecord;
+    }
+
+    part def CollingridgeAdaptiveGovernanceSystem {
+        attribute primaryFunction : String =
+            "Govern an emerging technology by balancing early uncertainty against later social and technical lock-in, applying reversible and escalating interventions when evidence indicates rising irreversible harm or intervention difficulty.";
+
+        attribute currentUncertainty : Probability;
+        attribute currentAdoption : AdoptionFraction;
+        attribute currentInterventionCost : CostIndex;
+        attribute currentCompositeRisk : RiskScore;
+        attribute currentPublicTrust : TrustScore;
+
+        port externalEvidence : EvidenceInPort;
+        port stakeholderAccess : StakeholderPort;
+        port governanceDecision : GovernanceDecisionPort;
+        port policyExecution : PolicyExecutionPort;
+        port auditAccess : AuditPort;
+
+        part collector : EvidenceCollector;
+        part impactEngine : ImpactAssessmentEngine;
+        part forecaster : LockInForecaster;
+        part forum : StakeholderDeliberationForum;
+        part decisionEngine : DecisionEngine;
+        part actuator : PolicyActuator;
+        part ledger : AccountabilityLedger;
+
+        connect externalEvidence.evidence to collector.evidenceIn.evidence;
+        connect collector.evidenceOut.evidence to impactEngine.evidenceIn.evidence;
+        connect collector.evidenceOut.evidence to forecaster.evidenceIn.evidence;
+
+        connect stakeholderAccess.stakeholderInput to impactEngine.stakeholderIn.stakeholderInput;
+        connect stakeholderAccess.stakeholderInput to forum.stakeholderInterface.stakeholderInput;
+        connect forum.decisionNoticeOut.decision to decisionEngine.stakeholderIn.decisionNotice;
+
+        connect impactEngine.impactOut.impactReport to decisionEngine.impactIn.impactReport;
+        connect forecaster.trajectoryOut.trajectoryReport to decisionEngine.trajectoryIn.trajectoryReport;
+
+        connect decisionEngine.decisionOut.decision to governanceDecision.decision;
+        connect decisionEngine.decisionOut.decision to actuator.decisionIn.decision;
+        connect actuator.policyOut.executionStatus to ledger.decisionRecordIn.decisionRecord;
+        connect ledger.publicNoticeOut.decision to stakeholderAccess.decisionNotice;
+        connect ledger.publicNoticeOut.decision to auditAccess.decisionRecord;
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        doc /* The system shall provide adaptive governance for an emerging technology by detecting the Collingridge dilemma condition where knowledge of impacts is initially uncertain but control becomes harder as adoption increases. */
+    }
+
+    requirement def EarlyWarningRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute maxWarningLatency {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 604800 [SI::second];
+        doc /* The system shall issue a governance decision within maxWarningLatency after composite societal risk exceeds 55.0 while estimated time to lock-in is less than 90 days. */
+    }
+
+    requirement def ReversibilityRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute minimumReversibleShare : Probability = 0.70;
+        doc /* At least 70 percent of selected policy instruments before lock-in shall be reversible or subject to scheduled review. */
+    }
+
+    requirement def ProportionalityRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute benefitLossLimit : RiskScore = 35.0;
+        doc /* A binding constraint or deployment pause shall only be selected when expected risk reduction exceeds expected benefit loss by at least 20 normalized points. */
+    }
+
+    requirement def StakeholderLegitimacyRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute minimumAffectedRepresentation : Probability = 0.80;
+        doc /* The deliberation process shall include weighted input from affected stakeholder groups representing at least 80 percent of identified affected population categories. */
+    }
+
+    requirement def AccountabilityRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute publicationDeadline {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 259200 [SI::second];
+        doc /* Every governance decision shall be published with rationale, severity, expected risk reduction, expected benefit loss, review interval, and binding status within three days. */
+    }
+
+    requirement def AdaptationRequirement {
+        subject system : CollingridgeAdaptiveGovernanceSystem;
+        attribute maximumReviewInterval {
+            :>> unit = SI::second;
+            :>> quantityKind = ISQ::duration;
+        } = 2592000 [SI::second];
+        doc /* When uncertainty remains greater than 0.50, the system shall schedule a review interval no longer than 30 days. */
+    }
+
+    satisfy HighLevelFunctionRequirement by CollingridgeAdaptiveGovernanceSystem;
+    satisfy EarlyWarningRequirement by CollingridgeAdaptiveGovernanceSystem::decisionEngine;
+    satisfy ReversibilityRequirement by CollingridgeAdaptiveGovernanceSystem::actuator;
+    satisfy ProportionalityRequirement by CollingridgeAdaptiveGovernanceSystem::decisionEngine;
+    satisfy StakeholderLegitimacyRequirement by CollingridgeAdaptiveGovernanceSystem::forum;
+    satisfy AccountabilityRequirement by CollingridgeAdaptiveGovernanceSystem::ledger;
+    satisfy AdaptationRequirement by CollingridgeAdaptiveGovernanceSystem::decisionEngine;
+}

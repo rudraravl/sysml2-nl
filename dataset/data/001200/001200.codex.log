@@ -1,0 +1,1087 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-dj7xr60b
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5d1-44c9-7cb2-99a5-c2a825205080
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Position sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PositionSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value type LengthValue specializes Real {
+        unit = m;
+        quantityKind = length;
+    }
+
+    value type AngleValue specializes Real {
+        unit = rad;
+        quantityKind = planeAngle;
+    }
+
+    value type VoltageValue specializes Real {
+        unit = V;
+        quantityKind = electricPotential;
+    }
+
+    value type CurrentValue specializes Real {
+        unit = A;
+        quantityKind = electricCurrent;
+    }
+
+    value type PowerValue specializes Real {
+        unit = W;
+        quantityKind = power;
+    }
+
+    value type TemperatureValue specializes Real {
+        unit = K;
+        quantityKind = thermodynamicTemperature;
+    }
+
+    value type TimeValue specializes Real {
+        unit = s;
+        quantityKind = time;
+    }
+
+    value type FrequencyValue specializes Real {
+        unit = Hz;
+        quantityKind = frequency;
+    }
+
+    value type DataRateValue specializes Real {
+        unit = "bit/s";
+    }
+
+    value type PercentValue specializes Real {
+        unit = "%";
+    }
+
+    value type PositionErrorValue specializes Real {
+        unit = m;
+        quantityKind = length;
+    }
+
+    enum def PositionSensorKind {
+        inductive;
+        magnetic;
+        optical;
+        capacitive;
+        potentiometric;
+    }
+
+    enum def HealthStatus {
+        healthy;
+        degraded;
+        failed;
+        initializing;
+        unpowered;
+    }
+
+    enum def MeasurementValidity {
+        valid;
+        stale;
+        outOfRange;
+        diagnosticInvalid;
+        notCalibrated;
+    }
+
+    item def MechanicalPosition {
+        attribute linearPosition : LengthValue;
+        attribute angularPosition : AngleValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def RawPositionSignal {
+        attribute signalVoltage : VoltageValue;
+        attribute sensorCurrent : CurrentValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def ConditionedPositionSignal {
+        attribute normalizedVoltage : VoltageValue;
+        attribute filteredVoltage : VoltageValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def PositionMeasurement {
+        attribute position : LengthValue;
+        attribute uncertainty : PositionErrorValue;
+        attribute validity : MeasurementValidity;
+        attribute timestamp : TimeValue;
+    }
+
+    item def DiagnosticReport {
+        attribute health : HealthStatus;
+        attribute supplyVoltage : VoltageValue;
+        attribute electronicsTemperature : TemperatureValue;
+        attribute signalQuality : PercentValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+    }
+
+    item def DigitalPositionFrame {
+        attribute measuredPosition : LengthValue;
+        attribute measurementUncertainty : PositionErrorValue;
+        attribute validity : MeasurementValidity;
+        attribute health : HealthStatus;
+        attribute sequenceCounter : Integer;
+        attribute timestamp : TimeValue;
+    }
+
+    port def MechanicalPositionInputPort {
+        in item positionIn : MechanicalPosition;
+    }
+
+    port def RawSignalPort {
+        out item rawSignal : RawPositionSignal;
+    }
+
+    port def ConditionedSignalPort {
+        in item rawSignalIn : RawPositionSignal;
+        out item conditionedSignalOut : ConditionedPositionSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurementOut : PositionMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def DigitalOutputPort {
+        out item frameOut : DigitalPositionFrame;
+    }
+
+    port def DiagnosticPort {
+        out item diagnosticOut : DiagnosticReport;
+    }
+
+    port def CalibrationPort {
+        in item referencePosition : MechanicalPosition;
+    }
+
+    action def AcquireRawPosition {
+        in item actualPosition : MechanicalPosition;
+        in sensorKind : PositionSensorKind;
+        out item rawSignal : RawPositionSignal;
+
+        attribute sensitivity : Real;
+        attribute offsetVoltage : VoltageValue;
+    }
+
+    action def FilterAndConditionSignal {
+        in item rawSignal : RawPositionSignal;
+        out item conditionedSignal : ConditionedPositionSignal;
+
+        attribute cutoffFrequency : FrequencyValue;
+        attribute gain : Real;
+    }
+
+    action def ConvertSignalToPosition {
+        in item conditionedSignal : ConditionedPositionSignal;
+        out item measurement : PositionMeasurement;
+
+        attribute scaleFactor : Real;
+        attribute calibratedOffset : LengthValue;
+        attribute maximumRange : LengthValue;
+        attribute minimumRange : LengthValue;
+    }
+
+    action def EvaluateDiagnostics {
+        in item power : ElectricalPower;
+        in electronicsTemperature : TemperatureValue;
+        in item measurement : PositionMeasurement;
+        out item report : DiagnosticReport;
+    }
+
+    action def PublishDigitalFrame {
+        in item measurement : PositionMeasurement;
+        in item diagnostic : DiagnosticReport;
+        out item frame : DigitalPositionFrame;
+    }
+
+    state def SensingUnitOperationalState {
+        entry; then Initializing;
+
+        state Initializing;
+        state Calibrating;
+        state Measuring;
+        state Degraded;
+        state Faulted;
+        state Unpowered;
+
+        transition Initializing_to_Calibrating
+            first Initializing
+            then Calibrating;
+
+        transition Calibrating_to_Measuring
+            first Calibrating
+            then Measuring;
+
+        transition Measuring_to_Degraded
+            first Measuring
+            then Degraded;
+
+        transition Degraded_to_Measuring
+            first Degraded
+            then Measuring;
+
+        transition Measuring_to_Faulted
+            first Measuring
+            then Faulted;
+
+        transition Degraded_to_Faulted
+            first Degraded
+            then Faulted;
+
+        transition Faulted_to_Initializing
+            first Faulted
+            then Initializing;
+
+        transition Any_to_Unpowered
+            first Initializing
+            then Unpowered;
+
+        transition Unpowered_to_Initializing
+            first Unpowered
+            then Initializing;
+    }
+
+    part def PositionSensor {
+        attribute kind : PositionSensorKind = PositionSensorKind::magnetic;
+        attribute measurementRangeMin : LengthValue = 0.0 [m];
+        attribute measurementRangeMax : LengthValue = 0.25 [m];
+        attribute rawSensitivity : Real = 16.0;
+        attribute offsetVoltage : VoltageValue = 0.5 [V];
+        attribute excitationVoltage : VoltageValue = 5.0 [V];
+        attribute operatingCurrent : CurrentValue = 0.018 [A];
+        attribute sensorTemperature : TemperatureValue;
+
+        port mechanicalInput : MechanicalPositionInputPort;
+        port rawOutput : RawSignalPort;
+        port powerInput : PowerInputPort;
+
+        perform action acquire : AcquireRawPosition {
+            in actualPosition = mechanicalInput.positionIn;
+            in sensorKind = kind;
+            out rawSignal = rawOutput.rawSignal;
+            attribute sensitivity = rawSensitivity;
+            attribute offsetVoltage = offsetVoltage;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute inputImpedance : Real = 1000000.0;
+        attribute filterCutoff : FrequencyValue = 80.0 [Hz];
+        attribute amplifierGain : Real = 1.0;
+        attribute supplyVoltageNominal : VoltageValue = 5.0 [V];
+
+        port signalPort : ConditionedSignalPort;
+        port powerInput : PowerInputPort;
+
+        perform action condition : FilterAndConditionSignal {
+            in rawSignal = signalPort.rawSignalIn;
+            out conditionedSignal = signalPort.conditionedSignalOut;
+            attribute cutoffFrequency = filterCutoff;
+            attribute gain = amplifierGain;
+        }
+    }
+
+    part def PositionProcessor {
+        attribute sampleRate : FrequencyValue = 500.0 [Hz];
+        attribute outputRate : FrequencyValue = 100.0 [Hz];
+        attribute minimumPosition : LengthValue = 0.0 [m];
+        attribute maximumPosition : LengthValue = 0.25 [m];
+        attribute calibratedZeroOffset : LengthValue = 0.0 [m];
+        attribute scaleFactor : Real = 0.0625;
+        attribute resolution : PositionErrorValue = 0.0001 [m];
+        attribute accuracy : PositionErrorValue = 0.0005 [m];
+
+        port conditionedInput : ConditionedSignalPort;
+        port measurementOutput : MeasurementPort;
+        port calibrationInput : CalibrationPort;
+
+        perform action convert : ConvertSignalToPosition {
+            in conditionedSignal = conditionedInput.conditionedSignalOut;
+            out measurement = measurementOutput.measurementOut;
+            attribute scaleFactor = scaleFactor;
+            attribute calibratedOffset = calibratedZeroOffset;
+            attribute maximumRange = maximumPosition;
+            attribute minimumRange = minimumPosition;
+        }
+    }
+
+    part def DiagnosticsManager {
+        attribute maximumElectronicsTemperature : TemperatureValue = 358.15 [K];
+        attribute minimumSupplyVoltage : VoltageValue = 4.75 [V];
+        attribute maximumSupplyVoltage : VoltageValue = 5.25 [V];
+        attribute minimumSignalQuality : PercentValue = 80.0 [%];
+
+        port powerMonitor : PowerInputPort;
+        port measurementMonitor : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        perform action evaluate : EvaluateDiagnostics {
+            in power = powerMonitor.powerIn;
+            in measurement = measurementMonitor.measurementOut;
+            out report = diagnosticOutput.diagnosticOut;
+        }
+    }
+
+    part def DigitalInterface {
+        attribute busVoltage : VoltageValue = 3.3 [V];
+        attribute dataRate : DataRateValue = 1000000.0 ["bit/s"];
+        attribute updatePeriod : TimeValue = 0.01 [s];
+
+        port measurementInput : MeasurementPort;
+        port diagnosticInput : DiagnosticPort;
+        port digitalOutput : DigitalOutputPort;
+
+        perform action publish : PublishDigitalFrame {
+            in measurement = measurementInput.measurementOut;
+            in diagnostic = diagnosticInput.diagnosticOut;
+            out frame = digitalOutput.frameOut;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : VoltageValue = 9.0 [V];
+        attribute inputVoltageMax : VoltageValue = 32.0 [V];
+        attribute regulatedVoltage : VoltageValue = 5.0 [V];
+        attribute maximumOutputCurrent : CurrentValue = 0.25 [A];
+        attribute efficiency : PercentValue = 86.0 [%];
+
+        port externalPowerInput : PowerInputPort;
+        port regulatedPowerOutput : PowerInputPort;
+    }
+
+    part def PositionSensingUnit {
+        attribute unitMass : Real = 0.085;
+        attribute operatingTemperatureMin : TemperatureValue = 233.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 358.15 [K];
+        attribute totalPowerConsumption : PowerValue = 0.85 [W];
+        attribute endToEndAccuracy : PositionErrorValue = 0.001 [m];
+        attribute latency : TimeValue = 0.006 [s];
+        attribute health : HealthStatus = HealthStatus::initializing;
+
+        port sensedPositionInput : MechanicalPositionInputPort;
+        port externalPowerInput : PowerInputPort;
+        port calibratedReferenceInput : CalibrationPort;
+        port measuredPositionOutput : MeasurementPort;
+        port digitalDataOutput : DigitalOutputPort;
+        port diagnosticsOutput : DiagnosticPort;
+
+        part regulator : PowerRegulator;
+        part sensor : PositionSensor;
+        part conditioner : SignalConditioner;
+        part processor : PositionProcessor;
+        part diagnostics : DiagnosticsManager;
+        part interface : DigitalInterface;
+
+        connection power_feed_to_regulator
+            connect externalPowerInput.powerIn to regulator.externalPowerInput.powerIn;
+
+        connection regulated_power_to_sensor
+            connect regulator.regulatedPowerOutput.powerIn to sensor.powerInput.powerIn;
+
+        connection regulated_power_to_conditioner
+            connect regulator.regulatedPowerOutput.powerIn to conditioner.powerInput.powerIn;
+
+        connection position_to_sensor
+            connect sensedPositionInput.positionIn to sensor.mechanicalInput.positionIn;
+
+        connection raw_sensor_to_conditioner
+            connect sensor.rawOutput.rawSignal to conditioner.signalPort.rawSignalIn;
+
+        connection conditioned_to_processor
+            connect conditioner.signalPort.conditionedSignalOut to processor.conditionedInput.conditionedSignalOut;
+
+        connection calibration_to_processor
+            connect calibratedReferenceInput.referencePosition to processor.calibrationInput.referencePosition;
+
+        connection processor_to_external_measurement
+            connect processor.measurementOutput.measurementOut to measuredPositionOutput.measurementOut;
+
+        connection processor_to_diagnostics
+            connect processor.measurementOutput.measurementOut to diagnostics.measurementMonitor.measurementOut;
+
+        connection regulator_to_diagnostics
+            connect regulator.regulatedPowerOutput.powerIn to diagnostics.powerMonitor.powerIn;
+
+        connection diagnostics_to_external
+            connect diagnostics.diagnosticOutput.diagnosticOut to diagnosticsOutput.diagnosticOut;
+
+        connection measurement_to_interface
+            connect processor.measurementOutput.measurementOut to interface.measurementInput.measurementOut;
+
+        connection diagnostics_to_interface
+            connect diagnostics.diagnosticOutput.diagnosticOut to interface.diagnosticInput.diagnosticOut;
+
+        connection interface_to_external
+            connect interface.digitalOutput.frameOut to digitalDataOutput.frameOut;
+
+        exhibit state operationalState : SensingUnitOperationalState;
+    }
+
+    requirement def MeasurePositionRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.minimumPosition == 0.0 [m] and
+            sensingUnit.processor.maximumPosition == 0.25 [m]
+        }
+
+        doc /* The sensing unit shall measure mechanical position using an integrated position sensor over the specified linear range. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.endToEndAccuracy <= 0.001 [m]
+        }
+
+        doc /* The reported position measurement shall have an end-to-end absolute accuracy of 1 mm or better after calibration. */
+    }
+
+    requirement def LatencyRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.latency <= 0.010 [s]
+        }
+
+        doc /* The sensing unit shall publish a valid position measurement within 10 ms of the sampled physical position. */
+    }
+
+    requirement def OutputRateRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.outputRate >= 100.0 [Hz]
+        }
+
+        doc /* The sensing unit shall provide digital position output at not less than 100 Hz. */
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.totalPowerConsumption <= 1.0 [W]
+        }
+
+        doc /* The sensing unit shall consume no more than 1 W during nominal measurement operation. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.diagnostics.minimumSupplyVoltage == 4.75 [V] and
+            sensingUnit.diagnostics.maximumSupplyVoltage == 5.25 [V]
+        }
+
+        doc /* The sensing unit shall report diagnostic health based on regulated supply voltage, electronics temperature, signal quality, and measurement validity. */
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.operatingTemperatureMin <= 233.15 [K] and
+            sensingUnit.operatingTemperatureMax >= 358.15 [K]
+        }
+
+        doc /* The sensing unit shall operate across the specified environmental temperature range. */
+    }
+
+    satisfy MeasurePositionRequirement by PositionSensingUnit::sensor;
+    satisfy AccuracyRequirement by PositionSensingUnit::processor;
+    satisfy LatencyRequirement by PositionSensingUnit::processor;
+    satisfy OutputRateRequirement by PositionSensingUnit::interface;
+    satisfy PowerRequirement by PositionSensingUnit::regulator;
+    satisfy DiagnosticRequirement by PositionSensingUnit::diagnostics;
+    satisfy EnvironmentalRequirement by PositionSensingUnit;
+
+    part sensingUnitInstance : PositionSensingUnit {
+        attribute unitMass = 0.085;
+        attribute totalPowerConsumption = 0.85 [W];
+        attribute endToEndAccuracy = 0.001 [m];
+        attribute latency = 0.006 [s];
+
+        part sensor {
+            attribute kind = PositionSensorKind::magnetic;
+            attribute measurementRangeMin = 0.0 [m];
+            attribute measurementRangeMax = 0.25 [m];
+            attribute excitationVoltage = 5.0 [V];
+            attribute operatingCurrent = 0.018 [A];
+        }
+
+        part processor {
+            attribute sampleRate = 500.0 [Hz];
+            attribute outputRate = 100.0 [Hz];
+            attribute resolution = 0.0001 [m];
+            attribute accuracy = 0.0005 [m];
+        }
+
+        part interface {
+            attribute dataRate = 1000000.0 ["bit/s"];
+            attribute updatePeriod = 0.01 [s];
+        }
+    }
+}
+tokens used
+4,933
+package PositionSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value type LengthValue specializes Real {
+        unit = m;
+        quantityKind = length;
+    }
+
+    value type AngleValue specializes Real {
+        unit = rad;
+        quantityKind = planeAngle;
+    }
+
+    value type VoltageValue specializes Real {
+        unit = V;
+        quantityKind = electricPotential;
+    }
+
+    value type CurrentValue specializes Real {
+        unit = A;
+        quantityKind = electricCurrent;
+    }
+
+    value type PowerValue specializes Real {
+        unit = W;
+        quantityKind = power;
+    }
+
+    value type TemperatureValue specializes Real {
+        unit = K;
+        quantityKind = thermodynamicTemperature;
+    }
+
+    value type TimeValue specializes Real {
+        unit = s;
+        quantityKind = time;
+    }
+
+    value type FrequencyValue specializes Real {
+        unit = Hz;
+        quantityKind = frequency;
+    }
+
+    value type DataRateValue specializes Real {
+        unit = "bit/s";
+    }
+
+    value type PercentValue specializes Real {
+        unit = "%";
+    }
+
+    value type PositionErrorValue specializes Real {
+        unit = m;
+        quantityKind = length;
+    }
+
+    enum def PositionSensorKind {
+        inductive;
+        magnetic;
+        optical;
+        capacitive;
+        potentiometric;
+    }
+
+    enum def HealthStatus {
+        healthy;
+        degraded;
+        failed;
+        initializing;
+        unpowered;
+    }
+
+    enum def MeasurementValidity {
+        valid;
+        stale;
+        outOfRange;
+        diagnosticInvalid;
+        notCalibrated;
+    }
+
+    item def MechanicalPosition {
+        attribute linearPosition : LengthValue;
+        attribute angularPosition : AngleValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def RawPositionSignal {
+        attribute signalVoltage : VoltageValue;
+        attribute sensorCurrent : CurrentValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def ConditionedPositionSignal {
+        attribute normalizedVoltage : VoltageValue;
+        attribute filteredVoltage : VoltageValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def PositionMeasurement {
+        attribute position : LengthValue;
+        attribute uncertainty : PositionErrorValue;
+        attribute validity : MeasurementValidity;
+        attribute timestamp : TimeValue;
+    }
+
+    item def DiagnosticReport {
+        attribute health : HealthStatus;
+        attribute supplyVoltage : VoltageValue;
+        attribute electronicsTemperature : TemperatureValue;
+        attribute signalQuality : PercentValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+    }
+
+    item def DigitalPositionFrame {
+        attribute measuredPosition : LengthValue;
+        attribute measurementUncertainty : PositionErrorValue;
+        attribute validity : MeasurementValidity;
+        attribute health : HealthStatus;
+        attribute sequenceCounter : Integer;
+        attribute timestamp : TimeValue;
+    }
+
+    port def MechanicalPositionInputPort {
+        in item positionIn : MechanicalPosition;
+    }
+
+    port def RawSignalPort {
+        out item rawSignal : RawPositionSignal;
+    }
+
+    port def ConditionedSignalPort {
+        in item rawSignalIn : RawPositionSignal;
+        out item conditionedSignalOut : ConditionedPositionSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurementOut : PositionMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def DigitalOutputPort {
+        out item frameOut : DigitalPositionFrame;
+    }
+
+    port def DiagnosticPort {
+        out item diagnosticOut : DiagnosticReport;
+    }
+
+    port def CalibrationPort {
+        in item referencePosition : MechanicalPosition;
+    }
+
+    action def AcquireRawPosition {
+        in item actualPosition : MechanicalPosition;
+        in sensorKind : PositionSensorKind;
+        out item rawSignal : RawPositionSignal;
+
+        attribute sensitivity : Real;
+        attribute offsetVoltage : VoltageValue;
+    }
+
+    action def FilterAndConditionSignal {
+        in item rawSignal : RawPositionSignal;
+        out item conditionedSignal : ConditionedPositionSignal;
+
+        attribute cutoffFrequency : FrequencyValue;
+        attribute gain : Real;
+    }
+
+    action def ConvertSignalToPosition {
+        in item conditionedSignal : ConditionedPositionSignal;
+        out item measurement : PositionMeasurement;
+
+        attribute scaleFactor : Real;
+        attribute calibratedOffset : LengthValue;
+        attribute maximumRange : LengthValue;
+        attribute minimumRange : LengthValue;
+    }
+
+    action def EvaluateDiagnostics {
+        in item power : ElectricalPower;
+        in electronicsTemperature : TemperatureValue;
+        in item measurement : PositionMeasurement;
+        out item report : DiagnosticReport;
+    }
+
+    action def PublishDigitalFrame {
+        in item measurement : PositionMeasurement;
+        in item diagnostic : DiagnosticReport;
+        out item frame : DigitalPositionFrame;
+    }
+
+    state def SensingUnitOperationalState {
+        entry; then Initializing;
+
+        state Initializing;
+        state Calibrating;
+        state Measuring;
+        state Degraded;
+        state Faulted;
+        state Unpowered;
+
+        transition Initializing_to_Calibrating
+            first Initializing
+            then Calibrating;
+
+        transition Calibrating_to_Measuring
+            first Calibrating
+            then Measuring;
+
+        transition Measuring_to_Degraded
+            first Measuring
+            then Degraded;
+
+        transition Degraded_to_Measuring
+            first Degraded
+            then Measuring;
+
+        transition Measuring_to_Faulted
+            first Measuring
+            then Faulted;
+
+        transition Degraded_to_Faulted
+            first Degraded
+            then Faulted;
+
+        transition Faulted_to_Initializing
+            first Faulted
+            then Initializing;
+
+        transition Any_to_Unpowered
+            first Initializing
+            then Unpowered;
+
+        transition Unpowered_to_Initializing
+            first Unpowered
+            then Initializing;
+    }
+
+    part def PositionSensor {
+        attribute kind : PositionSensorKind = PositionSensorKind::magnetic;
+        attribute measurementRangeMin : LengthValue = 0.0 [m];
+        attribute measurementRangeMax : LengthValue = 0.25 [m];
+        attribute rawSensitivity : Real = 16.0;
+        attribute offsetVoltage : VoltageValue = 0.5 [V];
+        attribute excitationVoltage : VoltageValue = 5.0 [V];
+        attribute operatingCurrent : CurrentValue = 0.018 [A];
+        attribute sensorTemperature : TemperatureValue;
+
+        port mechanicalInput : MechanicalPositionInputPort;
+        port rawOutput : RawSignalPort;
+        port powerInput : PowerInputPort;
+
+        perform action acquire : AcquireRawPosition {
+            in actualPosition = mechanicalInput.positionIn;
+            in sensorKind = kind;
+            out rawSignal = rawOutput.rawSignal;
+            attribute sensitivity = rawSensitivity;
+            attribute offsetVoltage = offsetVoltage;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute inputImpedance : Real = 1000000.0;
+        attribute filterCutoff : FrequencyValue = 80.0 [Hz];
+        attribute amplifierGain : Real = 1.0;
+        attribute supplyVoltageNominal : VoltageValue = 5.0 [V];
+
+        port signalPort : ConditionedSignalPort;
+        port powerInput : PowerInputPort;
+
+        perform action condition : FilterAndConditionSignal {
+            in rawSignal = signalPort.rawSignalIn;
+            out conditionedSignal = signalPort.conditionedSignalOut;
+            attribute cutoffFrequency = filterCutoff;
+            attribute gain = amplifierGain;
+        }
+    }
+
+    part def PositionProcessor {
+        attribute sampleRate : FrequencyValue = 500.0 [Hz];
+        attribute outputRate : FrequencyValue = 100.0 [Hz];
+        attribute minimumPosition : LengthValue = 0.0 [m];
+        attribute maximumPosition : LengthValue = 0.25 [m];
+        attribute calibratedZeroOffset : LengthValue = 0.0 [m];
+        attribute scaleFactor : Real = 0.0625;
+        attribute resolution : PositionErrorValue = 0.0001 [m];
+        attribute accuracy : PositionErrorValue = 0.0005 [m];
+
+        port conditionedInput : ConditionedSignalPort;
+        port measurementOutput : MeasurementPort;
+        port calibrationInput : CalibrationPort;
+
+        perform action convert : ConvertSignalToPosition {
+            in conditionedSignal = conditionedInput.conditionedSignalOut;
+            out measurement = measurementOutput.measurementOut;
+            attribute scaleFactor = scaleFactor;
+            attribute calibratedOffset = calibratedZeroOffset;
+            attribute maximumRange = maximumPosition;
+            attribute minimumRange = minimumPosition;
+        }
+    }
+
+    part def DiagnosticsManager {
+        attribute maximumElectronicsTemperature : TemperatureValue = 358.15 [K];
+        attribute minimumSupplyVoltage : VoltageValue = 4.75 [V];
+        attribute maximumSupplyVoltage : VoltageValue = 5.25 [V];
+        attribute minimumSignalQuality : PercentValue = 80.0 [%];
+
+        port powerMonitor : PowerInputPort;
+        port measurementMonitor : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        perform action evaluate : EvaluateDiagnostics {
+            in power = powerMonitor.powerIn;
+            in measurement = measurementMonitor.measurementOut;
+            out report = diagnosticOutput.diagnosticOut;
+        }
+    }
+
+    part def DigitalInterface {
+        attribute busVoltage : VoltageValue = 3.3 [V];
+        attribute dataRate : DataRateValue = 1000000.0 ["bit/s"];
+        attribute updatePeriod : TimeValue = 0.01 [s];
+
+        port measurementInput : MeasurementPort;
+        port diagnosticInput : DiagnosticPort;
+        port digitalOutput : DigitalOutputPort;
+
+        perform action publish : PublishDigitalFrame {
+            in measurement = measurementInput.measurementOut;
+            in diagnostic = diagnosticInput.diagnosticOut;
+            out frame = digitalOutput.frameOut;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : VoltageValue = 9.0 [V];
+        attribute inputVoltageMax : VoltageValue = 32.0 [V];
+        attribute regulatedVoltage : VoltageValue = 5.0 [V];
+        attribute maximumOutputCurrent : CurrentValue = 0.25 [A];
+        attribute efficiency : PercentValue = 86.0 [%];
+
+        port externalPowerInput : PowerInputPort;
+        port regulatedPowerOutput : PowerInputPort;
+    }
+
+    part def PositionSensingUnit {
+        attribute unitMass : Real = 0.085;
+        attribute operatingTemperatureMin : TemperatureValue = 233.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 358.15 [K];
+        attribute totalPowerConsumption : PowerValue = 0.85 [W];
+        attribute endToEndAccuracy : PositionErrorValue = 0.001 [m];
+        attribute latency : TimeValue = 0.006 [s];
+        attribute health : HealthStatus = HealthStatus::initializing;
+
+        port sensedPositionInput : MechanicalPositionInputPort;
+        port externalPowerInput : PowerInputPort;
+        port calibratedReferenceInput : CalibrationPort;
+        port measuredPositionOutput : MeasurementPort;
+        port digitalDataOutput : DigitalOutputPort;
+        port diagnosticsOutput : DiagnosticPort;
+
+        part regulator : PowerRegulator;
+        part sensor : PositionSensor;
+        part conditioner : SignalConditioner;
+        part processor : PositionProcessor;
+        part diagnostics : DiagnosticsManager;
+        part interface : DigitalInterface;
+
+        connection power_feed_to_regulator
+            connect externalPowerInput.powerIn to regulator.externalPowerInput.powerIn;
+
+        connection regulated_power_to_sensor
+            connect regulator.regulatedPowerOutput.powerIn to sensor.powerInput.powerIn;
+
+        connection regulated_power_to_conditioner
+            connect regulator.regulatedPowerOutput.powerIn to conditioner.powerInput.powerIn;
+
+        connection position_to_sensor
+            connect sensedPositionInput.positionIn to sensor.mechanicalInput.positionIn;
+
+        connection raw_sensor_to_conditioner
+            connect sensor.rawOutput.rawSignal to conditioner.signalPort.rawSignalIn;
+
+        connection conditioned_to_processor
+            connect conditioner.signalPort.conditionedSignalOut to processor.conditionedInput.conditionedSignalOut;
+
+        connection calibration_to_processor
+            connect calibratedReferenceInput.referencePosition to processor.calibrationInput.referencePosition;
+
+        connection processor_to_external_measurement
+            connect processor.measurementOutput.measurementOut to measuredPositionOutput.measurementOut;
+
+        connection processor_to_diagnostics
+            connect processor.measurementOutput.measurementOut to diagnostics.measurementMonitor.measurementOut;
+
+        connection regulator_to_diagnostics
+            connect regulator.regulatedPowerOutput.powerIn to diagnostics.powerMonitor.powerIn;
+
+        connection diagnostics_to_external
+            connect diagnostics.diagnosticOutput.diagnosticOut to diagnosticsOutput.diagnosticOut;
+
+        connection measurement_to_interface
+            connect processor.measurementOutput.measurementOut to interface.measurementInput.measurementOut;
+
+        connection diagnostics_to_interface
+            connect diagnostics.diagnosticOutput.diagnosticOut to interface.diagnosticInput.diagnosticOut;
+
+        connection interface_to_external
+            connect interface.digitalOutput.frameOut to digitalDataOutput.frameOut;
+
+        exhibit state operationalState : SensingUnitOperationalState;
+    }
+
+    requirement def MeasurePositionRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.minimumPosition == 0.0 [m] and
+            sensingUnit.processor.maximumPosition == 0.25 [m]
+        }
+
+        doc /* The sensing unit shall measure mechanical position using an integrated position sensor over the specified linear range. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.endToEndAccuracy <= 0.001 [m]
+        }
+
+        doc /* The reported position measurement shall have an end-to-end absolute accuracy of 1 mm or better after calibration. */
+    }
+
+    requirement def LatencyRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.latency <= 0.010 [s]
+        }
+
+        doc /* The sensing unit shall publish a valid position measurement within 10 ms of the sampled physical position. */
+    }
+
+    requirement def OutputRateRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.outputRate >= 100.0 [Hz]
+        }
+
+        doc /* The sensing unit shall provide digital position output at not less than 100 Hz. */
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.totalPowerConsumption <= 1.0 [W]
+        }
+
+        doc /* The sensing unit shall consume no more than 1 W during nominal measurement operation. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.diagnostics.minimumSupplyVoltage == 4.75 [V] and
+            sensingUnit.diagnostics.maximumSupplyVoltage == 5.25 [V]
+        }
+
+        doc /* The sensing unit shall report diagnostic health based on regulated supply voltage, electronics temperature, signal quality, and measurement validity. */
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensingUnit : PositionSensingUnit;
+
+        require constraint {
+            sensingUnit.operatingTemperatureMin <= 233.15 [K] and
+            sensingUnit.operatingTemperatureMax >= 358.15 [K]
+        }
+
+        doc /* The sensing unit shall operate across the specified environmental temperature range. */
+    }
+
+    satisfy MeasurePositionRequirement by PositionSensingUnit::sensor;
+    satisfy AccuracyRequirement by PositionSensingUnit::processor;
+    satisfy LatencyRequirement by PositionSensingUnit::processor;
+    satisfy OutputRateRequirement by PositionSensingUnit::interface;
+    satisfy PowerRequirement by PositionSensingUnit::regulator;
+    satisfy DiagnosticRequirement by PositionSensingUnit::diagnostics;
+    satisfy EnvironmentalRequirement by PositionSensingUnit;
+
+    part sensingUnitInstance : PositionSensingUnit {
+        attribute unitMass = 0.085;
+        attribute totalPowerConsumption = 0.85 [W];
+        attribute endToEndAccuracy = 0.001 [m];
+        attribute latency = 0.006 [s];
+
+        part sensor {
+            attribute kind = PositionSensorKind::magnetic;
+            attribute measurementRangeMin = 0.0 [m];
+            attribute measurementRangeMax = 0.25 [m];
+            attribute excitationVoltage = 5.0 [V];
+            attribute operatingCurrent = 0.018 [A];
+        }
+
+        part processor {
+            attribute sampleRate = 500.0 [Hz];
+            attribute outputRate = 100.0 [Hz];
+            attribute resolution = 0.0001 [m];
+            attribute accuracy = 0.0005 [m];
+        }
+
+        part interface {
+            attribute dataRate = 1000000.0 ["bit/s"];
+            attribute updatePeriod = 0.01 [s];
+        }
+    }
+}

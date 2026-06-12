@@ -1,0 +1,887 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_1_q2fws
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb73d-9aa3-70d3-a699-ad3785c9fd7a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Silicene and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SiliceneBasedSystemModel {
+    import ScalarValues::*;
+
+    unit def nm;
+    unit def um;
+    unit def V;
+    unit def mV;
+    unit def A;
+    unit def uA;
+    unit def S;
+    unit def uS;
+    unit def W;
+    unit def mW;
+    unit def K;
+    unit def degC;
+    unit def ppb;
+    unit def s;
+    unit def ms;
+    unit def percent;
+
+    enum def GasSpecies {
+        enum NO2;
+        enum NH3;
+        enum CO;
+        enum H2O;
+        enum O2;
+        enum Unknown;
+    }
+
+    enum def SensorMode {
+        enum Standby;
+        enum Calibration;
+        enum Sampling;
+        enum Measurement;
+        enum Reporting;
+        enum Fault;
+    }
+
+    attribute def LengthNm :> Real {
+        :>> unit = nm;
+    }
+
+    attribute def AreaUm2 :> Real {
+        :>> unit = um;
+    }
+
+    attribute def Voltage :> Real {
+        :>> unit = V;
+    }
+
+    attribute def MilliVoltage :> Real {
+        :>> unit = mV;
+    }
+
+    attribute def Current :> Real {
+        :>> unit = uA;
+    }
+
+    attribute def Conductance :> Real {
+        :>> unit = uS;
+    }
+
+    attribute def Power :> Real {
+        :>> unit = mW;
+    }
+
+    attribute def Temperature :> Real {
+        :>> unit = degC;
+    }
+
+    attribute def Duration :> Real {
+        :>> unit = s;
+    }
+
+    attribute def GasConcentration :> Real {
+        :>> unit = ppb;
+    }
+
+    attribute def RelativeHumidity :> Real {
+        :>> unit = percent;
+    }
+
+    item def GasSample {
+        attribute species : GasSpecies;
+        attribute concentration : GasConcentration;
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+    }
+
+    item def BiasCommand {
+        attribute drainSourceVoltage : Voltage;
+        attribute gateVoltage : Voltage;
+        attribute integrationTime : Duration;
+    }
+
+    item def ConductanceMeasurement {
+        attribute conductance : Conductance;
+        attribute baselineConductance : Conductance;
+        attribute deltaConductance : Conductance;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def DetectionResult {
+        attribute detectedSpecies : GasSpecies;
+        attribute estimatedConcentration : GasConcentration;
+        attribute confidence : Real;
+        attribute alarmActive : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute availablePower : Power;
+    }
+
+    item def ThermalCommand {
+        attribute targetTemperature : Temperature;
+        attribute rampDuration : Duration;
+    }
+
+    port def GasInputPort {
+        in sample : GasSample;
+    }
+
+    port def GasExposurePort {
+        in adsorbedSample : GasSample;
+    }
+
+    port def BiasPort {
+        in command : BiasCommand;
+    }
+
+    port def MeasurementPort {
+        out measurement : ConductanceMeasurement;
+    }
+
+    port def ResultPort {
+        out result : DetectionResult;
+    }
+
+    port def PowerInputPort {
+        in power : ElectricalPower;
+    }
+
+    port def ThermalControlPort {
+        in thermalCommand : ThermalCommand;
+    }
+
+    port def DataPort {
+        out result : DetectionResult;
+    }
+
+    part def SiliceneMonolayer {
+        attribute layerThickness : LengthNm = 0.42;
+        attribute activeArea : AreaUm2 = 2500.0;
+        attribute bucklingHeight : LengthNm = 0.44;
+        attribute nominalBandGapVoltageTuned : MilliVoltage = 120.0;
+        attribute baselineConductance : Conductance = 85.0;
+
+        port gasSurface : GasExposurePort;
+        port electricalBias : BiasPort;
+        port conductanceOutput : MeasurementPort;
+
+        action adsorbAnalyte {
+            in sample : GasSample;
+            out surfaceChargeTransfer : Current;
+        }
+
+        action modulateConductance {
+            in bias : BiasCommand;
+            in sample : GasSample;
+            out measurement : ConductanceMeasurement;
+        }
+    }
+
+    part def MicroHeater {
+        attribute minimumTemperature : Temperature = 20.0;
+        attribute maximumTemperature : Temperature = 85.0;
+        attribute nominalPower : Power = 18.0;
+
+        port powerIn : PowerInputPort;
+        port thermalControl : ThermalControlPort;
+
+        action stabilizeTemperature {
+            in command : ThermalCommand;
+            out actualTemperature : Temperature;
+        }
+    }
+
+    part def ElectrodeArray {
+        attribute electrodeGap : LengthNm = 80.0;
+        attribute contactResistance : Conductance = 4.5;
+
+        port biasOut : BiasPort;
+        port measurementIn : MeasurementPort;
+
+        action applyBias {
+            in command : BiasCommand;
+        }
+
+        action collectCurrentResponse {
+            out measurement : ConductanceMeasurement;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute inputNoise : Current = 0.015;
+        attribute maximumInputCurrent : Current = 250.0;
+        attribute samplingInterval : Duration = 0.050;
+
+        port measurementIn : MeasurementPort;
+        port processedMeasurementOut : MeasurementPort;
+        port powerIn : PowerInputPort;
+
+        action filterMeasurement {
+            in rawMeasurement : ConductanceMeasurement;
+            out filteredMeasurement : ConductanceMeasurement;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute no2AlarmThreshold : GasConcentration = 100.0;
+        attribute minimumConfidence : Real = 0.90;
+
+        port measurementIn : MeasurementPort;
+        port resultOut : ResultPort;
+
+        action estimateConcentration {
+            in measurement : ConductanceMeasurement;
+            out result : DetectionResult;
+        }
+
+        action compensateHumidityAndTemperature {
+            in measurement : ConductanceMeasurement;
+            out compensatedMeasurement : ConductanceMeasurement;
+        }
+    }
+
+    part def PowerManager {
+        attribute nominalSupplyVoltage : Voltage = 3.3;
+        attribute maximumSystemPower : Power = 75.0;
+
+        port powerOut : PowerInputPort;
+
+        action regulatePower {
+            out regulatedPower : ElectricalPower;
+        }
+    }
+
+    part def CommunicationInterface {
+        attribute reportingPeriod : Duration = 1.0;
+
+        port resultIn : ResultPort;
+        port dataOut : DataPort;
+
+        action publishResult {
+            in result : DetectionResult;
+        }
+    }
+
+    part def SiliceneGasSensorSystem {
+        attribute primaryFunction : String = "Detect trace gas molecules by using a silicene monolayer whose electrical conductance changes when analyte molecules adsorb onto its tunable two-dimensional surface.";
+        attribute currentMode : SensorMode = SensorMode::Standby;
+        attribute warmupTime : Duration = 5.0;
+        attribute responseTime : Duration = 2.0;
+        attribute recoveryTime : Duration = 8.0;
+
+        port gasIn : GasInputPort;
+        port dataOut : DataPort;
+
+        part siliceneLayer : SiliceneMonolayer;
+        part heater : MicroHeater;
+        part electrodes : ElectrodeArray;
+        part analogFrontEnd : AnalogFrontEnd;
+        part processor : SignalProcessor;
+        part powerManager : PowerManager;
+        part communication : CommunicationInterface;
+
+        connect gasIn.sample to siliceneLayer.gasSurface.adsorbedSample;
+        connect powerManager.powerOut to heater.powerIn;
+        connect powerManager.powerOut to analogFrontEnd.powerIn;
+        connect electrodes.biasOut to siliceneLayer.electricalBias;
+        connect siliceneLayer.conductanceOutput to electrodes.measurementIn;
+        connect electrodes.measurementIn to analogFrontEnd.measurementIn;
+        connect analogFrontEnd.processedMeasurementOut to processor.measurementIn;
+        connect processor.resultOut to communication.resultIn;
+        connect communication.dataOut to dataOut;
+
+        action calibrateBaseline {
+            out baseline : ConductanceMeasurement;
+        }
+
+        action sampleGas {
+            in gas : GasSample;
+            out exposedGas : GasSample;
+        }
+
+        action measureResponse {
+            in exposedGas : GasSample;
+            out measurement : ConductanceMeasurement;
+        }
+
+        action classifyAndReport {
+            in measurement : ConductanceMeasurement;
+            out result : DetectionResult;
+        }
+
+        state def OperatingState {
+            state standby;
+            state calibrating;
+            state sampling;
+            state measuring;
+            state reporting;
+            state fault;
+
+            entry; then standby;
+
+            transition standby_to_calibrating
+                first standby
+                accept when true
+                then calibrating;
+
+            transition calibrating_to_sampling
+                first calibrating
+                accept after 5.0 [s]
+                then sampling;
+
+            transition sampling_to_measuring
+                first sampling
+                accept after 0.5 [s]
+                then measuring;
+
+            transition measuring_to_reporting
+                first measuring
+                accept after 2.0 [s]
+                then reporting;
+
+            transition reporting_to_sampling
+                first reporting
+                accept after 1.0 [s]
+                then sampling;
+
+            transition any_to_fault
+                first standby
+                accept when currentMode == SensorMode::Fault
+                then fault;
+        }
+
+        perform calibrateBaseline;
+        perform sampleGas;
+        perform measureResponse;
+        perform classifyAndReport;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.primaryFunction == "Detect trace gas molecules by using a silicene monolayer whose electrical conductance changes when analyte molecules adsorb onto its tunable two-dimensional surface."
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.processor.no2AlarmThreshold <= 100.0 [ppb]
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.responseTime <= 2.0 [s]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.powerManager.maximumSystemPower <= 75.0 [mW]
+        }
+    }
+
+    requirement def ThermalOperatingRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.heater.maximumTemperature <= 85.0 [degC]
+        }
+    }
+
+    requirement def SelectivityRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.processor.minimumConfidence >= 0.90
+        }
+    }
+
+    part systemUnderDescription : SiliceneGasSensorSystem;
+
+    requirement primaryFunctionReq : PrimaryFunctionRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement sensitivityReq : SensitivityRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement responseTimeReq : ResponseTimeRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement powerReq : PowerRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement thermalReq : ThermalOperatingRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement selectivityReq : SelectivityRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    satisfy primaryFunctionReq by systemUnderDescription;
+    satisfy sensitivityReq by systemUnderDescription.processor;
+    satisfy responseTimeReq by systemUnderDescription;
+    satisfy powerReq by systemUnderDescription.powerManager;
+    satisfy thermalReq by systemUnderDescription.heater;
+    satisfy selectivityReq by systemUnderDescription.processor;
+}
+tokens used
+3,328
+package SiliceneBasedSystemModel {
+    import ScalarValues::*;
+
+    unit def nm;
+    unit def um;
+    unit def V;
+    unit def mV;
+    unit def A;
+    unit def uA;
+    unit def S;
+    unit def uS;
+    unit def W;
+    unit def mW;
+    unit def K;
+    unit def degC;
+    unit def ppb;
+    unit def s;
+    unit def ms;
+    unit def percent;
+
+    enum def GasSpecies {
+        enum NO2;
+        enum NH3;
+        enum CO;
+        enum H2O;
+        enum O2;
+        enum Unknown;
+    }
+
+    enum def SensorMode {
+        enum Standby;
+        enum Calibration;
+        enum Sampling;
+        enum Measurement;
+        enum Reporting;
+        enum Fault;
+    }
+
+    attribute def LengthNm :> Real {
+        :>> unit = nm;
+    }
+
+    attribute def AreaUm2 :> Real {
+        :>> unit = um;
+    }
+
+    attribute def Voltage :> Real {
+        :>> unit = V;
+    }
+
+    attribute def MilliVoltage :> Real {
+        :>> unit = mV;
+    }
+
+    attribute def Current :> Real {
+        :>> unit = uA;
+    }
+
+    attribute def Conductance :> Real {
+        :>> unit = uS;
+    }
+
+    attribute def Power :> Real {
+        :>> unit = mW;
+    }
+
+    attribute def Temperature :> Real {
+        :>> unit = degC;
+    }
+
+    attribute def Duration :> Real {
+        :>> unit = s;
+    }
+
+    attribute def GasConcentration :> Real {
+        :>> unit = ppb;
+    }
+
+    attribute def RelativeHumidity :> Real {
+        :>> unit = percent;
+    }
+
+    item def GasSample {
+        attribute species : GasSpecies;
+        attribute concentration : GasConcentration;
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+    }
+
+    item def BiasCommand {
+        attribute drainSourceVoltage : Voltage;
+        attribute gateVoltage : Voltage;
+        attribute integrationTime : Duration;
+    }
+
+    item def ConductanceMeasurement {
+        attribute conductance : Conductance;
+        attribute baselineConductance : Conductance;
+        attribute deltaConductance : Conductance;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def DetectionResult {
+        attribute detectedSpecies : GasSpecies;
+        attribute estimatedConcentration : GasConcentration;
+        attribute confidence : Real;
+        attribute alarmActive : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute availablePower : Power;
+    }
+
+    item def ThermalCommand {
+        attribute targetTemperature : Temperature;
+        attribute rampDuration : Duration;
+    }
+
+    port def GasInputPort {
+        in sample : GasSample;
+    }
+
+    port def GasExposurePort {
+        in adsorbedSample : GasSample;
+    }
+
+    port def BiasPort {
+        in command : BiasCommand;
+    }
+
+    port def MeasurementPort {
+        out measurement : ConductanceMeasurement;
+    }
+
+    port def ResultPort {
+        out result : DetectionResult;
+    }
+
+    port def PowerInputPort {
+        in power : ElectricalPower;
+    }
+
+    port def ThermalControlPort {
+        in thermalCommand : ThermalCommand;
+    }
+
+    port def DataPort {
+        out result : DetectionResult;
+    }
+
+    part def SiliceneMonolayer {
+        attribute layerThickness : LengthNm = 0.42;
+        attribute activeArea : AreaUm2 = 2500.0;
+        attribute bucklingHeight : LengthNm = 0.44;
+        attribute nominalBandGapVoltageTuned : MilliVoltage = 120.0;
+        attribute baselineConductance : Conductance = 85.0;
+
+        port gasSurface : GasExposurePort;
+        port electricalBias : BiasPort;
+        port conductanceOutput : MeasurementPort;
+
+        action adsorbAnalyte {
+            in sample : GasSample;
+            out surfaceChargeTransfer : Current;
+        }
+
+        action modulateConductance {
+            in bias : BiasCommand;
+            in sample : GasSample;
+            out measurement : ConductanceMeasurement;
+        }
+    }
+
+    part def MicroHeater {
+        attribute minimumTemperature : Temperature = 20.0;
+        attribute maximumTemperature : Temperature = 85.0;
+        attribute nominalPower : Power = 18.0;
+
+        port powerIn : PowerInputPort;
+        port thermalControl : ThermalControlPort;
+
+        action stabilizeTemperature {
+            in command : ThermalCommand;
+            out actualTemperature : Temperature;
+        }
+    }
+
+    part def ElectrodeArray {
+        attribute electrodeGap : LengthNm = 80.0;
+        attribute contactResistance : Conductance = 4.5;
+
+        port biasOut : BiasPort;
+        port measurementIn : MeasurementPort;
+
+        action applyBias {
+            in command : BiasCommand;
+        }
+
+        action collectCurrentResponse {
+            out measurement : ConductanceMeasurement;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute inputNoise : Current = 0.015;
+        attribute maximumInputCurrent : Current = 250.0;
+        attribute samplingInterval : Duration = 0.050;
+
+        port measurementIn : MeasurementPort;
+        port processedMeasurementOut : MeasurementPort;
+        port powerIn : PowerInputPort;
+
+        action filterMeasurement {
+            in rawMeasurement : ConductanceMeasurement;
+            out filteredMeasurement : ConductanceMeasurement;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute no2AlarmThreshold : GasConcentration = 100.0;
+        attribute minimumConfidence : Real = 0.90;
+
+        port measurementIn : MeasurementPort;
+        port resultOut : ResultPort;
+
+        action estimateConcentration {
+            in measurement : ConductanceMeasurement;
+            out result : DetectionResult;
+        }
+
+        action compensateHumidityAndTemperature {
+            in measurement : ConductanceMeasurement;
+            out compensatedMeasurement : ConductanceMeasurement;
+        }
+    }
+
+    part def PowerManager {
+        attribute nominalSupplyVoltage : Voltage = 3.3;
+        attribute maximumSystemPower : Power = 75.0;
+
+        port powerOut : PowerInputPort;
+
+        action regulatePower {
+            out regulatedPower : ElectricalPower;
+        }
+    }
+
+    part def CommunicationInterface {
+        attribute reportingPeriod : Duration = 1.0;
+
+        port resultIn : ResultPort;
+        port dataOut : DataPort;
+
+        action publishResult {
+            in result : DetectionResult;
+        }
+    }
+
+    part def SiliceneGasSensorSystem {
+        attribute primaryFunction : String = "Detect trace gas molecules by using a silicene monolayer whose electrical conductance changes when analyte molecules adsorb onto its tunable two-dimensional surface.";
+        attribute currentMode : SensorMode = SensorMode::Standby;
+        attribute warmupTime : Duration = 5.0;
+        attribute responseTime : Duration = 2.0;
+        attribute recoveryTime : Duration = 8.0;
+
+        port gasIn : GasInputPort;
+        port dataOut : DataPort;
+
+        part siliceneLayer : SiliceneMonolayer;
+        part heater : MicroHeater;
+        part electrodes : ElectrodeArray;
+        part analogFrontEnd : AnalogFrontEnd;
+        part processor : SignalProcessor;
+        part powerManager : PowerManager;
+        part communication : CommunicationInterface;
+
+        connect gasIn.sample to siliceneLayer.gasSurface.adsorbedSample;
+        connect powerManager.powerOut to heater.powerIn;
+        connect powerManager.powerOut to analogFrontEnd.powerIn;
+        connect electrodes.biasOut to siliceneLayer.electricalBias;
+        connect siliceneLayer.conductanceOutput to electrodes.measurementIn;
+        connect electrodes.measurementIn to analogFrontEnd.measurementIn;
+        connect analogFrontEnd.processedMeasurementOut to processor.measurementIn;
+        connect processor.resultOut to communication.resultIn;
+        connect communication.dataOut to dataOut;
+
+        action calibrateBaseline {
+            out baseline : ConductanceMeasurement;
+        }
+
+        action sampleGas {
+            in gas : GasSample;
+            out exposedGas : GasSample;
+        }
+
+        action measureResponse {
+            in exposedGas : GasSample;
+            out measurement : ConductanceMeasurement;
+        }
+
+        action classifyAndReport {
+            in measurement : ConductanceMeasurement;
+            out result : DetectionResult;
+        }
+
+        state def OperatingState {
+            state standby;
+            state calibrating;
+            state sampling;
+            state measuring;
+            state reporting;
+            state fault;
+
+            entry; then standby;
+
+            transition standby_to_calibrating
+                first standby
+                accept when true
+                then calibrating;
+
+            transition calibrating_to_sampling
+                first calibrating
+                accept after 5.0 [s]
+                then sampling;
+
+            transition sampling_to_measuring
+                first sampling
+                accept after 0.5 [s]
+                then measuring;
+
+            transition measuring_to_reporting
+                first measuring
+                accept after 2.0 [s]
+                then reporting;
+
+            transition reporting_to_sampling
+                first reporting
+                accept after 1.0 [s]
+                then sampling;
+
+            transition any_to_fault
+                first standby
+                accept when currentMode == SensorMode::Fault
+                then fault;
+        }
+
+        perform calibrateBaseline;
+        perform sampleGas;
+        perform measureResponse;
+        perform classifyAndReport;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.primaryFunction == "Detect trace gas molecules by using a silicene monolayer whose electrical conductance changes when analyte molecules adsorb onto its tunable two-dimensional surface."
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.processor.no2AlarmThreshold <= 100.0 [ppb]
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.responseTime <= 2.0 [s]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.powerManager.maximumSystemPower <= 75.0 [mW]
+        }
+    }
+
+    requirement def ThermalOperatingRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.heater.maximumTemperature <= 85.0 [degC]
+        }
+    }
+
+    requirement def SelectivityRequirement {
+        subject system : SiliceneGasSensorSystem;
+
+        require constraint {
+            system.processor.minimumConfidence >= 0.90
+        }
+    }
+
+    part systemUnderDescription : SiliceneGasSensorSystem;
+
+    requirement primaryFunctionReq : PrimaryFunctionRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement sensitivityReq : SensitivityRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement responseTimeReq : ResponseTimeRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement powerReq : PowerRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement thermalReq : ThermalOperatingRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    requirement selectivityReq : SelectivityRequirement {
+        subject system = systemUnderDescription;
+    }
+
+    satisfy primaryFunctionReq by systemUnderDescription;
+    satisfy sensitivityReq by systemUnderDescription.processor;
+    satisfy responseTimeReq by systemUnderDescription;
+    satisfy powerReq by systemUnderDescription.powerManager;
+    satisfy thermalReq by systemUnderDescription.heater;
+    satisfy selectivityReq by systemUnderDescription.processor;
+}

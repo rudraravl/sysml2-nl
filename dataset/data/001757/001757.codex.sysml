@@ -1,0 +1,461 @@
+package CapillaryActionTransportModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    enum def LiquidPresenceKind {
+        enum dry;
+        enum wetting;
+        enum saturated;
+        enum depleted;
+    }
+
+    enum def FlowModeKind {
+        enum idle;
+        enum priming;
+        enum steadyDelivery;
+        enum overflowProtection;
+        enum stopped;
+    }
+
+    item def WorkingLiquid {
+        attribute density : MassDensity;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute surfaceTension : SurfaceTension;
+        attribute contactAngle : PlaneAngle;
+        attribute temperature : ThermodynamicTemperature;
+    }
+
+    item def DeliveredLiquid :> WorkingLiquid {
+        attribute deliveredVolume : Volume;
+        attribute deliveryRate : VolumeFlowRate;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute relativeHumidity : Real;
+    }
+
+    item def ContaminantParticle {
+        attribute diameter : Length;
+        attribute captured : Boolean;
+    }
+
+    port def LiquidPort {
+        inout item liquid : WorkingLiquid;
+        attribute hydraulicPressure : Pressure;
+        attribute liquidPresence : LiquidPresenceKind;
+    }
+
+    port def AirVentPort {
+        inout item gas : Air;
+        attribute ventPressure : Pressure;
+    }
+
+    port def DeliveryPort {
+        out item product : DeliveredLiquid;
+        attribute deliveryRate : VolumeFlowRate;
+        attribute meniscusStable : Boolean;
+    }
+
+    port def FillPort {
+        in item fillLiquid : WorkingLiquid;
+        attribute fillRate : VolumeFlowRate;
+    }
+
+    port def DrainPort {
+        out item wasteLiquid : WorkingLiquid;
+        attribute drainRate : VolumeFlowRate;
+    }
+
+    attribute def PoreRadius :> Length;
+    attribute def Porosity :> Real;
+    attribute def Permeability :> Area;
+    attribute def WettedLength :> Length;
+    attribute def CapillaryPressure :> Pressure;
+    attribute def HydrostaticHead :> Length;
+    attribute def ReservoirVolume :> Volume;
+    attribute def WickSaturation :> Real;
+    attribute def TargetDeliveryRate :> VolumeFlowRate;
+    attribute def MaximumDeliveryRate :> VolumeFlowRate;
+    attribute def MinimumDeliveryRate :> VolumeFlowRate;
+    attribute def PrimingTime :> Time;
+    attribute def ServiceLife :> Time;
+
+    action def CalculateCapillaryPressure {
+        in surfaceTension : SurfaceTension;
+        in contactAngle : PlaneAngle;
+        in poreRadius : PoreRadius;
+        out pressureRise : CapillaryPressure;
+
+        constraint capillaryPressureEquation {
+            pressureRise == 2.0 * surfaceTension * cos(contactAngle) / poreRadius
+        }
+    }
+
+    action def DetermineFlowRate {
+        in permeability : Permeability;
+        in wickArea : Area;
+        in viscosity : DynamicViscosity;
+        in pressureGradient : Pressure;
+        in flowLength : Length;
+        out volumetricFlow : VolumeFlowRate;
+
+        constraint darcyFlowEquation {
+            volumetricFlow == permeability * wickArea * pressureGradient / (viscosity * flowLength)
+        }
+    }
+
+    action def PrimeWick {
+        in liquid : WorkingLiquid;
+        in dryWickLength : Length;
+        out primed : Boolean;
+        out elapsedTime : PrimingTime;
+
+        first start;
+        then wetInletSurface;
+        then advanceMeniscus;
+        then displaceAirThroughVent;
+        then saturateTransportPath;
+        then done;
+
+        flow start to wetInletSurface;
+        flow wetInletSurface to advanceMeniscus;
+        flow advanceMeniscus to displaceAirThroughVent;
+        flow displaceAirThroughVent to saturateTransportPath;
+        flow saturateTransportPath to done;
+    }
+
+    action def DeliverLiquidPassively {
+        in sourceLiquid : WorkingLiquid;
+        in requestedRate : TargetDeliveryRate;
+        out deliveredLiquid : DeliveredLiquid;
+        out mode : FlowModeKind;
+
+        first establishMeniscus;
+        then generatePressureDifference;
+        then meterThroughPorousPath;
+        then releaseAtOutlet;
+        then maintainEquilibrium;
+
+        flow establishMeniscus to generatePressureDifference;
+        flow generatePressureDifference to meterThroughPorousPath;
+        flow meterThroughPorousPath to releaseAtOutlet;
+        flow releaseAtOutlet to maintainEquilibrium;
+    }
+
+    action def StopDeliveryWhenEmpty {
+        in saturation : WickSaturation;
+        out stopped : Boolean;
+
+        constraint stopThreshold {
+            stopped == saturation < 0.05
+        }
+    }
+
+    state def CapillaryTransportStateMachine {
+        state dry {
+            entry action {
+                systemMode = FlowModeKind::idle;
+                wickState = LiquidPresenceKind::dry;
+            }
+        }
+
+        state priming {
+            entry action {
+                systemMode = FlowModeKind::priming;
+                wickState = LiquidPresenceKind::wetting;
+            }
+
+            do action PrimeWick;
+        }
+
+        state steadyDelivery {
+            entry action {
+                systemMode = FlowModeKind::steadyDelivery;
+                wickState = LiquidPresenceKind::saturated;
+            }
+
+            do action DeliverLiquidPassively;
+        }
+
+        state overflowProtection {
+            entry action {
+                systemMode = FlowModeKind::overflowProtection;
+            }
+        }
+
+        state depleted {
+            entry action {
+                systemMode = FlowModeKind::stopped;
+                wickState = LiquidPresenceKind::depleted;
+            }
+
+            do action StopDeliveryWhenEmpty;
+        }
+
+        transition dryToPriming
+            first dry
+            accept filled
+            then priming;
+
+        transition primingToDelivery
+            first priming
+            accept outletWetted
+            then steadyDelivery;
+
+        transition deliveryToProtection
+            first steadyDelivery
+            accept outletFlooded
+            then overflowProtection;
+
+        transition protectionToDelivery
+            first overflowProtection
+            accept meniscusRecovered
+            then steadyDelivery;
+
+        transition deliveryToDepleted
+            first steadyDelivery
+            accept reservoirEmpty
+            then depleted;
+
+        transition depletedToPriming
+            first depleted
+            accept refilled
+            then priming;
+    }
+
+    part def Reservoir {
+        port fill : FillPort;
+        port outlet : LiquidPort;
+        port vent : AirVentPort;
+
+        attribute capacity : ReservoirVolume = 25.0 [mL];
+        attribute usableVolume : ReservoirVolume = 23.0 [mL];
+        attribute minimumHead : HydrostaticHead = 0.0 [mm];
+        attribute maximumHead : HydrostaticHead = 85.0 [mm];
+        attribute currentVolume : ReservoirVolume;
+        attribute sealedExceptVent : Boolean = true;
+    }
+
+    part def PorousWick {
+        port inlet : LiquidPort;
+        port outlet : LiquidPort;
+        port ventInterface : AirVentPort;
+
+        attribute meanPoreRadius : PoreRadius = 35.0 [um];
+        attribute porosity : Porosity = 0.62;
+        attribute permeability : Permeability = 1.8e-11 [m^2];
+        attribute transportLength : WettedLength = 120.0 [mm];
+        attribute crossSectionalArea : Area = 18.0 [mm^2];
+        attribute saturation : WickSaturation;
+        attribute capillaryPressure : CapillaryPressure;
+        attribute liquidState : LiquidPresenceKind;
+
+        perform action CalculateCapillaryPressure;
+        perform action DetermineFlowRate;
+    }
+
+    part def FlowLimiter {
+        port inlet : LiquidPort;
+        port outlet : LiquidPort;
+
+        attribute channelLength : Length = 22.0 [mm];
+        attribute channelHydraulicRadius : Length = 80.0 [um];
+        attribute maximumFlowRate : MaximumDeliveryRate = 0.75 [mL/h];
+        attribute minimumFlowRate : MinimumDeliveryRate = 0.15 [mL/h];
+    }
+
+    part def AirVent {
+        port reservoirSide : AirVentPort;
+        port atmosphereSide : AirVentPort;
+
+        attribute hydrophobicMembranePoreRadius : PoreRadius = 0.2 [um];
+        attribute liquidEntryPressure : Pressure = 12.0 [kPa];
+        attribute allowsAirExchange : Boolean = true;
+        attribute blocksLiquidEscape : Boolean = true;
+    }
+
+    part def DeliveryInterface {
+        port inlet : LiquidPort;
+        port outlet : DeliveryPort;
+        port drain : DrainPort;
+
+        attribute targetDeliveryRate : TargetDeliveryRate = 0.45 [mL/h];
+        attribute outletWettingArea : Area = 42.0 [mm^2];
+        attribute meniscusStable : Boolean;
+        attribute accumulatedDeliveredVolume : Volume;
+    }
+
+    part def ParticleFilter {
+        port inlet : LiquidPort;
+        port outlet : LiquidPort;
+
+        attribute nominalCutoffDiameter : Length = 25.0 [um];
+        attribute filterArea : Area = 65.0 [mm^2];
+        attribute retainedParticleCount : Integer;
+    }
+
+    part def Housing {
+        part reservoirCavity : Reservoir;
+        part wickChannel : PorousWick;
+        part outletSeat : DeliveryInterface;
+        part ventPath : AirVent;
+        part inletFilter : ParticleFilter;
+        part limiter : FlowLimiter;
+
+        attribute leakTight : Boolean = true;
+        attribute serviceLife : ServiceLife = 72.0 [h];
+        attribute operatingTemperatureMin : ThermodynamicTemperature = 278.15 [K];
+        attribute operatingTemperatureMax : ThermodynamicTemperature = 318.15 [K];
+    }
+
+    part def CapillaryDrivenDeliverySystem {
+        port fill : FillPort;
+        port delivery : DeliveryPort;
+        port ambientVent : AirVentPort;
+        port waste : DrainPort;
+
+        part reservoir : Reservoir;
+        part filter : ParticleFilter;
+        part wick : PorousWick;
+        part limiter : FlowLimiter;
+        part interface : DeliveryInterface;
+        part vent : AirVent;
+        part enclosure : Housing;
+
+        attribute primaryFunction : String =
+            "Passively transport liquid from a reservoir to a delivery surface using capillary pressure generated by a wetted porous wick.";
+        attribute nominalDeliveryRate : TargetDeliveryRate = 0.45 [mL/h];
+        attribute allowedDeliveryRateLow : MinimumDeliveryRate = 0.30 [mL/h];
+        attribute allowedDeliveryRateHigh : MaximumDeliveryRate = 0.60 [mL/h];
+        attribute nominalPrimingTime : PrimingTime = 180.0 [s];
+        attribute requiresExternalPump : Boolean = false;
+        attribute mode : FlowModeKind;
+        attribute wickState : LiquidPresenceKind;
+
+        connect fill to reservoir.fill;
+        connect reservoir.outlet to filter.inlet;
+        connect filter.outlet to wick.inlet;
+        connect wick.outlet to limiter.inlet;
+        connect limiter.outlet to interface.inlet;
+        connect interface.outlet to delivery;
+        connect interface.drain to waste;
+        connect reservoir.vent to vent.reservoirSide;
+        connect vent.atmosphereSide to ambientVent;
+
+        perform action PrimeWick;
+        perform action DeliverLiquidPassively;
+        exhibit state CapillaryTransportStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : CapillaryDrivenDeliverySystem;
+
+        doc
+            "The system shall passively move working liquid from the reservoir to the delivery interface by capillary action without an electric pump.";
+
+        require constraint {
+            system.requiresExternalPump == false
+        }
+    }
+
+    requirement def CapillaryPressureRequirement {
+        subject wick : PorousWick;
+
+        doc
+            "The porous wick shall generate positive capillary pressure for the selected working liquid.";
+
+        require constraint {
+            wick.capillaryPressure > 0.0 [Pa]
+        }
+    }
+
+    requirement def DeliveryRateRequirement {
+        subject system : CapillaryDrivenDeliverySystem;
+
+        doc
+            "The system shall maintain the delivered liquid flow rate within the specified passive delivery band during steady operation.";
+
+        require constraint {
+            system.delivery.deliveryRate >= system.allowedDeliveryRateLow and
+            system.delivery.deliveryRate <= system.allowedDeliveryRateHigh
+        }
+    }
+
+    requirement def PrimingRequirement {
+        subject system : CapillaryDrivenDeliverySystem;
+
+        doc
+            "The system shall establish a continuous wetted path from reservoir outlet to delivery interface within the specified priming time.";
+
+        require constraint {
+            system.nominalPrimingTime <= 300.0 [s]
+        }
+    }
+
+    requirement def VentingRequirement {
+        subject vent : AirVent;
+
+        doc
+            "The vent shall admit replacement air while blocking liquid leakage through the vent path.";
+
+        require constraint {
+            vent.allowsAirExchange == true and
+            vent.blocksLiquidEscape == true and
+            vent.liquidEntryPressure >= 10.0 [kPa]
+        }
+    }
+
+    requirement def ReservoirCapacityRequirement {
+        subject reservoir : Reservoir;
+
+        doc
+            "The reservoir shall store enough liquid to support the intended service duration at nominal delivery rate.";
+
+        require constraint {
+            reservoir.usableVolume >= 20.0 [mL]
+        }
+    }
+
+    requirement def FilterProtectionRequirement {
+        subject filter : ParticleFilter;
+
+        doc
+            "The filter shall prevent particles large enough to obstruct the capillary wick from entering the porous transport path.";
+
+        require constraint {
+            filter.nominalCutoffDiameter < 0.75 * 2.0 * 35.0 [um]
+        }
+    }
+
+    requirement def MeniscusStabilityRequirement {
+        subject interface : DeliveryInterface;
+
+        doc
+            "The delivery interface shall maintain a stable outlet meniscus during steady delivery to prevent uncontrolled dripping.";
+
+        require constraint {
+            interface.meniscusStable == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by CapillaryDrivenDeliverySystem;
+    satisfy DeliveryRateRequirement by CapillaryDrivenDeliverySystem;
+    satisfy PrimingRequirement by CapillaryDrivenDeliverySystem;
+    satisfy CapillaryPressureRequirement by PorousWick;
+    satisfy VentingRequirement by AirVent;
+    satisfy ReservoirCapacityRequirement by Reservoir;
+    satisfy FilterProtectionRequirement by ParticleFilter;
+    satisfy MeniscusStabilityRequirement by DeliveryInterface;
+
+    part capillaryActionLiquidDeliverySystem : CapillaryDrivenDeliverySystem {
+        attribute nominalDeliveryRate = 0.45 [mL/h];
+        attribute allowedDeliveryRateLow = 0.30 [mL/h];
+        attribute allowedDeliveryRateHigh = 0.60 [mL/h];
+        attribute nominalPrimingTime = 180.0 [s];
+        attribute requiresExternalPump = false;
+        attribute mode = FlowModeKind::idle;
+        attribute wickState = LiquidPresenceKind::dry;
+    }
+}

@@ -1,0 +1,887 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-w8vk2t61
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5af-e082-7e82-8b75-30afa5cabea0
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Optode and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OptodeMeasurementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Concentration {
+        :> scalar;
+        unit = "umol/L";
+    }
+
+    attribute def LightIntensity {
+        :> scalar;
+        unit = "mW/cm^2";
+    }
+
+    attribute def Wavelength {
+        :> scalar;
+        unit = "nm";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :> scalar;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> scalar;
+        unit = "mA";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def Percent {
+        :> scalar;
+        unit = "%";
+    }
+
+    item def SampleFluid {
+        attribute analyteConcentration : Concentration;
+        attribute temperature : Temperature;
+        attribute flowRate {
+            :> scalar;
+            unit = "mL/min";
+        }
+    }
+
+    item def ExcitationLight {
+        attribute wavelength : Wavelength;
+        attribute radiantIntensity : LightIntensity;
+        attribute modulationFrequency {
+            :> scalar;
+            unit = "Hz";
+        }
+    }
+
+    item def EmissionLight {
+        attribute wavelength : Wavelength;
+        attribute radiantIntensity : LightIntensity;
+        attribute phaseShift {
+            :> scalar;
+            unit = "deg";
+        }
+        attribute decayTime : TimeDuration;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def MeasurementData {
+        attribute measuredConcentration : Concentration;
+        attribute compensatedTemperature : Temperature;
+        attribute signalQuality : Percent;
+        attribute timeStamp {
+            :> scalar;
+            unit = "s";
+        }
+    }
+
+    port def FluidPort {
+        in item fluid : SampleFluid;
+    }
+
+    port def OpticalEmitPort {
+        out item light : ExcitationLight;
+    }
+
+    port def OpticalReceivePort {
+        in item light : EmissionLight;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DataPort {
+        out item data : MeasurementData;
+    }
+
+    part def OptodeSystem {
+        attribute measurementRangeMin : Concentration = 0.0;
+        attribute measurementRangeMax : Concentration = 500.0;
+        attribute requiredAccuracy : Percent = 2.0;
+        attribute warmupTime : TimeDuration = 30.0;
+
+        port sampleIn : FluidPort;
+        port powerIn : PowerPort;
+        port dataOut : DataPort;
+
+        part opticalSource : LightSource;
+        part sensingTip : OptodeSensingTip;
+        part opticalDetector : Photodetector;
+        part signalProcessor : SignalProcessor;
+        part temperatureSensor : TemperatureSensor;
+        part enclosure : ProbeHousing;
+
+        connect powerIn.power to opticalSource.powerIn.power;
+        connect powerIn.power to opticalDetector.powerIn.power;
+        connect powerIn.power to signalProcessor.powerIn.power;
+        connect powerIn.power to temperatureSensor.powerIn.power;
+
+        connect sampleIn.fluid to sensingTip.samplePort.fluid;
+        connect opticalSource.excitationOut.light to sensingTip.excitationIn.light;
+        connect sensingTip.emissionOut.light to opticalDetector.emissionIn.light;
+        connect opticalDetector.rawSignalOut.data to signalProcessor.opticalSignalIn.data;
+        connect temperatureSensor.temperatureOut.data to signalProcessor.temperatureIn.data;
+        connect signalProcessor.measurementOut.data to dataOut.data;
+
+        perform action measureAnalyte;
+        exhibit state optodeOperatingStates;
+    }
+
+    part def LightSource {
+        attribute nominalWavelength : Wavelength = 470.0;
+        attribute maximumIntensity : LightIntensity = 15.0;
+        attribute driveCurrent : Current = 20.0;
+
+        port powerIn : PowerPort;
+        port excitationOut : OpticalEmitPort;
+
+        action emitModulatedLight {
+            in item supply : ElectricalPower;
+            out item excitation : ExcitationLight;
+
+            first startDriver;
+            then stabilizeOutput;
+            then generateExcitation;
+
+            action startDriver;
+            action stabilizeOutput;
+            action generateExcitation;
+        }
+    }
+
+    part def OptodeSensingTip {
+        attribute membraneThickness {
+            :> scalar;
+            unit = "um";
+        } = 125.0;
+
+        attribute immobilizedIndicatorLifetime : TimeDuration = 4.2;
+        attribute responseTimeT90 : TimeDuration = 12.0;
+        attribute photobleachingLimit : Percent = 5.0;
+
+        port samplePort : FluidPort;
+        port excitationIn : OpticalReceivePort;
+        port emissionOut : OpticalEmitPort;
+
+        action transduceConcentrationToLight {
+            in item fluid : SampleFluid;
+            in item excitation : ExcitationLight;
+            out item emission : EmissionLight;
+
+            first absorbExcitation;
+            then indicatorInteraction;
+            then emitAnalyteDependentSignal;
+
+            action absorbExcitation;
+            action indicatorInteraction;
+            action emitAnalyteDependentSignal;
+        }
+    }
+
+    part def Photodetector {
+        attribute detectorGain {
+            :> scalar;
+            unit = "V/uW";
+        } = 0.8;
+
+        attribute darkCurrent : Current = 0.005;
+        attribute saturationVoltage : Voltage = 3.3;
+
+        port powerIn : PowerPort;
+        port emissionIn : OpticalReceivePort;
+        port rawSignalOut : DataPort;
+
+        action convertLightToSignal {
+            in item emission : EmissionLight;
+            out item opticalSignal : MeasurementData;
+
+            first rejectAmbientLight;
+            then convertPhotonsToCurrent;
+            then amplifySignal;
+
+            action rejectAmbientLight;
+            action convertPhotonsToCurrent;
+            action amplifySignal;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.2;
+        attribute responseTime : TimeDuration = 3.0;
+
+        port powerIn : PowerPort;
+        port temperatureOut : DataPort;
+
+        action senseTemperature {
+            out item temperatureData : MeasurementData;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute samplingPeriod : TimeDuration = 1.0;
+        attribute minimumSignalQuality : Percent = 80.0;
+        attribute calibrationSlope {
+            :> scalar;
+            unit = "(umol/L)/deg";
+        } = 9.6;
+        attribute calibrationOffset : Concentration = 0.0;
+
+        port powerIn : PowerPort;
+        port opticalSignalIn : DataPort;
+        port temperatureIn : DataPort;
+        port measurementOut : DataPort;
+
+        action computeAnalyteConcentration {
+            in item opticalSignal : MeasurementData;
+            in item temperatureData : MeasurementData;
+            out item concentrationData : MeasurementData;
+
+            first sampleDetectorSignal;
+            then estimatePhaseOrLifetime;
+            then compensateTemperature;
+            then applyCalibrationCurve;
+            then validateSignalQuality;
+            then publishMeasurement;
+
+            action sampleDetectorSignal;
+            action estimatePhaseOrLifetime;
+            action compensateTemperature;
+            action applyCalibrationCurve;
+            action validateSignalQuality;
+            action publishMeasurement;
+        }
+    }
+
+    part def ProbeHousing {
+        attribute ingressProtectionRating = "IP68";
+        attribute wettedMaterial = "316L stainless steel";
+        attribute opticalWindowMaterial = "sapphire";
+        attribute maximumOperatingPressure {
+            :> scalar;
+            unit = "bar";
+        } = 10.0;
+    }
+
+    action def MeasureAnalyte {
+        in item sample : SampleFluid;
+        out item result : MeasurementData;
+
+        first illuminateSensingTip;
+        then generateOpticalResponse;
+        then detectOpticalResponse;
+        then calculateConcentration;
+        then outputResult;
+
+        action illuminateSensingTip;
+        action generateOpticalResponse;
+        action detectOpticalResponse;
+        action calculateConcentration;
+        action outputResult;
+    }
+
+    action measureAnalyte : MeasureAnalyte;
+
+    state def OptodeOperatingStates {
+        entry action initializeElectronics;
+
+        state Off;
+        state Warmup;
+        state CalibrationCheck;
+        state Measuring;
+        state Fault;
+        state Standby;
+
+        transition first Off then Warmup
+            accept PowerApplied;
+
+        transition Warmup then CalibrationCheck
+            accept WarmupComplete
+            if warmupElapsed;
+
+        transition CalibrationCheck then Measuring
+            accept CalibrationValid;
+
+        transition CalibrationCheck then Fault
+            accept CalibrationInvalid;
+
+        transition Measuring then Standby
+            accept NoSampleFlow;
+
+        transition Standby then Measuring
+            accept SampleFlowRestored;
+
+        transition Measuring then Fault
+            accept SignalQualityLow;
+
+        transition Fault then Warmup
+            accept ResetCommand;
+
+        transition Measuring then Off
+            accept PowerRemoved;
+
+        action initializeElectronics;
+        attribute warmupElapsed : Boolean;
+    }
+
+    state optodeOperatingStates : OptodeOperatingStates;
+
+    requirement def PrimaryFunctionRequirement {
+        subject optode : OptodeSystem;
+
+        doc
+        /*
+         The optode system shall determine the concentration of a target dissolved analyte in a sample fluid by illuminating an analyte-sensitive optical membrane, detecting the resulting analyte-dependent emission response, compensating the response for temperature, and outputting a calibrated concentration measurement.
+        */
+
+        require constraint {
+            optode.measurementRangeMin <= 0.0 and
+            optode.measurementRangeMax >= 500.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject optode : OptodeSystem;
+
+        doc
+        /*
+         The optode system shall report analyte concentration with an error no greater than 2 percent of full scale over the specified measurement range after calibration.
+        */
+
+        require constraint {
+            optode.requiredAccuracy <= 2.0
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject tip : OptodeSensingTip;
+
+        doc
+        /*
+         The sensing tip shall reach 90 percent of the final optical response within 12 seconds after a step change in analyte concentration.
+        */
+
+        require constraint {
+            tip.responseTimeT90 <= 12.0
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject processor : SignalProcessor;
+
+        doc
+        /*
+         The signal processor shall reject measurements when computed signal quality is below 80 percent and place the system in the fault state when low signal quality persists.
+        */
+
+        require constraint {
+            processor.minimumSignalQuality >= 80.0
+        }
+    }
+
+    requirement def EnvironmentalProtectionRequirement {
+        subject housing : ProbeHousing;
+
+        doc
+        /*
+         The probe housing shall protect optical and electronic components during immersion in process fluid at pressures up to 10 bar.
+        */
+
+        require constraint {
+            housing.maximumOperatingPressure >= 10.0
+        }
+    }
+
+    part optodeSystem : OptodeSystem {
+        :>> measurementRangeMin = 0.0;
+        :>> measurementRangeMax = 500.0;
+        :>> requiredAccuracy = 2.0;
+        :>> warmupTime = 30.0;
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject optode = optodeSystem;
+    }
+
+    requirement accuracy : AccuracyRequirement {
+        subject optode = optodeSystem;
+    }
+
+    requirement responseTime : ResponseTimeRequirement {
+        subject tip = optodeSystem.sensingTip;
+    }
+
+    requirement signalQuality : SignalQualityRequirement {
+        subject processor = optodeSystem.signalProcessor;
+    }
+
+    requirement environmentalProtection : EnvironmentalProtectionRequirement {
+        subject housing = optodeSystem.enclosure;
+    }
+
+}
+tokens used
+3,941
+package OptodeMeasurementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Concentration {
+        :> scalar;
+        unit = "umol/L";
+    }
+
+    attribute def LightIntensity {
+        :> scalar;
+        unit = "mW/cm^2";
+    }
+
+    attribute def Wavelength {
+        :> scalar;
+        unit = "nm";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :> scalar;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> scalar;
+        unit = "mA";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def Percent {
+        :> scalar;
+        unit = "%";
+    }
+
+    item def SampleFluid {
+        attribute analyteConcentration : Concentration;
+        attribute temperature : Temperature;
+        attribute flowRate {
+            :> scalar;
+            unit = "mL/min";
+        }
+    }
+
+    item def ExcitationLight {
+        attribute wavelength : Wavelength;
+        attribute radiantIntensity : LightIntensity;
+        attribute modulationFrequency {
+            :> scalar;
+            unit = "Hz";
+        }
+    }
+
+    item def EmissionLight {
+        attribute wavelength : Wavelength;
+        attribute radiantIntensity : LightIntensity;
+        attribute phaseShift {
+            :> scalar;
+            unit = "deg";
+        }
+        attribute decayTime : TimeDuration;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def MeasurementData {
+        attribute measuredConcentration : Concentration;
+        attribute compensatedTemperature : Temperature;
+        attribute signalQuality : Percent;
+        attribute timeStamp {
+            :> scalar;
+            unit = "s";
+        }
+    }
+
+    port def FluidPort {
+        in item fluid : SampleFluid;
+    }
+
+    port def OpticalEmitPort {
+        out item light : ExcitationLight;
+    }
+
+    port def OpticalReceivePort {
+        in item light : EmissionLight;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DataPort {
+        out item data : MeasurementData;
+    }
+
+    part def OptodeSystem {
+        attribute measurementRangeMin : Concentration = 0.0;
+        attribute measurementRangeMax : Concentration = 500.0;
+        attribute requiredAccuracy : Percent = 2.0;
+        attribute warmupTime : TimeDuration = 30.0;
+
+        port sampleIn : FluidPort;
+        port powerIn : PowerPort;
+        port dataOut : DataPort;
+
+        part opticalSource : LightSource;
+        part sensingTip : OptodeSensingTip;
+        part opticalDetector : Photodetector;
+        part signalProcessor : SignalProcessor;
+        part temperatureSensor : TemperatureSensor;
+        part enclosure : ProbeHousing;
+
+        connect powerIn.power to opticalSource.powerIn.power;
+        connect powerIn.power to opticalDetector.powerIn.power;
+        connect powerIn.power to signalProcessor.powerIn.power;
+        connect powerIn.power to temperatureSensor.powerIn.power;
+
+        connect sampleIn.fluid to sensingTip.samplePort.fluid;
+        connect opticalSource.excitationOut.light to sensingTip.excitationIn.light;
+        connect sensingTip.emissionOut.light to opticalDetector.emissionIn.light;
+        connect opticalDetector.rawSignalOut.data to signalProcessor.opticalSignalIn.data;
+        connect temperatureSensor.temperatureOut.data to signalProcessor.temperatureIn.data;
+        connect signalProcessor.measurementOut.data to dataOut.data;
+
+        perform action measureAnalyte;
+        exhibit state optodeOperatingStates;
+    }
+
+    part def LightSource {
+        attribute nominalWavelength : Wavelength = 470.0;
+        attribute maximumIntensity : LightIntensity = 15.0;
+        attribute driveCurrent : Current = 20.0;
+
+        port powerIn : PowerPort;
+        port excitationOut : OpticalEmitPort;
+
+        action emitModulatedLight {
+            in item supply : ElectricalPower;
+            out item excitation : ExcitationLight;
+
+            first startDriver;
+            then stabilizeOutput;
+            then generateExcitation;
+
+            action startDriver;
+            action stabilizeOutput;
+            action generateExcitation;
+        }
+    }
+
+    part def OptodeSensingTip {
+        attribute membraneThickness {
+            :> scalar;
+            unit = "um";
+        } = 125.0;
+
+        attribute immobilizedIndicatorLifetime : TimeDuration = 4.2;
+        attribute responseTimeT90 : TimeDuration = 12.0;
+        attribute photobleachingLimit : Percent = 5.0;
+
+        port samplePort : FluidPort;
+        port excitationIn : OpticalReceivePort;
+        port emissionOut : OpticalEmitPort;
+
+        action transduceConcentrationToLight {
+            in item fluid : SampleFluid;
+            in item excitation : ExcitationLight;
+            out item emission : EmissionLight;
+
+            first absorbExcitation;
+            then indicatorInteraction;
+            then emitAnalyteDependentSignal;
+
+            action absorbExcitation;
+            action indicatorInteraction;
+            action emitAnalyteDependentSignal;
+        }
+    }
+
+    part def Photodetector {
+        attribute detectorGain {
+            :> scalar;
+            unit = "V/uW";
+        } = 0.8;
+
+        attribute darkCurrent : Current = 0.005;
+        attribute saturationVoltage : Voltage = 3.3;
+
+        port powerIn : PowerPort;
+        port emissionIn : OpticalReceivePort;
+        port rawSignalOut : DataPort;
+
+        action convertLightToSignal {
+            in item emission : EmissionLight;
+            out item opticalSignal : MeasurementData;
+
+            first rejectAmbientLight;
+            then convertPhotonsToCurrent;
+            then amplifySignal;
+
+            action rejectAmbientLight;
+            action convertPhotonsToCurrent;
+            action amplifySignal;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.2;
+        attribute responseTime : TimeDuration = 3.0;
+
+        port powerIn : PowerPort;
+        port temperatureOut : DataPort;
+
+        action senseTemperature {
+            out item temperatureData : MeasurementData;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute samplingPeriod : TimeDuration = 1.0;
+        attribute minimumSignalQuality : Percent = 80.0;
+        attribute calibrationSlope {
+            :> scalar;
+            unit = "(umol/L)/deg";
+        } = 9.6;
+        attribute calibrationOffset : Concentration = 0.0;
+
+        port powerIn : PowerPort;
+        port opticalSignalIn : DataPort;
+        port temperatureIn : DataPort;
+        port measurementOut : DataPort;
+
+        action computeAnalyteConcentration {
+            in item opticalSignal : MeasurementData;
+            in item temperatureData : MeasurementData;
+            out item concentrationData : MeasurementData;
+
+            first sampleDetectorSignal;
+            then estimatePhaseOrLifetime;
+            then compensateTemperature;
+            then applyCalibrationCurve;
+            then validateSignalQuality;
+            then publishMeasurement;
+
+            action sampleDetectorSignal;
+            action estimatePhaseOrLifetime;
+            action compensateTemperature;
+            action applyCalibrationCurve;
+            action validateSignalQuality;
+            action publishMeasurement;
+        }
+    }
+
+    part def ProbeHousing {
+        attribute ingressProtectionRating = "IP68";
+        attribute wettedMaterial = "316L stainless steel";
+        attribute opticalWindowMaterial = "sapphire";
+        attribute maximumOperatingPressure {
+            :> scalar;
+            unit = "bar";
+        } = 10.0;
+    }
+
+    action def MeasureAnalyte {
+        in item sample : SampleFluid;
+        out item result : MeasurementData;
+
+        first illuminateSensingTip;
+        then generateOpticalResponse;
+        then detectOpticalResponse;
+        then calculateConcentration;
+        then outputResult;
+
+        action illuminateSensingTip;
+        action generateOpticalResponse;
+        action detectOpticalResponse;
+        action calculateConcentration;
+        action outputResult;
+    }
+
+    action measureAnalyte : MeasureAnalyte;
+
+    state def OptodeOperatingStates {
+        entry action initializeElectronics;
+
+        state Off;
+        state Warmup;
+        state CalibrationCheck;
+        state Measuring;
+        state Fault;
+        state Standby;
+
+        transition first Off then Warmup
+            accept PowerApplied;
+
+        transition Warmup then CalibrationCheck
+            accept WarmupComplete
+            if warmupElapsed;
+
+        transition CalibrationCheck then Measuring
+            accept CalibrationValid;
+
+        transition CalibrationCheck then Fault
+            accept CalibrationInvalid;
+
+        transition Measuring then Standby
+            accept NoSampleFlow;
+
+        transition Standby then Measuring
+            accept SampleFlowRestored;
+
+        transition Measuring then Fault
+            accept SignalQualityLow;
+
+        transition Fault then Warmup
+            accept ResetCommand;
+
+        transition Measuring then Off
+            accept PowerRemoved;
+
+        action initializeElectronics;
+        attribute warmupElapsed : Boolean;
+    }
+
+    state optodeOperatingStates : OptodeOperatingStates;
+
+    requirement def PrimaryFunctionRequirement {
+        subject optode : OptodeSystem;
+
+        doc
+        /*
+         The optode system shall determine the concentration of a target dissolved analyte in a sample fluid by illuminating an analyte-sensitive optical membrane, detecting the resulting analyte-dependent emission response, compensating the response for temperature, and outputting a calibrated concentration measurement.
+        */
+
+        require constraint {
+            optode.measurementRangeMin <= 0.0 and
+            optode.measurementRangeMax >= 500.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject optode : OptodeSystem;
+
+        doc
+        /*
+         The optode system shall report analyte concentration with an error no greater than 2 percent of full scale over the specified measurement range after calibration.
+        */
+
+        require constraint {
+            optode.requiredAccuracy <= 2.0
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject tip : OptodeSensingTip;
+
+        doc
+        /*
+         The sensing tip shall reach 90 percent of the final optical response within 12 seconds after a step change in analyte concentration.
+        */
+
+        require constraint {
+            tip.responseTimeT90 <= 12.0
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject processor : SignalProcessor;
+
+        doc
+        /*
+         The signal processor shall reject measurements when computed signal quality is below 80 percent and place the system in the fault state when low signal quality persists.
+        */
+
+        require constraint {
+            processor.minimumSignalQuality >= 80.0
+        }
+    }
+
+    requirement def EnvironmentalProtectionRequirement {
+        subject housing : ProbeHousing;
+
+        doc
+        /*
+         The probe housing shall protect optical and electronic components during immersion in process fluid at pressures up to 10 bar.
+        */
+
+        require constraint {
+            housing.maximumOperatingPressure >= 10.0
+        }
+    }
+
+    part optodeSystem : OptodeSystem {
+        :>> measurementRangeMin = 0.0;
+        :>> measurementRangeMax = 500.0;
+        :>> requiredAccuracy = 2.0;
+        :>> warmupTime = 30.0;
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject optode = optodeSystem;
+    }
+
+    requirement accuracy : AccuracyRequirement {
+        subject optode = optodeSystem;
+    }
+
+    requirement responseTime : ResponseTimeRequirement {
+        subject tip = optodeSystem.sensingTip;
+    }
+
+    requirement signalQuality : SignalQualityRequirement {
+        subject processor = optodeSystem.signalProcessor;
+    }
+
+    requirement environmentalProtection : EnvironmentalProtectionRequirement {
+        subject housing = optodeSystem.enclosure;
+    }
+
+}

@@ -1,0 +1,607 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-fxjpcmrt
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6cd-d370-7f03-9746-e2221439f9c4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a IEEE Robotics and Automation Award and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IEEERoboticsAutomationAwardSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  metadata def SourceContext {
+    attribute awardName : String;
+    attribute awardSponsor : String;
+    attribute awardPurpose : String;
+  }
+
+  metadata awardBasis : SourceContext {
+    awardName = "IEEE Robotics and Automation Award";
+    awardSponsor = "IEEE";
+    awardPurpose = "Recognizes outstanding contributions in robotics and automation.";
+  }
+
+  attribute def Percent :> ScalarValues::Real;
+  attribute def Score :> ScalarValues::Real;
+  attribute def Confidence :> ScalarValues::Real;
+  attribute def Identifier :> ScalarValues::String;
+  attribute def NarrativeText :> ScalarValues::String;
+
+  item def NominationDossier {
+    attribute nominationId : Identifier;
+    attribute nomineeName : String;
+    attribute contributionSummary : NarrativeText;
+    attribute roboticsContributionScore : Score;
+    attribute automationContributionScore : Score;
+    attribute impactEvidenceScore : Score;
+    attribute citationRecordScore : Score;
+    attribute ethicalUseEvidenceScore : Score;
+  }
+
+  item def EligibilityFinding {
+    attribute nominationId : Identifier;
+    attribute eligible : Boolean;
+    attribute reason : NarrativeText;
+  }
+
+  item def EvaluationFinding {
+    attribute nominationId : Identifier;
+    attribute technicalMeritScore : Score;
+    attribute fieldImpactScore : Score;
+    attribute innovationScore : Score;
+    attribute serviceToCommunityScore : Score;
+    attribute confidence : Confidence;
+    attribute reviewerRationale : NarrativeText;
+  }
+
+  item def AwardDecision {
+    attribute selectedNominationId : Identifier;
+    attribute selectedNomineeName : String;
+    attribute finalCompositeScore : Score;
+    attribute citationText : NarrativeText;
+    attribute approved : Boolean;
+  }
+
+  item def PublicAwardRecord {
+    attribute awardYear : Integer;
+    attribute recipientName : String;
+    attribute citation : NarrativeText;
+    attribute highLevelPrimaryFunction : NarrativeText;
+  }
+
+  port def DossierInputPort {
+    in item dossier : NominationDossier;
+  }
+
+  port def FindingOutputPort {
+    out item finding : EligibilityFinding;
+  }
+
+  port def ReviewInputPort {
+    in item eligibleDossier : NominationDossier;
+  }
+
+  port def EvaluationOutputPort {
+    out item evaluation : EvaluationFinding;
+  }
+
+  port def DecisionInputPort {
+    in item evaluation : EvaluationFinding;
+  }
+
+  port def DecisionOutputPort {
+    out item decision : AwardDecision;
+  }
+
+  port def RecordOutputPort {
+    out item record : PublicAwardRecord;
+  }
+
+  part def EligibilityEngine {
+    port dossierIn : DossierInputPort;
+    port findingOut : FindingOutputPort;
+
+    attribute minimumContributionScore : Score = 70.0;
+    attribute minimumEthicsScore : Score = 80.0;
+
+    action evaluateEligibility {
+      in item dossier : NominationDossier;
+      out item finding : EligibilityFinding;
+
+      first start;
+      then checkContribution;
+      then checkEthics;
+      then emitFinding;
+      then done;
+
+      action checkContribution;
+      action checkEthics;
+      action emitFinding;
+    }
+  }
+
+  part def TechnicalReviewPanel {
+    port reviewIn : ReviewInputPort;
+    port evaluationOut : EvaluationOutputPort;
+
+    attribute reviewerCount : Integer = 7;
+    attribute technicalWeight : Percent = 0.35;
+    attribute impactWeight : Percent = 0.35;
+    attribute innovationWeight : Percent = 0.20;
+    attribute communityWeight : Percent = 0.10;
+
+    action scoreNomination {
+      in item eligibleDossier : NominationDossier;
+      out item evaluation : EvaluationFinding;
+
+      first start;
+      then assignIndependentReviews;
+      then normalizeScores;
+      then computeCompositeDimensions;
+      then recordRationale;
+      then done;
+
+      action assignIndependentReviews;
+      action normalizeScores;
+      action computeCompositeDimensions;
+      action recordRationale;
+    }
+  }
+
+  part def AwardSelectionBoard {
+    port decisionIn : DecisionInputPort;
+    port decisionOut : DecisionOutputPort;
+
+    attribute quorumRequired : Integer = 5;
+    attribute approvalThreshold : Score = 85.0;
+    attribute conflictOfInterestTolerance : Integer = 0;
+
+    action selectRecipient {
+      in item evaluation : EvaluationFinding;
+      out item decision : AwardDecision;
+
+      first start;
+      then verifyQuorum;
+      then removeConflictedVotes;
+      then rankCandidates;
+      then approveCitation;
+      then publishDecision;
+      then done;
+
+      action verifyQuorum;
+      action removeConflictedVotes;
+      action rankCandidates;
+      action approveCitation;
+      action publishDecision;
+    }
+  }
+
+  part def PublicRecognitionService {
+    port decisionIn : DecisionInputPort;
+    port recordOut : RecordOutputPort;
+
+    attribute publicationLatencyLimit : Time = 30 [SI::s];
+    attribute recordRetentionPeriod : Time = 20 [SI::yr];
+
+    action generatePublicRecord {
+      in item decision : AwardDecision;
+      out item record : PublicAwardRecord;
+
+      first start;
+      then composeCitation;
+      then attachHighLevelFunction;
+      then validatePublicText;
+      then releaseRecord;
+      then done;
+
+      action composeCitation;
+      action attachHighLevelFunction;
+      action validatePublicText;
+      action releaseRecord;
+    }
+  }
+
+  part def RoboticsAutomationAwardSystem {
+    @awardBasis
+    attribute primaryFunction : NarrativeText =
+      "Identify, evaluate, approve, and publish recognition for an individual or team whose robotics and automation contributions have produced outstanding technical innovation and broad field impact.";
+
+    part eligibilityEngine : EligibilityEngine;
+    part reviewPanel : TechnicalReviewPanel;
+    part selectionBoard : AwardSelectionBoard;
+    part recognitionService : PublicRecognitionService;
+
+    port nominationSubmission : DossierInputPort;
+    port publicRecordPublication : RecordOutputPort;
+
+    connect nominationSubmission to eligibilityEngine.dossierIn;
+    connect eligibilityEngine.findingOut to reviewPanel.reviewIn;
+    connect reviewPanel.evaluationOut to selectionBoard.decisionIn;
+    connect selectionBoard.decisionOut to recognitionService.decisionIn;
+    connect recognitionService.recordOut to publicRecordPublication;
+
+    state awardLifecycle {
+      entry action initializeAwardCycle;
+      exit action archiveCycle;
+
+      state OpenForNominations;
+      state EligibilityScreening;
+      state TechnicalEvaluation;
+      state BoardSelection;
+      state RecipientApproved;
+      state PublicAnnouncement;
+      state CycleClosed;
+
+      transition initial then OpenForNominations;
+      transition OpenForNominations then EligibilityScreening
+        accept after 90 [SI::d];
+      transition EligibilityScreening then TechnicalEvaluation
+        accept when allSubmittedDossiersScreened;
+      transition TechnicalEvaluation then BoardSelection
+        accept when reviewerConsensusAvailable;
+      transition BoardSelection then RecipientApproved
+        accept when boardVoteApproved;
+      transition BoardSelection then TechnicalEvaluation
+        accept when additionalEvidenceRequested;
+      transition RecipientApproved then PublicAnnouncement
+        accept when citationTextApproved;
+      transition PublicAnnouncement then CycleClosed
+        accept after 30 [SI::d];
+
+      action initializeAwardCycle;
+      action archiveCycle;
+    }
+  }
+
+  requirement def ReqPrimaryFunction {
+    subject system : RoboticsAutomationAwardSystem;
+    attribute text : String =
+      "The system shall provide a high-level award-management function that recognizes outstanding robotics and automation contributions by processing nominations through eligibility screening, expert evaluation, board selection, and public publication.";
+  }
+
+  requirement def ReqEligibility {
+    subject engine : EligibilityEngine;
+    attribute text : String =
+      "The eligibility engine shall reject nominations that do not demonstrate substantial robotics or automation contribution evidence and documented responsible-use evidence.";
+  }
+
+  requirement def ReqTechnicalReview {
+    subject panel : TechnicalReviewPanel;
+    attribute text : String =
+      "The review panel shall evaluate eligible nominations using weighted technical merit, field impact, innovation, and service-to-community criteria.";
+  }
+
+  requirement def ReqSelectionIntegrity {
+    subject board : AwardSelectionBoard;
+    attribute text : String =
+      "The selection board shall approve a recipient only when quorum is met, conflicts of interest are removed, and the composite evaluation satisfies the approval threshold.";
+  }
+
+  requirement def ReqPublicRecord {
+    subject service : PublicRecognitionService;
+    attribute text : String =
+      "The recognition service shall publish a public award record containing the recipient name, award year, citation, and a concise statement of the system primary function.";
+  }
+
+  requirement def ReqTraceableDecision {
+    subject system : RoboticsAutomationAwardSystem;
+    attribute text : String =
+      "The system shall maintain traceability from each published award decision to the nomination dossier, eligibility finding, technical evaluation, and board approval.";
+  }
+
+  satisfy ReqPrimaryFunction by RoboticsAutomationAwardSystem;
+  satisfy ReqEligibility by EligibilityEngine;
+  satisfy ReqTechnicalReview by TechnicalReviewPanel;
+  satisfy ReqSelectionIntegrity by AwardSelectionBoard;
+  satisfy ReqPublicRecord by PublicRecognitionService;
+  satisfy ReqTraceableDecision by RoboticsAutomationAwardSystem;
+
+}
+tokens used
+2,410
+package IEEERoboticsAutomationAwardSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  metadata def SourceContext {
+    attribute awardName : String;
+    attribute awardSponsor : String;
+    attribute awardPurpose : String;
+  }
+
+  metadata awardBasis : SourceContext {
+    awardName = "IEEE Robotics and Automation Award";
+    awardSponsor = "IEEE";
+    awardPurpose = "Recognizes outstanding contributions in robotics and automation.";
+  }
+
+  attribute def Percent :> ScalarValues::Real;
+  attribute def Score :> ScalarValues::Real;
+  attribute def Confidence :> ScalarValues::Real;
+  attribute def Identifier :> ScalarValues::String;
+  attribute def NarrativeText :> ScalarValues::String;
+
+  item def NominationDossier {
+    attribute nominationId : Identifier;
+    attribute nomineeName : String;
+    attribute contributionSummary : NarrativeText;
+    attribute roboticsContributionScore : Score;
+    attribute automationContributionScore : Score;
+    attribute impactEvidenceScore : Score;
+    attribute citationRecordScore : Score;
+    attribute ethicalUseEvidenceScore : Score;
+  }
+
+  item def EligibilityFinding {
+    attribute nominationId : Identifier;
+    attribute eligible : Boolean;
+    attribute reason : NarrativeText;
+  }
+
+  item def EvaluationFinding {
+    attribute nominationId : Identifier;
+    attribute technicalMeritScore : Score;
+    attribute fieldImpactScore : Score;
+    attribute innovationScore : Score;
+    attribute serviceToCommunityScore : Score;
+    attribute confidence : Confidence;
+    attribute reviewerRationale : NarrativeText;
+  }
+
+  item def AwardDecision {
+    attribute selectedNominationId : Identifier;
+    attribute selectedNomineeName : String;
+    attribute finalCompositeScore : Score;
+    attribute citationText : NarrativeText;
+    attribute approved : Boolean;
+  }
+
+  item def PublicAwardRecord {
+    attribute awardYear : Integer;
+    attribute recipientName : String;
+    attribute citation : NarrativeText;
+    attribute highLevelPrimaryFunction : NarrativeText;
+  }
+
+  port def DossierInputPort {
+    in item dossier : NominationDossier;
+  }
+
+  port def FindingOutputPort {
+    out item finding : EligibilityFinding;
+  }
+
+  port def ReviewInputPort {
+    in item eligibleDossier : NominationDossier;
+  }
+
+  port def EvaluationOutputPort {
+    out item evaluation : EvaluationFinding;
+  }
+
+  port def DecisionInputPort {
+    in item evaluation : EvaluationFinding;
+  }
+
+  port def DecisionOutputPort {
+    out item decision : AwardDecision;
+  }
+
+  port def RecordOutputPort {
+    out item record : PublicAwardRecord;
+  }
+
+  part def EligibilityEngine {
+    port dossierIn : DossierInputPort;
+    port findingOut : FindingOutputPort;
+
+    attribute minimumContributionScore : Score = 70.0;
+    attribute minimumEthicsScore : Score = 80.0;
+
+    action evaluateEligibility {
+      in item dossier : NominationDossier;
+      out item finding : EligibilityFinding;
+
+      first start;
+      then checkContribution;
+      then checkEthics;
+      then emitFinding;
+      then done;
+
+      action checkContribution;
+      action checkEthics;
+      action emitFinding;
+    }
+  }
+
+  part def TechnicalReviewPanel {
+    port reviewIn : ReviewInputPort;
+    port evaluationOut : EvaluationOutputPort;
+
+    attribute reviewerCount : Integer = 7;
+    attribute technicalWeight : Percent = 0.35;
+    attribute impactWeight : Percent = 0.35;
+    attribute innovationWeight : Percent = 0.20;
+    attribute communityWeight : Percent = 0.10;
+
+    action scoreNomination {
+      in item eligibleDossier : NominationDossier;
+      out item evaluation : EvaluationFinding;
+
+      first start;
+      then assignIndependentReviews;
+      then normalizeScores;
+      then computeCompositeDimensions;
+      then recordRationale;
+      then done;
+
+      action assignIndependentReviews;
+      action normalizeScores;
+      action computeCompositeDimensions;
+      action recordRationale;
+    }
+  }
+
+  part def AwardSelectionBoard {
+    port decisionIn : DecisionInputPort;
+    port decisionOut : DecisionOutputPort;
+
+    attribute quorumRequired : Integer = 5;
+    attribute approvalThreshold : Score = 85.0;
+    attribute conflictOfInterestTolerance : Integer = 0;
+
+    action selectRecipient {
+      in item evaluation : EvaluationFinding;
+      out item decision : AwardDecision;
+
+      first start;
+      then verifyQuorum;
+      then removeConflictedVotes;
+      then rankCandidates;
+      then approveCitation;
+      then publishDecision;
+      then done;
+
+      action verifyQuorum;
+      action removeConflictedVotes;
+      action rankCandidates;
+      action approveCitation;
+      action publishDecision;
+    }
+  }
+
+  part def PublicRecognitionService {
+    port decisionIn : DecisionInputPort;
+    port recordOut : RecordOutputPort;
+
+    attribute publicationLatencyLimit : Time = 30 [SI::s];
+    attribute recordRetentionPeriod : Time = 20 [SI::yr];
+
+    action generatePublicRecord {
+      in item decision : AwardDecision;
+      out item record : PublicAwardRecord;
+
+      first start;
+      then composeCitation;
+      then attachHighLevelFunction;
+      then validatePublicText;
+      then releaseRecord;
+      then done;
+
+      action composeCitation;
+      action attachHighLevelFunction;
+      action validatePublicText;
+      action releaseRecord;
+    }
+  }
+
+  part def RoboticsAutomationAwardSystem {
+    @awardBasis
+    attribute primaryFunction : NarrativeText =
+      "Identify, evaluate, approve, and publish recognition for an individual or team whose robotics and automation contributions have produced outstanding technical innovation and broad field impact.";
+
+    part eligibilityEngine : EligibilityEngine;
+    part reviewPanel : TechnicalReviewPanel;
+    part selectionBoard : AwardSelectionBoard;
+    part recognitionService : PublicRecognitionService;
+
+    port nominationSubmission : DossierInputPort;
+    port publicRecordPublication : RecordOutputPort;
+
+    connect nominationSubmission to eligibilityEngine.dossierIn;
+    connect eligibilityEngine.findingOut to reviewPanel.reviewIn;
+    connect reviewPanel.evaluationOut to selectionBoard.decisionIn;
+    connect selectionBoard.decisionOut to recognitionService.decisionIn;
+    connect recognitionService.recordOut to publicRecordPublication;
+
+    state awardLifecycle {
+      entry action initializeAwardCycle;
+      exit action archiveCycle;
+
+      state OpenForNominations;
+      state EligibilityScreening;
+      state TechnicalEvaluation;
+      state BoardSelection;
+      state RecipientApproved;
+      state PublicAnnouncement;
+      state CycleClosed;
+
+      transition initial then OpenForNominations;
+      transition OpenForNominations then EligibilityScreening
+        accept after 90 [SI::d];
+      transition EligibilityScreening then TechnicalEvaluation
+        accept when allSubmittedDossiersScreened;
+      transition TechnicalEvaluation then BoardSelection
+        accept when reviewerConsensusAvailable;
+      transition BoardSelection then RecipientApproved
+        accept when boardVoteApproved;
+      transition BoardSelection then TechnicalEvaluation
+        accept when additionalEvidenceRequested;
+      transition RecipientApproved then PublicAnnouncement
+        accept when citationTextApproved;
+      transition PublicAnnouncement then CycleClosed
+        accept after 30 [SI::d];
+
+      action initializeAwardCycle;
+      action archiveCycle;
+    }
+  }
+
+  requirement def ReqPrimaryFunction {
+    subject system : RoboticsAutomationAwardSystem;
+    attribute text : String =
+      "The system shall provide a high-level award-management function that recognizes outstanding robotics and automation contributions by processing nominations through eligibility screening, expert evaluation, board selection, and public publication.";
+  }
+
+  requirement def ReqEligibility {
+    subject engine : EligibilityEngine;
+    attribute text : String =
+      "The eligibility engine shall reject nominations that do not demonstrate substantial robotics or automation contribution evidence and documented responsible-use evidence.";
+  }
+
+  requirement def ReqTechnicalReview {
+    subject panel : TechnicalReviewPanel;
+    attribute text : String =
+      "The review panel shall evaluate eligible nominations using weighted technical merit, field impact, innovation, and service-to-community criteria.";
+  }
+
+  requirement def ReqSelectionIntegrity {
+    subject board : AwardSelectionBoard;
+    attribute text : String =
+      "The selection board shall approve a recipient only when quorum is met, conflicts of interest are removed, and the composite evaluation satisfies the approval threshold.";
+  }
+
+  requirement def ReqPublicRecord {
+    subject service : PublicRecognitionService;
+    attribute text : String =
+      "The recognition service shall publish a public award record containing the recipient name, award year, citation, and a concise statement of the system primary function.";
+  }
+
+  requirement def ReqTraceableDecision {
+    subject system : RoboticsAutomationAwardSystem;
+    attribute text : String =
+      "The system shall maintain traceability from each published award decision to the nomination dossier, eligibility finding, technical evaluation, and board approval.";
+  }
+
+  satisfy ReqPrimaryFunction by RoboticsAutomationAwardSystem;
+  satisfy ReqEligibility by EligibilityEngine;
+  satisfy ReqTechnicalReview by TechnicalReviewPanel;
+  satisfy ReqSelectionIntegrity by AwardSelectionBoard;
+  satisfy ReqPublicRecord by PublicRecognitionService;
+  satisfy ReqTraceableDecision by RoboticsAutomationAwardSystem;
+
+}

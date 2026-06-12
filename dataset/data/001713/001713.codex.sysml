@@ -1,0 +1,363 @@
+package IoTivityBasedSmartEnvironmentSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Percent : Real {
+    doc /* Ratio expressed from 0 to 100 percent. */
+  }
+
+  attribute def Millisecond : Real {
+    doc /* Time duration in milliseconds. */
+  }
+
+  attribute def Celsius : Real {
+    doc /* Temperature in degrees Celsius. */
+  }
+
+  attribute def Lux : Real {
+    doc /* Illuminance in lux. */
+  }
+
+  attribute def Watt : Real {
+    doc /* Electrical power in watts. */
+  }
+
+  attribute def BooleanFlag : Boolean;
+
+  enum def ConnectivityState {
+    enum idle;
+    enum discovering;
+    enum connected;
+    enum degraded;
+    enum unavailable;
+  }
+
+  enum def DeviceCommandKind {
+    enum observe;
+    enum read;
+    enum update;
+    enum create;
+    enum delete;
+    enum execute;
+  }
+
+  enum def SecurityMode {
+    enum unsecuredDevelopment;
+    enum dtlsPsk;
+    enum dtlsCertificate;
+  }
+
+  item def OCFResourceRequest {
+    attribute method : DeviceCommandKind;
+    attribute resourceUri : String;
+    attribute payload : String;
+    attribute correlationId : String;
+  }
+
+  item def OCFResourceResponse {
+    attribute statusCode : Integer;
+    attribute resourceUri : String;
+    attribute payload : String;
+    attribute correlationId : String;
+    attribute responseTime : Millisecond;
+  }
+
+  item def SensorTelemetry {
+    attribute deviceId : String;
+    attribute temperature : Celsius;
+    attribute illuminance : Lux;
+    attribute occupancyDetected : BooleanFlag;
+    attribute measuredPower : Watt;
+    attribute sampleAge : Millisecond;
+  }
+
+  item def ActuatorCommand {
+    attribute deviceId : String;
+    attribute targetUri : String;
+    attribute commandKind : DeviceCommandKind;
+    attribute targetValue : String;
+    attribute issuedAt : Millisecond;
+  }
+
+  item def DeviceHealth {
+    attribute deviceId : String;
+    attribute connectivity : ConnectivityState;
+    attribute batteryLevel : Percent;
+    attribute lastSeenAge : Millisecond;
+    attribute faultCode : String;
+  }
+
+  port def OCFClientPort {
+    out item request : OCFResourceRequest;
+    in item response : OCFResourceResponse;
+    in item health : DeviceHealth;
+  }
+
+  port def OCFServerPort {
+    in item request : OCFResourceRequest;
+    out item response : OCFResourceResponse;
+    out item health : DeviceHealth;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : SensorTelemetry;
+  }
+
+  port def CommandPort {
+    in item command : ActuatorCommand;
+  }
+
+  port def CloudPort {
+    out item telemetry : SensorTelemetry;
+    out item health : DeviceHealth;
+    in item command : ActuatorCommand;
+  }
+
+  action def DiscoverOCFResources {
+    in attribute discoveryWindow : Millisecond;
+    out attribute resourcesFound : Integer;
+  }
+
+  action def SecureOCFSession {
+    in attribute mode : SecurityMode;
+    in attribute deviceId : String;
+    out attribute sessionEstablished : BooleanFlag;
+  }
+
+  action def NormalizeTelemetry {
+    in item rawResponse : OCFResourceResponse;
+    out item normalizedTelemetry : SensorTelemetry;
+  }
+
+  action def EvaluateAutomationRules {
+    in item telemetry : SensorTelemetry;
+    out item command : ActuatorCommand;
+  }
+
+  action def PublishEnvironmentStatus {
+    in item telemetry : SensorTelemetry;
+    in item health : DeviceHealth;
+    out attribute accepted : BooleanFlag;
+  }
+
+  state def IoTivityGatewayLifecycle {
+    entry action DiscoverOCFResources;
+    state Offline;
+    state Initializing;
+    state DiscoveringDevices;
+    state SecuringSessions;
+    state ObservingResources;
+    state ApplyingAutomation;
+    state CloudSynchronizing;
+    state DegradedOperation;
+
+    transition first Offline;
+    transition Offline_to_Initializing
+      first Offline then Initializing;
+
+    transition Initializing_to_DiscoveringDevices
+      first Initializing then DiscoveringDevices;
+
+    transition DiscoveringDevices_to_SecuringSessions
+      first DiscoveringDevices
+      accept OCFResourceResponse
+      then SecuringSessions;
+
+    transition SecuringSessions_to_ObservingResources
+      first SecuringSessions
+      if sessionEstablished == true
+      then ObservingResources;
+
+    transition ObservingResources_to_ApplyingAutomation
+      first ObservingResources
+      accept SensorTelemetry
+      then ApplyingAutomation;
+
+    transition ApplyingAutomation_to_CloudSynchronizing
+      first ApplyingAutomation
+      then CloudSynchronizing;
+
+    transition CloudSynchronizing_to_ObservingResources
+      first CloudSynchronizing
+      then ObservingResources;
+
+    transition Any_to_DegradedOperation
+      first ObservingResources
+      if lastSeenAge > 30000.0
+      then DegradedOperation;
+
+    transition DegradedOperation_to_DiscoveringDevices
+      first DegradedOperation
+      then DiscoveringDevices;
+  }
+
+  part def OCFDevice {
+    attribute deviceId : String;
+    attribute resourceUri : String;
+    attribute connectivity : ConnectivityState;
+    attribute batteryLevel : Percent;
+    attribute maxResponseTime : Millisecond = 500.0;
+    port ocf : OCFServerPort;
+  }
+
+  part def TemperatureOccupancySensor :> OCFDevice {
+    attribute reportedTemperature : Celsius;
+    attribute reportedIlluminance : Lux;
+    attribute occupancyDetected : BooleanFlag;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def SmartLightActuator :> OCFDevice {
+    attribute brightness : Percent;
+    attribute consumedPower : Watt;
+    port commandIn : CommandPort;
+  }
+
+  part def SmartThermostatActuator :> OCFDevice {
+    attribute setPoint : Celsius;
+    attribute currentTemperature : Celsius;
+    port commandIn : CommandPort;
+  }
+
+  part def IoTivityResourceDirectory {
+    attribute knownResourceCount : Integer;
+    attribute discoveryInterval : Millisecond = 10000.0;
+    port client : OCFClientPort;
+  }
+
+  part def IoTivitySecurityManager {
+    attribute selectedSecurityMode : SecurityMode = SecurityMode::dtlsPsk;
+    attribute credentialRotationPeriod : Millisecond = 86400000.0;
+    port client : OCFClientPort;
+  }
+
+  part def IoTivityGateway {
+    attribute gatewayId : String;
+    attribute cloudPublishPeriod : Millisecond = 5000.0;
+    attribute commandLatencyBudget : Millisecond = 750.0;
+    attribute operatingState : ConnectivityState;
+    port deviceClient : OCFClientPort;
+    port cloud : CloudPort;
+
+    perform action discoverResources : DiscoverOCFResources;
+    perform action secureSession : SecureOCFSession;
+    perform action normalizeTelemetry : NormalizeTelemetry;
+    perform action evaluateRules : EvaluateAutomationRules;
+    perform action publishStatus : PublishEnvironmentStatus;
+
+    exhibit state lifecycle : IoTivityGatewayLifecycle;
+  }
+
+  part def CloudMonitoringService {
+    attribute retainedTelemetryHours : Real = 168.0;
+    attribute availabilityTarget : Percent = 99.9;
+    port cloudApi : CloudPort;
+  }
+
+  part def OccupantMobileApplication {
+    attribute userId : String;
+    attribute preferredTemperature : Celsius = 21.0;
+    attribute preferredLightLevel : Percent = 70.0;
+    port cloudApi : CloudPort;
+  }
+
+  part def SmartEnvironmentInstallation {
+    part gateway : IoTivityGateway {
+      attribute gatewayId = "iotivity-gateway-lobby-01";
+    }
+
+    part directory : IoTivityResourceDirectory;
+    part security : IoTivitySecurityManager;
+
+    part temperatureSensor : TemperatureOccupancySensor {
+      attribute deviceId = "ocf-temp-occ-01";
+      attribute resourceUri = "/oic/res/env/temperatureOccupancy";
+      attribute batteryLevel = 82.0;
+      attribute maxResponseTime = 300.0;
+    }
+
+    part light : SmartLightActuator {
+      attribute deviceId = "ocf-light-01";
+      attribute resourceUri = "/oic/res/light/dimming";
+      attribute batteryLevel = 100.0;
+      attribute brightness = 45.0;
+      attribute maxResponseTime = 250.0;
+    }
+
+    part thermostat : SmartThermostatActuator {
+      attribute deviceId = "ocf-thermostat-01";
+      attribute resourceUri = "/oic/res/hvac/setpoint";
+      attribute batteryLevel = 100.0;
+      attribute setPoint = 21.0;
+      attribute maxResponseTime = 500.0;
+    }
+
+    part cloudService : CloudMonitoringService;
+    part mobileApplication : OccupantMobileApplication;
+
+    connect gateway.deviceClient to directory.client;
+    connect gateway.deviceClient to security.client;
+    connect gateway.deviceClient to temperatureSensor.ocf;
+    connect gateway.deviceClient to light.ocf;
+    connect gateway.deviceClient to thermostat.ocf;
+    connect temperatureSensor.telemetryOut to gateway.deviceClient;
+    connect gateway.cloud to cloudService.cloudApi;
+    connect mobileApplication.cloudApi to cloudService.cloudApi;
+    connect light.commandIn to gateway.deviceClient;
+    connect thermostat.commandIn to gateway.deviceClient;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The IoTivity-based system shall discover, secure, observe, and control OCF-compliant smart environment devices so that sensor telemetry and user commands are coordinated through a local gateway and synchronized with a cloud monitoring service. */
+    subject system : SmartEnvironmentInstallation;
+  }
+
+  requirement def OCFInteroperabilityRequirement {
+    doc /* The gateway shall communicate with sensors and actuators through OCF resource requests and responses compatible with IoTivity resource discovery and observation patterns. */
+    subject gateway : IoTivityGateway;
+    require constraint {
+      gateway.commandLatencyBudget <= 750.0
+    }
+  }
+
+  requirement def TelemetryFreshnessRequirement {
+    doc /* Published environmental telemetry shall be based on samples no older than five seconds during normal operation. */
+    subject telemetry : SensorTelemetry;
+    require constraint {
+      telemetry.sampleAge <= 5000.0
+    }
+  }
+
+  requirement def DeviceResponseRequirement {
+    doc /* Each controlled OCF device shall respond to read, observe, or update requests within its allocated response-time budget. */
+    subject device : OCFDevice;
+    require constraint {
+      device.maxResponseTime <= 500.0
+    }
+  }
+
+  requirement def SecurityRequirement {
+    doc /* Production operation shall use a secured IoTivity session based on DTLS pre-shared key or DTLS certificate authentication. */
+    subject security : IoTivitySecurityManager;
+    require constraint {
+      security.selectedSecurityMode != SecurityMode::unsecuredDevelopment
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    doc /* The cloud monitoring service shall provide high availability for remote status visibility and occupant commands. */
+    subject cloudService : CloudMonitoringService;
+    require constraint {
+      cloudService.availabilityTarget >= 99.9
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by SmartEnvironmentInstallation;
+  satisfy OCFInteroperabilityRequirement by IoTivityGateway;
+  satisfy TelemetryFreshnessRequirement by SensorTelemetry;
+  satisfy DeviceResponseRequirement by OCFDevice;
+  satisfy SecurityRequirement by IoTivitySecurityManager;
+  satisfy AvailabilityRequirement by CloudMonitoringService;
+
+}

@@ -1,0 +1,719 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ex2bewpn
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5ea-754f-7b32-a36d-2f976fb63dd8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Rotary variable differential transformer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RotaryVariableDifferentialTransformerSystem {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Angle :> Real;
+    attribute def AngularVelocity :> Real;
+    attribute def Voltage :> Real;
+    attribute def Current :> Real;
+    attribute def Frequency :> Real;
+    attribute def Temperature :> Real;
+    attribute def Resistance :> Real;
+    attribute def LinearityError :> Real;
+    attribute def Time :> Real;
+
+    item def ShaftRotation {
+        attribute angle: Angle;
+        attribute angularVelocity: AngularVelocity;
+    }
+
+    item def AcExcitation {
+        attribute rmsVoltage: Voltage;
+        attribute frequency: Frequency;
+        attribute phaseReference: Angle;
+    }
+
+    item def DifferentialAcSignal {
+        attribute secondaryA: Voltage;
+        attribute secondaryB: Voltage;
+        attribute differentialVoltage: Voltage;
+        attribute phaseRelativeToExcitation: Angle;
+    }
+
+    item def ConditionedAngleSignal {
+        attribute measuredAngle: Angle;
+        attribute outputVoltage: Voltage;
+        attribute valid: Boolean;
+        attribute faultCode: String;
+    }
+
+    item def HealthStatus {
+        attribute primaryContinuity: Boolean;
+        attribute secondaryAContinuity: Boolean;
+        attribute secondaryBContinuity: Boolean;
+        attribute excitationInRange: Boolean;
+        attribute temperatureInRange: Boolean;
+    }
+
+    port def RotaryMechanicalPort {
+        in item rotation: ShaftRotation;
+    }
+
+    port def AcExcitationPort {
+        in item excitation: AcExcitation;
+    }
+
+    port def DifferentialSignalPort {
+        out item signal: DifferentialAcSignal;
+    }
+
+    port def AnalogAnglePort {
+        out item angleSignal: ConditionedAngleSignal;
+    }
+
+    port def DiagnosticPort {
+        out item status: HealthStatus;
+    }
+
+    part def Rotor {
+        port shaftInterface: RotaryMechanicalPort;
+        attribute mechanicalAngle: Angle;
+        attribute usableRange: Angle = 120.0;
+        attribute maximumSpeed: AngularVelocity = 720.0;
+    }
+
+    part def PrimaryWinding {
+        port excitationInput: AcExcitationPort;
+        attribute turns: Integer = 800;
+        attribute resistance: Resistance = 120.0;
+        attribute nominalExcitationVoltage: Voltage = 7.0;
+        attribute nominalExcitationFrequency: Frequency = 4000.0;
+    }
+
+    part def SecondaryWinding {
+        attribute turns: Integer = 1200;
+        attribute resistance: Resistance = 185.0;
+        attribute inducedVoltage: Voltage;
+        attribute phase: Angle;
+    }
+
+    part def MagneticCore {
+        attribute permeabilityClass: String = "high permeability nickel iron";
+        attribute saturationMargin: Real = 2.5;
+        attribute airGapUniformity: Real = 0.98;
+    }
+
+    part def SignalConditioner {
+        port rawInput: DifferentialSignalPort;
+        port analogOutput: AnalogAnglePort;
+        port diagnostics: DiagnosticPort;
+
+        attribute excitationLossThreshold: Voltage = 1.0;
+        attribute openCircuitResistanceLimit: Resistance = 10000.0;
+        attribute outputScale: Real = 0.04167;
+        attribute outputOffset: Voltage = 2.5;
+        attribute filterTimeConstant: Time = 0.005;
+
+        action def Demodulate {
+            in item raw: DifferentialAcSignal;
+            in item excitation: AcExcitation;
+            out item demodulated: ConditionedAngleSignal;
+        }
+
+        action def CheckContinuity {
+            in attribute primaryResistance: Resistance;
+            in attribute secondaryAResistance: Resistance;
+            in attribute secondaryBResistance: Resistance;
+            out item health: HealthStatus;
+        }
+
+        action def FilterAngle {
+            in attribute instantaneousAngle: Angle;
+            out attribute filteredAngle: Angle;
+        }
+
+        state def ConditioningStates {
+            state unpowered;
+            state initializing;
+            state tracking;
+            state degraded;
+            state faulted;
+
+            transition first unpowered;
+
+            transition powerApplied
+                first unpowered
+                then initializing;
+
+            transition initializationComplete
+                first initializing
+                then tracking;
+
+            transition diagnosticWarning
+                first tracking
+                then degraded;
+
+            transition diagnosticRecovered
+                first degraded
+                then tracking;
+
+            transition hardFaultDetected
+                first tracking
+                then faulted;
+
+            transition degradedHardFaultDetected
+                first degraded
+                then faulted;
+
+            transition resetCommanded
+                first faulted
+                then initializing;
+
+            transition powerRemoved
+                first tracking
+                then unpowered;
+        }
+    }
+
+    part def RVDTAssembly {
+        port shaft: RotaryMechanicalPort;
+        port excitation: AcExcitationPort;
+        port angleOutput: AnalogAnglePort;
+        port diagnosticOutput: DiagnosticPort;
+
+        part rotor: Rotor;
+        part primary: PrimaryWinding;
+        part secondaryA: SecondaryWinding {
+            attribute phase = 0.0;
+        }
+        part secondaryB: SecondaryWinding {
+            attribute phase = 180.0;
+        }
+        part core: MagneticCore;
+        part conditioner: SignalConditioner;
+
+        attribute inputAngle: Angle;
+        attribute measuredAngle: Angle;
+        attribute angleError: Angle;
+        attribute linearityError: LinearityError;
+        attribute operatingTemperature: Temperature;
+        attribute primaryFunction: String =
+            "Convert rotary shaft position into a proportional, isolated electrical signal by magnetically coupling an AC-excited primary winding to two differentially connected secondary windings.";
+
+        connect shaft to rotor.shaftInterface;
+        connect excitation to primary.excitationInput;
+        connect conditioner.analogOutput to angleOutput;
+        connect conditioner.diagnostics to diagnosticOutput;
+
+        action def ConvertRotationToDifferentialVoltage {
+            in item rotation: ShaftRotation;
+            in item excitation: AcExcitation;
+            out item rawSignal: DifferentialAcSignal;
+        }
+
+        action def EstimateAngularPosition {
+            in item rawSignal: DifferentialAcSignal;
+            out item angleSignal: ConditionedAngleSignal;
+        }
+
+        state def SensorLifecycle {
+            state off;
+            state excited;
+            state sensing;
+            state saturated;
+            state failed;
+
+            transition first off;
+
+            transition applyExcitation
+                first off
+                then excited;
+
+            transition stableMagneticField
+                first excited
+                then sensing;
+
+            transition angleBeyondUsableRange
+                first sensing
+                then saturated;
+
+            transition angleBackInRange
+                first saturated
+                then sensing;
+
+            transition windingFailure
+                first sensing
+                then failed;
+
+            transition removeExcitation
+                first sensing
+                then off;
+        }
+    }
+
+    part def ExcitationSource {
+        port output: AcExcitationPort;
+        attribute rmsVoltage: Voltage = 7.0;
+        attribute frequency: Frequency = 4000.0;
+        attribute voltageTolerance: Real = 0.05;
+        attribute frequencyTolerance: Real = 0.02;
+    }
+
+    part def RotatingPlantInterface {
+        port outputShaft: RotaryMechanicalPort;
+        attribute commandedAngle: Angle;
+        attribute physicalLimitMin: Angle = -60.0;
+        attribute physicalLimitMax: Angle = 60.0;
+    }
+
+    part def ControlComputer {
+        port sensorInput: AnalogAnglePort;
+        port healthInput: DiagnosticPort;
+        attribute acceptedAngle: Angle;
+        attribute lastValidAngle: Angle;
+        attribute sensorHealthy: Boolean;
+
+        action def UseAngleMeasurement {
+            in item signal: ConditionedAngleSignal;
+            out attribute acceptedAngle: Angle;
+        }
+
+        action def RejectFaultedMeasurement {
+            in item signal: ConditionedAngleSignal;
+            out attribute lastValidAngle: Angle;
+        }
+    }
+
+    part def RVDTBasedAngleMeasurementSystem {
+        part plantInterface: RotatingPlantInterface;
+        part excitationSource: ExcitationSource;
+        part rvdt: RVDTAssembly;
+        part controller: ControlComputer;
+
+        connect plantInterface.outputShaft to rvdt.shaft;
+        connect excitationSource.output to rvdt.excitation;
+        connect rvdt.angleOutput to controller.sensorInput;
+        connect rvdt.diagnosticOutput to controller.healthInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system: RVDTAssembly;
+
+        doc
+            /* The system shall sense angular displacement of a rotating shaft and provide a proportional electrical angle signal while maintaining galvanic isolation between the rotating mechanical input and the electrical measurement output. */
+    }
+
+    requirement def ExcitationRequirement {
+        subject source: ExcitationSource;
+
+        require constraint {
+            source.rmsVoltage >= 6.65 and
+            source.rmsVoltage <= 7.35 and
+            source.frequency >= 3920.0 and
+            source.frequency <= 4080.0
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.inputAngle >= -60.0 and
+            sensor.inputAngle <= 60.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.angleError >= -0.25 and
+            sensor.angleError <= 0.25
+        }
+    }
+
+    requirement def LinearityRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.linearityError <= 0.5
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.operatingTemperature >= -40.0 and
+            sensor.operatingTemperature <= 125.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject conditioner: SignalConditioner;
+
+        require constraint {
+            conditioner.excitationLossThreshold == 1.0 and
+            conditioner.openCircuitResistanceLimit == 10000.0
+        }
+    }
+}
+tokens used
+3,979
+package RotaryVariableDifferentialTransformerSystem {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Angle :> Real;
+    attribute def AngularVelocity :> Real;
+    attribute def Voltage :> Real;
+    attribute def Current :> Real;
+    attribute def Frequency :> Real;
+    attribute def Temperature :> Real;
+    attribute def Resistance :> Real;
+    attribute def LinearityError :> Real;
+    attribute def Time :> Real;
+
+    item def ShaftRotation {
+        attribute angle: Angle;
+        attribute angularVelocity: AngularVelocity;
+    }
+
+    item def AcExcitation {
+        attribute rmsVoltage: Voltage;
+        attribute frequency: Frequency;
+        attribute phaseReference: Angle;
+    }
+
+    item def DifferentialAcSignal {
+        attribute secondaryA: Voltage;
+        attribute secondaryB: Voltage;
+        attribute differentialVoltage: Voltage;
+        attribute phaseRelativeToExcitation: Angle;
+    }
+
+    item def ConditionedAngleSignal {
+        attribute measuredAngle: Angle;
+        attribute outputVoltage: Voltage;
+        attribute valid: Boolean;
+        attribute faultCode: String;
+    }
+
+    item def HealthStatus {
+        attribute primaryContinuity: Boolean;
+        attribute secondaryAContinuity: Boolean;
+        attribute secondaryBContinuity: Boolean;
+        attribute excitationInRange: Boolean;
+        attribute temperatureInRange: Boolean;
+    }
+
+    port def RotaryMechanicalPort {
+        in item rotation: ShaftRotation;
+    }
+
+    port def AcExcitationPort {
+        in item excitation: AcExcitation;
+    }
+
+    port def DifferentialSignalPort {
+        out item signal: DifferentialAcSignal;
+    }
+
+    port def AnalogAnglePort {
+        out item angleSignal: ConditionedAngleSignal;
+    }
+
+    port def DiagnosticPort {
+        out item status: HealthStatus;
+    }
+
+    part def Rotor {
+        port shaftInterface: RotaryMechanicalPort;
+        attribute mechanicalAngle: Angle;
+        attribute usableRange: Angle = 120.0;
+        attribute maximumSpeed: AngularVelocity = 720.0;
+    }
+
+    part def PrimaryWinding {
+        port excitationInput: AcExcitationPort;
+        attribute turns: Integer = 800;
+        attribute resistance: Resistance = 120.0;
+        attribute nominalExcitationVoltage: Voltage = 7.0;
+        attribute nominalExcitationFrequency: Frequency = 4000.0;
+    }
+
+    part def SecondaryWinding {
+        attribute turns: Integer = 1200;
+        attribute resistance: Resistance = 185.0;
+        attribute inducedVoltage: Voltage;
+        attribute phase: Angle;
+    }
+
+    part def MagneticCore {
+        attribute permeabilityClass: String = "high permeability nickel iron";
+        attribute saturationMargin: Real = 2.5;
+        attribute airGapUniformity: Real = 0.98;
+    }
+
+    part def SignalConditioner {
+        port rawInput: DifferentialSignalPort;
+        port analogOutput: AnalogAnglePort;
+        port diagnostics: DiagnosticPort;
+
+        attribute excitationLossThreshold: Voltage = 1.0;
+        attribute openCircuitResistanceLimit: Resistance = 10000.0;
+        attribute outputScale: Real = 0.04167;
+        attribute outputOffset: Voltage = 2.5;
+        attribute filterTimeConstant: Time = 0.005;
+
+        action def Demodulate {
+            in item raw: DifferentialAcSignal;
+            in item excitation: AcExcitation;
+            out item demodulated: ConditionedAngleSignal;
+        }
+
+        action def CheckContinuity {
+            in attribute primaryResistance: Resistance;
+            in attribute secondaryAResistance: Resistance;
+            in attribute secondaryBResistance: Resistance;
+            out item health: HealthStatus;
+        }
+
+        action def FilterAngle {
+            in attribute instantaneousAngle: Angle;
+            out attribute filteredAngle: Angle;
+        }
+
+        state def ConditioningStates {
+            state unpowered;
+            state initializing;
+            state tracking;
+            state degraded;
+            state faulted;
+
+            transition first unpowered;
+
+            transition powerApplied
+                first unpowered
+                then initializing;
+
+            transition initializationComplete
+                first initializing
+                then tracking;
+
+            transition diagnosticWarning
+                first tracking
+                then degraded;
+
+            transition diagnosticRecovered
+                first degraded
+                then tracking;
+
+            transition hardFaultDetected
+                first tracking
+                then faulted;
+
+            transition degradedHardFaultDetected
+                first degraded
+                then faulted;
+
+            transition resetCommanded
+                first faulted
+                then initializing;
+
+            transition powerRemoved
+                first tracking
+                then unpowered;
+        }
+    }
+
+    part def RVDTAssembly {
+        port shaft: RotaryMechanicalPort;
+        port excitation: AcExcitationPort;
+        port angleOutput: AnalogAnglePort;
+        port diagnosticOutput: DiagnosticPort;
+
+        part rotor: Rotor;
+        part primary: PrimaryWinding;
+        part secondaryA: SecondaryWinding {
+            attribute phase = 0.0;
+        }
+        part secondaryB: SecondaryWinding {
+            attribute phase = 180.0;
+        }
+        part core: MagneticCore;
+        part conditioner: SignalConditioner;
+
+        attribute inputAngle: Angle;
+        attribute measuredAngle: Angle;
+        attribute angleError: Angle;
+        attribute linearityError: LinearityError;
+        attribute operatingTemperature: Temperature;
+        attribute primaryFunction: String =
+            "Convert rotary shaft position into a proportional, isolated electrical signal by magnetically coupling an AC-excited primary winding to two differentially connected secondary windings.";
+
+        connect shaft to rotor.shaftInterface;
+        connect excitation to primary.excitationInput;
+        connect conditioner.analogOutput to angleOutput;
+        connect conditioner.diagnostics to diagnosticOutput;
+
+        action def ConvertRotationToDifferentialVoltage {
+            in item rotation: ShaftRotation;
+            in item excitation: AcExcitation;
+            out item rawSignal: DifferentialAcSignal;
+        }
+
+        action def EstimateAngularPosition {
+            in item rawSignal: DifferentialAcSignal;
+            out item angleSignal: ConditionedAngleSignal;
+        }
+
+        state def SensorLifecycle {
+            state off;
+            state excited;
+            state sensing;
+            state saturated;
+            state failed;
+
+            transition first off;
+
+            transition applyExcitation
+                first off
+                then excited;
+
+            transition stableMagneticField
+                first excited
+                then sensing;
+
+            transition angleBeyondUsableRange
+                first sensing
+                then saturated;
+
+            transition angleBackInRange
+                first saturated
+                then sensing;
+
+            transition windingFailure
+                first sensing
+                then failed;
+
+            transition removeExcitation
+                first sensing
+                then off;
+        }
+    }
+
+    part def ExcitationSource {
+        port output: AcExcitationPort;
+        attribute rmsVoltage: Voltage = 7.0;
+        attribute frequency: Frequency = 4000.0;
+        attribute voltageTolerance: Real = 0.05;
+        attribute frequencyTolerance: Real = 0.02;
+    }
+
+    part def RotatingPlantInterface {
+        port outputShaft: RotaryMechanicalPort;
+        attribute commandedAngle: Angle;
+        attribute physicalLimitMin: Angle = -60.0;
+        attribute physicalLimitMax: Angle = 60.0;
+    }
+
+    part def ControlComputer {
+        port sensorInput: AnalogAnglePort;
+        port healthInput: DiagnosticPort;
+        attribute acceptedAngle: Angle;
+        attribute lastValidAngle: Angle;
+        attribute sensorHealthy: Boolean;
+
+        action def UseAngleMeasurement {
+            in item signal: ConditionedAngleSignal;
+            out attribute acceptedAngle: Angle;
+        }
+
+        action def RejectFaultedMeasurement {
+            in item signal: ConditionedAngleSignal;
+            out attribute lastValidAngle: Angle;
+        }
+    }
+
+    part def RVDTBasedAngleMeasurementSystem {
+        part plantInterface: RotatingPlantInterface;
+        part excitationSource: ExcitationSource;
+        part rvdt: RVDTAssembly;
+        part controller: ControlComputer;
+
+        connect plantInterface.outputShaft to rvdt.shaft;
+        connect excitationSource.output to rvdt.excitation;
+        connect rvdt.angleOutput to controller.sensorInput;
+        connect rvdt.diagnosticOutput to controller.healthInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system: RVDTAssembly;
+
+        doc
+            /* The system shall sense angular displacement of a rotating shaft and provide a proportional electrical angle signal while maintaining galvanic isolation between the rotating mechanical input and the electrical measurement output. */
+    }
+
+    requirement def ExcitationRequirement {
+        subject source: ExcitationSource;
+
+        require constraint {
+            source.rmsVoltage >= 6.65 and
+            source.rmsVoltage <= 7.35 and
+            source.frequency >= 3920.0 and
+            source.frequency <= 4080.0
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.inputAngle >= -60.0 and
+            sensor.inputAngle <= 60.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.angleError >= -0.25 and
+            sensor.angleError <= 0.25
+        }
+    }
+
+    requirement def LinearityRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.linearityError <= 0.5
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject sensor: RVDTAssembly;
+
+        require constraint {
+            sensor.operatingTemperature >= -40.0 and
+            sensor.operatingTemperature <= 125.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject conditioner: SignalConditioner;
+
+        require constraint {
+            conditioner.excitationLossThreshold == 1.0 and
+            conditioner.openCircuitResistanceLimit == 10000.0
+        }
+    }
+}

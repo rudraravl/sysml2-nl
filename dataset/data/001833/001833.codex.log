@@ -1,0 +1,753 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tz39v65b
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb841-d843-7041-95bd-fad0ebb64d45
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Pond and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PondModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    item def Water {
+        attribute volume : Real;
+        attribute temperature : Real;
+        attribute dissolvedOxygen : Real;
+        attribute nutrientConcentration : Real;
+        attribute turbidity : Real;
+    }
+
+    item def Rainwater :> Water;
+    item def Groundwater :> Water;
+    item def OverflowWater :> Water;
+    item def Sediment {
+        attribute mass : Real;
+        attribute organicFraction : Real;
+    }
+
+    item def SolarEnergy {
+        attribute irradiance : Real;
+    }
+
+    item def Biomass {
+        attribute mass : Real;
+        attribute growthRate : Real;
+    }
+
+    port def WaterInPort {
+        in item incomingWater : Water;
+    }
+
+    port def WaterOutPort {
+        out item outgoingWater : Water;
+    }
+
+    port def EnergyInPort {
+        in item sunlight : SolarEnergy;
+    }
+
+    port def HabitatPort {
+        inout item biomass : Biomass;
+    }
+
+    part def Pond {
+        attribute surfaceArea_m2 : Real;
+        attribute averageDepth_m : Real;
+        attribute maxDepth_m : Real;
+        attribute storageCapacity_m3 : Real;
+        attribute currentVolume_m3 : Real;
+        attribute targetVolume_m3 : Real;
+        attribute pH : Real;
+        attribute waterTemperature_C : Real;
+        attribute dissolvedOxygen_mgPerL : Real;
+
+        port rainIn : WaterInPort;
+        port groundwaterIn : WaterInPort;
+        port streamIn : WaterInPort;
+        port overflowOut : WaterOutPort;
+        port seepageOut : WaterOutPort;
+        port solarInput : EnergyInPort;
+        port habitatExchange : HabitatPort;
+
+        part basin : Basin;
+        part waterColumn : WaterColumn;
+        part littoralZone : LittoralZone;
+        part sedimentBed : SedimentBed;
+        part plantCommunity : AquaticPlantCommunity;
+        part animalCommunity : AquaticAnimalCommunity;
+        part microbialCommunity : MicrobialCommunity;
+        part overflowControl : OverflowControl;
+
+        connect rainIn to waterColumn.surfaceIn;
+        connect groundwaterIn to waterColumn.subsurfaceIn;
+        connect streamIn to waterColumn.surfaceIn;
+        connect waterColumn.overflowOut to overflowControl.waterIn;
+        connect overflowControl.waterOut to overflowOut;
+        connect waterColumn.seepageOut to seepageOut;
+        connect solarInput to plantCommunity.energyIn;
+        connect waterColumn.habitatPort to animalCommunity.waterHabitat;
+        connect littoralZone.habitatPort to animalCommunity.edgeHabitat;
+        connect sedimentBed.nutrientPort to plantCommunity.nutrientPort;
+        connect microbialCommunity.waterInterface to waterColumn.microbialInterface;
+
+        action maintainPondFunction {
+            in item precipitation : Rainwater;
+            in item inflow : Water;
+            in item sunlight : SolarEnergy;
+            out item overflow : OverflowWater;
+
+            first start;
+            then collectWater;
+            then storeWater;
+            then exchangeOxygen;
+            then supportHabitat;
+            then regulateOverflow;
+            then done;
+
+            action collectWater;
+            action storeWater;
+            action exchangeOxygen;
+            action supportHabitat;
+            action regulateOverflow;
+        }
+
+        state def PondOperationalState {
+            state stable;
+            state lowWater;
+            state highWater;
+            state eutrophic;
+            state frozenSurface;
+
+            transition stable_to_lowWater
+                first stable
+                then lowWater
+                if currentVolume_m3 < targetVolume_m3 * 0.65;
+
+            transition lowWater_to_stable
+                first lowWater
+                then stable
+                if currentVolume_m3 >= targetVolume_m3 * 0.85;
+
+            transition stable_to_highWater
+                first stable
+                then highWater
+                if currentVolume_m3 > storageCapacity_m3 * 0.90;
+
+            transition highWater_to_stable
+                first highWater
+                then stable
+                if currentVolume_m3 <= targetVolume_m3;
+
+            transition stable_to_eutrophic
+                first stable
+                then eutrophic
+                if dissolvedOxygen_mgPerL < 4.0;
+
+            transition eutrophic_to_stable
+                first eutrophic
+                then stable
+                if dissolvedOxygen_mgPerL >= 6.0;
+
+            transition stable_to_frozenSurface
+                first stable
+                then frozenSurface
+                if waterTemperature_C <= 0.0;
+
+            transition frozenSurface_to_stable
+                first frozenSurface
+                then stable
+                if waterTemperature_C > 2.0;
+        }
+    }
+
+    part def Basin {
+        attribute bottomArea_m2 : Real;
+        attribute bankSlopeRatio : Real;
+        attribute soilPermeability_mPerDay : Real;
+        attribute freeboardHeight_m : Real;
+    }
+
+    part def WaterColumn {
+        attribute volume_m3 : Real;
+        attribute residenceTime_days : Real;
+        attribute mixedDepth_m : Real;
+        attribute dissolvedOxygen_mgPerL : Real;
+        attribute turbidity_NTU : Real;
+        attribute nutrientLoad_kgPerDay : Real;
+
+        port surfaceIn : WaterInPort;
+        port subsurfaceIn : WaterInPort;
+        port overflowOut : WaterOutPort;
+        port seepageOut : WaterOutPort;
+        port habitatPort : HabitatPort;
+        port microbialInterface : HabitatPort;
+    }
+
+    part def LittoralZone {
+        attribute area_m2 : Real;
+        attribute emergentVegetationCoverage_percent : Real;
+        attribute shallowDepthLimit_m : Real;
+
+        port habitatPort : HabitatPort;
+    }
+
+    part def SedimentBed {
+        attribute sedimentDepth_m : Real;
+        attribute organicMatter_kg : Real;
+        attribute phosphorusStore_kg : Real;
+        attribute nitrogenStore_kg : Real;
+
+        port nutrientPort : HabitatPort;
+    }
+
+    part def AquaticPlantCommunity {
+        attribute submergedBiomass_kg : Real;
+        attribute emergentBiomass_kg : Real;
+        attribute photosyntheticOxygenRate_kgPerDay : Real;
+        attribute nutrientUptake_kgPerDay : Real;
+
+        port energyIn : EnergyInPort;
+        port nutrientPort : HabitatPort;
+
+        action photosynthesize {
+            in item sunlight : SolarEnergy;
+            out item plantBiomass : Biomass;
+        }
+    }
+
+    part def AquaticAnimalCommunity {
+        attribute fishBiomass_kg : Real;
+        attribute amphibianCount : Integer;
+        attribute invertebrateBiomass_kg : Real;
+        attribute oxygenDemand_kgPerDay : Real;
+
+        port waterHabitat : HabitatPort;
+        port edgeHabitat : HabitatPort;
+
+        action useHabitat {
+            in item availableBiomass : Biomass;
+            out item animalBiomass : Biomass;
+        }
+    }
+
+    part def MicrobialCommunity {
+        attribute decompositionRate_kgPerDay : Real;
+        attribute oxygenConsumption_kgPerDay : Real;
+        attribute nutrientRelease_kgPerDay : Real;
+
+        port waterInterface : HabitatPort;
+
+        action decomposeOrganicMatter {
+            in item detritus : Biomass;
+            out item releasedNutrients : Biomass;
+        }
+    }
+
+    part def OverflowControl {
+        attribute crestElevation_m : Real;
+        attribute dischargeCapacity_m3PerSecond : Real;
+
+        port waterIn : WaterInPort;
+        port waterOut : WaterOutPort;
+
+        action releaseExcessWater {
+            in item storedWater : Water;
+            out item overflowWater : OverflowWater;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject pond : Pond;
+
+        doc /* The pond shall collect, store, and regulate surface and subsurface water while sustaining aquatic habitat and basic ecological cycling. */
+
+        require constraint {
+            pond.currentVolume_m3 <= pond.storageCapacity_m3
+        }
+
+        require constraint {
+            pond.dissolvedOxygen_mgPerL >= 4.0
+        }
+
+        require constraint {
+            pond.currentVolume_m3 >= pond.targetVolume_m3 * 0.50
+        }
+    }
+
+    requirement def HabitatSupportRequirement {
+        subject pond : Pond;
+
+        doc /* The pond shall maintain a water column, littoral zone, sediment bed, plant community, animal community, and microbial community sufficient to support aquatic life. */
+
+        require constraint {
+            pond.waterColumn.dissolvedOxygen_mgPerL >= 4.0
+        }
+
+        require constraint {
+            pond.littoralZone.emergentVegetationCoverage_percent >= 15.0
+        }
+    }
+
+    requirement def OverflowProtectionRequirement {
+        subject pond : Pond;
+
+        doc /* The pond shall route excess stored water through an overflow control path before the basin storage capacity is exceeded. */
+
+        require constraint {
+            pond.overflowControl.dischargeCapacity_m3PerSecond > 0.0
+        }
+
+        require constraint {
+            pond.currentVolume_m3 <= pond.storageCapacity_m3
+        }
+    }
+
+    part pondSystem : Pond {
+        attribute surfaceArea_m2 = 8500.0;
+        attribute averageDepth_m = 1.8;
+        attribute maxDepth_m = 4.2;
+        attribute storageCapacity_m3 = 16800.0;
+        attribute currentVolume_m3 = 14200.0;
+        attribute targetVolume_m3 = 14000.0;
+        attribute pH = 7.2;
+        attribute waterTemperature_C = 18.5;
+        attribute dissolvedOxygen_mgPerL = 7.1;
+
+        part basin {
+            attribute bottomArea_m2 = 5200.0;
+            attribute bankSlopeRatio = 4.0;
+            attribute soilPermeability_mPerDay = 0.015;
+            attribute freeboardHeight_m = 0.6;
+        }
+
+        part waterColumn {
+            attribute volume_m3 = 14200.0;
+            attribute residenceTime_days = 42.0;
+            attribute mixedDepth_m = 1.4;
+            attribute dissolvedOxygen_mgPerL = 7.1;
+            attribute turbidity_NTU = 12.0;
+            attribute nutrientLoad_kgPerDay = 1.8;
+        }
+
+        part littoralZone {
+            attribute area_m2 = 1900.0;
+            attribute emergentVegetationCoverage_percent = 38.0;
+            attribute shallowDepthLimit_m = 0.75;
+        }
+
+        part sedimentBed {
+            attribute sedimentDepth_m = 0.35;
+            attribute organicMatter_kg = 3100.0;
+            attribute phosphorusStore_kg = 44.0;
+            attribute nitrogenStore_kg = 180.0;
+        }
+
+        part plantCommunity {
+            attribute submergedBiomass_kg = 760.0;
+            attribute emergentBiomass_kg = 1250.0;
+            attribute photosyntheticOxygenRate_kgPerDay = 18.0;
+            attribute nutrientUptake_kgPerDay = 1.2;
+        }
+
+        part animalCommunity {
+            attribute fishBiomass_kg = 420.0;
+            attribute amphibianCount = 260;
+            attribute invertebrateBiomass_kg = 95.0;
+            attribute oxygenDemand_kgPerDay = 13.5;
+        }
+
+        part microbialCommunity {
+            attribute decompositionRate_kgPerDay = 22.0;
+            attribute oxygenConsumption_kgPerDay = 4.6;
+            attribute nutrientRelease_kgPerDay = 0.9;
+        }
+
+        part overflowControl {
+            attribute crestElevation_m = 2.4;
+            attribute dischargeCapacity_m3PerSecond = 0.85;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by pondSystem;
+    satisfy HabitatSupportRequirement by pondSystem;
+    satisfy OverflowProtectionRequirement by pondSystem;
+}
+tokens used
+3,024
+package PondModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    item def Water {
+        attribute volume : Real;
+        attribute temperature : Real;
+        attribute dissolvedOxygen : Real;
+        attribute nutrientConcentration : Real;
+        attribute turbidity : Real;
+    }
+
+    item def Rainwater :> Water;
+    item def Groundwater :> Water;
+    item def OverflowWater :> Water;
+    item def Sediment {
+        attribute mass : Real;
+        attribute organicFraction : Real;
+    }
+
+    item def SolarEnergy {
+        attribute irradiance : Real;
+    }
+
+    item def Biomass {
+        attribute mass : Real;
+        attribute growthRate : Real;
+    }
+
+    port def WaterInPort {
+        in item incomingWater : Water;
+    }
+
+    port def WaterOutPort {
+        out item outgoingWater : Water;
+    }
+
+    port def EnergyInPort {
+        in item sunlight : SolarEnergy;
+    }
+
+    port def HabitatPort {
+        inout item biomass : Biomass;
+    }
+
+    part def Pond {
+        attribute surfaceArea_m2 : Real;
+        attribute averageDepth_m : Real;
+        attribute maxDepth_m : Real;
+        attribute storageCapacity_m3 : Real;
+        attribute currentVolume_m3 : Real;
+        attribute targetVolume_m3 : Real;
+        attribute pH : Real;
+        attribute waterTemperature_C : Real;
+        attribute dissolvedOxygen_mgPerL : Real;
+
+        port rainIn : WaterInPort;
+        port groundwaterIn : WaterInPort;
+        port streamIn : WaterInPort;
+        port overflowOut : WaterOutPort;
+        port seepageOut : WaterOutPort;
+        port solarInput : EnergyInPort;
+        port habitatExchange : HabitatPort;
+
+        part basin : Basin;
+        part waterColumn : WaterColumn;
+        part littoralZone : LittoralZone;
+        part sedimentBed : SedimentBed;
+        part plantCommunity : AquaticPlantCommunity;
+        part animalCommunity : AquaticAnimalCommunity;
+        part microbialCommunity : MicrobialCommunity;
+        part overflowControl : OverflowControl;
+
+        connect rainIn to waterColumn.surfaceIn;
+        connect groundwaterIn to waterColumn.subsurfaceIn;
+        connect streamIn to waterColumn.surfaceIn;
+        connect waterColumn.overflowOut to overflowControl.waterIn;
+        connect overflowControl.waterOut to overflowOut;
+        connect waterColumn.seepageOut to seepageOut;
+        connect solarInput to plantCommunity.energyIn;
+        connect waterColumn.habitatPort to animalCommunity.waterHabitat;
+        connect littoralZone.habitatPort to animalCommunity.edgeHabitat;
+        connect sedimentBed.nutrientPort to plantCommunity.nutrientPort;
+        connect microbialCommunity.waterInterface to waterColumn.microbialInterface;
+
+        action maintainPondFunction {
+            in item precipitation : Rainwater;
+            in item inflow : Water;
+            in item sunlight : SolarEnergy;
+            out item overflow : OverflowWater;
+
+            first start;
+            then collectWater;
+            then storeWater;
+            then exchangeOxygen;
+            then supportHabitat;
+            then regulateOverflow;
+            then done;
+
+            action collectWater;
+            action storeWater;
+            action exchangeOxygen;
+            action supportHabitat;
+            action regulateOverflow;
+        }
+
+        state def PondOperationalState {
+            state stable;
+            state lowWater;
+            state highWater;
+            state eutrophic;
+            state frozenSurface;
+
+            transition stable_to_lowWater
+                first stable
+                then lowWater
+                if currentVolume_m3 < targetVolume_m3 * 0.65;
+
+            transition lowWater_to_stable
+                first lowWater
+                then stable
+                if currentVolume_m3 >= targetVolume_m3 * 0.85;
+
+            transition stable_to_highWater
+                first stable
+                then highWater
+                if currentVolume_m3 > storageCapacity_m3 * 0.90;
+
+            transition highWater_to_stable
+                first highWater
+                then stable
+                if currentVolume_m3 <= targetVolume_m3;
+
+            transition stable_to_eutrophic
+                first stable
+                then eutrophic
+                if dissolvedOxygen_mgPerL < 4.0;
+
+            transition eutrophic_to_stable
+                first eutrophic
+                then stable
+                if dissolvedOxygen_mgPerL >= 6.0;
+
+            transition stable_to_frozenSurface
+                first stable
+                then frozenSurface
+                if waterTemperature_C <= 0.0;
+
+            transition frozenSurface_to_stable
+                first frozenSurface
+                then stable
+                if waterTemperature_C > 2.0;
+        }
+    }
+
+    part def Basin {
+        attribute bottomArea_m2 : Real;
+        attribute bankSlopeRatio : Real;
+        attribute soilPermeability_mPerDay : Real;
+        attribute freeboardHeight_m : Real;
+    }
+
+    part def WaterColumn {
+        attribute volume_m3 : Real;
+        attribute residenceTime_days : Real;
+        attribute mixedDepth_m : Real;
+        attribute dissolvedOxygen_mgPerL : Real;
+        attribute turbidity_NTU : Real;
+        attribute nutrientLoad_kgPerDay : Real;
+
+        port surfaceIn : WaterInPort;
+        port subsurfaceIn : WaterInPort;
+        port overflowOut : WaterOutPort;
+        port seepageOut : WaterOutPort;
+        port habitatPort : HabitatPort;
+        port microbialInterface : HabitatPort;
+    }
+
+    part def LittoralZone {
+        attribute area_m2 : Real;
+        attribute emergentVegetationCoverage_percent : Real;
+        attribute shallowDepthLimit_m : Real;
+
+        port habitatPort : HabitatPort;
+    }
+
+    part def SedimentBed {
+        attribute sedimentDepth_m : Real;
+        attribute organicMatter_kg : Real;
+        attribute phosphorusStore_kg : Real;
+        attribute nitrogenStore_kg : Real;
+
+        port nutrientPort : HabitatPort;
+    }
+
+    part def AquaticPlantCommunity {
+        attribute submergedBiomass_kg : Real;
+        attribute emergentBiomass_kg : Real;
+        attribute photosyntheticOxygenRate_kgPerDay : Real;
+        attribute nutrientUptake_kgPerDay : Real;
+
+        port energyIn : EnergyInPort;
+        port nutrientPort : HabitatPort;
+
+        action photosynthesize {
+            in item sunlight : SolarEnergy;
+            out item plantBiomass : Biomass;
+        }
+    }
+
+    part def AquaticAnimalCommunity {
+        attribute fishBiomass_kg : Real;
+        attribute amphibianCount : Integer;
+        attribute invertebrateBiomass_kg : Real;
+        attribute oxygenDemand_kgPerDay : Real;
+
+        port waterHabitat : HabitatPort;
+        port edgeHabitat : HabitatPort;
+
+        action useHabitat {
+            in item availableBiomass : Biomass;
+            out item animalBiomass : Biomass;
+        }
+    }
+
+    part def MicrobialCommunity {
+        attribute decompositionRate_kgPerDay : Real;
+        attribute oxygenConsumption_kgPerDay : Real;
+        attribute nutrientRelease_kgPerDay : Real;
+
+        port waterInterface : HabitatPort;
+
+        action decomposeOrganicMatter {
+            in item detritus : Biomass;
+            out item releasedNutrients : Biomass;
+        }
+    }
+
+    part def OverflowControl {
+        attribute crestElevation_m : Real;
+        attribute dischargeCapacity_m3PerSecond : Real;
+
+        port waterIn : WaterInPort;
+        port waterOut : WaterOutPort;
+
+        action releaseExcessWater {
+            in item storedWater : Water;
+            out item overflowWater : OverflowWater;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject pond : Pond;
+
+        doc /* The pond shall collect, store, and regulate surface and subsurface water while sustaining aquatic habitat and basic ecological cycling. */
+
+        require constraint {
+            pond.currentVolume_m3 <= pond.storageCapacity_m3
+        }
+
+        require constraint {
+            pond.dissolvedOxygen_mgPerL >= 4.0
+        }
+
+        require constraint {
+            pond.currentVolume_m3 >= pond.targetVolume_m3 * 0.50
+        }
+    }
+
+    requirement def HabitatSupportRequirement {
+        subject pond : Pond;
+
+        doc /* The pond shall maintain a water column, littoral zone, sediment bed, plant community, animal community, and microbial community sufficient to support aquatic life. */
+
+        require constraint {
+            pond.waterColumn.dissolvedOxygen_mgPerL >= 4.0
+        }
+
+        require constraint {
+            pond.littoralZone.emergentVegetationCoverage_percent >= 15.0
+        }
+    }
+
+    requirement def OverflowProtectionRequirement {
+        subject pond : Pond;
+
+        doc /* The pond shall route excess stored water through an overflow control path before the basin storage capacity is exceeded. */
+
+        require constraint {
+            pond.overflowControl.dischargeCapacity_m3PerSecond > 0.0
+        }
+
+        require constraint {
+            pond.currentVolume_m3 <= pond.storageCapacity_m3
+        }
+    }
+
+    part pondSystem : Pond {
+        attribute surfaceArea_m2 = 8500.0;
+        attribute averageDepth_m = 1.8;
+        attribute maxDepth_m = 4.2;
+        attribute storageCapacity_m3 = 16800.0;
+        attribute currentVolume_m3 = 14200.0;
+        attribute targetVolume_m3 = 14000.0;
+        attribute pH = 7.2;
+        attribute waterTemperature_C = 18.5;
+        attribute dissolvedOxygen_mgPerL = 7.1;
+
+        part basin {
+            attribute bottomArea_m2 = 5200.0;
+            attribute bankSlopeRatio = 4.0;
+            attribute soilPermeability_mPerDay = 0.015;
+            attribute freeboardHeight_m = 0.6;
+        }
+
+        part waterColumn {
+            attribute volume_m3 = 14200.0;
+            attribute residenceTime_days = 42.0;
+            attribute mixedDepth_m = 1.4;
+            attribute dissolvedOxygen_mgPerL = 7.1;
+            attribute turbidity_NTU = 12.0;
+            attribute nutrientLoad_kgPerDay = 1.8;
+        }
+
+        part littoralZone {
+            attribute area_m2 = 1900.0;
+            attribute emergentVegetationCoverage_percent = 38.0;
+            attribute shallowDepthLimit_m = 0.75;
+        }
+
+        part sedimentBed {
+            attribute sedimentDepth_m = 0.35;
+            attribute organicMatter_kg = 3100.0;
+            attribute phosphorusStore_kg = 44.0;
+            attribute nitrogenStore_kg = 180.0;
+        }
+
+        part plantCommunity {
+            attribute submergedBiomass_kg = 760.0;
+            attribute emergentBiomass_kg = 1250.0;
+            attribute photosyntheticOxygenRate_kgPerDay = 18.0;
+            attribute nutrientUptake_kgPerDay = 1.2;
+        }
+
+        part animalCommunity {
+            attribute fishBiomass_kg = 420.0;
+            attribute amphibianCount = 260;
+            attribute invertebrateBiomass_kg = 95.0;
+            attribute oxygenDemand_kgPerDay = 13.5;
+        }
+
+        part microbialCommunity {
+            attribute decompositionRate_kgPerDay = 22.0;
+            attribute oxygenConsumption_kgPerDay = 4.6;
+            attribute nutrientRelease_kgPerDay = 0.9;
+        }
+
+        part overflowControl {
+            attribute crestElevation_m = 2.4;
+            attribute dischargeCapacity_m3PerSecond = 0.85;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by pondSystem;
+    satisfy HabitatSupportRequirement by pondSystem;
+    satisfy OverflowProtectionRequirement by pondSystem;
+}

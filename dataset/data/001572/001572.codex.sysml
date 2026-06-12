@@ -1,0 +1,834 @@
+package ServiceRobotPrimaryTaskModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def BatteryEnergy :> Real {
+        unit = "W*h";
+    }
+
+    attribute def ElectricPower :> Real {
+        unit = "W";
+    }
+
+    attribute def LinearSpeed :> Real {
+        unit = "m/s";
+    }
+
+    attribute def AngularSpeed :> Real {
+        unit = "rad/s";
+    }
+
+    attribute def Distance :> Real {
+        unit = "m";
+    }
+
+    attribute def Force :> Real {
+        unit = "N";
+    }
+
+    attribute def Mass :> Real {
+        unit = "kg";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def DataRate :> Real {
+        unit = "Mbit/s";
+    }
+
+    enum def RobotMode {
+        enum idle;
+        enum mapping;
+        enum navigating;
+        enum servicing;
+        enum returningToDock;
+        enum charging;
+        enum faulted;
+        enum emergencyStop;
+    }
+
+    enum def TaskStatus {
+        enum requested;
+        enum accepted;
+        enum inProgress;
+        enum completed;
+        enum failed;
+        enum cancelled;
+    }
+
+    enum def ObjectClass {
+        enum tray;
+        enum cup;
+        enum package;
+        enum tool;
+        enum wasteBin;
+        enum human;
+        enum obstacle;
+        enum chargingDock;
+        enum serviceStation;
+    }
+
+    item def ServiceTask {
+        attribute taskId : String;
+        attribute pickupZone : String;
+        attribute deliveryZone : String;
+        attribute requestedPayloadMass : Mass;
+        attribute maximumAllowedTime : TimeDuration;
+        attribute status : TaskStatus;
+    }
+
+    item def NavigationGoal {
+        attribute frameId : String;
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute yaw : AngleValue;
+        attribute tolerance : Distance = 0.10 [m];
+    }
+
+    item def RobotPose {
+        attribute frameId : String;
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute yaw : AngleValue;
+        attribute covariance : Real;
+    }
+
+    item def VelocityCommand {
+        attribute linear : LinearSpeed;
+        attribute angular : AngularSpeed;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : Percent;
+        attribute remainingEnergy : BatteryEnergy;
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute temperature : Temperature;
+    }
+
+    item def PerceptionFrame {
+        attribute timestamp : TimeDuration;
+        attribute objectCount : Integer;
+        attribute nearestObstacleDistance : Distance;
+        attribute confidence : Percent;
+    }
+
+    item def ObjectDetection {
+        attribute detectedClass : ObjectClass;
+        attribute confidence : Percent;
+        attribute range : Distance;
+        attribute bearing : AngleValue;
+    }
+
+    item def ManipulatorCommand {
+        attribute targetX : Distance;
+        attribute targetY : Distance;
+        attribute targetZ : Distance;
+        attribute gripForce : Force;
+        attribute speedScale : Percent;
+    }
+
+    item def PayloadState {
+        attribute occupied : Boolean;
+        attribute measuredMass : Mass;
+        attribute secured : Boolean;
+    }
+
+    item def HealthReport {
+        attribute healthy : Boolean;
+        attribute faultCode : String;
+        attribute motorTemperature : Temperature;
+        attribute computeLoad : Percent;
+        attribute networkQuality : Percent;
+    }
+
+    port def PowerPort {
+        out item power : ElectricPower;
+        out item battery : BatteryStatus;
+    }
+
+    port def ChargePort {
+        in item chargePower : ElectricPower;
+    }
+
+    port def CommandPort {
+        in item task : ServiceTask;
+        in item goal : NavigationGoal;
+        in item stop : Boolean;
+        out item status : TaskStatus;
+    }
+
+    port def TelemetryPort {
+        out item pose : RobotPose;
+        out item battery : BatteryStatus;
+        out item health : HealthReport;
+        out item payload : PayloadState;
+    }
+
+    port def MotionCommandPort {
+        in item command : VelocityCommand;
+    }
+
+    port def SensorDataPort {
+        out item frame : PerceptionFrame;
+        out item detection : ObjectDetection;
+    }
+
+    port def ManipulatorControlPort {
+        in item command : ManipulatorCommand;
+        out item payload : PayloadState;
+    }
+
+    port def DockingPort {
+        out item dockingRequest : Boolean;
+        in item dockAvailable : Boolean;
+        in item chargePower : ElectricPower;
+    }
+
+    part def BatteryPack {
+        attribute capacity : BatteryEnergy = 1200 [W*h];
+        attribute nominalVoltage : ElectricPotential = 48 [V];
+        attribute maxContinuousPower : ElectricPower = 900 [W];
+        attribute minimumOperationalSoc : Percent = 15 [%];
+        attribute currentSoc : Percent;
+        attribute packTemperature : Temperature;
+
+        port powerPort : PowerPort;
+        port chargePort : ChargePort;
+    }
+
+    part def MobilityBase {
+        attribute maximumSpeed : LinearSpeed = 1.20 [m/s];
+        attribute nominalSpeed : LinearSpeed = 0.80 [m/s];
+        attribute maximumAngularSpeed : AngularSpeed = 1.80 [rad/s];
+        attribute stoppingDistanceAtNominalSpeed : Distance = 0.45 [m];
+        attribute wheelDiameter : Distance = 0.18 [m];
+        attribute baseMass : Mass = 42 [kg];
+
+        port motionCommand : MotionCommandPort;
+    }
+
+    part def PerceptionSuite {
+        attribute lidarRange : Distance = 25 [m];
+        attribute cameraFrameRate : Frequency = 30 [Hz];
+        attribute minimumObstacleDetectionRange : Distance = 0.05 [m];
+        attribute objectClassificationAccuracy : Percent = 96 [%];
+
+        port sensorData : SensorDataPort;
+
+        part lidar {
+            attribute horizontalFieldOfView : AngleValue = 270 [deg];
+            attribute rangeAccuracy : Distance = 0.03 [m];
+        }
+
+        part depthCamera {
+            attribute horizontalResolution : Integer = 1280;
+            attribute verticalResolution : Integer = 720;
+            attribute depthRange : Distance = 6 [m];
+        }
+
+        part ultrasonicRing {
+            attribute sensorCount : Integer = 12;
+            attribute nearFieldRange : Distance = 2.5 [m];
+        }
+    }
+
+    part def Manipulator {
+        attribute degreesOfFreedom : Integer = 6;
+        attribute reach : Distance = 0.85 [m];
+        attribute ratedPayload : Mass = 5 [kg];
+        attribute maximumGripForce : Force = 80 [N];
+        attribute positioningAccuracy : Distance = 0.005 [m];
+
+        port control : ManipulatorControlPort;
+
+        part arm {
+            attribute jointLimitMargin : AngleValue = 5 [deg];
+            attribute nominalJointSpeed : AngularSpeed = 0.9 [rad/s];
+        }
+
+        part gripper {
+            attribute fingerStroke : Distance = 0.09 [m];
+            attribute minimumDetectablePayloadMass : Mass = 0.05 [kg];
+        }
+    }
+
+    part def PayloadBay {
+        attribute capacityMass : Mass = 10 [kg];
+        attribute securedVolumeWidth : Distance = 0.42 [m];
+        attribute securedVolumeDepth : Distance = 0.36 [m];
+        attribute securedVolumeHeight : Distance = 0.28 [m];
+
+        port payloadTelemetry : ManipulatorControlPort;
+    }
+
+    part def OnboardComputer {
+        attribute processorPower : ElectricPower = 90 [W];
+        attribute memoryCapacity : Integer = 32;
+        attribute storageCapacity : Integer = 1024;
+        attribute controlCyclePeriod : TimeDuration = 0.02 [s];
+        attribute maximumComputeLoad : Percent = 85 [%];
+
+        port commands : CommandPort;
+        port telemetry : TelemetryPort;
+        port sensorInput : SensorDataPort;
+        port baseOutput : MotionCommandPort;
+        port manipulatorOutput : ManipulatorControlPort;
+        port dockInterface : DockingPort;
+    }
+
+    part def HumanInterface {
+        attribute displaySize : Distance = 0.18 [m];
+        attribute audioLevel : SoundPressureLevel = 65 [dB];
+        attribute emergencyStopReactionTime : TimeDuration = 0.10 [s];
+
+        port commandInterface : CommandPort;
+        port telemetryInterface : TelemetryPort;
+    }
+
+    part def ChargingDock {
+        attribute chargePowerRating : ElectricPower = 600 [W];
+        attribute dockingTolerance : Distance = 0.04 [m];
+        attribute dockPoseX : Distance = 0 [m];
+        attribute dockPoseY : Distance = 0 [m];
+
+        port dockingPort : DockingPort;
+    }
+
+    part def ServiceRobot {
+        attribute robotId : String;
+        attribute mode : RobotMode;
+        attribute maximumPayloadMass : Mass = 10 [kg];
+        attribute operatingSpeed : LinearSpeed = 0.80 [m/s];
+        attribute safeHumanSeparation : Distance = 0.75 [m];
+        attribute taskCompletionTimeLimit : TimeDuration = 900 [s];
+
+        port externalCommand : CommandPort;
+        port externalTelemetry : TelemetryPort;
+        port dockPort : DockingPort;
+
+        part battery : BatteryPack;
+        part base : MobilityBase;
+        part perception : PerceptionSuite;
+        part manipulator : Manipulator;
+        part payloadBay : PayloadBay;
+        part computer : OnboardComputer;
+        part hmi : HumanInterface;
+
+        connect externalCommand to computer.commands;
+        connect computer.telemetry to externalTelemetry;
+        connect perception.sensorData to computer.sensorInput;
+        connect computer.baseOutput to base.motionCommand;
+        connect computer.manipulatorOutput to manipulator.control;
+        connect manipulator.control to payloadBay.payloadTelemetry;
+        connect dockPort to computer.dockInterface;
+        connect hmi.commandInterface to computer.commands;
+        connect computer.telemetry to hmi.telemetryInterface;
+        connect battery.powerPort to computer.telemetry;
+    }
+
+    part serviceRobot : ServiceRobot {
+        attribute robotId = "SR-01";
+    }
+
+    part chargingDock : ChargingDock;
+
+    connect serviceRobot.dockPort to chargingDock.dockingPort;
+
+    action def AcceptServiceTask {
+        in item requestedTask : ServiceTask;
+        in item battery : BatteryStatus;
+        out item acceptedTask : ServiceTask;
+        out item accepted : Boolean;
+
+        constraint {
+            accepted == (
+                requestedTask.requestedPayloadMass <= 10 [kg] and
+                battery.stateOfCharge >= 25 [%]
+            );
+        }
+    }
+
+    action def PlanRoute {
+        in item currentPose : RobotPose;
+        in item pickupGoal : NavigationGoal;
+        in item deliveryGoal : NavigationGoal;
+        in item perception : PerceptionFrame;
+        out item routeReady : Boolean;
+        out item firstGoal : NavigationGoal;
+
+        constraint {
+            routeReady == perception.nearestObstacleDistance > 0.50 [m];
+        }
+    }
+
+    action def NavigateToGoal {
+        in item goal : NavigationGoal;
+        in item pose : RobotPose;
+        in item perception : PerceptionFrame;
+        out item command : VelocityCommand;
+        out item arrived : Boolean;
+
+        constraint {
+            command.linear <= 0.80 [m/s];
+            command.angular <= 1.20 [rad/s];
+            arrived == (
+                abs(pose.x - goal.x) <= goal.tolerance and
+                abs(pose.y - goal.y) <= goal.tolerance
+            );
+        }
+    }
+
+    action def DetectAndAvoidObstacle {
+        in item perception : PerceptionFrame;
+        out item command : VelocityCommand;
+        out item pathClear : Boolean;
+
+        constraint {
+            pathClear == perception.nearestObstacleDistance >= 0.75 [m];
+            command.linear <= 0.30 [m/s];
+        }
+    }
+
+    action def PickPayload {
+        in item target : ObjectDetection;
+        in item requestedTask : ServiceTask;
+        out item manipulatorCommand : ManipulatorCommand;
+        out item payload : PayloadState;
+
+        constraint {
+            target.confidence >= 90 [%];
+            requestedTask.requestedPayloadMass <= 5 [kg];
+            manipulatorCommand.gripForce <= 80 [N];
+            payload.occupied == true;
+            payload.secured == true;
+        }
+    }
+
+    action def DeliverPayload {
+        in item deliveryGoal : NavigationGoal;
+        in item payload : PayloadState;
+        out item manipulatorCommand : ManipulatorCommand;
+        out item completed : Boolean;
+
+        constraint {
+            completed == payload.occupied and payload.secured;
+            manipulatorCommand.speedScale <= 60 [%];
+        }
+    }
+
+    action def ReturnToDock {
+        in item dockGoal : NavigationGoal;
+        in item battery : BatteryStatus;
+        out item dockingRequested : Boolean;
+
+        constraint {
+            dockingRequested == battery.stateOfCharge <= 20 [%];
+        }
+    }
+
+    action def ChargeBattery {
+        in item battery : BatteryStatus;
+        in item chargePower : ElectricPower;
+        out item charged : Boolean;
+
+        constraint {
+            chargePower <= 600 [W];
+            charged == battery.stateOfCharge >= 95 [%];
+        }
+    }
+
+    action def ExecutePrimaryServiceTask {
+        in item task : ServiceTask;
+        in item initialPose : RobotPose;
+        in item pickupGoal : NavigationGoal;
+        in item deliveryGoal : NavigationGoal;
+        in item dockGoal : NavigationGoal;
+        in item perceptionFrame : PerceptionFrame;
+        in item detectedPayload : ObjectDetection;
+        in item batteryStatus : BatteryStatus;
+        out item finalStatus : TaskStatus;
+
+        first acceptTask : AcceptServiceTask {
+            in requestedTask = task;
+            in battery = batteryStatus;
+        }
+
+        then planRoute : PlanRoute {
+            in currentPose = initialPose;
+            in pickupGoal = pickupGoal;
+            in deliveryGoal = deliveryGoal;
+            in perception = perceptionFrame;
+        }
+
+        then navigateToPickup : NavigateToGoal {
+            in goal = pickupGoal;
+            in pose = initialPose;
+            in perception = perceptionFrame;
+        }
+
+        then pickPayload : PickPayload {
+            in target = detectedPayload;
+            in requestedTask = task;
+        }
+
+        then navigateToDelivery : NavigateToGoal {
+            in goal = deliveryGoal;
+            in pose = initialPose;
+            in perception = perceptionFrame;
+        }
+
+        then deliverPayload : DeliverPayload {
+            in deliveryGoal = deliveryGoal;
+            in payload = pickPayload.payload;
+        }
+
+        then returnDock : ReturnToDock {
+            in dockGoal = dockGoal;
+            in battery = batteryStatus;
+        }
+
+        constraint {
+            finalStatus == if deliverPayload.completed then TaskStatus::completed else TaskStatus::failed;
+        }
+    }
+
+    state def ServiceRobotOperationalState {
+        in item task : ServiceTask;
+        in item battery : BatteryStatus;
+        in item perception : PerceptionFrame;
+        in item payload : PayloadState;
+        out item mode : RobotMode;
+
+        entry; then idle;
+
+        state idle {
+            entry action {
+                mode = RobotMode::idle;
+            }
+        }
+
+        state acceptingTask {
+            entry action {
+                mode = RobotMode::idle;
+            }
+        }
+
+        state mapping {
+            entry action {
+                mode = RobotMode::mapping;
+            }
+        }
+
+        state navigatingToPickup {
+            entry action {
+                mode = RobotMode::navigating;
+            }
+        }
+
+        state acquiringPayload {
+            entry action {
+                mode = RobotMode::servicing;
+            }
+        }
+
+        state navigatingToDelivery {
+            entry action {
+                mode = RobotMode::navigating;
+            }
+        }
+
+        state releasingPayload {
+            entry action {
+                mode = RobotMode::servicing;
+            }
+        }
+
+        state returningToDock {
+            entry action {
+                mode = RobotMode::returningToDock;
+            }
+        }
+
+        state charging {
+            entry action {
+                mode = RobotMode::charging;
+            }
+        }
+
+        state faulted {
+            entry action {
+                mode = RobotMode::faulted;
+            }
+        }
+
+        state emergencyStop {
+            entry action {
+                mode = RobotMode::emergencyStop;
+            }
+        }
+
+        transition idle_to_accepting
+            first idle
+            accept taskRequested
+            if task.status == TaskStatus::requested
+            then acceptingTask;
+
+        transition accepting_to_mapping
+            first acceptingTask
+            if battery.stateOfCharge >= 25 [%] and task.requestedPayloadMass <= 10 [kg]
+            then mapping;
+
+        transition accepting_to_returning
+            first acceptingTask
+            if battery.stateOfCharge < 25 [%]
+            then returningToDock;
+
+        transition mapping_to_pickup
+            first mapping
+            if perception.confidence >= 85 [%]
+            then navigatingToPickup;
+
+        transition pickup_obstacle_avoidance
+            first navigatingToPickup
+            if perception.nearestObstacleDistance < 0.75 [m]
+            then mapping;
+
+        transition pickup_arrived
+            first navigatingToPickup
+            if perception.nearestObstacleDistance >= 0.75 [m]
+            then acquiringPayload;
+
+        transition payload_secured
+            first acquiringPayload
+            if payload.occupied and payload.secured
+            then navigatingToDelivery;
+
+        transition delivery_obstacle_avoidance
+            first navigatingToDelivery
+            if perception.nearestObstacleDistance < 0.75 [m]
+            then mapping;
+
+        transition delivery_arrived
+            first navigatingToDelivery
+            if perception.nearestObstacleDistance >= 0.75 [m]
+            then releasingPayload;
+
+        transition delivery_complete
+            first releasingPayload
+            if not payload.occupied
+            then returningToDock;
+
+        transition low_battery_return
+            first navigatingToPickup
+            if battery.stateOfCharge <= 20 [%]
+            then returningToDock;
+
+        transition low_battery_delivery_return
+            first navigatingToDelivery
+            if battery.stateOfCharge <= 15 [%]
+            then returningToDock;
+
+        transition docked_for_charge
+            first returningToDock
+            if battery.stateOfCharge < 95 [%]
+            then charging;
+
+        transition charge_complete
+            first charging
+            if battery.stateOfCharge >= 95 [%]
+            then idle;
+
+        transition sensor_fault
+            first mapping
+            if perception.confidence < 40 [%]
+            then faulted;
+
+        transition emergency_from_idle
+            first idle
+            accept emergencyStopSignal
+            then emergencyStop;
+
+        transition emergency_from_navigation
+            first navigatingToPickup
+            accept emergencyStopSignal
+            then emergencyStop;
+
+        transition emergency_from_service
+            first acquiringPayload
+            accept emergencyStopSignal
+            then emergencyStop;
+
+        transition reset_after_emergency
+            first emergencyStop
+            accept resetSignal
+            then idle;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        doc /* The robotic system shall perform its primary service task using the ServiceRobot part. */
+        subject robot : ServiceRobot;
+
+        require constraint {
+            robot.maximumPayloadMass >= 10 [kg];
+        }
+    }
+
+    requirement def TaskAcceptanceRequirement {
+        doc /* The ServiceRobot shall accept only tasks within payload and battery limits. */
+        subject task : ServiceTask;
+        subject battery : BatteryStatus;
+
+        require constraint {
+            task.requestedPayloadMass <= 10 [kg] and battery.stateOfCharge >= 25 [%];
+        }
+    }
+
+    requirement def NavigationSafetyRequirement {
+        doc /* The ServiceRobot shall maintain safe separation from detected obstacles and humans while navigating. */
+        subject robot : ServiceRobot;
+        subject perception : PerceptionFrame;
+
+        require constraint {
+            robot.safeHumanSeparation >= 0.75 [m] and perception.nearestObstacleDistance >= 0.75 [m];
+        }
+    }
+
+    requirement def PayloadHandlingRequirement {
+        doc /* The ServiceRobot shall securely pick, transport, and release the requested payload. */
+        subject manipulator : Manipulator;
+        subject payload : PayloadState;
+
+        require constraint {
+            manipulator.ratedPayload >= payload.measuredMass and payload.secured == true;
+        }
+    }
+
+    requirement def CompletionTimeRequirement {
+        doc /* The ServiceRobot shall complete an accepted service task within fifteen minutes under nominal operating conditions. */
+        subject task : ServiceTask;
+        subject robot : ServiceRobot;
+
+        require constraint {
+            task.maximumAllowedTime <= robot.taskCompletionTimeLimit;
+        }
+    }
+
+    requirement def BatteryReserveRequirement {
+        doc /* The ServiceRobot shall preserve enough battery energy to return to the charging dock after servicing. */
+        subject battery : BatteryStatus;
+
+        require constraint {
+            battery.stateOfCharge >= 15 [%];
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        doc /* The ServiceRobot shall enter emergency stop within 0.10 seconds after an emergency stop command. */
+        subject hmi : HumanInterface;
+
+        require constraint {
+            hmi.emergencyStopReactionTime <= 0.10 [s];
+        }
+    }
+
+    requirement def PerceptionRequirement {
+        doc /* The ServiceRobot shall classify service objects with at least 95 percent nominal accuracy. */
+        subject perception : PerceptionSuite;
+
+        require constraint {
+            perception.objectClassificationAccuracy >= 95 [%];
+        }
+    }
+
+    requirement def DockingRequirement {
+        doc /* The ServiceRobot shall autonomously dock and receive charge power from the ChargingDock. */
+        subject dock : ChargingDock;
+
+        require constraint {
+            dock.chargePowerRating >= 600 [W] and dock.dockingTolerance <= 0.05 [m];
+        }
+    }
+
+    satisfy PrimaryTaskRequirement by serviceRobot;
+    satisfy NavigationSafetyRequirement by serviceRobot;
+    satisfy PayloadHandlingRequirement by serviceRobot.manipulator;
+    satisfy EmergencyStopRequirement by serviceRobot.hmi;
+    satisfy PerceptionRequirement by serviceRobot.perception;
+    satisfy DockingRequirement by chargingDock;
+
+    analysis def ServiceTaskPerformanceAnalysis {
+        in item task : ServiceTask;
+        in item routeDistance : Distance;
+        in item averageSpeed : LinearSpeed;
+        in item handlingTime : TimeDuration;
+        out item estimatedCompletionTime : TimeDuration;
+        out item feasible : Boolean;
+
+        constraint {
+            estimatedCompletionTime == routeDistance / averageSpeed + handlingTime;
+            feasible == estimatedCompletionTime <= task.maximumAllowedTime;
+        }
+    }
+
+    analysis def BatteryEnduranceAnalysis {
+        in item capacity : BatteryEnergy;
+        in item stateOfCharge : Percent;
+        in item averagePower : ElectricPower;
+        in item taskDuration : TimeDuration;
+        out item reserveAfterTask : Percent;
+        out item sufficient : Boolean;
+
+        constraint {
+            reserveAfterTask == stateOfCharge - ((averagePower * taskDuration) / capacity * 100 [%]);
+            sufficient == reserveAfterTask >= 15 [%];
+        }
+    }
+
+    view def ServiceRobotArchitectureView {
+        expose serviceRobot;
+        expose serviceRobot.battery;
+        expose serviceRobot.base;
+        expose serviceRobot.perception;
+        expose serviceRobot.manipulator;
+        expose serviceRobot.payloadBay;
+        expose serviceRobot.computer;
+        expose serviceRobot.hmi;
+        expose chargingDock;
+    }
+
+    view def ServiceRobotBehaviorView {
+        expose ExecutePrimaryServiceTask;
+        expose ServiceRobotOperationalState;
+        expose AcceptServiceTask;
+        expose NavigateToGoal;
+        expose PickPayload;
+        expose DeliverPayload;
+        expose ReturnToDock;
+        expose ChargeBattery;
+    }
+
+    view def ServiceRobotRequirementsView {
+        expose PrimaryTaskRequirement;
+        expose TaskAcceptanceRequirement;
+        expose NavigationSafetyRequirement;
+        expose PayloadHandlingRequirement;
+        expose CompletionTimeRequirement;
+        expose BatteryReserveRequirement;
+        expose EmergencyStopRequirement;
+        expose PerceptionRequirement;
+        expose DockingRequirement;
+    }
+}

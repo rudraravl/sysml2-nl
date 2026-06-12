@@ -1,0 +1,330 @@
+package DisplacementReceiverSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String = "m";
+    }
+
+    attribute def VelocityValue {
+        attribute value : Real;
+        attribute unit : String = "m/s";
+    }
+
+    attribute def ForceValue {
+        attribute value : Real;
+        attribute unit : String = "N";
+    }
+
+    attribute def VoltageValue {
+        attribute value : Real;
+        attribute unit : String = "V";
+    }
+
+    attribute def CurrentValue {
+        attribute value : Real;
+        attribute unit : String = "A";
+    }
+
+    attribute def TemperatureValue {
+        attribute value : Real;
+        attribute unit : String = "degC";
+    }
+
+    attribute def TimeValue {
+        attribute value : Real;
+        attribute unit : String = "s";
+    }
+
+    attribute def PercentValue {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    item def MechanicalDisplacement {
+        attribute position : LengthValue;
+        attribute velocity : VelocityValue;
+        attribute appliedForce : ForceValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+    }
+
+    item def ConditionedSignal {
+        attribute normalizedDisplacement : PercentValue;
+        attribute analogVoltage : VoltageValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def DigitalDisplacementReport {
+        attribute measuredPosition : LengthValue;
+        attribute measuredVelocity : VelocityValue;
+        attribute quality : PercentValue;
+        attribute sampleTime : TimeValue;
+        attribute statusCode : Integer;
+    }
+
+    item def DiagnosticReport {
+        attribute internalTemperature : TemperatureValue;
+        attribute signalHealth : PercentValue;
+        attribute calibrationAge : TimeValue;
+        attribute faultCode : Integer;
+    }
+
+    port def MechanicalInputPort {
+        in item displacement : MechanicalDisplacement;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : ConditionedSignal;
+    }
+
+    port def DigitalDataPort {
+        out item report : DigitalDisplacementReport;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostics : DiagnosticReport;
+    }
+
+    port def InternalMechanicalPort {
+        out item displacement : MechanicalDisplacement;
+    }
+
+    port def InternalSignalPort {
+        in item rawDisplacement : MechanicalDisplacement;
+        out item conditionedSignal : ConditionedSignal;
+    }
+
+    port def InternalDataPort {
+        in item conditionedSignal : ConditionedSignal;
+        out item displacementReport : DigitalDisplacementReport;
+    }
+
+    action def AcceptMechanicalDisplacement {
+        in item inputDisplacement : MechanicalDisplacement;
+        out item acceptedDisplacement : MechanicalDisplacement;
+    }
+
+    action def ConvertDisplacementToSignal {
+        in item acceptedDisplacement : MechanicalDisplacement;
+        out item conditionedSignal : ConditionedSignal;
+    }
+
+    action def EstimateDisplacement {
+        in item conditionedSignal : ConditionedSignal;
+        out item displacementReport : DigitalDisplacementReport;
+    }
+
+    action def PublishDisplacement {
+        in item displacementReport : DigitalDisplacementReport;
+        out item publishedReport : DigitalDisplacementReport;
+    }
+
+    action def RunSelfDiagnostic {
+        in item power : ElectricalPower;
+        out item diagnostics : DiagnosticReport;
+    }
+
+    state def ReceiverOperatingState {
+        entry action initialize;
+        state Off;
+        state PowerUp;
+        state Standby;
+        state Receiving;
+        state Fault;
+        state Calibration;
+
+        transition first Off;
+        transition Off_to_PowerUp
+            first Off
+            then PowerUp;
+
+        transition PowerUp_to_Standby
+            first PowerUp
+            then Standby;
+
+        transition Standby_to_Receiving
+            first Standby
+            then Receiving;
+
+        transition Receiving_to_Standby
+            first Receiving
+            then Standby;
+
+        transition Standby_to_Calibration
+            first Standby
+            then Calibration;
+
+        transition Calibration_to_Standby
+            first Calibration
+            then Standby;
+
+        transition Any_to_Fault
+            first PowerUp
+            then Fault;
+
+        transition Fault_to_PowerUp
+            first Fault
+            then PowerUp;
+    }
+
+    part def MechanicalInterface {
+        port receiverInput : MechanicalInputPort;
+        port acceptedOutput : InternalMechanicalPort;
+
+        attribute maximumInputStroke : LengthValue = (value = 0.050, unit = "m");
+        attribute maximumInputVelocity : VelocityValue = (value = 2.0, unit = "m/s");
+        attribute allowableInputForce : ForceValue = (value = 500.0, unit = "N");
+
+        perform action accept : AcceptMechanicalDisplacement;
+    }
+
+    part def SensingElement {
+        port mechanicalInput : InternalSignalPort;
+
+        attribute sensitivity : Real = 100.0;
+        attribute linearRange : LengthValue = (value = 0.040, unit = "m");
+        attribute nonLinearity : PercentValue = (value = 0.5, unit = "%");
+        attribute operatingTemperatureMin : TemperatureValue = (value = -40.0, unit = "degC");
+        attribute operatingTemperatureMax : TemperatureValue = (value = 85.0, unit = "degC");
+
+        perform action convert : ConvertDisplacementToSignal;
+    }
+
+    part def SignalConditioner {
+        port signalInput : InternalSignalPort;
+        port analogOutput : AnalogSignalPort;
+
+        attribute outputVoltageMin : VoltageValue = (value = 0.5, unit = "V");
+        attribute outputVoltageMax : VoltageValue = (value = 4.5, unit = "V");
+        attribute bandwidth : Real = 500.0;
+        attribute bandwidthUnit : String = "Hz";
+        attribute noiseLimit : PercentValue = (value = 0.2, unit = "%");
+    }
+
+    part def ProcessingUnit {
+        port dataInput : InternalDataPort;
+        port dataOutput : DigitalDataPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        attribute samplePeriod : TimeValue = (value = 0.001, unit = "s");
+        attribute measurementResolution : LengthValue = (value = 0.00001, unit = "m");
+        attribute accuracy : PercentValue = (value = 1.0, unit = "%");
+
+        perform action estimate : EstimateDisplacement;
+        perform action publish : PublishDisplacement;
+        perform action diagnostic : RunSelfDiagnostic;
+    }
+
+    part def PowerRegulator {
+        port externalPower : PowerInputPort;
+
+        attribute nominalInputVoltage : VoltageValue = (value = 24.0, unit = "V");
+        attribute minimumInputVoltage : VoltageValue = (value = 18.0, unit = "V");
+        attribute maximumInputVoltage : VoltageValue = (value = 32.0, unit = "V");
+        attribute maximumCurrent : CurrentValue = (value = 0.25, unit = "A");
+    }
+
+    part def DisplacementReceiver {
+        port mechanicalInput : MechanicalInputPort;
+        port powerInput : PowerInputPort;
+        port analogOutput : AnalogSignalPort;
+        port digitalOutput : DigitalDataPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part mechanicalInterface : MechanicalInterface;
+        part sensingElement : SensingElement;
+        part signalConditioner : SignalConditioner;
+        part processingUnit : ProcessingUnit;
+        part powerRegulator : PowerRegulator;
+
+        attribute primaryFunction : String =
+            "Receive a mechanical displacement from an external moving element, transform it into a conditioned electrical representation, estimate the displacement value, and publish reliable analog and digital displacement information to connected systems.";
+
+        attribute ratedStroke : LengthValue = (value = 0.050, unit = "m");
+        attribute ratedAccuracy : PercentValue = (value = 1.0, unit = "%");
+        attribute responseTime : TimeValue = (value = 0.005, unit = "s");
+
+        exhibit state operatingState : ReceiverOperatingState;
+
+        connect mechanicalInput to mechanicalInterface.receiverInput;
+        connect mechanicalInterface.acceptedOutput to sensingElement.mechanicalInput;
+        connect sensingElement.mechanicalInput to signalConditioner.signalInput;
+        connect signalConditioner.analogOutput to analogOutput;
+        connect signalConditioner.signalInput to processingUnit.dataInput;
+        connect processingUnit.dataOutput to digitalOutput;
+        connect processingUnit.diagnosticOutput to diagnosticOutput;
+        connect powerInput to powerRegulator.externalPower;
+    }
+
+    requirement def ReceiveDisplacementRequirement {
+        subject receiver : DisplacementReceiver;
+        attribute requiredStroke : LengthValue = (value = 0.050, unit = "m");
+
+        require constraint {
+            receiver.ratedStroke.value >= requiredStroke.value
+        }
+
+        doc /* The displacement receiver shall accept mechanical displacement input across the specified stroke range. */
+    }
+
+    requirement def ConvertDisplacementRequirement {
+        subject receiver : DisplacementReceiver;
+        attribute maximumResponseTime : TimeValue = (value = 0.005, unit = "s");
+
+        require constraint {
+            receiver.responseTime.value <= maximumResponseTime.value
+        }
+
+        doc /* The displacement receiver shall convert accepted mechanical displacement into a conditioned electrical signal within the required response time. */
+    }
+
+    requirement def MeasurementAccuracyRequirement {
+        subject receiver : DisplacementReceiver;
+        attribute maximumError : PercentValue = (value = 1.0, unit = "%");
+
+        require constraint {
+            receiver.ratedAccuracy.value <= maximumError.value
+        }
+
+        doc /* The displacement receiver shall provide displacement measurements with total error not exceeding the specified accuracy limit. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject receiver : DisplacementReceiver;
+
+        doc /* The displacement receiver shall publish diagnostic status including signal health, internal temperature, calibration age, and fault code. */
+    }
+
+    requirement def PowerCompatibilityRequirement {
+        subject receiver : DisplacementReceiver;
+
+        require constraint {
+            receiver.powerRegulator.minimumInputVoltage.value <= 24.0 and
+            receiver.powerRegulator.maximumInputVoltage.value >= 24.0
+        }
+
+        doc /* The displacement receiver shall operate from a regulated 24 V electrical supply with tolerance for the defined input voltage range. */
+    }
+
+    part displacementReceiverSystem {
+        part receiver : DisplacementReceiver;
+
+        satisfy ReceiveDisplacementRequirement by receiver;
+        satisfy ConvertDisplacementRequirement by receiver;
+        satisfy MeasurementAccuracyRequirement by receiver;
+        satisfy DiagnosticRequirement by receiver;
+        satisfy PowerCompatibilityRequirement by receiver;
+    }
+}

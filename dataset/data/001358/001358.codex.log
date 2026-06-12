@@ -1,0 +1,1299 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-r42_qyrw
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb668-09d1-7d41-bf7d-1fb5ff6742d6
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Automated teller machine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomatedTellerMachineModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    enum def CurrencyCode {
+        enum USD;
+    }
+
+    enum def CardNetwork {
+        enum Visa;
+        enum Mastercard;
+        enum Interbank;
+        enum ProprietaryBank;
+    }
+
+    enum def AccountKind {
+        enum Checking;
+        enum Savings;
+        enum Credit;
+    }
+
+    enum def TransactionKind {
+        enum BalanceInquiry;
+        enum CashWithdrawal;
+        enum CashDeposit;
+        enum FundsTransfer;
+        enum MiniStatement;
+    }
+
+    enum def TransactionStatus {
+        enum Approved;
+        enum Declined;
+        enum Cancelled;
+        enum TimedOut;
+        enum Failed;
+    }
+
+    enum def SecurityEventKind {
+        enum InvalidPin;
+        enum CardRetained;
+        enum TamperDetected;
+        enum CashJam;
+        enum NetworkUnavailable;
+        enum DoorOpened;
+    }
+
+    attribute def MoneyAmount {
+        attribute amount : Real;
+        attribute currency : CurrencyCode = CurrencyCode::USD;
+    }
+
+    attribute def DurationValue {
+        attribute seconds : Real;
+    }
+
+    attribute def TemperatureValue {
+        attribute celsius : Real;
+    }
+
+    attribute def PercentageValue {
+        attribute percent : Real;
+    }
+
+    attribute def Identifier {
+        attribute value : String;
+    }
+
+    attribute def PinBlock {
+        attribute encryptedValue : String;
+    }
+
+    attribute def CardData {
+        attribute panToken : Identifier;
+        attribute expirationMonth : Integer;
+        attribute expirationYear : Integer;
+        attribute network : CardNetwork;
+        attribute issuerId : Identifier;
+    }
+
+    attribute def AccountReference {
+        attribute accountToken : Identifier;
+        attribute kind : AccountKind;
+    }
+
+    attribute def TransactionRequest {
+        attribute requestId : Identifier;
+        attribute kind : TransactionKind;
+        attribute sourceAccount : AccountReference;
+        attribute destinationAccount : AccountReference;
+        attribute amount : MoneyAmount;
+        attribute cardData : CardData;
+        attribute pinBlock : PinBlock;
+    }
+
+    attribute def TransactionResponse {
+        attribute requestId : Identifier;
+        attribute status : TransactionStatus;
+        attribute approvalCode : Identifier;
+        attribute availableBalance : MoneyAmount;
+        attribute messageText : String;
+    }
+
+    attribute def ReceiptData {
+        attribute transactionId : Identifier;
+        attribute timestampText : String;
+        attribute maskedCardNumber : String;
+        attribute kind : TransactionKind;
+        attribute amount : MoneyAmount;
+        attribute status : TransactionStatus;
+        attribute balanceAfterTransaction : MoneyAmount;
+    }
+
+    attribute def CashDenomination {
+        attribute faceValue : MoneyAmount;
+        attribute count : Integer;
+    }
+
+    item def BankCard {
+        attribute data : CardData;
+    }
+
+    item def CashNote {
+        attribute denomination : MoneyAmount;
+        attribute serialNumber : Identifier;
+        attribute authenticated : Boolean;
+    }
+
+    item def CashBundle {
+        attribute totalValue : MoneyAmount;
+        attribute noteCount : Integer;
+        attribute denominations : CashDenomination[1..*];
+    }
+
+    item def Receipt {
+        attribute data : ReceiptData;
+    }
+
+    item def CustomerInput {
+        attribute selectedTransaction : TransactionKind;
+        attribute selectedAccount : AccountReference;
+        attribute targetAccount : AccountReference;
+        attribute enteredAmount : MoneyAmount;
+        attribute confirmationAccepted : Boolean;
+        attribute cancelPressed : Boolean;
+    }
+
+    item def DisplayMessage {
+        attribute text : String;
+        attribute timeout : DurationValue;
+    }
+
+    item def HostMessage {
+        attribute request : TransactionRequest;
+        attribute response : TransactionResponse;
+    }
+
+    item def SecurityEvent {
+        attribute kind : SecurityEventKind;
+        attribute description : String;
+        attribute timestampText : String;
+    }
+
+    port def CardSlotPort {
+        in item insertedCard : BankCard;
+        out item returnedCard : BankCard;
+        out item retainedCard : BankCard;
+    }
+
+    port def CashDispensePort {
+        out item dispensedCash : CashBundle;
+    }
+
+    port def CashDepositPort {
+        in item depositedCash : CashBundle;
+        out item rejectedCash : CashBundle;
+    }
+
+    port def ReceiptPort {
+        out item printedReceipt : Receipt;
+    }
+
+    port def UserInterfacePort {
+        out item message : DisplayMessage;
+        in item input : CustomerInput;
+    }
+
+    port def SecureHostPort {
+        out item authorizationRequest : TransactionRequest;
+        in item authorizationResponse : TransactionResponse;
+    }
+
+    port def MaintenancePort {
+        out item eventReport : SecurityEvent;
+        in attribute serviceAuthorized : Boolean;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute supplyFrequency : Real;
+        out attribute loadPower : Real;
+    }
+
+    part def CardReader {
+        port cardSlot : CardSlotPort;
+        attribute cardPresent : Boolean;
+        attribute cardRetained : Boolean;
+        attribute maxInvalidPinAttempts : Integer = 3;
+
+        action readCard {
+            in item card : BankCard;
+            out attribute cardData : CardData;
+        }
+
+        action returnCard {
+            out item card : BankCard;
+        }
+
+        action retainCard {
+            out item retained : BankCard;
+        }
+    }
+
+    part def PinPad {
+        attribute pinEntryTimeout : DurationValue;
+        attribute encryptedPinAvailable : Boolean;
+
+        action capturePin {
+            in item prompt : DisplayMessage;
+            out attribute pinBlock : PinBlock;
+        }
+    }
+
+    part def TouchDisplay {
+        port ui : UserInterfacePort;
+        attribute diagonalSizeInches : Real;
+        attribute brightness : PercentageValue;
+
+        action showMessage {
+            in item message : DisplayMessage;
+        }
+
+        action collectSelection {
+            out item input : CustomerInput;
+        }
+    }
+
+    part def CashDispenser {
+        port outlet : CashDispensePort;
+        attribute cassetteCapacityNotes : Integer;
+        attribute availableCash : MoneyAmount;
+        attribute jamDetected : Boolean;
+        attribute lowCashThreshold : MoneyAmount;
+
+        part cassette20;
+        part cassette50;
+        part presenter;
+
+        action prepareCash {
+            in attribute requestedAmount : MoneyAmount;
+            out item cash : CashBundle;
+        }
+
+        action presentCash {
+            in item cash : CashBundle;
+            out item dispensed : CashBundle;
+        }
+    }
+
+    part def CashAcceptor {
+        port inlet : CashDepositPort;
+        attribute escrowedCash : MoneyAmount;
+        attribute rejectedCashCount : Integer;
+
+        action validateDeposit {
+            in item deposited : CashBundle;
+            out item accepted : CashBundle;
+            out item rejected : CashBundle;
+        }
+
+        action commitDeposit {
+            in item accepted : CashBundle;
+        }
+
+        action returnDeposit {
+            out item returned : CashBundle;
+        }
+    }
+
+    part def ReceiptPrinter {
+        port receiptOutput : ReceiptPort;
+        attribute paperRemainingPercent : PercentageValue;
+        attribute printerReady : Boolean;
+
+        action printReceipt {
+            in attribute receiptData : ReceiptData;
+            out item receipt : Receipt;
+        }
+    }
+
+    part def SecurityModule {
+        attribute encryptionEnabled : Boolean = true;
+        attribute tamperDetected : Boolean;
+        attribute temperature : TemperatureValue;
+
+        action encryptPin {
+            in attribute clearPinToken : Identifier;
+            out attribute pinBlock : PinBlock;
+        }
+
+        action reportSecurityEvent {
+            in attribute kind : SecurityEventKind;
+            out item event : SecurityEvent;
+        }
+    }
+
+    part def NetworkAdapter {
+        port hostLink : SecureHostPort;
+        attribute online : Boolean;
+        attribute hostRoundTripTimeout : DurationValue;
+        attribute lastLatency : DurationValue;
+
+        action sendAuthorization {
+            in attribute request : TransactionRequest;
+            out attribute response : TransactionResponse;
+        }
+    }
+
+    part def BankHostGateway {
+        port atmLink : SecureHostPort;
+        attribute hostAvailable : Boolean;
+        attribute dailyWithdrawalLimit : MoneyAmount;
+
+        action authorize {
+            in attribute request : TransactionRequest;
+            out attribute response : TransactionResponse;
+        }
+    }
+
+    part def SupervisorController {
+        attribute sessionActive : Boolean;
+        attribute invalidPinAttempts : Integer;
+        attribute currentRequest : TransactionRequest;
+        attribute currentResponse : TransactionResponse;
+        attribute currentReceipt : ReceiptData;
+
+        action startSession {
+            in attribute cardData : CardData;
+            out item welcome : DisplayMessage;
+        }
+
+        action buildTransactionRequest {
+            in attribute cardData : CardData;
+            in attribute pinBlock : PinBlock;
+            in item customerInput : CustomerInput;
+            out attribute request : TransactionRequest;
+        }
+
+        action evaluateHostResponse {
+            in attribute response : TransactionResponse;
+            out attribute approved : Boolean;
+            out item message : DisplayMessage;
+        }
+
+        action closeSession {
+            out item finalMessage : DisplayMessage;
+        }
+    }
+
+    part def AutomatedTellerMachine {
+        port customerCardPort : CardSlotPort;
+        port customerCashOutPort : CashDispensePort;
+        port customerCashInPort : CashDepositPort;
+        port customerReceiptPort : ReceiptPort;
+        port customerUiPort : UserInterfacePort;
+        port hostPort : SecureHostPort;
+        port maintenancePort : MaintenancePort;
+        port power : PowerPort;
+
+        attribute atmId : Identifier;
+        attribute locationId : Identifier;
+        attribute maximumWithdrawalPerTransaction : MoneyAmount;
+        attribute sessionTimeout : DurationValue;
+        attribute operational : Boolean;
+        attribute cashAvailable : MoneyAmount;
+        attribute receiptPaperAvailable : Boolean;
+
+        part cardReader : CardReader;
+        part pinPad : PinPad;
+        part display : TouchDisplay;
+        part dispenser : CashDispenser;
+        part acceptor : CashAcceptor;
+        part printer : ReceiptPrinter;
+        part security : SecurityModule;
+        part network : NetworkAdapter;
+        part controller : SupervisorController;
+
+        connect customerCardPort to cardReader.cardSlot;
+        connect customerCashOutPort to dispenser.outlet;
+        connect customerCashInPort to acceptor.inlet;
+        connect customerReceiptPort to printer.receiptOutput;
+        connect customerUiPort to display.ui;
+        connect hostPort to network.hostLink;
+
+        perform action operateSession {
+            first start;
+            then awaitCard;
+            then authenticateCustomer;
+            then selectTransaction;
+            then executeTransaction;
+            then issueReceipt;
+            then returnCard;
+            then endSession;
+        }
+
+        state def AtmOperationalState {
+            state initializing;
+            state idle;
+            state cardInserted;
+            state authenticating;
+            state transactionSelection;
+            state processing;
+            state dispensingCash;
+            state acceptingDeposit;
+            state printingReceipt;
+            state returningCard;
+            state outOfService;
+            state maintenance;
+
+            entry initializing;
+            then initializing to idle if operational;
+
+            transition idle_to_cardInserted
+                first idle
+                then cardInserted
+                accept item insertedCard : BankCard via customerCardPort.insertedCard;
+
+            transition cardInserted_to_authenticating
+                first cardInserted
+                then authenticating;
+
+            transition authenticating_to_selection
+                first authenticating
+                then transactionSelection
+                if controller.invalidPinAttempts < cardReader.maxInvalidPinAttempts;
+
+            transition authenticating_to_retained
+                first authenticating
+                then outOfService
+                if controller.invalidPinAttempts >= cardReader.maxInvalidPinAttempts;
+
+            transition selection_to_processing
+                first transactionSelection
+                then processing
+                accept item input : CustomerInput via customerUiPort.input;
+
+            transition processing_to_dispensing
+                first processing
+                then dispensingCash
+                if controller.currentRequest.kind == TransactionKind::CashWithdrawal and controller.currentResponse.status == TransactionStatus::Approved;
+
+            transition processing_to_acceptingDeposit
+                first processing
+                then acceptingDeposit
+                if controller.currentRequest.kind == TransactionKind::CashDeposit and controller.currentResponse.status == TransactionStatus::Approved;
+
+            transition processing_to_printing
+                first processing
+                then printingReceipt
+                if controller.currentRequest.kind == TransactionKind::BalanceInquiry;
+
+            transition dispensing_to_printing
+                first dispensingCash
+                then printingReceipt;
+
+            transition deposit_to_printing
+                first acceptingDeposit
+                then printingReceipt;
+
+            transition printing_to_returning
+                first printingReceipt
+                then returningCard;
+
+            transition returning_to_idle
+                first returningCard
+                then idle;
+
+            transition any_to_outOfService
+                first idle
+                then outOfService
+                if security.tamperDetected or dispenser.jamDetected or not network.online;
+
+            transition outOfService_to_maintenance
+                first outOfService
+                then maintenance
+                if maintenancePort.serviceAuthorized;
+
+            transition maintenance_to_idle
+                first maintenance
+                then idle
+                if operational and network.online and not security.tamperDetected;
+        }
+    }
+
+    part bankHost : BankHostGateway;
+
+    part atm : AutomatedTellerMachine {
+        attribute atmId = Identifier { value = "ATM-CHICAGO-042" };
+        attribute locationId = Identifier { value = "BRANCH-LOBBY-17" };
+        attribute maximumWithdrawalPerTransaction = MoneyAmount { amount = 500.0; currency = CurrencyCode::USD; };
+        attribute sessionTimeout = DurationValue { seconds = 45.0; };
+        attribute operational = true;
+        attribute cashAvailable = MoneyAmount { amount = 80000.0; currency = CurrencyCode::USD; };
+        attribute receiptPaperAvailable = true;
+    }
+
+    connect atm.hostPort to bankHost.atmLink;
+
+    action def PrimaryAtmFunction {
+        in item customerCard : BankCard;
+        in item customerInput : CustomerInput;
+        in attribute enteredPin : PinBlock;
+        out attribute transactionResult : TransactionResponse;
+        out item cashToCustomer : CashBundle;
+        out item receiptToCustomer : Receipt;
+
+        first acceptCard;
+        then authenticateCardholder;
+        then captureTransactionChoice;
+        then requestBankAuthorization;
+        then completeAuthorizedTransaction;
+        then provideCustomerRecord;
+        then returnCustomerCard;
+    }
+
+    action def WithdrawCash {
+        in attribute request : TransactionRequest;
+        in attribute response : TransactionResponse;
+        out item dispensedCash : CashBundle;
+        out attribute updatedAtmCash : MoneyAmount;
+
+        first verifyApproval;
+        then verifyCashAvailability;
+        then countNotes;
+        then presentCash;
+        then updateCashInventory;
+    }
+
+    action def DepositCash {
+        in attribute request : TransactionRequest;
+        in item depositedCash : CashBundle;
+        out attribute response : TransactionResponse;
+        out item rejectedCash : CashBundle;
+
+        first validateNotes;
+        then escrowAcceptedNotes;
+        then requestDepositPosting;
+        then commitOrReturnEscrow;
+    }
+
+    action def QueryBalance {
+        in attribute request : TransactionRequest;
+        out attribute response : TransactionResponse;
+
+        first sendInquiry;
+        then receiveAvailableBalance;
+        then displayBalance;
+    }
+
+    requirement def HighLevelPrimaryFunctionRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        doc /* The automated teller machine shall provide unattended customer banking access by accepting a bank card and PIN, communicating securely with the bank host, executing authorized balance inquiry, withdrawal, deposit, and transfer transactions, dispensing or accepting cash when required, printing a customer receipt, and returning or retaining the card according to security rules. */
+
+        require constraint {
+            atm.operational == true implies atm.network.online == true
+        }
+    }
+
+    requirement def SecureAuthenticationRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.security.encryptionEnabled == true
+        }
+
+        require constraint {
+            atm.cardReader.maxInvalidPinAttempts == 3
+        }
+    }
+
+    requirement def WithdrawalLimitRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.maximumWithdrawalPerTransaction.amount <= 500.0
+        }
+    }
+
+    requirement def CashAvailabilityRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.dispenser.availableCash.amount >= atm.dispenser.lowCashThreshold.amount implies atm.operational == true
+        }
+    }
+
+    requirement def SessionTimeoutRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.sessionTimeout.seconds <= 60.0
+        }
+    }
+
+    requirement def ReceiptRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.printer.printerReady == true implies atm.receiptPaperAvailable == true
+        }
+    }
+
+    requirement def HostAuthorizationRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.controller.currentResponse.status == TransactionStatus::Approved implies atm.network.online == true
+        }
+    }
+
+    requirement def TamperProtectionRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.security.tamperDetected == true implies atm.operational == false
+        }
+    }
+
+}
+tokens used
+11,742
+package AutomatedTellerMachineModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    enum def CurrencyCode {
+        enum USD;
+    }
+
+    enum def CardNetwork {
+        enum Visa;
+        enum Mastercard;
+        enum Interbank;
+        enum ProprietaryBank;
+    }
+
+    enum def AccountKind {
+        enum Checking;
+        enum Savings;
+        enum Credit;
+    }
+
+    enum def TransactionKind {
+        enum BalanceInquiry;
+        enum CashWithdrawal;
+        enum CashDeposit;
+        enum FundsTransfer;
+        enum MiniStatement;
+    }
+
+    enum def TransactionStatus {
+        enum Approved;
+        enum Declined;
+        enum Cancelled;
+        enum TimedOut;
+        enum Failed;
+    }
+
+    enum def SecurityEventKind {
+        enum InvalidPin;
+        enum CardRetained;
+        enum TamperDetected;
+        enum CashJam;
+        enum NetworkUnavailable;
+        enum DoorOpened;
+    }
+
+    attribute def MoneyAmount {
+        attribute amount : Real;
+        attribute currency : CurrencyCode = CurrencyCode::USD;
+    }
+
+    attribute def DurationValue {
+        attribute seconds : Real;
+    }
+
+    attribute def TemperatureValue {
+        attribute celsius : Real;
+    }
+
+    attribute def PercentageValue {
+        attribute percent : Real;
+    }
+
+    attribute def Identifier {
+        attribute value : String;
+    }
+
+    attribute def PinBlock {
+        attribute encryptedValue : String;
+    }
+
+    attribute def CardData {
+        attribute panToken : Identifier;
+        attribute expirationMonth : Integer;
+        attribute expirationYear : Integer;
+        attribute network : CardNetwork;
+        attribute issuerId : Identifier;
+    }
+
+    attribute def AccountReference {
+        attribute accountToken : Identifier;
+        attribute kind : AccountKind;
+    }
+
+    attribute def TransactionRequest {
+        attribute requestId : Identifier;
+        attribute kind : TransactionKind;
+        attribute sourceAccount : AccountReference;
+        attribute destinationAccount : AccountReference;
+        attribute amount : MoneyAmount;
+        attribute cardData : CardData;
+        attribute pinBlock : PinBlock;
+    }
+
+    attribute def TransactionResponse {
+        attribute requestId : Identifier;
+        attribute status : TransactionStatus;
+        attribute approvalCode : Identifier;
+        attribute availableBalance : MoneyAmount;
+        attribute messageText : String;
+    }
+
+    attribute def ReceiptData {
+        attribute transactionId : Identifier;
+        attribute timestampText : String;
+        attribute maskedCardNumber : String;
+        attribute kind : TransactionKind;
+        attribute amount : MoneyAmount;
+        attribute status : TransactionStatus;
+        attribute balanceAfterTransaction : MoneyAmount;
+    }
+
+    attribute def CashDenomination {
+        attribute faceValue : MoneyAmount;
+        attribute count : Integer;
+    }
+
+    item def BankCard {
+        attribute data : CardData;
+    }
+
+    item def CashNote {
+        attribute denomination : MoneyAmount;
+        attribute serialNumber : Identifier;
+        attribute authenticated : Boolean;
+    }
+
+    item def CashBundle {
+        attribute totalValue : MoneyAmount;
+        attribute noteCount : Integer;
+        attribute denominations : CashDenomination[1..*];
+    }
+
+    item def Receipt {
+        attribute data : ReceiptData;
+    }
+
+    item def CustomerInput {
+        attribute selectedTransaction : TransactionKind;
+        attribute selectedAccount : AccountReference;
+        attribute targetAccount : AccountReference;
+        attribute enteredAmount : MoneyAmount;
+        attribute confirmationAccepted : Boolean;
+        attribute cancelPressed : Boolean;
+    }
+
+    item def DisplayMessage {
+        attribute text : String;
+        attribute timeout : DurationValue;
+    }
+
+    item def HostMessage {
+        attribute request : TransactionRequest;
+        attribute response : TransactionResponse;
+    }
+
+    item def SecurityEvent {
+        attribute kind : SecurityEventKind;
+        attribute description : String;
+        attribute timestampText : String;
+    }
+
+    port def CardSlotPort {
+        in item insertedCard : BankCard;
+        out item returnedCard : BankCard;
+        out item retainedCard : BankCard;
+    }
+
+    port def CashDispensePort {
+        out item dispensedCash : CashBundle;
+    }
+
+    port def CashDepositPort {
+        in item depositedCash : CashBundle;
+        out item rejectedCash : CashBundle;
+    }
+
+    port def ReceiptPort {
+        out item printedReceipt : Receipt;
+    }
+
+    port def UserInterfacePort {
+        out item message : DisplayMessage;
+        in item input : CustomerInput;
+    }
+
+    port def SecureHostPort {
+        out item authorizationRequest : TransactionRequest;
+        in item authorizationResponse : TransactionResponse;
+    }
+
+    port def MaintenancePort {
+        out item eventReport : SecurityEvent;
+        in attribute serviceAuthorized : Boolean;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute supplyFrequency : Real;
+        out attribute loadPower : Real;
+    }
+
+    part def CardReader {
+        port cardSlot : CardSlotPort;
+        attribute cardPresent : Boolean;
+        attribute cardRetained : Boolean;
+        attribute maxInvalidPinAttempts : Integer = 3;
+
+        action readCard {
+            in item card : BankCard;
+            out attribute cardData : CardData;
+        }
+
+        action returnCard {
+            out item card : BankCard;
+        }
+
+        action retainCard {
+            out item retained : BankCard;
+        }
+    }
+
+    part def PinPad {
+        attribute pinEntryTimeout : DurationValue;
+        attribute encryptedPinAvailable : Boolean;
+
+        action capturePin {
+            in item prompt : DisplayMessage;
+            out attribute pinBlock : PinBlock;
+        }
+    }
+
+    part def TouchDisplay {
+        port ui : UserInterfacePort;
+        attribute diagonalSizeInches : Real;
+        attribute brightness : PercentageValue;
+
+        action showMessage {
+            in item message : DisplayMessage;
+        }
+
+        action collectSelection {
+            out item input : CustomerInput;
+        }
+    }
+
+    part def CashDispenser {
+        port outlet : CashDispensePort;
+        attribute cassetteCapacityNotes : Integer;
+        attribute availableCash : MoneyAmount;
+        attribute jamDetected : Boolean;
+        attribute lowCashThreshold : MoneyAmount;
+
+        part cassette20;
+        part cassette50;
+        part presenter;
+
+        action prepareCash {
+            in attribute requestedAmount : MoneyAmount;
+            out item cash : CashBundle;
+        }
+
+        action presentCash {
+            in item cash : CashBundle;
+            out item dispensed : CashBundle;
+        }
+    }
+
+    part def CashAcceptor {
+        port inlet : CashDepositPort;
+        attribute escrowedCash : MoneyAmount;
+        attribute rejectedCashCount : Integer;
+
+        action validateDeposit {
+            in item deposited : CashBundle;
+            out item accepted : CashBundle;
+            out item rejected : CashBundle;
+        }
+
+        action commitDeposit {
+            in item accepted : CashBundle;
+        }
+
+        action returnDeposit {
+            out item returned : CashBundle;
+        }
+    }
+
+    part def ReceiptPrinter {
+        port receiptOutput : ReceiptPort;
+        attribute paperRemainingPercent : PercentageValue;
+        attribute printerReady : Boolean;
+
+        action printReceipt {
+            in attribute receiptData : ReceiptData;
+            out item receipt : Receipt;
+        }
+    }
+
+    part def SecurityModule {
+        attribute encryptionEnabled : Boolean = true;
+        attribute tamperDetected : Boolean;
+        attribute temperature : TemperatureValue;
+
+        action encryptPin {
+            in attribute clearPinToken : Identifier;
+            out attribute pinBlock : PinBlock;
+        }
+
+        action reportSecurityEvent {
+            in attribute kind : SecurityEventKind;
+            out item event : SecurityEvent;
+        }
+    }
+
+    part def NetworkAdapter {
+        port hostLink : SecureHostPort;
+        attribute online : Boolean;
+        attribute hostRoundTripTimeout : DurationValue;
+        attribute lastLatency : DurationValue;
+
+        action sendAuthorization {
+            in attribute request : TransactionRequest;
+            out attribute response : TransactionResponse;
+        }
+    }
+
+    part def BankHostGateway {
+        port atmLink : SecureHostPort;
+        attribute hostAvailable : Boolean;
+        attribute dailyWithdrawalLimit : MoneyAmount;
+
+        action authorize {
+            in attribute request : TransactionRequest;
+            out attribute response : TransactionResponse;
+        }
+    }
+
+    part def SupervisorController {
+        attribute sessionActive : Boolean;
+        attribute invalidPinAttempts : Integer;
+        attribute currentRequest : TransactionRequest;
+        attribute currentResponse : TransactionResponse;
+        attribute currentReceipt : ReceiptData;
+
+        action startSession {
+            in attribute cardData : CardData;
+            out item welcome : DisplayMessage;
+        }
+
+        action buildTransactionRequest {
+            in attribute cardData : CardData;
+            in attribute pinBlock : PinBlock;
+            in item customerInput : CustomerInput;
+            out attribute request : TransactionRequest;
+        }
+
+        action evaluateHostResponse {
+            in attribute response : TransactionResponse;
+            out attribute approved : Boolean;
+            out item message : DisplayMessage;
+        }
+
+        action closeSession {
+            out item finalMessage : DisplayMessage;
+        }
+    }
+
+    part def AutomatedTellerMachine {
+        port customerCardPort : CardSlotPort;
+        port customerCashOutPort : CashDispensePort;
+        port customerCashInPort : CashDepositPort;
+        port customerReceiptPort : ReceiptPort;
+        port customerUiPort : UserInterfacePort;
+        port hostPort : SecureHostPort;
+        port maintenancePort : MaintenancePort;
+        port power : PowerPort;
+
+        attribute atmId : Identifier;
+        attribute locationId : Identifier;
+        attribute maximumWithdrawalPerTransaction : MoneyAmount;
+        attribute sessionTimeout : DurationValue;
+        attribute operational : Boolean;
+        attribute cashAvailable : MoneyAmount;
+        attribute receiptPaperAvailable : Boolean;
+
+        part cardReader : CardReader;
+        part pinPad : PinPad;
+        part display : TouchDisplay;
+        part dispenser : CashDispenser;
+        part acceptor : CashAcceptor;
+        part printer : ReceiptPrinter;
+        part security : SecurityModule;
+        part network : NetworkAdapter;
+        part controller : SupervisorController;
+
+        connect customerCardPort to cardReader.cardSlot;
+        connect customerCashOutPort to dispenser.outlet;
+        connect customerCashInPort to acceptor.inlet;
+        connect customerReceiptPort to printer.receiptOutput;
+        connect customerUiPort to display.ui;
+        connect hostPort to network.hostLink;
+
+        perform action operateSession {
+            first start;
+            then awaitCard;
+            then authenticateCustomer;
+            then selectTransaction;
+            then executeTransaction;
+            then issueReceipt;
+            then returnCard;
+            then endSession;
+        }
+
+        state def AtmOperationalState {
+            state initializing;
+            state idle;
+            state cardInserted;
+            state authenticating;
+            state transactionSelection;
+            state processing;
+            state dispensingCash;
+            state acceptingDeposit;
+            state printingReceipt;
+            state returningCard;
+            state outOfService;
+            state maintenance;
+
+            entry initializing;
+            then initializing to idle if operational;
+
+            transition idle_to_cardInserted
+                first idle
+                then cardInserted
+                accept item insertedCard : BankCard via customerCardPort.insertedCard;
+
+            transition cardInserted_to_authenticating
+                first cardInserted
+                then authenticating;
+
+            transition authenticating_to_selection
+                first authenticating
+                then transactionSelection
+                if controller.invalidPinAttempts < cardReader.maxInvalidPinAttempts;
+
+            transition authenticating_to_retained
+                first authenticating
+                then outOfService
+                if controller.invalidPinAttempts >= cardReader.maxInvalidPinAttempts;
+
+            transition selection_to_processing
+                first transactionSelection
+                then processing
+                accept item input : CustomerInput via customerUiPort.input;
+
+            transition processing_to_dispensing
+                first processing
+                then dispensingCash
+                if controller.currentRequest.kind == TransactionKind::CashWithdrawal and controller.currentResponse.status == TransactionStatus::Approved;
+
+            transition processing_to_acceptingDeposit
+                first processing
+                then acceptingDeposit
+                if controller.currentRequest.kind == TransactionKind::CashDeposit and controller.currentResponse.status == TransactionStatus::Approved;
+
+            transition processing_to_printing
+                first processing
+                then printingReceipt
+                if controller.currentRequest.kind == TransactionKind::BalanceInquiry;
+
+            transition dispensing_to_printing
+                first dispensingCash
+                then printingReceipt;
+
+            transition deposit_to_printing
+                first acceptingDeposit
+                then printingReceipt;
+
+            transition printing_to_returning
+                first printingReceipt
+                then returningCard;
+
+            transition returning_to_idle
+                first returningCard
+                then idle;
+
+            transition any_to_outOfService
+                first idle
+                then outOfService
+                if security.tamperDetected or dispenser.jamDetected or not network.online;
+
+            transition outOfService_to_maintenance
+                first outOfService
+                then maintenance
+                if maintenancePort.serviceAuthorized;
+
+            transition maintenance_to_idle
+                first maintenance
+                then idle
+                if operational and network.online and not security.tamperDetected;
+        }
+    }
+
+    part bankHost : BankHostGateway;
+
+    part atm : AutomatedTellerMachine {
+        attribute atmId = Identifier { value = "ATM-CHICAGO-042" };
+        attribute locationId = Identifier { value = "BRANCH-LOBBY-17" };
+        attribute maximumWithdrawalPerTransaction = MoneyAmount { amount = 500.0; currency = CurrencyCode::USD; };
+        attribute sessionTimeout = DurationValue { seconds = 45.0; };
+        attribute operational = true;
+        attribute cashAvailable = MoneyAmount { amount = 80000.0; currency = CurrencyCode::USD; };
+        attribute receiptPaperAvailable = true;
+    }
+
+    connect atm.hostPort to bankHost.atmLink;
+
+    action def PrimaryAtmFunction {
+        in item customerCard : BankCard;
+        in item customerInput : CustomerInput;
+        in attribute enteredPin : PinBlock;
+        out attribute transactionResult : TransactionResponse;
+        out item cashToCustomer : CashBundle;
+        out item receiptToCustomer : Receipt;
+
+        first acceptCard;
+        then authenticateCardholder;
+        then captureTransactionChoice;
+        then requestBankAuthorization;
+        then completeAuthorizedTransaction;
+        then provideCustomerRecord;
+        then returnCustomerCard;
+    }
+
+    action def WithdrawCash {
+        in attribute request : TransactionRequest;
+        in attribute response : TransactionResponse;
+        out item dispensedCash : CashBundle;
+        out attribute updatedAtmCash : MoneyAmount;
+
+        first verifyApproval;
+        then verifyCashAvailability;
+        then countNotes;
+        then presentCash;
+        then updateCashInventory;
+    }
+
+    action def DepositCash {
+        in attribute request : TransactionRequest;
+        in item depositedCash : CashBundle;
+        out attribute response : TransactionResponse;
+        out item rejectedCash : CashBundle;
+
+        first validateNotes;
+        then escrowAcceptedNotes;
+        then requestDepositPosting;
+        then commitOrReturnEscrow;
+    }
+
+    action def QueryBalance {
+        in attribute request : TransactionRequest;
+        out attribute response : TransactionResponse;
+
+        first sendInquiry;
+        then receiveAvailableBalance;
+        then displayBalance;
+    }
+
+    requirement def HighLevelPrimaryFunctionRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        doc /* The automated teller machine shall provide unattended customer banking access by accepting a bank card and PIN, communicating securely with the bank host, executing authorized balance inquiry, withdrawal, deposit, and transfer transactions, dispensing or accepting cash when required, printing a customer receipt, and returning or retaining the card according to security rules. */
+
+        require constraint {
+            atm.operational == true implies atm.network.online == true
+        }
+    }
+
+    requirement def SecureAuthenticationRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.security.encryptionEnabled == true
+        }
+
+        require constraint {
+            atm.cardReader.maxInvalidPinAttempts == 3
+        }
+    }
+
+    requirement def WithdrawalLimitRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.maximumWithdrawalPerTransaction.amount <= 500.0
+        }
+    }
+
+    requirement def CashAvailabilityRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.dispenser.availableCash.amount >= atm.dispenser.lowCashThreshold.amount implies atm.operational == true
+        }
+    }
+
+    requirement def SessionTimeoutRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.sessionTimeout.seconds <= 60.0
+        }
+    }
+
+    requirement def ReceiptRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.printer.printerReady == true implies atm.receiptPaperAvailable == true
+        }
+    }
+
+    requirement def HostAuthorizationRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.controller.currentResponse.status == TransactionStatus::Approved implies atm.network.online == true
+        }
+    }
+
+    requirement def TamperProtectionRequirement {
+        subject atm : AutomatedTellerMachine;
+
+        require constraint {
+            atm.security.tamperDetected == true implies atm.operational == false
+        }
+    }
+
+}

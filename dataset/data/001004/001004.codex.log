@@ -1,0 +1,791 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-exkpm75w
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb516-ab27-7061-95ff-8f2be890f9c7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Carbon monoxide detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CarbonMonoxideDetectorSystem {
+
+    attribute def ppm : ScalarValues::Real;
+    attribute def percent : ScalarValues::Real;
+    attribute def second : ScalarValues::Real;
+    attribute def volt : ScalarValues::Real;
+    attribute def ampere : ScalarValues::Real;
+    attribute def decibel : ScalarValues::Real;
+    attribute def celsius : ScalarValues::Real;
+
+    item def AmbientAir {
+        attribute carbonMonoxideConcentration : ppm;
+        attribute temperature : celsius;
+        attribute relativeHumidity : percent;
+    }
+
+    item def AlarmSound {
+        attribute soundPressureLevel : decibel;
+        attribute cadenceOnTime : second;
+        attribute cadenceOffTime : second;
+    }
+
+    item def VisualAlarmSignal {
+        attribute flashRate : ScalarValues::Real;
+        attribute color : ScalarValues::String;
+    }
+
+    item def BatteryEnergy {
+        attribute voltage : volt;
+        attribute availableCapacityPercent : percent;
+        attribute currentDraw : ampere;
+    }
+
+    item def TestCommand {
+        attribute requested : ScalarValues::Boolean;
+    }
+
+    item def SilenceCommand {
+        attribute requested : ScalarValues::Boolean;
+    }
+
+    item def SensorReading {
+        attribute measuredCO : ppm;
+        attribute sampleAge : second;
+        attribute valid : ScalarValues::Boolean;
+    }
+
+    item def AlarmDecision {
+        attribute alarmRequired : ScalarValues::Boolean;
+        attribute detectedCO : ppm;
+        attribute reason : ScalarValues::String;
+    }
+
+    port def AirIntakePort {
+        in item sampledAir : AmbientAir;
+    }
+
+    port def ElectricalPowerPort {
+        in item suppliedEnergy : BatteryEnergy;
+    }
+
+    port def ReadingPort {
+        out item reading : SensorReading;
+    }
+
+    port def DecisionPort {
+        out item decision : AlarmDecision;
+    }
+
+    port def AudioOutputPort {
+        out item audibleAlarm : AlarmSound;
+    }
+
+    port def VisualOutputPort {
+        out item visualAlarm : VisualAlarmSignal;
+    }
+
+    port def ButtonInputPort {
+        in item testRequest : TestCommand;
+        in item silenceRequest : SilenceCommand;
+    }
+
+    port def InternalReadingInputPort {
+        in item reading : SensorReading;
+    }
+
+    port def InternalDecisionInputPort {
+        in item decision : AlarmDecision;
+    }
+
+    action def SampleAmbientAir {
+        in item air : AmbientAir;
+        out item reading : SensorReading;
+
+        attribute sensorOffset : ppm = 0.0;
+        attribute sensorGain : ScalarValues::Real = 1.0;
+
+        assign reading.measuredCO := air.carbonMonoxideConcentration * sensorGain + sensorOffset;
+        assign reading.sampleAge := 0.0;
+        assign reading.valid := true;
+    }
+
+    action def EvaluateCarbonMonoxideHazard {
+        in item reading : SensorReading;
+        out item decision : AlarmDecision;
+
+        attribute lowThreshold : ppm = 70.0;
+        attribute mediumThreshold : ppm = 150.0;
+        attribute highThreshold : ppm = 400.0;
+
+        if reading.valid and reading.measuredCO >= lowThreshold {
+            assign decision.alarmRequired := true;
+            assign decision.detectedCO := reading.measuredCO;
+            assign decision.reason := "Carbon monoxide concentration exceeds alarm threshold";
+        } else {
+            assign decision.alarmRequired := false;
+            assign decision.detectedCO := reading.measuredCO;
+            assign decision.reason := "Carbon monoxide concentration below alarm threshold";
+        }
+    }
+
+    action def EmitAudibleWarning {
+        in item decision : AlarmDecision;
+        out item audibleAlarm : AlarmSound;
+
+        if decision.alarmRequired {
+            assign audibleAlarm.soundPressureLevel := 85.0;
+            assign audibleAlarm.cadenceOnTime := 0.5;
+            assign audibleAlarm.cadenceOffTime := 0.5;
+        } else {
+            assign audibleAlarm.soundPressureLevel := 0.0;
+            assign audibleAlarm.cadenceOnTime := 0.0;
+            assign audibleAlarm.cadenceOffTime := 0.0;
+        }
+    }
+
+    action def EmitVisualWarning {
+        in item decision : AlarmDecision;
+        out item visualAlarm : VisualAlarmSignal;
+
+        if decision.alarmRequired {
+            assign visualAlarm.flashRate := 2.0;
+            assign visualAlarm.color := "red";
+        } else {
+            assign visualAlarm.flashRate := 0.2;
+            assign visualAlarm.color := "green";
+        }
+    }
+
+    part def ElectrochemicalCOSensor {
+        port airIn : AirIntakePort;
+        port readingOut : ReadingPort;
+
+        attribute measurementRangeMin : ppm = 0.0;
+        attribute measurementRangeMax : ppm = 1000.0;
+        attribute accuracyWithinRange : ppm = 10.0;
+        attribute samplePeriod : second = 1.0;
+        attribute warmupTime : second = 60.0;
+
+        perform action sample : SampleAmbientAir {
+            in air = airIn.sampledAir;
+            out reading = readingOut.reading;
+        }
+    }
+
+    part def AlarmDecisionProcessor {
+        port readingIn : InternalReadingInputPort;
+        port decisionOut : DecisionPort;
+
+        attribute lowCOAlarmThreshold : ppm = 70.0;
+        attribute mediumCOAlarmThreshold : ppm = 150.0;
+        attribute highCOAlarmThreshold : ppm = 400.0;
+        attribute evaluationPeriod : second = 1.0;
+        attribute alarmLatchEnabled : ScalarValues::Boolean = true;
+
+        perform action evaluate : EvaluateCarbonMonoxideHazard {
+            in reading = readingIn.reading;
+            out decision = decisionOut.decision;
+        }
+    }
+
+    part def AudibleAlarmDevice {
+        port decisionIn : InternalDecisionInputPort;
+        port audioOut : AudioOutputPort;
+
+        attribute minimumAlarmLevel : decibel = 85.0;
+        attribute nominalFrequency : ScalarValues::Real = 3200.0;
+
+        perform action soundWarning : EmitAudibleWarning {
+            in decision = decisionIn.decision;
+            out audibleAlarm = audioOut.audibleAlarm;
+        }
+    }
+
+    part def VisualIndicator {
+        port decisionIn : InternalDecisionInputPort;
+        port visualOut : VisualOutputPort;
+
+        attribute standbyFlashRate : ScalarValues::Real = 0.2;
+        attribute alarmFlashRate : ScalarValues::Real = 2.0;
+
+        perform action showWarning : EmitVisualWarning {
+            in decision = decisionIn.decision;
+            out visualAlarm = visualOut.visualAlarm;
+        }
+    }
+
+    part def BatteryPowerSupply {
+        port powerOut : ElectricalPowerPort;
+
+        attribute nominalVoltage : volt = 9.0;
+        attribute lowBatteryVoltage : volt = 7.2;
+        attribute capacityRemaining : percent = 100.0;
+        attribute quiescentCurrent : ampere = 0.00003;
+        attribute alarmCurrent : ampere = 0.08;
+    }
+
+    part def UserInterface {
+        port buttonIn : ButtonInputPort;
+
+        attribute testButtonPressed : ScalarValues::Boolean = false;
+        attribute silenceButtonPressed : ScalarValues::Boolean = false;
+        attribute silenceDuration : second = 300.0;
+    }
+
+    part def CarbonMonoxideDetector {
+        port environmentAir : AirIntakePort;
+        port batteryPower : ElectricalPowerPort;
+        port userButtons : ButtonInputPort;
+        port audibleOutput : AudioOutputPort;
+        port visualOutput : VisualOutputPort;
+
+        part sensor : ElectrochemicalCOSensor;
+        part processor : AlarmDecisionProcessor;
+        part horn : AudibleAlarmDevice;
+        part indicator : VisualIndicator;
+        part battery : BatteryPowerSupply;
+        part userInterface : UserInterface;
+
+        connect environmentAir.sampledAir to sensor.airIn.sampledAir;
+        connect battery.powerOut.suppliedEnergy to batteryPower.suppliedEnergy;
+        connect userButtons.testRequest to userInterface.buttonIn.testRequest;
+        connect userButtons.silenceRequest to userInterface.buttonIn.silenceRequest;
+
+        connect sensor.readingOut.reading to processor.readingIn.reading;
+        connect processor.decisionOut.decision to horn.decisionIn.decision;
+        connect processor.decisionOut.decision to indicator.decisionIn.decision;
+        connect horn.audioOut.audibleAlarm to audibleOutput.audibleAlarm;
+        connect indicator.visualOut.visualAlarm to visualOutput.visualAlarm;
+
+        attribute installedLocation : ScalarValues::String = "occupied indoor space";
+        attribute primaryFunction : ScalarValues::String =
+            "Continuously monitor ambient air for carbon monoxide and warn occupants when hazardous concentration is detected.";
+        attribute operatingTemperatureMin : celsius = 4.0;
+        attribute operatingTemperatureMax : celsius = 38.0;
+        attribute operatingHumidityMax : percent = 95.0;
+
+        state def DetectorOperationalStates {
+            state Initializing;
+            state Monitoring;
+            state AlarmActive;
+            state Silenced;
+            state LowBattery;
+            state Fault;
+
+            initial then Initializing;
+
+            transition Initializing_to_Monitoring
+                first Initializing
+                then Monitoring
+                accept after 60.0 second;
+
+            transition Monitoring_to_AlarmActive
+                first Monitoring
+                then AlarmActive
+                if processor.decisionOut.decision.alarmRequired;
+
+            transition AlarmActive_to_Monitoring
+                first AlarmActive
+                then Monitoring
+                if not processor.decisionOut.decision.alarmRequired;
+
+            transition AlarmActive_to_Silenced
+                first AlarmActive
+                then Silenced
+                accept userInterface.buttonIn.silenceRequest
+                if processor.decisionOut.decision.detectedCO < 150.0;
+
+            transition Silenced_to_AlarmActive
+                first Silenced
+                then AlarmActive
+                accept after 300.0 second
+                if processor.decisionOut.decision.alarmRequired;
+
+            transition Monitoring_to_LowBattery
+                first Monitoring
+                then LowBattery
+                if battery.capacityRemaining < 10.0 or battery.nominalVoltage < battery.lowBatteryVoltage;
+
+            transition LowBattery_to_Monitoring
+                first LowBattery
+                then Monitoring
+                if battery.capacityRemaining >= 10.0 and battery.nominalVoltage >= battery.lowBatteryVoltage;
+
+            transition Monitoring_to_Fault
+                first Monitoring
+                then Fault
+                if not sensor.readingOut.reading.valid;
+
+            transition Fault_to_Monitoring
+                first Fault
+                then Monitoring
+                if sensor.readingOut.reading.valid;
+        }
+
+        exhibit stateMachine : DetectorOperationalStates;
+    }
+
+    requirement def DetectCarbonMonoxideRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall continuously sample ambient air and determine the carbon monoxide concentration. */
+        require constraint {
+            detector.sensor.samplePeriod <= 1.0
+        }
+    }
+
+    requirement def AlarmAtHazardousLevelRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall initiate an occupant alarm when measured carbon monoxide concentration is at or above 70 ppm. */
+        require constraint {
+            detector.processor.lowCOAlarmThreshold == 70.0
+        }
+    }
+
+    requirement def AudibleAlarmRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall produce an audible alarm of at least 85 dB during an active carbon monoxide alarm condition. */
+        require constraint {
+            detector.horn.minimumAlarmLevel >= 85.0
+        }
+    }
+
+    requirement def VisualAlarmRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall provide a visual red flashing alarm indication during an active carbon monoxide alarm condition. */
+        require constraint {
+            detector.indicator.alarmFlashRate >= 1.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall operate from an internal battery supply and indicate low battery condition before loss of detection capability. */
+        require constraint {
+            detector.battery.lowBatteryVoltage >= 7.2
+        }
+    }
+
+    requirement def SilenceSafetyRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall allow temporary alarm silencing only below the medium carbon monoxide hazard threshold. */
+        require constraint {
+            detector.processor.mediumCOAlarmThreshold == 150.0 and
+            detector.userInterface.silenceDuration <= 300.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The primary function of the system is to monitor occupied indoor air for carbon monoxide and alert occupants to evacuate or ventilate before exposure becomes dangerous. */
+        require constraint {
+            detector.primaryFunction ==
+            "Continuously monitor ambient air for carbon monoxide and warn occupants when hazardous concentration is detected."
+        }
+    }
+
+    part homeCOAlarm : CarbonMonoxideDetector;
+
+    satisfy DetectCarbonMonoxideRequirement by homeCOAlarm.sensor;
+    satisfy AlarmAtHazardousLevelRequirement by homeCOAlarm.processor;
+    satisfy AudibleAlarmRequirement by homeCOAlarm.horn;
+    satisfy VisualAlarmRequirement by homeCOAlarm.indicator;
+    satisfy BatteryOperationRequirement by homeCOAlarm.battery;
+    satisfy SilenceSafetyRequirement by homeCOAlarm.userInterface;
+    satisfy PrimaryFunctionRequirement by homeCOAlarm;
+}
+tokens used
+4,278
+package CarbonMonoxideDetectorSystem {
+
+    attribute def ppm : ScalarValues::Real;
+    attribute def percent : ScalarValues::Real;
+    attribute def second : ScalarValues::Real;
+    attribute def volt : ScalarValues::Real;
+    attribute def ampere : ScalarValues::Real;
+    attribute def decibel : ScalarValues::Real;
+    attribute def celsius : ScalarValues::Real;
+
+    item def AmbientAir {
+        attribute carbonMonoxideConcentration : ppm;
+        attribute temperature : celsius;
+        attribute relativeHumidity : percent;
+    }
+
+    item def AlarmSound {
+        attribute soundPressureLevel : decibel;
+        attribute cadenceOnTime : second;
+        attribute cadenceOffTime : second;
+    }
+
+    item def VisualAlarmSignal {
+        attribute flashRate : ScalarValues::Real;
+        attribute color : ScalarValues::String;
+    }
+
+    item def BatteryEnergy {
+        attribute voltage : volt;
+        attribute availableCapacityPercent : percent;
+        attribute currentDraw : ampere;
+    }
+
+    item def TestCommand {
+        attribute requested : ScalarValues::Boolean;
+    }
+
+    item def SilenceCommand {
+        attribute requested : ScalarValues::Boolean;
+    }
+
+    item def SensorReading {
+        attribute measuredCO : ppm;
+        attribute sampleAge : second;
+        attribute valid : ScalarValues::Boolean;
+    }
+
+    item def AlarmDecision {
+        attribute alarmRequired : ScalarValues::Boolean;
+        attribute detectedCO : ppm;
+        attribute reason : ScalarValues::String;
+    }
+
+    port def AirIntakePort {
+        in item sampledAir : AmbientAir;
+    }
+
+    port def ElectricalPowerPort {
+        in item suppliedEnergy : BatteryEnergy;
+    }
+
+    port def ReadingPort {
+        out item reading : SensorReading;
+    }
+
+    port def DecisionPort {
+        out item decision : AlarmDecision;
+    }
+
+    port def AudioOutputPort {
+        out item audibleAlarm : AlarmSound;
+    }
+
+    port def VisualOutputPort {
+        out item visualAlarm : VisualAlarmSignal;
+    }
+
+    port def ButtonInputPort {
+        in item testRequest : TestCommand;
+        in item silenceRequest : SilenceCommand;
+    }
+
+    port def InternalReadingInputPort {
+        in item reading : SensorReading;
+    }
+
+    port def InternalDecisionInputPort {
+        in item decision : AlarmDecision;
+    }
+
+    action def SampleAmbientAir {
+        in item air : AmbientAir;
+        out item reading : SensorReading;
+
+        attribute sensorOffset : ppm = 0.0;
+        attribute sensorGain : ScalarValues::Real = 1.0;
+
+        assign reading.measuredCO := air.carbonMonoxideConcentration * sensorGain + sensorOffset;
+        assign reading.sampleAge := 0.0;
+        assign reading.valid := true;
+    }
+
+    action def EvaluateCarbonMonoxideHazard {
+        in item reading : SensorReading;
+        out item decision : AlarmDecision;
+
+        attribute lowThreshold : ppm = 70.0;
+        attribute mediumThreshold : ppm = 150.0;
+        attribute highThreshold : ppm = 400.0;
+
+        if reading.valid and reading.measuredCO >= lowThreshold {
+            assign decision.alarmRequired := true;
+            assign decision.detectedCO := reading.measuredCO;
+            assign decision.reason := "Carbon monoxide concentration exceeds alarm threshold";
+        } else {
+            assign decision.alarmRequired := false;
+            assign decision.detectedCO := reading.measuredCO;
+            assign decision.reason := "Carbon monoxide concentration below alarm threshold";
+        }
+    }
+
+    action def EmitAudibleWarning {
+        in item decision : AlarmDecision;
+        out item audibleAlarm : AlarmSound;
+
+        if decision.alarmRequired {
+            assign audibleAlarm.soundPressureLevel := 85.0;
+            assign audibleAlarm.cadenceOnTime := 0.5;
+            assign audibleAlarm.cadenceOffTime := 0.5;
+        } else {
+            assign audibleAlarm.soundPressureLevel := 0.0;
+            assign audibleAlarm.cadenceOnTime := 0.0;
+            assign audibleAlarm.cadenceOffTime := 0.0;
+        }
+    }
+
+    action def EmitVisualWarning {
+        in item decision : AlarmDecision;
+        out item visualAlarm : VisualAlarmSignal;
+
+        if decision.alarmRequired {
+            assign visualAlarm.flashRate := 2.0;
+            assign visualAlarm.color := "red";
+        } else {
+            assign visualAlarm.flashRate := 0.2;
+            assign visualAlarm.color := "green";
+        }
+    }
+
+    part def ElectrochemicalCOSensor {
+        port airIn : AirIntakePort;
+        port readingOut : ReadingPort;
+
+        attribute measurementRangeMin : ppm = 0.0;
+        attribute measurementRangeMax : ppm = 1000.0;
+        attribute accuracyWithinRange : ppm = 10.0;
+        attribute samplePeriod : second = 1.0;
+        attribute warmupTime : second = 60.0;
+
+        perform action sample : SampleAmbientAir {
+            in air = airIn.sampledAir;
+            out reading = readingOut.reading;
+        }
+    }
+
+    part def AlarmDecisionProcessor {
+        port readingIn : InternalReadingInputPort;
+        port decisionOut : DecisionPort;
+
+        attribute lowCOAlarmThreshold : ppm = 70.0;
+        attribute mediumCOAlarmThreshold : ppm = 150.0;
+        attribute highCOAlarmThreshold : ppm = 400.0;
+        attribute evaluationPeriod : second = 1.0;
+        attribute alarmLatchEnabled : ScalarValues::Boolean = true;
+
+        perform action evaluate : EvaluateCarbonMonoxideHazard {
+            in reading = readingIn.reading;
+            out decision = decisionOut.decision;
+        }
+    }
+
+    part def AudibleAlarmDevice {
+        port decisionIn : InternalDecisionInputPort;
+        port audioOut : AudioOutputPort;
+
+        attribute minimumAlarmLevel : decibel = 85.0;
+        attribute nominalFrequency : ScalarValues::Real = 3200.0;
+
+        perform action soundWarning : EmitAudibleWarning {
+            in decision = decisionIn.decision;
+            out audibleAlarm = audioOut.audibleAlarm;
+        }
+    }
+
+    part def VisualIndicator {
+        port decisionIn : InternalDecisionInputPort;
+        port visualOut : VisualOutputPort;
+
+        attribute standbyFlashRate : ScalarValues::Real = 0.2;
+        attribute alarmFlashRate : ScalarValues::Real = 2.0;
+
+        perform action showWarning : EmitVisualWarning {
+            in decision = decisionIn.decision;
+            out visualAlarm = visualOut.visualAlarm;
+        }
+    }
+
+    part def BatteryPowerSupply {
+        port powerOut : ElectricalPowerPort;
+
+        attribute nominalVoltage : volt = 9.0;
+        attribute lowBatteryVoltage : volt = 7.2;
+        attribute capacityRemaining : percent = 100.0;
+        attribute quiescentCurrent : ampere = 0.00003;
+        attribute alarmCurrent : ampere = 0.08;
+    }
+
+    part def UserInterface {
+        port buttonIn : ButtonInputPort;
+
+        attribute testButtonPressed : ScalarValues::Boolean = false;
+        attribute silenceButtonPressed : ScalarValues::Boolean = false;
+        attribute silenceDuration : second = 300.0;
+    }
+
+    part def CarbonMonoxideDetector {
+        port environmentAir : AirIntakePort;
+        port batteryPower : ElectricalPowerPort;
+        port userButtons : ButtonInputPort;
+        port audibleOutput : AudioOutputPort;
+        port visualOutput : VisualOutputPort;
+
+        part sensor : ElectrochemicalCOSensor;
+        part processor : AlarmDecisionProcessor;
+        part horn : AudibleAlarmDevice;
+        part indicator : VisualIndicator;
+        part battery : BatteryPowerSupply;
+        part userInterface : UserInterface;
+
+        connect environmentAir.sampledAir to sensor.airIn.sampledAir;
+        connect battery.powerOut.suppliedEnergy to batteryPower.suppliedEnergy;
+        connect userButtons.testRequest to userInterface.buttonIn.testRequest;
+        connect userButtons.silenceRequest to userInterface.buttonIn.silenceRequest;
+
+        connect sensor.readingOut.reading to processor.readingIn.reading;
+        connect processor.decisionOut.decision to horn.decisionIn.decision;
+        connect processor.decisionOut.decision to indicator.decisionIn.decision;
+        connect horn.audioOut.audibleAlarm to audibleOutput.audibleAlarm;
+        connect indicator.visualOut.visualAlarm to visualOutput.visualAlarm;
+
+        attribute installedLocation : ScalarValues::String = "occupied indoor space";
+        attribute primaryFunction : ScalarValues::String =
+            "Continuously monitor ambient air for carbon monoxide and warn occupants when hazardous concentration is detected.";
+        attribute operatingTemperatureMin : celsius = 4.0;
+        attribute operatingTemperatureMax : celsius = 38.0;
+        attribute operatingHumidityMax : percent = 95.0;
+
+        state def DetectorOperationalStates {
+            state Initializing;
+            state Monitoring;
+            state AlarmActive;
+            state Silenced;
+            state LowBattery;
+            state Fault;
+
+            initial then Initializing;
+
+            transition Initializing_to_Monitoring
+                first Initializing
+                then Monitoring
+                accept after 60.0 second;
+
+            transition Monitoring_to_AlarmActive
+                first Monitoring
+                then AlarmActive
+                if processor.decisionOut.decision.alarmRequired;
+
+            transition AlarmActive_to_Monitoring
+                first AlarmActive
+                then Monitoring
+                if not processor.decisionOut.decision.alarmRequired;
+
+            transition AlarmActive_to_Silenced
+                first AlarmActive
+                then Silenced
+                accept userInterface.buttonIn.silenceRequest
+                if processor.decisionOut.decision.detectedCO < 150.0;
+
+            transition Silenced_to_AlarmActive
+                first Silenced
+                then AlarmActive
+                accept after 300.0 second
+                if processor.decisionOut.decision.alarmRequired;
+
+            transition Monitoring_to_LowBattery
+                first Monitoring
+                then LowBattery
+                if battery.capacityRemaining < 10.0 or battery.nominalVoltage < battery.lowBatteryVoltage;
+
+            transition LowBattery_to_Monitoring
+                first LowBattery
+                then Monitoring
+                if battery.capacityRemaining >= 10.0 and battery.nominalVoltage >= battery.lowBatteryVoltage;
+
+            transition Monitoring_to_Fault
+                first Monitoring
+                then Fault
+                if not sensor.readingOut.reading.valid;
+
+            transition Fault_to_Monitoring
+                first Fault
+                then Monitoring
+                if sensor.readingOut.reading.valid;
+        }
+
+        exhibit stateMachine : DetectorOperationalStates;
+    }
+
+    requirement def DetectCarbonMonoxideRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall continuously sample ambient air and determine the carbon monoxide concentration. */
+        require constraint {
+            detector.sensor.samplePeriod <= 1.0
+        }
+    }
+
+    requirement def AlarmAtHazardousLevelRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall initiate an occupant alarm when measured carbon monoxide concentration is at or above 70 ppm. */
+        require constraint {
+            detector.processor.lowCOAlarmThreshold == 70.0
+        }
+    }
+
+    requirement def AudibleAlarmRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall produce an audible alarm of at least 85 dB during an active carbon monoxide alarm condition. */
+        require constraint {
+            detector.horn.minimumAlarmLevel >= 85.0
+        }
+    }
+
+    requirement def VisualAlarmRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall provide a visual red flashing alarm indication during an active carbon monoxide alarm condition. */
+        require constraint {
+            detector.indicator.alarmFlashRate >= 1.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall operate from an internal battery supply and indicate low battery condition before loss of detection capability. */
+        require constraint {
+            detector.battery.lowBatteryVoltage >= 7.2
+        }
+    }
+
+    requirement def SilenceSafetyRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The detector shall allow temporary alarm silencing only below the medium carbon monoxide hazard threshold. */
+        require constraint {
+            detector.processor.mediumCOAlarmThreshold == 150.0 and
+            detector.userInterface.silenceDuration <= 300.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : CarbonMonoxideDetector;
+        doc /* The primary function of the system is to monitor occupied indoor air for carbon monoxide and alert occupants to evacuate or ventilate before exposure becomes dangerous. */
+        require constraint {
+            detector.primaryFunction ==
+            "Continuously monitor ambient air for carbon monoxide and warn occupants when hazardous concentration is detected."
+        }
+    }
+
+    part homeCOAlarm : CarbonMonoxideDetector;
+
+    satisfy DetectCarbonMonoxideRequirement by homeCOAlarm.sensor;
+    satisfy AlarmAtHazardousLevelRequirement by homeCOAlarm.processor;
+    satisfy AudibleAlarmRequirement by homeCOAlarm.horn;
+    satisfy VisualAlarmRequirement by homeCOAlarm.indicator;
+    satisfy BatteryOperationRequirement by homeCOAlarm.battery;
+    satisfy SilenceSafetyRequirement by homeCOAlarm.userInterface;
+    satisfy PrimaryFunctionRequirement by homeCOAlarm;
+}

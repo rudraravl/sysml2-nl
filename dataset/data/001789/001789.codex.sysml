@@ -1,0 +1,673 @@
+package GastrointestinalTractModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def pH {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Volume {
+        :> ISQ::volume;
+    }
+
+    attribute def FlowRate {
+        :> ISQ::volumeFlowRate;
+    }
+
+    attribute def MassFlowRate {
+        :> ISQ::massFlowRate;
+    }
+
+    attribute def TimeDuration {
+        :> ISQ::time;
+    }
+
+    attribute def AbsorptionRate {
+        :> ISQ::massFlowRate;
+    }
+
+    attribute def MotilityFrequency {
+        :> ISQ::frequency;
+    }
+
+    attribute def SurfaceArea {
+        :> ISQ::area;
+    }
+
+    enum def DigestivePhase {
+        enum oralProcessing;
+        enum gastricProcessing;
+        enum intestinalDigestion;
+        enum nutrientAbsorption;
+        enum waterRecovery;
+        enum wasteElimination;
+        enum fastingRest;
+    }
+
+    enum def MaterialState {
+        enum solidFood;
+        enum bolus;
+        enum chyme;
+        enum intestinalContents;
+        enum fecalMatter;
+    }
+
+    item def FoodIntake {
+        attribute mass : ISQ::mass;
+        attribute waterFraction : ScalarValues::Real;
+        attribute carbohydrateMass : ISQ::mass;
+        attribute proteinMass : ISQ::mass;
+        attribute lipidMass : ISQ::mass;
+        attribute fiberMass : ISQ::mass;
+        attribute state : MaterialState = MaterialState::solidFood;
+    }
+
+    item def Saliva {
+        attribute flowRate : FlowRate;
+        attribute amylaseConcentration : ScalarValues::Real;
+        attribute bicarbonateConcentration : ScalarValues::Real;
+        attribute pHValue : pH = 6.8;
+    }
+
+    item def Bolus {
+        attribute mass : ISQ::mass;
+        attribute particleSizeMean : ISQ::length;
+        attribute moistureFraction : ScalarValues::Real;
+        attribute state : MaterialState = MaterialState::bolus;
+    }
+
+    item def GastricJuice {
+        attribute flowRate : FlowRate;
+        attribute acidConcentration : ScalarValues::Real;
+        attribute pepsinActivity : ScalarValues::Real;
+        attribute pHValue : pH = 2.0;
+    }
+
+    item def Chyme {
+        attribute volume : Volume;
+        attribute pHValue : pH;
+        attribute carbohydrateMass : ISQ::mass;
+        attribute peptideMass : ISQ::mass;
+        attribute lipidMass : ISQ::mass;
+        attribute dissolvedNutrientMass : ISQ::mass;
+        attribute state : MaterialState = MaterialState::chyme;
+    }
+
+    item def Bile {
+        attribute flowRate : FlowRate;
+        attribute bileSaltConcentration : ScalarValues::Real;
+        attribute lipidEmulsificationCapacity : ISQ::mass;
+        attribute pHValue : pH = 7.8;
+    }
+
+    item def PancreaticJuice {
+        attribute flowRate : FlowRate;
+        attribute amylaseActivity : ScalarValues::Real;
+        attribute proteaseActivity : ScalarValues::Real;
+        attribute lipaseActivity : ScalarValues::Real;
+        attribute bicarbonateConcentration : ScalarValues::Real;
+        attribute pHValue : pH = 8.1;
+    }
+
+    item def IntestinalContents {
+        attribute volume : Volume;
+        attribute pHValue : pH;
+        attribute glucoseMass : ISQ::mass;
+        attribute aminoAcidMass : ISQ::mass;
+        attribute fattyAcidMass : ISQ::mass;
+        attribute waterVolume : Volume;
+        attribute electrolyteMass : ISQ::mass;
+        attribute state : MaterialState = MaterialState::intestinalContents;
+    }
+
+    item def AbsorbedNutrients {
+        attribute glucoseMassFlow : MassFlowRate;
+        attribute aminoAcidMassFlow : MassFlowRate;
+        attribute fattyAcidMassFlow : MassFlowRate;
+        attribute vitaminMassFlow : MassFlowRate;
+        attribute electrolyteMassFlow : MassFlowRate;
+        attribute waterFlow : FlowRate;
+    }
+
+    item def Feces {
+        attribute mass : ISQ::mass;
+        attribute waterFraction : ScalarValues::Real;
+        attribute microbialMass : ISQ::mass;
+        attribute fiberMass : ISQ::mass;
+        attribute state : MaterialState = MaterialState::fecalMatter;
+    }
+
+    port def OralInletPort {
+        in item food : FoodIntake;
+    }
+
+    port def MaterialOutletPort {
+        out item contents;
+    }
+
+    port def MaterialInletPort {
+        in item contents;
+    }
+
+    port def SecretionOutletPort {
+        out item secretion;
+    }
+
+    port def NutrientOutletPort {
+        out item nutrients : AbsorbedNutrients;
+    }
+
+    port def WasteOutletPort {
+        out item waste : Feces;
+    }
+
+    port def NeuralControlPort {
+        in attribute phaseCommand : DigestivePhase;
+        in attribute motilityCommand : MotilityFrequency;
+    }
+
+    port def EndocrineSignalPort {
+        out attribute gastrinLevel : ScalarValues::Real;
+        out attribute secretinLevel : ScalarValues::Real;
+        out attribute cholecystokininLevel : ScalarValues::Real;
+    }
+
+    part def Mouth {
+        attribute salivaProductionRate : FlowRate = 1.0 [SI::mL / SI::min];
+        attribute chewingFrequency : MotilityFrequency = 1.5 [SI::Hz];
+        attribute targetParticleSize : ISQ::length = 2.0 [SI::mm];
+
+        port oralInput : OralInletPort;
+        port bolusOutput : MaterialOutletPort;
+        port salivaOutput : SecretionOutletPort;
+        port neuralInput : NeuralControlPort;
+
+        action chewAndMix {
+            in item food : FoodIntake;
+            in item saliva : Saliva;
+            out item bolus : Bolus;
+
+            first start;
+            then reduceParticleSize;
+            then hydrateFood;
+            then initiateStarchDigestion;
+            then formBolus;
+            then done;
+
+            action reduceParticleSize;
+            action hydrateFood;
+            action initiateStarchDigestion;
+            action formBolus;
+        }
+    }
+
+    part def PharynxAndEsophagus {
+        attribute transitTime : TimeDuration = 10.0 [SI::s];
+        attribute peristalticFrequency : MotilityFrequency = 0.2 [SI::Hz];
+
+        port bolusInput : MaterialInletPort;
+        port stomachOutput : MaterialOutletPort;
+        port neuralInput : NeuralControlPort;
+
+        action swallowAndTransport {
+            in item bolus : Bolus;
+            out item deliveredBolus : Bolus;
+
+            first initiateSwallow;
+            then closeAirway;
+            then propagatePeristalticWave;
+            then openLowerEsophagealSphincter;
+            then deliverToStomach;
+            then done;
+
+            action initiateSwallow;
+            action closeAirway;
+            action propagatePeristalticWave;
+            action openLowerEsophagealSphincter;
+            action deliverToStomach;
+        }
+    }
+
+    part def Stomach {
+        attribute reservoirCapacity : Volume = 1.5 [SI::L];
+        attribute nominalEmptyingRate : FlowRate = 3.0 [SI::mL / SI::min];
+        attribute gastricPH : pH = 2.0;
+        attribute mixingFrequency : MotilityFrequency = 0.05 [SI::Hz];
+
+        port bolusInput : MaterialInletPort;
+        port chymeOutput : MaterialOutletPort;
+        port gastricJuiceOutput : SecretionOutletPort;
+        port neuralInput : NeuralControlPort;
+        port hormoneOutput : EndocrineSignalPort;
+
+        action storeMixAcidifyAndEmpty {
+            in item bolus : Bolus;
+            in item gastricJuice : GastricJuice;
+            out item chyme : Chyme;
+
+            first receiveMeal;
+            then relaxFundus;
+            then secreteAcidAndPepsin;
+            then churnContents;
+            then denatureProteins;
+            then meterChymeThroughPylorus;
+            then done;
+
+            action receiveMeal;
+            action relaxFundus;
+            action secreteAcidAndPepsin;
+            action churnContents;
+            action denatureProteins;
+            action meterChymeThroughPylorus;
+        }
+
+        state def GastricStateMachine {
+            entry action initializeGastricTone;
+
+            state Empty;
+            state ReceptiveRelaxation;
+            state ActiveDigestion;
+            state ControlledEmptying;
+            state FastingMotility;
+
+            transition first Empty;
+            transition Empty then ReceptiveRelaxation
+                accept MealDetected;
+            transition ReceptiveRelaxation then ActiveDigestion
+                accept ReservoirFilled;
+            transition ActiveDigestion then ControlledEmptying
+                if gastricPH < 4.0;
+            transition ControlledEmptying then FastingMotility
+                if reservoirVolume < 0.05 [SI::L];
+            transition FastingMotility then Empty
+                accept MigratingMotorComplexComplete;
+
+            action initializeGastricTone;
+            attribute reservoirVolume : Volume;
+        }
+    }
+
+    part def Liver {
+        attribute bileProductionRate : FlowRate = 0.7 [SI::mL / SI::min];
+
+        port bileOutput : SecretionOutletPort;
+        port neuralInput : NeuralControlPort;
+
+        action produceBile {
+            out item bile : Bile;
+
+            first synthesizeBileSalts;
+            then conjugateBilirubin;
+            then secreteBile;
+            then done;
+
+            action synthesizeBileSalts;
+            action conjugateBilirubin;
+            action secreteBile;
+        }
+    }
+
+    part def Gallbladder {
+        attribute storageCapacity : Volume = 50.0 [SI::mL];
+        attribute ejectionFraction : ScalarValues::Real = 0.65;
+
+        port bileInput : MaterialInletPort;
+        port bileOutput : SecretionOutletPort;
+        port hormoneInput : EndocrineSignalPort;
+
+        action storeConcentrateAndReleaseBile {
+            in item hepaticBile : Bile;
+            out item concentratedBile : Bile;
+
+            first receiveBile;
+            then absorbWater;
+            then concentrateBileSalts;
+            then contractWhenCCKRises;
+            then deliverToDuodenum;
+            then done;
+
+            action receiveBile;
+            action absorbWater;
+            action concentrateBileSalts;
+            action contractWhenCCKRises;
+            action deliverToDuodenum;
+        }
+    }
+
+    part def Pancreas {
+        attribute secretionRate : FlowRate = 2.0 [SI::mL / SI::min];
+        attribute bicarbonateOutputRate : MassFlowRate;
+        attribute enzymeOutputRate : MassFlowRate;
+
+        port pancreaticJuiceOutput : SecretionOutletPort;
+        port hormoneInput : EndocrineSignalPort;
+        port neuralInput : NeuralControlPort;
+
+        action secreteDigestiveFluid {
+            out item pancreaticJuice : PancreaticJuice;
+
+            first senseSecretinAndCCK;
+            then secreteBicarbonate;
+            then secreteDigestiveEnzymes;
+            then flushIntoDuodenum;
+            then done;
+
+            action senseSecretinAndCCK;
+            action secreteBicarbonate;
+            action secreteDigestiveEnzymes;
+            action flushIntoDuodenum;
+        }
+    }
+
+    part def SmallIntestine {
+        attribute length : ISQ::length = 6.0 [SI::m];
+        attribute absorptiveSurfaceArea : SurfaceArea = 30.0 [SI::m^2];
+        attribute luminalPH : pH = 7.2;
+        attribute segmentationFrequency : MotilityFrequency = 0.2 [SI::Hz];
+        attribute glucoseAbsorptionRate : AbsorptionRate;
+        attribute aminoAcidAbsorptionRate : AbsorptionRate;
+        attribute lipidAbsorptionRate : AbsorptionRate;
+        attribute waterAbsorptionRate : FlowRate;
+
+        port chymeInput : MaterialInletPort;
+        port bileInput : MaterialInletPort;
+        port pancreaticJuiceInput : MaterialInletPort;
+        port ilealOutput : MaterialOutletPort;
+        port nutrientOutput : NutrientOutletPort;
+        port neuralInput : NeuralControlPort;
+        port hormoneOutput : EndocrineSignalPort;
+
+        part duodenum {
+            attribute length : ISQ::length = 0.25 [SI::m];
+            attribute neutralizationTargetPH : pH = 6.5;
+        }
+
+        part jejunum {
+            attribute length : ISQ::length = 2.5 [SI::m];
+            attribute villusDensity : ScalarValues::Real;
+        }
+
+        part ileum {
+            attribute length : ISQ::length = 3.25 [SI::m];
+            attribute bileSaltRecoveryFraction : ScalarValues::Real = 0.95;
+        }
+
+        action neutralizeDigestAndAbsorb {
+            in item chyme : Chyme;
+            in item bile : Bile;
+            in item pancreaticJuice : PancreaticJuice;
+            out item intestinalContents : IntestinalContents;
+            out item absorbedNutrients : AbsorbedNutrients;
+
+            first receiveAcidicChyme;
+            then releaseSecretinAndCCK;
+            then neutralizeAcid;
+            then emulsifyLipids;
+            then hydrolyzeMacromolecules;
+            then segmentAndExposeToMucosa;
+            then absorbMonosaccharidesAndAminoAcids;
+            then absorbLipidsThroughLacteals;
+            then recoverWaterAndElectrolytes;
+            then transferResidueToColon;
+            then done;
+
+            action receiveAcidicChyme;
+            action releaseSecretinAndCCK;
+            action neutralizeAcid;
+            action emulsifyLipids;
+            action hydrolyzeMacromolecules;
+            action segmentAndExposeToMucosa;
+            action absorbMonosaccharidesAndAminoAcids;
+            action absorbLipidsThroughLacteals;
+            action recoverWaterAndElectrolytes;
+            action transferResidueToColon;
+        }
+    }
+
+    part def LargeIntestine {
+        attribute length : ISQ::length = 1.5 [SI::m];
+        attribute waterRecoveryRate : FlowRate = 1.2 [SI::mL / SI::min];
+        attribute microbialFermentationRate : MassFlowRate;
+        attribute storageCapacity : Volume = 0.5 [SI::L];
+
+        port ilealInput : MaterialInletPort;
+        port fecesOutput : WasteOutletPort;
+        port nutrientOutput : NutrientOutletPort;
+        port neuralInput : NeuralControlPort;
+
+        part cecum;
+        part ascendingColon;
+        part transverseColon;
+        part descendingColon;
+        part sigmoidColon;
+        part rectum;
+
+        action recoverWaterFermentAndFormFeces {
+            in item intestinalContents : IntestinalContents;
+            out item reclaimedFluidAndElectrolytes : AbsorbedNutrients;
+            out item feces : Feces;
+
+            first receiveIlealContents;
+            then absorbWaterAndElectrolytes;
+            then fermentFiber;
+            then compactResidue;
+            then storeInRectum;
+            then triggerDefecationReflex;
+            then eliminateWaste;
+            then done;
+
+            action receiveIlealContents;
+            action absorbWaterAndElectrolytes;
+            action fermentFiber;
+            action compactResidue;
+            action storeInRectum;
+            action triggerDefecationReflex;
+            action eliminateWaste;
+        }
+
+        state def ColonicStateMachine {
+            state Filling;
+            state HaustralMixing;
+            state MassMovement;
+            state RectalStorage;
+            state Defecation;
+
+            transition first Filling;
+            transition Filling then HaustralMixing
+                accept ResidueReceived;
+            transition HaustralMixing then MassMovement
+                accept GastrocolicReflex;
+            transition MassMovement then RectalStorage
+                if rectalVolume > 0.15 [SI::L];
+            transition RectalStorage then Defecation
+                accept VoluntaryRelaxation;
+            transition Defecation then Filling
+                if rectalVolume < 0.02 [SI::L];
+
+            attribute rectalVolume : Volume;
+        }
+    }
+
+    part def EntericNervousSystem {
+        attribute basalMotilityFrequency : MotilityFrequency = 0.05 [SI::Hz];
+        attribute vagalTone : ScalarValues::Real;
+        attribute sympatheticTone : ScalarValues::Real;
+
+        port oralControl : NeuralControlPort;
+        port esophagealControl : NeuralControlPort;
+        port gastricControl : NeuralControlPort;
+        port pancreaticControl : NeuralControlPort;
+        port hepaticControl : NeuralControlPort;
+        port intestinalControl : NeuralControlPort;
+        port colonicControl : NeuralControlPort;
+
+        action coordinateMotilityAndSecretion {
+            in attribute digestivePhase : DigestivePhase;
+            out attribute motilityCommand : MotilityFrequency;
+
+            first senseDistensionAndChemistry;
+            then integrateLocalReflexes;
+            then adjustPeristalsis;
+            then adjustSphincterTone;
+            then adjustSecretoryDrive;
+            then done;
+
+            action senseDistensionAndChemistry;
+            action integrateLocalReflexes;
+            action adjustPeristalsis;
+            action adjustSphincterTone;
+            action adjustSecretoryDrive;
+        }
+    }
+
+    part def GastrointestinalTract {
+        attribute primaryFunction : String =
+            "Transform ingested food into absorbable nutrients and water while protecting the body from luminal hazards and eliminating indigestible waste.";
+        attribute totalNominalTransitTime : TimeDuration = 36.0 [SI::h];
+        attribute currentPhase : DigestivePhase = DigestivePhase::fastingRest;
+
+        port foodInput : OralInletPort;
+        port nutrientOutput : NutrientOutletPort;
+        port wasteOutput : WasteOutletPort;
+
+        part mouth : Mouth;
+        part pharynxAndEsophagus : PharynxAndEsophagus;
+        part stomach : Stomach;
+        part liver : Liver;
+        part gallbladder : Gallbladder;
+        part pancreas : Pancreas;
+        part smallIntestine : SmallIntestine;
+        part largeIntestine : LargeIntestine;
+        part entericNervousSystem : EntericNervousSystem;
+
+        connect foodInput to mouth.oralInput;
+        connect mouth.bolusOutput to pharynxAndEsophagus.bolusInput;
+        connect pharynxAndEsophagus.stomachOutput to stomach.bolusInput;
+        connect stomach.chymeOutput to smallIntestine.chymeInput;
+        connect liver.bileOutput to gallbladder.bileInput;
+        connect gallbladder.bileOutput to smallIntestine.bileInput;
+        connect pancreas.pancreaticJuiceOutput to smallIntestine.pancreaticJuiceInput;
+        connect smallIntestine.ilealOutput to largeIntestine.ilealInput;
+        connect smallIntestine.nutrientOutput to nutrientOutput;
+        connect largeIntestine.nutrientOutput to nutrientOutput;
+        connect largeIntestine.fecesOutput to wasteOutput;
+
+        connect entericNervousSystem.oralControl to mouth.neuralInput;
+        connect entericNervousSystem.esophagealControl to pharynxAndEsophagus.neuralInput;
+        connect entericNervousSystem.gastricControl to stomach.neuralInput;
+        connect entericNervousSystem.hepaticControl to liver.neuralInput;
+        connect entericNervousSystem.pancreaticControl to pancreas.neuralInput;
+        connect entericNervousSystem.intestinalControl to smallIntestine.neuralInput;
+        connect entericNervousSystem.colonicControl to largeIntestine.neuralInput;
+
+        connect stomach.hormoneOutput to gallbladder.hormoneInput;
+        connect smallIntestine.hormoneOutput to gallbladder.hormoneInput;
+        connect smallIntestine.hormoneOutput to pancreas.hormoneInput;
+
+        action performDigestion {
+            in item meal : FoodIntake;
+            out item nutrients : AbsorbedNutrients;
+            out item fecalWaste : Feces;
+
+            first ingestMeal;
+            then oralMechanicalAndChemicalProcessing;
+            then esophagealTransport;
+            then gastricStorageDigestionAndMetering;
+            then hepatobiliaryAndPancreaticSupport;
+            then smallIntestinalDigestionAndAbsorption;
+            then colonicRecoveryAndWasteFormation;
+            then eliminateWaste;
+            then done;
+
+            action ingestMeal;
+            action oralMechanicalAndChemicalProcessing;
+            action esophagealTransport;
+            action gastricStorageDigestionAndMetering;
+            action hepatobiliaryAndPancreaticSupport;
+            action smallIntestinalDigestionAndAbsorption;
+            action colonicRecoveryAndWasteFormation;
+            action eliminateWaste;
+        }
+
+        state def DigestiveCycle {
+            state Fasting;
+            state Ingestion;
+            state GastricPhase;
+            state IntestinalPhase;
+            state AbsorptivePhase;
+            state ColonicPhase;
+            state Elimination;
+
+            transition first Fasting;
+            transition Fasting then Ingestion
+                accept FoodPresented;
+            transition Ingestion then GastricPhase
+                accept BolusDeliveredToStomach;
+            transition GastricPhase then IntestinalPhase
+                accept ChymeDeliveredToDuodenum;
+            transition IntestinalPhase then AbsorptivePhase
+                if dissolvedNutrientMass > 0.0 [SI::g];
+            transition AbsorptivePhase then ColonicPhase
+                accept IlealResidueDelivered;
+            transition ColonicPhase then Elimination
+                if rectalDistensionSignal > 0.75;
+            transition Elimination then Fasting
+                accept WasteEliminated;
+
+            attribute dissolvedNutrientMass : ISQ::mass;
+            attribute rectalDistensionSignal : ScalarValues::Real;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The gastrointestinal tract shall receive ingested food, mechanically and chemically process it, absorb nutrients and water into body transport systems, and eliminate non-absorbed residue as fecal waste. */
+        subject tract : GastrointestinalTract;
+
+        require constraint {
+            tract.totalNominalTransitTime >= 12.0 [SI::h] and
+            tract.totalNominalTransitTime <= 72.0 [SI::h]
+        }
+    }
+
+    requirement def NutrientAbsorptionRequirement {
+        doc
+            /* The small intestine shall provide the principal site for absorption of digestible carbohydrate, protein, lipid, vitamins, electrolytes, and water. */
+        subject intestine : SmallIntestine;
+
+        require constraint {
+            intestine.absorptiveSurfaceArea >= 20.0 [SI::m^2] and
+            intestine.luminalPH >= 6.0 and
+            intestine.luminalPH <= 8.0
+        }
+    }
+
+    requirement def BarrierAndControlledTransitRequirement {
+        doc
+            /* The gastrointestinal tract shall control material transit with sphincters, peristalsis, segmentation, mucus, acid, bile, enzymes, and coordinated neural and endocrine signals. */
+        subject tract : GastrointestinalTract;
+
+        require constraint {
+            tract.stomach.reservoirCapacity >= 1.0 [SI::L] and
+            tract.largeIntestine.storageCapacity >= 0.3 [SI::L]
+        }
+    }
+
+    requirement def WasteEliminationRequirement {
+        doc
+            /* The large intestine shall recover water and electrolytes, compact indigestible residue, store feces, and support controlled elimination. */
+        subject colon : LargeIntestine;
+
+        require constraint {
+            colon.waterRecoveryRate > 0.0 [SI::mL / SI::min] and
+            colon.length >= 1.0 [SI::m]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GastrointestinalTract;
+    satisfy NutrientAbsorptionRequirement by GastrointestinalTract::smallIntestine;
+    satisfy BarrierAndControlledTransitRequirement by GastrointestinalTract;
+    satisfy WasteEliminationRequirement by GastrointestinalTract::largeIntestine;
+}

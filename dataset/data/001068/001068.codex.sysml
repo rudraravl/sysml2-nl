@@ -1,0 +1,543 @@
+package GeigerCounterSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def CountRate :> ISQ::frequency {
+        unit = "count/s";
+    }
+
+    attribute def DoseRate {
+        attribute value : Real;
+        unit = "uSv/h";
+    }
+
+    attribute def RadiationEnergy {
+        attribute value : Real;
+        unit = "keV";
+    }
+
+    attribute def HighVoltage {
+        attribute value : Real;
+        unit = "V";
+    }
+
+    attribute def BatteryCharge {
+        attribute value : Real;
+        unit = "%";
+    }
+
+    attribute def AlarmThreshold {
+        attribute value : Real;
+        unit = "uSv/h";
+    }
+
+    item def IonizingRadiation {
+        attribute particleKind : String;
+        attribute energy : RadiationEnergy;
+        attribute arrivalRate : CountRate;
+    }
+
+    item def IonizationPulse {
+        attribute pulseAmplitude : HighVoltage;
+        attribute pulseWidth {
+            attribute value : Real;
+            unit = "us";
+        }
+        attribute detectedAt {
+            attribute value : Real;
+            unit = "s";
+        }
+    }
+
+    item def DoseEstimate {
+        attribute countRate : CountRate;
+        attribute doseRate : DoseRate;
+        attribute averagingWindow {
+            attribute value : Real;
+            unit = "s";
+        }
+        attribute confidence {
+            attribute value : Real;
+            unit = "%";
+        }
+    }
+
+    item def UserCommand {
+        attribute commandKind : String;
+        attribute thresholdSetting : AlarmThreshold;
+    }
+
+    item def DisplayMessage {
+        attribute doseRateText : String;
+        attribute countRateText : String;
+        attribute alarmText : String;
+        attribute batteryText : String;
+    }
+
+    port def RadiationInputPort {
+        in item radiation : IonizingRadiation;
+    }
+
+    port def PulseOutputPort {
+        out item pulse : IonizationPulse;
+    }
+
+    port def PulseInputPort {
+        in item pulse : IonizationPulse;
+    }
+
+    port def EstimatePort {
+        out item estimate : DoseEstimate;
+    }
+
+    port def DisplayPort {
+        in item message : DisplayMessage;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def AlertPort {
+        in item estimate : DoseEstimate;
+        out item alertMessage : DisplayMessage;
+    }
+
+    part def GeigerMuellerTube {
+        attribute operatingVoltage : HighVoltage = 400;
+        attribute deadTime {
+            attribute value : Real = 190;
+            unit = "us";
+        }
+        attribute detectionEfficiency {
+            attribute value : Real = 35;
+            unit = "%";
+        }
+
+        port radiationIn : RadiationInputPort;
+        port pulseOut : PulseOutputPort;
+
+        action detectIonization {
+            in item incidentRadiation : IonizingRadiation;
+            out item detectionPulse : IonizationPulse;
+
+            first start;
+            then evaluateParticle;
+            then createAvalanche;
+            then emitPulse;
+            then done;
+
+            action evaluateParticle;
+            action createAvalanche;
+            action emitPulse;
+        }
+    }
+
+    part def HighVoltageSupply {
+        attribute commandedVoltage : HighVoltage = 400;
+        attribute regulationTolerance {
+            attribute value : Real = 2;
+            unit = "%";
+        }
+        attribute maximumCurrent {
+            attribute value : Real = 0.2;
+            unit = "mA";
+        }
+
+        port commandIn : CommandPort;
+    }
+
+    part def PulseConditioner {
+        attribute discriminatorThreshold {
+            attribute value : Real = 80;
+            unit = "mV";
+        }
+        attribute debounceTime {
+            attribute value : Real = 200;
+            unit = "us";
+        }
+
+        port rawPulseIn : PulseInputPort;
+        port shapedPulseOut : PulseOutputPort;
+
+        action conditionPulse {
+            in item rawPulse : IonizationPulse;
+            out item shapedPulse : IonizationPulse;
+
+            first receiveRawPulse;
+            then rejectNoise;
+            then normalizePulseWidth;
+            then outputDigitalPulse;
+            then done;
+
+            action receiveRawPulse;
+            action rejectNoise;
+            action normalizePulseWidth;
+            action outputDigitalPulse;
+        }
+    }
+
+    part def CountAndDoseProcessor {
+        attribute currentCountRate : CountRate = 0;
+        attribute currentDoseRate : DoseRate = 0;
+        attribute calibrationFactor {
+            attribute value : Real = 0.0057;
+            unit = "uSv/count";
+        }
+        attribute averagingWindow {
+            attribute value : Real = 10;
+            unit = "s";
+        }
+
+        port pulseIn : PulseInputPort;
+        port estimateOut : EstimatePort;
+        port commandIn : CommandPort;
+
+        action calculateDoseRate {
+            in item pulse : IonizationPulse;
+            out item estimate : DoseEstimate;
+
+            first capturePulseTime;
+            then updateRollingCount;
+            then calculateCountsPerSecond;
+            then applyCalibrationFactor;
+            then publishDoseEstimate;
+            then done;
+
+            action capturePulseTime;
+            action updateRollingCount;
+            action calculateCountsPerSecond;
+            action applyCalibrationFactor;
+            action publishDoseEstimate;
+        }
+    }
+
+    part def AlarmController {
+        attribute warningThreshold : AlarmThreshold = 0.5;
+        attribute dangerThreshold : AlarmThreshold = 5.0;
+        attribute alarmLatched : Boolean = false;
+
+        port estimateIn : AlertPort;
+        port commandIn : CommandPort;
+
+        state def AlarmStateMachine {
+            state normal;
+            state warning;
+            state danger;
+            state muted;
+
+            transition first normal;
+
+            transition normal_to_warning
+                first normal
+                accept DoseEstimate
+                if estimateIn.estimate.doseRate.value >= warningThreshold.value
+                then warning;
+
+            transition warning_to_danger
+                first warning
+                accept DoseEstimate
+                if estimateIn.estimate.doseRate.value >= dangerThreshold.value
+                then danger;
+
+            transition warning_to_normal
+                first warning
+                accept DoseEstimate
+                if estimateIn.estimate.doseRate.value < warningThreshold.value
+                then normal;
+
+            transition danger_to_warning
+                first danger
+                accept DoseEstimate
+                if estimateIn.estimate.doseRate.value < dangerThreshold.value
+                then warning;
+
+            transition any_to_muted
+                first normal
+                accept UserCommand
+                if commandIn.command.commandKind == "mute"
+                then muted;
+
+            transition muted_to_normal
+                first muted
+                accept UserCommand
+                if commandIn.command.commandKind == "unmute"
+                then normal;
+        }
+
+        action evaluateAlarm {
+            in item estimate : DoseEstimate;
+            out item alertMessage : DisplayMessage;
+
+            first compareWithThresholds;
+            then selectAudiblePattern;
+            then selectVisualWarning;
+            then publishAlarmStatus;
+            then done;
+
+            action compareWithThresholds;
+            action selectAudiblePattern;
+            action selectVisualWarning;
+            action publishAlarmStatus;
+        }
+    }
+
+    part def UserInterface {
+        attribute backlightEnabled : Boolean = true;
+        attribute updatePeriod {
+            attribute value : Real = 0.5;
+            unit = "s";
+        }
+
+        port displayIn : DisplayPort;
+        port commandOut : CommandPort;
+
+        action renderMeasurement {
+            in item estimate : DoseEstimate;
+            out item message : DisplayMessage;
+
+            first formatDoseRate;
+            then formatCountRate;
+            then formatAlarmStatus;
+            then refreshScreen;
+            then done;
+
+            action formatDoseRate;
+            action formatCountRate;
+            action formatAlarmStatus;
+            action refreshScreen;
+        }
+    }
+
+    part def AudibleBuzzer {
+        attribute soundPressureLevel {
+            attribute value : Real = 85;
+            unit = "dB";
+        }
+        attribute warningPulsePeriod {
+            attribute value : Real = 1.0;
+            unit = "s";
+        }
+        attribute dangerPulsePeriod {
+            attribute value : Real = 0.25;
+            unit = "s";
+        }
+
+        port alertIn : DisplayPort;
+    }
+
+    part def PowerSubsystem {
+        attribute batteryVoltage {
+            attribute value : Real = 3.7;
+            unit = "V";
+        }
+        attribute remainingCharge : BatteryCharge = 100;
+        attribute lowBatteryThreshold : BatteryCharge = 15;
+        attribute operatingTime {
+            attribute value : Real = 24;
+            unit = "h";
+        }
+
+        port commandOut : CommandPort;
+
+        state def PowerStateMachine {
+            state off;
+            state startup;
+            state operating;
+            state lowBattery;
+            state shutdown;
+
+            transition first off;
+
+            transition off_to_startup
+                first off
+                accept UserCommand
+                if commandOut.command.commandKind == "power_on"
+                then startup;
+
+            transition startup_to_operating
+                first startup
+                then operating;
+
+            transition operating_to_lowBattery
+                first operating
+                if remainingCharge.value <= lowBatteryThreshold.value
+                then lowBattery;
+
+            transition lowBattery_to_shutdown
+                first lowBattery
+                if remainingCharge.value <= 2
+                then shutdown;
+
+            transition shutdown_to_off
+                first shutdown
+                then off;
+        }
+    }
+
+    part def GeigerCounter {
+        doc
+        /*
+         * Primary high-level function:
+         * The Geiger counter detects ionizing radiation, converts each detected ionizing event
+         * into an electrical pulse, counts pulses over time, estimates radiation dose rate,
+         * displays the measured radiation level, and warns the user when radiation exceeds
+         * configured safety thresholds.
+         */
+
+        part tube : GeigerMuellerTube;
+        part highVoltageSupply : HighVoltageSupply;
+        part pulseConditioner : PulseConditioner;
+        part processor : CountAndDoseProcessor;
+        part alarmController : AlarmController;
+        part display : UserInterface;
+        part buzzer : AudibleBuzzer;
+        part power : PowerSubsystem;
+
+        port radiationIn : RadiationInputPort;
+        port userCommandIn : CommandPort;
+
+        connect radiationIn.radiation to tube.radiationIn.radiation;
+        connect tube.pulseOut.pulse to pulseConditioner.rawPulseIn.pulse;
+        connect pulseConditioner.shapedPulseOut.pulse to processor.pulseIn.pulse;
+        connect processor.estimateOut.estimate to alarmController.estimateIn.estimate;
+        connect alarmController.estimateIn.alertMessage to buzzer.alertIn.message;
+        connect alarmController.estimateIn.alertMessage to display.displayIn.message;
+        connect userCommandIn.command to processor.commandIn.command;
+        connect userCommandIn.command to alarmController.commandIn.command;
+        connect userCommandIn.command to highVoltageSupply.commandIn.command;
+
+        action monitorRadiation {
+            in item incidentRadiation : IonizingRadiation;
+            out item displayedMessage : DisplayMessage;
+
+            first energizeDetector;
+            then detectRadiationEvents;
+            then conditionDetectorPulses;
+            then computeDoseEstimate;
+            then updateDisplay;
+            then evaluateUserAlarm;
+            then continueMonitoring;
+
+            action energizeDetector;
+            action detectRadiationEvents;
+            action conditionDetectorPulses;
+            action computeDoseEstimate;
+            action updateDisplay;
+            action evaluateUserAlarm;
+            action continueMonitoring;
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state selfTest;
+            state ready;
+            state measuring;
+            state alarmActive;
+            state fault;
+
+            transition first off;
+
+            transition off_to_selfTest
+                first off
+                accept UserCommand
+                if userCommandIn.command.commandKind == "power_on"
+                then selfTest;
+
+            transition selfTest_to_ready
+                first selfTest
+                then ready;
+
+            transition ready_to_measuring
+                first ready
+                accept IonizingRadiation
+                then measuring;
+
+            transition measuring_to_alarmActive
+                first measuring
+                accept DoseEstimate
+                if processor.currentDoseRate.value >= alarmController.warningThreshold.value
+                then alarmActive;
+
+            transition alarmActive_to_measuring
+                first alarmActive
+                accept DoseEstimate
+                if processor.currentDoseRate.value < alarmController.warningThreshold.value
+                then measuring;
+
+            transition measuring_to_fault
+                first measuring
+                if highVoltageSupply.commandedVoltage.value < 350
+                then fault;
+
+            transition fault_to_off
+                first fault
+                accept UserCommand
+                if userCommandIn.command.commandKind == "power_off"
+                then off;
+        }
+    }
+
+    requirement def DetectIonizingRadiationRequirement {
+        subject counter : GeigerCounter;
+        require constraint {
+            counter.tube.detectionEfficiency.value >= 25
+        }
+    }
+
+    requirement def DoseRateDisplayRequirement {
+        subject counter : GeigerCounter;
+        require constraint {
+            counter.display.updatePeriod.value <= 1.0
+        }
+    }
+
+    requirement def AlarmThresholdRequirement {
+        subject counter : GeigerCounter;
+        require constraint {
+            counter.alarmController.warningThreshold.value <= 0.5 and
+            counter.alarmController.dangerThreshold.value <= 5.0
+        }
+    }
+
+    requirement def PortablePowerRequirement {
+        subject counter : GeigerCounter;
+        require constraint {
+            counter.power.operatingTime.value >= 12 and
+            counter.power.lowBatteryThreshold.value >= 10
+        }
+    }
+
+    requirement def HighVoltageStabilityRequirement {
+        subject counter : GeigerCounter;
+        require constraint {
+            counter.highVoltageSupply.commandedVoltage.value >= 380 and
+            counter.highVoltageSupply.commandedVoltage.value <= 420 and
+            counter.highVoltageSupply.regulationTolerance.value <= 5
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject counter : GeigerCounter;
+        require constraint {
+            counter.processor.averagingWindow.value <= 30
+        }
+        doc
+        /*
+         * The system shall provide a portable high-level radiation monitoring function by
+         * sensing ionizing radiation, estimating dose rate from detected pulse counts,
+         * presenting the result to the user, and issuing alarms when configured thresholds
+         * are exceeded.
+         */
+    }
+
+    satisfy DetectIonizingRadiationRequirement by GeigerCounter::tube;
+    satisfy DoseRateDisplayRequirement by GeigerCounter::display;
+    satisfy AlarmThresholdRequirement by GeigerCounter::alarmController;
+    satisfy PortablePowerRequirement by GeigerCounter::power;
+    satisfy HighVoltageStabilityRequirement by GeigerCounter::highVoltageSupply;
+    satisfy PrimaryFunctionRequirement by GeigerCounter;
+
+}

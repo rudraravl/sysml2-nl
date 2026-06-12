@@ -1,0 +1,492 @@
+package RotorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def RPM :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Torque_Nm :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Power_W :> Real {
+        unit = "W";
+    }
+
+    attribute def Angle_deg :> Real {
+        unit = "deg";
+    }
+
+    attribute def Vibration_mmps :> Real {
+        unit = "mm/s";
+    }
+
+    attribute def Temperature_C :> Real {
+        unit = "degC";
+    }
+
+    attribute def Force_N :> Real {
+        unit = "N";
+    }
+
+    attribute def Mass_kg :> Real {
+        unit = "kg";
+    }
+
+    attribute def Radius_m :> Real {
+        unit = "m";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    enum def RotorOperatingMode {
+        enum idle;
+        enum accelerating;
+        enum steadyRotation;
+        enum decelerating;
+        enum faulted;
+        enum stopped;
+    }
+
+    item def RotationalMechanicalPower {
+        attribute torque : Torque_Nm;
+        attribute angularSpeed : RPM;
+        attribute transmittedPower : Power_W;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real {
+            unit = "V";
+        }
+        attribute current : Real {
+            unit = "A";
+        }
+        attribute frequency : Real {
+            unit = "Hz";
+        }
+    }
+
+    item def ThermalEnergy {
+        attribute heatFlow : Power_W;
+        attribute surfaceTemperature : Temperature_C;
+    }
+
+    item def RotorHealthData {
+        attribute measuredSpeed : RPM;
+        attribute measuredVibration : Vibration_mmps;
+        attribute measuredTemperature : Temperature_C;
+        attribute imbalanceEstimate : Mass_kg;
+    }
+
+    item def ControlCommand {
+        attribute requestedSpeed : RPM;
+        attribute requestedTorque : Torque_Nm;
+        attribute emergencyStop : Boolean;
+    }
+
+    port def MechanicalPowerPort {
+        out item power : RotationalMechanicalPower;
+    }
+
+    port def MechanicalLoadPort {
+        in item loadDemand : RotationalMechanicalPower;
+    }
+
+    port def ElectricalInputPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalEnergy;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def HealthDataPort {
+        out item health : RotorHealthData;
+    }
+
+    part def RotorAssembly {
+        attribute nominalSpeed : RPM = 3600.0;
+        attribute maximumSpeed : RPM = 4200.0;
+        attribute minimumControlledSpeed : RPM = 300.0;
+        attribute ratedTorque : Torque_Nm = 120.0;
+        attribute ratedPower : Power_W = 45000.0;
+        attribute rotorMass : Mass_kg = 18.5;
+        attribute outerRadius : Radius_m = 0.22;
+        attribute polarMomentOfInertia : Real {
+            unit = "kg*m^2";
+            default = 0.92;
+        }
+        attribute balanceGrade : Real {
+            unit = "mm/s";
+            default = 2.5;
+        }
+
+        port mechanicalOutput : MechanicalPowerPort;
+        port thermalOutput : ThermalPort;
+        port healthOutput : HealthDataPort;
+
+        part shaft {
+            attribute diameter : Real {
+                unit = "m";
+                default = 0.055;
+            }
+            attribute length : Real {
+                unit = "m";
+                default = 0.48;
+            }
+            attribute allowableTorque : Torque_Nm = 180.0;
+        }
+
+        part rotorCore {
+            attribute stackLength : Real {
+                unit = "m";
+                default = 0.31;
+            }
+            attribute coreMass : Mass_kg = 12.0;
+            attribute magneticLossAtRatedSpeed : Power_W = 620.0;
+        }
+
+        part hub {
+            attribute clampForce : Force_N = 8500.0;
+            attribute concentricityError : Real {
+                unit = "mm";
+                default = 0.015;
+            }
+        }
+
+        part balancingMass {
+            attribute correctionMass : Mass_kg = 0.003;
+            attribute correctionAngle : Angle_deg = 145.0;
+            attribute correctionRadius : Radius_m = 0.19;
+        }
+    }
+
+    part def BearingSet {
+        attribute radialLoadCapacity : Force_N = 4200.0;
+        attribute axialLoadCapacity : Force_N = 1800.0;
+        attribute maximumTemperature : Temperature_C = 95.0;
+        attribute lubricationInterval : Real {
+            unit = "h";
+            default = 2000.0;
+        }
+
+        part driveEndBearing {
+            attribute radialClearance : Real {
+                unit = "um";
+                default = 18.0;
+            }
+            attribute currentTemperature : Temperature_C = 40.0;
+        }
+
+        part nonDriveEndBearing {
+            attribute radialClearance : Real {
+                unit = "um";
+                default = 20.0;
+            }
+            attribute currentTemperature : Temperature_C = 39.0;
+        }
+    }
+
+    part def RotorDrive {
+        attribute conversionEfficiency : Efficiency = 0.94;
+        attribute maximumInputPower : Power_W = 52000.0;
+        attribute torqueRiseLimit : Real {
+            unit = "N*m/s";
+            default = 400.0;
+        }
+
+        port electricalInput : ElectricalInputPort;
+        port controlInput : ControlInputPort;
+        port mechanicalOutput : MechanicalPowerPort;
+
+        perform action ConvertElectricalToRotationalPower {
+            in item electricalSupply : ElectricalPower;
+            in item command : ControlCommand;
+            out item shaftPower : RotationalMechanicalPower;
+
+            attribute commandedSpeed : RPM;
+            attribute commandedTorque : Torque_Nm;
+            attribute availablePower : Power_W;
+        }
+    }
+
+    part def LoadInterface {
+        attribute nominalAbsorbedPower : Power_W = 42000.0;
+        attribute nominalLoadTorque : Torque_Nm = 112.0;
+        attribute loadInertia : Real {
+            unit = "kg*m^2";
+            default = 1.8;
+        }
+
+        port mechanicalInput : MechanicalLoadPort;
+    }
+
+    part def CoolingSubsystem {
+        attribute coolingAirFlow : Real {
+            unit = "m^3/s";
+            default = 0.18;
+        }
+        attribute heatRemovalCapacity : Power_W = 3200.0;
+        attribute maximumRotorSurfaceTemperature : Temperature_C = 85.0;
+
+        port thermalInput : ThermalPort;
+    }
+
+    part def RotorController {
+        attribute targetSpeed : RPM = 3600.0;
+        attribute overspeedTripThreshold : RPM = 4300.0;
+        attribute highVibrationTripThreshold : Vibration_mmps = 7.1;
+        attribute highTemperatureTripThreshold : Temperature_C = 90.0;
+
+        port commandOutput : ControlInputPort;
+        port healthInput : HealthDataPort;
+
+        perform action RegulateRotorSpeed {
+            in item health : RotorHealthData;
+            out item command : ControlCommand;
+
+            attribute speedError : RPM;
+            attribute requestedTorque : Torque_Nm;
+        }
+    }
+
+    part def RotorBasedSystem {
+        attribute systemName : String = "Controlled Rotor Power Transfer System";
+        attribute primaryFunction : String = "Convert supplied energy into controlled rotary motion and deliver rotational mechanical power through a balanced rotor shaft.";
+        attribute operatingMode : RotorOperatingMode = RotorOperatingMode::stopped;
+        attribute ratedSystemPower : Power_W = 45000.0;
+        attribute ratedSystemSpeed : RPM = 3600.0;
+
+        port electricalSupplyPort : ElectricalInputPort;
+        port externalLoadPort : MechanicalLoadPort;
+
+        part controller : RotorController;
+        part drive : RotorDrive;
+        part rotor : RotorAssembly;
+        part bearings : BearingSet;
+        part loadInterface : LoadInterface;
+        part cooling : CoolingSubsystem;
+
+        connect electricalSupplyPort to drive.electricalInput;
+        connect controller.commandOutput to drive.controlInput;
+        connect drive.mechanicalOutput to rotor.mechanicalOutput;
+        connect rotor.mechanicalOutput to loadInterface.mechanicalInput;
+        connect loadInterface.mechanicalInput to externalLoadPort;
+        connect rotor.thermalOutput to cooling.thermalInput;
+        connect rotor.healthOutput to controller.healthInput;
+
+        perform action StartRotor {
+            out item command : ControlCommand;
+            attribute startupSpeedRamp : Real {
+                unit = "rpm/s";
+                default = 300.0;
+            }
+        }
+
+        perform action MaintainSteadyRotation {
+            in item health : RotorHealthData;
+            out item command : ControlCommand;
+            attribute allowableSpeedError : RPM = 25.0;
+        }
+
+        perform action StopRotor {
+            out item command : ControlCommand;
+            attribute decelerationRate : Real {
+                unit = "rpm/s";
+                default = 450.0;
+            }
+        }
+
+        perform action ProtectRotor {
+            in item health : RotorHealthData;
+            out item command : ControlCommand;
+            attribute tripIssued : Boolean;
+        }
+
+        state def RotorOperationStateMachine {
+            state stopped;
+            state idle;
+            state accelerating;
+            state steadyRotation;
+            state decelerating;
+            state faulted;
+
+            transition initial then stopped;
+
+            transition stopped_to_idle
+                first stopped
+                accept StartCommand
+                then idle;
+
+            transition idle_to_accelerating
+                first idle
+                accept SpeedReferenceApplied
+                then accelerating;
+
+            transition accelerating_to_steady
+                first accelerating
+                if rotorSpeedAtTarget
+                then steadyRotation;
+
+            transition steady_to_decelerating
+                first steadyRotation
+                accept StopCommand
+                then decelerating;
+
+            transition decelerating_to_stopped
+                first decelerating
+                if rotorSpeedBelowMinimum
+                then stopped;
+
+            transition accelerating_to_faulted
+                first accelerating
+                if overspeedDetected or excessiveVibrationDetected or highTemperatureDetected
+                then faulted;
+
+            transition steady_to_faulted
+                first steadyRotation
+                if overspeedDetected or excessiveVibrationDetected or highTemperatureDetected
+                then faulted;
+
+            transition faulted_to_stopped
+                first faulted
+                accept FaultReset
+                then stopped;
+        }
+    }
+
+    requirement def PrimaryRotorFunctionRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute requiredFunction : String =
+            "The system shall use a rotor as the central energy conversion and transmission element to provide controlled rotary mechanical power to an attached load.";
+
+        require constraint {
+            rotorSystem.ratedSystemPower >= 40000.0 and
+            rotorSystem.ratedSystemSpeed == 3600.0
+        }
+    }
+
+    requirement def ControlledSpeedRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute requiredTolerance : RPM = 25.0;
+
+        require constraint {
+            rotorSystem.controller.targetSpeed <= rotorSystem.rotor.maximumSpeed
+        }
+    }
+
+    requirement def OverspeedProtectionRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute tripLimit : RPM = 4300.0;
+
+        require constraint {
+            rotorSystem.controller.overspeedTripThreshold <= rotorSystem.rotor.maximumSpeed + 100.0
+        }
+    }
+
+    requirement def VibrationProtectionRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute allowableVibration : Vibration_mmps = 7.1;
+
+        require constraint {
+            rotorSystem.controller.highVibrationTripThreshold <= 7.1
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute maximumAllowedRotorTemperature : Temperature_C = 90.0;
+
+        require constraint {
+            rotorSystem.controller.highTemperatureTripThreshold <= 90.0 and
+            rotorSystem.cooling.maximumRotorSurfaceTemperature <= 85.0
+        }
+    }
+
+    requirement def TorqueTransmissionRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute requiredRatedTorque : Torque_Nm = 120.0;
+
+        require constraint {
+            rotorSystem.rotor.ratedTorque >= 120.0 and
+            rotorSystem.rotor.shaft.allowableTorque >= rotorSystem.rotor.ratedTorque
+        }
+    }
+
+    requirement def BalanceRequirement {
+        subject rotorSystem : RotorBasedSystem;
+
+        attribute maximumResidualVibration : Vibration_mmps = 2.5;
+
+        require constraint {
+            rotorSystem.rotor.balanceGrade <= 2.5
+        }
+    }
+
+    satisfy PrimaryRotorFunctionRequirement by RotorBasedSystem;
+    satisfy ControlledSpeedRequirement by RotorBasedSystem;
+    satisfy OverspeedProtectionRequirement by RotorBasedSystem;
+    satisfy VibrationProtectionRequirement by RotorBasedSystem;
+    satisfy ThermalProtectionRequirement by RotorBasedSystem;
+    satisfy TorqueTransmissionRequirement by RotorBasedSystem;
+    satisfy BalanceRequirement by RotorBasedSystem;
+
+    part rotorPowerTransferSystem : RotorBasedSystem {
+        attribute systemName = "High-Level Rotor Functional Model";
+        attribute primaryFunction = "Provide stable rotary motion by accelerating, regulating, protecting, and stopping a balanced rotor that transfers mechanical power to a load.";
+        attribute ratedSystemPower = 45000.0;
+        attribute ratedSystemSpeed = 3600.0;
+
+        part controller {
+            attribute targetSpeed = 3600.0;
+            attribute overspeedTripThreshold = 4300.0;
+            attribute highVibrationTripThreshold = 7.1;
+            attribute highTemperatureTripThreshold = 90.0;
+        }
+
+        part drive {
+            attribute conversionEfficiency = 0.94;
+            attribute maximumInputPower = 52000.0;
+        }
+
+        part rotor {
+            attribute nominalSpeed = 3600.0;
+            attribute maximumSpeed = 4200.0;
+            attribute ratedTorque = 120.0;
+            attribute ratedPower = 45000.0;
+            attribute rotorMass = 18.5;
+            attribute outerRadius = 0.22;
+        }
+
+        part bearings {
+            attribute radialLoadCapacity = 4200.0;
+            attribute axialLoadCapacity = 1800.0;
+            attribute maximumTemperature = 95.0;
+        }
+
+        part loadInterface {
+            attribute nominalAbsorbedPower = 42000.0;
+            attribute nominalLoadTorque = 112.0;
+        }
+
+        part cooling {
+            attribute heatRemovalCapacity = 3200.0;
+            attribute maximumRotorSurfaceTemperature = 85.0;
+        }
+    }
+}

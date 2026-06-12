@@ -1,0 +1,653 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-e7fhaiyn
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb751-6ad2-7ab0-944a-9e0a1639ea68
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Technological change and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TechnologicalChangeBasedSystem {
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  enum def GridModeKind {
+    enum gridFollowing;
+    enum gridForming;
+    enum islanded;
+    enum emergencyBypass;
+    enum shutdown;
+  }
+
+  enum def EnergySourceKind {
+    enum utilityGrid;
+    enum solarArray;
+    enum batteryStorage;
+    enum vehicleBattery;
+    enum criticalLoad;
+    enum flexibleLoad;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = "A";
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = "kW";
+  }
+
+  attribute def Energy :> ISQ::energy {
+    unit = "kWh";
+  }
+
+  attribute def Frequency {
+    unit = "Hz";
+  }
+
+  attribute def Temperature {
+    unit = "degC";
+  }
+
+  attribute def Latency {
+    unit = "ms";
+  }
+
+  attribute def StateOfCharge {
+    unit = "%";
+  }
+
+  item def ElectricalEnergyFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute realPower : Power;
+    attribute reactivePower : Power;
+    attribute frequency : Frequency;
+    attribute source : EnergySourceKind;
+  }
+
+  item def TelemetryPacket {
+    attribute measuredVoltage : Voltage;
+    attribute measuredCurrent : Current;
+    attribute measuredPower : Power;
+    attribute measuredFrequency : Frequency;
+    attribute equipmentTemperature : Temperature;
+    attribute batterySoc : StateOfCharge;
+    attribute timestampLatency : Latency;
+  }
+
+  item def DispatchCommand {
+    attribute targetPower : Power;
+    attribute targetVoltage : Voltage;
+    attribute targetFrequency : Frequency;
+    attribute requestedMode : GridModeKind;
+  }
+
+  port def PowerPort {
+    inout energy : ElectricalEnergyFlow;
+  }
+
+  port def TelemetryPort {
+    out telemetry : TelemetryPacket;
+  }
+
+  port def CommandPort {
+    in command : DispatchCommand;
+  }
+
+  port def ControlPort {
+    in telemetry : TelemetryPacket;
+    out command : DispatchCommand;
+  }
+
+  part def SolidStateTransformer {
+    port gridSide : PowerPort;
+    port dcLinkSide : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute ratedPower : Power = 250.0;
+    attribute nominalGridVoltage : Voltage = 480.0;
+    attribute nominalDcVoltage : Voltage = 800.0;
+    attribute conversionEfficiency : Real = 0.975;
+    attribute maxSwitchingTemperature : Temperature = 95.0;
+  }
+
+  part def PhotovoltaicInterface {
+    port solarInput : PowerPort;
+    port dcOutput : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute peakPower : Power = 120.0;
+    attribute maximumPowerPointVoltage : Voltage = 650.0;
+    attribute minimumOperatingVoltage : Voltage = 300.0;
+  }
+
+  part def BatteryStorageInterface {
+    port dcBus : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute usableCapacity : Energy = 400.0;
+    attribute maximumChargePower : Power = 150.0;
+    attribute maximumDischargePower : Power = 180.0;
+    attribute minimumSoc : StateOfCharge = 15.0;
+    attribute maximumSoc : StateOfCharge = 95.0;
+  }
+
+  part def VehicleToGridInterface {
+    port vehiclePort : PowerPort;
+    port dcBus : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute maximumBidirectionalPower : Power = 19.2;
+    attribute minimumVehicleSocReserve : StateOfCharge = 40.0;
+  }
+
+  part def LoadPanelInterface {
+    port acInput : PowerPort;
+    port criticalLoadOutput : PowerPort;
+    port flexibleLoadOutput : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute criticalLoadLimit : Power = 80.0;
+    attribute flexibleLoadLimit : Power = 160.0;
+  }
+
+  part def EdgeAIController {
+    port gridTelemetry : ControlPort;
+    port solarTelemetry : ControlPort;
+    port batteryTelemetry : ControlPort;
+    port vehicleTelemetry : ControlPort;
+    port loadTelemetry : ControlPort;
+
+    attribute inferenceLatency : Latency = 20.0;
+    attribute forecastHorizonHours : Real = 24.0;
+    attribute dispatchIntervalSeconds : Real = 1.0;
+    attribute currentMode : GridModeKind = GridModeKind::gridFollowing;
+  }
+
+  action def SenseAndDispatchEnergy {
+    in gridData : TelemetryPacket;
+    in solarData : TelemetryPacket;
+    in batteryData : TelemetryPacket;
+    in loadData : TelemetryPacket;
+    out gridCommand : DispatchCommand;
+    out batteryCommand : DispatchCommand;
+    out loadCommand : DispatchCommand;
+
+    first start;
+    then validateTelemetry;
+    then forecastGenerationAndDemand;
+    then optimizePowerFlow;
+    then issueDispatchCommands;
+    then done;
+  }
+
+  state def AdaptiveRouterStateMachine {
+    entry action SenseAndDispatchEnergy;
+
+    state Initializing;
+    state GridFollowing;
+    state GridForming;
+    state IslandedOperation;
+    state EmergencyBypass;
+    state ControlledShutdown;
+
+    transition first Initializing then GridFollowing;
+
+    transition GridFollowing then GridForming
+      accept DispatchCommand
+      if command.requestedMode == GridModeKind::gridForming;
+
+    transition GridForming then IslandedOperation
+      accept TelemetryPacket
+      if telemetry.measuredFrequency < 58.8;
+
+    transition IslandedOperation then GridFollowing
+      accept TelemetryPacket
+      if telemetry.measuredFrequency >= 59.9;
+
+    transition GridFollowing then EmergencyBypass
+      accept TelemetryPacket
+      if telemetry.equipmentTemperature > 95.0;
+
+    transition GridForming then EmergencyBypass
+      accept TelemetryPacket
+      if telemetry.equipmentTemperature > 95.0;
+
+    transition EmergencyBypass then ControlledShutdown
+      accept DispatchCommand
+      if command.requestedMode == GridModeKind::shutdown;
+  }
+
+  part def AdaptiveEnergyRouter {
+    attribute primaryFunction : String =
+      "Use edge artificial intelligence and bidirectional power electronics to autonomously route electrical energy among the grid, renewable generation, storage, vehicles, and building loads.";
+
+    port utilityGrid : PowerPort;
+    port rooftopSolar : PowerPort;
+    port stationaryBattery : PowerPort;
+    port electricVehicle : PowerPort;
+    port criticalLoads : PowerPort;
+    port flexibleLoads : PowerPort;
+
+    part transformer : SolidStateTransformer;
+    part solarConverter : PhotovoltaicInterface;
+    part batteryConverter : BatteryStorageInterface;
+    part vehicleConverter : VehicleToGridInterface;
+    part loadPanel : LoadPanelInterface;
+    part controller : EdgeAIController;
+
+    perform stateMachine : AdaptiveRouterStateMachine;
+
+    connect utilityGrid to transformer.gridSide;
+    connect transformer.dcLinkSide to solarConverter.dcOutput;
+    connect transformer.dcLinkSide to batteryConverter.dcBus;
+    connect transformer.dcLinkSide to vehicleConverter.dcBus;
+    connect transformer.gridSide to loadPanel.acInput;
+    connect rooftopSolar to solarConverter.solarInput;
+    connect stationaryBattery to batteryConverter.dcBus;
+    connect electricVehicle to vehicleConverter.vehiclePort;
+    connect criticalLoads to loadPanel.criticalLoadOutput;
+    connect flexibleLoads to loadPanel.flexibleLoadOutput;
+
+    connect transformer.telemetryOut.telemetry to controller.gridTelemetry.telemetry;
+    connect solarConverter.telemetryOut.telemetry to controller.solarTelemetry.telemetry;
+    connect batteryConverter.telemetryOut.telemetry to controller.batteryTelemetry.telemetry;
+    connect vehicleConverter.telemetryOut.telemetry to controller.vehicleTelemetry.telemetry;
+    connect loadPanel.telemetryOut.telemetry to controller.loadTelemetry.telemetry;
+
+    connect controller.gridTelemetry.command to transformer.commandIn.command;
+    connect controller.solarTelemetry.command to solarConverter.commandIn.command;
+    connect controller.batteryTelemetry.command to batteryConverter.commandIn.command;
+    connect controller.vehicleTelemetry.command to vehicleConverter.commandIn.command;
+    connect controller.loadTelemetry.command to loadPanel.commandIn.command;
+  }
+
+  requirement def HighLevelPrimaryFunctionRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    doc /* The system shall provide autonomous, high-level energy routing enabled by the technological change of edge AI combined with bidirectional solid-state power conversion. */
+
+    require constraint {
+      router.transformer.ratedPower >= 250.0 and
+      router.controller.inferenceLatency <= 50.0
+    }
+  }
+
+  requirement def RenewablePriorityRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.solarConverter.peakPower >= 100.0
+    }
+  }
+
+  requirement def ResilienceRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.batteryConverter.usableCapacity >= 300.0 and
+      router.batteryConverter.maximumDischargePower >= 150.0
+    }
+  }
+
+  requirement def VehicleBidirectionalRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.vehicleConverter.maximumBidirectionalPower >= 11.0
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.transformer.maxSwitchingTemperature <= 100.0
+    }
+  }
+
+  part adaptiveEnergyRouterSystem : AdaptiveEnergyRouter;
+
+  satisfy HighLevelPrimaryFunctionRequirement by adaptiveEnergyRouterSystem;
+  satisfy RenewablePriorityRequirement by adaptiveEnergyRouterSystem;
+  satisfy ResilienceRequirement by adaptiveEnergyRouterSystem;
+  satisfy VehicleBidirectionalRequirement by adaptiveEnergyRouterSystem;
+  satisfy ThermalProtectionRequirement by adaptiveEnergyRouterSystem;
+}
+tokens used
+3,999
+package TechnologicalChangeBasedSystem {
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  enum def GridModeKind {
+    enum gridFollowing;
+    enum gridForming;
+    enum islanded;
+    enum emergencyBypass;
+    enum shutdown;
+  }
+
+  enum def EnergySourceKind {
+    enum utilityGrid;
+    enum solarArray;
+    enum batteryStorage;
+    enum vehicleBattery;
+    enum criticalLoad;
+    enum flexibleLoad;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = "A";
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = "kW";
+  }
+
+  attribute def Energy :> ISQ::energy {
+    unit = "kWh";
+  }
+
+  attribute def Frequency {
+    unit = "Hz";
+  }
+
+  attribute def Temperature {
+    unit = "degC";
+  }
+
+  attribute def Latency {
+    unit = "ms";
+  }
+
+  attribute def StateOfCharge {
+    unit = "%";
+  }
+
+  item def ElectricalEnergyFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute realPower : Power;
+    attribute reactivePower : Power;
+    attribute frequency : Frequency;
+    attribute source : EnergySourceKind;
+  }
+
+  item def TelemetryPacket {
+    attribute measuredVoltage : Voltage;
+    attribute measuredCurrent : Current;
+    attribute measuredPower : Power;
+    attribute measuredFrequency : Frequency;
+    attribute equipmentTemperature : Temperature;
+    attribute batterySoc : StateOfCharge;
+    attribute timestampLatency : Latency;
+  }
+
+  item def DispatchCommand {
+    attribute targetPower : Power;
+    attribute targetVoltage : Voltage;
+    attribute targetFrequency : Frequency;
+    attribute requestedMode : GridModeKind;
+  }
+
+  port def PowerPort {
+    inout energy : ElectricalEnergyFlow;
+  }
+
+  port def TelemetryPort {
+    out telemetry : TelemetryPacket;
+  }
+
+  port def CommandPort {
+    in command : DispatchCommand;
+  }
+
+  port def ControlPort {
+    in telemetry : TelemetryPacket;
+    out command : DispatchCommand;
+  }
+
+  part def SolidStateTransformer {
+    port gridSide : PowerPort;
+    port dcLinkSide : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute ratedPower : Power = 250.0;
+    attribute nominalGridVoltage : Voltage = 480.0;
+    attribute nominalDcVoltage : Voltage = 800.0;
+    attribute conversionEfficiency : Real = 0.975;
+    attribute maxSwitchingTemperature : Temperature = 95.0;
+  }
+
+  part def PhotovoltaicInterface {
+    port solarInput : PowerPort;
+    port dcOutput : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute peakPower : Power = 120.0;
+    attribute maximumPowerPointVoltage : Voltage = 650.0;
+    attribute minimumOperatingVoltage : Voltage = 300.0;
+  }
+
+  part def BatteryStorageInterface {
+    port dcBus : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute usableCapacity : Energy = 400.0;
+    attribute maximumChargePower : Power = 150.0;
+    attribute maximumDischargePower : Power = 180.0;
+    attribute minimumSoc : StateOfCharge = 15.0;
+    attribute maximumSoc : StateOfCharge = 95.0;
+  }
+
+  part def VehicleToGridInterface {
+    port vehiclePort : PowerPort;
+    port dcBus : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute maximumBidirectionalPower : Power = 19.2;
+    attribute minimumVehicleSocReserve : StateOfCharge = 40.0;
+  }
+
+  part def LoadPanelInterface {
+    port acInput : PowerPort;
+    port criticalLoadOutput : PowerPort;
+    port flexibleLoadOutput : PowerPort;
+    port telemetryOut : TelemetryPort;
+    port commandIn : CommandPort;
+
+    attribute criticalLoadLimit : Power = 80.0;
+    attribute flexibleLoadLimit : Power = 160.0;
+  }
+
+  part def EdgeAIController {
+    port gridTelemetry : ControlPort;
+    port solarTelemetry : ControlPort;
+    port batteryTelemetry : ControlPort;
+    port vehicleTelemetry : ControlPort;
+    port loadTelemetry : ControlPort;
+
+    attribute inferenceLatency : Latency = 20.0;
+    attribute forecastHorizonHours : Real = 24.0;
+    attribute dispatchIntervalSeconds : Real = 1.0;
+    attribute currentMode : GridModeKind = GridModeKind::gridFollowing;
+  }
+
+  action def SenseAndDispatchEnergy {
+    in gridData : TelemetryPacket;
+    in solarData : TelemetryPacket;
+    in batteryData : TelemetryPacket;
+    in loadData : TelemetryPacket;
+    out gridCommand : DispatchCommand;
+    out batteryCommand : DispatchCommand;
+    out loadCommand : DispatchCommand;
+
+    first start;
+    then validateTelemetry;
+    then forecastGenerationAndDemand;
+    then optimizePowerFlow;
+    then issueDispatchCommands;
+    then done;
+  }
+
+  state def AdaptiveRouterStateMachine {
+    entry action SenseAndDispatchEnergy;
+
+    state Initializing;
+    state GridFollowing;
+    state GridForming;
+    state IslandedOperation;
+    state EmergencyBypass;
+    state ControlledShutdown;
+
+    transition first Initializing then GridFollowing;
+
+    transition GridFollowing then GridForming
+      accept DispatchCommand
+      if command.requestedMode == GridModeKind::gridForming;
+
+    transition GridForming then IslandedOperation
+      accept TelemetryPacket
+      if telemetry.measuredFrequency < 58.8;
+
+    transition IslandedOperation then GridFollowing
+      accept TelemetryPacket
+      if telemetry.measuredFrequency >= 59.9;
+
+    transition GridFollowing then EmergencyBypass
+      accept TelemetryPacket
+      if telemetry.equipmentTemperature > 95.0;
+
+    transition GridForming then EmergencyBypass
+      accept TelemetryPacket
+      if telemetry.equipmentTemperature > 95.0;
+
+    transition EmergencyBypass then ControlledShutdown
+      accept DispatchCommand
+      if command.requestedMode == GridModeKind::shutdown;
+  }
+
+  part def AdaptiveEnergyRouter {
+    attribute primaryFunction : String =
+      "Use edge artificial intelligence and bidirectional power electronics to autonomously route electrical energy among the grid, renewable generation, storage, vehicles, and building loads.";
+
+    port utilityGrid : PowerPort;
+    port rooftopSolar : PowerPort;
+    port stationaryBattery : PowerPort;
+    port electricVehicle : PowerPort;
+    port criticalLoads : PowerPort;
+    port flexibleLoads : PowerPort;
+
+    part transformer : SolidStateTransformer;
+    part solarConverter : PhotovoltaicInterface;
+    part batteryConverter : BatteryStorageInterface;
+    part vehicleConverter : VehicleToGridInterface;
+    part loadPanel : LoadPanelInterface;
+    part controller : EdgeAIController;
+
+    perform stateMachine : AdaptiveRouterStateMachine;
+
+    connect utilityGrid to transformer.gridSide;
+    connect transformer.dcLinkSide to solarConverter.dcOutput;
+    connect transformer.dcLinkSide to batteryConverter.dcBus;
+    connect transformer.dcLinkSide to vehicleConverter.dcBus;
+    connect transformer.gridSide to loadPanel.acInput;
+    connect rooftopSolar to solarConverter.solarInput;
+    connect stationaryBattery to batteryConverter.dcBus;
+    connect electricVehicle to vehicleConverter.vehiclePort;
+    connect criticalLoads to loadPanel.criticalLoadOutput;
+    connect flexibleLoads to loadPanel.flexibleLoadOutput;
+
+    connect transformer.telemetryOut.telemetry to controller.gridTelemetry.telemetry;
+    connect solarConverter.telemetryOut.telemetry to controller.solarTelemetry.telemetry;
+    connect batteryConverter.telemetryOut.telemetry to controller.batteryTelemetry.telemetry;
+    connect vehicleConverter.telemetryOut.telemetry to controller.vehicleTelemetry.telemetry;
+    connect loadPanel.telemetryOut.telemetry to controller.loadTelemetry.telemetry;
+
+    connect controller.gridTelemetry.command to transformer.commandIn.command;
+    connect controller.solarTelemetry.command to solarConverter.commandIn.command;
+    connect controller.batteryTelemetry.command to batteryConverter.commandIn.command;
+    connect controller.vehicleTelemetry.command to vehicleConverter.commandIn.command;
+    connect controller.loadTelemetry.command to loadPanel.commandIn.command;
+  }
+
+  requirement def HighLevelPrimaryFunctionRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    doc /* The system shall provide autonomous, high-level energy routing enabled by the technological change of edge AI combined with bidirectional solid-state power conversion. */
+
+    require constraint {
+      router.transformer.ratedPower >= 250.0 and
+      router.controller.inferenceLatency <= 50.0
+    }
+  }
+
+  requirement def RenewablePriorityRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.solarConverter.peakPower >= 100.0
+    }
+  }
+
+  requirement def ResilienceRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.batteryConverter.usableCapacity >= 300.0 and
+      router.batteryConverter.maximumDischargePower >= 150.0
+    }
+  }
+
+  requirement def VehicleBidirectionalRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.vehicleConverter.maximumBidirectionalPower >= 11.0
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    subject router : AdaptiveEnergyRouter;
+
+    require constraint {
+      router.transformer.maxSwitchingTemperature <= 100.0
+    }
+  }
+
+  part adaptiveEnergyRouterSystem : AdaptiveEnergyRouter;
+
+  satisfy HighLevelPrimaryFunctionRequirement by adaptiveEnergyRouterSystem;
+  satisfy RenewablePriorityRequirement by adaptiveEnergyRouterSystem;
+  satisfy ResilienceRequirement by adaptiveEnergyRouterSystem;
+  satisfy VehicleBidirectionalRequirement by adaptiveEnergyRouterSystem;
+  satisfy ThermalProtectionRequirement by adaptiveEnergyRouterSystem;
+}

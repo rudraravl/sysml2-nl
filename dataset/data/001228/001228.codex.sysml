@@ -1,0 +1,293 @@
+package RotaryEncoderSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def AngularVelocity :> ISQ::angularVelocity {
+        unit = SI::degreePerSecond;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Voltage :> ISQ::voltage {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::milliampere;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::millisecond;
+    }
+
+    attribute def CountValue :> ScalarValues::Integer;
+
+    attribute def DirectionValue :> ScalarValues::String;
+
+    item def ShaftRotation {
+        attribute angle : Angle;
+        attribute speed : AngularVelocity;
+        attribute direction : DirectionValue;
+    }
+
+    item def QuadraturePulse {
+        attribute channelA : Boolean;
+        attribute channelB : Boolean;
+        attribute timestamp : TimeDuration;
+        attribute edgeFrequency : Frequency;
+    }
+
+    item def IndexPulse {
+        attribute active : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def PositionReport {
+        attribute absoluteAngle : Angle;
+        attribute incrementalCount : CountValue;
+        attribute rotationalSpeed : AngularVelocity;
+        attribute direction : DirectionValue;
+        attribute valid : Boolean;
+    }
+
+    item def SupplyPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    port def MechanicalRotationPort {
+        in item rotation : ShaftRotation;
+    }
+
+    port def PowerInputPort {
+        in item power : SupplyPower;
+    }
+
+    port def QuadratureOutputPort {
+        out item pulse : QuadraturePulse;
+    }
+
+    port def IndexOutputPort {
+        out item index : IndexPulse;
+    }
+
+    port def PositionDataPort {
+        out item report : PositionReport;
+    }
+
+    port def QuadratureInputPort {
+        in item pulse : QuadraturePulse;
+    }
+
+    port def IndexInputPort {
+        in item index : IndexPulse;
+    }
+
+    part def RotaryEncoder {
+        attribute pulsesPerRevolution : CountValue = 1024;
+        attribute supplyVoltageNominal : Voltage = 5 [SI::volt];
+        attribute maximumSpeed : AngularVelocity = 36000 [SI::degreePerSecond];
+        attribute angleResolution : Angle = 0.3515625 [SI::degree];
+
+        port shaftInput : MechanicalRotationPort;
+        port powerInput : PowerInputPort;
+        port quadratureOutput : QuadratureOutputPort;
+        port indexOutput : IndexOutputPort;
+
+        part shaftCoupler {
+            port rotationIn : MechanicalRotationPort;
+            port rotationOut : MechanicalRotationPort;
+        }
+
+        part codeWheel {
+            attribute trackCount : CountValue = 2;
+            attribute indexTrackPresent : Boolean = true;
+            port rotationInput : MechanicalRotationPort;
+        }
+
+        part opticalEmitter {
+            attribute forwardVoltage : Voltage = 1.2 [SI::volt];
+            attribute operatingCurrent : Current = 20 [SI::milliampere];
+            port power : PowerInputPort;
+        }
+
+        part opticalSensorArray {
+            attribute channelSeparation : Angle = 90 [SI::degree];
+            port power : PowerInputPort;
+            port detectedRotation : MechanicalRotationPort;
+            port quadratureSignal : QuadratureOutputPort;
+            port indexSignal : IndexOutputPort;
+        }
+
+        connection shaftInput.rotation to shaftCoupler.rotationIn.rotation;
+        connection shaftCoupler.rotationOut.rotation to codeWheel.rotationInput.rotation;
+        connection shaftCoupler.rotationOut.rotation to opticalSensorArray.detectedRotation.rotation;
+        connection powerInput.power to opticalEmitter.power.power;
+        connection powerInput.power to opticalSensorArray.power.power;
+        connection opticalSensorArray.quadratureSignal.pulse to quadratureOutput.pulse;
+        connection opticalSensorArray.indexSignal.index to indexOutput.index;
+    }
+
+    part def EncoderInterfaceController {
+        attribute count : CountValue = 0;
+        attribute lastChannelA : Boolean = false;
+        attribute lastChannelB : Boolean = false;
+        attribute direction : DirectionValue = "stopped";
+        attribute measuredSpeed : AngularVelocity = 0 [SI::degreePerSecond];
+        attribute zeroOffset : Angle = 0 [SI::degree];
+        attribute samplePeriod : TimeDuration = 1 [SI::millisecond];
+
+        port quadratureInput : QuadratureInputPort;
+        port indexInput : IndexInputPort;
+        port positionOutput : PositionDataPort;
+
+        action decodeQuadrature {
+            in item pulse : QuadraturePulse;
+            inout count : CountValue;
+            out direction : DirectionValue;
+        }
+
+        action calculatePosition {
+            in count : CountValue;
+            in pulsesPerRevolution : CountValue;
+            in zeroOffset : Angle;
+            out angle : Angle;
+        }
+
+        action calculateSpeed {
+            in item pulse : QuadraturePulse;
+            in pulsesPerRevolution : CountValue;
+            out speed : AngularVelocity;
+        }
+
+        action publishPositionReport {
+            in angle : Angle;
+            in count : CountValue;
+            in speed : AngularVelocity;
+            in direction : DirectionValue;
+            out item report : PositionReport;
+        }
+
+        state def EncoderInterfaceStateMachine {
+            state unpowered;
+            state initializing;
+            state tracking;
+            state indexReferenced;
+            state fault;
+
+            transition first unpowered then initializing;
+            transition initializing then tracking;
+            transition tracking then indexReferenced
+                accept item index : IndexPulse
+                if index.active;
+            transition indexReferenced then tracking;
+            transition tracking then fault
+                if measuredSpeed > 36000 [SI::degreePerSecond];
+            transition fault then initializing;
+        }
+
+        perform EncoderInterfaceStateMachine;
+    }
+
+    part def MotionHost {
+        attribute commandedSamplePeriod : TimeDuration = 10 [SI::millisecond];
+
+        port positionInput : PositionDataPort;
+
+        action consumePosition {
+            in item report : PositionReport;
+        }
+    }
+
+    part def RotaryEncoderBasedPositionSensingSystem {
+        attribute systemName : String = "Rotary Encoder Position Sensing System";
+        attribute primaryFunction : String = "Convert shaft rotation into digital pulse signals and derive position, direction, and speed for a host controller.";
+        attribute nominalSupplyVoltage : Voltage = 5 [SI::volt];
+        attribute supportedResolution : CountValue = 4096;
+
+        port shaftRotationInput : MechanicalRotationPort;
+        port powerInput : PowerInputPort;
+        port positionOutput : PositionDataPort;
+
+        part encoder : RotaryEncoder {
+            attribute pulsesPerRevolution = 1024;
+            attribute angleResolution = 0.3515625 [SI::degree];
+        }
+
+        part interfaceController : EncoderInterfaceController;
+
+        part host : MotionHost;
+
+        connection shaftRotationInput.rotation to encoder.shaftInput.rotation;
+        connection powerInput.power to encoder.powerInput.power;
+        connection encoder.quadratureOutput.pulse to interfaceController.quadratureInput.pulse;
+        connection encoder.indexOutput.index to interfaceController.indexInput.index;
+        connection interfaceController.positionOutput.report to positionOutput.report;
+        connection interfaceController.positionOutput.report to host.positionInput.report;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall convert mechanical rotary shaft motion into digital position information at a high level. */
+        subject system : RotaryEncoderBasedPositionSensingSystem;
+        require constraint {
+            system.primaryFunction == "Convert shaft rotation into digital pulse signals and derive position, direction, and speed for a host controller."
+        }
+    }
+
+    requirement def ResolutionRequirement {
+        doc /* The system shall provide at least 1024 pulses per revolution and 4096 counts per revolution when quadrature decoding is used. */
+        subject encoder : RotaryEncoder;
+        require constraint {
+            encoder.pulsesPerRevolution >= 1024
+        }
+    }
+
+    requirement def DirectionRequirement {
+        doc /* The interface controller shall determine clockwise, counterclockwise, or stopped direction from the phase relationship of channels A and B. */
+        subject controller : EncoderInterfaceController;
+        require constraint {
+            controller.direction == "clockwise" or
+            controller.direction == "counterclockwise" or
+            controller.direction == "stopped"
+        }
+    }
+
+    requirement def SpeedRequirement {
+        doc /* The system shall report rotational speed while the shaft speed remains within the encoder operating range. */
+        subject encoder : RotaryEncoder;
+        require constraint {
+            encoder.maximumSpeed >= 36000 [SI::degreePerSecond]
+        }
+    }
+
+    requirement def IndexReferenceRequirement {
+        doc /* The system shall support one index pulse per revolution to establish a repeatable zero reference. */
+        subject encoder : RotaryEncoder;
+        require constraint {
+            encoder.codeWheel.indexTrackPresent == true
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The encoder shall operate from a nominal 5 V DC supply. */
+        subject encoder : RotaryEncoder;
+        require constraint {
+            encoder.supplyVoltageNominal == 5 [SI::volt]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RotaryEncoderBasedPositionSensingSystem;
+    satisfy ResolutionRequirement by RotaryEncoder;
+    satisfy DirectionRequirement by EncoderInterfaceController;
+    satisfy SpeedRequirement by RotaryEncoder;
+    satisfy IndexReferenceRequirement by RotaryEncoder;
+    satisfy PowerRequirement by RotaryEncoder;
+}

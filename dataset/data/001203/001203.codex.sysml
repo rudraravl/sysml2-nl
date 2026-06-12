@@ -1,0 +1,370 @@
+package PressureGaugeSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Pressure : Real {
+    unit = "kPa";
+  }
+
+  attribute def Temperature : Real {
+    unit = "degC";
+  }
+
+  attribute def Voltage : Real {
+    unit = "V";
+  }
+
+  attribute def Current : Real {
+    unit = "mA";
+  }
+
+  attribute def TimeDuration : Real {
+    unit = "s";
+  }
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  item def PressureMedium {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+  }
+
+  item def PressureReading {
+    attribute measuredPressure : Pressure;
+    attribute accuracyError : Pressure;
+    attribute confidence : Percent;
+    attribute timestamp : TimeDuration;
+  }
+
+  item def GaugeStatus {
+    attribute sensorHealthy : Boolean;
+    attribute displayHealthy : Boolean;
+    attribute overPressureAlarm : Boolean;
+    attribute calibrationRequired : Boolean;
+  }
+
+  port def PressureInletPort {
+    in item medium : PressureMedium;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ReadingOutputPort {
+    out item reading : PressureReading;
+  }
+
+  port def StatusOutputPort {
+    out item status : GaugeStatus;
+  }
+
+  port def InternalSignalPort {
+    out item reading : PressureReading;
+  }
+
+  part def PressureSensor {
+    port pressureIn : PressureInletPort;
+    port signalOut : InternalSignalPort;
+
+    attribute sensingRangeMin : Pressure = 0.0;
+    attribute sensingRangeMax : Pressure = 1000.0;
+    attribute responseTime : TimeDuration = 0.2;
+    attribute sensorAccuracy : Pressure = 2.5;
+
+    action sensePressure {
+      in item medium : PressureMedium;
+      out item sensedReading : PressureReading;
+
+      first start;
+      then validatePressure;
+      then convertMechanicalDeflection;
+      then generateReading;
+      then done;
+
+      action validatePressure;
+      action convertMechanicalDeflection;
+      action generateReading;
+    }
+  }
+
+  part def SignalConditioner {
+    port rawSignalIn : InternalSignalPort;
+    port conditionedSignalOut : InternalSignalPort;
+
+    attribute filterTimeConstant : TimeDuration = 0.05;
+    attribute temperatureCompensationEnabled : Boolean = true;
+
+    action conditionSignal {
+      in item rawReading : PressureReading;
+      out item conditionedReading : PressureReading;
+
+      first start;
+      then applyNoiseFilter;
+      then applyTemperatureCompensation;
+      then limitReadingToRange;
+      then done;
+
+      action applyNoiseFilter;
+      action applyTemperatureCompensation;
+      action limitReadingToRange;
+    }
+  }
+
+  part def GaugeDisplay {
+    port readingIn : InternalSignalPort;
+    port displayedReadingOut : ReadingOutputPort;
+
+    attribute refreshPeriod : TimeDuration = 0.5;
+    attribute resolution : Pressure = 1.0;
+    attribute displayUnits : String = "kPa";
+
+    action displayPressure {
+      in item conditionedReading : PressureReading;
+      out item displayedReading : PressureReading;
+
+      first start;
+      then roundToDisplayResolution;
+      then updateIndicator;
+      then done;
+
+      action roundToDisplayResolution;
+      action updateIndicator;
+    }
+  }
+
+  part def AlarmUnit {
+    port readingIn : InternalSignalPort;
+    port statusOut : StatusOutputPort;
+
+    attribute overPressureThreshold : Pressure = 900.0;
+    attribute alarmLatchEnabled : Boolean = true;
+
+    state def AlarmBehavior {
+      state normal;
+      state alarmActive;
+      state latchedAlarm;
+
+      transition first normal;
+      transition normalToAlarm
+        first normal
+        accept PressureReading
+        if measuredPressure >= overPressureThreshold
+        then alarmActive;
+
+      transition alarmToLatched
+        first alarmActive
+        if alarmLatchEnabled
+        then latchedAlarm;
+
+      transition alarmCleared
+        first alarmActive
+        accept PressureReading
+        if measuredPressure < overPressureThreshold
+        then normal;
+    }
+  }
+
+  part def CalibrationModule {
+    port readingIn : InternalSignalPort;
+    port statusOut : StatusOutputPort;
+
+    attribute calibrationInterval : TimeDuration = 31536000.0;
+    attribute zeroOffset : Pressure = 0.0;
+    attribute spanCorrection : Percent = 100.0;
+
+    action calibrateGauge {
+      in item referencePressure : PressureReading;
+      out item correctedReading : PressureReading;
+
+      first start;
+      then compareAgainstReference;
+      then computeZeroOffset;
+      then computeSpanCorrection;
+      then storeCalibrationData;
+      then done;
+
+      action compareAgainstReference;
+      action computeZeroOffset;
+      action computeSpanCorrection;
+      action storeCalibrationData;
+    }
+  }
+
+  part def PressureGauge {
+    port processPressureIn : PressureInletPort;
+    port electricalPowerIn : PowerInputPort;
+    port pressureReadingOut : ReadingOutputPort;
+    port gaugeStatusOut : StatusOutputPort;
+
+    part sensor : PressureSensor;
+    part conditioner : SignalConditioner;
+    part display : GaugeDisplay;
+    part alarm : AlarmUnit;
+    part calibration : CalibrationModule;
+
+    connection pressurePath connect processPressureIn to sensor.pressureIn;
+    connection rawMeasurementPath connect sensor.signalOut to conditioner.rawSignalIn;
+    connection conditionedDisplayPath connect conditioner.conditionedSignalOut to display.readingIn;
+    connection conditionedAlarmPath connect conditioner.conditionedSignalOut to alarm.readingIn;
+    connection conditionedCalibrationPath connect conditioner.conditionedSignalOut to calibration.readingIn;
+    connection readingOutputPath connect display.displayedReadingOut to pressureReadingOut;
+    connection alarmStatusPath connect alarm.statusOut to gaugeStatusOut;
+    connection calibrationStatusPath connect calibration.statusOut to gaugeStatusOut;
+
+    state def GaugeOperatingBehavior {
+      state off;
+      state selfTest;
+      state measuring;
+      state alarm;
+      state fault;
+      state calibrationMode;
+
+      transition initialPowerOff first off;
+
+      transition powerApplied
+        first off
+        accept ElectricalPower
+        if voltage >= 18.0 and voltage <= 30.0
+        then selfTest;
+
+      transition selfTestPassed
+        first selfTest
+        if sensor.sensorAccuracy <= 5.0
+        then measuring;
+
+      transition selfTestFailed
+        first selfTest
+        if sensor.sensorAccuracy > 5.0
+        then fault;
+
+      transition overPressureDetected
+        first measuring
+        accept PressureReading
+        if measuredPressure >= alarm.overPressureThreshold
+        then alarm;
+
+      transition pressureReturnedNormal
+        first alarm
+        accept PressureReading
+        if measuredPressure < alarm.overPressureThreshold
+        then measuring;
+
+      transition calibrationRequested
+        first measuring
+        accept GaugeStatus
+        if calibrationRequired
+        then calibrationMode;
+
+      transition calibrationCompleted
+        first calibrationMode
+        then measuring;
+    }
+
+    action measureAndIndicatePressure {
+      in item suppliedMedium : PressureMedium;
+      in item suppliedPower : ElectricalPower;
+      out item indicatedReading : PressureReading;
+      out item reportedStatus : GaugeStatus;
+
+      first receivePressureAtInlet;
+      then convertPressureToSensorSignal;
+      then conditionMeasurementSignal;
+      then compensateForTemperatureAndCalibration;
+      then displayPressureValue;
+      then evaluateAlarmLimits;
+      then publishReadingAndStatus;
+      then done;
+
+      action receivePressureAtInlet;
+      action convertPressureToSensorSignal;
+      action conditionMeasurementSignal;
+      action compensateForTemperatureAndCalibration;
+      action displayPressureValue;
+      action evaluateAlarmLimits;
+      action publishReadingAndStatus;
+    }
+  }
+
+  part gaugeSystem : PressureGauge {
+    attribute primaryFunction : String =
+      "Receive process-fluid pressure, convert it into a calibrated pressure measurement, indicate the pressure to an operator, and report alarm/status information when operating limits are exceeded.";
+  }
+
+  requirement def MeasurePressureRequirement {
+    subject gauge : PressureGauge;
+
+    require constraint {
+      gauge.sensor.sensingRangeMin <= 0.0 and
+      gauge.sensor.sensingRangeMax >= 1000.0
+    }
+
+    doc /* The pressure gauge shall measure process pressure over the operating range from 0 kPa to at least 1000 kPa. */
+  }
+
+  requirement def AccuracyRequirement {
+    subject gauge : PressureGauge;
+
+    require constraint {
+      gauge.sensor.sensorAccuracy <= 2.5
+    }
+
+    doc /* The pressure gauge shall provide indicated pressure with maximum error not exceeding 2.5 kPa under nominal operating conditions. */
+  }
+
+  requirement def DisplayRequirement {
+    subject gauge : PressureGauge;
+
+    require constraint {
+      gauge.display.refreshPeriod <= 0.5 and
+      gauge.display.resolution <= 1.0
+    }
+
+    doc /* The pressure gauge shall refresh the displayed pressure at least every 0.5 s with display resolution of 1 kPa or finer. */
+  }
+
+  requirement def OverPressureAlarmRequirement {
+    subject gauge : PressureGauge;
+
+    require constraint {
+      gauge.alarm.overPressureThreshold == 900.0
+    }
+
+    doc /* The pressure gauge shall assert an over-pressure alarm when measured pressure is greater than or equal to 900 kPa. */
+  }
+
+  requirement def PowerRequirement {
+    subject gauge : PressureGauge;
+
+    require constraint {
+      true
+    }
+
+    doc /* The pressure gauge shall operate from a regulated 24 VDC nominal electrical power input with acceptable range from 18 VDC to 30 VDC. */
+  }
+
+  requirement def CalibrationRequirement {
+    subject gauge : PressureGauge;
+
+    require constraint {
+      gauge.calibration.calibrationInterval <= 31536000.0
+    }
+
+    doc /* The pressure gauge shall support calibration at intervals not exceeding one year. */
+  }
+
+  satisfy MeasurePressureRequirement by gaugeSystem;
+  satisfy AccuracyRequirement by gaugeSystem;
+  satisfy DisplayRequirement by gaugeSystem;
+  satisfy OverPressureAlarmRequirement by gaugeSystem;
+  satisfy PowerRequirement by gaugeSystem;
+  satisfy CalibrationRequirement by gaugeSystem;
+}

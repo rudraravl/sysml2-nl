@@ -1,0 +1,865 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-vin894qd
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb65b-6864-7652-9513-11896239a250
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Artificial muscle and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ArtificialMuscleModel {
+
+  enum def MuscleMode {
+    enum idle;
+    enum preloaded;
+    enum contracting;
+    enum holding;
+    enum relaxing;
+    enum faulted;
+  }
+
+  enum def FaultKind {
+    enum none;
+    enum overTemperature;
+    enum overCurrent;
+    enum overStroke;
+    enum sensorInvalid;
+    enum membraneLeak;
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  attribute def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def Force {
+    attribute value : Real;
+    attribute unit : String = "N";
+  }
+
+  attribute def Length {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Displacement {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def Pressure {
+    attribute value : Real;
+    attribute unit : String = "kPa";
+  }
+
+  attribute def Time {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  attribute def Ratio {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  item def ElectricalPowerFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def ControlCommand {
+    attribute desiredForce : Force;
+    attribute desiredStroke : Displacement;
+    attribute riseTime : Time;
+    attribute holdDuration : Time;
+    attribute enable : Boolean;
+  }
+
+  item def MuscleTelemetry {
+    attribute measuredForce : Force;
+    attribute measuredStroke : Displacement;
+    attribute coilTemperature : Temperature;
+    attribute internalPressure : Pressure;
+    attribute supplyVoltage : Voltage;
+    attribute operatingMode : MuscleMode;
+    attribute activeFault : FaultKind;
+  }
+
+  item def MechanicalWorkFlow {
+    attribute tensileForce : Force;
+    attribute contractionStroke : Displacement;
+    attribute contractionRatio : Ratio;
+  }
+
+  item def CoolingFlow {
+    attribute heatRemoved : Power;
+    attribute inletTemperature : Temperature;
+    attribute outletTemperature : Temperature;
+  }
+
+  port def ElectricalInputPort {
+    in item powerIn : ElectricalPowerFlow;
+  }
+
+  port def CommandInputPort {
+    in item commandIn : ControlCommand;
+  }
+
+  port def TelemetryOutputPort {
+    out item telemetryOut : MuscleTelemetry;
+  }
+
+  port def MechanicalOutputPort {
+    out item workOut : MechanicalWorkFlow;
+  }
+
+  port def CoolingPort {
+    inout item cooling : CoolingFlow;
+  }
+
+  port def SensorPort {
+    out item telemetry : MuscleTelemetry;
+  }
+
+  action def ValidateCommand {
+    in item requested : ControlCommand;
+    in item presentTelemetry : MuscleTelemetry;
+    out item accepted : ControlCommand;
+    out attribute valid : Boolean;
+  }
+
+  action def RegulateActivationEnergy {
+    in item acceptedCommand : ControlCommand;
+    in item presentTelemetry : MuscleTelemetry;
+    out item drivePower : ElectricalPowerFlow;
+  }
+
+  action def ConvertEnergyToContraction {
+    in item drivePower : ElectricalPowerFlow;
+    in item acceptedCommand : ControlCommand;
+    out item mechanicalWork : MechanicalWorkFlow;
+    out item updatedTelemetry : MuscleTelemetry;
+  }
+
+  action def LimitTemperature {
+    in item presentTelemetry : MuscleTelemetry;
+    inout item coolingFlow : CoolingFlow;
+    out attribute thermalSafe : Boolean;
+  }
+
+  action def ArtificialMuscleCycle {
+    in item command : ControlCommand;
+    in item supplyPower : ElectricalPowerFlow;
+    inout item coolingFlow : CoolingFlow;
+    out item work : MechanicalWorkFlow;
+    out item telemetry : MuscleTelemetry;
+
+    action validate : ValidateCommand;
+    action regulate : RegulateActivationEnergy;
+    action contract : ConvertEnergyToContraction;
+    action cool : LimitTemperature;
+
+    flow command to validate.requested;
+    flow supplyPower to regulate.drivePower;
+    flow validate.accepted to regulate.acceptedCommand;
+    flow validate.accepted to contract.acceptedCommand;
+    flow regulate.drivePower to contract.drivePower;
+    flow contract.mechanicalWork to work;
+    flow contract.updatedTelemetry to telemetry;
+    flow telemetry to cool.presentTelemetry;
+  }
+
+  state def ArtificialMuscleOperatingState {
+    entry action initializeTelemetry;
+    exit action storeLastCycleData;
+
+    state idle;
+    state preloaded;
+    state contracting;
+    state holding;
+    state relaxing;
+    state faulted;
+
+    transition first idle;
+
+    transition idle_to_preloaded
+      first idle
+      then preloaded
+      accept ControlCommand
+      if commandIn.enable == true;
+
+    transition preloaded_to_contracting
+      first preloaded
+      then contracting
+      if commandIn.desiredForce.value > 0.0;
+
+    transition contracting_to_holding
+      first contracting
+      then holding
+      if telemetryOut.measuredForce.value >= commandIn.desiredForce.value;
+
+    transition holding_to_relaxing
+      first holding
+      then relaxing
+      after commandIn.holdDuration;
+
+    transition relaxing_to_idle
+      first relaxing
+      then idle
+      if telemetryOut.measuredStroke.value <= 0.001;
+
+    transition any_to_faulted
+      first idle
+      then faulted
+      if telemetryOut.activeFault != FaultKind::none;
+
+    transition faulted_to_idle
+      first faulted
+      then idle
+      accept ControlCommand
+      if commandIn.enable == false;
+  }
+
+  part def ActivationDriver {
+    port electricalSupply : ElectricalInputPort;
+    port commandInput : CommandInputPort;
+    port driveOutput : ElectricalInputPort;
+    port telemetryInput : SensorPort;
+
+    attribute maximumVoltage : Voltage = (value = 48.0, unit = "V");
+    attribute maximumCurrent : Current = (value = 12.0, unit = "A");
+    attribute switchingFrequency : Real = 20000.0;
+
+    perform action regulateEnergy : RegulateActivationEnergy;
+  }
+
+  part def ContractileElement {
+    port activationPower : ElectricalInputPort;
+    port mechanicalOutput : MechanicalOutputPort;
+    port coolingInterface : CoolingPort;
+    port sensorOutput : SensorPort;
+
+    attribute relaxedLength : Length = (value = 0.150, unit = "m");
+    attribute maximumStroke : Displacement = (value = 0.045, unit = "m");
+    attribute nominalForce : Force = (value = 350.0, unit = "N");
+    attribute peakForce : Force = (value = 500.0, unit = "N");
+    attribute maximumContractionRatio : Ratio = (value = 0.30, unit = "1");
+    attribute maximumTemperature : Temperature = (value = 80.0, unit = "degC");
+    attribute nominalInternalPressure : Pressure = (value = 240.0, unit = "kPa");
+
+    perform action energyConversion : ConvertEnergyToContraction;
+  }
+
+  part def ForceSensor {
+    port sensedOutput : SensorPort;
+
+    attribute measurementRange : Force = (value = 600.0, unit = "N");
+    attribute resolution : Force = (value = 0.5, unit = "N");
+  }
+
+  part def StrokeSensor {
+    port sensedOutput : SensorPort;
+
+    attribute measurementRange : Displacement = (value = 0.050, unit = "m");
+    attribute resolution : Displacement = (value = 0.0001, unit = "m");
+  }
+
+  part def ThermalProtection {
+    port coolingInterface : CoolingPort;
+    port telemetryInput : SensorPort;
+
+    attribute activationTemperature : Temperature = (value = 65.0, unit = "degC");
+    attribute shutdownTemperature : Temperature = (value = 85.0, unit = "degC");
+    attribute coolingCapacity : Power = (value = 75.0, unit = "W");
+
+    perform action limitHeat : LimitTemperature;
+  }
+
+  part def EmbeddedController {
+    port commandInput : CommandInputPort;
+    port driverCommand : CommandInputPort;
+    port telemetryInput : SensorPort;
+    port telemetryOutput : TelemetryOutputPort;
+
+    attribute controlLoopPeriod : Time = (value = 0.002, unit = "s");
+    attribute forceControlTolerance : Force = (value = 5.0, unit = "N");
+    attribute strokeControlTolerance : Displacement = (value = 0.0005, unit = "m");
+
+    perform action commandValidation : ValidateCommand;
+  }
+
+  part def ArtificialMuscleActuator {
+    port powerInput : ElectricalInputPort;
+    port commandInput : CommandInputPort;
+    port workOutput : MechanicalOutputPort;
+    port telemetryOutput : TelemetryOutputPort;
+    port coolingInterface : CoolingPort;
+
+    part controller : EmbeddedController;
+    part driver : ActivationDriver;
+    part contractileElement : ContractileElement;
+    part forceSensor : ForceSensor;
+    part strokeSensor : StrokeSensor;
+    part thermalProtection : ThermalProtection;
+
+    attribute actuatorMass : Real = 0.85;
+    attribute actuatorMassUnit : String = "kg";
+    attribute designLife : Real = 2000000.0;
+    attribute designLifeUnit : String = "cycles";
+
+    connect powerInput to driver.electricalSupply;
+    connect commandInput to controller.commandInput;
+    connect controller.driverCommand to driver.commandInput;
+    connect driver.driveOutput to contractileElement.activationPower;
+    connect contractileElement.mechanicalOutput to workOutput;
+    connect contractileElement.coolingInterface to thermalProtection.coolingInterface;
+    connect coolingInterface to thermalProtection.coolingInterface;
+    connect forceSensor.sensedOutput to controller.telemetryInput;
+    connect strokeSensor.sensedOutput to controller.telemetryInput;
+    connect contractileElement.sensorOutput to controller.telemetryInput;
+    connect thermalProtection.telemetryInput to controller.telemetryInput;
+    connect controller.telemetryOutput to telemetryOutput;
+
+    perform action operatingCycle : ArtificialMuscleCycle;
+    exhibit state operatingState : ArtificialMuscleOperatingState;
+  }
+
+  part def ArtificialMuscleSystem {
+    port systemPower : ElectricalInputPort;
+    port systemCommand : CommandInputPort;
+    port systemWorkOutput : MechanicalOutputPort;
+    port systemTelemetry : TelemetryOutputPort;
+    port systemCooling : CoolingPort;
+
+    part actuator : ArtificialMuscleActuator;
+
+    attribute primaryFunction : String =
+      "Convert regulated electrical activation energy into controlled tensile contraction that produces useful mechanical force and stroke.";
+
+    connect systemPower to actuator.powerInput;
+    connect systemCommand to actuator.commandInput;
+    connect actuator.workOutput to systemWorkOutput;
+    connect actuator.telemetryOutput to systemTelemetry;
+    connect systemCooling to actuator.coolingInterface;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The artificial muscle system shall provide controlled contraction to convert electrical activation energy into mechanical tensile work for actuation."
+
+    subject muscleSystem : ArtificialMuscleSystem;
+
+    require constraint {
+      muscleSystem.actuator.contractileElement.nominalForce.value >= 350.0
+    }
+
+    require constraint {
+      muscleSystem.actuator.contractileElement.maximumStroke.value >= 0.045
+    }
+  }
+
+  requirement def ForceControlRequirement {
+    doc "The artificial muscle actuator shall regulate delivered tensile force to within the commanded tolerance during the holding state."
+
+    subject actuator : ArtificialMuscleActuator;
+
+    require constraint {
+      actuator.controller.forceControlTolerance.value <= 5.0
+    }
+  }
+
+  requirement def StrokeRequirement {
+    doc "The contractile element shall provide at least thirty percent contraction ratio relative to relaxed length."
+
+    subject element : ContractileElement;
+
+    require constraint {
+      element.maximumContractionRatio.value >= 0.30
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    doc "The system shall enter a faulted state before contractile element temperature exceeds the shutdown limit."
+
+    subject actuator : ArtificialMuscleActuator;
+
+    require constraint {
+      actuator.thermalProtection.shutdownTemperature.value <= 85.0
+    }
+  }
+
+  requirement def ElectricalInterfaceRequirement {
+    doc "The activation driver shall operate from a low-voltage electrical supply and shall limit output current."
+
+    subject driver : ActivationDriver;
+
+    require constraint {
+      driver.maximumVoltage.value <= 48.0
+    }
+
+    require constraint {
+      driver.maximumCurrent.value <= 12.0
+    }
+  }
+
+  requirement def TelemetryRequirement {
+    doc "The system shall report measured force, measured stroke, temperature, pressure, supply voltage, operating mode, and active fault."
+
+    subject system : ArtificialMuscleSystem;
+  }
+
+  satisfy PrimaryFunctionRequirement by ArtificialMuscleSystem;
+  satisfy ForceControlRequirement by ArtificialMuscleActuator;
+  satisfy StrokeRequirement by ContractileElement;
+  satisfy ThermalSafetyRequirement by ThermalProtection;
+  satisfy ElectricalInterfaceRequirement by ActivationDriver;
+  satisfy TelemetryRequirement by EmbeddedController;
+}
+tokens used
+3,589
+package ArtificialMuscleModel {
+
+  enum def MuscleMode {
+    enum idle;
+    enum preloaded;
+    enum contracting;
+    enum holding;
+    enum relaxing;
+    enum faulted;
+  }
+
+  enum def FaultKind {
+    enum none;
+    enum overTemperature;
+    enum overCurrent;
+    enum overStroke;
+    enum sensorInvalid;
+    enum membraneLeak;
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  attribute def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def Force {
+    attribute value : Real;
+    attribute unit : String = "N";
+  }
+
+  attribute def Length {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Displacement {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def Pressure {
+    attribute value : Real;
+    attribute unit : String = "kPa";
+  }
+
+  attribute def Time {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  attribute def Ratio {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  item def ElectricalPowerFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def ControlCommand {
+    attribute desiredForce : Force;
+    attribute desiredStroke : Displacement;
+    attribute riseTime : Time;
+    attribute holdDuration : Time;
+    attribute enable : Boolean;
+  }
+
+  item def MuscleTelemetry {
+    attribute measuredForce : Force;
+    attribute measuredStroke : Displacement;
+    attribute coilTemperature : Temperature;
+    attribute internalPressure : Pressure;
+    attribute supplyVoltage : Voltage;
+    attribute operatingMode : MuscleMode;
+    attribute activeFault : FaultKind;
+  }
+
+  item def MechanicalWorkFlow {
+    attribute tensileForce : Force;
+    attribute contractionStroke : Displacement;
+    attribute contractionRatio : Ratio;
+  }
+
+  item def CoolingFlow {
+    attribute heatRemoved : Power;
+    attribute inletTemperature : Temperature;
+    attribute outletTemperature : Temperature;
+  }
+
+  port def ElectricalInputPort {
+    in item powerIn : ElectricalPowerFlow;
+  }
+
+  port def CommandInputPort {
+    in item commandIn : ControlCommand;
+  }
+
+  port def TelemetryOutputPort {
+    out item telemetryOut : MuscleTelemetry;
+  }
+
+  port def MechanicalOutputPort {
+    out item workOut : MechanicalWorkFlow;
+  }
+
+  port def CoolingPort {
+    inout item cooling : CoolingFlow;
+  }
+
+  port def SensorPort {
+    out item telemetry : MuscleTelemetry;
+  }
+
+  action def ValidateCommand {
+    in item requested : ControlCommand;
+    in item presentTelemetry : MuscleTelemetry;
+    out item accepted : ControlCommand;
+    out attribute valid : Boolean;
+  }
+
+  action def RegulateActivationEnergy {
+    in item acceptedCommand : ControlCommand;
+    in item presentTelemetry : MuscleTelemetry;
+    out item drivePower : ElectricalPowerFlow;
+  }
+
+  action def ConvertEnergyToContraction {
+    in item drivePower : ElectricalPowerFlow;
+    in item acceptedCommand : ControlCommand;
+    out item mechanicalWork : MechanicalWorkFlow;
+    out item updatedTelemetry : MuscleTelemetry;
+  }
+
+  action def LimitTemperature {
+    in item presentTelemetry : MuscleTelemetry;
+    inout item coolingFlow : CoolingFlow;
+    out attribute thermalSafe : Boolean;
+  }
+
+  action def ArtificialMuscleCycle {
+    in item command : ControlCommand;
+    in item supplyPower : ElectricalPowerFlow;
+    inout item coolingFlow : CoolingFlow;
+    out item work : MechanicalWorkFlow;
+    out item telemetry : MuscleTelemetry;
+
+    action validate : ValidateCommand;
+    action regulate : RegulateActivationEnergy;
+    action contract : ConvertEnergyToContraction;
+    action cool : LimitTemperature;
+
+    flow command to validate.requested;
+    flow supplyPower to regulate.drivePower;
+    flow validate.accepted to regulate.acceptedCommand;
+    flow validate.accepted to contract.acceptedCommand;
+    flow regulate.drivePower to contract.drivePower;
+    flow contract.mechanicalWork to work;
+    flow contract.updatedTelemetry to telemetry;
+    flow telemetry to cool.presentTelemetry;
+  }
+
+  state def ArtificialMuscleOperatingState {
+    entry action initializeTelemetry;
+    exit action storeLastCycleData;
+
+    state idle;
+    state preloaded;
+    state contracting;
+    state holding;
+    state relaxing;
+    state faulted;
+
+    transition first idle;
+
+    transition idle_to_preloaded
+      first idle
+      then preloaded
+      accept ControlCommand
+      if commandIn.enable == true;
+
+    transition preloaded_to_contracting
+      first preloaded
+      then contracting
+      if commandIn.desiredForce.value > 0.0;
+
+    transition contracting_to_holding
+      first contracting
+      then holding
+      if telemetryOut.measuredForce.value >= commandIn.desiredForce.value;
+
+    transition holding_to_relaxing
+      first holding
+      then relaxing
+      after commandIn.holdDuration;
+
+    transition relaxing_to_idle
+      first relaxing
+      then idle
+      if telemetryOut.measuredStroke.value <= 0.001;
+
+    transition any_to_faulted
+      first idle
+      then faulted
+      if telemetryOut.activeFault != FaultKind::none;
+
+    transition faulted_to_idle
+      first faulted
+      then idle
+      accept ControlCommand
+      if commandIn.enable == false;
+  }
+
+  part def ActivationDriver {
+    port electricalSupply : ElectricalInputPort;
+    port commandInput : CommandInputPort;
+    port driveOutput : ElectricalInputPort;
+    port telemetryInput : SensorPort;
+
+    attribute maximumVoltage : Voltage = (value = 48.0, unit = "V");
+    attribute maximumCurrent : Current = (value = 12.0, unit = "A");
+    attribute switchingFrequency : Real = 20000.0;
+
+    perform action regulateEnergy : RegulateActivationEnergy;
+  }
+
+  part def ContractileElement {
+    port activationPower : ElectricalInputPort;
+    port mechanicalOutput : MechanicalOutputPort;
+    port coolingInterface : CoolingPort;
+    port sensorOutput : SensorPort;
+
+    attribute relaxedLength : Length = (value = 0.150, unit = "m");
+    attribute maximumStroke : Displacement = (value = 0.045, unit = "m");
+    attribute nominalForce : Force = (value = 350.0, unit = "N");
+    attribute peakForce : Force = (value = 500.0, unit = "N");
+    attribute maximumContractionRatio : Ratio = (value = 0.30, unit = "1");
+    attribute maximumTemperature : Temperature = (value = 80.0, unit = "degC");
+    attribute nominalInternalPressure : Pressure = (value = 240.0, unit = "kPa");
+
+    perform action energyConversion : ConvertEnergyToContraction;
+  }
+
+  part def ForceSensor {
+    port sensedOutput : SensorPort;
+
+    attribute measurementRange : Force = (value = 600.0, unit = "N");
+    attribute resolution : Force = (value = 0.5, unit = "N");
+  }
+
+  part def StrokeSensor {
+    port sensedOutput : SensorPort;
+
+    attribute measurementRange : Displacement = (value = 0.050, unit = "m");
+    attribute resolution : Displacement = (value = 0.0001, unit = "m");
+  }
+
+  part def ThermalProtection {
+    port coolingInterface : CoolingPort;
+    port telemetryInput : SensorPort;
+
+    attribute activationTemperature : Temperature = (value = 65.0, unit = "degC");
+    attribute shutdownTemperature : Temperature = (value = 85.0, unit = "degC");
+    attribute coolingCapacity : Power = (value = 75.0, unit = "W");
+
+    perform action limitHeat : LimitTemperature;
+  }
+
+  part def EmbeddedController {
+    port commandInput : CommandInputPort;
+    port driverCommand : CommandInputPort;
+    port telemetryInput : SensorPort;
+    port telemetryOutput : TelemetryOutputPort;
+
+    attribute controlLoopPeriod : Time = (value = 0.002, unit = "s");
+    attribute forceControlTolerance : Force = (value = 5.0, unit = "N");
+    attribute strokeControlTolerance : Displacement = (value = 0.0005, unit = "m");
+
+    perform action commandValidation : ValidateCommand;
+  }
+
+  part def ArtificialMuscleActuator {
+    port powerInput : ElectricalInputPort;
+    port commandInput : CommandInputPort;
+    port workOutput : MechanicalOutputPort;
+    port telemetryOutput : TelemetryOutputPort;
+    port coolingInterface : CoolingPort;
+
+    part controller : EmbeddedController;
+    part driver : ActivationDriver;
+    part contractileElement : ContractileElement;
+    part forceSensor : ForceSensor;
+    part strokeSensor : StrokeSensor;
+    part thermalProtection : ThermalProtection;
+
+    attribute actuatorMass : Real = 0.85;
+    attribute actuatorMassUnit : String = "kg";
+    attribute designLife : Real = 2000000.0;
+    attribute designLifeUnit : String = "cycles";
+
+    connect powerInput to driver.electricalSupply;
+    connect commandInput to controller.commandInput;
+    connect controller.driverCommand to driver.commandInput;
+    connect driver.driveOutput to contractileElement.activationPower;
+    connect contractileElement.mechanicalOutput to workOutput;
+    connect contractileElement.coolingInterface to thermalProtection.coolingInterface;
+    connect coolingInterface to thermalProtection.coolingInterface;
+    connect forceSensor.sensedOutput to controller.telemetryInput;
+    connect strokeSensor.sensedOutput to controller.telemetryInput;
+    connect contractileElement.sensorOutput to controller.telemetryInput;
+    connect thermalProtection.telemetryInput to controller.telemetryInput;
+    connect controller.telemetryOutput to telemetryOutput;
+
+    perform action operatingCycle : ArtificialMuscleCycle;
+    exhibit state operatingState : ArtificialMuscleOperatingState;
+  }
+
+  part def ArtificialMuscleSystem {
+    port systemPower : ElectricalInputPort;
+    port systemCommand : CommandInputPort;
+    port systemWorkOutput : MechanicalOutputPort;
+    port systemTelemetry : TelemetryOutputPort;
+    port systemCooling : CoolingPort;
+
+    part actuator : ArtificialMuscleActuator;
+
+    attribute primaryFunction : String =
+      "Convert regulated electrical activation energy into controlled tensile contraction that produces useful mechanical force and stroke.";
+
+    connect systemPower to actuator.powerInput;
+    connect systemCommand to actuator.commandInput;
+    connect actuator.workOutput to systemWorkOutput;
+    connect actuator.telemetryOutput to systemTelemetry;
+    connect systemCooling to actuator.coolingInterface;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The artificial muscle system shall provide controlled contraction to convert electrical activation energy into mechanical tensile work for actuation."
+
+    subject muscleSystem : ArtificialMuscleSystem;
+
+    require constraint {
+      muscleSystem.actuator.contractileElement.nominalForce.value >= 350.0
+    }
+
+    require constraint {
+      muscleSystem.actuator.contractileElement.maximumStroke.value >= 0.045
+    }
+  }
+
+  requirement def ForceControlRequirement {
+    doc "The artificial muscle actuator shall regulate delivered tensile force to within the commanded tolerance during the holding state."
+
+    subject actuator : ArtificialMuscleActuator;
+
+    require constraint {
+      actuator.controller.forceControlTolerance.value <= 5.0
+    }
+  }
+
+  requirement def StrokeRequirement {
+    doc "The contractile element shall provide at least thirty percent contraction ratio relative to relaxed length."
+
+    subject element : ContractileElement;
+
+    require constraint {
+      element.maximumContractionRatio.value >= 0.30
+    }
+  }
+
+  requirement def ThermalSafetyRequirement {
+    doc "The system shall enter a faulted state before contractile element temperature exceeds the shutdown limit."
+
+    subject actuator : ArtificialMuscleActuator;
+
+    require constraint {
+      actuator.thermalProtection.shutdownTemperature.value <= 85.0
+    }
+  }
+
+  requirement def ElectricalInterfaceRequirement {
+    doc "The activation driver shall operate from a low-voltage electrical supply and shall limit output current."
+
+    subject driver : ActivationDriver;
+
+    require constraint {
+      driver.maximumVoltage.value <= 48.0
+    }
+
+    require constraint {
+      driver.maximumCurrent.value <= 12.0
+    }
+  }
+
+  requirement def TelemetryRequirement {
+    doc "The system shall report measured force, measured stroke, temperature, pressure, supply voltage, operating mode, and active fault."
+
+    subject system : ArtificialMuscleSystem;
+  }
+
+  satisfy PrimaryFunctionRequirement by ArtificialMuscleSystem;
+  satisfy ForceControlRequirement by ArtificialMuscleActuator;
+  satisfy StrokeRequirement by ContractileElement;
+  satisfy ThermalSafetyRequirement by ThermalProtection;
+  satisfy ElectricalInterfaceRequirement by ActivationDriver;
+  satisfy TelemetryRequirement by EmbeddedController;
+}

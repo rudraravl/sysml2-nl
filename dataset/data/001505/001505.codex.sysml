@@ -1,0 +1,476 @@
+package MooreLawBasedComputeScalingSystem {
+
+  import ScalarValues::*;
+
+  value type Month specializes Real;
+  value type Year specializes Real;
+  value type Nanometer specializes Real;
+  value type SquareMillimeter specializes Real;
+  value type TransistorCount specializes Real;
+  value type TransistorDensity specializes Real;
+  value type FrequencyGHz specializes Real;
+  value type PowerWatt specializes Real;
+  value type EnergyPicoJoule specializes Real;
+  value type CostUSD specializes Real;
+  value type DataRateGbps specializes Real;
+  value type TemperatureCelsius specializes Real;
+  value type ReliabilityFIT specializes Real;
+  value type Probability specializes Real;
+
+  item def MarketDemand {
+    attribute requiredComputeGrowthPerYear : Real;
+    attribute targetCostReductionPerGeneration : Probability;
+    attribute maximumPowerEnvelope : PowerWatt;
+    attribute deploymentYear : Year;
+  }
+
+  item def ProcessMetrics {
+    attribute nodeName : String;
+    attribute minimumFeatureSize : Nanometer;
+    attribute transistorDensity : TransistorDensity;
+    attribute defectDensity : Real;
+    attribute waferCost : CostUSD;
+    attribute expectedYield : Probability;
+  }
+
+  item def ArchitectureMetrics {
+    attribute coreCount : Integer;
+    attribute cacheCapacityMB : Real;
+    attribute acceleratorTileCount : Integer;
+    attribute clockFrequency : FrequencyGHz;
+    attribute energyPerOperation : EnergyPicoJoule;
+  }
+
+  item def ScalingProjection {
+    attribute baselineDate : Year;
+    attribute projectionDate : Year;
+    attribute elapsedMonths : Month;
+    attribute doublingPeriod : Month;
+    attribute expectedDensityMultiplier : Real;
+    attribute projectedTransistorDensity : TransistorDensity;
+    attribute projectedTransistorBudget : TransistorCount;
+  }
+
+  item def ChipDesignPlan {
+    attribute selectedProcessNode : String;
+    attribute dieArea : SquareMillimeter;
+    attribute transistorBudget : TransistorCount;
+    attribute estimatedPower : PowerWatt;
+    attribute estimatedCost : CostUSD;
+    attribute expectedPerformanceIndex : Real;
+    attribute releaseYear : Year;
+  }
+
+  item def ThermalStatus {
+    attribute junctionTemperature : TemperatureCelsius;
+    attribute thermalMargin : TemperatureCelsius;
+    attribute throttlingRequired : Boolean;
+  }
+
+  item def ValidationResult {
+    attribute performanceSatisfied : Boolean;
+    attribute powerSatisfied : Boolean;
+    attribute costSatisfied : Boolean;
+    attribute manufacturabilitySatisfied : Boolean;
+    attribute overallSatisfied : Boolean;
+  }
+
+  port def DemandInputPort {
+    in item demand : MarketDemand;
+  }
+
+  port def ProcessDataInputPort {
+    in item metrics : ProcessMetrics;
+  }
+
+  port def ArchitectureDataInputPort {
+    in item metrics : ArchitectureMetrics;
+  }
+
+  port def ProjectionOutputPort {
+    out item projection : ScalingProjection;
+  }
+
+  port def DesignPlanOutputPort {
+    out item plan : ChipDesignPlan;
+  }
+
+  port def ThermalFeedbackPort {
+    in item status : ThermalStatus;
+  }
+
+  port def ValidationOutputPort {
+    out item result : ValidationResult;
+  }
+
+  constraint def MooreLawProjectionConstraint {
+    in attribute baselineDensity : TransistorDensity;
+    in attribute elapsedMonths : Month;
+    in attribute doublingPeriod : Month;
+    out attribute projectedDensity : TransistorDensity;
+
+    projectedDensity == baselineDensity * 2.0 ** (elapsedMonths / doublingPeriod);
+  }
+
+  constraint def DieTransistorBudgetConstraint {
+    in attribute density : TransistorDensity;
+    in attribute dieArea : SquareMillimeter;
+    out attribute transistorBudget : TransistorCount;
+
+    transistorBudget == density * dieArea;
+  }
+
+  constraint def PowerEnvelopeConstraint {
+    in attribute estimatedPower : PowerWatt;
+    in attribute maximumPower : PowerWatt;
+    out attribute satisfied : Boolean;
+
+    satisfied == estimatedPower <= maximumPower;
+  }
+
+  constraint def ThermalMarginConstraint {
+    in attribute junctionTemperature : TemperatureCelsius;
+    in attribute maximumJunctionTemperature : TemperatureCelsius;
+    out attribute margin : TemperatureCelsius;
+    out attribute throttlingRequired : Boolean;
+
+    margin == maximumJunctionTemperature - junctionTemperature;
+    throttlingRequired == margin < 5.0;
+  }
+
+  action def CollectScalingInputs {
+    in item demand : MarketDemand;
+    in item processMetrics : ProcessMetrics;
+    in item architectureMetrics : ArchitectureMetrics;
+    out item normalizedDemand : MarketDemand;
+    out item normalizedProcessMetrics : ProcessMetrics;
+    out item normalizedArchitectureMetrics : ArchitectureMetrics;
+  }
+
+  action def ProjectTransistorDensity {
+    in item processMetrics : ProcessMetrics;
+    in attribute baselineYear : Year;
+    in attribute targetYear : Year;
+    out item projection : ScalingProjection;
+
+    attribute elapsedMonths : Month;
+    attribute doublingPeriod : Month = 24.0;
+    attribute densityMultiplier : Real;
+
+    elapsedMonths = (targetYear - baselineYear) * 12.0;
+    densityMultiplier = 2.0 ** (elapsedMonths / doublingPeriod);
+
+    projection.baselineDate = baselineYear;
+    projection.projectionDate = targetYear;
+    projection.elapsedMonths = elapsedMonths;
+    projection.doublingPeriod = doublingPeriod;
+    projection.expectedDensityMultiplier = densityMultiplier;
+    projection.projectedTransistorDensity = processMetrics.transistorDensity * densityMultiplier;
+  }
+
+  action def AllocateTransistorBudget {
+    in item projection : ScalingProjection;
+    in item architectureMetrics : ArchitectureMetrics;
+    out item plan : ChipDesignPlan;
+
+    attribute nominalDieArea : SquareMillimeter = 420.0;
+
+    plan.dieArea = nominalDieArea;
+    plan.transistorBudget = projection.projectedTransistorDensity * nominalDieArea;
+    plan.releaseYear = projection.projectionDate;
+    plan.expectedPerformanceIndex =
+      architectureMetrics.coreCount * architectureMetrics.clockFrequency *
+      (1.0 + architectureMetrics.acceleratorTileCount * 0.35);
+  }
+
+  action def EstimatePowerCostAndYield {
+    in item demand : MarketDemand;
+    in item processMetrics : ProcessMetrics;
+    in item architectureMetrics : ArchitectureMetrics;
+    inout item plan : ChipDesignPlan;
+    out item validation : ValidationResult;
+
+    plan.selectedProcessNode = processMetrics.nodeName;
+    plan.estimatedPower =
+      architectureMetrics.coreCount * architectureMetrics.clockFrequency * 2.4 +
+      architectureMetrics.acceleratorTileCount * 7.5 +
+      architectureMetrics.cacheCapacityMB * 0.08;
+
+    plan.estimatedCost =
+      processMetrics.waferCost / (processMetrics.expectedYield * 120.0);
+
+    validation.powerSatisfied = plan.estimatedPower <= demand.maximumPowerEnvelope;
+    validation.costSatisfied =
+      plan.estimatedCost <= 1000.0 * (1.0 - demand.targetCostReductionPerGeneration);
+    validation.performanceSatisfied =
+      plan.expectedPerformanceIndex >= demand.requiredComputeGrowthPerYear;
+    validation.manufacturabilitySatisfied =
+      processMetrics.expectedYield >= 0.65 and processMetrics.defectDensity <= 0.25;
+    validation.overallSatisfied =
+      validation.powerSatisfied and
+      validation.costSatisfied and
+      validation.performanceSatisfied and
+      validation.manufacturabilitySatisfied;
+  }
+
+  action def PublishScalingBasedDesignPlan {
+    in item demand : MarketDemand;
+    in item processMetrics : ProcessMetrics;
+    in item architectureMetrics : ArchitectureMetrics;
+    out item projection : ScalingProjection;
+    out item plan : ChipDesignPlan;
+    out item result : ValidationResult;
+
+    action collect : CollectScalingInputs;
+    action project : ProjectTransistorDensity;
+    action allocate : AllocateTransistorBudget;
+    action estimate : EstimatePowerCostAndYield;
+
+    flow demand to collect.demand;
+    flow processMetrics to collect.processMetrics;
+    flow architectureMetrics to collect.architectureMetrics;
+
+    flow collect.normalizedProcessMetrics to project.processMetrics;
+    flow demand.deploymentYear to project.targetYear;
+
+    flow project.projection to allocate.projection;
+    flow collect.normalizedArchitectureMetrics to allocate.architectureMetrics;
+
+    flow collect.normalizedDemand to estimate.demand;
+    flow collect.normalizedProcessMetrics to estimate.processMetrics;
+    flow collect.normalizedArchitectureMetrics to estimate.architectureMetrics;
+    flow allocate.plan to estimate.plan;
+
+    flow project.projection to projection;
+    flow estimate.plan to plan;
+    flow estimate.validation to result;
+  }
+
+  state def ScalingProgramStateMachine {
+    state AwaitingInputs;
+    state ProjectingDensity;
+    state SynthesizingDesignPlan;
+    state ValidatingPlan;
+    state PlanReleased;
+    state ReplanRequired;
+
+    transition initial then AwaitingInputs;
+    transition AwaitingInputs then ProjectingDensity;
+    transition ProjectingDensity then SynthesizingDesignPlan;
+    transition SynthesizingDesignPlan then ValidatingPlan;
+    transition ValidatingPlan then PlanReleased
+      if validationResult.overallSatisfied;
+    transition ValidatingPlan then ReplanRequired
+      if not validationResult.overallSatisfied;
+    transition ReplanRequired then AwaitingInputs;
+  }
+
+  part def ProcessTechnologyRepository {
+    port processDataOut : ProcessDataInputPort;
+    attribute availableNodeCount : Integer;
+    attribute latestQualifiedNode : String;
+    attribute baselineDensity : TransistorDensity;
+    attribute baselineYear : Year;
+  }
+
+  part def MarketDemandMonitor {
+    port demandOut : DemandInputPort;
+    attribute forecastHorizon : Year;
+    attribute refreshPeriod : Month = 3.0;
+  }
+
+  part def ArchitectureSynthesisEngine {
+    port architectureMetricsOut : ArchitectureDataInputPort;
+    attribute supportedChipletCount : Integer;
+    attribute maximumCoreCount : Integer;
+    attribute supportsAccelerators : Boolean;
+  }
+
+  part def MooreLawProjectionEngine {
+    port processMetricsIn : ProcessDataInputPort;
+    port projectionOut : ProjectionOutputPort;
+
+    attribute nominalDoublingPeriod : Month = 24.0;
+    attribute minimumAllowedDoublingPeriod : Month = 18.0;
+    attribute maximumAllowedDoublingPeriod : Month = 36.0;
+
+    perform action projectDensity : ProjectTransistorDensity;
+  }
+
+  part def ChipPlanningEngine {
+    port demandIn : DemandInputPort;
+    port projectionIn : ProjectionOutputPort;
+    port architectureMetricsIn : ArchitectureDataInputPort;
+    port designPlanOut : DesignPlanOutputPort;
+
+    attribute maximumDieArea : SquareMillimeter = 600.0;
+    attribute targetDieArea : SquareMillimeter = 420.0;
+    attribute costCeiling : CostUSD = 1000.0;
+
+    perform action allocateBudget : AllocateTransistorBudget;
+  }
+
+  part def ThermalPowerAnalyzer {
+    port designPlanIn : DesignPlanOutputPort;
+    port thermalStatusOut : ThermalFeedbackPort;
+
+    attribute maximumJunctionTemperature : TemperatureCelsius = 100.0;
+    attribute nominalAmbientTemperature : TemperatureCelsius = 35.0;
+    attribute packageThermalResistance : Real = 0.18;
+  }
+
+  part def ValidationEngine {
+    port demandIn : DemandInputPort;
+    port processMetricsIn : ProcessDataInputPort;
+    port architectureMetricsIn : ArchitectureDataInputPort;
+    port designPlanIn : DesignPlanOutputPort;
+    port thermalStatusIn : ThermalFeedbackPort;
+    port validationOut : ValidationOutputPort;
+
+    attribute minimumYield : Probability = 0.65;
+    attribute maximumDefectDensity : Real = 0.25;
+    attribute minimumThermalMargin : TemperatureCelsius = 5.0;
+
+    perform action estimateAndValidate : EstimatePowerCostAndYield;
+  }
+
+  part def MooreLawBasedScalingSystem {
+    attribute primaryFunction : String =
+      "Guide high-level semiconductor product planning by projecting transistor density growth according to Moore's law and translating the projection into a feasible compute chip design plan.";
+
+    port demandInput : DemandInputPort;
+    port processDataInput : ProcessDataInputPort;
+    port architectureDataInput : ArchitectureDataInputPort;
+    port planOutput : DesignPlanOutputPort;
+    port validationOutput : ValidationOutputPort;
+
+    part demandMonitor : MarketDemandMonitor;
+    part processRepository : ProcessTechnologyRepository;
+    part architectureEngine : ArchitectureSynthesisEngine;
+    part projectionEngine : MooreLawProjectionEngine;
+    part planningEngine : ChipPlanningEngine;
+    part thermalAnalyzer : ThermalPowerAnalyzer;
+    part validationEngine : ValidationEngine;
+
+    connect demandInput to planningEngine.demandIn;
+    connect demandInput to validationEngine.demandIn;
+    connect processDataInput to projectionEngine.processMetricsIn;
+    connect processDataInput to validationEngine.processMetricsIn;
+    connect architectureDataInput to planningEngine.architectureMetricsIn;
+    connect architectureDataInput to validationEngine.architectureMetricsIn;
+
+    connect projectionEngine.projectionOut to planningEngine.projectionIn;
+    connect planningEngine.designPlanOut to thermalAnalyzer.designPlanIn;
+    connect planningEngine.designPlanOut to validationEngine.designPlanIn;
+    connect thermalAnalyzer.thermalStatusOut to validationEngine.thermalStatusIn;
+    connect planningEngine.designPlanOut to planOutput;
+    connect validationEngine.validationOut to validationOutput;
+
+    perform action publishPlan : PublishScalingBasedDesignPlan;
+    exhibit state lifecycle : ScalingProgramStateMachine;
+  }
+
+  requirement def MooreLawBasisRequirement {
+    subject system : MooreLawBasedScalingSystem;
+
+    require constraint {
+      system.projectionEngine.nominalDoublingPeriod == 24.0
+    }
+
+    doc /* The system shall use an approximately twenty-four-month transistor-density doubling period as the nominal Moore's-law basis for high-level planning. */
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : MooreLawBasedScalingSystem;
+
+    require constraint {
+      system.primaryFunction != ""
+    }
+
+    doc /* The system shall provide a high-level primary function that converts semiconductor density scaling expectations into a compute chip design plan. */
+  }
+
+  requirement def ProjectionRequirement {
+    subject projection : ScalingProjection;
+
+    require constraint {
+      projection.expectedDensityMultiplier >= 1.0 and
+      projection.projectedTransistorDensity > 0.0
+    }
+
+    doc /* Each projection shall produce a nonzero transistor density and shall not predict density regression over a forward planning interval. */
+  }
+
+  requirement def PowerEnvelopeRequirement {
+    subject result : ValidationResult;
+
+    require constraint {
+      result.powerSatisfied == true
+    }
+
+    doc /* The selected design plan shall satisfy the maximum power envelope supplied by market demand. */
+  }
+
+  requirement def ManufacturabilityRequirement {
+    subject result : ValidationResult;
+
+    require constraint {
+      result.manufacturabilitySatisfied == true
+    }
+
+    doc /* The selected process and design plan shall meet minimum yield and defect-density manufacturability criteria. */
+  }
+
+  requirement def ReleaseDecisionRequirement {
+    subject result : ValidationResult;
+
+    require constraint {
+      result.overallSatisfied ==
+      (result.performanceSatisfied and result.powerSatisfied and result.costSatisfied and result.manufacturabilitySatisfied)
+    }
+
+    doc /* A design plan shall be releasable only when performance, power, cost, and manufacturability validations are all satisfied. */
+  }
+
+  part mooreLawComputeScalingSystem : MooreLawBasedScalingSystem {
+    attribute primaryFunction =
+      "Project transistor-density growth from Moore's law and use it to select a feasible next-generation compute platform plan.";
+
+    part processRepository {
+      attribute availableNodeCount = 5;
+      attribute latestQualifiedNode = "2 nm gate-all-around";
+      attribute baselineDensity = 210000000.0;
+      attribute baselineYear = 2026.0;
+    }
+
+    part demandMonitor {
+      attribute forecastHorizon = 2030.0;
+      attribute refreshPeriod = 3.0;
+    }
+
+    part architectureEngine {
+      attribute supportedChipletCount = 8;
+      attribute maximumCoreCount = 256;
+      attribute supportsAccelerators = true;
+    }
+
+    part projectionEngine {
+      attribute nominalDoublingPeriod = 24.0;
+      attribute minimumAllowedDoublingPeriod = 18.0;
+      attribute maximumAllowedDoublingPeriod = 36.0;
+    }
+
+    part planningEngine {
+      attribute maximumDieArea = 600.0;
+      attribute targetDieArea = 420.0;
+      attribute costCeiling = 1000.0;
+    }
+
+    part validationEngine {
+      attribute minimumYield = 0.65;
+      attribute maximumDefectDensity = 0.25;
+      attribute minimumThermalMargin = 5.0;
+    }
+  }
+
+}

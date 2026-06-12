@@ -1,0 +1,1179 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-vpznn62t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb61f-3d98-7513-b40d-54c735c4ea4a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a sensing unit that measures the relevant quantity using a Throttle position sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ThrottlePositionSensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        doc "Dimensionless percentage in the range 0 to 100.";
+    }
+
+    attribute def Degree :> Real {
+        doc "Angular position in degrees.";
+    }
+
+    attribute def Volt :> Real {
+        doc "Electrical potential in volts.";
+    }
+
+    attribute def MilliSecond :> Real {
+        doc "Time duration in milliseconds.";
+    }
+
+    attribute def Hertz :> Real {
+        doc "Sampling frequency in cycles per second.";
+    }
+
+    attribute def Celsius :> Real {
+        doc "Temperature in degrees Celsius.";
+    }
+
+    attribute def Ohm :> Real {
+        doc "Electrical resistance in ohms.";
+    }
+
+    attribute def Ampere :> Real {
+        doc "Electrical current in amperes.";
+    }
+
+    enum def SensingUnitHealth {
+        enum ok;
+        enum degraded;
+        enum failed;
+    }
+
+    enum def SensorFaultCode {
+        enum noFault;
+        enum openCircuit;
+        enum shortToGround;
+        enum shortToSupply;
+        enum signalOutOfRange;
+        enum dualTrackMismatch;
+        enum excessiveNoise;
+        enum stuckSignal;
+        enum supplyOutOfRange;
+        enum processorFault;
+    }
+
+    item def ThrottleShaftAngle {
+        attribute angle : Degree;
+    }
+
+    item def SensorAnalogVoltage {
+        attribute voltage : Volt;
+        attribute trackId : Integer;
+    }
+
+    item def RegulatedSupply {
+        attribute voltage : Volt;
+        attribute currentLimit : Ampere;
+    }
+
+    item def GroundReference {
+        attribute potential : Volt;
+    }
+
+    item def ThrottlePositionMeasurement {
+        attribute position : Percent;
+        attribute angle : Degree;
+        attribute confidence : Percent;
+        attribute timestamp : MilliSecond;
+        attribute health : SensingUnitHealth;
+    }
+
+    item def DiagnosticReport {
+        attribute faultCode : SensorFaultCode;
+        attribute health : SensingUnitHealth;
+        attribute positionDifference : Percent;
+        attribute rawTrack1Voltage : Volt;
+        attribute rawTrack2Voltage : Volt;
+        attribute supplyVoltage : Volt;
+    }
+
+    port def MechanicalAnglePort {
+        in item shaftAngle : ThrottleShaftAngle;
+    }
+
+    port def AnalogSignalPort {
+        out item analogVoltage : SensorAnalogVoltage;
+    }
+
+    port def PowerInputPort {
+        in item supply : RegulatedSupply;
+        in item ground : GroundReference;
+    }
+
+    port def MeasurementOutputPort {
+        out item measuredPosition : ThrottlePositionMeasurement;
+    }
+
+    port def DiagnosticOutputPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def CalibrationPort {
+        in attribute closedThrottleAngle : Degree;
+        in attribute wideOpenThrottleAngle : Degree;
+        in attribute track1MinVoltage : Volt;
+        in attribute track1MaxVoltage : Volt;
+        in attribute track2MinVoltage : Volt;
+        in attribute track2MaxVoltage : Volt;
+    }
+
+    part def ThrottlePositionSensor {
+        attribute nominalSupplyVoltage : Volt = 5.0;
+        attribute supplyVoltageMinimum : Volt = 4.75;
+        attribute supplyVoltageMaximum : Volt = 5.25;
+        attribute operatingTemperatureMinimum : Celsius = -40.0;
+        attribute operatingTemperatureMaximum : Celsius = 125.0;
+        attribute track1ClosedVoltage : Volt = 0.50;
+        attribute track1WideOpenVoltage : Volt = 4.50;
+        attribute track2ClosedVoltage : Volt = 4.50;
+        attribute track2WideOpenVoltage : Volt = 0.50;
+        attribute outputResistance : Ohm = 1000.0;
+        attribute angularMeasurementMinimum : Degree = 0.0;
+        attribute angularMeasurementMaximum : Degree = 90.0;
+        attribute linearityErrorLimit : Percent = 1.0;
+
+        port mechanicalInput : MechanicalAnglePort;
+        port powerInput : PowerInputPort;
+        port track1Output : AnalogSignalPort;
+        port track2Output : AnalogSignalPort;
+
+        action senseThrottleAngle {
+            in item actualAngle : ThrottleShaftAngle;
+            in item electricalSupply : RegulatedSupply;
+            out item track1Signal : SensorAnalogVoltage;
+            out item track2Signal : SensorAnalogVoltage;
+
+            attribute normalizedTravel : Percent;
+            attribute track1IdealVoltage : Volt;
+            attribute track2IdealVoltage : Volt;
+
+            first start;
+            then computeNormalizedTravel;
+            then generateTrack1Voltage;
+            then generateTrack2Voltage;
+            then publishSignals;
+            then done;
+
+            action computeNormalizedTravel {
+                in item actualAngle : ThrottleShaftAngle;
+                out attribute normalizedTravel : Percent;
+            }
+
+            action generateTrack1Voltage {
+                in attribute normalizedTravel : Percent;
+                out item track1Signal : SensorAnalogVoltage;
+            }
+
+            action generateTrack2Voltage {
+                in attribute normalizedTravel : Percent;
+                out item track2Signal : SensorAnalogVoltage;
+            }
+
+            action publishSignals {
+                in item track1Signal : SensorAnalogVoltage;
+                in item track2Signal : SensorAnalogVoltage;
+            }
+        }
+    }
+
+    part def SignalConditioner {
+        attribute inputImpedance : Ohm = 100000.0;
+        attribute lowPassCutoffFrequency : Hertz = 100.0;
+        attribute noiseLimit : Volt = 0.025;
+        attribute conditionedVoltageMinimum : Volt = 0.0;
+        attribute conditionedVoltageMaximum : Volt = 5.0;
+
+        port track1Input : AnalogSignalPort;
+        port track2Input : AnalogSignalPort;
+        port track1ConditionedOutput : AnalogSignalPort;
+        port track2ConditionedOutput : AnalogSignalPort;
+
+        action filterAndProtectSignals {
+            in item rawTrack1 : SensorAnalogVoltage;
+            in item rawTrack2 : SensorAnalogVoltage;
+            out item conditionedTrack1 : SensorAnalogVoltage;
+            out item conditionedTrack2 : SensorAnalogVoltage;
+
+            first receiveRawSignals;
+            then clampTrack1;
+            then clampTrack2;
+            then lowPassFilterTrack1;
+            then lowPassFilterTrack2;
+            then outputConditionedSignals;
+            then done;
+
+            action receiveRawSignals;
+            action clampTrack1;
+            action clampTrack2;
+            action lowPassFilterTrack1;
+            action lowPassFilterTrack2;
+            action outputConditionedSignals;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute referenceVoltage : Volt = 5.0;
+        attribute resolutionBits : Integer = 12;
+        attribute sampleRate : Hertz = 1000.0;
+        attribute conversionLatency : MilliSecond = 0.2;
+        attribute quantizationStep : Volt = 0.00122;
+
+        port track1AnalogInput : AnalogSignalPort;
+        port track2AnalogInput : AnalogSignalPort;
+
+        action convertAnalogInputs {
+            in item conditionedTrack1 : SensorAnalogVoltage;
+            in item conditionedTrack2 : SensorAnalogVoltage;
+            out attribute track1Counts : Integer;
+            out attribute track2Counts : Integer;
+
+            first sampleTrack1;
+            then sampleTrack2;
+            then quantizeTrack1;
+            then quantizeTrack2;
+            then publishCounts;
+            then done;
+
+            action sampleTrack1;
+            action sampleTrack2;
+            action quantizeTrack1;
+            action quantizeTrack2;
+            action publishCounts;
+        }
+    }
+
+    part def PositionComputationProcessor {
+        attribute closedThrottleAngle : Degree = 0.0;
+        attribute wideOpenThrottleAngle : Degree = 90.0;
+        attribute closedThrottlePosition : Percent = 0.0;
+        attribute wideOpenThrottlePosition : Percent = 100.0;
+        attribute track1MinimumValidVoltage : Volt = 0.25;
+        attribute track1MaximumValidVoltage : Volt = 4.75;
+        attribute track2MinimumValidVoltage : Volt = 0.25;
+        attribute track2MaximumValidVoltage : Volt = 4.75;
+        attribute trackMismatchLimit : Percent = 5.0;
+        attribute stuckSignalTimeLimit : MilliSecond = 500.0;
+        attribute responseTimeLimit : MilliSecond = 10.0;
+        attribute samplingPeriod : MilliSecond = 1.0;
+
+        port measurementOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticOutputPort;
+        port calibrationInput : CalibrationPort;
+
+        action computeThrottlePosition {
+            in attribute track1Counts : Integer;
+            in attribute track2Counts : Integer;
+            in item conditionedTrack1 : SensorAnalogVoltage;
+            in item conditionedTrack2 : SensorAnalogVoltage;
+            in item supply : RegulatedSupply;
+            out item measurement : ThrottlePositionMeasurement;
+            out item diagnostic : DiagnosticReport;
+
+            attribute track1Position : Percent;
+            attribute track2Position : Percent;
+            attribute fusedPosition : Percent;
+            attribute inferredAngle : Degree;
+            attribute trackDifference : Percent;
+            attribute selectedFault : SensorFaultCode;
+
+            first readConvertedSignals;
+            then scaleTrack1ToPercent;
+            then scaleTrack2ToPercent;
+            then compareRedundantTracks;
+            then validateElectricalRange;
+            then fusePositionEstimate;
+            then generateDiagnosticReport;
+            then publishMeasurement;
+            then done;
+
+            action readConvertedSignals;
+            action scaleTrack1ToPercent;
+            action scaleTrack2ToPercent;
+            action compareRedundantTracks;
+            action validateElectricalRange;
+            action fusePositionEstimate;
+            action generateDiagnosticReport;
+            action publishMeasurement;
+        }
+
+        state def ProcessorOperatingState {
+            entry action initializeDiagnostics;
+            state initializing;
+            state measuring;
+            state degraded;
+            state failed;
+
+            transition first initializing
+                then measuring;
+
+            transition measuring_to_degraded
+                first measuring
+                accept SensorFaultCode::excessiveNoise
+                then degraded;
+
+            transition measuring_to_failed
+                first measuring
+                accept SensorFaultCode::openCircuit
+                then failed;
+
+            transition measuring_to_failed_short
+                first measuring
+                accept SensorFaultCode::shortToSupply
+                then failed;
+
+            transition degraded_to_measuring
+                first degraded
+                accept SensorFaultCode::noFault
+                then measuring;
+
+            transition degraded_to_failed
+                first degraded
+                accept SensorFaultCode::dualTrackMismatch
+                then failed;
+
+            transition failed_to_initializing
+                first failed
+                accept SensorFaultCode::noFault
+                then initializing;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMinimum : Volt = 9.0;
+        attribute inputVoltageMaximum : Volt = 16.0;
+        attribute outputVoltage : Volt = 5.0;
+        attribute outputTolerance : Percent = 2.0;
+        attribute maximumOutputCurrent : Ampere = 0.05;
+
+        port regulatedOutput : PowerInputPort;
+
+        action regulateSupply {
+            in attribute vehicleBatteryVoltage : Volt;
+            out item sensorSupply : RegulatedSupply;
+            out item sensorGround : GroundReference;
+
+            first monitorInputVoltage;
+            then regulateToFiveVolts;
+            then limitCurrent;
+            then outputSensorPower;
+            then done;
+
+            action monitorInputVoltage;
+            action regulateToFiveVolts;
+            action limitCurrent;
+            action outputSensorPower;
+        }
+    }
+
+    part def ThrottlePositionSensingUnit {
+        attribute measurementRangeMinimum : Percent = 0.0;
+        attribute measurementRangeMaximum : Percent = 100.0;
+        attribute angularRangeMinimum : Degree = 0.0;
+        attribute angularRangeMaximum : Degree = 90.0;
+        attribute measurementAccuracy : Percent = 2.0;
+        attribute updateRate : Hertz = 1000.0;
+        attribute endToEndLatencyLimit : MilliSecond = 10.0;
+        attribute health : SensingUnitHealth = SensingUnitHealth::ok;
+
+        port throttleAngleInput : MechanicalAnglePort;
+        port batterySupplyInput : PowerInputPort;
+        port throttlePositionOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticOutputPort;
+        port calibrationInput : CalibrationPort;
+
+        part regulator : PowerRegulator;
+        part sensor : ThrottlePositionSensor;
+        part conditioner : SignalConditioner;
+        part converter : AnalogToDigitalConverter;
+        part processor : PositionComputationProcessor;
+
+        connect throttleAngleInput to sensor.mechanicalInput;
+        connect regulator.regulatedOutput to sensor.powerInput;
+        connect sensor.track1Output to conditioner.track1Input;
+        connect sensor.track2Output to conditioner.track2Input;
+        connect conditioner.track1ConditionedOutput to converter.track1AnalogInput;
+        connect conditioner.track2ConditionedOutput to converter.track2AnalogInput;
+        connect processor.measurementOutput to throttlePositionOutput;
+        connect processor.diagnosticOutput to diagnosticOutput;
+        connect calibrationInput to processor.calibrationInput;
+
+        action measureRelevantQuantityUsingThrottlePositionSensor {
+            in item actualThrottleAngle : ThrottleShaftAngle;
+            in attribute vehicleBatteryVoltage : Volt;
+            out item measuredThrottlePosition : ThrottlePositionMeasurement;
+            out item diagnostics : DiagnosticReport;
+
+            first powerUp;
+            then acquireSensorVoltages;
+            then conditionVoltages;
+            then digitizeVoltages;
+            then computePosition;
+            then publishOutputs;
+            then done;
+
+            action powerUp {
+                in attribute vehicleBatteryVoltage : Volt;
+                out item sensorSupply : RegulatedSupply;
+            }
+
+            action acquireSensorVoltages {
+                in item actualThrottleAngle : ThrottleShaftAngle;
+                out item rawTrack1Voltage : SensorAnalogVoltage;
+                out item rawTrack2Voltage : SensorAnalogVoltage;
+            }
+
+            action conditionVoltages {
+                in item rawTrack1Voltage : SensorAnalogVoltage;
+                in item rawTrack2Voltage : SensorAnalogVoltage;
+                out item conditionedTrack1Voltage : SensorAnalogVoltage;
+                out item conditionedTrack2Voltage : SensorAnalogVoltage;
+            }
+
+            action digitizeVoltages {
+                in item conditionedTrack1Voltage : SensorAnalogVoltage;
+                in item conditionedTrack2Voltage : SensorAnalogVoltage;
+                out attribute track1Counts : Integer;
+                out attribute track2Counts : Integer;
+            }
+
+            action computePosition {
+                in attribute track1Counts : Integer;
+                in attribute track2Counts : Integer;
+                out item measuredThrottlePosition : ThrottlePositionMeasurement;
+                out item diagnostics : DiagnosticReport;
+            }
+
+            action publishOutputs {
+                in item measuredThrottlePosition : ThrottlePositionMeasurement;
+                in item diagnostics : DiagnosticReport;
+            }
+        }
+
+        state def SensingUnitLifecycle {
+            entry action performSelfTest;
+            state off;
+            state startupSelfTest;
+            state normalMeasurement;
+            state degradedMeasurement;
+            state faultLatched;
+
+            transition initialToOff
+                first off;
+
+            transition powerApplied
+                first off
+                then startupSelfTest;
+
+            transition selfTestPassed
+                first startupSelfTest
+                then normalMeasurement;
+
+            transition recoverableFaultDetected
+                first normalMeasurement
+                then degradedMeasurement;
+
+            transition unrecoverableFaultDetected
+                first normalMeasurement
+                then faultLatched;
+
+            transition degradedFaultCleared
+                first degradedMeasurement
+                then normalMeasurement;
+
+            transition degradedFaultEscalated
+                first degradedMeasurement
+                then faultLatched;
+
+            transition powerRemoved
+                first faultLatched
+                then off;
+        }
+    }
+
+    requirement def MeasureThrottlePositionRequirement {
+        doc "The sensing unit shall measure throttle position using a throttle position sensor and output the measured position as a percentage of full throttle travel.";
+        subject sensingUnit : ThrottlePositionSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeMinimum == 0.0 and
+            sensingUnit.measurementRangeMaximum == 100.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc "The sensing unit shall report throttle position with accuracy within plus or minus 2 percent of full-scale travel over the calibrated angular range.";
+        subject sensingUnit : ThrottlePositionSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementAccuracy <= 2.0
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc "The sensing unit shall provide a new throttle position measurement within 10 milliseconds after a change in throttle shaft angle.";
+        subject sensingUnit : ThrottlePositionSensingUnit;
+
+        require constraint {
+            sensingUnit.endToEndLatencyLimit <= 10.0
+        }
+    }
+
+    requirement def RedundantTrackDiagnosticRequirement {
+        doc "The sensing unit shall diagnose a fault when redundant throttle position sensor tracks differ by more than 5 percent of full-scale travel.";
+        subject processor : PositionComputationProcessor;
+
+        require constraint {
+            processor.trackMismatchLimit <= 5.0
+        }
+    }
+
+    requirement def SensorSupplyRequirement {
+        doc "The throttle position sensor shall be supplied by a regulated 5 volt reference with tolerance no greater than 2 percent.";
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.outputVoltage == 5.0 and
+            regulator.outputTolerance <= 2.0
+        }
+    }
+
+    requirement def ElectricalRangeDiagnosticRequirement {
+        doc "The sensing unit shall identify open circuit, short to ground, short to supply, and out-of-range sensor signal conditions.";
+        subject processor : PositionComputationProcessor;
+
+        require constraint {
+            processor.track1MinimumValidVoltage >= 0.25 and
+            processor.track1MaximumValidVoltage <= 4.75 and
+            processor.track2MinimumValidVoltage >= 0.25 and
+            processor.track2MaximumValidVoltage <= 4.75
+        }
+    }
+
+    requirement def SamplingRateRequirement {
+        doc "The sensing unit shall sample both throttle position sensor tracks at no less than 1000 hertz.";
+        subject converter : AnalogToDigitalConverter;
+
+        require constraint {
+            converter.sampleRate >= 1000.0
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        doc "The throttle position sensor shall operate from minus 40 degrees Celsius to 125 degrees Celsius.";
+        subject sensor : ThrottlePositionSensor;
+
+        require constraint {
+            sensor.operatingTemperatureMinimum <= -40.0 and
+            sensor.operatingTemperatureMaximum >= 125.0
+        }
+    }
+
+    satisfy MeasureThrottlePositionRequirement by ThrottlePositionSensingUnit;
+    satisfy AccuracyRequirement by ThrottlePositionSensingUnit;
+    satisfy LatencyRequirement by ThrottlePositionSensingUnit;
+    satisfy RedundantTrackDiagnosticRequirement by PositionComputationProcessor;
+    satisfy SensorSupplyRequirement by PowerRegulator;
+    satisfy ElectricalRangeDiagnosticRequirement by PositionComputationProcessor;
+    satisfy SamplingRateRequirement by AnalogToDigitalConverter;
+    satisfy OperatingTemperatureRequirement by ThrottlePositionSensor;
+}
+tokens used
+4,305
+package ThrottlePositionSensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        doc "Dimensionless percentage in the range 0 to 100.";
+    }
+
+    attribute def Degree :> Real {
+        doc "Angular position in degrees.";
+    }
+
+    attribute def Volt :> Real {
+        doc "Electrical potential in volts.";
+    }
+
+    attribute def MilliSecond :> Real {
+        doc "Time duration in milliseconds.";
+    }
+
+    attribute def Hertz :> Real {
+        doc "Sampling frequency in cycles per second.";
+    }
+
+    attribute def Celsius :> Real {
+        doc "Temperature in degrees Celsius.";
+    }
+
+    attribute def Ohm :> Real {
+        doc "Electrical resistance in ohms.";
+    }
+
+    attribute def Ampere :> Real {
+        doc "Electrical current in amperes.";
+    }
+
+    enum def SensingUnitHealth {
+        enum ok;
+        enum degraded;
+        enum failed;
+    }
+
+    enum def SensorFaultCode {
+        enum noFault;
+        enum openCircuit;
+        enum shortToGround;
+        enum shortToSupply;
+        enum signalOutOfRange;
+        enum dualTrackMismatch;
+        enum excessiveNoise;
+        enum stuckSignal;
+        enum supplyOutOfRange;
+        enum processorFault;
+    }
+
+    item def ThrottleShaftAngle {
+        attribute angle : Degree;
+    }
+
+    item def SensorAnalogVoltage {
+        attribute voltage : Volt;
+        attribute trackId : Integer;
+    }
+
+    item def RegulatedSupply {
+        attribute voltage : Volt;
+        attribute currentLimit : Ampere;
+    }
+
+    item def GroundReference {
+        attribute potential : Volt;
+    }
+
+    item def ThrottlePositionMeasurement {
+        attribute position : Percent;
+        attribute angle : Degree;
+        attribute confidence : Percent;
+        attribute timestamp : MilliSecond;
+        attribute health : SensingUnitHealth;
+    }
+
+    item def DiagnosticReport {
+        attribute faultCode : SensorFaultCode;
+        attribute health : SensingUnitHealth;
+        attribute positionDifference : Percent;
+        attribute rawTrack1Voltage : Volt;
+        attribute rawTrack2Voltage : Volt;
+        attribute supplyVoltage : Volt;
+    }
+
+    port def MechanicalAnglePort {
+        in item shaftAngle : ThrottleShaftAngle;
+    }
+
+    port def AnalogSignalPort {
+        out item analogVoltage : SensorAnalogVoltage;
+    }
+
+    port def PowerInputPort {
+        in item supply : RegulatedSupply;
+        in item ground : GroundReference;
+    }
+
+    port def MeasurementOutputPort {
+        out item measuredPosition : ThrottlePositionMeasurement;
+    }
+
+    port def DiagnosticOutputPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def CalibrationPort {
+        in attribute closedThrottleAngle : Degree;
+        in attribute wideOpenThrottleAngle : Degree;
+        in attribute track1MinVoltage : Volt;
+        in attribute track1MaxVoltage : Volt;
+        in attribute track2MinVoltage : Volt;
+        in attribute track2MaxVoltage : Volt;
+    }
+
+    part def ThrottlePositionSensor {
+        attribute nominalSupplyVoltage : Volt = 5.0;
+        attribute supplyVoltageMinimum : Volt = 4.75;
+        attribute supplyVoltageMaximum : Volt = 5.25;
+        attribute operatingTemperatureMinimum : Celsius = -40.0;
+        attribute operatingTemperatureMaximum : Celsius = 125.0;
+        attribute track1ClosedVoltage : Volt = 0.50;
+        attribute track1WideOpenVoltage : Volt = 4.50;
+        attribute track2ClosedVoltage : Volt = 4.50;
+        attribute track2WideOpenVoltage : Volt = 0.50;
+        attribute outputResistance : Ohm = 1000.0;
+        attribute angularMeasurementMinimum : Degree = 0.0;
+        attribute angularMeasurementMaximum : Degree = 90.0;
+        attribute linearityErrorLimit : Percent = 1.0;
+
+        port mechanicalInput : MechanicalAnglePort;
+        port powerInput : PowerInputPort;
+        port track1Output : AnalogSignalPort;
+        port track2Output : AnalogSignalPort;
+
+        action senseThrottleAngle {
+            in item actualAngle : ThrottleShaftAngle;
+            in item electricalSupply : RegulatedSupply;
+            out item track1Signal : SensorAnalogVoltage;
+            out item track2Signal : SensorAnalogVoltage;
+
+            attribute normalizedTravel : Percent;
+            attribute track1IdealVoltage : Volt;
+            attribute track2IdealVoltage : Volt;
+
+            first start;
+            then computeNormalizedTravel;
+            then generateTrack1Voltage;
+            then generateTrack2Voltage;
+            then publishSignals;
+            then done;
+
+            action computeNormalizedTravel {
+                in item actualAngle : ThrottleShaftAngle;
+                out attribute normalizedTravel : Percent;
+            }
+
+            action generateTrack1Voltage {
+                in attribute normalizedTravel : Percent;
+                out item track1Signal : SensorAnalogVoltage;
+            }
+
+            action generateTrack2Voltage {
+                in attribute normalizedTravel : Percent;
+                out item track2Signal : SensorAnalogVoltage;
+            }
+
+            action publishSignals {
+                in item track1Signal : SensorAnalogVoltage;
+                in item track2Signal : SensorAnalogVoltage;
+            }
+        }
+    }
+
+    part def SignalConditioner {
+        attribute inputImpedance : Ohm = 100000.0;
+        attribute lowPassCutoffFrequency : Hertz = 100.0;
+        attribute noiseLimit : Volt = 0.025;
+        attribute conditionedVoltageMinimum : Volt = 0.0;
+        attribute conditionedVoltageMaximum : Volt = 5.0;
+
+        port track1Input : AnalogSignalPort;
+        port track2Input : AnalogSignalPort;
+        port track1ConditionedOutput : AnalogSignalPort;
+        port track2ConditionedOutput : AnalogSignalPort;
+
+        action filterAndProtectSignals {
+            in item rawTrack1 : SensorAnalogVoltage;
+            in item rawTrack2 : SensorAnalogVoltage;
+            out item conditionedTrack1 : SensorAnalogVoltage;
+            out item conditionedTrack2 : SensorAnalogVoltage;
+
+            first receiveRawSignals;
+            then clampTrack1;
+            then clampTrack2;
+            then lowPassFilterTrack1;
+            then lowPassFilterTrack2;
+            then outputConditionedSignals;
+            then done;
+
+            action receiveRawSignals;
+            action clampTrack1;
+            action clampTrack2;
+            action lowPassFilterTrack1;
+            action lowPassFilterTrack2;
+            action outputConditionedSignals;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute referenceVoltage : Volt = 5.0;
+        attribute resolutionBits : Integer = 12;
+        attribute sampleRate : Hertz = 1000.0;
+        attribute conversionLatency : MilliSecond = 0.2;
+        attribute quantizationStep : Volt = 0.00122;
+
+        port track1AnalogInput : AnalogSignalPort;
+        port track2AnalogInput : AnalogSignalPort;
+
+        action convertAnalogInputs {
+            in item conditionedTrack1 : SensorAnalogVoltage;
+            in item conditionedTrack2 : SensorAnalogVoltage;
+            out attribute track1Counts : Integer;
+            out attribute track2Counts : Integer;
+
+            first sampleTrack1;
+            then sampleTrack2;
+            then quantizeTrack1;
+            then quantizeTrack2;
+            then publishCounts;
+            then done;
+
+            action sampleTrack1;
+            action sampleTrack2;
+            action quantizeTrack1;
+            action quantizeTrack2;
+            action publishCounts;
+        }
+    }
+
+    part def PositionComputationProcessor {
+        attribute closedThrottleAngle : Degree = 0.0;
+        attribute wideOpenThrottleAngle : Degree = 90.0;
+        attribute closedThrottlePosition : Percent = 0.0;
+        attribute wideOpenThrottlePosition : Percent = 100.0;
+        attribute track1MinimumValidVoltage : Volt = 0.25;
+        attribute track1MaximumValidVoltage : Volt = 4.75;
+        attribute track2MinimumValidVoltage : Volt = 0.25;
+        attribute track2MaximumValidVoltage : Volt = 4.75;
+        attribute trackMismatchLimit : Percent = 5.0;
+        attribute stuckSignalTimeLimit : MilliSecond = 500.0;
+        attribute responseTimeLimit : MilliSecond = 10.0;
+        attribute samplingPeriod : MilliSecond = 1.0;
+
+        port measurementOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticOutputPort;
+        port calibrationInput : CalibrationPort;
+
+        action computeThrottlePosition {
+            in attribute track1Counts : Integer;
+            in attribute track2Counts : Integer;
+            in item conditionedTrack1 : SensorAnalogVoltage;
+            in item conditionedTrack2 : SensorAnalogVoltage;
+            in item supply : RegulatedSupply;
+            out item measurement : ThrottlePositionMeasurement;
+            out item diagnostic : DiagnosticReport;
+
+            attribute track1Position : Percent;
+            attribute track2Position : Percent;
+            attribute fusedPosition : Percent;
+            attribute inferredAngle : Degree;
+            attribute trackDifference : Percent;
+            attribute selectedFault : SensorFaultCode;
+
+            first readConvertedSignals;
+            then scaleTrack1ToPercent;
+            then scaleTrack2ToPercent;
+            then compareRedundantTracks;
+            then validateElectricalRange;
+            then fusePositionEstimate;
+            then generateDiagnosticReport;
+            then publishMeasurement;
+            then done;
+
+            action readConvertedSignals;
+            action scaleTrack1ToPercent;
+            action scaleTrack2ToPercent;
+            action compareRedundantTracks;
+            action validateElectricalRange;
+            action fusePositionEstimate;
+            action generateDiagnosticReport;
+            action publishMeasurement;
+        }
+
+        state def ProcessorOperatingState {
+            entry action initializeDiagnostics;
+            state initializing;
+            state measuring;
+            state degraded;
+            state failed;
+
+            transition first initializing
+                then measuring;
+
+            transition measuring_to_degraded
+                first measuring
+                accept SensorFaultCode::excessiveNoise
+                then degraded;
+
+            transition measuring_to_failed
+                first measuring
+                accept SensorFaultCode::openCircuit
+                then failed;
+
+            transition measuring_to_failed_short
+                first measuring
+                accept SensorFaultCode::shortToSupply
+                then failed;
+
+            transition degraded_to_measuring
+                first degraded
+                accept SensorFaultCode::noFault
+                then measuring;
+
+            transition degraded_to_failed
+                first degraded
+                accept SensorFaultCode::dualTrackMismatch
+                then failed;
+
+            transition failed_to_initializing
+                first failed
+                accept SensorFaultCode::noFault
+                then initializing;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMinimum : Volt = 9.0;
+        attribute inputVoltageMaximum : Volt = 16.0;
+        attribute outputVoltage : Volt = 5.0;
+        attribute outputTolerance : Percent = 2.0;
+        attribute maximumOutputCurrent : Ampere = 0.05;
+
+        port regulatedOutput : PowerInputPort;
+
+        action regulateSupply {
+            in attribute vehicleBatteryVoltage : Volt;
+            out item sensorSupply : RegulatedSupply;
+            out item sensorGround : GroundReference;
+
+            first monitorInputVoltage;
+            then regulateToFiveVolts;
+            then limitCurrent;
+            then outputSensorPower;
+            then done;
+
+            action monitorInputVoltage;
+            action regulateToFiveVolts;
+            action limitCurrent;
+            action outputSensorPower;
+        }
+    }
+
+    part def ThrottlePositionSensingUnit {
+        attribute measurementRangeMinimum : Percent = 0.0;
+        attribute measurementRangeMaximum : Percent = 100.0;
+        attribute angularRangeMinimum : Degree = 0.0;
+        attribute angularRangeMaximum : Degree = 90.0;
+        attribute measurementAccuracy : Percent = 2.0;
+        attribute updateRate : Hertz = 1000.0;
+        attribute endToEndLatencyLimit : MilliSecond = 10.0;
+        attribute health : SensingUnitHealth = SensingUnitHealth::ok;
+
+        port throttleAngleInput : MechanicalAnglePort;
+        port batterySupplyInput : PowerInputPort;
+        port throttlePositionOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticOutputPort;
+        port calibrationInput : CalibrationPort;
+
+        part regulator : PowerRegulator;
+        part sensor : ThrottlePositionSensor;
+        part conditioner : SignalConditioner;
+        part converter : AnalogToDigitalConverter;
+        part processor : PositionComputationProcessor;
+
+        connect throttleAngleInput to sensor.mechanicalInput;
+        connect regulator.regulatedOutput to sensor.powerInput;
+        connect sensor.track1Output to conditioner.track1Input;
+        connect sensor.track2Output to conditioner.track2Input;
+        connect conditioner.track1ConditionedOutput to converter.track1AnalogInput;
+        connect conditioner.track2ConditionedOutput to converter.track2AnalogInput;
+        connect processor.measurementOutput to throttlePositionOutput;
+        connect processor.diagnosticOutput to diagnosticOutput;
+        connect calibrationInput to processor.calibrationInput;
+
+        action measureRelevantQuantityUsingThrottlePositionSensor {
+            in item actualThrottleAngle : ThrottleShaftAngle;
+            in attribute vehicleBatteryVoltage : Volt;
+            out item measuredThrottlePosition : ThrottlePositionMeasurement;
+            out item diagnostics : DiagnosticReport;
+
+            first powerUp;
+            then acquireSensorVoltages;
+            then conditionVoltages;
+            then digitizeVoltages;
+            then computePosition;
+            then publishOutputs;
+            then done;
+
+            action powerUp {
+                in attribute vehicleBatteryVoltage : Volt;
+                out item sensorSupply : RegulatedSupply;
+            }
+
+            action acquireSensorVoltages {
+                in item actualThrottleAngle : ThrottleShaftAngle;
+                out item rawTrack1Voltage : SensorAnalogVoltage;
+                out item rawTrack2Voltage : SensorAnalogVoltage;
+            }
+
+            action conditionVoltages {
+                in item rawTrack1Voltage : SensorAnalogVoltage;
+                in item rawTrack2Voltage : SensorAnalogVoltage;
+                out item conditionedTrack1Voltage : SensorAnalogVoltage;
+                out item conditionedTrack2Voltage : SensorAnalogVoltage;
+            }
+
+            action digitizeVoltages {
+                in item conditionedTrack1Voltage : SensorAnalogVoltage;
+                in item conditionedTrack2Voltage : SensorAnalogVoltage;
+                out attribute track1Counts : Integer;
+                out attribute track2Counts : Integer;
+            }
+
+            action computePosition {
+                in attribute track1Counts : Integer;
+                in attribute track2Counts : Integer;
+                out item measuredThrottlePosition : ThrottlePositionMeasurement;
+                out item diagnostics : DiagnosticReport;
+            }
+
+            action publishOutputs {
+                in item measuredThrottlePosition : ThrottlePositionMeasurement;
+                in item diagnostics : DiagnosticReport;
+            }
+        }
+
+        state def SensingUnitLifecycle {
+            entry action performSelfTest;
+            state off;
+            state startupSelfTest;
+            state normalMeasurement;
+            state degradedMeasurement;
+            state faultLatched;
+
+            transition initialToOff
+                first off;
+
+            transition powerApplied
+                first off
+                then startupSelfTest;
+
+            transition selfTestPassed
+                first startupSelfTest
+                then normalMeasurement;
+
+            transition recoverableFaultDetected
+                first normalMeasurement
+                then degradedMeasurement;
+
+            transition unrecoverableFaultDetected
+                first normalMeasurement
+                then faultLatched;
+
+            transition degradedFaultCleared
+                first degradedMeasurement
+                then normalMeasurement;
+
+            transition degradedFaultEscalated
+                first degradedMeasurement
+                then faultLatched;
+
+            transition powerRemoved
+                first faultLatched
+                then off;
+        }
+    }
+
+    requirement def MeasureThrottlePositionRequirement {
+        doc "The sensing unit shall measure throttle position using a throttle position sensor and output the measured position as a percentage of full throttle travel.";
+        subject sensingUnit : ThrottlePositionSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeMinimum == 0.0 and
+            sensingUnit.measurementRangeMaximum == 100.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc "The sensing unit shall report throttle position with accuracy within plus or minus 2 percent of full-scale travel over the calibrated angular range.";
+        subject sensingUnit : ThrottlePositionSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementAccuracy <= 2.0
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc "The sensing unit shall provide a new throttle position measurement within 10 milliseconds after a change in throttle shaft angle.";
+        subject sensingUnit : ThrottlePositionSensingUnit;
+
+        require constraint {
+            sensingUnit.endToEndLatencyLimit <= 10.0
+        }
+    }
+
+    requirement def RedundantTrackDiagnosticRequirement {
+        doc "The sensing unit shall diagnose a fault when redundant throttle position sensor tracks differ by more than 5 percent of full-scale travel.";
+        subject processor : PositionComputationProcessor;
+
+        require constraint {
+            processor.trackMismatchLimit <= 5.0
+        }
+    }
+
+    requirement def SensorSupplyRequirement {
+        doc "The throttle position sensor shall be supplied by a regulated 5 volt reference with tolerance no greater than 2 percent.";
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.outputVoltage == 5.0 and
+            regulator.outputTolerance <= 2.0
+        }
+    }
+
+    requirement def ElectricalRangeDiagnosticRequirement {
+        doc "The sensing unit shall identify open circuit, short to ground, short to supply, and out-of-range sensor signal conditions.";
+        subject processor : PositionComputationProcessor;
+
+        require constraint {
+            processor.track1MinimumValidVoltage >= 0.25 and
+            processor.track1MaximumValidVoltage <= 4.75 and
+            processor.track2MinimumValidVoltage >= 0.25 and
+            processor.track2MaximumValidVoltage <= 4.75
+        }
+    }
+
+    requirement def SamplingRateRequirement {
+        doc "The sensing unit shall sample both throttle position sensor tracks at no less than 1000 hertz.";
+        subject converter : AnalogToDigitalConverter;
+
+        require constraint {
+            converter.sampleRate >= 1000.0
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        doc "The throttle position sensor shall operate from minus 40 degrees Celsius to 125 degrees Celsius.";
+        subject sensor : ThrottlePositionSensor;
+
+        require constraint {
+            sensor.operatingTemperatureMinimum <= -40.0 and
+            sensor.operatingTemperatureMaximum >= 125.0
+        }
+    }
+
+    satisfy MeasureThrottlePositionRequirement by ThrottlePositionSensingUnit;
+    satisfy AccuracyRequirement by ThrottlePositionSensingUnit;
+    satisfy LatencyRequirement by ThrottlePositionSensingUnit;
+    satisfy RedundantTrackDiagnosticRequirement by PositionComputationProcessor;
+    satisfy SensorSupplyRequirement by PowerRegulator;
+    satisfy ElectricalRangeDiagnosticRequirement by PositionComputationProcessor;
+    satisfy SamplingRateRequirement by AnalogToDigitalConverter;
+    satisfy OperatingTemperatureRequirement by ThrottlePositionSensor;
+}

@@ -1,0 +1,736 @@
+package BticinoHomeAutomationSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Energy :> Real {
+        unit = "kWh";
+    }
+
+    attribute def Illuminance :> Real {
+        unit = "lx";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Humidity :> Real {
+        unit = "%";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def DataRate :> Real {
+        unit = "Mb/s";
+    }
+
+    enum def DeviceMode {
+        enum idle;
+        enum active;
+        enum fault;
+        enum maintenance;
+    }
+
+    enum def LightCommandKind {
+        enum turnOn;
+        enum turnOff;
+        enum dimToLevel;
+        enum toggle;
+    }
+
+    enum def ClimateCommandKind {
+        enum heat;
+        enum cool;
+        enum off;
+        enum setPoint;
+    }
+
+    enum def SecurityEventKind {
+        enum intrusionDetected;
+        enum doorOpened;
+        enum doorClosed;
+        enum alarmArmed;
+        enum alarmDisarmed;
+        enum tamperDetected;
+    }
+
+    enum def NotificationPriority {
+        enum low;
+        enum medium;
+        enum high;
+        enum critical;
+    }
+
+    item def AC230VPower {
+        attribute voltage : Voltage = 230.0;
+        attribute frequencyHz : Real = 50.0;
+        attribute maxCurrent : Current;
+    }
+
+    item def DC27VBusPower {
+        attribute voltage : Voltage = 27.0;
+        attribute maxCurrent : Current;
+    }
+
+    item def BusMessage {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute payloadBytes : Integer;
+        attribute priority : Integer;
+        attribute timestampSeconds : TimeDuration;
+    }
+
+    item def LightCommand :> BusMessage {
+        attribute command : LightCommandKind;
+        attribute targetLevel : Percentage;
+    }
+
+    item def ClimateCommand :> BusMessage {
+        attribute command : ClimateCommandKind;
+        attribute setPoint : Temperature;
+    }
+
+    item def SecurityEvent :> BusMessage {
+        attribute eventKind : SecurityEventKind;
+        attribute zoneId : String;
+    }
+
+    item def UserNotification {
+        attribute title : String;
+        attribute message : String;
+        attribute priority : NotificationPriority;
+        attribute acknowledged : Boolean;
+    }
+
+    item def SensorReading {
+        attribute sensorId : String;
+        attribute timestampSeconds : TimeDuration;
+    }
+
+    item def TemperatureReading :> SensorReading {
+        attribute temperature : Temperature;
+    }
+
+    item def IlluminanceReading :> SensorReading {
+        attribute illuminance : Illuminance;
+    }
+
+    item def OccupancyReading :> SensorReading {
+        attribute occupied : Boolean;
+    }
+
+    item def EnergyReading :> SensorReading {
+        attribute instantaneousPower : Power;
+        attribute accumulatedEnergy : Energy;
+    }
+
+    port def ACPowerPort {
+        in item powerIn : AC230VPower;
+    }
+
+    port def DCBusPowerPort {
+        in item busPowerIn : DC27VBusPower;
+        out item busPowerOut : DC27VBusPower;
+    }
+
+    port def AutomationBusPort {
+        in item receivedMessage : BusMessage;
+        out item transmittedMessage : BusMessage;
+    }
+
+    port def LightingOutputPort {
+        out item switchedPower : AC230VPower;
+        out attribute dimmingLevel : Percentage;
+    }
+
+    port def RelayOutputPort {
+        out item switchedPower : AC230VPower;
+        out attribute closed : Boolean;
+    }
+
+    port def SensorDataPort {
+        out item reading : SensorReading;
+    }
+
+    port def MobileNetworkPort {
+        in item remoteCommand : BusMessage;
+        out item notification : UserNotification;
+        out attribute dataRate : DataRate;
+    }
+
+    port def UserInterfacePort {
+        in item userCommand : BusMessage;
+        out item displayedNotification : UserNotification;
+    }
+
+    port def AlarmOutputPort {
+        out attribute sirenActive : Boolean;
+        out attribute strobeActive : Boolean;
+    }
+
+    part def BticinoStyleHomeAutomationGateway {
+        attribute mode : DeviceMode = DeviceMode::idle;
+        attribute busVoltage : Voltage = 27.0;
+        attribute maxBusCurrent : Current = 1.2;
+        attribute networkRate : DataRate = 100.0;
+        attribute storedScenes : Integer = 12;
+
+        port acInput : ACPowerPort;
+        port busPower : DCBusPowerPort;
+        port automationBus : AutomationBusPort;
+        port mobileInterface : MobileNetworkPort;
+        port localDisplay : UserInterfacePort;
+
+        perform action routeCommand;
+        perform action publishNotification;
+        perform action superviseBus;
+
+        state machine gatewayLifecycle {
+            state poweredOff;
+            state booting;
+            state operational;
+            state degraded;
+            state failed;
+
+            entry;
+            first poweredOff;
+
+            transition powerApplied
+                first poweredOff
+                then booting;
+
+            transition bootComplete
+                first booting
+                then operational;
+
+            transition busWarning
+                first operational
+                then degraded;
+
+            transition warningCleared
+                first degraded
+                then operational;
+
+            transition unrecoverableFault
+                first operational
+                then failed;
+
+            transition serviceReset
+                first failed
+                then booting;
+        }
+    }
+
+    part def BticinoStyleWallTouchPanel {
+        attribute mode : DeviceMode = DeviceMode::active;
+        attribute displayBrightness : Percentage = 80.0;
+        attribute standbyTimeout : TimeDuration = 30.0;
+
+        port bus : AutomationBusPort;
+        port userInterface : UserInterfacePort;
+
+        perform action captureTouchCommand;
+        perform action displayRoomStatus;
+        perform action requestSceneActivation;
+
+        state machine panelInteraction {
+            state standby;
+            state awake;
+            state editingScene;
+            state sendingCommand;
+
+            entry;
+            first standby;
+
+            transition touchDetected
+                first standby
+                then awake;
+
+            transition sceneEditRequested
+                first awake
+                then editingScene;
+
+            transition commandSelected
+                first awake
+                then sendingCommand;
+
+            transition commandSent
+                first sendingCommand
+                then awake;
+
+            transition inactivityTimeout
+                first awake
+                then standby;
+        }
+    }
+
+    part def BticinoStyleLightingActuator {
+        attribute mode : DeviceMode = DeviceMode::idle;
+        attribute channelCount : Integer = 4;
+        attribute ratedLoadPerChannel : Power = 300.0;
+        attribute currentLevel : Percentage = 0.0;
+
+        port bus : AutomationBusPort;
+        port acInput : ACPowerPort;
+        port channel1 : LightingOutputPort;
+        port channel2 : LightingOutputPort;
+        port channel3 : LightingOutputPort;
+        port channel4 : LightingOutputPort;
+
+        perform action decodeLightingCommand;
+        perform action applyDimmingLevel;
+        perform action reportLoadFault;
+
+        state machine lightingActuatorBehavior {
+            state off;
+            state switchingOn;
+            state on;
+            state dimming;
+            state overloadFault;
+
+            entry;
+            first off;
+
+            transition turnOnCommand
+                first off
+                then switchingOn;
+
+            transition energized
+                first switchingOn
+                then on;
+
+            transition dimCommand
+                first on
+                then dimming;
+
+            transition dimLevelReached
+                first dimming
+                then on;
+
+            transition turnOffCommand
+                first on
+                then off;
+
+            transition overloadDetected
+                first on
+                then overloadFault;
+
+            transition faultCleared
+                first overloadFault
+                then off;
+        }
+    }
+
+    part def BticinoStyleClimateController {
+        attribute mode : DeviceMode = DeviceMode::idle;
+        attribute heatingSetPoint : Temperature = 21.0;
+        attribute coolingSetPoint : Temperature = 25.0;
+        attribute deadBand : Temperature = 1.0;
+
+        port bus : AutomationBusPort;
+        port hvacRelay : RelayOutputPort;
+        port temperatureInput : SensorDataPort;
+
+        perform action evaluateThermalDemand;
+        perform action commandHeatingRelay;
+        perform action commandCoolingRelay;
+        perform action publishClimateStatus;
+
+        state machine climateControlBehavior {
+            state off;
+            state monitoring;
+            state heating;
+            state cooling;
+            state sensorFault;
+
+            entry;
+            first off;
+
+            transition enabled
+                first off
+                then monitoring;
+
+            transition temperatureBelowSetPoint
+                first monitoring
+                then heating;
+
+            transition temperatureAboveSetPoint
+                first monitoring
+                then cooling;
+
+            transition heatingSatisfied
+                first heating
+                then monitoring;
+
+            transition coolingSatisfied
+                first cooling
+                then monitoring;
+
+            transition invalidTemperatureReading
+                first monitoring
+                then sensorFault;
+
+            transition validReadingRestored
+                first sensorFault
+                then monitoring;
+        }
+    }
+
+    part def BticinoStyleSecurityModule {
+        attribute mode : DeviceMode = DeviceMode::idle;
+        attribute armed : Boolean = false;
+        attribute entryDelay : TimeDuration = 20.0;
+        attribute alarmDuration : TimeDuration = 180.0;
+
+        port bus : AutomationBusPort;
+        port alarmOutput : AlarmOutputPort;
+        port doorSensorInput : SensorDataPort;
+        port occupancySensorInput : SensorDataPort;
+
+        perform action armSystem;
+        perform action disarmSystem;
+        perform action verifySecurityZone;
+        perform action triggerAlarm;
+        perform action sendSecurityNotification;
+
+        state machine securityBehavior {
+            state disarmed;
+            state arming;
+            state armedStay;
+            state armedAway;
+            state entryDelayActive;
+            state alarmActive;
+            state tamperFault;
+
+            entry;
+            first disarmed;
+
+            transition armStayCommand
+                first disarmed
+                then arming;
+
+            transition armAwayCommand
+                first disarmed
+                then arming;
+
+            transition armStayComplete
+                first arming
+                then armedStay;
+
+            transition armAwayComplete
+                first arming
+                then armedAway;
+
+            transition protectedDoorOpened
+                first armedAway
+                then entryDelayActive;
+
+            transition validCodeEntered
+                first entryDelayActive
+                then disarmed;
+
+            transition entryDelayExpired
+                first entryDelayActive
+                then alarmActive;
+
+            transition intrusionDetected
+                first armedStay
+                then alarmActive;
+
+            transition alarmAcknowledged
+                first alarmActive
+                then disarmed;
+
+            transition tamperDetected
+                first disarmed
+                then tamperFault;
+
+            transition serviceCleared
+                first tamperFault
+                then disarmed;
+        }
+    }
+
+    part def RoomTemperatureSensor {
+        attribute sensorId : String;
+        attribute measurementRangeMin : Temperature = -10.0;
+        attribute measurementRangeMax : Temperature = 50.0;
+        attribute accuracy : Temperature = 0.5;
+
+        port bus : AutomationBusPort;
+        port readingOut : SensorDataPort;
+
+        perform action sampleTemperature;
+        perform action publishTemperatureReading;
+    }
+
+    part def PresenceAndLightSensor {
+        attribute sensorId : String;
+        attribute occupancyDetected : Boolean = false;
+        attribute illuminance : Illuminance = 0.0;
+        attribute occupancyHoldTime : TimeDuration = 120.0;
+
+        port bus : AutomationBusPort;
+        port readingOut : SensorDataPort;
+
+        perform action sampleOccupancy;
+        perform action sampleIlluminance;
+        perform action publishPresenceLightingReading;
+    }
+
+    part def EnergyMeter {
+        attribute meterId : String;
+        attribute voltage : Voltage = 230.0;
+        attribute current : Current = 0.0;
+        attribute instantaneousPower : Power = 0.0;
+        attribute accumulatedEnergy : Energy = 0.0;
+
+        port acInput : ACPowerPort;
+        port bus : AutomationBusPort;
+        port readingOut : SensorDataPort;
+
+        perform action calculatePower;
+        perform action accumulateEnergy;
+        perform action publishEnergyReading;
+    }
+
+    part def SmartLightingLoad {
+        attribute name : String;
+        attribute ratedPower : Power;
+        attribute commandedLevel : Percentage = 0.0;
+        attribute measuredIlluminanceContribution : Illuminance;
+
+        port powerInput : LightingOutputPort;
+    }
+
+    part def HVACPlant {
+        attribute heatingPower : Power = 3000.0;
+        attribute coolingPower : Power = 2500.0;
+        attribute active : Boolean = false;
+
+        port relayInput : RelayOutputPort;
+    }
+
+    part def SirenAndBeacon {
+        attribute acousticLevelDb : Real = 105.0;
+        attribute active : Boolean = false;
+
+        port alarmInput : AlarmOutputPort;
+    }
+
+    part def BticinoBasedSmartHomeSystem {
+        doc /* 
+        Primary function: provide centralized control, monitoring, and automation of residential lighting, climate, security, and energy use through a Bticino-style wired automation bus, local wall interfaces, and remote mobile access.
+        */
+
+        attribute nominalMainsVoltage : Voltage = 230.0;
+        attribute nominalBusVoltage : Voltage = 27.0;
+        attribute maximumInstalledLightingLoad : Power = 1200.0;
+        attribute maximumGatewayResponseTime : TimeDuration = 1.0;
+        attribute securityNotificationTimeLimit : TimeDuration = 5.0;
+        attribute targetStandbyPower : Power = 8.0;
+
+        port mainsSupply : ACPowerPort;
+        port remoteAccess : MobileNetworkPort;
+
+        part gateway : BticinoStyleHomeAutomationGateway;
+        part entrancePanel : BticinoStyleWallTouchPanel;
+        part livingRoomPanel : BticinoStyleWallTouchPanel;
+        part lightingActuator : BticinoStyleLightingActuator;
+        part climateController : BticinoStyleClimateController;
+        part securityModule : BticinoStyleSecurityModule;
+
+        part livingRoomTemperatureSensor : RoomTemperatureSensor {
+            attribute sensorId = "TEMP-LIVING";
+        }
+
+        part hallwayPresenceSensor : PresenceAndLightSensor {
+            attribute sensorId = "PRES-HALL";
+        }
+
+        part entryDoorSensor : PresenceAndLightSensor {
+            attribute sensorId = "DOOR-ENTRY";
+        }
+
+        part wholeHomeEnergyMeter : EnergyMeter {
+            attribute meterId = "ENERGY-MAIN";
+        }
+
+        part livingRoomCeilingLights : SmartLightingLoad {
+            attribute name = "Living room ceiling lights";
+            attribute ratedPower = 180.0;
+            attribute measuredIlluminanceContribution = 420.0;
+        }
+
+        part kitchenTaskLights : SmartLightingLoad {
+            attribute name = "Kitchen task lights";
+            attribute ratedPower = 120.0;
+            attribute measuredIlluminanceContribution = 650.0;
+        }
+
+        part hallwayLights : SmartLightingLoad {
+            attribute name = "Hallway lights";
+            attribute ratedPower = 80.0;
+            attribute measuredIlluminanceContribution = 240.0;
+        }
+
+        part exteriorPorchLights : SmartLightingLoad {
+            attribute name = "Exterior porch lights";
+            attribute ratedPower = 60.0;
+            attribute measuredIlluminanceContribution = 160.0;
+        }
+
+        part heatPump : HVACPlant;
+        part alarmSiren : SirenAndBeacon;
+
+        connect mainsSupply to gateway.acInput;
+        connect mainsSupply to lightingActuator.acInput;
+        connect mainsSupply to wholeHomeEnergyMeter.acInput;
+
+        connect remoteAccess to gateway.mobileInterface;
+
+        connect gateway.automationBus to entrancePanel.bus;
+        connect gateway.automationBus to livingRoomPanel.bus;
+        connect gateway.automationBus to lightingActuator.bus;
+        connect gateway.automationBus to climateController.bus;
+        connect gateway.automationBus to securityModule.bus;
+        connect gateway.automationBus to livingRoomTemperatureSensor.bus;
+        connect gateway.automationBus to hallwayPresenceSensor.bus;
+        connect gateway.automationBus to entryDoorSensor.bus;
+        connect gateway.automationBus to wholeHomeEnergyMeter.bus;
+
+        connect entrancePanel.userInterface to gateway.localDisplay;
+        connect livingRoomPanel.userInterface to gateway.localDisplay;
+
+        connect lightingActuator.channel1 to livingRoomCeilingLights.powerInput;
+        connect lightingActuator.channel2 to kitchenTaskLights.powerInput;
+        connect lightingActuator.channel3 to hallwayLights.powerInput;
+        connect lightingActuator.channel4 to exteriorPorchLights.powerInput;
+
+        connect livingRoomTemperatureSensor.readingOut to climateController.temperatureInput;
+        connect climateController.hvacRelay to heatPump.relayInput;
+
+        connect hallwayPresenceSensor.readingOut to securityModule.occupancySensorInput;
+        connect entryDoorSensor.readingOut to securityModule.doorSensorInput;
+        connect securityModule.alarmOutput to alarmSiren.alarmInput;
+
+        perform action executeSceneControl;
+        perform action maintainComfort;
+        perform action superviseSecurity;
+        perform action optimizeEnergyUse;
+    }
+
+    action def RouteCommand {
+        in item incomingCommand : BusMessage;
+        out item routedCommand : BusMessage;
+    }
+
+    action def ApplyLightingScene {
+        in attribute sceneName : String;
+        in attribute targetLivingRoomLevel : Percentage;
+        in attribute targetKitchenLevel : Percentage;
+        in attribute targetHallwayLevel : Percentage;
+        in attribute targetExteriorLevel : Percentage;
+        out item commandLivingRoom : LightCommand;
+        out item commandKitchen : LightCommand;
+        out item commandHallway : LightCommand;
+        out item commandExterior : LightCommand;
+    }
+
+    action def MaintainComfort {
+        in item temperatureReading : TemperatureReading;
+        in attribute heatingSetPoint : Temperature;
+        in attribute coolingSetPoint : Temperature;
+        out item climateCommand : ClimateCommand;
+    }
+
+    action def SuperviseSecurity {
+        in item doorState : SensorReading;
+        in item occupancyState : SensorReading;
+        in attribute armed : Boolean;
+        out item event : SecurityEvent;
+        out item notification : UserNotification;
+    }
+
+    action def OptimizeEnergyUse {
+        in item energyReading : EnergyReading;
+        in attribute occupancyDetected : Boolean;
+        out item lightingReductionCommand : LightCommand;
+        out item notification : UserNotification;
+    }
+
+    requirement def CentralizedHomeControlRequirement {
+        doc /* The system shall provide centralized high-level control of lighting, climate, security, and energy monitoring using a Bticino-style home automation bus. */
+        subject system : BticinoBasedSmartHomeSystem;
+        require constraint {
+            system.maximumGatewayResponseTime <= 1.0
+        }
+    }
+
+    requirement def LightingSceneRequirement {
+        doc /* The system shall activate predefined lighting scenes from a wall touch panel or mobile interface. */
+        subject system : BticinoBasedSmartHomeSystem;
+        require constraint {
+            system.lightingActuator.channelCount >= 4
+        }
+    }
+
+    requirement def ClimateAutomationRequirement {
+        doc /* The system shall maintain indoor comfort by controlling HVAC equipment from measured room temperature and configured set points. */
+        subject controller : BticinoStyleClimateController;
+        require constraint {
+            controller.deadBand >= 0.5 and controller.deadBand <= 2.0
+        }
+    }
+
+    requirement def SecurityNotificationRequirement {
+        doc /* The system shall notify the user of intrusion or tamper events through the gateway remote interface. */
+        subject system : BticinoBasedSmartHomeSystem;
+        require constraint {
+            system.securityNotificationTimeLimit <= 5.0
+        }
+    }
+
+    requirement def BusPowerRequirement {
+        doc /* The gateway shall provide low-voltage automation bus power suitable for connected Bticino-style devices. */
+        subject gateway : BticinoStyleHomeAutomationGateway;
+        require constraint {
+            gateway.busVoltage >= 24.0 and gateway.busVoltage <= 30.0
+        }
+    }
+
+    requirement def EnergyStandbyRequirement {
+        doc /* The system shall limit automation standby consumption while retaining monitoring and remote command capability. */
+        subject system : BticinoBasedSmartHomeSystem;
+        require constraint {
+            system.targetStandbyPower <= 8.0
+        }
+    }
+
+    satisfy CentralizedHomeControlRequirement by BticinoBasedSmartHomeSystem;
+    satisfy LightingSceneRequirement by BticinoBasedSmartHomeSystem::lightingActuator;
+    satisfy ClimateAutomationRequirement by BticinoStyleClimateController;
+    satisfy SecurityNotificationRequirement by BticinoBasedSmartHomeSystem::securityModule;
+    satisfy BusPowerRequirement by BticinoBasedSmartHomeSystem::gateway;
+    satisfy EnergyStandbyRequirement by BticinoBasedSmartHomeSystem;
+
+}

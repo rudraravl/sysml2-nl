@@ -1,0 +1,401 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-l6mmps5x
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb85e-2a5a-79c2-a06b-25bcf566e4f8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Silicone rubber and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SiliconeRubberSystemModel {
+    import ScalarValues::*;
+
+    attribute def Length_mm :> Real;
+    attribute def Area_mm2 :> Real;
+    attribute def Force_N :> Real;
+    attribute def Pressure_kPa :> Real;
+    attribute def Temperature_degC :> Real;
+    attribute def Hardness_ShoreA :> Real;
+    attribute def Ratio_percent :> Real;
+    attribute def Time_s :> Real;
+
+    item def CompressiveLoad {
+        attribute magnitude : Force_N;
+        attribute contactArea : Area_mm2;
+    }
+
+    item def MoistureIngress {
+        attribute vaporPressure : Pressure_kPa;
+        attribute temperature : Temperature_degC;
+    }
+
+    item def HeatFlow {
+        attribute temperature : Temperature_degC;
+        attribute thermalGradient : Temperature_degC;
+    }
+
+    item def SealedEnvironment {
+        attribute internalPressure : Pressure_kPa;
+        attribute relativeHumidity : Ratio_percent;
+        attribute temperature : Temperature_degC;
+    }
+
+    item def SiliconeRubberMaterial {
+        attribute hardness : Hardness_ShoreA = 55.0;
+        attribute serviceTemperatureMin : Temperature_degC = -55.0;
+        attribute serviceTemperatureMax : Temperature_degC = 200.0;
+        attribute compressionSetAfter24h : Ratio_percent = 18.0;
+        attribute elongationAtBreak : Ratio_percent = 450.0;
+        attribute primaryChemistry : String = "cross-linked polysiloxane elastomer";
+    }
+
+    port def MechanicalCompressionPort {
+        in item load : CompressiveLoad;
+        out item reaction : CompressiveLoad;
+    }
+
+    port def EnvironmentalBarrierPort {
+        in item externalMoisture : MoistureIngress;
+        out item controlledEnvironment : SealedEnvironment;
+    }
+
+    port def ThermalExposurePort {
+        in item heat : HeatFlow;
+    }
+
+    part def RigidHousing {
+        attribute grooveDepth : Length_mm = 3.2;
+        attribute grooveWidth : Length_mm = 6.0;
+        attribute sealingLandRoughness : Length_mm = 0.0016;
+
+        port sealSeat : MechanicalCompressionPort;
+        port environmentBoundary : EnvironmentalBarrierPort;
+    }
+
+    part def RigidCover {
+        attribute flatnessTolerance : Length_mm = 0.08;
+        attribute boltPreload : Force_N = 850.0;
+
+        port compressionFace : MechanicalCompressionPort;
+        port ambientSide : EnvironmentalBarrierPort;
+    }
+
+    part def SiliconeRubberGasket {
+        attribute material : SiliconeRubberMaterial;
+        attribute freeHeight : Length_mm = 4.0;
+        attribute compressedHeight : Length_mm = 3.1;
+        attribute nominalWidth : Length_mm = 5.5;
+        attribute installedCompression : Ratio_percent = 22.5;
+        attribute sealingPressure : Pressure_kPa = 145.0;
+
+        port upperContact : MechanicalCompressionPort;
+        port lowerContact : MechanicalCompressionPort;
+        port outsideSurface : EnvironmentalBarrierPort;
+        port insideSurface : EnvironmentalBarrierPort;
+        port thermalSurface : ThermalExposurePort;
+    }
+
+    part def CompressionLimiter {
+        attribute height : Length_mm = 3.0;
+        attribute maximumCompression : Ratio_percent = 25.0;
+
+        port coverStop : MechanicalCompressionPort;
+        port housingStop : MechanicalCompressionPort;
+    }
+
+    action def CompressGasket {
+        in item preload : CompressiveLoad;
+        out item sealingReaction : CompressiveLoad;
+
+        attribute targetCompression : Ratio_percent = 20.0;
+        attribute maximumAllowedCompression : Ratio_percent = 25.0;
+    }
+
+    action def BlockIngress {
+        in item externalMoisture : MoistureIngress;
+        out item protectedEnvironment : SealedEnvironment;
+
+        attribute allowableLeakPressure : Pressure_kPa = 2.0;
+    }
+
+    action def MaintainElasticRecovery {
+        in item compressionDuration : Time_s;
+        out item recoveredHeight : Length_mm;
+
+        attribute minimumRecovery : Ratio_percent = 85.0;
+    }
+
+    state def SealLifecycle {
+        state relaxed;
+        state compressed;
+        state sealing;
+        state overCompressed;
+        state degraded;
+
+        transition first relaxed then compressed;
+        transition compressed then sealing;
+        transition compressed then overCompressed;
+        transition sealing then degraded;
+        transition overCompressed then degraded;
+    }
+
+    part def SiliconeRubberEnvironmentalSealSystem {
+        doc /* Primary function: provide a flexible silicone-rubber barrier that conforms between rigid surfaces to block moisture and dust ingress while tolerating compression, temperature variation, and vibration. */
+
+        part housing : RigidHousing;
+        part cover : RigidCover;
+        part gasket : SiliconeRubberGasket;
+        part limiter : CompressionLimiter;
+
+        port externalEnvironment : EnvironmentalBarrierPort;
+        port protectedCavity : EnvironmentalBarrierPort;
+        port mountingLoad : MechanicalCompressionPort;
+        port thermalExposure : ThermalExposurePort;
+
+        connect cover.compressionFace to gasket.upperContact;
+        connect housing.sealSeat to gasket.lowerContact;
+        connect limiter.coverStop to cover.compressionFace;
+        connect limiter.housingStop to housing.sealSeat;
+        connect externalEnvironment to gasket.outsideSurface;
+        connect gasket.insideSurface to protectedCavity;
+        connect thermalExposure to gasket.thermalSurface;
+
+        perform action compress : CompressGasket;
+        perform action seal : BlockIngress;
+        perform action recover : MaintainElasticRecovery;
+
+        exhibit state lifecycle : SealLifecycle;
+    }
+
+    requirement def HighLevelPrimaryFunction {
+        doc /* The system shall use silicone rubber as the active elastomeric element to maintain an environmental seal between rigid mating parts. */
+    }
+
+    requirement def CompressionRequirement {
+        doc /* The silicone rubber gasket shall operate with installed compression between 15 percent and 25 percent. */
+    }
+
+    requirement def TemperatureRequirement {
+        doc /* The silicone rubber gasket shall maintain sealing function from -40 degC to 150 degC during normal operation. */
+    }
+
+    requirement def MoistureBarrierRequirement {
+        doc /* The system shall limit moisture ingress into the protected cavity under normal external humidity exposure. */
+    }
+
+    requirement def RecoveryRequirement {
+        doc /* After removal of compression load, the gasket shall recover at least 85 percent of its compressed deflection. */
+    }
+
+    requirement def MaterialRequirement {
+        doc /* The active sealing element shall be a cross-linked silicone rubber with nominal hardness of 55 Shore A. */
+    }
+
+    satisfy HighLevelPrimaryFunction by SiliconeRubberEnvironmentalSealSystem;
+    satisfy CompressionRequirement by SiliconeRubberGasket;
+    satisfy TemperatureRequirement by SiliconeRubberGasket;
+    satisfy MoistureBarrierRequirement by SiliconeRubberEnvironmentalSealSystem;
+    satisfy RecoveryRequirement by MaintainElasticRecovery;
+    satisfy MaterialRequirement by SiliconeRubberMaterial;
+}
+tokens used
+3,362
+package SiliconeRubberSystemModel {
+    import ScalarValues::*;
+
+    attribute def Length_mm :> Real;
+    attribute def Area_mm2 :> Real;
+    attribute def Force_N :> Real;
+    attribute def Pressure_kPa :> Real;
+    attribute def Temperature_degC :> Real;
+    attribute def Hardness_ShoreA :> Real;
+    attribute def Ratio_percent :> Real;
+    attribute def Time_s :> Real;
+
+    item def CompressiveLoad {
+        attribute magnitude : Force_N;
+        attribute contactArea : Area_mm2;
+    }
+
+    item def MoistureIngress {
+        attribute vaporPressure : Pressure_kPa;
+        attribute temperature : Temperature_degC;
+    }
+
+    item def HeatFlow {
+        attribute temperature : Temperature_degC;
+        attribute thermalGradient : Temperature_degC;
+    }
+
+    item def SealedEnvironment {
+        attribute internalPressure : Pressure_kPa;
+        attribute relativeHumidity : Ratio_percent;
+        attribute temperature : Temperature_degC;
+    }
+
+    item def SiliconeRubberMaterial {
+        attribute hardness : Hardness_ShoreA = 55.0;
+        attribute serviceTemperatureMin : Temperature_degC = -55.0;
+        attribute serviceTemperatureMax : Temperature_degC = 200.0;
+        attribute compressionSetAfter24h : Ratio_percent = 18.0;
+        attribute elongationAtBreak : Ratio_percent = 450.0;
+        attribute primaryChemistry : String = "cross-linked polysiloxane elastomer";
+    }
+
+    port def MechanicalCompressionPort {
+        in item load : CompressiveLoad;
+        out item reaction : CompressiveLoad;
+    }
+
+    port def EnvironmentalBarrierPort {
+        in item externalMoisture : MoistureIngress;
+        out item controlledEnvironment : SealedEnvironment;
+    }
+
+    port def ThermalExposurePort {
+        in item heat : HeatFlow;
+    }
+
+    part def RigidHousing {
+        attribute grooveDepth : Length_mm = 3.2;
+        attribute grooveWidth : Length_mm = 6.0;
+        attribute sealingLandRoughness : Length_mm = 0.0016;
+
+        port sealSeat : MechanicalCompressionPort;
+        port environmentBoundary : EnvironmentalBarrierPort;
+    }
+
+    part def RigidCover {
+        attribute flatnessTolerance : Length_mm = 0.08;
+        attribute boltPreload : Force_N = 850.0;
+
+        port compressionFace : MechanicalCompressionPort;
+        port ambientSide : EnvironmentalBarrierPort;
+    }
+
+    part def SiliconeRubberGasket {
+        attribute material : SiliconeRubberMaterial;
+        attribute freeHeight : Length_mm = 4.0;
+        attribute compressedHeight : Length_mm = 3.1;
+        attribute nominalWidth : Length_mm = 5.5;
+        attribute installedCompression : Ratio_percent = 22.5;
+        attribute sealingPressure : Pressure_kPa = 145.0;
+
+        port upperContact : MechanicalCompressionPort;
+        port lowerContact : MechanicalCompressionPort;
+        port outsideSurface : EnvironmentalBarrierPort;
+        port insideSurface : EnvironmentalBarrierPort;
+        port thermalSurface : ThermalExposurePort;
+    }
+
+    part def CompressionLimiter {
+        attribute height : Length_mm = 3.0;
+        attribute maximumCompression : Ratio_percent = 25.0;
+
+        port coverStop : MechanicalCompressionPort;
+        port housingStop : MechanicalCompressionPort;
+    }
+
+    action def CompressGasket {
+        in item preload : CompressiveLoad;
+        out item sealingReaction : CompressiveLoad;
+
+        attribute targetCompression : Ratio_percent = 20.0;
+        attribute maximumAllowedCompression : Ratio_percent = 25.0;
+    }
+
+    action def BlockIngress {
+        in item externalMoisture : MoistureIngress;
+        out item protectedEnvironment : SealedEnvironment;
+
+        attribute allowableLeakPressure : Pressure_kPa = 2.0;
+    }
+
+    action def MaintainElasticRecovery {
+        in item compressionDuration : Time_s;
+        out item recoveredHeight : Length_mm;
+
+        attribute minimumRecovery : Ratio_percent = 85.0;
+    }
+
+    state def SealLifecycle {
+        state relaxed;
+        state compressed;
+        state sealing;
+        state overCompressed;
+        state degraded;
+
+        transition first relaxed then compressed;
+        transition compressed then sealing;
+        transition compressed then overCompressed;
+        transition sealing then degraded;
+        transition overCompressed then degraded;
+    }
+
+    part def SiliconeRubberEnvironmentalSealSystem {
+        doc /* Primary function: provide a flexible silicone-rubber barrier that conforms between rigid surfaces to block moisture and dust ingress while tolerating compression, temperature variation, and vibration. */
+
+        part housing : RigidHousing;
+        part cover : RigidCover;
+        part gasket : SiliconeRubberGasket;
+        part limiter : CompressionLimiter;
+
+        port externalEnvironment : EnvironmentalBarrierPort;
+        port protectedCavity : EnvironmentalBarrierPort;
+        port mountingLoad : MechanicalCompressionPort;
+        port thermalExposure : ThermalExposurePort;
+
+        connect cover.compressionFace to gasket.upperContact;
+        connect housing.sealSeat to gasket.lowerContact;
+        connect limiter.coverStop to cover.compressionFace;
+        connect limiter.housingStop to housing.sealSeat;
+        connect externalEnvironment to gasket.outsideSurface;
+        connect gasket.insideSurface to protectedCavity;
+        connect thermalExposure to gasket.thermalSurface;
+
+        perform action compress : CompressGasket;
+        perform action seal : BlockIngress;
+        perform action recover : MaintainElasticRecovery;
+
+        exhibit state lifecycle : SealLifecycle;
+    }
+
+    requirement def HighLevelPrimaryFunction {
+        doc /* The system shall use silicone rubber as the active elastomeric element to maintain an environmental seal between rigid mating parts. */
+    }
+
+    requirement def CompressionRequirement {
+        doc /* The silicone rubber gasket shall operate with installed compression between 15 percent and 25 percent. */
+    }
+
+    requirement def TemperatureRequirement {
+        doc /* The silicone rubber gasket shall maintain sealing function from -40 degC to 150 degC during normal operation. */
+    }
+
+    requirement def MoistureBarrierRequirement {
+        doc /* The system shall limit moisture ingress into the protected cavity under normal external humidity exposure. */
+    }
+
+    requirement def RecoveryRequirement {
+        doc /* After removal of compression load, the gasket shall recover at least 85 percent of its compressed deflection. */
+    }
+
+    requirement def MaterialRequirement {
+        doc /* The active sealing element shall be a cross-linked silicone rubber with nominal hardness of 55 Shore A. */
+    }
+
+    satisfy HighLevelPrimaryFunction by SiliconeRubberEnvironmentalSealSystem;
+    satisfy CompressionRequirement by SiliconeRubberGasket;
+    satisfy TemperatureRequirement by SiliconeRubberGasket;
+    satisfy MoistureBarrierRequirement by SiliconeRubberEnvironmentalSealSystem;
+    satisfy RecoveryRequirement by MaintainElasticRecovery;
+    satisfy MaterialRequirement by SiliconeRubberMaterial;
+}

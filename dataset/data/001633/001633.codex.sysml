@@ -1,0 +1,519 @@
+package XanaduHouseSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def RelativeHumidity {
+    attribute value : Real;
+    attribute unit : String = "%";
+  }
+
+  attribute def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def Energy {
+    attribute value : Real;
+    attribute unit : String = "kWh";
+  }
+
+  attribute def AirFlowRate {
+    attribute value : Real;
+    attribute unit : String = "m3/h";
+  }
+
+  attribute def SoundLevel {
+    attribute value : Real;
+    attribute unit : String = "dBA";
+  }
+
+  attribute def Illuminance {
+    attribute value : Real;
+    attribute unit : String = "lux";
+  }
+
+  attribute def DataRate {
+    attribute value : Real;
+    attribute unit : String = "Mb/s";
+  }
+
+  attribute def OccupantCount {
+    attribute value : Integer;
+    attribute unit : String = "person";
+  }
+
+  attribute def SecurityState {
+    attribute armed : Boolean;
+    attribute intrusionDetected : Boolean;
+    attribute fireDetected : Boolean;
+    attribute medicalAlert : Boolean;
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute power : Power;
+  }
+
+  item def ConditionedAir {
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute flowRate : AirFlowRate;
+  }
+
+  item def PotableWater {
+    attribute flowRate : Real;
+    attribute temperature : Temperature;
+    attribute unit : String = "L/min";
+  }
+
+  item def WasteWater {
+    attribute flowRate : Real;
+    attribute unit : String = "L/min";
+  }
+
+  item def DigitalCommand {
+    attribute commandId : String;
+    attribute targetId : String;
+    attribute priority : Integer;
+  }
+
+  item def SensorReport {
+    attribute sourceId : String;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute occupancy : OccupantCount;
+    attribute illuminance : Illuminance;
+    attribute soundLevel : SoundLevel;
+  }
+
+  port def PowerPort {
+    in item electricalIn : ElectricalEnergy;
+    out item electricalOut : ElectricalEnergy;
+  }
+
+  port def AirPort {
+    in item airIn : ConditionedAir;
+    out item airOut : ConditionedAir;
+  }
+
+  port def WaterPort {
+    in item waterIn : PotableWater;
+    out item waterOut : PotableWater;
+  }
+
+  port def DrainPort {
+    out item wasteOut : WasteWater;
+  }
+
+  port def DataPort {
+    in item commandIn : DigitalCommand;
+    out item reportOut : SensorReport;
+  }
+
+  port def MediaPort {
+    in item mediaCommand : DigitalCommand;
+    out item mediaStatus : SensorReport;
+  }
+
+  part def FoamShell {
+    attribute thermalResistance : Real = 6.8;
+    attribute thermalResistanceUnit : String = "m2*K/W";
+    attribute acousticReduction : SoundLevel = (value = 38.0, unit = "dBA");
+    attribute designLife : Real = 60.0;
+    attribute designLifeUnit : String = "yr";
+
+    port innerAir : AirPort;
+    port outerBoundary : AirPort;
+  }
+
+  part def LivingZone {
+    attribute targetTemperature : Temperature = (value = 22.0, unit = "degC");
+    attribute targetHumidity : RelativeHumidity = (value = 45.0, unit = "%");
+    attribute nominalIlluminance : Illuminance = (value = 350.0, unit = "lux");
+    attribute occupants : OccupantCount;
+
+    port air : AirPort;
+    port power : PowerPort;
+    port data : DataPort;
+  }
+
+  part def KitchenZone :> LivingZone {
+    attribute foodStorageTemperature : Temperature = (value = 4.0, unit = "degC");
+    port water : WaterPort;
+    port drain : DrainPort;
+  }
+
+  part def SleepZone :> LivingZone {
+    attribute nightTemperature : Temperature = (value = 19.0, unit = "degC");
+    attribute maximumNightSound : SoundLevel = (value = 30.0, unit = "dBA");
+  }
+
+  part def WellnessZone :> LivingZone {
+    attribute showerTemperature : Temperature = (value = 40.0, unit = "degC");
+    port water : WaterPort;
+    port drain : DrainPort;
+  }
+
+  part def AutomationCore {
+    attribute processorPower : Power = (value = 250.0, unit = "W");
+    attribute localDataRate : DataRate = (value = 1000.0, unit = "Mb/s");
+    attribute maxSupportedDevices : Integer = 256;
+
+    port power : PowerPort;
+    port houseNetwork : DataPort;
+    port occupantInterface : DataPort;
+
+    action processSensorReports {
+      in item reports : SensorReport;
+      out item commands : DigitalCommand;
+    }
+
+    action scheduleComfortAdjustment {
+      in attribute zoneTemperature : Temperature;
+      in attribute zoneOccupancy : OccupantCount;
+      out item hvacCommand : DigitalCommand;
+    }
+
+    action coordinateEmergencyResponse {
+      in attribute status : SecurityState;
+      out item emergencyCommand : DigitalCommand;
+    }
+  }
+
+  part def EnvironmentalControlSystem {
+    attribute heatingCapacity : Power = (value = 8500.0, unit = "W");
+    attribute coolingCapacity : Power = (value = 7000.0, unit = "W");
+    attribute ventilationCapacity : AirFlowRate = (value = 600.0, unit = "m3/h");
+    attribute maxDailyEnergy : Energy = (value = 38.0, unit = "kWh");
+
+    port power : PowerPort;
+    port control : DataPort;
+    port supplyAir : AirPort;
+    port returnAir : AirPort;
+
+    state def ClimateMode {
+      state Off;
+      state Standby;
+      state Heating;
+      state Cooling;
+      state Ventilating;
+      state EmergencyPurge;
+
+      initial then Standby;
+
+      transition Standby_to_Heating
+        first Standby
+        then Heating;
+
+      transition Standby_to_Cooling
+        first Standby
+        then Cooling;
+
+      transition Heating_to_Standby
+        first Heating
+        then Standby;
+
+      transition Cooling_to_Standby
+        first Cooling
+        then Standby;
+
+      transition Any_to_EmergencyPurge
+        first Standby
+        then EmergencyPurge;
+
+      transition EmergencyPurge_to_Standby
+        first EmergencyPurge
+        then Standby;
+    }
+
+    perform action regulateAir {
+      in attribute desiredTemperature : Temperature;
+      in attribute desiredHumidity : RelativeHumidity;
+      out item deliveredAir : ConditionedAir;
+    }
+  }
+
+  part def AdaptiveLightingSystem {
+    attribute peakLightingPower : Power = (value = 1800.0, unit = "W");
+    attribute minimumTaskIlluminance : Illuminance = (value = 500.0, unit = "lux");
+
+    port power : PowerPort;
+    port control : DataPort;
+
+    action setScene {
+      in item sceneCommand : DigitalCommand;
+      out attribute achievedIlluminance : Illuminance;
+    }
+  }
+
+  part def SecurityAndSafetySystem {
+    attribute cameraCount : Integer = 12;
+    attribute smokeDetectorCount : Integer = 10;
+    attribute doorSensorCount : Integer = 8;
+    attribute alarmSoundLevel : SoundLevel = (value = 95.0, unit = "dBA");
+
+    port power : PowerPort;
+    port control : DataPort;
+
+    state def SafetyMode {
+      state Disarmed;
+      state HomeArmed;
+      state AwayArmed;
+      state Alert;
+      state Evacuate;
+
+      initial then Disarmed;
+
+      transition Disarmed_to_HomeArmed
+        first Disarmed
+        then HomeArmed;
+
+      transition HomeArmed_to_Alert
+        first HomeArmed
+        then Alert;
+
+      transition AwayArmed_to_Alert
+        first AwayArmed
+        then Alert;
+
+      transition Alert_to_Evacuate
+        first Alert
+        then Evacuate;
+
+      transition Evacuate_to_Disarmed
+        first Evacuate
+        then Disarmed;
+    }
+
+    action assessThreat {
+      in attribute security : SecurityState;
+      out item safetyCommand : DigitalCommand;
+    }
+  }
+
+  part def MediaAndInformationSystem {
+    attribute roomDisplayCount : Integer = 9;
+    attribute audioChannelCount : Integer = 24;
+    attribute storageCapacity : Real = 128.0;
+    attribute storageCapacityUnit : String = "TB";
+
+    port power : PowerPort;
+    port control : MediaPort;
+
+    action presentInformation {
+      in item mediaCommand : DigitalCommand;
+      out item mediaStatus : SensorReport;
+    }
+  }
+
+  part def WaterManagementSystem {
+    attribute potableStorageCapacity : Real = 600.0;
+    attribute potableStorageUnit : String = "L";
+    attribute greywaterReuseCapacity : Real = 300.0;
+    attribute greywaterReuseUnit : String = "L/day";
+
+    port power : PowerPort;
+    port control : DataPort;
+    port supply : WaterPort;
+    port drain : DrainPort;
+
+    action heatWater {
+      in attribute requestedTemperature : Temperature;
+      out item hotWater : PotableWater;
+    }
+
+    action reclaimGreywater {
+      in item usedWater : WasteWater;
+      out item serviceWater : PotableWater;
+    }
+  }
+
+  part def EnergyManagementSystem {
+    attribute batteryCapacity : Energy = (value = 40.0, unit = "kWh");
+    attribute solarPeakPower : Power = (value = 12000.0, unit = "W");
+    attribute gridImportLimit : Power = (value = 15000.0, unit = "W");
+
+    port grid : PowerPort;
+    port distribution : PowerPort;
+    port control : DataPort;
+
+    state def EnergyMode {
+      state GridPowered;
+      state SolarCharging;
+      state BatteryAssist;
+      state IslandedBackup;
+      state LoadShed;
+
+      initial then GridPowered;
+
+      transition GridPowered_to_SolarCharging
+        first GridPowered
+        then SolarCharging;
+
+      transition SolarCharging_to_BatteryAssist
+        first SolarCharging
+        then BatteryAssist;
+
+      transition BatteryAssist_to_IslandedBackup
+        first BatteryAssist
+        then IslandedBackup;
+
+      transition IslandedBackup_to_LoadShed
+        first IslandedBackup
+        then LoadShed;
+
+      transition LoadShed_to_GridPowered
+        first LoadShed
+        then GridPowered;
+    }
+
+    action allocatePower {
+      in attribute availableSolar : Power;
+      in attribute storedEnergy : Energy;
+      out item suppliedEnergy : ElectricalEnergy;
+    }
+  }
+
+  part def OccupantInterfaceSystem {
+    attribute voicePickupZones : Integer = 7;
+    attribute wallTerminalCount : Integer = 6;
+    attribute responseLatency : Real = 0.5;
+    attribute responseLatencyUnit : String = "s";
+
+    port power : PowerPort;
+    port data : DataPort;
+
+    action receiveIntent {
+      in item command : DigitalCommand;
+      out item interpretedCommand : DigitalCommand;
+    }
+  }
+
+  part def XanaduInspiredHouse {
+    attribute primaryFunction : String =
+      "Provide an adaptive, computer-assisted dwelling that integrates shelter, comfort, security, media, utilities, and energy management into a continuously responsive residential environment.";
+    attribute totalFloorArea : Real = 560.0;
+    attribute totalFloorAreaUnit : String = "m2";
+    attribute maximumOccupants : OccupantCount = (value = 8, unit = "person");
+    attribute targetAnnualEnergyUse : Energy = (value = 14500.0, unit = "kWh");
+
+    part shell : FoamShell;
+    part livingRoom : LivingZone;
+    part kitchen : KitchenZone;
+    part primaryBedroom : SleepZone;
+    part guestBedroom : SleepZone;
+    part wellnessSuite : WellnessZone;
+    part automationCore : AutomationCore;
+    part climateSystem : EnvironmentalControlSystem;
+    part lightingSystem : AdaptiveLightingSystem;
+    part securitySystem : SecurityAndSafetySystem;
+    part mediaSystem : MediaAndInformationSystem;
+    part waterSystem : WaterManagementSystem;
+    part energySystem : EnergyManagementSystem;
+    part occupantInterface : OccupantInterfaceSystem;
+
+    port gridConnection : PowerPort;
+    port externalWaterService : WaterPort;
+    port externalDrainService : DrainPort;
+    port externalNetwork : DataPort;
+
+    connect gridConnection to energySystem.grid;
+    connect energySystem.distribution to automationCore.power;
+    connect energySystem.distribution to climateSystem.power;
+    connect energySystem.distribution to lightingSystem.power;
+    connect energySystem.distribution to securitySystem.power;
+    connect energySystem.distribution to mediaSystem.power;
+    connect energySystem.distribution to waterSystem.power;
+    connect energySystem.distribution to occupantInterface.power;
+
+    connect automationCore.houseNetwork to climateSystem.control;
+    connect automationCore.houseNetwork to lightingSystem.control;
+    connect automationCore.houseNetwork to securitySystem.control;
+    connect automationCore.houseNetwork to waterSystem.control;
+    connect automationCore.houseNetwork to energySystem.control;
+    connect automationCore.occupantInterface to occupantInterface.data;
+    connect mediaSystem.control to occupantInterface.data;
+    connect externalNetwork to automationCore.houseNetwork;
+
+    connect climateSystem.supplyAir to livingRoom.air;
+    connect climateSystem.supplyAir to kitchen.air;
+    connect climateSystem.supplyAir to primaryBedroom.air;
+    connect climateSystem.supplyAir to guestBedroom.air;
+    connect climateSystem.supplyAir to wellnessSuite.air;
+    connect shell.innerAir to climateSystem.returnAir;
+
+    connect externalWaterService to waterSystem.supply;
+    connect waterSystem.supply to kitchen.water;
+    connect waterSystem.supply to wellnessSuite.water;
+    connect kitchen.drain to waterSystem.drain;
+    connect wellnessSuite.drain to waterSystem.drain;
+    connect waterSystem.drain to externalDrainService;
+
+    perform action operateHouse {
+      first start energySystem.allocatePower;
+      then start automationCore.processSensorReports;
+      then start climateSystem.regulateAir;
+      then start lightingSystem.setScene;
+      then start securitySystem.assessThreat;
+      then start mediaSystem.presentInformation;
+      then start waterSystem.reclaimGreywater;
+    }
+  }
+
+  requirement def ShelterRequirement {
+    doc /* The house shall provide structurally enclosed, insulated, weather-resistant living space for up to eight occupants. */
+    attribute requiredOccupants : Integer = 8;
+  }
+
+  requirement def ComfortRequirement {
+    doc /* The house shall maintain occupied zones between 20 degC and 24 degC and relative humidity between 35 percent and 55 percent during normal operation. */
+    attribute minimumTemperature : Temperature = (value = 20.0, unit = "degC");
+    attribute maximumTemperature : Temperature = (value = 24.0, unit = "degC");
+    attribute minimumHumidity : RelativeHumidity = (value = 35.0, unit = "%");
+    attribute maximumHumidity : RelativeHumidity = (value = 55.0, unit = "%");
+  }
+
+  requirement def AutomationRequirement {
+    doc /* The house shall sense occupancy, environmental conditions, safety events, and occupant commands, then issue coordinated commands to building subsystems. */
+    attribute maximumResponseTime : Real = 1.0;
+    attribute responseTimeUnit : String = "s";
+  }
+
+  requirement def EnergyRequirement {
+    doc /* The house shall prioritize solar generation and battery storage before importing grid power during normal daytime operation. */
+    attribute minimumBatteryCapacity : Energy = (value = 30.0, unit = "kWh");
+    attribute minimumSolarPeakPower : Power = (value = 10000.0, unit = "W");
+  }
+
+  requirement def SafetyRequirement {
+    doc /* The house shall detect intrusion, smoke, fire, and emergency alerts, then notify occupants and place environmental systems into a protective mode. */
+    attribute alarmMinimumSoundLevel : SoundLevel = (value = 85.0, unit = "dBA");
+  }
+
+  requirement def WaterRequirement {
+    doc /* The house shall provide potable hot and cold water to hygiene and food preparation zones and reclaim greywater where permitted. */
+    attribute minimumStorageCapacity : Real = 500.0;
+    attribute storageUnit : String = "L";
+  }
+
+  requirement houseMission {
+    doc /* A Xanadu-inspired house shall function as an integrated intelligent habitat rather than a passive residence. */
+  }
+
+  satisfy ShelterRequirement by XanaduInspiredHouse::shell;
+  satisfy ComfortRequirement by XanaduInspiredHouse::climateSystem;
+  satisfy AutomationRequirement by XanaduInspiredHouse::automationCore;
+  satisfy EnergyRequirement by XanaduInspiredHouse::energySystem;
+  satisfy SafetyRequirement by XanaduInspiredHouse::securitySystem;
+  satisfy WaterRequirement by XanaduInspiredHouse::waterSystem;
+  satisfy houseMission by XanaduInspiredHouse;
+
+}

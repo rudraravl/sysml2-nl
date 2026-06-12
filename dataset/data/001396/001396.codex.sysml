@@ -1,0 +1,356 @@
+package DesignAutomationAndTestInEuropeModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def Euro :> Real {
+        unit = "EUR";
+    }
+
+    attribute def TestCoverage :> Percentage;
+    attribute def ConfidenceScore :> Percentage;
+    attribute def DefectDensity :> Real {
+        unit = "defects / 1000 lines";
+    }
+
+    item def DesignSubmission {
+        attribute designId : String;
+        attribute submitterOrganization : String;
+        attribute countryCode : String;
+        attribute abstractionLevel : String;
+        attribute sourceLines : Integer;
+        attribute safetyCritical : Boolean;
+    }
+
+    item def DesignModel {
+        attribute modelId : String;
+        attribute language : String;
+        attribute componentCount : Integer;
+        attribute interfaceCount : Integer;
+        attribute clockDomainCount : Integer;
+    }
+
+    item def ConstraintSet {
+        attribute targetTechnology : String;
+        attribute maxPower : Power;
+        attribute maxArea : Area;
+        attribute maxLatency : Time;
+        attribute requiredCoverage : TestCoverage;
+    }
+
+    item def VerificationPlan {
+        attribute planId : String;
+        attribute scenarioCount : Integer;
+        attribute formalPropertyCount : Integer;
+        attribute regressionSuiteCount : Integer;
+        attribute requiredConfidence : ConfidenceScore;
+    }
+
+    item def TestVector {
+        attribute vectorId : String;
+        attribute length : Integer;
+        attribute stimulusRate : Frequency;
+        attribute expectedResponseHash : String;
+    }
+
+    item def TestResult {
+        attribute resultId : String;
+        attribute passed : Boolean;
+        attribute coverageAchieved : TestCoverage;
+        attribute measuredLatency : Time;
+        attribute measuredPower : Power;
+        attribute defectDensity : DefectDensity;
+    }
+
+    item def ComplianceReport {
+        attribute reportId : String;
+        attribute primaryFunctionSummary : String;
+        attribute compliant : Boolean;
+        attribute confidence : ConfidenceScore;
+        attribute issueCount : Integer;
+        attribute generatedForEvent : String;
+    }
+
+    port def SubmissionPort {
+        in item design : DesignSubmission;
+        in item constraints : ConstraintSet;
+        out item acceptedModel : DesignModel;
+    }
+
+    port def ModelExchangePort {
+        in item modelIn : DesignModel;
+        out item modelOut : DesignModel;
+    }
+
+    port def PlanPort {
+        in item model : DesignModel;
+        in item constraints : ConstraintSet;
+        out item plan : VerificationPlan;
+    }
+
+    port def TestExecutionPort {
+        in item plan : VerificationPlan;
+        in item vector : TestVector;
+        out item result : TestResult;
+    }
+
+    port def ReportPort {
+        in item result : TestResult;
+        out item report : ComplianceReport;
+    }
+
+    action def NormalizeDesign {
+        in item submission : DesignSubmission;
+        out item normalizedModel : DesignModel;
+
+        attribute supportedLanguage : Boolean;
+        attribute structuralCompleteness : Percentage;
+
+        satisfy requirement LanguageSupportRequirement;
+        satisfy requirement ModelCompletenessRequirement;
+    }
+
+    action def GenerateVerificationPlan {
+        in item model : DesignModel;
+        in item constraints : ConstraintSet;
+        out item plan : VerificationPlan;
+
+        attribute derivedScenarioCount : Integer;
+        attribute derivedPropertyCount : Integer;
+
+        satisfy requirement CoveragePlanningRequirement;
+    }
+
+    action def SynthesizeTestVectors {
+        in item plan : VerificationPlan;
+        out item vector : TestVector;
+
+        attribute targetStimulusRate : Frequency = 1000 [Hz];
+    }
+
+    action def ExecuteAutomatedTests {
+        in item model : DesignModel;
+        in item plan : VerificationPlan;
+        in item vector : TestVector;
+        out item result : TestResult;
+
+        attribute executionTimeout : Time = 3600 [s];
+
+        satisfy requirement AutomatedExecutionRequirement;
+        satisfy requirement PerformanceMeasurementRequirement;
+    }
+
+    action def AssessCompliance {
+        in item constraints : ConstraintSet;
+        in item result : TestResult;
+        out item report : ComplianceReport;
+
+        satisfy requirement HighLevelPrimaryFunctionRequirement;
+        satisfy requirement ComplianceThresholdRequirement;
+    }
+
+    state def EvaluationLifecycle {
+        entry action NormalizeDesign;
+        state AwaitingSubmission;
+        state ModelPrepared;
+        state PlanningVerification;
+        state RunningTests;
+        state AssessingCompliance;
+        state ReportIssued;
+        state ReworkRequired;
+
+        transition first AwaitingSubmission;
+        transition AwaitingSubmission then ModelPrepared
+            accept DesignSubmission;
+
+        transition ModelPrepared then PlanningVerification;
+        transition PlanningVerification then RunningTests;
+        transition RunningTests then AssessingCompliance;
+
+        transition AssessingCompliance then ReportIssued
+            if report.compliant == true;
+
+        transition AssessingCompliance then ReworkRequired
+            if report.compliant == false;
+
+        transition ReworkRequired then AwaitingSubmission
+            accept DesignSubmission;
+    }
+
+    part def SubmissionGateway {
+        port submissionPort : SubmissionPort;
+
+        attribute maxSubmissionSize : Integer = 2000000;
+        attribute acceptedEuropeanCountryCount : Integer = 44;
+    }
+
+    part def DesignAutomationEngine {
+        port inputPort : SubmissionPort;
+        port modelPort : ModelExchangePort;
+
+        perform action normalize : NormalizeDesign;
+
+        attribute supportedLanguages : String = "SystemC, VHDL, Verilog, SysML v2";
+        attribute maxComponentCount : Integer = 50000;
+    }
+
+    part def VerificationPlanner {
+        port planPort : PlanPort;
+
+        perform action planGeneration : GenerateVerificationPlan;
+
+        attribute minimumCoverageGoal : TestCoverage = 95 [%];
+        attribute maximumPlanningTime : Time = 900 [s];
+    }
+
+    part def TestVectorGenerator {
+        port planInput : PlanPort;
+        port executionOutput : TestExecutionPort;
+
+        perform action synthesis : SynthesizeTestVectors;
+
+        attribute maximumVectorLength : Integer = 100000;
+        attribute nominalStimulusRate : Frequency = 1000 [Hz];
+    }
+
+    part def TestExecutionCluster {
+        port executionPort : TestExecutionPort;
+
+        perform action executeTests : ExecuteAutomatedTests;
+
+        attribute nodeCount : Integer = 32;
+        attribute nominalPowerBudget : Power = 12 [kW];
+        attribute maximumExecutionTime : Time = 7200 [s];
+    }
+
+    part def ComplianceAnalyzer {
+        port reportPort : ReportPort;
+
+        perform action assess : AssessCompliance;
+
+        attribute minimumAcceptedConfidence : ConfidenceScore = 98 [%];
+        attribute maximumAcceptedDefectDensity : DefectDensity = 0.5;
+    }
+
+    part def EuropeanCollaborationRepository {
+        port modelArchive : ModelExchangePort;
+        port reportArchive : ReportPort;
+
+        attribute retentionPeriod : Time = 315360000 [s];
+        attribute encryptedAtRest : Boolean = true;
+        attribute crossBorderAccessControlled : Boolean = true;
+    }
+
+    part def DATEAutomationAndTestSystem {
+        doc /* The primary high-level function is to receive electronic design submissions from European research and industry participants, automatically transform them into analyzable models, generate verification plans, execute repeatable tests, and issue evidence-based compliance reports for design automation and test evaluation. */
+
+        part gateway : SubmissionGateway;
+        part automationEngine : DesignAutomationEngine;
+        part planner : VerificationPlanner;
+        part vectorGenerator : TestVectorGenerator;
+        part executionCluster : TestExecutionCluster;
+        part analyzer : ComplianceAnalyzer;
+        part repository : EuropeanCollaborationRepository;
+
+        port externalSubmission : SubmissionPort;
+        port finalReport : ReportPort;
+
+        state lifecycle : EvaluationLifecycle;
+
+        connect externalSubmission to gateway.submissionPort;
+        connect gateway.submissionPort to automationEngine.inputPort;
+        connect automationEngine.modelPort to planner.planPort;
+        connect planner.planPort to vectorGenerator.planInput;
+        connect vectorGenerator.executionOutput to executionCluster.executionPort;
+        connect executionCluster.executionPort to analyzer.reportPort;
+        connect analyzer.reportPort to finalReport;
+        connect automationEngine.modelPort to repository.modelArchive;
+        connect analyzer.reportPort to repository.reportArchive;
+
+        attribute annualSubmissionCapacity : Integer = 1200;
+        attribute targetReportTurnaround : Time = 86400 [s];
+        attribute targetAvailability : Percentage = 99.5 [%];
+        attribute operatingRegion : String = "Europe";
+        attribute eventBasis : String = "Design Automation and Test in Europe";
+    }
+
+    requirement def HighLevelPrimaryFunctionRequirement {
+        subject system : DATEAutomationAndTestSystem;
+
+        require constraint {
+            system.targetReportTurnaround <= 86400 [s]
+        }
+
+        doc /* The system shall provide a complete automated path from design submission to verification evidence and compliance reporting for Design Automation and Test in Europe. */
+    }
+
+    requirement def LanguageSupportRequirement {
+        subject engine : DesignAutomationEngine;
+
+        require constraint {
+            engine.maxComponentCount >= 50000
+        }
+
+        doc /* The automation engine shall support large hardware and embedded-system design models used in European design automation research and industry workflows. */
+    }
+
+    requirement def ModelCompletenessRequirement {
+        subject model : DesignModel;
+
+        require constraint {
+            model.componentCount > 0 and model.interfaceCount > 0
+        }
+
+        doc /* Every accepted design model shall contain explicit components and interfaces before verification planning begins. */
+    }
+
+    requirement def CoveragePlanningRequirement {
+        subject planner : VerificationPlanner;
+
+        require constraint {
+            planner.minimumCoverageGoal >= 95 [%]
+        }
+
+        doc /* Verification planning shall target at least 95 percent test coverage for accepted submissions. */
+    }
+
+    requirement def AutomatedExecutionRequirement {
+        subject cluster : TestExecutionCluster;
+
+        require constraint {
+            cluster.nodeCount >= 16 and cluster.maximumExecutionTime <= 7200 [s]
+        }
+
+        doc /* The test execution capability shall run automated regression, formal, and scenario tests within the allocated evaluation window. */
+    }
+
+    requirement def PerformanceMeasurementRequirement {
+        subject result : TestResult;
+
+        require constraint {
+            result.measuredLatency >= 0 [s] and result.measuredPower >= 0 [W]
+        }
+
+        doc /* Test results shall include measured latency and power values to support design automation trade-space assessment. */
+    }
+
+    requirement def ComplianceThresholdRequirement {
+        subject analyzer : ComplianceAnalyzer;
+
+        require constraint {
+            analyzer.minimumAcceptedConfidence >= 98 [%] and analyzer.maximumAcceptedDefectDensity <= 0.5
+        }
+
+        doc /* Compliance assessment shall require high confidence and low residual defect density before a design is reported as compliant. */
+    }
+
+    satisfy HighLevelPrimaryFunctionRequirement by DATEAutomationAndTestSystem;
+    satisfy LanguageSupportRequirement by DesignAutomationEngine;
+    satisfy CoveragePlanningRequirement by VerificationPlanner;
+    satisfy AutomatedExecutionRequirement by TestExecutionCluster;
+    satisfy ComplianceThresholdRequirement by ComplianceAnalyzer;
+}

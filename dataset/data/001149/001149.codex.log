@@ -1,0 +1,1331 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-53zfb6p9
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb59e-6b1e-7493-bd0a-d57ea10097b3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Moire deflectometry and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MoireDeflectometrySystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Length;
+    attribute def Angle;
+    attribute def Illuminance;
+    attribute def Frequency;
+    attribute def Time;
+    attribute def Temperature;
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Power;
+    attribute def Ratio;
+    attribute def PixelCount;
+    attribute def DataRate;
+
+    item def LightBeam {
+        attribute wavelength : Length;
+        attribute opticalPower : Power;
+        attribute coherenceRatio : Ratio;
+        attribute incidenceAngle : Angle;
+    }
+
+    item def FringeImage {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute bitDepth : Integer;
+        attribute exposureTime : Time;
+        attribute fringePitchPixels : Real;
+        attribute contrastRatio : Ratio;
+        attribute timestamp : Time;
+    }
+
+    item def PhaseMap {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute wrappedPhaseRange : Angle;
+        attribute unwrapped : Boolean;
+        attribute noiseStdDev : Angle;
+    }
+
+    item def DeflectionField {
+        attribute xSlopeRange : Angle;
+        attribute ySlopeRange : Angle;
+        attribute spatialSamplePitch : Length;
+        attribute rmsUncertainty : Angle;
+    }
+
+    item def SurfaceProfile {
+        attribute apertureDiameter : Length;
+        attribute peakToValleyHeight : Length;
+        attribute rmsHeightError : Length;
+        attribute validPointRatio : Ratio;
+    }
+
+    item def CalibrationData {
+        attribute gratingPitch : Length;
+        attribute gratingSeparation : Length;
+        attribute cameraFocalLength : Length;
+        attribute cameraPixelPitch : Length;
+        attribute geometricScaleFactor : Real;
+        attribute calibrationTemperature : Temperature;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute targetExposure : Time;
+        attribute targetIlluminationPower : Power;
+        attribute phaseShiftIndex : Integer;
+    }
+
+    item def MeasurementReport {
+        attribute reportId : Integer;
+        attribute acquisitionTime : Time;
+        attribute apertureDiameter : Length;
+        attribute maxDeflection : Angle;
+        attribute rmsSurfaceError : Length;
+        attribute pass : Boolean;
+    }
+
+    port def OpticalOutputPort {
+        out light : LightBeam;
+    }
+
+    port def OpticalInputPort {
+        in light : LightBeam;
+    }
+
+    port def ImageOutputPort {
+        out image : FringeImage;
+    }
+
+    port def ImageInputPort {
+        in image : FringeImage;
+    }
+
+    port def PhaseOutputPort {
+        out phase : PhaseMap;
+    }
+
+    port def PhaseInputPort {
+        in phase : PhaseMap;
+    }
+
+    port def DeflectionOutputPort {
+        out field : DeflectionField;
+    }
+
+    port def DeflectionInputPort {
+        in field : DeflectionField;
+    }
+
+    port def ProfileOutputPort {
+        out profile : SurfaceProfile;
+    }
+
+    port def ProfileInputPort {
+        in profile : SurfaceProfile;
+    }
+
+    port def CalibrationPort {
+        inout calibration : CalibrationData;
+    }
+
+    port def CommandInputPort {
+        in command : ControlCommand;
+    }
+
+    port def ReportOutputPort {
+        out report : MeasurementReport;
+    }
+
+    port def PowerInputPort {
+        in supplyVoltage : Voltage;
+        in supplyCurrent : Current;
+    }
+
+    part def StableOpticalBench {
+        attribute length : Length = 1.2 [m];
+        attribute width : Length = 0.6 [m];
+        attribute flatness : Length = 15 [um];
+        attribute vibrationIsolationFrequency : Frequency = 3 [Hz];
+
+        port powerIn : PowerInputPort;
+    }
+
+    part def IlluminationModule {
+        attribute nominalWavelength : Length = 530 [nm];
+        attribute maxOpticalPower : Power = 2.0 [W];
+        attribute irradianceUniformity : Ratio = 0.92;
+        attribute warmupTime : Time = 120 [s];
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port opticalOut : OpticalOutputPort;
+
+        action def EmitCollimatedBeam {
+            in command : ControlCommand;
+            out beam : LightBeam;
+
+            first start;
+            then regulatePower;
+            then stabilizeWavelength;
+            then deliverBeam;
+            then done;
+
+            action regulatePower;
+            action stabilizeWavelength;
+            action deliverBeam;
+        }
+
+        state def IlluminationStateMachine {
+            state Off;
+            state Warmup;
+            state Stable;
+            state Fault;
+
+            initial then Off;
+
+            transition Off_to_Warmup
+                first Off
+                accept command : ControlCommand
+                if command.targetIlluminationPower > 0 [W]
+                then Warmup;
+
+            transition Warmup_to_Stable
+                first Warmup
+                if warmupTime <= 120 [s]
+                then Stable;
+
+            transition Stable_to_Fault
+                first Stable
+                if maxOpticalPower > 2.2 [W]
+                then Fault;
+
+            transition Fault_to_Off
+                first Fault
+                accept command : ControlCommand
+                if command.targetIlluminationPower == 0 [W]
+                then Off;
+        }
+    }
+
+    part def SourceGratingAssembly {
+        attribute pitch : Length = 80 [um];
+        attribute lineDutyCycle : Ratio = 0.5;
+        attribute usableAperture : Length = 120 [mm];
+        attribute angularAlignmentTolerance : Angle = 0.02 [deg];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+        port calibration : CalibrationPort;
+    }
+
+    part def TestSurfaceFixture {
+        attribute supportedApertureDiameter : Length = 100 [mm];
+        attribute tiltAdjustmentRange : Angle = 5 [deg];
+        attribute axialTravelRange : Length = 50 [mm];
+        attribute repeatability : Length = 2 [um];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+    }
+
+    part def AnalyzerGratingAssembly {
+        attribute pitch : Length = 80 [um];
+        attribute separationFromSourceGrating : Length = 250 [mm];
+        attribute phaseShiftStep : Length = 20 [um];
+        attribute phaseShiftCount : Integer = 4;
+        attribute alignmentTolerance : Angle = 0.015 [deg];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+        port commandIn : CommandInputPort;
+        port calibration : CalibrationPort;
+
+        action def StepAnalyzerGrating {
+            in command : ControlCommand;
+            out shifted : Boolean;
+
+            first receiveCommand;
+            then movePiezoStage;
+            then verifyPosition;
+            then outputShifted;
+
+            action receiveCommand;
+            action movePiezoStage;
+            action verifyPosition;
+            action outputShifted;
+        }
+    }
+
+    part def ImagingCamera {
+        attribute sensorWidthPixels : PixelCount = 4096;
+        attribute sensorHeightPixels : PixelCount = 3000;
+        attribute pixelPitch : Length = 3.45 [um];
+        attribute maxFrameRate : Frequency = 30 [Hz];
+        attribute dynamicRange : Ratio = 0.72;
+        attribute readNoiseElectrons : Real = 2.1;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port opticalIn : OpticalInputPort;
+        port imageOut : ImageOutputPort;
+
+        action def CaptureFringeFrame {
+            in command : ControlCommand;
+            in beam : LightBeam;
+            out frame : FringeImage;
+
+            first configureExposure;
+            then integrateSignal;
+            then digitizePixels;
+            then publishImage;
+
+            action configureExposure;
+            action integrateSignal;
+            action digitizePixels;
+            action publishImage;
+        }
+
+        state def CameraStateMachine {
+            state Idle;
+            state Armed;
+            state Exposing;
+            state Readout;
+            state Error;
+
+            initial then Idle;
+
+            transition Idle_to_Armed
+                first Idle
+                accept command : ControlCommand
+                then Armed;
+
+            transition Armed_to_Exposing
+                first Armed
+                if command.targetExposure > 0 [ms]
+                then Exposing;
+
+            transition Exposing_to_Readout
+                first Exposing
+                if exposureTimeComplete
+                then Readout;
+
+            transition Readout_to_Idle
+                first Readout
+                then Idle;
+
+            transition Exposing_to_Error
+                first Exposing
+                if command.targetExposure > 500 [ms]
+                then Error;
+        }
+
+        attribute exposureTimeComplete : Boolean;
+    }
+
+    part def CalibrationController {
+        attribute referenceFlatError : Length = 25 [nm];
+        attribute calibrationInterval : Time = 8 [h];
+        attribute temperatureCompensationEnabled : Boolean = true;
+
+        port calibration : CalibrationPort;
+        port reportOut : ReportOutputPort;
+
+        action def GenerateCalibrationData {
+            out data : CalibrationData;
+
+            first acquireReferenceFrames;
+            then estimateGratingGeometry;
+            then estimateCameraGeometry;
+            then compensateTemperature;
+            then publishCalibration;
+
+            action acquireReferenceFrames;
+            action estimateGratingGeometry;
+            action estimateCameraGeometry;
+            action compensateTemperature;
+            action publishCalibration;
+        }
+    }
+
+    part def PhaseProcessor {
+        attribute phaseAlgorithm : String = "four-step phase shifting with spatial unwrap";
+        attribute minimumFringeContrast : Ratio = 0.25;
+        attribute unwrapReliabilityThreshold : Ratio = 0.85;
+        attribute processingLatency : Time = 0.25 [s];
+
+        port imageIn : ImageInputPort;
+        port calibration : CalibrationPort;
+        port phaseOut : PhaseOutputPort;
+
+        action def ComputePhaseMap {
+            in frame0 : FringeImage;
+            in frame1 : FringeImage;
+            in frame2 : FringeImage;
+            in frame3 : FringeImage;
+            out phase : PhaseMap;
+
+            first normalizeIllumination;
+            then computeWrappedPhase;
+            then maskLowContrastPixels;
+            then unwrapPhase;
+            then publishPhase;
+
+            action normalizeIllumination;
+            action computeWrappedPhase;
+            action maskLowContrastPixels;
+            action unwrapPhase;
+            action publishPhase;
+        }
+    }
+
+    part def DeflectionSolver {
+        attribute slopeSensitivity : Angle = 1.0 [urad];
+        attribute maximumMeasurableDeflection : Angle = 3 [deg];
+        attribute spatialResolution : Length = 0.25 [mm];
+
+        port phaseIn : PhaseInputPort;
+        port calibration : CalibrationPort;
+        port deflectionOut : DeflectionOutputPort;
+
+        action def ConvertPhaseToDeflection {
+            in phase : PhaseMap;
+            in calibration : CalibrationData;
+            out field : DeflectionField;
+
+            first applyGeometricScale;
+            then computeXSlope;
+            then computeYSlope;
+            then estimateUncertainty;
+            then publishDeflectionField;
+
+            action applyGeometricScale;
+            action computeXSlope;
+            action computeYSlope;
+            action estimateUncertainty;
+            action publishDeflectionField;
+        }
+    }
+
+    part def SurfaceReconstructionProcessor {
+        attribute integrationMethod : String = "regularized least squares slope integration";
+        attribute lowFrequencyConstraintEnabled : Boolean = true;
+        attribute maximumRmsResidual : Length = 30 [nm];
+
+        port deflectionIn : DeflectionInputPort;
+        port profileOut : ProfileOutputPort;
+
+        action def ReconstructSurfaceProfile {
+            in field : DeflectionField;
+            out profile : SurfaceProfile;
+
+            first removeGlobalTilt;
+            then integrateDeflectionSlopes;
+            then enforceBoundaryCondition;
+            then computeSurfaceMetrics;
+            then publishSurfaceProfile;
+
+            action removeGlobalTilt;
+            action integrateDeflectionSlopes;
+            action enforceBoundaryCondition;
+            action computeSurfaceMetrics;
+            action publishSurfaceProfile;
+        }
+    }
+
+    part def MeasurementSupervisor {
+        attribute nominalMeasurementCycleTime : Time = 3 [s];
+        attribute framesPerMeasurement : Integer = 4;
+        attribute automaticRecalibrationEnabled : Boolean = true;
+
+        port commandOut : CommandInputPort;
+        port profileIn : ProfileInputPort;
+        port reportOut : ReportOutputPort;
+
+        action def ExecuteMoireDeflectometryMeasurement {
+            out report : MeasurementReport;
+
+            first initializeOptics;
+            then acquirePhaseShiftedFringeSet;
+            then computeOpticalDeflection;
+            then reconstructMeasuredSurface;
+            then assessAgainstLimits;
+            then publishMeasurementReport;
+
+            action initializeOptics;
+            action acquirePhaseShiftedFringeSet;
+            action computeOpticalDeflection;
+            action reconstructMeasuredSurface;
+            action assessAgainstLimits;
+            action publishMeasurementReport;
+        }
+
+        state def MeasurementStateMachine {
+            state Standby;
+            state Calibrating;
+            state Acquiring;
+            state Processing;
+            state Reporting;
+            state FaultRecovery;
+
+            initial then Standby;
+
+            transition Standby_to_Calibrating
+                first Standby
+                if automaticRecalibrationEnabled
+                then Calibrating;
+
+            transition Calibrating_to_Acquiring
+                first Calibrating
+                then Acquiring;
+
+            transition Standby_to_Acquiring
+                first Standby
+                accept command : ControlCommand
+                then Acquiring;
+
+            transition Acquiring_to_Processing
+                first Acquiring
+                if framesPerMeasurement == 4
+                then Processing;
+
+            transition Processing_to_Reporting
+                first Processing
+                then Reporting;
+
+            transition Reporting_to_Standby
+                first Reporting
+                then Standby;
+
+            transition Acquiring_to_FaultRecovery
+                first Acquiring
+                if acquisitionInvalid
+                then FaultRecovery;
+
+            transition FaultRecovery_to_Standby
+                first FaultRecovery
+                then Standby;
+        }
+
+        attribute acquisitionInvalid : Boolean;
+    }
+
+    part def DataArchive {
+        attribute storageCapacity : Real = 2.0;
+        attribute sustainedWriteRate : DataRate = 250 [MB_per_s];
+        attribute retentionTime : Time = 365 [d];
+
+        port imageIn : ImageInputPort;
+        port phaseIn : PhaseInputPort;
+        port deflectionIn : DeflectionInputPort;
+        port profileIn : ProfileInputPort;
+        port reportIn : ReportOutputPort;
+    }
+
+    part def MoireDeflectometer {
+        attribute primaryFunction : String =
+            "Measure optical wavefront or reflective surface slope by observing moire fringe displacement produced by two precision gratings, converting phase shifts into angular deflection fields, and reconstructing high-resolution surface profile errors.";
+
+        attribute fieldOfViewDiameter : Length = 100 [mm];
+        attribute targetSlopeResolution : Angle = 2 [urad];
+        attribute targetHeightResolution : Length = 20 [nm];
+        attribute measurementCycleTime : Time = 3 [s];
+        attribute operatingTemperatureMin : Temperature = 18 [degC];
+        attribute operatingTemperatureMax : Temperature = 24 [degC];
+
+        port powerIn : PowerInputPort;
+        port reportOut : ReportOutputPort;
+
+        part bench : StableOpticalBench;
+        part illumination : IlluminationModule;
+        part sourceGrating : SourceGratingAssembly;
+        part surfaceFixture : TestSurfaceFixture;
+        part analyzerGrating : AnalyzerGratingAssembly;
+        part camera : ImagingCamera;
+        part calibrationController : CalibrationController;
+        part phaseProcessor : PhaseProcessor;
+        part deflectionSolver : DeflectionSolver;
+        part reconstructionProcessor : SurfaceReconstructionProcessor;
+        part supervisor : MeasurementSupervisor;
+        part archive : DataArchive;
+
+        connect powerIn to bench.powerIn;
+        connect powerIn to illumination.powerIn;
+        connect powerIn to camera.powerIn;
+
+        connect illumination.opticalOut to sourceGrating.opticalIn;
+        connect sourceGrating.opticalOut to surfaceFixture.opticalIn;
+        connect surfaceFixture.opticalOut to analyzerGrating.opticalIn;
+        connect analyzerGrating.opticalOut to camera.opticalIn;
+
+        connect supervisor.commandOut to illumination.commandIn;
+        connect supervisor.commandOut to analyzerGrating.commandIn;
+        connect supervisor.commandOut to camera.commandIn;
+
+        connect camera.imageOut to phaseProcessor.imageIn;
+        connect camera.imageOut to archive.imageIn;
+
+        connect calibrationController.calibration to sourceGrating.calibration;
+        connect calibrationController.calibration to analyzerGrating.calibration;
+        connect calibrationController.calibration to phaseProcessor.calibration;
+        connect calibrationController.calibration to deflectionSolver.calibration;
+
+        connect phaseProcessor.phaseOut to deflectionSolver.phaseIn;
+        connect phaseProcessor.phaseOut to archive.phaseIn;
+
+        connect deflectionSolver.deflectionOut to reconstructionProcessor.deflectionIn;
+        connect deflectionSolver.deflectionOut to archive.deflectionIn;
+
+        connect reconstructionProcessor.profileOut to supervisor.profileIn;
+        connect reconstructionProcessor.profileOut to archive.profileIn;
+
+        connect supervisor.reportOut to reportOut;
+        connect supervisor.reportOut to archive.reportIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The moire deflectometer shall determine surface or wavefront deflection by acquiring phase-shifted moire fringe images and converting fringe phase into calibrated angular slope data. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.targetSlopeResolution <= 2 [urad]
+        }
+    }
+
+    requirement def SurfaceReconstructionRequirement {
+        doc /* The system shall reconstruct a surface profile over the full measurement aperture using the calibrated deflection field. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.targetHeightResolution <= 20 [nm] and
+            system.fieldOfViewDiameter >= 100 [mm]
+        }
+    }
+
+    requirement def MeasurementCycleRequirement {
+        doc /* The system shall complete one four-frame phase-shifted moire deflectometry measurement within the allocated cycle time. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.measurementCycleTime <= 3 [s]
+        }
+    }
+
+    requirement def OperatingEnvironmentRequirement {
+        doc /* The system shall maintain specified metrology performance within a controlled laboratory temperature range. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.operatingTemperatureMin >= 18 [degC] and
+            system.operatingTemperatureMax <= 24 [degC]
+        }
+    }
+
+    requirement def FringeQualityRequirement {
+        doc /* The imaging chain shall provide sufficient fringe contrast for reliable phase extraction. */
+
+        subject processor : PhaseProcessor;
+
+        require constraint {
+            processor.minimumFringeContrast >= 0.25
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        doc /* The geometric scale factor used for deflection computation shall be derived from grating pitch, grating separation, camera focal length, and pixel pitch. */
+
+        subject calibrationController : CalibrationController;
+
+        require constraint {
+            calibrationController.referenceFlatError <= 25 [nm]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MoireDeflectometer;
+    satisfy SurfaceReconstructionRequirement by MoireDeflectometer;
+    satisfy MeasurementCycleRequirement by MoireDeflectometer;
+    satisfy OperatingEnvironmentRequirement by MoireDeflectometer;
+    satisfy FringeQualityRequirement by PhaseProcessor;
+    satisfy CalibrationRequirement by CalibrationController;
+
+    part moireDeflectometryInstrument : MoireDeflectometer {
+        attribute fieldOfViewDiameter = 100 [mm];
+        attribute targetSlopeResolution = 2 [urad];
+        attribute targetHeightResolution = 20 [nm];
+        attribute measurementCycleTime = 3 [s];
+    }
+}
+tokens used
+4,514
+package MoireDeflectometrySystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Length;
+    attribute def Angle;
+    attribute def Illuminance;
+    attribute def Frequency;
+    attribute def Time;
+    attribute def Temperature;
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Power;
+    attribute def Ratio;
+    attribute def PixelCount;
+    attribute def DataRate;
+
+    item def LightBeam {
+        attribute wavelength : Length;
+        attribute opticalPower : Power;
+        attribute coherenceRatio : Ratio;
+        attribute incidenceAngle : Angle;
+    }
+
+    item def FringeImage {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute bitDepth : Integer;
+        attribute exposureTime : Time;
+        attribute fringePitchPixels : Real;
+        attribute contrastRatio : Ratio;
+        attribute timestamp : Time;
+    }
+
+    item def PhaseMap {
+        attribute widthPixels : PixelCount;
+        attribute heightPixels : PixelCount;
+        attribute wrappedPhaseRange : Angle;
+        attribute unwrapped : Boolean;
+        attribute noiseStdDev : Angle;
+    }
+
+    item def DeflectionField {
+        attribute xSlopeRange : Angle;
+        attribute ySlopeRange : Angle;
+        attribute spatialSamplePitch : Length;
+        attribute rmsUncertainty : Angle;
+    }
+
+    item def SurfaceProfile {
+        attribute apertureDiameter : Length;
+        attribute peakToValleyHeight : Length;
+        attribute rmsHeightError : Length;
+        attribute validPointRatio : Ratio;
+    }
+
+    item def CalibrationData {
+        attribute gratingPitch : Length;
+        attribute gratingSeparation : Length;
+        attribute cameraFocalLength : Length;
+        attribute cameraPixelPitch : Length;
+        attribute geometricScaleFactor : Real;
+        attribute calibrationTemperature : Temperature;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute targetExposure : Time;
+        attribute targetIlluminationPower : Power;
+        attribute phaseShiftIndex : Integer;
+    }
+
+    item def MeasurementReport {
+        attribute reportId : Integer;
+        attribute acquisitionTime : Time;
+        attribute apertureDiameter : Length;
+        attribute maxDeflection : Angle;
+        attribute rmsSurfaceError : Length;
+        attribute pass : Boolean;
+    }
+
+    port def OpticalOutputPort {
+        out light : LightBeam;
+    }
+
+    port def OpticalInputPort {
+        in light : LightBeam;
+    }
+
+    port def ImageOutputPort {
+        out image : FringeImage;
+    }
+
+    port def ImageInputPort {
+        in image : FringeImage;
+    }
+
+    port def PhaseOutputPort {
+        out phase : PhaseMap;
+    }
+
+    port def PhaseInputPort {
+        in phase : PhaseMap;
+    }
+
+    port def DeflectionOutputPort {
+        out field : DeflectionField;
+    }
+
+    port def DeflectionInputPort {
+        in field : DeflectionField;
+    }
+
+    port def ProfileOutputPort {
+        out profile : SurfaceProfile;
+    }
+
+    port def ProfileInputPort {
+        in profile : SurfaceProfile;
+    }
+
+    port def CalibrationPort {
+        inout calibration : CalibrationData;
+    }
+
+    port def CommandInputPort {
+        in command : ControlCommand;
+    }
+
+    port def ReportOutputPort {
+        out report : MeasurementReport;
+    }
+
+    port def PowerInputPort {
+        in supplyVoltage : Voltage;
+        in supplyCurrent : Current;
+    }
+
+    part def StableOpticalBench {
+        attribute length : Length = 1.2 [m];
+        attribute width : Length = 0.6 [m];
+        attribute flatness : Length = 15 [um];
+        attribute vibrationIsolationFrequency : Frequency = 3 [Hz];
+
+        port powerIn : PowerInputPort;
+    }
+
+    part def IlluminationModule {
+        attribute nominalWavelength : Length = 530 [nm];
+        attribute maxOpticalPower : Power = 2.0 [W];
+        attribute irradianceUniformity : Ratio = 0.92;
+        attribute warmupTime : Time = 120 [s];
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port opticalOut : OpticalOutputPort;
+
+        action def EmitCollimatedBeam {
+            in command : ControlCommand;
+            out beam : LightBeam;
+
+            first start;
+            then regulatePower;
+            then stabilizeWavelength;
+            then deliverBeam;
+            then done;
+
+            action regulatePower;
+            action stabilizeWavelength;
+            action deliverBeam;
+        }
+
+        state def IlluminationStateMachine {
+            state Off;
+            state Warmup;
+            state Stable;
+            state Fault;
+
+            initial then Off;
+
+            transition Off_to_Warmup
+                first Off
+                accept command : ControlCommand
+                if command.targetIlluminationPower > 0 [W]
+                then Warmup;
+
+            transition Warmup_to_Stable
+                first Warmup
+                if warmupTime <= 120 [s]
+                then Stable;
+
+            transition Stable_to_Fault
+                first Stable
+                if maxOpticalPower > 2.2 [W]
+                then Fault;
+
+            transition Fault_to_Off
+                first Fault
+                accept command : ControlCommand
+                if command.targetIlluminationPower == 0 [W]
+                then Off;
+        }
+    }
+
+    part def SourceGratingAssembly {
+        attribute pitch : Length = 80 [um];
+        attribute lineDutyCycle : Ratio = 0.5;
+        attribute usableAperture : Length = 120 [mm];
+        attribute angularAlignmentTolerance : Angle = 0.02 [deg];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+        port calibration : CalibrationPort;
+    }
+
+    part def TestSurfaceFixture {
+        attribute supportedApertureDiameter : Length = 100 [mm];
+        attribute tiltAdjustmentRange : Angle = 5 [deg];
+        attribute axialTravelRange : Length = 50 [mm];
+        attribute repeatability : Length = 2 [um];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+    }
+
+    part def AnalyzerGratingAssembly {
+        attribute pitch : Length = 80 [um];
+        attribute separationFromSourceGrating : Length = 250 [mm];
+        attribute phaseShiftStep : Length = 20 [um];
+        attribute phaseShiftCount : Integer = 4;
+        attribute alignmentTolerance : Angle = 0.015 [deg];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+        port commandIn : CommandInputPort;
+        port calibration : CalibrationPort;
+
+        action def StepAnalyzerGrating {
+            in command : ControlCommand;
+            out shifted : Boolean;
+
+            first receiveCommand;
+            then movePiezoStage;
+            then verifyPosition;
+            then outputShifted;
+
+            action receiveCommand;
+            action movePiezoStage;
+            action verifyPosition;
+            action outputShifted;
+        }
+    }
+
+    part def ImagingCamera {
+        attribute sensorWidthPixels : PixelCount = 4096;
+        attribute sensorHeightPixels : PixelCount = 3000;
+        attribute pixelPitch : Length = 3.45 [um];
+        attribute maxFrameRate : Frequency = 30 [Hz];
+        attribute dynamicRange : Ratio = 0.72;
+        attribute readNoiseElectrons : Real = 2.1;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port opticalIn : OpticalInputPort;
+        port imageOut : ImageOutputPort;
+
+        action def CaptureFringeFrame {
+            in command : ControlCommand;
+            in beam : LightBeam;
+            out frame : FringeImage;
+
+            first configureExposure;
+            then integrateSignal;
+            then digitizePixels;
+            then publishImage;
+
+            action configureExposure;
+            action integrateSignal;
+            action digitizePixels;
+            action publishImage;
+        }
+
+        state def CameraStateMachine {
+            state Idle;
+            state Armed;
+            state Exposing;
+            state Readout;
+            state Error;
+
+            initial then Idle;
+
+            transition Idle_to_Armed
+                first Idle
+                accept command : ControlCommand
+                then Armed;
+
+            transition Armed_to_Exposing
+                first Armed
+                if command.targetExposure > 0 [ms]
+                then Exposing;
+
+            transition Exposing_to_Readout
+                first Exposing
+                if exposureTimeComplete
+                then Readout;
+
+            transition Readout_to_Idle
+                first Readout
+                then Idle;
+
+            transition Exposing_to_Error
+                first Exposing
+                if command.targetExposure > 500 [ms]
+                then Error;
+        }
+
+        attribute exposureTimeComplete : Boolean;
+    }
+
+    part def CalibrationController {
+        attribute referenceFlatError : Length = 25 [nm];
+        attribute calibrationInterval : Time = 8 [h];
+        attribute temperatureCompensationEnabled : Boolean = true;
+
+        port calibration : CalibrationPort;
+        port reportOut : ReportOutputPort;
+
+        action def GenerateCalibrationData {
+            out data : CalibrationData;
+
+            first acquireReferenceFrames;
+            then estimateGratingGeometry;
+            then estimateCameraGeometry;
+            then compensateTemperature;
+            then publishCalibration;
+
+            action acquireReferenceFrames;
+            action estimateGratingGeometry;
+            action estimateCameraGeometry;
+            action compensateTemperature;
+            action publishCalibration;
+        }
+    }
+
+    part def PhaseProcessor {
+        attribute phaseAlgorithm : String = "four-step phase shifting with spatial unwrap";
+        attribute minimumFringeContrast : Ratio = 0.25;
+        attribute unwrapReliabilityThreshold : Ratio = 0.85;
+        attribute processingLatency : Time = 0.25 [s];
+
+        port imageIn : ImageInputPort;
+        port calibration : CalibrationPort;
+        port phaseOut : PhaseOutputPort;
+
+        action def ComputePhaseMap {
+            in frame0 : FringeImage;
+            in frame1 : FringeImage;
+            in frame2 : FringeImage;
+            in frame3 : FringeImage;
+            out phase : PhaseMap;
+
+            first normalizeIllumination;
+            then computeWrappedPhase;
+            then maskLowContrastPixels;
+            then unwrapPhase;
+            then publishPhase;
+
+            action normalizeIllumination;
+            action computeWrappedPhase;
+            action maskLowContrastPixels;
+            action unwrapPhase;
+            action publishPhase;
+        }
+    }
+
+    part def DeflectionSolver {
+        attribute slopeSensitivity : Angle = 1.0 [urad];
+        attribute maximumMeasurableDeflection : Angle = 3 [deg];
+        attribute spatialResolution : Length = 0.25 [mm];
+
+        port phaseIn : PhaseInputPort;
+        port calibration : CalibrationPort;
+        port deflectionOut : DeflectionOutputPort;
+
+        action def ConvertPhaseToDeflection {
+            in phase : PhaseMap;
+            in calibration : CalibrationData;
+            out field : DeflectionField;
+
+            first applyGeometricScale;
+            then computeXSlope;
+            then computeYSlope;
+            then estimateUncertainty;
+            then publishDeflectionField;
+
+            action applyGeometricScale;
+            action computeXSlope;
+            action computeYSlope;
+            action estimateUncertainty;
+            action publishDeflectionField;
+        }
+    }
+
+    part def SurfaceReconstructionProcessor {
+        attribute integrationMethod : String = "regularized least squares slope integration";
+        attribute lowFrequencyConstraintEnabled : Boolean = true;
+        attribute maximumRmsResidual : Length = 30 [nm];
+
+        port deflectionIn : DeflectionInputPort;
+        port profileOut : ProfileOutputPort;
+
+        action def ReconstructSurfaceProfile {
+            in field : DeflectionField;
+            out profile : SurfaceProfile;
+
+            first removeGlobalTilt;
+            then integrateDeflectionSlopes;
+            then enforceBoundaryCondition;
+            then computeSurfaceMetrics;
+            then publishSurfaceProfile;
+
+            action removeGlobalTilt;
+            action integrateDeflectionSlopes;
+            action enforceBoundaryCondition;
+            action computeSurfaceMetrics;
+            action publishSurfaceProfile;
+        }
+    }
+
+    part def MeasurementSupervisor {
+        attribute nominalMeasurementCycleTime : Time = 3 [s];
+        attribute framesPerMeasurement : Integer = 4;
+        attribute automaticRecalibrationEnabled : Boolean = true;
+
+        port commandOut : CommandInputPort;
+        port profileIn : ProfileInputPort;
+        port reportOut : ReportOutputPort;
+
+        action def ExecuteMoireDeflectometryMeasurement {
+            out report : MeasurementReport;
+
+            first initializeOptics;
+            then acquirePhaseShiftedFringeSet;
+            then computeOpticalDeflection;
+            then reconstructMeasuredSurface;
+            then assessAgainstLimits;
+            then publishMeasurementReport;
+
+            action initializeOptics;
+            action acquirePhaseShiftedFringeSet;
+            action computeOpticalDeflection;
+            action reconstructMeasuredSurface;
+            action assessAgainstLimits;
+            action publishMeasurementReport;
+        }
+
+        state def MeasurementStateMachine {
+            state Standby;
+            state Calibrating;
+            state Acquiring;
+            state Processing;
+            state Reporting;
+            state FaultRecovery;
+
+            initial then Standby;
+
+            transition Standby_to_Calibrating
+                first Standby
+                if automaticRecalibrationEnabled
+                then Calibrating;
+
+            transition Calibrating_to_Acquiring
+                first Calibrating
+                then Acquiring;
+
+            transition Standby_to_Acquiring
+                first Standby
+                accept command : ControlCommand
+                then Acquiring;
+
+            transition Acquiring_to_Processing
+                first Acquiring
+                if framesPerMeasurement == 4
+                then Processing;
+
+            transition Processing_to_Reporting
+                first Processing
+                then Reporting;
+
+            transition Reporting_to_Standby
+                first Reporting
+                then Standby;
+
+            transition Acquiring_to_FaultRecovery
+                first Acquiring
+                if acquisitionInvalid
+                then FaultRecovery;
+
+            transition FaultRecovery_to_Standby
+                first FaultRecovery
+                then Standby;
+        }
+
+        attribute acquisitionInvalid : Boolean;
+    }
+
+    part def DataArchive {
+        attribute storageCapacity : Real = 2.0;
+        attribute sustainedWriteRate : DataRate = 250 [MB_per_s];
+        attribute retentionTime : Time = 365 [d];
+
+        port imageIn : ImageInputPort;
+        port phaseIn : PhaseInputPort;
+        port deflectionIn : DeflectionInputPort;
+        port profileIn : ProfileInputPort;
+        port reportIn : ReportOutputPort;
+    }
+
+    part def MoireDeflectometer {
+        attribute primaryFunction : String =
+            "Measure optical wavefront or reflective surface slope by observing moire fringe displacement produced by two precision gratings, converting phase shifts into angular deflection fields, and reconstructing high-resolution surface profile errors.";
+
+        attribute fieldOfViewDiameter : Length = 100 [mm];
+        attribute targetSlopeResolution : Angle = 2 [urad];
+        attribute targetHeightResolution : Length = 20 [nm];
+        attribute measurementCycleTime : Time = 3 [s];
+        attribute operatingTemperatureMin : Temperature = 18 [degC];
+        attribute operatingTemperatureMax : Temperature = 24 [degC];
+
+        port powerIn : PowerInputPort;
+        port reportOut : ReportOutputPort;
+
+        part bench : StableOpticalBench;
+        part illumination : IlluminationModule;
+        part sourceGrating : SourceGratingAssembly;
+        part surfaceFixture : TestSurfaceFixture;
+        part analyzerGrating : AnalyzerGratingAssembly;
+        part camera : ImagingCamera;
+        part calibrationController : CalibrationController;
+        part phaseProcessor : PhaseProcessor;
+        part deflectionSolver : DeflectionSolver;
+        part reconstructionProcessor : SurfaceReconstructionProcessor;
+        part supervisor : MeasurementSupervisor;
+        part archive : DataArchive;
+
+        connect powerIn to bench.powerIn;
+        connect powerIn to illumination.powerIn;
+        connect powerIn to camera.powerIn;
+
+        connect illumination.opticalOut to sourceGrating.opticalIn;
+        connect sourceGrating.opticalOut to surfaceFixture.opticalIn;
+        connect surfaceFixture.opticalOut to analyzerGrating.opticalIn;
+        connect analyzerGrating.opticalOut to camera.opticalIn;
+
+        connect supervisor.commandOut to illumination.commandIn;
+        connect supervisor.commandOut to analyzerGrating.commandIn;
+        connect supervisor.commandOut to camera.commandIn;
+
+        connect camera.imageOut to phaseProcessor.imageIn;
+        connect camera.imageOut to archive.imageIn;
+
+        connect calibrationController.calibration to sourceGrating.calibration;
+        connect calibrationController.calibration to analyzerGrating.calibration;
+        connect calibrationController.calibration to phaseProcessor.calibration;
+        connect calibrationController.calibration to deflectionSolver.calibration;
+
+        connect phaseProcessor.phaseOut to deflectionSolver.phaseIn;
+        connect phaseProcessor.phaseOut to archive.phaseIn;
+
+        connect deflectionSolver.deflectionOut to reconstructionProcessor.deflectionIn;
+        connect deflectionSolver.deflectionOut to archive.deflectionIn;
+
+        connect reconstructionProcessor.profileOut to supervisor.profileIn;
+        connect reconstructionProcessor.profileOut to archive.profileIn;
+
+        connect supervisor.reportOut to reportOut;
+        connect supervisor.reportOut to archive.reportIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The moire deflectometer shall determine surface or wavefront deflection by acquiring phase-shifted moire fringe images and converting fringe phase into calibrated angular slope data. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.targetSlopeResolution <= 2 [urad]
+        }
+    }
+
+    requirement def SurfaceReconstructionRequirement {
+        doc /* The system shall reconstruct a surface profile over the full measurement aperture using the calibrated deflection field. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.targetHeightResolution <= 20 [nm] and
+            system.fieldOfViewDiameter >= 100 [mm]
+        }
+    }
+
+    requirement def MeasurementCycleRequirement {
+        doc /* The system shall complete one four-frame phase-shifted moire deflectometry measurement within the allocated cycle time. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.measurementCycleTime <= 3 [s]
+        }
+    }
+
+    requirement def OperatingEnvironmentRequirement {
+        doc /* The system shall maintain specified metrology performance within a controlled laboratory temperature range. */
+
+        subject system : MoireDeflectometer;
+
+        require constraint {
+            system.operatingTemperatureMin >= 18 [degC] and
+            system.operatingTemperatureMax <= 24 [degC]
+        }
+    }
+
+    requirement def FringeQualityRequirement {
+        doc /* The imaging chain shall provide sufficient fringe contrast for reliable phase extraction. */
+
+        subject processor : PhaseProcessor;
+
+        require constraint {
+            processor.minimumFringeContrast >= 0.25
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        doc /* The geometric scale factor used for deflection computation shall be derived from grating pitch, grating separation, camera focal length, and pixel pitch. */
+
+        subject calibrationController : CalibrationController;
+
+        require constraint {
+            calibrationController.referenceFlatError <= 25 [nm]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MoireDeflectometer;
+    satisfy SurfaceReconstructionRequirement by MoireDeflectometer;
+    satisfy MeasurementCycleRequirement by MoireDeflectometer;
+    satisfy OperatingEnvironmentRequirement by MoireDeflectometer;
+    satisfy FringeQualityRequirement by PhaseProcessor;
+    satisfy CalibrationRequirement by CalibrationController;
+
+    part moireDeflectometryInstrument : MoireDeflectometer {
+        attribute fieldOfViewDiameter = 100 [mm];
+        attribute targetSlopeResolution = 2 [urad];
+        attribute targetHeightResolution = 20 [nm];
+        attribute measurementCycleTime = 3 [s];
+    }
+}

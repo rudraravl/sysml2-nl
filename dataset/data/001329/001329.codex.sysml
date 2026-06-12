@@ -1,0 +1,265 @@
+package AcceleratingChangeModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def ChangeRate {
+        :> scalar;
+        unit = "1/d";
+    }
+
+    attribute def AccelerationIndex {
+        :> scalar;
+        unit = "1/d^2";
+    }
+
+    attribute def Confidence {
+        :> scalar;
+        unit = "%";
+    }
+
+    attribute def RiskScore {
+        :> scalar;
+        unit = "score";
+    }
+
+    attribute def ResponseTime {
+        :> scalar;
+        unit = "h";
+    }
+
+    item def ChangeSignal {
+        attribute sourceId : String;
+        attribute domain : String;
+        attribute observedRate : ChangeRate;
+        attribute observedAcceleration : AccelerationIndex;
+        attribute confidence : Confidence;
+    }
+
+    item def AdaptationPlan {
+        attribute planId : String;
+        attribute targetDomain : String;
+        attribute priority : Integer;
+        attribute expectedRiskReduction : RiskScore;
+        attribute requiredResponseTime : ResponseTime;
+    }
+
+    item def GovernanceDecision {
+        attribute decisionId : String;
+        attribute approved : Boolean;
+        attribute rationale : String;
+        attribute maximumAllowedRisk : RiskScore;
+    }
+
+    item def SystemStatus {
+        attribute operatingMode : String;
+        attribute currentChangeRate : ChangeRate;
+        attribute currentAcceleration : AccelerationIndex;
+        attribute aggregateRisk : RiskScore;
+    }
+
+    port def SignalInputPort {
+        in item signal : ChangeSignal;
+    }
+
+    port def PlanOutputPort {
+        out item plan : AdaptationPlan;
+    }
+
+    port def DecisionInputPort {
+        in item decision : GovernanceDecision;
+    }
+
+    port def StatusOutputPort {
+        out item status : SystemStatus;
+    }
+
+    interface def SignalTransfer {
+        end producer : SignalInputPort;
+        end consumer : SignalInputPort;
+    }
+
+    interface def PlanTransfer {
+        end producer : PlanOutputPort;
+        end consumer : PlanOutputPort;
+    }
+
+    part def AcceleratingChangeResponseSystem {
+        doc /* Primary function: detect accelerating environmental, technical, and organizational change, estimate its risk, and coordinate timely adaptive responses at a high level. */
+
+        attribute nominalMonitoringPeriod : Time = 1 [h];
+        attribute maximumResponseTime : ResponseTime = 24 [h];
+        attribute accelerationAlertThreshold : AccelerationIndex = 0.15 [1/d^2];
+        attribute unacceptableRiskThreshold : RiskScore = 80 [score];
+
+        port externalSignals : SignalInputPort;
+        port governanceInput : DecisionInputPort;
+        port adaptationPlans : PlanOutputPort;
+        port healthStatus : StatusOutputPort;
+
+        part sensingSubsystem : ChangeSensingSubsystem;
+        part analysisSubsystem : AccelerationAnalysisSubsystem;
+        part riskSubsystem : RiskAssessmentSubsystem;
+        part adaptationSubsystem : AdaptationPlanningSubsystem;
+        part governanceSubsystem : GovernanceSubsystem;
+        part executionSubsystem : ResponseExecutionSubsystem;
+
+        connect externalSignals to sensingSubsystem.rawSignalIn;
+        connect sensingSubsystem.normalizedSignalOut to analysisSubsystem.signalIn;
+        connect analysisSubsystem.accelerationFindingOut to riskSubsystem.signalIn;
+        connect riskSubsystem.riskFindingOut to adaptationSubsystem.riskIn;
+        connect adaptationSubsystem.planOut to governanceSubsystem.planIn;
+        connect governanceInput to governanceSubsystem.decisionIn;
+        connect governanceSubsystem.approvedPlanOut to executionSubsystem.planIn;
+        connect executionSubsystem.planOut to adaptationPlans;
+        connect executionSubsystem.statusOut to healthStatus;
+
+        state changeResponseLifecycle {
+            state Monitoring;
+            state DetectingAcceleration;
+            state AssessingRisk;
+            state PlanningAdaptation;
+            state AwaitingGovernance;
+            state ExecutingResponse;
+            state Stabilizing;
+
+            entry action initializeMonitoring;
+            transition first Monitoring;
+
+            transition Monitoring to DetectingAcceleration
+                if analysisSubsystem.currentAcceleration > accelerationAlertThreshold;
+
+            transition DetectingAcceleration to AssessingRisk;
+
+            transition AssessingRisk to PlanningAdaptation
+                if riskSubsystem.aggregateRisk >= unacceptableRiskThreshold;
+
+            transition AssessingRisk to Monitoring
+                if riskSubsystem.aggregateRisk < unacceptableRiskThreshold;
+
+            transition PlanningAdaptation to AwaitingGovernance;
+
+            transition AwaitingGovernance to ExecutingResponse
+                if governanceSubsystem.latestDecision.approved == true;
+
+            transition AwaitingGovernance to PlanningAdaptation
+                if governanceSubsystem.latestDecision.approved == false;
+
+            transition ExecutingResponse to Stabilizing;
+
+            transition Stabilizing to Monitoring
+                if riskSubsystem.aggregateRisk < unacceptableRiskThreshold;
+        }
+    }
+
+    part def ChangeSensingSubsystem {
+        port rawSignalIn : SignalInputPort;
+        port normalizedSignalOut : SignalInputPort;
+
+        attribute acceptedConfidenceMinimum : Confidence = 70 [%];
+
+        action normalizeSignals {
+            in item raw : ChangeSignal;
+            out item normalized : ChangeSignal;
+        }
+    }
+
+    part def AccelerationAnalysisSubsystem {
+        port signalIn : SignalInputPort;
+        port accelerationFindingOut : SignalInputPort;
+
+        attribute currentRate : ChangeRate;
+        attribute currentAcceleration : AccelerationIndex;
+
+        action estimateAcceleration {
+            in item signal : ChangeSignal;
+            out attribute acceleration : AccelerationIndex;
+        }
+    }
+
+    part def RiskAssessmentSubsystem {
+        port signalIn : SignalInputPort;
+        port riskFindingOut : SignalInputPort;
+
+        attribute aggregateRisk : RiskScore;
+        attribute uncertainty : Confidence;
+
+        action calculateRisk {
+            in item signal : ChangeSignal;
+            out attribute risk : RiskScore;
+        }
+    }
+
+    part def AdaptationPlanningSubsystem {
+        port riskIn : SignalInputPort;
+        port planOut : PlanOutputPort;
+
+        attribute minimumRiskReduction : RiskScore = 20 [score];
+
+        action createAdaptationPlan {
+            in item signal : ChangeSignal;
+            in attribute assessedRisk : RiskScore;
+            out item plan : AdaptationPlan;
+        }
+    }
+
+    part def GovernanceSubsystem {
+        port planIn : PlanOutputPort;
+        port decisionIn : DecisionInputPort;
+        port approvedPlanOut : PlanOutputPort;
+
+        attribute latestDecision : GovernanceDecision;
+
+        action evaluatePlan {
+            in item plan : AdaptationPlan;
+            in item decision : GovernanceDecision;
+            out item approvedPlan : AdaptationPlan;
+        }
+    }
+
+    part def ResponseExecutionSubsystem {
+        port planIn : PlanOutputPort;
+        port planOut : PlanOutputPort;
+        port statusOut : StatusOutputPort;
+
+        attribute executionLatency : ResponseTime;
+        attribute activePlans : Integer;
+
+        action executePlan {
+            in item plan : AdaptationPlan;
+            out item completedPlan : AdaptationPlan;
+            out item status : SystemStatus;
+        }
+    }
+
+    requirement def DetectAccelerationRequirement {
+        subject system : AcceleratingChangeResponseSystem;
+        require constraint {
+            system.analysisSubsystem.currentAcceleration >= system.accelerationAlertThreshold
+            implies system.changeResponseLifecycle == DetectingAcceleration
+        }
+    }
+
+    requirement def TimelyResponseRequirement {
+        subject system : AcceleratingChangeResponseSystem;
+        require constraint {
+            system.executionSubsystem.executionLatency <= system.maximumResponseTime
+        }
+    }
+
+    requirement def RiskReductionRequirement {
+        subject system : AcceleratingChangeResponseSystem;
+        require constraint {
+            system.adaptationSubsystem.minimumRiskReduction >= 20 [score]
+        }
+    }
+
+    requirement def GovernanceRequirement {
+        subject system : AcceleratingChangeResponseSystem;
+        require constraint {
+            system.governanceSubsystem.latestDecision.approved == true
+            implies system.changeResponseLifecycle == ExecutingResponse
+        }
+    }
+
+    part acceleratingChangeSystem : AcceleratingChangeResponseSystem;
+}

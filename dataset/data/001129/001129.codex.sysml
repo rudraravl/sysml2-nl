@@ -1,0 +1,377 @@
+package MhdSensingUnitModel {
+
+  value type Velocity_mps : Real { unit = "m/s"; }
+  value type MagneticFluxDensity_T : Real { unit = "T"; }
+  value type Voltage_V : Real { unit = "V"; }
+  value type Current_A : Real { unit = "A"; }
+  value type Temperature_C : Real { unit = "degC"; }
+  value type Length_m : Real { unit = "m"; }
+  value type Pressure_Pa : Real { unit = "Pa"; }
+  value type Conductivity_Spm : Real { unit = "S/m"; }
+  value type Time_s : Real { unit = "s"; }
+  value type Frequency_Hz : Real { unit = "Hz"; }
+  value type Percent : Real { unit = "%"; }
+
+  item def ConductiveFluid {
+    attribute velocity : Velocity_mps;
+    attribute pressure : Pressure_Pa;
+    attribute temperature : Temperature_C;
+    attribute electricalConductivity : Conductivity_Spm;
+  }
+
+  item def VelocityMeasurement {
+    attribute value : Velocity_mps;
+    attribute uncertainty : Velocity_mps;
+    attribute sampleTime : Time_s;
+    attribute quality : Percent;
+  }
+
+  item def SensorStatus {
+    attribute healthy : Boolean;
+    attribute calibrated : Boolean;
+    attribute faultCode : Integer;
+    attribute temperature : Temperature_C;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute current : Current_A;
+  }
+
+  item def DigitalFrame {
+    attribute sequenceId : Integer;
+    attribute velocity : Velocity_mps;
+    attribute uncertainty : Velocity_mps;
+    attribute sensorTemperature : Temperature_C;
+    attribute quality : Percent;
+  }
+
+  port def FluidPort {
+    inout item fluid : ConductiveFluid;
+  }
+
+  port def PowerPort {
+    in item powerIn : ElectricalPower;
+  }
+
+  port def MeasurementPort {
+    out item measurement : VelocityMeasurement;
+  }
+
+  port def StatusPort {
+    out item status : SensorStatus;
+  }
+
+  port def DigitalPort {
+    out item frame : DigitalFrame;
+  }
+
+  port def AnalogVoltagePort {
+    out attribute voltage : Voltage_V;
+  }
+
+  port def MagneticFieldPort {
+    out attribute fluxDensity : MagneticFluxDensity_T;
+  }
+
+  port def TemperaturePort {
+    out attribute temperature : Temperature_C;
+  }
+
+  part def FlowChannel {
+    attribute boreDiameter : Length_m = 0.012;
+    attribute electrodeSpacing : Length_m = 0.010;
+    attribute wettedLength : Length_m = 0.060;
+    attribute maxPressure : Pressure_Pa = 1000000.0;
+
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+    port sensingGap : FluidPort;
+  }
+
+  part def PermanentMagnetAssembly {
+    attribute nominalFluxDensity : MagneticFluxDensity_T = 0.42;
+    attribute fluxTolerance : Percent = 2.5;
+    attribute poleGap : Length_m = 0.014;
+
+    port fieldOutput : MagneticFieldPort;
+  }
+
+  part def ElectrodePair {
+    attribute electrodeSpacing : Length_m = 0.010;
+    attribute contactResistance : Real = 5.0;
+    attribute minimumFluidConductivity : Conductivity_Spm = 0.05;
+
+    port fluidInterface : FluidPort;
+    port inducedVoltage : AnalogVoltagePort;
+  }
+
+  part def DifferentialAmplifier {
+    attribute gain : Real = 250.0;
+    attribute inputNoise : Voltage_V = 0.000002;
+    attribute bandwidth : Frequency_Hz = 1000.0;
+
+    port sensorInput : AnalogVoltagePort;
+    port amplifiedOutput : AnalogVoltagePort;
+  }
+
+  part def TemperatureSensor {
+    attribute accuracy : Temperature_C = 0.5;
+    attribute sampleRate : Frequency_Hz = 10.0;
+
+    port sensedTemperature : TemperaturePort;
+  }
+
+  part def AnalogToDigitalConverter {
+    attribute resolutionBits : Integer = 24;
+    attribute sampleRate : Frequency_Hz = 200.0;
+    attribute referenceVoltage : Voltage_V = 2.5;
+
+    port analogInput : AnalogVoltagePort;
+    port digitalOutput : DigitalPort;
+  }
+
+  part def SignalProcessor {
+    attribute electrodeSpacing : Length_m = 0.010;
+    attribute magneticFluxDensity : MagneticFluxDensity_T = 0.42;
+    attribute zeroOffset : Voltage_V = 0.0;
+    attribute scaleFactor : Real = 1.0;
+    attribute lowPassCutoff : Frequency_Hz = 25.0;
+    attribute lastVelocity : Velocity_mps = 0.0;
+    attribute lastUncertainty : Velocity_mps = 0.0;
+
+    port adcInput : DigitalPort;
+    port temperatureInput : TemperaturePort;
+    port measurementOutput : MeasurementPort;
+    port statusOutput : StatusPort;
+
+    action computeVelocity {
+      in attribute inducedVoltage : Voltage_V;
+      in attribute fluidTemperature : Temperature_C;
+      out attribute velocity : Velocity_mps;
+
+      constraint conversionEquation {
+        velocity == scaleFactor * (inducedVoltage - zeroOffset) /
+          (magneticFluxDensity * electrodeSpacing);
+      }
+    }
+
+    action estimateUncertainty {
+      in attribute inducedVoltageNoise : Voltage_V;
+      out attribute uncertainty : Velocity_mps;
+
+      constraint uncertaintyEquation {
+        uncertainty == inducedVoltageNoise /
+          (magneticFluxDensity * electrodeSpacing);
+      }
+    }
+  }
+
+  part def PowerConditioner {
+    attribute inputVoltageMin : Voltage_V = 18.0;
+    attribute inputVoltageMax : Voltage_V = 32.0;
+    attribute regulatedVoltage : Voltage_V = 5.0;
+    attribute maxCurrent : Current_A = 0.5;
+
+    port externalPower : PowerPort;
+    port conditionedPower : PowerPort;
+  }
+
+  part def MhdVelocitySensor {
+    attribute measuredQuantityName : String = "conductive fluid velocity";
+    attribute usableVelocityMin : Velocity_mps = 0.0;
+    attribute usableVelocityMax : Velocity_mps = 12.0;
+    attribute minimumConductivity : Conductivity_Spm = 0.05;
+
+    port fluidIn : FluidPort;
+    port fluidOut : FluidPort;
+    port power : PowerPort;
+    port velocityMeasurement : MeasurementPort;
+    port healthStatus : StatusPort;
+
+    part channel : FlowChannel;
+    part magnet : PermanentMagnetAssembly;
+    part electrodes : ElectrodePair;
+    part amplifier : DifferentialAmplifier;
+    part temperatureSensor : TemperatureSensor;
+    part adc : AnalogToDigitalConverter;
+    part processor : SignalProcessor;
+
+    connect fluidIn to channel.inlet;
+    connect channel.outlet to fluidOut;
+    connect channel.sensingGap to electrodes.fluidInterface;
+    connect electrodes.inducedVoltage to amplifier.sensorInput;
+    connect amplifier.amplifiedOutput to adc.analogInput;
+    connect adc.digitalOutput to processor.adcInput;
+    connect temperatureSensor.sensedTemperature to processor.temperatureInput;
+    connect processor.measurementOutput to velocityMeasurement;
+    connect processor.statusOutput to healthStatus;
+
+    constraint mhdInductionLaw {
+      electrodes.inducedVoltage.voltage ==
+        magnet.nominalFluxDensity *
+        channel.electrodeSpacing *
+        channel.sensingGap.fluid.velocity;
+    }
+
+    state machine sensingLifecycle {
+      state Off;
+      state SelfTest;
+      state CalibratingZero;
+      state Ready;
+      state Measuring;
+      state Fault;
+
+      initial then Off;
+
+      transition Off_to_SelfTest
+        first Off
+        accept powerApplied
+        then SelfTest;
+
+      transition SelfTest_to_CalibratingZero
+        first SelfTest
+        accept selfTestPassed
+        then CalibratingZero;
+
+      transition SelfTest_to_Fault
+        first SelfTest
+        accept selfTestFailed
+        then Fault;
+
+      transition CalibratingZero_to_Ready
+        first CalibratingZero
+        accept zeroStable
+        then Ready;
+
+      transition Ready_to_Measuring
+        first Ready
+        accept fluidDetected
+        then Measuring;
+
+      transition Measuring_to_Ready
+        first Measuring
+        accept noFlow
+        then Ready;
+
+      transition Measuring_to_Fault
+        first Measuring
+        accept signalInvalid
+        then Fault;
+
+      transition Fault_to_SelfTest
+        first Fault
+        accept resetCommand
+        then SelfTest;
+    }
+  }
+
+  part def MhdSensingUnit {
+    attribute enclosureIngressProtection : String = "IP67";
+    attribute updateRate : Frequency_Hz = 50.0;
+    attribute operatingTemperatureMin : Temperature_C = -20.0;
+    attribute operatingTemperatureMax : Temperature_C = 85.0;
+
+    port processFluidIn : FluidPort;
+    port processFluidOut : FluidPort;
+    port supply : PowerPort;
+    port measuredVelocity : MeasurementPort;
+    port status : StatusPort;
+    port telemetry : DigitalPort;
+
+    part powerConditioner : PowerConditioner;
+    part mhdSensor : MhdVelocitySensor;
+    part outputFormatter : SignalProcessor;
+
+    connect supply to powerConditioner.externalPower;
+    connect powerConditioner.conditionedPower to mhdSensor.power;
+    connect processFluidIn to mhdSensor.fluidIn;
+    connect mhdSensor.fluidOut to processFluidOut;
+    connect mhdSensor.velocityMeasurement to measuredVelocity;
+    connect mhdSensor.healthStatus to status;
+
+    action publishMeasurement {
+      in item measurement : VelocityMeasurement;
+      in item health : SensorStatus;
+      out item frame : DigitalFrame;
+
+      assign frame.velocity := measurement.value;
+      assign frame.uncertainty := measurement.uncertainty;
+      assign frame.sensorTemperature := health.temperature;
+      assign frame.quality := measurement.quality;
+    }
+  }
+
+  requirement def MeasureConductiveFluidVelocity {
+    subject unit : MhdSensingUnit;
+
+    require constraint {
+      unit.measuredVelocity.measurement.value >= 0.0 and
+      unit.measuredVelocity.measurement.value <= 12.0;
+    }
+  }
+
+  requirement def UseMhdSensorPrinciple {
+    subject sensor : MhdVelocitySensor;
+
+    require constraint {
+      sensor.electrodes.inducedVoltage.voltage ==
+        sensor.magnet.nominalFluxDensity *
+        sensor.channel.electrodeSpacing *
+        sensor.channel.sensingGap.fluid.velocity;
+    }
+  }
+
+  requirement def VelocityAccuracy {
+    subject unit : MhdSensingUnit;
+
+    require constraint {
+      unit.measuredVelocity.measurement.uncertainty <= 0.02;
+    }
+  }
+
+  requirement def MinimumFluidConductivity {
+    subject sensor : MhdVelocitySensor;
+
+    require constraint {
+      sensor.channel.sensingGap.fluid.electricalConductivity >=
+        sensor.minimumConductivity;
+    }
+  }
+
+  requirement def MeasurementUpdateRate {
+    subject unit : MhdSensingUnit;
+
+    require constraint {
+      unit.updateRate >= 50.0;
+    }
+  }
+
+  requirement def OperatingTemperatureRange {
+    subject unit : MhdSensingUnit;
+
+    require constraint {
+      unit.status.status.temperature >= unit.operatingTemperatureMin and
+      unit.status.status.temperature <= unit.operatingTemperatureMax;
+    }
+  }
+
+  requirement def FaultReporting {
+    subject unit : MhdSensingUnit;
+
+    require constraint {
+      unit.status.status.healthy == false implies
+      unit.status.status.faultCode != 0;
+    }
+  }
+
+  part sensingUnit : MhdSensingUnit;
+
+  satisfy MeasureConductiveFluidVelocity by sensingUnit;
+  satisfy VelocityAccuracy by sensingUnit;
+  satisfy MeasurementUpdateRate by sensingUnit;
+  satisfy OperatingTemperatureRange by sensingUnit;
+  satisfy FaultReporting by sensingUnit;
+  satisfy UseMhdSensorPrinciple by sensingUnit.mhdSensor;
+  satisfy MinimumFluidConductivity by sensingUnit.mhdSensor;
+}

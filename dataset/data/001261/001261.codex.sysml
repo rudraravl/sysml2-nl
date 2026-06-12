@@ -1,0 +1,403 @@
+package SensingUnitSpeedMeasurement {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SpeedValue :> ScalarValues::Real {
+        unit = SI::Unit::metrePerSecond;
+    }
+
+    attribute def FrequencyValue :> ScalarValues::Real {
+        unit = SI::Unit::hertz;
+    }
+
+    attribute def VoltageValue :> ScalarValues::Real {
+        unit = SI::Unit::volt;
+    }
+
+    attribute def TemperatureValue :> ScalarValues::Real {
+        unit = SI::Unit::degreeCelsius;
+    }
+
+    attribute def TimeValue :> ScalarValues::Real {
+        unit = SI::Unit::second;
+    }
+
+    attribute def AccuracyPercent :> ScalarValues::Real {
+        unit = SI::Unit::percent;
+    }
+
+    item def RotationalTarget {
+        attribute surfaceSpeed : SpeedValue;
+        attribute signalFeatureFrequency : FrequencyValue;
+    }
+
+    item def RawSpeedSignal {
+        attribute pulseFrequency : FrequencyValue;
+        attribute amplitude : VoltageValue;
+        attribute sampledAt : TimeValue;
+    }
+
+    item def ConditionedSpeedSignal {
+        attribute filteredFrequency : FrequencyValue;
+        attribute normalizedAmplitude : VoltageValue;
+        attribute noiseEstimate : VoltageValue;
+    }
+
+    item def SpeedMeasurement {
+        attribute measuredSpeed : SpeedValue;
+        attribute uncertainty : SpeedValue;
+        attribute timestamp : TimeValue;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthy : Boolean;
+        attribute signalPresent : Boolean;
+        attribute overTemperature : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    port def TargetObservationPort {
+        in item target : RotationalTarget;
+    }
+
+    port def RawSignalPort {
+        out item rawSignal : RawSpeedSignal;
+    }
+
+    port def ConditionedSignalPort {
+        in item rawSignal : RawSpeedSignal;
+        out item conditionedSignal : ConditionedSpeedSignal;
+    }
+
+    port def MeasurementPort {
+        out item speedMeasurement : SpeedMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item diagnosticStatus : DiagnosticStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : VoltageValue;
+    }
+
+    part def SpeedSensor {
+        port observation : TargetObservationPort;
+        port rawOutput : RawSignalPort;
+        port power : PowerPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute sensingRangeMin : SpeedValue = 0.0 [SI::Unit::metrePerSecond];
+        attribute sensingRangeMax : SpeedValue = 120.0 [SI::Unit::metrePerSecond];
+        attribute pulseScaleFactor : Real = 42.0;
+        attribute operatingTemperature : TemperatureValue;
+        attribute responseTime : TimeValue = 0.010 [SI::Unit::second];
+
+        action senseSpeed {
+            in item observedTarget : RotationalTarget;
+            out item producedSignal : RawSpeedSignal;
+
+            first start;
+            then sampleTarget;
+            then convertMotionToPulse;
+            then publishRawSignal;
+            then done;
+
+            action sampleTarget {
+                in item observedTarget : RotationalTarget;
+            }
+
+            action convertMotionToPulse {
+                in item observedTarget : RotationalTarget;
+                out item producedSignal : RawSpeedSignal;
+            }
+
+            action publishRawSignal {
+                in item producedSignal : RawSpeedSignal;
+            }
+        }
+
+        state def SensorOperatingState {
+            state off;
+            state initializing;
+            state detecting;
+            state faulted;
+
+            transition off_to_initializing
+                first off
+                accept PowerApplied
+                then initializing;
+
+            transition initializing_to_detecting
+                first initializing
+                if diagnostics::diagnosticStatus.sensorHealthy
+                then detecting;
+
+            transition detecting_to_faulted
+                first detecting
+                if not diagnostics::diagnosticStatus.signalPresent
+                then faulted;
+
+            transition faulted_to_initializing
+                first faulted
+                accept ResetCommand
+                then initializing;
+        }
+    }
+
+    part def SignalConditioner {
+        port input : ConditionedSignalPort;
+        port power : PowerPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute lowPassCutoff : FrequencyValue = 5000.0 [SI::Unit::hertz];
+        attribute minimumSignalAmplitude : VoltageValue = 0.10 [SI::Unit::volt];
+        attribute gain : Real = 2.0;
+
+        action conditionSignal {
+            in item rawSignal : RawSpeedSignal;
+            out item conditionedSignal : ConditionedSpeedSignal;
+
+            first receiveRawSignal;
+            then rejectOutOfBandNoise;
+            then normalizeAmplitude;
+            then emitConditionedSignal;
+            then done;
+
+            action receiveRawSignal {
+                in item rawSignal : RawSpeedSignal;
+            }
+
+            action rejectOutOfBandNoise {
+                in item rawSignal : RawSpeedSignal;
+                out item conditionedSignal : ConditionedSpeedSignal;
+            }
+
+            action normalizeAmplitude {
+                inout item conditionedSignal : ConditionedSpeedSignal;
+            }
+
+            action emitConditionedSignal {
+                out item conditionedSignal : ConditionedSpeedSignal;
+            }
+        }
+    }
+
+    part def SpeedEstimator {
+        port conditionedInput : ConditionedSignalPort;
+        port measurementOutput : MeasurementPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute calibrationScale : Real = 0.0238095;
+        attribute calibrationOffset : SpeedValue = 0.0 [SI::Unit::metrePerSecond];
+        attribute maximumAllowedUncertainty : SpeedValue = 0.5 [SI::Unit::metrePerSecond];
+
+        action estimateSpeed {
+            in item conditionedSignal : ConditionedSpeedSignal;
+            out item speedMeasurement : SpeedMeasurement;
+
+            first acquireConditionedSignal;
+            then applyCalibration;
+            then calculateUncertainty;
+            then validateMeasurement;
+            then publishMeasurement;
+            then done;
+
+            action acquireConditionedSignal {
+                in item conditionedSignal : ConditionedSpeedSignal;
+            }
+
+            action applyCalibration {
+                in item conditionedSignal : ConditionedSpeedSignal;
+                out item speedMeasurement : SpeedMeasurement;
+            }
+
+            action calculateUncertainty {
+                inout item speedMeasurement : SpeedMeasurement;
+            }
+
+            action validateMeasurement {
+                inout item speedMeasurement : SpeedMeasurement;
+            }
+
+            action publishMeasurement {
+                out item speedMeasurement : SpeedMeasurement;
+            }
+        }
+    }
+
+    part def SensingUnit {
+        port targetInput : TargetObservationPort;
+        port speedOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+        port powerInput : PowerPort;
+
+        part speedSensor : SpeedSensor;
+        part signalConditioner : SignalConditioner;
+        part speedEstimator : SpeedEstimator;
+
+        attribute measurementAccuracy : AccuracyPercent = 1.0 [SI::Unit::percent];
+        attribute updatePeriod : TimeValue = 0.020 [SI::Unit::second];
+        attribute supplyVoltageNominal : VoltageValue = 5.0 [SI::Unit::volt];
+
+        connect targetInput to speedSensor.observation;
+        connect powerInput to speedSensor.power;
+        connect powerInput to signalConditioner.power;
+        connect speedSensor.rawOutput to signalConditioner.input;
+        connect signalConditioner.input to speedEstimator.conditionedInput;
+        connect speedEstimator.measurementOutput to speedOutput;
+        connect speedSensor.diagnostics to diagnosticOutput;
+        connect signalConditioner.diagnostics to diagnosticOutput;
+        connect speedEstimator.diagnostics to diagnosticOutput;
+
+        action performMeasurementCycle {
+            in item target : RotationalTarget;
+            out item measurement : SpeedMeasurement;
+            out item status : DiagnosticStatus;
+
+            first observeTarget;
+            then senseUsingSpeedSensor;
+            then conditionRawSignal;
+            then estimateMeasuredSpeed;
+            then publishSpeedMeasurement;
+            then reportDiagnostics;
+            then done;
+
+            action observeTarget {
+                in item target : RotationalTarget;
+            }
+
+            action senseUsingSpeedSensor {
+                in item target : RotationalTarget;
+                out item rawSignal : RawSpeedSignal;
+            }
+
+            action conditionRawSignal {
+                in item rawSignal : RawSpeedSignal;
+                out item conditionedSignal : ConditionedSpeedSignal;
+            }
+
+            action estimateMeasuredSpeed {
+                in item conditionedSignal : ConditionedSpeedSignal;
+                out item measurement : SpeedMeasurement;
+            }
+
+            action publishSpeedMeasurement {
+                out item measurement : SpeedMeasurement;
+            }
+
+            action reportDiagnostics {
+                out item status : DiagnosticStatus;
+            }
+        }
+
+        state def SensingUnitState {
+            state unpowered;
+            state selfTest;
+            state ready;
+            state measuring;
+            state degraded;
+            state failed;
+
+            transition power_on
+                first unpowered
+                accept PowerApplied
+                then selfTest;
+
+            transition self_test_passed
+                first selfTest
+                if diagnosticOutput::diagnosticStatus.sensorHealthy
+                then ready;
+
+            transition start_measuring
+                first ready
+                accept MeasurementRequested
+                then measuring;
+
+            transition measuring_to_ready
+                first measuring
+                after updatePeriod
+                then ready;
+
+            transition measuring_to_degraded
+                first measuring
+                if speedOutput::speedMeasurement.uncertainty > speedEstimator.maximumAllowedUncertainty
+                then degraded;
+
+            transition degraded_to_ready
+                first degraded
+                if speedOutput::speedMeasurement.valid
+                then ready;
+
+            transition any_to_failed
+                first selfTest
+                if diagnosticOutput::diagnosticStatus.overTemperature
+                then failed;
+        }
+    }
+
+    requirement def MeasureSpeedRequirement {
+        doc /* The sensing unit shall measure target speed using a Speed sensor and provide a valid speed measurement at the measurement output. */
+
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.speedOutput::speedMeasurement.valid == true
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The sensing unit shall measure speed with uncertainty no greater than 0.5 m/s over the declared sensing range. */
+
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.speedOutput::speedMeasurement.uncertainty <= 0.5 [SI::Unit::metrePerSecond]
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The sensing unit shall publish a speed measurement at least every 20 ms while measuring. */
+
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.updatePeriod <= 0.020 [SI::Unit::second]
+        }
+    }
+
+    requirement def SpeedSensorUsageRequirement {
+        doc /* The sensing unit shall include a Speed sensor as the primary sensing element for determining the measured speed. */
+
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.speedSensor.sensingRangeMax >= 120.0 [SI::Unit::metrePerSecond]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The sensing unit shall report diagnostic status indicating sensor health, signal presence, over-temperature condition, and fault code. */
+
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.diagnosticOutput::diagnosticStatus.faultCode >= 0
+        }
+    }
+
+    satisfy MeasureSpeedRequirement by SensingUnit;
+    satisfy AccuracyRequirement by SensingUnit;
+    satisfy UpdateRateRequirement by SensingUnit;
+    satisfy SpeedSensorUsageRequirement by SensingUnit;
+    satisfy DiagnosticRequirement by SensingUnit;
+
+    part sensingUnitInstance : SensingUnit {
+        attribute measurementAccuracy = 1.0 [SI::Unit::percent];
+        attribute updatePeriod = 0.020 [SI::Unit::second];
+        attribute supplyVoltageNominal = 5.0 [SI::Unit::volt];
+    }
+}

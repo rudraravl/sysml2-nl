@@ -1,0 +1,397 @@
+package RadarSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Probability {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Ratio {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Power_W {
+        :> ISQ::power;
+        unit = SI::watt;
+    }
+
+    attribute def Voltage_V {
+        :> ISQ::electricPotential;
+        unit = SI::volt;
+    }
+
+    attribute def Current_A {
+        :> ISQ::electricCurrent;
+        unit = SI::ampere;
+    }
+
+    attribute def Frequency_Hz {
+        :> ISQ::frequency;
+        unit = SI::hertz;
+    }
+
+    attribute def Distance_m {
+        :> ISQ::length;
+        unit = SI::metre;
+    }
+
+    attribute def Speed_mps {
+        :> ISQ::speed;
+        unit = SI::metre / SI::second;
+    }
+
+    attribute def Angle_rad {
+        :> ISQ::planeAngle;
+        unit = SI::radian;
+    }
+
+    attribute def Time_s {
+        :> ISQ::time;
+        unit = SI::second;
+    }
+
+    attribute def Temperature_C {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::kelvin;
+    }
+
+    item def ElectromagneticWave {
+        attribute carrierFrequency : Frequency_Hz;
+        attribute bandwidth : Frequency_Hz;
+        attribute transmittedPower : Power_W;
+        attribute polarization : String;
+    }
+
+    item def ReflectedRadarEcho {
+        attribute carrierFrequency : Frequency_Hz;
+        attribute timeOfFlight : Time_s;
+        attribute dopplerShift : Frequency_Hz;
+        attribute receivedPower : Power_W;
+        attribute azimuthAngle : Angle_rad;
+        attribute elevationAngle : Angle_rad;
+        attribute signalToNoiseRatio : Ratio;
+    }
+
+    item def RadarDetection {
+        attribute range : Distance_m;
+        attribute radialVelocity : Speed_mps;
+        attribute azimuth : Angle_rad;
+        attribute elevation : Angle_rad;
+        attribute confidence : Probability;
+        attribute timestamp : Time_s;
+    }
+
+    item def PowerInput {
+        attribute voltage : Voltage_V;
+        attribute currentLimit : Current_A;
+    }
+
+    item def HealthStatus {
+        attribute operational : Boolean;
+        attribute faultCode : String;
+        attribute internalTemperature : Temperature_C;
+        attribute supplyVoltage : Voltage_V;
+    }
+
+    port def PowerPort {
+        in item power : PowerInput;
+    }
+
+    port def WaveTransmitPort {
+        out item wave : ElectromagneticWave;
+    }
+
+    port def EchoReceivePort {
+        in item echo : ReflectedRadarEcho;
+    }
+
+    port def DetectionOutputPort {
+        out item detection : RadarDetection;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    part def RadarSensor {
+        attribute centerFrequency : Frequency_Hz = 77000000000 [SI::hertz];
+        attribute chirpBandwidth : Frequency_Hz = 1000000000 [SI::hertz];
+        attribute maxInstrumentedRange : Distance_m = 120 [SI::metre];
+        attribute minimumRange : Distance_m = 0.2 [SI::metre];
+        attribute rangeResolution : Distance_m = 0.15 [SI::metre];
+        attribute velocityResolution : Speed_mps = 0.1 [SI::metre / SI::second];
+        attribute azimuthAccuracy : Angle_rad = 0.01745 [SI::radian];
+        attribute transmitPower : Power_W = 0.01 [SI::watt];
+        attribute supplyVoltage : Voltage_V = 5 [SI::volt];
+        attribute operatingCurrent : Current_A = 0.45 [SI::ampere];
+
+        port powerIn : PowerPort;
+        port tx : WaveTransmitPort;
+        port rx : EchoReceivePort;
+        port detections : DetectionOutputPort;
+        port health : StatusPort;
+
+        action transmitChirp {
+            in item supply : PowerInput;
+            out item emittedWave : ElectromagneticWave;
+
+            bind emittedWave.carrierFrequency = centerFrequency;
+            bind emittedWave.bandwidth = chirpBandwidth;
+            bind emittedWave.transmittedPower = transmitPower;
+            bind emittedWave.polarization = "linear-horizontal";
+        }
+
+        action receiveEcho {
+            in item echo : ReflectedRadarEcho;
+            out item conditionedEcho : ReflectedRadarEcho;
+
+            bind conditionedEcho.carrierFrequency = echo.carrierFrequency;
+            bind conditionedEcho.timeOfFlight = echo.timeOfFlight;
+            bind conditionedEcho.dopplerShift = echo.dopplerShift;
+            bind conditionedEcho.receivedPower = echo.receivedPower;
+            bind conditionedEcho.azimuthAngle = echo.azimuthAngle;
+            bind conditionedEcho.elevationAngle = echo.elevationAngle;
+            bind conditionedEcho.signalToNoiseRatio = echo.signalToNoiseRatio;
+        }
+
+        action estimateTarget {
+            in item echo : ReflectedRadarEcho;
+            out item detection : RadarDetection;
+
+            attribute speedOfLight : Speed_mps = 299792458 [SI::metre / SI::second];
+
+            bind detection.range = speedOfLight * echo.timeOfFlight / 2;
+            bind detection.radialVelocity = echo.dopplerShift * speedOfLight / (2 * centerFrequency);
+            bind detection.azimuth = echo.azimuthAngle;
+            bind detection.elevation = echo.elevationAngle;
+            bind detection.confidence = echo.signalToNoiseRatio / 30;
+        }
+
+        state def RadarSensorState {
+            entry; then Off;
+
+            state Off;
+            state Powering;
+            state SelfTest;
+            state Ready;
+            state Measuring;
+            state Fault;
+
+            transition Off_to_Powering
+                first Off
+                accept item p : PowerInput
+                if p.voltage >= 4.75 [SI::volt] and p.voltage <= 5.25 [SI::volt]
+                then Powering;
+
+            transition Powering_to_SelfTest
+                first Powering
+                after 0.05 [SI::second]
+                then SelfTest;
+
+            transition SelfTest_to_Ready
+                first SelfTest
+                if supplyVoltage >= 4.75 [SI::volt] and supplyVoltage <= 5.25 [SI::volt]
+                then Ready;
+
+            transition SelfTest_to_Fault
+                first SelfTest
+                if supplyVoltage < 4.75 [SI::volt] or supplyVoltage > 5.25 [SI::volt]
+                then Fault;
+
+            transition Ready_to_Measuring
+                first Ready
+                accept item echo : ReflectedRadarEcho
+                then Measuring;
+
+            transition Measuring_to_Ready
+                first Measuring
+                after 0.02 [SI::second]
+                then Ready;
+
+            transition Any_to_Fault
+                first Ready
+                if operatingCurrent > 0.8 [SI::ampere]
+                then Fault;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute detectionThresholdSNR : Ratio = 12;
+        attribute falseAlarmProbabilityLimit : Probability = 0.000001;
+        attribute reportPeriod : Time_s = 0.05 [SI::second];
+
+        port rawEchoIn : EchoReceivePort;
+        port detectionOut : DetectionOutputPort;
+        port statusOut : StatusPort;
+
+        action filterEcho {
+            in item rawEcho : ReflectedRadarEcho;
+            out item filteredEcho : ReflectedRadarEcho;
+
+            bind filteredEcho.carrierFrequency = rawEcho.carrierFrequency;
+            bind filteredEcho.timeOfFlight = rawEcho.timeOfFlight;
+            bind filteredEcho.dopplerShift = rawEcho.dopplerShift;
+            bind filteredEcho.receivedPower = rawEcho.receivedPower;
+            bind filteredEcho.azimuthAngle = rawEcho.azimuthAngle;
+            bind filteredEcho.elevationAngle = rawEcho.elevationAngle;
+            bind filteredEcho.signalToNoiseRatio = rawEcho.signalToNoiseRatio;
+        }
+
+        action classifyDetection {
+            in item detection : RadarDetection;
+            out item validDetection : RadarDetection;
+
+            bind validDetection.range = detection.range;
+            bind validDetection.radialVelocity = detection.radialVelocity;
+            bind validDetection.azimuth = detection.azimuth;
+            bind validDetection.elevation = detection.elevation;
+            bind validDetection.confidence = detection.confidence;
+            bind validDetection.timestamp = detection.timestamp;
+        }
+    }
+
+    part def PowerConditioner {
+        attribute nominalInputVoltage : Voltage_V = 12 [SI::volt];
+        attribute regulatedVoltage : Voltage_V = 5 [SI::volt];
+        attribute maximumOutputCurrent : Current_A = 1.2 [SI::ampere];
+        attribute efficiency : Ratio = 0.88;
+
+        port inputPower : PowerPort;
+        port regulatedPower : PowerPort;
+
+        action regulatePower {
+            in item unregulated : PowerInput;
+            out item regulated : PowerInput;
+
+            bind regulated.voltage = regulatedVoltage;
+            bind regulated.currentLimit = maximumOutputCurrent;
+        }
+    }
+
+    part def RadarSensingUnit {
+        attribute measuredQuantity : String = "target range, radial velocity, and bearing";
+        attribute measurementUpdatePeriod : Time_s = 0.05 [SI::second];
+        attribute requiredRangeAccuracy : Distance_m = 0.3 [SI::metre];
+        attribute requiredVelocityAccuracy : Speed_mps = 0.2 [SI::metre / SI::second];
+        attribute requiredAzimuthAccuracy : Angle_rad = 0.035 [SI::radian];
+
+        port supply : PowerPort;
+        port radiatedWave : WaveTransmitPort;
+        port reflectedEcho : EchoReceivePort;
+        port targetDetection : DetectionOutputPort;
+        port unitStatus : StatusPort;
+
+        part conditioner : PowerConditioner;
+        part radar : RadarSensor;
+        part processor : SignalProcessor;
+
+        connect supply.power to conditioner.inputPower.power;
+        connect conditioner.regulatedPower.power to radar.powerIn.power;
+        connect radar.tx.wave to radiatedWave.wave;
+        connect reflectedEcho.echo to radar.rx.echo;
+        connect radar.rx.echo to processor.rawEchoIn.echo;
+        connect radar.detections.detection to processor.detectionOut.detection;
+        connect processor.detectionOut.detection to targetDetection.detection;
+        connect radar.health.status to unitStatus.status;
+        connect processor.statusOut.status to unitStatus.status;
+
+        action performMeasurement {
+            in item inputPower : PowerInput;
+            in item echo : ReflectedRadarEcho;
+            out item detection : RadarDetection;
+            out item status : HealthStatus;
+
+            action regulate : conditioner.regulatePower {
+                in unregulated = inputPower;
+            }
+
+            action receive : radar.receiveEcho {
+                in echo = echo;
+            }
+
+            action estimate : radar.estimateTarget {
+                in echo = receive.conditionedEcho;
+            }
+
+            action classify : processor.classifyDetection {
+                in detection = estimate.detection;
+            }
+
+            bind detection = classify.validDetection;
+            bind status.operational = true;
+            bind status.faultCode = "NONE";
+            bind status.supplyVoltage = conditioner.regulatedVoltage;
+        }
+    }
+
+    requirement def RadarMeasurementRequirement {
+        subject sensingUnit : RadarSensingUnit;
+
+        require constraint {
+            sensingUnit.radar.centerFrequency >= 76000000000 [SI::hertz] and
+            sensingUnit.radar.centerFrequency <= 81000000000 [SI::hertz]
+        }
+
+        require constraint {
+            sensingUnit.radar.maxInstrumentedRange >= 100 [SI::metre]
+        }
+
+        require constraint {
+            sensingUnit.radar.rangeResolution <= 0.3 [SI::metre]
+        }
+
+        require constraint {
+            sensingUnit.radar.velocityResolution <= 0.2 [SI::metre / SI::second]
+        }
+
+        require constraint {
+            sensingUnit.radar.azimuthAccuracy <= 0.035 [SI::radian]
+        }
+
+        require constraint {
+            sensingUnit.measurementUpdatePeriod <= 0.1 [SI::second]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : RadarSensingUnit;
+
+        require constraint {
+            sensingUnit.conditioner.regulatedVoltage >= 4.75 [SI::volt] and
+            sensingUnit.conditioner.regulatedVoltage <= 5.25 [SI::volt]
+        }
+
+        require constraint {
+            sensingUnit.conditioner.maximumOutputCurrent >= 0.8 [SI::ampere]
+        }
+    }
+
+    requirement def DetectionQualityRequirement {
+        subject sensingUnit : RadarSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.detectionThresholdSNR >= 10
+        }
+
+        require constraint {
+            sensingUnit.processor.falseAlarmProbabilityLimit <= 0.000001
+        }
+    }
+
+    part radarSensingUnit : RadarSensingUnit;
+
+    requirement radarMeasurementRequirement : RadarMeasurementRequirement {
+        subject sensingUnit = radarSensingUnit;
+    }
+
+    requirement radarPowerRequirement : PowerRequirement {
+        subject sensingUnit = radarSensingUnit;
+    }
+
+    requirement radarDetectionQualityRequirement : DetectionQualityRequirement {
+        subject sensingUnit = radarSensingUnit;
+    }
+
+}

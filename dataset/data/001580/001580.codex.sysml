@@ -1,0 +1,669 @@
+package SmartLockSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real;
+  attribute def Voltage :> Real;
+  attribute def Current :> Real;
+  attribute def Power :> Real;
+  attribute def Energy :> Real;
+  attribute def TimeDuration :> Real;
+  attribute def Force :> Real;
+  attribute def Temperature :> Real;
+  attribute def Count :> Integer;
+
+  enum def LockPositionKind {
+    enum locked;
+    enum unlocked;
+    enum moving;
+    enum jammed;
+    enum unknown;
+  }
+
+  enum def CredentialKind {
+    enum pinCode;
+    enum mobileKey;
+    enum rfid;
+    enum mechanicalOverride;
+    enum remoteAdmin;
+  }
+
+  enum def CredentialDecisionKind {
+    enum accepted;
+    enum rejected;
+    enum expired;
+    enum revoked;
+    enum rateLimited;
+  }
+
+  enum def DoorPositionKind {
+    enum open;
+    enum closed;
+    enum ajar;
+    enum unknown;
+  }
+
+  enum def TamperKind {
+    enum none;
+    enum coverRemoved;
+    enum forcedRotation;
+    enum impactDetected;
+    enum repeatedFailedAccess;
+  }
+
+  enum def AlarmLevelKind {
+    enum normal;
+    enum warning;
+    enum critical;
+  }
+
+  item def Credential {
+    attribute credentialId : String;
+    attribute credentialKind : CredentialKind;
+    attribute presentedAt_s : TimeDuration;
+  }
+
+  item def CredentialDecision {
+    attribute decision : CredentialDecisionKind;
+    attribute subjectId : String;
+    attribute reason : String;
+  }
+
+  item def LockCommand {
+    attribute requestId : String;
+    attribute desiredPosition : LockPositionKind;
+    attribute requestedBy : CredentialKind;
+    attribute commandTime_s : TimeDuration;
+  }
+
+  item def LockStatus {
+    attribute position : LockPositionKind;
+    attribute doorPosition : DoorPositionKind;
+    attribute batteryCharge_pct : Percent;
+    attribute alarmLevel : AlarmLevelKind;
+    attribute lastEvent : String;
+  }
+
+  item def MotorDriveSignal {
+    attribute driveVoltage_V : Voltage;
+    attribute driveCurrent_A : Current;
+    attribute duration_ms : TimeDuration;
+    attribute directionLocking : Boolean;
+  }
+
+  item def SensorSample {
+    attribute boltPosition : LockPositionKind;
+    attribute doorPosition : DoorPositionKind;
+    attribute motorCurrent_A : Current;
+    attribute internalTemperature_C : Temperature;
+    attribute tamperKind : TamperKind;
+    attribute sampleTime_s : TimeDuration;
+  }
+
+  item def AuditEvent {
+    attribute eventId : String;
+    attribute eventTime_s : TimeDuration;
+    attribute eventType : String;
+    attribute subjectId : String;
+    attribute result : String;
+  }
+
+  item def Notification {
+    attribute notificationId : String;
+    attribute severity : AlarmLevelKind;
+    attribute message : String;
+    attribute generatedAt_s : TimeDuration;
+  }
+
+  port def CredentialInputPort {
+    in item credential : Credential;
+    out item decision : CredentialDecision;
+  }
+
+  port def CommandPort {
+    in item command : LockCommand;
+    out item status : LockStatus;
+  }
+
+  port def StatusPort {
+    out item status : LockStatus;
+    out item event : AuditEvent;
+    out item notification : Notification;
+  }
+
+  port def MotorControlPort {
+    out item driveSignal : MotorDriveSignal;
+    in item sample : SensorSample;
+  }
+
+  port def SensorPort {
+    out item sample : SensorSample;
+  }
+
+  port def PowerPort {
+    out attribute supplyVoltage_V : Voltage;
+    out attribute availableEnergy_Wh : Energy;
+  }
+
+  port def WirelessPort {
+    in item remoteCommand : LockCommand;
+    out item remoteStatus : LockStatus;
+    out item remoteNotification : Notification;
+  }
+
+  port def UserInterfacePort {
+    in item localCredential : Credential;
+    out item localDecision : CredentialDecision;
+    out item localStatus : LockStatus;
+  }
+
+  part def SmartLockSystem {
+    doc /* Primary high-level function: securely control physical access through a door by authenticating credentials, driving the lock bolt between locked and unlocked positions, monitoring lock and door state, recording access events, and notifying users or administrators of status and security conditions. */
+
+    port userInterface : UserInterfacePort;
+    port wirelessInterface : WirelessPort;
+    port statusInterface : StatusPort;
+
+    part controller : LockController;
+    part credentialManager : CredentialManager;
+    part actuator : BoltActuator;
+    part sensors : SensorSuite;
+    part powerSubsystem : PowerSubsystem;
+    part auditLogger : AuditLogger;
+    part alarmNotifier : AlarmNotifier;
+    part enclosure : LockEnclosure;
+    part doorInterface : DoorInterface;
+
+    attribute maximumUnlockTime_s : TimeDuration = 10.0;
+    attribute maximumLockTime_s : TimeDuration = 10.0;
+    attribute failedAttemptLimit : Count = 5;
+    attribute lowBatteryThreshold_pct : Percent = 20.0;
+    attribute criticalBatteryThreshold_pct : Percent = 5.0;
+
+    connect userInterface.localCredential to credentialManager.localCredentialPort.credential;
+    connect wirelessInterface.remoteCommand to controller.remoteCommandPort.command;
+    connect credentialManager.decisionPort.decision to controller.credentialDecisionPort.decision;
+    connect controller.commandToActuatorPort.driveSignal to actuator.motorPort.driveSignal;
+    connect actuator.motorPort.sample to controller.motorFeedbackPort.sample;
+    connect sensors.sensorOutput.sample to controller.sensorInput.sample;
+    connect powerSubsystem.powerOutput to controller.powerInput;
+    connect controller.statusOutput.status to statusInterface.status;
+    connect controller.statusOutput.event to auditLogger.eventInput.event;
+    connect controller.notificationOutput.notification to alarmNotifier.notificationInput.notification;
+    connect controller.statusOutput.status to userInterface.localStatus;
+    connect controller.statusOutput.status to wirelessInterface.remoteStatus;
+    connect alarmNotifier.notificationOutput.notification to wirelessInterface.remoteNotification;
+  }
+
+  part def LockController {
+    port remoteCommandPort : CommandPort;
+    port credentialDecisionPort {
+      in item decision : CredentialDecision;
+    }
+    port commandToActuatorPort : MotorControlPort;
+    port motorFeedbackPort {
+      in item sample : SensorSample;
+    }
+    port sensorInput : SensorPort;
+    port powerInput : PowerPort;
+    port statusOutput : StatusPort;
+    port notificationOutput {
+      out item notification : Notification;
+    }
+
+    attribute currentPosition : LockPositionKind = LockPositionKind::unknown;
+    attribute doorPosition : DoorPositionKind = DoorPositionKind::unknown;
+    attribute failedAttemptCount : Count = 0;
+    attribute autoRelockDelay_s : TimeDuration = 30.0;
+    attribute jamCurrentThreshold_A : Current = 1.5;
+    attribute nominalMotorVoltage_V : Voltage = 6.0;
+    attribute lockDriveDuration_ms : TimeDuration = 850.0;
+    attribute unlockDriveDuration_ms : TimeDuration = 850.0;
+
+    action authenticateAndAuthorize {
+      in item credential : Credential;
+      out item decision : CredentialDecision;
+    }
+
+    action commandLock {
+      in item command : LockCommand;
+      out item driveSignal : MotorDriveSignal;
+    }
+
+    action updateStatus {
+      in item sample : SensorSample;
+      out item status : LockStatus;
+    }
+
+    action detectSecurityCondition {
+      in item sample : SensorSample;
+      out item notification : Notification;
+    }
+
+    action publishAuditEvent {
+      in item decision : CredentialDecision;
+      in item command : LockCommand;
+      out item event : AuditEvent;
+    }
+
+    state def LockControlStateMachine {
+      entry action updateStatus;
+
+      state Initializing;
+      state Locked;
+      state Authenticating;
+      state Unlocking;
+      state Unlocked;
+      state Locking;
+      state Jammed;
+      state TamperAlarm;
+      state LowBattery;
+      state Disabled;
+
+      transition first Initializing;
+      transition Initializing_to_Locked
+        first Initializing
+        then Locked;
+
+      transition Locked_to_Authenticating
+        first Locked
+        accept Credential
+        then Authenticating;
+
+      transition Authenticating_to_Unlocking
+        first Authenticating
+        if credentialDecisionPort.decision.decision == CredentialDecisionKind::accepted
+        do commandLock
+        then Unlocking;
+
+      transition Authenticating_to_Locked_rejected
+        first Authenticating
+        if credentialDecisionPort.decision.decision != CredentialDecisionKind::accepted
+        do publishAuditEvent
+        then Locked;
+
+      transition Unlocking_to_Unlocked
+        first Unlocking
+        if motorFeedbackPort.sample.boltPosition == LockPositionKind::unlocked
+        do updateStatus
+        then Unlocked;
+
+      transition Unlocking_to_Jammed
+        first Unlocking
+        if motorFeedbackPort.sample.motorCurrent_A > jamCurrentThreshold_A
+        do detectSecurityCondition
+        then Jammed;
+
+      transition Unlocked_to_Locking
+        first Unlocked
+        after autoRelockDelay_s
+        do commandLock
+        then Locking;
+
+      transition Locking_to_Locked
+        first Locking
+        if motorFeedbackPort.sample.boltPosition == LockPositionKind::locked
+        do updateStatus
+        then Locked;
+
+      transition Locking_to_Jammed
+        first Locking
+        if motorFeedbackPort.sample.motorCurrent_A > jamCurrentThreshold_A
+        do detectSecurityCondition
+        then Jammed;
+
+      transition Locked_to_TamperAlarm
+        first Locked
+        if sensorInput.sample.tamperKind != TamperKind::none
+        do detectSecurityCondition
+        then TamperAlarm;
+
+      transition Unlocked_to_TamperAlarm
+        first Unlocked
+        if sensorInput.sample.tamperKind != TamperKind::none
+        do detectSecurityCondition
+        then TamperAlarm;
+
+      transition Any_to_LowBattery
+        first Locked
+        if powerInput.availableEnergy_Wh <= 2.0
+        then LowBattery;
+
+      transition LowBattery_to_Disabled
+        first LowBattery
+        if powerInput.availableEnergy_Wh <= 0.5
+        then Disabled;
+    }
+  }
+
+  part def CredentialManager {
+    port localCredentialPort : CredentialInputPort;
+    port decisionPort {
+      out item decision : CredentialDecision;
+    }
+
+    attribute maximumStoredCredentials : Count = 100;
+    attribute failedAttemptWindow_s : TimeDuration = 300.0;
+    attribute lockoutDuration_s : TimeDuration = 120.0;
+    attribute encryptedCredentialStoreEnabled : Boolean = true;
+
+    action validateCredential {
+      in item credential : Credential;
+      out item decision : CredentialDecision;
+    }
+
+    action revokeCredential {
+      in attribute credentialId : String;
+      out attribute revoked : Boolean;
+    }
+
+    action recordFailedAttempt {
+      in item credential : Credential;
+      out attribute failedAttemptCount : Count;
+    }
+  }
+
+  part def BoltActuator {
+    port motorPort : MotorControlPort;
+
+    part motor : ElectricMotor;
+    part gearTrain : GearTrain;
+    part deadbolt : Deadbolt;
+
+    attribute peakForce_N : Force = 120.0;
+    attribute nominalUnlockTime_ms : TimeDuration = 850.0;
+    attribute nominalLockTime_ms : TimeDuration = 850.0;
+    attribute mechanicalCycleLife : Count = 100000;
+
+    connect motor.rotationalOutput to gearTrain.rotationalInput;
+    connect gearTrain.linearOutput to deadbolt.boltInput;
+  }
+
+  part def ElectricMotor {
+    port rotationalOutput {
+      out attribute shaftSpeed_rpm : Real;
+      out attribute shaftTorque_Nm : Real;
+    }
+
+    attribute nominalVoltage_V : Voltage = 6.0;
+    attribute stallCurrent_A : Current = 2.0;
+    attribute noLoadCurrent_A : Current = 0.18;
+    attribute ratedPower_W : Power = 4.5;
+  }
+
+  part def GearTrain {
+    port rotationalInput {
+      in attribute shaftSpeed_rpm : Real;
+      in attribute shaftTorque_Nm : Real;
+    }
+
+    port linearOutput {
+      out attribute linearTravel_mm : Real;
+      out attribute linearForce_N : Force;
+    }
+
+    attribute gearRatio : Real = 48.0;
+    attribute efficiency_pct : Percent = 72.0;
+  }
+
+  part def Deadbolt {
+    port boltInput {
+      in attribute linearTravel_mm : Real;
+      in attribute linearForce_N : Force;
+    }
+
+    attribute throwLength_mm : Real = 25.0;
+    attribute boltDiameter_mm : Real = 12.0;
+    attribute currentPosition : LockPositionKind = LockPositionKind::unknown;
+  }
+
+  part def SensorSuite {
+    port sensorOutput : SensorPort;
+
+    part boltPositionSensor : BoltPositionSensor;
+    part doorPositionSensor : DoorPositionSensor;
+    part motorCurrentSensor : MotorCurrentSensor;
+    part tamperSensor : TamperSensor;
+    part temperatureSensor : TemperatureSensor;
+
+    attribute samplePeriod_ms : TimeDuration = 100.0;
+  }
+
+  part def BoltPositionSensor {
+    attribute positionAccuracy_mm : Real = 1.0;
+    attribute reportedPosition : LockPositionKind = LockPositionKind::unknown;
+  }
+
+  part def DoorPositionSensor {
+    attribute sensingMethod : String = "magnetic reed";
+    attribute reportedDoorPosition : DoorPositionKind = DoorPositionKind::unknown;
+  }
+
+  part def MotorCurrentSensor {
+    attribute measurementRange_A : Current = 3.0;
+    attribute measurementAccuracy_A : Current = 0.05;
+  }
+
+  part def TamperSensor {
+    attribute impactThreshold_g : Real = 6.0;
+    attribute coverSwitchPresent : Boolean = true;
+    attribute reportedTamperKind : TamperKind = TamperKind::none;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow_C : Temperature = -20.0;
+    attribute measurementRangeHigh_C : Temperature = 60.0;
+    attribute measurementAccuracy_C : Temperature = 1.0;
+  }
+
+  part def PowerSubsystem {
+    port powerOutput : PowerPort;
+
+    part batteryPack : BatteryPack;
+    part regulator : VoltageRegulator;
+    part energyMonitor : EnergyMonitor;
+
+    attribute sleepPower_mW : Power = 0.35;
+    attribute activePower_W : Power = 2.8;
+    attribute targetBatteryLife_days : TimeDuration = 365.0;
+
+    connect batteryPack.batteryOutput to regulator.regulatorInput;
+    connect regulator.regulatedOutput to energyMonitor.monitorInput;
+  }
+
+  part def BatteryPack {
+    port batteryOutput {
+      out attribute voltage_V : Voltage;
+      out attribute remainingEnergy_Wh : Energy;
+    }
+
+    attribute chemistry : String = "alkaline AA";
+    attribute cellCount : Count = 4;
+    attribute nominalVoltage_V : Voltage = 6.0;
+    attribute nominalCapacity_Wh : Energy = 12.0;
+  }
+
+  part def VoltageRegulator {
+    port regulatorInput {
+      in attribute voltage_V : Voltage;
+      in attribute remainingEnergy_Wh : Energy;
+    }
+
+    port regulatedOutput {
+      out attribute regulatedVoltage_V : Voltage;
+      out attribute availableEnergy_Wh : Energy;
+    }
+
+    attribute outputVoltage_V : Voltage = 3.3;
+    attribute conversionEfficiency_pct : Percent = 88.0;
+  }
+
+  part def EnergyMonitor {
+    port monitorInput {
+      in attribute regulatedVoltage_V : Voltage;
+      in attribute availableEnergy_Wh : Energy;
+    }
+
+    attribute batteryCharge_pct : Percent = 100.0;
+    attribute lowBatteryThreshold_pct : Percent = 20.0;
+    attribute criticalBatteryThreshold_pct : Percent = 5.0;
+  }
+
+  part def AuditLogger {
+    port eventInput {
+      in item event : AuditEvent;
+    }
+
+    attribute retainedEventCount : Count = 1000;
+    attribute encryptedStorageEnabled : Boolean = true;
+
+    action appendEvent {
+      in item event : AuditEvent;
+    }
+
+    action exportEvents {
+      out item event : AuditEvent;
+    }
+  }
+
+  part def AlarmNotifier {
+    port notificationInput {
+      in item notification : Notification;
+    }
+
+    port notificationOutput {
+      out item notification : Notification;
+    }
+
+    attribute audibleAlarmEnabled : Boolean = true;
+    attribute wirelessNotificationEnabled : Boolean = true;
+    attribute maximumNotificationLatency_s : TimeDuration = 5.0;
+
+    action notifyUser {
+      in item notification : Notification;
+    }
+
+    action soundAlarm {
+      in item notification : Notification;
+    }
+  }
+
+  part def LockEnclosure {
+    attribute ingressProtectionRating : String = "IP54";
+    attribute operatingTemperatureMin_C : Temperature = -20.0;
+    attribute operatingTemperatureMax_C : Temperature = 60.0;
+    attribute tamperResistantFasteners : Boolean = true;
+    attribute exteriorAssemblyMaterial : String = "zinc alloy";
+    attribute interiorAssemblyMaterial : String = "polycarbonate reinforced enclosure";
+  }
+
+  part def DoorInterface {
+    attribute supportedDoorThicknessMin_mm : Real = 35.0;
+    attribute supportedDoorThicknessMax_mm : Real = 51.0;
+    attribute backset_mm : Real = 60.0;
+    attribute latchBoreDiameter_mm : Real = 25.0;
+    attribute crossBoreDiameter_mm : Real = 54.0;
+  }
+
+  requirement def PrimaryAccessControlRequirement {
+    doc /* The smart lock shall authenticate an authorized credential and move the deadbolt to the unlocked position to permit access. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.controller.currentPosition == LockPositionKind::unlocked
+    }
+  }
+
+  requirement def SecureLockingRequirement {
+    doc /* The smart lock shall move the deadbolt to the locked position when commanded to lock or when auto-relock timeout expires. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.controller.currentPosition == LockPositionKind::locked
+    }
+  }
+
+  requirement def UnauthorizedAccessRejectionRequirement {
+    doc /* The smart lock shall reject expired, revoked, unknown, or rate-limited credentials and shall not unlock for those credentials. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.controller.failedAttemptCount <= smartLock.failedAttemptLimit
+    }
+  }
+
+  requirement def StatusReportingRequirement {
+    doc /* The smart lock shall report lock position, door position, battery charge, alarm level, and latest event to local and wireless interfaces. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.powerSubsystem.energyMonitor.batteryCharge_pct >= 0.0
+    }
+  }
+
+  requirement def LowBatteryWarningRequirement {
+    doc /* The smart lock shall generate a warning notification when battery charge is at or below the low battery threshold. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.powerSubsystem.energyMonitor.lowBatteryThreshold_pct == smartLock.lowBatteryThreshold_pct
+    }
+  }
+
+  requirement def TamperDetectionRequirement {
+    doc /* The smart lock shall detect cover removal, forced rotation, impact, and repeated failed access attempts as tamper conditions. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.sensors.tamperSensor.coverSwitchPresent == true
+    }
+  }
+
+  requirement def AuditLoggingRequirement {
+    doc /* The smart lock shall record accepted credentials, rejected credentials, lock commands, unlock commands, tamper events, and battery warnings as audit events. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.auditLogger.retainedEventCount >= 1000
+    }
+  }
+
+  requirement def PowerLifeRequirement {
+    doc /* The smart lock shall support one year of normal residential operation on one installed battery pack. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.powerSubsystem.targetBatteryLife_days >= 365.0
+    }
+  }
+
+  requirement def MechanicalCompatibilityRequirement {
+    doc /* The smart lock shall support common residential door preparations and door thicknesses from 35 mm to 51 mm. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.doorInterface.supportedDoorThicknessMin_mm <= 35.0 and
+      smartLock.doorInterface.supportedDoorThicknessMax_mm >= 51.0
+    }
+  }
+
+  requirement def JamDetectionRequirement {
+    doc /* The smart lock shall stop motor drive and enter a jammed state when motor current exceeds the configured jam threshold during locking or unlocking. */
+    subject smartLock : SmartLockSystem;
+    require constraint {
+      smartLock.controller.jamCurrentThreshold_A < smartLock.actuator.motor.stallCurrent_A
+    }
+  }
+
+  satisfy PrimaryAccessControlRequirement by SmartLockSystem::controller;
+  satisfy SecureLockingRequirement by SmartLockSystem::actuator;
+  satisfy UnauthorizedAccessRejectionRequirement by SmartLockSystem::credentialManager;
+  satisfy StatusReportingRequirement by SmartLockSystem::controller;
+  satisfy LowBatteryWarningRequirement by SmartLockSystem::powerSubsystem;
+  satisfy TamperDetectionRequirement by SmartLockSystem::sensors;
+  satisfy AuditLoggingRequirement by SmartLockSystem::auditLogger;
+  satisfy PowerLifeRequirement by SmartLockSystem::powerSubsystem;
+  satisfy MechanicalCompatibilityRequirement by SmartLockSystem::doorInterface;
+  satisfy JamDetectionRequirement by SmartLockSystem::controller;
+
+  part smartResidentialDoorLock : SmartLockSystem {
+    attribute maximumUnlockTime_s = 10.0;
+    attribute maximumLockTime_s = 10.0;
+    attribute failedAttemptLimit = 5;
+    attribute lowBatteryThreshold_pct = 20.0;
+    attribute criticalBatteryThreshold_pct = 5.0;
+  }
+}

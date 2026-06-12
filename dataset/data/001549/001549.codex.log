@@ -1,0 +1,973 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-wt2wkpkd
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb723-116e-7de2-af9f-2e5f7b9bd71b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a robotic system that performs its primary task using a Robot ethics.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EthicalServiceRobotModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        range = "0..1";
+    }
+
+    attribute def RiskScore : Real {
+        range = "0..100";
+    }
+
+    attribute def Confidence : Real {
+        range = "0..1";
+    }
+
+    attribute def Priority : Integer {
+        range = "0..10";
+    }
+
+    attribute def EthicalClearance : Boolean;
+
+    item def NavigationCommand {
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute maxSpeed : SpeedValue;
+    }
+
+    item def MotorCommand {
+        attribute leftWheelSpeed : SpeedValue;
+        attribute rightWheelSpeed : SpeedValue;
+        attribute emergencyBrake : Boolean;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : TimeValue;
+        attribute obstacleDistance : LengthValue;
+        attribute humanDetected : Boolean;
+        attribute humanDistance : LengthValue;
+        attribute humanDistressProbability : Probability;
+        attribute restrictedAreaDetected : Boolean;
+    }
+
+    item def TaskRequest {
+        attribute taskId : String;
+        attribute requesterId : String;
+        attribute destinationX : LengthValue;
+        attribute destinationY : LengthValue;
+        attribute payloadMass : MassValue;
+        attribute urgency : Priority;
+    }
+
+    item def EthicsAssessment {
+        attribute harmRisk : RiskScore;
+        attribute privacyRisk : RiskScore;
+        attribute propertyRisk : RiskScore;
+        attribute missionBenefit : RiskScore;
+        attribute consentConfirmed : Boolean;
+        attribute legalCompliance : Boolean;
+        attribute approved : EthicalClearance;
+        attribute explanation : String;
+    }
+
+    item def StatusReport {
+        attribute robotId : String;
+        attribute mode : String;
+        attribute batteryCharge : Percentage;
+        attribute activeTaskId : String;
+        attribute ethicsApproved : Boolean;
+        attribute currentRisk : RiskScore;
+    }
+
+    port def SensorOutPort {
+        out item frame : SensorFrame;
+    }
+
+    port def SensorInPort {
+        in item frame : SensorFrame;
+    }
+
+    port def TaskRequestInPort {
+        in item request : TaskRequest;
+    }
+
+    port def TaskRequestOutPort {
+        out item request : TaskRequest;
+    }
+
+    port def EthicsAssessmentInPort {
+        in item assessment : EthicsAssessment;
+    }
+
+    port def EthicsAssessmentOutPort {
+        out item assessment : EthicsAssessment;
+    }
+
+    port def NavigationCommandInPort {
+        in item command : NavigationCommand;
+    }
+
+    port def NavigationCommandOutPort {
+        out item command : NavigationCommand;
+    }
+
+    port def MotorCommandInPort {
+        in item command : MotorCommand;
+    }
+
+    port def MotorCommandOutPort {
+        out item command : MotorCommand;
+    }
+
+    port def StatusOutPort {
+        out item report : StatusReport;
+    }
+
+    port def StatusInPort {
+        in item report : StatusReport;
+    }
+
+    part def VisionSensor {
+        attribute fieldOfView : AngleValue = 120 [deg];
+        attribute maxRange : LengthValue = 12 [m];
+        attribute privacyMaskingEnabled : Boolean = true;
+        port sensedFrame : SensorOutPort;
+    }
+
+    part def LidarSensor {
+        attribute angularResolution : AngleValue = 0.5 [deg];
+        attribute maxRange : LengthValue = 20 [m];
+        port sensedFrame : SensorOutPort;
+    }
+
+    part def HumanInteractionPanel {
+        port taskInput : TaskRequestOutPort;
+        port robotStatus : StatusInPort;
+        attribute consentTimeout : TimeValue = 20 [s];
+    }
+
+    part def EthicsGovernor {
+        port taskInput : TaskRequestInPort;
+        port perceptionInput : SensorInPort;
+        port assessmentOutput : EthicsAssessmentOutPort;
+
+        attribute maxPermittedHarmRisk : RiskScore = 20.0;
+        attribute maxPermittedPrivacyRisk : RiskScore = 35.0;
+        attribute emergencyOverrideAllowed : Boolean = true;
+        attribute humanSafetyPriority : Priority = 10;
+        attribute taskCompletionPriority : Priority = 4;
+
+        action assessTask {
+            in item request : TaskRequest;
+            in item perception : SensorFrame;
+            out item assessment : EthicsAssessment;
+
+            first start;
+            then computeHarmRisk;
+            then computePrivacyRisk;
+            then checkConsent;
+            then checkLawfulOperation;
+            then decideApproval;
+            then done;
+
+            action computeHarmRisk;
+            action computePrivacyRisk;
+            action checkConsent;
+            action checkLawfulOperation;
+            action decideApproval;
+        }
+    }
+
+    part def MissionController {
+        port taskInput : TaskRequestInPort;
+        port sensorInput : SensorInPort;
+        port ethicsInput : EthicsAssessmentInPort;
+        port navOutput : NavigationCommandOutPort;
+        port statusOutput : StatusOutPort;
+
+        attribute activeTaskId : String;
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute missionBenefit : RiskScore;
+        attribute ethicsApproved : Boolean;
+
+        state machine behavior missionLifecycle {
+            state idle;
+            state receivingTask;
+            state awaitingEthics;
+            state planning;
+            state executing;
+            state pausedForHumanSafety;
+            state completed;
+            state refused;
+            state faulted;
+
+            entry; then idle;
+
+            transition idle_to_receiving
+                first idle
+                accept TaskRequest
+                then receivingTask;
+
+            transition receiving_to_ethics
+                first receivingTask
+                then awaitingEthics;
+
+            transition ethics_to_planning
+                first awaitingEthics
+                if ethicsApproved == true
+                then planning;
+
+            transition ethics_to_refused
+                first awaitingEthics
+                if ethicsApproved == false
+                then refused;
+
+            transition planning_to_executing
+                first planning
+                then executing;
+
+            transition executing_to_pause
+                first executing
+                if ethicsApproved == true
+                accept SensorFrame
+                then pausedForHumanSafety;
+
+            transition pause_to_executing
+                first pausedForHumanSafety
+                if ethicsApproved == true
+                then executing;
+
+            transition executing_to_completed
+                first executing
+                then completed;
+
+            transition any_to_faulted
+                first idle
+                accept Fault
+                then faulted;
+        }
+
+        action generateNavigationCommand {
+            in item request : TaskRequest;
+            in item assessment : EthicsAssessment;
+            out item command : NavigationCommand;
+
+            first verifyApproval;
+            then calculateRoute;
+            then limitSpeedForRisk;
+            then publishCommand;
+
+            action verifyApproval;
+            action calculateRoute;
+            action limitSpeedForRisk;
+            action publishCommand;
+        }
+    }
+
+    part def NavigationComputer {
+        port commandInput : NavigationCommandInPort;
+        port sensorInput : SensorInPort;
+        port motorOutput : MotorCommandOutPort;
+
+        attribute nominalSpeed : SpeedValue = 0.8 [m/s];
+        attribute minimumHumanClearance : LengthValue = 1.5 [m];
+        attribute stoppingDistance : LengthValue = 0.4 [m];
+
+        action avoidObstacles {
+            in item command : NavigationCommand;
+            in item frame : SensorFrame;
+            out item motor : MotorCommand;
+
+            first evaluateClearance;
+            then computeWheelSpeeds;
+            then enforceHumanClearance;
+            then issueMotorCommand;
+
+            action evaluateClearance;
+            action computeWheelSpeeds;
+            action enforceHumanClearance;
+            action issueMotorCommand;
+        }
+    }
+
+    part def MobileBase {
+        port motorInput : MotorCommandInPort;
+        attribute wheelRadius : LengthValue = 0.09 [m];
+        attribute baseWidth : LengthValue = 0.48 [m];
+        attribute maximumSpeed : SpeedValue = 1.2 [m/s];
+        attribute emergencyStopEngaged : Boolean = false;
+    }
+
+    part def ManipulatorArm {
+        attribute payloadCapacity : MassValue = 5 [kg];
+        attribute reach : LengthValue = 0.85 [m];
+        attribute grippingForceLimit : ForceValue = 40 [N];
+        attribute collaborativeModeEnabled : Boolean = true;
+
+        action handlePayloadSafely {
+            in attribute payloadMass : MassValue;
+            out attribute safeToLift : Boolean;
+
+            first checkMass;
+            then limitForce;
+            then confirmSafeLift;
+
+            action checkMass;
+            action limitForce;
+            action confirmSafeLift;
+        }
+    }
+
+    part def BatterySystem {
+        attribute capacity : EnergyValue = 900 [W*h];
+        attribute charge : Percentage = 100 [%];
+        attribute lowChargeThreshold : Percentage = 15 [%];
+        attribute criticalChargeThreshold : Percentage = 7 [%];
+    }
+
+    part def AuditLogger {
+        port taskInput : TaskRequestInPort;
+        port ethicsInput : EthicsAssessmentInPort;
+        port statusInput : StatusInPort;
+
+        attribute retentionPeriod : TimeValue = 30 [d];
+        attribute personallyIdentifyingDataStored : Boolean = false;
+        attribute encrypted : Boolean = true;
+    }
+
+    part def EthicalServiceRobot {
+        attribute robotId : String = "ESR-01";
+        attribute maximumOperatingSpeed : SpeedValue = 1.2 [m/s];
+        attribute minimumSafeHumanDistance : LengthValue = 1.5 [m];
+
+        port externalTaskRequest : TaskRequestInPort;
+        port externalStatus : StatusOutPort;
+
+        part vision : VisionSensor;
+        part lidar : LidarSensor;
+        part interactionPanel : HumanInteractionPanel;
+        part ethicsGovernor : EthicsGovernor;
+        part missionController : MissionController;
+        part navigationComputer : NavigationComputer;
+        part mobileBase : MobileBase;
+        part manipulator : ManipulatorArm;
+        part battery : BatterySystem;
+        part logger : AuditLogger;
+
+        connect interactionPanel.taskInput to missionController.taskInput;
+        connect interactionPanel.taskInput to ethicsGovernor.taskInput;
+        connect interactionPanel.taskInput to logger.taskInput;
+
+        connect externalTaskRequest to missionController.taskInput;
+        connect externalTaskRequest to ethicsGovernor.taskInput;
+        connect externalTaskRequest to logger.taskInput;
+
+        connect vision.sensedFrame to missionController.sensorInput;
+        connect vision.sensedFrame to ethicsGovernor.perceptionInput;
+        connect vision.sensedFrame to navigationComputer.sensorInput;
+
+        connect lidar.sensedFrame to missionController.sensorInput;
+        connect lidar.sensedFrame to navigationComputer.sensorInput;
+
+        connect ethicsGovernor.assessmentOutput to missionController.ethicsInput;
+        connect ethicsGovernor.assessmentOutput to logger.ethicsInput;
+
+        connect missionController.navOutput to navigationComputer.commandInput;
+        connect navigationComputer.motorOutput to mobileBase.motorInput;
+
+        connect missionController.statusOutput to externalStatus;
+        connect missionController.statusOutput to interactionPanel.robotStatus;
+        connect missionController.statusOutput to logger.statusInput;
+    }
+
+    requirement def RobotEthicsRequirement {
+        subject robot : EthicalServiceRobot;
+        attribute id : String;
+        attribute text : String;
+    }
+
+    requirement humanSafetyFirst : RobotEthicsRequirement {
+        id = "ETH-001";
+        text = "The robot shall not execute or continue a task when the assessed risk of physical harm to a human exceeds the permitted threshold, except to reduce immediate greater harm.";
+    }
+
+    requirement lawfulOperation : RobotEthicsRequirement {
+        id = "ETH-002";
+        text = "The robot shall execute only tasks assessed as compliant with applicable operational rules, restricted-area constraints, and authorized use conditions.";
+    }
+
+    requirement consentAndPrivacy : RobotEthicsRequirement {
+        id = "ETH-003";
+        text = "The robot shall confirm requester authorization and minimize collection, retention, and exposure of personally identifying data during task execution.";
+    }
+
+    requirement transparentRefusal : RobotEthicsRequirement {
+        id = "ETH-004";
+        text = "The robot shall provide a status report explaining refusal when a task is rejected by the ethics governor.";
+    }
+
+    requirement humanOverride : RobotEthicsRequirement {
+        id = "ETH-005";
+        text = "The robot shall accept authorized human stop commands and place the mobile base in an emergency stopped state within 0.5 seconds.";
+    }
+
+    requirement safeNavigation : RobotEthicsRequirement {
+        id = "ETH-006";
+        text = "The robot shall maintain at least 1.5 meters of clearance from detected humans during autonomous motion unless stopping or backing away to increase clearance.";
+    }
+
+    requirement auditability : RobotEthicsRequirement {
+        id = "ETH-007";
+        text = "The robot shall record task requests, ethics assessments, and mission status without storing raw personally identifying imagery.";
+    }
+
+    satisfy humanSafetyFirst by EthicalServiceRobot.ethicsGovernor;
+    satisfy humanSafetyFirst by EthicalServiceRobot.navigationComputer;
+    satisfy lawfulOperation by EthicalServiceRobot.ethicsGovernor;
+    satisfy consentAndPrivacy by EthicalServiceRobot.ethicsGovernor;
+    satisfy consentAndPrivacy by EthicalServiceRobot.vision;
+    satisfy transparentRefusal by EthicalServiceRobot.missionController;
+    satisfy humanOverride by EthicalServiceRobot.mobileBase;
+    satisfy safeNavigation by EthicalServiceRobot.navigationComputer;
+    satisfy auditability by EthicalServiceRobot.logger;
+
+    assert constraint safeHumanClearance {
+        EthicalServiceRobot.minimumSafeHumanDistance >= 1.5 [m]
+    }
+
+    assert constraint boundedOperatingSpeed {
+        EthicalServiceRobot.maximumOperatingSpeed <= EthicalServiceRobot.mobileBase.maximumSpeed
+    }
+
+    assert constraint ethicalRiskLimit {
+        EthicalServiceRobot.ethicsGovernor.maxPermittedHarmRisk <= 20.0
+    }
+
+    action performPrimaryTaskWithRobotEthics {
+        in item request : TaskRequest;
+        out item report : StatusReport;
+
+        first receiveTask;
+        then perceiveEnvironment;
+        then assessEthics;
+        then decideMission;
+
+        action receiveTask;
+        action perceiveEnvironment;
+        action assessEthics;
+        action decideMission;
+
+        then if ethicsApproved then executeTask else refuseTask;
+
+        action executeTask {
+            first planRoute;
+            then navigateSafely;
+            then handlePayload;
+            then reportCompletion;
+
+            action planRoute;
+            action navigateSafely;
+            action handlePayload;
+            action reportCompletion;
+        }
+
+        action refuseTask {
+            first generateEthicsExplanation;
+            then reportRefusal;
+
+            action generateEthicsExplanation;
+            action reportRefusal;
+        }
+    }
+
+}
+tokens used
+3,444
+package EthicalServiceRobotModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        range = "0..1";
+    }
+
+    attribute def RiskScore : Real {
+        range = "0..100";
+    }
+
+    attribute def Confidence : Real {
+        range = "0..1";
+    }
+
+    attribute def Priority : Integer {
+        range = "0..10";
+    }
+
+    attribute def EthicalClearance : Boolean;
+
+    item def NavigationCommand {
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute maxSpeed : SpeedValue;
+    }
+
+    item def MotorCommand {
+        attribute leftWheelSpeed : SpeedValue;
+        attribute rightWheelSpeed : SpeedValue;
+        attribute emergencyBrake : Boolean;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : TimeValue;
+        attribute obstacleDistance : LengthValue;
+        attribute humanDetected : Boolean;
+        attribute humanDistance : LengthValue;
+        attribute humanDistressProbability : Probability;
+        attribute restrictedAreaDetected : Boolean;
+    }
+
+    item def TaskRequest {
+        attribute taskId : String;
+        attribute requesterId : String;
+        attribute destinationX : LengthValue;
+        attribute destinationY : LengthValue;
+        attribute payloadMass : MassValue;
+        attribute urgency : Priority;
+    }
+
+    item def EthicsAssessment {
+        attribute harmRisk : RiskScore;
+        attribute privacyRisk : RiskScore;
+        attribute propertyRisk : RiskScore;
+        attribute missionBenefit : RiskScore;
+        attribute consentConfirmed : Boolean;
+        attribute legalCompliance : Boolean;
+        attribute approved : EthicalClearance;
+        attribute explanation : String;
+    }
+
+    item def StatusReport {
+        attribute robotId : String;
+        attribute mode : String;
+        attribute batteryCharge : Percentage;
+        attribute activeTaskId : String;
+        attribute ethicsApproved : Boolean;
+        attribute currentRisk : RiskScore;
+    }
+
+    port def SensorOutPort {
+        out item frame : SensorFrame;
+    }
+
+    port def SensorInPort {
+        in item frame : SensorFrame;
+    }
+
+    port def TaskRequestInPort {
+        in item request : TaskRequest;
+    }
+
+    port def TaskRequestOutPort {
+        out item request : TaskRequest;
+    }
+
+    port def EthicsAssessmentInPort {
+        in item assessment : EthicsAssessment;
+    }
+
+    port def EthicsAssessmentOutPort {
+        out item assessment : EthicsAssessment;
+    }
+
+    port def NavigationCommandInPort {
+        in item command : NavigationCommand;
+    }
+
+    port def NavigationCommandOutPort {
+        out item command : NavigationCommand;
+    }
+
+    port def MotorCommandInPort {
+        in item command : MotorCommand;
+    }
+
+    port def MotorCommandOutPort {
+        out item command : MotorCommand;
+    }
+
+    port def StatusOutPort {
+        out item report : StatusReport;
+    }
+
+    port def StatusInPort {
+        in item report : StatusReport;
+    }
+
+    part def VisionSensor {
+        attribute fieldOfView : AngleValue = 120 [deg];
+        attribute maxRange : LengthValue = 12 [m];
+        attribute privacyMaskingEnabled : Boolean = true;
+        port sensedFrame : SensorOutPort;
+    }
+
+    part def LidarSensor {
+        attribute angularResolution : AngleValue = 0.5 [deg];
+        attribute maxRange : LengthValue = 20 [m];
+        port sensedFrame : SensorOutPort;
+    }
+
+    part def HumanInteractionPanel {
+        port taskInput : TaskRequestOutPort;
+        port robotStatus : StatusInPort;
+        attribute consentTimeout : TimeValue = 20 [s];
+    }
+
+    part def EthicsGovernor {
+        port taskInput : TaskRequestInPort;
+        port perceptionInput : SensorInPort;
+        port assessmentOutput : EthicsAssessmentOutPort;
+
+        attribute maxPermittedHarmRisk : RiskScore = 20.0;
+        attribute maxPermittedPrivacyRisk : RiskScore = 35.0;
+        attribute emergencyOverrideAllowed : Boolean = true;
+        attribute humanSafetyPriority : Priority = 10;
+        attribute taskCompletionPriority : Priority = 4;
+
+        action assessTask {
+            in item request : TaskRequest;
+            in item perception : SensorFrame;
+            out item assessment : EthicsAssessment;
+
+            first start;
+            then computeHarmRisk;
+            then computePrivacyRisk;
+            then checkConsent;
+            then checkLawfulOperation;
+            then decideApproval;
+            then done;
+
+            action computeHarmRisk;
+            action computePrivacyRisk;
+            action checkConsent;
+            action checkLawfulOperation;
+            action decideApproval;
+        }
+    }
+
+    part def MissionController {
+        port taskInput : TaskRequestInPort;
+        port sensorInput : SensorInPort;
+        port ethicsInput : EthicsAssessmentInPort;
+        port navOutput : NavigationCommandOutPort;
+        port statusOutput : StatusOutPort;
+
+        attribute activeTaskId : String;
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute missionBenefit : RiskScore;
+        attribute ethicsApproved : Boolean;
+
+        state machine behavior missionLifecycle {
+            state idle;
+            state receivingTask;
+            state awaitingEthics;
+            state planning;
+            state executing;
+            state pausedForHumanSafety;
+            state completed;
+            state refused;
+            state faulted;
+
+            entry; then idle;
+
+            transition idle_to_receiving
+                first idle
+                accept TaskRequest
+                then receivingTask;
+
+            transition receiving_to_ethics
+                first receivingTask
+                then awaitingEthics;
+
+            transition ethics_to_planning
+                first awaitingEthics
+                if ethicsApproved == true
+                then planning;
+
+            transition ethics_to_refused
+                first awaitingEthics
+                if ethicsApproved == false
+                then refused;
+
+            transition planning_to_executing
+                first planning
+                then executing;
+
+            transition executing_to_pause
+                first executing
+                if ethicsApproved == true
+                accept SensorFrame
+                then pausedForHumanSafety;
+
+            transition pause_to_executing
+                first pausedForHumanSafety
+                if ethicsApproved == true
+                then executing;
+
+            transition executing_to_completed
+                first executing
+                then completed;
+
+            transition any_to_faulted
+                first idle
+                accept Fault
+                then faulted;
+        }
+
+        action generateNavigationCommand {
+            in item request : TaskRequest;
+            in item assessment : EthicsAssessment;
+            out item command : NavigationCommand;
+
+            first verifyApproval;
+            then calculateRoute;
+            then limitSpeedForRisk;
+            then publishCommand;
+
+            action verifyApproval;
+            action calculateRoute;
+            action limitSpeedForRisk;
+            action publishCommand;
+        }
+    }
+
+    part def NavigationComputer {
+        port commandInput : NavigationCommandInPort;
+        port sensorInput : SensorInPort;
+        port motorOutput : MotorCommandOutPort;
+
+        attribute nominalSpeed : SpeedValue = 0.8 [m/s];
+        attribute minimumHumanClearance : LengthValue = 1.5 [m];
+        attribute stoppingDistance : LengthValue = 0.4 [m];
+
+        action avoidObstacles {
+            in item command : NavigationCommand;
+            in item frame : SensorFrame;
+            out item motor : MotorCommand;
+
+            first evaluateClearance;
+            then computeWheelSpeeds;
+            then enforceHumanClearance;
+            then issueMotorCommand;
+
+            action evaluateClearance;
+            action computeWheelSpeeds;
+            action enforceHumanClearance;
+            action issueMotorCommand;
+        }
+    }
+
+    part def MobileBase {
+        port motorInput : MotorCommandInPort;
+        attribute wheelRadius : LengthValue = 0.09 [m];
+        attribute baseWidth : LengthValue = 0.48 [m];
+        attribute maximumSpeed : SpeedValue = 1.2 [m/s];
+        attribute emergencyStopEngaged : Boolean = false;
+    }
+
+    part def ManipulatorArm {
+        attribute payloadCapacity : MassValue = 5 [kg];
+        attribute reach : LengthValue = 0.85 [m];
+        attribute grippingForceLimit : ForceValue = 40 [N];
+        attribute collaborativeModeEnabled : Boolean = true;
+
+        action handlePayloadSafely {
+            in attribute payloadMass : MassValue;
+            out attribute safeToLift : Boolean;
+
+            first checkMass;
+            then limitForce;
+            then confirmSafeLift;
+
+            action checkMass;
+            action limitForce;
+            action confirmSafeLift;
+        }
+    }
+
+    part def BatterySystem {
+        attribute capacity : EnergyValue = 900 [W*h];
+        attribute charge : Percentage = 100 [%];
+        attribute lowChargeThreshold : Percentage = 15 [%];
+        attribute criticalChargeThreshold : Percentage = 7 [%];
+    }
+
+    part def AuditLogger {
+        port taskInput : TaskRequestInPort;
+        port ethicsInput : EthicsAssessmentInPort;
+        port statusInput : StatusInPort;
+
+        attribute retentionPeriod : TimeValue = 30 [d];
+        attribute personallyIdentifyingDataStored : Boolean = false;
+        attribute encrypted : Boolean = true;
+    }
+
+    part def EthicalServiceRobot {
+        attribute robotId : String = "ESR-01";
+        attribute maximumOperatingSpeed : SpeedValue = 1.2 [m/s];
+        attribute minimumSafeHumanDistance : LengthValue = 1.5 [m];
+
+        port externalTaskRequest : TaskRequestInPort;
+        port externalStatus : StatusOutPort;
+
+        part vision : VisionSensor;
+        part lidar : LidarSensor;
+        part interactionPanel : HumanInteractionPanel;
+        part ethicsGovernor : EthicsGovernor;
+        part missionController : MissionController;
+        part navigationComputer : NavigationComputer;
+        part mobileBase : MobileBase;
+        part manipulator : ManipulatorArm;
+        part battery : BatterySystem;
+        part logger : AuditLogger;
+
+        connect interactionPanel.taskInput to missionController.taskInput;
+        connect interactionPanel.taskInput to ethicsGovernor.taskInput;
+        connect interactionPanel.taskInput to logger.taskInput;
+
+        connect externalTaskRequest to missionController.taskInput;
+        connect externalTaskRequest to ethicsGovernor.taskInput;
+        connect externalTaskRequest to logger.taskInput;
+
+        connect vision.sensedFrame to missionController.sensorInput;
+        connect vision.sensedFrame to ethicsGovernor.perceptionInput;
+        connect vision.sensedFrame to navigationComputer.sensorInput;
+
+        connect lidar.sensedFrame to missionController.sensorInput;
+        connect lidar.sensedFrame to navigationComputer.sensorInput;
+
+        connect ethicsGovernor.assessmentOutput to missionController.ethicsInput;
+        connect ethicsGovernor.assessmentOutput to logger.ethicsInput;
+
+        connect missionController.navOutput to navigationComputer.commandInput;
+        connect navigationComputer.motorOutput to mobileBase.motorInput;
+
+        connect missionController.statusOutput to externalStatus;
+        connect missionController.statusOutput to interactionPanel.robotStatus;
+        connect missionController.statusOutput to logger.statusInput;
+    }
+
+    requirement def RobotEthicsRequirement {
+        subject robot : EthicalServiceRobot;
+        attribute id : String;
+        attribute text : String;
+    }
+
+    requirement humanSafetyFirst : RobotEthicsRequirement {
+        id = "ETH-001";
+        text = "The robot shall not execute or continue a task when the assessed risk of physical harm to a human exceeds the permitted threshold, except to reduce immediate greater harm.";
+    }
+
+    requirement lawfulOperation : RobotEthicsRequirement {
+        id = "ETH-002";
+        text = "The robot shall execute only tasks assessed as compliant with applicable operational rules, restricted-area constraints, and authorized use conditions.";
+    }
+
+    requirement consentAndPrivacy : RobotEthicsRequirement {
+        id = "ETH-003";
+        text = "The robot shall confirm requester authorization and minimize collection, retention, and exposure of personally identifying data during task execution.";
+    }
+
+    requirement transparentRefusal : RobotEthicsRequirement {
+        id = "ETH-004";
+        text = "The robot shall provide a status report explaining refusal when a task is rejected by the ethics governor.";
+    }
+
+    requirement humanOverride : RobotEthicsRequirement {
+        id = "ETH-005";
+        text = "The robot shall accept authorized human stop commands and place the mobile base in an emergency stopped state within 0.5 seconds.";
+    }
+
+    requirement safeNavigation : RobotEthicsRequirement {
+        id = "ETH-006";
+        text = "The robot shall maintain at least 1.5 meters of clearance from detected humans during autonomous motion unless stopping or backing away to increase clearance.";
+    }
+
+    requirement auditability : RobotEthicsRequirement {
+        id = "ETH-007";
+        text = "The robot shall record task requests, ethics assessments, and mission status without storing raw personally identifying imagery.";
+    }
+
+    satisfy humanSafetyFirst by EthicalServiceRobot.ethicsGovernor;
+    satisfy humanSafetyFirst by EthicalServiceRobot.navigationComputer;
+    satisfy lawfulOperation by EthicalServiceRobot.ethicsGovernor;
+    satisfy consentAndPrivacy by EthicalServiceRobot.ethicsGovernor;
+    satisfy consentAndPrivacy by EthicalServiceRobot.vision;
+    satisfy transparentRefusal by EthicalServiceRobot.missionController;
+    satisfy humanOverride by EthicalServiceRobot.mobileBase;
+    satisfy safeNavigation by EthicalServiceRobot.navigationComputer;
+    satisfy auditability by EthicalServiceRobot.logger;
+
+    assert constraint safeHumanClearance {
+        EthicalServiceRobot.minimumSafeHumanDistance >= 1.5 [m]
+    }
+
+    assert constraint boundedOperatingSpeed {
+        EthicalServiceRobot.maximumOperatingSpeed <= EthicalServiceRobot.mobileBase.maximumSpeed
+    }
+
+    assert constraint ethicalRiskLimit {
+        EthicalServiceRobot.ethicsGovernor.maxPermittedHarmRisk <= 20.0
+    }
+
+    action performPrimaryTaskWithRobotEthics {
+        in item request : TaskRequest;
+        out item report : StatusReport;
+
+        first receiveTask;
+        then perceiveEnvironment;
+        then assessEthics;
+        then decideMission;
+
+        action receiveTask;
+        action perceiveEnvironment;
+        action assessEthics;
+        action decideMission;
+
+        then if ethicsApproved then executeTask else refuseTask;
+
+        action executeTask {
+            first planRoute;
+            then navigateSafely;
+            then handlePayload;
+            then reportCompletion;
+
+            action planRoute;
+            action navigateSafely;
+            action handlePayload;
+            action reportCompletion;
+        }
+
+        action refuseTask {
+            first generateEthicsExplanation;
+            then reportRefusal;
+
+            action generateEthicsExplanation;
+            action reportRefusal;
+        }
+    }
+
+}

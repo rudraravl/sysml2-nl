@@ -1,0 +1,1105 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-8z2rjdl4
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7d5-bb73-7d00-ae8e-bfe8f5a4c362
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Plex and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PlexMediaSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def BitRate :> Real {
+        unit = "Mb/s";
+    }
+
+    attribute def StorageCapacity :> Real {
+        unit = "TB";
+    }
+
+    attribute def Latency :> Real {
+        unit = "ms";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def Count :> Integer;
+
+    attribute def MediaIdentifier :> String;
+    attribute def AccountIdentifier :> String;
+    attribute def CodecName :> String;
+    attribute def NetworkAddress :> String;
+
+    item def MediaRequest {
+        attribute requesterId : AccountIdentifier;
+        attribute mediaId : MediaIdentifier;
+        attribute targetDeviceId : String;
+        attribute requestedQuality : BitRate;
+        attribute allowTranscoding : Boolean;
+    }
+
+    item def MediaStream {
+        attribute mediaId : MediaIdentifier;
+        attribute videoCodec : CodecName;
+        attribute audioCodec : CodecName;
+        attribute streamBitRate : BitRate;
+        attribute encrypted : Boolean;
+    }
+
+    item def MetadataRecord {
+        attribute mediaId : MediaIdentifier;
+        attribute title : String;
+        attribute year : Integer;
+        attribute durationSeconds : Real;
+        attribute posterUri : String;
+        attribute synopsis : String;
+    }
+
+    item def AuthenticationToken {
+        attribute accountId : AccountIdentifier;
+        attribute tokenValue : String;
+        attribute expirationSeconds : Real;
+    }
+
+    item def TranscodeJob {
+        attribute jobId : String;
+        attribute sourceCodec : CodecName;
+        attribute targetCodec : CodecName;
+        attribute targetBitRate : BitRate;
+        attribute progress : Percentage;
+    }
+
+    item def HealthEvent {
+        attribute sourceComponent : String;
+        attribute severity : String;
+        attribute message : String;
+    }
+
+    port def RequestPort {
+        in item request : MediaRequest;
+        out item token : AuthenticationToken;
+        out item metadata : MetadataRecord;
+    }
+
+    port def StreamPort {
+        out item stream : MediaStream;
+    }
+
+    port def LibraryPort {
+        in item request : MediaRequest;
+        out item metadata : MetadataRecord;
+        out item sourceStream : MediaStream;
+    }
+
+    port def TranscodePort {
+        in item sourceStream : MediaStream;
+        in item job : TranscodeJob;
+        out item transcodedStream : MediaStream;
+    }
+
+    port def HealthPort {
+        out item event : HealthEvent;
+    }
+
+    part def PlexMediaServer {
+        attribute serverName : String;
+        attribute localAddress : NetworkAddress;
+        attribute wanAddress : NetworkAddress;
+        attribute storageTotal : StorageCapacity;
+        attribute storageUsed : StorageCapacity;
+        attribute activeSessions : Count;
+        attribute cpuLoad : Percentage;
+        attribute targetStartupLatency : Latency = 2500.0;
+        attribute maxConcurrentStreams : Count = 12;
+
+        port clientApi : RequestPort;
+        port streamOutput : StreamPort;
+        port healthOutput : HealthPort;
+
+        part accountService : AccountService;
+        part libraryManager : MediaLibraryManager;
+        part metadataAgent : MetadataAgent;
+        part streamingEngine : StreamingEngine;
+        part transcoder : Transcoder;
+        part networkGateway : NetworkGateway;
+        part monitoringAgent : MonitoringAgent;
+
+        connect clientApi to networkGateway.externalRequest;
+        connect networkGateway.authRequest to accountService.authPort;
+        connect networkGateway.libraryRequest to libraryManager.libraryAccess;
+        connect libraryManager.metadataQuery to metadataAgent.metadataAccess;
+        connect libraryManager.sourceMedia to streamingEngine.sourceInput;
+        connect streamingEngine.transcodeRequest to transcoder.transcodeAccess;
+        connect transcoder.transcodedOutput to streamingEngine.transcodedInput;
+        connect streamingEngine.streamOutput to streamOutput;
+        connect monitoringAgent.healthOutput to healthOutput;
+
+        action serveMedia {
+            in item request : MediaRequest;
+            out item deliveredStream : MediaStream;
+
+            first start;
+            then authenticate;
+            then authorizeAccess;
+            then locateMedia;
+            then selectDeliveryMode;
+
+            action authenticate {
+                in item request : MediaRequest;
+                out item token : AuthenticationToken;
+            }
+
+            action authorizeAccess {
+                in item token : AuthenticationToken;
+                in item request : MediaRequest;
+                out item authorizedRequest : MediaRequest;
+            }
+
+            action locateMedia {
+                in item authorizedRequest : MediaRequest;
+                out item metadata : MetadataRecord;
+                out item sourceStream : MediaStream;
+            }
+
+            decision selectDeliveryMode;
+
+            action directPlay {
+                in item sourceStream : MediaStream;
+                out item deliveredStream : MediaStream;
+            }
+
+            action transcodeForClient {
+                in item sourceStream : MediaStream;
+                out item deliveredStream : MediaStream;
+            }
+
+            then directPlay if request.allowTranscoding == false;
+            then transcodeForClient if request.allowTranscoding == true;
+            then finish;
+        }
+
+        state machine serverLifecycle {
+            state Off;
+            state Starting;
+            state ScanningLibraries;
+            state Available;
+            state Serving;
+            state Degraded;
+            state Maintenance;
+
+            initial then Off;
+
+            transition powerOn first Off then Starting;
+            transition startupComplete first Starting then ScanningLibraries;
+            transition scanComplete first ScanningLibraries then Available;
+            transition sessionStarted first Available then Serving;
+            transition allSessionsEnded first Serving then Available;
+            transition resourcePressure first Serving then Degraded;
+            transition pressureCleared first Degraded then Serving;
+            transition maintenanceRequested first Available then Maintenance;
+            transition maintenanceFinished first Maintenance then ScanningLibraries;
+            transition shutdown first Available then Off;
+            transition emergencyShutdown first Degraded then Off;
+        }
+    }
+
+    part def AccountService {
+        attribute knownAccounts : Count;
+        attribute failedLoginCount : Count;
+
+        port authPort : RequestPort;
+
+        action validateToken {
+            in item request : MediaRequest;
+            out item token : AuthenticationToken;
+        }
+
+        action enforceLibraryPolicy {
+            in item token : AuthenticationToken;
+            in item request : MediaRequest;
+            out item authorized : Boolean;
+        }
+    }
+
+    part def MediaLibraryManager {
+        attribute movieCount : Count;
+        attribute episodeCount : Count;
+        attribute musicTrackCount : Count;
+        attribute lastScanDurationSeconds : Real;
+
+        port libraryAccess : LibraryPort;
+        port metadataQuery : LibraryPort;
+        port sourceMedia : LibraryPort;
+
+        part movieLibrary : MediaLibrary {
+            attribute libraryName = "Movies";
+        }
+
+        part seriesLibrary : MediaLibrary {
+            attribute libraryName = "Series";
+        }
+
+        part musicLibrary : MediaLibrary {
+            attribute libraryName = "Music";
+        }
+
+        action scanLibraries {
+            out item event : HealthEvent;
+        }
+
+        action resolveMedia {
+            in item request : MediaRequest;
+            out item metadata : MetadataRecord;
+            out item sourceStream : MediaStream;
+        }
+
+        state machine libraryScanLifecycle {
+            state Idle;
+            state DetectingChanges;
+            state ReadingFiles;
+            state UpdatingMetadata;
+            state Ready;
+            state ScanFailed;
+
+            initial then Idle;
+            transition scanRequested first Idle then DetectingChanges;
+            transition changesDetected first DetectingChanges then ReadingFiles;
+            transition filesRead first ReadingFiles then UpdatingMetadata;
+            transition metadataUpdated first UpdatingMetadata then Ready;
+            transition noChanges first DetectingChanges then Ready;
+            transition scanError first ReadingFiles then ScanFailed;
+            transition retry first ScanFailed then DetectingChanges;
+        }
+    }
+
+    part def MediaLibrary {
+        attribute libraryName : String;
+        attribute rootPath : String;
+        attribute itemCount : Count;
+        attribute storageUsed : StorageCapacity;
+
+        part index : LibraryIndex;
+        part storage : MediaStorage;
+    }
+
+    part def LibraryIndex {
+        attribute recordCount : Count;
+        attribute indexSizeMegabytes : Real;
+
+        action lookup {
+            in item request : MediaRequest;
+            out item metadata : MetadataRecord;
+        }
+    }
+
+    part def MediaStorage {
+        attribute mountPath : String;
+        attribute capacity : StorageCapacity;
+        attribute used : StorageCapacity;
+        attribute averageReadBitRate : BitRate;
+
+        action readMedia {
+            in attribute mediaId : MediaIdentifier;
+            out item stream : MediaStream;
+        }
+    }
+
+    part def MetadataAgent {
+        attribute providerName : String = "Plex Metadata Agent";
+        attribute cacheHitRate : Percentage;
+
+        port metadataAccess : LibraryPort;
+
+        action enrichMetadata {
+            in item sourceRecord : MetadataRecord;
+            out item enrichedRecord : MetadataRecord;
+        }
+
+        action refreshArtwork {
+            in attribute mediaId : MediaIdentifier;
+            out attribute posterUri : String;
+        }
+    }
+
+    part def StreamingEngine {
+        attribute activeDirectPlaySessions : Count;
+        attribute activeTranscodeSessions : Count;
+        attribute aggregateOutboundBitRate : BitRate;
+
+        port sourceInput : LibraryPort;
+        port transcodeRequest : TranscodePort;
+        port transcodedInput : TranscodePort;
+        port streamOutput : StreamPort;
+
+        action chooseStreamMode {
+            in item request : MediaRequest;
+            in item sourceStream : MediaStream;
+            out attribute requiresTranscode : Boolean;
+        }
+
+        action deliverStream {
+            in item stream : MediaStream;
+            out item deliveredStream : MediaStream;
+        }
+
+        state machine sessionLifecycle {
+            state Waiting;
+            state Negotiating;
+            state DirectPlaying;
+            state Transcoding;
+            state Paused;
+            state Completed;
+            state Failed;
+
+            initial then Waiting;
+            transition requestReceived first Waiting then Negotiating;
+            transition compatibleClient first Negotiating then DirectPlaying;
+            transition incompatibleClient first Negotiating then Transcoding;
+            transition pauseRequested first DirectPlaying then Paused;
+            transition pauseRequestedDuringTranscode first Transcoding then Paused;
+            transition resumeDirect first Paused then DirectPlaying;
+            transition resumeTranscode first Paused then Transcoding;
+            transition playbackEnded first DirectPlaying then Completed;
+            transition transcodePlaybackEnded first Transcoding then Completed;
+            transition streamError first DirectPlaying then Failed;
+            transition transcodeError first Transcoding then Failed;
+        }
+    }
+
+    part def Transcoder {
+        attribute hardwareAccelerationEnabled : Boolean;
+        attribute supportedInputCodecs : Count;
+        attribute supportedOutputCodecs : Count;
+        attribute currentJobs : Count;
+        attribute maxJobs : Count = 4;
+
+        port transcodeAccess : TranscodePort;
+        port transcodedOutput : TranscodePort;
+
+        action createJob {
+            in item sourceStream : MediaStream;
+            in item request : MediaRequest;
+            out item job : TranscodeJob;
+        }
+
+        action executeTranscode {
+            in item job : TranscodeJob;
+            in item sourceStream : MediaStream;
+            out item transcodedStream : MediaStream;
+        }
+
+        state machine transcodeJobLifecycle {
+            state Queued;
+            state AnalyzingSource;
+            state Encoding;
+            state Segmenting;
+            state Complete;
+            state Failed;
+
+            initial then Queued;
+            transition workerAvailable first Queued then AnalyzingSource;
+            transition sourceAnalyzed first AnalyzingSource then Encoding;
+            transition segmentReady first Encoding then Segmenting;
+            transition moreSegments first Segmenting then Encoding;
+            transition finalSegmentWritten first Segmenting then Complete;
+            transition codecFailure first Encoding then Failed;
+            transition storageFailure first Segmenting then Failed;
+        }
+    }
+
+    part def NetworkGateway {
+        attribute lanAddress : NetworkAddress;
+        attribute remoteAccessEnabled : Boolean;
+        attribute tlsEnabled : Boolean;
+        attribute measuredRoundTripLatency : Latency;
+
+        port externalRequest : RequestPort;
+        port authRequest : RequestPort;
+        port libraryRequest : LibraryPort;
+
+        action routeClientRequest {
+            in item request : MediaRequest;
+            out item routedRequest : MediaRequest;
+        }
+
+        action applyTransportSecurity {
+            in item stream : MediaStream;
+            out item securedStream : MediaStream;
+        }
+    }
+
+    part def MonitoringAgent {
+        attribute sampledCpuLoad : Percentage;
+        attribute sampledMemoryLoad : Percentage;
+        attribute sampledStorageLoad : Percentage;
+
+        port healthOutput : HealthPort;
+
+        action sampleHealth {
+            out item event : HealthEvent;
+        }
+
+        action detectResourcePressure {
+            in attribute cpuLoad : Percentage;
+            in attribute storageLoad : Percentage;
+            out attribute degraded : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject server : PlexMediaServer;
+
+        doc /* The Plex-based system shall provide centralized personal media management and streaming by authenticating a client, locating requested media, enriching it with metadata, and delivering either a direct-play or transcoded stream suitable for the requesting device and network conditions. */
+    }
+
+    requirement def AuthenticationRequirement {
+        subject service : AccountService;
+
+        doc /* The system shall validate each media request using an account token before allowing library access or stream delivery. */
+    }
+
+    requirement def LibraryManagementRequirement {
+        subject manager : MediaLibraryManager;
+
+        doc /* The system shall maintain indexed movie, series, and music libraries with metadata records that can be searched and resolved to playable media sources. */
+    }
+
+    requirement def AdaptiveStreamingRequirement {
+        subject engine : StreamingEngine;
+
+        doc /* The system shall select direct playback when the client supports the source media and shall request transcoding when codec, bit rate, or network constraints require adaptation. */
+    }
+
+    requirement def TranscodingRequirement {
+        subject transcoder : Transcoder;
+
+        doc /* The transcoder shall convert an incompatible source stream into a client-compatible stream while reporting job progress and failure conditions. */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject server : PlexMediaServer;
+
+        doc /* The server shall remain available for media browsing while libraries are ready and shall enter degraded operation instead of immediate shutdown when resource pressure is detected during active sessions. */
+    }
+
+    requirement def ObservabilityRequirement {
+        subject monitor : MonitoringAgent;
+
+        doc /* The system shall emit health events for component failures, scan errors, resource pressure, and stream delivery failures. */
+    }
+
+    part plexHomeMediaSystem : PlexMediaServer {
+        attribute serverName = "Home Plex";
+        attribute localAddress = "192.168.1.10";
+        attribute wanAddress = "media.example.net";
+        attribute storageTotal = 24.0;
+        attribute storageUsed = 15.5;
+        attribute activeSessions = 0;
+        attribute cpuLoad = 12.0;
+
+        part accountService {
+            attribute knownAccounts = 6;
+            attribute failedLoginCount = 0;
+        }
+
+        part libraryManager {
+            attribute movieCount = 1840;
+            attribute episodeCount = 12600;
+            attribute musicTrackCount = 38200;
+            attribute lastScanDurationSeconds = 312.0;
+        }
+
+        part streamingEngine {
+            attribute activeDirectPlaySessions = 0;
+            attribute activeTranscodeSessions = 0;
+            attribute aggregateOutboundBitRate = 0.0;
+        }
+
+        part transcoder {
+            attribute hardwareAccelerationEnabled = true;
+            attribute supportedInputCodecs = 14;
+            attribute supportedOutputCodecs = 7;
+            attribute currentJobs = 0;
+        }
+
+        part networkGateway {
+            attribute lanAddress = "192.168.1.10";
+            attribute remoteAccessEnabled = true;
+            attribute tlsEnabled = true;
+            attribute measuredRoundTripLatency = 18.0;
+        }
+
+        part monitoringAgent {
+            attribute sampledCpuLoad = 12.0;
+            attribute sampledMemoryLoad = 41.0;
+            attribute sampledStorageLoad = 64.6;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by plexHomeMediaSystem;
+    satisfy AuthenticationRequirement by plexHomeMediaSystem.accountService;
+    satisfy LibraryManagementRequirement by plexHomeMediaSystem.libraryManager;
+    satisfy AdaptiveStreamingRequirement by plexHomeMediaSystem.streamingEngine;
+    satisfy TranscodingRequirement by plexHomeMediaSystem.transcoder;
+    satisfy AvailabilityRequirement by plexHomeMediaSystem;
+    satisfy ObservabilityRequirement by plexHomeMediaSystem.monitoringAgent;
+}
+tokens used
+3,796
+package PlexMediaSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def BitRate :> Real {
+        unit = "Mb/s";
+    }
+
+    attribute def StorageCapacity :> Real {
+        unit = "TB";
+    }
+
+    attribute def Latency :> Real {
+        unit = "ms";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def Count :> Integer;
+
+    attribute def MediaIdentifier :> String;
+    attribute def AccountIdentifier :> String;
+    attribute def CodecName :> String;
+    attribute def NetworkAddress :> String;
+
+    item def MediaRequest {
+        attribute requesterId : AccountIdentifier;
+        attribute mediaId : MediaIdentifier;
+        attribute targetDeviceId : String;
+        attribute requestedQuality : BitRate;
+        attribute allowTranscoding : Boolean;
+    }
+
+    item def MediaStream {
+        attribute mediaId : MediaIdentifier;
+        attribute videoCodec : CodecName;
+        attribute audioCodec : CodecName;
+        attribute streamBitRate : BitRate;
+        attribute encrypted : Boolean;
+    }
+
+    item def MetadataRecord {
+        attribute mediaId : MediaIdentifier;
+        attribute title : String;
+        attribute year : Integer;
+        attribute durationSeconds : Real;
+        attribute posterUri : String;
+        attribute synopsis : String;
+    }
+
+    item def AuthenticationToken {
+        attribute accountId : AccountIdentifier;
+        attribute tokenValue : String;
+        attribute expirationSeconds : Real;
+    }
+
+    item def TranscodeJob {
+        attribute jobId : String;
+        attribute sourceCodec : CodecName;
+        attribute targetCodec : CodecName;
+        attribute targetBitRate : BitRate;
+        attribute progress : Percentage;
+    }
+
+    item def HealthEvent {
+        attribute sourceComponent : String;
+        attribute severity : String;
+        attribute message : String;
+    }
+
+    port def RequestPort {
+        in item request : MediaRequest;
+        out item token : AuthenticationToken;
+        out item metadata : MetadataRecord;
+    }
+
+    port def StreamPort {
+        out item stream : MediaStream;
+    }
+
+    port def LibraryPort {
+        in item request : MediaRequest;
+        out item metadata : MetadataRecord;
+        out item sourceStream : MediaStream;
+    }
+
+    port def TranscodePort {
+        in item sourceStream : MediaStream;
+        in item job : TranscodeJob;
+        out item transcodedStream : MediaStream;
+    }
+
+    port def HealthPort {
+        out item event : HealthEvent;
+    }
+
+    part def PlexMediaServer {
+        attribute serverName : String;
+        attribute localAddress : NetworkAddress;
+        attribute wanAddress : NetworkAddress;
+        attribute storageTotal : StorageCapacity;
+        attribute storageUsed : StorageCapacity;
+        attribute activeSessions : Count;
+        attribute cpuLoad : Percentage;
+        attribute targetStartupLatency : Latency = 2500.0;
+        attribute maxConcurrentStreams : Count = 12;
+
+        port clientApi : RequestPort;
+        port streamOutput : StreamPort;
+        port healthOutput : HealthPort;
+
+        part accountService : AccountService;
+        part libraryManager : MediaLibraryManager;
+        part metadataAgent : MetadataAgent;
+        part streamingEngine : StreamingEngine;
+        part transcoder : Transcoder;
+        part networkGateway : NetworkGateway;
+        part monitoringAgent : MonitoringAgent;
+
+        connect clientApi to networkGateway.externalRequest;
+        connect networkGateway.authRequest to accountService.authPort;
+        connect networkGateway.libraryRequest to libraryManager.libraryAccess;
+        connect libraryManager.metadataQuery to metadataAgent.metadataAccess;
+        connect libraryManager.sourceMedia to streamingEngine.sourceInput;
+        connect streamingEngine.transcodeRequest to transcoder.transcodeAccess;
+        connect transcoder.transcodedOutput to streamingEngine.transcodedInput;
+        connect streamingEngine.streamOutput to streamOutput;
+        connect monitoringAgent.healthOutput to healthOutput;
+
+        action serveMedia {
+            in item request : MediaRequest;
+            out item deliveredStream : MediaStream;
+
+            first start;
+            then authenticate;
+            then authorizeAccess;
+            then locateMedia;
+            then selectDeliveryMode;
+
+            action authenticate {
+                in item request : MediaRequest;
+                out item token : AuthenticationToken;
+            }
+
+            action authorizeAccess {
+                in item token : AuthenticationToken;
+                in item request : MediaRequest;
+                out item authorizedRequest : MediaRequest;
+            }
+
+            action locateMedia {
+                in item authorizedRequest : MediaRequest;
+                out item metadata : MetadataRecord;
+                out item sourceStream : MediaStream;
+            }
+
+            decision selectDeliveryMode;
+
+            action directPlay {
+                in item sourceStream : MediaStream;
+                out item deliveredStream : MediaStream;
+            }
+
+            action transcodeForClient {
+                in item sourceStream : MediaStream;
+                out item deliveredStream : MediaStream;
+            }
+
+            then directPlay if request.allowTranscoding == false;
+            then transcodeForClient if request.allowTranscoding == true;
+            then finish;
+        }
+
+        state machine serverLifecycle {
+            state Off;
+            state Starting;
+            state ScanningLibraries;
+            state Available;
+            state Serving;
+            state Degraded;
+            state Maintenance;
+
+            initial then Off;
+
+            transition powerOn first Off then Starting;
+            transition startupComplete first Starting then ScanningLibraries;
+            transition scanComplete first ScanningLibraries then Available;
+            transition sessionStarted first Available then Serving;
+            transition allSessionsEnded first Serving then Available;
+            transition resourcePressure first Serving then Degraded;
+            transition pressureCleared first Degraded then Serving;
+            transition maintenanceRequested first Available then Maintenance;
+            transition maintenanceFinished first Maintenance then ScanningLibraries;
+            transition shutdown first Available then Off;
+            transition emergencyShutdown first Degraded then Off;
+        }
+    }
+
+    part def AccountService {
+        attribute knownAccounts : Count;
+        attribute failedLoginCount : Count;
+
+        port authPort : RequestPort;
+
+        action validateToken {
+            in item request : MediaRequest;
+            out item token : AuthenticationToken;
+        }
+
+        action enforceLibraryPolicy {
+            in item token : AuthenticationToken;
+            in item request : MediaRequest;
+            out item authorized : Boolean;
+        }
+    }
+
+    part def MediaLibraryManager {
+        attribute movieCount : Count;
+        attribute episodeCount : Count;
+        attribute musicTrackCount : Count;
+        attribute lastScanDurationSeconds : Real;
+
+        port libraryAccess : LibraryPort;
+        port metadataQuery : LibraryPort;
+        port sourceMedia : LibraryPort;
+
+        part movieLibrary : MediaLibrary {
+            attribute libraryName = "Movies";
+        }
+
+        part seriesLibrary : MediaLibrary {
+            attribute libraryName = "Series";
+        }
+
+        part musicLibrary : MediaLibrary {
+            attribute libraryName = "Music";
+        }
+
+        action scanLibraries {
+            out item event : HealthEvent;
+        }
+
+        action resolveMedia {
+            in item request : MediaRequest;
+            out item metadata : MetadataRecord;
+            out item sourceStream : MediaStream;
+        }
+
+        state machine libraryScanLifecycle {
+            state Idle;
+            state DetectingChanges;
+            state ReadingFiles;
+            state UpdatingMetadata;
+            state Ready;
+            state ScanFailed;
+
+            initial then Idle;
+            transition scanRequested first Idle then DetectingChanges;
+            transition changesDetected first DetectingChanges then ReadingFiles;
+            transition filesRead first ReadingFiles then UpdatingMetadata;
+            transition metadataUpdated first UpdatingMetadata then Ready;
+            transition noChanges first DetectingChanges then Ready;
+            transition scanError first ReadingFiles then ScanFailed;
+            transition retry first ScanFailed then DetectingChanges;
+        }
+    }
+
+    part def MediaLibrary {
+        attribute libraryName : String;
+        attribute rootPath : String;
+        attribute itemCount : Count;
+        attribute storageUsed : StorageCapacity;
+
+        part index : LibraryIndex;
+        part storage : MediaStorage;
+    }
+
+    part def LibraryIndex {
+        attribute recordCount : Count;
+        attribute indexSizeMegabytes : Real;
+
+        action lookup {
+            in item request : MediaRequest;
+            out item metadata : MetadataRecord;
+        }
+    }
+
+    part def MediaStorage {
+        attribute mountPath : String;
+        attribute capacity : StorageCapacity;
+        attribute used : StorageCapacity;
+        attribute averageReadBitRate : BitRate;
+
+        action readMedia {
+            in attribute mediaId : MediaIdentifier;
+            out item stream : MediaStream;
+        }
+    }
+
+    part def MetadataAgent {
+        attribute providerName : String = "Plex Metadata Agent";
+        attribute cacheHitRate : Percentage;
+
+        port metadataAccess : LibraryPort;
+
+        action enrichMetadata {
+            in item sourceRecord : MetadataRecord;
+            out item enrichedRecord : MetadataRecord;
+        }
+
+        action refreshArtwork {
+            in attribute mediaId : MediaIdentifier;
+            out attribute posterUri : String;
+        }
+    }
+
+    part def StreamingEngine {
+        attribute activeDirectPlaySessions : Count;
+        attribute activeTranscodeSessions : Count;
+        attribute aggregateOutboundBitRate : BitRate;
+
+        port sourceInput : LibraryPort;
+        port transcodeRequest : TranscodePort;
+        port transcodedInput : TranscodePort;
+        port streamOutput : StreamPort;
+
+        action chooseStreamMode {
+            in item request : MediaRequest;
+            in item sourceStream : MediaStream;
+            out attribute requiresTranscode : Boolean;
+        }
+
+        action deliverStream {
+            in item stream : MediaStream;
+            out item deliveredStream : MediaStream;
+        }
+
+        state machine sessionLifecycle {
+            state Waiting;
+            state Negotiating;
+            state DirectPlaying;
+            state Transcoding;
+            state Paused;
+            state Completed;
+            state Failed;
+
+            initial then Waiting;
+            transition requestReceived first Waiting then Negotiating;
+            transition compatibleClient first Negotiating then DirectPlaying;
+            transition incompatibleClient first Negotiating then Transcoding;
+            transition pauseRequested first DirectPlaying then Paused;
+            transition pauseRequestedDuringTranscode first Transcoding then Paused;
+            transition resumeDirect first Paused then DirectPlaying;
+            transition resumeTranscode first Paused then Transcoding;
+            transition playbackEnded first DirectPlaying then Completed;
+            transition transcodePlaybackEnded first Transcoding then Completed;
+            transition streamError first DirectPlaying then Failed;
+            transition transcodeError first Transcoding then Failed;
+        }
+    }
+
+    part def Transcoder {
+        attribute hardwareAccelerationEnabled : Boolean;
+        attribute supportedInputCodecs : Count;
+        attribute supportedOutputCodecs : Count;
+        attribute currentJobs : Count;
+        attribute maxJobs : Count = 4;
+
+        port transcodeAccess : TranscodePort;
+        port transcodedOutput : TranscodePort;
+
+        action createJob {
+            in item sourceStream : MediaStream;
+            in item request : MediaRequest;
+            out item job : TranscodeJob;
+        }
+
+        action executeTranscode {
+            in item job : TranscodeJob;
+            in item sourceStream : MediaStream;
+            out item transcodedStream : MediaStream;
+        }
+
+        state machine transcodeJobLifecycle {
+            state Queued;
+            state AnalyzingSource;
+            state Encoding;
+            state Segmenting;
+            state Complete;
+            state Failed;
+
+            initial then Queued;
+            transition workerAvailable first Queued then AnalyzingSource;
+            transition sourceAnalyzed first AnalyzingSource then Encoding;
+            transition segmentReady first Encoding then Segmenting;
+            transition moreSegments first Segmenting then Encoding;
+            transition finalSegmentWritten first Segmenting then Complete;
+            transition codecFailure first Encoding then Failed;
+            transition storageFailure first Segmenting then Failed;
+        }
+    }
+
+    part def NetworkGateway {
+        attribute lanAddress : NetworkAddress;
+        attribute remoteAccessEnabled : Boolean;
+        attribute tlsEnabled : Boolean;
+        attribute measuredRoundTripLatency : Latency;
+
+        port externalRequest : RequestPort;
+        port authRequest : RequestPort;
+        port libraryRequest : LibraryPort;
+
+        action routeClientRequest {
+            in item request : MediaRequest;
+            out item routedRequest : MediaRequest;
+        }
+
+        action applyTransportSecurity {
+            in item stream : MediaStream;
+            out item securedStream : MediaStream;
+        }
+    }
+
+    part def MonitoringAgent {
+        attribute sampledCpuLoad : Percentage;
+        attribute sampledMemoryLoad : Percentage;
+        attribute sampledStorageLoad : Percentage;
+
+        port healthOutput : HealthPort;
+
+        action sampleHealth {
+            out item event : HealthEvent;
+        }
+
+        action detectResourcePressure {
+            in attribute cpuLoad : Percentage;
+            in attribute storageLoad : Percentage;
+            out attribute degraded : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject server : PlexMediaServer;
+
+        doc /* The Plex-based system shall provide centralized personal media management and streaming by authenticating a client, locating requested media, enriching it with metadata, and delivering either a direct-play or transcoded stream suitable for the requesting device and network conditions. */
+    }
+
+    requirement def AuthenticationRequirement {
+        subject service : AccountService;
+
+        doc /* The system shall validate each media request using an account token before allowing library access or stream delivery. */
+    }
+
+    requirement def LibraryManagementRequirement {
+        subject manager : MediaLibraryManager;
+
+        doc /* The system shall maintain indexed movie, series, and music libraries with metadata records that can be searched and resolved to playable media sources. */
+    }
+
+    requirement def AdaptiveStreamingRequirement {
+        subject engine : StreamingEngine;
+
+        doc /* The system shall select direct playback when the client supports the source media and shall request transcoding when codec, bit rate, or network constraints require adaptation. */
+    }
+
+    requirement def TranscodingRequirement {
+        subject transcoder : Transcoder;
+
+        doc /* The transcoder shall convert an incompatible source stream into a client-compatible stream while reporting job progress and failure conditions. */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject server : PlexMediaServer;
+
+        doc /* The server shall remain available for media browsing while libraries are ready and shall enter degraded operation instead of immediate shutdown when resource pressure is detected during active sessions. */
+    }
+
+    requirement def ObservabilityRequirement {
+        subject monitor : MonitoringAgent;
+
+        doc /* The system shall emit health events for component failures, scan errors, resource pressure, and stream delivery failures. */
+    }
+
+    part plexHomeMediaSystem : PlexMediaServer {
+        attribute serverName = "Home Plex";
+        attribute localAddress = "192.168.1.10";
+        attribute wanAddress = "media.example.net";
+        attribute storageTotal = 24.0;
+        attribute storageUsed = 15.5;
+        attribute activeSessions = 0;
+        attribute cpuLoad = 12.0;
+
+        part accountService {
+            attribute knownAccounts = 6;
+            attribute failedLoginCount = 0;
+        }
+
+        part libraryManager {
+            attribute movieCount = 1840;
+            attribute episodeCount = 12600;
+            attribute musicTrackCount = 38200;
+            attribute lastScanDurationSeconds = 312.0;
+        }
+
+        part streamingEngine {
+            attribute activeDirectPlaySessions = 0;
+            attribute activeTranscodeSessions = 0;
+            attribute aggregateOutboundBitRate = 0.0;
+        }
+
+        part transcoder {
+            attribute hardwareAccelerationEnabled = true;
+            attribute supportedInputCodecs = 14;
+            attribute supportedOutputCodecs = 7;
+            attribute currentJobs = 0;
+        }
+
+        part networkGateway {
+            attribute lanAddress = "192.168.1.10";
+            attribute remoteAccessEnabled = true;
+            attribute tlsEnabled = true;
+            attribute measuredRoundTripLatency = 18.0;
+        }
+
+        part monitoringAgent {
+            attribute sampledCpuLoad = 12.0;
+            attribute sampledMemoryLoad = 41.0;
+            attribute sampledStorageLoad = 64.6;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by plexHomeMediaSystem;
+    satisfy AuthenticationRequirement by plexHomeMediaSystem.accountService;
+    satisfy LibraryManagementRequirement by plexHomeMediaSystem.libraryManager;
+    satisfy AdaptiveStreamingRequirement by plexHomeMediaSystem.streamingEngine;
+    satisfy TranscodingRequirement by plexHomeMediaSystem.transcoder;
+    satisfy AvailabilityRequirement by plexHomeMediaSystem;
+    satisfy ObservabilityRequirement by plexHomeMediaSystem.monitoringAgent;
+}

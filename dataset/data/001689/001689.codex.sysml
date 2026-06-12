@@ -1,0 +1,416 @@
+package X10FirecrackerSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Voltage {
+        :> ISQ::electricPotential;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ISQ::electricCurrent;
+        unit = "mA";
+    }
+
+    attribute def Frequency {
+        :> ISQ::frequency;
+        unit = "Hz";
+    }
+
+    attribute def TimeDuration {
+        :> ISQ::time;
+        unit = "s";
+    }
+
+    attribute def Distance {
+        :> ISQ::length;
+        unit = "m";
+    }
+
+    attribute def BitRate {
+        unit = "bps";
+    }
+
+    enum def X10HouseCode {
+        enum A;
+        enum B;
+        enum C;
+        enum D;
+        enum E;
+        enum F;
+        enum G;
+        enum H;
+        enum I;
+        enum J;
+        enum K;
+        enum L;
+        enum M;
+        enum N;
+        enum O;
+        enum P;
+    }
+
+    enum def X10UnitCode {
+        enum Unit1;
+        enum Unit2;
+        enum Unit3;
+        enum Unit4;
+        enum Unit5;
+        enum Unit6;
+        enum Unit7;
+        enum Unit8;
+        enum Unit9;
+        enum Unit10;
+        enum Unit11;
+        enum Unit12;
+        enum Unit13;
+        enum Unit14;
+        enum Unit15;
+        enum Unit16;
+    }
+
+    enum def X10CommandKind {
+        enum On;
+        enum Off;
+        enum Bright;
+        enum Dim;
+        enum AllLightsOn;
+        enum AllUnitsOff;
+    }
+
+    item def SerialControlFrame {
+        attribute startBitCount : Integer;
+        attribute encodedHouseCode : X10HouseCode;
+        attribute encodedUnitCode : X10UnitCode;
+        attribute encodedCommand : X10CommandKind;
+        attribute checksum : Integer;
+        attribute nominalBitRate : BitRate;
+    }
+
+    item def RadioFrequencyBurst {
+        attribute carrierFrequency : Frequency;
+        attribute modulationDepth : Real;
+        attribute duration : TimeDuration;
+        attribute encodedCommand : X10CommandKind;
+        attribute encodedHouseCode : X10HouseCode;
+        attribute encodedUnitCode : X10UnitCode;
+    }
+
+    item def X10PowerlineTelegram {
+        attribute houseCode : X10HouseCode;
+        attribute unitCode : X10UnitCode;
+        attribute command : X10CommandKind;
+        attribute zeroCrossingSynchronized : Boolean;
+        attribute burstRepetitionCount : Integer;
+    }
+
+    item def PowerSupply {
+        attribute nominalVoltage : Voltage;
+        attribute availableCurrent : Current;
+    }
+
+    item def UserCommand {
+        attribute houseCode : X10HouseCode;
+        attribute unitCode : X10UnitCode;
+        attribute command : X10CommandKind;
+    }
+
+    port def SerialInputPort {
+        in item frame : SerialControlFrame;
+    }
+
+    port def RfOutputPort {
+        out item burst : RadioFrequencyBurst;
+    }
+
+    port def RfInputPort {
+        in item burst : RadioFrequencyBurst;
+    }
+
+    port def PowerlineOutputPort {
+        out item telegram : X10PowerlineTelegram;
+    }
+
+    port def PowerInputPort {
+        in item supply : PowerSupply;
+    }
+
+    port def ApplianceControlPort {
+        in item telegram : X10PowerlineTelegram;
+    }
+
+    action def ReceiveSerialCommand {
+        in item frame : SerialControlFrame;
+        out item command : UserCommand;
+    }
+
+    action def EncodeRfBurst {
+        in item command : UserCommand;
+        out item burst : RadioFrequencyBurst;
+    }
+
+    action def TransmitRfBurst {
+        in item burst : RadioFrequencyBurst;
+    }
+
+    action def ReceiveRfBurst {
+        in item burst : RadioFrequencyBurst;
+        out item command : UserCommand;
+    }
+
+    action def InjectPowerlineTelegram {
+        in item command : UserCommand;
+        out item telegram : X10PowerlineTelegram;
+    }
+
+    action def ApplyApplianceCommand {
+        in item telegram : X10PowerlineTelegram;
+    }
+
+    state def FirecrackerOperatingState {
+        entry action initializeSerialInterface;
+        state Idle;
+        state ValidatingSerialFrame;
+        state EncodingCommand;
+        state TransmittingRf;
+        state Fault;
+
+        transition first Idle;
+
+        transition receiveFrame
+            first Idle
+            then ValidatingSerialFrame;
+
+        transition validFrame
+            first ValidatingSerialFrame
+            then EncodingCommand;
+
+        transition invalidFrame
+            first ValidatingSerialFrame
+            then Fault;
+
+        transition encoded
+            first EncodingCommand
+            then TransmittingRf;
+
+        transition transmitComplete
+            first TransmittingRf
+            then Idle;
+
+        transition reset
+            first Fault
+            then Idle;
+    }
+
+    state def TransceiverOperatingState {
+        state Standby;
+        state ReceivingRf;
+        state DecodingCommand;
+        state InjectingPowerlineSignal;
+        state TransceiverFault;
+
+        transition first Standby;
+
+        transition rfDetected
+            first Standby
+            then ReceivingRf;
+
+        transition burstCaptured
+            first ReceivingRf
+            then DecodingCommand;
+
+        transition commandDecoded
+            first DecodingCommand
+            then InjectingPowerlineSignal;
+
+        transition injectionComplete
+            first InjectingPowerlineSignal
+            then Standby;
+
+        transition decodeFailed
+            first DecodingCommand
+            then TransceiverFault;
+
+        transition reset
+            first TransceiverFault
+            then Standby;
+    }
+
+    part def HostController {
+        attribute serialVoltage : Voltage = 5 [V];
+        attribute commandBitRate : BitRate = 4800 [bps];
+
+        port serialOut : SerialInputPort;
+
+        action sendCommand {
+            out item frame : SerialControlFrame;
+        }
+    }
+
+    part def X10Firecracker {
+        attribute rfCarrierFrequency : Frequency = 310000000 [Hz];
+        attribute nominalSupplyVoltage : Voltage = 5 [V];
+        attribute standbyCurrent : Current = 2 [mA];
+        attribute transmitCurrent : Current = 8 [mA];
+        attribute maximumIndoorRange : Distance = 30 [m];
+
+        port serialIn : SerialInputPort;
+        port rfOut : RfOutputPort;
+        port powerIn : PowerInputPort;
+
+        perform action receiveSerial : ReceiveSerialCommand;
+        perform action encodeBurst : EncodeRfBurst;
+        perform action transmitBurst : TransmitRfBurst;
+
+        exhibit state operatingState : FirecrackerOperatingState;
+    }
+
+    part def X10RfTransceiver {
+        attribute rfCarrierFrequency : Frequency = 310000000 [Hz];
+        attribute powerlineFrequency : Frequency = 60 [Hz];
+        attribute powerlineSignalFrequency : Frequency = 120000 [Hz];
+        attribute nominalLineVoltage : Voltage = 120 [V];
+
+        port rfIn : RfInputPort;
+        port powerlineOut : PowerlineOutputPort;
+        port powerIn : PowerInputPort;
+
+        perform action receiveRf : ReceiveRfBurst;
+        perform action injectTelegram : InjectPowerlineTelegram;
+
+        exhibit state operatingState : TransceiverOperatingState;
+    }
+
+    part def X10ControlledApplianceModule {
+        attribute lineVoltage : Voltage = 120 [V];
+        attribute loadCurrentLimit : Current = 15000 [mA];
+
+        port controlIn : ApplianceControlPort;
+
+        perform action applyCommand : ApplyApplianceCommand;
+
+        attribute energized : Boolean;
+        attribute lastHouseCode : X10HouseCode;
+        attribute lastUnitCode : X10UnitCode;
+        attribute lastCommand : X10CommandKind;
+    }
+
+    part def ResidentialAcMains {
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute nominalFrequency : Frequency = 60 [Hz];
+
+        port supplyToTransceiver : PowerInputPort;
+        port supplyToAppliance : PowerInputPort;
+    }
+
+    part def X10FirecrackerBasedAutomationSystem {
+        attribute supportedRfCarrierFrequency : Frequency = 310000000 [Hz];
+        attribute supportedPowerlineSignalFrequency : Frequency = 120000 [Hz];
+        attribute commandLatencyTarget : TimeDuration = 1 [s];
+
+        part host : HostController;
+        part firecracker : X10Firecracker;
+        part transceiver : X10RfTransceiver;
+        part applianceModule : X10ControlledApplianceModule;
+        part mains : ResidentialAcMains;
+
+        connection hostSerialToFirecracker
+            connect host.serialOut to firecracker.serialIn;
+
+        connection firecrackerRfToTransceiver
+            connect firecracker.rfOut to transceiver.rfIn;
+
+        connection transceiverPowerlineToAppliance
+            connect transceiver.powerlineOut to applianceModule.controlIn;
+
+        connection mainsToTransceiver
+            connect mains.supplyToTransceiver to transceiver.powerIn;
+
+        connection mainsToAppliance
+            connect mains.supplyToAppliance to applianceModule.controlIn;
+
+        action primaryFunction {
+            in item requestedCommand : UserCommand;
+            out item deliveredTelegram : X10PowerlineTelegram;
+
+            first start;
+            then receiveSerial : ReceiveSerialCommand;
+            then encodeRf : EncodeRfBurst;
+            then transmitRf : TransmitRfBurst;
+            then receiveRf : ReceiveRfBurst;
+            then injectPowerline : InjectPowerlineTelegram;
+            then applyLoadCommand : ApplyApplianceCommand;
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : X10FirecrackerBasedAutomationSystem;
+
+        doc /* The system shall allow a host controller to command an X10 appliance module by converting a serial command into a short-range radio-frequency burst and then into an X10 powerline control telegram. */
+
+        require constraint {
+            system.supportedRfCarrierFrequency == 310000000 [Hz]
+        }
+    }
+
+    requirement def SerialCommandAcceptanceRequirement {
+        subject firecracker : X10Firecracker;
+
+        doc /* The X10 Firecracker shall accept encoded command frames from a host serial interface and interpret each valid frame as an X10 house code, unit code, and command. */
+
+        require constraint {
+            firecracker.nominalSupplyVoltage == 5 [V]
+        }
+    }
+
+    requirement def RfTransmissionRequirement {
+        subject firecracker : X10Firecracker;
+
+        doc /* The X10 Firecracker shall transmit an RF burst carrying the requested X10 command to a compatible X10 RF transceiver. */
+
+        require constraint {
+            firecracker.rfCarrierFrequency == 310000000 [Hz] and
+            firecracker.maximumIndoorRange >= 30 [m]
+        }
+    }
+
+    requirement def PowerlineBridgeRequirement {
+        subject transceiver : X10RfTransceiver;
+
+        doc /* The RF transceiver shall decode a valid Firecracker RF burst and inject the equivalent X10 command onto the residential AC powerline using zero-crossing synchronized signaling. */
+
+        require constraint {
+            transceiver.powerlineSignalFrequency == 120000 [Hz] and
+            transceiver.powerlineFrequency == 60 [Hz]
+        }
+    }
+
+    requirement def ApplianceControlRequirement {
+        subject applianceModule : X10ControlledApplianceModule;
+
+        doc /* The appliance module shall change its controlled load state when the received X10 powerline telegram matches its configured house and unit code. */
+
+        require constraint {
+            applianceModule.loadCurrentLimit >= 15000 [mA]
+        }
+    }
+
+    requirement def EndToEndLatencyRequirement {
+        subject system : X10FirecrackerBasedAutomationSystem;
+
+        doc /* The system shall deliver a valid host-requested X10 command to the addressed appliance module within the target command latency under nominal indoor operating conditions. */
+
+        require constraint {
+            system.commandLatencyTarget <= 1 [s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by X10FirecrackerBasedAutomationSystem;
+    satisfy SerialCommandAcceptanceRequirement by X10Firecracker;
+    satisfy RfTransmissionRequirement by X10Firecracker;
+    satisfy PowerlineBridgeRequirement by X10RfTransceiver;
+    satisfy ApplianceControlRequirement by X10ControlledApplianceModule;
+    satisfy EndToEndLatencyRequirement by X10FirecrackerBasedAutomationSystem;
+}

@@ -1,0 +1,1277 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-gx518y8t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb61c-e0bf-7ee0-a871-8a6328d57820
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Thermopile laser sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ThermopileLaserSensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    value type OpticalPower specializes Real {
+        unit = "W";
+        quantityKind = "radiant power";
+    }
+
+    value type Wavelength specializes Real {
+        unit = "nm";
+        quantityKind = "optical wavelength";
+    }
+
+    value type Irradiance specializes Real {
+        unit = "W/m^2";
+        quantityKind = "radiant flux density";
+    }
+
+    value type Temperature specializes Real {
+        unit = "degC";
+        quantityKind = "temperature";
+    }
+
+    value type Voltage specializes Real {
+        unit = "V";
+        quantityKind = "electric potential";
+    }
+
+    value type Current specializes Real {
+        unit = "A";
+        quantityKind = "electric current";
+    }
+
+    value type Resistance specializes Real {
+        unit = "ohm";
+        quantityKind = "electrical resistance";
+    }
+
+    value type Time specializes Real {
+        unit = "s";
+        quantityKind = "duration";
+    }
+
+    value type Frequency specializes Real {
+        unit = "Hz";
+        quantityKind = "frequency";
+    }
+
+    value type DigitalCount specializes Integer {
+        quantityKind = "ADC count";
+    }
+
+    value type Percent specializes Real {
+        unit = "%";
+        quantityKind = "ratio";
+    }
+
+    value type BitRate specializes Real {
+        unit = "bit/s";
+        quantityKind = "data rate";
+    }
+
+    item def LaserRadiation {
+        attribute opticalPower : OpticalPower;
+        attribute wavelength : Wavelength;
+        attribute beamDiameter : Real {
+            unit = "mm";
+        }
+        attribute incidenceAngle : Real {
+            unit = "deg";
+        }
+    }
+
+    item def HeatFlow {
+        attribute thermalPower : OpticalPower;
+        attribute absorberTemperature : Temperature;
+        attribute referenceTemperature : Temperature;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Voltage;
+        attribute sourceImpedance : Resistance;
+        attribute bandwidth : Frequency;
+    }
+
+    item def DigitalMeasurementFrame {
+        attribute measuredPower : OpticalPower;
+        attribute correctedPower : OpticalPower;
+        attribute sensorTemperature : Temperature;
+        attribute rawAdcCounts : DigitalCount;
+        attribute statusCode : Integer;
+        attribute timestamp : Time;
+    }
+
+    item def PowerSupplyEnergy {
+        attribute voltage : Voltage;
+        attribute currentLimit : Current;
+    }
+
+    item def CommandMessage {
+        attribute commandId : Integer;
+        attribute requestedSampleRate : Frequency;
+        attribute zeroRequested : Boolean;
+    }
+
+    item def StatusMessage {
+        attribute ready : Boolean;
+        attribute faultPresent : Boolean;
+        attribute saturated : Boolean;
+        attribute warmupComplete : Boolean;
+    }
+
+    port def OpticalInputPort {
+        in item radiation : LaserRadiation;
+    }
+
+    port def HeatTransferPort {
+        inout item heat : HeatFlow;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogVoltageSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogVoltageSignal;
+    }
+
+    port def DigitalMeasurementPort {
+        out item frame : DigitalMeasurementFrame;
+    }
+
+    port def CommandPort {
+        in item command : CommandMessage;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def ElectricalPowerInputPort {
+        in item supply : PowerSupplyEnergy;
+    }
+
+    port def InternalPowerPort {
+        out item regulatedSupply : PowerSupplyEnergy;
+    }
+
+    port def GroundPort {
+        inout item reference : PowerSupplyEnergy;
+    }
+
+    part def OpticalEntranceAssembly {
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+
+        attribute clearApertureDiameter : Real {
+            unit = "mm";
+            default = 12.0;
+        }
+
+        attribute maximumBeamDiameter : Real {
+            unit = "mm";
+            default = 10.0;
+        }
+
+        attribute spectralPassbandLow : Wavelength = 190.0;
+        attribute spectralPassbandHigh : Wavelength = 20000.0;
+        attribute transmissionEfficiency : Percent = 98.0;
+        attribute damageThreshold : Irradiance = 50000.0;
+    }
+
+    part def BroadbandAbsorber {
+        port opticalIn : OpticalInputPort;
+        port thermalOut : HeatTransferPort;
+
+        attribute absorptance : Percent = 97.5;
+        attribute coatingMaterial : String = "blackened broadband thermally conductive absorber";
+        attribute maximumContinuousPower : OpticalPower = 10.0;
+        attribute thermalTimeConstant : Time = 0.55;
+        attribute absorberHeatCapacity : Real {
+            unit = "J/K";
+            default = 1.8;
+        }
+    }
+
+    part def ThermopileElement {
+        port thermalIn : HeatTransferPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute thermocoupleJunctionCount : Integer = 128;
+        attribute responsivity : Real {
+            unit = "V/W";
+            default = 0.85;
+        }
+        attribute noiseEquivalentPower : OpticalPower = 0.00002;
+        attribute darkOffsetVoltage : Voltage = 0.00015;
+        attribute maximumOutputVoltage : Voltage = 0.010;
+        attribute referenceTemperature : Temperature = 25.0;
+    }
+
+    part def TemperatureSensor {
+        port analogOut : AnalogSignalPort;
+
+        attribute sensorType : String = "precision NTC thermistor";
+        attribute nominalResistance : Resistance = 10000.0;
+        attribute betaCoefficient : Real {
+            unit = "K";
+            default = 3950.0;
+        }
+        attribute accuracy : Temperature = 0.2;
+        attribute samplingBandwidth : Frequency = 10.0;
+    }
+
+    part def LowNoiseAmplifier {
+        port analogIn : AnalogInputPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : ElectricalPowerInputPort;
+
+        attribute gain : Real = 200.0;
+        attribute inputOffsetVoltage : Voltage = 0.000002;
+        attribute inputNoiseDensity : Real {
+            unit = "nV/sqrt(Hz)";
+            default = 8.0;
+        }
+        attribute lowPassCornerFrequency : Frequency = 25.0;
+        attribute commonModeRejection : Real {
+            unit = "dB";
+            default = 110.0;
+        }
+    }
+
+    part def AntiAliasFilter {
+        port analogIn : AnalogInputPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute filterOrder : Integer = 2;
+        attribute cutoffFrequency : Frequency = 20.0;
+        attribute passbandRipple : Real {
+            unit = "dB";
+            default = 0.1;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogIn : AnalogInputPort;
+        port digitalOut : DigitalMeasurementPort;
+        port powerIn : ElectricalPowerInputPort;
+
+        attribute resolutionBits : Integer = 24;
+        attribute referenceVoltage : Voltage = 2.5;
+        attribute sampleRate : Frequency = 100.0;
+        attribute inputRange : Voltage = 2.5;
+        attribute integralNonlinearity : Real {
+            unit = "ppm";
+            default = 5.0;
+        }
+    }
+
+    part def CalibrationMemory {
+        attribute zeroOffset : Voltage = 0.0;
+        attribute responsivityCorrection : Real = 1.0;
+        attribute temperatureCoefficient : Real {
+            unit = "%/K";
+            default = -0.08;
+        }
+        attribute calibrationWavelength : Wavelength = 1064.0;
+        attribute calibrationDate : String = "2026-06-11";
+    }
+
+    part def MeasurementProcessor {
+        port rawMeasurementIn : DigitalMeasurementPort;
+        port commandIn : CommandPort;
+        port measurementOut : DigitalMeasurementPort;
+        port statusOut : StatusPort;
+        port powerIn : ElectricalPowerInputPort;
+
+        part calibration : CalibrationMemory;
+
+        attribute samplePeriod : Time = 0.01;
+        attribute averagingWindowSamples : Integer = 32;
+        attribute saturationThresholdCounts : DigitalCount = 15500000;
+        attribute zeroStableTime : Time = 2.0;
+        attribute reportedPower : OpticalPower;
+        attribute appliedPower : OpticalPower;
+        attribute internalTemperature : Temperature;
+        attribute saturated : Boolean;
+        attribute faultPresent : Boolean;
+    }
+
+    part def CommunicationInterface {
+        port measurementIn : DigitalMeasurementPort;
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+
+        attribute physicalLayer : String = "USB-C virtual COM and isolated RS-485";
+        attribute usbBitRate : BitRate = 12000000.0;
+        attribute rs485BitRate : BitRate = 115200.0;
+        attribute protocol : String = "binary framed measurement protocol with CRC-16";
+    }
+
+    part def DisplayIndicator {
+        port measurementIn : DigitalMeasurementPort;
+        port statusIn : StatusPort;
+
+        attribute displayType : String = "low-power monochrome OLED";
+        attribute updateRate : Frequency = 5.0;
+        attribute digitsShown : Integer = 5;
+    }
+
+    part def PowerConditioning {
+        port supplyIn : ElectricalPowerInputPort;
+        port analogSupplyOut : InternalPowerPort;
+        port digitalSupplyOut : InternalPowerPort;
+        port ground : GroundPort;
+
+        attribute inputVoltageMinimum : Voltage = 4.75;
+        attribute inputVoltageMaximum : Voltage = 28.0;
+        attribute analogRailVoltage : Voltage = 3.3;
+        attribute digitalRailVoltage : Voltage = 3.3;
+        attribute analogRailNoise : Voltage = 0.00001;
+        attribute reversePolarityProtected : Boolean = true;
+    }
+
+    action def ConvertLaserPowerToHeat {
+        in item incidentRadiation : LaserRadiation;
+        in absorptance : Percent;
+        out item generatedHeat : HeatFlow;
+
+        attribute absorbedPower : OpticalPower =
+            incidentRadiation.opticalPower * absorptance / 100.0;
+    }
+
+    action def GenerateThermopileVoltage {
+        in item heat : HeatFlow;
+        in responsivity : Real;
+        in offset : Voltage;
+        out item voltageSignal : AnalogVoltageSignal;
+
+        attribute thermopileVoltage : Voltage =
+            heat.thermalPower * responsivity + offset;
+    }
+
+    action def AmplifyAndFilterSignal {
+        in item sensorVoltage : AnalogVoltageSignal;
+        in amplifierGain : Real;
+        out item conditionedVoltage : AnalogVoltageSignal;
+
+        attribute outputVoltage : Voltage = sensorVoltage.voltage * amplifierGain;
+    }
+
+    action def DigitizeSignal {
+        in item conditionedVoltage : AnalogVoltageSignal;
+        in referenceVoltage : Voltage;
+        in resolutionBits : Integer;
+        out item rawFrame : DigitalMeasurementFrame;
+
+        attribute fullScaleCounts : Integer = 16777215;
+        attribute counts : DigitalCount =
+            conditionedVoltage.voltage / referenceVoltage * fullScaleCounts;
+    }
+
+    action def CorrectMeasurement {
+        in item rawFrame : DigitalMeasurementFrame;
+        in zeroOffset : Voltage;
+        in responsivityCorrection : Real;
+        in temperatureCoefficient : Real;
+        out item correctedFrame : DigitalMeasurementFrame;
+
+        attribute correctedPower : OpticalPower =
+            rawFrame.measuredPower * responsivityCorrection;
+    }
+
+    state def MeasurementControlStateMachine {
+        state Off;
+        state Initializing;
+        state Warmup;
+        state Zeroing;
+        state Measuring;
+        state Saturated;
+        state Fault;
+
+        transition initial then Off;
+
+        transition PowerApplied
+            first Off
+            accept CommandMessage
+            if command.commandId == 1
+            then Initializing;
+
+        transition InitializationComplete
+            first Initializing
+            if true
+            then Warmup;
+
+        transition WarmupComplete
+            first Warmup
+            if true
+            then Measuring;
+
+        transition ZeroCommanded
+            first Measuring
+            accept CommandMessage
+            if command.zeroRequested == true
+            then Zeroing;
+
+        transition ZeroComplete
+            first Zeroing
+            if true
+            then Measuring;
+
+        transition SaturationDetected
+            first Measuring
+            if true
+            then Saturated;
+
+        transition SaturationCleared
+            first Saturated
+            if true
+            then Measuring;
+
+        transition FaultDetectedFromAnyActiveState
+            first Initializing
+            then Fault;
+
+        transition FaultReset
+            first Fault
+            accept CommandMessage
+            if command.commandId == 2
+            then Initializing;
+    }
+
+    part def ThermopileLaserSensor {
+        port opticalIn : OpticalInputPort;
+        port analogOut : AnalogSignalPort;
+        port temperatureOut : AnalogSignalPort;
+
+        part entrance : OpticalEntranceAssembly;
+        part absorber : BroadbandAbsorber;
+        part thermopile : ThermopileElement;
+        part temperatureSensor : TemperatureSensor;
+
+        connection entranceOpticalPath connect opticalIn to entrance.opticalIn;
+        connection absorberOpticalPath connect entrance.opticalOut to absorber.opticalIn;
+        connection absorberThermalPath connect absorber.thermalOut to thermopile.thermalIn;
+        connection thermopileSignalPath connect thermopile.analogOut to analogOut;
+        connection temperatureSignalPath connect temperatureSensor.analogOut to temperatureOut;
+
+        perform action ConvertLaserPowerToHeat {
+            in incidentRadiation = opticalIn.radiation;
+            in absorptance = absorber.absorptance;
+            out generatedHeat = absorber.thermalOut.heat;
+        }
+
+        perform action GenerateThermopileVoltage {
+            in heat = absorber.thermalOut.heat;
+            in responsivity = thermopile.responsivity;
+            in offset = thermopile.darkOffsetVoltage;
+            out voltageSignal = thermopile.analogOut.signal;
+        }
+    }
+
+    part def ThermopileLaserSensingUnit {
+        port opticalInput : OpticalInputPort;
+        port externalPowerInput : ElectricalPowerInputPort;
+        port commandInput : CommandPort;
+        port measurementOutput : DigitalMeasurementPort;
+        port statusOutput : StatusPort;
+
+        part sensor : ThermopileLaserSensor;
+        part amplifier : LowNoiseAmplifier;
+        part antiAliasFilter : AntiAliasFilter;
+        part adc : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part communication : CommunicationInterface;
+        part display : DisplayIndicator;
+        part power : PowerConditioning;
+
+        attribute measuredQuantity : String = "laser optical power";
+        attribute nominalWavelengthRangeLow : Wavelength = 190.0;
+        attribute nominalWavelengthRangeHigh : Wavelength = 20000.0;
+        attribute measurementRangeMinimum : OpticalPower = 0.0001;
+        attribute measurementRangeMaximum : OpticalPower = 10.0;
+        attribute expandedAccuracy : Percent = 2.0;
+        attribute responseTime90Percent : Time = 1.5;
+        attribute operatingTemperatureMinimum : Temperature = 0.0;
+        attribute operatingTemperatureMaximum : Temperature = 50.0;
+
+        connection opticalPath connect opticalInput to sensor.opticalIn;
+        connection thermopileAnalogPath connect sensor.analogOut to amplifier.analogIn;
+        connection conditionedAnalogPath connect amplifier.analogOut to antiAliasFilter.analogIn;
+        connection filteredAnalogPath connect antiAliasFilter.analogOut to adc.analogIn;
+        connection rawDigitalPath connect adc.digitalOut to processor.rawMeasurementIn;
+        connection processedMeasurementPath connect processor.measurementOut to measurementOutput;
+        connection commandPath connect commandInput to processor.commandIn;
+        connection statusPath connect processor.statusOut to statusOutput;
+        connection communicationMeasurementPath connect processor.measurementOut to communication.measurementIn;
+        connection communicationCommandPath connect communication.commandOut to processor.commandIn;
+        connection communicationStatusPath connect processor.statusOut to communication.statusIn;
+        connection displayMeasurementPath connect processor.measurementOut to display.measurementIn;
+        connection displayStatusPath connect processor.statusOut to display.statusIn;
+        connection externalPowerPath connect externalPowerInput to power.supplyIn;
+        connection analogPowerPath connect power.analogSupplyOut to amplifier.powerIn;
+        connection adcPowerPath connect power.analogSupplyOut to adc.powerIn;
+        connection processorPowerPath connect power.digitalSupplyOut to processor.powerIn;
+
+        perform action AmplifyAndFilterSignal {
+            in sensorVoltage = sensor.analogOut.signal;
+            in amplifierGain = amplifier.gain;
+            out conditionedVoltage = antiAliasFilter.analogOut.signal;
+        }
+
+        perform action DigitizeSignal {
+            in conditionedVoltage = antiAliasFilter.analogOut.signal;
+            in referenceVoltage = adc.referenceVoltage;
+            in resolutionBits = adc.resolutionBits;
+            out rawFrame = adc.digitalOut.frame;
+        }
+
+        perform action CorrectMeasurement {
+            in rawFrame = adc.digitalOut.frame;
+            in zeroOffset = processor.calibration.zeroOffset;
+            in responsivityCorrection = processor.calibration.responsivityCorrection;
+            in temperatureCoefficient = processor.calibration.temperatureCoefficient;
+            out correctedFrame = processor.measurementOut.frame;
+        }
+
+        exhibit state MeasurementControlStateMachine;
+    }
+
+    requirement def MeasureLaserOpticalPowerRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "laser optical power"
+        }
+    }
+
+    requirement def SensorTechnologyRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.sensor.thermopile.thermocoupleJunctionCount >= 64
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMinimum <= 0.0001 and
+            unit.measurementRangeMaximum >= 10.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            abs(unit.processor.reportedPower - unit.processor.appliedPower)
+            <= unit.processor.appliedPower * unit.expandedAccuracy / 100.0
+        }
+    }
+
+    requirement def SpectralCoverageRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.nominalWavelengthRangeLow <= 190.0 and
+            unit.nominalWavelengthRangeHigh >= 20000.0
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.responseTime90Percent <= 1.5
+        }
+    }
+
+    requirement def SaturationProtectionRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.processor.saturated == true implies
+            unit.statusOutput.status.saturated == true
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.operatingTemperatureMinimum <= unit.processor.internalTemperature and
+            unit.processor.internalTemperature <= unit.operatingTemperatureMaximum
+        }
+    }
+
+    requirement def ElectricalPowerRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.power.inputVoltageMinimum <= unit.externalPowerInput.supply.voltage and
+            unit.externalPowerInput.supply.voltage <= unit.power.inputVoltageMaximum
+        }
+    }
+
+    requirement def DigitalReportingRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.measurementOutput.frame.correctedPower >= 0.0 and
+            unit.measurementOutput.frame.statusCode >= 0
+        }
+    }
+
+    satisfy MeasureLaserOpticalPowerRequirement by ThermopileLaserSensingUnit;
+    satisfy SensorTechnologyRequirement by ThermopileLaserSensingUnit::sensor;
+    satisfy MeasurementRangeRequirement by ThermopileLaserSensingUnit;
+    satisfy AccuracyRequirement by ThermopileLaserSensingUnit::processor;
+    satisfy SpectralCoverageRequirement by ThermopileLaserSensingUnit::sensor::entrance;
+    satisfy ResponseTimeRequirement by ThermopileLaserSensingUnit::sensor::absorber;
+    satisfy SaturationProtectionRequirement by ThermopileLaserSensingUnit::processor;
+    satisfy OperatingTemperatureRequirement by ThermopileLaserSensingUnit::sensor::temperatureSensor;
+    satisfy ElectricalPowerRequirement by ThermopileLaserSensingUnit::power;
+    satisfy DigitalReportingRequirement by ThermopileLaserSensingUnit::measurementOutput;
+}
+tokens used
+6,190
+package ThermopileLaserSensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    value type OpticalPower specializes Real {
+        unit = "W";
+        quantityKind = "radiant power";
+    }
+
+    value type Wavelength specializes Real {
+        unit = "nm";
+        quantityKind = "optical wavelength";
+    }
+
+    value type Irradiance specializes Real {
+        unit = "W/m^2";
+        quantityKind = "radiant flux density";
+    }
+
+    value type Temperature specializes Real {
+        unit = "degC";
+        quantityKind = "temperature";
+    }
+
+    value type Voltage specializes Real {
+        unit = "V";
+        quantityKind = "electric potential";
+    }
+
+    value type Current specializes Real {
+        unit = "A";
+        quantityKind = "electric current";
+    }
+
+    value type Resistance specializes Real {
+        unit = "ohm";
+        quantityKind = "electrical resistance";
+    }
+
+    value type Time specializes Real {
+        unit = "s";
+        quantityKind = "duration";
+    }
+
+    value type Frequency specializes Real {
+        unit = "Hz";
+        quantityKind = "frequency";
+    }
+
+    value type DigitalCount specializes Integer {
+        quantityKind = "ADC count";
+    }
+
+    value type Percent specializes Real {
+        unit = "%";
+        quantityKind = "ratio";
+    }
+
+    value type BitRate specializes Real {
+        unit = "bit/s";
+        quantityKind = "data rate";
+    }
+
+    item def LaserRadiation {
+        attribute opticalPower : OpticalPower;
+        attribute wavelength : Wavelength;
+        attribute beamDiameter : Real {
+            unit = "mm";
+        }
+        attribute incidenceAngle : Real {
+            unit = "deg";
+        }
+    }
+
+    item def HeatFlow {
+        attribute thermalPower : OpticalPower;
+        attribute absorberTemperature : Temperature;
+        attribute referenceTemperature : Temperature;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Voltage;
+        attribute sourceImpedance : Resistance;
+        attribute bandwidth : Frequency;
+    }
+
+    item def DigitalMeasurementFrame {
+        attribute measuredPower : OpticalPower;
+        attribute correctedPower : OpticalPower;
+        attribute sensorTemperature : Temperature;
+        attribute rawAdcCounts : DigitalCount;
+        attribute statusCode : Integer;
+        attribute timestamp : Time;
+    }
+
+    item def PowerSupplyEnergy {
+        attribute voltage : Voltage;
+        attribute currentLimit : Current;
+    }
+
+    item def CommandMessage {
+        attribute commandId : Integer;
+        attribute requestedSampleRate : Frequency;
+        attribute zeroRequested : Boolean;
+    }
+
+    item def StatusMessage {
+        attribute ready : Boolean;
+        attribute faultPresent : Boolean;
+        attribute saturated : Boolean;
+        attribute warmupComplete : Boolean;
+    }
+
+    port def OpticalInputPort {
+        in item radiation : LaserRadiation;
+    }
+
+    port def HeatTransferPort {
+        inout item heat : HeatFlow;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogVoltageSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogVoltageSignal;
+    }
+
+    port def DigitalMeasurementPort {
+        out item frame : DigitalMeasurementFrame;
+    }
+
+    port def CommandPort {
+        in item command : CommandMessage;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def ElectricalPowerInputPort {
+        in item supply : PowerSupplyEnergy;
+    }
+
+    port def InternalPowerPort {
+        out item regulatedSupply : PowerSupplyEnergy;
+    }
+
+    port def GroundPort {
+        inout item reference : PowerSupplyEnergy;
+    }
+
+    part def OpticalEntranceAssembly {
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+
+        attribute clearApertureDiameter : Real {
+            unit = "mm";
+            default = 12.0;
+        }
+
+        attribute maximumBeamDiameter : Real {
+            unit = "mm";
+            default = 10.0;
+        }
+
+        attribute spectralPassbandLow : Wavelength = 190.0;
+        attribute spectralPassbandHigh : Wavelength = 20000.0;
+        attribute transmissionEfficiency : Percent = 98.0;
+        attribute damageThreshold : Irradiance = 50000.0;
+    }
+
+    part def BroadbandAbsorber {
+        port opticalIn : OpticalInputPort;
+        port thermalOut : HeatTransferPort;
+
+        attribute absorptance : Percent = 97.5;
+        attribute coatingMaterial : String = "blackened broadband thermally conductive absorber";
+        attribute maximumContinuousPower : OpticalPower = 10.0;
+        attribute thermalTimeConstant : Time = 0.55;
+        attribute absorberHeatCapacity : Real {
+            unit = "J/K";
+            default = 1.8;
+        }
+    }
+
+    part def ThermopileElement {
+        port thermalIn : HeatTransferPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute thermocoupleJunctionCount : Integer = 128;
+        attribute responsivity : Real {
+            unit = "V/W";
+            default = 0.85;
+        }
+        attribute noiseEquivalentPower : OpticalPower = 0.00002;
+        attribute darkOffsetVoltage : Voltage = 0.00015;
+        attribute maximumOutputVoltage : Voltage = 0.010;
+        attribute referenceTemperature : Temperature = 25.0;
+    }
+
+    part def TemperatureSensor {
+        port analogOut : AnalogSignalPort;
+
+        attribute sensorType : String = "precision NTC thermistor";
+        attribute nominalResistance : Resistance = 10000.0;
+        attribute betaCoefficient : Real {
+            unit = "K";
+            default = 3950.0;
+        }
+        attribute accuracy : Temperature = 0.2;
+        attribute samplingBandwidth : Frequency = 10.0;
+    }
+
+    part def LowNoiseAmplifier {
+        port analogIn : AnalogInputPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : ElectricalPowerInputPort;
+
+        attribute gain : Real = 200.0;
+        attribute inputOffsetVoltage : Voltage = 0.000002;
+        attribute inputNoiseDensity : Real {
+            unit = "nV/sqrt(Hz)";
+            default = 8.0;
+        }
+        attribute lowPassCornerFrequency : Frequency = 25.0;
+        attribute commonModeRejection : Real {
+            unit = "dB";
+            default = 110.0;
+        }
+    }
+
+    part def AntiAliasFilter {
+        port analogIn : AnalogInputPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute filterOrder : Integer = 2;
+        attribute cutoffFrequency : Frequency = 20.0;
+        attribute passbandRipple : Real {
+            unit = "dB";
+            default = 0.1;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogIn : AnalogInputPort;
+        port digitalOut : DigitalMeasurementPort;
+        port powerIn : ElectricalPowerInputPort;
+
+        attribute resolutionBits : Integer = 24;
+        attribute referenceVoltage : Voltage = 2.5;
+        attribute sampleRate : Frequency = 100.0;
+        attribute inputRange : Voltage = 2.5;
+        attribute integralNonlinearity : Real {
+            unit = "ppm";
+            default = 5.0;
+        }
+    }
+
+    part def CalibrationMemory {
+        attribute zeroOffset : Voltage = 0.0;
+        attribute responsivityCorrection : Real = 1.0;
+        attribute temperatureCoefficient : Real {
+            unit = "%/K";
+            default = -0.08;
+        }
+        attribute calibrationWavelength : Wavelength = 1064.0;
+        attribute calibrationDate : String = "2026-06-11";
+    }
+
+    part def MeasurementProcessor {
+        port rawMeasurementIn : DigitalMeasurementPort;
+        port commandIn : CommandPort;
+        port measurementOut : DigitalMeasurementPort;
+        port statusOut : StatusPort;
+        port powerIn : ElectricalPowerInputPort;
+
+        part calibration : CalibrationMemory;
+
+        attribute samplePeriod : Time = 0.01;
+        attribute averagingWindowSamples : Integer = 32;
+        attribute saturationThresholdCounts : DigitalCount = 15500000;
+        attribute zeroStableTime : Time = 2.0;
+        attribute reportedPower : OpticalPower;
+        attribute appliedPower : OpticalPower;
+        attribute internalTemperature : Temperature;
+        attribute saturated : Boolean;
+        attribute faultPresent : Boolean;
+    }
+
+    part def CommunicationInterface {
+        port measurementIn : DigitalMeasurementPort;
+        port commandOut : CommandPort;
+        port statusIn : StatusPort;
+
+        attribute physicalLayer : String = "USB-C virtual COM and isolated RS-485";
+        attribute usbBitRate : BitRate = 12000000.0;
+        attribute rs485BitRate : BitRate = 115200.0;
+        attribute protocol : String = "binary framed measurement protocol with CRC-16";
+    }
+
+    part def DisplayIndicator {
+        port measurementIn : DigitalMeasurementPort;
+        port statusIn : StatusPort;
+
+        attribute displayType : String = "low-power monochrome OLED";
+        attribute updateRate : Frequency = 5.0;
+        attribute digitsShown : Integer = 5;
+    }
+
+    part def PowerConditioning {
+        port supplyIn : ElectricalPowerInputPort;
+        port analogSupplyOut : InternalPowerPort;
+        port digitalSupplyOut : InternalPowerPort;
+        port ground : GroundPort;
+
+        attribute inputVoltageMinimum : Voltage = 4.75;
+        attribute inputVoltageMaximum : Voltage = 28.0;
+        attribute analogRailVoltage : Voltage = 3.3;
+        attribute digitalRailVoltage : Voltage = 3.3;
+        attribute analogRailNoise : Voltage = 0.00001;
+        attribute reversePolarityProtected : Boolean = true;
+    }
+
+    action def ConvertLaserPowerToHeat {
+        in item incidentRadiation : LaserRadiation;
+        in absorptance : Percent;
+        out item generatedHeat : HeatFlow;
+
+        attribute absorbedPower : OpticalPower =
+            incidentRadiation.opticalPower * absorptance / 100.0;
+    }
+
+    action def GenerateThermopileVoltage {
+        in item heat : HeatFlow;
+        in responsivity : Real;
+        in offset : Voltage;
+        out item voltageSignal : AnalogVoltageSignal;
+
+        attribute thermopileVoltage : Voltage =
+            heat.thermalPower * responsivity + offset;
+    }
+
+    action def AmplifyAndFilterSignal {
+        in item sensorVoltage : AnalogVoltageSignal;
+        in amplifierGain : Real;
+        out item conditionedVoltage : AnalogVoltageSignal;
+
+        attribute outputVoltage : Voltage = sensorVoltage.voltage * amplifierGain;
+    }
+
+    action def DigitizeSignal {
+        in item conditionedVoltage : AnalogVoltageSignal;
+        in referenceVoltage : Voltage;
+        in resolutionBits : Integer;
+        out item rawFrame : DigitalMeasurementFrame;
+
+        attribute fullScaleCounts : Integer = 16777215;
+        attribute counts : DigitalCount =
+            conditionedVoltage.voltage / referenceVoltage * fullScaleCounts;
+    }
+
+    action def CorrectMeasurement {
+        in item rawFrame : DigitalMeasurementFrame;
+        in zeroOffset : Voltage;
+        in responsivityCorrection : Real;
+        in temperatureCoefficient : Real;
+        out item correctedFrame : DigitalMeasurementFrame;
+
+        attribute correctedPower : OpticalPower =
+            rawFrame.measuredPower * responsivityCorrection;
+    }
+
+    state def MeasurementControlStateMachine {
+        state Off;
+        state Initializing;
+        state Warmup;
+        state Zeroing;
+        state Measuring;
+        state Saturated;
+        state Fault;
+
+        transition initial then Off;
+
+        transition PowerApplied
+            first Off
+            accept CommandMessage
+            if command.commandId == 1
+            then Initializing;
+
+        transition InitializationComplete
+            first Initializing
+            if true
+            then Warmup;
+
+        transition WarmupComplete
+            first Warmup
+            if true
+            then Measuring;
+
+        transition ZeroCommanded
+            first Measuring
+            accept CommandMessage
+            if command.zeroRequested == true
+            then Zeroing;
+
+        transition ZeroComplete
+            first Zeroing
+            if true
+            then Measuring;
+
+        transition SaturationDetected
+            first Measuring
+            if true
+            then Saturated;
+
+        transition SaturationCleared
+            first Saturated
+            if true
+            then Measuring;
+
+        transition FaultDetectedFromAnyActiveState
+            first Initializing
+            then Fault;
+
+        transition FaultReset
+            first Fault
+            accept CommandMessage
+            if command.commandId == 2
+            then Initializing;
+    }
+
+    part def ThermopileLaserSensor {
+        port opticalIn : OpticalInputPort;
+        port analogOut : AnalogSignalPort;
+        port temperatureOut : AnalogSignalPort;
+
+        part entrance : OpticalEntranceAssembly;
+        part absorber : BroadbandAbsorber;
+        part thermopile : ThermopileElement;
+        part temperatureSensor : TemperatureSensor;
+
+        connection entranceOpticalPath connect opticalIn to entrance.opticalIn;
+        connection absorberOpticalPath connect entrance.opticalOut to absorber.opticalIn;
+        connection absorberThermalPath connect absorber.thermalOut to thermopile.thermalIn;
+        connection thermopileSignalPath connect thermopile.analogOut to analogOut;
+        connection temperatureSignalPath connect temperatureSensor.analogOut to temperatureOut;
+
+        perform action ConvertLaserPowerToHeat {
+            in incidentRadiation = opticalIn.radiation;
+            in absorptance = absorber.absorptance;
+            out generatedHeat = absorber.thermalOut.heat;
+        }
+
+        perform action GenerateThermopileVoltage {
+            in heat = absorber.thermalOut.heat;
+            in responsivity = thermopile.responsivity;
+            in offset = thermopile.darkOffsetVoltage;
+            out voltageSignal = thermopile.analogOut.signal;
+        }
+    }
+
+    part def ThermopileLaserSensingUnit {
+        port opticalInput : OpticalInputPort;
+        port externalPowerInput : ElectricalPowerInputPort;
+        port commandInput : CommandPort;
+        port measurementOutput : DigitalMeasurementPort;
+        port statusOutput : StatusPort;
+
+        part sensor : ThermopileLaserSensor;
+        part amplifier : LowNoiseAmplifier;
+        part antiAliasFilter : AntiAliasFilter;
+        part adc : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part communication : CommunicationInterface;
+        part display : DisplayIndicator;
+        part power : PowerConditioning;
+
+        attribute measuredQuantity : String = "laser optical power";
+        attribute nominalWavelengthRangeLow : Wavelength = 190.0;
+        attribute nominalWavelengthRangeHigh : Wavelength = 20000.0;
+        attribute measurementRangeMinimum : OpticalPower = 0.0001;
+        attribute measurementRangeMaximum : OpticalPower = 10.0;
+        attribute expandedAccuracy : Percent = 2.0;
+        attribute responseTime90Percent : Time = 1.5;
+        attribute operatingTemperatureMinimum : Temperature = 0.0;
+        attribute operatingTemperatureMaximum : Temperature = 50.0;
+
+        connection opticalPath connect opticalInput to sensor.opticalIn;
+        connection thermopileAnalogPath connect sensor.analogOut to amplifier.analogIn;
+        connection conditionedAnalogPath connect amplifier.analogOut to antiAliasFilter.analogIn;
+        connection filteredAnalogPath connect antiAliasFilter.analogOut to adc.analogIn;
+        connection rawDigitalPath connect adc.digitalOut to processor.rawMeasurementIn;
+        connection processedMeasurementPath connect processor.measurementOut to measurementOutput;
+        connection commandPath connect commandInput to processor.commandIn;
+        connection statusPath connect processor.statusOut to statusOutput;
+        connection communicationMeasurementPath connect processor.measurementOut to communication.measurementIn;
+        connection communicationCommandPath connect communication.commandOut to processor.commandIn;
+        connection communicationStatusPath connect processor.statusOut to communication.statusIn;
+        connection displayMeasurementPath connect processor.measurementOut to display.measurementIn;
+        connection displayStatusPath connect processor.statusOut to display.statusIn;
+        connection externalPowerPath connect externalPowerInput to power.supplyIn;
+        connection analogPowerPath connect power.analogSupplyOut to amplifier.powerIn;
+        connection adcPowerPath connect power.analogSupplyOut to adc.powerIn;
+        connection processorPowerPath connect power.digitalSupplyOut to processor.powerIn;
+
+        perform action AmplifyAndFilterSignal {
+            in sensorVoltage = sensor.analogOut.signal;
+            in amplifierGain = amplifier.gain;
+            out conditionedVoltage = antiAliasFilter.analogOut.signal;
+        }
+
+        perform action DigitizeSignal {
+            in conditionedVoltage = antiAliasFilter.analogOut.signal;
+            in referenceVoltage = adc.referenceVoltage;
+            in resolutionBits = adc.resolutionBits;
+            out rawFrame = adc.digitalOut.frame;
+        }
+
+        perform action CorrectMeasurement {
+            in rawFrame = adc.digitalOut.frame;
+            in zeroOffset = processor.calibration.zeroOffset;
+            in responsivityCorrection = processor.calibration.responsivityCorrection;
+            in temperatureCoefficient = processor.calibration.temperatureCoefficient;
+            out correctedFrame = processor.measurementOut.frame;
+        }
+
+        exhibit state MeasurementControlStateMachine;
+    }
+
+    requirement def MeasureLaserOpticalPowerRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "laser optical power"
+        }
+    }
+
+    requirement def SensorTechnologyRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.sensor.thermopile.thermocoupleJunctionCount >= 64
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMinimum <= 0.0001 and
+            unit.measurementRangeMaximum >= 10.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            abs(unit.processor.reportedPower - unit.processor.appliedPower)
+            <= unit.processor.appliedPower * unit.expandedAccuracy / 100.0
+        }
+    }
+
+    requirement def SpectralCoverageRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.nominalWavelengthRangeLow <= 190.0 and
+            unit.nominalWavelengthRangeHigh >= 20000.0
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.responseTime90Percent <= 1.5
+        }
+    }
+
+    requirement def SaturationProtectionRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.processor.saturated == true implies
+            unit.statusOutput.status.saturated == true
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.operatingTemperatureMinimum <= unit.processor.internalTemperature and
+            unit.processor.internalTemperature <= unit.operatingTemperatureMaximum
+        }
+    }
+
+    requirement def ElectricalPowerRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.power.inputVoltageMinimum <= unit.externalPowerInput.supply.voltage and
+            unit.externalPowerInput.supply.voltage <= unit.power.inputVoltageMaximum
+        }
+    }
+
+    requirement def DigitalReportingRequirement {
+        subject unit : ThermopileLaserSensingUnit;
+
+        require constraint {
+            unit.measurementOutput.frame.correctedPower >= 0.0 and
+            unit.measurementOutput.frame.statusCode >= 0
+        }
+    }
+
+    satisfy MeasureLaserOpticalPowerRequirement by ThermopileLaserSensingUnit;
+    satisfy SensorTechnologyRequirement by ThermopileLaserSensingUnit::sensor;
+    satisfy MeasurementRangeRequirement by ThermopileLaserSensingUnit;
+    satisfy AccuracyRequirement by ThermopileLaserSensingUnit::processor;
+    satisfy SpectralCoverageRequirement by ThermopileLaserSensingUnit::sensor::entrance;
+    satisfy ResponseTimeRequirement by ThermopileLaserSensingUnit::sensor::absorber;
+    satisfy SaturationProtectionRequirement by ThermopileLaserSensingUnit::processor;
+    satisfy OperatingTemperatureRequirement by ThermopileLaserSensingUnit::sensor::temperatureSensor;
+    satisfy ElectricalPowerRequirement by ThermopileLaserSensingUnit::power;
+    satisfy DigitalReportingRequirement by ThermopileLaserSensingUnit::measurementOutput;
+}

@@ -1,0 +1,933 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tycm21xy
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb60e-4556-71a1-9885-42049bb302c8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Stretch sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package StretchSensorSensingUnitModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Length_mm :> Real {
+    unit = "mm";
+  }
+
+  attribute def Strain_percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Resistance_ohm :> Real {
+    unit = "ohm";
+  }
+
+  attribute def Voltage_V :> Real {
+    unit = "V";
+  }
+
+  attribute def Current_mA :> Real {
+    unit = "mA";
+  }
+
+  attribute def Frequency_Hz :> Real {
+    unit = "Hz";
+  }
+
+  attribute def Temperature_C :> Real {
+    unit = "degC";
+  }
+
+  attribute def Time_ms :> Real {
+    unit = "ms";
+  }
+
+  attribute def DigitalCount :> Integer {
+    unit = "count";
+  }
+
+  attribute def Error_percent :> Real {
+    unit = "%FS";
+  }
+
+  item def MechanicalStretch {
+    attribute elongation: Length_mm;
+    attribute strain: Strain_percent;
+    attribute temperature: Temperature_C;
+  }
+
+  item def ResistiveStretchSignal {
+    attribute resistance: Resistance_ohm;
+    attribute nominalResistance: Resistance_ohm;
+    attribute resistanceRatio: Real;
+  }
+
+  item def AnalogVoltageSignal {
+    attribute voltage: Voltage_V;
+    attribute sampleRate: Frequency_Hz;
+  }
+
+  item def DigitalStretchSample {
+    attribute timestamp: Time_ms;
+    attribute rawCount: DigitalCount;
+    attribute bridgeVoltage: Voltage_V;
+    attribute measuredResistance: Resistance_ohm;
+    attribute compensatedStrain: Strain_percent;
+    attribute elongation: Length_mm;
+    attribute diagnosticCode: Integer;
+  }
+
+  item def RegulatedPower {
+    attribute voltage: Voltage_V;
+    attribute maxCurrent: Current_mA;
+  }
+
+  item def ConfigurationCommand {
+    attribute sampleRate: Frequency_Hz;
+    attribute gaugeLength: Length_mm;
+    attribute zeroOffset: Strain_percent;
+    attribute gain: Real;
+  }
+
+  item def StatusMessage {
+    attribute healthy: Boolean;
+    attribute openCircuitDetected: Boolean;
+    attribute shortCircuitDetected: Boolean;
+    attribute saturationDetected: Boolean;
+    attribute temperatureOutOfRange: Boolean;
+  }
+
+  port def StretchInputPort {
+    in item stretch: MechanicalStretch;
+  }
+
+  port def ResistiveSignalPort {
+    out item signal: ResistiveStretchSignal;
+  }
+
+  port def AnalogSignalPort {
+    out item analog: AnalogVoltageSignal;
+  }
+
+  port def DigitalDataPort {
+    out item sample: DigitalStretchSample;
+    out item status: StatusMessage;
+    in item configuration: ConfigurationCommand;
+  }
+
+  port def PowerInputPort {
+    in item power: RegulatedPower;
+  }
+
+  interface def StretchToResistanceInterface {
+    end mechanical: StretchInputPort;
+    end resistive: ResistiveSignalPort;
+  }
+
+  interface def ResistanceToVoltageInterface {
+    end resistive: ResistiveSignalPort;
+    end analog: AnalogSignalPort;
+  }
+
+  part def StretchSensor {
+    port stretchIn: StretchInputPort;
+    port resistanceOut: ResistiveSignalPort;
+
+    attribute gaugeLength: Length_mm = 50.0;
+    attribute measurableStrainMin: Strain_percent = 0.0;
+    attribute measurableStrainMax: Strain_percent = 60.0;
+    attribute nominalResistance: Resistance_ohm = 10000.0;
+    attribute gaugeFactor: Real = 2.1;
+    attribute hysteresisError: Error_percent = 1.5;
+    attribute repeatabilityError: Error_percent = 0.8;
+
+    perform action ConvertStretchToResistance;
+  }
+
+  part def ExcitationAndBridge {
+    port powerIn: PowerInputPort;
+    port sensorSignalIn: ResistiveSignalPort;
+    port bridgeVoltageOut: AnalogSignalPort;
+
+    attribute excitationVoltage: Voltage_V = 3.3;
+    attribute bridgeReferenceResistance: Resistance_ohm = 10000.0;
+    attribute bridgeCurrentLimit: Current_mA = 2.0;
+    attribute bridgeSensitivity: Voltage_V = 0.00165;
+
+    perform action ConvertResistanceToVoltage;
+  }
+
+  part def AnalogFrontEnd {
+    port analogIn: AnalogSignalPort;
+    port analogOut: AnalogSignalPort;
+    port powerIn: PowerInputPort;
+
+    attribute lowPassCutoff: Frequency_Hz = 25.0;
+    attribute amplifierGain: Real = 32.0;
+    attribute inputOffsetVoltage: Voltage_V = 0.002;
+    attribute outputMin: Voltage_V = 0.05;
+    attribute outputMax: Voltage_V = 3.25;
+
+    perform action FilterAndAmplify;
+  }
+
+  part def AnalogToDigitalConverter {
+    port analogIn: AnalogSignalPort;
+    port digitalOut: DigitalDataPort;
+    port powerIn: PowerInputPort;
+
+    attribute resolutionBits: Integer = 16;
+    attribute referenceVoltage: Voltage_V = 3.3;
+    attribute sampleRate: Frequency_Hz = 100.0;
+    attribute conversionTime: Time_ms = 0.2;
+
+    perform action SampleAnalogVoltage;
+  }
+
+  part def TemperatureSensor {
+    port powerIn: PowerInputPort;
+    port temperatureOut: DigitalDataPort;
+
+    attribute accuracy: Temperature_C = 1.0;
+    attribute updatePeriod: Time_ms = 100.0;
+
+    perform action MeasureTemperature;
+  }
+
+  part def SignalProcessor {
+    port adcIn: DigitalDataPort;
+    port temperatureIn: DigitalDataPort;
+    port dataOut: DigitalDataPort;
+    port powerIn: PowerInputPort;
+
+    attribute calibrationZero: Strain_percent = 0.0;
+    attribute calibrationGain: Real = 1.0;
+    attribute temperatureCoefficient: Real = 0.0012;
+    attribute diagnosticOpenThreshold: Resistance_ohm = 1000000.0;
+    attribute diagnosticShortThreshold: Resistance_ohm = 100.0;
+    attribute outputUpdateRate: Frequency_Hz = 50.0;
+
+    perform action ComputeStretchMeasurement;
+    perform action RunDiagnostics;
+  }
+
+  part def PowerConditioner {
+    port inputPower: PowerInputPort;
+    port regulatedPower: PowerInputPort;
+
+    attribute inputVoltageMin: Voltage_V = 4.5;
+    attribute inputVoltageMax: Voltage_V = 12.0;
+    attribute regulatedVoltage: Voltage_V = 3.3;
+    attribute availableCurrent: Current_mA = 50.0;
+
+    perform action RegulatePower;
+  }
+
+  part def StretchSensingUnit {
+    port stretchInput: StretchInputPort;
+    port supplyInput: PowerInputPort;
+    port measurementOutput: DigitalDataPort;
+
+    part stretchSensor: StretchSensor;
+    part bridge: ExcitationAndBridge;
+    part afe: AnalogFrontEnd;
+    part adc: AnalogToDigitalConverter;
+    part temperatureSensor: TemperatureSensor;
+    part processor: SignalProcessor;
+    part powerConditioner: PowerConditioner;
+
+    connect stretchInput to stretchSensor.stretchIn;
+    connect stretchSensor.resistanceOut to bridge.sensorSignalIn;
+    connect bridge.bridgeVoltageOut to afe.analogIn;
+    connect afe.analogOut to adc.analogIn;
+    connect adc.digitalOut to processor.adcIn;
+    connect temperatureSensor.temperatureOut to processor.temperatureIn;
+    connect processor.dataOut to measurementOutput;
+
+    connect supplyInput to powerConditioner.inputPower;
+    connect powerConditioner.regulatedPower to bridge.powerIn;
+    connect powerConditioner.regulatedPower to afe.powerIn;
+    connect powerConditioner.regulatedPower to adc.powerIn;
+    connect powerConditioner.regulatedPower to temperatureSensor.powerIn;
+    connect powerConditioner.regulatedPower to processor.powerIn;
+
+    attribute totalMass_g: Real = 18.0;
+    attribute operatingTemperatureMin: Temperature_C = -20.0;
+    attribute operatingTemperatureMax: Temperature_C = 70.0;
+    attribute measurementRangeMin: Strain_percent = 0.0;
+    attribute measurementRangeMax: Strain_percent = 60.0;
+    attribute systemAccuracy: Error_percent = 3.0;
+    attribute latency: Time_ms = 25.0;
+
+    exhibit state StretchSensingUnitStates;
+  }
+
+  action def ConvertStretchToResistance {
+    in item appliedStretch: MechanicalStretch;
+    out item sensorSignal: ResistiveStretchSignal;
+
+    attribute equation: String = "R = R0 * (1 + gaugeFactor * strain / 100)";
+  }
+
+  action def ConvertResistanceToVoltage {
+    in item sensorSignal: ResistiveStretchSignal;
+    out item bridgeVoltage: AnalogVoltageSignal;
+
+    attribute equation: String = "Vout = Vexc * Rsensor / (Rsensor + Rref)";
+  }
+
+  action def FilterAndAmplify {
+    in item bridgeVoltage: AnalogVoltageSignal;
+    out item conditionedVoltage: AnalogVoltageSignal;
+  }
+
+  action def SampleAnalogVoltage {
+    in item conditionedVoltage: AnalogVoltageSignal;
+    out item digitalSample: DigitalStretchSample;
+  }
+
+  action def MeasureTemperature {
+    out item temperatureSample: DigitalStretchSample;
+  }
+
+  action def ComputeStretchMeasurement {
+    in item rawSample: DigitalStretchSample;
+    in item temperatureSample: DigitalStretchSample;
+    out item stretchSample: DigitalStretchSample;
+
+    attribute resistanceEquation: String = "Rsensor = Rref * Vout / (Vexc - Vout)";
+    attribute strainEquation: String = "strain = ((Rsensor / R0) - 1) * 100 / gaugeFactor";
+    attribute elongationEquation: String = "elongation = gaugeLength * strain / 100";
+  }
+
+  action def RunDiagnostics {
+    in item rawSample: DigitalStretchSample;
+    out item status: StatusMessage;
+  }
+
+  action def RegulatePower {
+    in item unregulatedPower: RegulatedPower;
+    out item regulatedPower: RegulatedPower;
+  }
+
+  state def StretchSensingUnitStates {
+    state Off;
+    state Initializing;
+    state Zeroing;
+    state Measuring;
+    state Fault;
+    state LowPower;
+
+    transition first Off;
+    transition Off to Initializing
+      accept PowerApplied;
+
+    transition Initializing to Zeroing
+      accept SelfTestPassed;
+
+    transition Initializing to Fault
+      accept SelfTestFailed;
+
+    transition Zeroing to Measuring
+      accept ZeroReferenceCaptured;
+
+    transition Measuring to Fault
+      accept DiagnosticFaultDetected;
+
+    transition Fault to Initializing
+      accept ResetCommand;
+
+    transition Measuring to LowPower
+      accept SleepCommand;
+
+    transition LowPower to Measuring
+      accept WakeCommand;
+
+    transition Measuring to Off
+      accept PowerRemoved;
+
+    transition LowPower to Off
+      accept PowerRemoved;
+
+    entry action Initializing {
+      perform RegulatePower;
+      perform RunDiagnostics;
+    }
+
+    entry action Zeroing {
+      perform ConvertStretchToResistance;
+      perform ConvertResistanceToVoltage;
+      perform FilterAndAmplify;
+      perform SampleAnalogVoltage;
+    }
+
+    do action Measuring {
+      perform ConvertStretchToResistance;
+      perform ConvertResistanceToVoltage;
+      perform FilterAndAmplify;
+      perform SampleAnalogVoltage;
+      perform MeasureTemperature;
+      perform ComputeStretchMeasurement;
+      perform RunDiagnostics;
+    }
+  }
+
+  requirement def MeasureStretchRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.measurementRangeMin <= 0.0 and
+      sensingUnit.measurementRangeMax >= 60.0
+    }
+
+    require constraint {
+      sensingUnit.systemAccuracy <= 3.0
+    }
+
+    doc /* The sensing unit shall measure mechanical stretch using a stretch sensor and report compensated strain and elongation. */
+  }
+
+  requirement def SamplingRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.outputUpdateRate >= 50.0
+    }
+
+    require constraint {
+      sensingUnit.latency <= 25.0
+    }
+
+    doc /* The sensing unit shall output stretch measurements at not less than 50 Hz with maximum latency of 25 ms. */
+  }
+
+  requirement def ElectricalRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.powerConditioner.inputVoltageMin <= 5.0 and
+      sensingUnit.powerConditioner.inputVoltageMax >= 12.0 and
+      sensingUnit.powerConditioner.availableCurrent >= 50.0
+    }
+
+    doc /* The sensing unit shall operate from a regulated or unregulated external supply between 5 V and 12 V. */
+  }
+
+  requirement def DiagnosticsRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.diagnosticOpenThreshold >= 1000000.0 and
+      sensingUnit.processor.diagnosticShortThreshold <= 100.0
+    }
+
+    doc /* The sensing unit shall detect open circuit, short circuit, saturation, and temperature out-of-range conditions. */
+  }
+
+  requirement def EnvironmentalRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.operatingTemperatureMin <= -20.0 and
+      sensingUnit.operatingTemperatureMax >= 70.0
+    }
+
+    doc /* The sensing unit shall operate across the specified industrial temperature range. */
+  }
+
+  part stretchSensingUnit: StretchSensingUnit;
+
+  requirement measureStretch: MeasureStretchRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement sampling: SamplingRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement electrical: ElectricalRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement diagnostics: DiagnosticsRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement environmental: EnvironmentalRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  satisfy measureStretch by stretchSensingUnit;
+  satisfy sampling by stretchSensingUnit;
+  satisfy electrical by stretchSensingUnit;
+  satisfy diagnostics by stretchSensingUnit;
+  satisfy environmental by stretchSensingUnit;
+}
+tokens used
+3,865
+package StretchSensorSensingUnitModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Length_mm :> Real {
+    unit = "mm";
+  }
+
+  attribute def Strain_percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Resistance_ohm :> Real {
+    unit = "ohm";
+  }
+
+  attribute def Voltage_V :> Real {
+    unit = "V";
+  }
+
+  attribute def Current_mA :> Real {
+    unit = "mA";
+  }
+
+  attribute def Frequency_Hz :> Real {
+    unit = "Hz";
+  }
+
+  attribute def Temperature_C :> Real {
+    unit = "degC";
+  }
+
+  attribute def Time_ms :> Real {
+    unit = "ms";
+  }
+
+  attribute def DigitalCount :> Integer {
+    unit = "count";
+  }
+
+  attribute def Error_percent :> Real {
+    unit = "%FS";
+  }
+
+  item def MechanicalStretch {
+    attribute elongation: Length_mm;
+    attribute strain: Strain_percent;
+    attribute temperature: Temperature_C;
+  }
+
+  item def ResistiveStretchSignal {
+    attribute resistance: Resistance_ohm;
+    attribute nominalResistance: Resistance_ohm;
+    attribute resistanceRatio: Real;
+  }
+
+  item def AnalogVoltageSignal {
+    attribute voltage: Voltage_V;
+    attribute sampleRate: Frequency_Hz;
+  }
+
+  item def DigitalStretchSample {
+    attribute timestamp: Time_ms;
+    attribute rawCount: DigitalCount;
+    attribute bridgeVoltage: Voltage_V;
+    attribute measuredResistance: Resistance_ohm;
+    attribute compensatedStrain: Strain_percent;
+    attribute elongation: Length_mm;
+    attribute diagnosticCode: Integer;
+  }
+
+  item def RegulatedPower {
+    attribute voltage: Voltage_V;
+    attribute maxCurrent: Current_mA;
+  }
+
+  item def ConfigurationCommand {
+    attribute sampleRate: Frequency_Hz;
+    attribute gaugeLength: Length_mm;
+    attribute zeroOffset: Strain_percent;
+    attribute gain: Real;
+  }
+
+  item def StatusMessage {
+    attribute healthy: Boolean;
+    attribute openCircuitDetected: Boolean;
+    attribute shortCircuitDetected: Boolean;
+    attribute saturationDetected: Boolean;
+    attribute temperatureOutOfRange: Boolean;
+  }
+
+  port def StretchInputPort {
+    in item stretch: MechanicalStretch;
+  }
+
+  port def ResistiveSignalPort {
+    out item signal: ResistiveStretchSignal;
+  }
+
+  port def AnalogSignalPort {
+    out item analog: AnalogVoltageSignal;
+  }
+
+  port def DigitalDataPort {
+    out item sample: DigitalStretchSample;
+    out item status: StatusMessage;
+    in item configuration: ConfigurationCommand;
+  }
+
+  port def PowerInputPort {
+    in item power: RegulatedPower;
+  }
+
+  interface def StretchToResistanceInterface {
+    end mechanical: StretchInputPort;
+    end resistive: ResistiveSignalPort;
+  }
+
+  interface def ResistanceToVoltageInterface {
+    end resistive: ResistiveSignalPort;
+    end analog: AnalogSignalPort;
+  }
+
+  part def StretchSensor {
+    port stretchIn: StretchInputPort;
+    port resistanceOut: ResistiveSignalPort;
+
+    attribute gaugeLength: Length_mm = 50.0;
+    attribute measurableStrainMin: Strain_percent = 0.0;
+    attribute measurableStrainMax: Strain_percent = 60.0;
+    attribute nominalResistance: Resistance_ohm = 10000.0;
+    attribute gaugeFactor: Real = 2.1;
+    attribute hysteresisError: Error_percent = 1.5;
+    attribute repeatabilityError: Error_percent = 0.8;
+
+    perform action ConvertStretchToResistance;
+  }
+
+  part def ExcitationAndBridge {
+    port powerIn: PowerInputPort;
+    port sensorSignalIn: ResistiveSignalPort;
+    port bridgeVoltageOut: AnalogSignalPort;
+
+    attribute excitationVoltage: Voltage_V = 3.3;
+    attribute bridgeReferenceResistance: Resistance_ohm = 10000.0;
+    attribute bridgeCurrentLimit: Current_mA = 2.0;
+    attribute bridgeSensitivity: Voltage_V = 0.00165;
+
+    perform action ConvertResistanceToVoltage;
+  }
+
+  part def AnalogFrontEnd {
+    port analogIn: AnalogSignalPort;
+    port analogOut: AnalogSignalPort;
+    port powerIn: PowerInputPort;
+
+    attribute lowPassCutoff: Frequency_Hz = 25.0;
+    attribute amplifierGain: Real = 32.0;
+    attribute inputOffsetVoltage: Voltage_V = 0.002;
+    attribute outputMin: Voltage_V = 0.05;
+    attribute outputMax: Voltage_V = 3.25;
+
+    perform action FilterAndAmplify;
+  }
+
+  part def AnalogToDigitalConverter {
+    port analogIn: AnalogSignalPort;
+    port digitalOut: DigitalDataPort;
+    port powerIn: PowerInputPort;
+
+    attribute resolutionBits: Integer = 16;
+    attribute referenceVoltage: Voltage_V = 3.3;
+    attribute sampleRate: Frequency_Hz = 100.0;
+    attribute conversionTime: Time_ms = 0.2;
+
+    perform action SampleAnalogVoltage;
+  }
+
+  part def TemperatureSensor {
+    port powerIn: PowerInputPort;
+    port temperatureOut: DigitalDataPort;
+
+    attribute accuracy: Temperature_C = 1.0;
+    attribute updatePeriod: Time_ms = 100.0;
+
+    perform action MeasureTemperature;
+  }
+
+  part def SignalProcessor {
+    port adcIn: DigitalDataPort;
+    port temperatureIn: DigitalDataPort;
+    port dataOut: DigitalDataPort;
+    port powerIn: PowerInputPort;
+
+    attribute calibrationZero: Strain_percent = 0.0;
+    attribute calibrationGain: Real = 1.0;
+    attribute temperatureCoefficient: Real = 0.0012;
+    attribute diagnosticOpenThreshold: Resistance_ohm = 1000000.0;
+    attribute diagnosticShortThreshold: Resistance_ohm = 100.0;
+    attribute outputUpdateRate: Frequency_Hz = 50.0;
+
+    perform action ComputeStretchMeasurement;
+    perform action RunDiagnostics;
+  }
+
+  part def PowerConditioner {
+    port inputPower: PowerInputPort;
+    port regulatedPower: PowerInputPort;
+
+    attribute inputVoltageMin: Voltage_V = 4.5;
+    attribute inputVoltageMax: Voltage_V = 12.0;
+    attribute regulatedVoltage: Voltage_V = 3.3;
+    attribute availableCurrent: Current_mA = 50.0;
+
+    perform action RegulatePower;
+  }
+
+  part def StretchSensingUnit {
+    port stretchInput: StretchInputPort;
+    port supplyInput: PowerInputPort;
+    port measurementOutput: DigitalDataPort;
+
+    part stretchSensor: StretchSensor;
+    part bridge: ExcitationAndBridge;
+    part afe: AnalogFrontEnd;
+    part adc: AnalogToDigitalConverter;
+    part temperatureSensor: TemperatureSensor;
+    part processor: SignalProcessor;
+    part powerConditioner: PowerConditioner;
+
+    connect stretchInput to stretchSensor.stretchIn;
+    connect stretchSensor.resistanceOut to bridge.sensorSignalIn;
+    connect bridge.bridgeVoltageOut to afe.analogIn;
+    connect afe.analogOut to adc.analogIn;
+    connect adc.digitalOut to processor.adcIn;
+    connect temperatureSensor.temperatureOut to processor.temperatureIn;
+    connect processor.dataOut to measurementOutput;
+
+    connect supplyInput to powerConditioner.inputPower;
+    connect powerConditioner.regulatedPower to bridge.powerIn;
+    connect powerConditioner.regulatedPower to afe.powerIn;
+    connect powerConditioner.regulatedPower to adc.powerIn;
+    connect powerConditioner.regulatedPower to temperatureSensor.powerIn;
+    connect powerConditioner.regulatedPower to processor.powerIn;
+
+    attribute totalMass_g: Real = 18.0;
+    attribute operatingTemperatureMin: Temperature_C = -20.0;
+    attribute operatingTemperatureMax: Temperature_C = 70.0;
+    attribute measurementRangeMin: Strain_percent = 0.0;
+    attribute measurementRangeMax: Strain_percent = 60.0;
+    attribute systemAccuracy: Error_percent = 3.0;
+    attribute latency: Time_ms = 25.0;
+
+    exhibit state StretchSensingUnitStates;
+  }
+
+  action def ConvertStretchToResistance {
+    in item appliedStretch: MechanicalStretch;
+    out item sensorSignal: ResistiveStretchSignal;
+
+    attribute equation: String = "R = R0 * (1 + gaugeFactor * strain / 100)";
+  }
+
+  action def ConvertResistanceToVoltage {
+    in item sensorSignal: ResistiveStretchSignal;
+    out item bridgeVoltage: AnalogVoltageSignal;
+
+    attribute equation: String = "Vout = Vexc * Rsensor / (Rsensor + Rref)";
+  }
+
+  action def FilterAndAmplify {
+    in item bridgeVoltage: AnalogVoltageSignal;
+    out item conditionedVoltage: AnalogVoltageSignal;
+  }
+
+  action def SampleAnalogVoltage {
+    in item conditionedVoltage: AnalogVoltageSignal;
+    out item digitalSample: DigitalStretchSample;
+  }
+
+  action def MeasureTemperature {
+    out item temperatureSample: DigitalStretchSample;
+  }
+
+  action def ComputeStretchMeasurement {
+    in item rawSample: DigitalStretchSample;
+    in item temperatureSample: DigitalStretchSample;
+    out item stretchSample: DigitalStretchSample;
+
+    attribute resistanceEquation: String = "Rsensor = Rref * Vout / (Vexc - Vout)";
+    attribute strainEquation: String = "strain = ((Rsensor / R0) - 1) * 100 / gaugeFactor";
+    attribute elongationEquation: String = "elongation = gaugeLength * strain / 100";
+  }
+
+  action def RunDiagnostics {
+    in item rawSample: DigitalStretchSample;
+    out item status: StatusMessage;
+  }
+
+  action def RegulatePower {
+    in item unregulatedPower: RegulatedPower;
+    out item regulatedPower: RegulatedPower;
+  }
+
+  state def StretchSensingUnitStates {
+    state Off;
+    state Initializing;
+    state Zeroing;
+    state Measuring;
+    state Fault;
+    state LowPower;
+
+    transition first Off;
+    transition Off to Initializing
+      accept PowerApplied;
+
+    transition Initializing to Zeroing
+      accept SelfTestPassed;
+
+    transition Initializing to Fault
+      accept SelfTestFailed;
+
+    transition Zeroing to Measuring
+      accept ZeroReferenceCaptured;
+
+    transition Measuring to Fault
+      accept DiagnosticFaultDetected;
+
+    transition Fault to Initializing
+      accept ResetCommand;
+
+    transition Measuring to LowPower
+      accept SleepCommand;
+
+    transition LowPower to Measuring
+      accept WakeCommand;
+
+    transition Measuring to Off
+      accept PowerRemoved;
+
+    transition LowPower to Off
+      accept PowerRemoved;
+
+    entry action Initializing {
+      perform RegulatePower;
+      perform RunDiagnostics;
+    }
+
+    entry action Zeroing {
+      perform ConvertStretchToResistance;
+      perform ConvertResistanceToVoltage;
+      perform FilterAndAmplify;
+      perform SampleAnalogVoltage;
+    }
+
+    do action Measuring {
+      perform ConvertStretchToResistance;
+      perform ConvertResistanceToVoltage;
+      perform FilterAndAmplify;
+      perform SampleAnalogVoltage;
+      perform MeasureTemperature;
+      perform ComputeStretchMeasurement;
+      perform RunDiagnostics;
+    }
+  }
+
+  requirement def MeasureStretchRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.measurementRangeMin <= 0.0 and
+      sensingUnit.measurementRangeMax >= 60.0
+    }
+
+    require constraint {
+      sensingUnit.systemAccuracy <= 3.0
+    }
+
+    doc /* The sensing unit shall measure mechanical stretch using a stretch sensor and report compensated strain and elongation. */
+  }
+
+  requirement def SamplingRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.outputUpdateRate >= 50.0
+    }
+
+    require constraint {
+      sensingUnit.latency <= 25.0
+    }
+
+    doc /* The sensing unit shall output stretch measurements at not less than 50 Hz with maximum latency of 25 ms. */
+  }
+
+  requirement def ElectricalRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.powerConditioner.inputVoltageMin <= 5.0 and
+      sensingUnit.powerConditioner.inputVoltageMax >= 12.0 and
+      sensingUnit.powerConditioner.availableCurrent >= 50.0
+    }
+
+    doc /* The sensing unit shall operate from a regulated or unregulated external supply between 5 V and 12 V. */
+  }
+
+  requirement def DiagnosticsRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.diagnosticOpenThreshold >= 1000000.0 and
+      sensingUnit.processor.diagnosticShortThreshold <= 100.0
+    }
+
+    doc /* The sensing unit shall detect open circuit, short circuit, saturation, and temperature out-of-range conditions. */
+  }
+
+  requirement def EnvironmentalRequirement {
+    subject sensingUnit: StretchSensingUnit;
+
+    require constraint {
+      sensingUnit.operatingTemperatureMin <= -20.0 and
+      sensingUnit.operatingTemperatureMax >= 70.0
+    }
+
+    doc /* The sensing unit shall operate across the specified industrial temperature range. */
+  }
+
+  part stretchSensingUnit: StretchSensingUnit;
+
+  requirement measureStretch: MeasureStretchRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement sampling: SamplingRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement electrical: ElectricalRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement diagnostics: DiagnosticsRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  requirement environmental: EnvironmentalRequirement {
+    subject sensingUnit = stretchSensingUnit;
+  }
+
+  satisfy measureStretch by stretchSensingUnit;
+  satisfy sampling by stretchSensingUnit;
+  satisfy electrical by stretchSensingUnit;
+  satisfy diagnostics by stretchSensingUnit;
+  satisfy environmental by stretchSensingUnit;
+}

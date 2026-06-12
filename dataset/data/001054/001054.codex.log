@@ -1,0 +1,749 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0uefdkwu
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb544-229f-7ed1-95f7-ee5738d02654
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Flat panel detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FlatPanelDetectorSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def PixelCount :> ScalarValues::Integer;
+    attribute def FrameRate :> frequency {
+        :>> unit = Hz;
+    }
+    attribute def ExposureTime :> time {
+        :>> unit = ms;
+    }
+    attribute def XRayEnergy :> energy {
+        :>> unit = keV;
+    }
+    attribute def Dose :> absorbedDose {
+        :>> unit = mGy;
+    }
+    attribute def Voltage :> electricPotential {
+        :>> unit = V;
+    }
+    attribute def Temperature :> thermodynamicTemperature {
+        :>> unit = degC;
+    }
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "MB/s";
+    }
+
+    item def XRayPhotonFlux {
+        attribute meanEnergy: XRayEnergy;
+        attribute entranceDose: Dose;
+        attribute exposureDuration: ExposureTime;
+    }
+
+    item def ScintillationLight {
+        attribute photonYield: ScalarValues::Real;
+        attribute spatialDistributionWidth: ScalarValues::Real;
+    }
+
+    item def PixelChargePattern {
+        attribute collectedCharge: ScalarValues::Real;
+        attribute darkCurrentCompensated: Boolean;
+    }
+
+    item def RawImageFrame {
+        attribute widthPixels: PixelCount;
+        attribute heightPixels: PixelCount;
+        attribute bitDepth: ScalarValues::Integer;
+        attribute frameIndex: ScalarValues::Integer;
+    }
+
+    item def CorrectedImageFrame {
+        attribute widthPixels: PixelCount;
+        attribute heightPixels: PixelCount;
+        attribute bitDepth: ScalarValues::Integer;
+        attribute gainCorrected: Boolean;
+        attribute offsetCorrected: Boolean;
+        attribute defectPixelCorrected: Boolean;
+    }
+
+    item def DetectorCommand {
+        attribute arm: Boolean;
+        attribute acquire: Boolean;
+        attribute reset: Boolean;
+        attribute requestedExposureTime: ExposureTime;
+    }
+
+    item def DetectorStatus {
+        attribute ready: Boolean;
+        attribute acquiring: Boolean;
+        attribute faulted: Boolean;
+        attribute panelTemperature: Temperature;
+    }
+
+    port def XRayInputPort {
+        in item incidentFlux: XRayPhotonFlux;
+    }
+
+    port def OpticalTransferPort {
+        out item lightPattern: ScintillationLight;
+    }
+
+    port def ChargeTransferPort {
+        out item chargePattern: PixelChargePattern;
+    }
+
+    port def ImageDataPort {
+        out item imageFrame: CorrectedImageFrame;
+    }
+
+    port def CommandPort {
+        in item command: DetectorCommand;
+    }
+
+    port def StatusPort {
+        out item status: DetectorStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage: Voltage;
+    }
+
+    part def Scintillator {
+        port xrayIn: XRayInputPort;
+        port lightOut: OpticalTransferPort;
+
+        attribute conversionEfficiency: ScalarValues::Real;
+        attribute thickness: ScalarValues::Real {
+            unit = "um";
+        }
+
+        action convertXRayToVisibleLight {
+            in item xrayFlux: XRayPhotonFlux;
+            out item lightPattern: ScintillationLight;
+        }
+    }
+
+    part def PhotodiodeArray {
+        port lightIn: ~OpticalTransferPort;
+        port chargeOut: ChargeTransferPort;
+
+        attribute pixelColumns: PixelCount;
+        attribute pixelRows: PixelCount;
+        attribute pixelPitch: ScalarValues::Real {
+            unit = "um";
+        }
+        attribute fillFactor: ScalarValues::Real;
+
+        action integrateLight {
+            in item lightPattern: ScintillationLight;
+            out item chargePattern: PixelChargePattern;
+        }
+    }
+
+    part def ThinFilmTransistorMatrix {
+        port chargeIn: ~ChargeTransferPort;
+        port chargeOut: ChargeTransferPort;
+
+        attribute rowCount: PixelCount;
+        attribute columnCount: PixelCount;
+        attribute switchingVoltage: Voltage;
+
+        action selectAndReadRows {
+            in item integratedCharge: PixelChargePattern;
+            out item orderedCharge: PixelChargePattern;
+        }
+    }
+
+    part def ReadoutElectronics {
+        port chargeIn: ~ChargeTransferPort;
+        port rawImageOut: port {
+            out item rawFrame: RawImageFrame;
+        }
+
+        attribute analogGain: ScalarValues::Real;
+        attribute adcBitDepth: ScalarValues::Integer;
+        attribute maximumFrameRate: FrameRate;
+
+        action digitizeChargePattern {
+            in item orderedCharge: PixelChargePattern;
+            out item rawFrame: RawImageFrame;
+        }
+    }
+
+    part def ImageCorrectionProcessor {
+        port rawImageIn: port {
+            in item rawFrame: RawImageFrame;
+        }
+        port correctedImageOut: ImageDataPort;
+
+        attribute offsetMapValid: Boolean;
+        attribute gainMapValid: Boolean;
+        attribute defectMapValid: Boolean;
+        attribute outputDataRate: DataRate;
+
+        action correctImage {
+            in item rawFrame: RawImageFrame;
+            out item correctedFrame: CorrectedImageFrame;
+        }
+    }
+
+    part def DetectorController {
+        port commandIn: CommandPort;
+        port statusOut: StatusPort;
+
+        attribute armed: Boolean;
+        attribute exposurePermitted: Boolean;
+        attribute temperatureLimit: Temperature = 45 [degC];
+
+        action armDetector {
+            in item command: DetectorCommand;
+            out attribute armedState: Boolean;
+        }
+
+        action publishStatus {
+            out item status: DetectorStatus;
+        }
+
+        state def OperatingState {
+            state Off;
+            state Initializing;
+            state Standby;
+            state Armed;
+            state Integrating;
+            state ReadingOut;
+            state Processing;
+            state Fault;
+
+            transition initial then Off;
+            transition Off then Initializing accept DetectorCommand;
+            transition Initializing then Standby;
+            transition Standby then Armed accept DetectorCommand;
+            transition Armed then Integrating accept XRayPhotonFlux;
+            transition Integrating then ReadingOut;
+            transition ReadingOut then Processing;
+            transition Processing then Standby;
+            transition Standby then Fault if panelTemperature > temperatureLimit;
+            transition Armed then Fault if panelTemperature > temperatureLimit;
+            transition Fault then Initializing accept DetectorCommand;
+        }
+    }
+
+    part def PowerConditioningUnit {
+        port powerIn: PowerPort;
+        port panelBiasOut: PowerPort;
+        port electronicsPowerOut: PowerPort;
+
+        attribute nominalInputVoltage: Voltage = 24 [V];
+        attribute detectorBiasVoltage: Voltage = 5 [V];
+        attribute electronicsVoltage: Voltage = 3.3 [V];
+
+        action regulatePower {
+            in attribute supplyVoltage: Voltage;
+            out attribute detectorBias: Voltage;
+            out attribute electronicsSupply: Voltage;
+        }
+    }
+
+    part def ThermalMonitor {
+        port statusOut: StatusPort;
+
+        attribute panelTemperature: Temperature;
+        attribute warningTemperature: Temperature = 40 [degC];
+        attribute shutdownTemperature: Temperature = 45 [degC];
+
+        action measureTemperature {
+            out attribute measuredTemperature: Temperature;
+        }
+    }
+
+    part def FlatPanelDetector {
+        port xrayInput: XRayInputPort;
+        port imageOutput: ImageDataPort;
+        port commandInput: CommandPort;
+        port statusOutput: StatusPort;
+        port powerInput: PowerPort;
+
+        attribute activeWidth: ScalarValues::Real {
+            unit = "mm";
+        } = 430;
+        attribute activeHeight: ScalarValues::Real {
+            unit = "mm";
+        } = 430;
+        attribute pixelColumns: PixelCount = 3072;
+        attribute pixelRows: PixelCount = 3072;
+        attribute pixelPitch: ScalarValues::Real {
+            unit = "um";
+        } = 140;
+        attribute nominalFrameRate: FrameRate = 30 [Hz];
+        attribute supportedEnergyMin: XRayEnergy = 40 [keV];
+        attribute supportedEnergyMax: XRayEnergy = 150 [keV];
+
+        part scintillator: Scintillator;
+        part photodiodeArray: PhotodiodeArray;
+        part tftMatrix: ThinFilmTransistorMatrix;
+        part readoutElectronics: ReadoutElectronics;
+        part imageProcessor: ImageCorrectionProcessor;
+        part controller: DetectorController;
+        part powerUnit: PowerConditioningUnit;
+        part thermalMonitor: ThermalMonitor;
+
+        connect xrayInput to scintillator.xrayIn;
+        connect scintillator.lightOut to photodiodeArray.lightIn;
+        connect photodiodeArray.chargeOut to tftMatrix.chargeIn;
+        connect tftMatrix.chargeOut to readoutElectronics.chargeIn;
+        connect readoutElectronics.rawImageOut to imageProcessor.rawImageIn;
+        connect imageProcessor.correctedImageOut to imageOutput;
+        connect commandInput to controller.commandIn;
+        connect controller.statusOut to statusOutput;
+        connect thermalMonitor.statusOut to statusOutput;
+        connect powerInput to powerUnit.powerIn;
+        connect powerUnit.panelBiasOut to photodiodeArray;
+        connect powerUnit.electronicsPowerOut to readoutElectronics;
+
+        action acquireRadiographicImage {
+            in item incidentXRayFlux: XRayPhotonFlux;
+            in item acquisitionCommand: DetectorCommand;
+            out item diagnosticImage: CorrectedImageFrame;
+
+            first start;
+            then scintillator.convertXRayToVisibleLight;
+            then photodiodeArray.integrateLight;
+            then tftMatrix.selectAndReadRows;
+            then readoutElectronics.digitizeChargePattern;
+            then imageProcessor.correctImage;
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector: FlatPanelDetector;
+
+        doc /* The flat panel detector shall convert incident X-ray photon flux passing through an imaged object into a corrected digital radiographic image frame suitable for transfer to an imaging workstation or acquisition system. */
+
+        require constraint {
+            detector.pixelColumns >= 3000 and
+            detector.pixelRows >= 3000 and
+            detector.nominalFrameRate >= 30 [Hz] and
+            detector.supportedEnergyMin <= 40 [keV] and
+            detector.supportedEnergyMax >= 150 [keV]
+        }
+    }
+
+    requirement def ImageCorrectionRequirement {
+        subject processor: ImageCorrectionProcessor;
+
+        require constraint {
+            processor.offsetMapValid == true and
+            processor.gainMapValid == true and
+            processor.defectMapValid == true
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject controller: DetectorController;
+
+        require constraint {
+            controller.temperatureLimit <= 45 [degC]
+        }
+    }
+
+    requirement def PowerInputRequirement {
+        subject powerUnit: PowerConditioningUnit;
+
+        require constraint {
+            powerUnit.nominalInputVoltage == 24 [V] and
+            powerUnit.detectorBiasVoltage == 5 [V] and
+            powerUnit.electronicsVoltage == 3.3 [V]
+        }
+    }
+
+    part clinicalFlatPanelDetector: FlatPanelDetector {
+        :>> activeWidth = 430;
+        :>> activeHeight = 430;
+        :>> pixelColumns = 3072;
+        :>> pixelRows = 3072;
+        :>> pixelPitch = 140;
+        :>> nominalFrameRate = 30 [Hz];
+    }
+
+    satisfy PrimaryFunctionRequirement by clinicalFlatPanelDetector;
+    satisfy ImageCorrectionRequirement by clinicalFlatPanelDetector.imageProcessor;
+    satisfy ThermalProtectionRequirement by clinicalFlatPanelDetector.controller;
+    satisfy PowerInputRequirement by clinicalFlatPanelDetector.powerUnit;
+}
+tokens used
+3,169
+package FlatPanelDetectorSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def PixelCount :> ScalarValues::Integer;
+    attribute def FrameRate :> frequency {
+        :>> unit = Hz;
+    }
+    attribute def ExposureTime :> time {
+        :>> unit = ms;
+    }
+    attribute def XRayEnergy :> energy {
+        :>> unit = keV;
+    }
+    attribute def Dose :> absorbedDose {
+        :>> unit = mGy;
+    }
+    attribute def Voltage :> electricPotential {
+        :>> unit = V;
+    }
+    attribute def Temperature :> thermodynamicTemperature {
+        :>> unit = degC;
+    }
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "MB/s";
+    }
+
+    item def XRayPhotonFlux {
+        attribute meanEnergy: XRayEnergy;
+        attribute entranceDose: Dose;
+        attribute exposureDuration: ExposureTime;
+    }
+
+    item def ScintillationLight {
+        attribute photonYield: ScalarValues::Real;
+        attribute spatialDistributionWidth: ScalarValues::Real;
+    }
+
+    item def PixelChargePattern {
+        attribute collectedCharge: ScalarValues::Real;
+        attribute darkCurrentCompensated: Boolean;
+    }
+
+    item def RawImageFrame {
+        attribute widthPixels: PixelCount;
+        attribute heightPixels: PixelCount;
+        attribute bitDepth: ScalarValues::Integer;
+        attribute frameIndex: ScalarValues::Integer;
+    }
+
+    item def CorrectedImageFrame {
+        attribute widthPixels: PixelCount;
+        attribute heightPixels: PixelCount;
+        attribute bitDepth: ScalarValues::Integer;
+        attribute gainCorrected: Boolean;
+        attribute offsetCorrected: Boolean;
+        attribute defectPixelCorrected: Boolean;
+    }
+
+    item def DetectorCommand {
+        attribute arm: Boolean;
+        attribute acquire: Boolean;
+        attribute reset: Boolean;
+        attribute requestedExposureTime: ExposureTime;
+    }
+
+    item def DetectorStatus {
+        attribute ready: Boolean;
+        attribute acquiring: Boolean;
+        attribute faulted: Boolean;
+        attribute panelTemperature: Temperature;
+    }
+
+    port def XRayInputPort {
+        in item incidentFlux: XRayPhotonFlux;
+    }
+
+    port def OpticalTransferPort {
+        out item lightPattern: ScintillationLight;
+    }
+
+    port def ChargeTransferPort {
+        out item chargePattern: PixelChargePattern;
+    }
+
+    port def ImageDataPort {
+        out item imageFrame: CorrectedImageFrame;
+    }
+
+    port def CommandPort {
+        in item command: DetectorCommand;
+    }
+
+    port def StatusPort {
+        out item status: DetectorStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage: Voltage;
+    }
+
+    part def Scintillator {
+        port xrayIn: XRayInputPort;
+        port lightOut: OpticalTransferPort;
+
+        attribute conversionEfficiency: ScalarValues::Real;
+        attribute thickness: ScalarValues::Real {
+            unit = "um";
+        }
+
+        action convertXRayToVisibleLight {
+            in item xrayFlux: XRayPhotonFlux;
+            out item lightPattern: ScintillationLight;
+        }
+    }
+
+    part def PhotodiodeArray {
+        port lightIn: ~OpticalTransferPort;
+        port chargeOut: ChargeTransferPort;
+
+        attribute pixelColumns: PixelCount;
+        attribute pixelRows: PixelCount;
+        attribute pixelPitch: ScalarValues::Real {
+            unit = "um";
+        }
+        attribute fillFactor: ScalarValues::Real;
+
+        action integrateLight {
+            in item lightPattern: ScintillationLight;
+            out item chargePattern: PixelChargePattern;
+        }
+    }
+
+    part def ThinFilmTransistorMatrix {
+        port chargeIn: ~ChargeTransferPort;
+        port chargeOut: ChargeTransferPort;
+
+        attribute rowCount: PixelCount;
+        attribute columnCount: PixelCount;
+        attribute switchingVoltage: Voltage;
+
+        action selectAndReadRows {
+            in item integratedCharge: PixelChargePattern;
+            out item orderedCharge: PixelChargePattern;
+        }
+    }
+
+    part def ReadoutElectronics {
+        port chargeIn: ~ChargeTransferPort;
+        port rawImageOut: port {
+            out item rawFrame: RawImageFrame;
+        }
+
+        attribute analogGain: ScalarValues::Real;
+        attribute adcBitDepth: ScalarValues::Integer;
+        attribute maximumFrameRate: FrameRate;
+
+        action digitizeChargePattern {
+            in item orderedCharge: PixelChargePattern;
+            out item rawFrame: RawImageFrame;
+        }
+    }
+
+    part def ImageCorrectionProcessor {
+        port rawImageIn: port {
+            in item rawFrame: RawImageFrame;
+        }
+        port correctedImageOut: ImageDataPort;
+
+        attribute offsetMapValid: Boolean;
+        attribute gainMapValid: Boolean;
+        attribute defectMapValid: Boolean;
+        attribute outputDataRate: DataRate;
+
+        action correctImage {
+            in item rawFrame: RawImageFrame;
+            out item correctedFrame: CorrectedImageFrame;
+        }
+    }
+
+    part def DetectorController {
+        port commandIn: CommandPort;
+        port statusOut: StatusPort;
+
+        attribute armed: Boolean;
+        attribute exposurePermitted: Boolean;
+        attribute temperatureLimit: Temperature = 45 [degC];
+
+        action armDetector {
+            in item command: DetectorCommand;
+            out attribute armedState: Boolean;
+        }
+
+        action publishStatus {
+            out item status: DetectorStatus;
+        }
+
+        state def OperatingState {
+            state Off;
+            state Initializing;
+            state Standby;
+            state Armed;
+            state Integrating;
+            state ReadingOut;
+            state Processing;
+            state Fault;
+
+            transition initial then Off;
+            transition Off then Initializing accept DetectorCommand;
+            transition Initializing then Standby;
+            transition Standby then Armed accept DetectorCommand;
+            transition Armed then Integrating accept XRayPhotonFlux;
+            transition Integrating then ReadingOut;
+            transition ReadingOut then Processing;
+            transition Processing then Standby;
+            transition Standby then Fault if panelTemperature > temperatureLimit;
+            transition Armed then Fault if panelTemperature > temperatureLimit;
+            transition Fault then Initializing accept DetectorCommand;
+        }
+    }
+
+    part def PowerConditioningUnit {
+        port powerIn: PowerPort;
+        port panelBiasOut: PowerPort;
+        port electronicsPowerOut: PowerPort;
+
+        attribute nominalInputVoltage: Voltage = 24 [V];
+        attribute detectorBiasVoltage: Voltage = 5 [V];
+        attribute electronicsVoltage: Voltage = 3.3 [V];
+
+        action regulatePower {
+            in attribute supplyVoltage: Voltage;
+            out attribute detectorBias: Voltage;
+            out attribute electronicsSupply: Voltage;
+        }
+    }
+
+    part def ThermalMonitor {
+        port statusOut: StatusPort;
+
+        attribute panelTemperature: Temperature;
+        attribute warningTemperature: Temperature = 40 [degC];
+        attribute shutdownTemperature: Temperature = 45 [degC];
+
+        action measureTemperature {
+            out attribute measuredTemperature: Temperature;
+        }
+    }
+
+    part def FlatPanelDetector {
+        port xrayInput: XRayInputPort;
+        port imageOutput: ImageDataPort;
+        port commandInput: CommandPort;
+        port statusOutput: StatusPort;
+        port powerInput: PowerPort;
+
+        attribute activeWidth: ScalarValues::Real {
+            unit = "mm";
+        } = 430;
+        attribute activeHeight: ScalarValues::Real {
+            unit = "mm";
+        } = 430;
+        attribute pixelColumns: PixelCount = 3072;
+        attribute pixelRows: PixelCount = 3072;
+        attribute pixelPitch: ScalarValues::Real {
+            unit = "um";
+        } = 140;
+        attribute nominalFrameRate: FrameRate = 30 [Hz];
+        attribute supportedEnergyMin: XRayEnergy = 40 [keV];
+        attribute supportedEnergyMax: XRayEnergy = 150 [keV];
+
+        part scintillator: Scintillator;
+        part photodiodeArray: PhotodiodeArray;
+        part tftMatrix: ThinFilmTransistorMatrix;
+        part readoutElectronics: ReadoutElectronics;
+        part imageProcessor: ImageCorrectionProcessor;
+        part controller: DetectorController;
+        part powerUnit: PowerConditioningUnit;
+        part thermalMonitor: ThermalMonitor;
+
+        connect xrayInput to scintillator.xrayIn;
+        connect scintillator.lightOut to photodiodeArray.lightIn;
+        connect photodiodeArray.chargeOut to tftMatrix.chargeIn;
+        connect tftMatrix.chargeOut to readoutElectronics.chargeIn;
+        connect readoutElectronics.rawImageOut to imageProcessor.rawImageIn;
+        connect imageProcessor.correctedImageOut to imageOutput;
+        connect commandInput to controller.commandIn;
+        connect controller.statusOut to statusOutput;
+        connect thermalMonitor.statusOut to statusOutput;
+        connect powerInput to powerUnit.powerIn;
+        connect powerUnit.panelBiasOut to photodiodeArray;
+        connect powerUnit.electronicsPowerOut to readoutElectronics;
+
+        action acquireRadiographicImage {
+            in item incidentXRayFlux: XRayPhotonFlux;
+            in item acquisitionCommand: DetectorCommand;
+            out item diagnosticImage: CorrectedImageFrame;
+
+            first start;
+            then scintillator.convertXRayToVisibleLight;
+            then photodiodeArray.integrateLight;
+            then tftMatrix.selectAndReadRows;
+            then readoutElectronics.digitizeChargePattern;
+            then imageProcessor.correctImage;
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector: FlatPanelDetector;
+
+        doc /* The flat panel detector shall convert incident X-ray photon flux passing through an imaged object into a corrected digital radiographic image frame suitable for transfer to an imaging workstation or acquisition system. */
+
+        require constraint {
+            detector.pixelColumns >= 3000 and
+            detector.pixelRows >= 3000 and
+            detector.nominalFrameRate >= 30 [Hz] and
+            detector.supportedEnergyMin <= 40 [keV] and
+            detector.supportedEnergyMax >= 150 [keV]
+        }
+    }
+
+    requirement def ImageCorrectionRequirement {
+        subject processor: ImageCorrectionProcessor;
+
+        require constraint {
+            processor.offsetMapValid == true and
+            processor.gainMapValid == true and
+            processor.defectMapValid == true
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject controller: DetectorController;
+
+        require constraint {
+            controller.temperatureLimit <= 45 [degC]
+        }
+    }
+
+    requirement def PowerInputRequirement {
+        subject powerUnit: PowerConditioningUnit;
+
+        require constraint {
+            powerUnit.nominalInputVoltage == 24 [V] and
+            powerUnit.detectorBiasVoltage == 5 [V] and
+            powerUnit.electronicsVoltage == 3.3 [V]
+        }
+    }
+
+    part clinicalFlatPanelDetector: FlatPanelDetector {
+        :>> activeWidth = 430;
+        :>> activeHeight = 430;
+        :>> pixelColumns = 3072;
+        :>> pixelRows = 3072;
+        :>> pixelPitch = 140;
+        :>> nominalFrameRate = 30 [Hz];
+    }
+
+    satisfy PrimaryFunctionRequirement by clinicalFlatPanelDetector;
+    satisfy ImageCorrectionRequirement by clinicalFlatPanelDetector.imageProcessor;
+    satisfy ThermalProtectionRequirement by clinicalFlatPanelDetector.controller;
+    satisfy PowerInputRequirement by clinicalFlatPanelDetector.powerUnit;
+}

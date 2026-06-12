@@ -1,0 +1,1229 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7dlkxadp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb767-bd04-7453-a91d-3de6beab4ff8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Unmanned vehicle and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package UnmannedVehicleSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        doc /* Dimensionless percentage from 0 to 100. */
+    }
+
+    attribute def Latitude : Real {
+        unit = "deg";
+    }
+
+    attribute def Longitude : Real {
+        unit = "deg";
+    }
+
+    attribute def Altitude : Real {
+        unit = "m";
+    }
+
+    attribute def Speed : Real {
+        unit = "m/s";
+    }
+
+    attribute def Distance : Real {
+        unit = "m";
+    }
+
+    attribute def Duration : Real {
+        unit = "s";
+    }
+
+    attribute def ElectricPotential : Real {
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent : Real {
+        unit = "A";
+    }
+
+    attribute def EnergyCapacity : Real {
+        unit = "Wh";
+    }
+
+    attribute def Mass : Real {
+        unit = "kg";
+    }
+
+    attribute def Frequency : Real {
+        unit = "Hz";
+    }
+
+    enum def VehicleMode {
+        enum idle;
+        enum missionPlanning;
+        enum autonomousNavigation;
+        enum obstacleAvoidance;
+        enum payloadOperation;
+        enum returnToBase;
+        enum emergencyRecovery;
+        enum shutdown;
+    }
+
+    enum def LinkStatus {
+        enum disconnected;
+        enum degraded;
+        enum nominal;
+    }
+
+    enum def MissionStatus {
+        enum notLoaded;
+        enum loaded;
+        enum executing;
+        enum completed;
+        enum aborted;
+    }
+
+    enum def HealthStatus {
+        enum nominal;
+        enum warning;
+        enum critical;
+    }
+
+    item def MissionPlan {
+        attribute missionId : String;
+        attribute startLatitude : Latitude;
+        attribute startLongitude : Longitude;
+        attribute destinationLatitude : Latitude;
+        attribute destinationLongitude : Longitude;
+        attribute cruiseSpeed : Speed;
+        attribute minimumObstacleClearance : Distance;
+        attribute maximumMissionDuration : Duration;
+    }
+
+    item def NavigationSolution {
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute altitude : Altitude;
+        attribute groundSpeed : Speed;
+        attribute heading : Real;
+        attribute positionUncertainty : Distance;
+    }
+
+    item def VehicleCommand {
+        attribute requestedMode : VehicleMode;
+        attribute commandedSpeed : Speed;
+        attribute commandedHeading : Real;
+        attribute commandedAltitude : Altitude;
+        attribute abortMission : Boolean;
+        attribute returnToBase : Boolean;
+    }
+
+    item def TelemetryPacket {
+        attribute mode : VehicleMode;
+        attribute missionStatus : MissionStatus;
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute altitude : Altitude;
+        attribute speed : Speed;
+        attribute batteryStateOfCharge : Percent;
+        attribute linkStatus : LinkStatus;
+        attribute healthStatus : HealthStatus;
+    }
+
+    item def ObstacleReport {
+        attribute detected : Boolean;
+        attribute range : Distance;
+        attribute bearing : Real;
+        attribute relativeSpeed : Speed;
+        attribute confidence : Percent;
+    }
+
+    item def PayloadData {
+        attribute timestamp : Duration;
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute qualityScore : Percent;
+        attribute dataSizeBytes : Integer;
+    }
+
+    port def MissionPlanPort {
+        in item plan : MissionPlan;
+    }
+
+    port def CommandPort {
+        in item command : VehicleCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def NavigationPort {
+        out item navigation : NavigationSolution;
+    }
+
+    port def ObstaclePort {
+        out item obstacle : ObstacleReport;
+    }
+
+    port def PayloadDataPort {
+        out item payloadData : PayloadData;
+    }
+
+    port def ElectricalPowerPort {
+        out attribute voltage : ElectricPotential;
+        out attribute current : ElectricCurrent;
+    }
+
+    port def PropulsionPowerPort {
+        in attribute voltage : ElectricPotential;
+        in attribute current : ElectricCurrent;
+    }
+
+    port def ControlSignalPort {
+        out item command : VehicleCommand;
+    }
+
+    part def UnmannedVehicle {
+        doc /* Autonomous unmanned vehicle whose primary high-level function is to execute a mission plan without an onboard human operator by navigating from a start location to a destination, avoiding obstacles, operating a payload, and returning telemetry to a remote operator. */
+
+        attribute operatingMode : VehicleMode = VehicleMode::idle;
+        attribute missionStatus : MissionStatus = MissionStatus::notLoaded;
+        attribute maximumSpeed : Speed = 18.0;
+        attribute cruiseSpeed : Speed = 10.0;
+        attribute minimumObstacleClearance : Distance = 5.0;
+        attribute maximumRange : Distance = 25000.0;
+        attribute endurance : Duration = 3600.0;
+        attribute emptyMass : Mass = 42.0;
+
+        port missionPlanIn : MissionPlanPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port payloadDataOut : PayloadDataPort;
+
+        part powerSubsystem : PowerSubsystem;
+        part propulsionSubsystem : PropulsionSubsystem;
+        part navigationSubsystem : NavigationSubsystem;
+        part autonomyController : AutonomyController;
+        part communicationSubsystem : CommunicationSubsystem;
+        part obstacleDetectionSubsystem : ObstacleDetectionSubsystem;
+        part payloadSubsystem : PayloadSubsystem;
+        part vehicleStructure : VehicleStructure;
+
+        connect powerToPropulsion
+            from powerSubsystem.propulsionPowerOut
+            to propulsionSubsystem.powerIn;
+
+        connect navigationToController
+            from navigationSubsystem.navigationOut
+            to autonomyController.navigationIn;
+
+        connect obstacleToController
+            from obstacleDetectionSubsystem.obstacleOut
+            to autonomyController.obstacleIn;
+
+        connect controllerToPropulsion
+            from autonomyController.motionCommandOut
+            to propulsionSubsystem.motionCommandIn;
+
+        connect communicationCommandToController
+            from communicationSubsystem.commandOut
+            to autonomyController.operatorCommandIn;
+
+        connect controllerTelemetryToCommunication
+            from autonomyController.telemetryOut
+            to communicationSubsystem.telemetryIn;
+
+        connect payloadDataToCommunication
+            from payloadSubsystem.payloadDataOut
+            to communicationSubsystem.payloadDataIn;
+
+        connect missionPlanToController
+            from missionPlanIn
+            to autonomyController.missionPlanIn;
+
+        connect commandToCommunication
+            from commandIn
+            to communicationSubsystem.commandIn;
+
+        connect telemetryToVehicleExternal
+            from communicationSubsystem.telemetryOut
+            to telemetryOut;
+
+        connect payloadDataToVehicleExternal
+            from communicationSubsystem.payloadDataOut
+            to payloadDataOut;
+
+        state def VehicleOperationalStateMachine {
+            state idle;
+            state planning;
+            state navigating;
+            state avoidingObstacle;
+            state operatingPayload;
+            state returningToBase;
+            state emergencyRecovery;
+            state shutdown;
+
+            entry; then idle;
+
+            transition idle_to_planning
+                first idle
+                accept MissionPlan
+                then planning;
+
+            transition planning_to_navigating
+                first planning
+                if missionStatus == MissionStatus::loaded
+                then navigating;
+
+            transition navigating_to_avoiding
+                first navigating
+                if obstacleDetectionSubsystem.currentObstacle.detected == true
+                then avoidingObstacle;
+
+            transition avoiding_to_navigating
+                first avoidingObstacle
+                if obstacleDetectionSubsystem.currentObstacle.detected == false
+                then navigating;
+
+            transition navigating_to_payload
+                first navigating
+                if autonomyController.atPayloadWaypoint == true
+                then operatingPayload;
+
+            transition payload_to_navigating
+                first operatingPayload
+                if payloadSubsystem.payloadTaskComplete == true
+                then navigating;
+
+            transition navigating_to_return
+                first navigating
+                if autonomyController.destinationReached == true or powerSubsystem.stateOfCharge <= 20.0
+                then returningToBase;
+
+            transition returning_to_idle
+                first returningToBase
+                if autonomyController.baseReached == true
+                then idle;
+
+            transition any_to_emergency
+                first idle, planning, navigating, avoidingObstacle, operatingPayload, returningToBase
+                if powerSubsystem.health == HealthStatus::critical or communicationSubsystem.linkStatus == LinkStatus::disconnected
+                then emergencyRecovery;
+
+            transition emergency_to_shutdown
+                first emergencyRecovery
+                if autonomyController.safeStopAchieved == true
+                then shutdown;
+        }
+
+        action executeMission {
+            in item plan : MissionPlan;
+            out item finalTelemetry : TelemetryPacket;
+
+            first startMission;
+            then validatePlan;
+            then navigateRoute;
+            then operatePayload;
+            then returnToBase;
+            then publishFinalTelemetry;
+
+            action startMission {
+                operatingMode = VehicleMode::missionPlanning;
+                missionStatus = MissionStatus::loaded;
+            }
+
+            action validatePlan {
+                assert plan.cruiseSpeed <= maximumSpeed;
+                assert plan.maximumMissionDuration <= endurance;
+                assert plan.minimumObstacleClearance >= minimumObstacleClearance;
+            }
+
+            action navigateRoute {
+                operatingMode = VehicleMode::autonomousNavigation;
+                missionStatus = MissionStatus::executing;
+            }
+
+            action operatePayload {
+                operatingMode = VehicleMode::payloadOperation;
+            }
+
+            action returnToBase {
+                operatingMode = VehicleMode::returnToBase;
+            }
+
+            action publishFinalTelemetry {
+                missionStatus = MissionStatus::completed;
+            }
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : ElectricPotential = 48.0;
+        attribute maximumCurrent : ElectricCurrent = 120.0;
+        attribute capacity : EnergyCapacity = 2400.0;
+        attribute stateOfCharge : Percent = 100.0;
+        attribute health : HealthStatus = HealthStatus::nominal;
+
+        port propulsionPowerOut : ElectricalPowerPort;
+
+        action providePower {
+            out attribute voltage : ElectricPotential;
+            out attribute current : ElectricCurrent;
+            voltage = nominalVoltage;
+            current = maximumCurrent;
+        }
+
+        action monitorEnergy {
+            if stateOfCharge <= 20.0 {
+                health = HealthStatus::warning;
+            }
+            if stateOfCharge <= 8.0 {
+                health = HealthStatus::critical;
+            }
+        }
+    }
+
+    part def PropulsionSubsystem {
+        attribute commandedSpeed : Speed = 0.0;
+        attribute actualSpeed : Speed = 0.0;
+        attribute maximumThrust : Real = 850.0;
+        attribute propulsionHealth : HealthStatus = HealthStatus::nominal;
+
+        port powerIn : PropulsionPowerPort;
+        port motionCommandIn : CommandPort;
+
+        action regulateMotion {
+            in item command : VehicleCommand;
+            commandedSpeed = command.commandedSpeed;
+            if commandedSpeed <= 18.0 {
+                actualSpeed = commandedSpeed;
+            }
+        }
+
+        action stopMotion {
+            commandedSpeed = 0.0;
+            actualSpeed = 0.0;
+        }
+    }
+
+    part def NavigationSubsystem {
+        attribute updateRate : Frequency = 20.0;
+        attribute currentLatitude : Latitude;
+        attribute currentLongitude : Longitude;
+        attribute currentAltitude : Altitude;
+        attribute currentSpeed : Speed;
+        attribute positionUncertainty : Distance = 1.5;
+        attribute navigationHealth : HealthStatus = HealthStatus::nominal;
+
+        port navigationOut : NavigationPort;
+
+        action estimatePosition {
+            out item solution : NavigationSolution;
+            solution.latitude = currentLatitude;
+            solution.longitude = currentLongitude;
+            solution.altitude = currentAltitude;
+            solution.groundSpeed = currentSpeed;
+            solution.positionUncertainty = positionUncertainty;
+        }
+    }
+
+    part def ObstacleDetectionSubsystem {
+        attribute sensorRange : Distance = 80.0;
+        attribute minimumTrackConfidence : Percent = 70.0;
+        attribute currentObstacle : ObstacleReport;
+        attribute detectionHealth : HealthStatus = HealthStatus::nominal;
+
+        port obstacleOut : ObstaclePort;
+
+        action scanEnvironment {
+            out item report : ObstacleReport;
+            report = currentObstacle;
+        }
+    }
+
+    part def AutonomyController {
+        attribute activeMode : VehicleMode = VehicleMode::idle;
+        attribute missionState : MissionStatus = MissionStatus::notLoaded;
+        attribute atPayloadWaypoint : Boolean = false;
+        attribute destinationReached : Boolean = false;
+        attribute baseReached : Boolean = false;
+        attribute safeStopAchieved : Boolean = false;
+
+        port missionPlanIn : MissionPlanPort;
+        port navigationIn : NavigationPort;
+        port obstacleIn : ObstaclePort;
+        port operatorCommandIn : CommandPort;
+        port motionCommandOut : ControlSignalPort;
+        port telemetryOut : TelemetryPort;
+
+        action planRoute {
+            in item plan : MissionPlan;
+            assert plan.cruiseSpeed > 0.0;
+            assert plan.minimumObstacleClearance >= 5.0;
+            missionState = MissionStatus::loaded;
+            activeMode = VehicleMode::missionPlanning;
+        }
+
+        action computeMotionCommand {
+            in item navigation : NavigationSolution;
+            in item obstacle : ObstacleReport;
+            out item command : VehicleCommand;
+
+            if obstacle.detected == true and obstacle.range <= 20.0 {
+                activeMode = VehicleMode::obstacleAvoidance;
+                command.commandedSpeed = 3.0;
+                command.commandedHeading = obstacle.bearing + 45.0;
+            } else {
+                activeMode = VehicleMode::autonomousNavigation;
+                command.commandedSpeed = 10.0;
+                command.commandedHeading = navigation.heading;
+            }
+        }
+
+        action handleOperatorCommand {
+            in item command : VehicleCommand;
+            if command.abortMission == true {
+                missionState = MissionStatus::aborted;
+                activeMode = VehicleMode::emergencyRecovery;
+            }
+            if command.returnToBase == true {
+                activeMode = VehicleMode::returnToBase;
+            }
+        }
+
+        action generateTelemetry {
+            in item navigation : NavigationSolution;
+            out item telemetry : TelemetryPacket;
+            telemetry.mode = activeMode;
+            telemetry.missionStatus = missionState;
+            telemetry.latitude = navigation.latitude;
+            telemetry.longitude = navigation.longitude;
+            telemetry.altitude = navigation.altitude;
+            telemetry.speed = navigation.groundSpeed;
+        }
+    }
+
+    part def CommunicationSubsystem {
+        attribute linkStatus : LinkStatus = LinkStatus::nominal;
+        attribute commandLatency : Duration = 0.25;
+        attribute telemetryRate : Frequency = 5.0;
+        attribute maximumRange : Distance = 30000.0;
+
+        port commandIn : CommandPort;
+        port commandOut : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port telemetryOut : TelemetryPort;
+        port payloadDataIn : PayloadDataPort;
+        port payloadDataOut : PayloadDataPort;
+
+        action relayCommand {
+            in item operatorCommand : VehicleCommand;
+            out item controllerCommand : VehicleCommand;
+            controllerCommand = operatorCommand;
+        }
+
+        action transmitTelemetry {
+            in item telemetry : TelemetryPacket;
+            out item transmittedTelemetry : TelemetryPacket;
+            transmittedTelemetry = telemetry;
+        }
+
+        action transmitPayloadData {
+            in item payloadData : PayloadData;
+            out item transmittedPayloadData : PayloadData;
+            transmittedPayloadData = payloadData;
+        }
+    }
+
+    part def PayloadSubsystem {
+        attribute payloadMass : Mass = 6.0;
+        attribute payloadPowerDraw : Real = 120.0;
+        attribute payloadTaskComplete : Boolean = false;
+        attribute payloadHealth : HealthStatus = HealthStatus::nominal;
+
+        port payloadDataOut : PayloadDataPort;
+
+        action collectData {
+            in item navigation : NavigationSolution;
+            out item data : PayloadData;
+            data.latitude = navigation.latitude;
+            data.longitude = navigation.longitude;
+            data.qualityScore = 95.0;
+            data.dataSizeBytes = 1048576;
+        }
+
+        action completePayloadTask {
+            payloadTaskComplete = true;
+        }
+    }
+
+    part def VehicleStructure {
+        attribute frameMass : Mass = 18.0;
+        attribute payloadCapacity : Mass = 10.0;
+        attribute ingressProtectionRating : String = "IP54";
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The unmanned vehicle shall autonomously execute a loaded mission plan without an onboard human operator by navigating to assigned waypoints, avoiding obstacles, operating its payload, and reporting telemetry. */
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        doc /* The unmanned vehicle shall maintain position uncertainty less than or equal to 3 meters during autonomous navigation. */
+        require constraint {
+            navigationSubsystem.positionUncertainty <= 3.0
+        }
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        doc /* The unmanned vehicle shall maintain at least 5 meters clearance from detected obstacles during mission execution. */
+        require constraint {
+            minimumObstacleClearance >= 5.0
+        }
+    }
+
+    requirement def EnduranceRequirement {
+        doc /* The unmanned vehicle shall support mission execution for at least 3600 seconds under nominal payload and cruise conditions. */
+        require constraint {
+            endurance >= 3600.0
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The unmanned vehicle shall transmit telemetry at a rate of at least 1 hertz while powered and connected. */
+        require constraint {
+            communicationSubsystem.telemetryRate >= 1.0
+        }
+    }
+
+    requirement def ReturnToBaseRequirement {
+        doc /* The unmanned vehicle shall enter return-to-base mode when commanded by the operator, when the destination is reached, or when battery state of charge falls to 20 percent or lower. */
+    }
+
+    part unmannedVehicleSystem : UnmannedVehicle {
+        satisfy PrimaryFunctionRequirement;
+        satisfy NavigationAccuracyRequirement;
+        satisfy ObstacleAvoidanceRequirement;
+        satisfy EnduranceRequirement;
+        satisfy TelemetryRequirement;
+        satisfy ReturnToBaseRequirement;
+    }
+}
+tokens used
+5,154
+package UnmannedVehicleSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        doc /* Dimensionless percentage from 0 to 100. */
+    }
+
+    attribute def Latitude : Real {
+        unit = "deg";
+    }
+
+    attribute def Longitude : Real {
+        unit = "deg";
+    }
+
+    attribute def Altitude : Real {
+        unit = "m";
+    }
+
+    attribute def Speed : Real {
+        unit = "m/s";
+    }
+
+    attribute def Distance : Real {
+        unit = "m";
+    }
+
+    attribute def Duration : Real {
+        unit = "s";
+    }
+
+    attribute def ElectricPotential : Real {
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent : Real {
+        unit = "A";
+    }
+
+    attribute def EnergyCapacity : Real {
+        unit = "Wh";
+    }
+
+    attribute def Mass : Real {
+        unit = "kg";
+    }
+
+    attribute def Frequency : Real {
+        unit = "Hz";
+    }
+
+    enum def VehicleMode {
+        enum idle;
+        enum missionPlanning;
+        enum autonomousNavigation;
+        enum obstacleAvoidance;
+        enum payloadOperation;
+        enum returnToBase;
+        enum emergencyRecovery;
+        enum shutdown;
+    }
+
+    enum def LinkStatus {
+        enum disconnected;
+        enum degraded;
+        enum nominal;
+    }
+
+    enum def MissionStatus {
+        enum notLoaded;
+        enum loaded;
+        enum executing;
+        enum completed;
+        enum aborted;
+    }
+
+    enum def HealthStatus {
+        enum nominal;
+        enum warning;
+        enum critical;
+    }
+
+    item def MissionPlan {
+        attribute missionId : String;
+        attribute startLatitude : Latitude;
+        attribute startLongitude : Longitude;
+        attribute destinationLatitude : Latitude;
+        attribute destinationLongitude : Longitude;
+        attribute cruiseSpeed : Speed;
+        attribute minimumObstacleClearance : Distance;
+        attribute maximumMissionDuration : Duration;
+    }
+
+    item def NavigationSolution {
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute altitude : Altitude;
+        attribute groundSpeed : Speed;
+        attribute heading : Real;
+        attribute positionUncertainty : Distance;
+    }
+
+    item def VehicleCommand {
+        attribute requestedMode : VehicleMode;
+        attribute commandedSpeed : Speed;
+        attribute commandedHeading : Real;
+        attribute commandedAltitude : Altitude;
+        attribute abortMission : Boolean;
+        attribute returnToBase : Boolean;
+    }
+
+    item def TelemetryPacket {
+        attribute mode : VehicleMode;
+        attribute missionStatus : MissionStatus;
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute altitude : Altitude;
+        attribute speed : Speed;
+        attribute batteryStateOfCharge : Percent;
+        attribute linkStatus : LinkStatus;
+        attribute healthStatus : HealthStatus;
+    }
+
+    item def ObstacleReport {
+        attribute detected : Boolean;
+        attribute range : Distance;
+        attribute bearing : Real;
+        attribute relativeSpeed : Speed;
+        attribute confidence : Percent;
+    }
+
+    item def PayloadData {
+        attribute timestamp : Duration;
+        attribute latitude : Latitude;
+        attribute longitude : Longitude;
+        attribute qualityScore : Percent;
+        attribute dataSizeBytes : Integer;
+    }
+
+    port def MissionPlanPort {
+        in item plan : MissionPlan;
+    }
+
+    port def CommandPort {
+        in item command : VehicleCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def NavigationPort {
+        out item navigation : NavigationSolution;
+    }
+
+    port def ObstaclePort {
+        out item obstacle : ObstacleReport;
+    }
+
+    port def PayloadDataPort {
+        out item payloadData : PayloadData;
+    }
+
+    port def ElectricalPowerPort {
+        out attribute voltage : ElectricPotential;
+        out attribute current : ElectricCurrent;
+    }
+
+    port def PropulsionPowerPort {
+        in attribute voltage : ElectricPotential;
+        in attribute current : ElectricCurrent;
+    }
+
+    port def ControlSignalPort {
+        out item command : VehicleCommand;
+    }
+
+    part def UnmannedVehicle {
+        doc /* Autonomous unmanned vehicle whose primary high-level function is to execute a mission plan without an onboard human operator by navigating from a start location to a destination, avoiding obstacles, operating a payload, and returning telemetry to a remote operator. */
+
+        attribute operatingMode : VehicleMode = VehicleMode::idle;
+        attribute missionStatus : MissionStatus = MissionStatus::notLoaded;
+        attribute maximumSpeed : Speed = 18.0;
+        attribute cruiseSpeed : Speed = 10.0;
+        attribute minimumObstacleClearance : Distance = 5.0;
+        attribute maximumRange : Distance = 25000.0;
+        attribute endurance : Duration = 3600.0;
+        attribute emptyMass : Mass = 42.0;
+
+        port missionPlanIn : MissionPlanPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port payloadDataOut : PayloadDataPort;
+
+        part powerSubsystem : PowerSubsystem;
+        part propulsionSubsystem : PropulsionSubsystem;
+        part navigationSubsystem : NavigationSubsystem;
+        part autonomyController : AutonomyController;
+        part communicationSubsystem : CommunicationSubsystem;
+        part obstacleDetectionSubsystem : ObstacleDetectionSubsystem;
+        part payloadSubsystem : PayloadSubsystem;
+        part vehicleStructure : VehicleStructure;
+
+        connect powerToPropulsion
+            from powerSubsystem.propulsionPowerOut
+            to propulsionSubsystem.powerIn;
+
+        connect navigationToController
+            from navigationSubsystem.navigationOut
+            to autonomyController.navigationIn;
+
+        connect obstacleToController
+            from obstacleDetectionSubsystem.obstacleOut
+            to autonomyController.obstacleIn;
+
+        connect controllerToPropulsion
+            from autonomyController.motionCommandOut
+            to propulsionSubsystem.motionCommandIn;
+
+        connect communicationCommandToController
+            from communicationSubsystem.commandOut
+            to autonomyController.operatorCommandIn;
+
+        connect controllerTelemetryToCommunication
+            from autonomyController.telemetryOut
+            to communicationSubsystem.telemetryIn;
+
+        connect payloadDataToCommunication
+            from payloadSubsystem.payloadDataOut
+            to communicationSubsystem.payloadDataIn;
+
+        connect missionPlanToController
+            from missionPlanIn
+            to autonomyController.missionPlanIn;
+
+        connect commandToCommunication
+            from commandIn
+            to communicationSubsystem.commandIn;
+
+        connect telemetryToVehicleExternal
+            from communicationSubsystem.telemetryOut
+            to telemetryOut;
+
+        connect payloadDataToVehicleExternal
+            from communicationSubsystem.payloadDataOut
+            to payloadDataOut;
+
+        state def VehicleOperationalStateMachine {
+            state idle;
+            state planning;
+            state navigating;
+            state avoidingObstacle;
+            state operatingPayload;
+            state returningToBase;
+            state emergencyRecovery;
+            state shutdown;
+
+            entry; then idle;
+
+            transition idle_to_planning
+                first idle
+                accept MissionPlan
+                then planning;
+
+            transition planning_to_navigating
+                first planning
+                if missionStatus == MissionStatus::loaded
+                then navigating;
+
+            transition navigating_to_avoiding
+                first navigating
+                if obstacleDetectionSubsystem.currentObstacle.detected == true
+                then avoidingObstacle;
+
+            transition avoiding_to_navigating
+                first avoidingObstacle
+                if obstacleDetectionSubsystem.currentObstacle.detected == false
+                then navigating;
+
+            transition navigating_to_payload
+                first navigating
+                if autonomyController.atPayloadWaypoint == true
+                then operatingPayload;
+
+            transition payload_to_navigating
+                first operatingPayload
+                if payloadSubsystem.payloadTaskComplete == true
+                then navigating;
+
+            transition navigating_to_return
+                first navigating
+                if autonomyController.destinationReached == true or powerSubsystem.stateOfCharge <= 20.0
+                then returningToBase;
+
+            transition returning_to_idle
+                first returningToBase
+                if autonomyController.baseReached == true
+                then idle;
+
+            transition any_to_emergency
+                first idle, planning, navigating, avoidingObstacle, operatingPayload, returningToBase
+                if powerSubsystem.health == HealthStatus::critical or communicationSubsystem.linkStatus == LinkStatus::disconnected
+                then emergencyRecovery;
+
+            transition emergency_to_shutdown
+                first emergencyRecovery
+                if autonomyController.safeStopAchieved == true
+                then shutdown;
+        }
+
+        action executeMission {
+            in item plan : MissionPlan;
+            out item finalTelemetry : TelemetryPacket;
+
+            first startMission;
+            then validatePlan;
+            then navigateRoute;
+            then operatePayload;
+            then returnToBase;
+            then publishFinalTelemetry;
+
+            action startMission {
+                operatingMode = VehicleMode::missionPlanning;
+                missionStatus = MissionStatus::loaded;
+            }
+
+            action validatePlan {
+                assert plan.cruiseSpeed <= maximumSpeed;
+                assert plan.maximumMissionDuration <= endurance;
+                assert plan.minimumObstacleClearance >= minimumObstacleClearance;
+            }
+
+            action navigateRoute {
+                operatingMode = VehicleMode::autonomousNavigation;
+                missionStatus = MissionStatus::executing;
+            }
+
+            action operatePayload {
+                operatingMode = VehicleMode::payloadOperation;
+            }
+
+            action returnToBase {
+                operatingMode = VehicleMode::returnToBase;
+            }
+
+            action publishFinalTelemetry {
+                missionStatus = MissionStatus::completed;
+            }
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : ElectricPotential = 48.0;
+        attribute maximumCurrent : ElectricCurrent = 120.0;
+        attribute capacity : EnergyCapacity = 2400.0;
+        attribute stateOfCharge : Percent = 100.0;
+        attribute health : HealthStatus = HealthStatus::nominal;
+
+        port propulsionPowerOut : ElectricalPowerPort;
+
+        action providePower {
+            out attribute voltage : ElectricPotential;
+            out attribute current : ElectricCurrent;
+            voltage = nominalVoltage;
+            current = maximumCurrent;
+        }
+
+        action monitorEnergy {
+            if stateOfCharge <= 20.0 {
+                health = HealthStatus::warning;
+            }
+            if stateOfCharge <= 8.0 {
+                health = HealthStatus::critical;
+            }
+        }
+    }
+
+    part def PropulsionSubsystem {
+        attribute commandedSpeed : Speed = 0.0;
+        attribute actualSpeed : Speed = 0.0;
+        attribute maximumThrust : Real = 850.0;
+        attribute propulsionHealth : HealthStatus = HealthStatus::nominal;
+
+        port powerIn : PropulsionPowerPort;
+        port motionCommandIn : CommandPort;
+
+        action regulateMotion {
+            in item command : VehicleCommand;
+            commandedSpeed = command.commandedSpeed;
+            if commandedSpeed <= 18.0 {
+                actualSpeed = commandedSpeed;
+            }
+        }
+
+        action stopMotion {
+            commandedSpeed = 0.0;
+            actualSpeed = 0.0;
+        }
+    }
+
+    part def NavigationSubsystem {
+        attribute updateRate : Frequency = 20.0;
+        attribute currentLatitude : Latitude;
+        attribute currentLongitude : Longitude;
+        attribute currentAltitude : Altitude;
+        attribute currentSpeed : Speed;
+        attribute positionUncertainty : Distance = 1.5;
+        attribute navigationHealth : HealthStatus = HealthStatus::nominal;
+
+        port navigationOut : NavigationPort;
+
+        action estimatePosition {
+            out item solution : NavigationSolution;
+            solution.latitude = currentLatitude;
+            solution.longitude = currentLongitude;
+            solution.altitude = currentAltitude;
+            solution.groundSpeed = currentSpeed;
+            solution.positionUncertainty = positionUncertainty;
+        }
+    }
+
+    part def ObstacleDetectionSubsystem {
+        attribute sensorRange : Distance = 80.0;
+        attribute minimumTrackConfidence : Percent = 70.0;
+        attribute currentObstacle : ObstacleReport;
+        attribute detectionHealth : HealthStatus = HealthStatus::nominal;
+
+        port obstacleOut : ObstaclePort;
+
+        action scanEnvironment {
+            out item report : ObstacleReport;
+            report = currentObstacle;
+        }
+    }
+
+    part def AutonomyController {
+        attribute activeMode : VehicleMode = VehicleMode::idle;
+        attribute missionState : MissionStatus = MissionStatus::notLoaded;
+        attribute atPayloadWaypoint : Boolean = false;
+        attribute destinationReached : Boolean = false;
+        attribute baseReached : Boolean = false;
+        attribute safeStopAchieved : Boolean = false;
+
+        port missionPlanIn : MissionPlanPort;
+        port navigationIn : NavigationPort;
+        port obstacleIn : ObstaclePort;
+        port operatorCommandIn : CommandPort;
+        port motionCommandOut : ControlSignalPort;
+        port telemetryOut : TelemetryPort;
+
+        action planRoute {
+            in item plan : MissionPlan;
+            assert plan.cruiseSpeed > 0.0;
+            assert plan.minimumObstacleClearance >= 5.0;
+            missionState = MissionStatus::loaded;
+            activeMode = VehicleMode::missionPlanning;
+        }
+
+        action computeMotionCommand {
+            in item navigation : NavigationSolution;
+            in item obstacle : ObstacleReport;
+            out item command : VehicleCommand;
+
+            if obstacle.detected == true and obstacle.range <= 20.0 {
+                activeMode = VehicleMode::obstacleAvoidance;
+                command.commandedSpeed = 3.0;
+                command.commandedHeading = obstacle.bearing + 45.0;
+            } else {
+                activeMode = VehicleMode::autonomousNavigation;
+                command.commandedSpeed = 10.0;
+                command.commandedHeading = navigation.heading;
+            }
+        }
+
+        action handleOperatorCommand {
+            in item command : VehicleCommand;
+            if command.abortMission == true {
+                missionState = MissionStatus::aborted;
+                activeMode = VehicleMode::emergencyRecovery;
+            }
+            if command.returnToBase == true {
+                activeMode = VehicleMode::returnToBase;
+            }
+        }
+
+        action generateTelemetry {
+            in item navigation : NavigationSolution;
+            out item telemetry : TelemetryPacket;
+            telemetry.mode = activeMode;
+            telemetry.missionStatus = missionState;
+            telemetry.latitude = navigation.latitude;
+            telemetry.longitude = navigation.longitude;
+            telemetry.altitude = navigation.altitude;
+            telemetry.speed = navigation.groundSpeed;
+        }
+    }
+
+    part def CommunicationSubsystem {
+        attribute linkStatus : LinkStatus = LinkStatus::nominal;
+        attribute commandLatency : Duration = 0.25;
+        attribute telemetryRate : Frequency = 5.0;
+        attribute maximumRange : Distance = 30000.0;
+
+        port commandIn : CommandPort;
+        port commandOut : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port telemetryOut : TelemetryPort;
+        port payloadDataIn : PayloadDataPort;
+        port payloadDataOut : PayloadDataPort;
+
+        action relayCommand {
+            in item operatorCommand : VehicleCommand;
+            out item controllerCommand : VehicleCommand;
+            controllerCommand = operatorCommand;
+        }
+
+        action transmitTelemetry {
+            in item telemetry : TelemetryPacket;
+            out item transmittedTelemetry : TelemetryPacket;
+            transmittedTelemetry = telemetry;
+        }
+
+        action transmitPayloadData {
+            in item payloadData : PayloadData;
+            out item transmittedPayloadData : PayloadData;
+            transmittedPayloadData = payloadData;
+        }
+    }
+
+    part def PayloadSubsystem {
+        attribute payloadMass : Mass = 6.0;
+        attribute payloadPowerDraw : Real = 120.0;
+        attribute payloadTaskComplete : Boolean = false;
+        attribute payloadHealth : HealthStatus = HealthStatus::nominal;
+
+        port payloadDataOut : PayloadDataPort;
+
+        action collectData {
+            in item navigation : NavigationSolution;
+            out item data : PayloadData;
+            data.latitude = navigation.latitude;
+            data.longitude = navigation.longitude;
+            data.qualityScore = 95.0;
+            data.dataSizeBytes = 1048576;
+        }
+
+        action completePayloadTask {
+            payloadTaskComplete = true;
+        }
+    }
+
+    part def VehicleStructure {
+        attribute frameMass : Mass = 18.0;
+        attribute payloadCapacity : Mass = 10.0;
+        attribute ingressProtectionRating : String = "IP54";
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The unmanned vehicle shall autonomously execute a loaded mission plan without an onboard human operator by navigating to assigned waypoints, avoiding obstacles, operating its payload, and reporting telemetry. */
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        doc /* The unmanned vehicle shall maintain position uncertainty less than or equal to 3 meters during autonomous navigation. */
+        require constraint {
+            navigationSubsystem.positionUncertainty <= 3.0
+        }
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        doc /* The unmanned vehicle shall maintain at least 5 meters clearance from detected obstacles during mission execution. */
+        require constraint {
+            minimumObstacleClearance >= 5.0
+        }
+    }
+
+    requirement def EnduranceRequirement {
+        doc /* The unmanned vehicle shall support mission execution for at least 3600 seconds under nominal payload and cruise conditions. */
+        require constraint {
+            endurance >= 3600.0
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The unmanned vehicle shall transmit telemetry at a rate of at least 1 hertz while powered and connected. */
+        require constraint {
+            communicationSubsystem.telemetryRate >= 1.0
+        }
+    }
+
+    requirement def ReturnToBaseRequirement {
+        doc /* The unmanned vehicle shall enter return-to-base mode when commanded by the operator, when the destination is reached, or when battery state of charge falls to 20 percent or lower. */
+    }
+
+    part unmannedVehicleSystem : UnmannedVehicle {
+        satisfy PrimaryFunctionRequirement;
+        satisfy NavigationAccuracyRequirement;
+        satisfy ObstacleAvoidanceRequirement;
+        satisfy EnduranceRequirement;
+        satisfy TelemetryRequirement;
+        satisfy ReturnToBaseRequirement;
+    }
+}

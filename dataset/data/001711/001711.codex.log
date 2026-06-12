@@ -1,0 +1,1143 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-opv5sfpa
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7c7-54a3-71f3-a8a3-4f678721e08e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a IFTTT and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IFTTTAutomationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Timestamp;
+    attribute def Url;
+    attribute def JsonText;
+    attribute def UserId;
+    attribute def AppletId;
+    attribute def ServiceId;
+    attribute def Token;
+    attribute def EventName;
+    attribute def MessageText;
+
+    item def TriggerEvent {
+        attribute eventName : EventName;
+        attribute sourceService : ServiceId;
+        attribute detectedAt : Timestamp;
+        attribute payload : JsonText;
+    }
+
+    item def NormalizedEvent {
+        attribute appletId : AppletId;
+        attribute triggerName : EventName;
+        attribute normalizedPayload : JsonText;
+        attribute receivedAt : Timestamp;
+    }
+
+    item def ConditionDecision {
+        attribute appletId : AppletId;
+        attribute passed : Boolean;
+        attribute reason : MessageText;
+    }
+
+    item def ActionCommand {
+        attribute appletId : AppletId;
+        attribute targetService : ServiceId;
+        attribute commandName : EventName;
+        attribute commandPayload : JsonText;
+        attribute issuedAt : Timestamp;
+    }
+
+    item def ActionResult {
+        attribute appletId : AppletId;
+        attribute targetService : ServiceId;
+        attribute success : Boolean;
+        attribute responsePayload : JsonText;
+        attribute completedAt : Timestamp;
+    }
+
+    item def AuditRecord {
+        attribute appletId : AppletId;
+        attribute userId : UserId;
+        attribute recordTime : Timestamp;
+        attribute summary : MessageText;
+        attribute successful : Boolean;
+    }
+
+    item def NotificationMessage {
+        attribute recipient : UserId;
+        attribute subject : MessageText;
+        attribute body : MessageText;
+        attribute createdAt : Timestamp;
+    }
+
+    attribute def Duration {
+        :> ISQ::duration;
+        unit = SI::s;
+    }
+
+    attribute def EventRate {
+        :> ISQ::frequency;
+        unit = SI::Hz;
+    }
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Count {
+        :> ScalarValues::Integer;
+    }
+
+    attribute def DataSize {
+        :> ScalarValues::Real;
+        unit = SI::byte;
+    }
+
+    port def TriggerInputPort {
+        in item event : TriggerEvent;
+    }
+
+    port def EventPort {
+        out item event : NormalizedEvent;
+    }
+
+    port def DecisionPort {
+        out item decision : ConditionDecision;
+    }
+
+    port def CommandPort {
+        out item command : ActionCommand;
+    }
+
+    port def ResultPort {
+        in item result : ActionResult;
+    }
+
+    port def AuditPort {
+        out item record : AuditRecord;
+    }
+
+    port def NotificationPort {
+        out item notification : NotificationMessage;
+    }
+
+    part def ExternalService {
+        attribute serviceId : ServiceId;
+        attribute apiEndpoint : Url;
+        attribute averageLatency : Duration;
+        attribute availability : Percent;
+
+        port triggerOutput : TriggerInputPort;
+        port commandInput : CommandPort;
+        port resultOutput : ResultPort;
+    }
+
+    part def UserAccount {
+        attribute userId : UserId;
+        attribute displayName : MessageText;
+        attribute active : Boolean;
+        attribute maxAppletCount : Count;
+    }
+
+    part def AppletDefinition {
+        attribute appletId : AppletId;
+        attribute owner : UserId;
+        attribute enabled : Boolean;
+        attribute triggerService : ServiceId;
+        attribute triggerName : EventName;
+        attribute actionService : ServiceId;
+        attribute actionName : EventName;
+        attribute conditionExpression : JsonText;
+        attribute retryLimit : Count;
+        attribute timeoutLimit : Duration;
+    }
+
+    part def TriggerAdapter {
+        attribute adapterId : ServiceId;
+        attribute pollingInterval : Duration;
+        attribute maxPayloadSize : DataSize;
+
+        port rawTriggerIn : TriggerInputPort;
+        port normalizedEventOut : EventPort;
+
+        action normalizeTrigger {
+            in item raw : TriggerEvent;
+            out item normalized : NormalizedEvent;
+        }
+    }
+
+    part def AppletRepository {
+        attribute storedAppletCount : Count;
+        attribute enabledAppletCount : Count;
+
+        action findMatchingApplets {
+            in item event : NormalizedEvent;
+            out item applet : AppletDefinition;
+        }
+
+        action updateAppletState {
+            in appletId : AppletId;
+            in enabled : Boolean;
+        }
+    }
+
+    part def ConditionEvaluator {
+        attribute evaluationTimeout : Duration;
+
+        port eventIn : EventPort;
+        port decisionOut : DecisionPort;
+
+        action evaluateCondition {
+            in item event : NormalizedEvent;
+            in part applet : AppletDefinition;
+            out item decision : ConditionDecision;
+        }
+    }
+
+    part def ActionDispatcher {
+        attribute defaultTimeout : Duration;
+        attribute maxConcurrentActions : Count;
+        attribute retryBackoff : Duration;
+
+        port commandOut : CommandPort;
+        port resultIn : ResultPort;
+
+        action buildCommand {
+            in part applet : AppletDefinition;
+            in item event : NormalizedEvent;
+            out item command : ActionCommand;
+        }
+
+        action dispatchCommand {
+            in item command : ActionCommand;
+            out item result : ActionResult;
+        }
+    }
+
+    part def AuditLogger {
+        attribute retentionPeriod : Duration;
+        attribute storedRecordCount : Count;
+
+        port auditIn : AuditPort;
+
+        action writeAuditRecord {
+            in item record : AuditRecord;
+        }
+    }
+
+    part def NotificationManager {
+        attribute notificationRateLimit : EventRate;
+
+        port notificationOut : NotificationPort;
+
+        action notifyUser {
+            in item result : ActionResult;
+            in user : UserId;
+            out item message : NotificationMessage;
+        }
+    }
+
+    part def AutomationEngine {
+        attribute eventProcessingRate : EventRate;
+        attribute maximumEndToEndLatency : Duration;
+        attribute monthlyActionQuota : Count;
+        attribute successfulExecutionRatio : Percent;
+
+        part repository : AppletRepository;
+        part evaluator : ConditionEvaluator;
+        part dispatcher : ActionDispatcher;
+        part logger : AuditLogger;
+        part notifier : NotificationManager;
+
+        port normalizedEventIn : EventPort;
+        port decisionOut : DecisionPort;
+        port actionCommandOut : CommandPort;
+        port actionResultIn : ResultPort;
+        port auditOut : AuditPort;
+        port notificationOut : NotificationPort;
+
+        action executeApplet {
+            in item event : NormalizedEvent;
+            in part applet : AppletDefinition;
+            out item result : ActionResult;
+
+            first start;
+            then loadApplet;
+            then evaluate;
+            if decision.passed then buildAndDispatch;
+            then recordSuccess;
+            else recordSkipped;
+            then done;
+
+            action loadApplet {
+                in item event : NormalizedEvent;
+                out part applet : AppletDefinition;
+            }
+
+            action evaluate {
+                in item event : NormalizedEvent;
+                in part applet : AppletDefinition;
+                out item decision : ConditionDecision;
+            }
+
+            action buildAndDispatch {
+                in item event : NormalizedEvent;
+                in part applet : AppletDefinition;
+                out item result : ActionResult;
+            }
+
+            action recordSuccess {
+                in item result : ActionResult;
+                out item record : AuditRecord;
+            }
+
+            action recordSkipped {
+                in item decision : ConditionDecision;
+                out item record : AuditRecord;
+            }
+
+            action done;
+        }
+
+        state def EngineLifecycle {
+            state Initializing;
+            state Idle;
+            state ReceivingEvent;
+            state MatchingApplet;
+            state EvaluatingCondition;
+            state DispatchingAction;
+            state WaitingForResult;
+            state RecordingOutcome;
+            state RetryingAction;
+            state Disabled;
+            state Faulted;
+
+            entry; then Initializing;
+
+            transition Initializing_to_Idle
+                first Initializing
+                accept after 5 [SI::s]
+                then Idle;
+
+            transition Idle_to_ReceivingEvent
+                first Idle
+                accept eventReceived
+                then ReceivingEvent;
+
+            transition ReceivingEvent_to_MatchingApplet
+                first ReceivingEvent
+                then MatchingApplet;
+
+            transition MatchingApplet_to_EvaluatingCondition
+                first MatchingApplet
+                if matchingAppletFound
+                then EvaluatingCondition;
+
+            transition MatchingApplet_to_Idle
+                first MatchingApplet
+                if noMatchingAppletFound
+                then Idle;
+
+            transition EvaluatingCondition_to_DispatchingAction
+                first EvaluatingCondition
+                if conditionPassed
+                then DispatchingAction;
+
+            transition EvaluatingCondition_to_RecordingOutcome
+                first EvaluatingCondition
+                if conditionRejected
+                then RecordingOutcome;
+
+            transition DispatchingAction_to_WaitingForResult
+                first DispatchingAction
+                then WaitingForResult;
+
+            transition WaitingForResult_to_RecordingOutcome
+                first WaitingForResult
+                if actionSucceeded
+                then RecordingOutcome;
+
+            transition WaitingForResult_to_RetryingAction
+                first WaitingForResult
+                if actionFailed and retryCountBelowLimit
+                then RetryingAction;
+
+            transition RetryingAction_to_DispatchingAction
+                first RetryingAction
+                accept after 30 [SI::s]
+                then DispatchingAction;
+
+            transition WaitingForResult_to_Faulted
+                first WaitingForResult
+                if actionFailed and retryLimitReached
+                then Faulted;
+
+            transition RecordingOutcome_to_Idle
+                first RecordingOutcome
+                then Idle;
+
+            transition Idle_to_Disabled
+                first Idle
+                accept disableEngine
+                then Disabled;
+
+            transition Disabled_to_Initializing
+                first Disabled
+                accept enableEngine
+                then Initializing;
+
+            transition Faulted_to_RecordingOutcome
+                first Faulted
+                accept faultRecorded
+                then RecordingOutcome;
+        }
+    }
+
+    part def IFTTTLikeAutomationSystem {
+        attribute systemName : MessageText = "IFTTT-Based Personal Automation System";
+        attribute primaryFunction : MessageText =
+            "Monitor configured trigger services, evaluate user-defined applets, and invoke corresponding action services automatically when trigger conditions are satisfied.";
+        attribute targetAvailability : Percent = 99.9;
+        attribute targetMedianLatency : Duration = 10 [SI::s];
+        attribute targetDailyEventCapacity : Count = 1000000;
+
+        part user : UserAccount;
+        part weatherService : ExternalService {
+            attribute serviceId = "weather";
+            attribute apiEndpoint = "https://api.weather.example/events";
+            attribute averageLatency = 2 [SI::s];
+            attribute availability = 99.5;
+        }
+
+        part calendarService : ExternalService {
+            attribute serviceId = "calendar";
+            attribute apiEndpoint = "https://api.calendar.example/events";
+            attribute averageLatency = 1 [SI::s];
+            attribute availability = 99.7;
+        }
+
+        part messagingService : ExternalService {
+            attribute serviceId = "messaging";
+            attribute apiEndpoint = "https://api.messaging.example/send";
+            attribute averageLatency = 3 [SI::s];
+            attribute availability = 99.8;
+        }
+
+        part smartLightService : ExternalService {
+            attribute serviceId = "smart-light";
+            attribute apiEndpoint = "https://api.lighting.example/devices";
+            attribute averageLatency = 2 [SI::s];
+            attribute availability = 99.4;
+        }
+
+        part weatherTriggerAdapter : TriggerAdapter {
+            attribute adapterId = "weather-trigger-adapter";
+            attribute pollingInterval = 300 [SI::s];
+            attribute maxPayloadSize = 65536 [SI::byte];
+        }
+
+        part calendarTriggerAdapter : TriggerAdapter {
+            attribute adapterId = "calendar-trigger-adapter";
+            attribute pollingInterval = 60 [SI::s];
+            attribute maxPayloadSize = 65536 [SI::byte];
+        }
+
+        part automationEngine : AutomationEngine {
+            attribute eventProcessingRate = 50 [SI::Hz];
+            attribute maximumEndToEndLatency = 15 [SI::s];
+            attribute monthlyActionQuota = 100000;
+            attribute successfulExecutionRatio = 99.0;
+        }
+
+        part rainReminderApplet : AppletDefinition {
+            attribute appletId = "applet-rain-reminder";
+            attribute owner = "primary-user";
+            attribute enabled = true;
+            attribute triggerService = "weather";
+            attribute triggerName = "rain_forecast_detected";
+            attribute actionService = "messaging";
+            attribute actionName = "send_push_message";
+            attribute conditionExpression = "{\"forecastProbabilityGreaterThan\":70,\"timeWindowHours\":12}";
+            attribute retryLimit = 3;
+            attribute timeoutLimit = 15 [SI::s];
+        }
+
+        part meetingLightApplet : AppletDefinition {
+            attribute appletId = "applet-meeting-light";
+            attribute owner = "primary-user";
+            attribute enabled = true;
+            attribute triggerService = "calendar";
+            attribute triggerName = "meeting_started";
+            attribute actionService = "smart-light";
+            attribute actionName = "set_status_color";
+            attribute conditionExpression = "{\"calendarStatus\":\"busy\",\"meetingType\":\"video\"}";
+            attribute retryLimit = 2;
+            attribute timeoutLimit = 10 [SI::s];
+        }
+
+        connect weatherService.triggerOutput to weatherTriggerAdapter.rawTriggerIn;
+        connect calendarService.triggerOutput to calendarTriggerAdapter.rawTriggerIn;
+
+        connect weatherTriggerAdapter.normalizedEventOut to automationEngine.normalizedEventIn;
+        connect calendarTriggerAdapter.normalizedEventOut to automationEngine.normalizedEventIn;
+
+        connect automationEngine.actionCommandOut to messagingService.commandInput;
+        connect automationEngine.actionCommandOut to smartLightService.commandInput;
+
+        connect messagingService.resultOutput to automationEngine.actionResultIn;
+        connect smartLightService.resultOutput to automationEngine.actionResultIn;
+
+        connect automationEngine.auditOut to automationEngine.logger.auditIn;
+        connect automationEngine.notificationOut to automationEngine.notifier.notificationOut;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : IFTTTLikeAutomationSystem;
+
+        require constraint {
+            system.primaryFunction ==
+            "Monitor configured trigger services, evaluate user-defined applets, and invoke corresponding action services automatically when trigger conditions are satisfied."
+        }
+    }
+
+    requirement def TriggerDetectionRequirement {
+        subject adapter : TriggerAdapter;
+
+        require constraint {
+            adapter.pollingInterval <= 300 [SI::s]
+        }
+    }
+
+    requirement def EndToEndLatencyRequirement {
+        subject engine : AutomationEngine;
+
+        require constraint {
+            engine.maximumEndToEndLatency <= 15 [SI::s]
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : IFTTTLikeAutomationSystem;
+
+        require constraint {
+            system.targetAvailability >= 99.9
+        }
+    }
+
+    requirement def RetryRequirement {
+        subject applet : AppletDefinition;
+
+        require constraint {
+            applet.retryLimit >= 1 and applet.retryLimit <= 5
+        }
+    }
+
+    requirement def AuditabilityRequirement {
+        subject logger : AuditLogger;
+
+        require constraint {
+            logger.retentionPeriod >= 31536000 [SI::s]
+        }
+    }
+
+    requirement def PayloadSizeRequirement {
+        subject adapter : TriggerAdapter;
+
+        require constraint {
+            adapter.maxPayloadSize <= 1048576 [SI::byte]
+        }
+    }
+
+    requirement def ActionSuccessRequirement {
+        subject engine : AutomationEngine;
+
+        require constraint {
+            engine.successfulExecutionRatio >= 99.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by IFTTTLikeAutomationSystem;
+    satisfy TriggerDetectionRequirement by TriggerAdapter;
+    satisfy EndToEndLatencyRequirement by AutomationEngine;
+    satisfy AvailabilityRequirement by IFTTTLikeAutomationSystem;
+    satisfy RetryRequirement by AppletDefinition;
+    satisfy AuditabilityRequirement by AuditLogger;
+    satisfy PayloadSizeRequirement by TriggerAdapter;
+    satisfy ActionSuccessRequirement by AutomationEngine;
+}
+tokens used
+3,755
+package IFTTTAutomationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Timestamp;
+    attribute def Url;
+    attribute def JsonText;
+    attribute def UserId;
+    attribute def AppletId;
+    attribute def ServiceId;
+    attribute def Token;
+    attribute def EventName;
+    attribute def MessageText;
+
+    item def TriggerEvent {
+        attribute eventName : EventName;
+        attribute sourceService : ServiceId;
+        attribute detectedAt : Timestamp;
+        attribute payload : JsonText;
+    }
+
+    item def NormalizedEvent {
+        attribute appletId : AppletId;
+        attribute triggerName : EventName;
+        attribute normalizedPayload : JsonText;
+        attribute receivedAt : Timestamp;
+    }
+
+    item def ConditionDecision {
+        attribute appletId : AppletId;
+        attribute passed : Boolean;
+        attribute reason : MessageText;
+    }
+
+    item def ActionCommand {
+        attribute appletId : AppletId;
+        attribute targetService : ServiceId;
+        attribute commandName : EventName;
+        attribute commandPayload : JsonText;
+        attribute issuedAt : Timestamp;
+    }
+
+    item def ActionResult {
+        attribute appletId : AppletId;
+        attribute targetService : ServiceId;
+        attribute success : Boolean;
+        attribute responsePayload : JsonText;
+        attribute completedAt : Timestamp;
+    }
+
+    item def AuditRecord {
+        attribute appletId : AppletId;
+        attribute userId : UserId;
+        attribute recordTime : Timestamp;
+        attribute summary : MessageText;
+        attribute successful : Boolean;
+    }
+
+    item def NotificationMessage {
+        attribute recipient : UserId;
+        attribute subject : MessageText;
+        attribute body : MessageText;
+        attribute createdAt : Timestamp;
+    }
+
+    attribute def Duration {
+        :> ISQ::duration;
+        unit = SI::s;
+    }
+
+    attribute def EventRate {
+        :> ISQ::frequency;
+        unit = SI::Hz;
+    }
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Count {
+        :> ScalarValues::Integer;
+    }
+
+    attribute def DataSize {
+        :> ScalarValues::Real;
+        unit = SI::byte;
+    }
+
+    port def TriggerInputPort {
+        in item event : TriggerEvent;
+    }
+
+    port def EventPort {
+        out item event : NormalizedEvent;
+    }
+
+    port def DecisionPort {
+        out item decision : ConditionDecision;
+    }
+
+    port def CommandPort {
+        out item command : ActionCommand;
+    }
+
+    port def ResultPort {
+        in item result : ActionResult;
+    }
+
+    port def AuditPort {
+        out item record : AuditRecord;
+    }
+
+    port def NotificationPort {
+        out item notification : NotificationMessage;
+    }
+
+    part def ExternalService {
+        attribute serviceId : ServiceId;
+        attribute apiEndpoint : Url;
+        attribute averageLatency : Duration;
+        attribute availability : Percent;
+
+        port triggerOutput : TriggerInputPort;
+        port commandInput : CommandPort;
+        port resultOutput : ResultPort;
+    }
+
+    part def UserAccount {
+        attribute userId : UserId;
+        attribute displayName : MessageText;
+        attribute active : Boolean;
+        attribute maxAppletCount : Count;
+    }
+
+    part def AppletDefinition {
+        attribute appletId : AppletId;
+        attribute owner : UserId;
+        attribute enabled : Boolean;
+        attribute triggerService : ServiceId;
+        attribute triggerName : EventName;
+        attribute actionService : ServiceId;
+        attribute actionName : EventName;
+        attribute conditionExpression : JsonText;
+        attribute retryLimit : Count;
+        attribute timeoutLimit : Duration;
+    }
+
+    part def TriggerAdapter {
+        attribute adapterId : ServiceId;
+        attribute pollingInterval : Duration;
+        attribute maxPayloadSize : DataSize;
+
+        port rawTriggerIn : TriggerInputPort;
+        port normalizedEventOut : EventPort;
+
+        action normalizeTrigger {
+            in item raw : TriggerEvent;
+            out item normalized : NormalizedEvent;
+        }
+    }
+
+    part def AppletRepository {
+        attribute storedAppletCount : Count;
+        attribute enabledAppletCount : Count;
+
+        action findMatchingApplets {
+            in item event : NormalizedEvent;
+            out item applet : AppletDefinition;
+        }
+
+        action updateAppletState {
+            in appletId : AppletId;
+            in enabled : Boolean;
+        }
+    }
+
+    part def ConditionEvaluator {
+        attribute evaluationTimeout : Duration;
+
+        port eventIn : EventPort;
+        port decisionOut : DecisionPort;
+
+        action evaluateCondition {
+            in item event : NormalizedEvent;
+            in part applet : AppletDefinition;
+            out item decision : ConditionDecision;
+        }
+    }
+
+    part def ActionDispatcher {
+        attribute defaultTimeout : Duration;
+        attribute maxConcurrentActions : Count;
+        attribute retryBackoff : Duration;
+
+        port commandOut : CommandPort;
+        port resultIn : ResultPort;
+
+        action buildCommand {
+            in part applet : AppletDefinition;
+            in item event : NormalizedEvent;
+            out item command : ActionCommand;
+        }
+
+        action dispatchCommand {
+            in item command : ActionCommand;
+            out item result : ActionResult;
+        }
+    }
+
+    part def AuditLogger {
+        attribute retentionPeriod : Duration;
+        attribute storedRecordCount : Count;
+
+        port auditIn : AuditPort;
+
+        action writeAuditRecord {
+            in item record : AuditRecord;
+        }
+    }
+
+    part def NotificationManager {
+        attribute notificationRateLimit : EventRate;
+
+        port notificationOut : NotificationPort;
+
+        action notifyUser {
+            in item result : ActionResult;
+            in user : UserId;
+            out item message : NotificationMessage;
+        }
+    }
+
+    part def AutomationEngine {
+        attribute eventProcessingRate : EventRate;
+        attribute maximumEndToEndLatency : Duration;
+        attribute monthlyActionQuota : Count;
+        attribute successfulExecutionRatio : Percent;
+
+        part repository : AppletRepository;
+        part evaluator : ConditionEvaluator;
+        part dispatcher : ActionDispatcher;
+        part logger : AuditLogger;
+        part notifier : NotificationManager;
+
+        port normalizedEventIn : EventPort;
+        port decisionOut : DecisionPort;
+        port actionCommandOut : CommandPort;
+        port actionResultIn : ResultPort;
+        port auditOut : AuditPort;
+        port notificationOut : NotificationPort;
+
+        action executeApplet {
+            in item event : NormalizedEvent;
+            in part applet : AppletDefinition;
+            out item result : ActionResult;
+
+            first start;
+            then loadApplet;
+            then evaluate;
+            if decision.passed then buildAndDispatch;
+            then recordSuccess;
+            else recordSkipped;
+            then done;
+
+            action loadApplet {
+                in item event : NormalizedEvent;
+                out part applet : AppletDefinition;
+            }
+
+            action evaluate {
+                in item event : NormalizedEvent;
+                in part applet : AppletDefinition;
+                out item decision : ConditionDecision;
+            }
+
+            action buildAndDispatch {
+                in item event : NormalizedEvent;
+                in part applet : AppletDefinition;
+                out item result : ActionResult;
+            }
+
+            action recordSuccess {
+                in item result : ActionResult;
+                out item record : AuditRecord;
+            }
+
+            action recordSkipped {
+                in item decision : ConditionDecision;
+                out item record : AuditRecord;
+            }
+
+            action done;
+        }
+
+        state def EngineLifecycle {
+            state Initializing;
+            state Idle;
+            state ReceivingEvent;
+            state MatchingApplet;
+            state EvaluatingCondition;
+            state DispatchingAction;
+            state WaitingForResult;
+            state RecordingOutcome;
+            state RetryingAction;
+            state Disabled;
+            state Faulted;
+
+            entry; then Initializing;
+
+            transition Initializing_to_Idle
+                first Initializing
+                accept after 5 [SI::s]
+                then Idle;
+
+            transition Idle_to_ReceivingEvent
+                first Idle
+                accept eventReceived
+                then ReceivingEvent;
+
+            transition ReceivingEvent_to_MatchingApplet
+                first ReceivingEvent
+                then MatchingApplet;
+
+            transition MatchingApplet_to_EvaluatingCondition
+                first MatchingApplet
+                if matchingAppletFound
+                then EvaluatingCondition;
+
+            transition MatchingApplet_to_Idle
+                first MatchingApplet
+                if noMatchingAppletFound
+                then Idle;
+
+            transition EvaluatingCondition_to_DispatchingAction
+                first EvaluatingCondition
+                if conditionPassed
+                then DispatchingAction;
+
+            transition EvaluatingCondition_to_RecordingOutcome
+                first EvaluatingCondition
+                if conditionRejected
+                then RecordingOutcome;
+
+            transition DispatchingAction_to_WaitingForResult
+                first DispatchingAction
+                then WaitingForResult;
+
+            transition WaitingForResult_to_RecordingOutcome
+                first WaitingForResult
+                if actionSucceeded
+                then RecordingOutcome;
+
+            transition WaitingForResult_to_RetryingAction
+                first WaitingForResult
+                if actionFailed and retryCountBelowLimit
+                then RetryingAction;
+
+            transition RetryingAction_to_DispatchingAction
+                first RetryingAction
+                accept after 30 [SI::s]
+                then DispatchingAction;
+
+            transition WaitingForResult_to_Faulted
+                first WaitingForResult
+                if actionFailed and retryLimitReached
+                then Faulted;
+
+            transition RecordingOutcome_to_Idle
+                first RecordingOutcome
+                then Idle;
+
+            transition Idle_to_Disabled
+                first Idle
+                accept disableEngine
+                then Disabled;
+
+            transition Disabled_to_Initializing
+                first Disabled
+                accept enableEngine
+                then Initializing;
+
+            transition Faulted_to_RecordingOutcome
+                first Faulted
+                accept faultRecorded
+                then RecordingOutcome;
+        }
+    }
+
+    part def IFTTTLikeAutomationSystem {
+        attribute systemName : MessageText = "IFTTT-Based Personal Automation System";
+        attribute primaryFunction : MessageText =
+            "Monitor configured trigger services, evaluate user-defined applets, and invoke corresponding action services automatically when trigger conditions are satisfied.";
+        attribute targetAvailability : Percent = 99.9;
+        attribute targetMedianLatency : Duration = 10 [SI::s];
+        attribute targetDailyEventCapacity : Count = 1000000;
+
+        part user : UserAccount;
+        part weatherService : ExternalService {
+            attribute serviceId = "weather";
+            attribute apiEndpoint = "https://api.weather.example/events";
+            attribute averageLatency = 2 [SI::s];
+            attribute availability = 99.5;
+        }
+
+        part calendarService : ExternalService {
+            attribute serviceId = "calendar";
+            attribute apiEndpoint = "https://api.calendar.example/events";
+            attribute averageLatency = 1 [SI::s];
+            attribute availability = 99.7;
+        }
+
+        part messagingService : ExternalService {
+            attribute serviceId = "messaging";
+            attribute apiEndpoint = "https://api.messaging.example/send";
+            attribute averageLatency = 3 [SI::s];
+            attribute availability = 99.8;
+        }
+
+        part smartLightService : ExternalService {
+            attribute serviceId = "smart-light";
+            attribute apiEndpoint = "https://api.lighting.example/devices";
+            attribute averageLatency = 2 [SI::s];
+            attribute availability = 99.4;
+        }
+
+        part weatherTriggerAdapter : TriggerAdapter {
+            attribute adapterId = "weather-trigger-adapter";
+            attribute pollingInterval = 300 [SI::s];
+            attribute maxPayloadSize = 65536 [SI::byte];
+        }
+
+        part calendarTriggerAdapter : TriggerAdapter {
+            attribute adapterId = "calendar-trigger-adapter";
+            attribute pollingInterval = 60 [SI::s];
+            attribute maxPayloadSize = 65536 [SI::byte];
+        }
+
+        part automationEngine : AutomationEngine {
+            attribute eventProcessingRate = 50 [SI::Hz];
+            attribute maximumEndToEndLatency = 15 [SI::s];
+            attribute monthlyActionQuota = 100000;
+            attribute successfulExecutionRatio = 99.0;
+        }
+
+        part rainReminderApplet : AppletDefinition {
+            attribute appletId = "applet-rain-reminder";
+            attribute owner = "primary-user";
+            attribute enabled = true;
+            attribute triggerService = "weather";
+            attribute triggerName = "rain_forecast_detected";
+            attribute actionService = "messaging";
+            attribute actionName = "send_push_message";
+            attribute conditionExpression = "{\"forecastProbabilityGreaterThan\":70,\"timeWindowHours\":12}";
+            attribute retryLimit = 3;
+            attribute timeoutLimit = 15 [SI::s];
+        }
+
+        part meetingLightApplet : AppletDefinition {
+            attribute appletId = "applet-meeting-light";
+            attribute owner = "primary-user";
+            attribute enabled = true;
+            attribute triggerService = "calendar";
+            attribute triggerName = "meeting_started";
+            attribute actionService = "smart-light";
+            attribute actionName = "set_status_color";
+            attribute conditionExpression = "{\"calendarStatus\":\"busy\",\"meetingType\":\"video\"}";
+            attribute retryLimit = 2;
+            attribute timeoutLimit = 10 [SI::s];
+        }
+
+        connect weatherService.triggerOutput to weatherTriggerAdapter.rawTriggerIn;
+        connect calendarService.triggerOutput to calendarTriggerAdapter.rawTriggerIn;
+
+        connect weatherTriggerAdapter.normalizedEventOut to automationEngine.normalizedEventIn;
+        connect calendarTriggerAdapter.normalizedEventOut to automationEngine.normalizedEventIn;
+
+        connect automationEngine.actionCommandOut to messagingService.commandInput;
+        connect automationEngine.actionCommandOut to smartLightService.commandInput;
+
+        connect messagingService.resultOutput to automationEngine.actionResultIn;
+        connect smartLightService.resultOutput to automationEngine.actionResultIn;
+
+        connect automationEngine.auditOut to automationEngine.logger.auditIn;
+        connect automationEngine.notificationOut to automationEngine.notifier.notificationOut;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : IFTTTLikeAutomationSystem;
+
+        require constraint {
+            system.primaryFunction ==
+            "Monitor configured trigger services, evaluate user-defined applets, and invoke corresponding action services automatically when trigger conditions are satisfied."
+        }
+    }
+
+    requirement def TriggerDetectionRequirement {
+        subject adapter : TriggerAdapter;
+
+        require constraint {
+            adapter.pollingInterval <= 300 [SI::s]
+        }
+    }
+
+    requirement def EndToEndLatencyRequirement {
+        subject engine : AutomationEngine;
+
+        require constraint {
+            engine.maximumEndToEndLatency <= 15 [SI::s]
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : IFTTTLikeAutomationSystem;
+
+        require constraint {
+            system.targetAvailability >= 99.9
+        }
+    }
+
+    requirement def RetryRequirement {
+        subject applet : AppletDefinition;
+
+        require constraint {
+            applet.retryLimit >= 1 and applet.retryLimit <= 5
+        }
+    }
+
+    requirement def AuditabilityRequirement {
+        subject logger : AuditLogger;
+
+        require constraint {
+            logger.retentionPeriod >= 31536000 [SI::s]
+        }
+    }
+
+    requirement def PayloadSizeRequirement {
+        subject adapter : TriggerAdapter;
+
+        require constraint {
+            adapter.maxPayloadSize <= 1048576 [SI::byte]
+        }
+    }
+
+    requirement def ActionSuccessRequirement {
+        subject engine : AutomationEngine;
+
+        require constraint {
+            engine.successfulExecutionRatio >= 99.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by IFTTTLikeAutomationSystem;
+    satisfy TriggerDetectionRequirement by TriggerAdapter;
+    satisfy EndToEndLatencyRequirement by AutomationEngine;
+    satisfy AvailabilityRequirement by IFTTTLikeAutomationSystem;
+    satisfy RetryRequirement by AppletDefinition;
+    satisfy AuditabilityRequirement by AuditLogger;
+    satisfy PayloadSizeRequirement by TriggerAdapter;
+    satisfy ActionSuccessRequirement by AutomationEngine;
+}

@@ -1,0 +1,961 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-gsjbynbd
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7c1-7916-7a21-8adf-64ee609507ea
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a HDHomeRun and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HDHomeRunSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def FrequencyMHz : Real {
+        unit = "MHz";
+    }
+
+    attribute def BitRateMbps : Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def PowerW : Real {
+        unit = "W";
+    }
+
+    attribute def VoltageV : Real {
+        unit = "V";
+    }
+
+    attribute def CurrentA : Real {
+        unit = "A";
+    }
+
+    attribute def TemperatureC : Real {
+        unit = "degC";
+    }
+
+    attribute def SignalStrengthPercent : Real {
+        unit = "%";
+    }
+
+    attribute def PacketCount : Integer;
+    attribute def ChannelNumber : String;
+    attribute def IpAddress : String;
+    attribute def MacAddress : String;
+    attribute def ProtocolName : String;
+
+    item def RfTelevisionSignal {
+        attribute centerFrequency : FrequencyMHz;
+        attribute channel : ChannelNumber;
+        attribute modulation : String;
+        attribute signalStrength : SignalStrengthPercent;
+        attribute signalQuality : SignalStrengthPercent;
+    }
+
+    item def MPEGTransportStream {
+        attribute programNumber : Integer;
+        attribute videoCodec : String;
+        attribute audioCodec : String;
+        attribute transportBitRate : BitRateMbps;
+        attribute continuityCounterErrors : PacketCount;
+    }
+
+    item def EthernetFrame {
+        attribute sourceMac : MacAddress;
+        attribute destinationMac : MacAddress;
+        attribute payloadProtocol : ProtocolName;
+    }
+
+    item def IpPacket {
+        attribute sourceAddress : IpAddress;
+        attribute destinationAddress : IpAddress;
+        attribute protocol : ProtocolName;
+        attribute payloadBitRate : BitRateMbps;
+    }
+
+    item def TuningCommand {
+        attribute requestedChannel : ChannelNumber;
+        attribute requestedFrequency : FrequencyMHz;
+        attribute requestedProgramNumber : Integer;
+    }
+
+    item def StreamRequest {
+        attribute clientAddress : IpAddress;
+        attribute requestedProgramNumber : Integer;
+        attribute protocol : ProtocolName;
+    }
+
+    item def DeviceStatus {
+        attribute deviceAddress : IpAddress;
+        attribute activeTuners : Integer;
+        attribute internalTemperature : TemperatureC;
+        attribute networkBitRate : BitRateMbps;
+    }
+
+    port def RfInputPort {
+        in item signal : RfTelevisionSignal;
+    }
+
+    port def EthernetPort {
+        in item incomingCommand : TuningCommand;
+        in item streamRequest : StreamRequest;
+        out item streamPacket : IpPacket;
+        out item statusPacket : DeviceStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute voltage : VoltageV;
+        in attribute current : CurrentA;
+    }
+
+    port def InternalStreamPort {
+        out item transportStream : MPEGTransportStream;
+    }
+
+    port def ControlPort {
+        in item command : TuningCommand;
+        out item status : DeviceStatus;
+    }
+
+    action def ReceiveRfSignal {
+        in item rfSignal : RfTelevisionSignal;
+        out item conditionedSignal : RfTelevisionSignal;
+    }
+
+    action def TuneChannel {
+        in item command : TuningCommand;
+        in item availableSignal : RfTelevisionSignal;
+        out item selectedSignal : RfTelevisionSignal;
+    }
+
+    action def DemodulateSignal {
+        in item selectedSignal : RfTelevisionSignal;
+        out item transportStream : MPEGTransportStream;
+    }
+
+    action def PacketizeStream {
+        in item transportStream : MPEGTransportStream;
+        in item request : StreamRequest;
+        out item packet : IpPacket;
+    }
+
+    action def PublishStatus {
+        in item status : DeviceStatus;
+        out item statusPacket : DeviceStatus;
+    }
+
+    state def TunerOperatingState {
+        entry action initializeTuner;
+
+        state poweredOff;
+        state idle;
+        state tuning;
+        state locked;
+        state streaming;
+        state signalLost;
+        state fault;
+
+        transition first poweredOff;
+
+        transition powerApplied
+            first poweredOff
+            then idle;
+
+        transition commandReceived
+            first idle
+            then tuning;
+
+        transition lockAcquired
+            first tuning
+            then locked;
+
+        transition clientRequestedStream
+            first locked
+            then streaming;
+
+        transition clientStoppedStream
+            first streaming
+            then locked;
+
+        transition signalBelowThreshold
+            first locked
+            then signalLost;
+
+        transition streamingSignalBelowThreshold
+            first streaming
+            then signalLost;
+
+        transition reacquiredSignal
+            first signalLost
+            then locked;
+
+        transition unrecoverableError
+            first idle
+            then fault;
+
+        transition resetFault
+            first fault
+            then idle;
+    }
+
+    state def DeviceOperatingState {
+        state disconnected;
+        state booting;
+        state acquiringNetwork;
+        state available;
+        state servingStreams;
+        state degraded;
+        state maintenanceFault;
+
+        transition initial disconnected;
+
+        transition dcPowerPresent
+            first disconnected
+            then booting;
+
+        transition firmwareStarted
+            first booting
+            then acquiringNetwork;
+
+        transition ipAddressAssigned
+            first acquiringNetwork
+            then available;
+
+        transition firstClientConnected
+            first available
+            then servingStreams;
+
+        transition allClientsDisconnected
+            first servingStreams
+            then available;
+
+        transition tunerOrNetworkWarning
+            first servingStreams
+            then degraded;
+
+        transition warningCleared
+            first degraded
+            then servingStreams;
+
+        transition criticalFault
+            first available
+            then maintenanceFault;
+
+        transition rebootComplete
+            first maintenanceFault
+            then booting;
+    }
+
+    part def Antenna {
+        port rfOut : RfInputPort;
+        attribute supportedBandLow : FrequencyMHz = 54.0;
+        attribute supportedBandHigh : FrequencyMHz = 608.0;
+    }
+
+    part def PowerAdapter {
+        port dcOut : PowerInputPort;
+        attribute nominalOutputVoltage : VoltageV = 5.0;
+        attribute maximumOutputCurrent : CurrentA = 1.5;
+        attribute maximumPower : PowerW = 7.5;
+    }
+
+    part def RfFrontEnd {
+        port rfIn : RfInputPort;
+        port rfOut : RfInputPort;
+        attribute minimumUsableSignalStrength : SignalStrengthPercent = 35.0;
+        attribute maximumInputFrequency : FrequencyMHz = 1002.0;
+
+        perform action ReceiveRfSignal;
+    }
+
+    part def DigitalTuner {
+        port rfIn : RfInputPort;
+        port commandIn : ControlPort;
+        port streamOut : InternalStreamPort;
+
+        attribute tunedChannel : ChannelNumber;
+        attribute tunedFrequency : FrequencyMHz;
+        attribute programNumber : Integer;
+        attribute lockStatus : Boolean;
+        attribute measuredSignalStrength : SignalStrengthPercent;
+        attribute measuredSignalQuality : SignalStrengthPercent;
+
+        perform action TuneChannel;
+        perform action DemodulateSignal;
+        exhibit state TunerOperatingState;
+    }
+
+    part def TranscoderBypass {
+        port streamIn : InternalStreamPort;
+        port streamOut : InternalStreamPort;
+        attribute preservesOriginalBroadcastEncoding : Boolean = true;
+        attribute addedLatencyMs : Real = 1.0;
+    }
+
+    part def NetworkProcessor {
+        port control : ControlPort;
+        port streamIn1 : InternalStreamPort;
+        port streamIn2 : InternalStreamPort;
+        port ethernet : EthernetPort;
+
+        attribute deviceIpAddress : IpAddress;
+        attribute discoveryProtocol : ProtocolName = "SSDP";
+        attribute controlProtocol : ProtocolName = "HTTP";
+        attribute streamProtocol : ProtocolName = "RTP/UDP";
+        attribute maximumAggregateBitRate : BitRateMbps = 100.0;
+
+        perform action PacketizeStream;
+        perform action PublishStatus;
+    }
+
+    part def EthernetSwitch {
+        port hdHomeRunPort : EthernetPort;
+        port routerPort : EthernetPort;
+        port clientPortA : EthernetPort;
+        port clientPortB : EthernetPort;
+
+        attribute linkSpeed : BitRateMbps = 1000.0;
+    }
+
+    part def ViewingClient {
+        port network : EthernetPort;
+        attribute clientAddress : IpAddress;
+        attribute supportsDiscovery : Boolean = true;
+        attribute supportsLivePlayback : Boolean = true;
+    }
+
+    part def HomeRouter {
+        port lan : EthernetPort;
+        attribute subnetAddress : IpAddress = "192.168.1.0";
+        attribute providesDhcp : Boolean = true;
+    }
+
+    part def HDHomeRunDevice {
+        port antennaInput : RfInputPort;
+        port ethernet : EthernetPort;
+        port power : PowerInputPort;
+
+        part frontEnd : RfFrontEnd;
+        part tunerA : DigitalTuner;
+        part tunerB : DigitalTuner;
+        part bypassA : TranscoderBypass;
+        part bypassB : TranscoderBypass;
+        part networkProcessor : NetworkProcessor;
+
+        attribute deviceAddress : IpAddress;
+        attribute deviceMacAddress : MacAddress;
+        attribute tunerCount : Integer = 2;
+        attribute nominalPowerDraw : PowerW = 3.5;
+        attribute maximumPowerDraw : PowerW = 6.0;
+        attribute internalTemperature : TemperatureC;
+        attribute supportsConcurrentStreams : Boolean = true;
+
+        exhibit state DeviceOperatingState;
+
+        connect antennaInput to frontEnd.rfIn;
+        connect frontEnd.rfOut to tunerA.rfIn;
+        connect frontEnd.rfOut to tunerB.rfIn;
+        connect tunerA.streamOut to bypassA.streamIn;
+        connect tunerB.streamOut to bypassB.streamIn;
+        connect bypassA.streamOut to networkProcessor.streamIn1;
+        connect bypassB.streamOut to networkProcessor.streamIn2;
+        connect networkProcessor.ethernet to ethernet;
+    }
+
+    part def HDHomeRunBasedTelevisionDistributionSystem {
+        part antenna : Antenna;
+        part powerAdapter : PowerAdapter;
+        part hdHomeRun : HDHomeRunDevice;
+        part ethernetSwitch : EthernetSwitch;
+        part router : HomeRouter;
+        part livingRoomClient : ViewingClient {
+            attribute clientAddress = "192.168.1.41";
+        }
+        part tabletClient : ViewingClient {
+            attribute clientAddress = "192.168.1.52";
+        }
+
+        attribute primaryFunction : String =
+            "Receive broadcast television RF signals, tune selected channels, demodulate them into MPEG transport streams, and distribute live television over the home IP network to client applications.";
+
+        connect antenna.rfOut to hdHomeRun.antennaInput;
+        connect powerAdapter.dcOut to hdHomeRun.power;
+        connect hdHomeRun.ethernet to ethernetSwitch.hdHomeRunPort;
+        connect ethernetSwitch.routerPort to router.lan;
+        connect ethernetSwitch.clientPortA to livingRoomClient.network;
+        connect ethernetSwitch.clientPortB to tabletClient.network;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : HDHomeRunBasedTelevisionDistributionSystem;
+
+        doc
+        /*
+         The system shall convert available television RF broadcasts into IP-delivered live television streams for network clients.
+        */
+
+        require constraint {
+            system.hdHomeRun.tunerCount >= 1
+        }
+    }
+
+    requirement def ConcurrentViewingRequirement {
+        subject device : HDHomeRunDevice;
+
+        doc
+        /*
+         The HDHomeRun device shall support simultaneous use of two independent tuners when adequate RF signal and network capacity are available.
+        */
+
+        require constraint {
+            device.tunerCount == 2 and device.supportsConcurrentStreams == true
+        }
+    }
+
+    requirement def NetworkStreamingRequirement {
+        subject processor : NetworkProcessor;
+
+        doc
+        /*
+         The network processor shall packetize demodulated MPEG transport streams into IP packets suitable for playback by LAN clients.
+        */
+
+        require constraint {
+            processor.maximumAggregateBitRate >= 40.0
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject tuner : DigitalTuner;
+
+        doc
+        /*
+         A tuner shall report signal strength and signal quality while locked to a channel.
+        */
+
+        require constraint {
+            tuner.measuredSignalStrength >= 0.0 and
+            tuner.measuredSignalStrength <= 100.0 and
+            tuner.measuredSignalQuality >= 0.0 and
+            tuner.measuredSignalQuality <= 100.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject device : HDHomeRunDevice;
+
+        doc
+        /*
+         The HDHomeRun device shall operate from a low-voltage DC power source and shall not exceed its specified maximum power draw.
+        */
+
+        require constraint {
+            device.maximumPowerDraw <= 6.0
+        }
+    }
+
+    requirement def DiscoveryRequirement {
+        subject processor : NetworkProcessor;
+
+        doc
+        /*
+         The device shall expose network discovery information so compatible client applications can locate available tuners.
+        */
+
+        require constraint {
+            processor.discoveryProtocol == "SSDP"
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HDHomeRunBasedTelevisionDistributionSystem;
+    satisfy ConcurrentViewingRequirement by HDHomeRunDevice;
+    satisfy NetworkStreamingRequirement by NetworkProcessor;
+    satisfy SignalQualityRequirement by DigitalTuner;
+    satisfy PowerRequirement by HDHomeRunDevice;
+    satisfy DiscoveryRequirement by NetworkProcessor;
+
+}
+tokens used
+3,217
+package HDHomeRunSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def FrequencyMHz : Real {
+        unit = "MHz";
+    }
+
+    attribute def BitRateMbps : Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def PowerW : Real {
+        unit = "W";
+    }
+
+    attribute def VoltageV : Real {
+        unit = "V";
+    }
+
+    attribute def CurrentA : Real {
+        unit = "A";
+    }
+
+    attribute def TemperatureC : Real {
+        unit = "degC";
+    }
+
+    attribute def SignalStrengthPercent : Real {
+        unit = "%";
+    }
+
+    attribute def PacketCount : Integer;
+    attribute def ChannelNumber : String;
+    attribute def IpAddress : String;
+    attribute def MacAddress : String;
+    attribute def ProtocolName : String;
+
+    item def RfTelevisionSignal {
+        attribute centerFrequency : FrequencyMHz;
+        attribute channel : ChannelNumber;
+        attribute modulation : String;
+        attribute signalStrength : SignalStrengthPercent;
+        attribute signalQuality : SignalStrengthPercent;
+    }
+
+    item def MPEGTransportStream {
+        attribute programNumber : Integer;
+        attribute videoCodec : String;
+        attribute audioCodec : String;
+        attribute transportBitRate : BitRateMbps;
+        attribute continuityCounterErrors : PacketCount;
+    }
+
+    item def EthernetFrame {
+        attribute sourceMac : MacAddress;
+        attribute destinationMac : MacAddress;
+        attribute payloadProtocol : ProtocolName;
+    }
+
+    item def IpPacket {
+        attribute sourceAddress : IpAddress;
+        attribute destinationAddress : IpAddress;
+        attribute protocol : ProtocolName;
+        attribute payloadBitRate : BitRateMbps;
+    }
+
+    item def TuningCommand {
+        attribute requestedChannel : ChannelNumber;
+        attribute requestedFrequency : FrequencyMHz;
+        attribute requestedProgramNumber : Integer;
+    }
+
+    item def StreamRequest {
+        attribute clientAddress : IpAddress;
+        attribute requestedProgramNumber : Integer;
+        attribute protocol : ProtocolName;
+    }
+
+    item def DeviceStatus {
+        attribute deviceAddress : IpAddress;
+        attribute activeTuners : Integer;
+        attribute internalTemperature : TemperatureC;
+        attribute networkBitRate : BitRateMbps;
+    }
+
+    port def RfInputPort {
+        in item signal : RfTelevisionSignal;
+    }
+
+    port def EthernetPort {
+        in item incomingCommand : TuningCommand;
+        in item streamRequest : StreamRequest;
+        out item streamPacket : IpPacket;
+        out item statusPacket : DeviceStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute voltage : VoltageV;
+        in attribute current : CurrentA;
+    }
+
+    port def InternalStreamPort {
+        out item transportStream : MPEGTransportStream;
+    }
+
+    port def ControlPort {
+        in item command : TuningCommand;
+        out item status : DeviceStatus;
+    }
+
+    action def ReceiveRfSignal {
+        in item rfSignal : RfTelevisionSignal;
+        out item conditionedSignal : RfTelevisionSignal;
+    }
+
+    action def TuneChannel {
+        in item command : TuningCommand;
+        in item availableSignal : RfTelevisionSignal;
+        out item selectedSignal : RfTelevisionSignal;
+    }
+
+    action def DemodulateSignal {
+        in item selectedSignal : RfTelevisionSignal;
+        out item transportStream : MPEGTransportStream;
+    }
+
+    action def PacketizeStream {
+        in item transportStream : MPEGTransportStream;
+        in item request : StreamRequest;
+        out item packet : IpPacket;
+    }
+
+    action def PublishStatus {
+        in item status : DeviceStatus;
+        out item statusPacket : DeviceStatus;
+    }
+
+    state def TunerOperatingState {
+        entry action initializeTuner;
+
+        state poweredOff;
+        state idle;
+        state tuning;
+        state locked;
+        state streaming;
+        state signalLost;
+        state fault;
+
+        transition first poweredOff;
+
+        transition powerApplied
+            first poweredOff
+            then idle;
+
+        transition commandReceived
+            first idle
+            then tuning;
+
+        transition lockAcquired
+            first tuning
+            then locked;
+
+        transition clientRequestedStream
+            first locked
+            then streaming;
+
+        transition clientStoppedStream
+            first streaming
+            then locked;
+
+        transition signalBelowThreshold
+            first locked
+            then signalLost;
+
+        transition streamingSignalBelowThreshold
+            first streaming
+            then signalLost;
+
+        transition reacquiredSignal
+            first signalLost
+            then locked;
+
+        transition unrecoverableError
+            first idle
+            then fault;
+
+        transition resetFault
+            first fault
+            then idle;
+    }
+
+    state def DeviceOperatingState {
+        state disconnected;
+        state booting;
+        state acquiringNetwork;
+        state available;
+        state servingStreams;
+        state degraded;
+        state maintenanceFault;
+
+        transition initial disconnected;
+
+        transition dcPowerPresent
+            first disconnected
+            then booting;
+
+        transition firmwareStarted
+            first booting
+            then acquiringNetwork;
+
+        transition ipAddressAssigned
+            first acquiringNetwork
+            then available;
+
+        transition firstClientConnected
+            first available
+            then servingStreams;
+
+        transition allClientsDisconnected
+            first servingStreams
+            then available;
+
+        transition tunerOrNetworkWarning
+            first servingStreams
+            then degraded;
+
+        transition warningCleared
+            first degraded
+            then servingStreams;
+
+        transition criticalFault
+            first available
+            then maintenanceFault;
+
+        transition rebootComplete
+            first maintenanceFault
+            then booting;
+    }
+
+    part def Antenna {
+        port rfOut : RfInputPort;
+        attribute supportedBandLow : FrequencyMHz = 54.0;
+        attribute supportedBandHigh : FrequencyMHz = 608.0;
+    }
+
+    part def PowerAdapter {
+        port dcOut : PowerInputPort;
+        attribute nominalOutputVoltage : VoltageV = 5.0;
+        attribute maximumOutputCurrent : CurrentA = 1.5;
+        attribute maximumPower : PowerW = 7.5;
+    }
+
+    part def RfFrontEnd {
+        port rfIn : RfInputPort;
+        port rfOut : RfInputPort;
+        attribute minimumUsableSignalStrength : SignalStrengthPercent = 35.0;
+        attribute maximumInputFrequency : FrequencyMHz = 1002.0;
+
+        perform action ReceiveRfSignal;
+    }
+
+    part def DigitalTuner {
+        port rfIn : RfInputPort;
+        port commandIn : ControlPort;
+        port streamOut : InternalStreamPort;
+
+        attribute tunedChannel : ChannelNumber;
+        attribute tunedFrequency : FrequencyMHz;
+        attribute programNumber : Integer;
+        attribute lockStatus : Boolean;
+        attribute measuredSignalStrength : SignalStrengthPercent;
+        attribute measuredSignalQuality : SignalStrengthPercent;
+
+        perform action TuneChannel;
+        perform action DemodulateSignal;
+        exhibit state TunerOperatingState;
+    }
+
+    part def TranscoderBypass {
+        port streamIn : InternalStreamPort;
+        port streamOut : InternalStreamPort;
+        attribute preservesOriginalBroadcastEncoding : Boolean = true;
+        attribute addedLatencyMs : Real = 1.0;
+    }
+
+    part def NetworkProcessor {
+        port control : ControlPort;
+        port streamIn1 : InternalStreamPort;
+        port streamIn2 : InternalStreamPort;
+        port ethernet : EthernetPort;
+
+        attribute deviceIpAddress : IpAddress;
+        attribute discoveryProtocol : ProtocolName = "SSDP";
+        attribute controlProtocol : ProtocolName = "HTTP";
+        attribute streamProtocol : ProtocolName = "RTP/UDP";
+        attribute maximumAggregateBitRate : BitRateMbps = 100.0;
+
+        perform action PacketizeStream;
+        perform action PublishStatus;
+    }
+
+    part def EthernetSwitch {
+        port hdHomeRunPort : EthernetPort;
+        port routerPort : EthernetPort;
+        port clientPortA : EthernetPort;
+        port clientPortB : EthernetPort;
+
+        attribute linkSpeed : BitRateMbps = 1000.0;
+    }
+
+    part def ViewingClient {
+        port network : EthernetPort;
+        attribute clientAddress : IpAddress;
+        attribute supportsDiscovery : Boolean = true;
+        attribute supportsLivePlayback : Boolean = true;
+    }
+
+    part def HomeRouter {
+        port lan : EthernetPort;
+        attribute subnetAddress : IpAddress = "192.168.1.0";
+        attribute providesDhcp : Boolean = true;
+    }
+
+    part def HDHomeRunDevice {
+        port antennaInput : RfInputPort;
+        port ethernet : EthernetPort;
+        port power : PowerInputPort;
+
+        part frontEnd : RfFrontEnd;
+        part tunerA : DigitalTuner;
+        part tunerB : DigitalTuner;
+        part bypassA : TranscoderBypass;
+        part bypassB : TranscoderBypass;
+        part networkProcessor : NetworkProcessor;
+
+        attribute deviceAddress : IpAddress;
+        attribute deviceMacAddress : MacAddress;
+        attribute tunerCount : Integer = 2;
+        attribute nominalPowerDraw : PowerW = 3.5;
+        attribute maximumPowerDraw : PowerW = 6.0;
+        attribute internalTemperature : TemperatureC;
+        attribute supportsConcurrentStreams : Boolean = true;
+
+        exhibit state DeviceOperatingState;
+
+        connect antennaInput to frontEnd.rfIn;
+        connect frontEnd.rfOut to tunerA.rfIn;
+        connect frontEnd.rfOut to tunerB.rfIn;
+        connect tunerA.streamOut to bypassA.streamIn;
+        connect tunerB.streamOut to bypassB.streamIn;
+        connect bypassA.streamOut to networkProcessor.streamIn1;
+        connect bypassB.streamOut to networkProcessor.streamIn2;
+        connect networkProcessor.ethernet to ethernet;
+    }
+
+    part def HDHomeRunBasedTelevisionDistributionSystem {
+        part antenna : Antenna;
+        part powerAdapter : PowerAdapter;
+        part hdHomeRun : HDHomeRunDevice;
+        part ethernetSwitch : EthernetSwitch;
+        part router : HomeRouter;
+        part livingRoomClient : ViewingClient {
+            attribute clientAddress = "192.168.1.41";
+        }
+        part tabletClient : ViewingClient {
+            attribute clientAddress = "192.168.1.52";
+        }
+
+        attribute primaryFunction : String =
+            "Receive broadcast television RF signals, tune selected channels, demodulate them into MPEG transport streams, and distribute live television over the home IP network to client applications.";
+
+        connect antenna.rfOut to hdHomeRun.antennaInput;
+        connect powerAdapter.dcOut to hdHomeRun.power;
+        connect hdHomeRun.ethernet to ethernetSwitch.hdHomeRunPort;
+        connect ethernetSwitch.routerPort to router.lan;
+        connect ethernetSwitch.clientPortA to livingRoomClient.network;
+        connect ethernetSwitch.clientPortB to tabletClient.network;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : HDHomeRunBasedTelevisionDistributionSystem;
+
+        doc
+        /*
+         The system shall convert available television RF broadcasts into IP-delivered live television streams for network clients.
+        */
+
+        require constraint {
+            system.hdHomeRun.tunerCount >= 1
+        }
+    }
+
+    requirement def ConcurrentViewingRequirement {
+        subject device : HDHomeRunDevice;
+
+        doc
+        /*
+         The HDHomeRun device shall support simultaneous use of two independent tuners when adequate RF signal and network capacity are available.
+        */
+
+        require constraint {
+            device.tunerCount == 2 and device.supportsConcurrentStreams == true
+        }
+    }
+
+    requirement def NetworkStreamingRequirement {
+        subject processor : NetworkProcessor;
+
+        doc
+        /*
+         The network processor shall packetize demodulated MPEG transport streams into IP packets suitable for playback by LAN clients.
+        */
+
+        require constraint {
+            processor.maximumAggregateBitRate >= 40.0
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject tuner : DigitalTuner;
+
+        doc
+        /*
+         A tuner shall report signal strength and signal quality while locked to a channel.
+        */
+
+        require constraint {
+            tuner.measuredSignalStrength >= 0.0 and
+            tuner.measuredSignalStrength <= 100.0 and
+            tuner.measuredSignalQuality >= 0.0 and
+            tuner.measuredSignalQuality <= 100.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject device : HDHomeRunDevice;
+
+        doc
+        /*
+         The HDHomeRun device shall operate from a low-voltage DC power source and shall not exceed its specified maximum power draw.
+        */
+
+        require constraint {
+            device.maximumPowerDraw <= 6.0
+        }
+    }
+
+    requirement def DiscoveryRequirement {
+        subject processor : NetworkProcessor;
+
+        doc
+        /*
+         The device shall expose network discovery information so compatible client applications can locate available tuners.
+        */
+
+        require constraint {
+            processor.discoveryProtocol == "SSDP"
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HDHomeRunBasedTelevisionDistributionSystem;
+    satisfy ConcurrentViewingRequirement by HDHomeRunDevice;
+    satisfy NetworkStreamingRequirement by NetworkProcessor;
+    satisfy SignalQualityRequirement by DigitalTuner;
+    satisfy PowerRequirement by HDHomeRunDevice;
+    satisfy DiscoveryRequirement by NetworkProcessor;
+
+}

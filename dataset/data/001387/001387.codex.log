@@ -1,0 +1,1041 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-759mkb8e
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb683-93e8-7d11-bf8d-e7fe7d4f63b2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Consumer IR and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ConsumerIRSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def CarrierFrequency :> frequency;
+    attribute def Irradiance :> powerPerArea;
+    attribute def Distance :> length;
+    attribute def Angle :> planeAngle;
+    attribute def Voltage :> electricPotential;
+    attribute def Current :> electricCurrent;
+    attribute def TimeInterval :> time;
+    attribute def BitRate :> frequency;
+    attribute def Probability;
+    attribute def Temperature :> thermodynamicTemperature;
+
+    enum def ProtocolKind {
+        enum NEC;
+        enum RC5;
+        enum RC6;
+        enum SonySIRC;
+        enum Unknown;
+    }
+
+    enum def CommandKind {
+        enum PowerToggle;
+        enum VolumeUp;
+        enum VolumeDown;
+        enum ChannelUp;
+        enum ChannelDown;
+        enum Menu;
+        enum Select;
+        enum Back;
+        enum Numeric0;
+        enum Numeric1;
+        enum Numeric2;
+        enum Numeric3;
+        enum Numeric4;
+        enum Numeric5;
+        enum Numeric6;
+        enum Numeric7;
+        enum Numeric8;
+        enum Numeric9;
+        enum Unrecognized;
+    }
+
+    item def InfraredRadiation {
+        attribute wavelength : length;
+        attribute carrierFrequency : CarrierFrequency;
+        attribute irradianceAtReceiver : Irradiance;
+        attribute incidentAngle : Angle;
+        attribute pulseEnvelopePresent : Boolean;
+    }
+
+    item def DemodulatedPulseTrain {
+        attribute carrierRemoved : Boolean;
+        attribute pulseCount : Integer;
+        attribute duration : TimeInterval;
+        attribute markSpaceTimingValid : Boolean;
+    }
+
+    item def IRFrame {
+        attribute protocol : ProtocolKind;
+        attribute address : Integer;
+        attribute commandCode : Integer;
+        attribute repeatFrame : Boolean;
+        attribute checksumValid : Boolean;
+    }
+
+    item def ConsumerCommand {
+        attribute command : CommandKind;
+        attribute sourceAddress : Integer;
+        attribute accepted : Boolean;
+        attribute generatedAt : TimeInterval;
+    }
+
+    item def DiagnosticEvent {
+        attribute textCode : String;
+        attribute severity : Integer;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute loadCurrent : Current;
+    }
+
+    port def OpticalIRInputPort {
+        in item receivedIR : InfraredRadiation;
+    }
+
+    port def PulseOutputPort {
+        out item pulseTrain : DemodulatedPulseTrain;
+    }
+
+    port def PulseInputPort {
+        in item pulseTrain : DemodulatedPulseTrain;
+    }
+
+    port def FrameOutputPort {
+        out item frame : IRFrame;
+    }
+
+    port def FrameInputPort {
+        in item frame : IRFrame;
+    }
+
+    port def CommandOutputPort {
+        out item command : ConsumerCommand;
+    }
+
+    port def CommandInputPort {
+        in item command : ConsumerCommand;
+    }
+
+    port def DiagnosticOutputPort {
+        out item event : DiagnosticEvent;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    part def IRWindow {
+        attribute transmittanceAt940nm : Real;
+        attribute fieldOfView : Angle;
+        attribute ambientLightRejection : Real;
+
+        port opticalIn : OpticalIRInputPort;
+        port opticalOut : OpticalIRInputPort;
+    }
+
+    part def IRPhotodiodeReceiver {
+        attribute nominalWavelength : length = 940 [SI::nm];
+        attribute acceptedCarrierFrequency : CarrierFrequency = 38000 [SI::Hz];
+        attribute carrierTolerance : frequency = 2000 [SI::Hz];
+        attribute minimumIrradiance : Irradiance = 0.08 [SI::W_per_m2];
+        attribute maximumIncidentAngle : Angle = 45 [SI::deg];
+        attribute outputLowVoltage : Voltage = 0.2 [SI::V];
+        attribute outputHighVoltage : Voltage = 3.3 [SI::V];
+
+        port opticalIn : OpticalIRInputPort;
+        port pulseOut : PulseOutputPort;
+        port powerIn : PowerInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def DetectAndDemodulate {
+            in item ir : InfraredRadiation;
+            out item pulses : DemodulatedPulseTrain;
+
+            first start;
+            then verifyCarrier;
+            then removeCarrier;
+            then producePulseTrain;
+            then done;
+
+            action verifyCarrier {
+                in item ir;
+            }
+
+            action removeCarrier {
+                in item ir;
+            }
+
+            action producePulseTrain {
+                out item pulses;
+            }
+        }
+    }
+
+    part def PulseTimingFilter {
+        attribute minimumPulseWidth : TimeInterval = 200 [SI::us];
+        attribute maximumFrameGap : TimeInterval = 120 [SI::ms];
+        attribute ambientNoiseBlankingTime : TimeInterval = 50 [SI::us];
+
+        port pulseIn : PulseInputPort;
+        port pulseOut : PulseOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def ValidateTiming {
+            in item rawPulses : DemodulatedPulseTrain;
+            out item cleanPulses : DemodulatedPulseTrain;
+        }
+    }
+
+    part def ProtocolDecoder {
+        attribute supportedNEC : Boolean = true;
+        attribute supportedRC5 : Boolean = true;
+        attribute supportedRC6 : Boolean = true;
+        attribute supportedSonySIRC : Boolean = true;
+        attribute nominalDecodeLatency : TimeInterval = 6 [SI::ms];
+
+        port pulseIn : PulseInputPort;
+        port frameOut : FrameOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def DecodeFrame {
+            in item pulses : DemodulatedPulseTrain;
+            out item frame : IRFrame;
+
+            first receivePulseTrain;
+            then identifyProtocol;
+            then extractAddress;
+            then extractCommand;
+            then validateIntegrity;
+            then publishFrame;
+        }
+    }
+
+    part def CommandMapper {
+        attribute tableRevision : String = "Consumer-IR-Control-Map-1.0";
+        attribute rejectUnknownProtocol : Boolean = true;
+        attribute rejectInvalidChecksum : Boolean = true;
+
+        port frameIn : FrameInputPort;
+        port commandOut : CommandOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def MapFrameToCommand {
+            in item frame : IRFrame;
+            out item command : ConsumerCommand;
+        }
+    }
+
+    part def CommandDispatcher {
+        attribute maximumCommandLatency : TimeInterval = 20 [SI::ms];
+        attribute repeatSuppressionWindow : TimeInterval = 110 [SI::ms];
+
+        port commandIn : CommandInputPort;
+        port commandOut : CommandOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def DispatchAcceptedCommand {
+            in item command : ConsumerCommand;
+            out item commandForHost : ConsumerCommand;
+        }
+    }
+
+    part def HostConsumerDevice {
+        attribute hostName : String = "Consumer appliance controller";
+
+        port commandIn : CommandInputPort;
+
+        state def HostControlState {
+            state Off;
+            state On;
+            state MenuDisplayed;
+
+            entry;
+            then Off;
+
+            transition Off_to_On
+                first Off
+                accept ConsumerCommand
+                if command == CommandKind::PowerToggle
+                then On;
+
+            transition On_to_Off
+                first On
+                accept ConsumerCommand
+                if command == CommandKind::PowerToggle
+                then Off;
+
+            transition On_to_Menu
+                first On
+                accept ConsumerCommand
+                if command == CommandKind::Menu
+                then MenuDisplayed;
+
+            transition Menu_to_On
+                first MenuDisplayed
+                accept ConsumerCommand
+                if command == CommandKind::Back
+                then On;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltage : Voltage = 5.0 [SI::V];
+        attribute regulatedVoltage : Voltage = 3.3 [SI::V];
+        attribute maximumOutputCurrent : Current = 80 [SI::mA];
+
+        port powerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+    }
+
+    part def ConsumerIRControlSystem {
+        doc
+        /*
+         * Primary high-level function:
+         * receive modulated infrared light from a handheld consumer remote control,
+         * reject ambient optical noise, decode the consumer IR protocol frame, map the
+         * frame into a semantic host command, and deliver that command to the controlled
+         * consumer device within bounded latency.
+         */
+
+        attribute operatingRange : Distance = 8 [SI::m];
+        attribute nominalCarrierFrequency : CarrierFrequency = 38000 [SI::Hz];
+        attribute endToEndLatencyLimit : TimeInterval = 30 [SI::ms];
+        attribute falseCommandProbabilityLimit : Probability = 0.000001;
+        attribute operatingTemperatureLow : Temperature = 273.15 [SI::K];
+        attribute operatingTemperatureHigh : Temperature = 323.15 [SI::K];
+
+        port opticalInput : OpticalIRInputPort;
+        port commandOutput : CommandOutputPort;
+        port powerInput : PowerInputPort;
+        port diagnosticOutput : DiagnosticOutputPort;
+
+        part irWindow : IRWindow;
+        part receiver : IRPhotodiodeReceiver;
+        part filter : PulseTimingFilter;
+        part decoder : ProtocolDecoder;
+        part mapper : CommandMapper;
+        part dispatcher : CommandDispatcher;
+        part host : HostConsumerDevice;
+        part regulator : PowerRegulator;
+
+        connect opticalInput to irWindow.opticalIn;
+        connect irWindow.opticalOut to receiver.opticalIn;
+        connect receiver.pulseOut to filter.pulseIn;
+        connect filter.pulseOut to decoder.pulseIn;
+        connect decoder.frameOut to mapper.frameIn;
+        connect mapper.commandOut to dispatcher.commandIn;
+        connect dispatcher.commandOut to commandOutput;
+        connect dispatcher.commandOut to host.commandIn;
+
+        connect powerInput to regulator.powerIn;
+        connect regulator.regulatedPowerOut to receiver.powerIn;
+
+        connect receiver.diagnosticOut to diagnosticOutput;
+        connect filter.diagnosticOut to diagnosticOutput;
+        connect decoder.diagnosticOut to diagnosticOutput;
+        connect mapper.diagnosticOut to diagnosticOutput;
+        connect dispatcher.diagnosticOut to diagnosticOutput;
+
+        action def ReceiveAndInterpretConsumerIR {
+            in item incomingIR : InfraredRadiation;
+            out item hostCommand : ConsumerCommand;
+
+            first collectOpticalSignal;
+            then demodulateCarrier;
+            then filterPulseTiming;
+            then decodeProtocolFrame;
+            then mapConsumerCommand;
+            then suppressInvalidRepeats;
+            then deliverHostCommand;
+            then complete;
+
+            action collectOpticalSignal {
+                in item incomingIR;
+            }
+
+            action demodulateCarrier {
+                in item incomingIR;
+                out item pulses : DemodulatedPulseTrain;
+            }
+
+            action filterPulseTiming {
+                in item pulses;
+                out item cleanPulses : DemodulatedPulseTrain;
+            }
+
+            action decodeProtocolFrame {
+                in item cleanPulses;
+                out item frame : IRFrame;
+            }
+
+            action mapConsumerCommand {
+                in item frame;
+                out item command : ConsumerCommand;
+            }
+
+            action suppressInvalidRepeats {
+                in item command;
+                out item acceptedCommand : ConsumerCommand;
+            }
+
+            action deliverHostCommand {
+                in item acceptedCommand;
+                out item hostCommand;
+            }
+        }
+
+        state def IRControlOperationalState {
+            state Unpowered;
+            state Initializing;
+            state Idle;
+            state ReceivingFrame;
+            state DecodingFrame;
+            state DispatchingCommand;
+            state Fault;
+
+            entry;
+            then Unpowered;
+
+            transition PowerApplied
+                first Unpowered
+                accept ElectricalPower
+                then Initializing;
+
+            transition InitializationComplete
+                first Initializing
+                after 10 [SI::ms]
+                then Idle;
+
+            transition SignalDetected
+                first Idle
+                accept InfraredRadiation
+                if pulseEnvelopePresent == true
+                then ReceivingFrame;
+
+            transition FrameCaptured
+                first ReceivingFrame
+                accept DemodulatedPulseTrain
+                if markSpaceTimingValid == true
+                then DecodingFrame;
+
+            transition DecodeAccepted
+                first DecodingFrame
+                accept IRFrame
+                if checksumValid == true and protocol != ProtocolKind::Unknown
+                then DispatchingCommand;
+
+            transition CommandDelivered
+                first DispatchingCommand
+                accept ConsumerCommand
+                if accepted == true
+                then Idle;
+
+            transition InvalidFrame
+                first DecodingFrame
+                accept IRFrame
+                if checksumValid == false or protocol == ProtocolKind::Unknown
+                then Idle;
+
+            transition ReceiverFault
+                first Idle
+                accept DiagnosticEvent
+                if severity >= 3
+                then Fault;
+
+            transition FaultCleared
+                first Fault
+                accept DiagnosticEvent
+                if severity == 0
+                then Initializing;
+        }
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        id = "CIR-REQ-001";
+        text = "The Consumer IR control system shall receive modulated infrared radiation from a consumer remote control and convert each valid frame into one host command representing the requested user action.";
+    }
+
+    requirement def CarrierCompatibilityRequirement {
+        id = "CIR-REQ-002";
+        text = "The receiver shall accept consumer IR carriers centered at 38 kHz with a tolerance of at least plus or minus 2 kHz.";
+    }
+
+    requirement def OperatingRangeRequirement {
+        id = "CIR-REQ-003";
+        text = "The system shall decode valid remote-control commands at a line-of-sight distance of at least 8 m within a receiver incident angle of plus or minus 45 degrees.";
+    }
+
+    requirement def LatencyRequirement {
+        id = "CIR-REQ-004";
+        text = "The system shall deliver an accepted host command within 30 ms after the final pulse of a valid non-repeat IR frame.";
+    }
+
+    requirement def FalseCommandRequirement {
+        id = "CIR-REQ-005";
+        text = "The system shall limit false accepted commands caused by ambient light or invalid pulse timing to no more than one per one million received invalid frames.";
+    }
+
+    requirement def ProtocolSupportRequirement {
+        id = "CIR-REQ-006";
+        text = "The protocol decoder shall identify and decode NEC, RC5, RC6, and Sony SIRC consumer IR frame formats.";
+    }
+
+    requirement def IntegrityRequirement {
+        id = "CIR-REQ-007";
+        text = "The command mapper shall reject frames with invalid checksum, invalid toggle semantics, unsupported protocol, or unmapped command code.";
+    }
+
+    requirement def RepeatHandlingRequirement {
+        id = "CIR-REQ-008";
+        text = "The dispatcher shall suppress duplicate repeat frames inside the repeat suppression window unless the mapped command is explicitly repeatable.";
+    }
+
+    requirement def PowerRequirement {
+        id = "CIR-REQ-009";
+        text = "The Consumer IR control system shall operate from a 5 V input supply and regulate internal electronics to 3.3 V.";
+    }
+
+    requirement def DiagnosticsRequirement {
+        id = "CIR-REQ-010";
+        text = "The system shall emit diagnostic events for receiver saturation, timing rejection, unsupported protocol, integrity failure, and dispatch rejection.";
+    }
+
+    satisfy HighLevelFunctionRequirement by ConsumerIRControlSystem;
+    satisfy CarrierCompatibilityRequirement by IRPhotodiodeReceiver;
+    satisfy OperatingRangeRequirement by ConsumerIRControlSystem;
+    satisfy LatencyRequirement by CommandDispatcher;
+    satisfy FalseCommandRequirement by PulseTimingFilter;
+    satisfy ProtocolSupportRequirement by ProtocolDecoder;
+    satisfy IntegrityRequirement by CommandMapper;
+    satisfy RepeatHandlingRequirement by CommandDispatcher;
+    satisfy PowerRequirement by PowerRegulator;
+    satisfy DiagnosticsRequirement by ConsumerIRControlSystem;
+}
+tokens used
+4,810
+package ConsumerIRSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def CarrierFrequency :> frequency;
+    attribute def Irradiance :> powerPerArea;
+    attribute def Distance :> length;
+    attribute def Angle :> planeAngle;
+    attribute def Voltage :> electricPotential;
+    attribute def Current :> electricCurrent;
+    attribute def TimeInterval :> time;
+    attribute def BitRate :> frequency;
+    attribute def Probability;
+    attribute def Temperature :> thermodynamicTemperature;
+
+    enum def ProtocolKind {
+        enum NEC;
+        enum RC5;
+        enum RC6;
+        enum SonySIRC;
+        enum Unknown;
+    }
+
+    enum def CommandKind {
+        enum PowerToggle;
+        enum VolumeUp;
+        enum VolumeDown;
+        enum ChannelUp;
+        enum ChannelDown;
+        enum Menu;
+        enum Select;
+        enum Back;
+        enum Numeric0;
+        enum Numeric1;
+        enum Numeric2;
+        enum Numeric3;
+        enum Numeric4;
+        enum Numeric5;
+        enum Numeric6;
+        enum Numeric7;
+        enum Numeric8;
+        enum Numeric9;
+        enum Unrecognized;
+    }
+
+    item def InfraredRadiation {
+        attribute wavelength : length;
+        attribute carrierFrequency : CarrierFrequency;
+        attribute irradianceAtReceiver : Irradiance;
+        attribute incidentAngle : Angle;
+        attribute pulseEnvelopePresent : Boolean;
+    }
+
+    item def DemodulatedPulseTrain {
+        attribute carrierRemoved : Boolean;
+        attribute pulseCount : Integer;
+        attribute duration : TimeInterval;
+        attribute markSpaceTimingValid : Boolean;
+    }
+
+    item def IRFrame {
+        attribute protocol : ProtocolKind;
+        attribute address : Integer;
+        attribute commandCode : Integer;
+        attribute repeatFrame : Boolean;
+        attribute checksumValid : Boolean;
+    }
+
+    item def ConsumerCommand {
+        attribute command : CommandKind;
+        attribute sourceAddress : Integer;
+        attribute accepted : Boolean;
+        attribute generatedAt : TimeInterval;
+    }
+
+    item def DiagnosticEvent {
+        attribute textCode : String;
+        attribute severity : Integer;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute loadCurrent : Current;
+    }
+
+    port def OpticalIRInputPort {
+        in item receivedIR : InfraredRadiation;
+    }
+
+    port def PulseOutputPort {
+        out item pulseTrain : DemodulatedPulseTrain;
+    }
+
+    port def PulseInputPort {
+        in item pulseTrain : DemodulatedPulseTrain;
+    }
+
+    port def FrameOutputPort {
+        out item frame : IRFrame;
+    }
+
+    port def FrameInputPort {
+        in item frame : IRFrame;
+    }
+
+    port def CommandOutputPort {
+        out item command : ConsumerCommand;
+    }
+
+    port def CommandInputPort {
+        in item command : ConsumerCommand;
+    }
+
+    port def DiagnosticOutputPort {
+        out item event : DiagnosticEvent;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    part def IRWindow {
+        attribute transmittanceAt940nm : Real;
+        attribute fieldOfView : Angle;
+        attribute ambientLightRejection : Real;
+
+        port opticalIn : OpticalIRInputPort;
+        port opticalOut : OpticalIRInputPort;
+    }
+
+    part def IRPhotodiodeReceiver {
+        attribute nominalWavelength : length = 940 [SI::nm];
+        attribute acceptedCarrierFrequency : CarrierFrequency = 38000 [SI::Hz];
+        attribute carrierTolerance : frequency = 2000 [SI::Hz];
+        attribute minimumIrradiance : Irradiance = 0.08 [SI::W_per_m2];
+        attribute maximumIncidentAngle : Angle = 45 [SI::deg];
+        attribute outputLowVoltage : Voltage = 0.2 [SI::V];
+        attribute outputHighVoltage : Voltage = 3.3 [SI::V];
+
+        port opticalIn : OpticalIRInputPort;
+        port pulseOut : PulseOutputPort;
+        port powerIn : PowerInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def DetectAndDemodulate {
+            in item ir : InfraredRadiation;
+            out item pulses : DemodulatedPulseTrain;
+
+            first start;
+            then verifyCarrier;
+            then removeCarrier;
+            then producePulseTrain;
+            then done;
+
+            action verifyCarrier {
+                in item ir;
+            }
+
+            action removeCarrier {
+                in item ir;
+            }
+
+            action producePulseTrain {
+                out item pulses;
+            }
+        }
+    }
+
+    part def PulseTimingFilter {
+        attribute minimumPulseWidth : TimeInterval = 200 [SI::us];
+        attribute maximumFrameGap : TimeInterval = 120 [SI::ms];
+        attribute ambientNoiseBlankingTime : TimeInterval = 50 [SI::us];
+
+        port pulseIn : PulseInputPort;
+        port pulseOut : PulseOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def ValidateTiming {
+            in item rawPulses : DemodulatedPulseTrain;
+            out item cleanPulses : DemodulatedPulseTrain;
+        }
+    }
+
+    part def ProtocolDecoder {
+        attribute supportedNEC : Boolean = true;
+        attribute supportedRC5 : Boolean = true;
+        attribute supportedRC6 : Boolean = true;
+        attribute supportedSonySIRC : Boolean = true;
+        attribute nominalDecodeLatency : TimeInterval = 6 [SI::ms];
+
+        port pulseIn : PulseInputPort;
+        port frameOut : FrameOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def DecodeFrame {
+            in item pulses : DemodulatedPulseTrain;
+            out item frame : IRFrame;
+
+            first receivePulseTrain;
+            then identifyProtocol;
+            then extractAddress;
+            then extractCommand;
+            then validateIntegrity;
+            then publishFrame;
+        }
+    }
+
+    part def CommandMapper {
+        attribute tableRevision : String = "Consumer-IR-Control-Map-1.0";
+        attribute rejectUnknownProtocol : Boolean = true;
+        attribute rejectInvalidChecksum : Boolean = true;
+
+        port frameIn : FrameInputPort;
+        port commandOut : CommandOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def MapFrameToCommand {
+            in item frame : IRFrame;
+            out item command : ConsumerCommand;
+        }
+    }
+
+    part def CommandDispatcher {
+        attribute maximumCommandLatency : TimeInterval = 20 [SI::ms];
+        attribute repeatSuppressionWindow : TimeInterval = 110 [SI::ms];
+
+        port commandIn : CommandInputPort;
+        port commandOut : CommandOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action def DispatchAcceptedCommand {
+            in item command : ConsumerCommand;
+            out item commandForHost : ConsumerCommand;
+        }
+    }
+
+    part def HostConsumerDevice {
+        attribute hostName : String = "Consumer appliance controller";
+
+        port commandIn : CommandInputPort;
+
+        state def HostControlState {
+            state Off;
+            state On;
+            state MenuDisplayed;
+
+            entry;
+            then Off;
+
+            transition Off_to_On
+                first Off
+                accept ConsumerCommand
+                if command == CommandKind::PowerToggle
+                then On;
+
+            transition On_to_Off
+                first On
+                accept ConsumerCommand
+                if command == CommandKind::PowerToggle
+                then Off;
+
+            transition On_to_Menu
+                first On
+                accept ConsumerCommand
+                if command == CommandKind::Menu
+                then MenuDisplayed;
+
+            transition Menu_to_On
+                first MenuDisplayed
+                accept ConsumerCommand
+                if command == CommandKind::Back
+                then On;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltage : Voltage = 5.0 [SI::V];
+        attribute regulatedVoltage : Voltage = 3.3 [SI::V];
+        attribute maximumOutputCurrent : Current = 80 [SI::mA];
+
+        port powerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+    }
+
+    part def ConsumerIRControlSystem {
+        doc
+        /*
+         * Primary high-level function:
+         * receive modulated infrared light from a handheld consumer remote control,
+         * reject ambient optical noise, decode the consumer IR protocol frame, map the
+         * frame into a semantic host command, and deliver that command to the controlled
+         * consumer device within bounded latency.
+         */
+
+        attribute operatingRange : Distance = 8 [SI::m];
+        attribute nominalCarrierFrequency : CarrierFrequency = 38000 [SI::Hz];
+        attribute endToEndLatencyLimit : TimeInterval = 30 [SI::ms];
+        attribute falseCommandProbabilityLimit : Probability = 0.000001;
+        attribute operatingTemperatureLow : Temperature = 273.15 [SI::K];
+        attribute operatingTemperatureHigh : Temperature = 323.15 [SI::K];
+
+        port opticalInput : OpticalIRInputPort;
+        port commandOutput : CommandOutputPort;
+        port powerInput : PowerInputPort;
+        port diagnosticOutput : DiagnosticOutputPort;
+
+        part irWindow : IRWindow;
+        part receiver : IRPhotodiodeReceiver;
+        part filter : PulseTimingFilter;
+        part decoder : ProtocolDecoder;
+        part mapper : CommandMapper;
+        part dispatcher : CommandDispatcher;
+        part host : HostConsumerDevice;
+        part regulator : PowerRegulator;
+
+        connect opticalInput to irWindow.opticalIn;
+        connect irWindow.opticalOut to receiver.opticalIn;
+        connect receiver.pulseOut to filter.pulseIn;
+        connect filter.pulseOut to decoder.pulseIn;
+        connect decoder.frameOut to mapper.frameIn;
+        connect mapper.commandOut to dispatcher.commandIn;
+        connect dispatcher.commandOut to commandOutput;
+        connect dispatcher.commandOut to host.commandIn;
+
+        connect powerInput to regulator.powerIn;
+        connect regulator.regulatedPowerOut to receiver.powerIn;
+
+        connect receiver.diagnosticOut to diagnosticOutput;
+        connect filter.diagnosticOut to diagnosticOutput;
+        connect decoder.diagnosticOut to diagnosticOutput;
+        connect mapper.diagnosticOut to diagnosticOutput;
+        connect dispatcher.diagnosticOut to diagnosticOutput;
+
+        action def ReceiveAndInterpretConsumerIR {
+            in item incomingIR : InfraredRadiation;
+            out item hostCommand : ConsumerCommand;
+
+            first collectOpticalSignal;
+            then demodulateCarrier;
+            then filterPulseTiming;
+            then decodeProtocolFrame;
+            then mapConsumerCommand;
+            then suppressInvalidRepeats;
+            then deliverHostCommand;
+            then complete;
+
+            action collectOpticalSignal {
+                in item incomingIR;
+            }
+
+            action demodulateCarrier {
+                in item incomingIR;
+                out item pulses : DemodulatedPulseTrain;
+            }
+
+            action filterPulseTiming {
+                in item pulses;
+                out item cleanPulses : DemodulatedPulseTrain;
+            }
+
+            action decodeProtocolFrame {
+                in item cleanPulses;
+                out item frame : IRFrame;
+            }
+
+            action mapConsumerCommand {
+                in item frame;
+                out item command : ConsumerCommand;
+            }
+
+            action suppressInvalidRepeats {
+                in item command;
+                out item acceptedCommand : ConsumerCommand;
+            }
+
+            action deliverHostCommand {
+                in item acceptedCommand;
+                out item hostCommand;
+            }
+        }
+
+        state def IRControlOperationalState {
+            state Unpowered;
+            state Initializing;
+            state Idle;
+            state ReceivingFrame;
+            state DecodingFrame;
+            state DispatchingCommand;
+            state Fault;
+
+            entry;
+            then Unpowered;
+
+            transition PowerApplied
+                first Unpowered
+                accept ElectricalPower
+                then Initializing;
+
+            transition InitializationComplete
+                first Initializing
+                after 10 [SI::ms]
+                then Idle;
+
+            transition SignalDetected
+                first Idle
+                accept InfraredRadiation
+                if pulseEnvelopePresent == true
+                then ReceivingFrame;
+
+            transition FrameCaptured
+                first ReceivingFrame
+                accept DemodulatedPulseTrain
+                if markSpaceTimingValid == true
+                then DecodingFrame;
+
+            transition DecodeAccepted
+                first DecodingFrame
+                accept IRFrame
+                if checksumValid == true and protocol != ProtocolKind::Unknown
+                then DispatchingCommand;
+
+            transition CommandDelivered
+                first DispatchingCommand
+                accept ConsumerCommand
+                if accepted == true
+                then Idle;
+
+            transition InvalidFrame
+                first DecodingFrame
+                accept IRFrame
+                if checksumValid == false or protocol == ProtocolKind::Unknown
+                then Idle;
+
+            transition ReceiverFault
+                first Idle
+                accept DiagnosticEvent
+                if severity >= 3
+                then Fault;
+
+            transition FaultCleared
+                first Fault
+                accept DiagnosticEvent
+                if severity == 0
+                then Initializing;
+        }
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        id = "CIR-REQ-001";
+        text = "The Consumer IR control system shall receive modulated infrared radiation from a consumer remote control and convert each valid frame into one host command representing the requested user action.";
+    }
+
+    requirement def CarrierCompatibilityRequirement {
+        id = "CIR-REQ-002";
+        text = "The receiver shall accept consumer IR carriers centered at 38 kHz with a tolerance of at least plus or minus 2 kHz.";
+    }
+
+    requirement def OperatingRangeRequirement {
+        id = "CIR-REQ-003";
+        text = "The system shall decode valid remote-control commands at a line-of-sight distance of at least 8 m within a receiver incident angle of plus or minus 45 degrees.";
+    }
+
+    requirement def LatencyRequirement {
+        id = "CIR-REQ-004";
+        text = "The system shall deliver an accepted host command within 30 ms after the final pulse of a valid non-repeat IR frame.";
+    }
+
+    requirement def FalseCommandRequirement {
+        id = "CIR-REQ-005";
+        text = "The system shall limit false accepted commands caused by ambient light or invalid pulse timing to no more than one per one million received invalid frames.";
+    }
+
+    requirement def ProtocolSupportRequirement {
+        id = "CIR-REQ-006";
+        text = "The protocol decoder shall identify and decode NEC, RC5, RC6, and Sony SIRC consumer IR frame formats.";
+    }
+
+    requirement def IntegrityRequirement {
+        id = "CIR-REQ-007";
+        text = "The command mapper shall reject frames with invalid checksum, invalid toggle semantics, unsupported protocol, or unmapped command code.";
+    }
+
+    requirement def RepeatHandlingRequirement {
+        id = "CIR-REQ-008";
+        text = "The dispatcher shall suppress duplicate repeat frames inside the repeat suppression window unless the mapped command is explicitly repeatable.";
+    }
+
+    requirement def PowerRequirement {
+        id = "CIR-REQ-009";
+        text = "The Consumer IR control system shall operate from a 5 V input supply and regulate internal electronics to 3.3 V.";
+    }
+
+    requirement def DiagnosticsRequirement {
+        id = "CIR-REQ-010";
+        text = "The system shall emit diagnostic events for receiver saturation, timing rejection, unsupported protocol, integrity failure, and dispatch rejection.";
+    }
+
+    satisfy HighLevelFunctionRequirement by ConsumerIRControlSystem;
+    satisfy CarrierCompatibilityRequirement by IRPhotodiodeReceiver;
+    satisfy OperatingRangeRequirement by ConsumerIRControlSystem;
+    satisfy LatencyRequirement by CommandDispatcher;
+    satisfy FalseCommandRequirement by PulseTimingFilter;
+    satisfy ProtocolSupportRequirement by ProtocolDecoder;
+    satisfy IntegrityRequirement by CommandMapper;
+    satisfy RepeatHandlingRequirement by CommandDispatcher;
+    satisfy PowerRequirement by PowerRegulator;
+    satisfy DiagnosticsRequirement by ConsumerIRControlSystem;
+}

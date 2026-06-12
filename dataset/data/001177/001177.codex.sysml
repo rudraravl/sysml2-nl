@@ -1,0 +1,367 @@
+package PhaseUnwrappingSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def SampleIndex : Integer;
+  attribute def QualityScore : Real;
+  attribute def Confidence : Real;
+  attribute def PixelCount : Integer;
+  attribute def FrameCount : Integer;
+
+  attribute def PhaseValue {
+    attribute value : Real;
+    attribute unit : String = "rad";
+  }
+
+  attribute def UnwrappedPhaseValue {
+    attribute value : Real;
+    attribute unit : String = "rad";
+  }
+
+  attribute def SamplingFrequency {
+    attribute value : Real;
+    attribute unit : String = "Hz";
+  }
+
+  attribute def SpatialResolution {
+    attribute width : Integer;
+    attribute height : Integer;
+    attribute unit : String = "pixel";
+  }
+
+  attribute def ProcessingLatency {
+    attribute value : Real;
+    attribute unit : String = "ms";
+  }
+
+  attribute def WrapThreshold {
+    attribute positiveLimit : Real = 3.141592653589793;
+    attribute negativeLimit : Real = -3.141592653589793;
+    attribute unit : String = "rad";
+  }
+
+  item def WrappedPhaseSample {
+    attribute index : SampleIndex;
+    attribute wrappedPhase : PhaseValue;
+    attribute amplitude : Real;
+    attribute timestamp : Real;
+  }
+
+  item def WrappedPhaseFrame {
+    attribute frameId : FrameCount;
+    attribute resolution : SpatialResolution;
+    attribute sampleRate : SamplingFrequency;
+    attribute validPixels : PixelCount;
+  }
+
+  item def QualityMap {
+    attribute frameId : FrameCount;
+    attribute minimumQuality : QualityScore;
+    attribute averageQuality : QualityScore;
+  }
+
+  item def DiscontinuityMap {
+    attribute frameId : FrameCount;
+    attribute detectedJumps : Integer;
+    attribute maximumJump : PhaseValue;
+  }
+
+  item def UnwrappedPhaseFrame {
+    attribute frameId : FrameCount;
+    attribute resolution : SpatialResolution;
+    attribute validPixels : PixelCount;
+    attribute confidence : Confidence;
+  }
+
+  item def ProcessingStatus {
+    attribute frameId : FrameCount;
+    attribute stateName : String;
+    attribute latency : ProcessingLatency;
+    attribute errorCount : Integer;
+  }
+
+  port def WrappedPhaseInputPort {
+    in item wrappedFrame : WrappedPhaseFrame;
+  }
+
+  port def UnwrappedPhaseOutputPort {
+    out item unwrappedFrame : UnwrappedPhaseFrame;
+  }
+
+  port def StatusOutputPort {
+    out item status : ProcessingStatus;
+  }
+
+  port def QualityOutputPort {
+    out item quality : QualityMap;
+  }
+
+  port def DiscontinuityOutputPort {
+    out item discontinuities : DiscontinuityMap;
+  }
+
+  port def ControlPort {
+    in item command : String;
+    out item acknowledgement : String;
+  }
+
+  action def AcquireWrappedPhase {
+    in item inputFrame : WrappedPhaseFrame;
+    out item acquiredFrame : WrappedPhaseFrame;
+  }
+
+  action def ValidatePhaseFrame {
+    in item acquiredFrame : WrappedPhaseFrame;
+    out item validatedFrame : WrappedPhaseFrame;
+    out item validationStatus : ProcessingStatus;
+  }
+
+  action def EstimatePhaseQuality {
+    in item validatedFrame : WrappedPhaseFrame;
+    out item qualityMap : QualityMap;
+  }
+
+  action def DetectPhaseDiscontinuities {
+    in item validatedFrame : WrappedPhaseFrame;
+    in item qualityMap : QualityMap;
+    out item discontinuityMap : DiscontinuityMap;
+  }
+
+  action def ApplyPhaseUnwrapping {
+    in item validatedFrame : WrappedPhaseFrame;
+    in item qualityMap : QualityMap;
+    in item discontinuityMap : DiscontinuityMap;
+    out item unwrappedFrame : UnwrappedPhaseFrame;
+  }
+
+  action def PublishUnwrappedPhase {
+    in item unwrappedFrame : UnwrappedPhaseFrame;
+    out item publishedFrame : UnwrappedPhaseFrame;
+  }
+
+  action def ReportProcessingStatus {
+    in item frame : UnwrappedPhaseFrame;
+    out item status : ProcessingStatus;
+  }
+
+  action def PhaseUnwrappingPipeline {
+    in item wrappedInput : WrappedPhaseFrame;
+    out item unwrappedOutput : UnwrappedPhaseFrame;
+    out item qualityOutput : QualityMap;
+    out item discontinuityOutput : DiscontinuityMap;
+    out item statusOutput : ProcessingStatus;
+
+    action acquire : AcquireWrappedPhase {
+      in inputFrame = wrappedInput;
+    }
+
+    action validate : ValidatePhaseFrame {
+      in acquiredFrame = acquire.acquiredFrame;
+    }
+
+    action estimateQuality : EstimatePhaseQuality {
+      in validatedFrame = validate.validatedFrame;
+    }
+
+    action detectJumps : DetectPhaseDiscontinuities {
+      in validatedFrame = validate.validatedFrame;
+      in qualityMap = estimateQuality.qualityMap;
+    }
+
+    action unwrap : ApplyPhaseUnwrapping {
+      in validatedFrame = validate.validatedFrame;
+      in qualityMap = estimateQuality.qualityMap;
+      in discontinuityMap = detectJumps.discontinuityMap;
+    }
+
+    action publish : PublishUnwrappedPhase {
+      in unwrappedFrame = unwrap.unwrappedFrame;
+    }
+
+    action report : ReportProcessingStatus {
+      in frame = publish.publishedFrame;
+    }
+
+    bind unwrappedOutput = publish.publishedFrame;
+    bind qualityOutput = estimateQuality.qualityMap;
+    bind discontinuityOutput = detectJumps.discontinuityMap;
+    bind statusOutput = report.status;
+  }
+
+  state def ProcessingStateMachine {
+    entry action initialize {
+      out item status : ProcessingStatus;
+    }
+
+    state idle;
+    state acceptingInput;
+    state validating;
+    state computingQuality;
+    state detectingWraps;
+    state unwrapping;
+    state publishing;
+    state faulted;
+
+    transition first idle then acceptingInput
+      accept String
+      if command == "start";
+
+    transition acceptingInput then validating;
+    transition validating then computingQuality
+      if validationStatus.errorCount == 0;
+
+    transition validating then faulted
+      if validationStatus.errorCount > 0;
+
+    transition computingQuality then detectingWraps;
+    transition detectingWraps then unwrapping;
+    transition unwrapping then publishing;
+    transition publishing then acceptingInput;
+
+    transition faulted then idle
+      accept String
+      if command == "reset";
+  }
+
+  part def WrappedPhaseSensorInterface {
+    port phaseOut : WrappedPhaseInputPort;
+    attribute inputResolution : SpatialResolution;
+    attribute inputSamplingFrequency : SamplingFrequency;
+  }
+
+  part def FrameBuffer {
+    port phaseIn : WrappedPhaseInputPort;
+    port phaseOut : WrappedPhaseInputPort;
+    attribute capacity : FrameCount = 8;
+    attribute storedFrames : FrameCount;
+  }
+
+  part def PhaseQualityEstimator {
+    port phaseIn : WrappedPhaseInputPort;
+    port qualityOut : QualityOutputPort;
+    attribute minimumAcceptableAmplitude : Real = 0.05;
+    attribute minimumAcceptableQuality : QualityScore = 0.65;
+  }
+
+  part def DiscontinuityDetector {
+    port phaseIn : WrappedPhaseInputPort;
+    port qualityIn : QualityOutputPort;
+    port discontinuityOut : DiscontinuityOutputPort;
+    attribute threshold : WrapThreshold;
+    attribute neighborhoodRadius : Integer = 1;
+  }
+
+  part def UnwrappingProcessor {
+    port phaseIn : WrappedPhaseInputPort;
+    port qualityIn : QualityOutputPort;
+    port discontinuityIn : DiscontinuityOutputPort;
+    port unwrappedOut : UnwrappedPhaseOutputPort;
+    attribute maximumCorrectionStep : PhaseValue;
+    attribute nominalLatency : ProcessingLatency;
+    perform action PhaseUnwrappingPipeline;
+    exhibit state ProcessingStateMachine;
+  }
+
+  part def ResultPublisher {
+    port unwrappedIn : UnwrappedPhaseOutputPort;
+    port unwrappedOut : UnwrappedPhaseOutputPort;
+    port statusOut : StatusOutputPort;
+    attribute outputConfidenceThreshold : Confidence = 0.90;
+  }
+
+  part def OperatorControlInterface {
+    port control : ControlPort;
+    port statusIn : StatusOutputPort;
+  }
+
+  part def PhaseUnwrappingSystem {
+    port wrappedPhaseInput : WrappedPhaseInputPort;
+    port unwrappedPhaseOutput : UnwrappedPhaseOutputPort;
+    port statusOutput : StatusOutputPort;
+    port controlPort : ControlPort;
+
+    attribute supportedResolution : SpatialResolution {
+      :>> width = 1024;
+      :>> height = 1024;
+    }
+
+    attribute maximumInputRate : SamplingFrequency {
+      :>> value = 1000.0;
+    }
+
+    attribute maximumEndToEndLatency : ProcessingLatency {
+      :>> value = 25.0;
+    }
+
+    part inputInterface : WrappedPhaseSensorInterface;
+    part buffer : FrameBuffer;
+    part qualityEstimator : PhaseQualityEstimator;
+    part discontinuityDetector : DiscontinuityDetector;
+    part processor : UnwrappingProcessor;
+    part publisher : ResultPublisher;
+    part operatorInterface : OperatorControlInterface;
+
+    connect wrappedPhaseInput to inputInterface.phaseOut;
+    connect inputInterface.phaseOut to buffer.phaseIn;
+    connect buffer.phaseOut to qualityEstimator.phaseIn;
+    connect buffer.phaseOut to discontinuityDetector.phaseIn;
+    connect buffer.phaseOut to processor.phaseIn;
+    connect qualityEstimator.qualityOut to discontinuityDetector.qualityIn;
+    connect qualityEstimator.qualityOut to processor.qualityIn;
+    connect discontinuityDetector.discontinuityOut to processor.discontinuityIn;
+    connect processor.unwrappedOut to publisher.unwrappedIn;
+    connect publisher.unwrappedOut to unwrappedPhaseOutput;
+    connect publisher.statusOut to statusOutput;
+    connect controlPort to operatorInterface.control;
+    connect statusOutput to operatorInterface.statusIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall transform wrapped phase data containing 2*pi discontinuities into spatially or temporally continuous unwrapped phase data while preserving valid signal structure. */
+  }
+
+  requirement def InputValidationRequirement {
+    doc /* The system shall reject frames with invalid dimensions, missing phase samples, or insufficient valid pixel count before phase unwrapping is performed. */
+  }
+
+  requirement def DiscontinuityDetectionRequirement {
+    doc /* The system shall detect phase discontinuities greater than pi radians and classify them as wrapping events when supported by local quality evidence. */
+  }
+
+  requirement def QualityGuidedUnwrappingRequirement {
+    doc /* The system shall use phase quality estimates to prioritize reliable regions during unwrapping and reduce propagation of corrections through low-confidence samples. */
+  }
+
+  requirement def LatencyRequirement {
+    doc /* The system shall publish an unwrapped phase frame within 25 ms of accepting a valid wrapped phase frame at the nominal supported resolution. */
+  }
+
+  requirement def StatusReportingRequirement {
+    doc /* The system shall report processing state, latency, frame identifier, and error count for each accepted frame. */
+  }
+
+  requirement def OutputConfidenceRequirement {
+    doc /* The system shall assign a confidence value to each unwrapped phase frame and publish only frames meeting the configured confidence threshold. */
+  }
+
+  satisfy PrimaryFunctionRequirement by PhaseUnwrappingSystem;
+  satisfy InputValidationRequirement by FrameBuffer;
+  satisfy DiscontinuityDetectionRequirement by DiscontinuityDetector;
+  satisfy QualityGuidedUnwrappingRequirement by PhaseQualityEstimator;
+  satisfy QualityGuidedUnwrappingRequirement by UnwrappingProcessor;
+  satisfy LatencyRequirement by UnwrappingProcessor;
+  satisfy StatusReportingRequirement by ResultPublisher;
+  satisfy OutputConfidenceRequirement by ResultPublisher;
+
+  view def HighLevelFunctionalView {
+    expose PhaseUnwrappingSystem;
+    expose PhaseUnwrappingPipeline;
+    expose PrimaryFunctionRequirement;
+    expose wrappedPhaseInput;
+    expose unwrappedPhaseOutput;
+    expose statusOutput;
+  }
+
+}

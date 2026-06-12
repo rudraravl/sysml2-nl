@@ -1,0 +1,401 @@
+package S2CID_Based_System_Model {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def S2CID :> ScalarValues::String;
+    attribute def DOI :> ScalarValues::String;
+    attribute def URL :> ScalarValues::String;
+    attribute def ConfidenceScore :> Real {
+        constraint range { 0.0 <= self <= 1.0 }
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+        constraint range { 0.0 <= self <= 100.0 }
+    }
+
+    attribute def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    attribute def RequestCount :> Integer;
+    attribute def CitationCount :> Integer;
+    attribute def TokenCount :> Integer;
+    attribute def ByteCount :> Integer {
+        unit = "byte";
+    }
+
+    item def S2CIDQuery {
+        attribute s2cid : S2CID;
+        attribute requesterId : String;
+        attribute requestTimeIso8601 : String;
+    }
+
+    item def PaperMetadata {
+        attribute s2cid : S2CID;
+        attribute title : String;
+        attribute abstractText : String;
+        attribute publicationYear : Integer;
+        attribute venue : String;
+        attribute doi : DOI;
+        attribute sourceUrl : URL;
+        attribute citationCount : CitationCount;
+        attribute referenceCount : CitationCount;
+    }
+
+    item def PaperFullText {
+        attribute s2cid : S2CID;
+        attribute bodyText : String;
+        attribute extractedTokenCount : TokenCount;
+        attribute sourceByteSize : ByteCount;
+        attribute extractionConfidence : ConfidenceScore;
+    }
+
+    item def CitationGraph {
+        attribute rootS2cid : S2CID;
+        attribute directReferenceCount : CitationCount;
+        attribute directCitationCount : CitationCount;
+        attribute graphDepth : Integer;
+        attribute completeness : Percent;
+    }
+
+    item def PrimaryFunctionSummary {
+        attribute s2cid : S2CID;
+        attribute highLevelFunction : String;
+        attribute keyContributions : String;
+        attribute confidence : ConfidenceScore;
+        attribute generatedAtIso8601 : String;
+    }
+
+    item def ValidationIssue {
+        attribute code : String;
+        attribute message : String;
+        attribute severity : String;
+    }
+
+    port def QueryInputPort {
+        in item query : S2CIDQuery;
+    }
+
+    port def MetadataPort {
+        out item metadata : PaperMetadata;
+        out item issue : ValidationIssue;
+    }
+
+    port def FullTextPort {
+        out item fullText : PaperFullText;
+        out item issue : ValidationIssue;
+    }
+
+    port def CitationGraphPort {
+        out item graph : CitationGraph;
+    }
+
+    port def SummaryPort {
+        out item summary : PrimaryFunctionSummary;
+        out item issue : ValidationIssue;
+    }
+
+    port def ApiRequestPort {
+        out item request : S2CIDQuery;
+        in item metadata : PaperMetadata;
+        in item issue : ValidationIssue;
+    }
+
+    port def ArchiveRequestPort {
+        out item metadataRequest : PaperMetadata;
+        in item fullText : PaperFullText;
+        in item issue : ValidationIssue;
+    }
+
+    port def UserOutputPort {
+        out item summary : PrimaryFunctionSummary;
+    }
+
+    action def ValidateS2CID {
+        in item query : S2CIDQuery;
+        out item acceptedQuery : S2CIDQuery;
+        out item issue : ValidationIssue;
+
+        constraint validNumericCorpusId {
+            query.s2cid != ""
+        }
+    }
+
+    action def RetrievePaperMetadata {
+        in item query : S2CIDQuery;
+        out item metadata : PaperMetadata;
+        out item issue : ValidationIssue;
+    }
+
+    action def RetrievePaperFullText {
+        in item metadata : PaperMetadata;
+        out item fullText : PaperFullText;
+        out item issue : ValidationIssue;
+    }
+
+    action def BuildCitationContext {
+        in item metadata : PaperMetadata;
+        out item graph : CitationGraph;
+    }
+
+    action def InferPrimaryFunction {
+        in item metadata : PaperMetadata;
+        in item fullText : PaperFullText;
+        in item graph : CitationGraph;
+        out item summary : PrimaryFunctionSummary;
+    }
+
+    action def DeliverSummary {
+        in item summary : PrimaryFunctionSummary;
+        out item deliveredSummary : PrimaryFunctionSummary;
+    }
+
+    state def S2CIDProcessingStateMachine {
+        entry; then Idle;
+
+        state Idle;
+        state Validating;
+        state MetadataRetrieval;
+        state FullTextRetrieval;
+        state CitationContextConstruction;
+        state FunctionInference;
+        state SummaryDelivery;
+        state Completed;
+        state Rejected;
+        state RetrievalFailed;
+
+        transition Idle_to_Validating
+            first Idle
+            accept S2CIDQuery
+            then Validating;
+
+        transition Validating_to_MetadataRetrieval
+            first Validating
+            if validS2CID
+            then MetadataRetrieval;
+
+        transition Validating_to_Rejected
+            first Validating
+            if invalidS2CID
+            then Rejected;
+
+        transition MetadataRetrieval_to_FullTextRetrieval
+            first MetadataRetrieval
+            if metadataFound
+            then FullTextRetrieval;
+
+        transition MetadataRetrieval_to_RetrievalFailed
+            first MetadataRetrieval
+            if metadataUnavailable
+            then RetrievalFailed;
+
+        transition FullTextRetrieval_to_CitationContextConstruction
+            first FullTextRetrieval
+            if fullTextFound
+            then CitationContextConstruction;
+
+        transition FullTextRetrieval_to_CitationContextConstruction_withoutFullText
+            first FullTextRetrieval
+            if fullTextUnavailable and metadataFound
+            then CitationContextConstruction;
+
+        transition CitationContextConstruction_to_FunctionInference
+            first CitationContextConstruction
+            then FunctionInference;
+
+        transition FunctionInference_to_SummaryDelivery
+            first FunctionInference
+            if summaryConfidenceAcceptable
+            then SummaryDelivery;
+
+        transition FunctionInference_to_RetrievalFailed
+            first FunctionInference
+            if summaryConfidenceTooLow
+            then RetrievalFailed;
+
+        transition SummaryDelivery_to_Completed
+            first SummaryDelivery
+            then Completed;
+    }
+
+    part def S2CIDBasedResearchFunctionSystem {
+        attribute primaryFunction : String =
+            "Given a Semantic Scholar Corpus Identifier, retrieve the associated scholarly work, collect its metadata, text, and citation context, and generate a high-level description of the paper's primary function and contribution.";
+
+        attribute maxMetadataLatency : Millisecond = 1500.0;
+        attribute maxEndToEndLatency : Millisecond = 8000.0;
+        attribute minSummaryConfidence : ConfidenceScore = 0.72;
+        attribute citationGraphDepth : Integer = 1;
+
+        port queryIn : QueryInputPort;
+        port api : ApiRequestPort;
+        port archive : ArchiveRequestPort;
+        port metadataOut : MetadataPort;
+        port fullTextOut : FullTextPort;
+        port graphOut : CitationGraphPort;
+        port summaryOut : SummaryPort;
+        port userOut : UserOutputPort;
+
+        part validator {
+            port queryIn : QueryInputPort;
+            port validQueryOut : QueryInputPort;
+            port issueOut : SummaryPort;
+
+            perform action validate : ValidateS2CID;
+        }
+
+        part metadataRetriever {
+            attribute retryLimit : RequestCount = 3;
+            attribute timeout : Millisecond = 1500.0;
+
+            port queryIn : QueryInputPort;
+            port api : ApiRequestPort;
+            port metadataOut : MetadataPort;
+
+            perform action retrieveMetadata : RetrievePaperMetadata;
+        }
+
+        part fullTextRetriever {
+            attribute retryLimit : RequestCount = 2;
+            attribute timeout : Millisecond = 2500.0;
+
+            port metadataIn : MetadataPort;
+            port archive : ArchiveRequestPort;
+            port fullTextOut : FullTextPort;
+
+            perform action retrieveFullText : RetrievePaperFullText;
+        }
+
+        part citationContextBuilder {
+            attribute defaultDepth : Integer = 1;
+            attribute maxNodes : Integer = 250;
+
+            port metadataIn : MetadataPort;
+            port graphOut : CitationGraphPort;
+
+            perform action buildGraph : BuildCitationContext;
+        }
+
+        part functionInferenceEngine {
+            attribute minAcceptedConfidence : ConfidenceScore = 0.72;
+            attribute maxInputTokens : TokenCount = 16000;
+            attribute maxSummaryTokens : TokenCount = 600;
+
+            port metadataIn : MetadataPort;
+            port fullTextIn : FullTextPort;
+            port graphIn : CitationGraphPort;
+            port summaryOut : SummaryPort;
+
+            perform action inferFunction : InferPrimaryFunction;
+        }
+
+        part deliveryInterface {
+            port summaryIn : SummaryPort;
+            port userOut : UserOutputPort;
+
+            perform action deliver : DeliverSummary;
+        }
+
+        connection queryToValidator
+            connect queryIn to validator.queryIn;
+
+        connection validatorToMetadata
+            connect validator.validQueryOut to metadataRetriever.queryIn;
+
+        connection metadataToSystem
+            connect metadataRetriever.metadataOut to metadataOut;
+
+        connection metadataToFullText
+            connect metadataRetriever.metadataOut to fullTextRetriever.metadataIn;
+
+        connection metadataToCitationBuilder
+            connect metadataRetriever.metadataOut to citationContextBuilder.metadataIn;
+
+        connection fullTextToSystem
+            connect fullTextRetriever.fullTextOut to fullTextOut;
+
+        connection citationGraphToSystem
+            connect citationContextBuilder.graphOut to graphOut;
+
+        connection metadataToInference
+            connect metadataRetriever.metadataOut to functionInferenceEngine.metadataIn;
+
+        connection fullTextToInference
+            connect fullTextRetriever.fullTextOut to functionInferenceEngine.fullTextIn;
+
+        connection graphToInference
+            connect citationContextBuilder.graphOut to functionInferenceEngine.graphIn;
+
+        connection inferenceToSummary
+            connect functionInferenceEngine.summaryOut to summaryOut;
+
+        connection summaryToDelivery
+            connect functionInferenceEngine.summaryOut to deliveryInterface.summaryIn;
+
+        connection deliveryToUser
+            connect deliveryInterface.userOut to userOut;
+
+        exhibit stateMachine : S2CIDProcessingStateMachine;
+    }
+
+    requirement def ValidS2CIDRequirement {
+        doc /* The system shall accept a non-empty S2CID as the identifying input for the scholarly work. */
+        subject system : S2CIDBasedResearchFunctionSystem;
+        require constraint { system.queryIn.query.s2cid != "" }
+    }
+
+    requirement def MetadataRetrievalRequirement {
+        doc /* The system shall retrieve title, abstract, publication year, venue, DOI, source URL, citation count, and reference count for the input S2CID when available. */
+        subject metadata : PaperMetadata;
+        require constraint {
+            metadata.s2cid != "" and
+            metadata.title != "" and
+            metadata.publicationYear >= 1800
+        }
+    }
+
+    requirement def FunctionSummaryRequirement {
+        doc /* The system shall produce a high-level primary-function summary that explains what the paper is intended to do, independent of implementation details. */
+        subject summary : PrimaryFunctionSummary;
+        require constraint {
+            summary.highLevelFunction != "" and
+            summary.confidence >= 0.72
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc /* The system shall complete validation, retrieval, citation-context construction, inference, and delivery within eight seconds for normal operating conditions. */
+        subject system : S2CIDBasedResearchFunctionSystem;
+        require constraint { system.maxEndToEndLatency <= 8000.0 }
+    }
+
+    requirement def CitationContextRequirement {
+        doc /* The system shall construct a citation context containing direct references and direct citations for the identified paper when such data is available. */
+        subject graph : CitationGraph;
+        require constraint {
+            graph.graphDepth >= 1 and
+            graph.completeness >= 60.0
+        }
+    }
+
+    requirement def TraceabilityRequirement {
+        doc /* The generated summary shall retain the S2CID of the source paper so that each output remains traceable to its originating scholarly work. */
+        subject summary : PrimaryFunctionSummary;
+        require constraint { summary.s2cid != "" }
+    }
+
+    satisfy ValidS2CIDRequirement by S2CIDBasedResearchFunctionSystem::validator;
+    satisfy MetadataRetrievalRequirement by S2CIDBasedResearchFunctionSystem::metadataRetriever;
+    satisfy FunctionSummaryRequirement by S2CIDBasedResearchFunctionSystem::functionInferenceEngine;
+    satisfy LatencyRequirement by S2CIDBasedResearchFunctionSystem;
+    satisfy CitationContextRequirement by S2CIDBasedResearchFunctionSystem::citationContextBuilder;
+    satisfy TraceabilityRequirement by S2CIDBasedResearchFunctionSystem::deliveryInterface;
+
+    part exampleSystem : S2CIDBasedResearchFunctionSystem {
+        attribute primaryFunction =
+            "Transform a supplied S2CID into a concise, traceable, high-level statement of the referenced paper's purpose by combining bibliographic metadata, available full text, and citation context.";
+    }
+}

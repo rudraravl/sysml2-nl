@@ -1,0 +1,915 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-b1eqa6ln
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb52b-9624-76e3-960d-01e1cf2f166b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a sensing unit that measures the relevant quantity using a Displacement sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DisplacementSensingUnitModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Length {
+    :>> quantityKind = ISQ::length;
+    :>> unit = SI::metre;
+  }
+
+  attribute def Voltage {
+    :>> quantityKind = ISQ::electricPotential;
+    :>> unit = SI::volt;
+  }
+
+  attribute def ElectricCurrent {
+    :>> quantityKind = ISQ::electricCurrent;
+    :>> unit = SI::ampere;
+  }
+
+  attribute def Frequency {
+    :>> quantityKind = ISQ::frequency;
+    :>> unit = SI::hertz;
+  }
+
+  attribute def Temperature {
+    :>> quantityKind = ISQ::thermodynamicTemperature;
+    :>> unit = SI::kelvin;
+  }
+
+  attribute def Percent {
+    :>> quantityKind = ISQ::dimensionless;
+    :>> unit = SI::one;
+  }
+
+  attribute def Time {
+    :>> quantityKind = ISQ::time;
+    :>> unit = SI::second;
+  }
+
+  item def MechanicalPosition {
+    attribute displacement : Length;
+    attribute referenceDatum : Length;
+  }
+
+  item def ExcitationPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : ElectricCurrent;
+  }
+
+  item def RawSensorSignal {
+    attribute signalVoltage : Voltage;
+    attribute noiseVoltage : Voltage;
+    attribute sampleTime : Time;
+  }
+
+  item def CalibratedDisplacement {
+    attribute value : Length;
+    attribute uncertainty : Length;
+    attribute sampleTime : Time;
+    attribute valid : Boolean;
+  }
+
+  item def DiagnosticStatus {
+    attribute sensorHealthy : Boolean;
+    attribute powerHealthy : Boolean;
+    attribute signalInRange : Boolean;
+    attribute calibrationValid : Boolean;
+    attribute faultCode : Integer;
+  }
+
+  port def MechanicalInputPort {
+    in item measuredPosition : MechanicalPosition;
+  }
+
+  port def PowerInputPort {
+    in item power : ExcitationPower;
+  }
+
+  port def RawSignalPort {
+    out item rawSignal : RawSensorSignal;
+  }
+
+  port def ProcessedSignalPort {
+    in item rawSignal : RawSensorSignal;
+    out item displacement : CalibratedDisplacement;
+  }
+
+  port def MeasurementOutputPort {
+    out item measuredDisplacement : CalibratedDisplacement;
+  }
+
+  port def DiagnosticPort {
+    out item status : DiagnosticStatus;
+  }
+
+  part def DisplacementSensor {
+    attribute measurementRangeMin : Length = 0.0 [SI::millimetre];
+    attribute measurementRangeMax : Length = 100.0 [SI::millimetre];
+    attribute sensitivity : Real = 0.05;
+    attribute linearityError : Percent = 0.5;
+    attribute repeatability : Length = 0.02 [SI::millimetre];
+    attribute operatingTemperatureMin : Temperature = 253.15 [SI::kelvin];
+    attribute operatingTemperatureMax : Temperature = 358.15 [SI::kelvin];
+
+    port mechanicalInput : MechanicalInputPort;
+    port excitationInput : PowerInputPort;
+    port rawOutput : RawSignalPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action senseDisplacement {
+      in item position : MechanicalPosition;
+      in item excitation : ExcitationPower;
+      out item signal : RawSensorSignal;
+      out item diagnostic : DiagnosticStatus;
+
+      first start;
+      then verifyPower;
+      then convertPositionToSignal;
+      then checkSignalRange;
+      then publishRawSignal;
+      then done;
+
+      action verifyPower {
+        in item excitation : ExcitationPower;
+        out powerOk : Boolean;
+      }
+
+      action convertPositionToSignal {
+        in item position : MechanicalPosition;
+        out item signal : RawSensorSignal;
+      }
+
+      action checkSignalRange {
+        in item signal : RawSensorSignal;
+        out signalOk : Boolean;
+      }
+
+      action publishRawSignal {
+        in item signal : RawSensorSignal;
+        out item diagnostic : DiagnosticStatus;
+      }
+    }
+
+    state def SensorOperatingState {
+      entry action initializeSensor;
+      state Off;
+      state Initializing;
+      state Ready;
+      state Measuring;
+      state Faulted;
+
+      transition first Off;
+      transition Off_to_Initializing
+        first Off
+        then Initializing;
+
+      transition Initializing_to_Ready
+        first Initializing
+        then Ready;
+
+      transition Ready_to_Measuring
+        first Ready
+        then Measuring;
+
+      transition Measuring_to_Ready
+        first Measuring
+        then Ready;
+
+      transition Any_to_Faulted
+        first Ready
+        then Faulted;
+
+      transition Faulted_to_Initializing
+        first Faulted
+        then Initializing;
+    }
+  }
+
+  part def SignalConditioner {
+    attribute inputVoltageMin : Voltage = 0.0 [SI::volt];
+    attribute inputVoltageMax : Voltage = 5.0 [SI::volt];
+    attribute lowPassCutoffFrequency : Frequency = 100.0 [SI::hertz];
+    attribute gain : Real = 1.0;
+    attribute offsetVoltage : Voltage = 0.0 [SI::volt];
+
+    port signalPort : ProcessedSignalPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action conditionAndConvert {
+      in item rawSignal : RawSensorSignal;
+      out item displacement : CalibratedDisplacement;
+      out item diagnostic : DiagnosticStatus;
+
+      first receiveRawSignal;
+      then filterNoise;
+      then applyCalibration;
+      then validateMeasurement;
+      then publishDisplacement;
+      then done;
+
+      action receiveRawSignal {
+        in item rawSignal : RawSensorSignal;
+      }
+
+      action filterNoise {
+        in item rawSignal : RawSensorSignal;
+        out item filteredSignal : RawSensorSignal;
+      }
+
+      action applyCalibration {
+        in item filteredSignal : RawSensorSignal;
+        out item displacement : CalibratedDisplacement;
+      }
+
+      action validateMeasurement {
+        in item displacement : CalibratedDisplacement;
+        out valid : Boolean;
+      }
+
+      action publishDisplacement {
+        in item displacement : CalibratedDisplacement;
+      }
+    }
+  }
+
+  part def PowerRegulator {
+    attribute nominalInputVoltage : Voltage = 24.0 [SI::volt];
+    attribute nominalOutputVoltage : Voltage = 5.0 [SI::volt];
+    attribute maxOutputCurrent : ElectricCurrent = 0.2 [SI::ampere];
+    attribute voltageTolerance : Percent = 2.0;
+
+    port inputPower : PowerInputPort;
+    port regulatedPower : PowerInputPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action regulatePower {
+      in item inputPower : ExcitationPower;
+      out item regulatedPower : ExcitationPower;
+      out item diagnostic : DiagnosticStatus;
+    }
+  }
+
+  part def MeasurementController {
+    attribute sampleRate : Frequency = 50.0 [SI::hertz];
+    attribute startupTimeLimit : Time = 2.0 [SI::second];
+    attribute measurementTimeout : Time = 0.1 [SI::second];
+
+    port measurementInput : ProcessedSignalPort;
+    port measurementOutput : MeasurementOutputPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action superviseMeasurement {
+      in item displacement : CalibratedDisplacement;
+      out item measuredDisplacement : CalibratedDisplacement;
+      out item status : DiagnosticStatus;
+    }
+
+    state def ControllerState {
+      state PowerOff;
+      state SelfTest;
+      state Operational;
+      state Degraded;
+      state Failed;
+
+      transition first PowerOff;
+      transition PowerOff_to_SelfTest
+        first PowerOff
+        then SelfTest;
+
+      transition SelfTest_to_Operational
+        first SelfTest
+        then Operational;
+
+      transition Operational_to_Degraded
+        first Operational
+        then Degraded;
+
+      transition Degraded_to_Operational
+        first Degraded
+        then Operational;
+
+      transition Operational_to_Failed
+        first Operational
+        then Failed;
+    }
+  }
+
+  part def SensingUnit {
+    attribute requiredMeasurementRangeMin : Length = 0.0 [SI::millimetre];
+    attribute requiredMeasurementRangeMax : Length = 100.0 [SI::millimetre];
+    attribute requiredAccuracy : Length = 0.1 [SI::millimetre];
+    attribute requiredUpdatePeriod : Time = 0.02 [SI::second];
+
+    port targetInput : MechanicalInputPort;
+    port supplyInput : PowerInputPort;
+    port displacementOutput : MeasurementOutputPort;
+    port healthOutput : DiagnosticPort;
+
+    part sensor : DisplacementSensor;
+    part conditioner : SignalConditioner;
+    part regulator : PowerRegulator;
+    part controller : MeasurementController;
+
+    connect supplyInput to regulator.inputPower;
+    connect regulator.regulatedPower to sensor.excitationInput;
+    connect targetInput to sensor.mechanicalInput;
+    connect sensor.rawOutput to conditioner.signalPort;
+    connect conditioner.signalPort to controller.measurementInput;
+    connect controller.measurementOutput to displacementOutput;
+    connect sensor.diagnosticOutput to healthOutput;
+    connect conditioner.diagnosticOutput to healthOutput;
+    connect regulator.diagnosticOutput to healthOutput;
+    connect controller.diagnosticOutput to healthOutput;
+
+    action measureRelevantQuantity {
+      in item position : MechanicalPosition;
+      in item supply : ExcitationPower;
+      out item displacement : CalibratedDisplacement;
+      out item status : DiagnosticStatus;
+
+      first acceptInputs;
+      then regulateExcitation;
+      then acquireDisplacementSignal;
+      then conditionSignal;
+      then superviseAndPublish;
+      then done;
+
+      action acceptInputs {
+        in item position : MechanicalPosition;
+        in item supply : ExcitationPower;
+      }
+
+      action regulateExcitation {
+        in item supply : ExcitationPower;
+        out item regulatedSupply : ExcitationPower;
+      }
+
+      action acquireDisplacementSignal {
+        in item position : MechanicalPosition;
+        in item regulatedSupply : ExcitationPower;
+        out item rawSignal : RawSensorSignal;
+      }
+
+      action conditionSignal {
+        in item rawSignal : RawSensorSignal;
+        out item displacement : CalibratedDisplacement;
+      }
+
+      action superviseAndPublish {
+        in item displacement : CalibratedDisplacement;
+        out item status : DiagnosticStatus;
+      }
+    }
+
+    state def SensingUnitState {
+      state Unpowered;
+      state Starting;
+      state SelfChecking;
+      state Measuring;
+      state Fault;
+
+      transition first Unpowered;
+      transition Unpowered_to_Starting
+        first Unpowered
+        then Starting;
+
+      transition Starting_to_SelfChecking
+        first Starting
+        then SelfChecking;
+
+      transition SelfChecking_to_Measuring
+        first SelfChecking
+        then Measuring;
+
+      transition Measuring_to_Fault
+        first Measuring
+        then Fault;
+
+      transition Fault_to_Starting
+        first Fault
+        then Starting;
+    }
+  }
+
+  requirement def DisplacementMeasurementRequirement {
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.requiredMeasurementRangeMin <= 0.0 [SI::millimetre]
+    }
+
+    require constraint {
+      sensingUnit.requiredMeasurementRangeMax >= 100.0 [SI::millimetre]
+    }
+
+    require constraint {
+      sensingUnit.requiredAccuracy <= 0.1 [SI::millimetre]
+    }
+
+    require constraint {
+      sensingUnit.requiredUpdatePeriod <= 0.02 [SI::second]
+    }
+  }
+
+  requirement def DisplacementSensorUsageRequirement {
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.sensor.measurementRangeMin <= sensingUnit.requiredMeasurementRangeMin
+    }
+
+    require constraint {
+      sensingUnit.sensor.measurementRangeMax >= sensingUnit.requiredMeasurementRangeMax
+    }
+  }
+
+  requirement def MeasurementValidityRequirement {
+    subject measuredOutput : CalibratedDisplacement;
+
+    require constraint {
+      measuredOutput.valid == true
+    }
+
+    require constraint {
+      measuredOutput.uncertainty <= 0.1 [SI::millimetre]
+    }
+  }
+
+  requirement def PowerCompatibilityRequirement {
+    subject regulator : PowerRegulator;
+
+    require constraint {
+      regulator.nominalOutputVoltage == 5.0 [SI::volt]
+    }
+
+    require constraint {
+      regulator.maxOutputCurrent >= 0.1 [SI::ampere]
+    }
+  }
+
+  part sensingUnitInstance : SensingUnit;
+
+  satisfy DisplacementMeasurementRequirement by sensingUnitInstance;
+  satisfy DisplacementSensorUsageRequirement by sensingUnitInstance;
+  satisfy PowerCompatibilityRequirement by sensingUnitInstance.regulator;
+}
+tokens used
+4,120
+package DisplacementSensingUnitModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Length {
+    :>> quantityKind = ISQ::length;
+    :>> unit = SI::metre;
+  }
+
+  attribute def Voltage {
+    :>> quantityKind = ISQ::electricPotential;
+    :>> unit = SI::volt;
+  }
+
+  attribute def ElectricCurrent {
+    :>> quantityKind = ISQ::electricCurrent;
+    :>> unit = SI::ampere;
+  }
+
+  attribute def Frequency {
+    :>> quantityKind = ISQ::frequency;
+    :>> unit = SI::hertz;
+  }
+
+  attribute def Temperature {
+    :>> quantityKind = ISQ::thermodynamicTemperature;
+    :>> unit = SI::kelvin;
+  }
+
+  attribute def Percent {
+    :>> quantityKind = ISQ::dimensionless;
+    :>> unit = SI::one;
+  }
+
+  attribute def Time {
+    :>> quantityKind = ISQ::time;
+    :>> unit = SI::second;
+  }
+
+  item def MechanicalPosition {
+    attribute displacement : Length;
+    attribute referenceDatum : Length;
+  }
+
+  item def ExcitationPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : ElectricCurrent;
+  }
+
+  item def RawSensorSignal {
+    attribute signalVoltage : Voltage;
+    attribute noiseVoltage : Voltage;
+    attribute sampleTime : Time;
+  }
+
+  item def CalibratedDisplacement {
+    attribute value : Length;
+    attribute uncertainty : Length;
+    attribute sampleTime : Time;
+    attribute valid : Boolean;
+  }
+
+  item def DiagnosticStatus {
+    attribute sensorHealthy : Boolean;
+    attribute powerHealthy : Boolean;
+    attribute signalInRange : Boolean;
+    attribute calibrationValid : Boolean;
+    attribute faultCode : Integer;
+  }
+
+  port def MechanicalInputPort {
+    in item measuredPosition : MechanicalPosition;
+  }
+
+  port def PowerInputPort {
+    in item power : ExcitationPower;
+  }
+
+  port def RawSignalPort {
+    out item rawSignal : RawSensorSignal;
+  }
+
+  port def ProcessedSignalPort {
+    in item rawSignal : RawSensorSignal;
+    out item displacement : CalibratedDisplacement;
+  }
+
+  port def MeasurementOutputPort {
+    out item measuredDisplacement : CalibratedDisplacement;
+  }
+
+  port def DiagnosticPort {
+    out item status : DiagnosticStatus;
+  }
+
+  part def DisplacementSensor {
+    attribute measurementRangeMin : Length = 0.0 [SI::millimetre];
+    attribute measurementRangeMax : Length = 100.0 [SI::millimetre];
+    attribute sensitivity : Real = 0.05;
+    attribute linearityError : Percent = 0.5;
+    attribute repeatability : Length = 0.02 [SI::millimetre];
+    attribute operatingTemperatureMin : Temperature = 253.15 [SI::kelvin];
+    attribute operatingTemperatureMax : Temperature = 358.15 [SI::kelvin];
+
+    port mechanicalInput : MechanicalInputPort;
+    port excitationInput : PowerInputPort;
+    port rawOutput : RawSignalPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action senseDisplacement {
+      in item position : MechanicalPosition;
+      in item excitation : ExcitationPower;
+      out item signal : RawSensorSignal;
+      out item diagnostic : DiagnosticStatus;
+
+      first start;
+      then verifyPower;
+      then convertPositionToSignal;
+      then checkSignalRange;
+      then publishRawSignal;
+      then done;
+
+      action verifyPower {
+        in item excitation : ExcitationPower;
+        out powerOk : Boolean;
+      }
+
+      action convertPositionToSignal {
+        in item position : MechanicalPosition;
+        out item signal : RawSensorSignal;
+      }
+
+      action checkSignalRange {
+        in item signal : RawSensorSignal;
+        out signalOk : Boolean;
+      }
+
+      action publishRawSignal {
+        in item signal : RawSensorSignal;
+        out item diagnostic : DiagnosticStatus;
+      }
+    }
+
+    state def SensorOperatingState {
+      entry action initializeSensor;
+      state Off;
+      state Initializing;
+      state Ready;
+      state Measuring;
+      state Faulted;
+
+      transition first Off;
+      transition Off_to_Initializing
+        first Off
+        then Initializing;
+
+      transition Initializing_to_Ready
+        first Initializing
+        then Ready;
+
+      transition Ready_to_Measuring
+        first Ready
+        then Measuring;
+
+      transition Measuring_to_Ready
+        first Measuring
+        then Ready;
+
+      transition Any_to_Faulted
+        first Ready
+        then Faulted;
+
+      transition Faulted_to_Initializing
+        first Faulted
+        then Initializing;
+    }
+  }
+
+  part def SignalConditioner {
+    attribute inputVoltageMin : Voltage = 0.0 [SI::volt];
+    attribute inputVoltageMax : Voltage = 5.0 [SI::volt];
+    attribute lowPassCutoffFrequency : Frequency = 100.0 [SI::hertz];
+    attribute gain : Real = 1.0;
+    attribute offsetVoltage : Voltage = 0.0 [SI::volt];
+
+    port signalPort : ProcessedSignalPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action conditionAndConvert {
+      in item rawSignal : RawSensorSignal;
+      out item displacement : CalibratedDisplacement;
+      out item diagnostic : DiagnosticStatus;
+
+      first receiveRawSignal;
+      then filterNoise;
+      then applyCalibration;
+      then validateMeasurement;
+      then publishDisplacement;
+      then done;
+
+      action receiveRawSignal {
+        in item rawSignal : RawSensorSignal;
+      }
+
+      action filterNoise {
+        in item rawSignal : RawSensorSignal;
+        out item filteredSignal : RawSensorSignal;
+      }
+
+      action applyCalibration {
+        in item filteredSignal : RawSensorSignal;
+        out item displacement : CalibratedDisplacement;
+      }
+
+      action validateMeasurement {
+        in item displacement : CalibratedDisplacement;
+        out valid : Boolean;
+      }
+
+      action publishDisplacement {
+        in item displacement : CalibratedDisplacement;
+      }
+    }
+  }
+
+  part def PowerRegulator {
+    attribute nominalInputVoltage : Voltage = 24.0 [SI::volt];
+    attribute nominalOutputVoltage : Voltage = 5.0 [SI::volt];
+    attribute maxOutputCurrent : ElectricCurrent = 0.2 [SI::ampere];
+    attribute voltageTolerance : Percent = 2.0;
+
+    port inputPower : PowerInputPort;
+    port regulatedPower : PowerInputPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action regulatePower {
+      in item inputPower : ExcitationPower;
+      out item regulatedPower : ExcitationPower;
+      out item diagnostic : DiagnosticStatus;
+    }
+  }
+
+  part def MeasurementController {
+    attribute sampleRate : Frequency = 50.0 [SI::hertz];
+    attribute startupTimeLimit : Time = 2.0 [SI::second];
+    attribute measurementTimeout : Time = 0.1 [SI::second];
+
+    port measurementInput : ProcessedSignalPort;
+    port measurementOutput : MeasurementOutputPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    action superviseMeasurement {
+      in item displacement : CalibratedDisplacement;
+      out item measuredDisplacement : CalibratedDisplacement;
+      out item status : DiagnosticStatus;
+    }
+
+    state def ControllerState {
+      state PowerOff;
+      state SelfTest;
+      state Operational;
+      state Degraded;
+      state Failed;
+
+      transition first PowerOff;
+      transition PowerOff_to_SelfTest
+        first PowerOff
+        then SelfTest;
+
+      transition SelfTest_to_Operational
+        first SelfTest
+        then Operational;
+
+      transition Operational_to_Degraded
+        first Operational
+        then Degraded;
+
+      transition Degraded_to_Operational
+        first Degraded
+        then Operational;
+
+      transition Operational_to_Failed
+        first Operational
+        then Failed;
+    }
+  }
+
+  part def SensingUnit {
+    attribute requiredMeasurementRangeMin : Length = 0.0 [SI::millimetre];
+    attribute requiredMeasurementRangeMax : Length = 100.0 [SI::millimetre];
+    attribute requiredAccuracy : Length = 0.1 [SI::millimetre];
+    attribute requiredUpdatePeriod : Time = 0.02 [SI::second];
+
+    port targetInput : MechanicalInputPort;
+    port supplyInput : PowerInputPort;
+    port displacementOutput : MeasurementOutputPort;
+    port healthOutput : DiagnosticPort;
+
+    part sensor : DisplacementSensor;
+    part conditioner : SignalConditioner;
+    part regulator : PowerRegulator;
+    part controller : MeasurementController;
+
+    connect supplyInput to regulator.inputPower;
+    connect regulator.regulatedPower to sensor.excitationInput;
+    connect targetInput to sensor.mechanicalInput;
+    connect sensor.rawOutput to conditioner.signalPort;
+    connect conditioner.signalPort to controller.measurementInput;
+    connect controller.measurementOutput to displacementOutput;
+    connect sensor.diagnosticOutput to healthOutput;
+    connect conditioner.diagnosticOutput to healthOutput;
+    connect regulator.diagnosticOutput to healthOutput;
+    connect controller.diagnosticOutput to healthOutput;
+
+    action measureRelevantQuantity {
+      in item position : MechanicalPosition;
+      in item supply : ExcitationPower;
+      out item displacement : CalibratedDisplacement;
+      out item status : DiagnosticStatus;
+
+      first acceptInputs;
+      then regulateExcitation;
+      then acquireDisplacementSignal;
+      then conditionSignal;
+      then superviseAndPublish;
+      then done;
+
+      action acceptInputs {
+        in item position : MechanicalPosition;
+        in item supply : ExcitationPower;
+      }
+
+      action regulateExcitation {
+        in item supply : ExcitationPower;
+        out item regulatedSupply : ExcitationPower;
+      }
+
+      action acquireDisplacementSignal {
+        in item position : MechanicalPosition;
+        in item regulatedSupply : ExcitationPower;
+        out item rawSignal : RawSensorSignal;
+      }
+
+      action conditionSignal {
+        in item rawSignal : RawSensorSignal;
+        out item displacement : CalibratedDisplacement;
+      }
+
+      action superviseAndPublish {
+        in item displacement : CalibratedDisplacement;
+        out item status : DiagnosticStatus;
+      }
+    }
+
+    state def SensingUnitState {
+      state Unpowered;
+      state Starting;
+      state SelfChecking;
+      state Measuring;
+      state Fault;
+
+      transition first Unpowered;
+      transition Unpowered_to_Starting
+        first Unpowered
+        then Starting;
+
+      transition Starting_to_SelfChecking
+        first Starting
+        then SelfChecking;
+
+      transition SelfChecking_to_Measuring
+        first SelfChecking
+        then Measuring;
+
+      transition Measuring_to_Fault
+        first Measuring
+        then Fault;
+
+      transition Fault_to_Starting
+        first Fault
+        then Starting;
+    }
+  }
+
+  requirement def DisplacementMeasurementRequirement {
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.requiredMeasurementRangeMin <= 0.0 [SI::millimetre]
+    }
+
+    require constraint {
+      sensingUnit.requiredMeasurementRangeMax >= 100.0 [SI::millimetre]
+    }
+
+    require constraint {
+      sensingUnit.requiredAccuracy <= 0.1 [SI::millimetre]
+    }
+
+    require constraint {
+      sensingUnit.requiredUpdatePeriod <= 0.02 [SI::second]
+    }
+  }
+
+  requirement def DisplacementSensorUsageRequirement {
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.sensor.measurementRangeMin <= sensingUnit.requiredMeasurementRangeMin
+    }
+
+    require constraint {
+      sensingUnit.sensor.measurementRangeMax >= sensingUnit.requiredMeasurementRangeMax
+    }
+  }
+
+  requirement def MeasurementValidityRequirement {
+    subject measuredOutput : CalibratedDisplacement;
+
+    require constraint {
+      measuredOutput.valid == true
+    }
+
+    require constraint {
+      measuredOutput.uncertainty <= 0.1 [SI::millimetre]
+    }
+  }
+
+  requirement def PowerCompatibilityRequirement {
+    subject regulator : PowerRegulator;
+
+    require constraint {
+      regulator.nominalOutputVoltage == 5.0 [SI::volt]
+    }
+
+    require constraint {
+      regulator.maxOutputCurrent >= 0.1 [SI::ampere]
+    }
+  }
+
+  part sensingUnitInstance : SensingUnit;
+
+  satisfy DisplacementMeasurementRequirement by sensingUnitInstance;
+  satisfy DisplacementSensorUsageRequirement by sensingUnitInstance;
+  satisfy PowerCompatibilityRequirement by sensingUnitInstance.regulator;
+}

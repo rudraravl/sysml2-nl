@@ -1,0 +1,417 @@
+package SeismometerSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Latitude :> Real;
+    attribute def Longitude :> Real;
+    attribute def Elevation :> Real;
+    attribute def Probability :> Real;
+    attribute def SampleRate :> Real {
+        unit = "Hz";
+    }
+    attribute def DynamicRange :> Real {
+        unit = "dB";
+    }
+    attribute def DataRate :> Real {
+        unit = "bit/s";
+    }
+
+    item def GroundMotion {
+        attribute verticalVelocity : Speed;
+        attribute northSouthVelocity : Speed;
+        attribute eastWestVelocity : Speed;
+        attribute verticalAcceleration : Acceleration;
+        attribute northSouthAcceleration : Acceleration;
+        attribute eastWestAcceleration : Acceleration;
+        attribute displacementAmplitude : Length;
+        attribute dominantFrequency : Frequency;
+    }
+
+    item def TimeReference {
+        attribute utcEpochSeconds : Real {
+            unit = "s";
+        }
+        attribute timingUncertainty : Time;
+        attribute source : String;
+    }
+
+    item def DigitizedSample {
+        attribute channelId : String;
+        attribute sampleTime : TimeReference;
+        attribute countValue : Integer;
+        attribute calibratedVelocity : Speed;
+        attribute calibratedAcceleration : Acceleration;
+        attribute qualityFlag : String;
+    }
+
+    item def WaveformFrame {
+        attribute stationCode : String;
+        attribute sequenceNumber : Integer;
+        attribute sampleRate : SampleRate;
+        attribute frameStartTime : TimeReference;
+        attribute frameDuration : Time;
+        attribute sampleCount : Integer;
+        attribute checksum : Integer;
+        item samples : DigitizedSample[1..*];
+    }
+
+    item def EventDetection {
+        attribute eventId : String;
+        attribute originEstimateTime : TimeReference;
+        attribute peakGroundVelocity : Speed;
+        attribute peakGroundAcceleration : Acceleration;
+        attribute signalToNoiseRatio : Real;
+        attribute confidence : Probability;
+        attribute triggerChannel : String;
+    }
+
+    item def HealthStatus {
+        attribute temperature : Temperature;
+        attribute batteryVoltage : ElectricPotential;
+        attribute storageRemaining : Real {
+            unit = "%";
+        }
+        attribute timingLocked : Boolean;
+        attribute sensorCentered : Boolean;
+        attribute networkConnected : Boolean;
+        attribute faultCode : String;
+    }
+
+    item def PowerFlow {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : Power;
+    }
+
+    item def ConfigurationCommand {
+        attribute targetParameter : String;
+        attribute requestedValue : String;
+        attribute issuedTime : TimeReference;
+        attribute authenticationToken : String;
+    }
+
+    item def TelemetryPacket {
+        attribute stationCode : String;
+        attribute packetTime : TimeReference;
+        attribute packetType : String;
+        item waveform : WaveformFrame[0..1];
+        item event : EventDetection[0..1];
+        item health : HealthStatus[0..1];
+    }
+
+    port def GroundMotionInputPort {
+        in item motion : GroundMotion;
+    }
+
+    port def ElectricalPowerPort {
+        in item suppliedPower : PowerFlow;
+    }
+
+    port def TimeSyncPort {
+        in item timeReference : TimeReference;
+    }
+
+    port def WaveformDataPort {
+        out item waveformFrame : WaveformFrame;
+    }
+
+    port def EventAlertPort {
+        out item eventDetection : EventDetection;
+    }
+
+    port def HealthTelemetryPort {
+        out item healthStatus : HealthStatus;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def NetworkTelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    action def SenseGroundMotion {
+        in item physicalMotion : GroundMotion;
+        out item analogMotionSignal : GroundMotion;
+    }
+
+    action def ConvertAnalogToDigital {
+        in item analogMotionSignal : GroundMotion;
+        in item timing : TimeReference;
+        out item digitizedSample : DigitizedSample;
+    }
+
+    action def CalibrateAndFilterSamples {
+        in item rawSample : DigitizedSample;
+        out item calibratedSample : DigitizedSample;
+    }
+
+    action def AssembleWaveformFrame {
+        in item calibratedSample : DigitizedSample;
+        out item waveformFrame : WaveformFrame;
+    }
+
+    action def DetectSeismicEvent {
+        in item waveformFrame : WaveformFrame;
+        out item eventDetection : EventDetection;
+    }
+
+    action def ReportTelemetry {
+        in item waveformFrame : WaveformFrame;
+        in item eventDetection : EventDetection;
+        in item healthStatus : HealthStatus;
+        out item telemetry : TelemetryPacket;
+    }
+
+    action def PerformSelfTest {
+        out item healthStatus : HealthStatus;
+    }
+
+    state def SeismometerOperatingState {
+        entry action initialize;
+        state Off;
+        state Booting {
+            entry action PerformSelfTest;
+        }
+        state SynchronizingTime;
+        state CenteringSensor;
+        state Monitoring {
+            entry action SenseGroundMotion;
+            do action ConvertAnalogToDigital;
+            do action CalibrateAndFilterSamples;
+            do action AssembleWaveformFrame;
+            do action DetectSeismicEvent;
+        }
+        state Reporting {
+            do action ReportTelemetry;
+        }
+        state DegradedMonitoring {
+            do action SenseGroundMotion;
+            do action ConvertAnalogToDigital;
+            do action CalibrateAndFilterSamples;
+        }
+        state Fault {
+            entry action PerformSelfTest;
+        }
+
+        transition initial then Off;
+        transition powerApplied first Off then Booting;
+        transition bootComplete first Booting then SynchronizingTime;
+        transition timeLocked first SynchronizingTime then CenteringSensor;
+        transition sensorCentered first CenteringSensor then Monitoring;
+        transition eventDetected first Monitoring then Reporting;
+        transition reportComplete first Reporting then Monitoring;
+        transition minorFault first Monitoring then DegradedMonitoring;
+        transition faultCleared first DegradedMonitoring then Monitoring;
+        transition criticalFault first Monitoring then Fault;
+        transition resetCommanded first Fault then Booting;
+        transition powerRemoved first Monitoring then Off;
+        transition powerRemovedFromFault first Fault then Off;
+    }
+
+    part def BroadbandSeismometer {
+        attribute stationCode : String;
+        attribute installedLatitude : Latitude;
+        attribute installedLongitude : Longitude;
+        attribute installedElevation : Elevation;
+        attribute nominalSampleRate : SampleRate = 100.0;
+        attribute passbandLowCorner : Frequency = 0.01 [Hz];
+        attribute passbandHighCorner : Frequency = 50.0 [Hz];
+        attribute dynamicRange : DynamicRange = 140.0;
+        attribute timingAccuracy : Time = 0.001 [s];
+        attribute operatingTemperatureMinimum : Temperature = -20.0 [degC];
+        attribute operatingTemperatureMaximum : Temperature = 60.0 [degC];
+
+        port groundInput : GroundMotionInputPort;
+        port powerInput : ElectricalPowerPort;
+        port timeInput : TimeSyncPort;
+        port waveformOutput : WaveformDataPort;
+        port eventOutput : EventAlertPort;
+        port healthOutput : HealthTelemetryPort;
+        port configurationInput : ConfigurationPort;
+        port telemetryOutput : NetworkTelemetryPort;
+
+        part sensorPackage : TriAxialVelocitySensor;
+        part digitizer : LowNoiseDigitizer;
+        part timingReceiver : TimingReceiver;
+        part processor : SignalProcessor;
+        part storage : LocalWaveformStorage;
+        part communicationModule : TelemetryTransceiver;
+        part powerConditioner : PowerConditioningUnit;
+        part environmentalEnclosure : WeatherproofEnclosure;
+
+        perform operatingBehavior : SeismometerOperatingState;
+
+        bind groundInput.motion = sensorPackage.sensedMotion.motion;
+        bind timeInput.timeReference = timingReceiver.externalTime.timeReference;
+
+        connect powerInput to powerConditioner.externalPower;
+        connect powerConditioner.conditionedPower to sensorPackage.power;
+        connect powerConditioner.conditionedPower to digitizer.power;
+        connect powerConditioner.conditionedPower to timingReceiver.power;
+        connect powerConditioner.conditionedPower to processor.power;
+        connect powerConditioner.conditionedPower to storage.power;
+        connect powerConditioner.conditionedPower to communicationModule.power;
+
+        connect sensorPackage.analogOutput to digitizer.analogInput;
+        connect timingReceiver.preciseTimeOutput to digitizer.timeInput;
+        connect digitizer.sampleOutput to processor.sampleInput;
+        connect processor.waveformOutput to storage.waveformInput;
+        connect processor.waveformOutput to waveformOutput;
+        connect processor.eventOutput to eventOutput;
+        connect processor.healthOutput to healthOutput;
+        connect storage.archiveOutput to communicationModule.waveformInput;
+        connect processor.eventOutput to communicationModule.eventInput;
+        connect processor.healthOutput to communicationModule.healthInput;
+        connect communicationModule.telemetryOutput to telemetryOutput;
+        connect configurationInput to processor.configurationInput;
+    }
+
+    part def TriAxialVelocitySensor {
+        attribute selfNoiseAtOneHz : Speed = 1.0e-9 [m/s];
+        attribute fullScaleVelocity : Speed = 0.02 [m/s];
+        attribute axisCount : Integer = 3;
+        attribute tiltTolerance : Real = 2.0 [deg];
+
+        port sensedMotion : GroundMotionInputPort;
+        port power : ElectricalPowerPort;
+        port analogOutput : GroundMotionInputPort;
+    }
+
+    part def LowNoiseDigitizer {
+        attribute resolutionBits : Integer = 24;
+        attribute maximumSampleRate : SampleRate = 200.0;
+        attribute inputNoise : ElectricPotential = 1.0e-6 [V];
+        attribute clockJitter : Time = 1.0e-6 [s];
+
+        port analogInput : GroundMotionInputPort;
+        port timeInput : TimeSyncPort;
+        port power : ElectricalPowerPort;
+        port sampleOutput : WaveformDataPort;
+    }
+
+    part def TimingReceiver {
+        attribute supportedSources : String = "GNSS, PTP, NTP";
+        attribute holdoverDuration : Time = 3600.0 [s];
+        attribute lockAccuracy : Time = 0.001 [s];
+
+        port externalTime : TimeSyncPort;
+        port power : ElectricalPowerPort;
+        port preciseTimeOutput : TimeSyncPort;
+    }
+
+    part def SignalProcessor {
+        attribute staWindow : Time = 1.0 [s];
+        attribute ltaWindow : Time = 30.0 [s];
+        attribute triggerRatio : Real = 3.5;
+        attribute detrendEnabled : Boolean = true;
+        attribute antiAliasFilterCorner : Frequency = 45.0 [Hz];
+
+        port sampleInput : WaveformDataPort;
+        port waveformOutput : WaveformDataPort;
+        port eventOutput : EventAlertPort;
+        port healthOutput : HealthTelemetryPort;
+        port configurationInput : ConfigurationPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def LocalWaveformStorage {
+        attribute capacity : Real = 512.0 {
+            unit = "GB";
+        }
+        attribute retentionDuration : Time = 2592000.0 [s];
+        attribute writeRate : DataRate = 5000000.0;
+
+        port waveformInput : WaveformDataPort;
+        port archiveOutput : WaveformDataPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def TelemetryTransceiver {
+        attribute primaryProtocol : String = "SeedLink";
+        attribute backupProtocol : String = "MQTT";
+        attribute maximumUplinkRate : DataRate = 2000000.0;
+        attribute nominalLatency : Time = 2.0 [s];
+
+        port waveformInput : WaveformDataPort;
+        port eventInput : EventAlertPort;
+        port healthInput : HealthTelemetryPort;
+        port telemetryOutput : NetworkTelemetryPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def PowerConditioningUnit {
+        attribute inputVoltageMinimum : ElectricPotential = 10.0 [V];
+        attribute inputVoltageMaximum : ElectricPotential = 32.0 [V];
+        attribute regulatedVoltage : ElectricPotential = 12.0 [V];
+        attribute maximumOutputPower : Power = 25.0 [W];
+
+        port externalPower : ElectricalPowerPort;
+        port conditionedPower : ElectricalPowerPort;
+    }
+
+    part def WeatherproofEnclosure {
+        attribute ingressProtectionRating : String = "IP67";
+        attribute enclosureTemperature : Temperature;
+        attribute humidity : Real {
+            unit = "%";
+        }
+        attribute corrosionProtection : String = "anodized aluminum with sealed connectors";
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject seismometer : BroadbandSeismometer;
+        doc
+        /* The seismometer shall continuously sense three-axis ground motion, convert it into time-synchronized calibrated digital waveform data, detect significant seismic events, and report waveform, event, and health telemetry to external monitoring systems. */
+    }
+
+    requirement def SensitivityRequirement {
+        subject seismometer : BroadbandSeismometer;
+        require constraint {
+            seismometer.sensorPackage.selfNoiseAtOneHz <= 1.0e-9 [m/s]
+        }
+    }
+
+    requirement def TimingRequirement {
+        subject seismometer : BroadbandSeismometer;
+        require constraint {
+            seismometer.timingAccuracy <= 0.001 [s]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject seismometer : BroadbandSeismometer;
+        require constraint {
+            seismometer.nominalSampleRate >= 100.0
+        }
+    }
+
+    requirement def EventDetectionRequirement {
+        subject seismometer : BroadbandSeismometer;
+        doc
+        /* The signal processor shall issue an event detection when the short-term average to long-term average ratio exceeds the configured trigger ratio and the signal-to-noise ratio supports a confidence of at least 0.90. */
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject seismometer : BroadbandSeismometer;
+        require constraint {
+            seismometer.operatingTemperatureMinimum <= -20.0 [degC] and
+            seismometer.operatingTemperatureMaximum >= 60.0 [degC]
+        }
+    }
+
+    requirement def AutonomyRequirement {
+        subject seismometer : BroadbandSeismometer;
+        doc
+        /* The seismometer shall continue local sensing, digitization, event detection, and storage during communication outages, and shall transmit stored waveform frames after network service is restored. */
+    }
+
+    part operationalSeismometer : BroadbandSeismometer {
+        attribute stationCode = "STN001";
+        attribute installedLatitude = 39.7392;
+        attribute installedLongitude = -104.9903;
+        attribute installedElevation = 1609.0;
+    }
+}

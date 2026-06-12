@@ -1,0 +1,723 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-4ewh4o1t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb61b-5f24-71a2-8b57-c579ed24fa08
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Thermoluminescent dosimeter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ThermoluminescentDosimeterModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def EnergyDose {
+        :> ISQ::absorbedDose;
+        unit = SI::gray;
+    }
+
+    attribute def EquivalentDose {
+        :> ISQ::doseEquivalent;
+        unit = SI::sievert;
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeDuration {
+        :> ISQ::time;
+        unit = SI::second;
+    }
+
+    attribute def OpticalSignal {
+        attribute photonCount : ScalarValues::Real;
+        attribute wavelength : SI::LengthValue;
+        attribute intensity : ScalarValues::Real;
+    }
+
+    item def IonizingRadiation {
+        attribute particleEnergy : SI::EnergyValue;
+        attribute doseRate : EnergyDose;
+        attribute radiationQualityFactor : ScalarValues::Real;
+    }
+
+    item def TrappedChargePopulation {
+        attribute trapOccupancy : ScalarValues::Real;
+        attribute trapDepth : SI::EnergyValue;
+        attribute crystalDefectSiteDensity : ScalarValues::Real;
+    }
+
+    item def GlowCurve {
+        attribute peakTemperature : Temperature;
+        attribute integratedLightOutput : ScalarValues::Real;
+        attribute backgroundSubtractedOutput : ScalarValues::Real;
+        attribute measurementDuration : TimeDuration;
+    }
+
+    item def DoseRecord {
+        attribute absorbedDose : EnergyDose;
+        attribute equivalentDose : EquivalentDose;
+        attribute uncertaintyPercent : ScalarValues::Real;
+        attribute calibrationFactor : ScalarValues::Real;
+        attribute readoutTimestamp : ScalarValues::String;
+    }
+
+    port def RadiationExposurePort {
+        in item incidentRadiation : IonizingRadiation;
+    }
+
+    port def OpticalReadoutPort {
+        out item emittedGlowCurve : GlowCurve;
+        out item doseRecord : DoseRecord;
+    }
+
+    port def ThermalControlPort {
+        in attribute targetTemperature : Temperature;
+        out attribute measuredTemperature : Temperature;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : SI::ElectricPotentialValue;
+        in attribute supplyCurrent : SI::ElectricCurrentValue;
+    }
+
+    part def ThermoluminescentCrystal {
+        attribute materialName : ScalarValues::String = "LiF:Mg,Ti";
+        attribute mass : SI::MassValue;
+        attribute storedAbsorbedDose : EnergyDose;
+        attribute fadingRatePerDay : ScalarValues::Real;
+        attribute saturationDose : EnergyDose;
+        port radiationPort : RadiationExposurePort;
+        port heatPort : ThermalControlPort;
+        port lightPort : OpticalReadoutPort;
+
+        action accumulateDose {
+            in item exposure : IonizingRadiation;
+            out item trappedCharge : TrappedChargePopulation;
+            attribute depositedDose : EnergyDose;
+            depositedDose = exposure.doseRate * 1.0 [SI::s];
+            storedAbsorbedDose = storedAbsorbedDose + depositedDose;
+        }
+
+        action thermallyStimulate {
+            in attribute rampTemperature : Temperature;
+            out item glow : GlowCurve;
+            glow.peakTemperature = rampTemperature;
+            glow.integratedLightOutput = storedAbsorbedDose / 1.0 [SI::Gy];
+            glow.backgroundSubtractedOutput = glow.integratedLightOutput * 0.98;
+            glow.measurementDuration = 30.0 [SI::s];
+        }
+
+        state def CrystalStateMachine {
+            state Unexposed;
+            state Charged;
+            state HeatedForReadout;
+            state Annealed;
+
+            transition firstExposure
+                first Unexposed
+                then Charged;
+
+            transition readoutHeating
+                first Charged
+                then HeatedForReadout;
+
+            transition resetAfterHeating
+                first HeatedForReadout
+                then Annealed;
+
+            transition readyForReuse
+                first Annealed
+                then Unexposed;
+        }
+
+        perform stateMachine : CrystalStateMachine;
+    }
+
+    part def EncapsulationBadge {
+        attribute badgeIdentifier : ScalarValues::String;
+        attribute wearerIdentifier : ScalarValues::String;
+        attribute filterMaterial : ScalarValues::String = "aluminum-copper-plastic";
+        attribute environmentalSealRating : ScalarValues::String = "splash resistant";
+        attribute angularResponseCorrection : ScalarValues::Real;
+        part crystal : ThermoluminescentCrystal;
+        port exposurePort : RadiationExposurePort;
+
+        connect exposurePort.incidentRadiation to crystal.radiationPort.incidentRadiation;
+    }
+
+    part def HeatingPlanchet {
+        attribute maximumTemperature : Temperature = 673.15 [SI::K];
+        attribute rampRate : ScalarValues::Real = 10.0;
+        attribute temperatureStability : Temperature = 0.5 [SI::K];
+        port thermalPort : ThermalControlPort;
+        port powerPort : ElectricalPowerPort;
+
+        action executeHeatingCycle {
+            in attribute requestedPeakTemperature : Temperature;
+            out attribute achievedPeakTemperature : Temperature;
+            achievedPeakTemperature = requestedPeakTemperature;
+        }
+    }
+
+    part def PhotomultiplierReadout {
+        attribute darkCountRate : ScalarValues::Real;
+        attribute quantumEfficiency : ScalarValues::Real;
+        attribute gain : ScalarValues::Real;
+        port opticalPort : OpticalReadoutPort;
+        port powerPort : ElectricalPowerPort;
+
+        action measureGlowCurve {
+            in item opticalSignal : OpticalSignal;
+            out item curve : GlowCurve;
+            curve.integratedLightOutput = opticalSignal.photonCount * quantumEfficiency * gain;
+            curve.backgroundSubtractedOutput = curve.integratedLightOutput - darkCountRate;
+            curve.peakTemperature = 473.15 [SI::K];
+            curve.measurementDuration = 30.0 [SI::s];
+        }
+    }
+
+    part def DoseCalculationUnit {
+        attribute calibrationFactor : ScalarValues::Real = 0.001;
+        attribute energyCorrectionFactor : ScalarValues::Real = 1.0;
+        attribute lowerReportableDose : EquivalentDose = 0.01 [SI::Sv];
+        attribute upperReportableDose : EquivalentDose = 10.0 [SI::Sv];
+        port readoutPort : OpticalReadoutPort;
+
+        action computeDose {
+            in item curve : GlowCurve;
+            in attribute qualityFactor : ScalarValues::Real;
+            out item record : DoseRecord;
+            record.absorbedDose = curve.backgroundSubtractedOutput * calibrationFactor * 1.0 [SI::Gy];
+            record.equivalentDose = record.absorbedDose * qualityFactor;
+            record.uncertaintyPercent = 5.0;
+            record.calibrationFactor = calibrationFactor;
+            record.readoutTimestamp = "readout cycle completion";
+        }
+    }
+
+    part def ThermoluminescentDosimeterSystem {
+        doc /* A thermoluminescent dosimeter passively absorbs ionizing radiation in a doped crystal, stores radiation-induced charge in metastable traps, and later estimates accumulated dose by heating the crystal and measuring emitted light proportional to absorbed energy. */
+
+        attribute systemIdentifier : ScalarValues::String;
+        attribute nominalMeasurementRangeLow : EquivalentDose = 0.01 [SI::Sv];
+        attribute nominalMeasurementRangeHigh : EquivalentDose = 10.0 [SI::Sv];
+        attribute requiredDoseAccuracyPercent : ScalarValues::Real = 10.0;
+        attribute readoutPeakTemperature : Temperature = 573.15 [SI::K];
+
+        part badge : EncapsulationBadge;
+        part heater : HeatingPlanchet;
+        part photodetector : PhotomultiplierReadout;
+        part processor : DoseCalculationUnit;
+
+        port radiationInput : RadiationExposurePort;
+        port externalPower : ElectricalPowerPort;
+        port doseOutput : OpticalReadoutPort;
+
+        connect radiationInput.incidentRadiation to badge.exposurePort.incidentRadiation;
+        connect externalPower.supplyVoltage to heater.powerPort.supplyVoltage;
+        connect externalPower.supplyCurrent to heater.powerPort.supplyCurrent;
+        connect externalPower.supplyVoltage to photodetector.powerPort.supplyVoltage;
+        connect externalPower.supplyCurrent to photodetector.powerPort.supplyCurrent;
+        connect heater.thermalPort.measuredTemperature to badge.crystal.heatPort.measuredTemperature;
+        connect badge.crystal.lightPort.emittedGlowCurve to photodetector.opticalPort.emittedGlowCurve;
+        connect photodetector.opticalPort.emittedGlowCurve to processor.readoutPort.emittedGlowCurve;
+        connect processor.readoutPort.doseRecord to doseOutput.doseRecord;
+
+        action performPassiveMonitoring {
+            in item exposure : IonizingRadiation;
+            out item storedCharge : TrappedChargePopulation;
+            first start;
+            then badge.crystal.accumulateDose(exposure);
+            then done;
+        }
+
+        action performReadout {
+            in attribute radiationQualityFactor : ScalarValues::Real;
+            out item result : DoseRecord;
+            first heatCrystal;
+            then heater.executeHeatingCycle(readoutPeakTemperature);
+            then badge.crystal.thermallyStimulate(readoutPeakTemperature);
+            then processor.computeDose(badge.crystal.lightPort.emittedGlowCurve, radiationQualityFactor);
+            then done;
+        }
+
+        state def DosimeterLifecycle {
+            state ReadyForIssue;
+            state WornDuringExposure;
+            state AwaitingReadout;
+            state ReadoutInProgress;
+            state DoseReported;
+            state AnnealingForReuse;
+            state Retired;
+
+            transition issue
+                first ReadyForIssue
+                then WornDuringExposure;
+
+            transition collection
+                first WornDuringExposure
+                then AwaitingReadout;
+
+            transition beginReadout
+                first AwaitingReadout
+                then ReadoutInProgress;
+
+            transition reportDose
+                first ReadoutInProgress
+                then DoseReported;
+
+            transition annealReusableBadge
+                first DoseReported
+                then AnnealingForReuse;
+
+            transition returnToService
+                first AnnealingForReuse
+                then ReadyForIssue;
+
+            transition removeFromService
+                first DoseReported
+                then Retired;
+        }
+
+        perform lifecycle : DosimeterLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The dosimeter shall provide a high-level primary function of passively recording accumulated ionizing radiation dose and enabling later quantitative dose estimation through thermally stimulated light emission. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.nominalMeasurementRangeLow <= 0.01 [SI::Sv] and
+            tld.nominalMeasurementRangeHigh >= 10.0 [SI::Sv]
+        }
+    }
+
+    requirement def DoseAccuracyRequirement {
+        doc /* The reported equivalent dose shall remain within the required accuracy band after calibration over the nominal measurement range. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.requiredDoseAccuracyPercent <= 10.0
+        }
+    }
+
+    requirement def ReadoutRequirement {
+        doc /* The readout subsystem shall heat the crystal to a controlled peak temperature, collect the resulting glow curve, subtract detector background, and produce a dose record. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.readoutPeakTemperature >= 523.15 [SI::K] and
+            tld.readoutPeakTemperature <= 623.15 [SI::K]
+        }
+    }
+
+    requirement def PassiveStorageRequirement {
+        doc /* The badge shall store radiation-induced charge without external power during exposure. */
+
+        subject badge : EncapsulationBadge;
+
+        require constraint {
+            badge.crystal.fadingRatePerDay <= 0.05
+        }
+    }
+
+    requirement def SaturationRequirement {
+        doc /* The thermoluminescent crystal shall have a saturation dose above the system upper reportable range. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.badge.crystal.saturationDose >= tld.nominalMeasurementRangeHigh
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ThermoluminescentDosimeterSystem;
+    satisfy DoseAccuracyRequirement by DoseCalculationUnit;
+    satisfy ReadoutRequirement by HeatingPlanchet;
+    satisfy ReadoutRequirement by PhotomultiplierReadout;
+    satisfy PassiveStorageRequirement by EncapsulationBadge;
+    satisfy SaturationRequirement by ThermoluminescentCrystal;
+
+    part examplePersonalTLD : ThermoluminescentDosimeterSystem {
+        systemIdentifier = "TLD-100-personnel-monitor";
+        badge.badgeIdentifier = "B-2047";
+        badge.wearerIdentifier = "worker-dosimetry-account";
+        badge.crystal.mass = 0.020 [SI::g];
+        badge.crystal.storedAbsorbedDose = 0.0 [SI::Gy];
+        badge.crystal.fadingRatePerDay = 0.02;
+        badge.crystal.saturationDose = 20.0 [SI::Gy];
+        photodetector.darkCountRate = 150.0;
+        photodetector.quantumEfficiency = 0.22;
+        photodetector.gain = 1000000.0;
+    }
+}
+tokens used
+4,278
+package ThermoluminescentDosimeterModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def EnergyDose {
+        :> ISQ::absorbedDose;
+        unit = SI::gray;
+    }
+
+    attribute def EquivalentDose {
+        :> ISQ::doseEquivalent;
+        unit = SI::sievert;
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeDuration {
+        :> ISQ::time;
+        unit = SI::second;
+    }
+
+    attribute def OpticalSignal {
+        attribute photonCount : ScalarValues::Real;
+        attribute wavelength : SI::LengthValue;
+        attribute intensity : ScalarValues::Real;
+    }
+
+    item def IonizingRadiation {
+        attribute particleEnergy : SI::EnergyValue;
+        attribute doseRate : EnergyDose;
+        attribute radiationQualityFactor : ScalarValues::Real;
+    }
+
+    item def TrappedChargePopulation {
+        attribute trapOccupancy : ScalarValues::Real;
+        attribute trapDepth : SI::EnergyValue;
+        attribute crystalDefectSiteDensity : ScalarValues::Real;
+    }
+
+    item def GlowCurve {
+        attribute peakTemperature : Temperature;
+        attribute integratedLightOutput : ScalarValues::Real;
+        attribute backgroundSubtractedOutput : ScalarValues::Real;
+        attribute measurementDuration : TimeDuration;
+    }
+
+    item def DoseRecord {
+        attribute absorbedDose : EnergyDose;
+        attribute equivalentDose : EquivalentDose;
+        attribute uncertaintyPercent : ScalarValues::Real;
+        attribute calibrationFactor : ScalarValues::Real;
+        attribute readoutTimestamp : ScalarValues::String;
+    }
+
+    port def RadiationExposurePort {
+        in item incidentRadiation : IonizingRadiation;
+    }
+
+    port def OpticalReadoutPort {
+        out item emittedGlowCurve : GlowCurve;
+        out item doseRecord : DoseRecord;
+    }
+
+    port def ThermalControlPort {
+        in attribute targetTemperature : Temperature;
+        out attribute measuredTemperature : Temperature;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : SI::ElectricPotentialValue;
+        in attribute supplyCurrent : SI::ElectricCurrentValue;
+    }
+
+    part def ThermoluminescentCrystal {
+        attribute materialName : ScalarValues::String = "LiF:Mg,Ti";
+        attribute mass : SI::MassValue;
+        attribute storedAbsorbedDose : EnergyDose;
+        attribute fadingRatePerDay : ScalarValues::Real;
+        attribute saturationDose : EnergyDose;
+        port radiationPort : RadiationExposurePort;
+        port heatPort : ThermalControlPort;
+        port lightPort : OpticalReadoutPort;
+
+        action accumulateDose {
+            in item exposure : IonizingRadiation;
+            out item trappedCharge : TrappedChargePopulation;
+            attribute depositedDose : EnergyDose;
+            depositedDose = exposure.doseRate * 1.0 [SI::s];
+            storedAbsorbedDose = storedAbsorbedDose + depositedDose;
+        }
+
+        action thermallyStimulate {
+            in attribute rampTemperature : Temperature;
+            out item glow : GlowCurve;
+            glow.peakTemperature = rampTemperature;
+            glow.integratedLightOutput = storedAbsorbedDose / 1.0 [SI::Gy];
+            glow.backgroundSubtractedOutput = glow.integratedLightOutput * 0.98;
+            glow.measurementDuration = 30.0 [SI::s];
+        }
+
+        state def CrystalStateMachine {
+            state Unexposed;
+            state Charged;
+            state HeatedForReadout;
+            state Annealed;
+
+            transition firstExposure
+                first Unexposed
+                then Charged;
+
+            transition readoutHeating
+                first Charged
+                then HeatedForReadout;
+
+            transition resetAfterHeating
+                first HeatedForReadout
+                then Annealed;
+
+            transition readyForReuse
+                first Annealed
+                then Unexposed;
+        }
+
+        perform stateMachine : CrystalStateMachine;
+    }
+
+    part def EncapsulationBadge {
+        attribute badgeIdentifier : ScalarValues::String;
+        attribute wearerIdentifier : ScalarValues::String;
+        attribute filterMaterial : ScalarValues::String = "aluminum-copper-plastic";
+        attribute environmentalSealRating : ScalarValues::String = "splash resistant";
+        attribute angularResponseCorrection : ScalarValues::Real;
+        part crystal : ThermoluminescentCrystal;
+        port exposurePort : RadiationExposurePort;
+
+        connect exposurePort.incidentRadiation to crystal.radiationPort.incidentRadiation;
+    }
+
+    part def HeatingPlanchet {
+        attribute maximumTemperature : Temperature = 673.15 [SI::K];
+        attribute rampRate : ScalarValues::Real = 10.0;
+        attribute temperatureStability : Temperature = 0.5 [SI::K];
+        port thermalPort : ThermalControlPort;
+        port powerPort : ElectricalPowerPort;
+
+        action executeHeatingCycle {
+            in attribute requestedPeakTemperature : Temperature;
+            out attribute achievedPeakTemperature : Temperature;
+            achievedPeakTemperature = requestedPeakTemperature;
+        }
+    }
+
+    part def PhotomultiplierReadout {
+        attribute darkCountRate : ScalarValues::Real;
+        attribute quantumEfficiency : ScalarValues::Real;
+        attribute gain : ScalarValues::Real;
+        port opticalPort : OpticalReadoutPort;
+        port powerPort : ElectricalPowerPort;
+
+        action measureGlowCurve {
+            in item opticalSignal : OpticalSignal;
+            out item curve : GlowCurve;
+            curve.integratedLightOutput = opticalSignal.photonCount * quantumEfficiency * gain;
+            curve.backgroundSubtractedOutput = curve.integratedLightOutput - darkCountRate;
+            curve.peakTemperature = 473.15 [SI::K];
+            curve.measurementDuration = 30.0 [SI::s];
+        }
+    }
+
+    part def DoseCalculationUnit {
+        attribute calibrationFactor : ScalarValues::Real = 0.001;
+        attribute energyCorrectionFactor : ScalarValues::Real = 1.0;
+        attribute lowerReportableDose : EquivalentDose = 0.01 [SI::Sv];
+        attribute upperReportableDose : EquivalentDose = 10.0 [SI::Sv];
+        port readoutPort : OpticalReadoutPort;
+
+        action computeDose {
+            in item curve : GlowCurve;
+            in attribute qualityFactor : ScalarValues::Real;
+            out item record : DoseRecord;
+            record.absorbedDose = curve.backgroundSubtractedOutput * calibrationFactor * 1.0 [SI::Gy];
+            record.equivalentDose = record.absorbedDose * qualityFactor;
+            record.uncertaintyPercent = 5.0;
+            record.calibrationFactor = calibrationFactor;
+            record.readoutTimestamp = "readout cycle completion";
+        }
+    }
+
+    part def ThermoluminescentDosimeterSystem {
+        doc /* A thermoluminescent dosimeter passively absorbs ionizing radiation in a doped crystal, stores radiation-induced charge in metastable traps, and later estimates accumulated dose by heating the crystal and measuring emitted light proportional to absorbed energy. */
+
+        attribute systemIdentifier : ScalarValues::String;
+        attribute nominalMeasurementRangeLow : EquivalentDose = 0.01 [SI::Sv];
+        attribute nominalMeasurementRangeHigh : EquivalentDose = 10.0 [SI::Sv];
+        attribute requiredDoseAccuracyPercent : ScalarValues::Real = 10.0;
+        attribute readoutPeakTemperature : Temperature = 573.15 [SI::K];
+
+        part badge : EncapsulationBadge;
+        part heater : HeatingPlanchet;
+        part photodetector : PhotomultiplierReadout;
+        part processor : DoseCalculationUnit;
+
+        port radiationInput : RadiationExposurePort;
+        port externalPower : ElectricalPowerPort;
+        port doseOutput : OpticalReadoutPort;
+
+        connect radiationInput.incidentRadiation to badge.exposurePort.incidentRadiation;
+        connect externalPower.supplyVoltage to heater.powerPort.supplyVoltage;
+        connect externalPower.supplyCurrent to heater.powerPort.supplyCurrent;
+        connect externalPower.supplyVoltage to photodetector.powerPort.supplyVoltage;
+        connect externalPower.supplyCurrent to photodetector.powerPort.supplyCurrent;
+        connect heater.thermalPort.measuredTemperature to badge.crystal.heatPort.measuredTemperature;
+        connect badge.crystal.lightPort.emittedGlowCurve to photodetector.opticalPort.emittedGlowCurve;
+        connect photodetector.opticalPort.emittedGlowCurve to processor.readoutPort.emittedGlowCurve;
+        connect processor.readoutPort.doseRecord to doseOutput.doseRecord;
+
+        action performPassiveMonitoring {
+            in item exposure : IonizingRadiation;
+            out item storedCharge : TrappedChargePopulation;
+            first start;
+            then badge.crystal.accumulateDose(exposure);
+            then done;
+        }
+
+        action performReadout {
+            in attribute radiationQualityFactor : ScalarValues::Real;
+            out item result : DoseRecord;
+            first heatCrystal;
+            then heater.executeHeatingCycle(readoutPeakTemperature);
+            then badge.crystal.thermallyStimulate(readoutPeakTemperature);
+            then processor.computeDose(badge.crystal.lightPort.emittedGlowCurve, radiationQualityFactor);
+            then done;
+        }
+
+        state def DosimeterLifecycle {
+            state ReadyForIssue;
+            state WornDuringExposure;
+            state AwaitingReadout;
+            state ReadoutInProgress;
+            state DoseReported;
+            state AnnealingForReuse;
+            state Retired;
+
+            transition issue
+                first ReadyForIssue
+                then WornDuringExposure;
+
+            transition collection
+                first WornDuringExposure
+                then AwaitingReadout;
+
+            transition beginReadout
+                first AwaitingReadout
+                then ReadoutInProgress;
+
+            transition reportDose
+                first ReadoutInProgress
+                then DoseReported;
+
+            transition annealReusableBadge
+                first DoseReported
+                then AnnealingForReuse;
+
+            transition returnToService
+                first AnnealingForReuse
+                then ReadyForIssue;
+
+            transition removeFromService
+                first DoseReported
+                then Retired;
+        }
+
+        perform lifecycle : DosimeterLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The dosimeter shall provide a high-level primary function of passively recording accumulated ionizing radiation dose and enabling later quantitative dose estimation through thermally stimulated light emission. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.nominalMeasurementRangeLow <= 0.01 [SI::Sv] and
+            tld.nominalMeasurementRangeHigh >= 10.0 [SI::Sv]
+        }
+    }
+
+    requirement def DoseAccuracyRequirement {
+        doc /* The reported equivalent dose shall remain within the required accuracy band after calibration over the nominal measurement range. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.requiredDoseAccuracyPercent <= 10.0
+        }
+    }
+
+    requirement def ReadoutRequirement {
+        doc /* The readout subsystem shall heat the crystal to a controlled peak temperature, collect the resulting glow curve, subtract detector background, and produce a dose record. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.readoutPeakTemperature >= 523.15 [SI::K] and
+            tld.readoutPeakTemperature <= 623.15 [SI::K]
+        }
+    }
+
+    requirement def PassiveStorageRequirement {
+        doc /* The badge shall store radiation-induced charge without external power during exposure. */
+
+        subject badge : EncapsulationBadge;
+
+        require constraint {
+            badge.crystal.fadingRatePerDay <= 0.05
+        }
+    }
+
+    requirement def SaturationRequirement {
+        doc /* The thermoluminescent crystal shall have a saturation dose above the system upper reportable range. */
+
+        subject tld : ThermoluminescentDosimeterSystem;
+
+        require constraint {
+            tld.badge.crystal.saturationDose >= tld.nominalMeasurementRangeHigh
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ThermoluminescentDosimeterSystem;
+    satisfy DoseAccuracyRequirement by DoseCalculationUnit;
+    satisfy ReadoutRequirement by HeatingPlanchet;
+    satisfy ReadoutRequirement by PhotomultiplierReadout;
+    satisfy PassiveStorageRequirement by EncapsulationBadge;
+    satisfy SaturationRequirement by ThermoluminescentCrystal;
+
+    part examplePersonalTLD : ThermoluminescentDosimeterSystem {
+        systemIdentifier = "TLD-100-personnel-monitor";
+        badge.badgeIdentifier = "B-2047";
+        badge.wearerIdentifier = "worker-dosimetry-account";
+        badge.crystal.mass = 0.020 [SI::g];
+        badge.crystal.storedAbsorbedDose = 0.0 [SI::Gy];
+        badge.crystal.fadingRatePerDay = 0.02;
+        badge.crystal.saturationDose = 20.0 [SI::Gy];
+        photodetector.darkCountRate = 150.0;
+        photodetector.quantumEfficiency = 0.22;
+        photodetector.gain = 1000000.0;
+    }
+}

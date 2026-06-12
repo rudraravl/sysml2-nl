@@ -1,0 +1,473 @@
+package ShockDataLoggerSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Acceleration {
+        :> scalar;
+        unit = "m/s^2";
+    }
+
+    attribute def AngularRate {
+        :> scalar;
+        unit = "rad/s";
+    }
+
+    attribute def Temperature {
+        :> scalar;
+        unit = "degC";
+    }
+
+    attribute def TimeDuration {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def TimeInstant {
+        :> scalar;
+        unit = "s";
+    }
+
+    attribute def Voltage {
+        :> scalar;
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent {
+        :> scalar;
+        unit = "A";
+    }
+
+    attribute def EnergyCapacity {
+        :> scalar;
+        unit = "Wh";
+    }
+
+    attribute def MemorySize {
+        :> scalar;
+        unit = "MB";
+    }
+
+    attribute def DataRate {
+        :> scalar;
+        unit = "sample/s";
+    }
+
+    attribute def ShockMagnitude {
+        :> Acceleration;
+    }
+
+    item def AccelerationSample {
+        attribute timestamp : TimeInstant;
+        attribute ax : Acceleration;
+        attribute ay : Acceleration;
+        attribute az : Acceleration;
+        attribute vectorMagnitude : ShockMagnitude;
+        attribute sampleSequenceNumber : Integer;
+    }
+
+    item def ShockEventRecord {
+        attribute eventId : Integer;
+        attribute startTime : TimeInstant;
+        attribute peakTime : TimeInstant;
+        attribute duration : TimeDuration;
+        attribute peakMagnitude : ShockMagnitude;
+        attribute peakAxis : String;
+        attribute preTriggerSampleCount : Integer;
+        attribute postTriggerSampleCount : Integer;
+        part samples[1..*] : AccelerationSample;
+    }
+
+    item def LoggerStatus {
+        attribute batteryVoltage : Voltage;
+        attribute remainingMemory : MemorySize;
+        attribute internalTemperature : Temperature;
+        attribute isArmed : Boolean;
+        attribute lastEventId : Integer;
+        attribute faultCode : String;
+    }
+
+    item def ConfigurationProfile {
+        attribute sampleRate : DataRate;
+        attribute triggerThreshold : ShockMagnitude;
+        attribute preTriggerDuration : TimeDuration;
+        attribute postTriggerDuration : TimeDuration;
+        attribute lowPowerTimeout : TimeDuration;
+        attribute deviceIdentifier : String;
+    }
+
+    port def SensorDataPort {
+        out sample : AccelerationSample;
+    }
+
+    port def EventDataPort {
+        in sample : AccelerationSample;
+        out eventRecord : ShockEventRecord;
+    }
+
+    port def StoragePort {
+        in record : ShockEventRecord;
+        out storedRecord : ShockEventRecord;
+        out remainingCapacity : MemorySize;
+    }
+
+    port def ConfigurationPort {
+        in profile : ConfigurationProfile;
+        out activeProfile : ConfigurationProfile;
+    }
+
+    port def StatusPort {
+        out status : LoggerStatus;
+    }
+
+    port def PowerPort {
+        out supplyVoltage : Voltage;
+        out supplyCurrent : ElectricCurrent;
+    }
+
+    port def UserInterfacePort {
+        in startCommand : Boolean;
+        in stopCommand : Boolean;
+        in downloadCommand : Boolean;
+        out armedIndicator : Boolean;
+        out faultIndicator : Boolean;
+    }
+
+    port def UsbDataPort {
+        in downloadCommand : Boolean;
+        out transferredRecord : ShockEventRecord;
+        out status : LoggerStatus;
+    }
+
+    action def AcquireAcceleration {
+        in sampleRate : DataRate;
+        out rawSample : AccelerationSample;
+    }
+
+    action def FilterAcceleration {
+        in rawSample : AccelerationSample;
+        out filteredSample : AccelerationSample;
+    }
+
+    action def DetectShock {
+        in filteredSample : AccelerationSample;
+        in triggerThreshold : ShockMagnitude;
+        out shockDetected : Boolean;
+    }
+
+    action def CaptureEventWindow {
+        in shockDetected : Boolean;
+        in filteredSample : AccelerationSample;
+        in preTriggerDuration : TimeDuration;
+        in postTriggerDuration : TimeDuration;
+        out eventRecord : ShockEventRecord;
+    }
+
+    action def StoreShockEvent {
+        in eventRecord : ShockEventRecord;
+        out storedRecord : ShockEventRecord;
+    }
+
+    action def ReportLoggerStatus {
+        in batteryVoltage : Voltage;
+        in remainingMemory : MemorySize;
+        in internalTemperature : Temperature;
+        out status : LoggerStatus;
+    }
+
+    part def TriaxialAccelerometer {
+        attribute measurementRange : ShockMagnitude = 2000 [SI::m_per_s2];
+        attribute noiseDensity : Acceleration = 0.05 [SI::m_per_s2];
+        attribute bandwidth : DataRate = 5000 ["sample/s"];
+        port sensorOut : SensorDataPort;
+
+        action acquire : AcquireAcceleration;
+    }
+
+    part def SignalConditioner {
+        attribute antiAliasCutoffRate : DataRate = 2500 ["sample/s"];
+        port rawIn : SensorDataPort;
+        port filteredOut : SensorDataPort;
+
+        action filter : FilterAcceleration;
+    }
+
+    part def EventDetector {
+        attribute defaultThreshold : ShockMagnitude = 490 [SI::m_per_s2];
+        attribute minimumEventDuration : TimeDuration = 0.002 [SI::s];
+        port sampleIn : EventDataPort;
+        port eventOut : EventDataPort;
+        port configIn : ConfigurationPort;
+
+        action detect : DetectShock;
+        action capture : CaptureEventWindow;
+    }
+
+    part def NonVolatileMemory {
+        attribute totalCapacity : MemorySize = 4096 ["MB"];
+        attribute reservedCapacity : MemorySize = 128 ["MB"];
+        attribute writeEnduranceCycles : Integer = 100000;
+        port storage : StoragePort;
+
+        action store : StoreShockEvent;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 3.7 [SI::V];
+        attribute capacity : EnergyCapacity = 9.25 ["Wh"];
+        attribute lowVoltageLimit : Voltage = 3.2 [SI::V];
+        port powerOut : PowerPort;
+    }
+
+    part def PowerManager {
+        attribute activeCurrent : ElectricCurrent = 0.085 [SI::A];
+        attribute sleepCurrent : ElectricCurrent = 0.00025 [SI::A];
+        attribute regulatedVoltage : Voltage = 3.3 [SI::V];
+        port batteryIn : PowerPort;
+        port regulatedOut : PowerPort;
+    }
+
+    part def RealTimeClock {
+        attribute timeAccuracyPerDay : TimeDuration = 0.5 [SI::s];
+        port statusOut : StatusPort;
+    }
+
+    part def TemperatureMonitor {
+        attribute operatingMinimum : Temperature = -40 ["degC"];
+        attribute operatingMaximum : Temperature = 85 ["degC"];
+        port statusOut : StatusPort;
+    }
+
+    part def UsbInterface {
+        attribute maximumTransferRate : DataRate = 12000 ["sample/s"];
+        port usb : UsbDataPort;
+        port storageAccess : StoragePort;
+        port statusIn : StatusPort;
+    }
+
+    part def UserControls {
+        port ui : UserInterfacePort;
+    }
+
+    part def Controller {
+        attribute activeConfiguration : ConfigurationProfile;
+        attribute eventCounter : Integer;
+        port configuredBy : ConfigurationPort;
+        port sensorIn : SensorDataPort;
+        port eventBus : EventDataPort;
+        port memoryBus : StoragePort;
+        port status : StatusPort;
+        port user : UserInterfacePort;
+        port usb : UsbDataPort;
+
+        action monitorAndLog {
+            first start;
+            then acquireSample;
+            then conditionSample;
+            then evaluateTrigger;
+            if evaluateTrigger.shockDetected then captureWindow;
+            then persistEvent;
+            then updateStatus;
+
+            action start;
+            action acquireSample : AcquireAcceleration;
+            action conditionSample : FilterAcceleration;
+            action evaluateTrigger : DetectShock;
+            action captureWindow : CaptureEventWindow;
+            action persistEvent : StoreShockEvent;
+            action updateStatus : ReportLoggerStatus;
+        }
+
+        state loggerState {
+            entry action initialize {
+                eventCounter = 0;
+            }
+
+            state Off;
+            state Standby;
+            state Armed;
+            state Recording;
+            state Storing;
+            state Downloading;
+            state Fault;
+
+            transition initial then Off;
+
+            transition powerApplied
+                first Off
+                then Standby;
+
+            transition arm
+                first Standby
+                accept startCommand via user
+                then Armed;
+
+            transition shockTrigger
+                first Armed
+                accept sample via sensorIn
+                if sample.vectorMagnitude >= activeConfiguration.triggerThreshold
+                then Recording;
+
+            transition recordComplete
+                first Recording
+                after activeConfiguration.postTriggerDuration
+                then Storing;
+
+            transition storeComplete
+                first Storing
+                then Armed
+                effect action incrementEventCounter {
+                    eventCounter = eventCounter + 1;
+                }
+
+            transition download
+                first Standby
+                accept downloadCommand via usb
+                then Downloading;
+
+            transition downloadComplete
+                first Downloading
+                then Standby;
+
+            transition disarm
+                first Armed
+                accept stopCommand via user
+                then Standby;
+
+            transition lowBatteryFault
+                first Standby
+                if status.status.batteryVoltage < 3.2 [SI::V]
+                then Fault;
+
+            transition memoryFullFault
+                first Armed
+                if memoryBus.remainingCapacity <= 0 ["MB"]
+                then Fault;
+        }
+    }
+
+    part def ShockDataLogger {
+        attribute systemMass : MassValue = 0.18 [SI::kg];
+        attribute enclosureIngressProtection : String = "IP67";
+        attribute operatingTemperatureLow : Temperature = -40 ["degC"];
+        attribute operatingTemperatureHigh : Temperature = 85 ["degC"];
+
+        part accelerometer : TriaxialAccelerometer;
+        part conditioner : SignalConditioner;
+        part detector : EventDetector;
+        part memory : NonVolatileMemory;
+        part battery : BatteryPack;
+        part powerManager : PowerManager;
+        part clock : RealTimeClock;
+        part temperatureMonitor : TemperatureMonitor;
+        part controller : Controller;
+        part usbInterface : UsbInterface;
+        part controls : UserControls;
+
+        port configuration : ConfigurationPort;
+        port status : StatusPort;
+        port usb : UsbDataPort;
+        port userInterface : UserInterfacePort;
+
+        connect accelerometer.sensorOut to conditioner.rawIn;
+        connect conditioner.filteredOut to controller.sensorIn;
+        connect controller.eventBus to detector.sampleIn;
+        connect detector.eventOut to controller.eventBus;
+        connect controller.memoryBus to memory.storage;
+        connect battery.powerOut to powerManager.batteryIn;
+        connect powerManager.regulatedOut to accelerometer.sensorOut;
+        connect powerManager.regulatedOut to controller.status;
+        connect clock.statusOut to controller.status;
+        connect temperatureMonitor.statusOut to controller.status;
+        connect controller.usb to usbInterface.usb;
+        connect usbInterface.storageAccess to memory.storage;
+        connect controls.ui to controller.user;
+        connect configuration to controller.configuredBy;
+        connect controller.status to status;
+        connect usb to usbInterface.usb;
+        connect userInterface to controls.ui;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject logger : ShockDataLogger;
+        doc
+        /*
+         * The shock data logger shall measure acceleration along three orthogonal axes,
+         * detect shock events that exceed a configured acceleration threshold, preserve
+         * pre-trigger and post-trigger samples, timestamp the event, store the event in
+         * non-volatile memory, and provide recorded shock data and health status through
+         * a user-accessible data interface.
+         */
+    }
+
+    requirement def SamplingRequirement {
+        subject logger : ShockDataLogger;
+        attribute minimumSampleRate : DataRate = 1000 ["sample/s"];
+        require constraint {
+            logger.controller.activeConfiguration.sampleRate >= minimumSampleRate
+        }
+    }
+
+    requirement def ShockDetectionRequirement {
+        subject logger : ShockDataLogger;
+        attribute configurableMinimumThreshold : ShockMagnitude = 50 [SI::m_per_s2];
+        attribute configurableMaximumThreshold : ShockMagnitude = 2000 [SI::m_per_s2];
+        require constraint {
+            logger.controller.activeConfiguration.triggerThreshold >= configurableMinimumThreshold and
+            logger.controller.activeConfiguration.triggerThreshold <= configurableMaximumThreshold
+        }
+    }
+
+    requirement def EventRetentionRequirement {
+        subject logger : ShockDataLogger;
+        attribute minimumStoredEvents : Integer = 10000;
+        require constraint {
+            logger.memory.totalCapacity >= 4096 ["MB"]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject logger : ShockDataLogger;
+        require constraint {
+            logger.operatingTemperatureLow <= -40 ["degC"] and
+            logger.operatingTemperatureHigh >= 85 ["degC"] and
+            logger.enclosureIngressProtection == "IP67"
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject logger : ShockDataLogger;
+        attribute minimumBatteryEnergy : EnergyCapacity = 8.0 ["Wh"];
+        require constraint {
+            logger.battery.capacity >= minimumBatteryEnergy and
+            logger.powerManager.regulatedVoltage == 3.3 [SI::V]
+        }
+    }
+
+    requirement def DataDownloadRequirement {
+        subject logger : ShockDataLogger;
+        attribute minimumTransferRate : DataRate = 5000 ["sample/s"];
+        require constraint {
+            logger.usbInterface.maximumTransferRate >= minimumTransferRate
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ShockDataLogger;
+    satisfy SamplingRequirement by ShockDataLogger;
+    satisfy ShockDetectionRequirement by ShockDataLogger;
+    satisfy EventRetentionRequirement by ShockDataLogger;
+    satisfy EnvironmentalRequirement by ShockDataLogger;
+    satisfy PowerRequirement by ShockDataLogger;
+    satisfy DataDownloadRequirement by ShockDataLogger;
+
+    part shockLoggerSystem : ShockDataLogger {
+        attribute controller.activeConfiguration : ConfigurationProfile {
+            sampleRate = 2000 ["sample/s"];
+            triggerThreshold = 250 [SI::m_per_s2];
+            preTriggerDuration = 0.25 [SI::s];
+            postTriggerDuration = 1.00 [SI::s];
+            lowPowerTimeout = 300 [SI::s];
+            deviceIdentifier = "SDL-PRIMARY-001";
+        }
+    }
+}

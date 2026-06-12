@@ -1,0 +1,434 @@
+package RobotKitPrimaryTaskModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  attribute def Volt : Real {
+    unit = "V";
+  }
+
+  attribute def Ampere : Real {
+    unit = "A";
+  }
+
+  attribute def Watt : Real {
+    unit = "W";
+  }
+
+  attribute def MeterPerSecond : Real {
+    unit = "m/s";
+  }
+
+  attribute def Newton : Real {
+    unit = "N";
+  }
+
+  attribute def Degree : Real {
+    unit = "deg";
+  }
+
+  item def Power {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+  }
+
+  item def MotionCommand {
+    attribute linearSpeed : MeterPerSecond;
+    attribute angularRate : Degree;
+  }
+
+  item def ArmCommand {
+    attribute shoulderAngle : Degree;
+    attribute elbowAngle : Degree;
+    attribute gripperOpen : Boolean;
+  }
+
+  item def SensorFrame {
+    attribute frontRange : Meter;
+    attribute leftRange : Meter;
+    attribute rightRange : Meter;
+    attribute objectDetected : Boolean;
+    attribute objectDistance : Meter;
+  }
+
+  item def KitStatus {
+    attribute batteryCharge : Percent;
+    attribute motorTemperature : CelsiusTemperature;
+    attribute faultActive : Boolean;
+  }
+
+  item def ObjectPayload {
+    attribute mass : Kilogram;
+    attribute grasped : Boolean;
+  }
+
+  port def PowerPort {
+    out item power : Power;
+  }
+
+  port def PowerInputPort {
+    in item power : Power;
+  }
+
+  port def CommandOutPort {
+    out item motion : MotionCommand;
+    out item arm : ArmCommand;
+  }
+
+  port def CommandInPort {
+    in item motion : MotionCommand;
+    in item arm : ArmCommand;
+  }
+
+  port def SensorOutPort {
+    out item frame : SensorFrame;
+  }
+
+  port def SensorInPort {
+    in item frame : SensorFrame;
+  }
+
+  port def StatusOutPort {
+    out item status : KitStatus;
+  }
+
+  port def StatusInPort {
+    in item status : KitStatus;
+  }
+
+  port def PayloadPort {
+    inout item payload : ObjectPayload;
+  }
+
+  action def NavigateToObject {
+    in item sensorFrame : SensorFrame;
+    out item command : MotionCommand;
+
+    first start;
+    then decideObstacle;
+
+    action decideObstacle;
+    if sensorFrame.frontRange < 0.35[m] then avoidObstacle else driveForward;
+
+    action avoidObstacle {
+      out item command : MotionCommand {
+        :>> linearSpeed = 0.10[m/s];
+        :>> angularRate = 35[deg];
+      }
+    }
+
+    action driveForward {
+      out item command : MotionCommand {
+        :>> linearSpeed = 0.45[m/s];
+        :>> angularRate = 0[deg];
+      }
+    }
+
+    then done;
+  }
+
+  action def PickObject {
+    in item sensorFrame : SensorFrame;
+    out item armCommand : ArmCommand;
+    out item payload : ObjectPayload;
+
+    first align;
+    then lowerArm;
+    then closeGripper;
+    then lift;
+
+    action align;
+    action lowerArm {
+      out item armCommand : ArmCommand {
+        :>> shoulderAngle = 42[deg];
+        :>> elbowAngle = 76[deg];
+        :>> gripperOpen = true;
+      }
+    }
+
+    action closeGripper {
+      out item armCommand : ArmCommand {
+        :>> shoulderAngle = 42[deg];
+        :>> elbowAngle = 76[deg];
+        :>> gripperOpen = false;
+      }
+    }
+
+    action lift {
+      out item armCommand : ArmCommand {
+        :>> shoulderAngle = 10[deg];
+        :>> elbowAngle = 40[deg];
+        :>> gripperOpen = false;
+      }
+      out item payload : ObjectPayload {
+        :>> grasped = true;
+      }
+    }
+
+    then done;
+  }
+
+  action def DeliverObject {
+    out item motionCommand : MotionCommand;
+    out item armCommand : ArmCommand;
+    out item payload : ObjectPayload;
+
+    first moveToDropZone;
+    then stopAtDropZone;
+    then openGripper;
+    then retractArm;
+
+    action moveToDropZone {
+      out item motionCommand : MotionCommand {
+        :>> linearSpeed = 0.35[m/s];
+        :>> angularRate = 0[deg];
+      }
+    }
+
+    action stopAtDropZone {
+      out item motionCommand : MotionCommand {
+        :>> linearSpeed = 0[m/s];
+        :>> angularRate = 0[deg];
+      }
+    }
+
+    action openGripper {
+      out item armCommand : ArmCommand {
+        :>> shoulderAngle = 35[deg];
+        :>> elbowAngle = 65[deg];
+        :>> gripperOpen = true;
+      }
+      out item payload : ObjectPayload {
+        :>> grasped = false;
+      }
+    }
+
+    action retractArm {
+      out item armCommand : ArmCommand {
+        :>> shoulderAngle = 0[deg];
+        :>> elbowAngle = 0[deg];
+        :>> gripperOpen = true;
+      }
+    }
+
+    then done;
+  }
+
+  state def RobotMissionStateMachine {
+    in item status : KitStatus;
+    in item sensorFrame : SensorFrame;
+
+    state idle;
+    state selfTest;
+    state search;
+    state approach;
+    state grasp;
+    state deliver;
+    state complete;
+    state safeStop;
+    state fault;
+
+    initial then idle;
+
+    transition idle_to_selfTest
+      first idle
+      accept StartMission
+      then selfTest;
+
+    transition selfTest_to_search
+      first selfTest
+      if status.batteryCharge >= 30[%] and not status.faultActive
+      then search;
+
+    transition selfTest_to_fault
+      first selfTest
+      if status.batteryCharge < 30[%] or status.faultActive
+      then fault;
+
+    transition search_to_approach
+      first search
+      if sensorFrame.objectDetected
+      then approach;
+
+    transition approach_to_grasp
+      first approach
+      if sensorFrame.objectDistance <= 0.20[m]
+      then grasp;
+
+    transition grasp_to_deliver
+      first grasp
+      accept ObjectSecured
+      then deliver;
+
+    transition deliver_to_complete
+      first deliver
+      accept ObjectReleased
+      then complete;
+
+    transition any_to_safeStop
+      first search
+      accept EmergencyStop
+      then safeStop;
+
+    transition fault_to_safeStop
+      first fault
+      then safeStop;
+  }
+
+  part def RobotKit {
+    attribute nominalVoltage : Volt = 12[V];
+    attribute maxContinuousCurrent : Ampere = 8[A];
+    attribute maxDriveSpeed : MeterPerSecond = 0.60[m/s];
+    attribute maxPayloadMass : Kilogram = 0.50[kg];
+
+    port powerOut : PowerPort;
+    port commandIn : CommandInPort;
+    port sensorOut : SensorOutPort;
+    port statusOut : StatusOutPort;
+    port payloadInterface : PayloadPort;
+
+    part battery {
+      attribute capacity : Real = 5.0;
+      attribute charge : Percent = 100[%];
+      attribute outputVoltage : Volt = 12[V];
+      port powerOut : PowerPort;
+    }
+
+    part controller {
+      attribute processorFrequency : Real = 120;
+      port powerIn : PowerInputPort;
+      port commandOut : CommandOutPort;
+      port sensorIn : SensorInPort;
+      port statusIn : StatusInPort;
+    }
+
+    part driveBase {
+      attribute wheelDiameter : Meter = 0.065[m];
+      attribute trackWidth : Meter = 0.145[m];
+      attribute peakTractiveForce : Newton = 18[N];
+      port powerIn : PowerInputPort;
+      port commandIn : CommandInPort;
+      port statusOut : StatusOutPort;
+    }
+
+    part manipulator {
+      attribute reach : Meter = 0.28[m];
+      attribute gripForce : Newton = 12[N];
+      attribute payloadLimit : Kilogram = 0.50[kg];
+      port powerIn : PowerInputPort;
+      port commandIn : CommandInPort;
+      port payloadInterface : PayloadPort;
+    }
+
+    part sensorSuite {
+      attribute rangeLimit : Meter = 2.0[m];
+      attribute objectRecognitionConfidence : Percent = 95[%];
+      port powerIn : PowerInputPort;
+      port sensorOut : SensorOutPort;
+    }
+
+    connect battery.powerOut to controller.powerIn;
+    connect battery.powerOut to driveBase.powerIn;
+    connect battery.powerOut to manipulator.powerIn;
+    connect battery.powerOut to sensorSuite.powerIn;
+
+    connect sensorSuite.sensorOut to controller.sensorIn;
+    connect driveBase.statusOut to controller.statusIn;
+    connect controller.commandOut to driveBase.commandIn;
+    connect controller.commandOut to manipulator.commandIn;
+
+    connect battery.powerOut to powerOut;
+    connect controller.commandOut to commandIn;
+    connect sensorSuite.sensorOut to sensorOut;
+    connect driveBase.statusOut to statusOut;
+    connect manipulator.payloadInterface to payloadInterface;
+  }
+
+  part def PrimaryTaskRobot {
+    attribute operatingSpeed : MeterPerSecond = 0.40[m/s];
+    attribute minimumBatteryForMission : Percent = 30[%];
+    attribute safeObstacleDistance : Meter = 0.35[m];
+    attribute targetObjectMass : Kilogram = 0.30[kg];
+
+    port missionPower : PowerInputPort;
+    port payloadPort : PayloadPort;
+
+    part kit : RobotKit;
+    part carriedObject {
+      attribute payload : ObjectPayload {
+        :>> mass = 0.30[kg];
+        :>> grasped = false;
+      }
+    }
+
+    perform action navigate : NavigateToObject;
+    perform action pick : PickObject;
+    perform action deliver : DeliverObject;
+    exhibit state missionState : RobotMissionStateMachine;
+
+    connect kit.powerOut to missionPower;
+    connect kit.payloadInterface to payloadPort;
+  }
+
+  part robotSystem : PrimaryTaskRobot;
+
+  requirement def UseRobotKitRequirement {
+    subject robot : PrimaryTaskRobot;
+    require constraint {
+      robot.kit.nominalVoltage == 12[V]
+    }
+  }
+
+  requirement def PrimaryTaskRequirement {
+    subject robot : PrimaryTaskRobot;
+    require constraint {
+      robot.targetObjectMass <= robot.kit.maxPayloadMass
+    }
+  }
+
+  requirement def SafeNavigationRequirement {
+    subject robot : PrimaryTaskRobot;
+    require constraint {
+      robot.safeObstacleDistance >= 0.30[m]
+    }
+  }
+
+  requirement def BatteryReadinessRequirement {
+    subject robot : PrimaryTaskRobot;
+    require constraint {
+      robot.minimumBatteryForMission >= 30[%]
+    }
+  }
+
+  requirement def SpeedLimitRequirement {
+    subject robot : PrimaryTaskRobot;
+    require constraint {
+      robot.operatingSpeed <= robot.kit.maxDriveSpeed
+    }
+  }
+
+  requirement useKit : UseRobotKitRequirement {
+    subject robot = robotSystem;
+  }
+
+  requirement completePrimaryTask : PrimaryTaskRequirement {
+    subject robot = robotSystem;
+  }
+
+  requirement maintainSafeNavigation : SafeNavigationRequirement {
+    subject robot = robotSystem;
+  }
+
+  requirement maintainBatteryReserve : BatteryReadinessRequirement {
+    subject robot = robotSystem;
+  }
+
+  requirement limitOperatingSpeed : SpeedLimitRequirement {
+    subject robot = robotSystem;
+  }
+
+}

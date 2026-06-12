@@ -1,0 +1,367 @@
+package RainbowRoboticsHighLevelSystem {
+
+    value type Meter;
+    value type Kilogram;
+    value type Second;
+    value type Degree;
+    value type Volt;
+    value type Ampere;
+    value type Newton;
+    value type NewtonMeter;
+    value type MillimeterPerSecond;
+    value type Percent;
+    value type Celsius;
+    value type Lux;
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+    }
+
+    item def MotionCommand {
+        attribute targetX : Meter;
+        attribute targetY : Meter;
+        attribute targetZ : Meter;
+        attribute roll : Degree;
+        attribute pitch : Degree;
+        attribute yaw : Degree;
+        attribute speed : MillimeterPerSecond;
+        attribute gripForce : Newton;
+    }
+
+    item def RobotStatus {
+        attribute joint1Angle : Degree;
+        attribute joint2Angle : Degree;
+        attribute joint3Angle : Degree;
+        attribute joint4Angle : Degree;
+        attribute joint5Angle : Degree;
+        attribute joint6Angle : Degree;
+        attribute payloadMass : Kilogram;
+        attribute toolTemperature : Celsius;
+        attribute safetyConfidence : Percent;
+    }
+
+    item def Workpiece {
+        attribute mass : Kilogram;
+        attribute width : Meter;
+        attribute depth : Meter;
+        attribute height : Meter;
+        attribute visualContrast : Percent;
+    }
+
+    item def SafetyEvent {
+        attribute separationDistance : Meter;
+        attribute humanDetected : Boolean;
+        attribute emergencyStopPressed : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PowerOutputPort {
+        out item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : MotionCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : RobotStatus;
+    }
+
+    port def WorkpieceInputPort {
+        in item workpiece : Workpiece;
+    }
+
+    port def WorkpieceOutputPort {
+        out item workpiece : Workpiece;
+    }
+
+    port def SafetyInputPort {
+        in item event : SafetyEvent;
+    }
+
+    port def SafetyOutputPort {
+        out item event : SafetyEvent;
+    }
+
+    part def PowerSupply {
+        attribute nominalVoltage : Volt = 48;
+        attribute maxCurrent : Ampere = 30;
+        port acInput : PowerInputPort;
+        port dcOutput : PowerOutputPort;
+    }
+
+    part def VisionSensor {
+        attribute frameRate : Percent = 100;
+        attribute minimumIllumination : Lux = 300;
+        attribute fieldOfViewWidth : Meter = 1.2;
+        attribute fieldOfViewDepth : Meter = 0.8;
+        port powerIn : PowerInputPort;
+        port detectedWorkpieceOut : WorkpieceOutputPort;
+        port safetyOut : SafetyOutputPort;
+    }
+
+    part def CollaborativeManipulator {
+        attribute degreesOfFreedom : Integer = 6;
+        attribute maximumReach : Meter = 0.92;
+        attribute ratedPayload : Kilogram = 5.0;
+        attribute repeatability : Meter = 0.00005;
+        attribute maximumJointTorque : NewtonMeter = 150;
+        attribute maximumToolSpeed : MillimeterPerSecond = 1000;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port statusOut : StatusOutputPort;
+        port safetyIn : SafetyInputPort;
+        port workpieceIn : WorkpieceInputPort;
+        port workpieceOut : WorkpieceOutputPort;
+
+        part baseJoint;
+        part shoulderJoint;
+        part elbowJoint;
+        part wristJoint1;
+        part wristJoint2;
+        part wristJoint3;
+        part servoController;
+        part torqueSensor;
+    }
+
+    part def AdaptiveGripper {
+        attribute maximumGripForce : Newton = 120;
+        attribute minimumObjectWidth : Meter = 0.01;
+        attribute maximumObjectWidth : Meter = 0.12;
+        attribute fingerStroke : Meter = 0.085;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port statusOut : StatusOutputPort;
+        port workpieceIn : WorkpieceInputPort;
+        port workpieceOut : WorkpieceOutputPort;
+    }
+
+    part def SafetyController {
+        attribute protectiveStopDistance : Meter = 0.35;
+        attribute reducedSpeedLimit : MillimeterPerSecond = 250;
+        attribute emergencyStopReactionTime : Second = 0.08;
+
+        port safetyIn : SafetyInputPort;
+        port safetyOut : SafetyOutputPort;
+        port robotStatusIn : StatusOutputPort;
+        port commandOut : CommandInputPort;
+    }
+
+    part def TaskController {
+        attribute nominalCycleTime : Second = 6.0;
+        attribute allowedPositionError : Meter = 0.001;
+
+        port powerIn : PowerInputPort;
+        port workpieceIn : WorkpieceInputPort;
+        port safetyIn : SafetyInputPort;
+        port commandOut : CommandInputPort;
+        port robotStatusIn : StatusOutputPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute screenSize : Meter = 0.25;
+        attribute commandUpdatePeriod : Second = 0.1;
+
+        port powerIn : PowerInputPort;
+        port commandOut : CommandInputPort;
+        port statusIn : StatusOutputPort;
+        port safetyOut : SafetyOutputPort;
+    }
+
+    part def RainbowRoboticsCollaborativeCell {
+        attribute primaryFunction : String =
+            "Safely perform high-level collaborative manipulation tasks, including detecting, picking, moving, placing, and verifying workpieces beside human operators.";
+
+        part supply : PowerSupply;
+        part robotArm : CollaborativeManipulator;
+        part gripper : AdaptiveGripper;
+        part camera : VisionSensor;
+        part safetyController : SafetyController;
+        part taskController : TaskController;
+        part operatorPanel : HumanMachineInterface;
+
+        port facilityPowerIn : PowerInputPort;
+        port completedWorkpieceOut : WorkpieceOutputPort;
+        port operatorSafetyIn : SafetyInputPort;
+
+        connection facilityPowerToSupply connect facilityPowerIn to supply.acInput;
+        connection supplyToRobot connect supply.dcOutput to robotArm.powerIn;
+        connection supplyToGripper connect supply.dcOutput to gripper.powerIn;
+        connection supplyToCamera connect supply.dcOutput to camera.powerIn;
+        connection supplyToController connect supply.dcOutput to taskController.powerIn;
+        connection supplyToPanel connect supply.dcOutput to operatorPanel.powerIn;
+
+        connection cameraWorkpieceToTask connect camera.detectedWorkpieceOut to taskController.workpieceIn;
+        connection taskCommandToRobot connect taskController.commandOut to robotArm.commandIn;
+        connection panelCommandToRobot connect operatorPanel.commandOut to robotArm.commandIn;
+        connection robotStatusToTask connect robotArm.statusOut to taskController.robotStatusIn;
+        connection robotStatusToPanel connect robotArm.statusOut to operatorPanel.statusIn;
+
+        connection robotToGripperWorkpiece connect robotArm.workpieceOut to gripper.workpieceIn;
+        connection gripperToRobotWorkpiece connect gripper.workpieceOut to robotArm.workpieceIn;
+        connection robotCompletedWorkpiece connect robotArm.workpieceOut to completedWorkpieceOut;
+
+        connection cameraSafetyToSafetyController connect camera.safetyOut to safetyController.safetyIn;
+        connection operatorSafetyToSafetyController connect operatorSafetyIn to safetyController.safetyIn;
+        connection safetyCommandToRobot connect safetyController.commandOut to robotArm.commandIn;
+        connection safetyEventToRobot connect safetyController.safetyOut to robotArm.safetyIn;
+        connection safetyEventToTask connect safetyController.safetyOut to taskController.safetyIn;
+    }
+
+    action def DetectWorkpiece {
+        in item cameraInput : Workpiece;
+        out item detectedWorkpiece : Workpiece;
+    }
+
+    action def PlanMotion {
+        in item detectedWorkpiece : Workpiece;
+        out item command : MotionCommand;
+    }
+
+    action def MoveToPickPose {
+        in item command : MotionCommand;
+        out item status : RobotStatus;
+    }
+
+    action def GripWorkpiece {
+        in item workpiece : Workpiece;
+        out item grippedWorkpiece : Workpiece;
+    }
+
+    action def MoveToPlacePose {
+        in item command : MotionCommand;
+        in item grippedWorkpiece : Workpiece;
+        out item status : RobotStatus;
+    }
+
+    action def ReleaseWorkpiece {
+        in item grippedWorkpiece : Workpiece;
+        out item placedWorkpiece : Workpiece;
+    }
+
+    action def VerifyPlacement {
+        in item placedWorkpiece : Workpiece;
+        out item status : RobotStatus;
+    }
+
+    action def CollaborativePickAndPlaceCycle {
+        in item incomingWorkpiece : Workpiece;
+        in item safetyEvent : SafetyEvent;
+        out item finishedWorkpiece : Workpiece;
+
+        action detect : DetectWorkpiece;
+        action plan : PlanMotion;
+        action movePick : MoveToPickPose;
+        action grip : GripWorkpiece;
+        action movePlace : MoveToPlacePose;
+        action release : ReleaseWorkpiece;
+        action verify : VerifyPlacement;
+
+        flow incomingWorkpiece to detect.cameraInput;
+        flow detect.detectedWorkpiece to plan.detectedWorkpiece;
+        flow plan.command to movePick.command;
+        flow detect.detectedWorkpiece to grip.workpiece;
+        flow grip.grippedWorkpiece to movePlace.grippedWorkpiece;
+        flow plan.command to movePlace.command;
+        flow grip.grippedWorkpiece to release.grippedWorkpiece;
+        flow release.placedWorkpiece to verify.placedWorkpiece;
+        flow release.placedWorkpiece to finishedWorkpiece;
+    }
+
+    state def RobotOperatingStateMachine {
+        state PoweredOff;
+        state Initializing;
+        state Idle;
+        state Detecting;
+        state Planning;
+        state MovingToPick;
+        state Gripping;
+        state MovingToPlace;
+        state Releasing;
+        state Verifying;
+        state ProtectiveStop;
+        state Fault;
+
+        first PoweredOff;
+
+        transition powerApplied first PoweredOff then Initializing;
+        transition initializationComplete first Initializing then Idle;
+        transition workpieceDetected first Idle then Detecting;
+        transition detectionComplete first Detecting then Planning;
+        transition planAccepted first Planning then MovingToPick;
+        transition pickPoseReached first MovingToPick then Gripping;
+        transition gripConfirmed first Gripping then MovingToPlace;
+        transition placePoseReached first MovingToPlace then Releasing;
+        transition releaseConfirmed first Releasing then Verifying;
+        transition placementVerified first Verifying then Idle;
+
+        transition humanTooClose first Idle then ProtectiveStop;
+        transition humanTooCloseDuringMotion first MovingToPick then ProtectiveStop;
+        transition humanTooCloseDuringCarry first MovingToPlace then ProtectiveStop;
+        transition safeSeparationRestored first ProtectiveStop then Idle;
+
+        transition servoFault first Initializing then Fault;
+        transition torqueFault first MovingToPick then Fault;
+        transition gripFault first Gripping then Fault;
+        transition resetFault first Fault then Initializing;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject cell : RainbowRoboticsCollaborativeCell;
+        doc /* The system shall provide a collaborative robotic workcell based on Rainbow Robotics-style six-axis manipulation that safely detects, picks, transfers, places, and verifies workpieces in shared human workspaces. */
+    }
+
+    requirement def PayloadRequirement {
+        subject robot : CollaborativeManipulator;
+        require constraint { robot.ratedPayload >= 5.0 }
+    }
+
+    requirement def ReachRequirement {
+        subject robot : CollaborativeManipulator;
+        require constraint { robot.maximumReach >= 0.9 }
+    }
+
+    requirement def RepeatabilityRequirement {
+        subject robot : CollaborativeManipulator;
+        require constraint { robot.repeatability <= 0.0001 }
+    }
+
+    requirement def SafeStopRequirement {
+        subject safetyController : SafetyController;
+        require constraint { safetyController.emergencyStopReactionTime <= 0.1 }
+    }
+
+    requirement def ReducedSpeedRequirement {
+        subject safetyController : SafetyController;
+        require constraint { safetyController.reducedSpeedLimit <= 250 }
+    }
+
+    requirement def GripForceRequirement {
+        subject gripper : AdaptiveGripper;
+        require constraint { gripper.maximumGripForce >= 100 }
+    }
+
+    requirement def CycleTimeRequirement {
+        subject controller : TaskController;
+        require constraint { controller.nominalCycleTime <= 8.0 }
+    }
+
+    requirement def PlacementAccuracyRequirement {
+        subject controller : TaskController;
+        require constraint { controller.allowedPositionError <= 0.001 }
+    }
+
+    requirement def VisionIlluminationRequirement {
+        subject camera : VisionSensor;
+        require constraint { camera.minimumIllumination <= 500 }
+    }
+
+    part rainbowRoboticsCollaborativeSystem : RainbowRoboticsCollaborativeCell;
+
+}

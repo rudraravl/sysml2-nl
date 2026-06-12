@@ -1,0 +1,887 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-whd5qphy
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb52d-2b40-7fa1-b0b4-f0644a2aca62
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Doppler radar and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DopplerRadarSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Power :> ISQ::power;
+    attribute def Distance :> ISQ::length;
+    attribute def Speed :> ISQ::speed;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def Time :> ISQ::time;
+    attribute def Gain;
+    attribute def Probability;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+
+    item def RFSignal {
+        attribute carrierFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute transmitPower : Power;
+        attribute phaseNoise : Frequency;
+        attribute pulseRepetitionFrequency : Frequency;
+        attribute waveformId : String;
+    }
+
+    item def EchoSignal {
+        attribute carrierFrequency : Frequency;
+        attribute receivedPower : Power;
+        attribute dopplerShift : Frequency;
+        attribute timeOfFlight : Time;
+        attribute angleOfArrivalAzimuth : Angle;
+        attribute angleOfArrivalElevation : Angle;
+        attribute signalToNoiseRatio : Gain;
+    }
+
+    item def DetectionReport {
+        attribute trackId : Integer;
+        attribute range : Distance;
+        attribute radialVelocity : Speed;
+        attribute azimuth : Angle;
+        attribute elevation : Angle;
+        attribute confidence : Probability;
+        attribute timeStamp : Time;
+    }
+
+    item def RadarCommand {
+        attribute requestedMode : RadarOperatingMode;
+        attribute scanSectorAzimuthCenter : Angle;
+        attribute scanSectorAzimuthWidth : Angle;
+        attribute scanSectorElevationCenter : Angle;
+        attribute scanSectorElevationWidth : Angle;
+        attribute dwellTime : Time;
+    }
+
+    item def HealthStatus {
+        attribute isOperational : Boolean;
+        attribute receiverTemperature : Temperature;
+        attribute transmitterTemperature : Temperature;
+        attribute faultCode : String;
+        attribute degradedReason : String;
+    }
+
+    enum def RadarOperatingMode {
+        enum idle;
+        enum search;
+        enum track;
+        enum standby;
+        enum fault;
+    }
+
+    port def PowerInputPort {
+        in item supplyVoltage;
+        in item supplyCurrent;
+    }
+
+    port def CommandPort {
+        in item command : RadarCommand;
+    }
+
+    port def ReportPort {
+        out item report : DetectionReport;
+    }
+
+    port def HealthPort {
+        out item status : HealthStatus;
+    }
+
+    port def RFTransmitPort {
+        out item signal : RFSignal;
+    }
+
+    port def RFReceivePort {
+        in item echo : EchoSignal;
+    }
+
+    port def DigitalSignalPort {
+        out item echoSamples;
+    }
+
+    port def ProcessedSignalPort {
+        in item echoSamples;
+        out item detections : DetectionReport;
+    }
+
+    part def DopplerRadarSystem {
+        attribute nominalCarrierFrequency : Frequency = 10.0 [GHz];
+        attribute maximumInstrumentedRange : Distance = 120.0 [km];
+        attribute minimumDetectableRadialVelocity : Speed = 0.5 [m/s];
+        attribute maximumDetectableRadialVelocity : Speed = 950.0 [m/s];
+        attribute rangeResolution : Distance = 30.0 [m];
+        attribute velocityResolution : Speed = 0.25 [m/s];
+        attribute azimuthCoverage : Angle = 120.0 [deg];
+        attribute elevationCoverage : Angle = 30.0 [deg];
+        attribute probabilityOfDetectionAtDesignRange : Probability = 0.90;
+        attribute falseAlarmProbabilityPerScan : Probability = 0.000001;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandPort;
+        port reportOut : ReportPort;
+        port healthOut : HealthPort;
+
+        part radarController : RadarController;
+        part timingReference : TimingReference;
+        part waveformGenerator : WaveformGenerator;
+        part transmitter : RFTransmitter;
+        part antennaAssembly : ElectronicallySteeredAntenna;
+        part receiver : RFReceiver;
+        part signalProcessor : DopplerSignalProcessor;
+        part tracker : TargetTracker;
+        part healthMonitor : RadarHealthMonitor;
+
+        connect commandIn to radarController.commandIn;
+        connect radarController.waveformCommandOut to waveformGenerator.commandIn;
+        connect timingReference.referenceOut to waveformGenerator.referenceIn;
+        connect timingReference.referenceOut to receiver.referenceIn;
+        connect waveformGenerator.rfOut to transmitter.rfIn;
+        connect transmitter.rfOut to antennaAssembly.rfTransmitIn;
+        connect antennaAssembly.rfReceiveOut to receiver.rfIn;
+        connect receiver.sampleOut to signalProcessor.sampleIn;
+        connect signalProcessor.detectionOut to tracker.detectionIn;
+        connect tracker.reportOut to reportOut;
+        connect healthMonitor.healthOut to healthOut;
+
+        connect transmitter.healthOut to healthMonitor.transmitterHealthIn;
+        connect receiver.healthOut to healthMonitor.receiverHealthIn;
+        connect antennaAssembly.healthOut to healthMonitor.antennaHealthIn;
+        connect signalProcessor.healthOut to healthMonitor.processorHealthIn;
+
+        perform primaryFunction : DetectAndReportMovingTargets;
+        exhibit operatingStates : RadarOperatingStateMachine;
+    }
+
+    part def RadarController {
+        attribute currentMode : RadarOperatingMode = RadarOperatingMode::standby;
+        attribute commandedDwellTime : Time = 20.0 [ms];
+
+        port commandIn : CommandPort;
+        port waveformCommandOut : CommandPort;
+
+        action def InterpretOperatorCommand {
+            in item command : RadarCommand;
+            out attribute selectedMode : RadarOperatingMode;
+            out attribute dwell : Time;
+        }
+
+        action def ScheduleScan {
+            in attribute selectedMode : RadarOperatingMode;
+            in attribute dwell : Time;
+            out item command : RadarCommand;
+        }
+    }
+
+    part def TimingReference {
+        attribute oscillatorFrequency : Frequency = 100.0 [MHz];
+        attribute frequencyStability : Gain = 0.00000001;
+        port referenceOut;
+    }
+
+    part def WaveformGenerator {
+        attribute centerFrequency : Frequency = 10.0 [GHz];
+        attribute pulseRepetitionFrequency : Frequency = 5.0 [kHz];
+        attribute chirpBandwidth : Frequency = 5.0 [MHz];
+        attribute pulseWidth : Time = 10.0 [us];
+
+        port commandIn : CommandPort;
+        port referenceIn;
+        port rfOut : RFTransmitPort;
+
+        action def GenerateCoherentPulseTrain {
+            in item command : RadarCommand;
+            out item signal : RFSignal;
+        }
+    }
+
+    part def RFTransmitter {
+        attribute peakOutputPower : Power = 2.0 [kW];
+        attribute averageOutputPower : Power = 200.0 [W];
+        attribute powerAmplifierGain : Gain = 55.0;
+        attribute maximumDutyCycle : Probability = 0.10;
+
+        port rfIn : RFTransmitPort;
+        port rfOut : RFTransmitPort;
+        port healthOut : HealthPort;
+
+        action def AmplifyWaveform {
+            in item lowPowerSignal : RFSignal;
+            out item highPowerSignal : RFSignal;
+        }
+    }
+
+    part def ElectronicallySteeredAntenna {
+        attribute apertureGain : Gain = 34.0;
+        attribute beamwidthAzimuth : Angle = 2.0 [deg];
+        attribute beamwidthElevation : Angle = 2.0 [deg];
+        attribute steeringLimitAzimuth : Angle = 60.0 [deg];
+        attribute steeringLimitElevation : Angle = 15.0 [deg];
+
+        port rfTransmitIn : RFTransmitPort;
+        port rfReceiveOut : RFReceivePort;
+        port healthOut : HealthPort;
+
+        action def SteerBeam {
+            in attribute azimuthCommand : Angle;
+            in attribute elevationCommand : Angle;
+            out attribute actualAzimuth : Angle;
+            out attribute actualElevation : Angle;
+        }
+
+        action def RadiateAndCollect {
+            in item transmitSignal : RFSignal;
+            out item echoSignal : EchoSignal;
+        }
+    }
+
+    part def RFReceiver {
+        attribute noiseFigure : Gain = 3.5;
+        attribute intermediateFrequency : Frequency = 70.0 [MHz];
+        attribute receiverBandwidth : Frequency = 10.0 [MHz];
+        attribute dynamicRange : Gain = 85.0;
+
+        port rfIn : RFReceivePort;
+        port referenceIn;
+        port sampleOut : DigitalSignalPort;
+        port healthOut : HealthPort;
+
+        action def DownconvertAndDigitize {
+            in item echoSignal : EchoSignal;
+            out item echoSamples;
+        }
+    }
+
+    part def DopplerSignalProcessor {
+        attribute coherentProcessingInterval : Time = 64.0 [ms];
+        attribute dopplerFilterCount : Integer = 128;
+        attribute detectionThreshold : Gain = 13.0;
+
+        port sampleIn : DigitalSignalPort;
+        port detectionOut : ProcessedSignalPort;
+        port healthOut : HealthPort;
+
+        action def EstimateRangeAndVelocity {
+            in item echoSamples;
+            out item report : DetectionReport;
+        }
+
+        action def ApplyConstantFalseAlarmRateDetection {
+            in item report : DetectionReport;
+            out item qualifiedReport : DetectionReport;
+        }
+    }
+
+    part def TargetTracker {
+        attribute maximumTrackCount : Integer = 256;
+        attribute trackConfirmationScans : Integer = 3;
+        attribute trackDropScans : Integer = 5;
+
+        port detectionIn : ProcessedSignalPort;
+        port reportOut : ReportPort;
+
+        action def AssociateDetections {
+            in item detection : DetectionReport;
+            out item associatedDetection : DetectionReport;
+        }
+
+        action def UpdateTrack {
+            in item associatedDetection : DetectionReport;
+            out item report : DetectionReport;
+        }
+    }
+
+    part def RadarHealthMonitor {
+        port transmitterHealthIn : HealthPort;
+        port receiverHealthIn : HealthPort;
+        port antennaHealthIn : HealthPort;
+        port processorHealthIn : HealthPort;
+        port healthOut : HealthPort;
+
+        action def AggregateHealth {
+            in item transmitterStatus : HealthStatus;
+            in item receiverStatus : HealthStatus;
+            in item antennaStatus : HealthStatus;
+            in item processorStatus : HealthStatus;
+            out item systemStatus : HealthStatus;
+        }
+    }
+
+    action def DetectAndReportMovingTargets {
+        in item command : RadarCommand;
+        out item report : DetectionReport;
+
+        first start;
+        then generateWaveform : WaveformGenerator::GenerateCoherentPulseTrain;
+        then transmitEnergy : RFTransmitter::AmplifyWaveform;
+        then illuminateVolume : ElectronicallySteeredAntenna::RadiateAndCollect;
+        then receiveEchoes : RFReceiver::DownconvertAndDigitize;
+        then estimateMotion : DopplerSignalProcessor::EstimateRangeAndVelocity;
+        then thresholdDetections : DopplerSignalProcessor::ApplyConstantFalseAlarmRateDetection;
+        then maintainTracks : TargetTracker::UpdateTrack;
+        then done;
+    }
+
+    state def RadarOperatingStateMachine {
+        entry action initializeHealthMonitoring;
+        state standby;
+        state idle;
+        state search;
+        state track;
+        state degraded;
+        state fault;
+
+        transition initial then standby;
+
+        transition standby_to_idle
+            first standby
+            accept RadarCommand
+            if command.requestedMode == RadarOperatingMode::idle
+            then idle;
+
+        transition idle_to_search
+            first idle
+            accept RadarCommand
+            if command.requestedMode == RadarOperatingMode::search
+            then search;
+
+        transition search_to_track
+            first search
+            accept DetectionReport
+            if report.confidence >= 0.80
+            then track;
+
+        transition track_to_search
+            first track
+            accept DetectionReport
+            if report.confidence < 0.50
+            then search;
+
+        transition any_to_degraded
+            first search
+            accept HealthStatus
+            if status.isOperational == true and status.degradedReason != ""
+            then degraded;
+
+        transition degraded_to_fault
+            first degraded
+            accept HealthStatus
+            if status.isOperational == false
+            then fault;
+
+        transition fault_to_standby
+            first fault
+            accept RadarCommand
+            if command.requestedMode == RadarOperatingMode::standby
+            then standby;
+    }
+
+    requirement def PrimaryRadarFunctionRequirement {
+        doc /* The Doppler radar system shall transmit coherent radio-frequency energy, receive reflected echoes, measure Doppler frequency shift, estimate target range and radial velocity, and publish detection reports for moving objects within the commanded surveillance volume. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.maximumInstrumentedRange >= 100.0 [km]
+        }
+
+        require constraint {
+            radar.minimumDetectableRadialVelocity <= 1.0 [m/s]
+        }
+
+        require constraint {
+            radar.probabilityOfDetectionAtDesignRange >= 0.90
+        }
+
+        require constraint {
+            radar.falseAlarmProbabilityPerScan <= 0.000001
+        }
+    }
+
+    requirement def RangeResolutionRequirement {
+        doc /* The radar system shall resolve two moving targets separated in range by at least thirty meters under nominal signal-to-noise conditions. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.rangeResolution <= 30.0 [m]
+        }
+    }
+
+    requirement def VelocityMeasurementRequirement {
+        doc /* The radar system shall estimate radial velocity using Doppler frequency shift with resolution no worse than zero point two five meters per second. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.velocityResolution <= 0.25 [m/s]
+        }
+    }
+
+    requirement def CoverageRequirement {
+        doc /* The radar system shall support electronic scanning over a surveillance sector of one hundred twenty degrees in azimuth and thirty degrees in elevation. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.azimuthCoverage >= 120.0 [deg]
+        }
+
+        require constraint {
+            radar.elevationCoverage >= 30.0 [deg]
+        }
+    }
+
+    satisfy PrimaryRadarFunctionRequirement by DopplerRadarSystem;
+    satisfy RangeResolutionRequirement by DopplerRadarSystem;
+    satisfy VelocityMeasurementRequirement by DopplerRadarSystem;
+    satisfy CoverageRequirement by DopplerRadarSystem;
+}
+tokens used
+4,404
+package DopplerRadarSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Power :> ISQ::power;
+    attribute def Distance :> ISQ::length;
+    attribute def Speed :> ISQ::speed;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def Time :> ISQ::time;
+    attribute def Gain;
+    attribute def Probability;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+
+    item def RFSignal {
+        attribute carrierFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute transmitPower : Power;
+        attribute phaseNoise : Frequency;
+        attribute pulseRepetitionFrequency : Frequency;
+        attribute waveformId : String;
+    }
+
+    item def EchoSignal {
+        attribute carrierFrequency : Frequency;
+        attribute receivedPower : Power;
+        attribute dopplerShift : Frequency;
+        attribute timeOfFlight : Time;
+        attribute angleOfArrivalAzimuth : Angle;
+        attribute angleOfArrivalElevation : Angle;
+        attribute signalToNoiseRatio : Gain;
+    }
+
+    item def DetectionReport {
+        attribute trackId : Integer;
+        attribute range : Distance;
+        attribute radialVelocity : Speed;
+        attribute azimuth : Angle;
+        attribute elevation : Angle;
+        attribute confidence : Probability;
+        attribute timeStamp : Time;
+    }
+
+    item def RadarCommand {
+        attribute requestedMode : RadarOperatingMode;
+        attribute scanSectorAzimuthCenter : Angle;
+        attribute scanSectorAzimuthWidth : Angle;
+        attribute scanSectorElevationCenter : Angle;
+        attribute scanSectorElevationWidth : Angle;
+        attribute dwellTime : Time;
+    }
+
+    item def HealthStatus {
+        attribute isOperational : Boolean;
+        attribute receiverTemperature : Temperature;
+        attribute transmitterTemperature : Temperature;
+        attribute faultCode : String;
+        attribute degradedReason : String;
+    }
+
+    enum def RadarOperatingMode {
+        enum idle;
+        enum search;
+        enum track;
+        enum standby;
+        enum fault;
+    }
+
+    port def PowerInputPort {
+        in item supplyVoltage;
+        in item supplyCurrent;
+    }
+
+    port def CommandPort {
+        in item command : RadarCommand;
+    }
+
+    port def ReportPort {
+        out item report : DetectionReport;
+    }
+
+    port def HealthPort {
+        out item status : HealthStatus;
+    }
+
+    port def RFTransmitPort {
+        out item signal : RFSignal;
+    }
+
+    port def RFReceivePort {
+        in item echo : EchoSignal;
+    }
+
+    port def DigitalSignalPort {
+        out item echoSamples;
+    }
+
+    port def ProcessedSignalPort {
+        in item echoSamples;
+        out item detections : DetectionReport;
+    }
+
+    part def DopplerRadarSystem {
+        attribute nominalCarrierFrequency : Frequency = 10.0 [GHz];
+        attribute maximumInstrumentedRange : Distance = 120.0 [km];
+        attribute minimumDetectableRadialVelocity : Speed = 0.5 [m/s];
+        attribute maximumDetectableRadialVelocity : Speed = 950.0 [m/s];
+        attribute rangeResolution : Distance = 30.0 [m];
+        attribute velocityResolution : Speed = 0.25 [m/s];
+        attribute azimuthCoverage : Angle = 120.0 [deg];
+        attribute elevationCoverage : Angle = 30.0 [deg];
+        attribute probabilityOfDetectionAtDesignRange : Probability = 0.90;
+        attribute falseAlarmProbabilityPerScan : Probability = 0.000001;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandPort;
+        port reportOut : ReportPort;
+        port healthOut : HealthPort;
+
+        part radarController : RadarController;
+        part timingReference : TimingReference;
+        part waveformGenerator : WaveformGenerator;
+        part transmitter : RFTransmitter;
+        part antennaAssembly : ElectronicallySteeredAntenna;
+        part receiver : RFReceiver;
+        part signalProcessor : DopplerSignalProcessor;
+        part tracker : TargetTracker;
+        part healthMonitor : RadarHealthMonitor;
+
+        connect commandIn to radarController.commandIn;
+        connect radarController.waveformCommandOut to waveformGenerator.commandIn;
+        connect timingReference.referenceOut to waveformGenerator.referenceIn;
+        connect timingReference.referenceOut to receiver.referenceIn;
+        connect waveformGenerator.rfOut to transmitter.rfIn;
+        connect transmitter.rfOut to antennaAssembly.rfTransmitIn;
+        connect antennaAssembly.rfReceiveOut to receiver.rfIn;
+        connect receiver.sampleOut to signalProcessor.sampleIn;
+        connect signalProcessor.detectionOut to tracker.detectionIn;
+        connect tracker.reportOut to reportOut;
+        connect healthMonitor.healthOut to healthOut;
+
+        connect transmitter.healthOut to healthMonitor.transmitterHealthIn;
+        connect receiver.healthOut to healthMonitor.receiverHealthIn;
+        connect antennaAssembly.healthOut to healthMonitor.antennaHealthIn;
+        connect signalProcessor.healthOut to healthMonitor.processorHealthIn;
+
+        perform primaryFunction : DetectAndReportMovingTargets;
+        exhibit operatingStates : RadarOperatingStateMachine;
+    }
+
+    part def RadarController {
+        attribute currentMode : RadarOperatingMode = RadarOperatingMode::standby;
+        attribute commandedDwellTime : Time = 20.0 [ms];
+
+        port commandIn : CommandPort;
+        port waveformCommandOut : CommandPort;
+
+        action def InterpretOperatorCommand {
+            in item command : RadarCommand;
+            out attribute selectedMode : RadarOperatingMode;
+            out attribute dwell : Time;
+        }
+
+        action def ScheduleScan {
+            in attribute selectedMode : RadarOperatingMode;
+            in attribute dwell : Time;
+            out item command : RadarCommand;
+        }
+    }
+
+    part def TimingReference {
+        attribute oscillatorFrequency : Frequency = 100.0 [MHz];
+        attribute frequencyStability : Gain = 0.00000001;
+        port referenceOut;
+    }
+
+    part def WaveformGenerator {
+        attribute centerFrequency : Frequency = 10.0 [GHz];
+        attribute pulseRepetitionFrequency : Frequency = 5.0 [kHz];
+        attribute chirpBandwidth : Frequency = 5.0 [MHz];
+        attribute pulseWidth : Time = 10.0 [us];
+
+        port commandIn : CommandPort;
+        port referenceIn;
+        port rfOut : RFTransmitPort;
+
+        action def GenerateCoherentPulseTrain {
+            in item command : RadarCommand;
+            out item signal : RFSignal;
+        }
+    }
+
+    part def RFTransmitter {
+        attribute peakOutputPower : Power = 2.0 [kW];
+        attribute averageOutputPower : Power = 200.0 [W];
+        attribute powerAmplifierGain : Gain = 55.0;
+        attribute maximumDutyCycle : Probability = 0.10;
+
+        port rfIn : RFTransmitPort;
+        port rfOut : RFTransmitPort;
+        port healthOut : HealthPort;
+
+        action def AmplifyWaveform {
+            in item lowPowerSignal : RFSignal;
+            out item highPowerSignal : RFSignal;
+        }
+    }
+
+    part def ElectronicallySteeredAntenna {
+        attribute apertureGain : Gain = 34.0;
+        attribute beamwidthAzimuth : Angle = 2.0 [deg];
+        attribute beamwidthElevation : Angle = 2.0 [deg];
+        attribute steeringLimitAzimuth : Angle = 60.0 [deg];
+        attribute steeringLimitElevation : Angle = 15.0 [deg];
+
+        port rfTransmitIn : RFTransmitPort;
+        port rfReceiveOut : RFReceivePort;
+        port healthOut : HealthPort;
+
+        action def SteerBeam {
+            in attribute azimuthCommand : Angle;
+            in attribute elevationCommand : Angle;
+            out attribute actualAzimuth : Angle;
+            out attribute actualElevation : Angle;
+        }
+
+        action def RadiateAndCollect {
+            in item transmitSignal : RFSignal;
+            out item echoSignal : EchoSignal;
+        }
+    }
+
+    part def RFReceiver {
+        attribute noiseFigure : Gain = 3.5;
+        attribute intermediateFrequency : Frequency = 70.0 [MHz];
+        attribute receiverBandwidth : Frequency = 10.0 [MHz];
+        attribute dynamicRange : Gain = 85.0;
+
+        port rfIn : RFReceivePort;
+        port referenceIn;
+        port sampleOut : DigitalSignalPort;
+        port healthOut : HealthPort;
+
+        action def DownconvertAndDigitize {
+            in item echoSignal : EchoSignal;
+            out item echoSamples;
+        }
+    }
+
+    part def DopplerSignalProcessor {
+        attribute coherentProcessingInterval : Time = 64.0 [ms];
+        attribute dopplerFilterCount : Integer = 128;
+        attribute detectionThreshold : Gain = 13.0;
+
+        port sampleIn : DigitalSignalPort;
+        port detectionOut : ProcessedSignalPort;
+        port healthOut : HealthPort;
+
+        action def EstimateRangeAndVelocity {
+            in item echoSamples;
+            out item report : DetectionReport;
+        }
+
+        action def ApplyConstantFalseAlarmRateDetection {
+            in item report : DetectionReport;
+            out item qualifiedReport : DetectionReport;
+        }
+    }
+
+    part def TargetTracker {
+        attribute maximumTrackCount : Integer = 256;
+        attribute trackConfirmationScans : Integer = 3;
+        attribute trackDropScans : Integer = 5;
+
+        port detectionIn : ProcessedSignalPort;
+        port reportOut : ReportPort;
+
+        action def AssociateDetections {
+            in item detection : DetectionReport;
+            out item associatedDetection : DetectionReport;
+        }
+
+        action def UpdateTrack {
+            in item associatedDetection : DetectionReport;
+            out item report : DetectionReport;
+        }
+    }
+
+    part def RadarHealthMonitor {
+        port transmitterHealthIn : HealthPort;
+        port receiverHealthIn : HealthPort;
+        port antennaHealthIn : HealthPort;
+        port processorHealthIn : HealthPort;
+        port healthOut : HealthPort;
+
+        action def AggregateHealth {
+            in item transmitterStatus : HealthStatus;
+            in item receiverStatus : HealthStatus;
+            in item antennaStatus : HealthStatus;
+            in item processorStatus : HealthStatus;
+            out item systemStatus : HealthStatus;
+        }
+    }
+
+    action def DetectAndReportMovingTargets {
+        in item command : RadarCommand;
+        out item report : DetectionReport;
+
+        first start;
+        then generateWaveform : WaveformGenerator::GenerateCoherentPulseTrain;
+        then transmitEnergy : RFTransmitter::AmplifyWaveform;
+        then illuminateVolume : ElectronicallySteeredAntenna::RadiateAndCollect;
+        then receiveEchoes : RFReceiver::DownconvertAndDigitize;
+        then estimateMotion : DopplerSignalProcessor::EstimateRangeAndVelocity;
+        then thresholdDetections : DopplerSignalProcessor::ApplyConstantFalseAlarmRateDetection;
+        then maintainTracks : TargetTracker::UpdateTrack;
+        then done;
+    }
+
+    state def RadarOperatingStateMachine {
+        entry action initializeHealthMonitoring;
+        state standby;
+        state idle;
+        state search;
+        state track;
+        state degraded;
+        state fault;
+
+        transition initial then standby;
+
+        transition standby_to_idle
+            first standby
+            accept RadarCommand
+            if command.requestedMode == RadarOperatingMode::idle
+            then idle;
+
+        transition idle_to_search
+            first idle
+            accept RadarCommand
+            if command.requestedMode == RadarOperatingMode::search
+            then search;
+
+        transition search_to_track
+            first search
+            accept DetectionReport
+            if report.confidence >= 0.80
+            then track;
+
+        transition track_to_search
+            first track
+            accept DetectionReport
+            if report.confidence < 0.50
+            then search;
+
+        transition any_to_degraded
+            first search
+            accept HealthStatus
+            if status.isOperational == true and status.degradedReason != ""
+            then degraded;
+
+        transition degraded_to_fault
+            first degraded
+            accept HealthStatus
+            if status.isOperational == false
+            then fault;
+
+        transition fault_to_standby
+            first fault
+            accept RadarCommand
+            if command.requestedMode == RadarOperatingMode::standby
+            then standby;
+    }
+
+    requirement def PrimaryRadarFunctionRequirement {
+        doc /* The Doppler radar system shall transmit coherent radio-frequency energy, receive reflected echoes, measure Doppler frequency shift, estimate target range and radial velocity, and publish detection reports for moving objects within the commanded surveillance volume. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.maximumInstrumentedRange >= 100.0 [km]
+        }
+
+        require constraint {
+            radar.minimumDetectableRadialVelocity <= 1.0 [m/s]
+        }
+
+        require constraint {
+            radar.probabilityOfDetectionAtDesignRange >= 0.90
+        }
+
+        require constraint {
+            radar.falseAlarmProbabilityPerScan <= 0.000001
+        }
+    }
+
+    requirement def RangeResolutionRequirement {
+        doc /* The radar system shall resolve two moving targets separated in range by at least thirty meters under nominal signal-to-noise conditions. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.rangeResolution <= 30.0 [m]
+        }
+    }
+
+    requirement def VelocityMeasurementRequirement {
+        doc /* The radar system shall estimate radial velocity using Doppler frequency shift with resolution no worse than zero point two five meters per second. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.velocityResolution <= 0.25 [m/s]
+        }
+    }
+
+    requirement def CoverageRequirement {
+        doc /* The radar system shall support electronic scanning over a surveillance sector of one hundred twenty degrees in azimuth and thirty degrees in elevation. */
+
+        subject radar : DopplerRadarSystem;
+
+        require constraint {
+            radar.azimuthCoverage >= 120.0 [deg]
+        }
+
+        require constraint {
+            radar.elevationCoverage >= 30.0 [deg]
+        }
+    }
+
+    satisfy PrimaryRadarFunctionRequirement by DopplerRadarSystem;
+    satisfy RangeResolutionRequirement by DopplerRadarSystem;
+    satisfy VelocityMeasurementRequirement by DopplerRadarSystem;
+    satisfy CoverageRequirement by DopplerRadarSystem;
+}

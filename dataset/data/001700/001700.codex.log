@@ -1,0 +1,1111 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-y52nk5gb
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7bd-06cd-7492-94c5-dbb31c492e4e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Email and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EmailSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def AddressString :> ScalarValues::String;
+  attribute def SubjectString :> ScalarValues::String;
+  attribute def BodyText :> ScalarValues::String;
+  attribute def HeaderText :> ScalarValues::String;
+  attribute def MimeType :> ScalarValues::String;
+  attribute def MessageId :> ScalarValues::String;
+  attribute def DomainName :> ScalarValues::String;
+  attribute def UserName :> ScalarValues::String;
+  attribute def ErrorText :> ScalarValues::String;
+
+  attribute def ByteCount :> ScalarValues::Integer {
+    unit = "byte";
+  }
+
+  attribute def MessageCount :> ScalarValues::Integer {
+    unit = "message";
+  }
+
+  attribute def LatencySeconds :> ScalarValues::Real {
+    unit = "s";
+  }
+
+  attribute def AvailabilityPercent :> ScalarValues::Real {
+    unit = "%";
+  }
+
+  enum def MessagePriority {
+    enum low;
+    enum normal;
+    enum high;
+    enum urgent;
+  }
+
+  enum def DeliveryStatus {
+    enum draft;
+    enum queued;
+    enum accepted;
+    enum routed;
+    enum delivered;
+    enum deferred;
+    enum rejected;
+    enum quarantined;
+    enum bounced;
+  }
+
+  enum def ThreatVerdict {
+    enum clean;
+    enum suspicious;
+    enum malicious;
+    enum spam;
+    enum phishing;
+  }
+
+  item def EmailAddress {
+    attribute localPart : UserName;
+    attribute domain : DomainName;
+    attribute displayName : ScalarValues::String;
+  }
+
+  item def Attachment {
+    attribute fileName : ScalarValues::String;
+    attribute mediaType : MimeType;
+    attribute size : ByteCount;
+    attribute checksumSha256 : ScalarValues::String;
+    attribute encrypted : ScalarValues::Boolean;
+  }
+
+  item def EmailMessage {
+    attribute id : MessageId;
+    attribute from : EmailAddress;
+    attribute to[1..*] : EmailAddress;
+    attribute cc[*] : EmailAddress;
+    attribute bcc[*] : EmailAddress;
+    attribute replyTo : EmailAddress;
+    attribute subject : SubjectString;
+    attribute body : BodyText;
+    attribute mimeType : MimeType = "text/plain";
+    attribute priority : MessagePriority = MessagePriority::normal;
+    attribute size : ByteCount;
+    attribute createdTimestamp : ScalarValues::String;
+    attribute status : DeliveryStatus = DeliveryStatus::draft;
+    item attachments[*] : Attachment;
+  }
+
+  item def AuthCredential {
+    attribute user : EmailAddress;
+    attribute secretHash : ScalarValues::String;
+    attribute mfaToken : ScalarValues::String;
+  }
+
+  item def DeliveryReceipt {
+    attribute messageId : MessageId;
+    attribute recipient : EmailAddress;
+    attribute status : DeliveryStatus;
+    attribute timestamp : ScalarValues::String;
+    attribute diagnosticText : ErrorText;
+  }
+
+  item def ThreatReport {
+    attribute messageId : MessageId;
+    attribute verdict : ThreatVerdict;
+    attribute spamScore : ScalarValues::Real;
+    attribute virusName : ScalarValues::String;
+    attribute policyReason : ErrorText;
+  }
+
+  item def MailboxQuery {
+    attribute owner : EmailAddress;
+    attribute folderName : ScalarValues::String;
+    attribute maxResults : MessageCount;
+    attribute searchText : ScalarValues::String;
+  }
+
+  item def MailboxResult {
+    attribute owner : EmailAddress;
+    attribute folderName : ScalarValues::String;
+    attribute count : MessageCount;
+    item messages[*] : EmailMessage;
+  }
+
+  port def MessageSubmissionPort {
+    in credential : AuthCredential;
+    in draftMessage : EmailMessage;
+    out acceptedMessage : EmailMessage;
+    out rejectionReason : ErrorText;
+  }
+
+  port def MailTransferPort {
+    out outboundMessage : EmailMessage;
+    in inboundMessage : EmailMessage;
+    out deliveryReceipt : DeliveryReceipt;
+    in remoteReceipt : DeliveryReceipt;
+  }
+
+  port def MailAccessPort {
+    in query : MailboxQuery;
+    out result : MailboxResult;
+    in messageToStore : EmailMessage;
+    out storedReceipt : DeliveryReceipt;
+  }
+
+  port def SecurityInspectionPort {
+    in messageForInspection : EmailMessage;
+    out report : ThreatReport;
+    out sanitizedMessage : EmailMessage;
+  }
+
+  port def NotificationPort {
+    in receipt : DeliveryReceipt;
+    out userNotification : ScalarValues::String;
+  }
+
+  port def AdministrationPort {
+    in policyUpdate : HeaderText;
+    out operationalStatus : ScalarValues::String;
+  }
+
+  action def AuthenticateUser {
+    in credential : AuthCredential;
+    out authenticated : ScalarValues::Boolean;
+    out reason : ErrorText;
+  }
+
+  action def ComposeMessage {
+    in sender : EmailAddress;
+    in recipients[1..*] : EmailAddress;
+    in subject : SubjectString;
+    in body : BodyText;
+    in attachments[*] : Attachment;
+    out message : EmailMessage;
+  }
+
+  action def ValidateMessage {
+    in message : EmailMessage;
+    out valid : ScalarValues::Boolean;
+    out validationError : ErrorText;
+  }
+
+  action def InspectThreats {
+    in message : EmailMessage;
+    out report : ThreatReport;
+    out inspectedMessage : EmailMessage;
+  }
+
+  action def ResolveRecipientRoutes {
+    in message : EmailMessage;
+    out routedMessage : EmailMessage;
+    out routeAvailable : ScalarValues::Boolean;
+  }
+
+  action def QueueForDelivery {
+    in message : EmailMessage;
+    out queuedMessage : EmailMessage;
+  }
+
+  action def TransferMessage {
+    in message : EmailMessage;
+    out receipt : DeliveryReceipt;
+  }
+
+  action def StoreInMailbox {
+    in message : EmailMessage;
+    in owner : EmailAddress;
+    out receipt : DeliveryReceipt;
+  }
+
+  action def RetrieveMailboxMessages {
+    in query : MailboxQuery;
+    out result : MailboxResult;
+  }
+
+  action def GenerateBounce {
+    in originalMessage : EmailMessage;
+    in reason : ErrorText;
+    out bounceReceipt : DeliveryReceipt;
+  }
+
+  state def EmailDeliveryLifecycle {
+    entry action initializeDraft;
+    state Draft;
+    state Submitted;
+    state Authenticated;
+    state Validated;
+    state SecurityScreened;
+    state Queued;
+    state Routed;
+    state Delivered;
+    state Deferred;
+    state Rejected;
+    state Quarantined;
+    state Bounced;
+
+    transition first Draft;
+    transition Draft_to_Submitted
+      first Draft
+      accept Submit
+      then Submitted;
+
+    transition Submitted_to_Authenticated
+      first Submitted
+      accept AuthenticationPassed
+      then Authenticated;
+
+    transition Submitted_to_Rejected
+      first Submitted
+      accept AuthenticationFailed
+      then Rejected;
+
+    transition Authenticated_to_Validated
+      first Authenticated
+      accept MessageValid
+      then Validated;
+
+    transition Authenticated_to_Rejected
+      first Authenticated
+      accept MessageInvalid
+      then Rejected;
+
+    transition Validated_to_SecurityScreened
+      first Validated
+      accept ThreatCheckClean
+      then SecurityScreened;
+
+    transition Validated_to_Quarantined
+      first Validated
+      accept ThreatCheckBlocked
+      then Quarantined;
+
+    transition SecurityScreened_to_Queued
+      first SecurityScreened
+      accept QueueAccepted
+      then Queued;
+
+    transition Queued_to_Routed
+      first Queued
+      accept RouteResolved
+      then Routed;
+
+    transition Queued_to_Deferred
+      first Queued
+      accept TemporaryRouteFailure
+      then Deferred;
+
+    transition Routed_to_Delivered
+      first Routed
+      accept RemoteAccepted
+      then Delivered;
+
+    transition Routed_to_Bounced
+      first Routed
+      accept PermanentDeliveryFailure
+      then Bounced;
+
+    transition Deferred_to_Queued
+      first Deferred
+      accept RetryWindowElapsed
+      then Queued;
+  }
+
+  part def UserAgent {
+    attribute maxAttachmentSize : ByteCount = 26214400;
+    attribute autosaveInterval : LatencySeconds = 30.0;
+    attribute offlineModeEnabled : ScalarValues::Boolean;
+
+    port submissionPort : MessageSubmissionPort;
+    port mailboxPort : MailAccessPort;
+    port notificationPort : NotificationPort;
+
+    action compose : ComposeMessage;
+    action retrieve : RetrieveMailboxMessages;
+  }
+
+  part def SubmissionService {
+    attribute maxMessageSize : ByteCount = 36700160;
+    attribute acceptedPerMinute : MessageCount = 120;
+    attribute requireMfaForExternalRelay : ScalarValues::Boolean = true;
+
+    port clientSubmissionPort : MessageSubmissionPort;
+    port securityPort : SecurityInspectionPort;
+    port queuePort : MailTransferPort;
+
+    action authenticate : AuthenticateUser;
+    action validate : ValidateMessage;
+    action enqueue : QueueForDelivery;
+
+    state lifecycle : EmailDeliveryLifecycle;
+  }
+
+  part def SecurityGateway {
+    attribute spamThreshold : ScalarValues::Real = 7.5;
+    attribute virusScanEnabled : ScalarValues::Boolean = true;
+    attribute phishingDetectionEnabled : ScalarValues::Boolean = true;
+    attribute maximumScanLatency : LatencySeconds = 5.0;
+
+    port inspectionPort : SecurityInspectionPort;
+    port adminPort : AdministrationPort;
+
+    action inspect : InspectThreats;
+  }
+
+  part def MessageQueue {
+    attribute retainedMessages : MessageCount;
+    attribute maxQueueDepth : MessageCount = 1000000;
+    attribute retryInterval : LatencySeconds = 900.0;
+    attribute maxRetryAge : LatencySeconds = 345600.0;
+
+    port submissionSide : MailTransferPort;
+    port transferSide : MailTransferPort;
+
+    action queueMessage : QueueForDelivery;
+  }
+
+  part def RoutingService {
+    attribute dnsLookupTimeout : LatencySeconds = 4.0;
+    attribute mxRecordCacheTtl : LatencySeconds = 3600.0;
+
+    port inboundPort : MailTransferPort;
+    port outboundPort : MailTransferPort;
+
+    action resolveRoutes : ResolveRecipientRoutes;
+  }
+
+  part def TransferService {
+    attribute smtpTimeout : LatencySeconds = 60.0;
+    attribute tlsRequiredForPartnerDomains : ScalarValues::Boolean = true;
+    attribute maxParallelTransfers : MessageCount = 5000;
+
+    port routePort : MailTransferPort;
+    port internetPort : MailTransferPort;
+    port mailboxDeliveryPort : MailAccessPort;
+
+    action transfer : TransferMessage;
+    action bounce : GenerateBounce;
+  }
+
+  part def MailboxStore {
+    attribute storageCapacity : ByteCount = 109951162777600;
+    attribute perUserQuota : ByteCount = 53687091200;
+    attribute retainedMessages : MessageCount;
+    attribute indexingLatencyTarget : LatencySeconds = 10.0;
+
+    port accessPort : MailAccessPort;
+    port deliveryPort : MailAccessPort;
+
+    action store : StoreInMailbox;
+    action retrieve : RetrieveMailboxMessages;
+  }
+
+  part def NotificationService {
+    attribute notificationLatencyTarget : LatencySeconds = 3.0;
+    attribute digestEnabled : ScalarValues::Boolean = true;
+
+    port notificationPort : NotificationPort;
+    port receiptPort : MailTransferPort;
+  }
+
+  part def PolicyAdministration {
+    attribute minimumPasswordLength : ScalarValues::Integer = 14;
+    attribute externalForwardingAllowed : ScalarValues::Boolean = false;
+    attribute retentionPeriodDays : ScalarValues::Integer = 2555;
+
+    port adminPort : AdministrationPort;
+  }
+
+  part def EmailSystem {
+    attribute primaryFunction : ScalarValues::String =
+      "Accept, secure, route, deliver, store, and retrieve electronic mail messages between authenticated users and external domains.";
+    attribute targetAvailability : AvailabilityPercent = 99.95;
+    attribute maximumEndToEndLatency : LatencySeconds = 120.0;
+    attribute maximumInboundMessageSize : ByteCount = 36700160;
+
+    part userAgent : UserAgent;
+    part submissionService : SubmissionService;
+    part securityGateway : SecurityGateway;
+    part messageQueue : MessageQueue;
+    part routingService : RoutingService;
+    part transferService : TransferService;
+    part mailboxStore : MailboxStore;
+    part notificationService : NotificationService;
+    part policyAdministration : PolicyAdministration;
+
+    port clientSubmission : MessageSubmissionPort;
+    port clientMailboxAccess : MailAccessPort;
+    port externalMailTransfer : MailTransferPort;
+    port administratorAccess : AdministrationPort;
+
+    connect clientSubmission to userAgent.submissionPort;
+    connect clientMailboxAccess to userAgent.mailboxPort;
+    connect userAgent.submissionPort to submissionService.clientSubmissionPort;
+    connect submissionService.securityPort to securityGateway.inspectionPort;
+    connect submissionService.queuePort to messageQueue.submissionSide;
+    connect messageQueue.transferSide to routingService.inboundPort;
+    connect routingService.outboundPort to transferService.routePort;
+    connect transferService.internetPort to externalMailTransfer;
+    connect transferService.mailboxDeliveryPort to mailboxStore.deliveryPort;
+    connect userAgent.mailboxPort to mailboxStore.accessPort;
+    connect transferService.routePort to notificationService.receiptPort;
+    connect notificationService.notificationPort to userAgent.notificationPort;
+    connect administratorAccess to policyAdministration.adminPort;
+    connect policyAdministration.adminPort to securityGateway.adminPort;
+  }
+
+  requirement def PrimaryEmailFunctionRequirement {
+    subject system : EmailSystem;
+
+    doc
+      /* The system shall provide a high-level electronic mail function by accepting authenticated user messages, inspecting them for policy and security risks, routing them to local or remote recipients, delivering accepted mail, storing mailbox content, and making stored mail available to authorized users. */
+
+    require constraint {
+      system.targetAvailability >= 99.95
+    }
+  }
+
+  requirement def MessageAuthenticationRequirement {
+    subject submission : SubmissionService;
+
+    doc
+      /* The submission service shall authenticate a sender before accepting a message for delivery. */
+
+    require constraint {
+      submission.requireMfaForExternalRelay == true
+    }
+  }
+
+  requirement def MessageSizeRequirement {
+    subject system : EmailSystem;
+
+    doc
+      /* The system shall reject submitted messages whose total encoded size exceeds the configured maximum inbound message size. */
+
+    require constraint {
+      system.maximumInboundMessageSize <= 36700160
+    }
+  }
+
+  requirement def SecurityInspectionRequirement {
+    subject gateway : SecurityGateway;
+
+    doc
+      /* The security gateway shall inspect every accepted message for malware, spam, and phishing indicators before the message is queued for delivery. */
+
+    require constraint {
+      gateway.virusScanEnabled == true and gateway.phishingDetectionEnabled == true
+    }
+  }
+
+  requirement def DeliveryLatencyRequirement {
+    subject system : EmailSystem;
+
+    doc
+      /* The system shall deliver or defer accepted messages within the target end-to-end latency under normal operating conditions. */
+
+    require constraint {
+      system.maximumEndToEndLatency <= 120.0
+    }
+  }
+
+  requirement def MailboxQuotaRequirement {
+    subject store : MailboxStore;
+
+    doc
+      /* The mailbox store shall enforce a finite per-user quota so that one mailbox cannot consume all shared storage capacity. */
+
+    require constraint {
+      store.perUserQuota < store.storageCapacity
+    }
+  }
+
+  requirement def RetrievalRequirement {
+    subject store : MailboxStore;
+
+    doc
+      /* The mailbox store shall return authorized mailbox queries with matching message metadata and message bodies. */
+
+    require constraint {
+      store.indexingLatencyTarget <= 10.0
+    }
+  }
+
+  requirement def NotificationRequirement {
+    subject notifier : NotificationService;
+
+    doc
+      /* The notification service shall notify users when delivery state changes for submitted messages and when new mail is stored in their mailbox. */
+
+    require constraint {
+      notifier.notificationLatencyTarget <= 3.0
+    }
+  }
+
+  satisfy PrimaryEmailFunctionRequirement by EmailSystem;
+  satisfy MessageAuthenticationRequirement by SubmissionService;
+  satisfy MessageSizeRequirement by EmailSystem;
+  satisfy SecurityInspectionRequirement by SecurityGateway;
+  satisfy DeliveryLatencyRequirement by EmailSystem;
+  satisfy MailboxQuotaRequirement by MailboxStore;
+  satisfy RetrievalRequirement by MailboxStore;
+  satisfy NotificationRequirement by NotificationService;
+
+}
+tokens used
+4,842
+package EmailSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def AddressString :> ScalarValues::String;
+  attribute def SubjectString :> ScalarValues::String;
+  attribute def BodyText :> ScalarValues::String;
+  attribute def HeaderText :> ScalarValues::String;
+  attribute def MimeType :> ScalarValues::String;
+  attribute def MessageId :> ScalarValues::String;
+  attribute def DomainName :> ScalarValues::String;
+  attribute def UserName :> ScalarValues::String;
+  attribute def ErrorText :> ScalarValues::String;
+
+  attribute def ByteCount :> ScalarValues::Integer {
+    unit = "byte";
+  }
+
+  attribute def MessageCount :> ScalarValues::Integer {
+    unit = "message";
+  }
+
+  attribute def LatencySeconds :> ScalarValues::Real {
+    unit = "s";
+  }
+
+  attribute def AvailabilityPercent :> ScalarValues::Real {
+    unit = "%";
+  }
+
+  enum def MessagePriority {
+    enum low;
+    enum normal;
+    enum high;
+    enum urgent;
+  }
+
+  enum def DeliveryStatus {
+    enum draft;
+    enum queued;
+    enum accepted;
+    enum routed;
+    enum delivered;
+    enum deferred;
+    enum rejected;
+    enum quarantined;
+    enum bounced;
+  }
+
+  enum def ThreatVerdict {
+    enum clean;
+    enum suspicious;
+    enum malicious;
+    enum spam;
+    enum phishing;
+  }
+
+  item def EmailAddress {
+    attribute localPart : UserName;
+    attribute domain : DomainName;
+    attribute displayName : ScalarValues::String;
+  }
+
+  item def Attachment {
+    attribute fileName : ScalarValues::String;
+    attribute mediaType : MimeType;
+    attribute size : ByteCount;
+    attribute checksumSha256 : ScalarValues::String;
+    attribute encrypted : ScalarValues::Boolean;
+  }
+
+  item def EmailMessage {
+    attribute id : MessageId;
+    attribute from : EmailAddress;
+    attribute to[1..*] : EmailAddress;
+    attribute cc[*] : EmailAddress;
+    attribute bcc[*] : EmailAddress;
+    attribute replyTo : EmailAddress;
+    attribute subject : SubjectString;
+    attribute body : BodyText;
+    attribute mimeType : MimeType = "text/plain";
+    attribute priority : MessagePriority = MessagePriority::normal;
+    attribute size : ByteCount;
+    attribute createdTimestamp : ScalarValues::String;
+    attribute status : DeliveryStatus = DeliveryStatus::draft;
+    item attachments[*] : Attachment;
+  }
+
+  item def AuthCredential {
+    attribute user : EmailAddress;
+    attribute secretHash : ScalarValues::String;
+    attribute mfaToken : ScalarValues::String;
+  }
+
+  item def DeliveryReceipt {
+    attribute messageId : MessageId;
+    attribute recipient : EmailAddress;
+    attribute status : DeliveryStatus;
+    attribute timestamp : ScalarValues::String;
+    attribute diagnosticText : ErrorText;
+  }
+
+  item def ThreatReport {
+    attribute messageId : MessageId;
+    attribute verdict : ThreatVerdict;
+    attribute spamScore : ScalarValues::Real;
+    attribute virusName : ScalarValues::String;
+    attribute policyReason : ErrorText;
+  }
+
+  item def MailboxQuery {
+    attribute owner : EmailAddress;
+    attribute folderName : ScalarValues::String;
+    attribute maxResults : MessageCount;
+    attribute searchText : ScalarValues::String;
+  }
+
+  item def MailboxResult {
+    attribute owner : EmailAddress;
+    attribute folderName : ScalarValues::String;
+    attribute count : MessageCount;
+    item messages[*] : EmailMessage;
+  }
+
+  port def MessageSubmissionPort {
+    in credential : AuthCredential;
+    in draftMessage : EmailMessage;
+    out acceptedMessage : EmailMessage;
+    out rejectionReason : ErrorText;
+  }
+
+  port def MailTransferPort {
+    out outboundMessage : EmailMessage;
+    in inboundMessage : EmailMessage;
+    out deliveryReceipt : DeliveryReceipt;
+    in remoteReceipt : DeliveryReceipt;
+  }
+
+  port def MailAccessPort {
+    in query : MailboxQuery;
+    out result : MailboxResult;
+    in messageToStore : EmailMessage;
+    out storedReceipt : DeliveryReceipt;
+  }
+
+  port def SecurityInspectionPort {
+    in messageForInspection : EmailMessage;
+    out report : ThreatReport;
+    out sanitizedMessage : EmailMessage;
+  }
+
+  port def NotificationPort {
+    in receipt : DeliveryReceipt;
+    out userNotification : ScalarValues::String;
+  }
+
+  port def AdministrationPort {
+    in policyUpdate : HeaderText;
+    out operationalStatus : ScalarValues::String;
+  }
+
+  action def AuthenticateUser {
+    in credential : AuthCredential;
+    out authenticated : ScalarValues::Boolean;
+    out reason : ErrorText;
+  }
+
+  action def ComposeMessage {
+    in sender : EmailAddress;
+    in recipients[1..*] : EmailAddress;
+    in subject : SubjectString;
+    in body : BodyText;
+    in attachments[*] : Attachment;
+    out message : EmailMessage;
+  }
+
+  action def ValidateMessage {
+    in message : EmailMessage;
+    out valid : ScalarValues::Boolean;
+    out validationError : ErrorText;
+  }
+
+  action def InspectThreats {
+    in message : EmailMessage;
+    out report : ThreatReport;
+    out inspectedMessage : EmailMessage;
+  }
+
+  action def ResolveRecipientRoutes {
+    in message : EmailMessage;
+    out routedMessage : EmailMessage;
+    out routeAvailable : ScalarValues::Boolean;
+  }
+
+  action def QueueForDelivery {
+    in message : EmailMessage;
+    out queuedMessage : EmailMessage;
+  }
+
+  action def TransferMessage {
+    in message : EmailMessage;
+    out receipt : DeliveryReceipt;
+  }
+
+  action def StoreInMailbox {
+    in message : EmailMessage;
+    in owner : EmailAddress;
+    out receipt : DeliveryReceipt;
+  }
+
+  action def RetrieveMailboxMessages {
+    in query : MailboxQuery;
+    out result : MailboxResult;
+  }
+
+  action def GenerateBounce {
+    in originalMessage : EmailMessage;
+    in reason : ErrorText;
+    out bounceReceipt : DeliveryReceipt;
+  }
+
+  state def EmailDeliveryLifecycle {
+    entry action initializeDraft;
+    state Draft;
+    state Submitted;
+    state Authenticated;
+    state Validated;
+    state SecurityScreened;
+    state Queued;
+    state Routed;
+    state Delivered;
+    state Deferred;
+    state Rejected;
+    state Quarantined;
+    state Bounced;
+
+    transition first Draft;
+    transition Draft_to_Submitted
+      first Draft
+      accept Submit
+      then Submitted;
+
+    transition Submitted_to_Authenticated
+      first Submitted
+      accept AuthenticationPassed
+      then Authenticated;
+
+    transition Submitted_to_Rejected
+      first Submitted
+      accept AuthenticationFailed
+      then Rejected;
+
+    transition Authenticated_to_Validated
+      first Authenticated
+      accept MessageValid
+      then Validated;
+
+    transition Authenticated_to_Rejected
+      first Authenticated
+      accept MessageInvalid
+      then Rejected;
+
+    transition Validated_to_SecurityScreened
+      first Validated
+      accept ThreatCheckClean
+      then SecurityScreened;
+
+    transition Validated_to_Quarantined
+      first Validated
+      accept ThreatCheckBlocked
+      then Quarantined;
+
+    transition SecurityScreened_to_Queued
+      first SecurityScreened
+      accept QueueAccepted
+      then Queued;
+
+    transition Queued_to_Routed
+      first Queued
+      accept RouteResolved
+      then Routed;
+
+    transition Queued_to_Deferred
+      first Queued
+      accept TemporaryRouteFailure
+      then Deferred;
+
+    transition Routed_to_Delivered
+      first Routed
+      accept RemoteAccepted
+      then Delivered;
+
+    transition Routed_to_Bounced
+      first Routed
+      accept PermanentDeliveryFailure
+      then Bounced;
+
+    transition Deferred_to_Queued
+      first Deferred
+      accept RetryWindowElapsed
+      then Queued;
+  }
+
+  part def UserAgent {
+    attribute maxAttachmentSize : ByteCount = 26214400;
+    attribute autosaveInterval : LatencySeconds = 30.0;
+    attribute offlineModeEnabled : ScalarValues::Boolean;
+
+    port submissionPort : MessageSubmissionPort;
+    port mailboxPort : MailAccessPort;
+    port notificationPort : NotificationPort;
+
+    action compose : ComposeMessage;
+    action retrieve : RetrieveMailboxMessages;
+  }
+
+  part def SubmissionService {
+    attribute maxMessageSize : ByteCount = 36700160;
+    attribute acceptedPerMinute : MessageCount = 120;
+    attribute requireMfaForExternalRelay : ScalarValues::Boolean = true;
+
+    port clientSubmissionPort : MessageSubmissionPort;
+    port securityPort : SecurityInspectionPort;
+    port queuePort : MailTransferPort;
+
+    action authenticate : AuthenticateUser;
+    action validate : ValidateMessage;
+    action enqueue : QueueForDelivery;
+
+    state lifecycle : EmailDeliveryLifecycle;
+  }
+
+  part def SecurityGateway {
+    attribute spamThreshold : ScalarValues::Real = 7.5;
+    attribute virusScanEnabled : ScalarValues::Boolean = true;
+    attribute phishingDetectionEnabled : ScalarValues::Boolean = true;
+    attribute maximumScanLatency : LatencySeconds = 5.0;
+
+    port inspectionPort : SecurityInspectionPort;
+    port adminPort : AdministrationPort;
+
+    action inspect : InspectThreats;
+  }
+
+  part def MessageQueue {
+    attribute retainedMessages : MessageCount;
+    attribute maxQueueDepth : MessageCount = 1000000;
+    attribute retryInterval : LatencySeconds = 900.0;
+    attribute maxRetryAge : LatencySeconds = 345600.0;
+
+    port submissionSide : MailTransferPort;
+    port transferSide : MailTransferPort;
+
+    action queueMessage : QueueForDelivery;
+  }
+
+  part def RoutingService {
+    attribute dnsLookupTimeout : LatencySeconds = 4.0;
+    attribute mxRecordCacheTtl : LatencySeconds = 3600.0;
+
+    port inboundPort : MailTransferPort;
+    port outboundPort : MailTransferPort;
+
+    action resolveRoutes : ResolveRecipientRoutes;
+  }
+
+  part def TransferService {
+    attribute smtpTimeout : LatencySeconds = 60.0;
+    attribute tlsRequiredForPartnerDomains : ScalarValues::Boolean = true;
+    attribute maxParallelTransfers : MessageCount = 5000;
+
+    port routePort : MailTransferPort;
+    port internetPort : MailTransferPort;
+    port mailboxDeliveryPort : MailAccessPort;
+
+    action transfer : TransferMessage;
+    action bounce : GenerateBounce;
+  }
+
+  part def MailboxStore {
+    attribute storageCapacity : ByteCount = 109951162777600;
+    attribute perUserQuota : ByteCount = 53687091200;
+    attribute retainedMessages : MessageCount;
+    attribute indexingLatencyTarget : LatencySeconds = 10.0;
+
+    port accessPort : MailAccessPort;
+    port deliveryPort : MailAccessPort;
+
+    action store : StoreInMailbox;
+    action retrieve : RetrieveMailboxMessages;
+  }
+
+  part def NotificationService {
+    attribute notificationLatencyTarget : LatencySeconds = 3.0;
+    attribute digestEnabled : ScalarValues::Boolean = true;
+
+    port notificationPort : NotificationPort;
+    port receiptPort : MailTransferPort;
+  }
+
+  part def PolicyAdministration {
+    attribute minimumPasswordLength : ScalarValues::Integer = 14;
+    attribute externalForwardingAllowed : ScalarValues::Boolean = false;
+    attribute retentionPeriodDays : ScalarValues::Integer = 2555;
+
+    port adminPort : AdministrationPort;
+  }
+
+  part def EmailSystem {
+    attribute primaryFunction : ScalarValues::String =
+      "Accept, secure, route, deliver, store, and retrieve electronic mail messages between authenticated users and external domains.";
+    attribute targetAvailability : AvailabilityPercent = 99.95;
+    attribute maximumEndToEndLatency : LatencySeconds = 120.0;
+    attribute maximumInboundMessageSize : ByteCount = 36700160;
+
+    part userAgent : UserAgent;
+    part submissionService : SubmissionService;
+    part securityGateway : SecurityGateway;
+    part messageQueue : MessageQueue;
+    part routingService : RoutingService;
+    part transferService : TransferService;
+    part mailboxStore : MailboxStore;
+    part notificationService : NotificationService;
+    part policyAdministration : PolicyAdministration;
+
+    port clientSubmission : MessageSubmissionPort;
+    port clientMailboxAccess : MailAccessPort;
+    port externalMailTransfer : MailTransferPort;
+    port administratorAccess : AdministrationPort;
+
+    connect clientSubmission to userAgent.submissionPort;
+    connect clientMailboxAccess to userAgent.mailboxPort;
+    connect userAgent.submissionPort to submissionService.clientSubmissionPort;
+    connect submissionService.securityPort to securityGateway.inspectionPort;
+    connect submissionService.queuePort to messageQueue.submissionSide;
+    connect messageQueue.transferSide to routingService.inboundPort;
+    connect routingService.outboundPort to transferService.routePort;
+    connect transferService.internetPort to externalMailTransfer;
+    connect transferService.mailboxDeliveryPort to mailboxStore.deliveryPort;
+    connect userAgent.mailboxPort to mailboxStore.accessPort;
+    connect transferService.routePort to notificationService.receiptPort;
+    connect notificationService.notificationPort to userAgent.notificationPort;
+    connect administratorAccess to policyAdministration.adminPort;
+    connect policyAdministration.adminPort to securityGateway.adminPort;
+  }
+
+  requirement def PrimaryEmailFunctionRequirement {
+    subject system : EmailSystem;
+
+    doc
+      /* The system shall provide a high-level electronic mail function by accepting authenticated user messages, inspecting them for policy and security risks, routing them to local or remote recipients, delivering accepted mail, storing mailbox content, and making stored mail available to authorized users. */
+
+    require constraint {
+      system.targetAvailability >= 99.95
+    }
+  }
+
+  requirement def MessageAuthenticationRequirement {
+    subject submission : SubmissionService;
+
+    doc
+      /* The submission service shall authenticate a sender before accepting a message for delivery. */
+
+    require constraint {
+      submission.requireMfaForExternalRelay == true
+    }
+  }
+
+  requirement def MessageSizeRequirement {
+    subject system : EmailSystem;
+
+    doc
+      /* The system shall reject submitted messages whose total encoded size exceeds the configured maximum inbound message size. */
+
+    require constraint {
+      system.maximumInboundMessageSize <= 36700160
+    }
+  }
+
+  requirement def SecurityInspectionRequirement {
+    subject gateway : SecurityGateway;
+
+    doc
+      /* The security gateway shall inspect every accepted message for malware, spam, and phishing indicators before the message is queued for delivery. */
+
+    require constraint {
+      gateway.virusScanEnabled == true and gateway.phishingDetectionEnabled == true
+    }
+  }
+
+  requirement def DeliveryLatencyRequirement {
+    subject system : EmailSystem;
+
+    doc
+      /* The system shall deliver or defer accepted messages within the target end-to-end latency under normal operating conditions. */
+
+    require constraint {
+      system.maximumEndToEndLatency <= 120.0
+    }
+  }
+
+  requirement def MailboxQuotaRequirement {
+    subject store : MailboxStore;
+
+    doc
+      /* The mailbox store shall enforce a finite per-user quota so that one mailbox cannot consume all shared storage capacity. */
+
+    require constraint {
+      store.perUserQuota < store.storageCapacity
+    }
+  }
+
+  requirement def RetrievalRequirement {
+    subject store : MailboxStore;
+
+    doc
+      /* The mailbox store shall return authorized mailbox queries with matching message metadata and message bodies. */
+
+    require constraint {
+      store.indexingLatencyTarget <= 10.0
+    }
+  }
+
+  requirement def NotificationRequirement {
+    subject notifier : NotificationService;
+
+    doc
+      /* The notification service shall notify users when delivery state changes for submitted messages and when new mail is stored in their mailbox. */
+
+    require constraint {
+      notifier.notificationLatencyTarget <= 3.0
+    }
+  }
+
+  satisfy PrimaryEmailFunctionRequirement by EmailSystem;
+  satisfy MessageAuthenticationRequirement by SubmissionService;
+  satisfy MessageSizeRequirement by EmailSystem;
+  satisfy SecurityInspectionRequirement by SecurityGateway;
+  satisfy DeliveryLatencyRequirement by EmailSystem;
+  satisfy MailboxQuotaRequirement by MailboxStore;
+  satisfy RetrievalRequirement by MailboxStore;
+  satisfy NotificationRequirement by NotificationService;
+
+}

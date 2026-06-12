@@ -1,0 +1,658 @@
+package LagotekHomeAutomationSystem {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percentage :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def TemperatureCelsius :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def IlluminanceLux :> ScalarValues::Real {
+        unit = "lx";
+    }
+
+    attribute def PowerWatt :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def EnergyKiloWattHour :> ScalarValues::Real {
+        unit = "kWh";
+    }
+
+    attribute def TimeSecond :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def VoltageVolt :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def FrequencyHertz :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    enum def OccupancyState {
+        enum occupied;
+        enum unoccupied;
+        enum unknown;
+    }
+
+    enum def SecurityMode {
+        enum disarmed;
+        enum homeArmed;
+        enum awayArmed;
+        enum alarm;
+    }
+
+    enum def DeviceHealth {
+        enum nominal;
+        enum degraded;
+        enum offline;
+        enum faulted;
+    }
+
+    enum def CommandPriority {
+        enum user;
+        enum schedule;
+        enum automation;
+        enum safety;
+        enum emergency;
+    }
+
+    item def AutomationCommand {
+        attribute commandId : String;
+        attribute targetZoneId : String;
+        attribute issuedAt : TimeSecond;
+        attribute priority : CommandPriority;
+    }
+
+    item def LightingCommand :> AutomationCommand {
+        attribute requestedLevel : Percentage;
+        attribute fadeTime : TimeSecond;
+    }
+
+    item def ClimateCommand :> AutomationCommand {
+        attribute heatingSetpoint : TemperatureCelsius;
+        attribute coolingSetpoint : TemperatureCelsius;
+        attribute fanEnabled : Boolean;
+    }
+
+    item def ShadeCommand :> AutomationCommand {
+        attribute requestedPosition : Percentage;
+    }
+
+    item def SecurityCommand :> AutomationCommand {
+        attribute requestedMode : SecurityMode;
+    }
+
+    item def SensorTelemetry {
+        attribute sourceId : String;
+        attribute sampleTime : TimeSecond;
+        attribute health : DeviceHealth;
+    }
+
+    item def TemperatureTelemetry :> SensorTelemetry {
+        attribute temperature : TemperatureCelsius;
+    }
+
+    item def OccupancyTelemetry :> SensorTelemetry {
+        attribute occupancy : OccupancyState;
+        attribute confidence : Percentage;
+    }
+
+    item def LightTelemetry :> SensorTelemetry {
+        attribute illuminance : IlluminanceLux;
+    }
+
+    item def PowerTelemetry :> SensorTelemetry {
+        attribute instantaneousPower : PowerWatt;
+        attribute accumulatedEnergy : EnergyKiloWattHour;
+    }
+
+    item def SecurityTelemetry :> SensorTelemetry {
+        attribute mode : SecurityMode;
+        attribute intrusionDetected : Boolean;
+    }
+
+    item def UserIntent {
+        attribute userId : String;
+        attribute zoneId : String;
+        attribute requestedScene : String;
+        attribute timestamp : TimeSecond;
+    }
+
+    port def CommandPort {
+        out item command : AutomationCommand;
+    }
+
+    port def TelemetryPort {
+        in item telemetry : SensorTelemetry;
+    }
+
+    port def UserInterfacePort {
+        in item intent : UserIntent;
+        out item status : SensorTelemetry;
+    }
+
+    port def LightingControlPort {
+        in item lightingCommand : LightingCommand;
+        out item lightingTelemetry : LightTelemetry;
+    }
+
+    port def ClimateControlPort {
+        in item climateCommand : ClimateCommand;
+        out item temperatureTelemetry : TemperatureTelemetry;
+    }
+
+    port def ShadeControlPort {
+        in item shadeCommand : ShadeCommand;
+        out item lightTelemetry : LightTelemetry;
+    }
+
+    port def SecurityControlPort {
+        in item securityCommand : SecurityCommand;
+        out item securityTelemetry : SecurityTelemetry;
+    }
+
+    port def PowerMonitorPort {
+        out item powerTelemetry : PowerTelemetry;
+    }
+
+    part def LagotekCentralController {
+        attribute controllerId : String;
+        attribute processorLoad : Percentage;
+        attribute storageUtilization : Percentage;
+        attribute networkAvailable : Boolean;
+        attribute health : DeviceHealth;
+
+        port userInterface : UserInterfacePort;
+        port lightingControl : CommandPort;
+        port climateControl : CommandPort;
+        port shadeControl : CommandPort;
+        port securityControl : CommandPort;
+        port telemetryInput : TelemetryPort;
+
+        action processUserIntent {
+            in item intent : UserIntent;
+            out item command : AutomationCommand;
+        }
+
+        action evaluateAutomationRules {
+            in item telemetry : SensorTelemetry;
+            out item command : AutomationCommand;
+        }
+
+        action publishStatus {
+            in item telemetry : SensorTelemetry;
+        }
+
+        state controllerOperating {
+            entry action initializeController;
+            state booting;
+            state discoveringDevices;
+            state normalOperation;
+            state degradedOperation;
+            state failSafe;
+            state maintenance;
+
+            initial then booting;
+
+            transition booting_to_discovering
+                first booting
+                then discoveringDevices;
+
+            transition discovery_to_normal
+                first discoveringDevices
+                if networkAvailable == true
+                then normalOperation;
+
+            transition normal_to_degraded
+                first normalOperation
+                if health == DeviceHealth::degraded
+                then degradedOperation;
+
+            transition degraded_to_normal
+                first degradedOperation
+                if health == DeviceHealth::nominal
+                then normalOperation;
+
+            transition any_to_failsafe
+                first normalOperation
+                if networkAvailable == false
+                then failSafe;
+
+            transition failsafe_to_normal
+                first failSafe
+                if networkAvailable == true
+                then normalOperation;
+
+            transition normal_to_maintenance
+                first normalOperation
+                then maintenance;
+
+            transition maintenance_to_normal
+                first maintenance
+                then normalOperation;
+        }
+    }
+
+    part def LagotekRoomController {
+        attribute roomControllerId : String;
+        attribute zoneId : String;
+        attribute health : DeviceHealth;
+        attribute localOverrideActive : Boolean;
+
+        port controllerCommand : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port lighting : LightingControlPort;
+        port climate : ClimateControlPort;
+        port shades : ShadeControlPort;
+        port security : SecurityControlPort;
+
+        action arbitrateCommands {
+            in item centralCommand : AutomationCommand;
+            in item localIntent : UserIntent;
+            out item selectedCommand : AutomationCommand;
+        }
+
+        action executeScene {
+            in attribute sceneName : String;
+            out item lightingCommand : LightingCommand;
+            out item climateCommand : ClimateCommand;
+            out item shadeCommand : ShadeCommand;
+        }
+    }
+
+    part def LightingModule {
+        attribute moduleId : String;
+        attribute dimLevel : Percentage;
+        attribute ratedPower : PowerWatt;
+        attribute health : DeviceHealth;
+
+        port control : LightingControlPort;
+
+        state lightingBehavior {
+            state off;
+            state ramping;
+            state on;
+            state fault;
+
+            initial then off;
+
+            transition off_to_ramping
+                first off
+                then ramping;
+
+            transition ramping_to_on
+                first ramping
+                if dimLevel > 0.0
+                then on;
+
+            transition on_to_off
+                first on
+                if dimLevel == 0.0
+                then off;
+
+            transition any_to_fault
+                first on
+                if health == DeviceHealth::faulted
+                then fault;
+        }
+    }
+
+    part def ClimateModule {
+        attribute moduleId : String;
+        attribute currentTemperature : TemperatureCelsius;
+        attribute heatingSetpoint : TemperatureCelsius;
+        attribute coolingSetpoint : TemperatureCelsius;
+        attribute fanPower : PowerWatt;
+        attribute health : DeviceHealth;
+
+        port control : ClimateControlPort;
+
+        state climateBehavior {
+            state idle;
+            state heating;
+            state cooling;
+            state ventilating;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_heating
+                first idle
+                if currentTemperature < heatingSetpoint
+                then heating;
+
+            transition heating_to_idle
+                first heating
+                if currentTemperature >= heatingSetpoint
+                then idle;
+
+            transition idle_to_cooling
+                first idle
+                if currentTemperature > coolingSetpoint
+                then cooling;
+
+            transition cooling_to_idle
+                first cooling
+                if currentTemperature <= coolingSetpoint
+                then idle;
+
+            transition idle_to_ventilating
+                first idle
+                then ventilating;
+
+            transition ventilating_to_idle
+                first ventilating
+                then idle;
+
+            transition climate_to_fault
+                first idle
+                if health == DeviceHealth::faulted
+                then fault;
+        }
+    }
+
+    part def ShadeModule {
+        attribute moduleId : String;
+        attribute position : Percentage;
+        attribute travelTime : TimeSecond;
+        attribute health : DeviceHealth;
+
+        port control : ShadeControlPort;
+
+        state shadeBehavior {
+            state stopped;
+            state opening;
+            state closing;
+            state fault;
+
+            initial then stopped;
+
+            transition stopped_to_opening
+                first stopped
+                if position < 100.0
+                then opening;
+
+            transition opening_to_stopped
+                first opening
+                if position >= 100.0
+                then stopped;
+
+            transition stopped_to_closing
+                first stopped
+                if position > 0.0
+                then closing;
+
+            transition closing_to_stopped
+                first closing
+                if position <= 0.0
+                then stopped;
+
+            transition shade_to_fault
+                first stopped
+                if health == DeviceHealth::faulted
+                then fault;
+        }
+    }
+
+    part def SecurityModule {
+        attribute moduleId : String;
+        attribute mode : SecurityMode;
+        attribute intrusionDetected : Boolean;
+        attribute sirenPower : PowerWatt;
+        attribute health : DeviceHealth;
+
+        port control : SecurityControlPort;
+
+        state securityBehavior {
+            state disarmed;
+            state homeArmed;
+            state awayArmed;
+            state alarmActive;
+
+            initial then disarmed;
+
+            transition disarmed_to_home
+                first disarmed
+                then homeArmed;
+
+            transition disarmed_to_away
+                first disarmed
+                then awayArmed;
+
+            transition armed_to_alarm_home
+                first homeArmed
+                if intrusionDetected == true
+                then alarmActive;
+
+            transition armed_to_alarm_away
+                first awayArmed
+                if intrusionDetected == true
+                then alarmActive;
+
+            transition alarm_to_disarmed
+                first alarmActive
+                if mode == SecurityMode::disarmed
+                then disarmed;
+        }
+    }
+
+    part def SensorPack {
+        attribute sensorPackId : String;
+        attribute temperature : TemperatureCelsius;
+        attribute illuminance : IlluminanceLux;
+        attribute occupancy : OccupancyState;
+        attribute supplyVoltage : VoltageVolt;
+        attribute health : DeviceHealth;
+
+        port telemetry : TelemetryPort;
+
+        action sampleEnvironment {
+            out item temperatureTelemetry : TemperatureTelemetry;
+            out item occupancyTelemetry : OccupancyTelemetry;
+            out item lightTelemetry : LightTelemetry;
+        }
+    }
+
+    part def PowerMeter {
+        attribute meterId : String;
+        attribute voltage : VoltageVolt;
+        attribute lineFrequency : FrequencyHertz;
+        attribute instantaneousPower : PowerWatt;
+        attribute dailyEnergy : EnergyKiloWattHour;
+        attribute health : DeviceHealth;
+
+        port powerTelemetry : PowerMonitorPort;
+    }
+
+    part def MobileApplication {
+        attribute appVersion : String;
+        attribute authenticated : Boolean;
+
+        port interface : UserInterfacePort;
+
+        action requestScene {
+            in attribute sceneName : String;
+            in attribute zoneId : String;
+            out item intent : UserIntent;
+        }
+    }
+
+    part def CloudService {
+        attribute serviceRegion : String;
+        attribute available : Boolean;
+        attribute retainedHistoryDays : Integer;
+
+        port remoteInterface : UserInterfacePort;
+        port telemetryIngest : TelemetryPort;
+
+        action learnSchedule {
+            in item telemetry : SensorTelemetry;
+            out item command : AutomationCommand;
+        }
+    }
+
+    part def AutomationZone {
+        attribute zoneId : String;
+        attribute displayName : String;
+        attribute occupancy : OccupancyState;
+        attribute targetIlluminance : IlluminanceLux;
+        attribute comfortHeatingSetpoint : TemperatureCelsius;
+        attribute comfortCoolingSetpoint : TemperatureCelsius;
+        attribute awayHeatingSetpoint : TemperatureCelsius;
+        attribute awayCoolingSetpoint : TemperatureCelsius;
+
+        part roomController : LagotekRoomController;
+        part lighting : LightingModule;
+        part climate : ClimateModule;
+        part shades : ShadeModule;
+        part security : SecurityModule;
+        part sensors : SensorPack;
+        part powerMeter : PowerMeter;
+
+        connect roomController.lighting to lighting.control;
+        connect roomController.climate to climate.control;
+        connect roomController.shades to shades.control;
+        connect roomController.security to security.control;
+        connect sensors.telemetry to roomController.telemetryOutput;
+        connect powerMeter.powerTelemetry to roomController.telemetryOutput;
+    }
+
+    part def LagotekBasedSmartHomeSystem {
+        doc /* Primary function: provide coordinated, high-level home automation by using a Lagotek-style distributed control architecture to sense occupancy and environmental conditions, interpret user intent and schedules, and automatically manage lighting, climate, shades, security, and energy usage across residential zones. */
+
+        attribute systemId : String = "Lagotek-Based-Smart-Home-001";
+        attribute nominalSupplyVoltage : VoltageVolt = 120.0;
+        attribute nominalLineFrequency : FrequencyHertz = 60.0;
+        attribute maxAutomationLatency : TimeSecond = 2.0;
+        attribute maxStandbyPower : PowerWatt = 25.0;
+        attribute minimumControllerAvailability : Percentage = 99.5;
+
+        part centralController : LagotekCentralController;
+        part mobileApplication : MobileApplication;
+        part cloudService : CloudService;
+
+        part livingArea : AutomationZone {
+            attribute zoneId = "zone-living";
+            attribute displayName = "Living Area";
+            attribute targetIlluminance = 350.0;
+            attribute comfortHeatingSetpoint = 20.5;
+            attribute comfortCoolingSetpoint = 24.0;
+            attribute awayHeatingSetpoint = 16.0;
+            attribute awayCoolingSetpoint = 29.0;
+        }
+
+        part kitchen : AutomationZone {
+            attribute zoneId = "zone-kitchen";
+            attribute displayName = "Kitchen";
+            attribute targetIlluminance = 500.0;
+            attribute comfortHeatingSetpoint = 20.0;
+            attribute comfortCoolingSetpoint = 24.0;
+            attribute awayHeatingSetpoint = 16.0;
+            attribute awayCoolingSetpoint = 29.0;
+        }
+
+        part primaryBedroom : AutomationZone {
+            attribute zoneId = "zone-primary-bedroom";
+            attribute displayName = "Primary Bedroom";
+            attribute targetIlluminance = 250.0;
+            attribute comfortHeatingSetpoint = 19.0;
+            attribute comfortCoolingSetpoint = 23.0;
+            attribute awayHeatingSetpoint = 16.0;
+            attribute awayCoolingSetpoint = 29.0;
+        }
+
+        connect mobileApplication.interface to centralController.userInterface;
+        connect cloudService.remoteInterface to centralController.userInterface;
+        connect livingArea.roomController.controllerCommand to centralController.lightingControl;
+        connect kitchen.roomController.controllerCommand to centralController.climateControl;
+        connect primaryBedroom.roomController.controllerCommand to centralController.shadeControl;
+        connect livingArea.roomController.telemetryOutput to centralController.telemetryInput;
+        connect kitchen.roomController.telemetryOutput to centralController.telemetryInput;
+        connect primaryBedroom.roomController.telemetryOutput to centralController.telemetryInput;
+        connect centralController.telemetryInput to cloudService.telemetryIngest;
+
+        action coordinateHomeAutomation {
+            in item userIntent : UserIntent;
+            in item environmentalTelemetry : SensorTelemetry;
+            out item selectedCommand : AutomationCommand;
+        }
+
+        action applyAwayMode {
+            out item lightingCommand : LightingCommand;
+            out item climateCommand : ClimateCommand;
+            out item shadeCommand : ShadeCommand;
+            out item securityCommand : SecurityCommand;
+        }
+
+        action optimizeEnergy {
+            in item powerTelemetry : PowerTelemetry;
+            out item climateCommand : ClimateCommand;
+            out item shadeCommand : ShadeCommand;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall coordinate lighting, climate, shades, security, and energy monitoring as an integrated Lagotek-based home automation system. */
+        subject system : LagotekBasedSmartHomeSystem;
+        require constraint {
+            system.maxAutomationLatency <= 2.0
+        }
+    }
+
+    requirement def OccupancyAutomationRequirement {
+        doc /* When a zone is occupied, the system shall apply comfort lighting and climate settings for that zone within the allowed automation latency. */
+        subject zone : AutomationZone;
+        require constraint {
+            zone.occupancy == OccupancyState::occupied implies
+            zone.targetIlluminance > 0.0
+        }
+    }
+
+    requirement def AwayModeEnergyRequirement {
+        doc /* When the home is unoccupied, the system shall reduce energy use by applying away climate setpoints and turning nonessential lighting off. */
+        subject zone : AutomationZone;
+        require constraint {
+            zone.awayHeatingSetpoint < zone.comfortHeatingSetpoint and
+            zone.awayCoolingSetpoint > zone.comfortCoolingSetpoint
+        }
+    }
+
+    requirement def SecurityRequirement {
+        doc /* When away armed and intrusion is detected, the security module shall enter alarm mode and report security telemetry to the central controller. */
+        subject security : SecurityModule;
+        require constraint {
+            security.mode == SecurityMode::awayArmed and security.intrusionDetected == true implies
+            security.sirenPower > 0.0
+        }
+    }
+
+    requirement def PowerMonitoringRequirement {
+        doc /* The system shall measure instantaneous power and accumulated energy for each automation zone. */
+        subject meter : PowerMeter;
+        require constraint {
+            meter.instantaneousPower >= 0.0 and meter.dailyEnergy >= 0.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The central controller shall provide high availability for local automation even when cloud connectivity is unavailable. */
+        subject system : LagotekBasedSmartHomeSystem;
+        require constraint {
+            system.minimumControllerAvailability >= 99.5
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by LagotekBasedSmartHomeSystem;
+    satisfy OccupancyAutomationRequirement by AutomationZone;
+    satisfy AwayModeEnergyRequirement by AutomationZone;
+    satisfy SecurityRequirement by SecurityModule;
+    satisfy PowerMonitoringRequirement by PowerMeter;
+    satisfy AvailabilityRequirement by LagotekBasedSmartHomeSystem;
+}

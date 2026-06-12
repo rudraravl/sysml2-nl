@@ -1,0 +1,867 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-hu7oi0l2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6d8-ef8a-7ce0-b06b-9f05a3e39c9a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Infrared Data Association and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IrDA_SystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def BitRate :> ISQ::frequency;
+    attribute def Wavelength :> ISQ::length;
+    attribute def OpticalPower :> ISQ::power;
+    attribute def Distance :> ISQ::length;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def DataSize :> ISQ::quantity;
+    attribute def ErrorRatio :> ScalarValues::Real;
+
+    item def UserPayload {
+        attribute size : DataSize;
+        attribute sourceAddress : ScalarValues::String;
+        attribute destinationAddress : ScalarValues::String;
+        attribute applicationProtocol : ScalarValues::String;
+    }
+
+    item def IrDAFrame {
+        attribute frameId : ScalarValues::String;
+        attribute payloadLength : DataSize;
+        attribute crcValid : ScalarValues::Boolean;
+        attribute sequenceNumber : ScalarValues::Integer;
+    }
+
+    item def InfraredOpticalSignal {
+        attribute centerWavelength : Wavelength = 875 [SI::nm];
+        attribute opticalPower : OpticalPower;
+        attribute modulation : ScalarValues::String;
+        attribute encodedBitRate : BitRate;
+    }
+
+    item def LinkStatus {
+        attribute connected : ScalarValues::Boolean;
+        attribute negotiatedRate : BitRate;
+        attribute bitErrorRatio : ErrorRatio;
+        attribute peerId : ScalarValues::String;
+    }
+
+    port def ApplicationDataPort {
+        in item outboundPayload : UserPayload;
+        out item inboundPayload : UserPayload;
+    }
+
+    port def FramePort {
+        in item txFrame : IrDAFrame;
+        out item rxFrame : IrDAFrame;
+    }
+
+    port def OpticalTransmitPort {
+        out item emittedSignal : InfraredOpticalSignal;
+    }
+
+    port def OpticalReceivePort {
+        in item receivedSignal : InfraredOpticalSignal;
+    }
+
+    port def StatusPort {
+        out item status : LinkStatus;
+    }
+
+    action def EncodePayload {
+        in item payload : UserPayload;
+        out item frame : IrDAFrame;
+    }
+
+    action def DecodeFrame {
+        in item frame : IrDAFrame;
+        out item payload : UserPayload;
+    }
+
+    action def ModulateFrame {
+        in item frame : IrDAFrame;
+        out item signal : InfraredOpticalSignal;
+    }
+
+    action def DemodulateSignal {
+        in item signal : InfraredOpticalSignal;
+        out item frame : IrDAFrame;
+    }
+
+    action def NegotiateLink {
+        in item requestedStatus : LinkStatus;
+        out item establishedStatus : LinkStatus;
+    }
+
+    action def ValidateFrame {
+        in item frame : IrDAFrame;
+        out attribute accepted : ScalarValues::Boolean;
+    }
+
+    part def IrDAProtocolController {
+        port applicationPort : ApplicationDataPort;
+        port framePort : FramePort;
+        port statusPort : StatusPort;
+
+        attribute supportedMinimumRate : BitRate = 9600 [SI::Hz];
+        attribute supportedMaximumRate : BitRate = 4000000 [SI::Hz];
+        attribute activeRate : BitRate;
+        attribute retransmissionLimit : ScalarValues::Integer = 3;
+        attribute linkIdleTimeout : TimeDuration = 500 [SI::ms];
+
+        action encode : EncodePayload;
+        action decode : DecodeFrame;
+        action negotiate : NegotiateLink;
+        action validate : ValidateFrame;
+
+        state def ProtocolStateMachine {
+            state idle;
+            state discovering;
+            state negotiating;
+            state connected;
+            state transmitting;
+            state receiving;
+            state recovering;
+            state disconnected;
+
+            transition first idle;
+            transition idle_to_discovering
+                first idle
+                then discovering;
+
+            transition discovering_to_negotiating
+                first discovering
+                then negotiating;
+
+            transition negotiating_to_connected
+                first negotiating
+                then connected;
+
+            transition connected_to_transmitting
+                first connected
+                then transmitting;
+
+            transition connected_to_receiving
+                first connected
+                then receiving;
+
+            transition transmitting_to_connected
+                first transmitting
+                then connected;
+
+            transition receiving_to_connected
+                first receiving
+                then connected;
+
+            transition connected_to_recovering
+                first connected
+                then recovering;
+
+            transition recovering_to_connected
+                first recovering
+                then connected;
+
+            transition recovering_to_disconnected
+                first recovering
+                then disconnected;
+
+            transition disconnected_to_idle
+                first disconnected
+                then idle;
+        }
+
+        exhibit state protocolState : ProtocolStateMachine;
+    }
+
+    part def InfraredPhysicalLayer {
+        port framePort : FramePort;
+        port txOpticalPort : OpticalTransmitPort;
+        port rxOpticalPort : OpticalReceivePort;
+
+        attribute nominalWavelength : Wavelength = 875 [SI::nm];
+        attribute wavelengthTolerance : Wavelength = 30 [SI::nm];
+        attribute maximumOperatingDistance : Distance = 1 [SI::m];
+        attribute maximumHalfAngle : Angle = 15 [SI::deg];
+        attribute minimumReceivePower : OpticalPower = 0.0000001 [SI::W];
+        attribute maximumTransmitPower : OpticalPower = 0.0005 [SI::W];
+
+        action modulate : ModulateFrame;
+        action demodulate : DemodulateSignal;
+    }
+
+    part def InfraredEmitter {
+        port opticalOut : OpticalTransmitPort;
+
+        attribute peakWavelength : Wavelength = 875 [SI::nm];
+        attribute radiantIntensity : OpticalPower = 0.0003 [SI::W];
+        attribute pulseWidth : TimeDuration = 1.6 [SI::us];
+        attribute enabled : ScalarValues::Boolean;
+    }
+
+    part def InfraredReceiver {
+        port opticalIn : OpticalReceivePort;
+
+        attribute sensitivity : OpticalPower = 0.0000001 [SI::W];
+        attribute saturationPower : OpticalPower = 0.001 [SI::W];
+        attribute ambientRejectionEnabled : ScalarValues::Boolean = true;
+        attribute detectedCarrier : ScalarValues::Boolean;
+    }
+
+    part def IrDAEndpoint {
+        port applicationPort : ApplicationDataPort;
+        port opticalTx : OpticalTransmitPort;
+        port opticalRx : OpticalReceivePort;
+        port statusPort : StatusPort;
+
+        part controller : IrDAProtocolController;
+        part physicalLayer : InfraredPhysicalLayer;
+        part emitter : InfraredEmitter;
+        part receiver : InfraredReceiver;
+
+        connect applicationPort to controller.applicationPort;
+        connect controller.framePort to physicalLayer.framePort;
+        connect physicalLayer.txOpticalPort to emitter.opticalOut;
+        connect receiver.opticalIn to physicalLayer.rxOpticalPort;
+        connect emitter.opticalOut to opticalTx;
+        connect opticalRx to receiver.opticalIn;
+        connect controller.statusPort to statusPort;
+    }
+
+    part def InfraredLineOfSightChannel {
+        port endpointAReceive : OpticalReceivePort;
+        port endpointBReceive : OpticalReceivePort;
+        port endpointATransmit : OpticalTransmitPort;
+        port endpointBTransmit : OpticalTransmitPort;
+
+        attribute separationDistance : Distance = 0.5 [SI::m];
+        attribute alignmentAngle : Angle = 5 [SI::deg];
+        attribute ambientLightPower : OpticalPower = 0.00001 [SI::W];
+        attribute obstructionPresent : ScalarValues::Boolean = false;
+
+        connect endpointATransmit.emittedSignal to endpointBReceive.receivedSignal;
+        connect endpointBTransmit.emittedSignal to endpointAReceive.receivedSignal;
+    }
+
+    part def IrDACommunicationSystem {
+        port localApplicationPort : ApplicationDataPort;
+        port remoteApplicationPort : ApplicationDataPort;
+        port localStatusPort : StatusPort;
+        port remoteStatusPort : StatusPort;
+
+        part localEndpoint : IrDAEndpoint;
+        part remoteEndpoint : IrDAEndpoint;
+        part opticalChannel : InfraredLineOfSightChannel;
+
+        attribute primaryFunction : ScalarValues::String =
+            "Provide short-range, line-of-sight infrared wireless data exchange between two compliant digital devices without physical electrical contact.";
+        attribute maximumCertifiedRange : Distance = 1 [SI::m];
+        attribute defaultNegotiatedRate : BitRate = 115200 [SI::Hz];
+
+        connect localApplicationPort to localEndpoint.applicationPort;
+        connect remoteApplicationPort to remoteEndpoint.applicationPort;
+        connect localEndpoint.statusPort to localStatusPort;
+        connect remoteEndpoint.statusPort to remoteStatusPort;
+
+        connect localEndpoint.opticalTx to opticalChannel.endpointATransmit;
+        connect localEndpoint.opticalRx to opticalChannel.endpointAReceive;
+        connect remoteEndpoint.opticalTx to opticalChannel.endpointBTransmit;
+        connect remoteEndpoint.opticalRx to opticalChannel.endpointBReceive;
+    }
+
+    action def TransferUserPayload {
+        in item payloadFromLocalApplication : UserPayload;
+        out item payloadAtRemoteApplication : UserPayload;
+
+        first start;
+        then encodePayload : EncodePayload {
+            in payload = payloadFromLocalApplication;
+        }
+        then modulateFrame : ModulateFrame {
+            in frame = encodePayload.frame;
+        }
+        then transmitInfraredSignal;
+        then demodulateSignal : DemodulateSignal;
+        then validateFrame : ValidateFrame {
+            in frame = demodulateSignal.frame;
+        }
+        then decodeFrame : DecodeFrame {
+            in frame = demodulateSignal.frame;
+        }
+        then done;
+
+        bind payloadAtRemoteApplication = decodeFrame.payload;
+    }
+
+    requirement def HighLevelPrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall exchange user data between two devices by using
+         * short-range infrared optical signaling compliant with Infrared Data
+         * Association communication principles.
+         */
+    }
+
+    requirement def LineOfSightRequirement {
+        subject system : IrDACommunicationSystem;
+
+        require constraint {
+            system.opticalChannel.obstructionPresent == false
+        }
+
+        doc
+        /*
+         * The optical channel shall maintain an unobstructed line of sight
+         * during data exchange.
+         */
+    }
+
+    requirement def RangeRequirement {
+        subject system : IrDACommunicationSystem;
+
+        require constraint {
+            system.opticalChannel.separationDistance <= system.maximumCertifiedRange
+        }
+
+        doc
+        /*
+         * The endpoints shall communicate within a nominal maximum range of
+         * one meter.
+         */
+    }
+
+    requirement def AlignmentRequirement {
+        subject system : IrDACommunicationSystem;
+
+        require constraint {
+            system.opticalChannel.alignmentAngle <= 15 [SI::deg]
+        }
+
+        doc
+        /*
+         * The endpoints shall remain optically aligned within the supported
+         * half-angle of the infrared transceiver.
+         */
+    }
+
+    requirement def WavelengthRequirement {
+        subject endpoint : IrDAEndpoint;
+
+        require constraint {
+            endpoint.physicalLayer.nominalWavelength >= 845 [SI::nm] and
+            endpoint.physicalLayer.nominalWavelength <= 905 [SI::nm]
+        }
+
+        doc
+        /*
+         * The infrared physical layer shall use near-infrared signaling in the
+         * IrDA transceiver wavelength band.
+         */
+    }
+
+    requirement def DataRateNegotiationRequirement {
+        subject endpoint : IrDAEndpoint;
+
+        require constraint {
+            endpoint.controller.activeRate >= endpoint.controller.supportedMinimumRate and
+            endpoint.controller.activeRate <= endpoint.controller.supportedMaximumRate
+        }
+
+        doc
+        /*
+         * The protocol controller shall negotiate a link rate supported by both
+         * communicating endpoints.
+         */
+    }
+
+    requirement def FrameIntegrityRequirement {
+        subject frame : IrDAFrame;
+
+        require constraint {
+            frame.crcValid == true
+        }
+
+        doc
+        /*
+         * Received frames shall pass integrity validation before delivery to
+         * the application interface.
+         */
+    }
+
+    requirement def StatusReportingRequirement {
+        subject endpoint : IrDAEndpoint;
+
+        doc
+        /*
+         * Each endpoint shall report connection state, negotiated bit rate,
+         * peer identity, and measured bit error ratio through its status port.
+         */
+    }
+
+    satisfy HighLevelPrimaryFunctionRequirement by IrDACommunicationSystem;
+    satisfy LineOfSightRequirement by InfraredLineOfSightChannel;
+    satisfy RangeRequirement by InfraredLineOfSightChannel;
+    satisfy AlignmentRequirement by InfraredLineOfSightChannel;
+    satisfy WavelengthRequirement by InfraredPhysicalLayer;
+    satisfy DataRateNegotiationRequirement by IrDAProtocolController;
+    satisfy FrameIntegrityRequirement by IrDAProtocolController;
+    satisfy StatusReportingRequirement by IrDAEndpoint;
+
+    part irdaSystem : IrDACommunicationSystem {
+        attribute maximumCertifiedRange = 1 [SI::m];
+        attribute defaultNegotiatedRate = 115200 [SI::Hz];
+
+        part localEndpoint {
+            part controller {
+                attribute activeRate = 115200 [SI::Hz];
+            }
+        }
+
+        part remoteEndpoint {
+            part controller {
+                attribute activeRate = 115200 [SI::Hz];
+            }
+        }
+
+        part opticalChannel {
+            attribute separationDistance = 0.5 [SI::m];
+            attribute alignmentAngle = 5 [SI::deg];
+            attribute obstructionPresent = false;
+        }
+    }
+}
+tokens used
+4,250
+package IrDA_SystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def BitRate :> ISQ::frequency;
+    attribute def Wavelength :> ISQ::length;
+    attribute def OpticalPower :> ISQ::power;
+    attribute def Distance :> ISQ::length;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def DataSize :> ISQ::quantity;
+    attribute def ErrorRatio :> ScalarValues::Real;
+
+    item def UserPayload {
+        attribute size : DataSize;
+        attribute sourceAddress : ScalarValues::String;
+        attribute destinationAddress : ScalarValues::String;
+        attribute applicationProtocol : ScalarValues::String;
+    }
+
+    item def IrDAFrame {
+        attribute frameId : ScalarValues::String;
+        attribute payloadLength : DataSize;
+        attribute crcValid : ScalarValues::Boolean;
+        attribute sequenceNumber : ScalarValues::Integer;
+    }
+
+    item def InfraredOpticalSignal {
+        attribute centerWavelength : Wavelength = 875 [SI::nm];
+        attribute opticalPower : OpticalPower;
+        attribute modulation : ScalarValues::String;
+        attribute encodedBitRate : BitRate;
+    }
+
+    item def LinkStatus {
+        attribute connected : ScalarValues::Boolean;
+        attribute negotiatedRate : BitRate;
+        attribute bitErrorRatio : ErrorRatio;
+        attribute peerId : ScalarValues::String;
+    }
+
+    port def ApplicationDataPort {
+        in item outboundPayload : UserPayload;
+        out item inboundPayload : UserPayload;
+    }
+
+    port def FramePort {
+        in item txFrame : IrDAFrame;
+        out item rxFrame : IrDAFrame;
+    }
+
+    port def OpticalTransmitPort {
+        out item emittedSignal : InfraredOpticalSignal;
+    }
+
+    port def OpticalReceivePort {
+        in item receivedSignal : InfraredOpticalSignal;
+    }
+
+    port def StatusPort {
+        out item status : LinkStatus;
+    }
+
+    action def EncodePayload {
+        in item payload : UserPayload;
+        out item frame : IrDAFrame;
+    }
+
+    action def DecodeFrame {
+        in item frame : IrDAFrame;
+        out item payload : UserPayload;
+    }
+
+    action def ModulateFrame {
+        in item frame : IrDAFrame;
+        out item signal : InfraredOpticalSignal;
+    }
+
+    action def DemodulateSignal {
+        in item signal : InfraredOpticalSignal;
+        out item frame : IrDAFrame;
+    }
+
+    action def NegotiateLink {
+        in item requestedStatus : LinkStatus;
+        out item establishedStatus : LinkStatus;
+    }
+
+    action def ValidateFrame {
+        in item frame : IrDAFrame;
+        out attribute accepted : ScalarValues::Boolean;
+    }
+
+    part def IrDAProtocolController {
+        port applicationPort : ApplicationDataPort;
+        port framePort : FramePort;
+        port statusPort : StatusPort;
+
+        attribute supportedMinimumRate : BitRate = 9600 [SI::Hz];
+        attribute supportedMaximumRate : BitRate = 4000000 [SI::Hz];
+        attribute activeRate : BitRate;
+        attribute retransmissionLimit : ScalarValues::Integer = 3;
+        attribute linkIdleTimeout : TimeDuration = 500 [SI::ms];
+
+        action encode : EncodePayload;
+        action decode : DecodeFrame;
+        action negotiate : NegotiateLink;
+        action validate : ValidateFrame;
+
+        state def ProtocolStateMachine {
+            state idle;
+            state discovering;
+            state negotiating;
+            state connected;
+            state transmitting;
+            state receiving;
+            state recovering;
+            state disconnected;
+
+            transition first idle;
+            transition idle_to_discovering
+                first idle
+                then discovering;
+
+            transition discovering_to_negotiating
+                first discovering
+                then negotiating;
+
+            transition negotiating_to_connected
+                first negotiating
+                then connected;
+
+            transition connected_to_transmitting
+                first connected
+                then transmitting;
+
+            transition connected_to_receiving
+                first connected
+                then receiving;
+
+            transition transmitting_to_connected
+                first transmitting
+                then connected;
+
+            transition receiving_to_connected
+                first receiving
+                then connected;
+
+            transition connected_to_recovering
+                first connected
+                then recovering;
+
+            transition recovering_to_connected
+                first recovering
+                then connected;
+
+            transition recovering_to_disconnected
+                first recovering
+                then disconnected;
+
+            transition disconnected_to_idle
+                first disconnected
+                then idle;
+        }
+
+        exhibit state protocolState : ProtocolStateMachine;
+    }
+
+    part def InfraredPhysicalLayer {
+        port framePort : FramePort;
+        port txOpticalPort : OpticalTransmitPort;
+        port rxOpticalPort : OpticalReceivePort;
+
+        attribute nominalWavelength : Wavelength = 875 [SI::nm];
+        attribute wavelengthTolerance : Wavelength = 30 [SI::nm];
+        attribute maximumOperatingDistance : Distance = 1 [SI::m];
+        attribute maximumHalfAngle : Angle = 15 [SI::deg];
+        attribute minimumReceivePower : OpticalPower = 0.0000001 [SI::W];
+        attribute maximumTransmitPower : OpticalPower = 0.0005 [SI::W];
+
+        action modulate : ModulateFrame;
+        action demodulate : DemodulateSignal;
+    }
+
+    part def InfraredEmitter {
+        port opticalOut : OpticalTransmitPort;
+
+        attribute peakWavelength : Wavelength = 875 [SI::nm];
+        attribute radiantIntensity : OpticalPower = 0.0003 [SI::W];
+        attribute pulseWidth : TimeDuration = 1.6 [SI::us];
+        attribute enabled : ScalarValues::Boolean;
+    }
+
+    part def InfraredReceiver {
+        port opticalIn : OpticalReceivePort;
+
+        attribute sensitivity : OpticalPower = 0.0000001 [SI::W];
+        attribute saturationPower : OpticalPower = 0.001 [SI::W];
+        attribute ambientRejectionEnabled : ScalarValues::Boolean = true;
+        attribute detectedCarrier : ScalarValues::Boolean;
+    }
+
+    part def IrDAEndpoint {
+        port applicationPort : ApplicationDataPort;
+        port opticalTx : OpticalTransmitPort;
+        port opticalRx : OpticalReceivePort;
+        port statusPort : StatusPort;
+
+        part controller : IrDAProtocolController;
+        part physicalLayer : InfraredPhysicalLayer;
+        part emitter : InfraredEmitter;
+        part receiver : InfraredReceiver;
+
+        connect applicationPort to controller.applicationPort;
+        connect controller.framePort to physicalLayer.framePort;
+        connect physicalLayer.txOpticalPort to emitter.opticalOut;
+        connect receiver.opticalIn to physicalLayer.rxOpticalPort;
+        connect emitter.opticalOut to opticalTx;
+        connect opticalRx to receiver.opticalIn;
+        connect controller.statusPort to statusPort;
+    }
+
+    part def InfraredLineOfSightChannel {
+        port endpointAReceive : OpticalReceivePort;
+        port endpointBReceive : OpticalReceivePort;
+        port endpointATransmit : OpticalTransmitPort;
+        port endpointBTransmit : OpticalTransmitPort;
+
+        attribute separationDistance : Distance = 0.5 [SI::m];
+        attribute alignmentAngle : Angle = 5 [SI::deg];
+        attribute ambientLightPower : OpticalPower = 0.00001 [SI::W];
+        attribute obstructionPresent : ScalarValues::Boolean = false;
+
+        connect endpointATransmit.emittedSignal to endpointBReceive.receivedSignal;
+        connect endpointBTransmit.emittedSignal to endpointAReceive.receivedSignal;
+    }
+
+    part def IrDACommunicationSystem {
+        port localApplicationPort : ApplicationDataPort;
+        port remoteApplicationPort : ApplicationDataPort;
+        port localStatusPort : StatusPort;
+        port remoteStatusPort : StatusPort;
+
+        part localEndpoint : IrDAEndpoint;
+        part remoteEndpoint : IrDAEndpoint;
+        part opticalChannel : InfraredLineOfSightChannel;
+
+        attribute primaryFunction : ScalarValues::String =
+            "Provide short-range, line-of-sight infrared wireless data exchange between two compliant digital devices without physical electrical contact.";
+        attribute maximumCertifiedRange : Distance = 1 [SI::m];
+        attribute defaultNegotiatedRate : BitRate = 115200 [SI::Hz];
+
+        connect localApplicationPort to localEndpoint.applicationPort;
+        connect remoteApplicationPort to remoteEndpoint.applicationPort;
+        connect localEndpoint.statusPort to localStatusPort;
+        connect remoteEndpoint.statusPort to remoteStatusPort;
+
+        connect localEndpoint.opticalTx to opticalChannel.endpointATransmit;
+        connect localEndpoint.opticalRx to opticalChannel.endpointAReceive;
+        connect remoteEndpoint.opticalTx to opticalChannel.endpointBTransmit;
+        connect remoteEndpoint.opticalRx to opticalChannel.endpointBReceive;
+    }
+
+    action def TransferUserPayload {
+        in item payloadFromLocalApplication : UserPayload;
+        out item payloadAtRemoteApplication : UserPayload;
+
+        first start;
+        then encodePayload : EncodePayload {
+            in payload = payloadFromLocalApplication;
+        }
+        then modulateFrame : ModulateFrame {
+            in frame = encodePayload.frame;
+        }
+        then transmitInfraredSignal;
+        then demodulateSignal : DemodulateSignal;
+        then validateFrame : ValidateFrame {
+            in frame = demodulateSignal.frame;
+        }
+        then decodeFrame : DecodeFrame {
+            in frame = demodulateSignal.frame;
+        }
+        then done;
+
+        bind payloadAtRemoteApplication = decodeFrame.payload;
+    }
+
+    requirement def HighLevelPrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall exchange user data between two devices by using
+         * short-range infrared optical signaling compliant with Infrared Data
+         * Association communication principles.
+         */
+    }
+
+    requirement def LineOfSightRequirement {
+        subject system : IrDACommunicationSystem;
+
+        require constraint {
+            system.opticalChannel.obstructionPresent == false
+        }
+
+        doc
+        /*
+         * The optical channel shall maintain an unobstructed line of sight
+         * during data exchange.
+         */
+    }
+
+    requirement def RangeRequirement {
+        subject system : IrDACommunicationSystem;
+
+        require constraint {
+            system.opticalChannel.separationDistance <= system.maximumCertifiedRange
+        }
+
+        doc
+        /*
+         * The endpoints shall communicate within a nominal maximum range of
+         * one meter.
+         */
+    }
+
+    requirement def AlignmentRequirement {
+        subject system : IrDACommunicationSystem;
+
+        require constraint {
+            system.opticalChannel.alignmentAngle <= 15 [SI::deg]
+        }
+
+        doc
+        /*
+         * The endpoints shall remain optically aligned within the supported
+         * half-angle of the infrared transceiver.
+         */
+    }
+
+    requirement def WavelengthRequirement {
+        subject endpoint : IrDAEndpoint;
+
+        require constraint {
+            endpoint.physicalLayer.nominalWavelength >= 845 [SI::nm] and
+            endpoint.physicalLayer.nominalWavelength <= 905 [SI::nm]
+        }
+
+        doc
+        /*
+         * The infrared physical layer shall use near-infrared signaling in the
+         * IrDA transceiver wavelength band.
+         */
+    }
+
+    requirement def DataRateNegotiationRequirement {
+        subject endpoint : IrDAEndpoint;
+
+        require constraint {
+            endpoint.controller.activeRate >= endpoint.controller.supportedMinimumRate and
+            endpoint.controller.activeRate <= endpoint.controller.supportedMaximumRate
+        }
+
+        doc
+        /*
+         * The protocol controller shall negotiate a link rate supported by both
+         * communicating endpoints.
+         */
+    }
+
+    requirement def FrameIntegrityRequirement {
+        subject frame : IrDAFrame;
+
+        require constraint {
+            frame.crcValid == true
+        }
+
+        doc
+        /*
+         * Received frames shall pass integrity validation before delivery to
+         * the application interface.
+         */
+    }
+
+    requirement def StatusReportingRequirement {
+        subject endpoint : IrDAEndpoint;
+
+        doc
+        /*
+         * Each endpoint shall report connection state, negotiated bit rate,
+         * peer identity, and measured bit error ratio through its status port.
+         */
+    }
+
+    satisfy HighLevelPrimaryFunctionRequirement by IrDACommunicationSystem;
+    satisfy LineOfSightRequirement by InfraredLineOfSightChannel;
+    satisfy RangeRequirement by InfraredLineOfSightChannel;
+    satisfy AlignmentRequirement by InfraredLineOfSightChannel;
+    satisfy WavelengthRequirement by InfraredPhysicalLayer;
+    satisfy DataRateNegotiationRequirement by IrDAProtocolController;
+    satisfy FrameIntegrityRequirement by IrDAProtocolController;
+    satisfy StatusReportingRequirement by IrDAEndpoint;
+
+    part irdaSystem : IrDACommunicationSystem {
+        attribute maximumCertifiedRange = 1 [SI::m];
+        attribute defaultNegotiatedRate = 115200 [SI::Hz];
+
+        part localEndpoint {
+            part controller {
+                attribute activeRate = 115200 [SI::Hz];
+            }
+        }
+
+        part remoteEndpoint {
+            part controller {
+                attribute activeRate = 115200 [SI::Hz];
+            }
+        }
+
+        part opticalChannel {
+            attribute separationDistance = 0.5 [SI::m];
+            attribute alignmentAngle = 5 [SI::deg];
+            attribute obstructionPresent = false;
+        }
+    }
+}

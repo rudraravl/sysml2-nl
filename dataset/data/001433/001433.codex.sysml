@@ -1,0 +1,425 @@
+package GPRSBasedTelemetrySystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def BitRate :> Real {
+        unit = "bit/s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Energy :> Real {
+        unit = "J";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def Identifier :> String;
+
+    item def SensorSample {
+        attribute sampleId : Identifier;
+        attribute measuredTemperature : Temperature;
+        attribute batteryLevel : Percentage;
+        attribute timestampSeconds : TimeDuration;
+    }
+
+    item def PacketPayload {
+        attribute payloadSizeBits : BitRate;
+        attribute encodedSampleCount : Integer;
+        attribute checksum : Identifier;
+    }
+
+    item def GPRSPacket {
+        attribute apn : String;
+        attribute sourceIpAddress : String;
+        attribute destinationIpAddress : String;
+        attribute qosProfile : Integer;
+        attribute sequenceNumber : Integer;
+        item payload : PacketPayload;
+    }
+
+    item def AuthenticationCredential {
+        attribute imsi : Identifier;
+        attribute imei : Identifier;
+        attribute simKiReference : Identifier;
+    }
+
+    item def NetworkStatus {
+        attribute registered : Boolean;
+        attribute signalStrength : Percentage;
+        attribute servingCellId : Identifier;
+        attribute packetDataAttached : Boolean;
+    }
+
+    port def SensorDataPort {
+        out item sample : SensorSample;
+    }
+
+    port def PacketDataPort {
+        inout item packet : GPRSPacket;
+    }
+
+    port def CredentialPort {
+        out item credential : AuthenticationCredential;
+    }
+
+    port def StatusPort {
+        out item status : NetworkStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def RadioPort {
+        out item uplinkPacket : GPRSPacket;
+        in item downlinkPacket : GPRSPacket;
+        out attribute uplinkFrequency : Frequency;
+        in attribute downlinkFrequency : Frequency;
+        out attribute transmitPower : Power;
+    }
+
+    part def EnvironmentalSensor {
+        port dataOut : SensorDataPort;
+        port powerIn : PowerPort;
+
+        attribute sensingInterval : TimeDuration = 60;
+        attribute temperatureAccuracy : Temperature = 0.5;
+
+        action collectSample {
+            out item sample : SensorSample;
+        }
+    }
+
+    part def ApplicationController {
+        port sensorIn : SensorDataPort;
+        port packetOut : PacketDataPort;
+        port statusIn : StatusPort;
+        port powerIn : PowerPort;
+
+        attribute bufferCapacitySamples : Integer = 500;
+        attribute reportingInterval : TimeDuration = 300;
+        attribute maxPacketRetries : Integer = 3;
+
+        action encodeTelemetry {
+            in item sample : SensorSample;
+            out item payload : PacketPayload;
+        }
+
+        action buildGPRSPacket {
+            in item payload : PacketPayload;
+            out item packet : GPRSPacket;
+        }
+
+        action storeUnsentSample {
+            in item sample : SensorSample;
+        }
+    }
+
+    part def SIMModule {
+        port credentialOut : CredentialPort;
+        port powerIn : PowerPort;
+
+        attribute subscriberIdentity : Identifier;
+        attribute equipmentIdentity : Identifier;
+
+        action provideCredential {
+            out item credential : AuthenticationCredential;
+        }
+    }
+
+    part def GPRSModem {
+        port packetIn : PacketDataPort;
+        port credentialIn : CredentialPort;
+        port statusOut : StatusPort;
+        port radio : RadioPort;
+        port powerIn : PowerPort;
+
+        attribute supportedBand900MHz : Boolean = true;
+        attribute supportedBand1800MHz : Boolean = true;
+        attribute maximumUplinkRate : BitRate = 85600;
+        attribute maximumDownlinkRate : BitRate = 171200;
+        attribute nominalTransmitPower : Power = 2.0;
+        attribute attachTimeout : TimeDuration = 30;
+
+        state machine modemLifecycle {
+            state poweredOff;
+            state initializing;
+            state searchingForNetwork;
+            state gprsAttached;
+            state transmitting;
+            state receiving;
+            state faulted;
+
+            entry; then poweredOff;
+
+            transition powerApplied
+                first poweredOff
+                then initializing;
+
+            transition initializationComplete
+                first initializing
+                then searchingForNetwork;
+
+            transition networkRegistered
+                first searchingForNetwork
+                then gprsAttached;
+
+            transition packetQueued
+                first gprsAttached
+                then transmitting;
+
+            transition transmissionComplete
+                first transmitting
+                then gprsAttached;
+
+            transition downlinkAvailable
+                first gprsAttached
+                then receiving;
+
+            transition receptionComplete
+                first receiving
+                then gprsAttached;
+
+            transition attachFailed
+                first searchingForNetwork
+                then faulted;
+
+            transition modemReset
+                first faulted
+                then initializing;
+        }
+
+        action attachToPacketNetwork {
+            in item credential : AuthenticationCredential;
+            out item status : NetworkStatus;
+        }
+
+        action transmitPacket {
+            in item packet : GPRSPacket;
+            out attribute acknowledged : Boolean;
+        }
+
+        action receivePacket {
+            out item packet : GPRSPacket;
+        }
+    }
+
+    part def GSMBaseStationSubsystem {
+        port radio : RadioPort;
+        port packetCore : PacketDataPort;
+
+        attribute carrierFrequency900 : Frequency = 900000000;
+        attribute carrierFrequency1800 : Frequency = 1800000000;
+        attribute cellIdentifier : Identifier;
+        attribute channelAvailability : Percentage = 95;
+
+        action allocateRadioTimeslot {
+            in item packet : GPRSPacket;
+            out attribute assigned : Boolean;
+        }
+
+        action forwardPacketToCore {
+            in item packet : GPRSPacket;
+            out item packetToCore : GPRSPacket;
+        }
+    }
+
+    part def GPRSPacketCore {
+        port radioAccessIn : PacketDataPort;
+        port internetOut : PacketDataPort;
+
+        attribute servingGprsSupportNodeId : Identifier;
+        attribute gatewayGprsSupportNodeId : Identifier;
+        attribute supportedApn : String = "telemetry.private";
+        attribute minimumAvailability : Percentage = 99.5;
+
+        action authenticateSubscriber {
+            in item credential : AuthenticationCredential;
+            out attribute authorized : Boolean;
+        }
+
+        action routeIpPacket {
+            in item packet : GPRSPacket;
+            out item routedPacket : GPRSPacket;
+        }
+    }
+
+    part def RemoteTelemetryServer {
+        port packetIn : PacketDataPort;
+
+        attribute endpointIpAddress : String = "198.51.100.10";
+        attribute acceptedApn : String = "telemetry.private";
+        attribute storageRetentionDays : Integer = 365;
+
+        action validatePacket {
+            in item packet : GPRSPacket;
+            out attribute valid : Boolean;
+        }
+
+        action persistTelemetry {
+            in item packet : GPRSPacket;
+        }
+    }
+
+    part def PowerSubsystem {
+        port sensorPower : PowerPort;
+        port controllerPower : PowerPort;
+        port simPower : PowerPort;
+        port modemPower : PowerPort;
+
+        attribute batteryVoltage : Voltage = 3.7;
+        attribute batteryCapacity : Energy = 39960;
+        attribute maximumContinuousCurrent : Current = 2.5;
+        attribute minimumOperatingVoltage : Voltage = 3.3;
+
+        action regulatePower {
+            out attribute regulatedVoltage : Voltage;
+            out attribute availableCurrent : Current;
+        }
+    }
+
+    part def GPRSTelemetryDevice {
+        part sensor : EnvironmentalSensor;
+        part controller : ApplicationController;
+        part sim : SIMModule;
+        part modem : GPRSModem;
+        part power : PowerSubsystem;
+
+        port radio : RadioPort;
+
+        connect sensor.dataOut to controller.sensorIn;
+        connect controller.packetOut to modem.packetIn;
+        connect sim.credentialOut to modem.credentialIn;
+        connect modem.statusOut to controller.statusIn;
+        connect modem.radio to radio;
+
+        connect power.sensorPower to sensor.powerIn;
+        connect power.controllerPower to controller.powerIn;
+        connect power.simPower to sim.powerIn;
+        connect power.modemPower to modem.powerIn;
+
+        action performTelemetryCycle {
+            action collect : sensor.collectSample;
+            action encode : controller.encodeTelemetry;
+            action package : controller.buildGPRSPacket;
+            action attach : modem.attachToPacketNetwork;
+            action send : modem.transmitPacket;
+
+            flow collect.sample to encode.sample;
+            flow encode.payload to package.payload;
+            flow package.packet to send.packet;
+        }
+    }
+
+    part def GPRSBasedTelemetrySystem {
+        part fieldDevice : GPRSTelemetryDevice;
+        part baseStation : GSMBaseStationSubsystem;
+        part packetCore : GPRSPacketCore;
+        part telemetryServer : RemoteTelemetryServer;
+
+        connect fieldDevice.radio to baseStation.radio;
+        connect baseStation.packetCore to packetCore.radioAccessIn;
+        connect packetCore.internetOut to telemetryServer.packetIn;
+
+        attribute primaryFunction : String =
+            "Collect field sensor measurements, encapsulate them into IP packet data, and transmit them over a General Packet Radio Service bearer from a mobile device through GSM radio access and GPRS packet core infrastructure to a remote telemetry server.";
+
+        action deliverTelemetryOverGPRS {
+            action fieldCycle : fieldDevice.performTelemetryCycle;
+            action allocate : baseStation.allocateRadioTimeslot;
+            action forward : baseStation.forwardPacketToCore;
+            action route : packetCore.routeIpPacket;
+            action validate : telemetryServer.validatePacket;
+            action persist : telemetryServer.persistTelemetry;
+
+            flow fieldCycle.send.packet to allocate.packet;
+            flow allocate.packet to forward.packet;
+            flow forward.packetToCore to route.packet;
+            flow route.routedPacket to validate.packet;
+            flow route.routedPacket to persist.packet;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : GPRSBasedTelemetrySystem;
+
+        doc /* The system shall provide packet-switched mobile telemetry using General Packet Radio Service as the wide-area bearer. */
+
+        require constraint {
+            system.fieldDevice.modem.maximumUplinkRate >= 40000
+        }
+    }
+
+    requirement def NetworkAttachmentRequirement {
+        subject modem : GPRSModem;
+
+        doc /* The modem shall register with the GSM network and attach to the GPRS packet service before transmitting application telemetry packets. */
+
+        require constraint {
+            modem.attachTimeout <= 60
+        }
+    }
+
+    requirement def TelemetryDeliveryRequirement {
+        subject system : GPRSBasedTelemetrySystem;
+
+        doc /* The system shall deliver encoded sensor samples from the field device to the remote telemetry server using GPRS packet routing. */
+
+        require constraint {
+            system.packetCore.minimumAvailability >= 99.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject device : GPRSTelemetryDevice;
+
+        doc /* The field device power subsystem shall support modem transmit current while maintaining regulated voltage for sensing, control, SIM, and radio operation. */
+
+        require constraint {
+            device.power.batteryVoltage >= device.power.minimumOperatingVoltage
+        }
+    }
+
+    requirement def DataIntegrityRequirement {
+        subject packet : GPRSPacket;
+
+        doc /* Every transmitted packet shall include an application payload checksum to support detection of corrupted telemetry data after GPRS delivery. */
+
+        require constraint {
+            packet.payload.encodedSampleCount > 0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GPRSBasedTelemetrySystem;
+    satisfy NetworkAttachmentRequirement by GPRSModem;
+    satisfy TelemetryDeliveryRequirement by GPRSBasedTelemetrySystem;
+    satisfy PowerRequirement by GPRSTelemetryDevice;
+    satisfy DataIntegrityRequirement by GPRSPacket;
+}

@@ -1,0 +1,973 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ls8ufg_d
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7e1-af99-7e23-9756-ed7381737c35
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Roots-type supercharger and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RootsTypeSuperchargerModel {
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = "K";
+    }
+
+    attribute def MassFlowRate {
+        :> ISQ::massFlowRate;
+        unit = "kg/s";
+    }
+
+    attribute def RotationalSpeed {
+        :> ISQ::frequency;
+        unit = "rpm";
+    }
+
+    attribute def Torque {
+        :> ISQ::torque;
+        unit = "N*m";
+    }
+
+    attribute def Power {
+        :> ISQ::power;
+        unit = "kW";
+    }
+
+    attribute def Volume {
+        :> ISQ::volume;
+        unit = "L";
+    }
+
+    attribute def Efficiency {
+        :> ISQ::dimensionless;
+        unit = "%";
+    }
+
+    attribute def Ratio {
+        :> ISQ::dimensionless;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+        attribute oxygenMassFraction : Ratio = 0.232;
+    }
+
+    item def LubricantOil {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : MassFlowRate;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute commandedBypassOpening : Ratio;
+        attribute enabled : Boolean;
+    }
+
+    port def AirPort {
+        inout item air : Air;
+    }
+
+    port def OilPort {
+        inout item oil : LubricantOil;
+    }
+
+    port def ShaftPort {
+        inout item mechanicalPower : MechanicalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+    }
+
+    port def SensorPort {
+        out item measuredAir : Air;
+    }
+
+    action def DrawAmbientAir {
+        in item inletAir : Air;
+        out item trappedAir : Air;
+
+        attribute inletPressure : Pressure = inletAir.pressure;
+        attribute inletTemperature : Temperature = inletAir.temperature;
+
+        objective {
+            doc /* Admit air from the inlet manifold into cavities formed between rotor lobes and the housing. */
+        }
+    }
+
+    action def TrapAndTransportAir {
+        in item trappedAir : Air;
+        in item drivePower : MechanicalPower;
+        out item displacedAir : Air;
+
+        attribute rotorSpeed : RotationalSpeed = drivePower.shaftSpeed;
+        attribute displacementPerRevolution : Volume;
+        attribute leakageFraction : Ratio;
+
+        objective {
+            doc /* Move a nearly fixed volume of air from inlet side to outlet side without internal compression. */
+        }
+    }
+
+    action def DeliverBoostedAir {
+        in item displacedAir : Air;
+        out item outletAir : Air;
+
+        attribute outletPressure : Pressure;
+        attribute outletTemperature : Temperature;
+        attribute pressureRatio : Ratio = outletPressure / displacedAir.pressure;
+
+        objective {
+            doc /* Discharge displaced air into the intake manifold, where back pressure raises delivered charge pressure. */
+        }
+    }
+
+    action def ControlBypassValve {
+        in item command : ControlSignal;
+        in item outletAir : Air;
+        out item recirculatedAir : Air;
+
+        attribute bypassOpening : Ratio = command.commandedBypassOpening;
+
+        objective {
+            doc /* Recirculate part of the discharged air to the inlet to reduce boost and pumping losses. */
+        }
+    }
+
+    action def LubricateAndSynchronize {
+        in item inputPower : MechanicalPower;
+        in item oilSupply : LubricantOil;
+        out item synchronizedPower : MechanicalPower;
+
+        attribute gearOilTemperature : Temperature = oilSupply.temperature;
+
+        objective {
+            doc /* Maintain timing gear lubrication and rotor phasing so the lobes do not contact each other. */
+        }
+    }
+
+    state def SuperchargerOperatingState {
+        entry action initialize {
+            doc /* Establish initial rotor position, sensor values, and bypass state. */
+        }
+
+        state Off;
+        state Cranking;
+        state IdleBypass;
+        state Boosting;
+        state OverTemperatureProtection;
+        state Faulted;
+
+        transition first Off;
+
+        transition Off_to_Cranking
+            first Off
+            then Cranking
+            accept ControlSignal
+            if command.enabled;
+
+        transition Cranking_to_IdleBypass
+            first Cranking
+            then IdleBypass
+            if command.enabled and command.commandedBypassOpening > 0.75;
+
+        transition IdleBypass_to_Boosting
+            first IdleBypass
+            then Boosting
+            if command.enabled and command.commandedBypassOpening <= 0.25;
+
+        transition Boosting_to_IdleBypass
+            first Boosting
+            then IdleBypass
+            if command.commandedBypassOpening > 0.50;
+
+        transition Boosting_to_OverTemperatureProtection
+            first Boosting
+            then OverTemperatureProtection
+            if measuredAir.temperature > 430 [K];
+
+        transition OverTemperatureProtection_to_IdleBypass
+            first OverTemperatureProtection
+            then IdleBypass
+            if measuredAir.temperature < 400 [K];
+
+        transition any_to_Faulted
+            first Off, Cranking, IdleBypass, Boosting, OverTemperatureProtection
+            then Faulted
+            if measuredAir.pressure > 250 [kPa];
+
+        transition Faulted_to_Off
+            first Faulted
+            then Off
+            if not command.enabled;
+    }
+
+    part def TimingGearSet {
+        port driveShaft : ShaftPort;
+        port leftRotorShaft : ShaftPort;
+        port rightRotorShaft : ShaftPort;
+        port oilIn : OilPort;
+
+        attribute gearRatio : Ratio = 1.0;
+        attribute maxTorque : Torque = 350 [N*m];
+
+        constraint synchronizeRotors {
+            leftRotorShaft.mechanicalPower.shaftSpeed == rightRotorShaft.mechanicalPower.shaftSpeed;
+            leftRotorShaft.mechanicalPower.torque + rightRotorShaft.mechanicalPower.torque <= maxTorque;
+        }
+    }
+
+    part def Rotor {
+        port shaft : ShaftPort;
+        port cavityAir : AirPort;
+
+        attribute lobeCount : Integer = 3;
+        attribute sweptVolumePerRevolution : Volume = 0.75 [L];
+        attribute nominalClearance : LengthValue = 0.25 [mm];
+        attribute maxSpeed : RotationalSpeed = 16000 [rpm];
+
+        constraint speedLimit {
+            shaft.mechanicalPower.shaftSpeed <= maxSpeed;
+        }
+    }
+
+    part def RotorHousing {
+        port inlet : AirPort;
+        port outlet : AirPort;
+        port leftCavity : AirPort;
+        port rightCavity : AirPort;
+
+        attribute internalVolume : Volume = 2.4 [L];
+        attribute maxContinuousPressure : Pressure = 220 [kPa];
+        attribute maxAirTemperature : Temperature = 440 [K];
+
+        constraint pressureBoundary {
+            outlet.air.pressure <= maxContinuousPressure;
+        }
+
+        constraint temperatureBoundary {
+            outlet.air.temperature <= maxAirTemperature;
+        }
+    }
+
+    part def BypassValve {
+        port upstream : AirPort;
+        port downstream : AirPort;
+        port actuatorCommand : ControlPort;
+
+        attribute opening : Ratio;
+        attribute failSafeOpening : Ratio = 1.0;
+        attribute maxRecirculationFlow : MassFlowRate = 0.18 [kg/s];
+
+        action behavior : ControlBypassValve;
+    }
+
+    part def DrivePulley {
+        port crankshaftInput : ShaftPort;
+        port superchargerOutput : ShaftPort;
+
+        attribute pulleyRatio : Ratio = 2.2;
+        attribute beltEfficiency : Efficiency = 96 [%];
+        attribute maxInputPower : Power = 45 [kW];
+
+        constraint speedTransformation {
+            superchargerOutput.mechanicalPower.shaftSpeed ==
+                crankshaftInput.mechanicalPower.shaftSpeed * pulleyRatio;
+        }
+    }
+
+    part def IntercoolerInterface {
+        port superchargerOutlet : AirPort;
+        port chargeAirOutlet : AirPort;
+
+        attribute pressureDrop : Pressure = 8 [kPa];
+        attribute heatRemovalCapability : Power = 28 [kW];
+
+        constraint outletPressure {
+            chargeAirOutlet.air.pressure ==
+                superchargerOutlet.air.pressure - pressureDrop;
+        }
+    }
+
+    part def SensorSuite {
+        port inletPressureSensor : SensorPort;
+        port outletPressureSensor : SensorPort;
+        port outletTemperatureSensor : SensorPort;
+        port speedSensor : ShaftPort;
+
+        attribute pressureAccuracy : Pressure = 1.5 [kPa];
+        attribute temperatureAccuracy : Temperature = 2 [K];
+        attribute speedAccuracy : RotationalSpeed = 50 [rpm];
+    }
+
+    part def RootsTypeSupercharger {
+        port ambientAirIn : AirPort;
+        port boostedAirOut : AirPort;
+        port crankshaftDriveIn : ShaftPort;
+        port oilSupplyIn : OilPort;
+        port controlIn : ControlPort;
+        port measurementOut : SensorPort;
+
+        part pulley : DrivePulley;
+        part gears : TimingGearSet;
+        part leftRotor : Rotor {
+            attribute lobeCount = 3;
+        }
+        part rightRotor : Rotor {
+            attribute lobeCount = 3;
+        }
+        part housing : RotorHousing;
+        part bypass : BypassValve;
+        part intercoolerInterface : IntercoolerInterface;
+        part sensors : SensorSuite;
+
+        attribute nominalDisplacement : Volume = 1.5 [L];
+        attribute nominalPressureRatio : Ratio = 1.55;
+        attribute nominalMassFlow : MassFlowRate = 0.32 [kg/s];
+        attribute minimumVolumetricEfficiency : Efficiency = 82 [%];
+        attribute maximumOutletTemperature : Temperature = 430 [K];
+        attribute maximumContinuousSpeed : RotationalSpeed = 15000 [rpm];
+
+        perform action drawAir : DrawAmbientAir;
+        perform action transportAir : TrapAndTransportAir;
+        perform action deliverAir : DeliverBoostedAir;
+        perform action bypassControl : ControlBypassValve;
+        perform action lubrication : LubricateAndSynchronize;
+
+        exhibit state operatingState : SuperchargerOperatingState;
+
+        connect ambientAirIn to housing.inlet;
+        connect housing.leftCavity to leftRotor.cavityAir;
+        connect housing.rightCavity to rightRotor.cavityAir;
+        connect housing.outlet to bypass.upstream;
+        connect bypass.downstream to housing.inlet;
+        connect housing.outlet to intercoolerInterface.superchargerOutlet;
+        connect intercoolerInterface.chargeAirOutlet to boostedAirOut;
+
+        connect crankshaftDriveIn to pulley.crankshaftInput;
+        connect pulley.superchargerOutput to gears.driveShaft;
+        connect gears.leftRotorShaft to leftRotor.shaft;
+        connect gears.rightRotorShaft to rightRotor.shaft;
+        connect oilSupplyIn to gears.oilIn;
+        connect controlIn to bypass.actuatorCommand;
+
+        connect housing.inlet to sensors.inletPressureSensor;
+        connect housing.outlet to sensors.outletPressureSensor;
+        connect housing.outlet to sensors.outletTemperatureSensor;
+        connect pulley.superchargerOutput to sensors.speedSensor;
+        connect sensors.outletPressureSensor to measurementOut;
+
+        constraint boostFunction {
+            boostedAirOut.air.pressure >= ambientAirIn.air.pressure * 1.20;
+            boostedAirOut.air.massFlow >= 0.10 [kg/s];
+            boostedAirOut.air.temperature <= maximumOutletTemperature;
+        }
+
+        constraint drivePowerLimit {
+            pulley.superchargerOutput.mechanicalPower.power <= pulley.maxInputPower;
+            pulley.superchargerOutput.mechanicalPower.shaftSpeed <= maximumContinuousSpeed;
+        }
+
+        constraint volumetricDelivery {
+            nominalMassFlow >= 0.32 [kg/s];
+            minimumVolumetricEfficiency >= 82 [%];
+        }
+
+        objective {
+            doc /* Primary high-level function: mechanically displace intake air from the inlet to the outlet using counter-rotating lobed rotors, increasing intake manifold air pressure and available engine charge mass. */
+        }
+    }
+
+    requirement def ProvideBoostedIntakeAir {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall deliver increased intake air pressure to the engine by positively displacing air from the inlet side to the outlet side. */
+
+        require constraint {
+            supercharger.boostedAirOut.air.pressure >=
+                supercharger.ambientAirIn.air.pressure * 1.20;
+        }
+    }
+
+    requirement def MaintainRotorSynchronization {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The timing gear set shall maintain rotor phase such that the counter-rotating lobes do not contact each other during operation. */
+
+        require constraint {
+            supercharger.gears.leftRotorShaft.mechanicalPower.shaftSpeed ==
+                supercharger.gears.rightRotorShaft.mechanicalPower.shaftSpeed;
+        }
+    }
+
+    requirement def LimitOutletTemperature {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall limit delivered charge air temperature to protect downstream engine components. */
+
+        require constraint {
+            supercharger.boostedAirOut.air.temperature <= 430 [K];
+        }
+    }
+
+    requirement def ProvideBypassControl {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall provide a bypass path that reduces boost when commanded or when protection behavior is active. */
+
+        require constraint {
+            supercharger.bypass.opening >= 0.0;
+            supercharger.bypass.opening <= 1.0;
+        }
+    }
+
+    requirement def AcceptMechanicalDrive {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall accept mechanical shaft power from the engine crankshaft through a pulley and belt drive. */
+
+        require constraint {
+            supercharger.crankshaftDriveIn.mechanicalPower.power > 0 [kW];
+            supercharger.pulley.superchargerOutput.mechanicalPower.shaftSpeed >
+                supercharger.crankshaftDriveIn.mechanicalPower.shaftSpeed;
+        }
+    }
+
+    requirement def ProtectAgainstOverPressure {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall enter a protected or faulted condition if outlet pressure exceeds the structural pressure limit. */
+
+        require constraint {
+            supercharger.housing.outlet.air.pressure <= 250 [kPa];
+        }
+    }
+
+    requirement def SupportLubricatedTimingGears {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall receive lubricant oil sufficient to cool and lubricate the timing gear set. */
+
+        require constraint {
+            supercharger.oilSupplyIn.oil.pressure >= 150 [kPa];
+            supercharger.oilSupplyIn.oil.temperature <= 420 [K];
+            supercharger.oilSupplyIn.oil.flowRate >= 0.005 [kg/s];
+        }
+    }
+
+    part rootsSuperchargerSystem : RootsTypeSupercharger {
+        attribute nominalDisplacement = 1.5 [L];
+        attribute nominalPressureRatio = 1.55;
+        attribute nominalMassFlow = 0.32 [kg/s];
+        attribute maximumOutletTemperature = 430 [K];
+    }
+
+    satisfy ProvideBoostedIntakeAir by rootsSuperchargerSystem;
+    satisfy MaintainRotorSynchronization by rootsSuperchargerSystem;
+    satisfy LimitOutletTemperature by rootsSuperchargerSystem;
+    satisfy ProvideBypassControl by rootsSuperchargerSystem;
+    satisfy AcceptMechanicalDrive by rootsSuperchargerSystem;
+    satisfy ProtectAgainstOverPressure by rootsSuperchargerSystem;
+    satisfy SupportLubricatedTimingGears by rootsSuperchargerSystem;
+}
+tokens used
+4,781
+package RootsTypeSuperchargerModel {
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = "K";
+    }
+
+    attribute def MassFlowRate {
+        :> ISQ::massFlowRate;
+        unit = "kg/s";
+    }
+
+    attribute def RotationalSpeed {
+        :> ISQ::frequency;
+        unit = "rpm";
+    }
+
+    attribute def Torque {
+        :> ISQ::torque;
+        unit = "N*m";
+    }
+
+    attribute def Power {
+        :> ISQ::power;
+        unit = "kW";
+    }
+
+    attribute def Volume {
+        :> ISQ::volume;
+        unit = "L";
+    }
+
+    attribute def Efficiency {
+        :> ISQ::dimensionless;
+        unit = "%";
+    }
+
+    attribute def Ratio {
+        :> ISQ::dimensionless;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+        attribute oxygenMassFraction : Ratio = 0.232;
+    }
+
+    item def LubricantOil {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : MassFlowRate;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute commandedBypassOpening : Ratio;
+        attribute enabled : Boolean;
+    }
+
+    port def AirPort {
+        inout item air : Air;
+    }
+
+    port def OilPort {
+        inout item oil : LubricantOil;
+    }
+
+    port def ShaftPort {
+        inout item mechanicalPower : MechanicalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+    }
+
+    port def SensorPort {
+        out item measuredAir : Air;
+    }
+
+    action def DrawAmbientAir {
+        in item inletAir : Air;
+        out item trappedAir : Air;
+
+        attribute inletPressure : Pressure = inletAir.pressure;
+        attribute inletTemperature : Temperature = inletAir.temperature;
+
+        objective {
+            doc /* Admit air from the inlet manifold into cavities formed between rotor lobes and the housing. */
+        }
+    }
+
+    action def TrapAndTransportAir {
+        in item trappedAir : Air;
+        in item drivePower : MechanicalPower;
+        out item displacedAir : Air;
+
+        attribute rotorSpeed : RotationalSpeed = drivePower.shaftSpeed;
+        attribute displacementPerRevolution : Volume;
+        attribute leakageFraction : Ratio;
+
+        objective {
+            doc /* Move a nearly fixed volume of air from inlet side to outlet side without internal compression. */
+        }
+    }
+
+    action def DeliverBoostedAir {
+        in item displacedAir : Air;
+        out item outletAir : Air;
+
+        attribute outletPressure : Pressure;
+        attribute outletTemperature : Temperature;
+        attribute pressureRatio : Ratio = outletPressure / displacedAir.pressure;
+
+        objective {
+            doc /* Discharge displaced air into the intake manifold, where back pressure raises delivered charge pressure. */
+        }
+    }
+
+    action def ControlBypassValve {
+        in item command : ControlSignal;
+        in item outletAir : Air;
+        out item recirculatedAir : Air;
+
+        attribute bypassOpening : Ratio = command.commandedBypassOpening;
+
+        objective {
+            doc /* Recirculate part of the discharged air to the inlet to reduce boost and pumping losses. */
+        }
+    }
+
+    action def LubricateAndSynchronize {
+        in item inputPower : MechanicalPower;
+        in item oilSupply : LubricantOil;
+        out item synchronizedPower : MechanicalPower;
+
+        attribute gearOilTemperature : Temperature = oilSupply.temperature;
+
+        objective {
+            doc /* Maintain timing gear lubrication and rotor phasing so the lobes do not contact each other. */
+        }
+    }
+
+    state def SuperchargerOperatingState {
+        entry action initialize {
+            doc /* Establish initial rotor position, sensor values, and bypass state. */
+        }
+
+        state Off;
+        state Cranking;
+        state IdleBypass;
+        state Boosting;
+        state OverTemperatureProtection;
+        state Faulted;
+
+        transition first Off;
+
+        transition Off_to_Cranking
+            first Off
+            then Cranking
+            accept ControlSignal
+            if command.enabled;
+
+        transition Cranking_to_IdleBypass
+            first Cranking
+            then IdleBypass
+            if command.enabled and command.commandedBypassOpening > 0.75;
+
+        transition IdleBypass_to_Boosting
+            first IdleBypass
+            then Boosting
+            if command.enabled and command.commandedBypassOpening <= 0.25;
+
+        transition Boosting_to_IdleBypass
+            first Boosting
+            then IdleBypass
+            if command.commandedBypassOpening > 0.50;
+
+        transition Boosting_to_OverTemperatureProtection
+            first Boosting
+            then OverTemperatureProtection
+            if measuredAir.temperature > 430 [K];
+
+        transition OverTemperatureProtection_to_IdleBypass
+            first OverTemperatureProtection
+            then IdleBypass
+            if measuredAir.temperature < 400 [K];
+
+        transition any_to_Faulted
+            first Off, Cranking, IdleBypass, Boosting, OverTemperatureProtection
+            then Faulted
+            if measuredAir.pressure > 250 [kPa];
+
+        transition Faulted_to_Off
+            first Faulted
+            then Off
+            if not command.enabled;
+    }
+
+    part def TimingGearSet {
+        port driveShaft : ShaftPort;
+        port leftRotorShaft : ShaftPort;
+        port rightRotorShaft : ShaftPort;
+        port oilIn : OilPort;
+
+        attribute gearRatio : Ratio = 1.0;
+        attribute maxTorque : Torque = 350 [N*m];
+
+        constraint synchronizeRotors {
+            leftRotorShaft.mechanicalPower.shaftSpeed == rightRotorShaft.mechanicalPower.shaftSpeed;
+            leftRotorShaft.mechanicalPower.torque + rightRotorShaft.mechanicalPower.torque <= maxTorque;
+        }
+    }
+
+    part def Rotor {
+        port shaft : ShaftPort;
+        port cavityAir : AirPort;
+
+        attribute lobeCount : Integer = 3;
+        attribute sweptVolumePerRevolution : Volume = 0.75 [L];
+        attribute nominalClearance : LengthValue = 0.25 [mm];
+        attribute maxSpeed : RotationalSpeed = 16000 [rpm];
+
+        constraint speedLimit {
+            shaft.mechanicalPower.shaftSpeed <= maxSpeed;
+        }
+    }
+
+    part def RotorHousing {
+        port inlet : AirPort;
+        port outlet : AirPort;
+        port leftCavity : AirPort;
+        port rightCavity : AirPort;
+
+        attribute internalVolume : Volume = 2.4 [L];
+        attribute maxContinuousPressure : Pressure = 220 [kPa];
+        attribute maxAirTemperature : Temperature = 440 [K];
+
+        constraint pressureBoundary {
+            outlet.air.pressure <= maxContinuousPressure;
+        }
+
+        constraint temperatureBoundary {
+            outlet.air.temperature <= maxAirTemperature;
+        }
+    }
+
+    part def BypassValve {
+        port upstream : AirPort;
+        port downstream : AirPort;
+        port actuatorCommand : ControlPort;
+
+        attribute opening : Ratio;
+        attribute failSafeOpening : Ratio = 1.0;
+        attribute maxRecirculationFlow : MassFlowRate = 0.18 [kg/s];
+
+        action behavior : ControlBypassValve;
+    }
+
+    part def DrivePulley {
+        port crankshaftInput : ShaftPort;
+        port superchargerOutput : ShaftPort;
+
+        attribute pulleyRatio : Ratio = 2.2;
+        attribute beltEfficiency : Efficiency = 96 [%];
+        attribute maxInputPower : Power = 45 [kW];
+
+        constraint speedTransformation {
+            superchargerOutput.mechanicalPower.shaftSpeed ==
+                crankshaftInput.mechanicalPower.shaftSpeed * pulleyRatio;
+        }
+    }
+
+    part def IntercoolerInterface {
+        port superchargerOutlet : AirPort;
+        port chargeAirOutlet : AirPort;
+
+        attribute pressureDrop : Pressure = 8 [kPa];
+        attribute heatRemovalCapability : Power = 28 [kW];
+
+        constraint outletPressure {
+            chargeAirOutlet.air.pressure ==
+                superchargerOutlet.air.pressure - pressureDrop;
+        }
+    }
+
+    part def SensorSuite {
+        port inletPressureSensor : SensorPort;
+        port outletPressureSensor : SensorPort;
+        port outletTemperatureSensor : SensorPort;
+        port speedSensor : ShaftPort;
+
+        attribute pressureAccuracy : Pressure = 1.5 [kPa];
+        attribute temperatureAccuracy : Temperature = 2 [K];
+        attribute speedAccuracy : RotationalSpeed = 50 [rpm];
+    }
+
+    part def RootsTypeSupercharger {
+        port ambientAirIn : AirPort;
+        port boostedAirOut : AirPort;
+        port crankshaftDriveIn : ShaftPort;
+        port oilSupplyIn : OilPort;
+        port controlIn : ControlPort;
+        port measurementOut : SensorPort;
+
+        part pulley : DrivePulley;
+        part gears : TimingGearSet;
+        part leftRotor : Rotor {
+            attribute lobeCount = 3;
+        }
+        part rightRotor : Rotor {
+            attribute lobeCount = 3;
+        }
+        part housing : RotorHousing;
+        part bypass : BypassValve;
+        part intercoolerInterface : IntercoolerInterface;
+        part sensors : SensorSuite;
+
+        attribute nominalDisplacement : Volume = 1.5 [L];
+        attribute nominalPressureRatio : Ratio = 1.55;
+        attribute nominalMassFlow : MassFlowRate = 0.32 [kg/s];
+        attribute minimumVolumetricEfficiency : Efficiency = 82 [%];
+        attribute maximumOutletTemperature : Temperature = 430 [K];
+        attribute maximumContinuousSpeed : RotationalSpeed = 15000 [rpm];
+
+        perform action drawAir : DrawAmbientAir;
+        perform action transportAir : TrapAndTransportAir;
+        perform action deliverAir : DeliverBoostedAir;
+        perform action bypassControl : ControlBypassValve;
+        perform action lubrication : LubricateAndSynchronize;
+
+        exhibit state operatingState : SuperchargerOperatingState;
+
+        connect ambientAirIn to housing.inlet;
+        connect housing.leftCavity to leftRotor.cavityAir;
+        connect housing.rightCavity to rightRotor.cavityAir;
+        connect housing.outlet to bypass.upstream;
+        connect bypass.downstream to housing.inlet;
+        connect housing.outlet to intercoolerInterface.superchargerOutlet;
+        connect intercoolerInterface.chargeAirOutlet to boostedAirOut;
+
+        connect crankshaftDriveIn to pulley.crankshaftInput;
+        connect pulley.superchargerOutput to gears.driveShaft;
+        connect gears.leftRotorShaft to leftRotor.shaft;
+        connect gears.rightRotorShaft to rightRotor.shaft;
+        connect oilSupplyIn to gears.oilIn;
+        connect controlIn to bypass.actuatorCommand;
+
+        connect housing.inlet to sensors.inletPressureSensor;
+        connect housing.outlet to sensors.outletPressureSensor;
+        connect housing.outlet to sensors.outletTemperatureSensor;
+        connect pulley.superchargerOutput to sensors.speedSensor;
+        connect sensors.outletPressureSensor to measurementOut;
+
+        constraint boostFunction {
+            boostedAirOut.air.pressure >= ambientAirIn.air.pressure * 1.20;
+            boostedAirOut.air.massFlow >= 0.10 [kg/s];
+            boostedAirOut.air.temperature <= maximumOutletTemperature;
+        }
+
+        constraint drivePowerLimit {
+            pulley.superchargerOutput.mechanicalPower.power <= pulley.maxInputPower;
+            pulley.superchargerOutput.mechanicalPower.shaftSpeed <= maximumContinuousSpeed;
+        }
+
+        constraint volumetricDelivery {
+            nominalMassFlow >= 0.32 [kg/s];
+            minimumVolumetricEfficiency >= 82 [%];
+        }
+
+        objective {
+            doc /* Primary high-level function: mechanically displace intake air from the inlet to the outlet using counter-rotating lobed rotors, increasing intake manifold air pressure and available engine charge mass. */
+        }
+    }
+
+    requirement def ProvideBoostedIntakeAir {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall deliver increased intake air pressure to the engine by positively displacing air from the inlet side to the outlet side. */
+
+        require constraint {
+            supercharger.boostedAirOut.air.pressure >=
+                supercharger.ambientAirIn.air.pressure * 1.20;
+        }
+    }
+
+    requirement def MaintainRotorSynchronization {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The timing gear set shall maintain rotor phase such that the counter-rotating lobes do not contact each other during operation. */
+
+        require constraint {
+            supercharger.gears.leftRotorShaft.mechanicalPower.shaftSpeed ==
+                supercharger.gears.rightRotorShaft.mechanicalPower.shaftSpeed;
+        }
+    }
+
+    requirement def LimitOutletTemperature {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall limit delivered charge air temperature to protect downstream engine components. */
+
+        require constraint {
+            supercharger.boostedAirOut.air.temperature <= 430 [K];
+        }
+    }
+
+    requirement def ProvideBypassControl {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall provide a bypass path that reduces boost when commanded or when protection behavior is active. */
+
+        require constraint {
+            supercharger.bypass.opening >= 0.0;
+            supercharger.bypass.opening <= 1.0;
+        }
+    }
+
+    requirement def AcceptMechanicalDrive {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall accept mechanical shaft power from the engine crankshaft through a pulley and belt drive. */
+
+        require constraint {
+            supercharger.crankshaftDriveIn.mechanicalPower.power > 0 [kW];
+            supercharger.pulley.superchargerOutput.mechanicalPower.shaftSpeed >
+                supercharger.crankshaftDriveIn.mechanicalPower.shaftSpeed;
+        }
+    }
+
+    requirement def ProtectAgainstOverPressure {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall enter a protected or faulted condition if outlet pressure exceeds the structural pressure limit. */
+
+        require constraint {
+            supercharger.housing.outlet.air.pressure <= 250 [kPa];
+        }
+    }
+
+    requirement def SupportLubricatedTimingGears {
+        subject supercharger : RootsTypeSupercharger;
+
+        doc /* The system shall receive lubricant oil sufficient to cool and lubricate the timing gear set. */
+
+        require constraint {
+            supercharger.oilSupplyIn.oil.pressure >= 150 [kPa];
+            supercharger.oilSupplyIn.oil.temperature <= 420 [K];
+            supercharger.oilSupplyIn.oil.flowRate >= 0.005 [kg/s];
+        }
+    }
+
+    part rootsSuperchargerSystem : RootsTypeSupercharger {
+        attribute nominalDisplacement = 1.5 [L];
+        attribute nominalPressureRatio = 1.55;
+        attribute nominalMassFlow = 0.32 [kg/s];
+        attribute maximumOutletTemperature = 430 [K];
+    }
+
+    satisfy ProvideBoostedIntakeAir by rootsSuperchargerSystem;
+    satisfy MaintainRotorSynchronization by rootsSuperchargerSystem;
+    satisfy LimitOutletTemperature by rootsSuperchargerSystem;
+    satisfy ProvideBypassControl by rootsSuperchargerSystem;
+    satisfy AcceptMechanicalDrive by rootsSuperchargerSystem;
+    satisfy ProtectAgainstOverPressure by rootsSuperchargerSystem;
+    satisfy SupportLubricatedTimingGears by rootsSuperchargerSystem;
+}

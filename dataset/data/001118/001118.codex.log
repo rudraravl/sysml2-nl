@@ -1,0 +1,687 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-1l3p0ul_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb580-08a5-72b2-b1f7-9438d73c1b2a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a sensing unit that measures the relevant quantity using a Level sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LevelSensingUnitModel {
+
+    attribute def Percent {
+        :> ISQ::real;
+        unit = "%";
+    }
+
+    attribute def Millimeter {
+        :> ISQ::real;
+        unit = "mm";
+    }
+
+    attribute def Volt {
+        :> ISQ::real;
+        unit = "V";
+    }
+
+    attribute def Milliampere {
+        :> ISQ::real;
+        unit = "mA";
+    }
+
+    attribute def Millisecond {
+        :> ISQ::real;
+        unit = "ms";
+    }
+
+    attribute def Celsius {
+        :> ISQ::real;
+        unit = "degC";
+    }
+
+    attribute def Level {
+        :> Millimeter;
+    }
+
+    attribute def LevelPercent {
+        :> Percent;
+    }
+
+    attribute def SupplyVoltage {
+        :> Volt;
+    }
+
+    attribute def CurrentLoopSignal {
+        :> Milliampere;
+    }
+
+    attribute def SamplingPeriod {
+        :> Millisecond;
+    }
+
+    attribute def Temperature {
+        :> Celsius;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : SupplyVoltage;
+        attribute maxCurrent : Milliampere;
+    }
+
+    item def RawLevelReading {
+        attribute sensedDistance : Level;
+        attribute signalQuality : Percent;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def LevelMeasurement {
+        attribute level : Level;
+        attribute levelPercent : LevelPercent;
+        attribute confidence : Percent;
+        attribute timestamp : Millisecond;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthy : Boolean;
+        attribute signalLost : Boolean;
+        attribute outOfRange : Boolean;
+        attribute lastErrorCode : Integer;
+    }
+
+    item def ConfigurationCommand {
+        attribute lowCalibrationLevel : Level;
+        attribute highCalibrationLevel : Level;
+        attribute samplingPeriod : SamplingPeriod;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AnalogSensorPort {
+        out item rawReading : RawLevelReading;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : LevelMeasurement;
+        out item diagnostics : DiagnosticStatus;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def CurrentLoopOutputPort {
+        out item loopSignal {
+            attribute current : CurrentLoopSignal;
+        }
+    }
+
+    action def SampleLevelSensor {
+        in raw : RawLevelReading;
+        out sampledLevel : Level;
+        out quality : Percent;
+        action validateSignal;
+        action compensateTemperature;
+        action estimateLevel;
+        first start then validateSignal;
+        then compensateTemperature;
+        then estimateLevel;
+    }
+
+    action def ConvertLevelToPercent {
+        in level : Level;
+        in lowLevel : Level;
+        in highLevel : Level;
+        out percent : LevelPercent;
+    }
+
+    action def GenerateLevelMeasurement {
+        in level : Level;
+        in percent : LevelPercent;
+        in quality : Percent;
+        out measurement : LevelMeasurement;
+    }
+
+    action def GenerateDiagnostics {
+        in raw : RawLevelReading;
+        in level : Level;
+        in lowLevel : Level;
+        in highLevel : Level;
+        out status : DiagnosticStatus;
+    }
+
+    action def DriveCurrentLoop {
+        in measurement : LevelMeasurement;
+        out current : CurrentLoopSignal;
+    }
+
+    state def SensingUnitOperatingState {
+        entry action initializeElectronics;
+        state Off;
+        state Initializing;
+        state Measuring;
+        state Fault;
+        state Calibrating;
+
+        transition first Off;
+        transition Off_to_Initializing
+            first Off
+            then Initializing
+            accept powerApplied;
+
+        transition Initializing_to_Measuring
+            first Initializing
+            then Measuring
+            accept initializationComplete;
+
+        transition Measuring_to_Calibrating
+            first Measuring
+            then Calibrating
+            accept calibrationCommandReceived;
+
+        transition Calibrating_to_Measuring
+            first Calibrating
+            then Measuring
+            accept calibrationStored;
+
+        transition Measuring_to_Fault
+            first Measuring
+            then Fault
+            accept unrecoverableSensorFault;
+
+        transition Fault_to_Initializing
+            first Fault
+            then Initializing
+            accept resetCommandReceived;
+    }
+
+    part def LevelSensor {
+        attribute measurementRangeLow : Level = 0 [mm];
+        attribute measurementRangeHigh : Level = 5000 [mm];
+        attribute resolution : Level = 1 [mm];
+        attribute accuracy : Level = 5 [mm];
+        attribute operatingTemperatureLow : Temperature = -20 [degC];
+        attribute operatingTemperatureHigh : Temperature = 70 [degC];
+
+        port powerPort : PowerInputPort;
+        port sensingOutput : AnalogSensorPort;
+
+        action senseLevel : SampleLevelSensor;
+    }
+
+    part def SignalConditioner {
+        attribute inputImpedanceStable : Boolean = true;
+        attribute filteringTimeConstant : Millisecond = 250 [ms];
+
+        port rawInput : AnalogSensorPort;
+        port conditionedOutput : AnalogSensorPort;
+    }
+
+    part def ProcessingController {
+        attribute configuredLowLevel : Level = 0 [mm];
+        attribute configuredHighLevel : Level = 5000 [mm];
+        attribute nominalSamplingPeriod : SamplingPeriod = 100 [ms];
+        attribute minimumConfidence : Percent = 80 [%];
+
+        port conditionedInput : AnalogSensorPort;
+        port configurationInput : ConfigurationPort;
+        port measurementOutput : MeasurementOutputPort;
+
+        action sample : SampleLevelSensor;
+        action scale : ConvertLevelToPercent;
+        action makeMeasurement : GenerateLevelMeasurement;
+        action makeDiagnostics : GenerateDiagnostics;
+
+        state operatingState : SensingUnitOperatingState;
+    }
+
+    part def OutputInterface {
+        attribute loopCurrentAtZeroPercent : CurrentLoopSignal = 4 [mA];
+        attribute loopCurrentAtFullScale : CurrentLoopSignal = 20 [mA];
+        attribute faultCurrent : CurrentLoopSignal = 3.6 [mA];
+
+        port measurementInput : MeasurementOutputPort;
+        port digitalOutput : MeasurementOutputPort;
+        port analogOutput : CurrentLoopOutputPort;
+
+        action driveAnalogLoop : DriveCurrentLoop;
+    }
+
+    part def PowerRegulator {
+        attribute nominalInputVoltage : SupplyVoltage = 24 [V];
+        attribute regulatedSensorVoltage : SupplyVoltage = 12 [V];
+        attribute regulatedControllerVoltage : SupplyVoltage = 5 [V];
+        attribute maximumInputCurrent : Milliampere = 100 [mA];
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port controllerPower : PowerInputPort;
+    }
+
+    part def LevelSensingUnit {
+        attribute enclosureIngressProtection : String = "IP67";
+        attribute updatePeriod : SamplingPeriod = 100 [ms];
+        attribute measurableQuantity : String = "material or fluid level";
+
+        port powerIn : PowerInputPort;
+        port configurationIn : ConfigurationPort;
+        port measurementOut : MeasurementOutputPort;
+        port currentLoopOut : CurrentLoopOutputPort;
+
+        part regulator : PowerRegulator;
+        part levelSensor : LevelSensor;
+        part conditioner : SignalConditioner;
+        part controller : ProcessingController;
+        part outputInterface : OutputInterface;
+
+        connect powerIn to regulator.externalPower;
+        connect regulator.sensorPower to levelSensor.powerPort;
+        connect levelSensor.sensingOutput to conditioner.rawInput;
+        connect conditioner.conditionedOutput to controller.conditionedInput;
+        connect configurationIn to controller.configurationInput;
+        connect controller.measurementOutput to outputInterface.measurementInput;
+        connect outputInterface.digitalOutput to measurementOut;
+        connect outputInterface.analogOutput to currentLoopOut;
+    }
+
+    requirement def MeasureLevelRequirement {
+        doc /* The sensing unit shall measure level using an integrated Level sensor and shall provide a valid level measurement output. */
+        subject unit : LevelSensingUnit;
+        require constraint {
+            unit.levelSensor.measurementRangeLow <= 0 [mm] and
+            unit.levelSensor.measurementRangeHigh >= 5000 [mm]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The sensing unit shall report level with an error no greater than 5 mm over the configured measurement range. */
+        subject sensor : LevelSensor;
+        require constraint {
+            sensor.accuracy <= 5 [mm]
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The sensing unit shall update the reported level measurement at least every 100 ms during normal measuring operation. */
+        subject controller : ProcessingController;
+        require constraint {
+            controller.nominalSamplingPeriod <= 100 [ms]
+        }
+    }
+
+    requirement def OutputScalingRequirement {
+        doc /* The sensing unit shall scale 0 percent level to 4 mA and 100 percent level to 20 mA on the analog current loop. */
+        subject interface : OutputInterface;
+        require constraint {
+            interface.loopCurrentAtZeroPercent == 4 [mA] and
+            interface.loopCurrentAtFullScale == 20 [mA]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The sensing unit shall detect signal loss and out-of-range level conditions and include these conditions in its diagnostic status. */
+        subject unit : LevelSensingUnit;
+    }
+
+    requirement def EnvironmentalRequirement {
+        doc /* The Level sensor shall operate over the required industrial temperature range. */
+        subject sensor : LevelSensor;
+        require constraint {
+            sensor.operatingTemperatureLow <= -20 [degC] and
+            sensor.operatingTemperatureHigh >= 70 [degC]
+        }
+    }
+
+    satisfy MeasureLevelRequirement by LevelSensingUnit;
+    satisfy AccuracyRequirement by LevelSensor;
+    satisfy UpdateRateRequirement by ProcessingController;
+    satisfy OutputScalingRequirement by OutputInterface;
+    satisfy DiagnosticRequirement by ProcessingController;
+    satisfy EnvironmentalRequirement by LevelSensor;
+}
+tokens used
+3,536
+package LevelSensingUnitModel {
+
+    attribute def Percent {
+        :> ISQ::real;
+        unit = "%";
+    }
+
+    attribute def Millimeter {
+        :> ISQ::real;
+        unit = "mm";
+    }
+
+    attribute def Volt {
+        :> ISQ::real;
+        unit = "V";
+    }
+
+    attribute def Milliampere {
+        :> ISQ::real;
+        unit = "mA";
+    }
+
+    attribute def Millisecond {
+        :> ISQ::real;
+        unit = "ms";
+    }
+
+    attribute def Celsius {
+        :> ISQ::real;
+        unit = "degC";
+    }
+
+    attribute def Level {
+        :> Millimeter;
+    }
+
+    attribute def LevelPercent {
+        :> Percent;
+    }
+
+    attribute def SupplyVoltage {
+        :> Volt;
+    }
+
+    attribute def CurrentLoopSignal {
+        :> Milliampere;
+    }
+
+    attribute def SamplingPeriod {
+        :> Millisecond;
+    }
+
+    attribute def Temperature {
+        :> Celsius;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : SupplyVoltage;
+        attribute maxCurrent : Milliampere;
+    }
+
+    item def RawLevelReading {
+        attribute sensedDistance : Level;
+        attribute signalQuality : Percent;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def LevelMeasurement {
+        attribute level : Level;
+        attribute levelPercent : LevelPercent;
+        attribute confidence : Percent;
+        attribute timestamp : Millisecond;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthy : Boolean;
+        attribute signalLost : Boolean;
+        attribute outOfRange : Boolean;
+        attribute lastErrorCode : Integer;
+    }
+
+    item def ConfigurationCommand {
+        attribute lowCalibrationLevel : Level;
+        attribute highCalibrationLevel : Level;
+        attribute samplingPeriod : SamplingPeriod;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AnalogSensorPort {
+        out item rawReading : RawLevelReading;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : LevelMeasurement;
+        out item diagnostics : DiagnosticStatus;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def CurrentLoopOutputPort {
+        out item loopSignal {
+            attribute current : CurrentLoopSignal;
+        }
+    }
+
+    action def SampleLevelSensor {
+        in raw : RawLevelReading;
+        out sampledLevel : Level;
+        out quality : Percent;
+        action validateSignal;
+        action compensateTemperature;
+        action estimateLevel;
+        first start then validateSignal;
+        then compensateTemperature;
+        then estimateLevel;
+    }
+
+    action def ConvertLevelToPercent {
+        in level : Level;
+        in lowLevel : Level;
+        in highLevel : Level;
+        out percent : LevelPercent;
+    }
+
+    action def GenerateLevelMeasurement {
+        in level : Level;
+        in percent : LevelPercent;
+        in quality : Percent;
+        out measurement : LevelMeasurement;
+    }
+
+    action def GenerateDiagnostics {
+        in raw : RawLevelReading;
+        in level : Level;
+        in lowLevel : Level;
+        in highLevel : Level;
+        out status : DiagnosticStatus;
+    }
+
+    action def DriveCurrentLoop {
+        in measurement : LevelMeasurement;
+        out current : CurrentLoopSignal;
+    }
+
+    state def SensingUnitOperatingState {
+        entry action initializeElectronics;
+        state Off;
+        state Initializing;
+        state Measuring;
+        state Fault;
+        state Calibrating;
+
+        transition first Off;
+        transition Off_to_Initializing
+            first Off
+            then Initializing
+            accept powerApplied;
+
+        transition Initializing_to_Measuring
+            first Initializing
+            then Measuring
+            accept initializationComplete;
+
+        transition Measuring_to_Calibrating
+            first Measuring
+            then Calibrating
+            accept calibrationCommandReceived;
+
+        transition Calibrating_to_Measuring
+            first Calibrating
+            then Measuring
+            accept calibrationStored;
+
+        transition Measuring_to_Fault
+            first Measuring
+            then Fault
+            accept unrecoverableSensorFault;
+
+        transition Fault_to_Initializing
+            first Fault
+            then Initializing
+            accept resetCommandReceived;
+    }
+
+    part def LevelSensor {
+        attribute measurementRangeLow : Level = 0 [mm];
+        attribute measurementRangeHigh : Level = 5000 [mm];
+        attribute resolution : Level = 1 [mm];
+        attribute accuracy : Level = 5 [mm];
+        attribute operatingTemperatureLow : Temperature = -20 [degC];
+        attribute operatingTemperatureHigh : Temperature = 70 [degC];
+
+        port powerPort : PowerInputPort;
+        port sensingOutput : AnalogSensorPort;
+
+        action senseLevel : SampleLevelSensor;
+    }
+
+    part def SignalConditioner {
+        attribute inputImpedanceStable : Boolean = true;
+        attribute filteringTimeConstant : Millisecond = 250 [ms];
+
+        port rawInput : AnalogSensorPort;
+        port conditionedOutput : AnalogSensorPort;
+    }
+
+    part def ProcessingController {
+        attribute configuredLowLevel : Level = 0 [mm];
+        attribute configuredHighLevel : Level = 5000 [mm];
+        attribute nominalSamplingPeriod : SamplingPeriod = 100 [ms];
+        attribute minimumConfidence : Percent = 80 [%];
+
+        port conditionedInput : AnalogSensorPort;
+        port configurationInput : ConfigurationPort;
+        port measurementOutput : MeasurementOutputPort;
+
+        action sample : SampleLevelSensor;
+        action scale : ConvertLevelToPercent;
+        action makeMeasurement : GenerateLevelMeasurement;
+        action makeDiagnostics : GenerateDiagnostics;
+
+        state operatingState : SensingUnitOperatingState;
+    }
+
+    part def OutputInterface {
+        attribute loopCurrentAtZeroPercent : CurrentLoopSignal = 4 [mA];
+        attribute loopCurrentAtFullScale : CurrentLoopSignal = 20 [mA];
+        attribute faultCurrent : CurrentLoopSignal = 3.6 [mA];
+
+        port measurementInput : MeasurementOutputPort;
+        port digitalOutput : MeasurementOutputPort;
+        port analogOutput : CurrentLoopOutputPort;
+
+        action driveAnalogLoop : DriveCurrentLoop;
+    }
+
+    part def PowerRegulator {
+        attribute nominalInputVoltage : SupplyVoltage = 24 [V];
+        attribute regulatedSensorVoltage : SupplyVoltage = 12 [V];
+        attribute regulatedControllerVoltage : SupplyVoltage = 5 [V];
+        attribute maximumInputCurrent : Milliampere = 100 [mA];
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port controllerPower : PowerInputPort;
+    }
+
+    part def LevelSensingUnit {
+        attribute enclosureIngressProtection : String = "IP67";
+        attribute updatePeriod : SamplingPeriod = 100 [ms];
+        attribute measurableQuantity : String = "material or fluid level";
+
+        port powerIn : PowerInputPort;
+        port configurationIn : ConfigurationPort;
+        port measurementOut : MeasurementOutputPort;
+        port currentLoopOut : CurrentLoopOutputPort;
+
+        part regulator : PowerRegulator;
+        part levelSensor : LevelSensor;
+        part conditioner : SignalConditioner;
+        part controller : ProcessingController;
+        part outputInterface : OutputInterface;
+
+        connect powerIn to regulator.externalPower;
+        connect regulator.sensorPower to levelSensor.powerPort;
+        connect levelSensor.sensingOutput to conditioner.rawInput;
+        connect conditioner.conditionedOutput to controller.conditionedInput;
+        connect configurationIn to controller.configurationInput;
+        connect controller.measurementOutput to outputInterface.measurementInput;
+        connect outputInterface.digitalOutput to measurementOut;
+        connect outputInterface.analogOutput to currentLoopOut;
+    }
+
+    requirement def MeasureLevelRequirement {
+        doc /* The sensing unit shall measure level using an integrated Level sensor and shall provide a valid level measurement output. */
+        subject unit : LevelSensingUnit;
+        require constraint {
+            unit.levelSensor.measurementRangeLow <= 0 [mm] and
+            unit.levelSensor.measurementRangeHigh >= 5000 [mm]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The sensing unit shall report level with an error no greater than 5 mm over the configured measurement range. */
+        subject sensor : LevelSensor;
+        require constraint {
+            sensor.accuracy <= 5 [mm]
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The sensing unit shall update the reported level measurement at least every 100 ms during normal measuring operation. */
+        subject controller : ProcessingController;
+        require constraint {
+            controller.nominalSamplingPeriod <= 100 [ms]
+        }
+    }
+
+    requirement def OutputScalingRequirement {
+        doc /* The sensing unit shall scale 0 percent level to 4 mA and 100 percent level to 20 mA on the analog current loop. */
+        subject interface : OutputInterface;
+        require constraint {
+            interface.loopCurrentAtZeroPercent == 4 [mA] and
+            interface.loopCurrentAtFullScale == 20 [mA]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The sensing unit shall detect signal loss and out-of-range level conditions and include these conditions in its diagnostic status. */
+        subject unit : LevelSensingUnit;
+    }
+
+    requirement def EnvironmentalRequirement {
+        doc /* The Level sensor shall operate over the required industrial temperature range. */
+        subject sensor : LevelSensor;
+        require constraint {
+            sensor.operatingTemperatureLow <= -20 [degC] and
+            sensor.operatingTemperatureHigh >= 70 [degC]
+        }
+    }
+
+    satisfy MeasureLevelRequirement by LevelSensingUnit;
+    satisfy AccuracyRequirement by LevelSensor;
+    satisfy UpdateRateRequirement by ProcessingController;
+    satisfy OutputScalingRequirement by OutputInterface;
+    satisfy DiagnosticRequirement by ProcessingController;
+    satisfy EnvironmentalRequirement by LevelSensor;
+}

@@ -1,0 +1,1113 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6kq3uz_i
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb710-57ab-70a0-b25a-9b83b9ae5d22
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Perceptual robotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PerceptualRoboticsSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Probability {
+    :> ScalarValues::Real;
+  }
+
+  attribute def ConfidenceScore {
+    :> Probability;
+    constraint validRange {
+      0.0 <= self <= 1.0
+    }
+  }
+
+  attribute def Percent {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def Pixel {
+    :> ScalarValues::Integer;
+  }
+
+  attribute def FrameRate {
+    :> ScalarValues::Real;
+    unit = "Hz";
+  }
+
+  attribute def DataRate {
+    :> ScalarValues::Real;
+    unit = "Mbit/s";
+  }
+
+  attribute def ComputeLoad {
+    :> Percent;
+  }
+
+  attribute def ElectricChargeCapacity {
+    :> ScalarValues::Real;
+    unit = "A*h";
+  }
+
+  item def ImageFrame {
+    attribute width : Pixel;
+    attribute height : Pixel;
+    attribute timestamp : Time;
+    attribute frameRate : FrameRate;
+  }
+
+  item def DepthFrame {
+    attribute width : Pixel;
+    attribute height : Pixel;
+    attribute timestamp : Time;
+    attribute maxRange : Length;
+    attribute depthResolution : Length;
+  }
+
+  item def InertialSample {
+    attribute timestamp : Time;
+    attribute linearAccelerationX : Acceleration;
+    attribute linearAccelerationY : Acceleration;
+    attribute linearAccelerationZ : Acceleration;
+    attribute angularRateX : AngularVelocity;
+    attribute angularRateY : AngularVelocity;
+    attribute angularRateZ : AngularVelocity;
+  }
+
+  item def WheelOdometry {
+    attribute timestamp : Time;
+    attribute leftWheelDistance : Length;
+    attribute rightWheelDistance : Length;
+    attribute estimatedSpeed : Speed;
+  }
+
+  item def Percept {
+    attribute timestamp : Time;
+    attribute objectClass : String;
+    attribute objectId : String;
+    attribute confidence : ConfidenceScore;
+    attribute range : Length;
+    attribute bearing : Angle;
+  }
+
+  item def SemanticMap {
+    attribute timestamp : Time;
+    attribute mapResolution : Length;
+    attribute knownArea : Area;
+    attribute occupiedCellCount : ScalarValues::Integer;
+    attribute landmarkCount : ScalarValues::Integer;
+  }
+
+  item def RobotPose {
+    attribute timestamp : Time;
+    attribute x : Length;
+    attribute y : Length;
+    attribute yaw : Angle;
+    attribute covarianceTrace : ScalarValues::Real;
+  }
+
+  item def MotionCommand {
+    attribute targetLinearSpeed : Speed;
+    attribute targetAngularSpeed : AngularVelocity;
+    attribute commandTimeout : Time;
+  }
+
+  item def HealthStatus {
+    attribute batteryStateOfCharge : Percent;
+    attribute perceptionComputeLoad : ComputeLoad;
+    attribute thermalMargin : Temperature;
+    attribute degradedModeActive : Boolean;
+  }
+
+  item def MissionGoal {
+    attribute goalId : String;
+    attribute targetX : Length;
+    attribute targetY : Length;
+    attribute requiredStandoff : Length;
+    attribute priority : ScalarValues::Integer;
+  }
+
+  port def ImageOutPort {
+    out item frame : ImageFrame;
+  }
+
+  port def DepthOutPort {
+    out item depth : DepthFrame;
+  }
+
+  port def InertialOutPort {
+    out item sample : InertialSample;
+  }
+
+  port def OdometryOutPort {
+    out item odometry : WheelOdometry;
+  }
+
+  port def PerceptOutPort {
+    out item percept : Percept;
+  }
+
+  port def MapOutPort {
+    out item map : SemanticMap;
+  }
+
+  port def PoseOutPort {
+    out item pose : RobotPose;
+  }
+
+  port def MotionCommandPort {
+    in item command : MotionCommand;
+  }
+
+  port def MissionGoalPort {
+    in item goal : MissionGoal;
+  }
+
+  port def HealthOutPort {
+    out item status : HealthStatus;
+  }
+
+  part def RGBDCamera {
+    attribute horizontalFieldOfView : Angle = 87 [deg];
+    attribute verticalFieldOfView : Angle = 58 [deg];
+    attribute minimumRange : Length = 0.25 [m];
+    attribute maximumRange : Length = 12.0 [m];
+    attribute nominalFrameRate : FrameRate = 30 [Hz];
+
+    port imageOut : ImageOutPort;
+    port depthOut : DepthOutPort;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute sampleRate : FrameRate = 200 [Hz];
+    attribute gyroBiasStability : AngularVelocity = 0.5 [deg / h];
+
+    port inertialOut : InertialOutPort;
+  }
+
+  part def WheelEncoderSet {
+    attribute ticksPerRevolution : ScalarValues::Integer = 4096;
+    attribute wheelRadius : Length = 0.095 [m];
+
+    port odometryOut : OdometryOutPort;
+  }
+
+  part def PerceptionComputer {
+    attribute peakComputeThroughput : ScalarValues::Real = 32.0;
+    attribute thermalDesignPower : Power = 45 [W];
+    attribute currentComputeLoad : ComputeLoad;
+
+    port imageIn {
+      in item frame : ImageFrame;
+    }
+
+    port depthIn {
+      in item depth : DepthFrame;
+    }
+
+    port inertialIn {
+      in item sample : InertialSample;
+    }
+
+    port perceptOut : PerceptOutPort;
+    port healthOut : HealthOutPort;
+  }
+
+  part def LocalizationAndMappingUnit {
+    attribute mapResolution : Length = 0.05 [m];
+    attribute poseUpdateRate : FrameRate = 50 [Hz];
+    attribute maximumPoseError : Length = 0.15 [m];
+
+    port perceptIn {
+      in item percept : Percept;
+    }
+
+    port odometryIn {
+      in item odometry : WheelOdometry;
+    }
+
+    port inertialIn {
+      in item sample : InertialSample;
+    }
+
+    port poseOut : PoseOutPort;
+    port mapOut : MapOutPort;
+  }
+
+  part def MissionExecutive {
+    attribute replanningInterval : Time = 0.5 [s];
+    attribute minimumObjectConfidence : ConfidenceScore = 0.75;
+
+    port goalIn : MissionGoalPort;
+
+    port poseIn {
+      in item pose : RobotPose;
+    }
+
+    port mapIn {
+      in item map : SemanticMap;
+    }
+
+    port perceptIn {
+      in item percept : Percept;
+    }
+
+    port commandOut {
+      out item command : MotionCommand;
+    }
+  }
+
+  part def MobilityBase {
+    attribute maximumLinearSpeed : Speed = 1.5 [m / s];
+    attribute maximumAngularSpeed : AngularVelocity = 120 [deg / s];
+    attribute trackWidth : Length = 0.48 [m];
+
+    port commandIn : MotionCommandPort;
+    port odometryOut : OdometryOutPort;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : ElectricPotential = 24 [V];
+    attribute capacity : ElectricChargeCapacity = 18 [A*h];
+    attribute stateOfCharge : Percent;
+
+    port healthOut : HealthOutPort;
+  }
+
+  part def PerceptualRobot {
+    attribute primaryFunction : String = "Perceive, understand, and safely navigate a dynamic environment by fusing visual, depth, inertial, and odometric data into actionable world models and motion commands.";
+    attribute nominalMissionDuration : Time = 4 [h];
+    attribute safeObstacleClearance : Length = 0.35 [m];
+
+    part camera : RGBDCamera;
+    part imu : InertialMeasurementUnit;
+    part encoders : WheelEncoderSet;
+    part perception : PerceptionComputer;
+    part mapper : LocalizationAndMappingUnit;
+    part executive : MissionExecutive;
+    part base : MobilityBase;
+    part battery : BatteryPack;
+
+    port missionGoalIn : MissionGoalPort;
+    port robotHealthOut : HealthOutPort;
+
+    connect camera.imageOut to perception.imageIn;
+    connect camera.depthOut to perception.depthIn;
+    connect imu.inertialOut to perception.inertialIn;
+    connect imu.inertialOut to mapper.inertialIn;
+    connect encoders.odometryOut to mapper.odometryIn;
+    connect base.odometryOut to mapper.odometryIn;
+    connect perception.perceptOut to mapper.perceptIn;
+    connect perception.perceptOut to executive.perceptIn;
+    connect mapper.poseOut to executive.poseIn;
+    connect mapper.mapOut to executive.mapIn;
+    connect executive.commandOut to base.commandIn;
+    connect missionGoalIn to executive.goalIn;
+    connect perception.healthOut to robotHealthOut;
+    connect battery.healthOut to robotHealthOut;
+
+    action perceiveEnvironment {
+      in item image : ImageFrame;
+      in item depth : DepthFrame;
+      in item inertial : InertialSample;
+      out item percept : Percept;
+
+      first start;
+      then synchronizeSensorSamples;
+      then detectObjects;
+      then estimateObjectRangeAndBearing;
+      then classifyTraversableSpace;
+      then publishPercepts;
+      then done;
+
+      action synchronizeSensorSamples;
+      action detectObjects;
+      action estimateObjectRangeAndBearing;
+      action classifyTraversableSpace;
+      action publishPercepts;
+    }
+
+    action buildWorldModel {
+      in item percept : Percept;
+      in item odometry : WheelOdometry;
+      in item inertial : InertialSample;
+      out item pose : RobotPose;
+      out item map : SemanticMap;
+
+      first start;
+      then predictPoseFromMotion;
+      then correctPoseWithLandmarks;
+      then updateOccupancyGrid;
+      then updateSemanticLandmarks;
+      then publishWorldModel;
+      then done;
+
+      action predictPoseFromMotion;
+      action correctPoseWithLandmarks;
+      action updateOccupancyGrid;
+      action updateSemanticLandmarks;
+      action publishWorldModel;
+    }
+
+    action executePerceptualNavigation {
+      in item goal : MissionGoal;
+      in item pose : RobotPose;
+      in item map : SemanticMap;
+      in item percept : Percept;
+      out item command : MotionCommand;
+
+      first start;
+      then evaluateGoal;
+      then planCollisionFreePath;
+      then selectLocalTrajectory;
+      then commandMobilityBase;
+      then monitorProgress;
+      then done;
+
+      action evaluateGoal;
+      action planCollisionFreePath;
+      action selectLocalTrajectory;
+      action commandMobilityBase;
+      action monitorProgress;
+    }
+
+    state def OperationalStateMachine {
+      entry action initializeSensors;
+      exit action stopMotion;
+
+      state powerOff;
+      state booting;
+      state calibrating;
+      state perceiving;
+      state mapping;
+      state navigating;
+      state degradedPerception;
+      state safeStop;
+      state fault;
+
+      transition powerOff_to_booting
+        first powerOff
+        accept after 1 [s]
+        then booting;
+
+      transition booting_to_calibrating
+        first booting
+        accept after 8 [s]
+        then calibrating;
+
+      transition calibrating_to_perceiving
+        first calibrating
+        accept after 5 [s]
+        then perceiving;
+
+      transition perceiving_to_mapping
+        first perceiving
+        accept when perception.currentComputeLoad < 85 [%]
+        then mapping;
+
+      transition mapping_to_navigating
+        first mapping
+        accept when mapper.maximumPoseError <= 0.15 [m]
+        then navigating;
+
+      transition navigating_to_degraded
+        first navigating
+        accept when perception.currentComputeLoad >= 90 [%]
+        then degradedPerception;
+
+      transition degraded_to_navigating
+        first degradedPerception
+        accept when perception.currentComputeLoad < 75 [%]
+        then navigating;
+
+      transition navigating_to_safeStop
+        first navigating
+        accept when battery.stateOfCharge <= 15 [%]
+        then safeStop;
+
+      transition degraded_to_safeStop
+        first degradedPerception
+        accept when battery.stateOfCharge <= 15 [%]
+        then safeStop;
+
+      transition any_to_fault
+        first perceiving
+        accept when battery.stateOfCharge <= 5 [%]
+        then fault;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The perceptual robot shall transform raw sensor observations into a semantic world model and use that model to navigate safely toward mission goals. */
+
+    subject robot : PerceptualRobot;
+
+    require constraint {
+      robot.safeObstacleClearance >= 0.35 [m]
+    }
+  }
+
+  requirement def PerceptionLatencyRequirement {
+    doc
+    /* The perception pipeline shall publish object and traversability percepts with bounded latency during nominal operation. */
+
+    subject perception : PerceptionComputer;
+
+    attribute maximumLatency : Time = 100 [ms];
+
+    require constraint {
+      perception.currentComputeLoad <= 85 [%]
+    }
+  }
+
+  requirement def DetectionConfidenceRequirement {
+    doc
+    /* The mission executive shall use only percepts whose confidence is sufficient for autonomous navigation decisions. */
+
+    subject executive : MissionExecutive;
+
+    require constraint {
+      executive.minimumObjectConfidence >= 0.75
+    }
+  }
+
+  requirement def MappingAccuracyRequirement {
+    doc
+    /* The localization and mapping unit shall maintain pose error low enough for indoor navigation through constrained spaces. */
+
+    subject mapper : LocalizationAndMappingUnit;
+
+    require constraint {
+      mapper.maximumPoseError <= 0.15 [m]
+    }
+  }
+
+  requirement def MobilitySafetyRequirement {
+    doc
+    /* The mobility base shall limit commanded motion to the robot platform's verified dynamic envelope. */
+
+    subject base : MobilityBase;
+
+    require constraint {
+      base.maximumLinearSpeed <= 1.5 [m / s] and
+      base.maximumAngularSpeed <= 120 [deg / s]
+    }
+  }
+
+  requirement def MissionEnduranceRequirement {
+    doc
+    /* The robot shall support perceptual navigation missions for at least four hours under nominal sensing and compute load. */
+
+    subject robot : PerceptualRobot;
+
+    require constraint {
+      robot.nominalMissionDuration >= 4 [h]
+    }
+  }
+
+  requirement def SafeEnergyRequirement {
+    doc
+    /* The robot shall enter safe stop before battery state of charge reaches a critically low condition. */
+
+    subject battery : BatteryPack;
+
+    require constraint {
+      battery.stateOfCharge > 5 [%]
+    }
+  }
+
+  part perceptualInspectionRobot : PerceptualRobot {
+    attribute nominalMissionDuration = 4 [h];
+    attribute safeObstacleClearance = 0.40 [m];
+
+    part camera {
+      attribute nominalFrameRate = 30 [Hz];
+      attribute maximumRange = 12.0 [m];
+    }
+
+    part perception {
+      attribute currentComputeLoad = 62 [%];
+    }
+
+    part battery {
+      attribute stateOfCharge = 100 [%];
+    }
+
+    part mapper {
+      attribute maximumPoseError = 0.10 [m];
+    }
+
+    part executive {
+      attribute minimumObjectConfidence = 0.80;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by perceptualInspectionRobot;
+  satisfy MissionEnduranceRequirement by perceptualInspectionRobot;
+  satisfy PerceptionLatencyRequirement by perceptualInspectionRobot.perception;
+  satisfy DetectionConfidenceRequirement by perceptualInspectionRobot.executive;
+  satisfy MappingAccuracyRequirement by perceptualInspectionRobot.mapper;
+  satisfy MobilitySafetyRequirement by perceptualInspectionRobot.base;
+  satisfy SafeEnergyRequirement by perceptualInspectionRobot.battery;
+}
+tokens used
+4,700
+package PerceptualRoboticsSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Probability {
+    :> ScalarValues::Real;
+  }
+
+  attribute def ConfidenceScore {
+    :> Probability;
+    constraint validRange {
+      0.0 <= self <= 1.0
+    }
+  }
+
+  attribute def Percent {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def Pixel {
+    :> ScalarValues::Integer;
+  }
+
+  attribute def FrameRate {
+    :> ScalarValues::Real;
+    unit = "Hz";
+  }
+
+  attribute def DataRate {
+    :> ScalarValues::Real;
+    unit = "Mbit/s";
+  }
+
+  attribute def ComputeLoad {
+    :> Percent;
+  }
+
+  attribute def ElectricChargeCapacity {
+    :> ScalarValues::Real;
+    unit = "A*h";
+  }
+
+  item def ImageFrame {
+    attribute width : Pixel;
+    attribute height : Pixel;
+    attribute timestamp : Time;
+    attribute frameRate : FrameRate;
+  }
+
+  item def DepthFrame {
+    attribute width : Pixel;
+    attribute height : Pixel;
+    attribute timestamp : Time;
+    attribute maxRange : Length;
+    attribute depthResolution : Length;
+  }
+
+  item def InertialSample {
+    attribute timestamp : Time;
+    attribute linearAccelerationX : Acceleration;
+    attribute linearAccelerationY : Acceleration;
+    attribute linearAccelerationZ : Acceleration;
+    attribute angularRateX : AngularVelocity;
+    attribute angularRateY : AngularVelocity;
+    attribute angularRateZ : AngularVelocity;
+  }
+
+  item def WheelOdometry {
+    attribute timestamp : Time;
+    attribute leftWheelDistance : Length;
+    attribute rightWheelDistance : Length;
+    attribute estimatedSpeed : Speed;
+  }
+
+  item def Percept {
+    attribute timestamp : Time;
+    attribute objectClass : String;
+    attribute objectId : String;
+    attribute confidence : ConfidenceScore;
+    attribute range : Length;
+    attribute bearing : Angle;
+  }
+
+  item def SemanticMap {
+    attribute timestamp : Time;
+    attribute mapResolution : Length;
+    attribute knownArea : Area;
+    attribute occupiedCellCount : ScalarValues::Integer;
+    attribute landmarkCount : ScalarValues::Integer;
+  }
+
+  item def RobotPose {
+    attribute timestamp : Time;
+    attribute x : Length;
+    attribute y : Length;
+    attribute yaw : Angle;
+    attribute covarianceTrace : ScalarValues::Real;
+  }
+
+  item def MotionCommand {
+    attribute targetLinearSpeed : Speed;
+    attribute targetAngularSpeed : AngularVelocity;
+    attribute commandTimeout : Time;
+  }
+
+  item def HealthStatus {
+    attribute batteryStateOfCharge : Percent;
+    attribute perceptionComputeLoad : ComputeLoad;
+    attribute thermalMargin : Temperature;
+    attribute degradedModeActive : Boolean;
+  }
+
+  item def MissionGoal {
+    attribute goalId : String;
+    attribute targetX : Length;
+    attribute targetY : Length;
+    attribute requiredStandoff : Length;
+    attribute priority : ScalarValues::Integer;
+  }
+
+  port def ImageOutPort {
+    out item frame : ImageFrame;
+  }
+
+  port def DepthOutPort {
+    out item depth : DepthFrame;
+  }
+
+  port def InertialOutPort {
+    out item sample : InertialSample;
+  }
+
+  port def OdometryOutPort {
+    out item odometry : WheelOdometry;
+  }
+
+  port def PerceptOutPort {
+    out item percept : Percept;
+  }
+
+  port def MapOutPort {
+    out item map : SemanticMap;
+  }
+
+  port def PoseOutPort {
+    out item pose : RobotPose;
+  }
+
+  port def MotionCommandPort {
+    in item command : MotionCommand;
+  }
+
+  port def MissionGoalPort {
+    in item goal : MissionGoal;
+  }
+
+  port def HealthOutPort {
+    out item status : HealthStatus;
+  }
+
+  part def RGBDCamera {
+    attribute horizontalFieldOfView : Angle = 87 [deg];
+    attribute verticalFieldOfView : Angle = 58 [deg];
+    attribute minimumRange : Length = 0.25 [m];
+    attribute maximumRange : Length = 12.0 [m];
+    attribute nominalFrameRate : FrameRate = 30 [Hz];
+
+    port imageOut : ImageOutPort;
+    port depthOut : DepthOutPort;
+  }
+
+  part def InertialMeasurementUnit {
+    attribute sampleRate : FrameRate = 200 [Hz];
+    attribute gyroBiasStability : AngularVelocity = 0.5 [deg / h];
+
+    port inertialOut : InertialOutPort;
+  }
+
+  part def WheelEncoderSet {
+    attribute ticksPerRevolution : ScalarValues::Integer = 4096;
+    attribute wheelRadius : Length = 0.095 [m];
+
+    port odometryOut : OdometryOutPort;
+  }
+
+  part def PerceptionComputer {
+    attribute peakComputeThroughput : ScalarValues::Real = 32.0;
+    attribute thermalDesignPower : Power = 45 [W];
+    attribute currentComputeLoad : ComputeLoad;
+
+    port imageIn {
+      in item frame : ImageFrame;
+    }
+
+    port depthIn {
+      in item depth : DepthFrame;
+    }
+
+    port inertialIn {
+      in item sample : InertialSample;
+    }
+
+    port perceptOut : PerceptOutPort;
+    port healthOut : HealthOutPort;
+  }
+
+  part def LocalizationAndMappingUnit {
+    attribute mapResolution : Length = 0.05 [m];
+    attribute poseUpdateRate : FrameRate = 50 [Hz];
+    attribute maximumPoseError : Length = 0.15 [m];
+
+    port perceptIn {
+      in item percept : Percept;
+    }
+
+    port odometryIn {
+      in item odometry : WheelOdometry;
+    }
+
+    port inertialIn {
+      in item sample : InertialSample;
+    }
+
+    port poseOut : PoseOutPort;
+    port mapOut : MapOutPort;
+  }
+
+  part def MissionExecutive {
+    attribute replanningInterval : Time = 0.5 [s];
+    attribute minimumObjectConfidence : ConfidenceScore = 0.75;
+
+    port goalIn : MissionGoalPort;
+
+    port poseIn {
+      in item pose : RobotPose;
+    }
+
+    port mapIn {
+      in item map : SemanticMap;
+    }
+
+    port perceptIn {
+      in item percept : Percept;
+    }
+
+    port commandOut {
+      out item command : MotionCommand;
+    }
+  }
+
+  part def MobilityBase {
+    attribute maximumLinearSpeed : Speed = 1.5 [m / s];
+    attribute maximumAngularSpeed : AngularVelocity = 120 [deg / s];
+    attribute trackWidth : Length = 0.48 [m];
+
+    port commandIn : MotionCommandPort;
+    port odometryOut : OdometryOutPort;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : ElectricPotential = 24 [V];
+    attribute capacity : ElectricChargeCapacity = 18 [A*h];
+    attribute stateOfCharge : Percent;
+
+    port healthOut : HealthOutPort;
+  }
+
+  part def PerceptualRobot {
+    attribute primaryFunction : String = "Perceive, understand, and safely navigate a dynamic environment by fusing visual, depth, inertial, and odometric data into actionable world models and motion commands.";
+    attribute nominalMissionDuration : Time = 4 [h];
+    attribute safeObstacleClearance : Length = 0.35 [m];
+
+    part camera : RGBDCamera;
+    part imu : InertialMeasurementUnit;
+    part encoders : WheelEncoderSet;
+    part perception : PerceptionComputer;
+    part mapper : LocalizationAndMappingUnit;
+    part executive : MissionExecutive;
+    part base : MobilityBase;
+    part battery : BatteryPack;
+
+    port missionGoalIn : MissionGoalPort;
+    port robotHealthOut : HealthOutPort;
+
+    connect camera.imageOut to perception.imageIn;
+    connect camera.depthOut to perception.depthIn;
+    connect imu.inertialOut to perception.inertialIn;
+    connect imu.inertialOut to mapper.inertialIn;
+    connect encoders.odometryOut to mapper.odometryIn;
+    connect base.odometryOut to mapper.odometryIn;
+    connect perception.perceptOut to mapper.perceptIn;
+    connect perception.perceptOut to executive.perceptIn;
+    connect mapper.poseOut to executive.poseIn;
+    connect mapper.mapOut to executive.mapIn;
+    connect executive.commandOut to base.commandIn;
+    connect missionGoalIn to executive.goalIn;
+    connect perception.healthOut to robotHealthOut;
+    connect battery.healthOut to robotHealthOut;
+
+    action perceiveEnvironment {
+      in item image : ImageFrame;
+      in item depth : DepthFrame;
+      in item inertial : InertialSample;
+      out item percept : Percept;
+
+      first start;
+      then synchronizeSensorSamples;
+      then detectObjects;
+      then estimateObjectRangeAndBearing;
+      then classifyTraversableSpace;
+      then publishPercepts;
+      then done;
+
+      action synchronizeSensorSamples;
+      action detectObjects;
+      action estimateObjectRangeAndBearing;
+      action classifyTraversableSpace;
+      action publishPercepts;
+    }
+
+    action buildWorldModel {
+      in item percept : Percept;
+      in item odometry : WheelOdometry;
+      in item inertial : InertialSample;
+      out item pose : RobotPose;
+      out item map : SemanticMap;
+
+      first start;
+      then predictPoseFromMotion;
+      then correctPoseWithLandmarks;
+      then updateOccupancyGrid;
+      then updateSemanticLandmarks;
+      then publishWorldModel;
+      then done;
+
+      action predictPoseFromMotion;
+      action correctPoseWithLandmarks;
+      action updateOccupancyGrid;
+      action updateSemanticLandmarks;
+      action publishWorldModel;
+    }
+
+    action executePerceptualNavigation {
+      in item goal : MissionGoal;
+      in item pose : RobotPose;
+      in item map : SemanticMap;
+      in item percept : Percept;
+      out item command : MotionCommand;
+
+      first start;
+      then evaluateGoal;
+      then planCollisionFreePath;
+      then selectLocalTrajectory;
+      then commandMobilityBase;
+      then monitorProgress;
+      then done;
+
+      action evaluateGoal;
+      action planCollisionFreePath;
+      action selectLocalTrajectory;
+      action commandMobilityBase;
+      action monitorProgress;
+    }
+
+    state def OperationalStateMachine {
+      entry action initializeSensors;
+      exit action stopMotion;
+
+      state powerOff;
+      state booting;
+      state calibrating;
+      state perceiving;
+      state mapping;
+      state navigating;
+      state degradedPerception;
+      state safeStop;
+      state fault;
+
+      transition powerOff_to_booting
+        first powerOff
+        accept after 1 [s]
+        then booting;
+
+      transition booting_to_calibrating
+        first booting
+        accept after 8 [s]
+        then calibrating;
+
+      transition calibrating_to_perceiving
+        first calibrating
+        accept after 5 [s]
+        then perceiving;
+
+      transition perceiving_to_mapping
+        first perceiving
+        accept when perception.currentComputeLoad < 85 [%]
+        then mapping;
+
+      transition mapping_to_navigating
+        first mapping
+        accept when mapper.maximumPoseError <= 0.15 [m]
+        then navigating;
+
+      transition navigating_to_degraded
+        first navigating
+        accept when perception.currentComputeLoad >= 90 [%]
+        then degradedPerception;
+
+      transition degraded_to_navigating
+        first degradedPerception
+        accept when perception.currentComputeLoad < 75 [%]
+        then navigating;
+
+      transition navigating_to_safeStop
+        first navigating
+        accept when battery.stateOfCharge <= 15 [%]
+        then safeStop;
+
+      transition degraded_to_safeStop
+        first degradedPerception
+        accept when battery.stateOfCharge <= 15 [%]
+        then safeStop;
+
+      transition any_to_fault
+        first perceiving
+        accept when battery.stateOfCharge <= 5 [%]
+        then fault;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The perceptual robot shall transform raw sensor observations into a semantic world model and use that model to navigate safely toward mission goals. */
+
+    subject robot : PerceptualRobot;
+
+    require constraint {
+      robot.safeObstacleClearance >= 0.35 [m]
+    }
+  }
+
+  requirement def PerceptionLatencyRequirement {
+    doc
+    /* The perception pipeline shall publish object and traversability percepts with bounded latency during nominal operation. */
+
+    subject perception : PerceptionComputer;
+
+    attribute maximumLatency : Time = 100 [ms];
+
+    require constraint {
+      perception.currentComputeLoad <= 85 [%]
+    }
+  }
+
+  requirement def DetectionConfidenceRequirement {
+    doc
+    /* The mission executive shall use only percepts whose confidence is sufficient for autonomous navigation decisions. */
+
+    subject executive : MissionExecutive;
+
+    require constraint {
+      executive.minimumObjectConfidence >= 0.75
+    }
+  }
+
+  requirement def MappingAccuracyRequirement {
+    doc
+    /* The localization and mapping unit shall maintain pose error low enough for indoor navigation through constrained spaces. */
+
+    subject mapper : LocalizationAndMappingUnit;
+
+    require constraint {
+      mapper.maximumPoseError <= 0.15 [m]
+    }
+  }
+
+  requirement def MobilitySafetyRequirement {
+    doc
+    /* The mobility base shall limit commanded motion to the robot platform's verified dynamic envelope. */
+
+    subject base : MobilityBase;
+
+    require constraint {
+      base.maximumLinearSpeed <= 1.5 [m / s] and
+      base.maximumAngularSpeed <= 120 [deg / s]
+    }
+  }
+
+  requirement def MissionEnduranceRequirement {
+    doc
+    /* The robot shall support perceptual navigation missions for at least four hours under nominal sensing and compute load. */
+
+    subject robot : PerceptualRobot;
+
+    require constraint {
+      robot.nominalMissionDuration >= 4 [h]
+    }
+  }
+
+  requirement def SafeEnergyRequirement {
+    doc
+    /* The robot shall enter safe stop before battery state of charge reaches a critically low condition. */
+
+    subject battery : BatteryPack;
+
+    require constraint {
+      battery.stateOfCharge > 5 [%]
+    }
+  }
+
+  part perceptualInspectionRobot : PerceptualRobot {
+    attribute nominalMissionDuration = 4 [h];
+    attribute safeObstacleClearance = 0.40 [m];
+
+    part camera {
+      attribute nominalFrameRate = 30 [Hz];
+      attribute maximumRange = 12.0 [m];
+    }
+
+    part perception {
+      attribute currentComputeLoad = 62 [%];
+    }
+
+    part battery {
+      attribute stateOfCharge = 100 [%];
+    }
+
+    part mapper {
+      attribute maximumPoseError = 0.10 [m];
+    }
+
+    part executive {
+      attribute minimumObjectConfidence = 0.80;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by perceptualInspectionRobot;
+  satisfy MissionEnduranceRequirement by perceptualInspectionRobot;
+  satisfy PerceptionLatencyRequirement by perceptualInspectionRobot.perception;
+  satisfy DetectionConfidenceRequirement by perceptualInspectionRobot.executive;
+  satisfy MappingAccuracyRequirement by perceptualInspectionRobot.mapper;
+  satisfy MobilitySafetyRequirement by perceptualInspectionRobot.base;
+  satisfy SafeEnergyRequirement by perceptualInspectionRobot.battery;
+}

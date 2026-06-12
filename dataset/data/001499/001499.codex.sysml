@@ -1,0 +1,393 @@
+package MicrosoftResearchSilicaArchiveSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def BitCount :> ScalarValues::Integer;
+    attribute def ErrorRate :> ScalarValues::Real;
+    attribute def TemperatureC :> ScalarValues::Real {
+        unit = "degC";
+    }
+    attribute def LaserPower :> ScalarValues::Real {
+        unit = "W";
+    }
+    attribute def StorageDensity :> ScalarValues::Real {
+        unit = "TB_per_plate";
+    }
+    attribute def DurationYears :> ScalarValues::Real {
+        unit = "yr";
+    }
+    attribute def Throughput :> ScalarValues::Real {
+        unit = "MB_per_s";
+    }
+
+    item def DigitalArchiveObject {
+        attribute objectId : String;
+        attribute payloadSizeBits : BitCount;
+        attribute checksum : String;
+        attribute retentionTarget : DurationYears;
+    }
+
+    item def EncodedVoxelPattern {
+        attribute voxelCount : BitCount;
+        attribute encodingScheme : String = "multi-layer birefringent voxel encoding";
+        attribute redundancyFactor : Real;
+    }
+
+    item def FusedSilicaPlate {
+        attribute plateId : String;
+        attribute capacity : StorageDensity;
+        attribute operatingTemperature : TemperatureC;
+        attribute expectedLifetime : DurationYears;
+    }
+
+    item def OpticalReadSignal {
+        attribute frameId : String;
+        attribute signalToNoiseRatio : Real;
+        attribute correctedBitErrorRate : ErrorRate;
+    }
+
+    port def DataInPort {
+        in item archiveObject : DigitalArchiveObject;
+    }
+
+    port def DataOutPort {
+        out item archiveObject : DigitalArchiveObject;
+    }
+
+    port def EncodedPatternPort {
+        out item pattern : EncodedVoxelPattern;
+    }
+
+    port def PlateWritePort {
+        in item pattern : EncodedVoxelPattern;
+        out item writtenPlate : FusedSilicaPlate;
+    }
+
+    port def PlateReadPort {
+        in item plate : FusedSilicaPlate;
+        out item opticalSignal : OpticalReadSignal;
+    }
+
+    part def SilicaArchiveSystem {
+        attribute primaryFunction : String =
+            "Preserve large-scale digital information for long-duration archival storage by encoding data as durable optical voxel patterns inside fused silica glass and later reconstructing the original digital objects through optical reading and error correction.";
+
+        attribute nominalCapacityPerPlate : StorageDensity = 7.0;
+        attribute archiveLifetimeGoal : DurationYears = 1000.0;
+        attribute maximumCorrectedBitErrorRate : ErrorRate = 1.0e-15;
+
+        port ingest : DataInPort;
+        port retrieve : DataOutPort;
+
+        part controller : ArchiveController;
+        part encoder : DataEncoder;
+        part laserWriter : UltrafastLaserWriter;
+        part plateLibrary : SilicaPlateLibrary;
+        part opticalReader : PolarizationMicroscopeReader;
+        part decoder : DataDecoder;
+        part integrityManager : IntegrityManager;
+        part thermalMonitor : EnvironmentalMonitor;
+
+        connect ingest.archiveObject to controller.incomingObject;
+        connect controller.objectForEncoding to encoder.archiveObject;
+        connect encoder.encodedPattern to laserWriter.patternInput;
+        connect laserWriter.writtenPlate to plateLibrary.storedPlate;
+        connect plateLibrary.plateForReading to opticalReader.plateInput;
+        connect opticalReader.opticalSignal to decoder.signalInput;
+        connect decoder.reconstructedObject to integrityManager.candidateObject;
+        connect integrityManager.verifiedObject to retrieve.archiveObject;
+    }
+
+    part def ArchiveController {
+        port incomingObject : DataInPort;
+        port objectForEncoding : DataInPort;
+
+        attribute queuedObjects : Integer;
+        attribute activeRequestId : String;
+
+        action enqueueArchiveObject {
+            in item object : DigitalArchiveObject;
+            out item acceptedObject : DigitalArchiveObject;
+            first start;
+            then validateMetadata;
+            then assignRetentionClass;
+            then acceptedObject = object;
+        }
+
+        state def ControllerState {
+            state idle;
+            state accepting;
+            state schedulingWrite;
+            state schedulingRead;
+            state faulted;
+
+            transition idle then accepting
+                accept ArchiveObjectReceived;
+
+            transition accepting then schedulingWrite
+                if queuedObjects > 0;
+
+            transition schedulingWrite then idle
+                accept WriteComplete;
+
+            transition idle then schedulingRead
+                accept RetrievalRequested;
+
+            transition schedulingRead then idle
+                accept ReadComplete;
+
+            transition accepting then faulted
+                accept InvalidArchiveObject;
+        }
+    }
+
+    part def DataEncoder {
+        port archiveObject : DataInPort;
+        port encodedPattern : EncodedPatternPort;
+
+        attribute compressionEnabled : Boolean = true;
+        attribute erasureCodingBlocks : Integer = 16;
+        attribute targetRedundancyFactor : Real = 1.35;
+
+        action encodeForSilica {
+            in item object : DigitalArchiveObject;
+            out item pattern : EncodedVoxelPattern;
+            first compressPayload;
+            then calculateForwardErrorCorrection;
+            then mapBitsToVoxelLayers;
+            then pattern.encodingScheme = "Microsoft Research Project Silica inspired femtosecond-laser voxel layout";
+            then pattern.redundancyFactor = targetRedundancyFactor;
+        }
+    }
+
+    part def UltrafastLaserWriter {
+        port patternInput : PlateWritePort;
+        port writtenPlate : PlateWritePort;
+
+        attribute laserPulsePower : LaserPower = 0.45;
+        attribute writeThroughput : Throughput = 12.0;
+        attribute layerCount : Integer = 74;
+        attribute focusDepthMicrometers : Real = 850.0;
+
+        action writeVoxelPattern {
+            in item pattern : EncodedVoxelPattern;
+            out item plate : FusedSilicaPlate;
+            first loadBlankFusedSilica;
+            then calibrateLaserFocus;
+            then writeMultiLayerVoxels;
+            then verifySampleRegions;
+            then plate.capacity = 7.0;
+            then plate.expectedLifetime = 1000.0;
+        }
+
+        state def WriterState {
+            state standby;
+            state calibrated;
+            state writing;
+            state verifying;
+            state maintenanceRequired;
+
+            transition standby then calibrated
+                accept CalibrationCommand;
+
+            transition calibrated then writing
+                accept PatternReady;
+
+            transition writing then verifying
+                accept WriteFinished;
+
+            transition verifying then standby
+                if patternInput.pattern.voxelCount > 0;
+
+            transition verifying then maintenanceRequired
+                accept VerificationFailed;
+        }
+    }
+
+    part def SilicaPlateLibrary {
+        port storedPlate : PlateWritePort;
+        port plateForReading : PlateReadPort;
+
+        attribute plateCount : Integer;
+        attribute controlledHumidityPercent : Real = 35.0;
+        attribute storageTemperature : TemperatureC = 22.0;
+
+        action storePlate {
+            in item plate : FusedSilicaPlate;
+            first assignPhysicalSlot;
+            then indexPlateId;
+            then confirmPassiveStorageCondition;
+        }
+
+        action fetchPlate {
+            in attribute plateId : String;
+            out item plate : FusedSilicaPlate;
+            first locateSlot;
+            then movePlateToReader;
+            then plate.plateId = plateId;
+        }
+    }
+
+    part def PolarizationMicroscopeReader {
+        port plateInput : PlateReadPort;
+        port opticalSignal : PlateReadPort;
+
+        attribute readThroughput : Throughput = 35.0;
+        attribute polarizationAngles : Integer = 4;
+        attribute imagingResolutionNanometers : Real = 250.0;
+
+        action readSilicaPlate {
+            in item plate : FusedSilicaPlate;
+            out item signal : OpticalReadSignal;
+            first illuminateVoxelLayers;
+            then capturePolarizationFrames;
+            then reconstructVoxelOrientations;
+            then signal.correctedBitErrorRate = 1.0e-16;
+        }
+
+        state def ReaderState {
+            state idle;
+            state loading;
+            state imaging;
+            state signalProcessing;
+            state complete;
+
+            transition idle then loading
+                accept PlateAvailable;
+
+            transition loading then imaging
+                accept PlateLoaded;
+
+            transition imaging then signalProcessing
+                accept ImagingComplete;
+
+            transition signalProcessing then complete
+                if opticalSignal.opticalSignal.signalToNoiseRatio >= 30.0;
+
+            transition complete then idle
+                accept ResultTransferred;
+        }
+    }
+
+    part def DataDecoder {
+        port signalInput : PlateReadPort;
+        port reconstructedObject : DataOutPort;
+
+        attribute correctionAlgorithm : String = "Reed-Solomon plus interleaved parity recovery";
+        attribute maximumRecoverableRawErrorRate : ErrorRate = 1.0e-3;
+
+        action decodeArchiveObject {
+            in item signal : OpticalReadSignal;
+            out item object : DigitalArchiveObject;
+            first demapVoxelOrientationsToBits;
+            then applyErrorCorrection;
+            then decompressPayload;
+            then rebuildMetadataEnvelope;
+        }
+    }
+
+    part def IntegrityManager {
+        port candidateObject : DataOutPort;
+        port verifiedObject : DataOutPort;
+
+        attribute checksumAlgorithm : String = "SHA-256";
+        attribute verificationFailures : Integer;
+
+        action verifyObject {
+            in item candidate : DigitalArchiveObject;
+            out item verified : DigitalArchiveObject;
+            first computeChecksum;
+            then compareStoredChecksum;
+            then verified = candidate;
+        }
+
+        state def IntegrityState {
+            state waiting;
+            state verifying;
+            state accepted;
+            state rejected;
+
+            transition waiting then verifying
+                accept CandidateObjectReady;
+
+            transition verifying then accepted
+                if candidateObject.archiveObject.checksum == verifiedObject.archiveObject.checksum;
+
+            transition verifying then rejected
+                accept ChecksumMismatch;
+
+            transition accepted then waiting
+                accept DeliveryComplete;
+        }
+    }
+
+    part def EnvironmentalMonitor {
+        attribute measuredTemperature : TemperatureC;
+        attribute measuredHumidityPercent : Real;
+        attribute vibrationLevelG : Real;
+        attribute alarmActive : Boolean;
+
+        action assessStorageEnvironment {
+            first sampleTemperature;
+            then sampleHumidity;
+            then sampleVibration;
+            then evaluateArchiveRisk;
+        }
+
+        state def EnvironmentState {
+            state nominal;
+            state warning;
+            state protectiveHold;
+
+            transition nominal then warning
+                if measuredTemperature > 35.0;
+
+            transition warning then protectiveHold
+                if measuredTemperature > 50.0;
+
+            transition warning then nominal
+                if measuredTemperature <= 30.0;
+
+            transition protectiveHold then nominal
+                accept EnvironmentRestored;
+        }
+    }
+
+    requirement def LongTermDurabilityRequirement {
+        doc "The archive medium shall preserve encoded information for at least 1000 years under specified passive storage conditions.";
+        subject archive : SilicaArchiveSystem;
+        require constraint { archive.archiveLifetimeGoal >= 1000.0 }
+    }
+
+    requirement def ErrorCorrectionRequirement {
+        doc "The system shall reconstruct archived digital objects with a corrected bit error rate no greater than 1e-15.";
+        subject archive : SilicaArchiveSystem;
+        require constraint { archive.maximumCorrectedBitErrorRate <= 1.0e-15 }
+    }
+
+    requirement def PassiveMediaRequirement {
+        doc "The storage medium shall not require continuous electrical power to retain archived data.";
+        subject library : SilicaPlateLibrary;
+        require constraint { library.storageTemperature >= -40.0 and library.storageTemperature <= 85.0 }
+    }
+
+    requirement def OpticalEncodingRequirement {
+        doc "The system shall encode digital data into multi-layer optical voxel patterns within fused silica plates.";
+        subject writer : UltrafastLaserWriter;
+        require constraint { writer.layerCount >= 50 }
+    }
+
+    requirement def RetrievalRequirement {
+        doc "The system shall retrieve a verified digital archive object from an identified silica plate using optical reading and integrity verification.";
+        subject archive : SilicaArchiveSystem;
+        require constraint { archive.maximumCorrectedBitErrorRate <= 1.0e-15 }
+    }
+
+    satisfy LongTermDurabilityRequirement by SilicaArchiveSystem;
+    satisfy ErrorCorrectionRequirement by SilicaArchiveSystem;
+    satisfy PassiveMediaRequirement by SilicaPlateLibrary;
+    satisfy OpticalEncodingRequirement by UltrafastLaserWriter;
+    satisfy RetrievalRequirement by SilicaArchiveSystem;
+}

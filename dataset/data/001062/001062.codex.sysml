@@ -1,0 +1,582 @@
+package FunctionalMagneticResonanceImagingSystemModel {
+
+    attribute def Tesla;
+    attribute def Hertz;
+    attribute def Kilohertz;
+    attribute def Megahertz;
+    attribute def Millisecond;
+    attribute def Second;
+    attribute def Millimeter;
+    attribute def DegreeCelsius;
+    attribute def LiterPerMinute;
+    attribute def Volt;
+    attribute def Ampere;
+    attribute def Watt;
+    attribute def Decibel;
+    attribute def Percent;
+    attribute def BitPerSecond;
+
+    item def Patient {
+        attribute patientIdentifier : String;
+        attribute bodyMass : Real;
+        attribute screeningComplete : Boolean;
+        attribute hasFerromagneticImplant : Boolean;
+    }
+
+    item def NeuralActivation {
+        attribute regionName : String;
+        attribute activationLevel : Percent;
+        attribute onsetTime : Second;
+        attribute duration : Second;
+    }
+
+    item def HemodynamicResponse {
+        attribute oxygenationChange : Percent;
+        attribute peakDelay : Second;
+        attribute responseMagnitude : Percent;
+    }
+
+    item def MagneticField {
+        attribute fieldStrength : Tesla;
+        attribute homogeneity : Percent;
+        attribute stability : Percent;
+    }
+
+    item def RFExcitationPulse {
+        attribute centerFrequency : Megahertz;
+        attribute flipAngle : Real;
+        attribute pulseDuration : Millisecond;
+        attribute transmittedPower : Watt;
+    }
+
+    item def GradientWaveform {
+        attribute axis : String;
+        attribute amplitude : Real;
+        attribute slewRate : Real;
+        attribute duration : Millisecond;
+    }
+
+    item def MRSignal {
+        attribute frequency : Megahertz;
+        attribute phase : Real;
+        attribute amplitude : Real;
+        attribute echoTime : Millisecond;
+        attribute repetitionTime : Millisecond;
+    }
+
+    item def KSpaceData {
+        attribute matrixRows : Integer;
+        attribute matrixColumns : Integer;
+        attribute sampleCount : Integer;
+        attribute bandwidth : Kilohertz;
+    }
+
+    item def ImageVolume {
+        attribute voxelSizeX : Millimeter;
+        attribute voxelSizeY : Millimeter;
+        attribute voxelSizeZ : Millimeter;
+        attribute sliceCount : Integer;
+        attribute volumeIndex : Integer;
+    }
+
+    item def FunctionalActivationMap {
+        attribute statisticalThreshold : Real;
+        attribute activatedVoxelCount : Integer;
+        attribute confidenceLevel : Percent;
+        attribute mapLabel : String;
+    }
+
+    item def ScanProtocol {
+        attribute protocolName : String;
+        attribute fieldStrength : Tesla;
+        attribute echoTime : Millisecond;
+        attribute repetitionTime : Millisecond;
+        attribute flipAngle : Real;
+        attribute sliceThickness : Millimeter;
+        attribute totalScanTime : Second;
+    }
+
+    item def VisualStimulus {
+        attribute stimulusName : String;
+        attribute presentationTime : Second;
+        attribute duration : Second;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : DegreeCelsius;
+        attribute flowRate : LiterPerMinute;
+    }
+
+    item def ControlCommand {
+        attribute commandName : String;
+        attribute commandTime : Second;
+        attribute commandValid : Boolean;
+    }
+
+    item def SafetyInterlock {
+        attribute emergencyStopActive : Boolean;
+        attribute doorClosed : Boolean;
+        attribute quenchRequested : Boolean;
+        attribute rfLimitExceeded : Boolean;
+    }
+
+    port def PatientBorePort {
+        in patient : Patient;
+        out patientPositioned : Patient;
+    }
+
+    port def MagneticFieldPort {
+        out field : MagneticField;
+    }
+
+    port def RFTransmitPort {
+        out pulse : RFExcitationPulse;
+    }
+
+    port def RFReceivePort {
+        in signal : MRSignal;
+    }
+
+    port def GradientPort {
+        out waveform : GradientWaveform;
+    }
+
+    port def KSpacePort {
+        out data : KSpaceData;
+    }
+
+    port def ImagePort {
+        out image : ImageVolume;
+    }
+
+    port def ActivationMapPort {
+        out map : FunctionalActivationMap;
+    }
+
+    port def ProtocolPort {
+        in protocol : ScanProtocol;
+    }
+
+    port def StimulusPort {
+        out stimulus : VisualStimulus;
+    }
+
+    port def CoolingPort {
+        in fluidIn : CoolingFluid;
+        out fluidOut : CoolingFluid;
+    }
+
+    port def CommandPort {
+        in command : ControlCommand;
+    }
+
+    port def InterlockPort {
+        inout interlock : SafetyInterlock;
+    }
+
+    part def SuperconductingMagnet {
+        attribute nominalFieldStrength : Tesla = 3.0;
+        attribute boreDiameter : Millimeter = 700.0;
+        attribute fieldHomogeneity : Percent = 99.98;
+        attribute cryogenicTemperature : DegreeCelsius = -269.0;
+
+        port fieldOutput : MagneticFieldPort;
+        port coolingInterface : CoolingPort;
+        port safetyInterface : InterlockPort;
+
+        action generateStaticMagneticField {
+            out generatedField : MagneticField;
+        }
+
+        state magnetOperatingState {
+            state Off;
+            state RampUp;
+            state StableField;
+            state QuenchProtection;
+            state ServiceMode;
+
+            initial then Off;
+            transition Off to RampUp;
+            transition RampUp to StableField;
+            transition StableField to QuenchProtection;
+            transition QuenchProtection to ServiceMode;
+            transition ServiceMode to RampUp;
+        }
+    }
+
+    part def GradientCoilAssembly {
+        attribute maxGradientAmplitude : Real = 45.0;
+        attribute maxSlewRate : Real = 200.0;
+        attribute acousticNoiseLimit : Decibel = 118.0;
+
+        port gradientOutput : GradientPort;
+        port commandInput : CommandPort;
+        port coolingInterface : CoolingPort;
+
+        action encodeSpatialPosition {
+            in protocol : ScanProtocol;
+            out sliceSelectionGradient : GradientWaveform;
+            out phaseEncodingGradient : GradientWaveform;
+            out frequencyEncodingGradient : GradientWaveform;
+        }
+    }
+
+    part def RFTransmitReceiveSubsystem {
+        attribute transmitFrequency : Megahertz = 127.7;
+        attribute maxTransmitPower : Watt = 15000.0;
+        attribute receiveBandwidth : Kilohertz = 250.0;
+        attribute coilChannelCount : Integer = 32;
+
+        port rfTransmitOutput : RFTransmitPort;
+        port rfReceiveInput : RFReceivePort;
+        port commandInput : CommandPort;
+        port safetyInterface : InterlockPort;
+
+        action exciteHydrogenNuclei {
+            in protocol : ScanProtocol;
+            out excitationPulse : RFExcitationPulse;
+        }
+
+        action acquireEchoSignal {
+            in response : HemodynamicResponse;
+            out signal : MRSignal;
+        }
+    }
+
+    part def PatientTableAndBore {
+        attribute tableTravelRange : Millimeter = 2200.0;
+        attribute positioningAccuracy : Millimeter = 1.0;
+        attribute maximumPatientMass : Real = 250.0;
+
+        port patientInterface : PatientBorePort;
+        port commandInput : CommandPort;
+        port safetyInterface : InterlockPort;
+
+        action positionPatientForBrainScan {
+            in patient : Patient;
+            out positionedPatient : Patient;
+        }
+    }
+
+    part def PhysiologicalMonitoringSubsystem {
+        attribute samplingRate : Hertz = 1000.0;
+        attribute oxygenSaturationAccuracy : Percent = 2.0;
+
+        port commandInput : CommandPort;
+
+        action monitorPatientStatus {
+            in patient : Patient;
+            out motionDetected : Boolean;
+            out scanPermitted : Boolean;
+        }
+    }
+
+    part def StimulusPresentationSubsystem {
+        attribute displayRefreshRate : Hertz = 60.0;
+        attribute audioOutputLimit : Decibel = 85.0;
+        attribute triggerLatency : Millisecond = 5.0;
+
+        port stimulusOutput : StimulusPort;
+        port commandInput : CommandPort;
+
+        action presentTaskStimulus {
+            in protocol : ScanProtocol;
+            out stimulus : VisualStimulus;
+        }
+    }
+
+    part def ScannerControlComputer {
+        attribute clockAccuracy : Millisecond = 1.0;
+        attribute protocolLibraryVersion : String = "BOLD-EPI-Clinical-3T";
+
+        port protocolInput : ProtocolPort;
+        port magnetCommand : CommandPort;
+        port gradientCommand : CommandPort;
+        port rfCommand : CommandPort;
+        port tableCommand : CommandPort;
+        port stimulusCommand : CommandPort;
+        port safetyInterface : InterlockPort;
+
+        action coordinateScanSequence {
+            in protocol : ScanProtocol;
+            out magnetCommandOut : ControlCommand;
+            out gradientCommandOut : ControlCommand;
+            out rfCommandOut : ControlCommand;
+            out tableCommandOut : ControlCommand;
+            out stimulusCommandOut : ControlCommand;
+        }
+    }
+
+    part def SignalAcquisitionAndDigitizer {
+        attribute analogToDigitalResolution : Integer = 16;
+        attribute sampleRate : Megahertz = 2.5;
+        attribute dataThroughput : BitPerSecond = 800000000.0;
+
+        port rfSignalInput : RFReceivePort;
+        port kSpaceOutput : KSpacePort;
+        port commandInput : CommandPort;
+
+        action digitizeMRSignal {
+            in signal : MRSignal;
+            out rawKSpace : KSpaceData;
+        }
+    }
+
+    part def ImageReconstructionProcessor {
+        attribute reconstructionLatency : Second = 2.0;
+        attribute motionCorrectionEnabled : Boolean = true;
+        attribute distortionCorrectionEnabled : Boolean = true;
+
+        port kSpaceInput : KSpacePort;
+        port imageOutput : ImagePort;
+        port commandInput : CommandPort;
+
+        action reconstructImageVolume {
+            in rawKSpace : KSpaceData;
+            out imageVolume : ImageVolume;
+        }
+    }
+
+    part def FunctionalAnalysisProcessor {
+        attribute temporalFilteringEnabled : Boolean = true;
+        attribute statisticalModel : String = "GeneralLinearModel";
+        attribute activationThreshold : Real = 3.1;
+
+        port imageInput : ImagePort;
+        port activationMapOutput : ActivationMapPort;
+        port commandInput : CommandPort;
+
+        action estimateNeuralActivation {
+            in imageTimeSeries : ImageVolume;
+            in stimulus : VisualStimulus;
+            out activationMap : FunctionalActivationMap;
+        }
+    }
+
+    part def SafetyManagementSubsystem {
+        attribute maximumSpecificAbsorptionRate : Real = 3.2;
+        attribute maximumGradientNoise : Decibel = 118.0;
+        attribute emergencyStopResponseTime : Millisecond = 100.0;
+
+        port interlockInterface : InterlockPort;
+        port commandInput : CommandPort;
+
+        action verifyScanSafety {
+            in patient : Patient;
+            in protocol : ScanProtocol;
+            out scanAllowed : Boolean;
+            out interlockStatus : SafetyInterlock;
+        }
+    }
+
+    part def fMRISystem {
+        attribute primaryFunction : String = "Acquire blood-oxygen-level-dependent magnetic resonance image time series and compute functional brain activation maps that indicate regions associated with neural activity during a task or resting-state protocol.";
+
+        part magnet : SuperconductingMagnet;
+        part gradients : GradientCoilAssembly;
+        part rfSubsystem : RFTransmitReceiveSubsystem;
+        part patientSupport : PatientTableAndBore;
+        part physiologyMonitor : PhysiologicalMonitoringSubsystem;
+        part stimulusSystem : StimulusPresentationSubsystem;
+        part controller : ScannerControlComputer;
+        part digitizer : SignalAcquisitionAndDigitizer;
+        part reconstructor : ImageReconstructionProcessor;
+        part analyzer : FunctionalAnalysisProcessor;
+        part safetyManager : SafetyManagementSubsystem;
+
+        port patientEntry : PatientBorePort;
+        port protocolEntry : ProtocolPort;
+        port activationMapExit : ActivationMapPort;
+
+        connect patientEntry to patientSupport.patientInterface;
+        connect protocolEntry to controller.protocolInput;
+        connect controller.magnetCommand to magnet.fieldOutput;
+        connect controller.gradientCommand to gradients.commandInput;
+        connect controller.rfCommand to rfSubsystem.commandInput;
+        connect controller.tableCommand to patientSupport.commandInput;
+        connect controller.stimulusCommand to stimulusSystem.commandInput;
+        connect magnet.safetyInterface to safetyManager.interlockInterface;
+        connect rfSubsystem.safetyInterface to safetyManager.interlockInterface;
+        connect patientSupport.safetyInterface to safetyManager.interlockInterface;
+        connect controller.safetyInterface to safetyManager.interlockInterface;
+        connect gradients.gradientOutput to rfSubsystem.rfReceiveInput;
+        connect rfSubsystem.rfReceiveInput to digitizer.rfSignalInput;
+        connect digitizer.kSpaceOutput to reconstructor.kSpaceInput;
+        connect reconstructor.imageOutput to analyzer.imageInput;
+        connect analyzer.activationMapOutput to activationMapExit;
+
+        action performFunctionalBrainImaging {
+            in patient : Patient;
+            in protocol : ScanProtocol;
+            out activationMap : FunctionalActivationMap;
+
+            first start;
+            then checkSafety;
+            then positionPatient;
+            then stabilizeMagnet;
+            then runStimulusTask;
+            then exciteAndEncode;
+            then acquireSignals;
+            then reconstructVolumes;
+            then computeActivation;
+            then completeScan;
+
+            action checkSafety {
+                in patient : Patient;
+                in protocol : ScanProtocol;
+                out scanAllowed : Boolean;
+            }
+
+            action positionPatient {
+                in patient : Patient;
+                out positionedPatient : Patient;
+            }
+
+            action stabilizeMagnet {
+                out field : MagneticField;
+            }
+
+            action runStimulusTask {
+                in protocol : ScanProtocol;
+                out stimulus : VisualStimulus;
+            }
+
+            action exciteAndEncode {
+                in protocol : ScanProtocol;
+                out pulse : RFExcitationPulse;
+                out waveform : GradientWaveform;
+            }
+
+            action acquireSignals {
+                out kSpace : KSpaceData;
+            }
+
+            action reconstructVolumes {
+                in kSpace : KSpaceData;
+                out imageVolume : ImageVolume;
+            }
+
+            action computeActivation {
+                in imageVolume : ImageVolume;
+                out activationMap : FunctionalActivationMap;
+            }
+
+            action completeScan;
+        }
+
+        state scanLifecycle {
+            state Idle;
+            state PatientScreening;
+            state PatientPositioning;
+            state FieldStabilization;
+            state FunctionalAcquisition;
+            state Reconstruction;
+            state ActivationAnalysis;
+            state ResultsAvailable;
+            state SafeShutdown;
+            state Fault;
+
+            initial then Idle;
+            transition Idle to PatientScreening;
+            transition PatientScreening to PatientPositioning;
+            transition PatientPositioning to FieldStabilization;
+            transition FieldStabilization to FunctionalAcquisition;
+            transition FunctionalAcquisition to Reconstruction;
+            transition Reconstruction to ActivationAnalysis;
+            transition ActivationAnalysis to ResultsAvailable;
+            transition ResultsAvailable to Idle;
+            transition PatientScreening to Fault;
+            transition FunctionalAcquisition to Fault;
+            transition Fault to SafeShutdown;
+            transition SafeShutdown to Idle;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : fMRISystem;
+        require constraint {
+            system.primaryFunction == "Acquire blood-oxygen-level-dependent magnetic resonance image time series and compute functional brain activation maps that indicate regions associated with neural activity during a task or resting-state protocol."
+        }
+    }
+
+    requirement def MagneticFieldRequirement {
+        subject magnet : SuperconductingMagnet;
+        require constraint {
+            magnet.nominalFieldStrength >= 1.5 and magnet.nominalFieldStrength <= 7.0
+        }
+    }
+
+    requirement def PatientSafetyRequirement {
+        subject safety : SafetyManagementSubsystem;
+        require constraint {
+            safety.maximumSpecificAbsorptionRate <= 4.0 and safety.emergencyStopResponseTime <= 100.0
+        }
+    }
+
+    requirement def SpatialResolutionRequirement {
+        subject protocol : ScanProtocol;
+        require constraint {
+            protocol.sliceThickness <= 4.0
+        }
+    }
+
+    requirement def TemporalResolutionRequirement {
+        subject protocol : ScanProtocol;
+        require constraint {
+            protocol.repetitionTime <= 3000.0
+        }
+    }
+
+    requirement def ActivationMapRequirement {
+        subject map : FunctionalActivationMap;
+        require constraint {
+            map.confidenceLevel >= 95.0 and map.activatedVoxelCount >= 0
+        }
+    }
+
+    requirement def FunctionalMRISystemRequirementSet {
+        subject system : fMRISystem;
+
+        requirement primaryFunction : PrimaryFunctionRequirement {
+            subject system = system;
+        }
+
+        requirement patientSafety : PatientSafetyRequirement {
+            subject safety = system.safetyManager;
+        }
+
+        requirement magneticField : MagneticFieldRequirement {
+            subject magnet = system.magnet;
+        }
+    }
+
+    part clinical3TfMRISystem : fMRISystem {
+        attribute primaryFunction = "Acquire blood-oxygen-level-dependent magnetic resonance image time series and compute functional brain activation maps that indicate regions associated with neural activity during a task or resting-state protocol.";
+
+        part magnet {
+            attribute nominalFieldStrength = 3.0;
+            attribute boreDiameter = 700.0;
+            attribute fieldHomogeneity = 99.98;
+        }
+
+        part rfSubsystem {
+            attribute transmitFrequency = 127.7;
+            attribute coilChannelCount = 32;
+        }
+
+        part analyzer {
+            attribute statisticalModel = "GeneralLinearModel";
+            attribute activationThreshold = 3.1;
+        }
+    }
+
+    item restingStateProtocol : ScanProtocol {
+        attribute protocolName = "Resting-State BOLD EPI";
+        attribute fieldStrength = 3.0;
+        attribute echoTime = 30.0;
+        attribute repetitionTime = 2000.0;
+        attribute flipAngle = 90.0;
+        attribute sliceThickness = 3.0;
+        attribute totalScanTime = 360.0;
+    }
+}

@@ -1,0 +1,437 @@
+package RoboticsSimulatorSpecification {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Real;
+    attribute def Boolean;
+    attribute def String;
+
+    enum def SimulationMode {
+        enum idle;
+        enum configuring;
+        enum running;
+        enum paused;
+        enum stopped;
+        enum faulted;
+    }
+
+    enum def RobotOperationalState {
+        enum uninitialized;
+        enum ready;
+        enum executing;
+        enum collisionDetected;
+        enum completed;
+        enum failed;
+    }
+
+    item def Pose3D {
+        attribute x : Real { unit = "m"; }
+        attribute y : Real { unit = "m"; }
+        attribute z : Real { unit = "m"; }
+        attribute roll : Real { unit = "rad"; }
+        attribute pitch : Real { unit = "rad"; }
+        attribute yaw : Real { unit = "rad"; }
+    }
+
+    item def Twist3D {
+        attribute linearX : Real { unit = "m/s"; }
+        attribute linearY : Real { unit = "m/s"; }
+        attribute linearZ : Real { unit = "m/s"; }
+        attribute angularX : Real { unit = "rad/s"; }
+        attribute angularY : Real { unit = "rad/s"; }
+        attribute angularZ : Real { unit = "rad/s"; }
+    }
+
+    item def RobotCommand {
+        attribute commandId : String;
+        attribute targetPose : Pose3D;
+        attribute targetVelocity : Twist3D;
+        attribute maxExecutionTime : Real { unit = "s"; }
+    }
+
+    item def SensorFrame {
+        attribute frameId : String;
+        attribute timestamp : Real { unit = "s"; }
+        attribute poseEstimate : Pose3D;
+        attribute obstacleDistance : Real { unit = "m"; }
+        attribute contactDetected : Boolean;
+    }
+
+    item def SimulationTelemetry {
+        attribute simulationTime : Real { unit = "s"; }
+        attribute mode : SimulationMode;
+        attribute robotState : RobotOperationalState;
+        attribute robotPose : Pose3D;
+        attribute collisionCount : Real;
+        attribute realTimeFactor : Real;
+    }
+
+    item def WorldModel {
+        attribute name : String;
+        attribute gravity : Real { unit = "m/s^2"; }
+        attribute floorFrictionCoefficient : Real;
+        attribute ambientLightLevel : Real;
+    }
+
+    item def PhysicsUpdate {
+        attribute stepSize : Real { unit = "s"; }
+        attribute simulationTime : Real { unit = "s"; }
+        attribute gravity : Real { unit = "m/s^2"; }
+    }
+
+    port def CommandInputPort {
+        in item command : RobotCommand;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetry : SimulationTelemetry;
+    }
+
+    port def SensorOutputPort {
+        out item sensorFrame : SensorFrame;
+    }
+
+    port def PhysicsPort {
+        inout item update : PhysicsUpdate;
+    }
+
+    port def WorldModelPort {
+        in item world : WorldModel;
+    }
+
+    part def RobotModel {
+        attribute mass : Real { unit = "kg"; }
+        attribute maxLinearSpeed : Real { unit = "m/s"; }
+        attribute maxAngularSpeed : Real { unit = "rad/s"; }
+        attribute currentPose : Pose3D;
+        attribute currentVelocity : Twist3D;
+        attribute operationalState : RobotOperationalState;
+
+        port commandIn : CommandInputPort;
+        port sensorOut : SensorOutputPort;
+        port physics : PhysicsPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        part leftDriveActuator {
+            attribute maxTorque : Real { unit = "N*m"; }
+            attribute wheelRadius : Real { unit = "m"; }
+            attribute commandedVelocity : Real { unit = "rad/s"; }
+        }
+
+        part rightDriveActuator {
+            attribute maxTorque : Real { unit = "N*m"; }
+            attribute wheelRadius : Real { unit = "m"; }
+            attribute commandedVelocity : Real { unit = "rad/s"; }
+        }
+
+        part lidarSensor {
+            attribute range : Real { unit = "m"; }
+            attribute horizontalFieldOfView : Real { unit = "rad"; }
+            attribute scanRate : Real { unit = "Hz"; }
+            port scanOut : SensorOutputPort;
+        }
+
+        part imuSensor {
+            attribute updateRate : Real { unit = "Hz"; }
+            attribute angularNoiseStdDev : Real { unit = "rad/s"; }
+            attribute linearNoiseStdDev : Real { unit = "m/s^2"; }
+            port imuOut : SensorOutputPort;
+        }
+
+        state def RobotExecutionStateMachine {
+            state uninitialized;
+            state ready;
+            state executing;
+            state collisionDetected;
+            state completed;
+            state failed;
+
+            transition initialize first uninitialized then ready;
+            transition acceptCommand first ready then executing;
+            transition detectCollision first executing then collisionDetected;
+            transition recoverAfterCollision first collisionDetected then ready;
+            transition finishCommand first executing then completed;
+            transition resetAfterCompletion first completed then ready;
+            transition commandTimeout first executing then failed;
+            transition resetAfterFailure first failed then ready;
+        }
+
+        perform stateMachine : RobotExecutionStateMachine;
+    }
+
+    part def PhysicsEngine {
+        attribute fixedStepSize : Real { unit = "s"; }
+        attribute collisionTolerance : Real { unit = "m"; }
+        attribute solverIterations : Real;
+        attribute realTimeFactorTarget : Real;
+
+        port physics : PhysicsPort;
+        port worldIn : WorldModelPort;
+
+        action def IntegrateDynamics {
+            in item previousPose : Pose3D;
+            in item previousVelocity : Twist3D;
+            in item update : PhysicsUpdate;
+            out item nextPose : Pose3D;
+            out item nextVelocity : Twist3D;
+        }
+
+        action def DetectContacts {
+            in item robotPose : Pose3D;
+            in item world : WorldModel;
+            out item contactDetected : Boolean;
+            out item nearestObstacleDistance : Real { unit = "m"; }
+        }
+
+        perform integrateDynamics : IntegrateDynamics;
+        perform detectContacts : DetectContacts;
+    }
+
+    part def WorldEnvironment {
+        attribute world : WorldModel;
+        attribute boundaryLength : Real { unit = "m"; }
+        attribute boundaryWidth : Real { unit = "m"; }
+        attribute obstacleCount : Real;
+
+        port worldOut : WorldModelPort;
+
+        part floor {
+            attribute length : Real { unit = "m"; }
+            attribute width : Real { unit = "m"; }
+            attribute frictionCoefficient : Real;
+        }
+
+        part staticObstacleSet {
+            attribute obstacleCount : Real;
+            attribute minimumObstacleSpacing : Real { unit = "m"; }
+        }
+    }
+
+    part def ScenarioManager {
+        attribute activeScenarioName : String;
+        attribute configuredDuration : Real { unit = "s"; }
+        attribute commandRate : Real { unit = "Hz"; }
+
+        port commandOut : CommandInputPort;
+
+        action def LoadScenario {
+            in item scenarioName : String;
+            out item world : WorldModel;
+            out item initialCommand : RobotCommand;
+        }
+
+        action def GenerateRobotCommand {
+            in item simulationTime : Real { unit = "s"; }
+            out item command : RobotCommand;
+        }
+
+        perform loadScenario : LoadScenario;
+        perform generateRobotCommand : GenerateRobotCommand;
+    }
+
+    part def VisualizationInterface {
+        attribute displayFrameRate : Real { unit = "Hz"; }
+        attribute renderLatencyLimit : Real { unit = "ms"; }
+
+        port telemetryIn : TelemetryOutputPort;
+        port sensorIn : SensorOutputPort;
+
+        action def RenderScene {
+            in item telemetry : SimulationTelemetry;
+            in item sensorFrame : SensorFrame;
+        }
+
+        perform renderScene : RenderScene;
+    }
+
+    part def DataLogger {
+        attribute logRate : Real { unit = "Hz"; }
+        attribute retentionDuration : Real { unit = "s"; }
+        attribute storageUsed : Real { unit = "MB"; }
+
+        port telemetryIn : TelemetryOutputPort;
+        port sensorIn : SensorOutputPort;
+
+        action def RecordTelemetry {
+            in item telemetry : SimulationTelemetry;
+        }
+
+        action def RecordSensorFrame {
+            in item sensorFrame : SensorFrame;
+        }
+
+        perform recordTelemetry : RecordTelemetry;
+        perform recordSensorFrame : RecordSensorFrame;
+    }
+
+    part def RoboticsSimulatorSystem {
+        attribute simulatorName : String = "HighLevelRoboticsSimulator";
+        attribute primaryFunction : String = "Execute virtual robot scenarios by applying commands to a robot model, advancing physics-based motion, producing sensor data, detecting collisions, and reporting simulation telemetry.";
+        attribute mode : SimulationMode;
+        attribute simulationClock : Real { unit = "s"; }
+        attribute maximumScenarioDuration : Real { unit = "s"; }
+        attribute minimumSupportedRealTimeFactor : Real;
+
+        part robot : RobotModel {
+            attribute mass = 42.0;
+            attribute maxLinearSpeed = 2.5;
+            attribute maxAngularSpeed = 1.8;
+        }
+
+        part physicsEngine : PhysicsEngine {
+            attribute fixedStepSize = 0.005;
+            attribute collisionTolerance = 0.02;
+            attribute solverIterations = 20.0;
+            attribute realTimeFactorTarget = 1.0;
+        }
+
+        part environment : WorldEnvironment {
+            attribute boundaryLength = 30.0;
+            attribute boundaryWidth = 20.0;
+            attribute obstacleCount = 18.0;
+        }
+
+        part scenarioManager : ScenarioManager {
+            attribute activeScenarioName = "warehouse_navigation";
+            attribute configuredDuration = 300.0;
+            attribute commandRate = 20.0;
+        }
+
+        part visualization : VisualizationInterface {
+            attribute displayFrameRate = 60.0;
+            attribute renderLatencyLimit = 50.0;
+        }
+
+        part logger : DataLogger {
+            attribute logRate = 50.0;
+            attribute retentionDuration = 86400.0;
+        }
+
+        port commandIn : CommandInputPort;
+        port telemetryOut : TelemetryOutputPort;
+        port sensorOut : SensorOutputPort;
+
+        connect scenarioManager.commandOut to robot.commandIn;
+        connect commandIn to robot.commandIn;
+        connect robot.physics to physicsEngine.physics;
+        connect environment.worldOut to physicsEngine.worldIn;
+        connect robot.telemetryOut to telemetryOut;
+        connect robot.telemetryOut to visualization.telemetryIn;
+        connect robot.telemetryOut to logger.telemetryIn;
+        connect robot.sensorOut to sensorOut;
+        connect robot.sensorOut to visualization.sensorIn;
+        connect robot.sensorOut to logger.sensorIn;
+        connect robot.lidarSensor.scanOut to visualization.sensorIn;
+        connect robot.imuSensor.imuOut to logger.sensorIn;
+
+        action def ConfigureSimulation {
+            in item world : WorldModel;
+            in item initialCommand : RobotCommand;
+            out item configured : Boolean;
+        }
+
+        action def StartSimulation {
+            in item startTime : Real { unit = "s"; }
+            out item mode : SimulationMode;
+        }
+
+        action def AdvanceSimulationStep {
+            in item step : PhysicsUpdate;
+            out item telemetry : SimulationTelemetry;
+            out item sensorFrame : SensorFrame;
+        }
+
+        action def PauseSimulation {
+            out item mode : SimulationMode;
+        }
+
+        action def StopSimulation {
+            out item finalTelemetry : SimulationTelemetry;
+            out item mode : SimulationMode;
+        }
+
+        state def SimulatorLifecycle {
+            state idle;
+            state configuring;
+            state running;
+            state paused;
+            state stopped;
+            state faulted;
+
+            transition beginConfiguration first idle then configuring;
+            transition configurationAccepted first configuring then idle;
+            transition start first idle then running;
+            transition pause first running then paused;
+            transition resume first paused then running;
+            transition stopFromRunning first running then stopped;
+            transition stopFromPaused first paused then stopped;
+            transition reset first stopped then idle;
+            transition configurationFault first configuring then faulted;
+            transition runtimeFault first running then faulted;
+            transition recoverFault first faulted then idle;
+        }
+
+        perform configureSimulation : ConfigureSimulation;
+        perform startSimulation : StartSimulation;
+        perform advanceSimulationStep : AdvanceSimulationStep;
+        perform pauseSimulation : PauseSimulation;
+        perform stopSimulation : StopSimulation;
+        perform lifecycle : SimulatorLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        doc /* The robotics simulator shall provide a high-level virtual execution environment for robot behavior evaluation by loading a scenario, advancing robot motion through a physics engine, synthesizing sensor outputs, detecting collisions, and publishing telemetry for visualization and logging. */
+    }
+
+    requirement def DeterministicStepRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        attribute maximumStepSize : Real { unit = "s"; } = 0.005;
+        require constraint { simulator.physicsEngine.fixedStepSize <= maximumStepSize }
+        doc /* The simulator shall advance time using a fixed deterministic physics step no greater than 5 milliseconds. */
+    }
+
+    requirement def RealTimePerformanceRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        attribute minimumFactor : Real = 0.8;
+        require constraint { simulator.minimumSupportedRealTimeFactor >= minimumFactor }
+        doc /* The simulator shall support execution at no less than 0.8 real-time factor for the configured robot and warehouse scenario. */
+    }
+
+    requirement def CollisionDetectionRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        attribute maximumContactTolerance : Real { unit = "m"; } = 0.02;
+        require constraint { simulator.physicsEngine.collisionTolerance <= maximumContactTolerance }
+        doc /* The simulator shall detect robot-environment contacts with a spatial tolerance of 2 centimeters or better. */
+    }
+
+    requirement def TelemetryRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        attribute minimumTelemetryRate : Real { unit = "Hz"; } = 50.0;
+        require constraint { simulator.logger.logRate >= minimumTelemetryRate }
+        doc /* The simulator shall publish and log robot pose, simulation time, collision count, operational state, and real-time factor at 50 Hz or faster. */
+    }
+
+    requirement def VisualizationLatencyRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        attribute maximumLatency : Real { unit = "ms"; } = 50.0;
+        require constraint { simulator.visualization.renderLatencyLimit <= maximumLatency }
+        doc /* The simulator shall render telemetry and sensor-derived scene updates with no more than 50 milliseconds of display latency. */
+    }
+
+    requirement def ScenarioDurationRequirement {
+        subject simulator : RoboticsSimulatorSystem;
+        attribute requiredDuration : Real { unit = "s"; } = 300.0;
+        require constraint { simulator.maximumScenarioDuration >= requiredDuration }
+        doc /* The simulator shall support scenario execution durations of at least 300 seconds without reset. */
+    }
+
+    satisfy PrimaryFunctionRequirement by RoboticsSimulatorSystem;
+    satisfy DeterministicStepRequirement by PhysicsEngine;
+    satisfy RealTimePerformanceRequirement by RoboticsSimulatorSystem;
+    satisfy CollisionDetectionRequirement by PhysicsEngine;
+    satisfy TelemetryRequirement by DataLogger;
+    satisfy VisualizationLatencyRequirement by VisualizationInterface;
+    satisfy ScenarioDurationRequirement by ScenarioManager;
+}

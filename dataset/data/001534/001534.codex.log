@@ -1,0 +1,873 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-bvhudv36
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb714-b458-74a3-bb1c-e38977265ada
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Power-line communication and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PowerLineCommunicationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Frequency;
+    attribute def Power;
+    attribute def DataRate;
+    attribute def SignalToNoiseRatio;
+    attribute def Impedance;
+    attribute def Temperature;
+    attribute def TimeDuration;
+
+    item def ACLinePower {
+        attribute rmsVoltage : Voltage;
+        attribute frequency : Frequency;
+        attribute loadCurrent : Current;
+        attribute apparentPower : Power;
+    }
+
+    item def PLCWaveform {
+        attribute carrierFrequency : Frequency;
+        attribute transmitPower : Power;
+        attribute symbolRate : Frequency;
+        attribute modulation : ModulationKind;
+        attribute payloadBits : Integer;
+    }
+
+    item def UserDataFrame {
+        attribute sourceAddress : Integer;
+        attribute destinationAddress : Integer;
+        attribute payloadLength : Integer;
+        attribute crc32 : Integer;
+        attribute encrypted : Boolean;
+    }
+
+    item def EthernetFrame {
+        attribute sourceMac : String;
+        attribute destinationMac : String;
+        attribute etherType : Integer;
+        attribute payloadLength : Integer;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute priority : CommandPriorityKind;
+        attribute issuedAt : TimeDuration;
+    }
+
+    item def DiagnosticReport {
+        attribute linkDataRate : DataRate;
+        attribute snr : SignalToNoiseRatio;
+        attribute packetErrorRate : Real;
+        attribute couplerTemperature : Temperature;
+        attribute lineImpedance : Impedance;
+    }
+
+    enum def ModulationKind {
+        enum QPSK;
+        enum QAM16;
+        enum QAM64;
+        enum OFDM;
+        enum RobustOFDM;
+    }
+
+    enum def CommandPriorityKind {
+        enum Low;
+        enum Normal;
+        enum High;
+        enum Emergency;
+    }
+
+    enum def LinkModeKind {
+        enum Idle;
+        enum Synchronizing;
+        enum Associated;
+        enum Transmitting;
+        enum Receiving;
+        enum Degraded;
+        enum Faulted;
+    }
+
+    port def ACPowerPort {
+        inout item power : ACLinePower;
+    }
+
+    port def PLCSignalPort {
+        out item txWaveform : PLCWaveform;
+        in item rxWaveform : PLCWaveform;
+    }
+
+    port def DataPort {
+        in item rxFrame : EthernetFrame;
+        out item txFrame : EthernetFrame;
+    }
+
+    port def ManagementPort {
+        in item command : ControlCommand;
+        out item report : DiagnosticReport;
+    }
+
+    port def InternalFramePort {
+        inout item frame : UserDataFrame;
+    }
+
+    action def EncodeFrame {
+        in item ethernetIn : EthernetFrame;
+        out item plcFrameOut : UserDataFrame;
+    }
+
+    action def DecodeFrame {
+        in item plcFrameIn : UserDataFrame;
+        out item ethernetOut : EthernetFrame;
+    }
+
+    action def ModulateCarrier {
+        in item frameIn : UserDataFrame;
+        in attribute selectedCarrier : Frequency;
+        out item waveformOut : PLCWaveform;
+    }
+
+    action def DemodulateCarrier {
+        in item waveformIn : PLCWaveform;
+        out item frameOut : UserDataFrame;
+        out attribute measuredSnr : SignalToNoiseRatio;
+    }
+
+    action def CoupleSignalToLine {
+        in item waveformIn : PLCWaveform;
+        inout item linePower : ACLinePower;
+        out item coupledWaveform : PLCWaveform;
+    }
+
+    action def FilterLineNoise {
+        in item noisyWaveform : PLCWaveform;
+        out item filteredWaveform : PLCWaveform;
+    }
+
+    action def MonitorLinkHealth {
+        in attribute snr : SignalToNoiseRatio;
+        in attribute packetErrorRate : Real;
+        in attribute temperature : Temperature;
+        out item report : DiagnosticReport;
+    }
+
+    state def PLCLinkStateMachine {
+        attribute mode : LinkModeKind;
+
+        state idle;
+        state synchronizing;
+        state associated;
+        state transmitting;
+        state receiving;
+        state degraded;
+        state faulted;
+
+        entry action initialize {
+            mode = LinkModeKind::Idle;
+        }
+
+        transition first idle;
+
+        transition idle_to_synchronizing
+            first idle
+            then synchronizing;
+
+        transition synchronizing_to_associated
+            first synchronizing
+            then associated;
+
+        transition associated_to_transmitting
+            first associated
+            then transmitting;
+
+        transition transmitting_to_associated
+            first transmitting
+            then associated;
+
+        transition associated_to_receiving
+            first associated
+            then receiving;
+
+        transition receiving_to_associated
+            first receiving
+            then associated;
+
+        transition associated_to_degraded
+            first associated
+            then degraded;
+
+        transition degraded_to_associated
+            first degraded
+            then associated;
+
+        transition degraded_to_faulted
+            first degraded
+            then faulted;
+
+        transition faulted_to_idle
+            first faulted
+            then idle;
+    }
+
+    part def LineCoupler {
+        port gridSide : ACPowerPort;
+        port modemSide : PLCSignalPort;
+
+        attribute isolationVoltage : Voltage = 2500 [V];
+        attribute insertionLoss : Real = 2.5;
+        attribute nominalImpedance : Impedance = 50 [Ohm];
+        attribute operatingTemperature : Temperature;
+
+        perform action couple : CoupleSignalToLine;
+    }
+
+    part def AnalogFrontEnd {
+        port lineSignal : PLCSignalPort;
+        port basebandSignal : PLCSignalPort;
+
+        attribute receiveNoiseFloor : Power = -95 [dBm];
+        attribute maxTransmitPower : Power = 0.1 [W];
+        attribute carrierCenterFrequency : Frequency = 12 [MHz];
+        attribute occupiedBandwidth : Frequency = 2 [MHz];
+
+        perform action filter : FilterLineNoise;
+    }
+
+    part def PLCModem {
+        port analog : PLCSignalPort;
+        port internalFrames : InternalFramePort;
+        port management : ManagementPort;
+
+        attribute supportedDataRate : DataRate = 200 [Mbps];
+        attribute selectedModulation : ModulationKind = ModulationKind::OFDM;
+        attribute selectedCarrier : Frequency = 12 [MHz];
+        attribute measuredSnr : SignalToNoiseRatio;
+        attribute packetErrorRate : Real;
+        attribute linkMode : LinkModeKind;
+
+        perform action modulate : ModulateCarrier;
+        perform action demodulate : DemodulateCarrier;
+        perform action healthMonitor : MonitorLinkHealth;
+
+        exhibit state linkControl : PLCLinkStateMachine;
+    }
+
+    part def NetworkBridge {
+        port lan : DataPort;
+        port plcFrames : InternalFramePort;
+        port management : ManagementPort;
+
+        attribute maxFrameSize : Integer = 1518;
+        attribute forwardingLatency : TimeDuration = 2 [ms];
+        attribute macLearningEnabled : Boolean = true;
+
+        perform action encode : EncodeFrame;
+        perform action decode : DecodeFrame;
+    }
+
+    part def SecurityManager {
+        port protectedFrames : InternalFramePort;
+        port management : ManagementPort;
+
+        attribute encryptionEnabled : Boolean = true;
+        attribute keyLength : Integer = 128;
+        attribute replayWindowSize : Integer = 64;
+    }
+
+    part def PowerLineMedium {
+        port nodeA : ACPowerPort;
+        port nodeB : ACPowerPort;
+
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute nominalFrequency : Frequency = 60 [Hz];
+        attribute branchImpedance : Impedance = 8 [Ohm];
+        attribute backgroundNoise : Power = -80 [dBm];
+        attribute maximumSegmentLength : LengthValue = 300 [m];
+    }
+
+    part def PLCGateway {
+        port acMains : ACPowerPort;
+        port lan : DataPort;
+        port management : ManagementPort;
+
+        part coupler : LineCoupler;
+        part frontEnd : AnalogFrontEnd;
+        part modem : PLCModem;
+        part bridge : NetworkBridge;
+        part security : SecurityManager;
+
+        connect acMains.power to coupler.gridSide.power;
+        connect coupler.modemSide.txWaveform to frontEnd.lineSignal.rxWaveform;
+        connect frontEnd.lineSignal.txWaveform to coupler.modemSide.rxWaveform;
+        connect frontEnd.basebandSignal.txWaveform to modem.analog.rxWaveform;
+        connect modem.analog.txWaveform to frontEnd.basebandSignal.rxWaveform;
+        connect bridge.plcFrames.frame to security.protectedFrames.frame;
+        connect security.protectedFrames.frame to modem.internalFrames.frame;
+        connect lan.rxFrame to bridge.lan.rxFrame;
+        connect bridge.lan.txFrame to lan.txFrame;
+        connect management.command to modem.management.command;
+        connect management.command to bridge.management.command;
+        connect management.command to security.management.command;
+        connect modem.management.report to management.report;
+    }
+
+    part def RemotePLCNode {
+        port acMains : ACPowerPort;
+        port deviceData : DataPort;
+        port management : ManagementPort;
+
+        part gateway : PLCGateway;
+
+        connect acMains.power to gateway.acMains.power;
+        connect deviceData.rxFrame to gateway.lan.rxFrame;
+        connect gateway.lan.txFrame to deviceData.txFrame;
+        connect management.command to gateway.management.command;
+        connect gateway.management.report to management.report;
+    }
+
+    part def UtilityControlCenter {
+        port network : DataPort;
+        port management : ManagementPort;
+
+        attribute commandRateLimit : Frequency = 10 [Hz];
+        attribute minimumAvailability : Real = 0.995;
+    }
+
+    part def SmartMeter {
+        port acSupply : ACPowerPort;
+        port data : DataPort;
+
+        attribute measuredEnergy : EnergyValue;
+        attribute reportingInterval : TimeDuration = 900 [s];
+        attribute meterIdentifier : Integer;
+    }
+
+    part def PLCDistributionSystem {
+        part controlCenter : UtilityControlCenter;
+        part headEndGateway : PLCGateway;
+        part distributionLine : PowerLineMedium;
+        part remoteNode : RemotePLCNode;
+        part meter : SmartMeter;
+
+        connect headEndGateway.acMains.power to distributionLine.nodeA.power;
+        connect remoteNode.acMains.power to distributionLine.nodeB.power;
+        connect meter.acSupply.power to distributionLine.nodeB.power;
+        connect controlCenter.network.rxFrame to headEndGateway.lan.rxFrame;
+        connect headEndGateway.lan.txFrame to controlCenter.network.txFrame;
+        connect remoteNode.deviceData.txFrame to meter.data.rxFrame;
+        connect meter.data.txFrame to remoteNode.deviceData.rxFrame;
+        connect controlCenter.management.command to headEndGateway.management.command;
+        connect headEndGateway.management.report to controlCenter.management.report;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The power-line communication system shall transport digital data between a utility control center and remote electrical devices by modulating communication signals onto existing AC power conductors while preserving normal power delivery. */
+    }
+
+    requirement def DataTransportRequirement {
+        doc /* The system shall convert Ethernet frames into protected PLC frames, transmit them over the power-line medium, and reconstruct valid Ethernet frames at the receiving node. */
+        attribute minimumUserDataRate : DataRate = 10 [Mbps];
+        attribute maximumOneWayLatency : TimeDuration = 25 [ms];
+        attribute maximumPacketErrorRate : Real = 0.01;
+    }
+
+    requirement def PowerCompatibilityRequirement {
+        doc /* The system shall operate on nominal residential AC mains without interrupting or materially degrading delivery of electrical power to connected loads. */
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute nominalFrequency : Frequency = 60 [Hz];
+        attribute maximumCouplerInsertionLoss : Real = 3.0;
+    }
+
+    requirement def SignalIntegrityRequirement {
+        doc /* The modem shall adapt modulation and link mode according to measured signal-to-noise ratio and packet error rate. */
+        attribute minimumOperationalSnr : SignalToNoiseRatio = 10 [dB];
+        attribute degradedModeSnrThreshold : SignalToNoiseRatio = 6 [dB];
+    }
+
+    requirement def ElectricalIsolationRequirement {
+        doc /* The line coupler shall provide galvanic isolation between the AC mains and communication electronics. */
+        attribute minimumIsolationVoltage : Voltage = 1500 [V];
+    }
+
+    requirement def SecurityRequirement {
+        doc /* The system shall protect user data frames against unauthorized disclosure, replay, and corruption during transmission over shared power conductors. */
+        attribute minimumEncryptionKeyLength : Integer = 128;
+        attribute crcRequired : Boolean = true;
+        attribute replayProtectionRequired : Boolean = true;
+    }
+
+    satisfy PrimaryFunctionRequirement by PLCDistributionSystem;
+    satisfy DataTransportRequirement by PLCGateway;
+    satisfy PowerCompatibilityRequirement by LineCoupler;
+    satisfy SignalIntegrityRequirement by PLCModem;
+    satisfy ElectricalIsolationRequirement by LineCoupler;
+    satisfy SecurityRequirement by SecurityManager;
+
+    requirement def DiagnosticRequirement {
+        doc /* The system shall report link data rate, signal-to-noise ratio, packet error rate, coupler temperature, and estimated line impedance to the management interface. */
+        attribute maximumReportInterval : TimeDuration = 60 [s];
+    }
+
+    satisfy DiagnosticRequirement by PLCModem;
+
+    analysis def EndToEndCommunicationAnalysis {
+        subject system : PLCDistributionSystem;
+
+        attribute expectedPayloadRate : DataRate = 40 [Mbps];
+        attribute expectedLatency : TimeDuration = 12 [ms];
+        attribute expectedSnr : SignalToNoiseRatio = 18 [dB];
+
+        assert constraint {
+            expectedPayloadRate >= 10 [Mbps]
+        }
+
+        assert constraint {
+            expectedLatency <= 25 [ms]
+        }
+
+        assert constraint {
+            expectedSnr >= 10 [dB]
+        }
+    }
+}
+tokens used
+4,313
+package PowerLineCommunicationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Frequency;
+    attribute def Power;
+    attribute def DataRate;
+    attribute def SignalToNoiseRatio;
+    attribute def Impedance;
+    attribute def Temperature;
+    attribute def TimeDuration;
+
+    item def ACLinePower {
+        attribute rmsVoltage : Voltage;
+        attribute frequency : Frequency;
+        attribute loadCurrent : Current;
+        attribute apparentPower : Power;
+    }
+
+    item def PLCWaveform {
+        attribute carrierFrequency : Frequency;
+        attribute transmitPower : Power;
+        attribute symbolRate : Frequency;
+        attribute modulation : ModulationKind;
+        attribute payloadBits : Integer;
+    }
+
+    item def UserDataFrame {
+        attribute sourceAddress : Integer;
+        attribute destinationAddress : Integer;
+        attribute payloadLength : Integer;
+        attribute crc32 : Integer;
+        attribute encrypted : Boolean;
+    }
+
+    item def EthernetFrame {
+        attribute sourceMac : String;
+        attribute destinationMac : String;
+        attribute etherType : Integer;
+        attribute payloadLength : Integer;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute priority : CommandPriorityKind;
+        attribute issuedAt : TimeDuration;
+    }
+
+    item def DiagnosticReport {
+        attribute linkDataRate : DataRate;
+        attribute snr : SignalToNoiseRatio;
+        attribute packetErrorRate : Real;
+        attribute couplerTemperature : Temperature;
+        attribute lineImpedance : Impedance;
+    }
+
+    enum def ModulationKind {
+        enum QPSK;
+        enum QAM16;
+        enum QAM64;
+        enum OFDM;
+        enum RobustOFDM;
+    }
+
+    enum def CommandPriorityKind {
+        enum Low;
+        enum Normal;
+        enum High;
+        enum Emergency;
+    }
+
+    enum def LinkModeKind {
+        enum Idle;
+        enum Synchronizing;
+        enum Associated;
+        enum Transmitting;
+        enum Receiving;
+        enum Degraded;
+        enum Faulted;
+    }
+
+    port def ACPowerPort {
+        inout item power : ACLinePower;
+    }
+
+    port def PLCSignalPort {
+        out item txWaveform : PLCWaveform;
+        in item rxWaveform : PLCWaveform;
+    }
+
+    port def DataPort {
+        in item rxFrame : EthernetFrame;
+        out item txFrame : EthernetFrame;
+    }
+
+    port def ManagementPort {
+        in item command : ControlCommand;
+        out item report : DiagnosticReport;
+    }
+
+    port def InternalFramePort {
+        inout item frame : UserDataFrame;
+    }
+
+    action def EncodeFrame {
+        in item ethernetIn : EthernetFrame;
+        out item plcFrameOut : UserDataFrame;
+    }
+
+    action def DecodeFrame {
+        in item plcFrameIn : UserDataFrame;
+        out item ethernetOut : EthernetFrame;
+    }
+
+    action def ModulateCarrier {
+        in item frameIn : UserDataFrame;
+        in attribute selectedCarrier : Frequency;
+        out item waveformOut : PLCWaveform;
+    }
+
+    action def DemodulateCarrier {
+        in item waveformIn : PLCWaveform;
+        out item frameOut : UserDataFrame;
+        out attribute measuredSnr : SignalToNoiseRatio;
+    }
+
+    action def CoupleSignalToLine {
+        in item waveformIn : PLCWaveform;
+        inout item linePower : ACLinePower;
+        out item coupledWaveform : PLCWaveform;
+    }
+
+    action def FilterLineNoise {
+        in item noisyWaveform : PLCWaveform;
+        out item filteredWaveform : PLCWaveform;
+    }
+
+    action def MonitorLinkHealth {
+        in attribute snr : SignalToNoiseRatio;
+        in attribute packetErrorRate : Real;
+        in attribute temperature : Temperature;
+        out item report : DiagnosticReport;
+    }
+
+    state def PLCLinkStateMachine {
+        attribute mode : LinkModeKind;
+
+        state idle;
+        state synchronizing;
+        state associated;
+        state transmitting;
+        state receiving;
+        state degraded;
+        state faulted;
+
+        entry action initialize {
+            mode = LinkModeKind::Idle;
+        }
+
+        transition first idle;
+
+        transition idle_to_synchronizing
+            first idle
+            then synchronizing;
+
+        transition synchronizing_to_associated
+            first synchronizing
+            then associated;
+
+        transition associated_to_transmitting
+            first associated
+            then transmitting;
+
+        transition transmitting_to_associated
+            first transmitting
+            then associated;
+
+        transition associated_to_receiving
+            first associated
+            then receiving;
+
+        transition receiving_to_associated
+            first receiving
+            then associated;
+
+        transition associated_to_degraded
+            first associated
+            then degraded;
+
+        transition degraded_to_associated
+            first degraded
+            then associated;
+
+        transition degraded_to_faulted
+            first degraded
+            then faulted;
+
+        transition faulted_to_idle
+            first faulted
+            then idle;
+    }
+
+    part def LineCoupler {
+        port gridSide : ACPowerPort;
+        port modemSide : PLCSignalPort;
+
+        attribute isolationVoltage : Voltage = 2500 [V];
+        attribute insertionLoss : Real = 2.5;
+        attribute nominalImpedance : Impedance = 50 [Ohm];
+        attribute operatingTemperature : Temperature;
+
+        perform action couple : CoupleSignalToLine;
+    }
+
+    part def AnalogFrontEnd {
+        port lineSignal : PLCSignalPort;
+        port basebandSignal : PLCSignalPort;
+
+        attribute receiveNoiseFloor : Power = -95 [dBm];
+        attribute maxTransmitPower : Power = 0.1 [W];
+        attribute carrierCenterFrequency : Frequency = 12 [MHz];
+        attribute occupiedBandwidth : Frequency = 2 [MHz];
+
+        perform action filter : FilterLineNoise;
+    }
+
+    part def PLCModem {
+        port analog : PLCSignalPort;
+        port internalFrames : InternalFramePort;
+        port management : ManagementPort;
+
+        attribute supportedDataRate : DataRate = 200 [Mbps];
+        attribute selectedModulation : ModulationKind = ModulationKind::OFDM;
+        attribute selectedCarrier : Frequency = 12 [MHz];
+        attribute measuredSnr : SignalToNoiseRatio;
+        attribute packetErrorRate : Real;
+        attribute linkMode : LinkModeKind;
+
+        perform action modulate : ModulateCarrier;
+        perform action demodulate : DemodulateCarrier;
+        perform action healthMonitor : MonitorLinkHealth;
+
+        exhibit state linkControl : PLCLinkStateMachine;
+    }
+
+    part def NetworkBridge {
+        port lan : DataPort;
+        port plcFrames : InternalFramePort;
+        port management : ManagementPort;
+
+        attribute maxFrameSize : Integer = 1518;
+        attribute forwardingLatency : TimeDuration = 2 [ms];
+        attribute macLearningEnabled : Boolean = true;
+
+        perform action encode : EncodeFrame;
+        perform action decode : DecodeFrame;
+    }
+
+    part def SecurityManager {
+        port protectedFrames : InternalFramePort;
+        port management : ManagementPort;
+
+        attribute encryptionEnabled : Boolean = true;
+        attribute keyLength : Integer = 128;
+        attribute replayWindowSize : Integer = 64;
+    }
+
+    part def PowerLineMedium {
+        port nodeA : ACPowerPort;
+        port nodeB : ACPowerPort;
+
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute nominalFrequency : Frequency = 60 [Hz];
+        attribute branchImpedance : Impedance = 8 [Ohm];
+        attribute backgroundNoise : Power = -80 [dBm];
+        attribute maximumSegmentLength : LengthValue = 300 [m];
+    }
+
+    part def PLCGateway {
+        port acMains : ACPowerPort;
+        port lan : DataPort;
+        port management : ManagementPort;
+
+        part coupler : LineCoupler;
+        part frontEnd : AnalogFrontEnd;
+        part modem : PLCModem;
+        part bridge : NetworkBridge;
+        part security : SecurityManager;
+
+        connect acMains.power to coupler.gridSide.power;
+        connect coupler.modemSide.txWaveform to frontEnd.lineSignal.rxWaveform;
+        connect frontEnd.lineSignal.txWaveform to coupler.modemSide.rxWaveform;
+        connect frontEnd.basebandSignal.txWaveform to modem.analog.rxWaveform;
+        connect modem.analog.txWaveform to frontEnd.basebandSignal.rxWaveform;
+        connect bridge.plcFrames.frame to security.protectedFrames.frame;
+        connect security.protectedFrames.frame to modem.internalFrames.frame;
+        connect lan.rxFrame to bridge.lan.rxFrame;
+        connect bridge.lan.txFrame to lan.txFrame;
+        connect management.command to modem.management.command;
+        connect management.command to bridge.management.command;
+        connect management.command to security.management.command;
+        connect modem.management.report to management.report;
+    }
+
+    part def RemotePLCNode {
+        port acMains : ACPowerPort;
+        port deviceData : DataPort;
+        port management : ManagementPort;
+
+        part gateway : PLCGateway;
+
+        connect acMains.power to gateway.acMains.power;
+        connect deviceData.rxFrame to gateway.lan.rxFrame;
+        connect gateway.lan.txFrame to deviceData.txFrame;
+        connect management.command to gateway.management.command;
+        connect gateway.management.report to management.report;
+    }
+
+    part def UtilityControlCenter {
+        port network : DataPort;
+        port management : ManagementPort;
+
+        attribute commandRateLimit : Frequency = 10 [Hz];
+        attribute minimumAvailability : Real = 0.995;
+    }
+
+    part def SmartMeter {
+        port acSupply : ACPowerPort;
+        port data : DataPort;
+
+        attribute measuredEnergy : EnergyValue;
+        attribute reportingInterval : TimeDuration = 900 [s];
+        attribute meterIdentifier : Integer;
+    }
+
+    part def PLCDistributionSystem {
+        part controlCenter : UtilityControlCenter;
+        part headEndGateway : PLCGateway;
+        part distributionLine : PowerLineMedium;
+        part remoteNode : RemotePLCNode;
+        part meter : SmartMeter;
+
+        connect headEndGateway.acMains.power to distributionLine.nodeA.power;
+        connect remoteNode.acMains.power to distributionLine.nodeB.power;
+        connect meter.acSupply.power to distributionLine.nodeB.power;
+        connect controlCenter.network.rxFrame to headEndGateway.lan.rxFrame;
+        connect headEndGateway.lan.txFrame to controlCenter.network.txFrame;
+        connect remoteNode.deviceData.txFrame to meter.data.rxFrame;
+        connect meter.data.txFrame to remoteNode.deviceData.rxFrame;
+        connect controlCenter.management.command to headEndGateway.management.command;
+        connect headEndGateway.management.report to controlCenter.management.report;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The power-line communication system shall transport digital data between a utility control center and remote electrical devices by modulating communication signals onto existing AC power conductors while preserving normal power delivery. */
+    }
+
+    requirement def DataTransportRequirement {
+        doc /* The system shall convert Ethernet frames into protected PLC frames, transmit them over the power-line medium, and reconstruct valid Ethernet frames at the receiving node. */
+        attribute minimumUserDataRate : DataRate = 10 [Mbps];
+        attribute maximumOneWayLatency : TimeDuration = 25 [ms];
+        attribute maximumPacketErrorRate : Real = 0.01;
+    }
+
+    requirement def PowerCompatibilityRequirement {
+        doc /* The system shall operate on nominal residential AC mains without interrupting or materially degrading delivery of electrical power to connected loads. */
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute nominalFrequency : Frequency = 60 [Hz];
+        attribute maximumCouplerInsertionLoss : Real = 3.0;
+    }
+
+    requirement def SignalIntegrityRequirement {
+        doc /* The modem shall adapt modulation and link mode according to measured signal-to-noise ratio and packet error rate. */
+        attribute minimumOperationalSnr : SignalToNoiseRatio = 10 [dB];
+        attribute degradedModeSnrThreshold : SignalToNoiseRatio = 6 [dB];
+    }
+
+    requirement def ElectricalIsolationRequirement {
+        doc /* The line coupler shall provide galvanic isolation between the AC mains and communication electronics. */
+        attribute minimumIsolationVoltage : Voltage = 1500 [V];
+    }
+
+    requirement def SecurityRequirement {
+        doc /* The system shall protect user data frames against unauthorized disclosure, replay, and corruption during transmission over shared power conductors. */
+        attribute minimumEncryptionKeyLength : Integer = 128;
+        attribute crcRequired : Boolean = true;
+        attribute replayProtectionRequired : Boolean = true;
+    }
+
+    satisfy PrimaryFunctionRequirement by PLCDistributionSystem;
+    satisfy DataTransportRequirement by PLCGateway;
+    satisfy PowerCompatibilityRequirement by LineCoupler;
+    satisfy SignalIntegrityRequirement by PLCModem;
+    satisfy ElectricalIsolationRequirement by LineCoupler;
+    satisfy SecurityRequirement by SecurityManager;
+
+    requirement def DiagnosticRequirement {
+        doc /* The system shall report link data rate, signal-to-noise ratio, packet error rate, coupler temperature, and estimated line impedance to the management interface. */
+        attribute maximumReportInterval : TimeDuration = 60 [s];
+    }
+
+    satisfy DiagnosticRequirement by PLCModem;
+
+    analysis def EndToEndCommunicationAnalysis {
+        subject system : PLCDistributionSystem;
+
+        attribute expectedPayloadRate : DataRate = 40 [Mbps];
+        attribute expectedLatency : TimeDuration = 12 [ms];
+        attribute expectedSnr : SignalToNoiseRatio = 18 [dB];
+
+        assert constraint {
+            expectedPayloadRate >= 10 [Mbps]
+        }
+
+        assert constraint {
+            expectedLatency <= 25 [ms]
+        }
+
+        assert constraint {
+            expectedSnr >= 10 [dB]
+        }
+    }
+}

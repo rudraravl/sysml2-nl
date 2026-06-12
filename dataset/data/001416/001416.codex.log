@@ -1,0 +1,901 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-o0fmuxs4
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6a0-0f3c-7400-9ee8-71b993de3af8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a EnOcean and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EnOceanEnergyHarvestingSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = "mA";
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = "mW";
+  }
+
+  attribute def Energy :> ISQ::energy {
+    unit = "uJ";
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = "MHz";
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = "degC";
+  }
+
+  attribute def Illuminance {
+    unit = "lux";
+  }
+
+  attribute def RelativeHumidity {
+    unit = "%";
+  }
+
+  attribute def TimeDuration :> ISQ::time {
+    unit = "ms";
+  }
+
+  attribute def Distance :> ISQ::length {
+    unit = "m";
+  }
+
+  enum def SensorKind {
+    enum temperature;
+    enum humidity;
+    enum occupancy;
+    enum switchContact;
+    enum illuminance;
+  }
+
+  enum def RadioBand {
+    enum MHz868_3;
+    enum MHz902_875;
+    enum MHz928_35;
+  }
+
+  enum def TelegramStatus {
+    enum queued;
+    enum transmitted;
+    enum acknowledged;
+    enum failed;
+  }
+
+  item def HarvestedEnergy {
+    attribute amount : Energy;
+    attribute sourceVoltage : Voltage;
+  }
+
+  item def SensorMeasurement {
+    attribute kind : SensorKind;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute illuminance : Illuminance;
+    attribute contactClosed : Boolean;
+    attribute occupancyDetected : Boolean;
+    attribute sampleAge : TimeDuration;
+  }
+
+  item def EnOceanTelegram {
+    attribute radioFrequency : Frequency;
+    attribute transmitterId : String;
+    attribute sequenceCounter : Integer;
+    attribute payload : SensorMeasurement;
+    attribute transmitPower : Power;
+    attribute status : TelegramStatus;
+  }
+
+  item def ControlCommand {
+    attribute targetDeviceId : String;
+    attribute commandName : String;
+    attribute desiredState : Boolean;
+    attribute dimLevel : Real;
+  }
+
+  port def EnergyInputPort {
+    in item energyIn : HarvestedEnergy;
+  }
+
+  port def LowPowerDataPort {
+    out item measurementOut : SensorMeasurement;
+  }
+
+  port def RadioTransmitPort {
+    out item telegramOut : EnOceanTelegram;
+  }
+
+  port def RadioReceivePort {
+    in item telegramIn : EnOceanTelegram;
+    out item commandOut : ControlCommand;
+  }
+
+  port def BuildingAutomationPort {
+    in item telemetryIn : SensorMeasurement;
+    out item commandIn : ControlCommand;
+  }
+
+  part def EnergyHarvester {
+    attribute minimumStartupVoltage : Voltage = 0.9 [V];
+    attribute nominalOutputVoltage : Voltage = 3.0 [V];
+    attribute maximumHarvestedPower : Power = 10.0 [mW];
+
+    port energyOutput : EnergyInputPort;
+
+    action harvestAmbientEnergy {
+      in attribute ambientLight : Illuminance;
+      in attribute switchActuation : Boolean;
+      out item generatedEnergy : HarvestedEnergy;
+
+      first start;
+      then convertAmbientSource;
+      then regulateVoltage;
+      then provideEnergy;
+    }
+  }
+
+  part def EnergyStore {
+    attribute storageCapacity : Energy = 470000.0 [uJ];
+    attribute minimumOperatingEnergy : Energy = 120.0 [uJ];
+    attribute storedEnergy : Energy;
+    attribute outputVoltage : Voltage = 3.0 [V];
+
+    port chargeInput : EnergyInputPort;
+
+    state machine EnergyStorageStateMachine {
+      state depleted;
+      state charging;
+      state ready;
+      state supplying;
+
+      initial then depleted;
+
+      transition depleted_to_charging
+        first depleted
+        accept HarvestedEnergy
+        then charging;
+
+      transition charging_to_ready
+        first charging
+        if storedEnergy >= minimumOperatingEnergy
+        then ready;
+
+      transition ready_to_supplying
+        first ready
+        accept SensorMeasurement
+        then supplying;
+
+      transition supplying_to_ready
+        first supplying
+        if storedEnergy >= minimumOperatingEnergy
+        then ready;
+
+      transition supplying_to_depleted
+        first supplying
+        if storedEnergy < minimumOperatingEnergy
+        then depleted;
+    }
+  }
+
+  part def SensorElement {
+    attribute sensorKind : SensorKind;
+    attribute samplingCurrent : Current = 1.5 [mA];
+    attribute samplingDuration : TimeDuration = 8.0 [ms];
+
+    port dataOutput : LowPowerDataPort;
+
+    action sampleEnvironment {
+      out item measurement : SensorMeasurement;
+
+      first wakeSensor;
+      then acquirePhysicalSignal;
+      then digitizeSignal;
+      then publishMeasurement;
+    }
+  }
+
+  part def EnOceanRadioTransceiver {
+    attribute band : RadioBand = RadioBand::MHz902_875;
+    attribute carrierFrequency : Frequency = 902.875 [MHz];
+    attribute nominalTransmitPower : Power = 5.0 [mW];
+    attribute maximumRangeIndoor : Distance = 30.0 [m];
+    attribute telegramDuration : TimeDuration = 1.2 [ms];
+
+    port sensorInput : LowPowerDataPort;
+    port radioOut : RadioTransmitPort;
+
+    action encodeAndTransmit {
+      in item measurement : SensorMeasurement;
+      out item telegram : EnOceanTelegram;
+
+      first encodePayload;
+      then appendTransmitterId;
+      then modulateRadioSignal;
+      then transmitTelegram;
+    }
+
+    state machine RadioStateMachine {
+      state sleeping;
+      state encoding;
+      state transmitting;
+      state waitingForAck;
+
+      initial then sleeping;
+
+      transition sleep_to_encoding
+        first sleeping
+        accept SensorMeasurement
+        then encoding;
+
+      transition encoding_to_transmitting
+        first encoding
+        then transmitting;
+
+      transition transmitting_to_waiting
+        first transmitting
+        then waitingForAck;
+
+      transition ack_received
+        first waitingForAck
+        accept EnOceanTelegram
+        then sleeping;
+
+      transition ack_timeout
+        first waitingForAck
+        after 20.0 [ms]
+        then sleeping;
+    }
+  }
+
+  part def EnOceanWirelessSensorNode {
+    attribute nodeId : String;
+    attribute quiescentCurrent : Current = 0.003 [mA];
+    attribute wakeupEnergy : Energy = 80.0 [uJ];
+    attribute primaryFunction : String =
+      "Harvest ambient energy, sense local building conditions, and transmit low-power EnOcean telegrams without battery maintenance.";
+
+    part harvester : EnergyHarvester;
+    part energyStore : EnergyStore;
+    part temperatureSensor : SensorElement {
+      attribute sensorKind = SensorKind::temperature;
+    }
+    part humiditySensor : SensorElement {
+      attribute sensorKind = SensorKind::humidity;
+    }
+    part radio : EnOceanRadioTransceiver;
+
+    port wirelessOut : RadioTransmitPort;
+
+    connect harvester.energyOutput to energyStore.chargeInput;
+    connect temperatureSensor.dataOutput to radio.sensorInput;
+    connect humiditySensor.dataOutput to radio.sensorInput;
+    connect radio.radioOut to wirelessOut;
+
+    state machine NodeOperatingStateMachine {
+      state dormant;
+      state harvesting;
+      state measuring;
+      state transmitting;
+
+      initial then dormant;
+
+      transition dormant_to_harvesting
+        first dormant
+        accept HarvestedEnergy
+        then harvesting;
+
+      transition harvesting_to_measuring
+        first harvesting
+        if energyStore.storedEnergy >= wakeupEnergy
+        then measuring;
+
+      transition measuring_to_transmitting
+        first measuring
+        accept SensorMeasurement
+        then transmitting;
+
+      transition transmitting_to_dormant
+        first transmitting
+        after 25.0 [ms]
+        then dormant;
+    }
+  }
+
+  part def EnOceanGateway {
+    attribute gatewayId : String;
+    attribute supportedBand : RadioBand = RadioBand::MHz902_875;
+    attribute receivedTelegramCount : Integer;
+
+    port radioIn : RadioReceivePort;
+    port automationPort : BuildingAutomationPort;
+
+    action decodeTelegram {
+      in item telegram : EnOceanTelegram;
+      out item measurement : SensorMeasurement;
+
+      first validateChecksum;
+      then verifyTransmitterId;
+      then decodePayload;
+      then publishTelemetry;
+    }
+
+    action generateControlCommand {
+      in item measurement : SensorMeasurement;
+      out item command : ControlCommand;
+
+      first evaluateBuildingRule;
+      then selectTargetDevice;
+      then issueCommand;
+    }
+  }
+
+  part def BuildingAutomationController {
+    attribute controllerId : String;
+    attribute targetTemperature : Temperature = 22.0 [degC];
+    attribute humidityLimit : RelativeHumidity = 60.0 [%];
+
+    port fieldBus : BuildingAutomationPort;
+
+    action optimizeRoomCondition {
+      in item measurement : SensorMeasurement;
+      out item command : ControlCommand;
+
+      first compareAgainstSetpoints;
+      then determineControlResponse;
+      then dispatchCommand;
+    }
+
+    state machine AutomationControlStateMachine {
+      state monitoring;
+      state evaluating;
+      state commanding;
+
+      initial then monitoring;
+
+      transition monitoring_to_evaluating
+        first monitoring
+        accept SensorMeasurement
+        then evaluating;
+
+      transition evaluating_to_commanding
+        first evaluating
+        if true
+        then commanding;
+
+      transition commanding_to_monitoring
+        first commanding
+        after 10.0 [ms]
+        then monitoring;
+    }
+  }
+
+  part def SmartBuildingEnOceanSystem {
+    attribute systemName : String = "Batteryless EnOcean Building Sensing System";
+    attribute primaryFunction : String =
+      "Provide batteryless wireless sensing for a building by converting ambient energy into short EnOcean radio telegrams used by automation controls.";
+
+    part roomSensorNode : EnOceanWirelessSensorNode {
+      attribute nodeId = "ENO-TEMP-HUM-001";
+    }
+
+    part gateway : EnOceanGateway {
+      attribute gatewayId = "ENO-GW-001";
+    }
+
+    part controller : BuildingAutomationController {
+      attribute controllerId = "BAS-CTRL-001";
+    }
+
+    connect roomSensorNode.wirelessOut to gateway.radioIn;
+    connect gateway.automationPort to controller.fieldBus;
+  }
+
+  requirement def BatterylessOperationRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.roomSensorNode.energyStore.minimumOperatingEnergy <= system.roomSensorNode.energyStore.storageCapacity
+    }
+
+    doc /* The EnOcean sensor node shall operate without a replaceable battery by harvesting ambient energy sufficient for measurement and telegram transmission. */
+  }
+
+  requirement def WirelessTelemetryRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.roomSensorNode.radio.maximumRangeIndoor >= 30.0 [m]
+    }
+
+    doc /* The system shall transmit sensor measurements wirelessly over an EnOcean radio link across a typical indoor room or corridor distance. */
+  }
+
+  requirement def LowPowerTransmissionRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.roomSensorNode.radio.nominalTransmitPower <= 5.0 [mW]
+    }
+
+    doc /* The EnOcean radio transmission shall use low power to preserve harvested energy and support maintenance-free field operation. */
+  }
+
+  requirement def BuildingAutomationIntegrationRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.controller.targetTemperature >= 18.0 [degC] and
+      system.controller.targetTemperature <= 26.0 [degC]
+    }
+
+    doc /* The gateway shall convert received EnOcean telegrams into telemetry usable by a building automation controller. */
+  }
+
+  satisfy BatterylessOperationRequirement by SmartBuildingEnOceanSystem;
+  satisfy WirelessTelemetryRequirement by SmartBuildingEnOceanSystem;
+  satisfy LowPowerTransmissionRequirement by SmartBuildingEnOceanSystem;
+  satisfy BuildingAutomationIntegrationRequirement by SmartBuildingEnOceanSystem;
+}
+tokens used
+2,951
+package EnOceanEnergyHarvestingSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = "V";
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = "mA";
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = "mW";
+  }
+
+  attribute def Energy :> ISQ::energy {
+    unit = "uJ";
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = "MHz";
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = "degC";
+  }
+
+  attribute def Illuminance {
+    unit = "lux";
+  }
+
+  attribute def RelativeHumidity {
+    unit = "%";
+  }
+
+  attribute def TimeDuration :> ISQ::time {
+    unit = "ms";
+  }
+
+  attribute def Distance :> ISQ::length {
+    unit = "m";
+  }
+
+  enum def SensorKind {
+    enum temperature;
+    enum humidity;
+    enum occupancy;
+    enum switchContact;
+    enum illuminance;
+  }
+
+  enum def RadioBand {
+    enum MHz868_3;
+    enum MHz902_875;
+    enum MHz928_35;
+  }
+
+  enum def TelegramStatus {
+    enum queued;
+    enum transmitted;
+    enum acknowledged;
+    enum failed;
+  }
+
+  item def HarvestedEnergy {
+    attribute amount : Energy;
+    attribute sourceVoltage : Voltage;
+  }
+
+  item def SensorMeasurement {
+    attribute kind : SensorKind;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute illuminance : Illuminance;
+    attribute contactClosed : Boolean;
+    attribute occupancyDetected : Boolean;
+    attribute sampleAge : TimeDuration;
+  }
+
+  item def EnOceanTelegram {
+    attribute radioFrequency : Frequency;
+    attribute transmitterId : String;
+    attribute sequenceCounter : Integer;
+    attribute payload : SensorMeasurement;
+    attribute transmitPower : Power;
+    attribute status : TelegramStatus;
+  }
+
+  item def ControlCommand {
+    attribute targetDeviceId : String;
+    attribute commandName : String;
+    attribute desiredState : Boolean;
+    attribute dimLevel : Real;
+  }
+
+  port def EnergyInputPort {
+    in item energyIn : HarvestedEnergy;
+  }
+
+  port def LowPowerDataPort {
+    out item measurementOut : SensorMeasurement;
+  }
+
+  port def RadioTransmitPort {
+    out item telegramOut : EnOceanTelegram;
+  }
+
+  port def RadioReceivePort {
+    in item telegramIn : EnOceanTelegram;
+    out item commandOut : ControlCommand;
+  }
+
+  port def BuildingAutomationPort {
+    in item telemetryIn : SensorMeasurement;
+    out item commandIn : ControlCommand;
+  }
+
+  part def EnergyHarvester {
+    attribute minimumStartupVoltage : Voltage = 0.9 [V];
+    attribute nominalOutputVoltage : Voltage = 3.0 [V];
+    attribute maximumHarvestedPower : Power = 10.0 [mW];
+
+    port energyOutput : EnergyInputPort;
+
+    action harvestAmbientEnergy {
+      in attribute ambientLight : Illuminance;
+      in attribute switchActuation : Boolean;
+      out item generatedEnergy : HarvestedEnergy;
+
+      first start;
+      then convertAmbientSource;
+      then regulateVoltage;
+      then provideEnergy;
+    }
+  }
+
+  part def EnergyStore {
+    attribute storageCapacity : Energy = 470000.0 [uJ];
+    attribute minimumOperatingEnergy : Energy = 120.0 [uJ];
+    attribute storedEnergy : Energy;
+    attribute outputVoltage : Voltage = 3.0 [V];
+
+    port chargeInput : EnergyInputPort;
+
+    state machine EnergyStorageStateMachine {
+      state depleted;
+      state charging;
+      state ready;
+      state supplying;
+
+      initial then depleted;
+
+      transition depleted_to_charging
+        first depleted
+        accept HarvestedEnergy
+        then charging;
+
+      transition charging_to_ready
+        first charging
+        if storedEnergy >= minimumOperatingEnergy
+        then ready;
+
+      transition ready_to_supplying
+        first ready
+        accept SensorMeasurement
+        then supplying;
+
+      transition supplying_to_ready
+        first supplying
+        if storedEnergy >= minimumOperatingEnergy
+        then ready;
+
+      transition supplying_to_depleted
+        first supplying
+        if storedEnergy < minimumOperatingEnergy
+        then depleted;
+    }
+  }
+
+  part def SensorElement {
+    attribute sensorKind : SensorKind;
+    attribute samplingCurrent : Current = 1.5 [mA];
+    attribute samplingDuration : TimeDuration = 8.0 [ms];
+
+    port dataOutput : LowPowerDataPort;
+
+    action sampleEnvironment {
+      out item measurement : SensorMeasurement;
+
+      first wakeSensor;
+      then acquirePhysicalSignal;
+      then digitizeSignal;
+      then publishMeasurement;
+    }
+  }
+
+  part def EnOceanRadioTransceiver {
+    attribute band : RadioBand = RadioBand::MHz902_875;
+    attribute carrierFrequency : Frequency = 902.875 [MHz];
+    attribute nominalTransmitPower : Power = 5.0 [mW];
+    attribute maximumRangeIndoor : Distance = 30.0 [m];
+    attribute telegramDuration : TimeDuration = 1.2 [ms];
+
+    port sensorInput : LowPowerDataPort;
+    port radioOut : RadioTransmitPort;
+
+    action encodeAndTransmit {
+      in item measurement : SensorMeasurement;
+      out item telegram : EnOceanTelegram;
+
+      first encodePayload;
+      then appendTransmitterId;
+      then modulateRadioSignal;
+      then transmitTelegram;
+    }
+
+    state machine RadioStateMachine {
+      state sleeping;
+      state encoding;
+      state transmitting;
+      state waitingForAck;
+
+      initial then sleeping;
+
+      transition sleep_to_encoding
+        first sleeping
+        accept SensorMeasurement
+        then encoding;
+
+      transition encoding_to_transmitting
+        first encoding
+        then transmitting;
+
+      transition transmitting_to_waiting
+        first transmitting
+        then waitingForAck;
+
+      transition ack_received
+        first waitingForAck
+        accept EnOceanTelegram
+        then sleeping;
+
+      transition ack_timeout
+        first waitingForAck
+        after 20.0 [ms]
+        then sleeping;
+    }
+  }
+
+  part def EnOceanWirelessSensorNode {
+    attribute nodeId : String;
+    attribute quiescentCurrent : Current = 0.003 [mA];
+    attribute wakeupEnergy : Energy = 80.0 [uJ];
+    attribute primaryFunction : String =
+      "Harvest ambient energy, sense local building conditions, and transmit low-power EnOcean telegrams without battery maintenance.";
+
+    part harvester : EnergyHarvester;
+    part energyStore : EnergyStore;
+    part temperatureSensor : SensorElement {
+      attribute sensorKind = SensorKind::temperature;
+    }
+    part humiditySensor : SensorElement {
+      attribute sensorKind = SensorKind::humidity;
+    }
+    part radio : EnOceanRadioTransceiver;
+
+    port wirelessOut : RadioTransmitPort;
+
+    connect harvester.energyOutput to energyStore.chargeInput;
+    connect temperatureSensor.dataOutput to radio.sensorInput;
+    connect humiditySensor.dataOutput to radio.sensorInput;
+    connect radio.radioOut to wirelessOut;
+
+    state machine NodeOperatingStateMachine {
+      state dormant;
+      state harvesting;
+      state measuring;
+      state transmitting;
+
+      initial then dormant;
+
+      transition dormant_to_harvesting
+        first dormant
+        accept HarvestedEnergy
+        then harvesting;
+
+      transition harvesting_to_measuring
+        first harvesting
+        if energyStore.storedEnergy >= wakeupEnergy
+        then measuring;
+
+      transition measuring_to_transmitting
+        first measuring
+        accept SensorMeasurement
+        then transmitting;
+
+      transition transmitting_to_dormant
+        first transmitting
+        after 25.0 [ms]
+        then dormant;
+    }
+  }
+
+  part def EnOceanGateway {
+    attribute gatewayId : String;
+    attribute supportedBand : RadioBand = RadioBand::MHz902_875;
+    attribute receivedTelegramCount : Integer;
+
+    port radioIn : RadioReceivePort;
+    port automationPort : BuildingAutomationPort;
+
+    action decodeTelegram {
+      in item telegram : EnOceanTelegram;
+      out item measurement : SensorMeasurement;
+
+      first validateChecksum;
+      then verifyTransmitterId;
+      then decodePayload;
+      then publishTelemetry;
+    }
+
+    action generateControlCommand {
+      in item measurement : SensorMeasurement;
+      out item command : ControlCommand;
+
+      first evaluateBuildingRule;
+      then selectTargetDevice;
+      then issueCommand;
+    }
+  }
+
+  part def BuildingAutomationController {
+    attribute controllerId : String;
+    attribute targetTemperature : Temperature = 22.0 [degC];
+    attribute humidityLimit : RelativeHumidity = 60.0 [%];
+
+    port fieldBus : BuildingAutomationPort;
+
+    action optimizeRoomCondition {
+      in item measurement : SensorMeasurement;
+      out item command : ControlCommand;
+
+      first compareAgainstSetpoints;
+      then determineControlResponse;
+      then dispatchCommand;
+    }
+
+    state machine AutomationControlStateMachine {
+      state monitoring;
+      state evaluating;
+      state commanding;
+
+      initial then monitoring;
+
+      transition monitoring_to_evaluating
+        first monitoring
+        accept SensorMeasurement
+        then evaluating;
+
+      transition evaluating_to_commanding
+        first evaluating
+        if true
+        then commanding;
+
+      transition commanding_to_monitoring
+        first commanding
+        after 10.0 [ms]
+        then monitoring;
+    }
+  }
+
+  part def SmartBuildingEnOceanSystem {
+    attribute systemName : String = "Batteryless EnOcean Building Sensing System";
+    attribute primaryFunction : String =
+      "Provide batteryless wireless sensing for a building by converting ambient energy into short EnOcean radio telegrams used by automation controls.";
+
+    part roomSensorNode : EnOceanWirelessSensorNode {
+      attribute nodeId = "ENO-TEMP-HUM-001";
+    }
+
+    part gateway : EnOceanGateway {
+      attribute gatewayId = "ENO-GW-001";
+    }
+
+    part controller : BuildingAutomationController {
+      attribute controllerId = "BAS-CTRL-001";
+    }
+
+    connect roomSensorNode.wirelessOut to gateway.radioIn;
+    connect gateway.automationPort to controller.fieldBus;
+  }
+
+  requirement def BatterylessOperationRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.roomSensorNode.energyStore.minimumOperatingEnergy <= system.roomSensorNode.energyStore.storageCapacity
+    }
+
+    doc /* The EnOcean sensor node shall operate without a replaceable battery by harvesting ambient energy sufficient for measurement and telegram transmission. */
+  }
+
+  requirement def WirelessTelemetryRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.roomSensorNode.radio.maximumRangeIndoor >= 30.0 [m]
+    }
+
+    doc /* The system shall transmit sensor measurements wirelessly over an EnOcean radio link across a typical indoor room or corridor distance. */
+  }
+
+  requirement def LowPowerTransmissionRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.roomSensorNode.radio.nominalTransmitPower <= 5.0 [mW]
+    }
+
+    doc /* The EnOcean radio transmission shall use low power to preserve harvested energy and support maintenance-free field operation. */
+  }
+
+  requirement def BuildingAutomationIntegrationRequirement {
+    subject system : SmartBuildingEnOceanSystem;
+
+    require constraint {
+      system.controller.targetTemperature >= 18.0 [degC] and
+      system.controller.targetTemperature <= 26.0 [degC]
+    }
+
+    doc /* The gateway shall convert received EnOcean telegrams into telemetry usable by a building automation controller. */
+  }
+
+  satisfy BatterylessOperationRequirement by SmartBuildingEnOceanSystem;
+  satisfy WirelessTelemetryRequirement by SmartBuildingEnOceanSystem;
+  satisfy LowPowerTransmissionRequirement by SmartBuildingEnOceanSystem;
+  satisfy BuildingAutomationIntegrationRequirement by SmartBuildingEnOceanSystem;
+}

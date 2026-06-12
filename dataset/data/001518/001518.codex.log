@@ -1,0 +1,1387 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-v_ax56rq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb705-a054-7c21-9a3a-ae9959adc0d5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a OpenWebNet and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OpenWebNetSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Percent specializes Real {
+        unit = "%";
+    }
+
+    value def Millisecond specializes Real {
+        unit = "ms";
+    }
+
+    value def Second specializes Real {
+        unit = "s";
+    }
+
+    value def VoltAC specializes Real {
+        unit = "V";
+    }
+
+    value def Watt specializes Real {
+        unit = "W";
+    }
+
+    value def Celsius specializes Real {
+        unit = "degC";
+    }
+
+    value def Lux specializes Real {
+        unit = "lx";
+    }
+
+    value def OpenWebNetAddress specializes String;
+    value def OpenWebNetFrameText specializes String;
+    value def ZoneIdentifier specializes String;
+    value def DeviceIdentifier specializes String;
+
+    enum def OpenWebNetDomain {
+        enum lighting;
+        enum automation;
+        enum temperatureControl;
+        enum energyManagement;
+        enum security;
+        enum scenario;
+        enum diagnostics;
+    }
+
+    enum def CommandPriority {
+        enum routine;
+        enum userRequested;
+        enum safetyCritical;
+        enum emergency;
+    }
+
+    enum def DeviceHealth {
+        enum online;
+        enum degraded;
+        enum offline;
+        enum faulted;
+    }
+
+    enum def LightLevelCommand {
+        enum off;
+        enum on;
+        enum dim10;
+        enum dim25;
+        enum dim50;
+        enum dim75;
+        enum dim100;
+    }
+
+    item def OpenWebNetFrame {
+        attribute source: OpenWebNetAddress;
+        attribute destination: OpenWebNetAddress;
+        attribute domain: OpenWebNetDomain;
+        attribute payload: OpenWebNetFrameText;
+        attribute priority: CommandPriority;
+        attribute checksumValid: Boolean;
+        attribute timestamp: Second;
+    }
+
+    item def UserIntent {
+        attribute requestedDomain: OpenWebNetDomain;
+        attribute targetZone: ZoneIdentifier;
+        attribute targetDevice: DeviceIdentifier;
+        attribute requestedAction: String;
+        attribute priority: CommandPriority;
+    }
+
+    item def DeviceCommand {
+        attribute targetAddress: OpenWebNetAddress;
+        attribute domain: OpenWebNetDomain;
+        attribute commandPayload: OpenWebNetFrameText;
+        attribute priority: CommandPriority;
+    }
+
+    item def DeviceStatus {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute domain: OpenWebNetDomain;
+        attribute health: DeviceHealth;
+        attribute lastUpdateTime: Second;
+    }
+
+    item def LightingStatus specializes DeviceStatus {
+        attribute lightLevel: Percent;
+        attribute measuredIlluminance: Lux;
+    }
+
+    item def ShutterStatus specializes DeviceStatus {
+        attribute position: Percent;
+        attribute moving: Boolean;
+    }
+
+    item def TemperatureStatus specializes DeviceStatus {
+        attribute measuredTemperature: Celsius;
+        attribute setpoint: Celsius;
+        attribute heatingActive: Boolean;
+        attribute coolingActive: Boolean;
+    }
+
+    item def EnergyStatus specializes DeviceStatus {
+        attribute voltage: VoltAC;
+        attribute activePower: Watt;
+        attribute dailyEnergy: Real;
+    }
+
+    port def UserControlPort {
+        in item intent: UserIntent;
+        out item status: DeviceStatus;
+    }
+
+    port def OpenWebNetBusPort {
+        out item outgoingFrame: OpenWebNetFrame;
+        in item incomingFrame: OpenWebNetFrame;
+    }
+
+    port def DeviceCommandPort {
+        in item command: DeviceCommand;
+        out item status: DeviceStatus;
+    }
+
+    port def DiagnosticsPort {
+        out item healthReport: DeviceStatus;
+        in item diagnosticRequest: String;
+    }
+
+    part def OpenWebNetGateway {
+        attribute gatewayAddress: OpenWebNetAddress;
+        attribute maxFrameLatency: Millisecond = 250 [ms];
+        attribute nominalSupply: VoltAC = 230 [V];
+        attribute supportedDomains: OpenWebNetDomain[1..*];
+
+        port userPort: UserControlPort;
+        port busPort: OpenWebNetBusPort;
+        port diagnosticsPort: DiagnosticsPort;
+
+        part frameParser: FrameParser;
+        part commandRouter: CommandRouter;
+        part healthMonitor: HealthMonitor;
+
+        action translateUserIntent {
+            in item intent: UserIntent;
+            out item command: DeviceCommand;
+
+            first start;
+            then validateTarget;
+            then mapDomainCommand;
+            then assignPriority;
+            then done;
+
+            action validateTarget;
+            action mapDomainCommand;
+            action assignPriority;
+        }
+
+        action encodeOpenWebNetFrame {
+            in item command: DeviceCommand;
+            out item frame: OpenWebNetFrame;
+
+            first start;
+            then composeHeader;
+            then serializePayload;
+            then calculateChecksum;
+            then done;
+
+            action composeHeader;
+            action serializePayload;
+            action calculateChecksum;
+        }
+
+        state def GatewayOperationalState {
+            state initializing;
+            state ready;
+            state routingCommand;
+            state monitoringBus;
+            state degraded;
+            state faulted;
+
+            transition first initializing then ready
+                accept after 5 [s];
+
+            transition ready then routingCommand
+                accept UserIntent;
+
+            transition routingCommand then ready
+                accept OpenWebNetFrame;
+
+            transition ready then monitoringBus
+                accept OpenWebNetFrame;
+
+            transition monitoringBus then ready
+                accept DeviceStatus;
+
+            transition ready then degraded
+                if healthMonitor.degradedDeviceCount > 0;
+
+            transition degraded then ready
+                if healthMonitor.degradedDeviceCount == 0;
+
+            transition ready then faulted
+                if healthMonitor.gatewayFaultDetected;
+
+            transition degraded then faulted
+                if healthMonitor.gatewayFaultDetected;
+        }
+
+        exhibit state gatewayState: GatewayOperationalState;
+    }
+
+    part def FrameParser {
+        attribute rejectedFrameCount: Integer;
+        attribute acceptedFrameCount: Integer;
+
+        action parseFrame {
+            in item rawFrame: OpenWebNetFrame;
+            out item status: DeviceStatus;
+
+            first start;
+            then verifyChecksum;
+            then identifyDomain;
+            then decodePayload;
+            then publishStatus;
+            then done;
+
+            action verifyChecksum;
+            action identifyDomain;
+            action decodePayload;
+            action publishStatus;
+        }
+    }
+
+    part def CommandRouter {
+        attribute routedCommandCount: Integer;
+        attribute failedRouteCount: Integer;
+
+        action routeCommand {
+            in item command: DeviceCommand;
+            out item frame: OpenWebNetFrame;
+
+            first start;
+            then selectDomainAdapter;
+            then encodeAddress;
+            then createFrame;
+            then done;
+
+            action selectDomainAdapter;
+            action encodeAddress;
+            action createFrame;
+        }
+    }
+
+    part def HealthMonitor {
+        attribute degradedDeviceCount: Integer;
+        attribute offlineDeviceCount: Integer;
+        attribute gatewayFaultDetected: Boolean;
+        attribute heartbeatPeriod: Second = 30 [s];
+
+        action pollDevices {
+            out item diagnosticRequest: String;
+
+            first start;
+            then buildHeartbeat;
+            then dispatchHeartbeat;
+            then done;
+
+            action buildHeartbeat;
+            action dispatchHeartbeat;
+        }
+    }
+
+    part def LightingActuator {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute ratedPower: Watt;
+        attribute currentLevel: Percent;
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action applyLightingCommand {
+            in item command: DeviceCommand;
+            out item status: LightingStatus;
+
+            first start;
+            then decodeLevel;
+            then setOutputLevel;
+            then measureIlluminance;
+            then reportStatus;
+            then done;
+
+            action decodeLevel;
+            action setOutputLevel;
+            action measureIlluminance;
+            action reportStatus;
+        }
+
+        state def LightingState {
+            state off;
+            state switchingOn;
+            state on;
+            state dimmed;
+            state faulted;
+
+            transition first off;
+            transition off then switchingOn accept DeviceCommand if currentLevel == 0 [%];
+            transition switchingOn then on accept after 1 [s] if currentLevel == 100 [%];
+            transition switchingOn then dimmed accept after 1 [s] if currentLevel > 0 [%] and currentLevel < 100 [%];
+            transition on then dimmed accept DeviceCommand if currentLevel < 100 [%] and currentLevel > 0 [%];
+            transition dimmed then on accept DeviceCommand if currentLevel == 100 [%];
+            transition on then off accept DeviceCommand if currentLevel == 0 [%];
+            transition dimmed then off accept DeviceCommand if currentLevel == 0 [%];
+            transition off then faulted if health == DeviceHealth::faulted;
+            transition on then faulted if health == DeviceHealth::faulted;
+            transition dimmed then faulted if health == DeviceHealth::faulted;
+        }
+
+        exhibit state lightState: LightingState;
+    }
+
+    part def ShutterActuator {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute position: Percent;
+        attribute motorPower: Watt;
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action moveToPosition {
+            in item command: DeviceCommand;
+            out item status: ShutterStatus;
+
+            first start;
+            then decodeTargetPosition;
+            then energizeMotor;
+            then monitorTravel;
+            then stopMotor;
+            then reportStatus;
+            then done;
+
+            action decodeTargetPosition;
+            action energizeMotor;
+            action monitorTravel;
+            action stopMotor;
+            action reportStatus;
+        }
+
+        state def ShutterState {
+            state stopped;
+            state opening;
+            state closing;
+            state fullyOpen;
+            state fullyClosed;
+            state faulted;
+
+            transition first stopped;
+            transition stopped then opening accept DeviceCommand if position < 100 [%];
+            transition stopped then closing accept DeviceCommand if position > 0 [%];
+            transition opening then fullyOpen accept after 20 [s] if position == 100 [%];
+            transition closing then fullyClosed accept after 20 [s] if position == 0 [%];
+            transition opening then stopped accept DeviceCommand;
+            transition closing then stopped accept DeviceCommand;
+            transition stopped then faulted if health == DeviceHealth::faulted;
+            transition opening then faulted if health == DeviceHealth::faulted;
+            transition closing then faulted if health == DeviceHealth::faulted;
+        }
+
+        exhibit state shutterState: ShutterState;
+    }
+
+    part def ThermostatController {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute measuredTemperature: Celsius;
+        attribute setpoint: Celsius;
+        attribute comfortBand: Celsius = 0.5 [degC];
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action regulateTemperature {
+            in item command: DeviceCommand;
+            out item status: TemperatureStatus;
+
+            first start;
+            then readSetpoint;
+            then compareTemperature;
+            then commandHeatingCooling;
+            then reportStatus;
+            then done;
+
+            action readSetpoint;
+            action compareTemperature;
+            action commandHeatingCooling;
+            action reportStatus;
+        }
+
+        state def ThermalControlState {
+            state idle;
+            state heating;
+            state cooling;
+            state faulted;
+
+            transition first idle;
+            transition idle then heating if measuredTemperature < setpoint - comfortBand;
+            transition idle then cooling if measuredTemperature > setpoint + comfortBand;
+            transition heating then idle if measuredTemperature >= setpoint;
+            transition cooling then idle if measuredTemperature <= setpoint;
+            transition idle then faulted if health == DeviceHealth::faulted;
+            transition heating then faulted if health == DeviceHealth::faulted;
+            transition cooling then faulted if health == DeviceHealth::faulted;
+        }
+
+        exhibit state thermalState: ThermalControlState;
+    }
+
+    part def EnergyMeter {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute measuredVoltage: VoltAC;
+        attribute measuredPower: Watt;
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action reportEnergy {
+            out item status: EnergyStatus;
+
+            first start;
+            then sampleVoltage;
+            then sampleCurrentDerivedPower;
+            then accumulateDailyEnergy;
+            then publishEnergyStatus;
+            then done;
+
+            action sampleVoltage;
+            action sampleCurrentDerivedPower;
+            action accumulateDailyEnergy;
+            action publishEnergyStatus;
+        }
+    }
+
+    part def OpenWebNetInstallation {
+        attribute installationName: String = "OpenWebNet Integrated Building Control System";
+        attribute primaryFunction: String =
+            "Provide high-level coordination, monitoring, and control of building automation devices by translating user intentions into OpenWebNet frames and routing device status back to users and supervisory services.";
+        attribute nominalBusVoltage: VoltAC = 230 [V];
+        attribute commandResponseObjective: Millisecond = 500 [ms];
+
+        part gateway: OpenWebNetGateway {
+            attribute gatewayAddress = "*#13**";
+            attribute supportedDomains = (
+                OpenWebNetDomain::lighting,
+                OpenWebNetDomain::automation,
+                OpenWebNetDomain::temperatureControl,
+                OpenWebNetDomain::energyManagement,
+                OpenWebNetDomain::diagnostics
+            );
+        }
+
+        part livingRoomLight: LightingActuator {
+            attribute deviceId = "LR-LIGHT-01";
+            attribute address = "*1*11##";
+            attribute zone = "LivingRoom";
+            attribute ratedPower = 18 [W];
+            attribute currentLevel = 0 [%];
+            attribute health = DeviceHealth::online;
+        }
+
+        part kitchenLight: LightingActuator {
+            attribute deviceId = "KT-LIGHT-01";
+            attribute address = "*1*21##";
+            attribute zone = "Kitchen";
+            attribute ratedPower = 24 [W];
+            attribute currentLevel = 0 [%];
+            attribute health = DeviceHealth::online;
+        }
+
+        part livingRoomShutter: ShutterActuator {
+            attribute deviceId = "LR-SHUTTER-01";
+            attribute address = "*2*31##";
+            attribute zone = "LivingRoom";
+            attribute position = 50 [%];
+            attribute motorPower = 120 [W];
+            attribute health = DeviceHealth::online;
+        }
+
+        part hallwayThermostat: ThermostatController {
+            attribute deviceId = "HW-THERMO-01";
+            attribute address = "*4*41##";
+            attribute zone = "Hallway";
+            attribute measuredTemperature = 21.0 [degC];
+            attribute setpoint = 21.5 [degC];
+            attribute health = DeviceHealth::online;
+        }
+
+        part mainEnergyMeter: EnergyMeter {
+            attribute deviceId = "MAIN-METER-01";
+            attribute address = "*18*51##";
+            attribute zone = "MainPanel";
+            attribute measuredVoltage = 230 [V];
+            attribute measuredPower = 650 [W];
+            attribute health = DeviceHealth::online;
+        }
+
+        connect gateway.busPort to livingRoomLight.controlPort;
+        connect gateway.busPort to kitchenLight.controlPort;
+        connect gateway.busPort to livingRoomShutter.controlPort;
+        connect gateway.busPort to hallwayThermostat.controlPort;
+        connect gateway.busPort to mainEnergyMeter.controlPort;
+
+        action executeUserRequest {
+            in item intent: UserIntent;
+            out item resultingStatus: DeviceStatus;
+
+            first receiveIntent;
+            then translateIntentViaGateway;
+            then transmitOpenWebNetFrame;
+            then actuateTargetDevice;
+            then collectDeviceStatus;
+            then returnStatus;
+            then done;
+
+            action receiveIntent;
+            action translateIntentViaGateway;
+            action transmitOpenWebNetFrame;
+            action actuateTargetDevice;
+            action collectDeviceStatus;
+            action returnStatus;
+        }
+
+        action synchronizeInstallationStatus {
+            out item statusSummary: DeviceStatus[1..*];
+
+            first start;
+            then pollLighting;
+            then pollAutomation;
+            then pollTemperature;
+            then pollEnergy;
+            then aggregateStatus;
+            then done;
+
+            action pollLighting;
+            action pollAutomation;
+            action pollTemperature;
+            action pollEnergy;
+            action aggregateStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject installation: OpenWebNetInstallation;
+
+        doc
+            /*
+             The system shall provide a unified OpenWebNet-based building automation
+             function that accepts user or supervisory intents, converts them to
+             valid OpenWebNet command frames, routes those frames to addressed
+             building devices, and reports device status for monitoring and feedback.
+             */
+
+        require constraint {
+            installation.commandResponseObjective <= 500 [ms]
+        }
+    }
+
+    requirement def OpenWebNetFrameValidityRequirement {
+        subject frame: OpenWebNetFrame;
+
+        doc
+            /*
+             Every command frame transmitted by the gateway shall include a source,
+             destination, domain, payload, priority, and valid checksum indication.
+             */
+
+        require constraint {
+            frame.checksumValid == true
+        }
+    }
+
+    requirement def DeviceStatusReportingRequirement {
+        subject deviceStatus: DeviceStatus;
+
+        doc
+            /*
+             Each controlled device shall report its address, domain, health state,
+             and latest update time after command processing or diagnostic polling.
+             */
+
+        require constraint {
+            deviceStatus.lastUpdateTime >= 0 [s]
+        }
+    }
+
+    requirement def LightingControlRequirement {
+        subject light: LightingActuator;
+
+        doc
+            /*
+             Lighting actuators shall support switching and dimming commands over
+             OpenWebNet and shall report resulting light level and health state.
+             */
+
+        require constraint {
+            light.currentLevel >= 0 [%] and light.currentLevel <= 100 [%]
+        }
+    }
+
+    requirement def ShutterControlRequirement {
+        subject shutter: ShutterActuator;
+
+        doc
+            /*
+             Shutter actuators shall support OpenWebNet position commands and shall
+             stop within the requested travel range between fully closed and fully open.
+             */
+
+        require constraint {
+            shutter.position >= 0 [%] and shutter.position <= 100 [%]
+        }
+    }
+
+    requirement def TemperatureControlRequirement {
+        subject thermostat: ThermostatController;
+
+        doc
+            /*
+             Thermostat controllers shall use OpenWebNet commands and reports to
+             maintain zone temperature within a configurable comfort band around
+             the requested setpoint.
+             */
+
+        require constraint {
+            thermostat.comfortBand > 0 [degC]
+        }
+    }
+
+    requirement def EnergyMonitoringRequirement {
+        subject meter: EnergyMeter;
+
+        doc
+            /*
+             The energy meter shall publish voltage and active power measurements
+             through the OpenWebNet system for supervisory monitoring.
+             */
+
+        require constraint {
+            meter.measuredVoltage > 0 [V] and meter.measuredPower >= 0 [W]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by OpenWebNetInstallation;
+    satisfy LightingControlRequirement by OpenWebNetInstallation::livingRoomLight;
+    satisfy LightingControlRequirement by OpenWebNetInstallation::kitchenLight;
+    satisfy ShutterControlRequirement by OpenWebNetInstallation::livingRoomShutter;
+    satisfy TemperatureControlRequirement by OpenWebNetInstallation::hallwayThermostat;
+    satisfy EnergyMonitoringRequirement by OpenWebNetInstallation::mainEnergyMeter;
+}
+tokens used
+5,501
+package OpenWebNetSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Percent specializes Real {
+        unit = "%";
+    }
+
+    value def Millisecond specializes Real {
+        unit = "ms";
+    }
+
+    value def Second specializes Real {
+        unit = "s";
+    }
+
+    value def VoltAC specializes Real {
+        unit = "V";
+    }
+
+    value def Watt specializes Real {
+        unit = "W";
+    }
+
+    value def Celsius specializes Real {
+        unit = "degC";
+    }
+
+    value def Lux specializes Real {
+        unit = "lx";
+    }
+
+    value def OpenWebNetAddress specializes String;
+    value def OpenWebNetFrameText specializes String;
+    value def ZoneIdentifier specializes String;
+    value def DeviceIdentifier specializes String;
+
+    enum def OpenWebNetDomain {
+        enum lighting;
+        enum automation;
+        enum temperatureControl;
+        enum energyManagement;
+        enum security;
+        enum scenario;
+        enum diagnostics;
+    }
+
+    enum def CommandPriority {
+        enum routine;
+        enum userRequested;
+        enum safetyCritical;
+        enum emergency;
+    }
+
+    enum def DeviceHealth {
+        enum online;
+        enum degraded;
+        enum offline;
+        enum faulted;
+    }
+
+    enum def LightLevelCommand {
+        enum off;
+        enum on;
+        enum dim10;
+        enum dim25;
+        enum dim50;
+        enum dim75;
+        enum dim100;
+    }
+
+    item def OpenWebNetFrame {
+        attribute source: OpenWebNetAddress;
+        attribute destination: OpenWebNetAddress;
+        attribute domain: OpenWebNetDomain;
+        attribute payload: OpenWebNetFrameText;
+        attribute priority: CommandPriority;
+        attribute checksumValid: Boolean;
+        attribute timestamp: Second;
+    }
+
+    item def UserIntent {
+        attribute requestedDomain: OpenWebNetDomain;
+        attribute targetZone: ZoneIdentifier;
+        attribute targetDevice: DeviceIdentifier;
+        attribute requestedAction: String;
+        attribute priority: CommandPriority;
+    }
+
+    item def DeviceCommand {
+        attribute targetAddress: OpenWebNetAddress;
+        attribute domain: OpenWebNetDomain;
+        attribute commandPayload: OpenWebNetFrameText;
+        attribute priority: CommandPriority;
+    }
+
+    item def DeviceStatus {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute domain: OpenWebNetDomain;
+        attribute health: DeviceHealth;
+        attribute lastUpdateTime: Second;
+    }
+
+    item def LightingStatus specializes DeviceStatus {
+        attribute lightLevel: Percent;
+        attribute measuredIlluminance: Lux;
+    }
+
+    item def ShutterStatus specializes DeviceStatus {
+        attribute position: Percent;
+        attribute moving: Boolean;
+    }
+
+    item def TemperatureStatus specializes DeviceStatus {
+        attribute measuredTemperature: Celsius;
+        attribute setpoint: Celsius;
+        attribute heatingActive: Boolean;
+        attribute coolingActive: Boolean;
+    }
+
+    item def EnergyStatus specializes DeviceStatus {
+        attribute voltage: VoltAC;
+        attribute activePower: Watt;
+        attribute dailyEnergy: Real;
+    }
+
+    port def UserControlPort {
+        in item intent: UserIntent;
+        out item status: DeviceStatus;
+    }
+
+    port def OpenWebNetBusPort {
+        out item outgoingFrame: OpenWebNetFrame;
+        in item incomingFrame: OpenWebNetFrame;
+    }
+
+    port def DeviceCommandPort {
+        in item command: DeviceCommand;
+        out item status: DeviceStatus;
+    }
+
+    port def DiagnosticsPort {
+        out item healthReport: DeviceStatus;
+        in item diagnosticRequest: String;
+    }
+
+    part def OpenWebNetGateway {
+        attribute gatewayAddress: OpenWebNetAddress;
+        attribute maxFrameLatency: Millisecond = 250 [ms];
+        attribute nominalSupply: VoltAC = 230 [V];
+        attribute supportedDomains: OpenWebNetDomain[1..*];
+
+        port userPort: UserControlPort;
+        port busPort: OpenWebNetBusPort;
+        port diagnosticsPort: DiagnosticsPort;
+
+        part frameParser: FrameParser;
+        part commandRouter: CommandRouter;
+        part healthMonitor: HealthMonitor;
+
+        action translateUserIntent {
+            in item intent: UserIntent;
+            out item command: DeviceCommand;
+
+            first start;
+            then validateTarget;
+            then mapDomainCommand;
+            then assignPriority;
+            then done;
+
+            action validateTarget;
+            action mapDomainCommand;
+            action assignPriority;
+        }
+
+        action encodeOpenWebNetFrame {
+            in item command: DeviceCommand;
+            out item frame: OpenWebNetFrame;
+
+            first start;
+            then composeHeader;
+            then serializePayload;
+            then calculateChecksum;
+            then done;
+
+            action composeHeader;
+            action serializePayload;
+            action calculateChecksum;
+        }
+
+        state def GatewayOperationalState {
+            state initializing;
+            state ready;
+            state routingCommand;
+            state monitoringBus;
+            state degraded;
+            state faulted;
+
+            transition first initializing then ready
+                accept after 5 [s];
+
+            transition ready then routingCommand
+                accept UserIntent;
+
+            transition routingCommand then ready
+                accept OpenWebNetFrame;
+
+            transition ready then monitoringBus
+                accept OpenWebNetFrame;
+
+            transition monitoringBus then ready
+                accept DeviceStatus;
+
+            transition ready then degraded
+                if healthMonitor.degradedDeviceCount > 0;
+
+            transition degraded then ready
+                if healthMonitor.degradedDeviceCount == 0;
+
+            transition ready then faulted
+                if healthMonitor.gatewayFaultDetected;
+
+            transition degraded then faulted
+                if healthMonitor.gatewayFaultDetected;
+        }
+
+        exhibit state gatewayState: GatewayOperationalState;
+    }
+
+    part def FrameParser {
+        attribute rejectedFrameCount: Integer;
+        attribute acceptedFrameCount: Integer;
+
+        action parseFrame {
+            in item rawFrame: OpenWebNetFrame;
+            out item status: DeviceStatus;
+
+            first start;
+            then verifyChecksum;
+            then identifyDomain;
+            then decodePayload;
+            then publishStatus;
+            then done;
+
+            action verifyChecksum;
+            action identifyDomain;
+            action decodePayload;
+            action publishStatus;
+        }
+    }
+
+    part def CommandRouter {
+        attribute routedCommandCount: Integer;
+        attribute failedRouteCount: Integer;
+
+        action routeCommand {
+            in item command: DeviceCommand;
+            out item frame: OpenWebNetFrame;
+
+            first start;
+            then selectDomainAdapter;
+            then encodeAddress;
+            then createFrame;
+            then done;
+
+            action selectDomainAdapter;
+            action encodeAddress;
+            action createFrame;
+        }
+    }
+
+    part def HealthMonitor {
+        attribute degradedDeviceCount: Integer;
+        attribute offlineDeviceCount: Integer;
+        attribute gatewayFaultDetected: Boolean;
+        attribute heartbeatPeriod: Second = 30 [s];
+
+        action pollDevices {
+            out item diagnosticRequest: String;
+
+            first start;
+            then buildHeartbeat;
+            then dispatchHeartbeat;
+            then done;
+
+            action buildHeartbeat;
+            action dispatchHeartbeat;
+        }
+    }
+
+    part def LightingActuator {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute ratedPower: Watt;
+        attribute currentLevel: Percent;
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action applyLightingCommand {
+            in item command: DeviceCommand;
+            out item status: LightingStatus;
+
+            first start;
+            then decodeLevel;
+            then setOutputLevel;
+            then measureIlluminance;
+            then reportStatus;
+            then done;
+
+            action decodeLevel;
+            action setOutputLevel;
+            action measureIlluminance;
+            action reportStatus;
+        }
+
+        state def LightingState {
+            state off;
+            state switchingOn;
+            state on;
+            state dimmed;
+            state faulted;
+
+            transition first off;
+            transition off then switchingOn accept DeviceCommand if currentLevel == 0 [%];
+            transition switchingOn then on accept after 1 [s] if currentLevel == 100 [%];
+            transition switchingOn then dimmed accept after 1 [s] if currentLevel > 0 [%] and currentLevel < 100 [%];
+            transition on then dimmed accept DeviceCommand if currentLevel < 100 [%] and currentLevel > 0 [%];
+            transition dimmed then on accept DeviceCommand if currentLevel == 100 [%];
+            transition on then off accept DeviceCommand if currentLevel == 0 [%];
+            transition dimmed then off accept DeviceCommand if currentLevel == 0 [%];
+            transition off then faulted if health == DeviceHealth::faulted;
+            transition on then faulted if health == DeviceHealth::faulted;
+            transition dimmed then faulted if health == DeviceHealth::faulted;
+        }
+
+        exhibit state lightState: LightingState;
+    }
+
+    part def ShutterActuator {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute position: Percent;
+        attribute motorPower: Watt;
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action moveToPosition {
+            in item command: DeviceCommand;
+            out item status: ShutterStatus;
+
+            first start;
+            then decodeTargetPosition;
+            then energizeMotor;
+            then monitorTravel;
+            then stopMotor;
+            then reportStatus;
+            then done;
+
+            action decodeTargetPosition;
+            action energizeMotor;
+            action monitorTravel;
+            action stopMotor;
+            action reportStatus;
+        }
+
+        state def ShutterState {
+            state stopped;
+            state opening;
+            state closing;
+            state fullyOpen;
+            state fullyClosed;
+            state faulted;
+
+            transition first stopped;
+            transition stopped then opening accept DeviceCommand if position < 100 [%];
+            transition stopped then closing accept DeviceCommand if position > 0 [%];
+            transition opening then fullyOpen accept after 20 [s] if position == 100 [%];
+            transition closing then fullyClosed accept after 20 [s] if position == 0 [%];
+            transition opening then stopped accept DeviceCommand;
+            transition closing then stopped accept DeviceCommand;
+            transition stopped then faulted if health == DeviceHealth::faulted;
+            transition opening then faulted if health == DeviceHealth::faulted;
+            transition closing then faulted if health == DeviceHealth::faulted;
+        }
+
+        exhibit state shutterState: ShutterState;
+    }
+
+    part def ThermostatController {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute measuredTemperature: Celsius;
+        attribute setpoint: Celsius;
+        attribute comfortBand: Celsius = 0.5 [degC];
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action regulateTemperature {
+            in item command: DeviceCommand;
+            out item status: TemperatureStatus;
+
+            first start;
+            then readSetpoint;
+            then compareTemperature;
+            then commandHeatingCooling;
+            then reportStatus;
+            then done;
+
+            action readSetpoint;
+            action compareTemperature;
+            action commandHeatingCooling;
+            action reportStatus;
+        }
+
+        state def ThermalControlState {
+            state idle;
+            state heating;
+            state cooling;
+            state faulted;
+
+            transition first idle;
+            transition idle then heating if measuredTemperature < setpoint - comfortBand;
+            transition idle then cooling if measuredTemperature > setpoint + comfortBand;
+            transition heating then idle if measuredTemperature >= setpoint;
+            transition cooling then idle if measuredTemperature <= setpoint;
+            transition idle then faulted if health == DeviceHealth::faulted;
+            transition heating then faulted if health == DeviceHealth::faulted;
+            transition cooling then faulted if health == DeviceHealth::faulted;
+        }
+
+        exhibit state thermalState: ThermalControlState;
+    }
+
+    part def EnergyMeter {
+        attribute deviceId: DeviceIdentifier;
+        attribute address: OpenWebNetAddress;
+        attribute zone: ZoneIdentifier;
+        attribute measuredVoltage: VoltAC;
+        attribute measuredPower: Watt;
+        attribute health: DeviceHealth;
+
+        port controlPort: DeviceCommandPort;
+
+        action reportEnergy {
+            out item status: EnergyStatus;
+
+            first start;
+            then sampleVoltage;
+            then sampleCurrentDerivedPower;
+            then accumulateDailyEnergy;
+            then publishEnergyStatus;
+            then done;
+
+            action sampleVoltage;
+            action sampleCurrentDerivedPower;
+            action accumulateDailyEnergy;
+            action publishEnergyStatus;
+        }
+    }
+
+    part def OpenWebNetInstallation {
+        attribute installationName: String = "OpenWebNet Integrated Building Control System";
+        attribute primaryFunction: String =
+            "Provide high-level coordination, monitoring, and control of building automation devices by translating user intentions into OpenWebNet frames and routing device status back to users and supervisory services.";
+        attribute nominalBusVoltage: VoltAC = 230 [V];
+        attribute commandResponseObjective: Millisecond = 500 [ms];
+
+        part gateway: OpenWebNetGateway {
+            attribute gatewayAddress = "*#13**";
+            attribute supportedDomains = (
+                OpenWebNetDomain::lighting,
+                OpenWebNetDomain::automation,
+                OpenWebNetDomain::temperatureControl,
+                OpenWebNetDomain::energyManagement,
+                OpenWebNetDomain::diagnostics
+            );
+        }
+
+        part livingRoomLight: LightingActuator {
+            attribute deviceId = "LR-LIGHT-01";
+            attribute address = "*1*11##";
+            attribute zone = "LivingRoom";
+            attribute ratedPower = 18 [W];
+            attribute currentLevel = 0 [%];
+            attribute health = DeviceHealth::online;
+        }
+
+        part kitchenLight: LightingActuator {
+            attribute deviceId = "KT-LIGHT-01";
+            attribute address = "*1*21##";
+            attribute zone = "Kitchen";
+            attribute ratedPower = 24 [W];
+            attribute currentLevel = 0 [%];
+            attribute health = DeviceHealth::online;
+        }
+
+        part livingRoomShutter: ShutterActuator {
+            attribute deviceId = "LR-SHUTTER-01";
+            attribute address = "*2*31##";
+            attribute zone = "LivingRoom";
+            attribute position = 50 [%];
+            attribute motorPower = 120 [W];
+            attribute health = DeviceHealth::online;
+        }
+
+        part hallwayThermostat: ThermostatController {
+            attribute deviceId = "HW-THERMO-01";
+            attribute address = "*4*41##";
+            attribute zone = "Hallway";
+            attribute measuredTemperature = 21.0 [degC];
+            attribute setpoint = 21.5 [degC];
+            attribute health = DeviceHealth::online;
+        }
+
+        part mainEnergyMeter: EnergyMeter {
+            attribute deviceId = "MAIN-METER-01";
+            attribute address = "*18*51##";
+            attribute zone = "MainPanel";
+            attribute measuredVoltage = 230 [V];
+            attribute measuredPower = 650 [W];
+            attribute health = DeviceHealth::online;
+        }
+
+        connect gateway.busPort to livingRoomLight.controlPort;
+        connect gateway.busPort to kitchenLight.controlPort;
+        connect gateway.busPort to livingRoomShutter.controlPort;
+        connect gateway.busPort to hallwayThermostat.controlPort;
+        connect gateway.busPort to mainEnergyMeter.controlPort;
+
+        action executeUserRequest {
+            in item intent: UserIntent;
+            out item resultingStatus: DeviceStatus;
+
+            first receiveIntent;
+            then translateIntentViaGateway;
+            then transmitOpenWebNetFrame;
+            then actuateTargetDevice;
+            then collectDeviceStatus;
+            then returnStatus;
+            then done;
+
+            action receiveIntent;
+            action translateIntentViaGateway;
+            action transmitOpenWebNetFrame;
+            action actuateTargetDevice;
+            action collectDeviceStatus;
+            action returnStatus;
+        }
+
+        action synchronizeInstallationStatus {
+            out item statusSummary: DeviceStatus[1..*];
+
+            first start;
+            then pollLighting;
+            then pollAutomation;
+            then pollTemperature;
+            then pollEnergy;
+            then aggregateStatus;
+            then done;
+
+            action pollLighting;
+            action pollAutomation;
+            action pollTemperature;
+            action pollEnergy;
+            action aggregateStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject installation: OpenWebNetInstallation;
+
+        doc
+            /*
+             The system shall provide a unified OpenWebNet-based building automation
+             function that accepts user or supervisory intents, converts them to
+             valid OpenWebNet command frames, routes those frames to addressed
+             building devices, and reports device status for monitoring and feedback.
+             */
+
+        require constraint {
+            installation.commandResponseObjective <= 500 [ms]
+        }
+    }
+
+    requirement def OpenWebNetFrameValidityRequirement {
+        subject frame: OpenWebNetFrame;
+
+        doc
+            /*
+             Every command frame transmitted by the gateway shall include a source,
+             destination, domain, payload, priority, and valid checksum indication.
+             */
+
+        require constraint {
+            frame.checksumValid == true
+        }
+    }
+
+    requirement def DeviceStatusReportingRequirement {
+        subject deviceStatus: DeviceStatus;
+
+        doc
+            /*
+             Each controlled device shall report its address, domain, health state,
+             and latest update time after command processing or diagnostic polling.
+             */
+
+        require constraint {
+            deviceStatus.lastUpdateTime >= 0 [s]
+        }
+    }
+
+    requirement def LightingControlRequirement {
+        subject light: LightingActuator;
+
+        doc
+            /*
+             Lighting actuators shall support switching and dimming commands over
+             OpenWebNet and shall report resulting light level and health state.
+             */
+
+        require constraint {
+            light.currentLevel >= 0 [%] and light.currentLevel <= 100 [%]
+        }
+    }
+
+    requirement def ShutterControlRequirement {
+        subject shutter: ShutterActuator;
+
+        doc
+            /*
+             Shutter actuators shall support OpenWebNet position commands and shall
+             stop within the requested travel range between fully closed and fully open.
+             */
+
+        require constraint {
+            shutter.position >= 0 [%] and shutter.position <= 100 [%]
+        }
+    }
+
+    requirement def TemperatureControlRequirement {
+        subject thermostat: ThermostatController;
+
+        doc
+            /*
+             Thermostat controllers shall use OpenWebNet commands and reports to
+             maintain zone temperature within a configurable comfort band around
+             the requested setpoint.
+             */
+
+        require constraint {
+            thermostat.comfortBand > 0 [degC]
+        }
+    }
+
+    requirement def EnergyMonitoringRequirement {
+        subject meter: EnergyMeter;
+
+        doc
+            /*
+             The energy meter shall publish voltage and active power measurements
+             through the OpenWebNet system for supervisory monitoring.
+             */
+
+        require constraint {
+            meter.measuredVoltage > 0 [V] and meter.measuredPower >= 0 [W]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by OpenWebNetInstallation;
+    satisfy LightingControlRequirement by OpenWebNetInstallation::livingRoomLight;
+    satisfy LightingControlRequirement by OpenWebNetInstallation::kitchenLight;
+    satisfy ShutterControlRequirement by OpenWebNetInstallation::livingRoomShutter;
+    satisfy TemperatureControlRequirement by OpenWebNetInstallation::hallwayThermostat;
+    satisfy EnergyMonitoringRequirement by OpenWebNetInstallation::mainEnergyMeter;
+}

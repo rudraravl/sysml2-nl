@@ -1,0 +1,713 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-sbclaoz8
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb53c-634e-71c2-ba2b-2b00fd66a1a7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Exhaust gas temperature gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ExhaustGasTemperatureGaugeModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value type TemperatureC specializes Real {
+    unit = "degC";
+  }
+
+  value type VoltageV specializes Real {
+    unit = "V";
+  }
+
+  value type CurrentA specializes Real {
+    unit = "A";
+  }
+
+  value type ResistanceOhm specializes Real {
+    unit = "ohm";
+  }
+
+  value type TimeMs specializes Real {
+    unit = "ms";
+  }
+
+  value type PressureKPa specializes Real {
+    unit = "kPa";
+  }
+
+  value type MassFlowKgPerS specializes Real {
+    unit = "kg/s";
+  }
+
+  value type Percent specializes Real {
+    unit = "%";
+  }
+
+  item def ExhaustGas {
+    attribute temperature : TemperatureC;
+    attribute pressure : PressureKPa;
+    attribute massFlowRate : MassFlowKgPerS;
+  }
+
+  item def ThermocoupleVoltage {
+    attribute voltage : VoltageV;
+    attribute coldJunctionTemperature : TemperatureC;
+  }
+
+  item def ConditionedSensorSignal {
+    attribute voltage : VoltageV;
+    attribute signalQuality : Percent;
+  }
+
+  item def TemperatureSample {
+    attribute measuredTemperature : TemperatureC;
+    attribute sampleAge : TimeMs;
+    attribute valid : Boolean;
+  }
+
+  item def DisplayCommand {
+    attribute indicatedTemperature : TemperatureC;
+    attribute showWarning : Boolean;
+    attribute showSensorFault : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : VoltageV;
+    attribute supplyCurrent : CurrentA;
+  }
+
+  port def ExhaustTemperatureSensePort {
+    in gas : ExhaustGas;
+  }
+
+  port def ThermocoupleSignalPort {
+    out rawSignal : ThermocoupleVoltage;
+  }
+
+  port def AnalogSignalInputPort {
+    in rawSignal : ThermocoupleVoltage;
+  }
+
+  port def ConditionedSignalOutputPort {
+    out conditionedSignal : ConditionedSensorSignal;
+  }
+
+  port def ConditionedSignalInputPort {
+    in conditionedSignal : ConditionedSensorSignal;
+  }
+
+  port def TemperatureSampleOutputPort {
+    out sample : TemperatureSample;
+  }
+
+  port def TemperatureSampleInputPort {
+    in sample : TemperatureSample;
+  }
+
+  port def DisplayCommandPort {
+    in command : DisplayCommand;
+  }
+
+  port def PowerInputPort {
+    in power : ElectricalPower;
+  }
+
+  part def KTypeThermocoupleProbe {
+    port sensedGas : ExhaustTemperatureSensePort;
+    port signalOut : ThermocoupleSignalPort;
+
+    attribute measurementRangeLow : TemperatureC = -40.0;
+    attribute measurementRangeHigh : TemperatureC = 1000.0;
+    attribute probeResponseTime : TimeMs = 250.0;
+    attribute leadResistance : ResistanceOhm = 1.5;
+    attribute allowableContinuousTemperature : TemperatureC = 950.0;
+  }
+
+  part def SignalConditioner {
+    port rawIn : AnalogSignalInputPort;
+    port conditionedOut : ConditionedSignalOutputPort;
+    port powerIn : PowerInputPort;
+
+    attribute gain : Real = 122.0;
+    attribute inputImpedance : ResistanceOhm = 1000000.0;
+    attribute lowPassFilterTimeConstant : TimeMs = 40.0;
+    attribute openCircuitDetectionThreshold : VoltageV = 4.75;
+  }
+
+  part def Microcontroller {
+    port conditionedIn : ConditionedSignalInputPort;
+    port temperatureOut : TemperatureSampleOutputPort;
+    port powerIn : PowerInputPort;
+
+    attribute adcResolutionBits : Integer = 12;
+    attribute samplePeriod : TimeMs = 100.0;
+    attribute coldJunctionCompensationEnabled : Boolean = true;
+    attribute alarmThreshold : TemperatureC = 850.0;
+    attribute criticalThreshold : TemperatureC = 930.0;
+  }
+
+  part def GaugeDisplay {
+    port commandIn : DisplayCommandPort;
+    port powerIn : PowerInputPort;
+
+    attribute minimumDisplayedTemperature : TemperatureC = 0.0;
+    attribute maximumDisplayedTemperature : TemperatureC = 1000.0;
+    attribute updatePeriod : TimeMs = 250.0;
+    attribute resolution : TemperatureC = 1.0;
+  }
+
+  part def WarningIndicator {
+    port commandIn : DisplayCommandPort;
+    port powerIn : PowerInputPort;
+
+    attribute warningFlashPeriod : TimeMs = 500.0;
+    attribute audibleAlertEnabled : Boolean = true;
+  }
+
+  action def ConvertThermocoupleVoltageToTemperature {
+    in rawVoltage : VoltageV;
+    in coldJunctionTemperature : TemperatureC;
+    out exhaustTemperature : TemperatureC;
+  }
+
+  action def ValidateTemperatureSample {
+    in signal : ConditionedSensorSignal;
+    in convertedTemperature : TemperatureC;
+    out sample : TemperatureSample;
+  }
+
+  action def GenerateDisplayCommand {
+    in sample : TemperatureSample;
+    in warningThreshold : TemperatureC;
+    in criticalThreshold : TemperatureC;
+    out command : DisplayCommand;
+  }
+
+  action def MeasureAndIndicateExhaustGasTemperature {
+    in gas : ExhaustGas;
+    out indicatedTemperature : TemperatureC;
+    out warningActive : Boolean;
+
+    action senseTemperature : ConvertThermocoupleVoltageToTemperature;
+    action validateSample : ValidateTemperatureSample;
+    action commandDisplay : GenerateDisplayCommand;
+
+    flow senseTemperature.exhaustTemperature to validateSample.convertedTemperature;
+    flow validateSample.sample to commandDisplay.sample;
+    flow commandDisplay.command.indicatedTemperature to indicatedTemperature;
+    flow commandDisplay.command.showWarning to warningActive;
+  }
+
+  state def GaugeOperatingStateMachine {
+    state Off;
+    state PowerOnSelfTest;
+    state Measuring;
+    state Warning;
+    state SensorFault;
+
+    transition initial then Off;
+    transition Off_to_PowerOnSelfTest
+      first Off
+      accept PowerApplied
+      then PowerOnSelfTest;
+
+    transition SelfTest_to_Measuring
+      first PowerOnSelfTest
+      accept SelfTestPassed
+      then Measuring;
+
+    transition SelfTest_to_SensorFault
+      first PowerOnSelfTest
+      accept SensorCircuitInvalid
+      then SensorFault;
+
+    transition Measuring_to_Warning
+      first Measuring
+      accept TemperatureAtOrAboveWarningThreshold
+      then Warning;
+
+    transition Warning_to_Measuring
+      first Warning
+      accept TemperatureBelowWarningThreshold
+      then Measuring;
+
+    transition Measuring_to_SensorFault
+      first Measuring
+      accept SensorCircuitInvalid
+      then SensorFault;
+
+    transition Warning_to_SensorFault
+      first Warning
+      accept SensorCircuitInvalid
+      then SensorFault;
+
+    transition SensorFault_to_PowerOnSelfTest
+      first SensorFault
+      accept FaultCleared
+      then PowerOnSelfTest;
+
+    transition Any_to_Off
+      accept PowerRemoved
+      then Off;
+  }
+
+  part def ExhaustGasTemperatureGauge {
+    port exhaustGasInput : ExhaustTemperatureSensePort;
+    port vehiclePowerInput : PowerInputPort;
+
+    part probe : KTypeThermocoupleProbe;
+    part conditioner : SignalConditioner;
+    part controller : Microcontroller;
+    part display : GaugeDisplay;
+    part warningIndicator : WarningIndicator;
+
+    attribute primaryFunction : String =
+      "Measure exhaust gas temperature from a thermocouple probe and present the temperature to the operator with warning indication when exhaust temperature approaches a damaging limit.";
+
+    attribute nominalSupplyVoltage : VoltageV = 12.0;
+    attribute minimumSupplyVoltage : VoltageV = 9.0;
+    attribute maximumSupplyVoltage : VoltageV = 16.0;
+    attribute normalOperatingTemperatureLow : TemperatureC = 100.0;
+    attribute normalOperatingTemperatureHigh : TemperatureC = 750.0;
+    attribute warningTemperature : TemperatureC = 850.0;
+    attribute criticalTemperature : TemperatureC = 930.0;
+
+    connect exhaustGasInput.gas to probe.sensedGas.gas;
+    connect probe.signalOut.rawSignal to conditioner.rawIn.rawSignal;
+    connect conditioner.conditionedOut.conditionedSignal to controller.conditionedIn.conditionedSignal;
+    connect vehiclePowerInput.power to conditioner.powerIn.power;
+    connect vehiclePowerInput.power to controller.powerIn.power;
+    connect vehiclePowerInput.power to display.powerIn.power;
+    connect vehiclePowerInput.power to warningIndicator.powerIn.power;
+
+    perform action temperatureMeasurement : MeasureAndIndicateExhaustGasTemperature {
+      in gas = exhaustGasInput.gas;
+      out indicatedTemperature;
+      out warningActive;
+    }
+
+    exhibit stateMachine : GaugeOperatingStateMachine;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    doc
+      /* The exhaust gas temperature gauge shall measure exhaust gas temperature and provide a clear operator indication of current temperature and over-temperature warning status. */
+
+    require constraint {
+      gauge.primaryFunction != "";
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.probe.measurementRangeLow <= 0.0 and
+      gauge.probe.measurementRangeHigh >= 950.0;
+    }
+  }
+
+  requirement def WarningThresholdRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.warningTemperature < gauge.criticalTemperature and
+      gauge.warningTemperature >= gauge.normalOperatingTemperatureHigh;
+    }
+  }
+
+  requirement def PowerCompatibilityRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.minimumSupplyVoltage <= 9.0 and
+      gauge.nominalSupplyVoltage == 12.0 and
+      gauge.maximumSupplyVoltage >= 16.0;
+    }
+  }
+
+  requirement def SampleRateRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.controller.samplePeriod <= 100.0;
+    }
+  }
+
+  requirement def DisplayResolutionRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.display.resolution <= 1.0;
+    }
+  }
+
+  part exhaustGasTemperatureGaugeSystem : ExhaustGasTemperatureGauge;
+
+  satisfy PrimaryFunctionRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy MeasurementRangeRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy WarningThresholdRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy PowerCompatibilityRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy SampleRateRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy DisplayResolutionRequirement by exhaustGasTemperatureGaugeSystem;
+}
+tokens used
+3,025
+package ExhaustGasTemperatureGaugeModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value type TemperatureC specializes Real {
+    unit = "degC";
+  }
+
+  value type VoltageV specializes Real {
+    unit = "V";
+  }
+
+  value type CurrentA specializes Real {
+    unit = "A";
+  }
+
+  value type ResistanceOhm specializes Real {
+    unit = "ohm";
+  }
+
+  value type TimeMs specializes Real {
+    unit = "ms";
+  }
+
+  value type PressureKPa specializes Real {
+    unit = "kPa";
+  }
+
+  value type MassFlowKgPerS specializes Real {
+    unit = "kg/s";
+  }
+
+  value type Percent specializes Real {
+    unit = "%";
+  }
+
+  item def ExhaustGas {
+    attribute temperature : TemperatureC;
+    attribute pressure : PressureKPa;
+    attribute massFlowRate : MassFlowKgPerS;
+  }
+
+  item def ThermocoupleVoltage {
+    attribute voltage : VoltageV;
+    attribute coldJunctionTemperature : TemperatureC;
+  }
+
+  item def ConditionedSensorSignal {
+    attribute voltage : VoltageV;
+    attribute signalQuality : Percent;
+  }
+
+  item def TemperatureSample {
+    attribute measuredTemperature : TemperatureC;
+    attribute sampleAge : TimeMs;
+    attribute valid : Boolean;
+  }
+
+  item def DisplayCommand {
+    attribute indicatedTemperature : TemperatureC;
+    attribute showWarning : Boolean;
+    attribute showSensorFault : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : VoltageV;
+    attribute supplyCurrent : CurrentA;
+  }
+
+  port def ExhaustTemperatureSensePort {
+    in gas : ExhaustGas;
+  }
+
+  port def ThermocoupleSignalPort {
+    out rawSignal : ThermocoupleVoltage;
+  }
+
+  port def AnalogSignalInputPort {
+    in rawSignal : ThermocoupleVoltage;
+  }
+
+  port def ConditionedSignalOutputPort {
+    out conditionedSignal : ConditionedSensorSignal;
+  }
+
+  port def ConditionedSignalInputPort {
+    in conditionedSignal : ConditionedSensorSignal;
+  }
+
+  port def TemperatureSampleOutputPort {
+    out sample : TemperatureSample;
+  }
+
+  port def TemperatureSampleInputPort {
+    in sample : TemperatureSample;
+  }
+
+  port def DisplayCommandPort {
+    in command : DisplayCommand;
+  }
+
+  port def PowerInputPort {
+    in power : ElectricalPower;
+  }
+
+  part def KTypeThermocoupleProbe {
+    port sensedGas : ExhaustTemperatureSensePort;
+    port signalOut : ThermocoupleSignalPort;
+
+    attribute measurementRangeLow : TemperatureC = -40.0;
+    attribute measurementRangeHigh : TemperatureC = 1000.0;
+    attribute probeResponseTime : TimeMs = 250.0;
+    attribute leadResistance : ResistanceOhm = 1.5;
+    attribute allowableContinuousTemperature : TemperatureC = 950.0;
+  }
+
+  part def SignalConditioner {
+    port rawIn : AnalogSignalInputPort;
+    port conditionedOut : ConditionedSignalOutputPort;
+    port powerIn : PowerInputPort;
+
+    attribute gain : Real = 122.0;
+    attribute inputImpedance : ResistanceOhm = 1000000.0;
+    attribute lowPassFilterTimeConstant : TimeMs = 40.0;
+    attribute openCircuitDetectionThreshold : VoltageV = 4.75;
+  }
+
+  part def Microcontroller {
+    port conditionedIn : ConditionedSignalInputPort;
+    port temperatureOut : TemperatureSampleOutputPort;
+    port powerIn : PowerInputPort;
+
+    attribute adcResolutionBits : Integer = 12;
+    attribute samplePeriod : TimeMs = 100.0;
+    attribute coldJunctionCompensationEnabled : Boolean = true;
+    attribute alarmThreshold : TemperatureC = 850.0;
+    attribute criticalThreshold : TemperatureC = 930.0;
+  }
+
+  part def GaugeDisplay {
+    port commandIn : DisplayCommandPort;
+    port powerIn : PowerInputPort;
+
+    attribute minimumDisplayedTemperature : TemperatureC = 0.0;
+    attribute maximumDisplayedTemperature : TemperatureC = 1000.0;
+    attribute updatePeriod : TimeMs = 250.0;
+    attribute resolution : TemperatureC = 1.0;
+  }
+
+  part def WarningIndicator {
+    port commandIn : DisplayCommandPort;
+    port powerIn : PowerInputPort;
+
+    attribute warningFlashPeriod : TimeMs = 500.0;
+    attribute audibleAlertEnabled : Boolean = true;
+  }
+
+  action def ConvertThermocoupleVoltageToTemperature {
+    in rawVoltage : VoltageV;
+    in coldJunctionTemperature : TemperatureC;
+    out exhaustTemperature : TemperatureC;
+  }
+
+  action def ValidateTemperatureSample {
+    in signal : ConditionedSensorSignal;
+    in convertedTemperature : TemperatureC;
+    out sample : TemperatureSample;
+  }
+
+  action def GenerateDisplayCommand {
+    in sample : TemperatureSample;
+    in warningThreshold : TemperatureC;
+    in criticalThreshold : TemperatureC;
+    out command : DisplayCommand;
+  }
+
+  action def MeasureAndIndicateExhaustGasTemperature {
+    in gas : ExhaustGas;
+    out indicatedTemperature : TemperatureC;
+    out warningActive : Boolean;
+
+    action senseTemperature : ConvertThermocoupleVoltageToTemperature;
+    action validateSample : ValidateTemperatureSample;
+    action commandDisplay : GenerateDisplayCommand;
+
+    flow senseTemperature.exhaustTemperature to validateSample.convertedTemperature;
+    flow validateSample.sample to commandDisplay.sample;
+    flow commandDisplay.command.indicatedTemperature to indicatedTemperature;
+    flow commandDisplay.command.showWarning to warningActive;
+  }
+
+  state def GaugeOperatingStateMachine {
+    state Off;
+    state PowerOnSelfTest;
+    state Measuring;
+    state Warning;
+    state SensorFault;
+
+    transition initial then Off;
+    transition Off_to_PowerOnSelfTest
+      first Off
+      accept PowerApplied
+      then PowerOnSelfTest;
+
+    transition SelfTest_to_Measuring
+      first PowerOnSelfTest
+      accept SelfTestPassed
+      then Measuring;
+
+    transition SelfTest_to_SensorFault
+      first PowerOnSelfTest
+      accept SensorCircuitInvalid
+      then SensorFault;
+
+    transition Measuring_to_Warning
+      first Measuring
+      accept TemperatureAtOrAboveWarningThreshold
+      then Warning;
+
+    transition Warning_to_Measuring
+      first Warning
+      accept TemperatureBelowWarningThreshold
+      then Measuring;
+
+    transition Measuring_to_SensorFault
+      first Measuring
+      accept SensorCircuitInvalid
+      then SensorFault;
+
+    transition Warning_to_SensorFault
+      first Warning
+      accept SensorCircuitInvalid
+      then SensorFault;
+
+    transition SensorFault_to_PowerOnSelfTest
+      first SensorFault
+      accept FaultCleared
+      then PowerOnSelfTest;
+
+    transition Any_to_Off
+      accept PowerRemoved
+      then Off;
+  }
+
+  part def ExhaustGasTemperatureGauge {
+    port exhaustGasInput : ExhaustTemperatureSensePort;
+    port vehiclePowerInput : PowerInputPort;
+
+    part probe : KTypeThermocoupleProbe;
+    part conditioner : SignalConditioner;
+    part controller : Microcontroller;
+    part display : GaugeDisplay;
+    part warningIndicator : WarningIndicator;
+
+    attribute primaryFunction : String =
+      "Measure exhaust gas temperature from a thermocouple probe and present the temperature to the operator with warning indication when exhaust temperature approaches a damaging limit.";
+
+    attribute nominalSupplyVoltage : VoltageV = 12.0;
+    attribute minimumSupplyVoltage : VoltageV = 9.0;
+    attribute maximumSupplyVoltage : VoltageV = 16.0;
+    attribute normalOperatingTemperatureLow : TemperatureC = 100.0;
+    attribute normalOperatingTemperatureHigh : TemperatureC = 750.0;
+    attribute warningTemperature : TemperatureC = 850.0;
+    attribute criticalTemperature : TemperatureC = 930.0;
+
+    connect exhaustGasInput.gas to probe.sensedGas.gas;
+    connect probe.signalOut.rawSignal to conditioner.rawIn.rawSignal;
+    connect conditioner.conditionedOut.conditionedSignal to controller.conditionedIn.conditionedSignal;
+    connect vehiclePowerInput.power to conditioner.powerIn.power;
+    connect vehiclePowerInput.power to controller.powerIn.power;
+    connect vehiclePowerInput.power to display.powerIn.power;
+    connect vehiclePowerInput.power to warningIndicator.powerIn.power;
+
+    perform action temperatureMeasurement : MeasureAndIndicateExhaustGasTemperature {
+      in gas = exhaustGasInput.gas;
+      out indicatedTemperature;
+      out warningActive;
+    }
+
+    exhibit stateMachine : GaugeOperatingStateMachine;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    doc
+      /* The exhaust gas temperature gauge shall measure exhaust gas temperature and provide a clear operator indication of current temperature and over-temperature warning status. */
+
+    require constraint {
+      gauge.primaryFunction != "";
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.probe.measurementRangeLow <= 0.0 and
+      gauge.probe.measurementRangeHigh >= 950.0;
+    }
+  }
+
+  requirement def WarningThresholdRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.warningTemperature < gauge.criticalTemperature and
+      gauge.warningTemperature >= gauge.normalOperatingTemperatureHigh;
+    }
+  }
+
+  requirement def PowerCompatibilityRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.minimumSupplyVoltage <= 9.0 and
+      gauge.nominalSupplyVoltage == 12.0 and
+      gauge.maximumSupplyVoltage >= 16.0;
+    }
+  }
+
+  requirement def SampleRateRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.controller.samplePeriod <= 100.0;
+    }
+  }
+
+  requirement def DisplayResolutionRequirement {
+    subject gauge : ExhaustGasTemperatureGauge;
+
+    require constraint {
+      gauge.display.resolution <= 1.0;
+    }
+  }
+
+  part exhaustGasTemperatureGaugeSystem : ExhaustGasTemperatureGauge;
+
+  satisfy PrimaryFunctionRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy MeasurementRangeRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy WarningThresholdRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy PowerCompatibilityRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy SampleRateRequirement by exhaustGasTemperatureGaugeSystem;
+  satisfy DisplayResolutionRequirement by exhaustGasTemperatureGaugeSystem;
+}

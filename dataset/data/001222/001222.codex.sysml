@@ -1,0 +1,374 @@
+package RangeImagingModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Meter :> length;
+    attribute def Second :> time;
+    attribute def Watt :> power;
+    attribute def Hertz :> frequency;
+    attribute def Nanometer :> length;
+    attribute def Degree :> planeAngle;
+    attribute def PixelCount :> dimensionless;
+    attribute def TemperatureCelsius :> thermodynamicTemperature;
+    attribute def Percent :> dimensionless;
+
+    item def OpticalPulse {
+        attribute wavelength : Nanometer;
+        attribute pulseWidth : Second;
+        attribute peakPower : Watt;
+        attribute repetitionRate : Hertz;
+        attribute beamDivergence : Degree;
+    }
+
+    item def OpticalEcho {
+        attribute wavelength : Nanometer;
+        attribute arrivalTime : Second;
+        attribute intensity : Watt;
+        attribute incidenceAngle : Degree;
+    }
+
+    item def TimingSignal {
+        attribute timestamp : Second;
+        attribute sequenceId : Integer;
+        attribute jitter : Second;
+    }
+
+    item def RangeSample {
+        attribute xIndex : Integer;
+        attribute yIndex : Integer;
+        attribute distance : Meter;
+        attribute reflectance : Percent;
+        attribute confidence : Percent;
+    }
+
+    item def RangeImageFrame {
+        attribute frameId : Integer;
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute frameTime : Second;
+        attribute maximumRange : Meter;
+        attribute minimumRange : Meter;
+        item samples : RangeSample[0..*];
+    }
+
+    item def PowerFlow {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Watt;
+    }
+
+    item def HealthReport {
+        attribute detectorTemperature : TemperatureCelsius;
+        attribute laserTemperature : TemperatureCelsius;
+        attribute timingLock : Boolean;
+        attribute opticalWindowClear : Boolean;
+        attribute faultActive : Boolean;
+    }
+
+    port def OpticalTransmitPort {
+        out item pulse : OpticalPulse;
+    }
+
+    port def OpticalReceivePort {
+        in item echo : OpticalEcho;
+    }
+
+    port def FrameOutputPort {
+        out item frame : RangeImageFrame;
+    }
+
+    port def TimingPort {
+        inout item timing : TimingSignal;
+    }
+
+    port def PowerPort {
+        in item power : PowerFlow;
+    }
+
+    port def HealthPort {
+        out item health : HealthReport;
+    }
+
+    part def PulsedIlluminator {
+        port opticalOut : OpticalTransmitPort;
+        port timing : TimingPort;
+        port powerIn : PowerPort;
+        port healthOut : HealthPort;
+
+        attribute nominalWavelength : Nanometer = 905.0;
+        attribute pulseWidth : Second = 5.0e-9;
+        attribute peakPower : Watt = 75.0;
+        attribute repetitionRate : Hertz = 20000.0;
+        attribute beamDivergence : Degree = 0.25;
+
+        action emitPulse {
+            in item trigger : TimingSignal;
+            out item pulse : OpticalPulse;
+        }
+    }
+
+    part def ReceiverOptics {
+        port opticalIn : OpticalReceivePort;
+        port opticalOut : OpticalReceivePort;
+
+        attribute apertureDiameter : Meter = 0.035;
+        attribute fieldOfViewHorizontal : Degree = 60.0;
+        attribute fieldOfViewVertical : Degree = 45.0;
+        attribute opticalTransmission : Percent = 88.0;
+
+        action focusEcho {
+            in item rawEcho : OpticalEcho;
+            out item focusedEcho : OpticalEcho;
+        }
+    }
+
+    part def TimeOfFlightDetector {
+        port opticalIn : OpticalReceivePort;
+        port timing : TimingPort;
+        port powerIn : PowerPort;
+        port healthOut : HealthPort;
+
+        attribute timingResolution : Second = 100.0e-12;
+        attribute saturationPower : Watt = 0.002;
+        attribute darkNoiseEquivalentPower : Watt = 2.0e-12;
+        attribute operatingTemperature : TemperatureCelsius = 35.0;
+
+        action detectEcho {
+            in item echo : OpticalEcho;
+            in item referenceTime : TimingSignal;
+            out item sample : RangeSample;
+        }
+    }
+
+    part def ScanningAssembly {
+        port timing : TimingPort;
+        port powerIn : PowerPort;
+        port healthOut : HealthPort;
+
+        attribute horizontalResolution : PixelCount = 640;
+        attribute verticalResolution : PixelCount = 480;
+        attribute horizontalFieldOfView : Degree = 60.0;
+        attribute verticalFieldOfView : Degree = 45.0;
+        attribute frameRate : Hertz = 30.0;
+
+        action steerLineOfSight {
+            in item timing : TimingSignal;
+            out attribute xIndex : Integer;
+            out attribute yIndex : Integer;
+        }
+    }
+
+    part def TimingController {
+        port timingBus : TimingPort;
+        port powerIn : PowerPort;
+        port healthOut : HealthPort;
+
+        attribute clockFrequency : Hertz = 250000000.0;
+        attribute maximumJitter : Second = 50.0e-12;
+
+        action synchronize {
+            out item timing : TimingSignal;
+        }
+    }
+
+    part def RangeProcessor {
+        port timing : TimingPort;
+        port frameOut : FrameOutputPort;
+        port healthOut : HealthPort;
+
+        attribute speedOfLight : Real = 299792458.0;
+        attribute minimumConfidence : Percent = 65.0;
+        attribute maximumRange : Meter = 150.0;
+        attribute minimumRange : Meter = 0.5;
+
+        action computeRange {
+            in item echoSample : RangeSample;
+            out item calibratedSample : RangeSample;
+        }
+
+        action assembleFrame {
+            in item samples : RangeSample[0..*];
+            out item frame : RangeImageFrame;
+        }
+    }
+
+    part def ThermalManager {
+        port powerIn : PowerPort;
+        port healthOut : HealthPort;
+
+        attribute maximumLaserTemperature : TemperatureCelsius = 70.0;
+        attribute maximumDetectorTemperature : TemperatureCelsius = 55.0;
+        attribute coolingCapacity : Watt = 12.0;
+
+        action regulateTemperature {
+            in item health : HealthReport;
+            out item correctedHealth : HealthReport;
+        }
+    }
+
+    part def RangeImagingSystem {
+        port powerInput : PowerPort;
+        port opticalTransmit : OpticalTransmitPort;
+        port opticalReceive : OpticalReceivePort;
+        port rangeImageOutput : FrameOutputPort;
+        port healthOutput : HealthPort;
+
+        part illuminator : PulsedIlluminator;
+        part optics : ReceiverOptics;
+        part detector : TimeOfFlightDetector;
+        part scanner : ScanningAssembly;
+        part clock : TimingController;
+        part processor : RangeProcessor;
+        part thermal : ThermalManager;
+
+        connect powerInput to illuminator.powerIn;
+        connect powerInput to detector.powerIn;
+        connect powerInput to scanner.powerIn;
+        connect powerInput to clock.powerIn;
+        connect powerInput to thermal.powerIn;
+
+        connect clock.timingBus to illuminator.timing;
+        connect clock.timingBus to detector.timing;
+        connect clock.timingBus to scanner.timing;
+        connect clock.timingBus to processor.timing;
+
+        connect illuminator.opticalOut to opticalTransmit;
+        connect opticalReceive to optics.opticalIn;
+        connect optics.opticalOut to detector.opticalIn;
+        connect processor.frameOut to rangeImageOutput;
+
+        connect illuminator.healthOut to healthOutput;
+        connect detector.healthOut to healthOutput;
+        connect scanner.healthOut to healthOutput;
+        connect clock.healthOut to healthOutput;
+        connect processor.healthOut to healthOutput;
+        connect thermal.healthOut to healthOutput;
+
+        action captureRangeImage {
+            first start;
+            then synchronizeClock;
+            then steerBeam;
+            then emitIllumination;
+            then receiveEchoes;
+            then calculateRanges;
+            then assembleRangeFrame;
+            then publishFrame;
+            then done;
+
+            action synchronizeClock : clock.synchronize;
+            action steerBeam : scanner.steerLineOfSight;
+            action emitIllumination : illuminator.emitPulse;
+            action receiveEchoes : detector.detectEcho;
+            action calculateRanges : processor.computeRange;
+            action assembleRangeFrame : processor.assembleFrame;
+            action publishFrame;
+        }
+
+        state operationalState {
+            state poweredOff;
+            state initializing;
+            state ready;
+            state imaging;
+            state degraded;
+            state faulted;
+
+            transition first poweredOff;
+            transition poweredOff then initializing;
+            transition initializing then ready;
+            transition ready then imaging;
+            transition imaging then ready;
+            transition imaging then degraded;
+            transition degraded then ready;
+            transition degraded then faulted;
+            transition faulted then poweredOff;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : RangeImagingSystem;
+
+        doc /* The range imaging system shall actively illuminate a scene, receive reflected optical energy, compute time-of-flight range samples, and output a two-dimensional range image frame representing distance and reflectance across the observed field of view. */
+    }
+
+    requirement def RangeAccuracyRequirement {
+        subject system : RangeImagingSystem;
+
+        require constraint {
+            system.processor.maximumRange >= 150.0
+        }
+
+        require constraint {
+            system.processor.minimumRange <= 0.5
+        }
+    }
+
+    requirement def FrameRateRequirement {
+        subject system : RangeImagingSystem;
+
+        require constraint {
+            system.scanner.frameRate >= 30.0
+        }
+    }
+
+    requirement def ResolutionRequirement {
+        subject system : RangeImagingSystem;
+
+        require constraint {
+            system.scanner.horizontalResolution >= 640
+        }
+
+        require constraint {
+            system.scanner.verticalResolution >= 480
+        }
+    }
+
+    requirement def TimingStabilityRequirement {
+        subject system : RangeImagingSystem;
+
+        require constraint {
+            system.clock.maximumJitter <= 50.0e-12
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject system : RangeImagingSystem;
+
+        require constraint {
+            system.thermal.maximumLaserTemperature <= 70.0
+        }
+
+        require constraint {
+            system.thermal.maximumDetectorTemperature <= 55.0
+        }
+    }
+
+    requirement def OutputCompletenessRequirement {
+        subject frame : RangeImageFrame;
+
+        require constraint {
+            frame.width == 640
+        }
+
+        require constraint {
+            frame.height == 480
+        }
+
+        require constraint {
+            frame.minimumRange >= 0.5
+        }
+
+        require constraint {
+            frame.maximumRange <= 150.0
+        }
+    }
+
+    part rangeImager : RangeImagingSystem;
+
+    satisfy PrimaryFunctionRequirement by rangeImager;
+    satisfy RangeAccuracyRequirement by rangeImager;
+    satisfy FrameRateRequirement by rangeImager;
+    satisfy ResolutionRequirement by rangeImager;
+    satisfy TimingStabilityRequirement by rangeImager;
+    satisfy ThermalProtectionRequirement by rangeImager;
+}

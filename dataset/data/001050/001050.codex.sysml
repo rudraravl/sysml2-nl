@@ -1,0 +1,469 @@
+package FishCounterSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    item def Fish;
+    item def Water;
+    item def ImageFrame;
+    item def DetectionEvent {
+        attribute fishId : String;
+        attribute confidence : Real;
+        attribute direction : PassageDirection;
+        attribute timestamp : TimeInstant;
+    }
+
+    enum def PassageDirection {
+        enum upstream;
+        enum downstream;
+        enum unknown;
+    }
+
+    enum def CounterOperatingMode {
+        enum initializing;
+        enum monitoring;
+        enum calibrating;
+        enum degraded;
+        enum maintenance;
+        enum offline;
+    }
+
+    enum def SensorHealth {
+        enum nominal;
+        enum obstructed;
+        enum saturated;
+        enum failed;
+    }
+
+    value type CountValue specializes Natural;
+    value type ConfidenceValue specializes Real {
+        constraint { value >= 0.0 and value <= 1.0 }
+    }
+
+    value type FlowSpeed specializes Real {
+        unit = m / s;
+    }
+
+    value type FrameRate specializes Real {
+        unit = Hz;
+    }
+
+    value type IlluminanceLevel specializes Real {
+        unit = lx;
+    }
+
+    value type DetectionLatency specializes Real {
+        unit = s;
+    }
+
+    value type StorageCapacity specializes Real {
+        unit = GB;
+    }
+
+    value type ElectricalPower specializes Real {
+        unit = W;
+    }
+
+    value type TimeInstant specializes Real {
+        unit = s;
+    }
+
+    port def WaterPassagePort {
+        in item incomingWater : Water;
+        in item passingFish : Fish;
+        out item outgoingWater : Water;
+    }
+
+    port def OpticalObservationPort {
+        out item frame : ImageFrame;
+        in item sceneWater : Water;
+        in item observedFish : Fish;
+    }
+
+    port def DetectionReportPort {
+        out item detection : DetectionEvent;
+    }
+
+    port def DataServicePort {
+        out attribute totalUpstream : CountValue;
+        out attribute totalDownstream : CountValue;
+        out attribute currentMode : CounterOperatingMode;
+        out item detectionLog : DetectionEvent;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyPower : ElectricalPower;
+    }
+
+    port def MaintenancePort {
+        in attribute requestedMode : CounterOperatingMode;
+        out attribute sensorHealth : SensorHealth;
+        out attribute lastCalibrationTime : TimeInstant;
+    }
+
+    part def FishCounter {
+        attribute operatingMode : CounterOperatingMode = CounterOperatingMode::initializing;
+        attribute upstreamCount : CountValue = 0;
+        attribute downstreamCount : CountValue = 0;
+        attribute minimumDetectionConfidence : ConfidenceValue = 0.85;
+        attribute maximumDetectionLatency : DetectionLatency = 2.0 [s];
+        attribute supportedFlowSpeed : FlowSpeed = 3.0 [m / s];
+        attribute storageCapacity : StorageCapacity = 128.0 [GB];
+        attribute nominalPowerDemand : ElectricalPower = 45.0 [W];
+
+        port waterway : WaterPassagePort;
+        port data : DataServicePort;
+        port power : PowerInputPort;
+        port maintenance : MaintenancePort;
+
+        part countingChannel : CountingChannel;
+        part opticalSensor : OpticalSensor;
+        part illuminationUnit : IlluminationUnit;
+        part imageProcessor : ImageProcessor;
+        part countAggregator : CountAggregator;
+        part localStorage : DetectionStorage;
+        part operatorInterface : OperatorInterface;
+        part powerController : PowerController;
+
+        connect waterway to countingChannel.waterway;
+        connect countingChannel.observationZone to opticalSensor.observation;
+        connect illuminationUnit.litZone to countingChannel.illuminationZone;
+        connect opticalSensor.frameOutput to imageProcessor.frameInput;
+        connect imageProcessor.detectionOutput to countAggregator.detectionInput;
+        connect countAggregator.logOutput to localStorage.logInput;
+        connect countAggregator.serviceOutput to data;
+        connect operatorInterface.maintenanceService to maintenance;
+        connect power to powerController.powerInput;
+        connect powerController.sensorPower to opticalSensor.power;
+        connect powerController.lightPower to illuminationUnit.power;
+        connect powerController.computePower to imageProcessor.power;
+
+        perform action initializeSystem;
+        perform action countFishPassage;
+        exhibit state operatingLifecycle;
+
+        action def initializeSystem {
+            first start;
+            then energizeSubsystems;
+            then calibrateOptics;
+            then clearSessionCounters;
+            then enterMonitoring;
+
+            action start;
+            action energizeSubsystems;
+            action calibrateOptics;
+            action clearSessionCounters;
+            action enterMonitoring;
+        }
+
+        action def countFishPassage {
+            in item fish : Fish;
+            in item frame : ImageFrame;
+            out item event : DetectionEvent;
+
+            first acquireFrame;
+            then detectCandidate;
+            then classifyDirection;
+            then validateConfidence;
+            then updateCounter;
+            then publishEvent;
+
+            action acquireFrame;
+            action detectCandidate;
+            action classifyDirection;
+            action validateConfidence;
+            action updateCounter;
+            action publishEvent;
+        }
+
+        state def operatingLifecycle {
+            entry action initializeSystem;
+
+            state initializing;
+            state monitoring;
+            state calibrating;
+            state degraded;
+            state maintenance;
+            state offline;
+
+            transition first initializing
+                then monitoring
+                accept initializationComplete;
+
+            transition monitoring
+                then degraded
+                accept sensorFaultDetected;
+
+            transition degraded
+                then monitoring
+                accept sensorHealthRestored;
+
+            transition monitoring
+                then calibrating
+                accept calibrationRequested;
+
+            transition calibrating
+                then monitoring
+                accept calibrationComplete;
+
+            transition monitoring
+                then maintenance
+                accept serviceRequested;
+
+            transition maintenance
+                then monitoring
+                accept serviceComplete;
+
+            transition monitoring
+                then offline
+                accept shutdownRequested;
+
+            transition degraded
+                then offline
+                accept shutdownRequested;
+        }
+    }
+
+    part def CountingChannel {
+        attribute channelWidth : LengthValue = 1.20 [m];
+        attribute channelDepth : LengthValue = 0.80 [m];
+        attribute maximumFlowSpeed : FlowSpeed = 3.0 [m / s];
+
+        port waterway : WaterPassagePort;
+        port observationZone : OpticalObservationPort;
+        port illuminationZone : OpticalObservationPort;
+    }
+
+    part def OpticalSensor {
+        attribute frameRate : FrameRate = 60.0 [Hz];
+        attribute horizontalResolution : Natural = 1920;
+        attribute verticalResolution : Natural = 1080;
+        attribute health : SensorHealth = SensorHealth::nominal;
+
+        port observation : OpticalObservationPort;
+        port frameOutput {
+            out item frame : ImageFrame;
+        }
+        port power : PowerInputPort;
+
+        action def acquireImageFrame {
+            in item observedWater : Water;
+            out item frame : ImageFrame;
+        }
+    }
+
+    part def IlluminationUnit {
+        attribute illuminance : IlluminanceLevel = 1200.0 [lx];
+        attribute powerDemand : ElectricalPower = 20.0 [W];
+
+        port litZone : OpticalObservationPort;
+        port power : PowerInputPort;
+
+        action def stabilizeLighting {
+            out attribute stableIlluminance : IlluminanceLevel;
+        }
+    }
+
+    part def ImageProcessor {
+        attribute processingLatency : DetectionLatency = 0.75 [s];
+        attribute confidenceThreshold : ConfidenceValue = 0.85;
+
+        port frameInput {
+            in item frame : ImageFrame;
+        }
+
+        port detectionOutput : DetectionReportPort;
+        port power : PowerInputPort;
+
+        action def detectFish {
+            in item frame : ImageFrame;
+            out item detection : DetectionEvent;
+        }
+
+        action def estimatePassageDirection {
+            in item frame : ImageFrame;
+            out attribute direction : PassageDirection;
+        }
+    }
+
+    part def CountAggregator {
+        attribute upstreamTotal : CountValue = 0;
+        attribute downstreamTotal : CountValue = 0;
+
+        port detectionInput {
+            in item detection : DetectionEvent;
+        }
+
+        port logOutput : DetectionReportPort;
+        port serviceOutput : DataServicePort;
+
+        action def incrementCount {
+            in item detection : DetectionEvent;
+            out attribute upstreamTotal : CountValue;
+            out attribute downstreamTotal : CountValue;
+        }
+
+        state def countingBehavior {
+            state waitingForDetection;
+            state validatingDetection;
+            state incrementingUpstream;
+            state incrementingDownstream;
+            state rejectingDetection;
+
+            transition first waitingForDetection
+                then validatingDetection
+                accept detectionReceived;
+
+            transition validatingDetection
+                then incrementingUpstream
+                accept upstreamFishConfirmed;
+
+            transition validatingDetection
+                then incrementingDownstream
+                accept downstreamFishConfirmed;
+
+            transition validatingDetection
+                then rejectingDetection
+                accept confidenceBelowThreshold;
+
+            transition incrementingUpstream
+                then waitingForDetection;
+
+            transition incrementingDownstream
+                then waitingForDetection;
+
+            transition rejectingDetection
+                then waitingForDetection;
+        }
+    }
+
+    part def DetectionStorage {
+        attribute capacity : StorageCapacity = 128.0 [GB];
+        attribute retainedEvents : CountValue = 0;
+
+        port logInput {
+            in item detection : DetectionEvent;
+        }
+
+        action def storeDetectionEvent {
+            in item detection : DetectionEvent;
+        }
+    }
+
+    part def OperatorInterface {
+        port maintenanceService : MaintenancePort;
+
+        action def displayCounts {
+            in attribute upstreamCount : CountValue;
+            in attribute downstreamCount : CountValue;
+            in attribute mode : CounterOperatingMode;
+        }
+
+        action def requestCalibration {
+            out attribute requestedMode : CounterOperatingMode;
+        }
+    }
+
+    part def PowerController {
+        attribute inputPowerLimit : ElectricalPower = 100.0 [W];
+
+        port powerInput : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port lightPower : PowerInputPort;
+        port computePower : PowerInputPort;
+
+        action def distributePower {
+            in attribute supplyPower : ElectricalPower;
+            out attribute sensorSupply : ElectricalPower;
+            out attribute lightSupply : ElectricalPower;
+            out attribute computeSupply : ElectricalPower;
+        }
+    }
+
+    requirement def FishCounterPrimaryFunctionRequirement {
+        doc /* The fish counter shall detect fish passing through a defined waterway observation zone and maintain directional counts at a high level without requiring manual visual counting. */
+        subject counter : FishCounter;
+
+        require constraint {
+            counter.upstreamCount >= 0 and
+            counter.downstreamCount >= 0 and
+            counter.minimumDetectionConfidence >= 0.85 and
+            counter.maximumDetectionLatency <= 2.0 [s]
+        }
+    }
+
+    requirement def DirectionalCountingRequirement {
+        doc /* The system shall distinguish upstream and downstream fish passage events and update the corresponding count. */
+        subject aggregator : CountAggregator;
+
+        require constraint {
+            aggregator.upstreamTotal >= 0 and
+            aggregator.downstreamTotal >= 0
+        }
+    }
+
+    requirement def ContinuousMonitoringRequirement {
+        doc /* The fish counter shall support continuous monitoring while powered and in monitoring mode. */
+        subject counter : FishCounter;
+
+        require constraint {
+            counter.operatingMode == CounterOperatingMode::monitoring implies
+            counter.nominalPowerDemand <= 100.0 [W]
+        }
+    }
+
+    requirement def ObservationPerformanceRequirement {
+        doc /* The optical subsystem shall acquire images at a rate sufficient to detect fish moving through the channel at the supported flow speed. */
+        subject sensor : OpticalSensor;
+
+        require constraint {
+            sensor.frameRate >= 30.0 [Hz] and
+            sensor.horizontalResolution >= 1280 and
+            sensor.verticalResolution >= 720
+        }
+    }
+
+    requirement def DataAvailabilityRequirement {
+        doc /* The system shall expose current directional totals, operating mode, and detection events to an external data service. */
+        subject counter : FishCounter;
+
+        require constraint {
+            counter.storageCapacity >= 32.0 [GB]
+        }
+    }
+
+    satisfy FishCounterPrimaryFunctionRequirement by FishCounter;
+    satisfy DirectionalCountingRequirement by CountAggregator;
+    satisfy ContinuousMonitoringRequirement by FishCounter;
+    satisfy ObservationPerformanceRequirement by OpticalSensor;
+    satisfy DataAvailabilityRequirement by FishCounter;
+
+    part fishCounterSystem : FishCounter {
+        attribute minimumDetectionConfidence = 0.90;
+        attribute maximumDetectionLatency = 1.5 [s];
+        attribute supportedFlowSpeed = 2.5 [m / s];
+        attribute storageCapacity = 256.0 [GB];
+
+        part countingChannel {
+            attribute channelWidth = 1.00 [m];
+            attribute channelDepth = 0.70 [m];
+            attribute maximumFlowSpeed = 2.5 [m / s];
+        }
+
+        part opticalSensor {
+            attribute frameRate = 60.0 [Hz];
+            attribute horizontalResolution = 1920;
+            attribute verticalResolution = 1080;
+        }
+
+        part illuminationUnit {
+            attribute illuminance = 1500.0 [lx];
+            attribute powerDemand = 18.0 [W];
+        }
+
+        part imageProcessor {
+            attribute processingLatency = 0.50 [s];
+            attribute confidenceThreshold = 0.90;
+        }
+    }
+}

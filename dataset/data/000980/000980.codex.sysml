@@ -1,0 +1,564 @@
+package AttitudeIndicatorSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+    import Requirements::*;
+
+    attribute def Degree :> ISQ::planeAngle {
+        unit = "deg";
+    }
+
+    attribute def DegreePerSecond :> ISQ::angularVelocity {
+        unit = "deg/s";
+    }
+
+    attribute def Hertz :> ISQ::frequency {
+        unit = "Hz";
+    }
+
+    attribute def Volt :> ISQ::electricPotential {
+        unit = "V";
+    }
+
+    attribute def Ampere :> ISQ::electricCurrent {
+        unit = "A";
+    }
+
+    attribute def Watt :> ISQ::power {
+        unit = "W";
+    }
+
+    attribute def Celsius :> ISQ::thermodynamicTemperature {
+        unit = "degC";
+    }
+
+    attribute def Millisecond :> ISQ::duration {
+        unit = "ms";
+    }
+
+    attribute def Percent {
+        unit = "%";
+    }
+
+    attribute def CandelaPerSquareMeter {
+        unit = "cd/m^2";
+    }
+
+    enum def AttitudeIndicatorMode {
+        enum normal;
+        enum align;
+        enum degraded;
+        enum failed;
+        enum standby;
+        enum maintenance;
+    }
+
+    enum def ValidityStatus {
+        enum valid;
+        enum suspect;
+        enum invalid;
+    }
+
+    enum def DisplayTheme {
+        enum day;
+        enum night;
+        enum automatic;
+    }
+
+    enum def AlertLevel {
+        enum none;
+        enum advisory;
+        enum caution;
+        enum warning;
+    }
+
+    item def ThreeAxisAngularRate {
+        attribute rollRate : DegreePerSecond;
+        attribute pitchRate : DegreePerSecond;
+        attribute yawRate : DegreePerSecond;
+        attribute validity : ValidityStatus;
+    }
+
+    item def ThreeAxisAcceleration {
+        attribute longitudinalAcceleration : ISQ::acceleration;
+        attribute lateralAcceleration : ISQ::acceleration;
+        attribute verticalAcceleration : ISQ::acceleration;
+        attribute validity : ValidityStatus;
+    }
+
+    item def MagneticHeading {
+        attribute heading : Degree;
+        attribute validity : ValidityStatus;
+    }
+
+    item def BarometricCorrection {
+        attribute pressureAltitude : ISQ::length;
+        attribute verticalSpeed : ISQ::speed;
+        attribute validity : ValidityStatus;
+    }
+
+    item def AircraftAttitude {
+        attribute rollAngle : Degree;
+        attribute pitchAngle : Degree;
+        attribute yawAngle : Degree;
+        attribute rollRate : DegreePerSecond;
+        attribute pitchRate : DegreePerSecond;
+        attribute yawRate : DegreePerSecond;
+        attribute confidence : Percent;
+        attribute validity : ValidityStatus;
+    }
+
+    item def DisplayCommand {
+        attribute rollPointerAngle : Degree;
+        attribute pitchLadderOffset : Degree;
+        attribute horizonLineAngle : Degree;
+        attribute slipSkidDeflection : Degree;
+        attribute flightDirectorRollCue : Degree;
+        attribute flightDirectorPitchCue : Degree;
+        attribute brightness : Percent;
+        attribute theme : DisplayTheme;
+        attribute alertLevel : AlertLevel;
+        attribute validity : ValidityStatus;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute frequency : Hertz;
+        attribute availablePower : Watt;
+        attribute validity : ValidityStatus;
+    }
+
+    item def DiscreteCommand {
+        attribute enabled : Boolean;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def HealthReport {
+        attribute mode : AttitudeIndicatorMode;
+        attribute sensorHealth : Percent;
+        attribute processorHealth : Percent;
+        attribute displayHealth : Percent;
+        attribute powerHealth : Percent;
+        attribute overTemperature : Boolean;
+        attribute faultCode : Integer;
+        attribute validity : ValidityStatus;
+    }
+
+    item def MaintenanceRecord {
+        attribute alignmentCycles : Integer;
+        attribute operatingHours : ISQ::duration;
+        attribute lastFaultCode : Integer;
+        attribute builtInTestPassed : Boolean;
+    }
+
+    port def AngularRateInPort {
+        in item rate : ThreeAxisAngularRate;
+    }
+
+    port def AccelerationInPort {
+        in item acceleration : ThreeAxisAcceleration;
+    }
+
+    port def HeadingInPort {
+        in item heading : MagneticHeading;
+    }
+
+    port def BaroInPort {
+        in item baro : BarometricCorrection;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PowerOutPort {
+        out item power : ElectricalPower;
+    }
+
+    port def AttitudeOutPort {
+        out item attitude : AircraftAttitude;
+    }
+
+    port def AttitudeInPort {
+        in item attitude : AircraftAttitude;
+    }
+
+    port def DisplayCommandOutPort {
+        out item command : DisplayCommand;
+    }
+
+    port def DisplayCommandInPort {
+        in item command : DisplayCommand;
+    }
+
+    port def HealthOutPort {
+        out item health : HealthReport;
+    }
+
+    port def HealthInPort {
+        in item health : HealthReport;
+    }
+
+    port def CommandInPort {
+        in item command : DiscreteCommand;
+    }
+
+    port def MaintenanceOutPort {
+        out item record : MaintenanceRecord;
+    }
+
+    action def AlignInertialReference {
+        in item rates : ThreeAxisAngularRate;
+        in item accelerations : ThreeAxisAcceleration;
+        out item alignedAttitude : AircraftAttitude;
+
+        attribute alignmentDuration : ISQ::duration = 45 [SI::s];
+        attribute maximumMotionDuringAlignment : DegreePerSecond = 0.5;
+    }
+
+    action def FuseAttitudeSensors {
+        in item rates : ThreeAxisAngularRate;
+        in item accelerations : ThreeAxisAcceleration;
+        in item heading : MagneticHeading;
+        in item baro : BarometricCorrection;
+        out item estimatedAttitude : AircraftAttitude;
+
+        attribute updatePeriod : Millisecond = 10;
+        attribute gyroWeight : Real = 0.82;
+        attribute accelerometerWeight : Real = 0.14;
+        attribute headingWeight : Real = 0.04;
+    }
+
+    action def ValidateAttitude {
+        in item estimatedAttitude : AircraftAttitude;
+        out item validatedAttitude : AircraftAttitude;
+        out item health : HealthReport;
+
+        attribute maximumRollDisplay : Degree = 180;
+        attribute maximumPitchDisplay : Degree = 90;
+        attribute minimumConfidenceNormal : Percent = 80;
+    }
+
+    action def RenderPrimaryFlightDisplay {
+        in item attitude : AircraftAttitude;
+        out item displayCommand : DisplayCommand;
+
+        attribute nominalRefreshRate : Hertz = 60;
+        attribute minimumBrightness : Percent = 5;
+        attribute maximumBrightness : Percent = 100;
+    }
+
+    action def RunBuiltInTest {
+        in item power : ElectricalPower;
+        out item health : HealthReport;
+        out item maintenance : MaintenanceRecord;
+
+        attribute maximumTestDuration : ISQ::duration = 3 [SI::s];
+    }
+
+    state def AttitudeIndicatorOperationalState {
+        entry action initialize {
+            action RunBuiltInTest;
+        }
+
+        state off;
+        state powerUp;
+        state alignment;
+        state normalOperation;
+        state degradedOperation;
+        state failure;
+        state standby;
+        state maintenance;
+
+        transition first off;
+
+        transition off_to_powerUp
+            first off
+            then powerUp;
+
+        transition powerUp_to_alignment
+            first powerUp
+            then alignment;
+
+        transition alignment_to_normal
+            first alignment
+            then normalOperation;
+
+        transition normal_to_degraded
+            first normalOperation
+            then degradedOperation;
+
+        transition degraded_to_normal
+            first degradedOperation
+            then normalOperation;
+
+        transition normal_to_failure
+            first normalOperation
+            then failure;
+
+        transition degraded_to_failure
+            first degradedOperation
+            then failure;
+
+        transition failure_to_standby
+            first failure
+            then standby;
+
+        transition standby_to_alignment
+            first standby
+            then alignment;
+
+        transition powerUp_to_maintenance
+            first powerUp
+            then maintenance;
+    }
+
+    part def InertialSensorModule {
+        port powerInput : PowerInPort;
+        port angularRateOutput : AngularRateInPort;
+        port accelerationOutput : AccelerationInPort;
+        port healthOutput : HealthOutPort;
+
+        attribute sampleRate : Hertz = 400;
+        attribute gyroBiasStability : DegreePerSecond = 0.02;
+        attribute accelerometerNoise : ISQ::acceleration = 0.03 [SI::m / SI::s^2];
+        attribute operatingTemperatureMin : Celsius = -40;
+        attribute operatingTemperatureMax : Celsius = 70;
+        attribute warmupTime : ISQ::duration = 20 [SI::s];
+    }
+
+    part def MagnetometerModule {
+        port powerInput : PowerInPort;
+        port headingOutput : HeadingInPort;
+        port healthOutput : HealthOutPort;
+
+        attribute headingAccuracy : Degree = 2;
+        attribute sampleRate : Hertz = 50;
+        attribute magneticInterferenceLimit : Percent = 20;
+    }
+
+    part def AirDataInputModule {
+        port powerInput : PowerInPort;
+        port baroOutput : BaroInPort;
+        port healthOutput : HealthOutPort;
+
+        attribute updateRate : Hertz = 25;
+        attribute verticalSpeedResolution : ISQ::speed = 0.05 [SI::m / SI::s];
+    }
+
+    part def AttitudeComputer {
+        port powerInput : PowerInPort;
+        port angularRateInput : AngularRateInPort;
+        port accelerationInput : AccelerationInPort;
+        port headingInput : HeadingInPort;
+        port baroInput : BaroInPort;
+        port attitudeOutput : AttitudeOutPort;
+        port healthOutput : HealthOutPort;
+        port resetInput : CommandInPort;
+
+        attribute processorClockRate : Hertz = 200000000;
+        attribute attitudeUpdateRate : Hertz = 100;
+        attribute rollRange : Degree = 180;
+        attribute pitchRange : Degree = 90;
+        attribute latencyBudget : Millisecond = 20;
+        attribute requiredConfidence : Percent = 80;
+
+        perform action AlignInertialReference;
+        perform action FuseAttitudeSensors;
+        perform action ValidateAttitude;
+    }
+
+    part def DisplayProcessor {
+        port powerInput : PowerInPort;
+        port attitudeInput : AttitudeInPort;
+        port commandOutput : DisplayCommandOutPort;
+        port healthOutput : HealthOutPort;
+
+        attribute refreshRate : Hertz = 60;
+        attribute maximumCommandLatency : Millisecond = 16;
+        attribute supportedTheme : DisplayTheme = DisplayTheme::automatic;
+
+        perform action RenderPrimaryFlightDisplay;
+    }
+
+    part def PilotDisplayUnit {
+        port powerInput : PowerInPort;
+        port displayCommandInput : DisplayCommandInPort;
+        port healthOutput : HealthOutPort;
+
+        attribute diagonalSize : ISQ::length = 0.127 [SI::m];
+        attribute horizontalPixels : Integer = 1024;
+        attribute verticalPixels : Integer = 768;
+        attribute minimumLuminance : CandelaPerSquareMeter = 5;
+        attribute maximumLuminance : CandelaPerSquareMeter = 650;
+        attribute contrastRatio : Real = 800;
+    }
+
+    part def PowerConditioner {
+        port primaryPowerInput : PowerInPort;
+        port backupPowerInput : PowerInPort;
+        port conditionedPowerOutput : PowerOutPort;
+        port healthOutput : HealthOutPort;
+
+        attribute nominalInputVoltage : Volt = 28;
+        attribute minimumInputVoltage : Volt = 18;
+        attribute maximumInputVoltage : Volt = 32;
+        attribute outputVoltage : Volt = 12;
+        attribute maximumOutputPower : Watt = 85;
+        attribute holdUpTime : ISQ::duration = 5 [SI::s];
+    }
+
+    part def FaultManagementUnit {
+        port sensorHealthInput : HealthInPort;
+        port computerHealthInput : HealthInPort;
+        port displayHealthInput : HealthInPort;
+        port powerHealthInput : HealthInPort;
+        port systemHealthOutput : HealthOutPort;
+        port resetOutput : CommandInPort;
+        port maintenanceOutput : MaintenanceOutPort;
+
+        attribute faultDetectionInterval : Millisecond = 100;
+        attribute failureThreshold : Percent = 50;
+        attribute degradedThreshold : Percent = 75;
+
+        perform action RunBuiltInTest;
+    }
+
+    part def AttitudeIndicatorSystem {
+        port primaryPowerInput : PowerInPort;
+        port backupPowerInput : PowerInPort;
+        port externalHeadingInput : HeadingInPort;
+        port externalBaroInput : BaroInPort;
+        port systemHealthOutput : HealthOutPort;
+        port maintenanceOutput : MaintenanceOutPort;
+
+        attribute primaryFunction : String =
+            "Determine, validate, and display aircraft pitch and roll attitude relative to the natural horizon so the pilot can maintain spatial orientation during all phases of flight.";
+
+        attribute nominalPowerConsumption : Watt = 42;
+        attribute maximumPowerConsumption : Watt = 78;
+        attribute startupTime : ISQ::duration = 60 [SI::s];
+        attribute normalModeAccuracyRoll : Degree = 1;
+        attribute normalModeAccuracyPitch : Degree = 1;
+        attribute degradedModeAccuracyRoll : Degree = 3;
+        attribute degradedModeAccuracyPitch : Degree = 3;
+        attribute maximumDisplayLatency : Millisecond = 80;
+        attribute designLife : ISQ::duration = 50000 [SI::h];
+
+        part powerConditioner : PowerConditioner;
+        part inertialSensor : InertialSensorModule;
+        part magnetometer : MagnetometerModule;
+        part airDataInput : AirDataInputModule;
+        part attitudeComputer : AttitudeComputer;
+        part displayProcessor : DisplayProcessor;
+        part pilotDisplay : PilotDisplayUnit;
+        part faultManager : FaultManagementUnit;
+
+        exhibit stateMachine : AttitudeIndicatorOperationalState;
+
+        connect primaryPowerInput to powerConditioner.primaryPowerInput;
+        connect backupPowerInput to powerConditioner.backupPowerInput;
+
+        connect powerConditioner.conditionedPowerOutput to inertialSensor.powerInput;
+        connect powerConditioner.conditionedPowerOutput to magnetometer.powerInput;
+        connect powerConditioner.conditionedPowerOutput to airDataInput.powerInput;
+        connect powerConditioner.conditionedPowerOutput to attitudeComputer.powerInput;
+        connect powerConditioner.conditionedPowerOutput to displayProcessor.powerInput;
+        connect powerConditioner.conditionedPowerOutput to pilotDisplay.powerInput;
+
+        connect inertialSensor.angularRateOutput to attitudeComputer.angularRateInput;
+        connect inertialSensor.accelerationOutput to attitudeComputer.accelerationInput;
+        connect magnetometer.headingOutput to attitudeComputer.headingInput;
+        connect airDataInput.baroOutput to attitudeComputer.baroInput;
+
+        connect externalHeadingInput to attitudeComputer.headingInput;
+        connect externalBaroInput to attitudeComputer.baroInput;
+
+        connect attitudeComputer.attitudeOutput to displayProcessor.attitudeInput;
+        connect displayProcessor.commandOutput to pilotDisplay.displayCommandInput;
+
+        connect inertialSensor.healthOutput to faultManager.sensorHealthInput;
+        connect attitudeComputer.healthOutput to faultManager.computerHealthInput;
+        connect displayProcessor.healthOutput to faultManager.displayHealthInput;
+        connect pilotDisplay.healthOutput to faultManager.displayHealthInput;
+        connect powerConditioner.healthOutput to faultManager.powerHealthInput;
+
+        connect faultManager.systemHealthOutput to systemHealthOutput;
+        connect faultManager.maintenanceOutput to maintenanceOutput;
+        connect faultManager.resetOutput to attitudeComputer.resetInput;
+    }
+
+    requirement def PrimaryAttitudeFunctionRequirement {
+        subject system : AttitudeIndicatorSystem;
+
+        doc /* The attitude indicator system shall provide a continuous visual indication of aircraft pitch and roll attitude relative to the horizon. */
+
+        require constraint {
+            system.maximumDisplayLatency <= 80 and
+            system.normalModeAccuracyRoll <= 1 and
+            system.normalModeAccuracyPitch <= 1
+        }
+    }
+
+    requirement def StartupRequirement {
+        subject system : AttitudeIndicatorSystem;
+
+        doc /* The system shall complete power-up built-in test and inertial alignment within 60 seconds after valid primary or backup power is applied. */
+
+        require constraint {
+            system.startupTime <= 60 [SI::s]
+        }
+    }
+
+    requirement def DisplayContinuityRequirement {
+        subject system : AttitudeIndicatorSystem;
+
+        doc /* The system shall continue to display attitude in degraded mode when one non-critical aiding source is unavailable. */
+
+        require constraint {
+            system.degradedModeAccuracyRoll <= 3 and
+            system.degradedModeAccuracyPitch <= 3
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system : AttitudeIndicatorSystem;
+
+        doc /* The system shall operate from 28 VDC aircraft power and shall not exceed 78 W maximum power consumption. */
+
+        require constraint {
+            system.maximumPowerConsumption <= 78
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject system : AttitudeIndicatorSystem;
+
+        doc /* The system shall continuously monitor sensor, processor, display, and power health and publish a system health report at least every 100 ms. */
+
+        require constraint {
+            system.faultManager.faultDetectionInterval <= 100
+        }
+    }
+
+    requirement def DisplayBrightnessRequirement {
+        subject display : PilotDisplayUnit;
+
+        doc /* The pilot display shall provide luminance sufficient for night cockpit operation and direct daylight readability. */
+
+        require constraint {
+            display.minimumLuminance <= 5 and
+            display.maximumLuminance >= 650
+        }
+    }
+
+    satisfy PrimaryAttitudeFunctionRequirement by AttitudeIndicatorSystem;
+    satisfy StartupRequirement by AttitudeIndicatorSystem;
+    satisfy DisplayContinuityRequirement by AttitudeIndicatorSystem;
+    satisfy PowerRequirement by AttitudeIndicatorSystem;
+    satisfy HealthMonitoringRequirement by AttitudeIndicatorSystem;
+    satisfy DisplayBrightnessRequirement by PilotDisplayUnit;
+
+    part attitudeIndicator : AttitudeIndicatorSystem;
+}

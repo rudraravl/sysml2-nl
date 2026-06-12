@@ -1,0 +1,1099 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ojihtnzx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb58f-ccc2-7c01-ae91-a290379546b6
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Magnetic resonance imaging and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MagneticResonanceImagingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MagneticFluxDensity :> ISQ::magneticFluxDensity {
+        unit = SI::tesla;
+    }
+
+    attribute def MagneticFieldGradient :> ScalarValues::Real {
+        unit = "mT/m";
+    }
+
+    attribute def RadioFrequency :> ISQ::frequency {
+        unit = SI::megahertz;
+    }
+
+    attribute def ElectricPower :> ISQ::power {
+        unit = SI::kilowatt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def FlowRate :> ScalarValues::Real {
+        unit = "L/min";
+    }
+
+    attribute def ImageResolution :> ScalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def SignalToNoiseRatio :> ScalarValues::Real {
+        unit = "dB";
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def PatientMass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def SpecificAbsorptionRate :> ScalarValues::Real {
+        unit = "W/kg";
+    }
+
+    item def Patient {
+        attribute identifier : String;
+        attribute mass : PatientMass;
+        attribute targetRegion : String;
+        attribute hasFerromagneticImplant : Boolean;
+    }
+
+    item def ScanPrescription {
+        attribute sequenceName : String;
+        attribute targetRegion : String;
+        attribute sliceThickness : ImageResolution;
+        attribute fieldOfView : ImageResolution;
+        attribute repetitionTime : TimeDuration;
+        attribute echoTime : TimeDuration;
+        attribute requestedResolution : ImageResolution;
+        attribute contrastMode : String;
+    }
+
+    item def GradientWaveform {
+        attribute xGradient : MagneticFieldGradient;
+        attribute yGradient : MagneticFieldGradient;
+        attribute zGradient : MagneticFieldGradient;
+        attribute duration : TimeDuration;
+    }
+
+    item def RFPulse {
+        attribute centerFrequency : RadioFrequency;
+        attribute flipAngle : ScalarValues::Real;
+        attribute pulseDuration : TimeDuration;
+        attribute peakPower : ElectricPower;
+    }
+
+    item def MRSignal {
+        attribute amplitude : ScalarValues::Real;
+        attribute phase : ScalarValues::Real;
+        attribute frequency : RadioFrequency;
+        attribute signalToNoise : SignalToNoiseRatio;
+    }
+
+    item def RawKSpaceData {
+        attribute samples : ScalarValues::Integer;
+        attribute lines : ScalarValues::Integer;
+        attribute channels : ScalarValues::Integer;
+        attribute samplingDuration : TimeDuration;
+    }
+
+    item def MRImage {
+        attribute matrixRows : ScalarValues::Integer;
+        attribute matrixColumns : ScalarValues::Integer;
+        attribute sliceCount : ScalarValues::Integer;
+        attribute inPlaneResolution : ImageResolution;
+        attribute sliceThickness : ImageResolution;
+        attribute contrastMode : String;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+    }
+
+    item def HeliumCryogen {
+        attribute levelPercent : ScalarValues::Real;
+        attribute pressure : ScalarValues::Real;
+    }
+
+    port def PatientTransferPort {
+        in item patientIn : Patient;
+        out item patientOut : Patient;
+    }
+
+    port def PrescriptionPort {
+        in item scanPrescription : ScanPrescription;
+    }
+
+    port def GradientCommandPort {
+        out item waveform : GradientWaveform;
+    }
+
+    port def RFTransmitPort {
+        out item pulse : RFPulse;
+    }
+
+    port def RFReceivePort {
+        in item signal : MRSignal;
+    }
+
+    port def KSpacePort {
+        out item kspace : RawKSpaceData;
+    }
+
+    port def ImagePort {
+        out item image : MRImage;
+    }
+
+    port def CoolingPort {
+        inout item coolant : CoolingFluid;
+    }
+
+    port def CryogenPort {
+        inout item helium : HeliumCryogen;
+    }
+
+    port def PowerPort {
+        in attribute suppliedPower : ElectricPower;
+    }
+
+    port def SafetyStatusPort {
+        out attribute emergencyStopActive : Boolean;
+        out attribute interlockClosed : Boolean;
+        out attribute patientMotionDetected : Boolean;
+    }
+
+    part def PatientTable {
+        port transferPort : PatientTransferPort;
+        port powerPort : PowerPort;
+
+        attribute maximumPatientMass : PatientMass = 250 [SI::kilogram];
+        attribute tablePosition : ScalarValues::Real;
+        attribute boreInsertionDepth : ScalarValues::Real;
+        attribute motionSpeed : ScalarValues::Real;
+
+        action positionPatient {
+            in item patient : Patient;
+            in attribute targetDepth : ScalarValues::Real;
+            out attribute positioned : Boolean;
+        }
+    }
+
+    part def MainMagnet {
+        port cryogenPort : CryogenPort;
+        port powerPort : PowerPort;
+
+        attribute nominalFieldStrength : MagneticFluxDensity = 3.0 [SI::tesla];
+        attribute fieldHomogeneity : ScalarValues::Real = 1.0;
+        attribute boreDiameter : ScalarValues::Real = 70.0;
+        attribute persistentModeEnabled : Boolean;
+
+        action generateStaticField {
+            out attribute b0Field : MagneticFluxDensity;
+        }
+    }
+
+    part def ShimSystem {
+        port powerPort : PowerPort;
+
+        attribute activeShimChannels : ScalarValues::Integer = 18;
+        attribute residualInhomogeneity : ScalarValues::Real;
+
+        action optimizeFieldHomogeneity {
+            in item prescription : ScanPrescription;
+            out attribute shimComplete : Boolean;
+        }
+    }
+
+    part def GradientSubsystem {
+        port commandPort : GradientCommandPort;
+        port powerPort : PowerPort;
+        port coolingPort : CoolingPort;
+
+        attribute maximumGradientStrength : MagneticFieldGradient = 80.0;
+        attribute slewRate : ScalarValues::Real = 200.0;
+        attribute coilTemperature : Temperature;
+        attribute acousticLimit : ScalarValues::Real = 99.0;
+
+        action createSpatialEncoding {
+            in item prescription : ScanPrescription;
+            out item waveform : GradientWaveform;
+        }
+    }
+
+    part def RFSubsystem {
+        port transmitPort : RFTransmitPort;
+        port receivePort : RFReceivePort;
+        port powerPort : PowerPort;
+        port coolingPort : CoolingPort;
+
+        attribute larmorFrequency : RadioFrequency = 127.7 [SI::megahertz];
+        attribute transmitPowerLimit : ElectricPower = 35.0 [SI::kilowatt];
+        attribute receiverChannelCount : ScalarValues::Integer = 32;
+        attribute measuredSAR : SpecificAbsorptionRate;
+
+        action exciteNuclei {
+            in item prescription : ScanPrescription;
+            out item pulse : RFPulse;
+        }
+
+        action receiveRelaxationSignal {
+            in item signal : MRSignal;
+            out item conditionedSignal : MRSignal;
+        }
+    }
+
+    part def PatientMonitoringSystem {
+        port safetyStatusPort : SafetyStatusPort;
+
+        attribute heartRate : ScalarValues::Real;
+        attribute oxygenSaturation : ScalarValues::Real;
+        attribute respiratoryRate : ScalarValues::Real;
+        attribute motionDetected : Boolean;
+
+        action monitorPatient {
+            in item patient : Patient;
+            out attribute motionDetected : Boolean;
+        }
+    }
+
+    part def CoolingSystem {
+        port gradientCoolingPort : CoolingPort;
+        port rfCoolingPort : CoolingPort;
+        port cryogenPort : CryogenPort;
+        port powerPort : PowerPort;
+
+        attribute chilledWaterFlow : FlowRate = 40.0;
+        attribute supplyTemperature : Temperature = 18.0 [SI::degreeCelsius];
+        attribute heliumLevelMinimum : ScalarValues::Real = 20.0;
+
+        action removeHeat {
+            inout item coolant : CoolingFluid;
+            out attribute coolingAvailable : Boolean;
+        }
+    }
+
+    part def ScannerController {
+        port prescriptionPort : PrescriptionPort;
+        port gradientCommandPort : GradientCommandPort;
+        port rfTransmitPort : RFTransmitPort;
+        port safetyStatusPort : SafetyStatusPort;
+        port kspacePort : KSpacePort;
+
+        attribute scanState : String;
+        attribute interlocksSatisfied : Boolean;
+        attribute acquisitionTime : TimeDuration;
+        attribute abortRequested : Boolean;
+
+        action validatePrescription {
+            in item prescription : ScanPrescription;
+            in item patient : Patient;
+            out attribute accepted : Boolean;
+        }
+
+        action coordinateScan {
+            in item prescription : ScanPrescription;
+            out item waveform : GradientWaveform;
+            out item pulse : RFPulse;
+            out item kspace : RawKSpaceData;
+        }
+    }
+
+    part def DataAcquisitionSystem {
+        port receivePort : RFReceivePort;
+        port kspacePort : KSpacePort;
+        port powerPort : PowerPort;
+
+        attribute analogBandwidth : RadioFrequency;
+        attribute sampleRate : ScalarValues::Real;
+        attribute dynamicRange : ScalarValues::Real;
+
+        action digitizeSignal {
+            in item signal : MRSignal;
+            out item kspace : RawKSpaceData;
+        }
+    }
+
+    part def ImageReconstructionSystem {
+        port kspacePort : KSpacePort;
+        port imagePort : ImagePort;
+        port powerPort : PowerPort;
+
+        attribute reconstructionAlgorithm : String = "parallel Fourier reconstruction with coil sensitivity correction";
+        attribute reconstructionTime : TimeDuration;
+        attribute outputSNR : SignalToNoiseRatio;
+
+        action reconstructImage {
+            in item kspace : RawKSpaceData;
+            in item prescription : ScanPrescription;
+            out item image : MRImage;
+        }
+    }
+
+    part def OperatorConsole {
+        port prescriptionPort : PrescriptionPort;
+        port imagePort : ImagePort;
+
+        attribute operatorAuthenticated : Boolean;
+        attribute displayedImageCount : ScalarValues::Integer;
+
+        action prescribeScan {
+            out item prescription : ScanPrescription;
+        }
+
+        action displayImage {
+            in item image : MRImage;
+            out attribute visibleToOperator : Boolean;
+        }
+    }
+
+    part def MRI_System {
+        port patientTransferPort : PatientTransferPort;
+        port imageOutputPort : ImagePort;
+        port facilityPowerPort : PowerPort;
+
+        part table : PatientTable;
+        part magnet : MainMagnet;
+        part shim : ShimSystem;
+        part gradients : GradientSubsystem;
+        part rf : RFSubsystem;
+        part monitoring : PatientMonitoringSystem;
+        part cooling : CoolingSystem;
+        part controller : ScannerController;
+        part acquisition : DataAcquisitionSystem;
+        part reconstruction : ImageReconstructionSystem;
+        part console : OperatorConsole;
+
+        attribute primaryFunction : String =
+            "Acquire anatomically localized magnetic resonance signals from hydrogen nuclei in a patient and reconstruct non-invasive diagnostic images of the prescribed body region.";
+        attribute installedFieldStrength : MagneticFluxDensity = 3.0 [SI::tesla];
+        attribute maximumSAR : SpecificAbsorptionRate = 3.2;
+        attribute minimumImageResolution : ImageResolution = 0.7;
+        attribute maximumPatientMass : PatientMass = 250 [SI::kilogram];
+
+        connect patientTransferPort to table.transferPort;
+        connect facilityPowerPort to table.powerPort;
+        connect facilityPowerPort to magnet.powerPort;
+        connect facilityPowerPort to shim.powerPort;
+        connect facilityPowerPort to gradients.powerPort;
+        connect facilityPowerPort to rf.powerPort;
+        connect facilityPowerPort to cooling.powerPort;
+        connect facilityPowerPort to acquisition.powerPort;
+        connect facilityPowerPort to reconstruction.powerPort;
+
+        connect cooling.gradientCoolingPort to gradients.coolingPort;
+        connect cooling.rfCoolingPort to rf.coolingPort;
+        connect cooling.cryogenPort to magnet.cryogenPort;
+
+        connect console.prescriptionPort to controller.prescriptionPort;
+        connect controller.gradientCommandPort to gradients.commandPort;
+        connect controller.rfTransmitPort to rf.transmitPort;
+        connect rf.receivePort to acquisition.receivePort;
+        connect acquisition.kspacePort to controller.kspacePort;
+        connect acquisition.kspacePort to reconstruction.kspacePort;
+        connect reconstruction.imagePort to console.imagePort;
+        connect reconstruction.imagePort to imageOutputPort;
+        connect monitoring.safetyStatusPort to controller.safetyStatusPort;
+
+        action performDiagnosticMRScan {
+            in item patient : Patient;
+            in item prescription : ScanPrescription;
+            out item image : MRImage;
+
+            first start;
+            then validate;
+
+            action validate {
+                out attribute accepted : Boolean;
+            }
+
+            then position;
+            action position {
+                out attribute positioned : Boolean;
+            }
+
+            then acquire;
+            action acquire {
+                out item rawData : RawKSpaceData;
+            }
+
+            then reconstruct;
+            action reconstruct {
+                out item reconstructedImage : MRImage;
+            }
+
+            then complete;
+        }
+
+        state def OperationalState {
+            state poweredOff;
+            state standby;
+            state patientSetup;
+            state safetyCheck;
+            state shimming;
+            state scanning;
+            state reconstructing;
+            state imageReview;
+            state emergencyStop;
+
+            transition initial then poweredOff;
+            transition powerApplied first poweredOff then standby;
+            transition patientLoaded first standby then patientSetup;
+            transition setupComplete first patientSetup then safetyCheck;
+            transition interlocksClosed first safetyCheck then shimming;
+            transition shimComplete first shimming then scanning;
+            transition acquisitionComplete first scanning then reconstructing;
+            transition reconstructionComplete first reconstructing then imageReview;
+            transition newScanRequested first imageReview then safetyCheck;
+            transition patientRemoved first imageReview then standby;
+            transition emergencyDetected first standby then emergencyStop;
+            transition emergencyDetected first patientSetup then emergencyStop;
+            transition emergencyDetected first safetyCheck then emergencyStop;
+            transition emergencyDetected first shimming then emergencyStop;
+            transition emergencyDetected first scanning then emergencyStop;
+            transition emergencyDetected first reconstructing then emergencyStop;
+            transition resetAfterEmergency first emergencyStop then standby;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject mri : MRI_System;
+        doc
+        /*
+         * The MRI system shall non-invasively produce diagnostic cross-sectional images
+         * of a prescribed patient anatomy by generating a stable static magnetic field,
+         * applying controlled gradient and radio-frequency fields, receiving magnetic
+         * resonance signals, and reconstructing those signals into image data.
+         */
+    }
+
+    requirement def StaticFieldRequirement {
+        subject magnet : MainMagnet;
+        attribute requiredField : MagneticFluxDensity = 3.0 [SI::tesla];
+
+        require constraint {
+            magnet.nominalFieldStrength == requiredField
+        }
+    }
+
+    requirement def PatientSafetyRequirement {
+        subject system : MRI_System;
+        attribute sarLimit : SpecificAbsorptionRate = 3.2;
+
+        require constraint {
+            system.rf.measuredSAR <= sarLimit and
+            system.monitoring.motionDetected == false
+        }
+    }
+
+    requirement def ImplantScreeningRequirement {
+        subject patient : Patient;
+
+        require constraint {
+            patient.hasFerromagneticImplant == false
+        }
+    }
+
+    requirement def GradientPerformanceRequirement {
+        subject gradients : GradientSubsystem;
+        attribute minimumGradientStrength : MagneticFieldGradient = 40.0;
+
+        require constraint {
+            gradients.maximumGradientStrength >= minimumGradientStrength
+        }
+    }
+
+    requirement def CoolingAvailabilityRequirement {
+        subject cooling : CoolingSystem;
+        attribute minimumFlow : FlowRate = 25.0;
+        attribute maximumSupplyTemperature : Temperature = 22.0 [SI::degreeCelsius];
+
+        require constraint {
+            cooling.chilledWaterFlow >= minimumFlow and
+            cooling.supplyTemperature <= maximumSupplyTemperature
+        }
+    }
+
+    requirement def ImageQualityRequirement {
+        subject image : MRImage;
+        attribute maximumVoxelDimension : ImageResolution = 1.0;
+
+        require constraint {
+            image.inPlaneResolution <= maximumVoxelDimension and
+            image.sliceThickness <= 5.0
+        }
+    }
+
+    requirement def PatientTableCapacityRequirement {
+        subject table : PatientTable;
+        attribute requiredCapacity : PatientMass = 250 [SI::kilogram];
+
+        require constraint {
+            table.maximumPatientMass >= requiredCapacity
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MRI_System;
+    satisfy StaticFieldRequirement by MainMagnet;
+    satisfy PatientSafetyRequirement by MRI_System;
+    satisfy GradientPerformanceRequirement by GradientSubsystem;
+    satisfy CoolingAvailabilityRequirement by CoolingSystem;
+    satisfy PatientTableCapacityRequirement by PatientTable;
+}
+tokens used
+3,879
+package MagneticResonanceImagingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MagneticFluxDensity :> ISQ::magneticFluxDensity {
+        unit = SI::tesla;
+    }
+
+    attribute def MagneticFieldGradient :> ScalarValues::Real {
+        unit = "mT/m";
+    }
+
+    attribute def RadioFrequency :> ISQ::frequency {
+        unit = SI::megahertz;
+    }
+
+    attribute def ElectricPower :> ISQ::power {
+        unit = SI::kilowatt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def FlowRate :> ScalarValues::Real {
+        unit = "L/min";
+    }
+
+    attribute def ImageResolution :> ScalarValues::Real {
+        unit = "mm";
+    }
+
+    attribute def SignalToNoiseRatio :> ScalarValues::Real {
+        unit = "dB";
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def PatientMass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def SpecificAbsorptionRate :> ScalarValues::Real {
+        unit = "W/kg";
+    }
+
+    item def Patient {
+        attribute identifier : String;
+        attribute mass : PatientMass;
+        attribute targetRegion : String;
+        attribute hasFerromagneticImplant : Boolean;
+    }
+
+    item def ScanPrescription {
+        attribute sequenceName : String;
+        attribute targetRegion : String;
+        attribute sliceThickness : ImageResolution;
+        attribute fieldOfView : ImageResolution;
+        attribute repetitionTime : TimeDuration;
+        attribute echoTime : TimeDuration;
+        attribute requestedResolution : ImageResolution;
+        attribute contrastMode : String;
+    }
+
+    item def GradientWaveform {
+        attribute xGradient : MagneticFieldGradient;
+        attribute yGradient : MagneticFieldGradient;
+        attribute zGradient : MagneticFieldGradient;
+        attribute duration : TimeDuration;
+    }
+
+    item def RFPulse {
+        attribute centerFrequency : RadioFrequency;
+        attribute flipAngle : ScalarValues::Real;
+        attribute pulseDuration : TimeDuration;
+        attribute peakPower : ElectricPower;
+    }
+
+    item def MRSignal {
+        attribute amplitude : ScalarValues::Real;
+        attribute phase : ScalarValues::Real;
+        attribute frequency : RadioFrequency;
+        attribute signalToNoise : SignalToNoiseRatio;
+    }
+
+    item def RawKSpaceData {
+        attribute samples : ScalarValues::Integer;
+        attribute lines : ScalarValues::Integer;
+        attribute channels : ScalarValues::Integer;
+        attribute samplingDuration : TimeDuration;
+    }
+
+    item def MRImage {
+        attribute matrixRows : ScalarValues::Integer;
+        attribute matrixColumns : ScalarValues::Integer;
+        attribute sliceCount : ScalarValues::Integer;
+        attribute inPlaneResolution : ImageResolution;
+        attribute sliceThickness : ImageResolution;
+        attribute contrastMode : String;
+    }
+
+    item def CoolingFluid {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flowRate : FlowRate;
+    }
+
+    item def HeliumCryogen {
+        attribute levelPercent : ScalarValues::Real;
+        attribute pressure : ScalarValues::Real;
+    }
+
+    port def PatientTransferPort {
+        in item patientIn : Patient;
+        out item patientOut : Patient;
+    }
+
+    port def PrescriptionPort {
+        in item scanPrescription : ScanPrescription;
+    }
+
+    port def GradientCommandPort {
+        out item waveform : GradientWaveform;
+    }
+
+    port def RFTransmitPort {
+        out item pulse : RFPulse;
+    }
+
+    port def RFReceivePort {
+        in item signal : MRSignal;
+    }
+
+    port def KSpacePort {
+        out item kspace : RawKSpaceData;
+    }
+
+    port def ImagePort {
+        out item image : MRImage;
+    }
+
+    port def CoolingPort {
+        inout item coolant : CoolingFluid;
+    }
+
+    port def CryogenPort {
+        inout item helium : HeliumCryogen;
+    }
+
+    port def PowerPort {
+        in attribute suppliedPower : ElectricPower;
+    }
+
+    port def SafetyStatusPort {
+        out attribute emergencyStopActive : Boolean;
+        out attribute interlockClosed : Boolean;
+        out attribute patientMotionDetected : Boolean;
+    }
+
+    part def PatientTable {
+        port transferPort : PatientTransferPort;
+        port powerPort : PowerPort;
+
+        attribute maximumPatientMass : PatientMass = 250 [SI::kilogram];
+        attribute tablePosition : ScalarValues::Real;
+        attribute boreInsertionDepth : ScalarValues::Real;
+        attribute motionSpeed : ScalarValues::Real;
+
+        action positionPatient {
+            in item patient : Patient;
+            in attribute targetDepth : ScalarValues::Real;
+            out attribute positioned : Boolean;
+        }
+    }
+
+    part def MainMagnet {
+        port cryogenPort : CryogenPort;
+        port powerPort : PowerPort;
+
+        attribute nominalFieldStrength : MagneticFluxDensity = 3.0 [SI::tesla];
+        attribute fieldHomogeneity : ScalarValues::Real = 1.0;
+        attribute boreDiameter : ScalarValues::Real = 70.0;
+        attribute persistentModeEnabled : Boolean;
+
+        action generateStaticField {
+            out attribute b0Field : MagneticFluxDensity;
+        }
+    }
+
+    part def ShimSystem {
+        port powerPort : PowerPort;
+
+        attribute activeShimChannels : ScalarValues::Integer = 18;
+        attribute residualInhomogeneity : ScalarValues::Real;
+
+        action optimizeFieldHomogeneity {
+            in item prescription : ScanPrescription;
+            out attribute shimComplete : Boolean;
+        }
+    }
+
+    part def GradientSubsystem {
+        port commandPort : GradientCommandPort;
+        port powerPort : PowerPort;
+        port coolingPort : CoolingPort;
+
+        attribute maximumGradientStrength : MagneticFieldGradient = 80.0;
+        attribute slewRate : ScalarValues::Real = 200.0;
+        attribute coilTemperature : Temperature;
+        attribute acousticLimit : ScalarValues::Real = 99.0;
+
+        action createSpatialEncoding {
+            in item prescription : ScanPrescription;
+            out item waveform : GradientWaveform;
+        }
+    }
+
+    part def RFSubsystem {
+        port transmitPort : RFTransmitPort;
+        port receivePort : RFReceivePort;
+        port powerPort : PowerPort;
+        port coolingPort : CoolingPort;
+
+        attribute larmorFrequency : RadioFrequency = 127.7 [SI::megahertz];
+        attribute transmitPowerLimit : ElectricPower = 35.0 [SI::kilowatt];
+        attribute receiverChannelCount : ScalarValues::Integer = 32;
+        attribute measuredSAR : SpecificAbsorptionRate;
+
+        action exciteNuclei {
+            in item prescription : ScanPrescription;
+            out item pulse : RFPulse;
+        }
+
+        action receiveRelaxationSignal {
+            in item signal : MRSignal;
+            out item conditionedSignal : MRSignal;
+        }
+    }
+
+    part def PatientMonitoringSystem {
+        port safetyStatusPort : SafetyStatusPort;
+
+        attribute heartRate : ScalarValues::Real;
+        attribute oxygenSaturation : ScalarValues::Real;
+        attribute respiratoryRate : ScalarValues::Real;
+        attribute motionDetected : Boolean;
+
+        action monitorPatient {
+            in item patient : Patient;
+            out attribute motionDetected : Boolean;
+        }
+    }
+
+    part def CoolingSystem {
+        port gradientCoolingPort : CoolingPort;
+        port rfCoolingPort : CoolingPort;
+        port cryogenPort : CryogenPort;
+        port powerPort : PowerPort;
+
+        attribute chilledWaterFlow : FlowRate = 40.0;
+        attribute supplyTemperature : Temperature = 18.0 [SI::degreeCelsius];
+        attribute heliumLevelMinimum : ScalarValues::Real = 20.0;
+
+        action removeHeat {
+            inout item coolant : CoolingFluid;
+            out attribute coolingAvailable : Boolean;
+        }
+    }
+
+    part def ScannerController {
+        port prescriptionPort : PrescriptionPort;
+        port gradientCommandPort : GradientCommandPort;
+        port rfTransmitPort : RFTransmitPort;
+        port safetyStatusPort : SafetyStatusPort;
+        port kspacePort : KSpacePort;
+
+        attribute scanState : String;
+        attribute interlocksSatisfied : Boolean;
+        attribute acquisitionTime : TimeDuration;
+        attribute abortRequested : Boolean;
+
+        action validatePrescription {
+            in item prescription : ScanPrescription;
+            in item patient : Patient;
+            out attribute accepted : Boolean;
+        }
+
+        action coordinateScan {
+            in item prescription : ScanPrescription;
+            out item waveform : GradientWaveform;
+            out item pulse : RFPulse;
+            out item kspace : RawKSpaceData;
+        }
+    }
+
+    part def DataAcquisitionSystem {
+        port receivePort : RFReceivePort;
+        port kspacePort : KSpacePort;
+        port powerPort : PowerPort;
+
+        attribute analogBandwidth : RadioFrequency;
+        attribute sampleRate : ScalarValues::Real;
+        attribute dynamicRange : ScalarValues::Real;
+
+        action digitizeSignal {
+            in item signal : MRSignal;
+            out item kspace : RawKSpaceData;
+        }
+    }
+
+    part def ImageReconstructionSystem {
+        port kspacePort : KSpacePort;
+        port imagePort : ImagePort;
+        port powerPort : PowerPort;
+
+        attribute reconstructionAlgorithm : String = "parallel Fourier reconstruction with coil sensitivity correction";
+        attribute reconstructionTime : TimeDuration;
+        attribute outputSNR : SignalToNoiseRatio;
+
+        action reconstructImage {
+            in item kspace : RawKSpaceData;
+            in item prescription : ScanPrescription;
+            out item image : MRImage;
+        }
+    }
+
+    part def OperatorConsole {
+        port prescriptionPort : PrescriptionPort;
+        port imagePort : ImagePort;
+
+        attribute operatorAuthenticated : Boolean;
+        attribute displayedImageCount : ScalarValues::Integer;
+
+        action prescribeScan {
+            out item prescription : ScanPrescription;
+        }
+
+        action displayImage {
+            in item image : MRImage;
+            out attribute visibleToOperator : Boolean;
+        }
+    }
+
+    part def MRI_System {
+        port patientTransferPort : PatientTransferPort;
+        port imageOutputPort : ImagePort;
+        port facilityPowerPort : PowerPort;
+
+        part table : PatientTable;
+        part magnet : MainMagnet;
+        part shim : ShimSystem;
+        part gradients : GradientSubsystem;
+        part rf : RFSubsystem;
+        part monitoring : PatientMonitoringSystem;
+        part cooling : CoolingSystem;
+        part controller : ScannerController;
+        part acquisition : DataAcquisitionSystem;
+        part reconstruction : ImageReconstructionSystem;
+        part console : OperatorConsole;
+
+        attribute primaryFunction : String =
+            "Acquire anatomically localized magnetic resonance signals from hydrogen nuclei in a patient and reconstruct non-invasive diagnostic images of the prescribed body region.";
+        attribute installedFieldStrength : MagneticFluxDensity = 3.0 [SI::tesla];
+        attribute maximumSAR : SpecificAbsorptionRate = 3.2;
+        attribute minimumImageResolution : ImageResolution = 0.7;
+        attribute maximumPatientMass : PatientMass = 250 [SI::kilogram];
+
+        connect patientTransferPort to table.transferPort;
+        connect facilityPowerPort to table.powerPort;
+        connect facilityPowerPort to magnet.powerPort;
+        connect facilityPowerPort to shim.powerPort;
+        connect facilityPowerPort to gradients.powerPort;
+        connect facilityPowerPort to rf.powerPort;
+        connect facilityPowerPort to cooling.powerPort;
+        connect facilityPowerPort to acquisition.powerPort;
+        connect facilityPowerPort to reconstruction.powerPort;
+
+        connect cooling.gradientCoolingPort to gradients.coolingPort;
+        connect cooling.rfCoolingPort to rf.coolingPort;
+        connect cooling.cryogenPort to magnet.cryogenPort;
+
+        connect console.prescriptionPort to controller.prescriptionPort;
+        connect controller.gradientCommandPort to gradients.commandPort;
+        connect controller.rfTransmitPort to rf.transmitPort;
+        connect rf.receivePort to acquisition.receivePort;
+        connect acquisition.kspacePort to controller.kspacePort;
+        connect acquisition.kspacePort to reconstruction.kspacePort;
+        connect reconstruction.imagePort to console.imagePort;
+        connect reconstruction.imagePort to imageOutputPort;
+        connect monitoring.safetyStatusPort to controller.safetyStatusPort;
+
+        action performDiagnosticMRScan {
+            in item patient : Patient;
+            in item prescription : ScanPrescription;
+            out item image : MRImage;
+
+            first start;
+            then validate;
+
+            action validate {
+                out attribute accepted : Boolean;
+            }
+
+            then position;
+            action position {
+                out attribute positioned : Boolean;
+            }
+
+            then acquire;
+            action acquire {
+                out item rawData : RawKSpaceData;
+            }
+
+            then reconstruct;
+            action reconstruct {
+                out item reconstructedImage : MRImage;
+            }
+
+            then complete;
+        }
+
+        state def OperationalState {
+            state poweredOff;
+            state standby;
+            state patientSetup;
+            state safetyCheck;
+            state shimming;
+            state scanning;
+            state reconstructing;
+            state imageReview;
+            state emergencyStop;
+
+            transition initial then poweredOff;
+            transition powerApplied first poweredOff then standby;
+            transition patientLoaded first standby then patientSetup;
+            transition setupComplete first patientSetup then safetyCheck;
+            transition interlocksClosed first safetyCheck then shimming;
+            transition shimComplete first shimming then scanning;
+            transition acquisitionComplete first scanning then reconstructing;
+            transition reconstructionComplete first reconstructing then imageReview;
+            transition newScanRequested first imageReview then safetyCheck;
+            transition patientRemoved first imageReview then standby;
+            transition emergencyDetected first standby then emergencyStop;
+            transition emergencyDetected first patientSetup then emergencyStop;
+            transition emergencyDetected first safetyCheck then emergencyStop;
+            transition emergencyDetected first shimming then emergencyStop;
+            transition emergencyDetected first scanning then emergencyStop;
+            transition emergencyDetected first reconstructing then emergencyStop;
+            transition resetAfterEmergency first emergencyStop then standby;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject mri : MRI_System;
+        doc
+        /*
+         * The MRI system shall non-invasively produce diagnostic cross-sectional images
+         * of a prescribed patient anatomy by generating a stable static magnetic field,
+         * applying controlled gradient and radio-frequency fields, receiving magnetic
+         * resonance signals, and reconstructing those signals into image data.
+         */
+    }
+
+    requirement def StaticFieldRequirement {
+        subject magnet : MainMagnet;
+        attribute requiredField : MagneticFluxDensity = 3.0 [SI::tesla];
+
+        require constraint {
+            magnet.nominalFieldStrength == requiredField
+        }
+    }
+
+    requirement def PatientSafetyRequirement {
+        subject system : MRI_System;
+        attribute sarLimit : SpecificAbsorptionRate = 3.2;
+
+        require constraint {
+            system.rf.measuredSAR <= sarLimit and
+            system.monitoring.motionDetected == false
+        }
+    }
+
+    requirement def ImplantScreeningRequirement {
+        subject patient : Patient;
+
+        require constraint {
+            patient.hasFerromagneticImplant == false
+        }
+    }
+
+    requirement def GradientPerformanceRequirement {
+        subject gradients : GradientSubsystem;
+        attribute minimumGradientStrength : MagneticFieldGradient = 40.0;
+
+        require constraint {
+            gradients.maximumGradientStrength >= minimumGradientStrength
+        }
+    }
+
+    requirement def CoolingAvailabilityRequirement {
+        subject cooling : CoolingSystem;
+        attribute minimumFlow : FlowRate = 25.0;
+        attribute maximumSupplyTemperature : Temperature = 22.0 [SI::degreeCelsius];
+
+        require constraint {
+            cooling.chilledWaterFlow >= minimumFlow and
+            cooling.supplyTemperature <= maximumSupplyTemperature
+        }
+    }
+
+    requirement def ImageQualityRequirement {
+        subject image : MRImage;
+        attribute maximumVoxelDimension : ImageResolution = 1.0;
+
+        require constraint {
+            image.inPlaneResolution <= maximumVoxelDimension and
+            image.sliceThickness <= 5.0
+        }
+    }
+
+    requirement def PatientTableCapacityRequirement {
+        subject table : PatientTable;
+        attribute requiredCapacity : PatientMass = 250 [SI::kilogram];
+
+        require constraint {
+            table.maximumPatientMass >= requiredCapacity
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MRI_System;
+    satisfy StaticFieldRequirement by MainMagnet;
+    satisfy PatientSafetyRequirement by MRI_System;
+    satisfy GradientPerformanceRequirement by GradientSubsystem;
+    satisfy CoolingAvailabilityRequirement by CoolingSystem;
+    satisfy PatientTableCapacityRequirement by PatientTable;
+}

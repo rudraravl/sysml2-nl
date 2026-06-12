@@ -1,0 +1,447 @@
+package DifferentialTechnologicalDevelopmentModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Torque {
+        :>> scalarValues::Real;
+        unit = "N*m";
+    }
+
+    attribute def AngularSpeed {
+        :>> scalarValues::Real;
+        unit = "rad/s";
+    }
+
+    attribute def Power {
+        :>> scalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def GearRatio {
+        :>> scalarValues::Real;
+        unit = "1";
+    }
+
+    attribute def Temperature {
+        :>> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def OilPressure {
+        :>> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def LockFraction {
+        :>> scalarValues::Real;
+        unit = "1";
+    }
+
+    attribute def VehicleSpeed {
+        :>> scalarValues::Real;
+        unit = "m/s";
+    }
+
+    item def RotationalPowerFlow {
+        attribute torque : Torque;
+        attribute speed : AngularSpeed;
+        attribute power : Power;
+    }
+
+    item def LubricantFlow {
+        attribute pressure : OilPressure;
+        attribute temperature : Temperature;
+        attribute flowRate : Real = 0.0 [unit = "L/min"];
+    }
+
+    item def ThermalEnergyFlow {
+        attribute heatPower : Power;
+        attribute sourceTemperature : Temperature;
+    }
+
+    item def ControlSignal {
+        attribute requestedLock : LockFraction;
+        attribute measuredSlip : AngularSpeed;
+        attribute vehicleSpeed : VehicleSpeed;
+    }
+
+    port def RotationalShaftPort {
+        inout item powerFlow : RotationalPowerFlow;
+    }
+
+    port def LubricationPort {
+        inout item lubricant : LubricantFlow;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalEnergyFlow;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+    }
+
+    part def DifferentialSystem {
+        doc /* Primary high-level function: receive rotational power from a single driveline input and distribute torque to left and right output shafts while permitting speed difference between the outputs during turning, limiting excessive wheel slip when commanded, and maintaining lubrication and thermal integrity. */
+
+        attribute nominalInputTorque : Torque = 420.0;
+        attribute maximumInputTorque : Torque = 950.0;
+        attribute finalDriveRatio : GearRatio = 3.73;
+        attribute nominalOilPressure : OilPressure = 180.0;
+        attribute maximumOilTemperature : Temperature = 145.0;
+        attribute maximumAllowedWheelSpeedDifference : AngularSpeed = 45.0;
+
+        port inputShaft : RotationalShaftPort;
+        port leftOutputShaft : RotationalShaftPort;
+        port rightOutputShaft : RotationalShaftPort;
+        port lubricationSupply : LubricationPort;
+        port heatRejection : ThermalPort;
+        port electronicCommand : ControlPort;
+
+        part housing : DifferentialHousing;
+        part ringAndPinion : RingAndPinionGearSet;
+        part carrier : DifferentialCarrier;
+        part leftSideGear : SideGear;
+        part rightSideGear : SideGear;
+        part spiderGearSet : SpiderGearSet;
+        part clutchPack : LimitedSlipClutchPack;
+        part lubricationCircuit : LubricationCircuit;
+        part temperatureSensor : TemperatureSensor;
+        part speedSensorLeft : ShaftSpeedSensor;
+        part speedSensorRight : ShaftSpeedSensor;
+        part controller : DifferentialController;
+
+        connection inputToFinalDrive connect inputShaft to ringAndPinion.pinionInput;
+        connection finalDriveToCarrier connect ringAndPinion.ringOutput to carrier.carrierInput;
+        connection carrierToSpider connect carrier.spiderSupport to spiderGearSet.carrierInput;
+        connection spiderToLeftSide connect spiderGearSet.leftMesh to leftSideGear.gearMesh;
+        connection spiderToRightSide connect spiderGearSet.rightMesh to rightSideGear.gearMesh;
+        connection leftGearToOutput connect leftSideGear.outputShaft to leftOutputShaft;
+        connection rightGearToOutput connect rightSideGear.outputShaft to rightOutputShaft;
+        connection clutchLeft connect clutchPack.leftFrictionInterface to leftSideGear.lockingInterface;
+        connection clutchRight connect clutchPack.rightFrictionInterface to rightSideGear.lockingInterface;
+        connection oilToGearSet connect lubricationSupply to lubricationCircuit.supply;
+        connection oilToFinalDrive connect lubricationCircuit.finalDriveJet to ringAndPinion.oilPort;
+        connection oilToCarrier connect lubricationCircuit.carrierJet to carrier.oilPort;
+        connection oilToClutch connect lubricationCircuit.clutchJet to clutchPack.oilPort;
+        connection thermalPath connect housing.thermalExit to heatRejection;
+        connection leftSpeedFeedback connect speedSensorLeft.signalOut to controller.leftSpeedInput;
+        connection rightSpeedFeedback connect speedSensorRight.signalOut to controller.rightSpeedInput;
+        connection commandToController connect electronicCommand to controller.commandInput;
+        connection controllerToClutch connect controller.lockCommandOutput to clutchPack.controlInput;
+
+        perform action DistributeTorque;
+        perform action MaintainLubrication;
+        exhibit state OperationalStateMachine;
+    }
+
+    part def DifferentialHousing {
+        attribute materialYieldStrength : Real = 280.0 [unit = "MPa"];
+        attribute lubricantCapacity : Real = 1.6 [unit = "L"];
+        attribute structuralMass : Real = 18.5 [unit = "kg"];
+
+        port thermalExit : ThermalPort;
+    }
+
+    part def RingAndPinionGearSet {
+        attribute pinionToRingRatio : GearRatio = 3.73;
+        attribute gearMeshEfficiency : Real = 0.965 [unit = "1"];
+        attribute maximumGearToothLoad : Torque = 1100.0;
+
+        port pinionInput : RotationalShaftPort;
+        port ringOutput : RotationalShaftPort;
+        port oilPort : LubricationPort;
+
+        constraint powerBalance {
+            in inputPower : Power;
+            in outputPower : Power;
+            in efficiency : Real;
+            outputPower == inputPower * efficiency;
+        }
+    }
+
+    part def DifferentialCarrier {
+        attribute carrierMass : Real = 7.4 [unit = "kg"];
+        attribute bearingPreload : Real = 2100.0 [unit = "N"];
+
+        port carrierInput : RotationalShaftPort;
+        port spiderSupport : RotationalShaftPort;
+        port oilPort : LubricationPort;
+    }
+
+    part def SideGear {
+        attribute toothCount : Integer = 18;
+        attribute splineCount : Integer = 31;
+        attribute allowableOutputTorque : Torque = 700.0;
+
+        port gearMesh : RotationalShaftPort;
+        port outputShaft : RotationalShaftPort;
+        port lockingInterface : RotationalShaftPort;
+    }
+
+    part def SpiderGearSet {
+        attribute spiderGearCount : Integer = 4;
+        attribute gearMeshEfficiency : Real = 0.975 [unit = "1"];
+        attribute maximumDifferentialSpeed : AngularSpeed = 80.0;
+
+        port carrierInput : RotationalShaftPort;
+        port leftMesh : RotationalShaftPort;
+        port rightMesh : RotationalShaftPort;
+
+        constraint openDifferentialKinematics {
+            in carrierSpeed : AngularSpeed;
+            in leftSpeed : AngularSpeed;
+            in rightSpeed : AngularSpeed;
+            carrierSpeed == (leftSpeed + rightSpeed) / 2.0;
+        }
+
+        constraint torqueSplitOpenMode {
+            in leftTorque : Torque;
+            in rightTorque : Torque;
+            leftTorque == rightTorque;
+        }
+    }
+
+    part def LimitedSlipClutchPack {
+        attribute plateCount : Integer = 10;
+        attribute maximumBiasRatio : Real = 2.8 [unit = "1"];
+        attribute maximumLockTorque : Torque = 480.0;
+        attribute currentLockFraction : LockFraction = 0.0;
+
+        port leftFrictionInterface : RotationalShaftPort;
+        port rightFrictionInterface : RotationalShaftPort;
+        port oilPort : LubricationPort;
+        port controlInput : ControlPort;
+
+        action ApplyLockingTorque {
+            in requestedLock : LockFraction;
+            in wheelSpeedDifference : AngularSpeed;
+            out lockingTorque : Torque;
+
+            lockingTorque = maximumLockTorque * requestedLock;
+        }
+    }
+
+    part def LubricationCircuit {
+        attribute minimumPressure : OilPressure = 90.0;
+        attribute nominalFlowRate : Real = 2.4 [unit = "L/min"];
+        attribute filterRating : Real = 40.0 [unit = "um"];
+
+        port supply : LubricationPort;
+        port finalDriveJet : LubricationPort;
+        port carrierJet : LubricationPort;
+        port clutchJet : LubricationPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeMinimum : Temperature = -40.0;
+        attribute measurementRangeMaximum : Temperature = 180.0;
+        attribute accuracy : Temperature = 2.0;
+    }
+
+    part def ShaftSpeedSensor {
+        attribute minimumMeasuredSpeed : AngularSpeed = 0.0;
+        attribute maximumMeasuredSpeed : AngularSpeed = 850.0;
+        attribute updateRate : Real = 200.0 [unit = "Hz"];
+
+        port signalOut : ControlPort;
+    }
+
+    part def DifferentialController {
+        attribute slipActivationThreshold : AngularSpeed = 8.0;
+        attribute fullLockThreshold : AngularSpeed = 32.0;
+        attribute maximumCommandedLock : LockFraction = 1.0;
+        attribute minimumCommandedLock : LockFraction = 0.0;
+
+        port commandInput : ControlPort;
+        port leftSpeedInput : ControlPort;
+        port rightSpeedInput : ControlPort;
+        port lockCommandOutput : ControlPort;
+
+        action ComputeLockCommand {
+            in leftWheelSpeed : AngularSpeed;
+            in rightWheelSpeed : AngularSpeed;
+            in driverRequestedLock : LockFraction;
+            out commandedLock : LockFraction;
+
+            attribute slip : AngularSpeed;
+            slip = abs(leftWheelSpeed - rightWheelSpeed);
+
+            if slip < slipActivationThreshold {
+                commandedLock = driverRequestedLock * 0.25;
+            } else if slip < fullLockThreshold {
+                commandedLock = driverRequestedLock * (slip / fullLockThreshold);
+            } else {
+                commandedLock = maximumCommandedLock;
+            }
+        }
+    }
+
+    action def DistributeTorque {
+        in inputPower : RotationalPowerFlow;
+        in finalDriveRatio : GearRatio;
+        in lockFraction : LockFraction;
+        out leftPower : RotationalPowerFlow;
+        out rightPower : RotationalPowerFlow;
+
+        attribute openModeTorque : Torque;
+        attribute lockingCorrection : Torque;
+
+        openModeTorque = inputPower.torque * finalDriveRatio / 2.0;
+        lockingCorrection = inputPower.torque * lockFraction * 0.18;
+
+        leftPower.torque = openModeTorque + lockingCorrection;
+        rightPower.torque = openModeTorque - lockingCorrection;
+        leftPower.power = leftPower.torque * leftPower.speed;
+        rightPower.power = rightPower.torque * rightPower.speed;
+    }
+
+    action def MaintainLubrication {
+        in suppliedLubricant : LubricantFlow;
+        out gearLubricant : LubricantFlow;
+        out clutchLubricant : LubricantFlow;
+
+        gearLubricant.pressure = suppliedLubricant.pressure * 0.95;
+        gearLubricant.temperature = suppliedLubricant.temperature + 6.0;
+        gearLubricant.flowRate = suppliedLubricant.flowRate * 0.65;
+
+        clutchLubricant.pressure = suppliedLubricant.pressure * 0.90;
+        clutchLubricant.temperature = suppliedLubricant.temperature + 10.0;
+        clutchLubricant.flowRate = suppliedLubricant.flowRate * 0.35;
+    }
+
+    state def OperationalStateMachine {
+        entry action InitializeLubrication;
+        state Off;
+        state Priming;
+        state OpenDifferentialMode;
+        state TorqueBiasingMode;
+        state ThermalProtectionMode;
+        state FaultMode;
+
+        transition initial then Off;
+
+        transition Off_to_Priming
+            first Off
+            accept StartCommand
+            then Priming;
+
+        transition Priming_to_Open
+            first Priming
+            if lubricationPressure >= 90.0
+            then OpenDifferentialMode;
+
+        transition Open_to_Biasing
+            first OpenDifferentialMode
+            if abs(leftWheelSpeed - rightWheelSpeed) >= 8.0
+            then TorqueBiasingMode;
+
+        transition Biasing_to_Open
+            first TorqueBiasingMode
+            if abs(leftWheelSpeed - rightWheelSpeed) < 5.0
+            then OpenDifferentialMode;
+
+        transition Any_to_ThermalProtection
+            first OpenDifferentialMode
+            if oilTemperature >= 145.0
+            then ThermalProtectionMode;
+
+        transition Biasing_to_ThermalProtection
+            first TorqueBiasingMode
+            if oilTemperature >= 145.0
+            then ThermalProtectionMode;
+
+        transition ThermalProtection_to_Open
+            first ThermalProtectionMode
+            if oilTemperature <= 125.0
+            then OpenDifferentialMode;
+
+        transition Any_to_Fault
+            first Priming
+            if lubricationPressure < 60.0
+            then FaultMode;
+    }
+
+    action def InitializeLubrication {
+        out targetPressure : OilPressure;
+        targetPressure = 180.0;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The differential technological development shall distribute driveline input torque to two output shafts while allowing controlled rotational speed difference between the left and right outputs. */
+
+        subject differential : DifferentialSystem;
+
+        require constraint {
+            differential.maximumInputTorque >= 900.0
+        }
+    }
+
+    requirement def TorqueDistributionRequirement {
+        doc /* In open differential mode, the system shall provide equal nominal torque to both output shafts while the outputs rotate at different speeds. */
+
+        subject differential : DifferentialSystem;
+
+        require constraint {
+            differential.spiderGearSet.maximumDifferentialSpeed >= 70.0
+        }
+    }
+
+    requirement def LimitedSlipRequirement {
+        doc /* When wheel speed difference exceeds the activation threshold, the system shall command clutch locking to bias torque toward the slower output shaft. */
+
+        subject differential : DifferentialSystem;
+
+        require constraint {
+            differential.clutchPack.maximumBiasRatio >= 2.5
+        }
+    }
+
+    requirement def LubricationRequirement {
+        doc /* The system shall provide sufficient lubricant pressure and flow to the final drive, carrier, and clutch pack during operation. */
+
+        subject differential : DifferentialSystem;
+
+        require constraint {
+            differential.nominalOilPressure >= differential.lubricationCircuit.minimumPressure
+        }
+    }
+
+    requirement def ThermalRequirement {
+        doc /* The system shall enter thermal protection when lubricant temperature reaches the maximum allowable operating temperature. */
+
+        subject differential : DifferentialSystem;
+
+        require constraint {
+            differential.maximumOilTemperature <= 145.0
+        }
+    }
+
+    requirement def StructuralRequirement {
+        doc /* The housing and gear train shall withstand peak input torque without exceeding defined load capability. */
+
+        subject differential : DifferentialSystem;
+
+        require constraint {
+            differential.ringAndPinion.maximumGearToothLoad >= differential.maximumInputTorque
+        }
+    }
+
+    part differentialPrototype : DifferentialSystem {
+        attribute nominalInputTorque = 420.0;
+        attribute maximumInputTorque = 950.0;
+        attribute finalDriveRatio = 3.73;
+        attribute nominalOilPressure = 180.0;
+        attribute maximumOilTemperature = 145.0;
+        attribute maximumAllowedWheelSpeedDifference = 45.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by differentialPrototype;
+    satisfy TorqueDistributionRequirement by differentialPrototype;
+    satisfy LimitedSlipRequirement by differentialPrototype;
+    satisfy LubricationRequirement by differentialPrototype;
+    satisfy ThermalRequirement by differentialPrototype;
+    satisfy StructuralRequirement by differentialPrototype;
+}

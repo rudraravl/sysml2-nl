@@ -1,0 +1,857 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2shjs4pf
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb81b-bff5-7563-abda-6bbebc1ff012
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Inductor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package InductorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> Real {
+        unit = V;
+    }
+
+    attribute def ElectricCurrent :> Real {
+        unit = A;
+    }
+
+    attribute def MagneticFlux :> Real {
+        unit = Wb;
+    }
+
+    attribute def MagneticFluxDensity :> Real {
+        unit = T;
+    }
+
+    attribute def Inductance :> Real {
+        unit = H;
+    }
+
+    attribute def Resistance :> Real {
+        unit = Ohm;
+    }
+
+    attribute def Frequency :> Real {
+        unit = Hz;
+    }
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    attribute def Energy :> Real {
+        unit = J;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    item def ElectricalChargeFlow {
+        attribute current : ElectricCurrent;
+        attribute voltage : ElectricPotential;
+        attribute frequency : Frequency;
+    }
+
+    item def MagneticField {
+        attribute flux : MagneticFlux;
+        attribute fluxDensity : MagneticFluxDensity;
+    }
+
+    item def ThermalLoad {
+        attribute windingTemperature : Temperature;
+        attribute coreTemperature : Temperature;
+        attribute copperLoss : Real;
+        attribute coreLoss : Real;
+    }
+
+    port def ElectricalTerminal {
+        inout item flow : ElectricalChargeFlow;
+        attribute terminalVoltage : ElectricPotential;
+        attribute terminalCurrent : ElectricCurrent;
+    }
+
+    port def MagneticFieldPort {
+        out item field : MagneticField;
+        attribute linkedFlux : MagneticFlux;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalLoad;
+        attribute surfaceTemperature : Temperature;
+    }
+
+    part def Inductor {
+        attribute nominalInductance : Inductance = 100.0e-6 [H];
+        attribute tolerance : Real = 0.10;
+        attribute dcResistance : Resistance = 0.085 [Ohm];
+        attribute saturationCurrent : ElectricCurrent = 8.0 [A];
+        attribute ratedCurrent : ElectricCurrent = 5.0 [A];
+        attribute maximumWindingTemperature : Temperature = 398.15 [K];
+        attribute storedEnergy : Energy;
+        attribute magneticFlux : MagneticFlux;
+        attribute currentRipple : ElectricCurrent;
+
+        port terminalA : ElectricalTerminal;
+        port terminalB : ElectricalTerminal;
+        port magneticInterface : MagneticFieldPort;
+        port thermalInterface : ThermalPort;
+
+        part winding {
+            attribute turns : Integer = 42;
+            attribute conductorResistance : Resistance = 0.085 [Ohm];
+            attribute rmsCurrent : ElectricCurrent;
+            attribute copperTemperature : Temperature;
+        }
+
+        part magneticCore {
+            attribute relativePermeability : Real = 2200.0;
+            attribute effectiveArea : Real = 36.0e-6;
+            attribute effectiveLength : Real = 28.0e-3;
+            attribute saturationFluxDensity : MagneticFluxDensity = 0.32 [T];
+            attribute coreTemperature : Temperature;
+        }
+
+        part airGap {
+            attribute gapLength : Real = 0.55e-3;
+            attribute storesDominantMagneticEnergy : Boolean = true;
+        }
+
+        part insulationSystem {
+            attribute dielectricRating : ElectricPotential = 500.0 [V];
+            attribute thermalClassTemperature : Temperature = 428.15 [K];
+        }
+
+        action computeStoredEnergy {
+            in current : ElectricCurrent;
+            in inductance : Inductance;
+            out energy : Energy;
+
+            return energy = 0.5 * inductance * current * current;
+        }
+
+        action opposeCurrentChange {
+            in currentRateOfChange : Real;
+            in inductance : Inductance;
+            out inducedVoltage : ElectricPotential;
+
+            return inducedVoltage = inductance * currentRateOfChange;
+        }
+
+        action dissipateLosses {
+            in rmsCurrent : ElectricCurrent;
+            in windingResistance : Resistance;
+            out copperLoss : Real;
+
+            return copperLoss = rmsCurrent * rmsCurrent * windingResistance;
+        }
+
+        state def InductorOperatingState {
+            entry action initializeFlux {
+                magneticFlux = 0.0 [Wb];
+            }
+
+            state deEnergized;
+            state energizing;
+            state steadyConduction;
+            state currentDecay;
+            state saturated;
+            state overTemperature;
+            state faulted;
+
+            transition initial then deEnergized;
+
+            transition deEnergized then energizing
+                accept when terminalA.terminalCurrent > 0.05 [A];
+
+            transition energizing then steadyConduction
+                accept when abs(currentRipple) < 0.20 [A] and terminalA.terminalCurrent <= ratedCurrent;
+
+            transition steadyConduction then currentDecay
+                accept when terminalA.terminalVoltage < terminalB.terminalVoltage;
+
+            transition energizing then saturated
+                accept when terminalA.terminalCurrent >= saturationCurrent;
+
+            transition steadyConduction then saturated
+                accept when terminalA.terminalCurrent >= saturationCurrent;
+
+            transition energizing then overTemperature
+                accept when winding.copperTemperature > maximumWindingTemperature;
+
+            transition steadyConduction then overTemperature
+                accept when winding.copperTemperature > maximumWindingTemperature;
+
+            transition saturated then faulted
+                accept after 50.0e-3 [s];
+
+            transition overTemperature then faulted
+                accept after 1.0 [s];
+
+            transition currentDecay then deEnergized
+                accept when terminalA.terminalCurrent < 0.05 [A];
+        }
+
+        exhibit stateMachine : InductorOperatingState;
+    }
+
+    part def PowerSource {
+        attribute outputVoltage : ElectricPotential = 24.0 [V];
+        attribute currentLimit : ElectricCurrent = 6.0 [A];
+
+        port positive : ElectricalTerminal;
+        port negative : ElectricalTerminal;
+    }
+
+    part def Load {
+        attribute equivalentResistance : Resistance = 4.8 [Ohm];
+        attribute loadCurrent : ElectricCurrent;
+
+        port input : ElectricalTerminal;
+        port return : ElectricalTerminal;
+    }
+
+    part def CurrentSensor {
+        attribute measuredCurrent : ElectricCurrent;
+        attribute measurementBandwidth : Frequency = 100.0e3 [Hz];
+        attribute measurementError : Real = 0.01;
+
+        port sensedInput : ElectricalTerminal;
+        port sensedOutput : ElectricalTerminal;
+    }
+
+    part def ThermalEnvironment {
+        attribute ambientTemperature : Temperature = 298.15 [K];
+        attribute thermalResistanceToAmbient : Real = 18.0;
+
+        port heatSinkInterface : ThermalPort;
+    }
+
+    part def InductorBasedEnergyStorageSubsystem {
+        attribute switchingFrequency : Frequency = 100.0e3 [Hz];
+        attribute maximumInputVoltage : ElectricPotential = 36.0 [V];
+        attribute nominalInputVoltage : ElectricPotential = 24.0 [V];
+        attribute allowedRippleCurrent : ElectricCurrent = 1.2 [A];
+        attribute minimumEnergyStorage : Energy = 1.25e-3 [J];
+
+        part source : PowerSource;
+        part inductor : Inductor;
+        part load : Load;
+        part currentSensor : CurrentSensor;
+        part thermalEnvironment : ThermalEnvironment;
+
+        port supplyPositive : ElectricalTerminal;
+        port supplyReturn : ElectricalTerminal;
+        port regulatedOutput : ElectricalTerminal;
+        port outputReturn : ElectricalTerminal;
+
+        connect supplyPositive to source.positive;
+        connect supplyReturn to source.negative;
+        connect source.positive to currentSensor.sensedInput;
+        connect currentSensor.sensedOutput to inductor.terminalA;
+        connect inductor.terminalB to load.input;
+        connect load.return to source.negative;
+        connect load.input to regulatedOutput;
+        connect load.return to outputReturn;
+        connect inductor.thermalInterface to thermalEnvironment.heatSinkInterface;
+
+        action storeElectricalEnergyAsMagneticField {
+            in appliedVoltage : ElectricPotential;
+            in conductionInterval : TimeDuration;
+            in inductance : Inductance;
+            out peakCurrentIncrease : ElectricCurrent;
+            out magneticEnergy : Energy;
+
+            peakCurrentIncrease = appliedVoltage * conductionInterval / inductance;
+            magneticEnergy = 0.5 * inductance * peakCurrentIncrease * peakCurrentIncrease;
+        }
+
+        action releaseMagneticEnergyToLoad {
+            in inductorCurrent : ElectricCurrent;
+            in inductance : Inductance;
+            out deliveredEnergy : Energy;
+
+            deliveredEnergy = 0.5 * inductance * inductorCurrent * inductorCurrent;
+        }
+
+        state def EnergyStorageControlState {
+            state idle;
+            state chargeMagneticField;
+            state transferEnergy;
+            state regulateCurrent;
+            state protectiveShutdown;
+
+            transition initial then idle;
+
+            transition idle then chargeMagneticField
+                accept when source.outputVoltage >= 10.0 [V];
+
+            transition chargeMagneticField then transferEnergy
+                accept when currentSensor.measuredCurrent >= 0.90 * inductor.ratedCurrent;
+
+            transition transferEnergy then regulateCurrent
+                accept when load.loadCurrent > 0.10 [A];
+
+            transition regulateCurrent then chargeMagneticField
+                accept when currentSensor.measuredCurrent < 0.60 * inductor.ratedCurrent;
+
+            transition chargeMagneticField then protectiveShutdown
+                accept when currentSensor.measuredCurrent >= inductor.saturationCurrent;
+
+            transition regulateCurrent then protectiveShutdown
+                accept when inductor.winding.copperTemperature > inductor.maximumWindingTemperature;
+        }
+
+        exhibit controllerStateMachine : EnergyStorageControlState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The inductor shall oppose rapid changes in electrical current by generating
+         * a counter electromotive force and storing electrical energy in its magnetic
+         * field for later return to the connected circuit.
+         */
+
+        subject inductor : Inductor;
+
+        require constraint {
+            inductor.nominalInductance >= 90.0e-6 [H] and
+            inductor.nominalInductance <= 110.0e-6 [H];
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        doc
+        /*
+         * At rated current, the inductor shall store enough magnetic energy to support
+         * current smoothing in the connected electrical path.
+         */
+
+        subject inductor : Inductor;
+
+        require constraint {
+            0.5 * inductor.nominalInductance * inductor.ratedCurrent * inductor.ratedCurrent
+                >= 1.25e-3 [J];
+        }
+    }
+
+    requirement def CurrentRippleRequirement {
+        doc
+        /*
+         * The subsystem shall limit peak-to-peak inductor ripple current during nominal
+         * operation to protect the load from excessive current variation.
+         */
+
+        subject subsystem : InductorBasedEnergyStorageSubsystem;
+
+        require constraint {
+            subsystem.inductor.currentRipple <= subsystem.allowedRippleCurrent;
+        }
+    }
+
+    requirement def SaturationProtectionRequirement {
+        doc
+        /*
+         * The subsystem shall enter protective shutdown before sustained operation above
+         * the inductor saturation current can damage the magnetic core or winding.
+         */
+
+        subject subsystem : InductorBasedEnergyStorageSubsystem;
+
+        require constraint {
+            subsystem.currentSensor.measuredCurrent < subsystem.inductor.saturationCurrent;
+        }
+    }
+
+    requirement def ThermalRequirement {
+        doc
+        /*
+         * The inductor shall remain below its maximum winding temperature while carrying
+         * rated current in the specified ambient environment.
+         */
+
+        subject subsystem : InductorBasedEnergyStorageSubsystem;
+
+        require constraint {
+            subsystem.inductor.winding.copperTemperature
+                <= subsystem.inductor.maximumWindingTemperature;
+        }
+    }
+
+    requirement def IsolationRequirement {
+        doc
+        /*
+         * The insulation system shall withstand the maximum specified electrical stress
+         * between winding turns and accessible magnetic structure.
+         */
+
+        subject inductor : Inductor;
+
+        require constraint {
+            inductor.insulationSystem.dielectricRating >= 500.0 [V];
+        }
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject inductor = InductorBasedEnergyStorageSubsystem::inductor;
+    }
+
+    requirement energyStorage : EnergyStorageRequirement {
+        subject inductor = InductorBasedEnergyStorageSubsystem::inductor;
+    }
+
+    requirement rippleLimit : CurrentRippleRequirement {
+        subject subsystem = InductorBasedEnergyStorageSubsystem;
+    }
+
+    requirement saturationProtection : SaturationProtectionRequirement {
+        subject subsystem = InductorBasedEnergyStorageSubsystem;
+    }
+
+    requirement thermalLimit : ThermalRequirement {
+        subject subsystem = InductorBasedEnergyStorageSubsystem;
+    }
+
+    requirement isolationRating : IsolationRequirement {
+        subject inductor = InductorBasedEnergyStorageSubsystem::inductor;
+    }
+
+    part inductorEnergyStorageSubsystem : InductorBasedEnergyStorageSubsystem;
+
+}
+tokens used
+3,145
+package InductorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> Real {
+        unit = V;
+    }
+
+    attribute def ElectricCurrent :> Real {
+        unit = A;
+    }
+
+    attribute def MagneticFlux :> Real {
+        unit = Wb;
+    }
+
+    attribute def MagneticFluxDensity :> Real {
+        unit = T;
+    }
+
+    attribute def Inductance :> Real {
+        unit = H;
+    }
+
+    attribute def Resistance :> Real {
+        unit = Ohm;
+    }
+
+    attribute def Frequency :> Real {
+        unit = Hz;
+    }
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    attribute def Energy :> Real {
+        unit = J;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    item def ElectricalChargeFlow {
+        attribute current : ElectricCurrent;
+        attribute voltage : ElectricPotential;
+        attribute frequency : Frequency;
+    }
+
+    item def MagneticField {
+        attribute flux : MagneticFlux;
+        attribute fluxDensity : MagneticFluxDensity;
+    }
+
+    item def ThermalLoad {
+        attribute windingTemperature : Temperature;
+        attribute coreTemperature : Temperature;
+        attribute copperLoss : Real;
+        attribute coreLoss : Real;
+    }
+
+    port def ElectricalTerminal {
+        inout item flow : ElectricalChargeFlow;
+        attribute terminalVoltage : ElectricPotential;
+        attribute terminalCurrent : ElectricCurrent;
+    }
+
+    port def MagneticFieldPort {
+        out item field : MagneticField;
+        attribute linkedFlux : MagneticFlux;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalLoad;
+        attribute surfaceTemperature : Temperature;
+    }
+
+    part def Inductor {
+        attribute nominalInductance : Inductance = 100.0e-6 [H];
+        attribute tolerance : Real = 0.10;
+        attribute dcResistance : Resistance = 0.085 [Ohm];
+        attribute saturationCurrent : ElectricCurrent = 8.0 [A];
+        attribute ratedCurrent : ElectricCurrent = 5.0 [A];
+        attribute maximumWindingTemperature : Temperature = 398.15 [K];
+        attribute storedEnergy : Energy;
+        attribute magneticFlux : MagneticFlux;
+        attribute currentRipple : ElectricCurrent;
+
+        port terminalA : ElectricalTerminal;
+        port terminalB : ElectricalTerminal;
+        port magneticInterface : MagneticFieldPort;
+        port thermalInterface : ThermalPort;
+
+        part winding {
+            attribute turns : Integer = 42;
+            attribute conductorResistance : Resistance = 0.085 [Ohm];
+            attribute rmsCurrent : ElectricCurrent;
+            attribute copperTemperature : Temperature;
+        }
+
+        part magneticCore {
+            attribute relativePermeability : Real = 2200.0;
+            attribute effectiveArea : Real = 36.0e-6;
+            attribute effectiveLength : Real = 28.0e-3;
+            attribute saturationFluxDensity : MagneticFluxDensity = 0.32 [T];
+            attribute coreTemperature : Temperature;
+        }
+
+        part airGap {
+            attribute gapLength : Real = 0.55e-3;
+            attribute storesDominantMagneticEnergy : Boolean = true;
+        }
+
+        part insulationSystem {
+            attribute dielectricRating : ElectricPotential = 500.0 [V];
+            attribute thermalClassTemperature : Temperature = 428.15 [K];
+        }
+
+        action computeStoredEnergy {
+            in current : ElectricCurrent;
+            in inductance : Inductance;
+            out energy : Energy;
+
+            return energy = 0.5 * inductance * current * current;
+        }
+
+        action opposeCurrentChange {
+            in currentRateOfChange : Real;
+            in inductance : Inductance;
+            out inducedVoltage : ElectricPotential;
+
+            return inducedVoltage = inductance * currentRateOfChange;
+        }
+
+        action dissipateLosses {
+            in rmsCurrent : ElectricCurrent;
+            in windingResistance : Resistance;
+            out copperLoss : Real;
+
+            return copperLoss = rmsCurrent * rmsCurrent * windingResistance;
+        }
+
+        state def InductorOperatingState {
+            entry action initializeFlux {
+                magneticFlux = 0.0 [Wb];
+            }
+
+            state deEnergized;
+            state energizing;
+            state steadyConduction;
+            state currentDecay;
+            state saturated;
+            state overTemperature;
+            state faulted;
+
+            transition initial then deEnergized;
+
+            transition deEnergized then energizing
+                accept when terminalA.terminalCurrent > 0.05 [A];
+
+            transition energizing then steadyConduction
+                accept when abs(currentRipple) < 0.20 [A] and terminalA.terminalCurrent <= ratedCurrent;
+
+            transition steadyConduction then currentDecay
+                accept when terminalA.terminalVoltage < terminalB.terminalVoltage;
+
+            transition energizing then saturated
+                accept when terminalA.terminalCurrent >= saturationCurrent;
+
+            transition steadyConduction then saturated
+                accept when terminalA.terminalCurrent >= saturationCurrent;
+
+            transition energizing then overTemperature
+                accept when winding.copperTemperature > maximumWindingTemperature;
+
+            transition steadyConduction then overTemperature
+                accept when winding.copperTemperature > maximumWindingTemperature;
+
+            transition saturated then faulted
+                accept after 50.0e-3 [s];
+
+            transition overTemperature then faulted
+                accept after 1.0 [s];
+
+            transition currentDecay then deEnergized
+                accept when terminalA.terminalCurrent < 0.05 [A];
+        }
+
+        exhibit stateMachine : InductorOperatingState;
+    }
+
+    part def PowerSource {
+        attribute outputVoltage : ElectricPotential = 24.0 [V];
+        attribute currentLimit : ElectricCurrent = 6.0 [A];
+
+        port positive : ElectricalTerminal;
+        port negative : ElectricalTerminal;
+    }
+
+    part def Load {
+        attribute equivalentResistance : Resistance = 4.8 [Ohm];
+        attribute loadCurrent : ElectricCurrent;
+
+        port input : ElectricalTerminal;
+        port return : ElectricalTerminal;
+    }
+
+    part def CurrentSensor {
+        attribute measuredCurrent : ElectricCurrent;
+        attribute measurementBandwidth : Frequency = 100.0e3 [Hz];
+        attribute measurementError : Real = 0.01;
+
+        port sensedInput : ElectricalTerminal;
+        port sensedOutput : ElectricalTerminal;
+    }
+
+    part def ThermalEnvironment {
+        attribute ambientTemperature : Temperature = 298.15 [K];
+        attribute thermalResistanceToAmbient : Real = 18.0;
+
+        port heatSinkInterface : ThermalPort;
+    }
+
+    part def InductorBasedEnergyStorageSubsystem {
+        attribute switchingFrequency : Frequency = 100.0e3 [Hz];
+        attribute maximumInputVoltage : ElectricPotential = 36.0 [V];
+        attribute nominalInputVoltage : ElectricPotential = 24.0 [V];
+        attribute allowedRippleCurrent : ElectricCurrent = 1.2 [A];
+        attribute minimumEnergyStorage : Energy = 1.25e-3 [J];
+
+        part source : PowerSource;
+        part inductor : Inductor;
+        part load : Load;
+        part currentSensor : CurrentSensor;
+        part thermalEnvironment : ThermalEnvironment;
+
+        port supplyPositive : ElectricalTerminal;
+        port supplyReturn : ElectricalTerminal;
+        port regulatedOutput : ElectricalTerminal;
+        port outputReturn : ElectricalTerminal;
+
+        connect supplyPositive to source.positive;
+        connect supplyReturn to source.negative;
+        connect source.positive to currentSensor.sensedInput;
+        connect currentSensor.sensedOutput to inductor.terminalA;
+        connect inductor.terminalB to load.input;
+        connect load.return to source.negative;
+        connect load.input to regulatedOutput;
+        connect load.return to outputReturn;
+        connect inductor.thermalInterface to thermalEnvironment.heatSinkInterface;
+
+        action storeElectricalEnergyAsMagneticField {
+            in appliedVoltage : ElectricPotential;
+            in conductionInterval : TimeDuration;
+            in inductance : Inductance;
+            out peakCurrentIncrease : ElectricCurrent;
+            out magneticEnergy : Energy;
+
+            peakCurrentIncrease = appliedVoltage * conductionInterval / inductance;
+            magneticEnergy = 0.5 * inductance * peakCurrentIncrease * peakCurrentIncrease;
+        }
+
+        action releaseMagneticEnergyToLoad {
+            in inductorCurrent : ElectricCurrent;
+            in inductance : Inductance;
+            out deliveredEnergy : Energy;
+
+            deliveredEnergy = 0.5 * inductance * inductorCurrent * inductorCurrent;
+        }
+
+        state def EnergyStorageControlState {
+            state idle;
+            state chargeMagneticField;
+            state transferEnergy;
+            state regulateCurrent;
+            state protectiveShutdown;
+
+            transition initial then idle;
+
+            transition idle then chargeMagneticField
+                accept when source.outputVoltage >= 10.0 [V];
+
+            transition chargeMagneticField then transferEnergy
+                accept when currentSensor.measuredCurrent >= 0.90 * inductor.ratedCurrent;
+
+            transition transferEnergy then regulateCurrent
+                accept when load.loadCurrent > 0.10 [A];
+
+            transition regulateCurrent then chargeMagneticField
+                accept when currentSensor.measuredCurrent < 0.60 * inductor.ratedCurrent;
+
+            transition chargeMagneticField then protectiveShutdown
+                accept when currentSensor.measuredCurrent >= inductor.saturationCurrent;
+
+            transition regulateCurrent then protectiveShutdown
+                accept when inductor.winding.copperTemperature > inductor.maximumWindingTemperature;
+        }
+
+        exhibit controllerStateMachine : EnergyStorageControlState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The inductor shall oppose rapid changes in electrical current by generating
+         * a counter electromotive force and storing electrical energy in its magnetic
+         * field for later return to the connected circuit.
+         */
+
+        subject inductor : Inductor;
+
+        require constraint {
+            inductor.nominalInductance >= 90.0e-6 [H] and
+            inductor.nominalInductance <= 110.0e-6 [H];
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        doc
+        /*
+         * At rated current, the inductor shall store enough magnetic energy to support
+         * current smoothing in the connected electrical path.
+         */
+
+        subject inductor : Inductor;
+
+        require constraint {
+            0.5 * inductor.nominalInductance * inductor.ratedCurrent * inductor.ratedCurrent
+                >= 1.25e-3 [J];
+        }
+    }
+
+    requirement def CurrentRippleRequirement {
+        doc
+        /*
+         * The subsystem shall limit peak-to-peak inductor ripple current during nominal
+         * operation to protect the load from excessive current variation.
+         */
+
+        subject subsystem : InductorBasedEnergyStorageSubsystem;
+
+        require constraint {
+            subsystem.inductor.currentRipple <= subsystem.allowedRippleCurrent;
+        }
+    }
+
+    requirement def SaturationProtectionRequirement {
+        doc
+        /*
+         * The subsystem shall enter protective shutdown before sustained operation above
+         * the inductor saturation current can damage the magnetic core or winding.
+         */
+
+        subject subsystem : InductorBasedEnergyStorageSubsystem;
+
+        require constraint {
+            subsystem.currentSensor.measuredCurrent < subsystem.inductor.saturationCurrent;
+        }
+    }
+
+    requirement def ThermalRequirement {
+        doc
+        /*
+         * The inductor shall remain below its maximum winding temperature while carrying
+         * rated current in the specified ambient environment.
+         */
+
+        subject subsystem : InductorBasedEnergyStorageSubsystem;
+
+        require constraint {
+            subsystem.inductor.winding.copperTemperature
+                <= subsystem.inductor.maximumWindingTemperature;
+        }
+    }
+
+    requirement def IsolationRequirement {
+        doc
+        /*
+         * The insulation system shall withstand the maximum specified electrical stress
+         * between winding turns and accessible magnetic structure.
+         */
+
+        subject inductor : Inductor;
+
+        require constraint {
+            inductor.insulationSystem.dielectricRating >= 500.0 [V];
+        }
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject inductor = InductorBasedEnergyStorageSubsystem::inductor;
+    }
+
+    requirement energyStorage : EnergyStorageRequirement {
+        subject inductor = InductorBasedEnergyStorageSubsystem::inductor;
+    }
+
+    requirement rippleLimit : CurrentRippleRequirement {
+        subject subsystem = InductorBasedEnergyStorageSubsystem;
+    }
+
+    requirement saturationProtection : SaturationProtectionRequirement {
+        subject subsystem = InductorBasedEnergyStorageSubsystem;
+    }
+
+    requirement thermalLimit : ThermalRequirement {
+        subject subsystem = InductorBasedEnergyStorageSubsystem;
+    }
+
+    requirement isolationRating : IsolationRequirement {
+        subject inductor = InductorBasedEnergyStorageSubsystem::inductor;
+    }
+
+    part inductorEnergyStorageSubsystem : InductorBasedEnergyStorageSubsystem;
+
+}

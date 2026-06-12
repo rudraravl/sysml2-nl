@@ -1,0 +1,903 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-mmr49e66
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb842-bfe2-7bb1-8591-02a34def4429
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Popular Science and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PopularScienceAtmosphericWaterHarvesterSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Percent :> Real {
+    unit = "%";
+  }
+
+  value def Liter :> Real {
+    unit = "L";
+  }
+
+  value def LiterPerHour :> Real {
+    unit = "L/h";
+  }
+
+  value def CubicMeterPerHour :> Real {
+    unit = "m^3/h";
+  }
+
+  value def Watt :> Real {
+    unit = "W";
+  }
+
+  value def WattHourPerLiter :> Real {
+    unit = "Wh/L";
+  }
+
+  value def Celsius :> Real {
+    unit = "degC";
+  }
+
+  value def Pascal :> Real {
+    unit = "Pa";
+  }
+
+  value def MicrogramPerCubicMeter :> Real {
+    unit = "ug/m^3";
+  }
+
+  value def MilligramPerLiter :> Real {
+    unit = "mg/L";
+  }
+
+  value def Volt :> Real {
+    unit = "V";
+  }
+
+  value def Ampere :> Real {
+    unit = "A";
+  }
+
+  item def AmbientAir {
+    attribute temperature : Celsius;
+    attribute relativeHumidity : Percent;
+    attribute particulateConcentration : MicrogramPerCubicMeter;
+    attribute volumetricFlowRate : CubicMeterPerHour;
+  }
+
+  item def DryExhaustAir {
+    attribute temperature : Celsius;
+    attribute relativeHumidity : Percent;
+    attribute volumetricFlowRate : CubicMeterPerHour;
+  }
+
+  item def CondensateWater {
+    attribute volume : Liter;
+    attribute dissolvedSolids : MilligramPerLiter;
+    attribute microbialRiskIndex : Percent;
+  }
+
+  item def PotableWater {
+    attribute volume : Liter;
+    attribute dissolvedSolids : MilligramPerLiter;
+    attribute microbialRiskIndex : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def SensorReading {
+    attribute airTemperature : Celsius;
+    attribute relativeHumidity : Percent;
+    attribute tankLevel : Percent;
+    attribute filterPressureDrop : Pascal;
+    attribute uvDoseAvailable : Percent;
+  }
+
+  item def ControlCommand {
+    attribute fanDutyCycle : Percent;
+    attribute compressorDutyCycle : Percent;
+    attribute pumpEnabled : Boolean;
+    attribute uvEnabled : Boolean;
+  }
+
+  port def AirIntakePort {
+    in item airIn : AmbientAir;
+  }
+
+  port def AirExhaustPort {
+    out item airOut : DryExhaustAir;
+  }
+
+  port def WaterOutputPort {
+    out item potableWaterOut : PotableWater;
+  }
+
+  port def PowerInputPort {
+    in item powerIn : ElectricalPower;
+  }
+
+  port def SensorDataPort {
+    out item readingOut : SensorReading;
+  }
+
+  port def CommandPort {
+    in item commandIn : ControlCommand;
+  }
+
+  port def InternalWaterPort {
+    inout item water : CondensateWater;
+  }
+
+  port def InternalAirPort {
+    inout item air : AmbientAir;
+  }
+
+  part def AtmosphericWaterHarvester {
+    attribute primaryFunction : String =
+      "Extract water vapor from ambient air, condense it, purify it, and deliver potable water for personal or household use.";
+
+    attribute ratedWaterProduction : LiterPerHour = 1.5;
+    attribute maximumAirFlow : CubicMeterPerHour = 180.0;
+    attribute nominalPowerDraw : Watt = 420.0;
+    attribute energyIntensity : WattHourPerLiter = 280.0;
+    attribute minimumOperatingHumidity : Percent = 35.0;
+    attribute maximumTankCapacity : Liter = 8.0;
+    attribute potableWaterTdsLimit : MilligramPerLiter = 500.0;
+    attribute microbialReductionTarget : Percent = 99.99;
+
+    port intake : AirIntakePort;
+    port exhaust : AirExhaustPort;
+    port waterOutlet : WaterOutputPort;
+    port powerInput : PowerInputPort;
+
+    part airMover : VariableSpeedFan;
+    part inletFilter : ParticulateFilter;
+    part heatPump : CondensingHeatPump;
+    part separator : CondensateSeparator;
+    part purifier : WaterPurificationModule;
+    part storageTank : PotableWaterTank;
+    part controller : EmbeddedController;
+    part sensorSuite : EnvironmentalSensorSuite;
+    part userInterface : UserInterfacePanel;
+
+    connect intake.airIn to inletFilter.unfilteredAir.airIn;
+    connect inletFilter.filteredAir.air to airMover.airIn.air;
+    connect airMover.airOut.air to heatPump.processAirIn.air;
+    connect heatPump.exhaustAir.airOut to exhaust.airOut;
+    connect heatPump.condensate.water to separator.rawCondensate.water;
+    connect separator.settledWater.water to purifier.untreatedWater.water;
+    connect purifier.treatedWater.water to storageTank.fillWater.water;
+    connect storageTank.dispenseWater.potableWaterOut to waterOutlet.potableWaterOut;
+
+    connect sensorSuite.sensorOutput.readingOut to controller.sensorInput.readingOut;
+    connect controller.commandOutput.commandIn to airMover.command.commandIn;
+    connect controller.commandOutput.commandIn to heatPump.command.commandIn;
+    connect controller.commandOutput.commandIn to purifier.command.commandIn;
+    connect controller.commandOutput.commandIn to storageTank.command.commandIn;
+    connect userInterface.userCommand.commandIn to controller.userCommand.commandIn;
+
+    satisfy PrimaryFunctionRequirement by AtmosphericWaterHarvester;
+    satisfy PotableWaterRequirement by purifier;
+    satisfy EnergyEfficiencyRequirement by controller;
+    satisfy SafeTankRequirement by storageTank;
+    satisfy AirQualityRequirement by inletFilter;
+  }
+
+  part def VariableSpeedFan {
+    attribute maximumFlow : CubicMeterPerHour = 180.0;
+    attribute nominalPower : Watt = 45.0;
+    attribute speedCommand : Percent;
+
+    port airIn : InternalAirPort;
+    port airOut : InternalAirPort;
+    port command : CommandPort;
+  }
+
+  part def ParticulateFilter {
+    attribute particulateRemovalEfficiency : Percent = 95.0;
+    attribute maximumPressureDrop : Pascal = 180.0;
+    attribute replacementThreshold : Pascal = 150.0;
+
+    port unfilteredAir : AirIntakePort;
+    port filteredAir : InternalAirPort;
+  }
+
+  part def CondensingHeatPump {
+    attribute evaporatorSurfaceTemperature : Celsius = 4.0;
+    attribute condenserSurfaceTemperature : Celsius = 38.0;
+    attribute compressorPower : Watt = 320.0;
+    attribute targetDewPointMargin : Celsius = -3.0;
+
+    port processAirIn : InternalAirPort;
+    port exhaustAir : AirExhaustPort;
+    port condensate : InternalWaterPort;
+    port command : CommandPort;
+  }
+
+  part def CondensateSeparator {
+    attribute dropletCaptureEfficiency : Percent = 98.0;
+    attribute carryoverLimit : Percent = 1.0;
+
+    port rawCondensate : InternalWaterPort;
+    port settledWater : InternalWaterPort;
+  }
+
+  part def WaterPurificationModule {
+    attribute carbonAdsorptionCapacity : MilligramPerLiter = 500.0;
+    attribute uvReductionEffectiveness : Percent = 99.99;
+    attribute mineralizationTarget : MilligramPerLiter = 120.0;
+
+    port untreatedWater : InternalWaterPort;
+    port treatedWater : InternalWaterPort;
+    port command : CommandPort;
+
+    satisfy PotableWaterRequirement by WaterPurificationModule;
+  }
+
+  part def PotableWaterTank {
+    attribute capacity : Liter = 8.0;
+    attribute currentLevel : Percent;
+    attribute overflowProtectionEnabled : Boolean = true;
+
+    port fillWater : InternalWaterPort;
+    port dispenseWater : WaterOutputPort;
+    port command : CommandPort;
+
+    satisfy SafeTankRequirement by PotableWaterTank;
+  }
+
+  part def EmbeddedController {
+    attribute samplingPeriod : Real = 1.0;
+    attribute humidityStartThreshold : Percent = 38.0;
+    attribute humidityStopThreshold : Percent = 32.0;
+    attribute fullTankThreshold : Percent = 95.0;
+    attribute filterServiceThreshold : Pascal = 150.0;
+
+    port sensorInput : SensorDataPort;
+    port userCommand : CommandPort;
+    port commandOutput : CommandPort;
+
+    behavior controlBehavior : WaterHarvestingControlStateMachine;
+  }
+
+  part def EnvironmentalSensorSuite {
+    attribute temperatureAccuracy : Celsius = 0.5;
+    attribute humidityAccuracy : Percent = 2.0;
+    attribute tankLevelAccuracy : Percent = 3.0;
+    attribute pressureDropAccuracy : Pascal = 5.0;
+
+    port sensorOutput : SensorDataPort;
+  }
+
+  part def UserInterfacePanel {
+    attribute displayTankLevel : Percent;
+    attribute displayProductionRate : LiterPerHour;
+    attribute serviceAlertActive : Boolean;
+
+    port userCommand : CommandPort;
+  }
+
+  action def HarvestPotableWater {
+    in item ambientAir : AmbientAir;
+    in item electricalPower : ElectricalPower;
+    out item dryAir : DryExhaustAir;
+    out item potableWater : PotableWater;
+
+    action filterAir {
+      in item rawAir : AmbientAir;
+      out item filteredAir : AmbientAir;
+    }
+
+    action moveAir {
+      in item filteredAir : AmbientAir;
+      out item processAir : AmbientAir;
+    }
+
+    action coolBelowDewPoint {
+      in item processAir : AmbientAir;
+      out item cooledAir : AmbientAir;
+      out item condensate : CondensateWater;
+    }
+
+    action separateCondensate {
+      in item condensate : CondensateWater;
+      out item collectedWater : CondensateWater;
+    }
+
+    action purifyWater {
+      in item collectedWater : CondensateWater;
+      out item potableWater : PotableWater;
+    }
+
+    action storeAndDispense {
+      in item potableWater : PotableWater;
+      out item dispensedWater : PotableWater;
+    }
+
+    flow ambientAir to filterAir.rawAir;
+    flow filterAir.filteredAir to moveAir.filteredAir;
+    flow moveAir.processAir to coolBelowDewPoint.processAir;
+    flow coolBelowDewPoint.condensate to separateCondensate.condensate;
+    flow separateCondensate.collectedWater to purifyWater.collectedWater;
+    flow purifyWater.potableWater to storeAndDispense.potableWater;
+    flow storeAndDispense.dispensedWater to potableWater;
+    flow coolBelowDewPoint.cooledAir to dryAir;
+  }
+
+  state def WaterHarvestingControlStateMachine {
+    entry action initializeController;
+
+    state Off;
+    state Standby;
+    state AssessingAir;
+    state Harvesting;
+    state Purifying;
+    state TankFull;
+    state ServiceRequired;
+    state Fault;
+
+    transition initial then Off;
+
+    transition powerApplied
+      first Off
+      then Standby;
+
+    transition startRequested
+      first Standby
+      then AssessingAir;
+
+    transition humiditySufficient
+      first AssessingAir
+      then Harvesting
+      if relativeHumidity >= 38.0;
+
+    transition humidityTooLow
+      first AssessingAir
+      then Standby
+      if relativeHumidity < 38.0;
+
+    transition condensateAvailable
+      first Harvesting
+      then Purifying;
+
+    transition purificationComplete
+      first Purifying
+      then Harvesting
+      if tankLevel < 95.0;
+
+    transition tankReachedCapacity
+      first Harvesting
+      then TankFull
+      if tankLevel >= 95.0;
+
+    transition waterDispensed
+      first TankFull
+      then AssessingAir
+      if tankLevel < 85.0;
+
+    transition filterRestricted
+      first Harvesting
+      then ServiceRequired
+      if filterPressureDrop >= 150.0;
+
+    transition uvUnavailable
+      first Purifying
+      then ServiceRequired
+      if uvDoseAvailable < 80.0;
+
+    transition sensorFault
+      first Standby
+      then Fault;
+
+    transition faultCleared
+      first Fault
+      then Standby;
+
+    transition serviceCompleted
+      first ServiceRequired
+      then Standby;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : AtmosphericWaterHarvester;
+    require constraint {
+      system.primaryFunction ==
+      "Extract water vapor from ambient air, condense it, purify it, and deliver potable water for personal or household use."
+    }
+  }
+
+  requirement def PotableWaterRequirement {
+    subject purifier : WaterPurificationModule;
+    require constraint {
+      purifier.uvReductionEffectiveness >= 99.99 and
+      purifier.mineralizationTarget <= 500.0
+    }
+  }
+
+  requirement def EnergyEfficiencyRequirement {
+    subject controller : EmbeddedController;
+    require constraint {
+      controller.humidityStartThreshold >= 35.0 and
+      controller.humidityStopThreshold < controller.humidityStartThreshold
+    }
+  }
+
+  requirement def SafeTankRequirement {
+    subject tank : PotableWaterTank;
+    require constraint {
+      tank.capacity <= 8.0 and
+      tank.overflowProtectionEnabled == true
+    }
+  }
+
+  requirement def AirQualityRequirement {
+    subject filter : ParticulateFilter;
+    require constraint {
+      filter.particulateRemovalEfficiency >= 95.0 and
+      filter.maximumPressureDrop <= 180.0
+    }
+  }
+
+  part atmosphericWaterHarvester : AtmosphericWaterHarvester;
+
+  action primaryMission : HarvestPotableWater;
+
+}
+tokens used
+4,777
+package PopularScienceAtmosphericWaterHarvesterSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Percent :> Real {
+    unit = "%";
+  }
+
+  value def Liter :> Real {
+    unit = "L";
+  }
+
+  value def LiterPerHour :> Real {
+    unit = "L/h";
+  }
+
+  value def CubicMeterPerHour :> Real {
+    unit = "m^3/h";
+  }
+
+  value def Watt :> Real {
+    unit = "W";
+  }
+
+  value def WattHourPerLiter :> Real {
+    unit = "Wh/L";
+  }
+
+  value def Celsius :> Real {
+    unit = "degC";
+  }
+
+  value def Pascal :> Real {
+    unit = "Pa";
+  }
+
+  value def MicrogramPerCubicMeter :> Real {
+    unit = "ug/m^3";
+  }
+
+  value def MilligramPerLiter :> Real {
+    unit = "mg/L";
+  }
+
+  value def Volt :> Real {
+    unit = "V";
+  }
+
+  value def Ampere :> Real {
+    unit = "A";
+  }
+
+  item def AmbientAir {
+    attribute temperature : Celsius;
+    attribute relativeHumidity : Percent;
+    attribute particulateConcentration : MicrogramPerCubicMeter;
+    attribute volumetricFlowRate : CubicMeterPerHour;
+  }
+
+  item def DryExhaustAir {
+    attribute temperature : Celsius;
+    attribute relativeHumidity : Percent;
+    attribute volumetricFlowRate : CubicMeterPerHour;
+  }
+
+  item def CondensateWater {
+    attribute volume : Liter;
+    attribute dissolvedSolids : MilligramPerLiter;
+    attribute microbialRiskIndex : Percent;
+  }
+
+  item def PotableWater {
+    attribute volume : Liter;
+    attribute dissolvedSolids : MilligramPerLiter;
+    attribute microbialRiskIndex : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def SensorReading {
+    attribute airTemperature : Celsius;
+    attribute relativeHumidity : Percent;
+    attribute tankLevel : Percent;
+    attribute filterPressureDrop : Pascal;
+    attribute uvDoseAvailable : Percent;
+  }
+
+  item def ControlCommand {
+    attribute fanDutyCycle : Percent;
+    attribute compressorDutyCycle : Percent;
+    attribute pumpEnabled : Boolean;
+    attribute uvEnabled : Boolean;
+  }
+
+  port def AirIntakePort {
+    in item airIn : AmbientAir;
+  }
+
+  port def AirExhaustPort {
+    out item airOut : DryExhaustAir;
+  }
+
+  port def WaterOutputPort {
+    out item potableWaterOut : PotableWater;
+  }
+
+  port def PowerInputPort {
+    in item powerIn : ElectricalPower;
+  }
+
+  port def SensorDataPort {
+    out item readingOut : SensorReading;
+  }
+
+  port def CommandPort {
+    in item commandIn : ControlCommand;
+  }
+
+  port def InternalWaterPort {
+    inout item water : CondensateWater;
+  }
+
+  port def InternalAirPort {
+    inout item air : AmbientAir;
+  }
+
+  part def AtmosphericWaterHarvester {
+    attribute primaryFunction : String =
+      "Extract water vapor from ambient air, condense it, purify it, and deliver potable water for personal or household use.";
+
+    attribute ratedWaterProduction : LiterPerHour = 1.5;
+    attribute maximumAirFlow : CubicMeterPerHour = 180.0;
+    attribute nominalPowerDraw : Watt = 420.0;
+    attribute energyIntensity : WattHourPerLiter = 280.0;
+    attribute minimumOperatingHumidity : Percent = 35.0;
+    attribute maximumTankCapacity : Liter = 8.0;
+    attribute potableWaterTdsLimit : MilligramPerLiter = 500.0;
+    attribute microbialReductionTarget : Percent = 99.99;
+
+    port intake : AirIntakePort;
+    port exhaust : AirExhaustPort;
+    port waterOutlet : WaterOutputPort;
+    port powerInput : PowerInputPort;
+
+    part airMover : VariableSpeedFan;
+    part inletFilter : ParticulateFilter;
+    part heatPump : CondensingHeatPump;
+    part separator : CondensateSeparator;
+    part purifier : WaterPurificationModule;
+    part storageTank : PotableWaterTank;
+    part controller : EmbeddedController;
+    part sensorSuite : EnvironmentalSensorSuite;
+    part userInterface : UserInterfacePanel;
+
+    connect intake.airIn to inletFilter.unfilteredAir.airIn;
+    connect inletFilter.filteredAir.air to airMover.airIn.air;
+    connect airMover.airOut.air to heatPump.processAirIn.air;
+    connect heatPump.exhaustAir.airOut to exhaust.airOut;
+    connect heatPump.condensate.water to separator.rawCondensate.water;
+    connect separator.settledWater.water to purifier.untreatedWater.water;
+    connect purifier.treatedWater.water to storageTank.fillWater.water;
+    connect storageTank.dispenseWater.potableWaterOut to waterOutlet.potableWaterOut;
+
+    connect sensorSuite.sensorOutput.readingOut to controller.sensorInput.readingOut;
+    connect controller.commandOutput.commandIn to airMover.command.commandIn;
+    connect controller.commandOutput.commandIn to heatPump.command.commandIn;
+    connect controller.commandOutput.commandIn to purifier.command.commandIn;
+    connect controller.commandOutput.commandIn to storageTank.command.commandIn;
+    connect userInterface.userCommand.commandIn to controller.userCommand.commandIn;
+
+    satisfy PrimaryFunctionRequirement by AtmosphericWaterHarvester;
+    satisfy PotableWaterRequirement by purifier;
+    satisfy EnergyEfficiencyRequirement by controller;
+    satisfy SafeTankRequirement by storageTank;
+    satisfy AirQualityRequirement by inletFilter;
+  }
+
+  part def VariableSpeedFan {
+    attribute maximumFlow : CubicMeterPerHour = 180.0;
+    attribute nominalPower : Watt = 45.0;
+    attribute speedCommand : Percent;
+
+    port airIn : InternalAirPort;
+    port airOut : InternalAirPort;
+    port command : CommandPort;
+  }
+
+  part def ParticulateFilter {
+    attribute particulateRemovalEfficiency : Percent = 95.0;
+    attribute maximumPressureDrop : Pascal = 180.0;
+    attribute replacementThreshold : Pascal = 150.0;
+
+    port unfilteredAir : AirIntakePort;
+    port filteredAir : InternalAirPort;
+  }
+
+  part def CondensingHeatPump {
+    attribute evaporatorSurfaceTemperature : Celsius = 4.0;
+    attribute condenserSurfaceTemperature : Celsius = 38.0;
+    attribute compressorPower : Watt = 320.0;
+    attribute targetDewPointMargin : Celsius = -3.0;
+
+    port processAirIn : InternalAirPort;
+    port exhaustAir : AirExhaustPort;
+    port condensate : InternalWaterPort;
+    port command : CommandPort;
+  }
+
+  part def CondensateSeparator {
+    attribute dropletCaptureEfficiency : Percent = 98.0;
+    attribute carryoverLimit : Percent = 1.0;
+
+    port rawCondensate : InternalWaterPort;
+    port settledWater : InternalWaterPort;
+  }
+
+  part def WaterPurificationModule {
+    attribute carbonAdsorptionCapacity : MilligramPerLiter = 500.0;
+    attribute uvReductionEffectiveness : Percent = 99.99;
+    attribute mineralizationTarget : MilligramPerLiter = 120.0;
+
+    port untreatedWater : InternalWaterPort;
+    port treatedWater : InternalWaterPort;
+    port command : CommandPort;
+
+    satisfy PotableWaterRequirement by WaterPurificationModule;
+  }
+
+  part def PotableWaterTank {
+    attribute capacity : Liter = 8.0;
+    attribute currentLevel : Percent;
+    attribute overflowProtectionEnabled : Boolean = true;
+
+    port fillWater : InternalWaterPort;
+    port dispenseWater : WaterOutputPort;
+    port command : CommandPort;
+
+    satisfy SafeTankRequirement by PotableWaterTank;
+  }
+
+  part def EmbeddedController {
+    attribute samplingPeriod : Real = 1.0;
+    attribute humidityStartThreshold : Percent = 38.0;
+    attribute humidityStopThreshold : Percent = 32.0;
+    attribute fullTankThreshold : Percent = 95.0;
+    attribute filterServiceThreshold : Pascal = 150.0;
+
+    port sensorInput : SensorDataPort;
+    port userCommand : CommandPort;
+    port commandOutput : CommandPort;
+
+    behavior controlBehavior : WaterHarvestingControlStateMachine;
+  }
+
+  part def EnvironmentalSensorSuite {
+    attribute temperatureAccuracy : Celsius = 0.5;
+    attribute humidityAccuracy : Percent = 2.0;
+    attribute tankLevelAccuracy : Percent = 3.0;
+    attribute pressureDropAccuracy : Pascal = 5.0;
+
+    port sensorOutput : SensorDataPort;
+  }
+
+  part def UserInterfacePanel {
+    attribute displayTankLevel : Percent;
+    attribute displayProductionRate : LiterPerHour;
+    attribute serviceAlertActive : Boolean;
+
+    port userCommand : CommandPort;
+  }
+
+  action def HarvestPotableWater {
+    in item ambientAir : AmbientAir;
+    in item electricalPower : ElectricalPower;
+    out item dryAir : DryExhaustAir;
+    out item potableWater : PotableWater;
+
+    action filterAir {
+      in item rawAir : AmbientAir;
+      out item filteredAir : AmbientAir;
+    }
+
+    action moveAir {
+      in item filteredAir : AmbientAir;
+      out item processAir : AmbientAir;
+    }
+
+    action coolBelowDewPoint {
+      in item processAir : AmbientAir;
+      out item cooledAir : AmbientAir;
+      out item condensate : CondensateWater;
+    }
+
+    action separateCondensate {
+      in item condensate : CondensateWater;
+      out item collectedWater : CondensateWater;
+    }
+
+    action purifyWater {
+      in item collectedWater : CondensateWater;
+      out item potableWater : PotableWater;
+    }
+
+    action storeAndDispense {
+      in item potableWater : PotableWater;
+      out item dispensedWater : PotableWater;
+    }
+
+    flow ambientAir to filterAir.rawAir;
+    flow filterAir.filteredAir to moveAir.filteredAir;
+    flow moveAir.processAir to coolBelowDewPoint.processAir;
+    flow coolBelowDewPoint.condensate to separateCondensate.condensate;
+    flow separateCondensate.collectedWater to purifyWater.collectedWater;
+    flow purifyWater.potableWater to storeAndDispense.potableWater;
+    flow storeAndDispense.dispensedWater to potableWater;
+    flow coolBelowDewPoint.cooledAir to dryAir;
+  }
+
+  state def WaterHarvestingControlStateMachine {
+    entry action initializeController;
+
+    state Off;
+    state Standby;
+    state AssessingAir;
+    state Harvesting;
+    state Purifying;
+    state TankFull;
+    state ServiceRequired;
+    state Fault;
+
+    transition initial then Off;
+
+    transition powerApplied
+      first Off
+      then Standby;
+
+    transition startRequested
+      first Standby
+      then AssessingAir;
+
+    transition humiditySufficient
+      first AssessingAir
+      then Harvesting
+      if relativeHumidity >= 38.0;
+
+    transition humidityTooLow
+      first AssessingAir
+      then Standby
+      if relativeHumidity < 38.0;
+
+    transition condensateAvailable
+      first Harvesting
+      then Purifying;
+
+    transition purificationComplete
+      first Purifying
+      then Harvesting
+      if tankLevel < 95.0;
+
+    transition tankReachedCapacity
+      first Harvesting
+      then TankFull
+      if tankLevel >= 95.0;
+
+    transition waterDispensed
+      first TankFull
+      then AssessingAir
+      if tankLevel < 85.0;
+
+    transition filterRestricted
+      first Harvesting
+      then ServiceRequired
+      if filterPressureDrop >= 150.0;
+
+    transition uvUnavailable
+      first Purifying
+      then ServiceRequired
+      if uvDoseAvailable < 80.0;
+
+    transition sensorFault
+      first Standby
+      then Fault;
+
+    transition faultCleared
+      first Fault
+      then Standby;
+
+    transition serviceCompleted
+      first ServiceRequired
+      then Standby;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : AtmosphericWaterHarvester;
+    require constraint {
+      system.primaryFunction ==
+      "Extract water vapor from ambient air, condense it, purify it, and deliver potable water for personal or household use."
+    }
+  }
+
+  requirement def PotableWaterRequirement {
+    subject purifier : WaterPurificationModule;
+    require constraint {
+      purifier.uvReductionEffectiveness >= 99.99 and
+      purifier.mineralizationTarget <= 500.0
+    }
+  }
+
+  requirement def EnergyEfficiencyRequirement {
+    subject controller : EmbeddedController;
+    require constraint {
+      controller.humidityStartThreshold >= 35.0 and
+      controller.humidityStopThreshold < controller.humidityStartThreshold
+    }
+  }
+
+  requirement def SafeTankRequirement {
+    subject tank : PotableWaterTank;
+    require constraint {
+      tank.capacity <= 8.0 and
+      tank.overflowProtectionEnabled == true
+    }
+  }
+
+  requirement def AirQualityRequirement {
+    subject filter : ParticulateFilter;
+    require constraint {
+      filter.particulateRemovalEfficiency >= 95.0 and
+      filter.maximumPressureDrop <= 180.0
+    }
+  }
+
+  part atmosphericWaterHarvester : AtmosphericWaterHarvester;
+
+  action primaryMission : HarvestPotableWater;
+
+}

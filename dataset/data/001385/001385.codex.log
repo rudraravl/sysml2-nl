@@ -1,0 +1,909 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-krh92k7d
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb681-cda8-7430-81eb-1eb0a886a1c8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a robotic system that performs its primary task using a Companion robot.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CompanionRoboticPrimaryTaskSystem {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Distance :> Real;
+    attribute def Speed :> Real;
+    attribute def TimeDuration :> Real;
+    attribute def Mass :> Real;
+    attribute def Force :> Real;
+    attribute def Power :> Real;
+    attribute def Energy :> Real;
+    attribute def Voltage :> Real;
+    attribute def Current :> Real;
+    attribute def Temperature :> Real;
+    attribute def Confidence :> Real;
+    attribute def Percentage :> Real;
+
+    item def MissionCommand {
+        attribute missionId : String;
+        attribute requestedTask : TaskKind;
+        attribute destinationName : String;
+        attribute payloadMass : Mass;
+        attribute priority : PriorityKind;
+    }
+
+    item def NavigationGoal {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute floor : Integer;
+        attribute tolerance : Distance;
+    }
+
+    item def LocalMap {
+        attribute mapId : String;
+        attribute resolution : Distance;
+        attribute freshness : TimeDuration;
+        attribute confidence : Confidence;
+    }
+
+    item def MotionCommand {
+        attribute linearSpeed : Speed;
+        attribute angularSpeed : Speed;
+        attribute maximumForce : Force;
+    }
+
+    item def HumanIntent {
+        attribute requesterId : String;
+        attribute intent : IntentKind;
+        attribute confidence : Confidence;
+    }
+
+    item def CompanionStatus {
+        attribute availability : AvailabilityKind;
+        attribute batteryCharge : Percentage;
+        attribute socialEngagement : Confidence;
+        attribute distanceToHuman : Distance;
+    }
+
+    item def TaskStatus {
+        attribute missionId : String;
+        attribute state : MissionStateKind;
+        attribute progress : Percentage;
+        attribute faultCode : String;
+    }
+
+    item def Payload {
+        attribute payloadId : String;
+        attribute mass : Mass;
+        attribute fragile : Boolean;
+        attribute secure : Boolean;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : TimeDuration;
+        attribute confidence : Confidence;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    enum def TaskKind {
+        enum assistHumanDelivery;
+        enum fetchObject;
+        enum guideHuman;
+        enum patrolWithCompanion;
+    }
+
+    enum def PriorityKind {
+        enum low;
+        enum normal;
+        enum urgent;
+    }
+
+    enum def IntentKind {
+        enum followMe;
+        enum waitHere;
+        enum deliverPayload;
+        enum cancelMission;
+        enum requestHelp;
+    }
+
+    enum def AvailabilityKind {
+        enum unavailable;
+        enum standby;
+        enum engaged;
+        enum degraded;
+    }
+
+    enum def MissionStateKind {
+        enum idle;
+        enum preparing;
+        enum pairingWithCompanion;
+        enum planning;
+        enum executing;
+        enum delivering;
+        enum returning;
+        enum completed;
+        enum aborted;
+        enum faulted;
+    }
+
+    port def CommandPort {
+        in item command : MissionCommand;
+        out item status : TaskStatus;
+    }
+
+    port def NavigationPort {
+        in item goal : NavigationGoal;
+        in item map : LocalMap;
+        out item motion : MotionCommand;
+    }
+
+    port def PerceptionPort {
+        in item sensorFrame : SensorFrame;
+        out item localMap : LocalMap;
+        out item humanIntent : HumanIntent;
+    }
+
+    port def CompanionCoordinationPort {
+        in item command : MissionCommand;
+        in item humanIntent : HumanIntent;
+        out item companionStatus : CompanionStatus;
+        out item taskStatus : TaskStatus;
+    }
+
+    port def PayloadPort {
+        inout item payload : Payload;
+    }
+
+    port def PowerPort {
+        inout item electricalPower : ElectricalPower;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 48.0;
+        attribute capacity : Energy = 1800000.0;
+        attribute charge : Percentage = 100.0;
+        attribute maximumContinuousPower : Power = 900.0;
+        port powerOut : PowerPort;
+    }
+
+    part def DriveBase {
+        attribute maximumSpeed : Speed = 1.5;
+        attribute stoppingDistance : Distance = 0.35;
+        attribute payloadCapacity : Mass = 12.0;
+        port powerIn : PowerPort;
+        port motionIn : NavigationPort;
+    }
+
+    part def SensorSuite {
+        attribute lidarRange : Distance = 20.0;
+        attribute cameraRange : Distance = 12.0;
+        attribute microphoneRange : Distance = 5.0;
+        attribute updatePeriod : TimeDuration = 0.05;
+        port perception : PerceptionPort;
+        port powerIn : PowerPort;
+    }
+
+    part def Manipulator {
+        attribute degreesOfFreedom : Integer = 6;
+        attribute maximumPayload : Mass = 4.0;
+        attribute gripForceLimit : Force = 80.0;
+        port payloadInterface : PayloadPort;
+        port powerIn : PowerPort;
+    }
+
+    part def PayloadBay {
+        attribute maximumPayloadMass : Mass = 8.0;
+        attribute retainedPayload : Boolean;
+        port payloadInterface : PayloadPort;
+    }
+
+    part def MissionComputer {
+        attribute processorTemperature : Temperature;
+        attribute planningCycleTime : TimeDuration = 0.1;
+        attribute minimumCompanionConfidence : Confidence = 0.75;
+        port command : CommandPort;
+        port perception : PerceptionPort;
+        port navigation : NavigationPort;
+        port companion : CompanionCoordinationPort;
+        port powerIn : PowerPort;
+    }
+
+    part def CompanionRobot {
+        attribute name : String = "Companion";
+        attribute maximumFollowingDistance : Distance = 2.0;
+        attribute preferredHumanDistance : Distance = 1.2;
+        attribute speechRecognitionConfidence : Confidence;
+        attribute socialEngagementScore : Confidence;
+        attribute batteryCharge : Percentage;
+        port coordination : CompanionCoordinationPort;
+        port perception : PerceptionPort;
+        port powerIn : PowerPort;
+    }
+
+    part def RoboticPrimaryTaskSystem {
+        attribute systemName : String = "Companion Assisted Task Robot";
+        attribute safeSpeedNearHuman : Speed = 0.6;
+        attribute nominalMissionSpeed : Speed = 1.1;
+        attribute minimumBatteryForMission : Percentage = 30.0;
+        attribute maximumPayloadMass : Mass = 8.0;
+
+        part battery : BatteryPack;
+        part driveBase : DriveBase;
+        part sensors : SensorSuite;
+        part manipulator : Manipulator;
+        part payloadBay : PayloadBay;
+        part computer : MissionComputer;
+        part companion : CompanionRobot;
+
+        port operatorCommand : CommandPort;
+        port payloadAccess : PayloadPort;
+
+        connection batteryToDrive connect battery.powerOut to driveBase.powerIn;
+        connection batteryToSensors connect battery.powerOut to sensors.powerIn;
+        connection batteryToManipulator connect battery.powerOut to manipulator.powerIn;
+        connection batteryToComputer connect battery.powerOut to computer.powerIn;
+        connection batteryToCompanion connect battery.powerOut to companion.powerIn;
+
+        connection commandToComputer connect operatorCommand to computer.command;
+        connection sensorsToComputer connect sensors.perception to computer.perception;
+        connection computerToDrive connect computer.navigation to driveBase.motionIn;
+        connection computerToCompanion connect computer.companion to companion.coordination;
+        connection companionPerceptionToComputer connect companion.perception to computer.perception;
+        connection manipulatorToPayloadBay connect manipulator.payloadInterface to payloadBay.payloadInterface;
+        connection externalPayloadAccess connect payloadAccess to payloadBay.payloadInterface;
+    }
+
+    action def ReceiveMission {
+        in item command : MissionCommand;
+        out item acceptedCommand : MissionCommand;
+    }
+
+    action def VerifyMissionReadiness {
+        in item command : MissionCommand;
+        in charge : Percentage;
+        in payloadMass : Mass;
+        out ready : Boolean;
+    }
+
+    action def PairWithCompanion {
+        in item command : MissionCommand;
+        in item humanIntent : HumanIntent;
+        out item companionStatus : CompanionStatus;
+        out paired : Boolean;
+    }
+
+    action def BuildLocalMap {
+        in item sensorFrame : SensorFrame;
+        out item map : LocalMap;
+    }
+
+    action def PlanRoute {
+        in item command : MissionCommand;
+        in item map : LocalMap;
+        out item goal : NavigationGoal;
+    }
+
+    action def NavigateWithCompanion {
+        in item goal : NavigationGoal;
+        in item companionStatus : CompanionStatus;
+        out item motion : MotionCommand;
+        out arrived : Boolean;
+    }
+
+    action def TransferPayload {
+        inout item payload : Payload;
+        in item humanIntent : HumanIntent;
+        out transferred : Boolean;
+    }
+
+    action def ReportMissionStatus {
+        in missionState : MissionStateKind;
+        in progress : Percentage;
+        out item status : TaskStatus;
+    }
+
+    action def PerformCompanionAssistedPrimaryTask {
+        in item command : MissionCommand;
+        inout item payload : Payload;
+        out item status : TaskStatus;
+
+        action receive : ReceiveMission {
+            in item command = command;
+        }
+
+        action verify : VerifyMissionReadiness {
+            in item command = receive.acceptedCommand;
+        }
+
+        action pair : PairWithCompanion {
+            in item command = receive.acceptedCommand;
+        }
+
+        action map : BuildLocalMap;
+
+        action plan : PlanRoute {
+            in item command = receive.acceptedCommand;
+            in item map = map.map;
+        }
+
+        action navigate : NavigateWithCompanion {
+            in item goal = plan.goal;
+            in item companionStatus = pair.companionStatus;
+        }
+
+        action transfer : TransferPayload {
+            inout item payload = payload;
+        }
+
+        action report : ReportMissionStatus;
+
+        flow receive.acceptedCommand to verify.command;
+        flow receive.acceptedCommand to pair.command;
+        flow map.map to plan.map;
+        flow plan.goal to navigate.goal;
+        flow pair.companionStatus to navigate.companionStatus;
+
+        first start;
+        then receive;
+        then verify;
+        then pair if verify.ready;
+        then map if pair.paired;
+        then plan;
+        then navigate;
+        then transfer if navigate.arrived;
+        then report;
+        then done;
+    }
+
+    state def CompanionAssistedMissionStateMachine {
+        entry action ReportMissionStatus;
+
+        state idle;
+        state preparing;
+        state pairingWithCompanion;
+        state planningRoute;
+        state movingWithCompanion;
+        state deliveringPayload;
+        state returningHome;
+        state completed;
+        state aborted;
+        state faulted;
+
+        transition initial then idle;
+        transition acceptMission from idle to preparing accept MissionCommand;
+        transition readinessConfirmed from preparing to pairingWithCompanion if batteryCharge >= 30.0;
+        transition readinessRejected from preparing to aborted if batteryCharge < 30.0;
+        transition companionAvailable from pairingWithCompanion to planningRoute if socialEngagementScore >= 0.75;
+        transition companionUnavailable from pairingWithCompanion to aborted if socialEngagementScore < 0.75;
+        transition routeReady from planningRoute to movingWithCompanion;
+        transition destinationReached from movingWithCompanion to deliveringPayload;
+        transition payloadTransferred from deliveringPayload to returningHome;
+        transition homeReached from returningHome to completed;
+        transition cancelRequested from idle to aborted accept HumanIntent if intent == IntentKind::cancelMission;
+        transition obstacleFault from movingWithCompanion to faulted;
+        transition powerFault from preparing to faulted if batteryCharge < 10.0;
+    }
+
+    requirement def CompanionUseRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.companion.availability != AvailabilityKind::unavailable
+        }
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.maximumPayloadMass >= 8.0
+        }
+    }
+
+    requirement def HumanProximitySafetyRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.safeSpeedNearHuman <= 0.6
+        }
+    }
+
+    requirement def BatteryReadinessRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.battery.charge >= system.minimumBatteryForMission
+        }
+    }
+
+    requirement def CompanionFollowingRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.companion.maximumFollowingDistance <= 2.0
+        }
+    }
+
+    requirement def PayloadProtectionRequirement {
+        subject payload : Payload;
+        require constraint {
+            payload.secure == true
+        }
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        subject goal : NavigationGoal;
+        require constraint {
+            goal.tolerance <= 0.25
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.driveBase.stoppingDistance <= 0.35
+        }
+    }
+
+    satisfy CompanionUseRequirement by RoboticPrimaryTaskSystem::companion;
+    satisfy PrimaryTaskRequirement by RoboticPrimaryTaskSystem::payloadBay;
+    satisfy HumanProximitySafetyRequirement by RoboticPrimaryTaskSystem::driveBase;
+    satisfy BatteryReadinessRequirement by RoboticPrimaryTaskSystem::battery;
+    satisfy CompanionFollowingRequirement by RoboticPrimaryTaskSystem::companion;
+    satisfy EmergencyStopRequirement by RoboticPrimaryTaskSystem::driveBase;
+}
+tokens used
+4,740
+package CompanionRoboticPrimaryTaskSystem {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Distance :> Real;
+    attribute def Speed :> Real;
+    attribute def TimeDuration :> Real;
+    attribute def Mass :> Real;
+    attribute def Force :> Real;
+    attribute def Power :> Real;
+    attribute def Energy :> Real;
+    attribute def Voltage :> Real;
+    attribute def Current :> Real;
+    attribute def Temperature :> Real;
+    attribute def Confidence :> Real;
+    attribute def Percentage :> Real;
+
+    item def MissionCommand {
+        attribute missionId : String;
+        attribute requestedTask : TaskKind;
+        attribute destinationName : String;
+        attribute payloadMass : Mass;
+        attribute priority : PriorityKind;
+    }
+
+    item def NavigationGoal {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute floor : Integer;
+        attribute tolerance : Distance;
+    }
+
+    item def LocalMap {
+        attribute mapId : String;
+        attribute resolution : Distance;
+        attribute freshness : TimeDuration;
+        attribute confidence : Confidence;
+    }
+
+    item def MotionCommand {
+        attribute linearSpeed : Speed;
+        attribute angularSpeed : Speed;
+        attribute maximumForce : Force;
+    }
+
+    item def HumanIntent {
+        attribute requesterId : String;
+        attribute intent : IntentKind;
+        attribute confidence : Confidence;
+    }
+
+    item def CompanionStatus {
+        attribute availability : AvailabilityKind;
+        attribute batteryCharge : Percentage;
+        attribute socialEngagement : Confidence;
+        attribute distanceToHuman : Distance;
+    }
+
+    item def TaskStatus {
+        attribute missionId : String;
+        attribute state : MissionStateKind;
+        attribute progress : Percentage;
+        attribute faultCode : String;
+    }
+
+    item def Payload {
+        attribute payloadId : String;
+        attribute mass : Mass;
+        attribute fragile : Boolean;
+        attribute secure : Boolean;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : TimeDuration;
+        attribute confidence : Confidence;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    enum def TaskKind {
+        enum assistHumanDelivery;
+        enum fetchObject;
+        enum guideHuman;
+        enum patrolWithCompanion;
+    }
+
+    enum def PriorityKind {
+        enum low;
+        enum normal;
+        enum urgent;
+    }
+
+    enum def IntentKind {
+        enum followMe;
+        enum waitHere;
+        enum deliverPayload;
+        enum cancelMission;
+        enum requestHelp;
+    }
+
+    enum def AvailabilityKind {
+        enum unavailable;
+        enum standby;
+        enum engaged;
+        enum degraded;
+    }
+
+    enum def MissionStateKind {
+        enum idle;
+        enum preparing;
+        enum pairingWithCompanion;
+        enum planning;
+        enum executing;
+        enum delivering;
+        enum returning;
+        enum completed;
+        enum aborted;
+        enum faulted;
+    }
+
+    port def CommandPort {
+        in item command : MissionCommand;
+        out item status : TaskStatus;
+    }
+
+    port def NavigationPort {
+        in item goal : NavigationGoal;
+        in item map : LocalMap;
+        out item motion : MotionCommand;
+    }
+
+    port def PerceptionPort {
+        in item sensorFrame : SensorFrame;
+        out item localMap : LocalMap;
+        out item humanIntent : HumanIntent;
+    }
+
+    port def CompanionCoordinationPort {
+        in item command : MissionCommand;
+        in item humanIntent : HumanIntent;
+        out item companionStatus : CompanionStatus;
+        out item taskStatus : TaskStatus;
+    }
+
+    port def PayloadPort {
+        inout item payload : Payload;
+    }
+
+    port def PowerPort {
+        inout item electricalPower : ElectricalPower;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 48.0;
+        attribute capacity : Energy = 1800000.0;
+        attribute charge : Percentage = 100.0;
+        attribute maximumContinuousPower : Power = 900.0;
+        port powerOut : PowerPort;
+    }
+
+    part def DriveBase {
+        attribute maximumSpeed : Speed = 1.5;
+        attribute stoppingDistance : Distance = 0.35;
+        attribute payloadCapacity : Mass = 12.0;
+        port powerIn : PowerPort;
+        port motionIn : NavigationPort;
+    }
+
+    part def SensorSuite {
+        attribute lidarRange : Distance = 20.0;
+        attribute cameraRange : Distance = 12.0;
+        attribute microphoneRange : Distance = 5.0;
+        attribute updatePeriod : TimeDuration = 0.05;
+        port perception : PerceptionPort;
+        port powerIn : PowerPort;
+    }
+
+    part def Manipulator {
+        attribute degreesOfFreedom : Integer = 6;
+        attribute maximumPayload : Mass = 4.0;
+        attribute gripForceLimit : Force = 80.0;
+        port payloadInterface : PayloadPort;
+        port powerIn : PowerPort;
+    }
+
+    part def PayloadBay {
+        attribute maximumPayloadMass : Mass = 8.0;
+        attribute retainedPayload : Boolean;
+        port payloadInterface : PayloadPort;
+    }
+
+    part def MissionComputer {
+        attribute processorTemperature : Temperature;
+        attribute planningCycleTime : TimeDuration = 0.1;
+        attribute minimumCompanionConfidence : Confidence = 0.75;
+        port command : CommandPort;
+        port perception : PerceptionPort;
+        port navigation : NavigationPort;
+        port companion : CompanionCoordinationPort;
+        port powerIn : PowerPort;
+    }
+
+    part def CompanionRobot {
+        attribute name : String = "Companion";
+        attribute maximumFollowingDistance : Distance = 2.0;
+        attribute preferredHumanDistance : Distance = 1.2;
+        attribute speechRecognitionConfidence : Confidence;
+        attribute socialEngagementScore : Confidence;
+        attribute batteryCharge : Percentage;
+        port coordination : CompanionCoordinationPort;
+        port perception : PerceptionPort;
+        port powerIn : PowerPort;
+    }
+
+    part def RoboticPrimaryTaskSystem {
+        attribute systemName : String = "Companion Assisted Task Robot";
+        attribute safeSpeedNearHuman : Speed = 0.6;
+        attribute nominalMissionSpeed : Speed = 1.1;
+        attribute minimumBatteryForMission : Percentage = 30.0;
+        attribute maximumPayloadMass : Mass = 8.0;
+
+        part battery : BatteryPack;
+        part driveBase : DriveBase;
+        part sensors : SensorSuite;
+        part manipulator : Manipulator;
+        part payloadBay : PayloadBay;
+        part computer : MissionComputer;
+        part companion : CompanionRobot;
+
+        port operatorCommand : CommandPort;
+        port payloadAccess : PayloadPort;
+
+        connection batteryToDrive connect battery.powerOut to driveBase.powerIn;
+        connection batteryToSensors connect battery.powerOut to sensors.powerIn;
+        connection batteryToManipulator connect battery.powerOut to manipulator.powerIn;
+        connection batteryToComputer connect battery.powerOut to computer.powerIn;
+        connection batteryToCompanion connect battery.powerOut to companion.powerIn;
+
+        connection commandToComputer connect operatorCommand to computer.command;
+        connection sensorsToComputer connect sensors.perception to computer.perception;
+        connection computerToDrive connect computer.navigation to driveBase.motionIn;
+        connection computerToCompanion connect computer.companion to companion.coordination;
+        connection companionPerceptionToComputer connect companion.perception to computer.perception;
+        connection manipulatorToPayloadBay connect manipulator.payloadInterface to payloadBay.payloadInterface;
+        connection externalPayloadAccess connect payloadAccess to payloadBay.payloadInterface;
+    }
+
+    action def ReceiveMission {
+        in item command : MissionCommand;
+        out item acceptedCommand : MissionCommand;
+    }
+
+    action def VerifyMissionReadiness {
+        in item command : MissionCommand;
+        in charge : Percentage;
+        in payloadMass : Mass;
+        out ready : Boolean;
+    }
+
+    action def PairWithCompanion {
+        in item command : MissionCommand;
+        in item humanIntent : HumanIntent;
+        out item companionStatus : CompanionStatus;
+        out paired : Boolean;
+    }
+
+    action def BuildLocalMap {
+        in item sensorFrame : SensorFrame;
+        out item map : LocalMap;
+    }
+
+    action def PlanRoute {
+        in item command : MissionCommand;
+        in item map : LocalMap;
+        out item goal : NavigationGoal;
+    }
+
+    action def NavigateWithCompanion {
+        in item goal : NavigationGoal;
+        in item companionStatus : CompanionStatus;
+        out item motion : MotionCommand;
+        out arrived : Boolean;
+    }
+
+    action def TransferPayload {
+        inout item payload : Payload;
+        in item humanIntent : HumanIntent;
+        out transferred : Boolean;
+    }
+
+    action def ReportMissionStatus {
+        in missionState : MissionStateKind;
+        in progress : Percentage;
+        out item status : TaskStatus;
+    }
+
+    action def PerformCompanionAssistedPrimaryTask {
+        in item command : MissionCommand;
+        inout item payload : Payload;
+        out item status : TaskStatus;
+
+        action receive : ReceiveMission {
+            in item command = command;
+        }
+
+        action verify : VerifyMissionReadiness {
+            in item command = receive.acceptedCommand;
+        }
+
+        action pair : PairWithCompanion {
+            in item command = receive.acceptedCommand;
+        }
+
+        action map : BuildLocalMap;
+
+        action plan : PlanRoute {
+            in item command = receive.acceptedCommand;
+            in item map = map.map;
+        }
+
+        action navigate : NavigateWithCompanion {
+            in item goal = plan.goal;
+            in item companionStatus = pair.companionStatus;
+        }
+
+        action transfer : TransferPayload {
+            inout item payload = payload;
+        }
+
+        action report : ReportMissionStatus;
+
+        flow receive.acceptedCommand to verify.command;
+        flow receive.acceptedCommand to pair.command;
+        flow map.map to plan.map;
+        flow plan.goal to navigate.goal;
+        flow pair.companionStatus to navigate.companionStatus;
+
+        first start;
+        then receive;
+        then verify;
+        then pair if verify.ready;
+        then map if pair.paired;
+        then plan;
+        then navigate;
+        then transfer if navigate.arrived;
+        then report;
+        then done;
+    }
+
+    state def CompanionAssistedMissionStateMachine {
+        entry action ReportMissionStatus;
+
+        state idle;
+        state preparing;
+        state pairingWithCompanion;
+        state planningRoute;
+        state movingWithCompanion;
+        state deliveringPayload;
+        state returningHome;
+        state completed;
+        state aborted;
+        state faulted;
+
+        transition initial then idle;
+        transition acceptMission from idle to preparing accept MissionCommand;
+        transition readinessConfirmed from preparing to pairingWithCompanion if batteryCharge >= 30.0;
+        transition readinessRejected from preparing to aborted if batteryCharge < 30.0;
+        transition companionAvailable from pairingWithCompanion to planningRoute if socialEngagementScore >= 0.75;
+        transition companionUnavailable from pairingWithCompanion to aborted if socialEngagementScore < 0.75;
+        transition routeReady from planningRoute to movingWithCompanion;
+        transition destinationReached from movingWithCompanion to deliveringPayload;
+        transition payloadTransferred from deliveringPayload to returningHome;
+        transition homeReached from returningHome to completed;
+        transition cancelRequested from idle to aborted accept HumanIntent if intent == IntentKind::cancelMission;
+        transition obstacleFault from movingWithCompanion to faulted;
+        transition powerFault from preparing to faulted if batteryCharge < 10.0;
+    }
+
+    requirement def CompanionUseRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.companion.availability != AvailabilityKind::unavailable
+        }
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.maximumPayloadMass >= 8.0
+        }
+    }
+
+    requirement def HumanProximitySafetyRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.safeSpeedNearHuman <= 0.6
+        }
+    }
+
+    requirement def BatteryReadinessRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.battery.charge >= system.minimumBatteryForMission
+        }
+    }
+
+    requirement def CompanionFollowingRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.companion.maximumFollowingDistance <= 2.0
+        }
+    }
+
+    requirement def PayloadProtectionRequirement {
+        subject payload : Payload;
+        require constraint {
+            payload.secure == true
+        }
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        subject goal : NavigationGoal;
+        require constraint {
+            goal.tolerance <= 0.25
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject system : RoboticPrimaryTaskSystem;
+        require constraint {
+            system.driveBase.stoppingDistance <= 0.35
+        }
+    }
+
+    satisfy CompanionUseRequirement by RoboticPrimaryTaskSystem::companion;
+    satisfy PrimaryTaskRequirement by RoboticPrimaryTaskSystem::payloadBay;
+    satisfy HumanProximitySafetyRequirement by RoboticPrimaryTaskSystem::driveBase;
+    satisfy BatteryReadinessRequirement by RoboticPrimaryTaskSystem::battery;
+    satisfy CompanionFollowingRequirement by RoboticPrimaryTaskSystem::companion;
+    satisfy EmergencyStopRequirement by RoboticPrimaryTaskSystem::driveBase;
+}

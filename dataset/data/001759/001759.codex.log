@@ -1,0 +1,917 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-h68up5t7
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7f8-c2f6-7542-93dc-c1e9c8f90a1e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Centrifugal fan and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CentrifugalFanSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def RevolutionPerMinute :> Real {
+        unit = "rpm";
+    }
+
+    value def Pascal :> Real {
+        unit = "Pa";
+    }
+
+    value def CubicMeterPerSecond :> Real {
+        unit = "m^3/s";
+    }
+
+    value def Watt :> Real {
+        unit = "W";
+    }
+
+    value def Volt :> Real {
+        unit = "V";
+    }
+
+    value def Ampere :> Real {
+        unit = "A";
+    }
+
+    value def Celsius :> Real {
+        unit = "degC";
+    }
+
+    value def Percent :> Real {
+        unit = "%";
+    }
+
+    value def KilogramPerCubicMeter :> Real {
+        unit = "kg/m^3";
+    }
+
+    value def DecibelA :> Real {
+        unit = "dBA";
+    }
+
+    item def Air {
+        attribute staticPressure : Pascal;
+        attribute volumetricFlowRate : CubicMeterPerSecond;
+        attribute temperature : Celsius;
+        attribute density : KilogramPerCubicMeter;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute frequency : Real;
+        attribute power : Watt;
+    }
+
+    item def SpeedCommand {
+        attribute requestedSpeed : RevolutionPerMinute;
+        attribute requestedFlowRate : CubicMeterPerSecond;
+    }
+
+    item def FanStatus {
+        attribute actualSpeed : RevolutionPerMinute;
+        attribute actualFlowRate : CubicMeterPerSecond;
+        attribute outletPressure : Pascal;
+        attribute motorTemperature : Celsius;
+        attribute vibrationLevel : Real;
+        attribute healthPercent : Percent;
+    }
+
+    port def AirInletPort {
+        in item incomingAir : Air;
+    }
+
+    port def AirOutletPort {
+        out item dischargedAir : Air;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : SpeedCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : FanStatus;
+    }
+
+    port def RotationalPowerPort {
+        out attribute torque : Real;
+        out attribute speed : RevolutionPerMinute;
+        out attribute shaftPower : Watt;
+    }
+
+    port def ShaftInputPort {
+        in attribute torque : Real;
+        in attribute speed : RevolutionPerMinute;
+        in attribute shaftPower : Watt;
+    }
+
+    action def ConvertElectricalToRotationalPower {
+        in item powerIn : ElectricalPower;
+        in attribute commandedSpeed : RevolutionPerMinute;
+        out attribute shaftTorque : Real;
+        out attribute shaftSpeed : RevolutionPerMinute;
+        out attribute shaftPower : Watt;
+
+        constraint {
+            shaftSpeed == commandedSpeed;
+            shaftPower <= powerIn.power;
+        }
+    }
+
+    action def AccelerateAirRadially {
+        in item inletAir : Air;
+        in attribute impellerSpeed : RevolutionPerMinute;
+        out item acceleratedAir : Air;
+
+        constraint {
+            acceleratedAir.volumetricFlowRate >= inletAir.volumetricFlowRate;
+            acceleratedAir.staticPressure > inletAir.staticPressure;
+            acceleratedAir.temperature >= inletAir.temperature;
+        }
+    }
+
+    action def ConvertVelocityToStaticPressure {
+        in item highVelocityAir : Air;
+        out item outletAir : Air;
+
+        constraint {
+            outletAir.staticPressure >= highVelocityAir.staticPressure;
+            outletAir.volumetricFlowRate == highVelocityAir.volumetricFlowRate;
+        }
+    }
+
+    action def RegulateFanSpeed {
+        in item command : SpeedCommand;
+        in item measuredStatus : FanStatus;
+        out attribute targetSpeed : RevolutionPerMinute;
+
+        constraint {
+            targetSpeed >= 600;
+            targetSpeed <= 3600;
+        }
+    }
+
+    action def PerformFaultProtection {
+        in item status : FanStatus;
+        out attribute shutdownRequired : Boolean;
+
+        constraint {
+            shutdownRequired == (
+                status.motorTemperature > 105 or
+                status.vibrationLevel > 7.1 or
+                status.healthPercent < 40
+            );
+        }
+    }
+
+    state def FanOperationalState {
+        entry action initialize;
+
+        state Off;
+        state Starting;
+        state Running;
+        state Stopping;
+        state Faulted;
+
+        transition first Off;
+
+        transition StartCommand
+            first Off
+            then Starting;
+
+        transition ReachedMinimumSpeed
+            first Starting
+            then Running;
+
+        transition StopCommand
+            first Running
+            then Stopping;
+
+        transition SpeedZero
+            first Stopping
+            then Off;
+
+        transition FaultDetectedFromStarting
+            first Starting
+            then Faulted;
+
+        transition FaultDetectedFromRunning
+            first Running
+            then Faulted;
+
+        transition ResetFault
+            first Faulted
+            then Off;
+    }
+
+    part def ElectricMotor {
+        port powerInput : PowerInputPort;
+        port commandInput : CommandInputPort;
+        port shaftOutput : RotationalPowerPort;
+        port statusOutput : StatusOutputPort;
+
+        attribute ratedVoltage : Volt = 480;
+        attribute ratedPower : Watt = 7500;
+        attribute ratedSpeed : RevolutionPerMinute = 3600;
+        attribute efficiency : Percent = 91;
+        attribute maximumWindingTemperature : Celsius = 105;
+
+        perform action convertPower : ConvertElectricalToRotationalPower;
+    }
+
+    part def VariableFrequencyDrive {
+        port powerInput : PowerInputPort;
+        port commandInput : CommandInputPort;
+        port controlledPowerOutput : PowerInputPort;
+        port statusOutput : StatusOutputPort;
+
+        attribute inputVoltage : Volt = 480;
+        attribute outputFrequencyMinimum : Real = 10;
+        attribute outputFrequencyMaximum : Real = 60;
+        attribute speedControlResolution : RevolutionPerMinute = 5;
+        attribute driveEfficiency : Percent = 97;
+
+        perform action regulateSpeed : RegulateFanSpeed;
+        perform action protection : PerformFaultProtection;
+    }
+
+    part def Impeller {
+        port shaftInput : ShaftInputPort;
+        port airInput : AirInletPort;
+        port airOutput : AirOutletPort;
+
+        attribute bladeCount : Integer = 12;
+        attribute outerDiameter : Real = 0.46;
+        attribute inletDiameter : Real = 0.23;
+        attribute nominalSpeed : RevolutionPerMinute = 3450;
+        attribute maximumSafeSpeed : RevolutionPerMinute = 3900;
+        attribute impellerEfficiency : Percent = 78;
+
+        perform action accelerateAir : AccelerateAirRadially;
+    }
+
+    part def ScrollHousing {
+        port airInput : AirInletPort;
+        port airOutput : AirOutletPort;
+
+        attribute materialThickness : Real = 0.003;
+        attribute casingEfficiency : Percent = 86;
+        attribute maximumStaticPressure : Pascal = 1850;
+
+        perform action pressureRecovery : ConvertVelocityToStaticPressure;
+    }
+
+    part def InletGuard {
+        port upstreamAir : AirInletPort;
+        port downstreamAir : AirOutletPort;
+
+        attribute openAreaRatio : Percent = 82;
+        attribute pressureLossAtNominalFlow : Pascal = 42;
+    }
+
+    part def OutletDamper {
+        port inlet : AirInletPort;
+        port outlet : AirOutletPort;
+        port commandInput : CommandInputPort;
+
+        attribute position : Percent;
+        attribute minimumPosition : Percent = 10;
+        attribute maximumPosition : Percent = 100;
+        attribute leakageWhenClosed : Percent = 2;
+    }
+
+    part def BearingAssembly {
+        attribute bearingType : String = "sealed deep groove ball bearing";
+        attribute designLifeHours : Real = 40000;
+        attribute maximumHousingTemperature : Celsius = 85;
+        attribute vibrationLimit : Real = 4.5;
+    }
+
+    part def SensorSet {
+        port statusOutput : StatusOutputPort;
+
+        attribute speedMeasurementRangeMaximum : RevolutionPerMinute = 5000;
+        attribute pressureMeasurementRangeMaximum : Pascal = 2500;
+        attribute temperatureMeasurementRangeMaximum : Celsius = 150;
+        attribute flowMeasurementRangeMaximum : CubicMeterPerSecond = 3.0;
+        attribute statusUpdatePeriod : Real = 0.1;
+    }
+
+    part def FanController {
+        port commandInput : CommandInputPort;
+        port measuredStatusInput : StatusOutputPort;
+        port driveCommandOutput : CommandInputPort;
+        port statusOutput : StatusOutputPort;
+
+        attribute controlMode : String = "closed-loop flow or pressure regulation";
+        attribute minimumAllowedSpeed : RevolutionPerMinute = 600;
+        attribute maximumAllowedSpeed : RevolutionPerMinute = 3600;
+        attribute nominalFlowSetpoint : CubicMeterPerSecond = 1.65;
+        attribute nominalPressureSetpoint : Pascal = 980;
+
+        perform action regulateSpeed : RegulateFanSpeed;
+        perform action faultProtection : PerformFaultProtection;
+
+        state operatingState : FanOperationalState;
+    }
+
+    part def CentrifugalFanSystem {
+        port airInlet : AirInletPort;
+        port airOutlet : AirOutletPort;
+        port electricalInput : PowerInputPort;
+        port operatorCommand : CommandInputPort;
+        port systemStatus : StatusOutputPort;
+
+        attribute ratedFlowRate : CubicMeterPerSecond = 1.65;
+        attribute ratedStaticPressureRise : Pascal = 980;
+        attribute ratedInputPower : Watt = 7500;
+        attribute nominalSpeed : RevolutionPerMinute = 3450;
+        attribute maximumSoundLevel : DecibelA = 78;
+        attribute operatingTemperatureMinimum : Celsius = -20;
+        attribute operatingTemperatureMaximum : Celsius = 55;
+        attribute expectedServiceLifeHours : Real = 50000;
+
+        part vfd : VariableFrequencyDrive;
+        part motor : ElectricMotor;
+        part bearings : BearingAssembly;
+        part inletGuard : InletGuard;
+        part impeller : Impeller;
+        part housing : ScrollHousing;
+        part outletDamper : OutletDamper;
+        part sensors : SensorSet;
+        part controller : FanController;
+
+        connect electricalInput to vfd.powerInput;
+        connect operatorCommand to controller.commandInput;
+        connect controller.driveCommandOutput to vfd.commandInput;
+        connect vfd.controlledPowerOutput to motor.powerInput;
+        connect controller.driveCommandOutput to motor.commandInput;
+
+        connect motor.shaftOutput to impeller.shaftInput;
+
+        connect airInlet to inletGuard.upstreamAir;
+        connect inletGuard.downstreamAir to impeller.airInput;
+        connect impeller.airOutput to housing.airInput;
+        connect housing.airOutput to outletDamper.inlet;
+        connect outletDamper.outlet to airOutlet;
+
+        connect sensors.statusOutput to controller.measuredStatusInput;
+        connect sensors.statusOutput to systemStatus;
+        connect motor.statusOutput to controller.measuredStatusInput;
+        connect vfd.statusOutput to controller.measuredStatusInput;
+        connect controller.statusOutput to systemStatus;
+
+        perform action primaryFunction {
+            in item inletAir : Air;
+            in item electricalPower : ElectricalPower;
+            in item command : SpeedCommand;
+            out item conditionedOutletAir : Air;
+            out item status : FanStatus;
+
+            action regulate : RegulateFanSpeed;
+            action convert : ConvertElectricalToRotationalPower;
+            action accelerate : AccelerateAirRadially;
+            action recoverPressure : ConvertVelocityToStaticPressure;
+            action protect : PerformFaultProtection;
+
+            flow inletAir to accelerate.inletAir;
+            flow command to regulate.command;
+            flow electricalPower to convert.powerIn;
+            flow regulate.targetSpeed to convert.commandedSpeed;
+            flow convert.shaftSpeed to accelerate.impellerSpeed;
+            flow accelerate.acceleratedAir to recoverPressure.highVelocityAir;
+            flow recoverPressure.outletAir to conditionedOutletAir;
+            flow status to protect.status;
+        }
+    }
+
+    requirement def ProvideAirMovement {
+        doc /* The centrifugal fan system shall convert electrical power into rotational impeller energy that draws air through an axial inlet and discharges it radially through a scroll housing to provide controlled airflow and static pressure rise for ventilation or process air movement. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.ratedFlowRate >= 1.5 and
+            fan.ratedStaticPressureRise >= 900
+        }
+    }
+
+    requirement def MaintainControlledSpeed {
+        doc /* The system shall regulate impeller speed in response to an operator or supervisory command while maintaining operation within the safe mechanical speed range. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.nominalSpeed <= fan.impeller.maximumSafeSpeed and
+            fan.controller.minimumAllowedSpeed >= 600 and
+            fan.controller.maximumAllowedSpeed <= fan.impeller.maximumSafeSpeed
+        }
+    }
+
+    requirement def ProtectAgainstUnsafeOperation {
+        doc /* The system shall detect excessive motor temperature, excessive vibration, or degraded health status and transition to a faulted or stopped condition before damage occurs. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.motor.maximumWindingTemperature <= 105 and
+            fan.bearings.maximumHousingTemperature <= 85 and
+            fan.bearings.vibrationLimit <= 4.5
+        }
+    }
+
+    requirement def LimitAcousticEmission {
+        doc /* The system shall limit airborne noise at rated operating condition to support installation in occupied industrial or commercial spaces. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.maximumSoundLevel <= 78
+        }
+    }
+
+    requirement def SupportContinuousService {
+        doc /* The system shall be suitable for continuous operation with a service life of at least forty thousand hours under specified ambient conditions. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.expectedServiceLifeHours >= 40000 and
+            fan.operatingTemperatureMinimum <= -20 and
+            fan.operatingTemperatureMaximum >= 55
+        }
+    }
+
+    satisfy ProvideAirMovement by CentrifugalFanSystem::primaryFunction;
+    satisfy MaintainControlledSpeed by CentrifugalFanSystem::controller;
+    satisfy ProtectAgainstUnsafeOperation by CentrifugalFanSystem::controller;
+    satisfy LimitAcousticEmission by CentrifugalFanSystem::housing;
+    satisfy SupportContinuousService by CentrifugalFanSystem::bearings;
+}
+tokens used
+4,490
+package CentrifugalFanSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def RevolutionPerMinute :> Real {
+        unit = "rpm";
+    }
+
+    value def Pascal :> Real {
+        unit = "Pa";
+    }
+
+    value def CubicMeterPerSecond :> Real {
+        unit = "m^3/s";
+    }
+
+    value def Watt :> Real {
+        unit = "W";
+    }
+
+    value def Volt :> Real {
+        unit = "V";
+    }
+
+    value def Ampere :> Real {
+        unit = "A";
+    }
+
+    value def Celsius :> Real {
+        unit = "degC";
+    }
+
+    value def Percent :> Real {
+        unit = "%";
+    }
+
+    value def KilogramPerCubicMeter :> Real {
+        unit = "kg/m^3";
+    }
+
+    value def DecibelA :> Real {
+        unit = "dBA";
+    }
+
+    item def Air {
+        attribute staticPressure : Pascal;
+        attribute volumetricFlowRate : CubicMeterPerSecond;
+        attribute temperature : Celsius;
+        attribute density : KilogramPerCubicMeter;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute frequency : Real;
+        attribute power : Watt;
+    }
+
+    item def SpeedCommand {
+        attribute requestedSpeed : RevolutionPerMinute;
+        attribute requestedFlowRate : CubicMeterPerSecond;
+    }
+
+    item def FanStatus {
+        attribute actualSpeed : RevolutionPerMinute;
+        attribute actualFlowRate : CubicMeterPerSecond;
+        attribute outletPressure : Pascal;
+        attribute motorTemperature : Celsius;
+        attribute vibrationLevel : Real;
+        attribute healthPercent : Percent;
+    }
+
+    port def AirInletPort {
+        in item incomingAir : Air;
+    }
+
+    port def AirOutletPort {
+        out item dischargedAir : Air;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : SpeedCommand;
+    }
+
+    port def StatusOutputPort {
+        out item status : FanStatus;
+    }
+
+    port def RotationalPowerPort {
+        out attribute torque : Real;
+        out attribute speed : RevolutionPerMinute;
+        out attribute shaftPower : Watt;
+    }
+
+    port def ShaftInputPort {
+        in attribute torque : Real;
+        in attribute speed : RevolutionPerMinute;
+        in attribute shaftPower : Watt;
+    }
+
+    action def ConvertElectricalToRotationalPower {
+        in item powerIn : ElectricalPower;
+        in attribute commandedSpeed : RevolutionPerMinute;
+        out attribute shaftTorque : Real;
+        out attribute shaftSpeed : RevolutionPerMinute;
+        out attribute shaftPower : Watt;
+
+        constraint {
+            shaftSpeed == commandedSpeed;
+            shaftPower <= powerIn.power;
+        }
+    }
+
+    action def AccelerateAirRadially {
+        in item inletAir : Air;
+        in attribute impellerSpeed : RevolutionPerMinute;
+        out item acceleratedAir : Air;
+
+        constraint {
+            acceleratedAir.volumetricFlowRate >= inletAir.volumetricFlowRate;
+            acceleratedAir.staticPressure > inletAir.staticPressure;
+            acceleratedAir.temperature >= inletAir.temperature;
+        }
+    }
+
+    action def ConvertVelocityToStaticPressure {
+        in item highVelocityAir : Air;
+        out item outletAir : Air;
+
+        constraint {
+            outletAir.staticPressure >= highVelocityAir.staticPressure;
+            outletAir.volumetricFlowRate == highVelocityAir.volumetricFlowRate;
+        }
+    }
+
+    action def RegulateFanSpeed {
+        in item command : SpeedCommand;
+        in item measuredStatus : FanStatus;
+        out attribute targetSpeed : RevolutionPerMinute;
+
+        constraint {
+            targetSpeed >= 600;
+            targetSpeed <= 3600;
+        }
+    }
+
+    action def PerformFaultProtection {
+        in item status : FanStatus;
+        out attribute shutdownRequired : Boolean;
+
+        constraint {
+            shutdownRequired == (
+                status.motorTemperature > 105 or
+                status.vibrationLevel > 7.1 or
+                status.healthPercent < 40
+            );
+        }
+    }
+
+    state def FanOperationalState {
+        entry action initialize;
+
+        state Off;
+        state Starting;
+        state Running;
+        state Stopping;
+        state Faulted;
+
+        transition first Off;
+
+        transition StartCommand
+            first Off
+            then Starting;
+
+        transition ReachedMinimumSpeed
+            first Starting
+            then Running;
+
+        transition StopCommand
+            first Running
+            then Stopping;
+
+        transition SpeedZero
+            first Stopping
+            then Off;
+
+        transition FaultDetectedFromStarting
+            first Starting
+            then Faulted;
+
+        transition FaultDetectedFromRunning
+            first Running
+            then Faulted;
+
+        transition ResetFault
+            first Faulted
+            then Off;
+    }
+
+    part def ElectricMotor {
+        port powerInput : PowerInputPort;
+        port commandInput : CommandInputPort;
+        port shaftOutput : RotationalPowerPort;
+        port statusOutput : StatusOutputPort;
+
+        attribute ratedVoltage : Volt = 480;
+        attribute ratedPower : Watt = 7500;
+        attribute ratedSpeed : RevolutionPerMinute = 3600;
+        attribute efficiency : Percent = 91;
+        attribute maximumWindingTemperature : Celsius = 105;
+
+        perform action convertPower : ConvertElectricalToRotationalPower;
+    }
+
+    part def VariableFrequencyDrive {
+        port powerInput : PowerInputPort;
+        port commandInput : CommandInputPort;
+        port controlledPowerOutput : PowerInputPort;
+        port statusOutput : StatusOutputPort;
+
+        attribute inputVoltage : Volt = 480;
+        attribute outputFrequencyMinimum : Real = 10;
+        attribute outputFrequencyMaximum : Real = 60;
+        attribute speedControlResolution : RevolutionPerMinute = 5;
+        attribute driveEfficiency : Percent = 97;
+
+        perform action regulateSpeed : RegulateFanSpeed;
+        perform action protection : PerformFaultProtection;
+    }
+
+    part def Impeller {
+        port shaftInput : ShaftInputPort;
+        port airInput : AirInletPort;
+        port airOutput : AirOutletPort;
+
+        attribute bladeCount : Integer = 12;
+        attribute outerDiameter : Real = 0.46;
+        attribute inletDiameter : Real = 0.23;
+        attribute nominalSpeed : RevolutionPerMinute = 3450;
+        attribute maximumSafeSpeed : RevolutionPerMinute = 3900;
+        attribute impellerEfficiency : Percent = 78;
+
+        perform action accelerateAir : AccelerateAirRadially;
+    }
+
+    part def ScrollHousing {
+        port airInput : AirInletPort;
+        port airOutput : AirOutletPort;
+
+        attribute materialThickness : Real = 0.003;
+        attribute casingEfficiency : Percent = 86;
+        attribute maximumStaticPressure : Pascal = 1850;
+
+        perform action pressureRecovery : ConvertVelocityToStaticPressure;
+    }
+
+    part def InletGuard {
+        port upstreamAir : AirInletPort;
+        port downstreamAir : AirOutletPort;
+
+        attribute openAreaRatio : Percent = 82;
+        attribute pressureLossAtNominalFlow : Pascal = 42;
+    }
+
+    part def OutletDamper {
+        port inlet : AirInletPort;
+        port outlet : AirOutletPort;
+        port commandInput : CommandInputPort;
+
+        attribute position : Percent;
+        attribute minimumPosition : Percent = 10;
+        attribute maximumPosition : Percent = 100;
+        attribute leakageWhenClosed : Percent = 2;
+    }
+
+    part def BearingAssembly {
+        attribute bearingType : String = "sealed deep groove ball bearing";
+        attribute designLifeHours : Real = 40000;
+        attribute maximumHousingTemperature : Celsius = 85;
+        attribute vibrationLimit : Real = 4.5;
+    }
+
+    part def SensorSet {
+        port statusOutput : StatusOutputPort;
+
+        attribute speedMeasurementRangeMaximum : RevolutionPerMinute = 5000;
+        attribute pressureMeasurementRangeMaximum : Pascal = 2500;
+        attribute temperatureMeasurementRangeMaximum : Celsius = 150;
+        attribute flowMeasurementRangeMaximum : CubicMeterPerSecond = 3.0;
+        attribute statusUpdatePeriod : Real = 0.1;
+    }
+
+    part def FanController {
+        port commandInput : CommandInputPort;
+        port measuredStatusInput : StatusOutputPort;
+        port driveCommandOutput : CommandInputPort;
+        port statusOutput : StatusOutputPort;
+
+        attribute controlMode : String = "closed-loop flow or pressure regulation";
+        attribute minimumAllowedSpeed : RevolutionPerMinute = 600;
+        attribute maximumAllowedSpeed : RevolutionPerMinute = 3600;
+        attribute nominalFlowSetpoint : CubicMeterPerSecond = 1.65;
+        attribute nominalPressureSetpoint : Pascal = 980;
+
+        perform action regulateSpeed : RegulateFanSpeed;
+        perform action faultProtection : PerformFaultProtection;
+
+        state operatingState : FanOperationalState;
+    }
+
+    part def CentrifugalFanSystem {
+        port airInlet : AirInletPort;
+        port airOutlet : AirOutletPort;
+        port electricalInput : PowerInputPort;
+        port operatorCommand : CommandInputPort;
+        port systemStatus : StatusOutputPort;
+
+        attribute ratedFlowRate : CubicMeterPerSecond = 1.65;
+        attribute ratedStaticPressureRise : Pascal = 980;
+        attribute ratedInputPower : Watt = 7500;
+        attribute nominalSpeed : RevolutionPerMinute = 3450;
+        attribute maximumSoundLevel : DecibelA = 78;
+        attribute operatingTemperatureMinimum : Celsius = -20;
+        attribute operatingTemperatureMaximum : Celsius = 55;
+        attribute expectedServiceLifeHours : Real = 50000;
+
+        part vfd : VariableFrequencyDrive;
+        part motor : ElectricMotor;
+        part bearings : BearingAssembly;
+        part inletGuard : InletGuard;
+        part impeller : Impeller;
+        part housing : ScrollHousing;
+        part outletDamper : OutletDamper;
+        part sensors : SensorSet;
+        part controller : FanController;
+
+        connect electricalInput to vfd.powerInput;
+        connect operatorCommand to controller.commandInput;
+        connect controller.driveCommandOutput to vfd.commandInput;
+        connect vfd.controlledPowerOutput to motor.powerInput;
+        connect controller.driveCommandOutput to motor.commandInput;
+
+        connect motor.shaftOutput to impeller.shaftInput;
+
+        connect airInlet to inletGuard.upstreamAir;
+        connect inletGuard.downstreamAir to impeller.airInput;
+        connect impeller.airOutput to housing.airInput;
+        connect housing.airOutput to outletDamper.inlet;
+        connect outletDamper.outlet to airOutlet;
+
+        connect sensors.statusOutput to controller.measuredStatusInput;
+        connect sensors.statusOutput to systemStatus;
+        connect motor.statusOutput to controller.measuredStatusInput;
+        connect vfd.statusOutput to controller.measuredStatusInput;
+        connect controller.statusOutput to systemStatus;
+
+        perform action primaryFunction {
+            in item inletAir : Air;
+            in item electricalPower : ElectricalPower;
+            in item command : SpeedCommand;
+            out item conditionedOutletAir : Air;
+            out item status : FanStatus;
+
+            action regulate : RegulateFanSpeed;
+            action convert : ConvertElectricalToRotationalPower;
+            action accelerate : AccelerateAirRadially;
+            action recoverPressure : ConvertVelocityToStaticPressure;
+            action protect : PerformFaultProtection;
+
+            flow inletAir to accelerate.inletAir;
+            flow command to regulate.command;
+            flow electricalPower to convert.powerIn;
+            flow regulate.targetSpeed to convert.commandedSpeed;
+            flow convert.shaftSpeed to accelerate.impellerSpeed;
+            flow accelerate.acceleratedAir to recoverPressure.highVelocityAir;
+            flow recoverPressure.outletAir to conditionedOutletAir;
+            flow status to protect.status;
+        }
+    }
+
+    requirement def ProvideAirMovement {
+        doc /* The centrifugal fan system shall convert electrical power into rotational impeller energy that draws air through an axial inlet and discharges it radially through a scroll housing to provide controlled airflow and static pressure rise for ventilation or process air movement. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.ratedFlowRate >= 1.5 and
+            fan.ratedStaticPressureRise >= 900
+        }
+    }
+
+    requirement def MaintainControlledSpeed {
+        doc /* The system shall regulate impeller speed in response to an operator or supervisory command while maintaining operation within the safe mechanical speed range. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.nominalSpeed <= fan.impeller.maximumSafeSpeed and
+            fan.controller.minimumAllowedSpeed >= 600 and
+            fan.controller.maximumAllowedSpeed <= fan.impeller.maximumSafeSpeed
+        }
+    }
+
+    requirement def ProtectAgainstUnsafeOperation {
+        doc /* The system shall detect excessive motor temperature, excessive vibration, or degraded health status and transition to a faulted or stopped condition before damage occurs. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.motor.maximumWindingTemperature <= 105 and
+            fan.bearings.maximumHousingTemperature <= 85 and
+            fan.bearings.vibrationLimit <= 4.5
+        }
+    }
+
+    requirement def LimitAcousticEmission {
+        doc /* The system shall limit airborne noise at rated operating condition to support installation in occupied industrial or commercial spaces. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.maximumSoundLevel <= 78
+        }
+    }
+
+    requirement def SupportContinuousService {
+        doc /* The system shall be suitable for continuous operation with a service life of at least forty thousand hours under specified ambient conditions. */
+
+        subject fan : CentrifugalFanSystem;
+
+        require constraint {
+            fan.expectedServiceLifeHours >= 40000 and
+            fan.operatingTemperatureMinimum <= -20 and
+            fan.operatingTemperatureMaximum >= 55
+        }
+    }
+
+    satisfy ProvideAirMovement by CentrifugalFanSystem::primaryFunction;
+    satisfy MaintainControlledSpeed by CentrifugalFanSystem::controller;
+    satisfy ProtectAgainstUnsafeOperation by CentrifugalFanSystem::controller;
+    satisfy LimitAcousticEmission by CentrifugalFanSystem::housing;
+    satisfy SupportContinuousService by CentrifugalFanSystem::bearings;
+}

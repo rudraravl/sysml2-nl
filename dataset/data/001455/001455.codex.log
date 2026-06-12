@@ -1,0 +1,1005 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-v5566hz8
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6c8-cbc6-76a2-a82e-b41c2c4406fd
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Honeybee Robotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HoneybeeRoboticsBasedSampleAcquisitionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Mass_kg :> Real {
+        unit = "kg";
+    }
+
+    attribute def Length_m :> Real {
+        unit = "m";
+    }
+
+    attribute def Time_s :> Real {
+        unit = "s";
+    }
+
+    attribute def Power_W :> Real {
+        unit = "W";
+    }
+
+    attribute def Voltage_V :> Real {
+        unit = "V";
+    }
+
+    attribute def Torque_Nm :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Force_N :> Real {
+        unit = "N";
+    }
+
+    attribute def Temperature_C :> Real {
+        unit = "degC";
+    }
+
+    attribute def Pressure_kPa :> Real {
+        unit = "kPa";
+    }
+
+    attribute def DataRate_Mbps :> Real {
+        unit = "Mbit/s";
+    }
+
+    enum def SampleState {
+        enum unsampled;
+        enum loosened;
+        enum captured;
+        enum sealed;
+        enum delivered;
+        enum rejected;
+    }
+
+    enum def MissionMode {
+        enum standby;
+        enum siteAssessment;
+        enum sampling;
+        enum transfer;
+        enum delivery;
+        enum faultRecovery;
+        enum safe;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage_V;
+        attribute power : Power_W;
+    }
+
+    item def Command {
+        attribute commandId : String;
+        attribute priority : Integer;
+    }
+
+    item def Telemetry {
+        attribute timeTag : Time_s;
+        attribute mode : MissionMode;
+        attribute healthCode : Integer;
+    }
+
+    item def DrillTelemetry :> Telemetry {
+        attribute bitDepth : Length_m;
+        attribute motorTorque : Torque_Nm;
+        attribute bitTemperature : Temperature_C;
+        attribute penetrationForce : Force_N;
+    }
+
+    item def RegolithSample {
+        attribute sampleId : String;
+        attribute mass : Mass_kg;
+        attribute grainSizeMean : Length_m;
+        attribute volatilePreservationTemperature : Temperature_C;
+        attribute state : SampleState;
+    }
+
+    item def GasPulse {
+        attribute pressure : Pressure_kPa;
+        attribute duration : Time_s;
+    }
+
+    item def SciencePacket {
+        attribute packetId : String;
+        attribute dataRate : DataRate_Mbps;
+        attribute sampleMass : Mass_kg;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : Command;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : Telemetry;
+    }
+
+    port def DrillTelemetryPort {
+        out item drillTelemetry : DrillTelemetry;
+    }
+
+    port def SamplePort {
+        inout item sample : RegolithSample;
+    }
+
+    port def GasPort {
+        out item pulse : GasPulse;
+    }
+
+    port def DataPort {
+        out item packet : SciencePacket;
+    }
+
+    part def AvionicsController {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute processorPower : Power_W = 18.0;
+        attribute commandLatency : Time_s = 0.25;
+        attribute currentMode : MissionMode = MissionMode::standby;
+
+        action def InterpretCommand {
+            in item cmd : Command;
+            out modeRequest : MissionMode;
+        }
+
+        action def PublishHealth {
+            out item status : Telemetry;
+        }
+    }
+
+    part def RotaryPercussiveDrill {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port sampleOut : SamplePort;
+        port telemetryOut : DrillTelemetryPort;
+
+        attribute maxDepth : Length_m = 0.70;
+        attribute bitDiameter : Length_m = 0.025;
+        attribute peakPower : Power_W = 135.0;
+        attribute nominalTorque : Torque_Nm = 4.5;
+        attribute peakPercussiveForce : Force_N = 420.0;
+        attribute maxBitTemperature : Temperature_C = 85.0;
+
+        action def DrillIntoRegolith {
+            in targetDepth : Length_m;
+            out loosenedMass : Mass_kg;
+        }
+
+        action def CaptureCore {
+            in loosenedMass : Mass_kg;
+            out item core : RegolithSample;
+        }
+
+        state def DrillStateMachine {
+            state idle;
+            state preloading;
+            state drilling;
+            state coring;
+            state retracting;
+            state jamRecovery;
+            state complete;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_preloading
+                first idle
+                then preloading
+                accept Command
+                if command.commandId == "START_DRILL";
+
+            transition preloading_to_drilling
+                first preloading
+                then drilling
+                if penetrationForce >= 50.0;
+
+            transition drilling_to_coring
+                first drilling
+                then coring
+                if bitDepth >= 0.70;
+
+            transition coring_to_retracting
+                first coring
+                then retracting
+                if motorTorque <= 4.5;
+
+            transition retracting_to_complete
+                first retracting
+                then complete;
+
+            transition drilling_to_jamRecovery
+                first drilling
+                then jamRecovery
+                if motorTorque > 8.0;
+
+            transition jamRecovery_to_drilling
+                first jamRecovery
+                then drilling
+                if motorTorque <= 5.0;
+
+            transition any_to_fault
+                first drilling
+                then fault
+                if bitTemperature > 85.0;
+        }
+    }
+
+    part def PneumaticTransferAssembly {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port gasOut : GasPort;
+        port sampleIn : SamplePort;
+        port sampleOut : SamplePort;
+        port telemetryOut : TelemetryPort;
+
+        attribute tankPressure : Pressure_kPa = 520.0;
+        attribute pulsePressure : Pressure_kPa = 180.0;
+        attribute pulseDuration : Time_s = 0.8;
+        attribute transferTubeLength : Length_m = 0.45;
+        attribute peakPower : Power_W = 32.0;
+
+        action def PulseGas {
+            out item gas : GasPulse;
+        }
+
+        action def MoveSample {
+            in item capturedSample : RegolithSample;
+            in item transferPulse : GasPulse;
+            out item transferredSample : RegolithSample;
+        }
+    }
+
+    part def SampleContainmentCarousel {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port sampleIn : SamplePort;
+        port sampleOut : SamplePort;
+        port telemetryOut : TelemetryPort;
+
+        attribute numberOfCups : Integer = 12;
+        attribute cupCapacity : Mass_kg = 0.015;
+        attribute sealingForce : Force_N = 85.0;
+        attribute carouselIndex : Integer = 1;
+        attribute survivalTemperatureLow : Temperature_C = -120.0;
+        attribute survivalTemperatureHigh : Temperature_C = 70.0;
+
+        action def IndexCup {
+            in targetCup : Integer;
+        }
+
+        action def SealSample {
+            in item looseSample : RegolithSample;
+            out item sealedSample : RegolithSample;
+        }
+    }
+
+    part def DeliveryInterface {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port sampleIn : SamplePort;
+        port scienceDataOut : DataPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute deliveryAccuracy : Length_m = 0.003;
+        attribute actuatorPower : Power_W = 22.0;
+        attribute deliveryTime : Time_s = 12.0;
+
+        action def DeliverToInstrument {
+            in item sealedSample : RegolithSample;
+            out item packet : SciencePacket;
+        }
+    }
+
+    part def StructuralThermalAssembly {
+        attribute dryMass : Mass_kg = 6.8;
+        attribute operationalTemperatureLow : Temperature_C = -80.0;
+        attribute operationalTemperatureHigh : Temperature_C = 55.0;
+        attribute mountingEnvelopeLength : Length_m = 0.62;
+        attribute mountingEnvelopeWidth : Length_m = 0.38;
+        attribute mountingEnvelopeHeight : Length_m = 0.31;
+    }
+
+    part def HoneybeeInspiredPlanetarySampler {
+        port spacecraftPower : PowerPort;
+        port spacecraftCommand : CommandPort;
+        port spacecraftTelemetry : TelemetryPort;
+        port scienceData : DataPort;
+
+        part controller : AvionicsController;
+        part drill : RotaryPercussiveDrill;
+        part pneumaticTransfer : PneumaticTransferAssembly;
+        part carousel : SampleContainmentCarousel;
+        part delivery : DeliveryInterface;
+        part structure : StructuralThermalAssembly;
+
+        attribute systemDryMass : Mass_kg = 11.5;
+        attribute nominalSamplingPower : Power_W = 185.0;
+        attribute standbyPower : Power_W = 9.0;
+        attribute requiredSampleMass : Mass_kg = 0.010;
+        attribute maximumAcquisitionDepth : Length_m = 0.70;
+        attribute primaryFunction : String = "Acquire subsurface planetary regolith, preserve it in sealed containers, and deliver measured samples to onboard science instruments.";
+
+        connection power_to_controller connect spacecraftPower to controller.power;
+        connection power_to_drill connect spacecraftPower to drill.power;
+        connection power_to_transfer connect spacecraftPower to pneumaticTransfer.power;
+        connection power_to_carousel connect spacecraftPower to carousel.power;
+        connection power_to_delivery connect spacecraftPower to delivery.power;
+
+        connection command_to_controller connect spacecraftCommand to controller.commandIn;
+        connection command_to_drill connect spacecraftCommand to drill.commandIn;
+        connection command_to_transfer connect spacecraftCommand to pneumaticTransfer.commandIn;
+        connection command_to_carousel connect spacecraftCommand to carousel.commandIn;
+        connection command_to_delivery connect spacecraftCommand to delivery.commandIn;
+
+        connection drilled_sample_to_transfer connect drill.sampleOut to pneumaticTransfer.sampleIn;
+        connection transferred_sample_to_carousel connect pneumaticTransfer.sampleOut to carousel.sampleIn;
+        connection sealed_sample_to_delivery connect carousel.sampleOut to delivery.sampleIn;
+
+        connection controller_telemetry_to_spacecraft connect controller.telemetryOut to spacecraftTelemetry;
+        connection drill_telemetry_to_spacecraft connect drill.telemetryOut to spacecraftTelemetry;
+        connection transfer_telemetry_to_spacecraft connect pneumaticTransfer.telemetryOut to spacecraftTelemetry;
+        connection carousel_telemetry_to_spacecraft connect carousel.telemetryOut to spacecraftTelemetry;
+        connection delivery_telemetry_to_spacecraft connect delivery.telemetryOut to spacecraftTelemetry;
+        connection delivery_science_to_spacecraft connect delivery.scienceDataOut to scienceData;
+
+        action def AcquireAndDeliverSample {
+            in targetDepth : Length_m;
+            out item sciencePacket : SciencePacket;
+
+            first start;
+            then assessSite;
+            then drill.DrillIntoRegolith;
+            then drill.CaptureCore;
+            then pneumaticTransfer.PulseGas;
+            then pneumaticTransfer.MoveSample;
+            then carousel.IndexCup;
+            then carousel.SealSample;
+            then delivery.DeliverToInstrument;
+            then done;
+        }
+
+        state def MissionStateMachine {
+            state standby;
+            state siteAssessment;
+            state sampling;
+            state pneumaticTransfer;
+            state containment;
+            state delivery;
+            state completed;
+            state faultRecovery;
+            state safe;
+
+            initial then standby;
+
+            transition standby_to_siteAssessment
+                first standby
+                then siteAssessment
+                accept Command
+                if command.commandId == "BEGIN_SAMPLE_SEQUENCE";
+
+            transition siteAssessment_to_sampling
+                first siteAssessment
+                then sampling;
+
+            transition sampling_to_transfer
+                first sampling
+                then pneumaticTransfer
+                if sample.state == SampleState::captured;
+
+            transition transfer_to_containment
+                first pneumaticTransfer
+                then containment
+                if sample.state == SampleState::captured;
+
+            transition containment_to_delivery
+                first containment
+                then delivery
+                if sample.state == SampleState::sealed;
+
+            transition delivery_to_completed
+                first delivery
+                then completed
+                if sample.state == SampleState::delivered;
+
+            transition sampling_to_faultRecovery
+                first sampling
+                then faultRecovery
+                if drill.motorTorque > 8.0;
+
+            transition faultRecovery_to_sampling
+                first faultRecovery
+                then sampling
+                if drill.motorTorque <= 5.0;
+
+            transition any_to_safe
+                first faultRecovery
+                then safe
+                accept Command
+                if command.commandId == "SAFE_MODE";
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.primaryFunction == "Acquire subsurface planetary regolith, preserve it in sealed containers, and deliver measured samples to onboard science instruments."
+        }
+    }
+
+    requirement def SampleMassRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.requiredSampleMass >= 0.010
+        }
+    }
+
+    requirement def DepthRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.maximumAcquisitionDepth >= 0.50
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.nominalSamplingPower <= 200.0
+        }
+    }
+
+    requirement def ThermalSurvivalRequirement {
+        subject structure : StructuralThermalAssembly;
+
+        require constraint {
+            structure.operationalTemperatureLow <= -70.0 and
+            structure.operationalTemperatureHigh >= 50.0
+        }
+    }
+
+    requirement def SampleContainmentRequirement {
+        subject carousel : SampleContainmentCarousel;
+
+        require constraint {
+            carousel.numberOfCups >= 10 and
+            carousel.cupCapacity >= 0.010
+        }
+    }
+
+    requirement def DeliveryAccuracyRequirement {
+        subject delivery : DeliveryInterface;
+
+        require constraint {
+            delivery.deliveryAccuracy <= 0.005
+        }
+    }
+
+    part planetarySampler : HoneybeeInspiredPlanetarySampler;
+
+    satisfy PrimaryFunctionRequirement by planetarySampler;
+    satisfy SampleMassRequirement by planetarySampler;
+    satisfy DepthRequirement by planetarySampler;
+    satisfy PowerRequirement by planetarySampler;
+    satisfy ThermalSurvivalRequirement by planetarySampler.structure;
+    satisfy SampleContainmentRequirement by planetarySampler.carousel;
+    satisfy DeliveryAccuracyRequirement by planetarySampler.delivery;
+}
+tokens used
+3,809
+package HoneybeeRoboticsBasedSampleAcquisitionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Mass_kg :> Real {
+        unit = "kg";
+    }
+
+    attribute def Length_m :> Real {
+        unit = "m";
+    }
+
+    attribute def Time_s :> Real {
+        unit = "s";
+    }
+
+    attribute def Power_W :> Real {
+        unit = "W";
+    }
+
+    attribute def Voltage_V :> Real {
+        unit = "V";
+    }
+
+    attribute def Torque_Nm :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Force_N :> Real {
+        unit = "N";
+    }
+
+    attribute def Temperature_C :> Real {
+        unit = "degC";
+    }
+
+    attribute def Pressure_kPa :> Real {
+        unit = "kPa";
+    }
+
+    attribute def DataRate_Mbps :> Real {
+        unit = "Mbit/s";
+    }
+
+    enum def SampleState {
+        enum unsampled;
+        enum loosened;
+        enum captured;
+        enum sealed;
+        enum delivered;
+        enum rejected;
+    }
+
+    enum def MissionMode {
+        enum standby;
+        enum siteAssessment;
+        enum sampling;
+        enum transfer;
+        enum delivery;
+        enum faultRecovery;
+        enum safe;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage_V;
+        attribute power : Power_W;
+    }
+
+    item def Command {
+        attribute commandId : String;
+        attribute priority : Integer;
+    }
+
+    item def Telemetry {
+        attribute timeTag : Time_s;
+        attribute mode : MissionMode;
+        attribute healthCode : Integer;
+    }
+
+    item def DrillTelemetry :> Telemetry {
+        attribute bitDepth : Length_m;
+        attribute motorTorque : Torque_Nm;
+        attribute bitTemperature : Temperature_C;
+        attribute penetrationForce : Force_N;
+    }
+
+    item def RegolithSample {
+        attribute sampleId : String;
+        attribute mass : Mass_kg;
+        attribute grainSizeMean : Length_m;
+        attribute volatilePreservationTemperature : Temperature_C;
+        attribute state : SampleState;
+    }
+
+    item def GasPulse {
+        attribute pressure : Pressure_kPa;
+        attribute duration : Time_s;
+    }
+
+    item def SciencePacket {
+        attribute packetId : String;
+        attribute dataRate : DataRate_Mbps;
+        attribute sampleMass : Mass_kg;
+    }
+
+    port def PowerPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : Command;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : Telemetry;
+    }
+
+    port def DrillTelemetryPort {
+        out item drillTelemetry : DrillTelemetry;
+    }
+
+    port def SamplePort {
+        inout item sample : RegolithSample;
+    }
+
+    port def GasPort {
+        out item pulse : GasPulse;
+    }
+
+    port def DataPort {
+        out item packet : SciencePacket;
+    }
+
+    part def AvionicsController {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute processorPower : Power_W = 18.0;
+        attribute commandLatency : Time_s = 0.25;
+        attribute currentMode : MissionMode = MissionMode::standby;
+
+        action def InterpretCommand {
+            in item cmd : Command;
+            out modeRequest : MissionMode;
+        }
+
+        action def PublishHealth {
+            out item status : Telemetry;
+        }
+    }
+
+    part def RotaryPercussiveDrill {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port sampleOut : SamplePort;
+        port telemetryOut : DrillTelemetryPort;
+
+        attribute maxDepth : Length_m = 0.70;
+        attribute bitDiameter : Length_m = 0.025;
+        attribute peakPower : Power_W = 135.0;
+        attribute nominalTorque : Torque_Nm = 4.5;
+        attribute peakPercussiveForce : Force_N = 420.0;
+        attribute maxBitTemperature : Temperature_C = 85.0;
+
+        action def DrillIntoRegolith {
+            in targetDepth : Length_m;
+            out loosenedMass : Mass_kg;
+        }
+
+        action def CaptureCore {
+            in loosenedMass : Mass_kg;
+            out item core : RegolithSample;
+        }
+
+        state def DrillStateMachine {
+            state idle;
+            state preloading;
+            state drilling;
+            state coring;
+            state retracting;
+            state jamRecovery;
+            state complete;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_preloading
+                first idle
+                then preloading
+                accept Command
+                if command.commandId == "START_DRILL";
+
+            transition preloading_to_drilling
+                first preloading
+                then drilling
+                if penetrationForce >= 50.0;
+
+            transition drilling_to_coring
+                first drilling
+                then coring
+                if bitDepth >= 0.70;
+
+            transition coring_to_retracting
+                first coring
+                then retracting
+                if motorTorque <= 4.5;
+
+            transition retracting_to_complete
+                first retracting
+                then complete;
+
+            transition drilling_to_jamRecovery
+                first drilling
+                then jamRecovery
+                if motorTorque > 8.0;
+
+            transition jamRecovery_to_drilling
+                first jamRecovery
+                then drilling
+                if motorTorque <= 5.0;
+
+            transition any_to_fault
+                first drilling
+                then fault
+                if bitTemperature > 85.0;
+        }
+    }
+
+    part def PneumaticTransferAssembly {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port gasOut : GasPort;
+        port sampleIn : SamplePort;
+        port sampleOut : SamplePort;
+        port telemetryOut : TelemetryPort;
+
+        attribute tankPressure : Pressure_kPa = 520.0;
+        attribute pulsePressure : Pressure_kPa = 180.0;
+        attribute pulseDuration : Time_s = 0.8;
+        attribute transferTubeLength : Length_m = 0.45;
+        attribute peakPower : Power_W = 32.0;
+
+        action def PulseGas {
+            out item gas : GasPulse;
+        }
+
+        action def MoveSample {
+            in item capturedSample : RegolithSample;
+            in item transferPulse : GasPulse;
+            out item transferredSample : RegolithSample;
+        }
+    }
+
+    part def SampleContainmentCarousel {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port sampleIn : SamplePort;
+        port sampleOut : SamplePort;
+        port telemetryOut : TelemetryPort;
+
+        attribute numberOfCups : Integer = 12;
+        attribute cupCapacity : Mass_kg = 0.015;
+        attribute sealingForce : Force_N = 85.0;
+        attribute carouselIndex : Integer = 1;
+        attribute survivalTemperatureLow : Temperature_C = -120.0;
+        attribute survivalTemperatureHigh : Temperature_C = 70.0;
+
+        action def IndexCup {
+            in targetCup : Integer;
+        }
+
+        action def SealSample {
+            in item looseSample : RegolithSample;
+            out item sealedSample : RegolithSample;
+        }
+    }
+
+    part def DeliveryInterface {
+        port power : PowerPort;
+        port commandIn : CommandPort;
+        port sampleIn : SamplePort;
+        port scienceDataOut : DataPort;
+        port telemetryOut : TelemetryPort;
+
+        attribute deliveryAccuracy : Length_m = 0.003;
+        attribute actuatorPower : Power_W = 22.0;
+        attribute deliveryTime : Time_s = 12.0;
+
+        action def DeliverToInstrument {
+            in item sealedSample : RegolithSample;
+            out item packet : SciencePacket;
+        }
+    }
+
+    part def StructuralThermalAssembly {
+        attribute dryMass : Mass_kg = 6.8;
+        attribute operationalTemperatureLow : Temperature_C = -80.0;
+        attribute operationalTemperatureHigh : Temperature_C = 55.0;
+        attribute mountingEnvelopeLength : Length_m = 0.62;
+        attribute mountingEnvelopeWidth : Length_m = 0.38;
+        attribute mountingEnvelopeHeight : Length_m = 0.31;
+    }
+
+    part def HoneybeeInspiredPlanetarySampler {
+        port spacecraftPower : PowerPort;
+        port spacecraftCommand : CommandPort;
+        port spacecraftTelemetry : TelemetryPort;
+        port scienceData : DataPort;
+
+        part controller : AvionicsController;
+        part drill : RotaryPercussiveDrill;
+        part pneumaticTransfer : PneumaticTransferAssembly;
+        part carousel : SampleContainmentCarousel;
+        part delivery : DeliveryInterface;
+        part structure : StructuralThermalAssembly;
+
+        attribute systemDryMass : Mass_kg = 11.5;
+        attribute nominalSamplingPower : Power_W = 185.0;
+        attribute standbyPower : Power_W = 9.0;
+        attribute requiredSampleMass : Mass_kg = 0.010;
+        attribute maximumAcquisitionDepth : Length_m = 0.70;
+        attribute primaryFunction : String = "Acquire subsurface planetary regolith, preserve it in sealed containers, and deliver measured samples to onboard science instruments.";
+
+        connection power_to_controller connect spacecraftPower to controller.power;
+        connection power_to_drill connect spacecraftPower to drill.power;
+        connection power_to_transfer connect spacecraftPower to pneumaticTransfer.power;
+        connection power_to_carousel connect spacecraftPower to carousel.power;
+        connection power_to_delivery connect spacecraftPower to delivery.power;
+
+        connection command_to_controller connect spacecraftCommand to controller.commandIn;
+        connection command_to_drill connect spacecraftCommand to drill.commandIn;
+        connection command_to_transfer connect spacecraftCommand to pneumaticTransfer.commandIn;
+        connection command_to_carousel connect spacecraftCommand to carousel.commandIn;
+        connection command_to_delivery connect spacecraftCommand to delivery.commandIn;
+
+        connection drilled_sample_to_transfer connect drill.sampleOut to pneumaticTransfer.sampleIn;
+        connection transferred_sample_to_carousel connect pneumaticTransfer.sampleOut to carousel.sampleIn;
+        connection sealed_sample_to_delivery connect carousel.sampleOut to delivery.sampleIn;
+
+        connection controller_telemetry_to_spacecraft connect controller.telemetryOut to spacecraftTelemetry;
+        connection drill_telemetry_to_spacecraft connect drill.telemetryOut to spacecraftTelemetry;
+        connection transfer_telemetry_to_spacecraft connect pneumaticTransfer.telemetryOut to spacecraftTelemetry;
+        connection carousel_telemetry_to_spacecraft connect carousel.telemetryOut to spacecraftTelemetry;
+        connection delivery_telemetry_to_spacecraft connect delivery.telemetryOut to spacecraftTelemetry;
+        connection delivery_science_to_spacecraft connect delivery.scienceDataOut to scienceData;
+
+        action def AcquireAndDeliverSample {
+            in targetDepth : Length_m;
+            out item sciencePacket : SciencePacket;
+
+            first start;
+            then assessSite;
+            then drill.DrillIntoRegolith;
+            then drill.CaptureCore;
+            then pneumaticTransfer.PulseGas;
+            then pneumaticTransfer.MoveSample;
+            then carousel.IndexCup;
+            then carousel.SealSample;
+            then delivery.DeliverToInstrument;
+            then done;
+        }
+
+        state def MissionStateMachine {
+            state standby;
+            state siteAssessment;
+            state sampling;
+            state pneumaticTransfer;
+            state containment;
+            state delivery;
+            state completed;
+            state faultRecovery;
+            state safe;
+
+            initial then standby;
+
+            transition standby_to_siteAssessment
+                first standby
+                then siteAssessment
+                accept Command
+                if command.commandId == "BEGIN_SAMPLE_SEQUENCE";
+
+            transition siteAssessment_to_sampling
+                first siteAssessment
+                then sampling;
+
+            transition sampling_to_transfer
+                first sampling
+                then pneumaticTransfer
+                if sample.state == SampleState::captured;
+
+            transition transfer_to_containment
+                first pneumaticTransfer
+                then containment
+                if sample.state == SampleState::captured;
+
+            transition containment_to_delivery
+                first containment
+                then delivery
+                if sample.state == SampleState::sealed;
+
+            transition delivery_to_completed
+                first delivery
+                then completed
+                if sample.state == SampleState::delivered;
+
+            transition sampling_to_faultRecovery
+                first sampling
+                then faultRecovery
+                if drill.motorTorque > 8.0;
+
+            transition faultRecovery_to_sampling
+                first faultRecovery
+                then sampling
+                if drill.motorTorque <= 5.0;
+
+            transition any_to_safe
+                first faultRecovery
+                then safe
+                accept Command
+                if command.commandId == "SAFE_MODE";
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.primaryFunction == "Acquire subsurface planetary regolith, preserve it in sealed containers, and deliver measured samples to onboard science instruments."
+        }
+    }
+
+    requirement def SampleMassRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.requiredSampleMass >= 0.010
+        }
+    }
+
+    requirement def DepthRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.maximumAcquisitionDepth >= 0.50
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sampler : HoneybeeInspiredPlanetarySampler;
+
+        require constraint {
+            sampler.nominalSamplingPower <= 200.0
+        }
+    }
+
+    requirement def ThermalSurvivalRequirement {
+        subject structure : StructuralThermalAssembly;
+
+        require constraint {
+            structure.operationalTemperatureLow <= -70.0 and
+            structure.operationalTemperatureHigh >= 50.0
+        }
+    }
+
+    requirement def SampleContainmentRequirement {
+        subject carousel : SampleContainmentCarousel;
+
+        require constraint {
+            carousel.numberOfCups >= 10 and
+            carousel.cupCapacity >= 0.010
+        }
+    }
+
+    requirement def DeliveryAccuracyRequirement {
+        subject delivery : DeliveryInterface;
+
+        require constraint {
+            delivery.deliveryAccuracy <= 0.005
+        }
+    }
+
+    part planetarySampler : HoneybeeInspiredPlanetarySampler;
+
+    satisfy PrimaryFunctionRequirement by planetarySampler;
+    satisfy SampleMassRequirement by planetarySampler;
+    satisfy DepthRequirement by planetarySampler;
+    satisfy PowerRequirement by planetarySampler;
+    satisfy ThermalSurvivalRequirement by planetarySampler.structure;
+    satisfy SampleContainmentRequirement by planetarySampler.carousel;
+    satisfy DeliveryAccuracyRequirement by planetarySampler.delivery;
+}

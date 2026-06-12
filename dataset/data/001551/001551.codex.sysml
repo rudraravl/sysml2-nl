@@ -1,0 +1,585 @@
+package RoboticLocomotionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Percent :> Real {
+        unit = "%";
+    }
+
+    value def Meter :> Real {
+        unit = "m";
+    }
+
+    value def MeterPerSecond :> Real {
+        unit = "m/s";
+    }
+
+    value def RadianPerSecond :> Real {
+        unit = "rad/s";
+    }
+
+    value def Kilogram :> Real {
+        unit = "kg";
+    }
+
+    value def Newton :> Real {
+        unit = "N";
+    }
+
+    value def Watt :> Real {
+        unit = "W";
+    }
+
+    value def Volt :> Real {
+        unit = "V";
+    }
+
+    value def AmpereHour :> Real {
+        unit = "Ah";
+    }
+
+    value def Second :> Real {
+        unit = "s";
+    }
+
+    value def DegreeCelsius :> Real {
+        unit = "degC";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Real;
+        attribute power : Watt;
+    }
+
+    item def DriveCommand {
+        attribute targetLinearVelocity : MeterPerSecond;
+        attribute targetAngularVelocity : RadianPerSecond;
+        attribute maxAcceleration : Real;
+    }
+
+    item def WheelTorqueCommand {
+        attribute leftTorque : Newton;
+        attribute rightTorque : Newton;
+    }
+
+    item def PoseEstimate {
+        attribute x : Meter;
+        attribute y : Meter;
+        attribute heading : Real;
+        attribute confidence : Percent;
+    }
+
+    item def ObstacleMap {
+        attribute nearestObstacleDistance : Meter;
+        attribute localClearanceRadius : Meter;
+        attribute mapConfidence : Percent;
+    }
+
+    item def PayloadItem {
+        attribute payloadId : String;
+        attribute mass : Kilogram;
+        attribute width : Meter;
+        attribute length : Meter;
+        attribute height : Meter;
+    }
+
+    item def DiagnosticMessage {
+        attribute severity : String;
+        attribute source : String;
+        attribute message : String;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PowerOutPort {
+        out item power : ElectricalPower;
+    }
+
+    port def CommandInPort {
+        in item command : DriveCommand;
+    }
+
+    port def CommandOutPort {
+        out item command : DriveCommand;
+    }
+
+    port def TorqueCommandOutPort {
+        out item command : WheelTorqueCommand;
+    }
+
+    port def PoseOutPort {
+        out item pose : PoseEstimate;
+    }
+
+    port def MapOutPort {
+        out item map : ObstacleMap;
+    }
+
+    port def PayloadPort {
+        inout item payload : PayloadItem;
+    }
+
+    port def DiagnosticOutPort {
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Volt = 48.0;
+        attribute capacity : AmpereHour = 40.0;
+        attribute stateOfCharge : Percent;
+        attribute maxContinuousPower : Watt = 1800.0;
+        attribute minOperatingTemperature : DegreeCelsius = -10.0;
+        attribute maxOperatingTemperature : DegreeCelsius = 45.0;
+
+        port powerOut : PowerOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute conversionEfficiency : Percent = 94.0;
+        attribute regulatedLogicVoltage : Volt = 12.0;
+        attribute regulatedMotorVoltage : Volt = 48.0;
+
+        port batteryPowerIn : PowerInPort;
+        port motorPowerOut : PowerOutPort;
+        port logicPowerOut : PowerOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def WheelMotor {
+        attribute ratedPower : Watt = 650.0;
+        attribute peakTorque : Newton = 42.0;
+        attribute maxWheelSpeed : RadianPerSecond = 38.0;
+
+        port powerIn : PowerInPort;
+        port torqueCommandIn : CommandInPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def DifferentialDriveLocomotion {
+        attribute wheelRadius : Meter = 0.125;
+        attribute axleTrack : Meter = 0.58;
+        attribute maxLinearSpeed : MeterPerSecond = 1.6;
+        attribute maxAngularSpeed : RadianPerSecond = 2.1;
+        attribute obstacleStoppingDistance : Meter = 0.45;
+        attribute curbClimbHeight : Meter = 0.035;
+
+        port powerIn : PowerInPort;
+        port driveCommandIn : CommandInPort;
+        port torqueCommandOut : TorqueCommandOutPort;
+        port odometryOut : PoseOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        part leftMotor : WheelMotor;
+        part rightMotor : WheelMotor;
+
+        connection motorPowerLeft connect powerIn to leftMotor.powerIn;
+        connection motorPowerRight connect powerIn to rightMotor.powerIn;
+    }
+
+    part def LidarSensor {
+        attribute horizontalFieldOfView : Real = 270.0;
+        attribute maxRange : Meter = 18.0;
+        attribute minimumReliableRange : Meter = 0.08;
+        attribute scanRate : Real = 15.0;
+
+        port powerIn : PowerInPort;
+        port mapOut : MapOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute gyroNoiseDensity : Real = 0.005;
+        attribute accelNoiseDensity : Real = 0.03;
+
+        port powerIn : PowerInPort;
+        port poseOut : PoseOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def VisionCamera {
+        attribute frameRate : Real = 30.0;
+        attribute horizontalResolution : Integer = 1280;
+        attribute verticalResolution : Integer = 720;
+        attribute minimumIllumination : Real = 1.0;
+
+        port powerIn : PowerInPort;
+        port mapOut : MapOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def PerceptionSubsystem {
+        attribute fusionUpdatePeriod : Second = 0.05;
+        attribute minimumObstacleConfidence : Percent = 85.0;
+
+        port powerIn : PowerInPort;
+        port obstacleMapOut : MapOutPort;
+        port poseOut : PoseOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        part lidar : LidarSensor;
+        part imu : InertialMeasurementUnit;
+        part camera : VisionCamera;
+
+        connection lidarPower connect powerIn to lidar.powerIn;
+        connection imuPower connect powerIn to imu.powerIn;
+        connection cameraPower connect powerIn to camera.powerIn;
+    }
+
+    part def PayloadLift {
+        attribute ratedPayloadMass : Kilogram = 20.0;
+        attribute liftStroke : Meter = 0.18;
+        attribute liftTime : Second = 2.5;
+        attribute holdPower : Watt = 45.0;
+
+        port powerIn : PowerInPort;
+        port payloadInterface : PayloadPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def MissionController {
+        attribute controlLoopPeriod : Second = 0.02;
+        attribute routeReplanPeriod : Second = 0.5;
+        attribute minimumAllowedBattery : Percent = 15.0;
+        attribute arrivalTolerance : Meter = 0.12;
+
+        port logicPowerIn : PowerInPort;
+        port poseIn : PoseOutPort;
+        port mapIn : MapOutPort;
+        port driveCommandOut : CommandOutPort;
+        port payloadInterface : PayloadPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def EmergencyStopSystem {
+        attribute stopLatency : Second = 0.12;
+        attribute brakingDistanceAtMaxSpeed : Meter = 0.32;
+
+        port powerIn : PowerInPort;
+        port diagnosticOut : DiagnosticOutPort;
+    }
+
+    part def MobileServiceRobot {
+        attribute totalMassWithoutPayload : Kilogram = 54.0;
+        attribute maximumPayloadMass : Kilogram = 20.0;
+        attribute maximumOperatingSpeed : MeterPerSecond = 1.6;
+        attribute minimumRuntimeAtNominalTask : Second = 14400.0;
+
+        port payloadBay : PayloadPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        part battery : BatteryPack;
+        part powerDistribution : PowerDistributionUnit;
+        part locomotion : DifferentialDriveLocomotion;
+        part perception : PerceptionSubsystem;
+        part payloadLift : PayloadLift;
+        part controller : MissionController;
+        part emergencyStop : EmergencyStopSystem;
+
+        connection batteryToPdu connect battery.powerOut to powerDistribution.batteryPowerIn;
+        connection motorPowerToLocomotion connect powerDistribution.motorPowerOut to locomotion.powerIn;
+        connection logicPowerToPerception connect powerDistribution.logicPowerOut to perception.powerIn;
+        connection logicPowerToController connect powerDistribution.logicPowerOut to controller.logicPowerIn;
+        connection liftPower connect powerDistribution.motorPowerOut to payloadLift.powerIn;
+        connection emergencyPower connect powerDistribution.logicPowerOut to emergencyStop.powerIn;
+
+        connection perceptionPoseToController connect perception.poseOut to controller.poseIn;
+        connection perceptionMapToController connect perception.obstacleMapOut to controller.mapIn;
+        connection controllerToLocomotion connect controller.driveCommandOut to locomotion.driveCommandIn;
+        connection payloadBayToLift connect payloadBay to payloadLift.payloadInterface;
+        connection payloadLiftToController connect payloadLift.payloadInterface to controller.payloadInterface;
+    }
+
+    action def NavigateToPickup {
+        in startPose : PoseEstimate;
+        in targetPickupPose : PoseEstimate;
+        in obstacleMap : ObstacleMap;
+        out commandedMotion : DriveCommand;
+
+        first planLocalRoute;
+        then followRoute;
+        then verifyArrival;
+
+        action planLocalRoute;
+        action followRoute;
+        action verifyArrival;
+    }
+
+    action def AcquirePayload {
+        in payload : PayloadItem;
+        out securedPayload : PayloadItem;
+
+        first alignWithPayload;
+        then lowerLift;
+        then engagePayload;
+        then raiseLift;
+        then verifyPayloadSecured;
+
+        action alignWithPayload;
+        action lowerLift;
+        action engagePayload;
+        action raiseLift;
+        action verifyPayloadSecured;
+    }
+
+    action def TransportPayload {
+        in securedPayload : PayloadItem;
+        in destinationPose : PoseEstimate;
+        in obstacleMap : ObstacleMap;
+        out commandedMotion : DriveCommand;
+
+        first computePayloadAwarePath;
+        then driveWithPayloadSpeedLimit;
+        then avoidDynamicObstacles;
+        then verifyDestinationArrival;
+
+        action computePayloadAwarePath;
+        action driveWithPayloadSpeedLimit;
+        action avoidDynamicObstacles;
+        action verifyDestinationArrival;
+    }
+
+    action def ReleasePayload {
+        in securedPayload : PayloadItem;
+        out releasedPayload : PayloadItem;
+
+        first lowerLiftAtDestination;
+        then disengagePayload;
+        then reverseClearanceDistance;
+        then verifyPayloadReleased;
+
+        action lowerLiftAtDestination;
+        action disengagePayload;
+        action reverseClearanceDistance;
+        action verifyPayloadReleased;
+    }
+
+    action def ExecutePrimaryTransportTask {
+        in requestedPayload : PayloadItem;
+        in pickupPose : PoseEstimate;
+        in destinationPose : PoseEstimate;
+        out deliveredPayload : PayloadItem;
+
+        first navigateToPickup : NavigateToPickup;
+        then acquirePayload : AcquirePayload;
+        then transportPayload : TransportPayload;
+        then releasePayload : ReleasePayload;
+    }
+
+    state def RobotOperationalState {
+        entry action initializeDiagnostics;
+        exit action writeMissionLog;
+
+        state Off;
+        state Booting;
+        state Idle;
+        state PlanningMission;
+        state NavigatingToPickup;
+        state AcquiringPayload;
+        state TransportingPayload;
+        state ReleasingPayload;
+        state ReturningToDock;
+        state Charging;
+        state Faulted;
+        state EmergencyStopped;
+
+        transition initial then Off;
+        transition powerApplied
+            first Off
+            then Booting;
+
+        transition bootComplete
+            first Booting
+            then Idle;
+
+        transition missionAccepted
+            first Idle
+            then PlanningMission;
+
+        transition routeReady
+            first PlanningMission
+            then NavigatingToPickup;
+
+        transition pickupReached
+            first NavigatingToPickup
+            then AcquiringPayload;
+
+        transition payloadSecured
+            first AcquiringPayload
+            then TransportingPayload;
+
+        transition destinationReached
+            first TransportingPayload
+            then ReleasingPayload;
+
+        transition payloadReleased
+            first ReleasingPayload
+            then ReturningToDock;
+
+        transition dockReached
+            first ReturningToDock
+            then Charging;
+
+        transition chargeComplete
+            first Charging
+            then Idle;
+
+        transition recoverableFaultDetected
+            first Idle
+            then Faulted;
+
+        transition missionFaultDetected
+            first NavigatingToPickup
+            then Faulted;
+
+        transition payloadFaultDetected
+            first AcquiringPayload
+            then Faulted;
+
+        transition transportFaultDetected
+            first TransportingPayload
+            then Faulted;
+
+        transition emergencyStopPressed
+            first Off
+            then EmergencyStopped;
+
+        transition emergencyStopDuringMission
+            first TransportingPayload
+            then EmergencyStopped;
+
+        transition resetAfterEmergency
+            first EmergencyStopped
+            then Booting;
+
+        action initializeDiagnostics;
+        action writeMissionLog;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject robot : MobileServiceRobot;
+
+        require constraint {
+            robot.maximumPayloadMass >= 20.0
+        }
+
+        require constraint {
+            robot.maximumOperatingSpeed >= 1.2
+        }
+    }
+
+    requirement def LocomotionRequirement {
+        subject locomotion : DifferentialDriveLocomotion;
+
+        require constraint {
+            locomotion.maxLinearSpeed >= 1.5
+        }
+
+        require constraint {
+            locomotion.maxAngularSpeed >= 2.0
+        }
+
+        require constraint {
+            locomotion.obstacleStoppingDistance <= 0.50
+        }
+    }
+
+    requirement def PayloadHandlingRequirement {
+        subject lift : PayloadLift;
+
+        require constraint {
+            lift.ratedPayloadMass >= 20.0
+        }
+
+        require constraint {
+            lift.liftTime <= 3.0
+        }
+    }
+
+    requirement def RuntimeRequirement {
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.nominalVoltage == 48.0
+        }
+
+        require constraint {
+            battery.capacity >= 35.0
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject emergencyStop : EmergencyStopSystem;
+
+        require constraint {
+            emergencyStop.stopLatency <= 0.15
+        }
+
+        require constraint {
+            emergencyStop.brakingDistanceAtMaxSpeed <= 0.35
+        }
+    }
+
+    requirement def PerceptionRequirement {
+        subject perception : PerceptionSubsystem;
+
+        require constraint {
+            perception.minimumObstacleConfidence >= 80.0
+        }
+
+        require constraint {
+            perception.fusionUpdatePeriod <= 0.10
+        }
+    }
+
+    requirement def MissionAccuracyRequirement {
+        subject controller : MissionController;
+
+        require constraint {
+            controller.arrivalTolerance <= 0.15
+        }
+
+        require constraint {
+            controller.controlLoopPeriod <= 0.025
+        }
+    }
+
+    satisfy primaryTaskSatisfiedByRobot
+        by MobileServiceRobot
+        satisfy PrimaryTaskRequirement;
+
+    satisfy locomotionSatisfiedByDrive
+        by DifferentialDriveLocomotion
+        satisfy LocomotionRequirement;
+
+    satisfy payloadSatisfiedByLift
+        by PayloadLift
+        satisfy PayloadHandlingRequirement;
+
+    satisfy runtimeSatisfiedByBattery
+        by BatteryPack
+        satisfy RuntimeRequirement;
+
+    satisfy safetySatisfiedByEmergencyStop
+        by EmergencyStopSystem
+        satisfy SafetyRequirement;
+
+    satisfy perceptionSatisfiedByPerceptionSubsystem
+        by PerceptionSubsystem
+        satisfy PerceptionRequirement;
+
+    satisfy missionAccuracySatisfiedByController
+        by MissionController
+        satisfy MissionAccuracyRequirement;
+
+    part serviceRobot : MobileServiceRobot;
+
+    action primaryTransportTask : ExecutePrimaryTransportTask;
+
+    state robotStateMachine : RobotOperationalState;
+}

@@ -1,0 +1,372 @@
+package ElectronicsSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def DataRate :> Real {
+        unit = "bit/s";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def RegulatedPower :> ElectricalEnergy {
+        attribute rippleVoltage : Voltage;
+        attribute regulationEfficiency : Percentage;
+    }
+
+    item def SensorSignal {
+        attribute amplitude : Voltage;
+        attribute samplingFrequency : Frequency;
+    }
+
+    item def ProcessedData {
+        attribute dataRate : DataRate;
+        attribute packetIntegrity : Percentage;
+    }
+
+    item def UserCommand {
+        attribute commandCode : Integer;
+        attribute priority : Integer;
+    }
+
+    item def StatusMessage {
+        attribute operatingMode : String;
+        attribute faultCode : Integer;
+        attribute internalTemperature : Temperature;
+    }
+
+    port def PowerInputPort {
+        in item inputEnergy : ElectricalEnergy;
+    }
+
+    port def PowerOutputPort {
+        out item outputPower : RegulatedPower;
+    }
+
+    port def SignalInputPort {
+        in item signalIn : SensorSignal;
+    }
+
+    port def DataOutputPort {
+        out item dataOut : ProcessedData;
+    }
+
+    port def CommandInputPort {
+        in item commandIn : UserCommand;
+    }
+
+    port def StatusOutputPort {
+        out item statusOut : StatusMessage;
+    }
+
+    part def ElectronicsController {
+        attribute nominalInputVoltage : Voltage = 12.0;
+        attribute regulatedVoltage : Voltage = 5.0;
+        attribute standbyPower : Power = 0.8;
+        attribute maximumOperatingPower : Power = 35.0;
+        attribute operatingTemperature : Temperature;
+        attribute bootTime : TimeDuration = 2.5;
+
+        port externalPowerIn : PowerInputPort;
+        port commandPort : CommandInputPort;
+        port sensorPort : SignalInputPort;
+        port dataPort : DataOutputPort;
+        port statusPort : StatusOutputPort;
+
+        part powerSubsystem : PowerManagementUnit;
+        part processingSubsystem : ProcessingUnit;
+        part sensingInterface : SensorInterface;
+        part communicationSubsystem : CommunicationInterface;
+        part thermalSubsystem : ThermalManagementUnit;
+        part enclosure : ProtectiveEnclosure;
+
+        connection powerToManagement
+            connect externalPowerIn to powerSubsystem.rawPowerIn;
+
+        connection regulatedPowerToProcessor
+            connect powerSubsystem.logicPowerOut to processingSubsystem.powerIn;
+
+        connection regulatedPowerToSensorInterface
+            connect powerSubsystem.logicPowerOut to sensingInterface.powerIn;
+
+        connection regulatedPowerToCommunication
+            connect powerSubsystem.logicPowerOut to communicationSubsystem.powerIn;
+
+        connection regulatedPowerToThermalControl
+            connect powerSubsystem.logicPowerOut to thermalSubsystem.powerIn;
+
+        connection externalSignalToSensorInterface
+            connect sensorPort to sensingInterface.sensorSignalIn;
+
+        connection conditionedSignalToProcessor
+            connect sensingInterface.conditionedSignalOut to processingSubsystem.signalIn;
+
+        connection externalCommandToProcessor
+            connect commandPort to processingSubsystem.commandIn;
+
+        connection processorDataToCommunication
+            connect processingSubsystem.processedDataOut to communicationSubsystem.dataIn;
+
+        connection communicationToExternalData
+            connect communicationSubsystem.dataOut to dataPort;
+
+        connection processorStatusToExternalStatus
+            connect processingSubsystem.statusOut to statusPort;
+
+        connection processorThermalFeedback
+            connect processingSubsystem.thermalStatusOut to thermalSubsystem.temperatureIn;
+
+        perform action primaryFunction;
+
+        state def OperatingStateMachine {
+            state off;
+            state booting;
+            state standby;
+            state activeProcessing;
+            state fault;
+            state shutdown;
+
+            entry action initializeElectronics;
+            transition first off then booting
+                accept PowerApplied;
+
+            transition bootComplete first booting then standby
+                accept BootCompleted;
+
+            transition activate first standby then activeProcessing
+                accept ValidUserCommand;
+
+            transition idle first activeProcessing then standby
+                accept ProcessingComplete;
+
+            transition faultDetected first standby then fault
+                accept FaultDetected;
+
+            transition processingFault first activeProcessing then fault
+                accept FaultDetected;
+
+            transition recover first fault then booting
+                accept ResetCommand;
+
+            transition powerRemoved first standby then shutdown
+                accept PowerRemoved;
+
+            transition activePowerRemoved first activeProcessing then shutdown
+                accept PowerRemoved;
+
+            transition shutdownComplete first shutdown then off
+                accept ShutdownCompleted;
+        }
+    }
+
+    part def PowerManagementUnit {
+        attribute inputVoltageRangeMinimum : Voltage = 9.0;
+        attribute inputVoltageRangeMaximum : Voltage = 24.0;
+        attribute outputVoltage : Voltage = 5.0;
+        attribute outputCurrentLimit : Current = 4.0;
+        attribute conversionEfficiency : Percentage = 92.0;
+
+        port rawPowerIn : PowerInputPort;
+        port logicPowerOut : PowerOutputPort;
+
+        action regulatePower {
+            in item rawEnergy : ElectricalEnergy;
+            out item cleanPower : RegulatedPower;
+        }
+    }
+
+    part def ProcessingUnit {
+        attribute clockFrequency : Frequency = 120000000.0;
+        attribute coreVoltage : Voltage = 1.2;
+        attribute memoryCapacityMB : Integer = 512;
+        attribute processorUtilization : Percentage;
+        attribute localTemperature : Temperature;
+
+        port powerIn : PowerInputPort;
+        port signalIn : SignalInputPort;
+        port commandIn : CommandInputPort;
+        port processedDataOut : DataOutputPort;
+        port statusOut : StatusOutputPort;
+        port thermalStatusOut : StatusOutputPort;
+
+        action executeControlLogic {
+            in item command : UserCommand;
+            in item measuredSignal : SensorSignal;
+            out item result : ProcessedData;
+            out item status : StatusMessage;
+        }
+
+        action diagnoseFaults {
+            in item status : StatusMessage;
+            out faultPresent : Boolean;
+        }
+    }
+
+    part def SensorInterface {
+        attribute analogInputRangeMinimum : Voltage = 0.0;
+        attribute analogInputRangeMaximum : Voltage = 3.3;
+        attribute sampleRate : Frequency = 10000.0;
+        attribute conversionResolutionBits : Integer = 12;
+
+        port powerIn : PowerInputPort;
+        port sensorSignalIn : SignalInputPort;
+        port conditionedSignalOut : SignalInputPort;
+
+        action conditionAndSampleSignal {
+            in item rawSignal : SensorSignal;
+            out item sampledSignal : SensorSignal;
+        }
+    }
+
+    part def CommunicationInterface {
+        attribute supportedDataRate : DataRate = 1000000.0;
+        attribute transmitVoltageLevel : Voltage = 3.3;
+        attribute packetErrorRate : Percentage;
+
+        port powerIn : PowerInputPort;
+        port dataIn : DataOutputPort;
+        port dataOut : DataOutputPort;
+
+        action transmitData {
+            in item processedPayload : ProcessedData;
+            out item externalPayload : ProcessedData;
+        }
+    }
+
+    part def ThermalManagementUnit {
+        attribute maximumSafeTemperature : Temperature = 85.0;
+        attribute fanActivationTemperature : Temperature = 60.0;
+        attribute heatDissipationCapacity : Power = 20.0;
+
+        port powerIn : PowerInputPort;
+        port temperatureIn : StatusOutputPort;
+
+        action controlCooling {
+            in measuredTemperature : Temperature;
+            out coolingEnabled : Boolean;
+        }
+    }
+
+    part def ProtectiveEnclosure {
+        attribute ingressProtectionRating : String = "IP54";
+        attribute material : String = "anodized aluminum";
+        attribute massGrams : Real = 420.0;
+        attribute maximumSurfaceTemperature : Temperature = 55.0;
+    }
+
+    action def ConvertElectricalInputToUsefulElectronicOutput {
+        in item inputEnergy : ElectricalEnergy;
+        in item command : UserCommand;
+        in item sensorMeasurement : SensorSignal;
+        out item outputData : ProcessedData;
+        out item operatingStatus : StatusMessage;
+
+        first start;
+        then regulatePower;
+        then acquireSignal;
+        then processInformation;
+        then transmitResult;
+        then reportStatus;
+        then done;
+
+        action regulatePower : PowerManagementUnit::regulatePower;
+        action acquireSignal : SensorInterface::conditionAndSampleSignal;
+        action processInformation : ProcessingUnit::executeControlLogic;
+        action transmitResult : CommunicationInterface::transmitData;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject electronics : ElectronicsController;
+
+        require constraint {
+            electronics shall convert supplied electrical energy, user commands, and sensor signals into regulated power, processed digital information, and status outputs.
+        }
+    }
+
+    requirement def PowerRegulationRequirement {
+        subject pwr : PowerManagementUnit;
+
+        require constraint {
+            pwr.outputVoltage >= 4.75 and pwr.outputVoltage <= 5.25
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject thermal : ThermalManagementUnit;
+
+        require constraint {
+            thermal.maximumSafeTemperature <= 85.0
+        }
+    }
+
+    requirement def DataOutputRequirement {
+        subject comms : CommunicationInterface;
+
+        require constraint {
+            comms.supportedDataRate >= 1000000.0
+        }
+    }
+
+    requirement def SignalAcquisitionRequirement {
+        subject sensor : SensorInterface;
+
+        require constraint {
+            sensor.sampleRate >= 10000.0 and sensor.conversionResolutionBits >= 12
+        }
+    }
+
+    part electronicsSystem : ElectronicsController {
+        attribute nominalInputVoltage = 12.0;
+        attribute regulatedVoltage = 5.0;
+        attribute maximumOperatingPower = 35.0;
+
+        satisfy PrimaryFunctionRequirement by electronicsSystem;
+        satisfy PowerRegulationRequirement by powerSubsystem;
+        satisfy ThermalSafetyRequirement by thermalSubsystem;
+        satisfy DataOutputRequirement by communicationSubsystem;
+        satisfy SignalAcquisitionRequirement by sensingInterface;
+    }
+
+    view def ElectronicsSystemHighLevelView {
+        expose electronicsSystem;
+        expose electronicsSystem.powerSubsystem;
+        expose electronicsSystem.processingSubsystem;
+        expose electronicsSystem.sensingInterface;
+        expose electronicsSystem.communicationSubsystem;
+        expose electronicsSystem.thermalSubsystem;
+        expose electronicsSystem.primaryFunction;
+    }
+
+}

@@ -1,0 +1,371 @@
+package MechanicalEnergySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Mass :> Real {
+        unit = "kg";
+    }
+
+    attribute def Length :> Real {
+        unit = "m";
+    }
+
+    attribute def Time :> Real {
+        unit = "s";
+    }
+
+    attribute def AngularVelocity :> Real {
+        unit = "rad/s";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Force :> Real {
+        unit = "N";
+    }
+
+    attribute def Energy :> Real {
+        unit = "J";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Efficiency :> Real {
+        unit = "1";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    item def MechanicalEnergy {
+        attribute kineticEnergy : Energy;
+        attribute rotationalSpeed : AngularVelocity;
+        attribute torque : Torque;
+        attribute power : Power;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real { unit = "V"; }
+        attribute current : Real { unit = "A"; }
+        attribute power : Power;
+    }
+
+    item def ThermalEnergy {
+        attribute heatFlow : Power;
+        attribute temperature : Temperature;
+    }
+
+    port def RotationalMechanicalPort {
+        out item mechanicalEnergy : MechanicalEnergy;
+        attribute shaftSpeed : AngularVelocity;
+        attribute shaftTorque : Torque;
+    }
+
+    port def ElectricalPowerPort {
+        in item electricalEnergy : ElectricalEnergy;
+        attribute voltage : Real { unit = "V"; }
+        attribute current : Real { unit = "A"; }
+    }
+
+    port def ThermalPort {
+        out item wasteHeat : ThermalEnergy;
+        attribute surfaceTemperature : Temperature;
+    }
+
+    port def ControlPort {
+        in item startCommand : Boolean;
+        in item stopCommand : Boolean;
+        out item systemReady : Boolean;
+        out item faultActive : Boolean;
+    }
+
+    part def FlywheelRotor {
+        attribute rotorMass : Mass = 42.0;
+        attribute rotorRadius : Length = 0.32;
+        attribute momentOfInertia : Real { unit = "kg*m^2"; } = 2.15;
+        attribute maximumSpeed : AngularVelocity = 1256.0;
+        attribute storedEnergy : Energy;
+        attribute currentSpeed : AngularVelocity;
+
+        port shaftPort : RotationalMechanicalPort;
+
+        action computeStoredEnergy {
+            in angularSpeed : AngularVelocity;
+            out energy : Energy;
+        }
+    }
+
+    part def BearingAssembly {
+        attribute radialLoadCapacity : Force = 18000.0;
+        attribute frictionTorque : Torque = 0.08;
+        attribute bearingTemperature : Temperature;
+        attribute serviceEfficiency : Efficiency = 0.985;
+
+        port rotorSide : RotationalMechanicalPort;
+        port housingSide : RotationalMechanicalPort;
+        port heatPort : ThermalPort;
+    }
+
+    part def ClutchCoupler {
+        attribute engaged : Boolean = false;
+        attribute maximumTransferTorque : Torque = 180.0;
+        attribute slipPowerLoss : Power;
+        attribute engagementTime : Time = 0.45;
+
+        port inputShaft : RotationalMechanicalPort;
+        port outputShaft : RotationalMechanicalPort;
+        port control : ControlPort;
+
+        action engage {
+            out engagementConfirmed : Boolean;
+        }
+
+        action disengage {
+            out disengagementConfirmed : Boolean;
+        }
+    }
+
+    part def Gearbox {
+        attribute gearRatio : Real = 3.6;
+        attribute nominalEfficiency : Efficiency = 0.94;
+        attribute inputSpeed : AngularVelocity;
+        attribute outputSpeed : AngularVelocity;
+        attribute inputTorque : Torque;
+        attribute outputTorque : Torque;
+
+        port highSpeedShaft : RotationalMechanicalPort;
+        port lowSpeedShaft : RotationalMechanicalPort;
+        port heatPort : ThermalPort;
+
+        action transformRotationalEnergy {
+            in sourceEnergy : MechanicalEnergy;
+            out conditionedEnergy : MechanicalEnergy;
+        }
+    }
+
+    part def MechanicalLoad {
+        attribute requiredTorque : Torque = 52.0;
+        attribute operatingSpeed : AngularVelocity = 210.0;
+        attribute absorbedPower : Power;
+
+        port driveShaft : RotationalMechanicalPort;
+
+        action performUsefulWork {
+            in deliveredEnergy : MechanicalEnergy;
+            out usefulWork : Energy;
+        }
+    }
+
+    part def MotorGenerator {
+        attribute ratedElectricalPower : Power = 8000.0;
+        attribute conversionEfficiency : Efficiency = 0.91;
+        attribute generatedPower : Power;
+        attribute motoringPower : Power;
+
+        port electricalPort : ElectricalPowerPort;
+        port rotorPort : RotationalMechanicalPort;
+        port heatPort : ThermalPort;
+
+        action convertElectricalToMechanical {
+            in electricalInput : ElectricalEnergy;
+            out mechanicalOutput : MechanicalEnergy;
+        }
+
+        action convertMechanicalToElectrical {
+            in mechanicalInput : MechanicalEnergy;
+            out electricalOutput : ElectricalEnergy;
+        }
+    }
+
+    part def Controller {
+        attribute targetSpeed : AngularVelocity = 900.0;
+        attribute minimumOperatingSpeed : AngularVelocity = 250.0;
+        attribute overspeedLimit : AngularVelocity = 1256.0;
+        attribute faultLatched : Boolean = false;
+
+        port operatorPort : ControlPort;
+        port clutchPort : ControlPort;
+
+        action evaluateStartPermission {
+            in measuredSpeed : AngularVelocity;
+            in measuredTemperature : Temperature;
+            out permitted : Boolean;
+        }
+
+        action monitorProtectionLimits {
+            in measuredSpeed : AngularVelocity;
+            in bearingTemperature : Temperature;
+            out tripRequired : Boolean;
+        }
+    }
+
+    part def MechanicalEnergyStorageDrive {
+        attribute totalStoredEnergy : Energy;
+        attribute deliveredMechanicalPower : Power;
+        attribute roundTripEfficiency : Efficiency = 0.84;
+        attribute primaryFunction : String = "Store rotational mechanical energy in a flywheel and deliver controlled shaft power to a mechanical load.";
+
+        port electricalChargingPort : ElectricalPowerPort;
+        port outputMechanicalPort : RotationalMechanicalPort;
+        port operatorControlPort : ControlPort;
+        port thermalRejectionPort : ThermalPort;
+
+        part rotor : FlywheelRotor;
+        part bearings : BearingAssembly;
+        part clutch : ClutchCoupler;
+        part gearbox : Gearbox;
+        part loadInterface : MechanicalLoad;
+        part motorGenerator : MotorGenerator;
+        part controller : Controller;
+
+        connect electricalChargingPort to motorGenerator.electricalPort;
+        connect motorGenerator.rotorPort to rotor.shaftPort;
+        connect rotor.shaftPort to bearings.rotorSide;
+        connect bearings.housingSide to clutch.inputShaft;
+        connect clutch.outputShaft to gearbox.highSpeedShaft;
+        connect gearbox.lowSpeedShaft to loadInterface.driveShaft;
+        connect loadInterface.driveShaft to outputMechanicalPort;
+        connect operatorControlPort to controller.operatorPort;
+        connect controller.clutchPort to clutch.control;
+        connect motorGenerator.heatPort to thermalRejectionPort;
+        connect bearings.heatPort to thermalRejectionPort;
+        connect gearbox.heatPort to thermalRejectionPort;
+
+        state def OperatingStateMachine {
+            state Off;
+            state Standby;
+            state Charging;
+            state Ready;
+            state Discharging;
+            state Fault;
+
+            transition initial then Off;
+
+            transition Off_to_Standby
+                first Off
+                accept operatorControlPort.startCommand
+                then Standby;
+
+            transition Standby_to_Charging
+                first Standby
+                if controller.faultLatched == false
+                then Charging;
+
+            transition Charging_to_Ready
+                first Charging
+                if rotor.currentSpeed >= controller.targetSpeed
+                then Ready;
+
+            transition Ready_to_Discharging
+                first Ready
+                if clutch.engaged == true
+                then Discharging;
+
+            transition Discharging_to_Ready
+                first Discharging
+                if rotor.currentSpeed > controller.minimumOperatingSpeed and clutch.engaged == false
+                then Ready;
+
+            transition Ready_to_Off
+                first Ready
+                accept operatorControlPort.stopCommand
+                then Off;
+
+            transition Discharging_to_Off
+                first Discharging
+                accept operatorControlPort.stopCommand
+                then Off;
+
+            transition Any_to_Fault
+                first Off, Standby, Charging, Ready, Discharging
+                if rotor.currentSpeed > controller.overspeedLimit or bearings.bearingTemperature > 95.0
+                then Fault;
+
+            transition Fault_to_Off
+                first Fault
+                if controller.faultLatched == false and operatorControlPort.stopCommand == true
+                then Off;
+        }
+
+        action chargeFlywheel {
+            in chargingPower : ElectricalEnergy;
+            out storedMechanicalEnergy : MechanicalEnergy;
+        }
+
+        action deliverShaftPower {
+            in requestedTorque : Torque;
+            in requestedSpeed : AngularVelocity;
+            out deliveredEnergy : MechanicalEnergy;
+        }
+
+        action rejectWasteHeat {
+            in lossPower : Power;
+            out thermalOutput : ThermalEnergy;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall store mechanical energy as rotational kinetic energy and deliver regulated rotational shaft power to an external mechanical load. */
+        subject system : MechanicalEnergyStorageDrive;
+    }
+
+    requirement def EnergyStorageRequirement {
+        doc /* The flywheel rotor shall store at least 85000 J of usable rotational mechanical energy at the target speed. */
+        subject rotor : FlywheelRotor;
+        require constraint { rotor.storedEnergy >= 85000.0 }
+    }
+
+    requirement def PowerDeliveryRequirement {
+        doc /* The system shall deliver at least 6000 W of mechanical output power through the output shaft during discharge. */
+        subject system : MechanicalEnergyStorageDrive;
+        require constraint { system.deliveredMechanicalPower >= 6000.0 }
+    }
+
+    requirement def OverspeedProtectionRequirement {
+        doc /* The controller shall command a fault state when rotor speed exceeds the overspeed limit. */
+        subject controller : Controller;
+        require constraint { controller.overspeedLimit <= 1256.0 }
+    }
+
+    requirement def EfficiencyRequirement {
+        doc /* The mechanical energy storage drive shall maintain round-trip efficiency of at least 80 percent. */
+        subject system : MechanicalEnergyStorageDrive;
+        require constraint { system.roundTripEfficiency >= 0.80 }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc /* Bearing assembly operating temperature shall remain below 95 degC during normal operation. */
+        subject bearings : BearingAssembly;
+        require constraint { bearings.bearingTemperature < 95.0 }
+    }
+
+    requirement def TorqueTransferRequirement {
+        doc /* The clutch coupler shall transfer the required load torque without exceeding its rated torque capacity. */
+        subject clutch : ClutchCoupler;
+        require constraint { clutch.maximumTransferTorque >= 180.0 }
+    }
+
+    requirement def ControlledOutputRequirement {
+        doc /* The gearbox shall condition flywheel shaft speed into load-compatible output speed while preserving useful mechanical energy flow. */
+        subject gearbox : Gearbox;
+        require constraint { gearbox.nominalEfficiency >= 0.90 }
+    }
+
+    part mechanicalEnergyStorageDrive : MechanicalEnergyStorageDrive;
+
+    satisfy PrimaryFunctionRequirement by mechanicalEnergyStorageDrive;
+    satisfy EnergyStorageRequirement by mechanicalEnergyStorageDrive.rotor;
+    satisfy PowerDeliveryRequirement by mechanicalEnergyStorageDrive;
+    satisfy OverspeedProtectionRequirement by mechanicalEnergyStorageDrive.controller;
+    satisfy EfficiencyRequirement by mechanicalEnergyStorageDrive;
+    satisfy ThermalSafetyRequirement by mechanicalEnergyStorageDrive.bearings;
+    satisfy TorqueTransferRequirement by mechanicalEnergyStorageDrive.clutch;
+    satisfy ControlledOutputRequirement by mechanicalEnergyStorageDrive.gearbox;
+}

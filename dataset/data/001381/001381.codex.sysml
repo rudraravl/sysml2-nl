@@ -1,0 +1,325 @@
+package ClimberMissionModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Length :> Real {
+    unit = "m";
+  }
+
+  attribute def Mass :> Real {
+    unit = "kg";
+  }
+
+  attribute def Force :> Real {
+    unit = "N";
+  }
+
+  attribute def Speed :> Real {
+    unit = "m/s";
+  }
+
+  attribute def Energy :> Real {
+    unit = "J";
+  }
+
+  attribute def Angle :> Real {
+    unit = "deg";
+  }
+
+  attribute def Time :> Real {
+    unit = "s";
+  }
+
+  item def RoutePlan {
+    attribute routeHeight : Length;
+    attribute routeAngle : Angle;
+    attribute expectedDuration : Time;
+    attribute difficultyRating : Integer;
+  }
+
+  item def GripCommand {
+    attribute targetHoldId : String;
+    attribute requiredGripForce : Force;
+  }
+
+  item def GripStatus {
+    attribute holdSecured : Boolean;
+    attribute appliedGripForce : Force;
+    attribute slipDetected : Boolean;
+  }
+
+  item def FootPlacementCommand {
+    attribute targetFootholdId : String;
+    attribute requiredNormalForce : Force;
+  }
+
+  item def BodyPosture {
+    attribute torsoAngle : Angle;
+    attribute centerOfMassOffset : Length;
+    attribute stable : Boolean;
+  }
+
+  item def ClimbProgress {
+    attribute verticalPosition : Length;
+    attribute verticalRate : Speed;
+    attribute remainingHeight : Length;
+  }
+
+  item def SafetyStatus {
+    attribute ropeTension : Force;
+    attribute fallArrestReady : Boolean;
+    attribute hazardDetected : Boolean;
+  }
+
+  port def HandGripPort {
+    in item command : GripCommand;
+    out item status : GripStatus;
+  }
+
+  port def FootPlacementPort {
+    in item command : FootPlacementCommand;
+    out item stableContact : Boolean;
+  }
+
+  port def PosturePort {
+    out item posture : BodyPosture;
+  }
+
+  port def SafetyPort {
+    out item safety : SafetyStatus;
+  }
+
+  port def ProgressPort {
+    out item progress : ClimbProgress;
+  }
+
+  part def Hand {
+    attribute maxGripForce : Force = 650.0;
+    attribute contactSensitivity : Real = 0.95;
+
+    port grip : HandGripPort;
+  }
+
+  part def Foot {
+    attribute maxPushForce : Force = 900.0;
+    attribute frictionCoefficient : Real = 0.82;
+
+    port placement : FootPlacementPort;
+  }
+
+  part def Harness {
+    attribute ratedLoad : Force = 15000.0;
+    attribute mass : Mass = 1.2;
+
+    port safety : SafetyPort;
+  }
+
+  part def RopeSystem {
+    attribute ropeLength : Length = 70.0;
+    attribute dynamicElongation : Real = 0.31;
+    attribute ratedImpactForce : Force = 8000.0;
+
+    port safety : SafetyPort;
+  }
+
+  part def BodyCore {
+    attribute climberMass : Mass = 72.0;
+    attribute reachEnvelope : Length = 1.85;
+    attribute usableEnergy : Energy = 2500000.0;
+
+    port posture : PosturePort;
+  }
+
+  part def RouteInterface {
+    attribute totalHeight : Length = 30.0;
+    attribute averageIncline : Angle = 88.0;
+    attribute holdCount : Integer = 42;
+
+    port progress : ProgressPort;
+  }
+
+  action def AssessRoute {
+    in item route : RoutePlan;
+    out item selectedNextHold : GripCommand;
+    out item selectedNextFoothold : FootPlacementCommand;
+  }
+
+  action def SecureHands {
+    in item leftCommand : GripCommand;
+    in item rightCommand : GripCommand;
+    out item leftStatus : GripStatus;
+    out item rightStatus : GripStatus;
+  }
+
+  action def PlaceFeet {
+    in item leftFootCommand : FootPlacementCommand;
+    in item rightFootCommand : FootPlacementCommand;
+    out item leftFootStable : Boolean;
+    out item rightFootStable : Boolean;
+  }
+
+  action def ShiftBodyWeight {
+    in item currentPosture : BodyPosture;
+    out item balancedPosture : BodyPosture;
+  }
+
+  action def AdvanceUpward {
+    in item balancedPosture : BodyPosture;
+    out item progress : ClimbProgress;
+  }
+
+  action def MonitorSafety {
+    in item progress : ClimbProgress;
+    out item safety : SafetyStatus;
+  }
+
+  action def ArrestFall {
+    in item safety : SafetyStatus;
+    out item fallStopped : Boolean;
+  }
+
+  action def ClimbRoute {
+    in item route : RoutePlan;
+    out item finalProgress : ClimbProgress;
+    out item finalSafety : SafetyStatus;
+
+    action assess : AssessRoute;
+    action secureHands : SecureHands;
+    action placeFeet : PlaceFeet;
+    action shiftWeight : ShiftBodyWeight;
+    action advance : AdvanceUpward;
+    action monitor : MonitorSafety;
+
+    flow assess.selectedNextHold to secureHands.leftCommand;
+    flow assess.selectedNextHold to secureHands.rightCommand;
+    flow assess.selectedNextFoothold to placeFeet.leftFootCommand;
+    flow assess.selectedNextFoothold to placeFeet.rightFootCommand;
+    flow shiftWeight.balancedPosture to advance.balancedPosture;
+    flow advance.progress to monitor.progress;
+    flow advance.progress to finalProgress;
+    flow monitor.safety to finalSafety;
+
+    succession assess then secureHands;
+    succession secureHands then placeFeet;
+    succession placeFeet then shiftWeight;
+    succession shiftWeight then advance;
+    succession advance then monitor;
+  }
+
+  state def ClimberStateMachine {
+    state idle;
+    state planning;
+    state gripping;
+    state stepping;
+    state balancing;
+    state ascending;
+    state monitoringSafety;
+    state resting;
+    state fallArrest;
+    state completed;
+
+    transition initial then idle;
+    transition idle then planning;
+    transition planning then gripping;
+    transition gripping then stepping;
+    transition stepping then balancing;
+    transition balancing then ascending;
+    transition ascending then monitoringSafety;
+    transition monitoringSafety then gripping;
+    transition monitoringSafety then resting;
+    transition resting then planning;
+    transition monitoringSafety then fallArrest;
+    transition fallArrest then resting;
+    transition monitoringSafety then completed;
+  }
+
+  part def Climber {
+    attribute bodyMass : Mass = 72.0;
+    attribute equipmentMass : Mass = 8.5;
+    attribute maximumReach : Length = 1.85;
+    attribute nominalVerticalSpeed : Speed = 0.18;
+    attribute maximumGripForce : Force = 650.0;
+    attribute fatigueLevel : Real = 0.0;
+
+    part leftHand : Hand;
+    part rightHand : Hand;
+    part leftFoot : Foot;
+    part rightFoot : Foot;
+    part core : BodyCore;
+    part harness : Harness;
+    part rope : RopeSystem;
+    part routeInterface : RouteInterface;
+
+    port leftHandPort : HandGripPort;
+    port rightHandPort : HandGripPort;
+    port leftFootPort : FootPlacementPort;
+    port rightFootPort : FootPlacementPort;
+    port posturePort : PosturePort;
+    port safetyPort : SafetyPort;
+    port progressPort : ProgressPort;
+
+    connect leftHandPort to leftHand.grip;
+    connect rightHandPort to rightHand.grip;
+    connect leftFootPort to leftFoot.placement;
+    connect rightFootPort to rightFoot.placement;
+    connect posturePort to core.posture;
+    connect safetyPort to harness.safety;
+    connect safetyPort to rope.safety;
+    connect progressPort to routeInterface.progress;
+
+    perform action primaryFunction : ClimbRoute;
+    exhibit state behavior : ClimberStateMachine;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject climber : Climber;
+
+    doc /* The Climber shall move upward along a planned route by selecting holds, securing hand grips, placing feet, balancing body posture, advancing vertically, and continuously monitoring safety. */
+
+    require constraint {
+      climber.nominalVerticalSpeed >= 0.10
+    }
+  }
+
+  requirement def GripCapabilityRequirement {
+    subject climber : Climber;
+
+    require constraint {
+      climber.maximumGripForce >= 500.0
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject climber : Climber;
+
+    doc /* The Climber shall maintain fall-arrest readiness whenever ascending or resting on the route. */
+
+    require constraint {
+      climber.rope.ratedImpactForce >= 7000.0
+    }
+  }
+
+  requirement def ReachRequirement {
+    subject climber : Climber;
+
+    require constraint {
+      climber.maximumReach >= 1.50
+    }
+  }
+
+  requirement def EquipmentMassRequirement {
+    subject climber : Climber;
+
+    require constraint {
+      climber.equipmentMass <= 12.0
+    }
+  }
+
+  part climberSystem : Climber;
+
+  satisfy PrimaryFunctionRequirement by climberSystem;
+  satisfy GripCapabilityRequirement by climberSystem;
+  satisfy SafetyRequirement by climberSystem;
+  satisfy ReachRequirement by climberSystem;
+  satisfy EquipmentMassRequirement by climberSystem;
+}

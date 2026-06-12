@@ -1,0 +1,819 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-x4fse1sh
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb792-20af-7881-aaf5-617dbc1bc3bd
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a HomeRF and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HomeRFSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FrequencyMHz :> Real {
+        unit = "MHz";
+    }
+
+    attribute def DataRateMbps :> Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def PowerMilliwatt :> Real {
+        unit = "mW";
+    }
+
+    attribute def DistanceMeter :> Real {
+        unit = "m";
+    }
+
+    attribute def TimeMillisecond :> Real {
+        unit = "ms";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def VoiceFrame {
+        attribute sequenceNumber : Integer;
+        attribute payloadBytes : Integer;
+        attribute latencyBudget : TimeMillisecond = 20.0;
+    }
+
+    item def DataFrame {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute payloadBytes : Integer;
+        attribute encrypted : Boolean;
+    }
+
+    item def BeaconFrame {
+        attribute networkId : String;
+        attribute hopSequenceId : Integer;
+        attribute synchronizationTime : TimeMillisecond;
+    }
+
+    item def ControlFrame {
+        attribute command : String;
+        attribute deviceAddress : String;
+        attribute retryCount : Integer;
+    }
+
+    item def RFSignal {
+        attribute centerFrequency : FrequencyMHz;
+        attribute transmitPower : PowerMilliwatt;
+        attribute hopIndex : Integer;
+        attribute modulation : String;
+    }
+
+    port def RFAirPort {
+        out item signalOut : RFSignal;
+        in item signalIn : RFSignal;
+    }
+
+    port def NetworkDataPort {
+        in item dataIn : DataFrame;
+        out item dataOut : DataFrame;
+    }
+
+    port def VoicePort {
+        in item voiceIn : VoiceFrame;
+        out item voiceOut : VoiceFrame;
+    }
+
+    port def ControlPort {
+        in item commandIn : ControlFrame;
+        out item statusOut : ControlFrame;
+    }
+
+    part def HomeRFSystem {
+        attribute primaryFunction : String =
+            "Provide short-range wireless voice and data communication among residential devices using HomeRF-style frequency hopping radio links.";
+
+        attribute operatingBandLow : FrequencyMHz = 2400.0;
+        attribute operatingBandHigh : FrequencyMHz = 2483.5;
+        attribute nominalCoverageRadius : DistanceMeter = 45.0;
+        attribute peakDataRate : DataRateMbps = 1.6;
+        attribute voiceLatencyTarget : TimeMillisecond = 20.0;
+        attribute minimumAvailability : Percent = 99.0;
+
+        port rf : RFAirPort;
+        port householdData : NetworkDataPort;
+        port cordlessVoice : VoicePort;
+        port management : ControlPort;
+
+        part controller : HomeRFNetworkController;
+        part baseStation : HomeRFBaseStation;
+        part handset : CordlessHandset;
+        part computerAdapter : HomeRFComputerAdapter;
+        part applianceBridge : HomeAutomationBridge;
+        part radioMedium : ResidentialRFMedium;
+
+        connect controller.rf to baseStation.controlledRf;
+        connect baseStation.air to radioMedium.nodeA;
+        connect handset.air to radioMedium.nodeB;
+        connect computerAdapter.air to radioMedium.nodeC;
+        connect applianceBridge.air to radioMedium.nodeD;
+
+        connect householdData to computerAdapter.hostData;
+        connect cordlessVoice to handset.voice;
+        connect management to controller.management;
+        connect controller.networkData to baseStation.networkData;
+        connect controller.voiceTraffic to baseStation.voiceTraffic;
+
+        perform action operateHomeRFNetwork;
+    }
+
+    part def HomeRFNetworkController {
+        attribute networkId : String;
+        attribute currentHopSequence : Integer;
+        attribute authenticatedDeviceCount : Integer;
+        attribute maxDevices : Integer = 16;
+
+        port management : ControlPort;
+        port networkData : NetworkDataPort;
+        port voiceTraffic : VoicePort;
+        port rf : RFAirPort;
+
+        behavior state NetworkControlState {
+            state initializing;
+            state advertising;
+            state authenticating;
+            state synchronized;
+            state degraded;
+            state shutdown;
+
+            initial then initializing;
+
+            transition initializing_to_advertising
+                first initializing
+                then advertising
+                effect sendBeacon;
+
+            transition advertising_to_authenticating
+                first advertising
+                then authenticating
+                accept ControlFrame
+                effect validateJoinRequest;
+
+            transition authenticating_to_synchronized
+                first authenticating
+                then synchronized
+                effect assignHopSequence;
+
+            transition synchronized_to_degraded
+                first synchronized
+                then degraded
+                guard signalQualityBelowThreshold;
+
+            transition degraded_to_synchronized
+                first degraded
+                then synchronized
+                guard signalQualityRecovered
+                effect selectAlternateHopPattern;
+
+            transition synchronized_to_shutdown
+                first synchronized
+                then shutdown
+                accept ControlFrame
+                effect stopNetwork;
+        }
+
+        action sendBeacon {
+            out item beacon : BeaconFrame;
+        }
+
+        action validateJoinRequest {
+            in item request : ControlFrame;
+            out item response : ControlFrame;
+        }
+
+        action assignHopSequence {
+            out item command : ControlFrame;
+        }
+
+        action selectAlternateHopPattern {
+            out item command : ControlFrame;
+        }
+
+        action stopNetwork {
+            out item command : ControlFrame;
+        }
+
+        constraint signalQualityBelowThreshold {
+            authenticatedDeviceCount > 0;
+        }
+
+        constraint signalQualityRecovered {
+            authenticatedDeviceCount <= maxDevices;
+        }
+    }
+
+    part def HomeRFBaseStation {
+        attribute transmitPower : PowerMilliwatt = 100.0;
+        attribute receiverSensitivity : PowerMilliwatt = 0.000001;
+        attribute hopDwellTime : TimeMillisecond = 20.0;
+        attribute supportedDataRate : DataRateMbps = 1.6;
+
+        port controlledRf : RFAirPort;
+        port air : RFAirPort;
+        port networkData : NetworkDataPort;
+        port voiceTraffic : VoicePort;
+
+        perform action multiplexVoiceAndData;
+        perform action frequencyHopTransmit;
+
+        action multiplexVoiceAndData {
+            in item data : DataFrame;
+            in item voice : VoiceFrame;
+            out item signal : RFSignal;
+        }
+
+        action frequencyHopTransmit {
+            in item signal : RFSignal;
+            out item hoppedSignal : RFSignal;
+        }
+    }
+
+    part def CordlessHandset {
+        attribute deviceAddress : String;
+        attribute batteryLevel : Percent;
+        attribute voiceCodec : String = "32 kbit/s ADPCM";
+        attribute maximumRange : DistanceMeter = 45.0;
+
+        port air : RFAirPort;
+        port voice : VoicePort;
+        port controls : ControlPort;
+
+        behavior state HandsetState {
+            state offHook;
+            state idle;
+            state scanning;
+            state registered;
+            state inCall;
+            state lowBattery;
+
+            initial then scanning;
+
+            transition scanning_to_registered
+                first scanning
+                then registered
+                accept BeaconFrame
+                effect synchronizeToNetwork;
+
+            transition registered_to_idle
+                first registered
+                then idle;
+
+            transition idle_to_inCall
+                first idle
+                then inCall
+                accept VoiceFrame
+                effect encodeVoiceFrame;
+
+            transition inCall_to_idle
+                first inCall
+                then idle
+                accept ControlFrame;
+
+            transition idle_to_lowBattery
+                first idle
+                then lowBattery
+                guard batteryLow;
+
+            transition lowBattery_to_scanning
+                first lowBattery
+                then scanning
+                guard batteryRestored;
+        }
+
+        action synchronizeToNetwork {
+            in item beacon : BeaconFrame;
+            out item status : ControlFrame;
+        }
+
+        action encodeVoiceFrame {
+            in item microphoneSample : VoiceFrame;
+            out item encodedVoice : VoiceFrame;
+        }
+
+        constraint batteryLow {
+            batteryLevel < 15.0;
+        }
+
+        constraint batteryRestored {
+            batteryLevel >= 25.0;
+        }
+    }
+
+    part def HomeRFComputerAdapter {
+        attribute deviceAddress : String;
+        attribute hostInterface : String = "USB";
+        attribute supportedDataRate : DataRateMbps = 1.6;
+
+        port air : RFAirPort;
+        port hostData : NetworkDataPort;
+        port management : ControlPort;
+
+        perform action bridgeHostPackets;
+
+        action bridgeHostPackets {
+            in item hostFrame : DataFrame;
+            out item wirelessFrame : DataFrame;
+        }
+    }
+
+    part def HomeAutomationBridge {
+        attribute deviceAddress : String;
+        attribute supportedApplianceCount : Integer = 32;
+        attribute controlLatencyTarget : TimeMillisecond = 100.0;
+
+        port air : RFAirPort;
+        port applianceControl : ControlPort;
+
+        perform action translateApplianceCommand;
+
+        action translateApplianceCommand {
+            in item wirelessCommand : ControlFrame;
+            out item applianceCommand : ControlFrame;
+        }
+    }
+
+    part def ResidentialRFMedium {
+        attribute attenuationPerWall : Real = 6.0;
+        attribute noiseFloor : PowerMilliwatt = 0.0000001;
+        attribute occupiedBandLow : FrequencyMHz = 2400.0;
+        attribute occupiedBandHigh : FrequencyMHz = 2483.5;
+
+        port nodeA : RFAirPort;
+        port nodeB : RFAirPort;
+        port nodeC : RFAirPort;
+        port nodeD : RFAirPort;
+    }
+
+    action def operateHomeRFNetwork {
+        first startController;
+        then broadcastBeacon;
+        then registerDevices;
+        then synchronizeFrequencyHopping;
+        then transportHouseholdTraffic;
+
+        action startController;
+        action broadcastBeacon;
+        action registerDevices;
+        action synchronizeFrequencyHopping;
+        action transportHouseholdTraffic {
+            in item userData : DataFrame;
+            in item voiceSample : VoiceFrame;
+            out item deliveredData : DataFrame;
+            out item deliveredVoice : VoiceFrame;
+        }
+    }
+
+    requirement def HomeRFPrimaryFunctionRequirement {
+        doc /* The HomeRF system shall provide residential short-range wireless connectivity for voice, data, and home-control traffic using frequency hopping in the 2.4 GHz ISM band. */
+    }
+
+    requirement def CoverageRequirement {
+        attribute requiredCoverageRadius : DistanceMeter = 30.0;
+        doc /* The HomeRF system shall maintain usable connectivity throughout a typical residence within a 30 meter indoor radius from the base station. */
+    }
+
+    requirement def DataServiceRequirement {
+        attribute minimumDataRate : DataRateMbps = 1.0;
+        doc /* The HomeRF system shall support packet data service for computers and household devices at no less than 1.0 Mbit/s under nominal channel conditions. */
+    }
+
+    requirement def VoiceServiceRequirement {
+        attribute maximumVoiceLatency : TimeMillisecond = 20.0;
+        doc /* The HomeRF system shall support cordless voice service with one-way frame latency no greater than 20 milliseconds during an active call. */
+    }
+
+    requirement def InterferenceToleranceRequirement {
+        doc /* The HomeRF system shall reduce residential radio interference effects by changing hop channels according to a coordinated hop sequence. */
+    }
+
+    requirement def DeviceAdmissionRequirement {
+        attribute maximumRegisteredDevices : Integer = 16;
+        doc /* The HomeRF controller shall authenticate and coordinate up to sixteen registered household wireless devices. */
+    }
+
+    satisfy HomeRFPrimaryFunctionRequirement by HomeRFSystem;
+    satisfy CoverageRequirement by HomeRFSystem;
+    satisfy DataServiceRequirement by HomeRFBaseStation;
+    satisfy VoiceServiceRequirement by CordlessHandset;
+    satisfy InterferenceToleranceRequirement by HomeRFNetworkController;
+    satisfy DeviceAdmissionRequirement by HomeRFNetworkController;
+}
+tokens used
+2,921
+package HomeRFSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FrequencyMHz :> Real {
+        unit = "MHz";
+    }
+
+    attribute def DataRateMbps :> Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def PowerMilliwatt :> Real {
+        unit = "mW";
+    }
+
+    attribute def DistanceMeter :> Real {
+        unit = "m";
+    }
+
+    attribute def TimeMillisecond :> Real {
+        unit = "ms";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def VoiceFrame {
+        attribute sequenceNumber : Integer;
+        attribute payloadBytes : Integer;
+        attribute latencyBudget : TimeMillisecond = 20.0;
+    }
+
+    item def DataFrame {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute payloadBytes : Integer;
+        attribute encrypted : Boolean;
+    }
+
+    item def BeaconFrame {
+        attribute networkId : String;
+        attribute hopSequenceId : Integer;
+        attribute synchronizationTime : TimeMillisecond;
+    }
+
+    item def ControlFrame {
+        attribute command : String;
+        attribute deviceAddress : String;
+        attribute retryCount : Integer;
+    }
+
+    item def RFSignal {
+        attribute centerFrequency : FrequencyMHz;
+        attribute transmitPower : PowerMilliwatt;
+        attribute hopIndex : Integer;
+        attribute modulation : String;
+    }
+
+    port def RFAirPort {
+        out item signalOut : RFSignal;
+        in item signalIn : RFSignal;
+    }
+
+    port def NetworkDataPort {
+        in item dataIn : DataFrame;
+        out item dataOut : DataFrame;
+    }
+
+    port def VoicePort {
+        in item voiceIn : VoiceFrame;
+        out item voiceOut : VoiceFrame;
+    }
+
+    port def ControlPort {
+        in item commandIn : ControlFrame;
+        out item statusOut : ControlFrame;
+    }
+
+    part def HomeRFSystem {
+        attribute primaryFunction : String =
+            "Provide short-range wireless voice and data communication among residential devices using HomeRF-style frequency hopping radio links.";
+
+        attribute operatingBandLow : FrequencyMHz = 2400.0;
+        attribute operatingBandHigh : FrequencyMHz = 2483.5;
+        attribute nominalCoverageRadius : DistanceMeter = 45.0;
+        attribute peakDataRate : DataRateMbps = 1.6;
+        attribute voiceLatencyTarget : TimeMillisecond = 20.0;
+        attribute minimumAvailability : Percent = 99.0;
+
+        port rf : RFAirPort;
+        port householdData : NetworkDataPort;
+        port cordlessVoice : VoicePort;
+        port management : ControlPort;
+
+        part controller : HomeRFNetworkController;
+        part baseStation : HomeRFBaseStation;
+        part handset : CordlessHandset;
+        part computerAdapter : HomeRFComputerAdapter;
+        part applianceBridge : HomeAutomationBridge;
+        part radioMedium : ResidentialRFMedium;
+
+        connect controller.rf to baseStation.controlledRf;
+        connect baseStation.air to radioMedium.nodeA;
+        connect handset.air to radioMedium.nodeB;
+        connect computerAdapter.air to radioMedium.nodeC;
+        connect applianceBridge.air to radioMedium.nodeD;
+
+        connect householdData to computerAdapter.hostData;
+        connect cordlessVoice to handset.voice;
+        connect management to controller.management;
+        connect controller.networkData to baseStation.networkData;
+        connect controller.voiceTraffic to baseStation.voiceTraffic;
+
+        perform action operateHomeRFNetwork;
+    }
+
+    part def HomeRFNetworkController {
+        attribute networkId : String;
+        attribute currentHopSequence : Integer;
+        attribute authenticatedDeviceCount : Integer;
+        attribute maxDevices : Integer = 16;
+
+        port management : ControlPort;
+        port networkData : NetworkDataPort;
+        port voiceTraffic : VoicePort;
+        port rf : RFAirPort;
+
+        behavior state NetworkControlState {
+            state initializing;
+            state advertising;
+            state authenticating;
+            state synchronized;
+            state degraded;
+            state shutdown;
+
+            initial then initializing;
+
+            transition initializing_to_advertising
+                first initializing
+                then advertising
+                effect sendBeacon;
+
+            transition advertising_to_authenticating
+                first advertising
+                then authenticating
+                accept ControlFrame
+                effect validateJoinRequest;
+
+            transition authenticating_to_synchronized
+                first authenticating
+                then synchronized
+                effect assignHopSequence;
+
+            transition synchronized_to_degraded
+                first synchronized
+                then degraded
+                guard signalQualityBelowThreshold;
+
+            transition degraded_to_synchronized
+                first degraded
+                then synchronized
+                guard signalQualityRecovered
+                effect selectAlternateHopPattern;
+
+            transition synchronized_to_shutdown
+                first synchronized
+                then shutdown
+                accept ControlFrame
+                effect stopNetwork;
+        }
+
+        action sendBeacon {
+            out item beacon : BeaconFrame;
+        }
+
+        action validateJoinRequest {
+            in item request : ControlFrame;
+            out item response : ControlFrame;
+        }
+
+        action assignHopSequence {
+            out item command : ControlFrame;
+        }
+
+        action selectAlternateHopPattern {
+            out item command : ControlFrame;
+        }
+
+        action stopNetwork {
+            out item command : ControlFrame;
+        }
+
+        constraint signalQualityBelowThreshold {
+            authenticatedDeviceCount > 0;
+        }
+
+        constraint signalQualityRecovered {
+            authenticatedDeviceCount <= maxDevices;
+        }
+    }
+
+    part def HomeRFBaseStation {
+        attribute transmitPower : PowerMilliwatt = 100.0;
+        attribute receiverSensitivity : PowerMilliwatt = 0.000001;
+        attribute hopDwellTime : TimeMillisecond = 20.0;
+        attribute supportedDataRate : DataRateMbps = 1.6;
+
+        port controlledRf : RFAirPort;
+        port air : RFAirPort;
+        port networkData : NetworkDataPort;
+        port voiceTraffic : VoicePort;
+
+        perform action multiplexVoiceAndData;
+        perform action frequencyHopTransmit;
+
+        action multiplexVoiceAndData {
+            in item data : DataFrame;
+            in item voice : VoiceFrame;
+            out item signal : RFSignal;
+        }
+
+        action frequencyHopTransmit {
+            in item signal : RFSignal;
+            out item hoppedSignal : RFSignal;
+        }
+    }
+
+    part def CordlessHandset {
+        attribute deviceAddress : String;
+        attribute batteryLevel : Percent;
+        attribute voiceCodec : String = "32 kbit/s ADPCM";
+        attribute maximumRange : DistanceMeter = 45.0;
+
+        port air : RFAirPort;
+        port voice : VoicePort;
+        port controls : ControlPort;
+
+        behavior state HandsetState {
+            state offHook;
+            state idle;
+            state scanning;
+            state registered;
+            state inCall;
+            state lowBattery;
+
+            initial then scanning;
+
+            transition scanning_to_registered
+                first scanning
+                then registered
+                accept BeaconFrame
+                effect synchronizeToNetwork;
+
+            transition registered_to_idle
+                first registered
+                then idle;
+
+            transition idle_to_inCall
+                first idle
+                then inCall
+                accept VoiceFrame
+                effect encodeVoiceFrame;
+
+            transition inCall_to_idle
+                first inCall
+                then idle
+                accept ControlFrame;
+
+            transition idle_to_lowBattery
+                first idle
+                then lowBattery
+                guard batteryLow;
+
+            transition lowBattery_to_scanning
+                first lowBattery
+                then scanning
+                guard batteryRestored;
+        }
+
+        action synchronizeToNetwork {
+            in item beacon : BeaconFrame;
+            out item status : ControlFrame;
+        }
+
+        action encodeVoiceFrame {
+            in item microphoneSample : VoiceFrame;
+            out item encodedVoice : VoiceFrame;
+        }
+
+        constraint batteryLow {
+            batteryLevel < 15.0;
+        }
+
+        constraint batteryRestored {
+            batteryLevel >= 25.0;
+        }
+    }
+
+    part def HomeRFComputerAdapter {
+        attribute deviceAddress : String;
+        attribute hostInterface : String = "USB";
+        attribute supportedDataRate : DataRateMbps = 1.6;
+
+        port air : RFAirPort;
+        port hostData : NetworkDataPort;
+        port management : ControlPort;
+
+        perform action bridgeHostPackets;
+
+        action bridgeHostPackets {
+            in item hostFrame : DataFrame;
+            out item wirelessFrame : DataFrame;
+        }
+    }
+
+    part def HomeAutomationBridge {
+        attribute deviceAddress : String;
+        attribute supportedApplianceCount : Integer = 32;
+        attribute controlLatencyTarget : TimeMillisecond = 100.0;
+
+        port air : RFAirPort;
+        port applianceControl : ControlPort;
+
+        perform action translateApplianceCommand;
+
+        action translateApplianceCommand {
+            in item wirelessCommand : ControlFrame;
+            out item applianceCommand : ControlFrame;
+        }
+    }
+
+    part def ResidentialRFMedium {
+        attribute attenuationPerWall : Real = 6.0;
+        attribute noiseFloor : PowerMilliwatt = 0.0000001;
+        attribute occupiedBandLow : FrequencyMHz = 2400.0;
+        attribute occupiedBandHigh : FrequencyMHz = 2483.5;
+
+        port nodeA : RFAirPort;
+        port nodeB : RFAirPort;
+        port nodeC : RFAirPort;
+        port nodeD : RFAirPort;
+    }
+
+    action def operateHomeRFNetwork {
+        first startController;
+        then broadcastBeacon;
+        then registerDevices;
+        then synchronizeFrequencyHopping;
+        then transportHouseholdTraffic;
+
+        action startController;
+        action broadcastBeacon;
+        action registerDevices;
+        action synchronizeFrequencyHopping;
+        action transportHouseholdTraffic {
+            in item userData : DataFrame;
+            in item voiceSample : VoiceFrame;
+            out item deliveredData : DataFrame;
+            out item deliveredVoice : VoiceFrame;
+        }
+    }
+
+    requirement def HomeRFPrimaryFunctionRequirement {
+        doc /* The HomeRF system shall provide residential short-range wireless connectivity for voice, data, and home-control traffic using frequency hopping in the 2.4 GHz ISM band. */
+    }
+
+    requirement def CoverageRequirement {
+        attribute requiredCoverageRadius : DistanceMeter = 30.0;
+        doc /* The HomeRF system shall maintain usable connectivity throughout a typical residence within a 30 meter indoor radius from the base station. */
+    }
+
+    requirement def DataServiceRequirement {
+        attribute minimumDataRate : DataRateMbps = 1.0;
+        doc /* The HomeRF system shall support packet data service for computers and household devices at no less than 1.0 Mbit/s under nominal channel conditions. */
+    }
+
+    requirement def VoiceServiceRequirement {
+        attribute maximumVoiceLatency : TimeMillisecond = 20.0;
+        doc /* The HomeRF system shall support cordless voice service with one-way frame latency no greater than 20 milliseconds during an active call. */
+    }
+
+    requirement def InterferenceToleranceRequirement {
+        doc /* The HomeRF system shall reduce residential radio interference effects by changing hop channels according to a coordinated hop sequence. */
+    }
+
+    requirement def DeviceAdmissionRequirement {
+        attribute maximumRegisteredDevices : Integer = 16;
+        doc /* The HomeRF controller shall authenticate and coordinate up to sixteen registered household wireless devices. */
+    }
+
+    satisfy HomeRFPrimaryFunctionRequirement by HomeRFSystem;
+    satisfy CoverageRequirement by HomeRFSystem;
+    satisfy DataServiceRequirement by HomeRFBaseStation;
+    satisfy VoiceServiceRequirement by CordlessHandset;
+    satisfy InterferenceToleranceRequirement by HomeRFNetworkController;
+    satisfy DeviceAdmissionRequirement by HomeRFNetworkController;
+}

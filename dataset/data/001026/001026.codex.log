@@ -1,0 +1,769 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6a7sd_z9
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb52a-1d2f-7222-b821-347fd0e86890
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Digital sensors and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DigitalSensorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent :> Real {
+        unit = "%";
+    }
+
+    value def BitRate :> Real {
+        unit = "bit/s";
+    }
+
+    value def SampleRate :> Real {
+        unit = "Hz";
+    }
+
+    value def Voltage :> Real {
+        unit = "V";
+    }
+
+    value def Current :> Real {
+        unit = "A";
+    }
+
+    value def TemperatureCelsius :> Real {
+        unit = "degC";
+    }
+
+    value def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    enum def SensorHealth {
+        enum nominal;
+        enum degraded;
+        enum failed;
+        enum offline;
+    }
+
+    enum def AlarmSeverity {
+        enum none;
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    item def SensorSample {
+        attribute sensorId : String;
+        attribute timestamp : Integer;
+        attribute measuredValue : Real;
+        attribute quality : Percent;
+        attribute health : SensorHealth;
+    }
+
+    item def DigitalFrame {
+        attribute frameId : Integer;
+        attribute sourceId : String;
+        attribute payloadLength : Integer;
+        attribute checksum : Integer;
+        attribute valid : Boolean;
+    }
+
+    item def AlertMessage {
+        attribute alertId : Integer;
+        attribute sourceId : String;
+        attribute severity : AlarmSeverity;
+        attribute description : String;
+        attribute timestamp : Integer;
+    }
+
+    item def ConfigurationCommand {
+        attribute targetSensorId : String;
+        attribute requestedSampleRate : SampleRate;
+        attribute thresholdHigh : Real;
+        attribute thresholdLow : Real;
+        attribute enableDiagnostics : Boolean;
+    }
+
+    port def PowerPort {
+        in item supplyVoltage : Voltage;
+        in item supplyCurrent : Current;
+    }
+
+    port def DigitalSensorPort {
+        out item sample : SensorSample;
+        out item statusFrame : DigitalFrame;
+        in item configuration : ConfigurationCommand;
+    }
+
+    port def DataBusPort {
+        inout item frame : DigitalFrame;
+        out item alert : AlertMessage;
+        in item configuration : ConfigurationCommand;
+    }
+
+    port def UserInterfacePort {
+        out item displayedSample : SensorSample;
+        out item displayedAlert : AlertMessage;
+        in item operatorCommand : ConfigurationCommand;
+    }
+
+    port def MaintenancePort {
+        out item diagnosticFrame : DigitalFrame;
+        in item serviceCommand : ConfigurationCommand;
+    }
+
+    action def AcquireDigitalMeasurement {
+        in item rawFrame : DigitalFrame;
+        out item decodedSample : SensorSample;
+    }
+
+    action def ValidateSampleQuality {
+        in item candidateSample : SensorSample;
+        out item acceptedSample : SensorSample;
+        out item qualityAlert : AlertMessage;
+    }
+
+    action def AggregateSensorData {
+        in item temperatureSample : SensorSample;
+        in item pressureSample : SensorSample;
+        in item proximitySample : SensorSample;
+        out item fusedFrame : DigitalFrame;
+    }
+
+    action def DetectThresholdViolation {
+        in item monitoredSample : SensorSample;
+        in item lowLimit : Real;
+        in item highLimit : Real;
+        out item thresholdAlert : AlertMessage;
+    }
+
+    action def PublishOperationalStatus {
+        in item currentHealth : SensorHealth;
+        out item statusFrame : DigitalFrame;
+    }
+
+    state def SensorLifecycle {
+        state off;
+        state initializing;
+        state sampling;
+        state degraded;
+        state failed;
+
+        transition first off then initializing;
+        transition initializing then sampling;
+        transition sampling then degraded;
+        transition degraded then sampling;
+        transition sampling then failed;
+        transition degraded then failed;
+        transition failed then initializing;
+    }
+
+    state def MonitoringLifecycle {
+        state startup;
+        state selfTest;
+        state normalMonitoring;
+        state alarmActive;
+        state maintenanceMode;
+        state shutdown;
+
+        transition first startup then selfTest;
+        transition selfTest then normalMonitoring;
+        transition normalMonitoring then alarmActive;
+        transition alarmActive then normalMonitoring;
+        transition normalMonitoring then maintenanceMode;
+        transition maintenanceMode then selfTest;
+        transition normalMonitoring then shutdown;
+    }
+
+    part def DigitalSensor {
+        attribute sensorId : String;
+        attribute nominalSampleRate : SampleRate;
+        attribute resolutionBits : Integer;
+        attribute operatingVoltage : Voltage;
+        attribute operatingCurrent : Current;
+        attribute health : SensorHealth;
+        attribute measurementQuality : Percent;
+
+        port power : PowerPort;
+        port digital : DigitalSensorPort;
+
+        perform action acquire : AcquireDigitalMeasurement;
+        perform action publishStatus : PublishOperationalStatus;
+
+        exhibit state lifecycle : SensorLifecycle;
+    }
+
+    part def DigitalTemperatureSensor :> DigitalSensor {
+        attribute measurementRangeLow : TemperatureCelsius = -40.0;
+        attribute measurementRangeHigh : TemperatureCelsius = 125.0;
+        attribute accuracy : TemperatureCelsius = 0.5;
+    }
+
+    part def DigitalPressureSensor :> DigitalSensor {
+        attribute measurementRangeLow : Real = 0.0;
+        attribute measurementRangeHigh : Real = 1000.0;
+        attribute accuracy : Percent = 1.0;
+    }
+
+    part def DigitalProximitySensor :> DigitalSensor {
+        attribute detectionRangeMinimum : Real = 0.02;
+        attribute detectionRangeMaximum : Real = 4.00;
+        attribute responseTime : Millisecond = 10.0;
+    }
+
+    part def SensorPowerModule {
+        attribute inputVoltage : Voltage = 24.0;
+        attribute regulatedVoltage : Voltage = 5.0;
+        attribute maximumOutputCurrent : Current = 2.0;
+
+        port source : PowerPort;
+    }
+
+    part def SensorDataProcessor {
+        attribute processorId : String;
+        attribute busRate : BitRate = 1000000.0;
+        attribute maximumLatency : Millisecond = 50.0;
+        attribute acceptedQualityMinimum : Percent = 85.0;
+
+        port sensorBus : DataBusPort;
+        port maintenance : MaintenancePort;
+
+        perform action validate : ValidateSampleQuality;
+        perform action aggregate : AggregateSensorData;
+        perform action detectViolation : DetectThresholdViolation;
+    }
+
+    part def AlarmManager {
+        attribute activeAlertCount : Integer;
+        attribute criticalAlertCount : Integer;
+
+        port alarmBus : DataBusPort;
+
+        perform action detectThresholdViolation : DetectThresholdViolation;
+    }
+
+    part def OperatorDisplay {
+        attribute refreshRate : SampleRate = 2.0;
+        attribute retainedAlertHistory : Integer = 500;
+
+        port ui : UserInterfacePort;
+    }
+
+    part def DigitalSensorMonitoringSystem {
+        attribute systemId : String = "DSS-PRIMARY-001";
+        attribute primaryFunction : String = "Acquire digital measurements from distributed sensors, validate sample quality, aggregate sensor data, detect abnormal conditions, and publish trusted operational status and alerts.";
+        attribute nominalSupplyVoltage : Voltage = 24.0;
+        attribute endToEndLatencyLimit : Millisecond = 100.0;
+        attribute minimumAcceptedSampleQuality : Percent = 85.0;
+
+        part powerModule : SensorPowerModule;
+        part temperatureSensor : DigitalTemperatureSensor {
+            attribute sensorId = "TEMP-01";
+            attribute nominalSampleRate = 10.0;
+            attribute resolutionBits = 16;
+            attribute operatingVoltage = 5.0;
+            attribute operatingCurrent = 0.025;
+            attribute health = SensorHealth::nominal;
+            attribute measurementQuality = 98.0;
+        }
+
+        part pressureSensor : DigitalPressureSensor {
+            attribute sensorId = "PRES-01";
+            attribute nominalSampleRate = 20.0;
+            attribute resolutionBits = 14;
+            attribute operatingVoltage = 5.0;
+            attribute operatingCurrent = 0.030;
+            attribute health = SensorHealth::nominal;
+            attribute measurementQuality = 97.0;
+        }
+
+        part proximitySensor : DigitalProximitySensor {
+            attribute sensorId = "PROX-01";
+            attribute nominalSampleRate = 50.0;
+            attribute resolutionBits = 12;
+            attribute operatingVoltage = 5.0;
+            attribute operatingCurrent = 0.040;
+            attribute health = SensorHealth::nominal;
+            attribute measurementQuality = 96.0;
+        }
+
+        part processor : SensorDataProcessor {
+            attribute processorId = "DSP-01";
+        }
+
+        part alarmManager : AlarmManager;
+        part display : OperatorDisplay;
+
+        port externalUserInterface : UserInterfacePort;
+        port externalMaintenance : MaintenancePort;
+
+        connect powerModule.source to temperatureSensor.power;
+        connect powerModule.source to pressureSensor.power;
+        connect powerModule.source to proximitySensor.power;
+
+        connect temperatureSensor.digital to processor.sensorBus;
+        connect pressureSensor.digital to processor.sensorBus;
+        connect proximitySensor.digital to processor.sensorBus;
+
+        connect processor.sensorBus to alarmManager.alarmBus;
+        connect alarmManager.alarmBus to display.ui;
+        connect display.ui to externalUserInterface;
+        connect processor.maintenance to externalMaintenance;
+
+        exhibit state monitoringLifecycle : MonitoringLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        doc /* The system shall provide a high-level digital sensing function by collecting digital samples from multiple sensors, validating their integrity and quality, aggregating them into a trusted operational data stream, and issuing alerts when measured values or sensor health indicate abnormal operation. */
+    }
+
+    requirement def SampleAcquisitionRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.temperatureSensor.nominalSampleRate >= 10.0 and
+            monitoredSystem.pressureSensor.nominalSampleRate >= 20.0 and
+            monitoredSystem.proximitySensor.nominalSampleRate >= 50.0
+        }
+    }
+
+    requirement def QualityRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.temperatureSensor.measurementQuality >= monitoredSystem.minimumAcceptedSampleQuality and
+            monitoredSystem.pressureSensor.measurementQuality >= monitoredSystem.minimumAcceptedSampleQuality and
+            monitoredSystem.proximitySensor.measurementQuality >= monitoredSystem.minimumAcceptedSampleQuality
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.processor.maximumLatency <= monitoredSystem.endToEndLatencyLimit
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.powerModule.regulatedVoltage == 5.0 and
+            monitoredSystem.powerModule.maximumOutputCurrent >= 0.5
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        doc /* The system shall report sensor health as nominal, degraded, failed, or offline and shall generate a warning or critical alert when any sensor is degraded or failed. */
+    }
+
+    requirement def OperatorVisibilityRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.display.refreshRate >= 2.0 and
+            monitoredSystem.display.retainedAlertHistory >= 500
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by DigitalSensorMonitoringSystem;
+    satisfy SampleAcquisitionRequirement by DigitalSensorMonitoringSystem;
+    satisfy QualityRequirement by DigitalSensorMonitoringSystem;
+    satisfy LatencyRequirement by DigitalSensorMonitoringSystem;
+    satisfy PowerRequirement by DigitalSensorMonitoringSystem;
+    satisfy HealthMonitoringRequirement by DigitalSensorMonitoringSystem;
+    satisfy OperatorVisibilityRequirement by DigitalSensorMonitoringSystem;
+}
+tokens used
+3,957
+package DigitalSensorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent :> Real {
+        unit = "%";
+    }
+
+    value def BitRate :> Real {
+        unit = "bit/s";
+    }
+
+    value def SampleRate :> Real {
+        unit = "Hz";
+    }
+
+    value def Voltage :> Real {
+        unit = "V";
+    }
+
+    value def Current :> Real {
+        unit = "A";
+    }
+
+    value def TemperatureCelsius :> Real {
+        unit = "degC";
+    }
+
+    value def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    enum def SensorHealth {
+        enum nominal;
+        enum degraded;
+        enum failed;
+        enum offline;
+    }
+
+    enum def AlarmSeverity {
+        enum none;
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    item def SensorSample {
+        attribute sensorId : String;
+        attribute timestamp : Integer;
+        attribute measuredValue : Real;
+        attribute quality : Percent;
+        attribute health : SensorHealth;
+    }
+
+    item def DigitalFrame {
+        attribute frameId : Integer;
+        attribute sourceId : String;
+        attribute payloadLength : Integer;
+        attribute checksum : Integer;
+        attribute valid : Boolean;
+    }
+
+    item def AlertMessage {
+        attribute alertId : Integer;
+        attribute sourceId : String;
+        attribute severity : AlarmSeverity;
+        attribute description : String;
+        attribute timestamp : Integer;
+    }
+
+    item def ConfigurationCommand {
+        attribute targetSensorId : String;
+        attribute requestedSampleRate : SampleRate;
+        attribute thresholdHigh : Real;
+        attribute thresholdLow : Real;
+        attribute enableDiagnostics : Boolean;
+    }
+
+    port def PowerPort {
+        in item supplyVoltage : Voltage;
+        in item supplyCurrent : Current;
+    }
+
+    port def DigitalSensorPort {
+        out item sample : SensorSample;
+        out item statusFrame : DigitalFrame;
+        in item configuration : ConfigurationCommand;
+    }
+
+    port def DataBusPort {
+        inout item frame : DigitalFrame;
+        out item alert : AlertMessage;
+        in item configuration : ConfigurationCommand;
+    }
+
+    port def UserInterfacePort {
+        out item displayedSample : SensorSample;
+        out item displayedAlert : AlertMessage;
+        in item operatorCommand : ConfigurationCommand;
+    }
+
+    port def MaintenancePort {
+        out item diagnosticFrame : DigitalFrame;
+        in item serviceCommand : ConfigurationCommand;
+    }
+
+    action def AcquireDigitalMeasurement {
+        in item rawFrame : DigitalFrame;
+        out item decodedSample : SensorSample;
+    }
+
+    action def ValidateSampleQuality {
+        in item candidateSample : SensorSample;
+        out item acceptedSample : SensorSample;
+        out item qualityAlert : AlertMessage;
+    }
+
+    action def AggregateSensorData {
+        in item temperatureSample : SensorSample;
+        in item pressureSample : SensorSample;
+        in item proximitySample : SensorSample;
+        out item fusedFrame : DigitalFrame;
+    }
+
+    action def DetectThresholdViolation {
+        in item monitoredSample : SensorSample;
+        in item lowLimit : Real;
+        in item highLimit : Real;
+        out item thresholdAlert : AlertMessage;
+    }
+
+    action def PublishOperationalStatus {
+        in item currentHealth : SensorHealth;
+        out item statusFrame : DigitalFrame;
+    }
+
+    state def SensorLifecycle {
+        state off;
+        state initializing;
+        state sampling;
+        state degraded;
+        state failed;
+
+        transition first off then initializing;
+        transition initializing then sampling;
+        transition sampling then degraded;
+        transition degraded then sampling;
+        transition sampling then failed;
+        transition degraded then failed;
+        transition failed then initializing;
+    }
+
+    state def MonitoringLifecycle {
+        state startup;
+        state selfTest;
+        state normalMonitoring;
+        state alarmActive;
+        state maintenanceMode;
+        state shutdown;
+
+        transition first startup then selfTest;
+        transition selfTest then normalMonitoring;
+        transition normalMonitoring then alarmActive;
+        transition alarmActive then normalMonitoring;
+        transition normalMonitoring then maintenanceMode;
+        transition maintenanceMode then selfTest;
+        transition normalMonitoring then shutdown;
+    }
+
+    part def DigitalSensor {
+        attribute sensorId : String;
+        attribute nominalSampleRate : SampleRate;
+        attribute resolutionBits : Integer;
+        attribute operatingVoltage : Voltage;
+        attribute operatingCurrent : Current;
+        attribute health : SensorHealth;
+        attribute measurementQuality : Percent;
+
+        port power : PowerPort;
+        port digital : DigitalSensorPort;
+
+        perform action acquire : AcquireDigitalMeasurement;
+        perform action publishStatus : PublishOperationalStatus;
+
+        exhibit state lifecycle : SensorLifecycle;
+    }
+
+    part def DigitalTemperatureSensor :> DigitalSensor {
+        attribute measurementRangeLow : TemperatureCelsius = -40.0;
+        attribute measurementRangeHigh : TemperatureCelsius = 125.0;
+        attribute accuracy : TemperatureCelsius = 0.5;
+    }
+
+    part def DigitalPressureSensor :> DigitalSensor {
+        attribute measurementRangeLow : Real = 0.0;
+        attribute measurementRangeHigh : Real = 1000.0;
+        attribute accuracy : Percent = 1.0;
+    }
+
+    part def DigitalProximitySensor :> DigitalSensor {
+        attribute detectionRangeMinimum : Real = 0.02;
+        attribute detectionRangeMaximum : Real = 4.00;
+        attribute responseTime : Millisecond = 10.0;
+    }
+
+    part def SensorPowerModule {
+        attribute inputVoltage : Voltage = 24.0;
+        attribute regulatedVoltage : Voltage = 5.0;
+        attribute maximumOutputCurrent : Current = 2.0;
+
+        port source : PowerPort;
+    }
+
+    part def SensorDataProcessor {
+        attribute processorId : String;
+        attribute busRate : BitRate = 1000000.0;
+        attribute maximumLatency : Millisecond = 50.0;
+        attribute acceptedQualityMinimum : Percent = 85.0;
+
+        port sensorBus : DataBusPort;
+        port maintenance : MaintenancePort;
+
+        perform action validate : ValidateSampleQuality;
+        perform action aggregate : AggregateSensorData;
+        perform action detectViolation : DetectThresholdViolation;
+    }
+
+    part def AlarmManager {
+        attribute activeAlertCount : Integer;
+        attribute criticalAlertCount : Integer;
+
+        port alarmBus : DataBusPort;
+
+        perform action detectThresholdViolation : DetectThresholdViolation;
+    }
+
+    part def OperatorDisplay {
+        attribute refreshRate : SampleRate = 2.0;
+        attribute retainedAlertHistory : Integer = 500;
+
+        port ui : UserInterfacePort;
+    }
+
+    part def DigitalSensorMonitoringSystem {
+        attribute systemId : String = "DSS-PRIMARY-001";
+        attribute primaryFunction : String = "Acquire digital measurements from distributed sensors, validate sample quality, aggregate sensor data, detect abnormal conditions, and publish trusted operational status and alerts.";
+        attribute nominalSupplyVoltage : Voltage = 24.0;
+        attribute endToEndLatencyLimit : Millisecond = 100.0;
+        attribute minimumAcceptedSampleQuality : Percent = 85.0;
+
+        part powerModule : SensorPowerModule;
+        part temperatureSensor : DigitalTemperatureSensor {
+            attribute sensorId = "TEMP-01";
+            attribute nominalSampleRate = 10.0;
+            attribute resolutionBits = 16;
+            attribute operatingVoltage = 5.0;
+            attribute operatingCurrent = 0.025;
+            attribute health = SensorHealth::nominal;
+            attribute measurementQuality = 98.0;
+        }
+
+        part pressureSensor : DigitalPressureSensor {
+            attribute sensorId = "PRES-01";
+            attribute nominalSampleRate = 20.0;
+            attribute resolutionBits = 14;
+            attribute operatingVoltage = 5.0;
+            attribute operatingCurrent = 0.030;
+            attribute health = SensorHealth::nominal;
+            attribute measurementQuality = 97.0;
+        }
+
+        part proximitySensor : DigitalProximitySensor {
+            attribute sensorId = "PROX-01";
+            attribute nominalSampleRate = 50.0;
+            attribute resolutionBits = 12;
+            attribute operatingVoltage = 5.0;
+            attribute operatingCurrent = 0.040;
+            attribute health = SensorHealth::nominal;
+            attribute measurementQuality = 96.0;
+        }
+
+        part processor : SensorDataProcessor {
+            attribute processorId = "DSP-01";
+        }
+
+        part alarmManager : AlarmManager;
+        part display : OperatorDisplay;
+
+        port externalUserInterface : UserInterfacePort;
+        port externalMaintenance : MaintenancePort;
+
+        connect powerModule.source to temperatureSensor.power;
+        connect powerModule.source to pressureSensor.power;
+        connect powerModule.source to proximitySensor.power;
+
+        connect temperatureSensor.digital to processor.sensorBus;
+        connect pressureSensor.digital to processor.sensorBus;
+        connect proximitySensor.digital to processor.sensorBus;
+
+        connect processor.sensorBus to alarmManager.alarmBus;
+        connect alarmManager.alarmBus to display.ui;
+        connect display.ui to externalUserInterface;
+        connect processor.maintenance to externalMaintenance;
+
+        exhibit state monitoringLifecycle : MonitoringLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        doc /* The system shall provide a high-level digital sensing function by collecting digital samples from multiple sensors, validating their integrity and quality, aggregating them into a trusted operational data stream, and issuing alerts when measured values or sensor health indicate abnormal operation. */
+    }
+
+    requirement def SampleAcquisitionRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.temperatureSensor.nominalSampleRate >= 10.0 and
+            monitoredSystem.pressureSensor.nominalSampleRate >= 20.0 and
+            monitoredSystem.proximitySensor.nominalSampleRate >= 50.0
+        }
+    }
+
+    requirement def QualityRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.temperatureSensor.measurementQuality >= monitoredSystem.minimumAcceptedSampleQuality and
+            monitoredSystem.pressureSensor.measurementQuality >= monitoredSystem.minimumAcceptedSampleQuality and
+            monitoredSystem.proximitySensor.measurementQuality >= monitoredSystem.minimumAcceptedSampleQuality
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.processor.maximumLatency <= monitoredSystem.endToEndLatencyLimit
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.powerModule.regulatedVoltage == 5.0 and
+            monitoredSystem.powerModule.maximumOutputCurrent >= 0.5
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        doc /* The system shall report sensor health as nominal, degraded, failed, or offline and shall generate a warning or critical alert when any sensor is degraded or failed. */
+    }
+
+    requirement def OperatorVisibilityRequirement {
+        subject monitoredSystem : DigitalSensorMonitoringSystem;
+
+        require constraint {
+            monitoredSystem.display.refreshRate >= 2.0 and
+            monitoredSystem.display.retainedAlertHistory >= 500
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by DigitalSensorMonitoringSystem;
+    satisfy SampleAcquisitionRequirement by DigitalSensorMonitoringSystem;
+    satisfy QualityRequirement by DigitalSensorMonitoringSystem;
+    satisfy LatencyRequirement by DigitalSensorMonitoringSystem;
+    satisfy PowerRequirement by DigitalSensorMonitoringSystem;
+    satisfy HealthMonitoringRequirement by DigitalSensorMonitoringSystem;
+    satisfy OperatorVisibilityRequirement by DigitalSensorMonitoringSystem;
+}

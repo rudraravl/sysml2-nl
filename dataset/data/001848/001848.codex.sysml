@@ -1,0 +1,477 @@
+package RootsSuperchargerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = "K";
+    }
+
+    attribute def MassFlowRate {
+        :> ISQ::massFlowRate;
+        unit = "kg/s";
+    }
+
+    attribute def RotationalSpeed {
+        :> ISQ::angularVelocity;
+        unit = "rpm";
+    }
+
+    attribute def Torque {
+        :> ISQ::torque;
+        unit = "N*m";
+    }
+
+    attribute def Power {
+        :> ISQ::power;
+        unit = "kW";
+    }
+
+    attribute def Ratio {
+        :> ScalarValues::Real;
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+        attribute oxygenMassFraction : Ratio = 0.232;
+    }
+
+    item def RotationalMechanicalPower {
+        attribute speed : RotationalSpeed;
+        attribute torque : Torque;
+        attribute power : Power;
+    }
+
+    item def ThermalEnergy {
+        attribute heatRate : Power;
+        attribute sourceTemperature : Temperature;
+    }
+
+    item def ControlSignal {
+        attribute command : Ratio;
+        attribute valid : Boolean;
+    }
+
+    port def AirPort {
+        inout air : Air;
+    }
+
+    port def DriveShaftPort {
+        inout drivePower : RotationalMechanicalPower;
+    }
+
+    port def HeatPort {
+        out heat : ThermalEnergy;
+    }
+
+    port def SignalPort {
+        inout signal : ControlSignal;
+    }
+
+    part def RootsRotor {
+        attribute lobeCount : Integer = 3;
+        attribute diameter : Length;
+        attribute length : Length;
+        attribute clearance : Length;
+        attribute speed : RotationalSpeed;
+        port shaft : DriveShaftPort;
+    }
+
+    part def TimingGearSet {
+        attribute gearRatio : Ratio = 1.0;
+        attribute efficiency : Ratio = 0.97;
+        port inputShaft : DriveShaftPort;
+        port leftRotorShaft : DriveShaftPort;
+        port rightRotorShaft : DriveShaftPort;
+    }
+
+    part def SealedHousing {
+        attribute displacementPerRev : Volume;
+        attribute maximumCasePressure : Pressure;
+        attribute caseTemperature : Temperature;
+        port inlet : AirPort;
+        port outlet : AirPort;
+        port heatRejection : HeatPort;
+    }
+
+    part def BypassValve {
+        attribute openFraction : Ratio;
+        attribute leakageFlow : MassFlowRate;
+        port upstream : AirPort;
+        port downstream : AirPort;
+        port commandPort : SignalPort;
+    }
+
+    part def PulleyDrive {
+        attribute pulleyRatio : Ratio;
+        attribute beltEfficiency : Ratio = 0.95;
+        port engineCrankshaft : DriveShaftPort;
+        port superchargerShaft : DriveShaftPort;
+    }
+
+    part def ChargeAirCooler {
+        attribute effectiveness : Ratio;
+        attribute pressureDrop : Pressure;
+        port hotInlet : AirPort;
+        port cooledOutlet : AirPort;
+        port rejectedHeat : HeatPort;
+    }
+
+    part def IntakeManifold {
+        attribute volume : Volume;
+        attribute manifoldPressure : Pressure;
+        attribute manifoldTemperature : Temperature;
+        port compressedAirInlet : AirPort;
+        port engineAirOutlet : AirPort;
+    }
+
+    part def EngineAirDemand {
+        attribute demandedMassFlow : MassFlowRate;
+        port airInlet : AirPort;
+        port crankshaftPower : DriveShaftPort;
+    }
+
+    part def SuperchargerController {
+        attribute targetBoostPressure : Pressure;
+        attribute measuredBoostPressure : Pressure;
+        attribute bypassCommand : Ratio;
+        port boostMeasurement : SignalPort;
+        port bypassControl : SignalPort;
+
+        action regulateBoost {
+            in target : Pressure;
+            in measured : Pressure;
+            out command : Ratio;
+
+            first start;
+            then computeError;
+            then limitCommand;
+            then sendCommand;
+
+            action computeError {
+                out pressureError : Pressure;
+            }
+
+            action limitCommand {
+                in pressureError : Pressure;
+                out command : Ratio;
+            }
+
+            action sendCommand {
+                in command : Ratio;
+            }
+        }
+    }
+
+    part def RootsSupercharger {
+        attribute pressureRatio : Ratio;
+        attribute volumetricEfficiency : Ratio;
+        attribute adiabaticEfficiency : Ratio;
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute deliveredMassFlow : MassFlowRate;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftPower : Power;
+
+        port airInlet : AirPort;
+        port airOutlet : AirPort;
+        port driveInput : DriveShaftPort;
+        port heatLoss : HeatPort;
+
+        part housing : SealedHousing {
+            attribute displacementPerRev = 0.0018 [m^3];
+            attribute maximumCasePressure = 260 [kPa];
+        }
+
+        part leftRotor : RootsRotor {
+            attribute lobeCount = 3;
+            attribute diameter = 0.082 [m];
+            attribute length = 0.165 [m];
+            attribute clearance = 0.00018 [m];
+        }
+
+        part rightRotor : RootsRotor {
+            attribute lobeCount = 3;
+            attribute diameter = 0.082 [m];
+            attribute length = 0.165 [m];
+            attribute clearance = 0.00018 [m];
+        }
+
+        part gears : TimingGearSet;
+
+        connect airInlet to housing.inlet;
+        connect housing.outlet to airOutlet;
+        connect driveInput to gears.inputShaft;
+        connect gears.leftRotorShaft to leftRotor.shaft;
+        connect gears.rightRotorShaft to rightRotor.shaft;
+        connect housing.heatRejection to heatLoss;
+
+        action compressAndDeliverAir {
+            in inletAir : Air;
+            in mechanicalInput : RotationalMechanicalPower;
+            out boostedAir : Air;
+            out rejectedHeat : ThermalEnergy;
+
+            first receiveAmbientAir;
+            then trapAirInRotorPockets;
+            then transferAirWithoutInternalCompression;
+            then dischargeAirAgainstManifoldPressure;
+            then calculateOutletState;
+            then rejectThermalLosses;
+
+            action receiveAmbientAir {
+                in inletAir : Air;
+            }
+
+            action trapAirInRotorPockets {
+                in shaftSpeed : RotationalSpeed;
+                out trappedMassFlow : MassFlowRate;
+            }
+
+            action transferAirWithoutInternalCompression {
+                in trappedMassFlow : MassFlowRate;
+            }
+
+            action dischargeAirAgainstManifoldPressure {
+                out pressureRise : Pressure;
+            }
+
+            action calculateOutletState {
+                out boostedAir : Air;
+            }
+
+            action rejectThermalLosses {
+                out rejectedHeat : ThermalEnergy;
+            }
+        }
+
+        state def OperatingState {
+            entry action initializeClearanceCheck;
+
+            state Off;
+            state Cranking;
+            state Boosting;
+            state Bypass;
+            state OverspeedProtection;
+            state Fault;
+
+            transition first Off;
+            transition Off_to_Cranking
+                first Off
+                then Cranking
+                if driveInput.drivePower.speed > 50 [rpm];
+
+            transition Cranking_to_Boosting
+                first Cranking
+                then Boosting
+                if shaftSpeed >= 1200 [rpm] and pressureRatio > 1.05;
+
+            transition Boosting_to_Bypass
+                first Boosting
+                then Bypass
+                if pressureRatio > 1.65;
+
+            transition Bypass_to_Boosting
+                first Bypass
+                then Boosting
+                if pressureRatio <= 1.45;
+
+            transition Any_to_OverspeedProtection
+                first Boosting
+                then OverspeedProtection
+                if shaftSpeed > 16000 [rpm];
+
+            transition OverspeedProtection_to_Boosting
+                first OverspeedProtection
+                then Boosting
+                if shaftSpeed < 14500 [rpm];
+
+            transition Any_to_Fault
+                first Boosting
+                then Fault
+                if outletPressure > housing.maximumCasePressure;
+        }
+    }
+
+    part def BoostedInductionSystem {
+        attribute ambientPressure : Pressure = 101.3 [kPa];
+        attribute ambientTemperature : Temperature = 298 [K];
+        attribute desiredBoostPressure : Pressure = 165 [kPa];
+
+        port ambientAirSource : AirPort;
+        port engineOutputShaft : DriveShaftPort;
+        port engineIntakeFlow : AirPort;
+        port wasteHeatSink : HeatPort;
+
+        part engine : EngineAirDemand {
+            attribute demandedMassFlow = 0.18 [kg/s];
+        }
+
+        part drive : PulleyDrive {
+            attribute pulleyRatio = 2.25;
+        }
+
+        part supercharger : RootsSupercharger {
+            attribute volumetricEfficiency = 0.88;
+            attribute adiabaticEfficiency = 0.62;
+            attribute pressureRatio = 1.55;
+        }
+
+        part bypass : BypassValve {
+            attribute openFraction = 0.0;
+            attribute leakageFlow = 0.004 [kg/s];
+        }
+
+        part cooler : ChargeAirCooler {
+            attribute effectiveness = 0.68;
+            attribute pressureDrop = 6 [kPa];
+        }
+
+        part manifold : IntakeManifold {
+            attribute volume = 0.0035 [m^3];
+            attribute manifoldPressure = 155 [kPa];
+            attribute manifoldTemperature = 328 [K];
+        }
+
+        part controller : SuperchargerController {
+            attribute targetBoostPressure = 155 [kPa];
+        }
+
+        connect engine.crankshaftPower to drive.engineCrankshaft;
+        connect drive.superchargerShaft to supercharger.driveInput;
+
+        connect ambientAirSource to supercharger.airInlet;
+        connect supercharger.airOutlet to cooler.hotInlet;
+        connect cooler.cooledOutlet to manifold.compressedAirInlet;
+        connect manifold.engineAirOutlet to engine.airInlet;
+        connect manifold.engineAirOutlet to engineIntakeFlow;
+
+        connect supercharger.airOutlet to bypass.upstream;
+        connect supercharger.airInlet to bypass.downstream;
+        connect controller.bypassControl to bypass.commandPort;
+
+        connect supercharger.heatLoss to wasteHeatSink;
+        connect cooler.rejectedHeat to wasteHeatSink;
+
+        action provideBoostedIntakeAir {
+            in ambientAir : Air;
+            in crankshaftPower : RotationalMechanicalPower;
+            out pressurizedChargeAir : Air;
+
+            first drawAmbientAir;
+            then rotateMeshedLobedRotors;
+            then positivelyDisplaceAirToOutlet;
+            then coolCompressedCharge;
+            then regulateBypassFlow;
+            then supplyEngineManifold;
+
+            action drawAmbientAir {
+                in ambientAir : Air;
+            }
+
+            action rotateMeshedLobedRotors {
+                in crankshaftPower : RotationalMechanicalPower;
+                out rotorPower : RotationalMechanicalPower;
+            }
+
+            action positivelyDisplaceAirToOutlet {
+                in rotorPower : RotationalMechanicalPower;
+                out elevatedPressureAir : Air;
+            }
+
+            action coolCompressedCharge {
+                in elevatedPressureAir : Air;
+                out cooledBoostedAir : Air;
+            }
+
+            action regulateBypassFlow {
+                in targetPressure : Pressure;
+                in measuredPressure : Pressure;
+                out bypassPosition : Ratio;
+            }
+
+            action supplyEngineManifold {
+                in cooledBoostedAir : Air;
+                out pressurizedChargeAir : Air;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Roots supercharger system shall use mechanically driven, meshed lobed rotors to positively displace intake air from the inlet to the outlet, increasing the intake manifold air pressure and mass airflow available to the engine at a high level. */
+        subject boostedSystem : BoostedInductionSystem;
+
+        require constraint {
+            boostedSystem.manifold.manifoldPressure > boostedSystem.ambientPressure;
+        }
+    }
+
+    requirement def AirflowDeliveryRequirement {
+        doc /* The system shall deliver boosted intake air to the engine whenever the engine drives the supercharger above the minimum effective rotor speed. */
+        subject boostedSystem : BoostedInductionSystem;
+
+        require constraint {
+            boostedSystem.supercharger.shaftSpeed >= 1200 [rpm] implies
+            boostedSystem.supercharger.deliveredMassFlow >= boostedSystem.engine.demandedMassFlow;
+        }
+    }
+
+    requirement def BoostLimitRequirement {
+        doc /* The bypass valve and controller shall limit boost pressure to protect the housing, manifold, and engine intake path. */
+        subject boostedSystem : BoostedInductionSystem;
+
+        require constraint {
+            boostedSystem.supercharger.outletPressure <= boostedSystem.supercharger.housing.maximumCasePressure;
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        doc /* The charge air cooler shall reduce outlet charge temperature before air enters the intake manifold. */
+        subject boostedSystem : BoostedInductionSystem;
+
+        require constraint {
+            boostedSystem.manifold.manifoldTemperature < boostedSystem.supercharger.outletTemperature;
+        }
+    }
+
+    requirement def MechanicalDriveRequirement {
+        doc /* The pulley drive shall transmit crankshaft power to the Roots supercharger shaft with a defined speed increase and bounded efficiency loss. */
+        subject boostedSystem : BoostedInductionSystem;
+
+        require constraint {
+            boostedSystem.drive.pulleyRatio > 1.0 and
+            boostedSystem.drive.beltEfficiency >= 0.90;
+        }
+    }
+
+    requirement def RotorSynchronizationRequirement {
+        doc /* The timing gear set shall maintain rotor phase so that the lobed rotors do not contact each other during operation. */
+        subject charger : RootsSupercharger;
+
+        require constraint {
+            charger.gears.gearRatio == 1.0 and
+            charger.leftRotor.clearance >= 0.0001 [m] and
+            charger.rightRotor.clearance >= 0.0001 [m];
+        }
+    }
+
+    part rootsBoostedEngineIntake : BoostedInductionSystem;
+
+    satisfy PrimaryFunctionRequirement by rootsBoostedEngineIntake;
+    satisfy AirflowDeliveryRequirement by rootsBoostedEngineIntake;
+    satisfy BoostLimitRequirement by rootsBoostedEngineIntake;
+    satisfy ThermalManagementRequirement by rootsBoostedEngineIntake;
+    satisfy MechanicalDriveRequirement by rootsBoostedEngineIntake;
+    satisfy RotorSynchronizationRequirement by rootsBoostedEngineIntake.supercharger;
+}

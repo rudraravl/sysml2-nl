@@ -1,0 +1,963 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tj5szmgm
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6a2-6d02-79d2-bfaf-f86e32ef47d5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Ephemeralization and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EphemeralizationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        range = "0..100";
+        unit = "%";
+    }
+
+    attribute def Ratio : Real {
+        range = "0..*";
+        unit = "1";
+    }
+
+    attribute def Currency : Real {
+        unit = "USD";
+    }
+
+    attribute def KilogramPerServiceUnit : Real {
+        unit = "kg/service";
+    }
+
+    attribute def JoulePerServiceUnit : Real {
+        unit = "J/service";
+    }
+
+    attribute def ServiceUnitRate : Real {
+        unit = "service/h";
+    }
+
+    attribute def CarbonDioxideEquivalent : Real {
+        unit = "kgCO2e";
+    }
+
+    item def RawMaterial {
+        attribute mass : MassValue;
+        attribute embodiedEnergy : EnergyValue;
+        attribute embodiedCarbon : CarbonDioxideEquivalent;
+        attribute recycledFraction : Percent;
+    }
+
+    item def EnergyFlow {
+        attribute power : PowerValue;
+        attribute renewableFraction : Percent;
+        attribute marginalCarbonIntensity : Real {
+            unit = "kgCO2e/kWh";
+        }
+    }
+
+    item def ServiceDemand {
+        attribute requestedServiceUnits : Real {
+            unit = "service";
+        }
+        attribute priority : Integer;
+        attribute deadline : TimeValue;
+        attribute requiredQuality : Percent;
+    }
+
+    item def ServiceOutput {
+        attribute deliveredServiceUnits : Real {
+            unit = "service";
+        }
+        attribute achievedQuality : Percent;
+        attribute deliveryTime : TimeValue;
+        attribute materialUsedPerService : KilogramPerServiceUnit;
+        attribute energyUsedPerService : JoulePerServiceUnit;
+    }
+
+    item def WasteStream {
+        attribute discardedMass : MassValue;
+        attribute recoverableMass : MassValue;
+        attribute toxicityIndex : Ratio;
+    }
+
+    item def OptimizationPlan {
+        attribute targetMaterialReduction : Percent;
+        attribute targetEnergyReduction : Percent;
+        attribute expectedServiceMultiplier : Ratio;
+        attribute approved : Boolean;
+    }
+
+    port def MaterialInPort {
+        in item material : RawMaterial;
+    }
+
+    port def EnergyInPort {
+        in item energy : EnergyFlow;
+    }
+
+    port def DemandInPort {
+        in item demand : ServiceDemand;
+    }
+
+    port def ServiceOutPort {
+        out item output : ServiceOutput;
+    }
+
+    port def WasteOutPort {
+        out item waste : WasteStream;
+    }
+
+    port def PlanPort {
+        out item plan : OptimizationPlan;
+    }
+
+    part def EphemeralizationSystem {
+        doc
+        /*
+         * Primary function:
+         * Deliver an increasing quantity and quality of useful service while
+         * progressively reducing physical material, energy, cost, and waste
+         * required per unit of service.
+         */
+
+        attribute totalMass : MassValue;
+        attribute operatingPower : PowerValue;
+        attribute serviceThroughput : ServiceUnitRate;
+        attribute materialIntensity : KilogramPerServiceUnit;
+        attribute energyIntensity : JoulePerServiceUnit;
+        attribute utilization : Percent;
+        attribute serviceQuality : Percent;
+        attribute lifecycleCarbon : CarbonDioxideEquivalent;
+        attribute costPerService : Currency;
+
+        port materialInput : MaterialInPort;
+        port energyInput : EnergyInPort;
+        port demandInput : DemandInPort;
+        port serviceOutput : ServiceOutPort;
+        port wasteOutput : WasteOutPort;
+        port planOutput : PlanPort;
+
+        part demandAnalyzer : DemandAnalyzer;
+        part resourceMinimizer : ResourceMinimizer;
+        part serviceFabricator : ServiceFabricator;
+        part reuseRecoveryLoop : ReuseRecoveryLoop;
+        part performanceGovernor : PerformanceGovernor;
+
+        connect demandInput to demandAnalyzer.demandInput;
+        connect materialInput to resourceMinimizer.materialInput;
+        connect energyInput to resourceMinimizer.energyInput;
+        connect demandAnalyzer.normalizedDemandOutput to performanceGovernor.demandInput;
+        connect performanceGovernor.planOutput to resourceMinimizer.planInput;
+        connect resourceMinimizer.optimizedMaterialOutput to serviceFabricator.materialInput;
+        connect resourceMinimizer.optimizedEnergyOutput to serviceFabricator.energyInput;
+        connect performanceGovernor.controlOutput to serviceFabricator.controlInput;
+        connect serviceFabricator.serviceOutput to serviceOutput;
+        connect serviceFabricator.wasteOutput to reuseRecoveryLoop.wasteInput;
+        connect reuseRecoveryLoop.recoveredMaterialOutput to resourceMinimizer.recoveredMaterialInput;
+        connect reuseRecoveryLoop.residualWasteOutput to wasteOutput;
+        connect performanceGovernor.planOutput to planOutput;
+
+        constraint materialEfficiencyConstraint {
+            materialIntensity <= 0.25 [kg/service];
+        }
+
+        constraint energyEfficiencyConstraint {
+            energyIntensity <= 50000 [J/service];
+        }
+
+        constraint serviceQualityConstraint {
+            serviceQuality >= 95 [%];
+        }
+
+        constraint utilizationConstraint {
+            utilization >= 80 [%];
+        }
+    }
+
+    part def DemandAnalyzer {
+        attribute demandForecastAccuracy : Percent;
+        attribute peakDemand : ServiceUnitRate;
+
+        port demandInput : DemandInPort;
+        port normalizedDemandOutput : DemandInPort;
+
+        action normalizeDemand {
+            in item rawDemand : ServiceDemand;
+            out item normalizedDemand : ServiceDemand;
+
+            first start;
+            then validateDeadline;
+            then classifyPriority;
+            then scaleRequestedService;
+            then emitNormalizedDemand;
+        }
+    }
+
+    part def ResourceMinimizer {
+        attribute materialReductionAchieved : Percent;
+        attribute energyReductionAchieved : Percent;
+        attribute topologyEfficiency : Ratio;
+        attribute recoveredMaterialFraction : Percent;
+
+        port materialInput : MaterialInPort;
+        port recoveredMaterialInput : MaterialInPort;
+        port energyInput : EnergyInPort;
+        port planInput : PlanPort;
+        port optimizedMaterialOutput : MaterialInPort;
+        port optimizedEnergyOutput : EnergyInPort;
+
+        action minimizeResources {
+            in item virginMaterial : RawMaterial;
+            in item recoveredMaterial : RawMaterial;
+            in item suppliedEnergy : EnergyFlow;
+            in item plan : OptimizationPlan;
+            out item optimizedMaterial : RawMaterial;
+            out item optimizedEnergy : EnergyFlow;
+
+            first receiveInputs;
+            then substituteRecoveredMaterial;
+            then reduceStructuralMass;
+            then selectLowEnergyProcess;
+            then verifyQualityMargin;
+            then releaseOptimizedResources;
+        }
+    }
+
+    part def ServiceFabricator {
+        attribute activeToolCount : Integer;
+        attribute defectRate : Percent;
+        attribute serviceCycleTime : TimeValue;
+
+        port materialInput : MaterialInPort;
+        port energyInput : EnergyInPort;
+        port controlInput : ControlPort;
+        port serviceOutput : ServiceOutPort;
+        port wasteOutput : WasteOutPort;
+
+        action deliverService {
+            in item material : RawMaterial;
+            in item energy : EnergyFlow;
+            in controlSignal : ControlSignal;
+            out item output : ServiceOutput;
+            out item waste : WasteStream;
+
+            first prepare;
+            then transformMinimalMaterial;
+            then provideUsefulFunction;
+            then measureQuality;
+            then separateRecoverableWaste;
+            then publishOutput;
+        }
+    }
+
+    part def ReuseRecoveryLoop {
+        attribute recoveryEfficiency : Percent;
+        attribute residualWasteFraction : Percent;
+
+        port wasteInput : WasteInPort;
+        port recoveredMaterialOutput : MaterialInPort;
+        port residualWasteOutput : WasteOutPort;
+
+        action recoverMaterial {
+            in item waste : WasteStream;
+            out item recoveredMaterial : RawMaterial;
+            out item residualWaste : WasteStream;
+
+            first inspectWaste;
+            then sortRecoverableFraction;
+            then reconditionMaterial;
+            then certifyRecoveredMaterial;
+            then dischargeResidualWaste;
+        }
+    }
+
+    part def PerformanceGovernor {
+        attribute serviceMultiplier : Ratio;
+        attribute measuredMaterialIntensity : KilogramPerServiceUnit;
+        attribute measuredEnergyIntensity : JoulePerServiceUnit;
+        attribute qualityMargin : Percent;
+
+        port demandInput : DemandInPort;
+        port controlOutput : ControlPort;
+        port planOutput : PlanPort;
+
+        action computeOptimizationPlan {
+            in item demand : ServiceDemand;
+            out item plan : OptimizationPlan;
+            out controlSignal : ControlSignal;
+
+            first readDemand;
+            then evaluateCurrentIntensity;
+            then calculateReductionTargets;
+            then preserveQualityMargin;
+            then authorizePlan;
+            then sendControlSignal;
+        }
+
+        state machine governorStates {
+            state Idle;
+            state AssessingDemand;
+            state OptimizingResources;
+            state DeliveringService;
+            state RecoveringMaterial;
+            state Learning;
+
+            entry; then Idle;
+
+            transition idleToAssessing
+                first Idle
+                accept DemandReceived
+                then AssessingDemand;
+
+            transition assessingToOptimizing
+                first AssessingDemand
+                if demandInput.demand.requestedServiceUnits > 0
+                then OptimizingResources;
+
+            transition optimizingToDelivering
+                first OptimizingResources
+                if qualityMargin >= 5 [%]
+                then DeliveringService;
+
+            transition deliveringToRecovering
+                first DeliveringService
+                accept ServiceBatchComplete
+                then RecoveringMaterial;
+
+            transition recoveringToLearning
+                first RecoveringMaterial
+                accept RecoveryComplete
+                then Learning;
+
+            transition learningToIdle
+                first Learning
+                accept MetricsUpdated
+                then Idle;
+        }
+    }
+
+    item def ControlSignal {
+        attribute targetThroughput : ServiceUnitRate;
+        attribute targetQuality : Percent;
+        attribute maxMaterialIntensity : KilogramPerServiceUnit;
+        attribute maxEnergyIntensity : JoulePerServiceUnit;
+        attribute reuseRequired : Boolean;
+    }
+
+    port def ControlPort {
+        in controlSignal : ControlSignal;
+    }
+
+    port def WasteInPort {
+        in item waste : WasteStream;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.serviceThroughput >= 1000 [service/h] and
+            system.materialIntensity <= 0.25 [kg/service] and
+            system.energyIntensity <= 50000 [J/service] and
+            system.serviceQuality >= 95 [%]
+        }
+
+        doc
+        /*
+         * The system shall provide useful service at high throughput and high
+         * quality while using minimal material and energy per delivered service.
+         */
+    }
+
+    requirement def ProgressiveDematerializationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.resourceMinimizer.materialReductionAchieved >= 40 [%] and
+            system.reuseRecoveryLoop.recoveryEfficiency >= 85 [%]
+        }
+
+        doc
+        /*
+         * The system shall reduce virgin material dependence through structural
+         * optimization, recovered material substitution, and closed-loop reuse.
+         */
+    }
+
+    requirement def EnergyEphemeralizationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.resourceMinimizer.energyReductionAchieved >= 35 [%] and
+            system.energyInput.energy.renewableFraction >= 60 [%]
+        }
+
+        doc
+        /*
+         * The system shall reduce energy required per unit of service while
+         * favoring low-carbon energy sources.
+         */
+    }
+
+    requirement def WasteMinimizationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.reuseRecoveryLoop.residualWasteFraction <= 10 [%]
+        }
+
+        doc
+        /*
+         * The system shall recover most process waste and discharge only a
+         * small residual fraction.
+         */
+    }
+
+    requirement def QualityPreservationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.serviceQuality >= 95 [%] and
+            system.serviceFabricator.defectRate <= 1 [%]
+        }
+
+        doc
+        /*
+         * Efficiency improvements shall not reduce delivered service quality
+         * below the specified threshold.
+         */
+    }
+
+    satisfy PrimaryFunctionRequirement by EphemeralizationSystem;
+    satisfy ProgressiveDematerializationRequirement by EphemeralizationSystem;
+    satisfy EnergyEphemeralizationRequirement by EphemeralizationSystem;
+    satisfy WasteMinimizationRequirement by EphemeralizationSystem;
+    satisfy QualityPreservationRequirement by EphemeralizationSystem;
+
+    part ephemeralizationPlatform : EphemeralizationSystem {
+        attribute totalMass = 850 [kg];
+        attribute operatingPower = 12 [kW];
+        attribute serviceThroughput = 1200 [service/h];
+        attribute materialIntensity = 0.18 [kg/service];
+        attribute energyIntensity = 42000 [J/service];
+        attribute utilization = 88 [%];
+        attribute serviceQuality = 97 [%];
+        attribute lifecycleCarbon = 16000 [kgCO2e];
+        attribute costPerService = 0.38 [USD];
+
+        part resourceMinimizer {
+            attribute materialReductionAchieved = 48 [%];
+            attribute energyReductionAchieved = 39 [%];
+            attribute topologyEfficiency = 2.7 [1];
+            attribute recoveredMaterialFraction = 62 [%];
+        }
+
+        part reuseRecoveryLoop {
+            attribute recoveryEfficiency = 89 [%];
+            attribute residualWasteFraction = 8 [%];
+        }
+
+        part serviceFabricator {
+            attribute activeToolCount = 6;
+            attribute defectRate = 0.7 [%];
+            attribute serviceCycleTime = 3 [s];
+        }
+
+        part performanceGovernor {
+            attribute serviceMultiplier = 3.4 [1];
+            attribute measuredMaterialIntensity = 0.18 [kg/service];
+            attribute measuredEnergyIntensity = 42000 [J/service];
+            attribute qualityMargin = 6 [%];
+        }
+
+        part demandAnalyzer {
+            attribute demandForecastAccuracy = 93 [%];
+            attribute peakDemand = 1500 [service/h];
+        }
+    }
+}
+tokens used
+3,303
+package EphemeralizationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        range = "0..100";
+        unit = "%";
+    }
+
+    attribute def Ratio : Real {
+        range = "0..*";
+        unit = "1";
+    }
+
+    attribute def Currency : Real {
+        unit = "USD";
+    }
+
+    attribute def KilogramPerServiceUnit : Real {
+        unit = "kg/service";
+    }
+
+    attribute def JoulePerServiceUnit : Real {
+        unit = "J/service";
+    }
+
+    attribute def ServiceUnitRate : Real {
+        unit = "service/h";
+    }
+
+    attribute def CarbonDioxideEquivalent : Real {
+        unit = "kgCO2e";
+    }
+
+    item def RawMaterial {
+        attribute mass : MassValue;
+        attribute embodiedEnergy : EnergyValue;
+        attribute embodiedCarbon : CarbonDioxideEquivalent;
+        attribute recycledFraction : Percent;
+    }
+
+    item def EnergyFlow {
+        attribute power : PowerValue;
+        attribute renewableFraction : Percent;
+        attribute marginalCarbonIntensity : Real {
+            unit = "kgCO2e/kWh";
+        }
+    }
+
+    item def ServiceDemand {
+        attribute requestedServiceUnits : Real {
+            unit = "service";
+        }
+        attribute priority : Integer;
+        attribute deadline : TimeValue;
+        attribute requiredQuality : Percent;
+    }
+
+    item def ServiceOutput {
+        attribute deliveredServiceUnits : Real {
+            unit = "service";
+        }
+        attribute achievedQuality : Percent;
+        attribute deliveryTime : TimeValue;
+        attribute materialUsedPerService : KilogramPerServiceUnit;
+        attribute energyUsedPerService : JoulePerServiceUnit;
+    }
+
+    item def WasteStream {
+        attribute discardedMass : MassValue;
+        attribute recoverableMass : MassValue;
+        attribute toxicityIndex : Ratio;
+    }
+
+    item def OptimizationPlan {
+        attribute targetMaterialReduction : Percent;
+        attribute targetEnergyReduction : Percent;
+        attribute expectedServiceMultiplier : Ratio;
+        attribute approved : Boolean;
+    }
+
+    port def MaterialInPort {
+        in item material : RawMaterial;
+    }
+
+    port def EnergyInPort {
+        in item energy : EnergyFlow;
+    }
+
+    port def DemandInPort {
+        in item demand : ServiceDemand;
+    }
+
+    port def ServiceOutPort {
+        out item output : ServiceOutput;
+    }
+
+    port def WasteOutPort {
+        out item waste : WasteStream;
+    }
+
+    port def PlanPort {
+        out item plan : OptimizationPlan;
+    }
+
+    part def EphemeralizationSystem {
+        doc
+        /*
+         * Primary function:
+         * Deliver an increasing quantity and quality of useful service while
+         * progressively reducing physical material, energy, cost, and waste
+         * required per unit of service.
+         */
+
+        attribute totalMass : MassValue;
+        attribute operatingPower : PowerValue;
+        attribute serviceThroughput : ServiceUnitRate;
+        attribute materialIntensity : KilogramPerServiceUnit;
+        attribute energyIntensity : JoulePerServiceUnit;
+        attribute utilization : Percent;
+        attribute serviceQuality : Percent;
+        attribute lifecycleCarbon : CarbonDioxideEquivalent;
+        attribute costPerService : Currency;
+
+        port materialInput : MaterialInPort;
+        port energyInput : EnergyInPort;
+        port demandInput : DemandInPort;
+        port serviceOutput : ServiceOutPort;
+        port wasteOutput : WasteOutPort;
+        port planOutput : PlanPort;
+
+        part demandAnalyzer : DemandAnalyzer;
+        part resourceMinimizer : ResourceMinimizer;
+        part serviceFabricator : ServiceFabricator;
+        part reuseRecoveryLoop : ReuseRecoveryLoop;
+        part performanceGovernor : PerformanceGovernor;
+
+        connect demandInput to demandAnalyzer.demandInput;
+        connect materialInput to resourceMinimizer.materialInput;
+        connect energyInput to resourceMinimizer.energyInput;
+        connect demandAnalyzer.normalizedDemandOutput to performanceGovernor.demandInput;
+        connect performanceGovernor.planOutput to resourceMinimizer.planInput;
+        connect resourceMinimizer.optimizedMaterialOutput to serviceFabricator.materialInput;
+        connect resourceMinimizer.optimizedEnergyOutput to serviceFabricator.energyInput;
+        connect performanceGovernor.controlOutput to serviceFabricator.controlInput;
+        connect serviceFabricator.serviceOutput to serviceOutput;
+        connect serviceFabricator.wasteOutput to reuseRecoveryLoop.wasteInput;
+        connect reuseRecoveryLoop.recoveredMaterialOutput to resourceMinimizer.recoveredMaterialInput;
+        connect reuseRecoveryLoop.residualWasteOutput to wasteOutput;
+        connect performanceGovernor.planOutput to planOutput;
+
+        constraint materialEfficiencyConstraint {
+            materialIntensity <= 0.25 [kg/service];
+        }
+
+        constraint energyEfficiencyConstraint {
+            energyIntensity <= 50000 [J/service];
+        }
+
+        constraint serviceQualityConstraint {
+            serviceQuality >= 95 [%];
+        }
+
+        constraint utilizationConstraint {
+            utilization >= 80 [%];
+        }
+    }
+
+    part def DemandAnalyzer {
+        attribute demandForecastAccuracy : Percent;
+        attribute peakDemand : ServiceUnitRate;
+
+        port demandInput : DemandInPort;
+        port normalizedDemandOutput : DemandInPort;
+
+        action normalizeDemand {
+            in item rawDemand : ServiceDemand;
+            out item normalizedDemand : ServiceDemand;
+
+            first start;
+            then validateDeadline;
+            then classifyPriority;
+            then scaleRequestedService;
+            then emitNormalizedDemand;
+        }
+    }
+
+    part def ResourceMinimizer {
+        attribute materialReductionAchieved : Percent;
+        attribute energyReductionAchieved : Percent;
+        attribute topologyEfficiency : Ratio;
+        attribute recoveredMaterialFraction : Percent;
+
+        port materialInput : MaterialInPort;
+        port recoveredMaterialInput : MaterialInPort;
+        port energyInput : EnergyInPort;
+        port planInput : PlanPort;
+        port optimizedMaterialOutput : MaterialInPort;
+        port optimizedEnergyOutput : EnergyInPort;
+
+        action minimizeResources {
+            in item virginMaterial : RawMaterial;
+            in item recoveredMaterial : RawMaterial;
+            in item suppliedEnergy : EnergyFlow;
+            in item plan : OptimizationPlan;
+            out item optimizedMaterial : RawMaterial;
+            out item optimizedEnergy : EnergyFlow;
+
+            first receiveInputs;
+            then substituteRecoveredMaterial;
+            then reduceStructuralMass;
+            then selectLowEnergyProcess;
+            then verifyQualityMargin;
+            then releaseOptimizedResources;
+        }
+    }
+
+    part def ServiceFabricator {
+        attribute activeToolCount : Integer;
+        attribute defectRate : Percent;
+        attribute serviceCycleTime : TimeValue;
+
+        port materialInput : MaterialInPort;
+        port energyInput : EnergyInPort;
+        port controlInput : ControlPort;
+        port serviceOutput : ServiceOutPort;
+        port wasteOutput : WasteOutPort;
+
+        action deliverService {
+            in item material : RawMaterial;
+            in item energy : EnergyFlow;
+            in controlSignal : ControlSignal;
+            out item output : ServiceOutput;
+            out item waste : WasteStream;
+
+            first prepare;
+            then transformMinimalMaterial;
+            then provideUsefulFunction;
+            then measureQuality;
+            then separateRecoverableWaste;
+            then publishOutput;
+        }
+    }
+
+    part def ReuseRecoveryLoop {
+        attribute recoveryEfficiency : Percent;
+        attribute residualWasteFraction : Percent;
+
+        port wasteInput : WasteInPort;
+        port recoveredMaterialOutput : MaterialInPort;
+        port residualWasteOutput : WasteOutPort;
+
+        action recoverMaterial {
+            in item waste : WasteStream;
+            out item recoveredMaterial : RawMaterial;
+            out item residualWaste : WasteStream;
+
+            first inspectWaste;
+            then sortRecoverableFraction;
+            then reconditionMaterial;
+            then certifyRecoveredMaterial;
+            then dischargeResidualWaste;
+        }
+    }
+
+    part def PerformanceGovernor {
+        attribute serviceMultiplier : Ratio;
+        attribute measuredMaterialIntensity : KilogramPerServiceUnit;
+        attribute measuredEnergyIntensity : JoulePerServiceUnit;
+        attribute qualityMargin : Percent;
+
+        port demandInput : DemandInPort;
+        port controlOutput : ControlPort;
+        port planOutput : PlanPort;
+
+        action computeOptimizationPlan {
+            in item demand : ServiceDemand;
+            out item plan : OptimizationPlan;
+            out controlSignal : ControlSignal;
+
+            first readDemand;
+            then evaluateCurrentIntensity;
+            then calculateReductionTargets;
+            then preserveQualityMargin;
+            then authorizePlan;
+            then sendControlSignal;
+        }
+
+        state machine governorStates {
+            state Idle;
+            state AssessingDemand;
+            state OptimizingResources;
+            state DeliveringService;
+            state RecoveringMaterial;
+            state Learning;
+
+            entry; then Idle;
+
+            transition idleToAssessing
+                first Idle
+                accept DemandReceived
+                then AssessingDemand;
+
+            transition assessingToOptimizing
+                first AssessingDemand
+                if demandInput.demand.requestedServiceUnits > 0
+                then OptimizingResources;
+
+            transition optimizingToDelivering
+                first OptimizingResources
+                if qualityMargin >= 5 [%]
+                then DeliveringService;
+
+            transition deliveringToRecovering
+                first DeliveringService
+                accept ServiceBatchComplete
+                then RecoveringMaterial;
+
+            transition recoveringToLearning
+                first RecoveringMaterial
+                accept RecoveryComplete
+                then Learning;
+
+            transition learningToIdle
+                first Learning
+                accept MetricsUpdated
+                then Idle;
+        }
+    }
+
+    item def ControlSignal {
+        attribute targetThroughput : ServiceUnitRate;
+        attribute targetQuality : Percent;
+        attribute maxMaterialIntensity : KilogramPerServiceUnit;
+        attribute maxEnergyIntensity : JoulePerServiceUnit;
+        attribute reuseRequired : Boolean;
+    }
+
+    port def ControlPort {
+        in controlSignal : ControlSignal;
+    }
+
+    port def WasteInPort {
+        in item waste : WasteStream;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.serviceThroughput >= 1000 [service/h] and
+            system.materialIntensity <= 0.25 [kg/service] and
+            system.energyIntensity <= 50000 [J/service] and
+            system.serviceQuality >= 95 [%]
+        }
+
+        doc
+        /*
+         * The system shall provide useful service at high throughput and high
+         * quality while using minimal material and energy per delivered service.
+         */
+    }
+
+    requirement def ProgressiveDematerializationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.resourceMinimizer.materialReductionAchieved >= 40 [%] and
+            system.reuseRecoveryLoop.recoveryEfficiency >= 85 [%]
+        }
+
+        doc
+        /*
+         * The system shall reduce virgin material dependence through structural
+         * optimization, recovered material substitution, and closed-loop reuse.
+         */
+    }
+
+    requirement def EnergyEphemeralizationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.resourceMinimizer.energyReductionAchieved >= 35 [%] and
+            system.energyInput.energy.renewableFraction >= 60 [%]
+        }
+
+        doc
+        /*
+         * The system shall reduce energy required per unit of service while
+         * favoring low-carbon energy sources.
+         */
+    }
+
+    requirement def WasteMinimizationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.reuseRecoveryLoop.residualWasteFraction <= 10 [%]
+        }
+
+        doc
+        /*
+         * The system shall recover most process waste and discharge only a
+         * small residual fraction.
+         */
+    }
+
+    requirement def QualityPreservationRequirement {
+        subject system : EphemeralizationSystem;
+
+        require constraint {
+            system.serviceQuality >= 95 [%] and
+            system.serviceFabricator.defectRate <= 1 [%]
+        }
+
+        doc
+        /*
+         * Efficiency improvements shall not reduce delivered service quality
+         * below the specified threshold.
+         */
+    }
+
+    satisfy PrimaryFunctionRequirement by EphemeralizationSystem;
+    satisfy ProgressiveDematerializationRequirement by EphemeralizationSystem;
+    satisfy EnergyEphemeralizationRequirement by EphemeralizationSystem;
+    satisfy WasteMinimizationRequirement by EphemeralizationSystem;
+    satisfy QualityPreservationRequirement by EphemeralizationSystem;
+
+    part ephemeralizationPlatform : EphemeralizationSystem {
+        attribute totalMass = 850 [kg];
+        attribute operatingPower = 12 [kW];
+        attribute serviceThroughput = 1200 [service/h];
+        attribute materialIntensity = 0.18 [kg/service];
+        attribute energyIntensity = 42000 [J/service];
+        attribute utilization = 88 [%];
+        attribute serviceQuality = 97 [%];
+        attribute lifecycleCarbon = 16000 [kgCO2e];
+        attribute costPerService = 0.38 [USD];
+
+        part resourceMinimizer {
+            attribute materialReductionAchieved = 48 [%];
+            attribute energyReductionAchieved = 39 [%];
+            attribute topologyEfficiency = 2.7 [1];
+            attribute recoveredMaterialFraction = 62 [%];
+        }
+
+        part reuseRecoveryLoop {
+            attribute recoveryEfficiency = 89 [%];
+            attribute residualWasteFraction = 8 [%];
+        }
+
+        part serviceFabricator {
+            attribute activeToolCount = 6;
+            attribute defectRate = 0.7 [%];
+            attribute serviceCycleTime = 3 [s];
+        }
+
+        part performanceGovernor {
+            attribute serviceMultiplier = 3.4 [1];
+            attribute measuredMaterialIntensity = 0.18 [kg/service];
+            attribute measuredEnergyIntensity = 42000 [J/service];
+            attribute qualityMargin = 6 [%];
+        }
+
+        part demandAnalyzer {
+            attribute demandForecastAccuracy = 93 [%];
+            attribute peakDemand = 1500 [service/h];
+        }
+    }
+}

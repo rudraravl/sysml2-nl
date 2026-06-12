@@ -1,0 +1,600 @@
+package ProcessFlowSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def MassFlowRate :> Real {
+        unit = "kg/h";
+    }
+
+    attribute def VolumeFlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Power :> Real {
+        unit = "kW";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    item def RawFeed {
+        attribute feedRate : MassFlowRate;
+        attribute contaminantFraction : Percentage;
+        attribute temperature : Temperature;
+    }
+
+    item def ConditionedFeed {
+        attribute feedRate : MassFlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def ProcessedMaterial {
+        attribute feedRate : MassFlowRate;
+        attribute conversion : Percentage;
+        attribute temperature : Temperature;
+    }
+
+    item def FinalProduct {
+        attribute productRate : MassFlowRate;
+        attribute purity : Percentage;
+        attribute temperature : Temperature;
+    }
+
+    item def WasteStream {
+        attribute wasteRate : MassFlowRate;
+        attribute hazardLevel : Percentage;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Percentage;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def SensorSignal {
+        attribute measuredValue : Real;
+        attribute timestamp : TimeDuration;
+    }
+
+    port def MaterialInPort {
+        in item material : RawFeed;
+    }
+
+    port def ConditionedMaterialPort {
+        inout item material : ConditionedFeed;
+    }
+
+    port def ProcessedMaterialPort {
+        inout item material : ProcessedMaterial;
+    }
+
+    port def ProductOutPort {
+        out item product : FinalProduct;
+    }
+
+    port def WasteOutPort {
+        out item waste : WasteStream;
+    }
+
+    port def SignalInPort {
+        in item signal : ControlSignal;
+    }
+
+    port def SignalOutPort {
+        out item signal : SensorSignal;
+    }
+
+    part def FeedSubsystem {
+        port rawFeedIn : MaterialInPort;
+        port conditionedFeedOut : ConditionedMaterialPort;
+        port controlIn : SignalInPort;
+        port statusOut : SignalOutPort;
+
+        attribute pumpPower : Power;
+        attribute outletPressure : Pressure;
+        attribute targetFeedRate : MassFlowRate;
+
+        action conditionFeed {
+            in item raw : RawFeed;
+            out item conditioned : ConditionedFeed;
+
+            first startPump;
+            then regulateFlow;
+            then pressurizeFeed;
+            then dischargeConditionedFeed;
+
+            action startPump;
+            action regulateFlow;
+            action pressurizeFeed;
+            action dischargeConditionedFeed;
+        }
+
+        state def FeedSubsystemState {
+            state idle;
+            state priming;
+            state running;
+            state blocked;
+            state shutdown;
+
+            transition first idle;
+            transition idle_to_priming
+                first idle then priming
+                accept ControlSignal
+                if signal.commandValue > 0.0;
+
+            transition priming_to_running
+                first priming then running
+                if outletPressure >= 250.0;
+
+            transition running_to_blocked
+                first running then blocked
+                if outletPressure > 600.0;
+
+            transition blocked_to_shutdown
+                first blocked then shutdown;
+
+            transition running_to_shutdown
+                first running then shutdown
+                accept ControlSignal
+                if signal.commandValue == 0.0;
+        }
+    }
+
+    part def ThermalConditioner {
+        port feedIn : ConditionedMaterialPort;
+        port feedOut : ConditionedMaterialPort;
+        port controlIn : SignalInPort;
+        port temperatureStatusOut : SignalOutPort;
+
+        attribute heaterPower : Power;
+        attribute targetTemperature : Temperature;
+        attribute maximumTemperature : Temperature;
+
+        action heatFeed {
+            in item inletFeed : ConditionedFeed;
+            out item heatedFeed : ConditionedFeed;
+
+            first measureTemperature;
+            then applyHeat;
+            then verifyTemperature;
+            then releaseHeatedFeed;
+
+            action measureTemperature;
+            action applyHeat;
+            action verifyTemperature;
+            action releaseHeatedFeed;
+        }
+
+        state def ThermalConditionerState {
+            state standby;
+            state heating;
+            state temperatureStable;
+            state overTemperature;
+            state isolated;
+
+            transition first standby;
+
+            transition standby_to_heating
+                first standby then heating
+                accept ControlSignal
+                if signal.commandValue > 0.0;
+
+            transition heating_to_temperatureStable
+                first heating then temperatureStable
+                if targetTemperature <= 85.0;
+
+            transition heating_to_overTemperature
+                first heating then overTemperature
+                if targetTemperature > maximumTemperature;
+
+            transition overTemperature_to_isolated
+                first overTemperature then isolated;
+
+            transition temperatureStable_to_standby
+                first temperatureStable then standby
+                accept ControlSignal
+                if signal.commandValue == 0.0;
+        }
+    }
+
+    part def ReactorSubsystem {
+        port conditionedFeedIn : ConditionedMaterialPort;
+        port processedMaterialOut : ProcessedMaterialPort;
+        port controlIn : SignalInPort;
+        port reactorStatusOut : SignalOutPort;
+
+        attribute residenceTime : TimeDuration;
+        attribute reactorTemperature : Temperature;
+        attribute reactorPressure : Pressure;
+        attribute targetConversion : Percentage;
+
+        action transformMaterial {
+            in item feed : ConditionedFeed;
+            out item processed : ProcessedMaterial;
+
+            first receiveFeed;
+            then maintainReactionConditions;
+            then convertFeed;
+            then verifyConversion;
+            then dischargeProcessedMaterial;
+
+            action receiveFeed;
+            action maintainReactionConditions;
+            action convertFeed;
+            action verifyConversion;
+            action dischargeProcessedMaterial;
+        }
+
+        state def ReactorState {
+            state offline;
+            state charging;
+            state reacting;
+            state holding;
+            state discharging;
+            state faulted;
+
+            transition first offline;
+
+            transition offline_to_charging
+                first offline then charging
+                accept ControlSignal
+                if signal.commandValue > 0.0;
+
+            transition charging_to_reacting
+                first charging then reacting
+                if reactorPressure >= 250.0;
+
+            transition reacting_to_holding
+                first reacting then holding
+                if targetConversion >= 95.0;
+
+            transition holding_to_discharging
+                first holding then discharging;
+
+            transition discharging_to_charging
+                first discharging then charging
+                if signal.commandValue > 0.0;
+
+            transition reacting_to_faulted
+                first reacting then faulted
+                if reactorPressure > 900.0;
+
+            transition faulted_to_offline
+                first faulted then offline
+                accept ControlSignal
+                if signal.commandValue == 0.0;
+        }
+    }
+
+    part def SeparationSubsystem {
+        port processedMaterialIn : ProcessedMaterialPort;
+        port productOut : ProductOutPort;
+        port wasteOut : WasteOutPort;
+        port controlIn : SignalInPort;
+        port separationStatusOut : SignalOutPort;
+
+        attribute separatorPressure : Pressure;
+        attribute separationEfficiency : Percentage;
+        attribute rejectFraction : Percentage;
+
+        action separateProduct {
+            in item mixedStream : ProcessedMaterial;
+            out item product : FinalProduct;
+            out item waste : WasteStream;
+
+            first receiveProcessedMaterial;
+            then splitProductFraction;
+            then removeWasteFraction;
+            then verifyProductPurity;
+            then dischargeOutputs;
+
+            action receiveProcessedMaterial;
+            action splitProductFraction;
+            action removeWasteFraction;
+            action verifyProductPurity;
+            action dischargeOutputs;
+        }
+
+        state def SeparationState {
+            state stopped;
+            state separating;
+            state flushing;
+            state productVerified;
+            state rejectHigh;
+
+            transition first stopped;
+
+            transition stopped_to_separating
+                first stopped then separating
+                accept ControlSignal
+                if signal.commandValue > 0.0;
+
+            transition separating_to_productVerified
+                first separating then productVerified
+                if separationEfficiency >= 98.0;
+
+            transition separating_to_rejectHigh
+                first separating then rejectHigh
+                if rejectFraction > 15.0;
+
+            transition rejectHigh_to_flushing
+                first rejectHigh then flushing;
+
+            transition flushing_to_stopped
+                first flushing then stopped;
+
+            transition productVerified_to_separating
+                first productVerified then separating;
+        }
+    }
+
+    part def PackagingSubsystem {
+        port productIn : ProductOutPort;
+        port controlIn : SignalInPort;
+        port packagedProductOut : ProductOutPort;
+        port packageStatusOut : SignalOutPort;
+
+        attribute packageRate : MassFlowRate;
+        attribute fillAccuracy : Percentage;
+        attribute packageTemperatureLimit : Temperature;
+
+        action packageProduct {
+            in item product : FinalProduct;
+            out item packagedProduct : FinalProduct;
+
+            first receiveProduct;
+            then meterProduct;
+            then fillContainer;
+            then verifyFill;
+            then releasePackage;
+
+            action receiveProduct;
+            action meterProduct;
+            action fillContainer;
+            action verifyFill;
+            action releasePackage;
+        }
+
+        state def PackagingState {
+            state waiting;
+            state filling;
+            state checking;
+            state released;
+            state held;
+
+            transition first waiting;
+
+            transition waiting_to_filling
+                first waiting then filling
+                accept ControlSignal
+                if signal.commandValue > 0.0;
+
+            transition filling_to_checking
+                first filling then checking;
+
+            transition checking_to_released
+                first checking then released
+                if fillAccuracy >= 99.0;
+
+            transition checking_to_held
+                first checking then held
+                if fillAccuracy < 99.0;
+
+            transition released_to_waiting
+                first released then waiting;
+
+            transition held_to_waiting
+                first held then waiting
+                accept ControlSignal
+                if signal.commandValue == 0.0;
+        }
+    }
+
+    part def SupervisoryController {
+        port feedCommandOut : SignalOutPort;
+        port thermalCommandOut : SignalOutPort;
+        port reactorCommandOut : SignalOutPort;
+        port separationCommandOut : SignalOutPort;
+        port packagingCommandOut : SignalOutPort;
+
+        port feedStatusIn : SignalInPort;
+        port thermalStatusIn : SignalInPort;
+        port reactorStatusIn : SignalInPort;
+        port separationStatusIn : SignalInPort;
+        port packagingStatusIn : SignalInPort;
+
+        attribute commandedThroughput : MassFlowRate;
+        attribute systemAvailability : Percentage;
+        attribute alarmCount : Integer;
+
+        action controlProcessFlow {
+            first initializeSystem;
+            then commandFeedSubsystem;
+            then commandThermalConditioner;
+            then commandReactor;
+            then commandSeparation;
+            then commandPackaging;
+            then monitorProcessPerformance;
+
+            action initializeSystem;
+            action commandFeedSubsystem;
+            action commandThermalConditioner;
+            action commandReactor;
+            action commandSeparation;
+            action commandPackaging;
+            action monitorProcessPerformance;
+        }
+
+        state def ControllerState {
+            state poweredOff;
+            state startup;
+            state automaticOperation;
+            state degradedOperation;
+            state emergencyStop;
+            state normalShutdown;
+
+            transition first poweredOff;
+
+            transition poweredOff_to_startup
+                first poweredOff then startup
+                accept ControlSignal
+                if signal.commandValue > 0.0;
+
+            transition startup_to_automaticOperation
+                first startup then automaticOperation
+                if systemAvailability >= 95.0;
+
+            transition automaticOperation_to_degradedOperation
+                first automaticOperation then degradedOperation
+                if systemAvailability < 95.0;
+
+            transition degradedOperation_to_emergencyStop
+                first degradedOperation then emergencyStop
+                if alarmCount > 3;
+
+            transition automaticOperation_to_normalShutdown
+                first automaticOperation then normalShutdown
+                accept ControlSignal
+                if signal.commandValue == 0.0;
+
+            transition normalShutdown_to_poweredOff
+                first normalShutdown then poweredOff;
+        }
+    }
+
+    part def ProcessFlowSystem {
+        port rawFeedInput : MaterialInPort;
+        port finishedProductOutput : ProductOutPort;
+        port wasteOutput : WasteOutPort;
+
+        part feedSubsystem : FeedSubsystem;
+        part thermalConditioner : ThermalConditioner;
+        part reactorSubsystem : ReactorSubsystem;
+        part separationSubsystem : SeparationSubsystem;
+        part packagingSubsystem : PackagingSubsystem;
+        part controller : SupervisoryController;
+
+        attribute nominalThroughput : MassFlowRate = 1200.0;
+        attribute minimumProductPurity : Percentage = 99.5;
+        attribute maximumWasteFraction : Percentage = 10.0;
+        attribute nominalOperatingPressure : Pressure = 500.0;
+        attribute nominalOperatingTemperature : Temperature = 85.0;
+        attribute maximumPowerConsumption : Power = 750.0;
+
+        connect rawFeedInput to feedSubsystem.rawFeedIn;
+        connect feedSubsystem.conditionedFeedOut to thermalConditioner.feedIn;
+        connect thermalConditioner.feedOut to reactorSubsystem.conditionedFeedIn;
+        connect reactorSubsystem.processedMaterialOut to separationSubsystem.processedMaterialIn;
+        connect separationSubsystem.productOut to packagingSubsystem.productIn;
+        connect packagingSubsystem.packagedProductOut to finishedProductOutput;
+        connect separationSubsystem.wasteOut to wasteOutput;
+
+        connect controller.feedCommandOut to feedSubsystem.controlIn;
+        connect controller.thermalCommandOut to thermalConditioner.controlIn;
+        connect controller.reactorCommandOut to reactorSubsystem.controlIn;
+        connect controller.separationCommandOut to separationSubsystem.controlIn;
+        connect controller.packagingCommandOut to packagingSubsystem.controlIn;
+
+        connect feedSubsystem.statusOut to controller.feedStatusIn;
+        connect thermalConditioner.temperatureStatusOut to controller.thermalStatusIn;
+        connect reactorSubsystem.reactorStatusOut to controller.reactorStatusIn;
+        connect separationSubsystem.separationStatusOut to controller.separationStatusIn;
+        connect packagingSubsystem.packageStatusOut to controller.packagingStatusIn;
+
+        action performPrimaryFunction {
+            in item rawFeed : RawFeed;
+            out item finalProduct : FinalProduct;
+            out item rejectedWaste : WasteStream;
+
+            first acceptRawFeed;
+            then conditionIncomingFeed;
+            then thermallyPrepareFeed;
+            then transformFeedInReactor;
+            then separateProductFromWaste;
+            then packageAcceptedProduct;
+            then reportProcessCompletion;
+
+            action acceptRawFeed;
+            action conditionIncomingFeed;
+            action thermallyPrepareFeed;
+            action transformFeedInReactor;
+            action separateProductFromWaste;
+            action packageAcceptedProduct;
+            action reportProcessCompletion;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The ProcessFlowSystem shall transform a continuous raw feed stream into a packaged final product by conditioning, heating, reacting, separating, and packaging the material while rejecting waste and maintaining controlled operating conditions. */
+    }
+
+    requirement def ThroughputRequirement {
+        doc /* The system shall process raw feed at a nominal throughput of at least 1200 kg/h during automatic operation. */
+
+        require constraint {
+            ProcessFlowSystem::nominalThroughput >= 1200.0
+        }
+    }
+
+    requirement def ProductPurityRequirement {
+        doc /* The final product stream shall have a purity of at least 99.5 percent before release from the packaging subsystem. */
+
+        require constraint {
+            ProcessFlowSystem::minimumProductPurity >= 99.5
+        }
+    }
+
+    requirement def WasteLimitRequirement {
+        doc /* The waste stream shall not exceed 10 percent of the incoming raw feed mass flow during nominal operating conditions. */
+
+        require constraint {
+            ProcessFlowSystem::maximumWasteFraction <= 10.0
+        }
+    }
+
+    requirement def PressureControlRequirement {
+        doc /* The process shall maintain nominal operating pressure at or below 500 kPa except during fault isolation. */
+
+        require constraint {
+            ProcessFlowSystem::nominalOperatingPressure <= 500.0
+        }
+    }
+
+    requirement def TemperatureControlRequirement {
+        doc /* The thermal conditioner and reactor shall maintain nominal process temperature at 85 degC for stable conversion. */
+
+        require constraint {
+            ProcessFlowSystem::nominalOperatingTemperature == 85.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The total system power consumption shall remain below 750 kW during continuous automatic operation. */
+
+        require constraint {
+            ProcessFlowSystem::maximumPowerConsumption <= 750.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ProcessFlowSystem;
+    satisfy ThroughputRequirement by ProcessFlowSystem;
+    satisfy ProductPurityRequirement by ProcessFlowSystem;
+    satisfy WasteLimitRequirement by ProcessFlowSystem;
+    satisfy PressureControlRequirement by ProcessFlowSystem;
+    satisfy TemperatureControlRequirement by ProcessFlowSystem;
+    satisfy PowerRequirement by ProcessFlowSystem;
+}

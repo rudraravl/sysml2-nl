@@ -1,0 +1,405 @@
+package TelephoneSwitchboardSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  item def VoiceSignal {
+    attribute frequency : Real;
+    attribute amplitude : Real;
+  }
+
+  item def DialedNumber {
+    attribute digits : String;
+  }
+
+  item def CallTicket {
+    attribute callerId : String;
+    attribute destinationNumber : String;
+    attribute startTime_s : Real;
+    attribute duration_s : Real;
+  }
+
+  item def OperatorInstruction {
+    attribute message : String;
+  }
+
+  value def LineVoltage {
+    attribute value_V : Real;
+  }
+
+  value def RingCadence {
+    attribute onTime_s : Real;
+    attribute offTime_s : Real;
+  }
+
+  value def CallCapacity {
+    attribute simultaneousCalls : Integer;
+  }
+
+  port def SubscriberLinePort {
+    in item dialedNumber : DialedNumber;
+    inout item voice : VoiceSignal;
+    out item ringSignal : VoiceSignal;
+    attribute nominalVoltage : LineVoltage;
+  }
+
+  port def TrunkLinePort {
+    inout item voice : VoiceSignal;
+    in item incomingNumber : DialedNumber;
+    out item outgoingNumber : DialedNumber;
+    attribute nominalVoltage : LineVoltage;
+  }
+
+  port def OperatorConsolePort {
+    out item instruction : OperatorInstruction;
+    in item callStatus : CallTicket;
+  }
+
+  part def TelephoneSwitchboard {
+    attribute maxCapacity : CallCapacity;
+    attribute nominalLineVoltage : LineVoltage;
+    attribute defaultRingCadence : RingCadence;
+
+    port subscriberA : SubscriberLinePort;
+    port subscriberB : SubscriberLinePort;
+    port subscriberC : SubscriberLinePort;
+    port trunkNorth : TrunkLinePort;
+    port trunkSouth : TrunkLinePort;
+    port operatorConsole : OperatorConsolePort;
+
+    part powerSupply : PowerSupply;
+    part lineScanner : LineScanner;
+    part callController : CallController;
+    part switchingMatrix : SwitchingMatrix;
+    part ringGenerator : RingGenerator;
+    part operatorPanel : OperatorPanel;
+    part billingRecorder : BillingRecorder;
+
+    connect subscriberA.voice to switchingMatrix.line1Voice;
+    connect subscriberB.voice to switchingMatrix.line2Voice;
+    connect subscriberC.voice to switchingMatrix.line3Voice;
+    connect trunkNorth.voice to switchingMatrix.trunk1Voice;
+    connect trunkSouth.voice to switchingMatrix.trunk2Voice;
+
+    connect subscriberA.dialedNumber to lineScanner.line1Digits;
+    connect subscriberB.dialedNumber to lineScanner.line2Digits;
+    connect subscriberC.dialedNumber to lineScanner.line3Digits;
+
+    connect lineScanner.detectedNumber to callController.requestedNumber;
+    connect callController.switchCommand to switchingMatrix.switchCommand;
+    connect callController.ringCommand to ringGenerator.ringCommand;
+    connect ringGenerator.ringOutput to subscriberA.ringSignal;
+    connect ringGenerator.ringOutput to subscriberB.ringSignal;
+    connect ringGenerator.ringOutput to subscriberC.ringSignal;
+
+    connect callController.operatorInstruction to operatorPanel.consoleInstruction;
+    connect operatorPanel.consoleStatus to operatorConsole.callStatus;
+    connect callController.callTicket to billingRecorder.ticketInput;
+
+    perform action routeTelephoneCall;
+  }
+
+  part def PowerSupply {
+    attribute inputVoltage_V : Real = 120.0;
+    attribute outputVoltage_V : Real = 48.0;
+    attribute backupDuration_min : Real = 30.0;
+  }
+
+  part def LineScanner {
+    port line1Digits {
+      in item dialedNumber : DialedNumber;
+    }
+
+    port line2Digits {
+      in item dialedNumber : DialedNumber;
+    }
+
+    port line3Digits {
+      in item dialedNumber : DialedNumber;
+    }
+
+    port detectedNumber {
+      out item dialedNumber : DialedNumber;
+    }
+
+    attribute scanInterval_ms : Real = 10.0;
+
+    action scanLines {
+      first start;
+      then detectOffHook;
+      then collectDialedDigits;
+      then publishDetectedNumber;
+    }
+  }
+
+  part def CallController {
+    port requestedNumber {
+      in item dialedNumber : DialedNumber;
+    }
+
+    port switchCommand {
+      out item instruction : OperatorInstruction;
+    }
+
+    port ringCommand {
+      out item instruction : OperatorInstruction;
+    }
+
+    port operatorInstruction {
+      out item instruction : OperatorInstruction;
+    }
+
+    port callTicket {
+      out item ticket : CallTicket;
+    }
+
+    attribute maximumSetupTime_s : Real = 2.0;
+    attribute activeCallCount : Integer;
+
+    state callProcessing {
+      state idle;
+      state numberReceived;
+      state routeSelection;
+      state ringingDestination;
+      state connected;
+      state busy;
+      state released;
+      state faulted;
+
+      transition idle_to_numberReceived
+        first idle
+        then numberReceived;
+
+      transition numberReceived_to_routeSelection
+        first numberReceived
+        then routeSelection;
+
+      transition routeSelection_to_ringingDestination
+        first routeSelection
+        then ringingDestination;
+
+      transition routeSelection_to_busy
+        first routeSelection
+        then busy;
+
+      transition ringingDestination_to_connected
+        first ringingDestination
+        then connected;
+
+      transition connected_to_released
+        first connected
+        then released;
+
+      transition busy_to_released
+        first busy
+        then released;
+
+      transition released_to_idle
+        first released
+        then idle;
+
+      transition any_to_faulted
+        first idle
+        then faulted;
+    }
+
+    action establishCall {
+      in item destination : DialedNumber;
+      out item ticket : CallTicket;
+
+      first validateNumber;
+      then selectAvailablePath;
+      then commandRingGenerator;
+      then commandSwitchingMatrix;
+      then createCallTicket;
+    }
+
+    action releaseCall {
+      first detectDisconnect;
+      then openSwitchPath;
+      then finalizeCallTicket;
+    }
+  }
+
+  part def SwitchingMatrix {
+    port line1Voice {
+      inout item voice : VoiceSignal;
+    }
+
+    port line2Voice {
+      inout item voice : VoiceSignal;
+    }
+
+    port line3Voice {
+      inout item voice : VoiceSignal;
+    }
+
+    port trunk1Voice {
+      inout item voice : VoiceSignal;
+    }
+
+    port trunk2Voice {
+      inout item voice : VoiceSignal;
+    }
+
+    port switchCommand {
+      in item instruction : OperatorInstruction;
+    }
+
+    attribute crosspoints : Integer = 64;
+    attribute insertionLoss_dB : Real = 1.5;
+
+    action closePath {
+      first verifyIdleEndpoints;
+      then energizeCrosspoint;
+      then monitorContinuity;
+    }
+
+    action openPath {
+      first deenergizeCrosspoint;
+      then verifyPathOpen;
+    }
+  }
+
+  part def RingGenerator {
+    port ringCommand {
+      in item instruction : OperatorInstruction;
+    }
+
+    port ringOutput {
+      out item ringSignal : VoiceSignal;
+    }
+
+    attribute ringVoltage_V : Real = 90.0;
+    attribute ringFrequency_Hz : Real = 20.0;
+    attribute cadence : RingCadence;
+
+    action applyRinging {
+      first receiveRingCommand;
+      then generateCadence;
+      then stopOnAnswer;
+    }
+  }
+
+  part def OperatorPanel {
+    port consoleInstruction {
+      in item instruction : OperatorInstruction;
+    }
+
+    port consoleStatus {
+      out item ticket : CallTicket;
+    }
+
+    attribute lampCount : Integer = 40;
+    attribute cordPairCount : Integer = 20;
+
+    action assistManualConnection {
+      first displayCallingLine;
+      then displayRequestedDestination;
+      then acceptOperatorPatch;
+      then reportConnectionStatus;
+    }
+  }
+
+  part def BillingRecorder {
+    port ticketInput {
+      in item ticket : CallTicket;
+    }
+
+    attribute storageCapacityTickets : Integer = 100000;
+
+    action recordTicket {
+      first receiveTicket;
+      then timestampTicket;
+      then persistTicket;
+    }
+  }
+
+  action def routeTelephoneCall {
+    objective "Provide the primary function of the telephone switchboard: detect a caller request, determine the destination, establish a temporary voice path between endpoints, supervise the call, and release the path when the call ends.";
+
+    in item originatingNumber : DialedNumber;
+    in item destinationNumber : DialedNumber;
+    out item completedTicket : CallTicket;
+
+    first detectCallingSubscriber;
+    then receiveDialedNumber;
+    then determineRoute;
+    then signalDestination;
+    then connectVoicePath;
+    then superviseConversation;
+    then disconnectVoicePath;
+    then recordCompletedCall;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject switchboard : TelephoneSwitchboard;
+
+    doc "The telephone switchboard shall provide high-level call switching by accepting subscriber or trunk call requests, routing each valid request to an available destination line or trunk, connecting the voice path, supervising call status, and releasing resources after call completion.";
+
+    require constraint {
+      switchboard.maxCapacity.simultaneousCalls >= 20
+    }
+  }
+
+  requirement def RoutingPerformanceRequirement {
+    subject controller : CallController;
+
+    doc "The call controller shall complete route selection for a valid dialed number within the maximum setup time under normal operating load.";
+
+    require constraint {
+      controller.maximumSetupTime_s <= 2.0
+    }
+  }
+
+  requirement def LineVoltageRequirement {
+    subject switchboard : TelephoneSwitchboard;
+
+    doc "The switchboard shall provide nominal battery voltage to subscriber line interfaces for loop supervision and signaling.";
+
+    require constraint {
+      switchboard.nominalLineVoltage.value_V == 48.0
+    }
+  }
+
+  requirement def RingingRequirement {
+    subject generator : RingGenerator;
+
+    doc "The ring generator shall provide audible ringing energy to the selected destination line until the destination answers or the call attempt is released.";
+
+    require constraint {
+      generator.ringVoltage_V >= 70.0 and generator.ringVoltage_V <= 105.0
+    }
+  }
+
+  requirement def BillingRequirement {
+    subject recorder : BillingRecorder;
+
+    doc "The billing recorder shall store a call ticket for every completed switched call, including caller identity, destination number, start time, and duration.";
+
+    require constraint {
+      recorder.storageCapacityTickets >= 100000
+    }
+  }
+
+  part telephoneSwitchboard : TelephoneSwitchboard {
+    attribute maxCapacity : CallCapacity {
+      :>> simultaneousCalls = 20;
+    }
+
+    attribute nominalLineVoltage : LineVoltage {
+      :>> value_V = 48.0;
+    }
+
+    attribute defaultRingCadence : RingCadence {
+      :>> onTime_s = 2.0;
+      :>> offTime_s = 4.0;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by telephoneSwitchboard;
+  satisfy LineVoltageRequirement by telephoneSwitchboard;
+  satisfy RoutingPerformanceRequirement by telephoneSwitchboard.callController;
+  satisfy RingingRequirement by telephoneSwitchboard.ringGenerator;
+  satisfy BillingRequirement by telephoneSwitchboard.billingRecorder;
+}

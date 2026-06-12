@@ -1,0 +1,632 @@
+package SeedCountingMachineModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def SeedCount :> ScalarValues::Integer;
+    attribute def SeedFlowRate :> ScalarValues::Real {
+        unit = "seed/s";
+    }
+    attribute def ConveyorSpeed :> ScalarValues::Real {
+        unit = "m/s";
+    }
+    attribute def Accuracy :> ScalarValues::Real {
+        unit = "%";
+    }
+    attribute def Confidence :> ScalarValues::Real {
+        unit = "%";
+    }
+    attribute def MassFlowRate :> ScalarValues::Real {
+        unit = "g/s";
+    }
+    attribute def ElectricalPower :> ScalarValues::Real {
+        unit = "W";
+    }
+    attribute def Voltage :> ScalarValues::Real {
+        unit = "V";
+    }
+    attribute def Duration :> ScalarValues::Real {
+        unit = "s";
+    }
+    attribute def SeedDiameter :> ScalarValues::Real {
+        unit = "mm";
+    }
+    attribute def BatchIdentifier :> ScalarValues::String;
+    attribute def MachineMode :> ScalarValues::String;
+    attribute def FaultCode :> ScalarValues::String;
+
+    item def Seed {
+        attribute diameter : SeedDiameter;
+        attribute mass {
+            unit = "mg";
+        }
+        attribute species : String;
+        attribute isViable : Boolean;
+    }
+
+    item def SeedBatch {
+        attribute batchId : BatchIdentifier;
+        attribute expectedCount : SeedCount;
+        attribute measuredCount : SeedCount;
+        attribute countConfidence : Confidence;
+        attribute species : String;
+    }
+
+    item def CountReport {
+        attribute batchId : BatchIdentifier;
+        attribute finalCount : SeedCount;
+        attribute rejectedSeedCount : SeedCount;
+        attribute countingAccuracy : Accuracy;
+        attribute elapsedTime : Duration;
+        attribute operatorAccepted : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute commandName : String;
+        attribute targetCount : SeedCount;
+        attribute requestedMode : MachineMode;
+    }
+
+    item def MachineStatus {
+        attribute mode : MachineMode;
+        attribute currentCount : SeedCount;
+        attribute currentRate : SeedFlowRate;
+        attribute faultActive : Boolean;
+        attribute fault : FaultCode;
+    }
+
+    item def ElectricalEnergy {
+        attribute supplyVoltage : Voltage;
+        attribute availablePower : ElectricalPower;
+    }
+
+    port def SeedInputPort {
+        in item incomingSeed : Seed;
+    }
+
+    port def SeedOutputPort {
+        out item countedSeed : Seed;
+    }
+
+    port def RejectOutputPort {
+        out item rejectedSeed : Seed;
+    }
+
+    port def BatchInputPort {
+        in item incomingBatch : SeedBatch;
+    }
+
+    port def ReportOutputPort {
+        out item report : CountReport;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : MachineStatus;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalEnergy;
+    }
+
+    port def SensorSignalPort {
+        out item detectedSeed : Seed;
+        out attribute detectionConfidence : Confidence;
+    }
+
+    port def ActuatorCommandPort {
+        in attribute enable : Boolean;
+        in attribute speedSetpoint : ConveyorSpeed;
+    }
+
+    part def SeedCountingMachine {
+        doc /* A seed-counting machine receives a bulk seed batch, singulates seeds into a controlled stream, detects each individual seed, increments a verified count, rejects ambiguous or jammed material, and produces a final count report for the processed batch. */
+
+        attribute targetCount : SeedCount;
+        attribute currentCount : SeedCount;
+        attribute rejectedCount : SeedCount;
+        attribute countAccuracy : Accuracy = 99.5;
+        attribute nominalFlowRate : SeedFlowRate = 50.0;
+        attribute maximumFlowRate : SeedFlowRate = 120.0;
+        attribute operatingVoltage : Voltage = 24.0;
+        attribute maximumPower : ElectricalPower = 180.0;
+        attribute mode : MachineMode;
+        attribute faultActive : Boolean;
+        attribute activeFault : FaultCode;
+
+        port batchIn : BatchInputPort;
+        port seedsIn : SeedInputPort;
+        port seedsOut : SeedOutputPort;
+        port rejectsOut : RejectOutputPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+        port reportOut : ReportOutputPort;
+        port powerIn : PowerInputPort;
+
+        part hopper : Hopper;
+        part singulator : SeedSingulator;
+        part conveyor : CountingConveyor;
+        part opticalCounter : OpticalCountingSensor;
+        part controller : CountingController;
+        part rejectGate : RejectGate;
+        part display : OperatorDisplay;
+        part enclosure : MachineEnclosure;
+        part powerModule : PowerModule;
+
+        connection powerFeed connect powerIn to powerModule.powerIn;
+        connection hopperToSingulator connect hopper.seedOut to singulator.seedIn;
+        connection singulatorToConveyor connect singulator.seedOut to conveyor.seedIn;
+        connection conveyorToSensor connect conveyor.seedOut to opticalCounter.seedIn;
+        connection sensorToRejectGate connect opticalCounter.seedOut to rejectGate.seedIn;
+        connection acceptPath connect rejectGate.acceptedSeedOut to seedsOut;
+        connection rejectPath connect rejectGate.rejectedSeedOut to rejectsOut;
+        connection detectionSignal connect opticalCounter.detectionOut to controller.sensorIn;
+        connection conveyorCommand connect controller.conveyorCommandOut to conveyor.commandIn;
+        connection singulatorCommand connect controller.singulatorCommandOut to singulator.commandIn;
+        connection rejectCommand connect controller.rejectCommandOut to rejectGate.commandIn;
+        connection operatorCommand connect commandIn to controller.commandIn;
+        connection statusFeedback connect controller.statusOut to statusOut;
+        connection reportDelivery connect controller.reportOut to reportOut;
+        connection controllerToDisplay connect controller.statusOut to display.statusIn;
+
+        perform action initializeMachine;
+        perform action countSeedBatch;
+        exhibit state machine operatingStates;
+    }
+
+    part def Hopper {
+        attribute capacity {
+            unit = "L";
+        } = 8.0;
+        attribute fillLevel {
+            unit = "%";
+        }
+        attribute outletOpen : Boolean;
+
+        port batchIn : BatchInputPort;
+        port seedOut : SeedOutputPort;
+
+        action dispenseSeeds {
+            in item batch : SeedBatch;
+            out item seedStream : Seed;
+        }
+    }
+
+    part def SeedSingulator {
+        attribute vibrationAmplitude {
+            unit = "mm";
+        } = 2.5;
+        attribute singulationRate : SeedFlowRate;
+        attribute jamDetected : Boolean;
+
+        port seedIn : SeedInputPort;
+        port seedOut : SeedOutputPort;
+        port commandIn : ActuatorCommandPort;
+
+        action separateSeeds {
+            in item bulkSeed : Seed;
+            out item individualSeed : Seed;
+        }
+
+        action clearJam {
+            out attribute cleared : Boolean;
+        }
+    }
+
+    part def CountingConveyor {
+        attribute beltSpeed : ConveyorSpeed = 0.35;
+        attribute speedTolerance {
+            unit = "%";
+        } = 2.0;
+        attribute running : Boolean;
+
+        port seedIn : SeedInputPort;
+        port seedOut : SeedOutputPort;
+        port commandIn : ActuatorCommandPort;
+
+        action transportSeed {
+            in item seedAtInlet : Seed;
+            out item seedAtSensor : Seed;
+        }
+
+        action stopMotion {
+            out attribute stopped : Boolean;
+        }
+    }
+
+    part def OpticalCountingSensor {
+        attribute sampleRate {
+            unit = "Hz";
+        } = 2000.0;
+        attribute minimumDetectableDiameter : SeedDiameter = 0.8;
+        attribute detectionThreshold : Confidence = 95.0;
+        attribute contaminatedLens : Boolean;
+
+        port seedIn : SeedInputPort;
+        port seedOut : SeedOutputPort;
+        port detectionOut : SensorSignalPort;
+
+        action detectSeed {
+            in item passingSeed : Seed;
+            out item detectedSeed : Seed;
+            out attribute confidence : Confidence;
+        }
+
+        action classifyDetection {
+            in attribute confidence : Confidence;
+            out attribute acceptedDetection : Boolean;
+        }
+    }
+
+    part def RejectGate {
+        attribute gateResponseTime : Duration = 0.08;
+        attribute rejectEnabled : Boolean;
+
+        port seedIn : SeedInputPort;
+        port acceptedSeedOut : SeedOutputPort;
+        port rejectedSeedOut : RejectOutputPort;
+        port commandIn : ActuatorCommandPort;
+
+        action routeSeed {
+            in item inspectedSeed : Seed;
+            in attribute accept : Boolean;
+            out item acceptedSeed : Seed;
+            out item rejectedSeed : Seed;
+        }
+    }
+
+    part def CountingController {
+        attribute configuredTarget : SeedCount;
+        attribute liveCount : SeedCount;
+        attribute rejectedSeedCount : SeedCount;
+        attribute measuredRate : SeedFlowRate;
+        attribute batchId : BatchIdentifier;
+        attribute countStartTime : Duration;
+        attribute elapsedTime : Duration;
+        attribute mode : MachineMode;
+        attribute faultActive : Boolean;
+        attribute fault : FaultCode;
+
+        port commandIn : CommandPort;
+        port sensorIn : SensorSignalPort;
+        port conveyorCommandOut : ActuatorCommandPort;
+        port singulatorCommandOut : ActuatorCommandPort;
+        port rejectCommandOut : ActuatorCommandPort;
+        port statusOut : StatusPort;
+        port reportOut : ReportOutputPort;
+
+        action configureBatch {
+            in item command : ControlCommand;
+            out attribute target : SeedCount;
+            out attribute configuredBatchId : BatchIdentifier;
+        }
+
+        action incrementCount {
+            in item detectedSeed : Seed;
+            in attribute confidence : Confidence;
+            out attribute updatedCount : SeedCount;
+        }
+
+        action evaluateTargetReached {
+            in attribute current : SeedCount;
+            in attribute target : SeedCount;
+            out attribute reached : Boolean;
+        }
+
+        action commandMaterialFlow {
+            in attribute enableFlow : Boolean;
+            in attribute requestedRate : SeedFlowRate;
+            out attribute conveyorEnable : Boolean;
+            out attribute singulatorEnable : Boolean;
+            out attribute conveyorSpeed : ConveyorSpeed;
+        }
+
+        action generateReport {
+            in attribute finalCount : SeedCount;
+            in attribute rejectedCount : SeedCount;
+            in attribute elapsed : Duration;
+            out item report : CountReport;
+        }
+    }
+
+    part def OperatorDisplay {
+        attribute displayedCount : SeedCount;
+        attribute displayedMode : MachineMode;
+        attribute alarmVisible : Boolean;
+
+        port statusIn : StatusPort;
+
+        action showStatus {
+            in item status : MachineStatus;
+        }
+    }
+
+    part def MachineEnclosure {
+        attribute doorClosed : Boolean;
+        attribute interlockEngaged : Boolean;
+        attribute ingressProtectionRating : String = "IP54";
+
+        action verifyAccessClosed {
+            out attribute safeToRun : Boolean;
+        }
+    }
+
+    part def PowerModule {
+        attribute inputVoltage : Voltage;
+        attribute outputVoltage : Voltage = 24.0;
+        attribute outputPower : ElectricalPower;
+        attribute overCurrent : Boolean;
+
+        port powerIn : PowerInputPort;
+
+        action regulatePower {
+            in item inputPower : ElectricalEnergy;
+            out attribute stableOutput : Boolean;
+        }
+    }
+
+    action def InitializeMachine {
+        out attribute initialized : Boolean;
+
+        first start;
+        then verifyPower;
+        then verifyDoorInterlock;
+        then zeroCount;
+        then ready;
+
+        action verifyPower;
+        action verifyDoorInterlock;
+        action zeroCount;
+        action ready;
+    }
+
+    action def CountSeedBatch {
+        in item batch : SeedBatch;
+        in attribute target : SeedCount;
+        out item finalReport : CountReport;
+
+        first loadBatch;
+        then startSingulation;
+        then detectAndCount;
+        then compareWithTarget;
+        then stopAtTarget;
+        then produceReport;
+
+        action loadBatch {
+            in item batch : SeedBatch;
+        }
+
+        action startSingulation {
+            out attribute flowEnabled : Boolean;
+        }
+
+        action detectAndCount {
+            out attribute count : SeedCount;
+            out attribute rejects : SeedCount;
+        }
+
+        action compareWithTarget {
+            in attribute count : SeedCount;
+            in attribute target : SeedCount;
+            out attribute targetReached : Boolean;
+        }
+
+        action stopAtTarget {
+            in attribute targetReached : Boolean;
+            out attribute stopped : Boolean;
+        }
+
+        action produceReport {
+            out item report : CountReport;
+        }
+    }
+
+    state def MachineOperatingStates {
+        attribute count : SeedCount;
+        attribute target : SeedCount;
+        attribute faultActive : Boolean;
+
+        state idle;
+        state configured;
+        state running;
+        state paused;
+        state complete;
+        state faulted;
+
+        entry action enterIdle;
+        action enterIdle;
+
+        transition idle_to_configured
+            first idle
+            accept ControlCommand
+            if commandName == "ConfigureBatch"
+            then configured;
+
+        transition configured_to_running
+            first configured
+            accept ControlCommand
+            if commandName == "Start"
+            then running;
+
+        transition running_to_paused
+            first running
+            accept ControlCommand
+            if commandName == "Pause"
+            then paused;
+
+        transition paused_to_running
+            first paused
+            accept ControlCommand
+            if commandName == "Resume"
+            then running;
+
+        transition running_to_complete
+            first running
+            if count >= target
+            then complete;
+
+        transition complete_to_idle
+            first complete
+            accept ControlCommand
+            if commandName == "Reset"
+            then idle;
+
+        transition any_to_faulted
+            first idle
+            then faulted
+            if faultActive == true;
+
+        transition configured_to_faulted
+            first configured
+            then faulted
+            if faultActive == true;
+
+        transition running_to_faulted
+            first running
+            then faulted
+            if faultActive == true;
+
+        transition faulted_to_idle
+            first faulted
+            accept ControlCommand
+            if commandName == "ClearFault"
+            then idle;
+    }
+
+    requirement def CountSeedsRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall count individual seeds from an input batch and produce a final count report for the processed batch. */
+
+        require constraint {
+            machine.currentCount >= 0
+        }
+    }
+
+    requirement def CountingAccuracyRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall achieve at least 99.5 percent counting accuracy for clean, singulated seeds between 0.8 mm and 12 mm diameter at nominal flow rate. */
+
+        require constraint {
+            machine.countAccuracy >= 99.5
+        }
+    }
+
+    requirement def ThroughputRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall process seeds at a nominal flow rate of 50 seeds per second without exceeding the maximum supported flow rate. */
+
+        require constraint {
+            machine.nominalFlowRate <= machine.maximumFlowRate
+        }
+    }
+
+    requirement def TargetStopRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall stop seed flow when the verified count reaches the configured target count. */
+
+        require constraint {
+            machine.currentCount <= machine.targetCount
+        }
+    }
+
+    requirement def RejectAmbiguousSeedRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall route seeds with detection confidence below the threshold to the reject output path. */
+
+        require constraint {
+            machine.opticalCounter.detectionThreshold >= 95.0
+        }
+    }
+
+    requirement def OperatorStatusRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall provide live count, flow rate, operating mode, and active fault status to the operator interface. */
+
+        require constraint {
+            machine.controller.liveCount == machine.currentCount
+        }
+    }
+
+    requirement def ElectricalPowerRequirement {
+        subject machine : SeedCountingMachine;
+
+        doc /* The machine shall operate from a 24 V direct-current supply and shall not require more than 180 W during normal counting. */
+
+        require constraint {
+            machine.operatingVoltage == 24.0 and machine.maximumPower <= 180.0
+        }
+    }
+
+    satisfy CountSeedsRequirement by SeedCountingMachine;
+    satisfy CountingAccuracyRequirement by SeedCountingMachine;
+    satisfy ThroughputRequirement by SeedCountingMachine;
+    satisfy TargetStopRequirement by SeedCountingMachine;
+    satisfy RejectAmbiguousSeedRequirement by SeedCountingMachine;
+    satisfy OperatorStatusRequirement by SeedCountingMachine;
+    satisfy ElectricalPowerRequirement by SeedCountingMachine;
+
+    part seedCounterSystem : SeedCountingMachine {
+        attribute targetCount = 10000;
+        attribute currentCount = 0;
+        attribute rejectedCount = 0;
+        attribute mode = "Idle";
+        attribute faultActive = false;
+        attribute activeFault = "None";
+
+        part hopper {
+            attribute fillLevel = 0.0;
+            attribute outletOpen = false;
+        }
+
+        part singulator {
+            attribute singulationRate = 50.0;
+            attribute jamDetected = false;
+        }
+
+        part conveyor {
+            attribute beltSpeed = 0.35;
+            attribute running = false;
+        }
+
+        part opticalCounter {
+            attribute contaminatedLens = false;
+        }
+
+        part controller {
+            attribute configuredTarget = 10000;
+            attribute liveCount = 0;
+            attribute rejectedSeedCount = 0;
+            attribute measuredRate = 0.0;
+            attribute mode = "Idle";
+            attribute faultActive = false;
+            attribute fault = "None";
+        }
+
+        part rejectGate {
+            attribute rejectEnabled = true;
+        }
+
+        part enclosure {
+            attribute doorClosed = true;
+            attribute interlockEngaged = true;
+        }
+
+        part powerModule {
+            attribute inputVoltage = 24.0;
+            attribute outputVoltage = 24.0;
+            attribute outputPower = 0.0;
+            attribute overCurrent = false;
+        }
+    }
+
+}

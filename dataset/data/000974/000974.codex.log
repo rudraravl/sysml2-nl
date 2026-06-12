@@ -1,0 +1,815 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-txawtfpz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4fb-f851-7262-b93a-00a9872d391a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Anemometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AnemometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Degrees :> Real {
+        unit = "deg";
+    }
+
+    attribute def RevolutionsPerMinute :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Volts :> Real {
+        unit = "V";
+    }
+
+    attribute def Milliamperes :> Real {
+        unit = "mA";
+    }
+
+    attribute def Celsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def MetersPerSecond :> Real {
+        unit = "m/s";
+    }
+
+    attribute def Hertz :> Real {
+        unit = "Hz";
+    }
+
+    item def AirFlow {
+        attribute speed : MetersPerSecond;
+        attribute direction : Degrees;
+        attribute turbulenceIntensity : Percent;
+        attribute temperature : Celsius;
+    }
+
+    item def RotorMotion {
+        attribute angularRate : RevolutionsPerMinute;
+        attribute pulseFrequency : Hertz;
+        attribute directionVector : Degrees;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volts;
+        attribute current : Milliamperes;
+    }
+
+    item def RawWindSignal {
+        attribute pulseFrequency : Hertz;
+        attribute sensorVoltage : Volts;
+        attribute sampleTemperature : Celsius;
+        attribute timestamp : Real;
+    }
+
+    item def WindMeasurement {
+        attribute windSpeed : MetersPerSecond;
+        attribute windDirection : Degrees;
+        attribute confidence : Percent;
+        attribute updateRate : Hertz;
+        attribute timestamp : Real;
+    }
+
+    item def DiagnosticStatus {
+        attribute healthy : Boolean;
+        attribute rotorBlocked : Boolean;
+        attribute sensorFault : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute supplyVoltage : Volts;
+        attribute internalTemperature : Celsius;
+    }
+
+    port def AirIntakePort {
+        in item wind : AirFlow;
+    }
+
+    port def MechanicalMotionPort {
+        out item motion : RotorMotion;
+    }
+
+    port def RawSignalPort {
+        out item signal : RawWindSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : WindMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def CupRotor {
+        port airIn : AirIntakePort;
+        port rotationOut : MechanicalMotionPort;
+
+        attribute cupCount : Integer = 3;
+        attribute rotorDiameter : LengthValue = 0.12 [m];
+        attribute startingThreshold : MetersPerSecond = 0.4;
+        attribute maximumSurvivableSpeed : MetersPerSecond = 60.0;
+        attribute bearingFrictionCoefficient : Real = 0.018;
+
+        action convertWindToRotation {
+            in item incidentWind : AirFlow;
+            out item rotorMotion : RotorMotion;
+
+            first start;
+            then computeAngularRate;
+            then emitMotion;
+            then done;
+
+            action computeAngularRate {
+                in item incidentWind : AirFlow;
+                out item rotorMotion : RotorMotion;
+            }
+        }
+    }
+
+    part def MagneticEncoder {
+        port rotationIn : MechanicalMotionPort;
+        port signalOut : RawSignalPort;
+
+        attribute pulsesPerRevolution : Integer = 12;
+        attribute nominalOutputVoltage : Volts = 3.3;
+        attribute minimumDetectableFrequency : Hertz = 0.2;
+        attribute maximumFrequency : Hertz = 1500.0;
+
+        action senseRotation {
+            in item motion : RotorMotion;
+            out item signal : RawWindSignal;
+
+            first detectMagneticTransitions;
+            then filterSwitchBounce;
+            then timestampPulseTrain;
+            then done;
+        }
+    }
+
+    part def WindVane {
+        port airIn : AirIntakePort;
+        port signalOut : RawSignalPort;
+
+        attribute vaneLength : LengthValue = 0.18 [m];
+        attribute angularResolution : Degrees = 1.0;
+        attribute alignmentOffset : Degrees = 0.0;
+
+        action resolveDirection {
+            in item incidentWind : AirFlow;
+            out item directionSignal : RawWindSignal;
+
+            first alignWithFlow;
+            then readAngularPosition;
+            then applyOffset;
+            then done;
+        }
+    }
+
+    part def SignalProcessor {
+        port speedSignalIn : RawSignalPort;
+        port directionSignalIn : RawSignalPort;
+        port measurementOut : MeasurementPort;
+        port diagnosticOut : DiagnosticPort;
+        port powerIn : PowerInputPort;
+
+        attribute speedScaleFactor : Real = 0.765;
+        attribute speedOffset : MetersPerSecond = 0.0;
+        attribute averagingWindow : Real = 3.0;
+        attribute measurementUpdateRate : Hertz = 1.0;
+        attribute lowSupplyLimit : Volts = 3.0;
+        attribute highTemperatureLimit : Celsius = 85.0;
+
+        action calculateWindMeasurement {
+            in item speedSignal : RawWindSignal;
+            in item directionSignal : RawWindSignal;
+            out item measurement : WindMeasurement;
+            out item status : DiagnosticStatus;
+
+            first validateInputs;
+            then calculateSpeedFromPulseFrequency;
+            then compensateTemperature;
+            then calculateVectorAverageDirection;
+            then assessConfidence;
+            then publishMeasurement;
+            then done;
+        }
+
+        state machine operatingState {
+            state Off;
+            state Initializing;
+            state Measuring;
+            state Degraded;
+            state Faulted;
+
+            initial then Off;
+
+            transition Off_to_Initializing
+                first Off
+                accept PowerApplied
+                then Initializing;
+
+            transition Initializing_to_Measuring
+                first Initializing
+                accept SelfTestPassed
+                then Measuring;
+
+            transition Initializing_to_Faulted
+                first Initializing
+                accept SelfTestFailed
+                then Faulted;
+
+            transition Measuring_to_Degraded
+                first Measuring
+                accept LowConfidenceMeasurement
+                then Degraded;
+
+            transition Degraded_to_Measuring
+                first Degraded
+                accept ConfidenceRestored
+                then Measuring;
+
+            transition Measuring_to_Faulted
+                first Measuring
+                accept SensorFaultDetected
+                then Faulted;
+
+            transition Degraded_to_Faulted
+                first Degraded
+                accept SensorFaultDetected
+                then Faulted;
+
+            transition Faulted_to_Initializing
+                first Faulted
+                accept ResetCommand
+                then Initializing;
+
+            transition Measuring_to_Off
+                first Measuring
+                accept PowerRemoved
+                then Off;
+
+            transition Degraded_to_Off
+                first Degraded
+                accept PowerRemoved
+                then Off;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept PowerRemoved
+                then Off;
+        }
+    }
+
+    part def OutputInterface {
+        port measurementIn : MeasurementPort;
+        port diagnosticIn : DiagnosticPort;
+        port measurementOut : MeasurementPort;
+        port diagnosticOut : DiagnosticPort;
+        port powerIn : PowerInputPort;
+
+        attribute protocol : String = "digital serial";
+        attribute outputUpdateRate : Hertz = 1.0;
+        attribute nominalBusVoltage : Volts = 3.3;
+
+        action transmitWindData {
+            in item measurement : WindMeasurement;
+            in item status : DiagnosticStatus;
+
+            first formatPayload;
+            then appendDiagnosticFields;
+            then transmitFrame;
+            then done;
+        }
+    }
+
+    part def Anemometer {
+        port windInput : AirIntakePort;
+        port powerInput : PowerInputPort;
+        port windMeasurementOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        attribute measuringRangeMinimum : MetersPerSecond = 0.4;
+        attribute measuringRangeMaximum : MetersPerSecond = 50.0;
+        attribute speedAccuracy : MetersPerSecond = 0.3;
+        attribute directionAccuracy : Degrees = 3.0;
+        attribute operatingTemperatureMinimum : Celsius = -40.0;
+        attribute operatingTemperatureMaximum : Celsius = 85.0;
+        attribute primaryFunction : String = "Convert incident wind flow into calibrated wind speed and direction measurements for external consumers.";
+
+        part rotor : CupRotor;
+        part speedEncoder : MagneticEncoder;
+        part vane : WindVane;
+        part processor : SignalProcessor;
+        part interface : OutputInterface;
+
+        connect windInput.wind to rotor.airIn.wind;
+        connect windInput.wind to vane.airIn.wind;
+        connect rotor.rotationOut.motion to speedEncoder.rotationIn.motion;
+        connect speedEncoder.signalOut.signal to processor.speedSignalIn.signal;
+        connect vane.signalOut.signal to processor.directionSignalIn.signal;
+        connect powerInput.power to processor.powerIn.power;
+        connect powerInput.power to interface.powerIn.power;
+        connect processor.measurementOut.measurement to interface.measurementIn.measurement;
+        connect processor.diagnosticOut.status to interface.diagnosticIn.status;
+        connect interface.measurementOut.measurement to windMeasurementOutput.measurement;
+        connect interface.diagnosticOut.status to diagnosticOutput.status;
+
+        action performPrimaryFunction {
+            in item wind : AirFlow;
+            in item power : ElectricalPower;
+            out item measurement : WindMeasurement;
+            out item status : DiagnosticStatus;
+
+            first receiveWindFlow;
+            then convertFlowToRotorMotion;
+            then senseRotorFrequency;
+            then senseWindDirection;
+            then computeCalibratedMeasurement;
+            then reportMeasurementAndDiagnostics;
+            then done;
+        }
+    }
+
+    requirement def MeasureWindSpeedRequirement {
+        doc /* The anemometer shall measure wind speed from incident airflow over its operating range. */
+        subject anemometer : Anemometer;
+
+        require constraint {
+            anemometer.measuringRangeMinimum <= 0.4 and
+            anemometer.measuringRangeMaximum >= 50.0 and
+            anemometer.speedAccuracy <= 0.3
+        }
+    }
+
+    requirement def MeasureWindDirectionRequirement {
+        doc /* The anemometer shall provide wind direction measurement aligned to a configured reference direction. */
+        subject anemometer : Anemometer;
+
+        require constraint {
+            anemometer.directionAccuracy <= 3.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The anemometer shall convert wind-induced mechanical motion into calibrated digital wind measurements. */
+        subject anemometer : Anemometer;
+
+        require constraint {
+            anemometer.primaryFunction == "Convert incident wind flow into calibrated wind speed and direction measurements for external consumers."
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The anemometer shall report diagnostic status for supply voltage, rotor blockage, sensor faults, and calibration validity. */
+        subject status : DiagnosticStatus;
+
+        require constraint {
+            status.supplyVoltage >= 3.0 and
+            status.internalTemperature <= 85.0
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The anemometer shall publish wind measurements at no less than one update per second. */
+        subject measurement : WindMeasurement;
+
+        require constraint {
+            measurement.updateRate >= 1.0
+        }
+    }
+
+    part anemometerSystem : Anemometer {
+        attribute primaryFunction = "Convert incident wind flow into calibrated wind speed and direction measurements for external consumers.";
+    }
+
+    requirement speedReq : MeasureWindSpeedRequirement {
+        subject anemometer = anemometerSystem;
+    }
+
+    requirement directionReq : MeasureWindDirectionRequirement {
+        subject anemometer = anemometerSystem;
+    }
+
+    requirement functionReq : PrimaryFunctionRequirement {
+        subject anemometer = anemometerSystem;
+    }
+}
+tokens used
+2,895
+package AnemometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Degrees :> Real {
+        unit = "deg";
+    }
+
+    attribute def RevolutionsPerMinute :> Real {
+        unit = "rpm";
+    }
+
+    attribute def Volts :> Real {
+        unit = "V";
+    }
+
+    attribute def Milliamperes :> Real {
+        unit = "mA";
+    }
+
+    attribute def Celsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def MetersPerSecond :> Real {
+        unit = "m/s";
+    }
+
+    attribute def Hertz :> Real {
+        unit = "Hz";
+    }
+
+    item def AirFlow {
+        attribute speed : MetersPerSecond;
+        attribute direction : Degrees;
+        attribute turbulenceIntensity : Percent;
+        attribute temperature : Celsius;
+    }
+
+    item def RotorMotion {
+        attribute angularRate : RevolutionsPerMinute;
+        attribute pulseFrequency : Hertz;
+        attribute directionVector : Degrees;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volts;
+        attribute current : Milliamperes;
+    }
+
+    item def RawWindSignal {
+        attribute pulseFrequency : Hertz;
+        attribute sensorVoltage : Volts;
+        attribute sampleTemperature : Celsius;
+        attribute timestamp : Real;
+    }
+
+    item def WindMeasurement {
+        attribute windSpeed : MetersPerSecond;
+        attribute windDirection : Degrees;
+        attribute confidence : Percent;
+        attribute updateRate : Hertz;
+        attribute timestamp : Real;
+    }
+
+    item def DiagnosticStatus {
+        attribute healthy : Boolean;
+        attribute rotorBlocked : Boolean;
+        attribute sensorFault : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute supplyVoltage : Volts;
+        attribute internalTemperature : Celsius;
+    }
+
+    port def AirIntakePort {
+        in item wind : AirFlow;
+    }
+
+    port def MechanicalMotionPort {
+        out item motion : RotorMotion;
+    }
+
+    port def RawSignalPort {
+        out item signal : RawWindSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : WindMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def CupRotor {
+        port airIn : AirIntakePort;
+        port rotationOut : MechanicalMotionPort;
+
+        attribute cupCount : Integer = 3;
+        attribute rotorDiameter : LengthValue = 0.12 [m];
+        attribute startingThreshold : MetersPerSecond = 0.4;
+        attribute maximumSurvivableSpeed : MetersPerSecond = 60.0;
+        attribute bearingFrictionCoefficient : Real = 0.018;
+
+        action convertWindToRotation {
+            in item incidentWind : AirFlow;
+            out item rotorMotion : RotorMotion;
+
+            first start;
+            then computeAngularRate;
+            then emitMotion;
+            then done;
+
+            action computeAngularRate {
+                in item incidentWind : AirFlow;
+                out item rotorMotion : RotorMotion;
+            }
+        }
+    }
+
+    part def MagneticEncoder {
+        port rotationIn : MechanicalMotionPort;
+        port signalOut : RawSignalPort;
+
+        attribute pulsesPerRevolution : Integer = 12;
+        attribute nominalOutputVoltage : Volts = 3.3;
+        attribute minimumDetectableFrequency : Hertz = 0.2;
+        attribute maximumFrequency : Hertz = 1500.0;
+
+        action senseRotation {
+            in item motion : RotorMotion;
+            out item signal : RawWindSignal;
+
+            first detectMagneticTransitions;
+            then filterSwitchBounce;
+            then timestampPulseTrain;
+            then done;
+        }
+    }
+
+    part def WindVane {
+        port airIn : AirIntakePort;
+        port signalOut : RawSignalPort;
+
+        attribute vaneLength : LengthValue = 0.18 [m];
+        attribute angularResolution : Degrees = 1.0;
+        attribute alignmentOffset : Degrees = 0.0;
+
+        action resolveDirection {
+            in item incidentWind : AirFlow;
+            out item directionSignal : RawWindSignal;
+
+            first alignWithFlow;
+            then readAngularPosition;
+            then applyOffset;
+            then done;
+        }
+    }
+
+    part def SignalProcessor {
+        port speedSignalIn : RawSignalPort;
+        port directionSignalIn : RawSignalPort;
+        port measurementOut : MeasurementPort;
+        port diagnosticOut : DiagnosticPort;
+        port powerIn : PowerInputPort;
+
+        attribute speedScaleFactor : Real = 0.765;
+        attribute speedOffset : MetersPerSecond = 0.0;
+        attribute averagingWindow : Real = 3.0;
+        attribute measurementUpdateRate : Hertz = 1.0;
+        attribute lowSupplyLimit : Volts = 3.0;
+        attribute highTemperatureLimit : Celsius = 85.0;
+
+        action calculateWindMeasurement {
+            in item speedSignal : RawWindSignal;
+            in item directionSignal : RawWindSignal;
+            out item measurement : WindMeasurement;
+            out item status : DiagnosticStatus;
+
+            first validateInputs;
+            then calculateSpeedFromPulseFrequency;
+            then compensateTemperature;
+            then calculateVectorAverageDirection;
+            then assessConfidence;
+            then publishMeasurement;
+            then done;
+        }
+
+        state machine operatingState {
+            state Off;
+            state Initializing;
+            state Measuring;
+            state Degraded;
+            state Faulted;
+
+            initial then Off;
+
+            transition Off_to_Initializing
+                first Off
+                accept PowerApplied
+                then Initializing;
+
+            transition Initializing_to_Measuring
+                first Initializing
+                accept SelfTestPassed
+                then Measuring;
+
+            transition Initializing_to_Faulted
+                first Initializing
+                accept SelfTestFailed
+                then Faulted;
+
+            transition Measuring_to_Degraded
+                first Measuring
+                accept LowConfidenceMeasurement
+                then Degraded;
+
+            transition Degraded_to_Measuring
+                first Degraded
+                accept ConfidenceRestored
+                then Measuring;
+
+            transition Measuring_to_Faulted
+                first Measuring
+                accept SensorFaultDetected
+                then Faulted;
+
+            transition Degraded_to_Faulted
+                first Degraded
+                accept SensorFaultDetected
+                then Faulted;
+
+            transition Faulted_to_Initializing
+                first Faulted
+                accept ResetCommand
+                then Initializing;
+
+            transition Measuring_to_Off
+                first Measuring
+                accept PowerRemoved
+                then Off;
+
+            transition Degraded_to_Off
+                first Degraded
+                accept PowerRemoved
+                then Off;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept PowerRemoved
+                then Off;
+        }
+    }
+
+    part def OutputInterface {
+        port measurementIn : MeasurementPort;
+        port diagnosticIn : DiagnosticPort;
+        port measurementOut : MeasurementPort;
+        port diagnosticOut : DiagnosticPort;
+        port powerIn : PowerInputPort;
+
+        attribute protocol : String = "digital serial";
+        attribute outputUpdateRate : Hertz = 1.0;
+        attribute nominalBusVoltage : Volts = 3.3;
+
+        action transmitWindData {
+            in item measurement : WindMeasurement;
+            in item status : DiagnosticStatus;
+
+            first formatPayload;
+            then appendDiagnosticFields;
+            then transmitFrame;
+            then done;
+        }
+    }
+
+    part def Anemometer {
+        port windInput : AirIntakePort;
+        port powerInput : PowerInputPort;
+        port windMeasurementOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        attribute measuringRangeMinimum : MetersPerSecond = 0.4;
+        attribute measuringRangeMaximum : MetersPerSecond = 50.0;
+        attribute speedAccuracy : MetersPerSecond = 0.3;
+        attribute directionAccuracy : Degrees = 3.0;
+        attribute operatingTemperatureMinimum : Celsius = -40.0;
+        attribute operatingTemperatureMaximum : Celsius = 85.0;
+        attribute primaryFunction : String = "Convert incident wind flow into calibrated wind speed and direction measurements for external consumers.";
+
+        part rotor : CupRotor;
+        part speedEncoder : MagneticEncoder;
+        part vane : WindVane;
+        part processor : SignalProcessor;
+        part interface : OutputInterface;
+
+        connect windInput.wind to rotor.airIn.wind;
+        connect windInput.wind to vane.airIn.wind;
+        connect rotor.rotationOut.motion to speedEncoder.rotationIn.motion;
+        connect speedEncoder.signalOut.signal to processor.speedSignalIn.signal;
+        connect vane.signalOut.signal to processor.directionSignalIn.signal;
+        connect powerInput.power to processor.powerIn.power;
+        connect powerInput.power to interface.powerIn.power;
+        connect processor.measurementOut.measurement to interface.measurementIn.measurement;
+        connect processor.diagnosticOut.status to interface.diagnosticIn.status;
+        connect interface.measurementOut.measurement to windMeasurementOutput.measurement;
+        connect interface.diagnosticOut.status to diagnosticOutput.status;
+
+        action performPrimaryFunction {
+            in item wind : AirFlow;
+            in item power : ElectricalPower;
+            out item measurement : WindMeasurement;
+            out item status : DiagnosticStatus;
+
+            first receiveWindFlow;
+            then convertFlowToRotorMotion;
+            then senseRotorFrequency;
+            then senseWindDirection;
+            then computeCalibratedMeasurement;
+            then reportMeasurementAndDiagnostics;
+            then done;
+        }
+    }
+
+    requirement def MeasureWindSpeedRequirement {
+        doc /* The anemometer shall measure wind speed from incident airflow over its operating range. */
+        subject anemometer : Anemometer;
+
+        require constraint {
+            anemometer.measuringRangeMinimum <= 0.4 and
+            anemometer.measuringRangeMaximum >= 50.0 and
+            anemometer.speedAccuracy <= 0.3
+        }
+    }
+
+    requirement def MeasureWindDirectionRequirement {
+        doc /* The anemometer shall provide wind direction measurement aligned to a configured reference direction. */
+        subject anemometer : Anemometer;
+
+        require constraint {
+            anemometer.directionAccuracy <= 3.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The anemometer shall convert wind-induced mechanical motion into calibrated digital wind measurements. */
+        subject anemometer : Anemometer;
+
+        require constraint {
+            anemometer.primaryFunction == "Convert incident wind flow into calibrated wind speed and direction measurements for external consumers."
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The anemometer shall report diagnostic status for supply voltage, rotor blockage, sensor faults, and calibration validity. */
+        subject status : DiagnosticStatus;
+
+        require constraint {
+            status.supplyVoltage >= 3.0 and
+            status.internalTemperature <= 85.0
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The anemometer shall publish wind measurements at no less than one update per second. */
+        subject measurement : WindMeasurement;
+
+        require constraint {
+            measurement.updateRate >= 1.0
+        }
+    }
+
+    part anemometerSystem : Anemometer {
+        attribute primaryFunction = "Convert incident wind flow into calibrated wind speed and direction measurements for external consumers.";
+    }
+
+    requirement speedReq : MeasureWindSpeedRequirement {
+        subject anemometer = anemometerSystem;
+    }
+
+    requirement directionReq : MeasureWindDirectionRequirement {
+        subject anemometer = anemometerSystem;
+    }
+
+    requirement functionReq : PrimaryFunctionRequirement {
+        subject anemometer = anemometerSystem;
+    }
+}

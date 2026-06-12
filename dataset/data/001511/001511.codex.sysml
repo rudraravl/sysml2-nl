@@ -1,0 +1,246 @@
+package NanotechnologyBasedSystem {
+    import ScalarValues::*;
+
+    attribute def Length_nm {
+        attribute value : Real;
+        attribute unit : String = "nm";
+    }
+
+    attribute def Time_s {
+        attribute value : Real;
+        attribute unit : String = "s";
+    }
+
+    attribute def Concentration_mg_per_mL {
+        attribute value : Real;
+        attribute unit : String = "mg/mL";
+    }
+
+    attribute def Temperature_C {
+        attribute value : Real;
+        attribute unit : String = "degC";
+    }
+
+    attribute def ElectricPotential_mV {
+        attribute value : Real;
+        attribute unit : String = "mV";
+    }
+
+    attribute def Percentage {
+        attribute value : Real;
+        attribute unit : String = "%";
+    }
+
+    item def DrugPayload {
+        attribute activeCompound : String;
+        attribute doseConcentration : Concentration_mg_per_mL;
+        attribute encapsulationEfficiency : Percentage;
+    }
+
+    item def BiomarkerSignal {
+        attribute markerName : String;
+        attribute concentration : Concentration_mg_per_mL;
+        attribute confidence : Percentage;
+    }
+
+    item def PhysiologicalFluid {
+        attribute pH : Real;
+        attribute temperature : Temperature_C;
+        attribute ionicStrength : Concentration_mg_per_mL;
+    }
+
+    item def TherapeuticAgent {
+        attribute releasedDose : Concentration_mg_per_mL;
+        attribute releaseDuration : Time_s;
+    }
+
+    port def FluidicIntakePort {
+        in item fluid : PhysiologicalFluid;
+        in item biomarker : BiomarkerSignal;
+    }
+
+    port def TherapeuticOutputPort {
+        out item therapy : TherapeuticAgent;
+    }
+
+    port def DiagnosticTelemetryPort {
+        out item detectedMarker : BiomarkerSignal;
+        out item carrierStatus : String;
+    }
+
+    part def PolymericNanoparticle {
+        attribute meanDiameter : Length_nm = (value = 85.0, unit = "nm");
+        attribute shellThickness : Length_nm = (value = 12.0, unit = "nm");
+        attribute zetaPotential : ElectricPotential_mV = (value = -18.0, unit = "mV");
+        attribute degradationHalfLife : Time_s = (value = 14400.0, unit = "s");
+
+        part core {
+            attribute payload : DrugPayload;
+            attribute hydrophobicityIndex : Real = 0.72;
+        }
+
+        part biodegradableShell {
+            attribute polymerName : String = "PLGA-PEG";
+            attribute poreDiameter : Length_nm = (value = 6.0, unit = "nm");
+            attribute hydrolysisRate : Percentage = (value = 4.5, unit = "%");
+        }
+
+        part targetingLigandLayer {
+            attribute ligandType : String = "anti-EGFR aptamer";
+            attribute ligandDensity : Real = 4200.0;
+            attribute bindingAffinity_nM : Real = 2.8;
+        }
+
+        port environmentPort : FluidicIntakePort;
+        port releasePort : TherapeuticOutputPort;
+        port telemetryPort : DiagnosticTelemetryPort;
+    }
+
+    part def NanoTargetingController {
+        attribute bindingThreshold : Concentration_mg_per_mL = (value = 0.015, unit = "mg/mL");
+        attribute minimumConfidence : Percentage = (value = 92.0, unit = "%");
+        attribute nominalReleaseDuration : Time_s = (value = 1800.0, unit = "s");
+
+        port sensorInput : FluidicIntakePort;
+        port commandOutput : TherapeuticOutputPort;
+        port diagnosticOutput : DiagnosticTelemetryPort;
+    }
+
+    action def EvaluateTargetSite {
+        in item observedMarker : BiomarkerSignal;
+        in attribute threshold : Concentration_mg_per_mL;
+        in attribute requiredConfidence : Percentage;
+        out attribute targetConfirmed : Boolean;
+    }
+
+    action def BindToCellSurface {
+        in item observedMarker : BiomarkerSignal;
+        out attribute bound : Boolean;
+    }
+
+    action def ReleasePayload {
+        in item payload : DrugPayload;
+        in attribute duration : Time_s;
+        out item therapy : TherapeuticAgent;
+    }
+
+    action def ReportCarrierStatus {
+        in attribute statusText : String;
+        in item marker : BiomarkerSignal;
+        out item reportedMarker : BiomarkerSignal;
+        out attribute reportedStatus : String;
+    }
+
+    state def NanocarrierLifecycle {
+        entry action ReportCarrierStatus {
+            in statusText = "circulating";
+        }
+
+        state circulating;
+        state targetDetected;
+        state surfaceBound;
+        state releasingPayload;
+        state degraded;
+        state cleared;
+
+        transition first circulating;
+
+        transition circulating_to_targetDetected
+            first circulating
+            accept BiomarkerSignal
+            if biomarker.concentration.value >= 0.015 and biomarker.confidence.value >= 92.0
+            then targetDetected;
+
+        transition targetDetected_to_surfaceBound
+            first targetDetected
+            do BindToCellSurface
+            then surfaceBound;
+
+        transition surfaceBound_to_releasingPayload
+            first surfaceBound
+            do ReleasePayload
+            then releasingPayload;
+
+        transition releasingPayload_to_degraded
+            first releasingPayload
+            after 1800.0 [s]
+            then degraded;
+
+        transition degraded_to_cleared
+            first degraded
+            after 14400.0 [s]
+            then cleared;
+    }
+
+    part def TargetedNanocarrierTherapySystem {
+        doc
+        /* Primary function: selectively transport nanoscale therapeutic payloads through physiological fluid, recognize diseased cells using biomarker-specific ligands, bind to the target surface, and release a controlled dose while reporting diagnostic status. */
+
+        part nanoparticle : PolymericNanoparticle;
+        part controller : NanoTargetingController;
+
+        port bodilyFluidInterface : FluidicIntakePort;
+        port therapyInterface : TherapeuticOutputPort;
+        port telemetryInterface : DiagnosticTelemetryPort;
+
+        connection fluidToParticle connect bodilyFluidInterface to nanoparticle.environmentPort;
+        connection fluidToController connect bodilyFluidInterface to controller.sensorInput;
+        connection releaseCommand connect controller.commandOutput to nanoparticle.releasePort;
+        connection therapyOut connect nanoparticle.releasePort to therapyInterface;
+        connection telemetryOut connect controller.diagnosticOutput to telemetryInterface;
+
+        perform action EvaluateTargetSite;
+        perform action BindToCellSurface;
+        perform action ReleasePayload;
+        exhibit state NanocarrierLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : TargetedNanocarrierTherapySystem;
+
+        require constraint {
+            system.nanoparticle.meanDiameter.value <= 100.0
+        }
+
+        doc
+        /* The system shall perform targeted nanoscale delivery by carrying a therapeutic payload, detecting disease-associated biomarkers, binding preferentially to target cells, and releasing the payload locally. */
+    }
+
+    requirement def SizeRequirement {
+        subject carrier : PolymericNanoparticle;
+
+        require constraint {
+            carrier.meanDiameter.value >= 50.0 and carrier.meanDiameter.value <= 100.0
+        }
+    }
+
+    requirement def TargetSelectivityRequirement {
+        subject controller : NanoTargetingController;
+
+        require constraint {
+            controller.minimumConfidence.value >= 90.0
+        }
+    }
+
+    requirement def ControlledReleaseRequirement {
+        subject controller : NanoTargetingController;
+
+        require constraint {
+            controller.nominalReleaseDuration.value >= 600.0 and controller.nominalReleaseDuration.value <= 3600.0
+        }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        subject carrier : PolymericNanoparticle;
+
+        require constraint {
+            carrier.zetaPotential.value >= -30.0 and carrier.zetaPotential.value <= 10.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TargetedNanocarrierTherapySystem;
+    satisfy SizeRequirement by PolymericNanoparticle;
+    satisfy TargetSelectivityRequirement by NanoTargetingController;
+    satisfy ControlledReleaseRequirement by NanoTargetingController;
+    satisfy BiocompatibilityRequirement by PolymericNanoparticle;
+}

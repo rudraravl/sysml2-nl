@@ -1,0 +1,542 @@
+package JohnCraneGroupSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "bar";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def FlowRate :> Real {
+        unit = "L/min";
+    }
+
+    attribute def RotationalSpeed :> Real {
+        unit = "rpm";
+    }
+
+    attribute def VibrationLevel :> Real {
+        unit = "mm/s";
+    }
+
+    attribute def Power :> Real {
+        unit = "kW";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def LeakageRate :> Real {
+        unit = "mL/hr";
+    }
+
+    attribute def SealWear :> Real {
+        unit = "um";
+    }
+
+    item def ProcessFluid {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : FlowRate;
+        attribute hazardClass : String;
+        attribute viscosity : Real;
+    }
+
+    item def BarrierFluid {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute flowRate : FlowRate;
+        attribute cleanlinessClass : String;
+    }
+
+    item def ConditionData {
+        attribute sealFaceTemperature : Temperature;
+        attribute vibration : VibrationLevel;
+        attribute leakage : LeakageRate;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute sealWearEstimate : SealWear;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def MaintenanceWorkOrder {
+        attribute priority : String;
+        attribute assetIdentifier : String;
+        attribute recommendedAction : String;
+        attribute dueWithin : TimeDuration;
+    }
+
+    port def ProcessFluidPort {
+        inout item fluid : ProcessFluid;
+    }
+
+    port def BarrierFluidPort {
+        inout item fluid : BarrierFluid;
+    }
+
+    port def DataPort {
+        out item data : ConditionData;
+    }
+
+    port def CommandPort {
+        in item command : MaintenanceWorkOrder;
+    }
+
+    port def MechanicalDrivePort {
+        in attribute speed : RotationalSpeed;
+        in attribute transmittedPower : Power;
+    }
+
+    part def JohnCraneGroup {
+        attribute organizationName : String = "John Crane";
+        attribute businessDomain : String = "Engineered sealing systems, filtration, couplings, and asset management services for rotating equipment";
+        attribute primaryFunction : String = "Improve reliability, containment, efficiency, and lifecycle performance of industrial rotating equipment";
+
+        part engineeredSealingBusiness : EngineeredSealingBusiness;
+        part filtrationBusiness : FiltrationBusiness;
+        part powerTransmissionBusiness : PowerTransmissionBusiness;
+        part digitalReliabilityBusiness : DigitalReliabilityBusiness;
+        part fieldServiceOrganization : FieldServiceOrganization;
+
+        action provideRotatingEquipmentReliability {
+            in item customerProcessFluid : ProcessFluid;
+            out item reliabilityData : ConditionData;
+            out item serviceRecommendation : MaintenanceWorkOrder;
+
+            first startAssessment;
+            then selectEngineeredSolution;
+            then operateAndMonitor;
+            then optimizeLifecycleSupport;
+
+            action startAssessment {
+                attribute reviewedService : String = "Operating conditions, fluid hazard, shaft speed, pressure, temperature, leakage limits, and maintenance history";
+            }
+
+            action selectEngineeredSolution {
+                attribute selectedScope : String = "Mechanical seal, seal support system, filtration package, coupling, monitoring, and service plan";
+            }
+
+            action operateAndMonitor {
+                out item reliabilityData : ConditionData;
+            }
+
+            action optimizeLifecycleSupport {
+                out item serviceRecommendation : MaintenanceWorkOrder;
+            }
+        }
+    }
+
+    part def EngineeredSealingBusiness {
+        part mechanicalSealSystem : MechanicalSealSystem;
+        part sealSupportSystem : SealSupportSystem;
+
+        connect mechanicalSealSystem.barrierFluidPort to sealSupportSystem.barrierFluidSupplyPort;
+        connect sealSupportSystem.conditionDataPort to mechanicalSealSystem.supportDataPort;
+    }
+
+    part def FiltrationBusiness {
+        part filtrationSkid : FiltrationSkid;
+    }
+
+    part def PowerTransmissionBusiness {
+        part flexibleCoupling : FlexibleCoupling;
+    }
+
+    part def DigitalReliabilityBusiness {
+        part conditionMonitoringSystem : ConditionMonitoringSystem;
+        part analyticsService : ReliabilityAnalyticsService;
+
+        connect conditionMonitoringSystem.conditionDataOut to analyticsService.conditionDataIn;
+    }
+
+    part def FieldServiceOrganization {
+        part serviceEngineer : ServiceEngineer;
+        part repairCenter : RepairCenter;
+
+        action executeServiceVisit {
+            in item workOrder : MaintenanceWorkOrder;
+            out attribute serviceCompleted : Boolean;
+        }
+    }
+
+    part def MechanicalSealSystem {
+        attribute ratedPressure : Pressure = 40.0;
+        attribute ratedTemperature : Temperature = 220.0;
+        attribute maximumLeakage : LeakageRate = 5.0;
+        attribute designLife : TimeDuration = 31536000.0;
+
+        port processIn : ProcessFluidPort;
+        port processOut : ProcessFluidPort;
+        port barrierFluidPort : BarrierFluidPort;
+        port drivePort : MechanicalDrivePort;
+        port conditionDataPort : DataPort;
+        port supportDataPort : CommandPort;
+
+        part primarySeal : SealFacePair;
+        part secondarySeal : SealFacePair;
+        part glandPlate : SealHousing;
+        part sleeve : ShaftSleeve;
+        part leakageSensor : LeakageSensor;
+        part temperatureSensor : TemperatureSensor;
+        part vibrationSensor : VibrationSensor;
+
+        connect processIn to primarySeal.processSide;
+        connect primarySeal.containedProcessSide to processOut;
+        connect barrierFluidPort to secondarySeal.barrierSide;
+        connect leakageSensor.dataOut to conditionDataPort;
+        connect temperatureSensor.dataOut to conditionDataPort;
+        connect vibrationSensor.dataOut to conditionDataPort;
+
+        state def SealOperatingState {
+            entry action initializeSeal {
+                attribute statusMessage : String = "Mechanical seal initialized";
+            }
+
+            state Idle;
+            state Pressurizing;
+            state Running;
+            state Degraded;
+            state Alarm;
+            state Shutdown;
+
+            transition first Idle;
+            transition Idle_to_Pressurizing
+                first Idle
+                then Pressurizing
+                accept when barrierFluidPort.fluid.pressure > processIn.fluid.pressure + 1.5;
+
+            transition Pressurizing_to_Running
+                first Pressurizing
+                then Running
+                accept when drivePort.speed > 100.0;
+
+            transition Running_to_Degraded
+                first Running
+                then Degraded
+                accept when conditionDataPort.data.sealWearEstimate > 150.0;
+
+            transition Running_to_Alarm
+                first Running
+                then Alarm
+                accept when conditionDataPort.data.leakage > maximumLeakage;
+
+            transition Degraded_to_Alarm
+                first Degraded
+                then Alarm
+                accept when conditionDataPort.data.vibration > 7.1;
+
+            transition Alarm_to_Shutdown
+                first Alarm
+                then Shutdown
+                accept when conditionDataPort.data.leakage > maximumLeakage * 2.0;
+
+            transition Degraded_to_Running
+                first Degraded
+                then Running
+                accept when conditionDataPort.data.sealWearEstimate <= 150.0 and conditionDataPort.data.leakage <= maximumLeakage;
+        }
+
+        action containProcessFluid {
+            in item incomingFluid : ProcessFluid;
+            out item containedFluid : ProcessFluid;
+            out item conditionData : ConditionData;
+        }
+    }
+
+    part def SealFacePair {
+        attribute faceMaterialStationary : String = "Silicon carbide";
+        attribute faceMaterialRotating : String = "Carbon graphite";
+        attribute closingForce : Real = 1250.0;
+        attribute wearAllowance : SealWear = 250.0;
+
+        port processSide : ProcessFluidPort;
+        port containedProcessSide : ProcessFluidPort;
+        port barrierSide : BarrierFluidPort;
+
+        action formSealingInterface {
+            in item processFluid : ProcessFluid;
+            in item barrierFluid : BarrierFluid;
+            out attribute leakageControlled : Boolean;
+        }
+    }
+
+    part def SealHousing {
+        attribute material : String = "Duplex stainless steel";
+        attribute pressureRating : Pressure = 40.0;
+    }
+
+    part def ShaftSleeve {
+        attribute material : String = "Hardened stainless steel";
+        attribute shaftDiameter : Real = 75.0;
+    }
+
+    part def SealSupportSystem {
+        attribute normalBarrierPressureMargin : Pressure = 2.0;
+        attribute reservoirVolume : Real = 20.0;
+
+        port barrierFluidSupplyPort : BarrierFluidPort;
+        port barrierFluidReturnPort : BarrierFluidPort;
+        port conditionDataPort : DataPort;
+
+        part reservoir : BarrierFluidReservoir;
+        part circulationPump : BarrierFluidPump;
+        part heatExchanger : HeatExchanger;
+        part pressureControlValve : PressureControlValve;
+        part filterElement : FilterElement;
+
+        connect reservoir.outlet to circulationPump.inlet;
+        connect circulationPump.outlet to heatExchanger.inlet;
+        connect heatExchanger.outlet to filterElement.inlet;
+        connect filterElement.outlet to pressureControlValve.inlet;
+        connect pressureControlValve.outlet to barrierFluidSupplyPort;
+        connect barrierFluidReturnPort to reservoir.inlet;
+
+        action maintainBarrierFluid {
+            in item returnedFluid : BarrierFluid;
+            out item conditionedFluid : BarrierFluid;
+        }
+    }
+
+    part def BarrierFluidReservoir {
+        port inlet : BarrierFluidPort;
+        port outlet : BarrierFluidPort;
+        attribute fluidVolume : Real = 20.0;
+    }
+
+    part def BarrierFluidPump {
+        port inlet : BarrierFluidPort;
+        port outlet : BarrierFluidPort;
+        attribute ratedFlow : FlowRate = 15.0;
+        attribute motorPower : Power = 1.5;
+    }
+
+    part def HeatExchanger {
+        port inlet : BarrierFluidPort;
+        port outlet : BarrierFluidPort;
+        attribute coolingCapacity : Power = 8.0;
+    }
+
+    part def PressureControlValve {
+        port inlet : BarrierFluidPort;
+        port outlet : BarrierFluidPort;
+        attribute setPressureMargin : Pressure = 2.0;
+    }
+
+    part def FilterElement {
+        port inlet : BarrierFluidPort;
+        port outlet : BarrierFluidPort;
+        attribute filtrationRatingMicron : Real = 10.0;
+    }
+
+    part def FiltrationSkid {
+        attribute designFlow : FlowRate = 250.0;
+        attribute maximumOperatingPressure : Pressure = 16.0;
+
+        port dirtyFluidIn : ProcessFluidPort;
+        port cleanFluidOut : ProcessFluidPort;
+        port conditionDataOut : DataPort;
+
+        part duplexFilter : DuplexFilter;
+        part differentialPressureSensor : DifferentialPressureSensor;
+
+        connect dirtyFluidIn to duplexFilter.inlet;
+        connect duplexFilter.outlet to cleanFluidOut;
+        connect differentialPressureSensor.dataOut to conditionDataOut;
+
+        action removeContamination {
+            in item dirtyFluid : ProcessFluid;
+            out item cleanFluid : ProcessFluid;
+        }
+    }
+
+    part def DuplexFilter {
+        port inlet : ProcessFluidPort;
+        port outlet : ProcessFluidPort;
+        attribute elementRatingMicron : Real = 25.0;
+        attribute changeoverMode : String = "Online duplex transfer";
+    }
+
+    part def FlexibleCoupling {
+        attribute ratedPower : Power = 750.0;
+        attribute ratedSpeed : RotationalSpeed = 3600.0;
+        attribute torsionalStiffness : Real = 120000.0;
+
+        port driverSide : MechanicalDrivePort;
+        port drivenSide : MechanicalDrivePort;
+
+        action transmitTorque {
+            in attribute inputSpeed : RotationalSpeed;
+            in attribute inputPower : Power;
+            out attribute outputSpeed : RotationalSpeed;
+            out attribute outputPower : Power;
+        }
+    }
+
+    part def ConditionMonitoringSystem {
+        port sealDataIn : DataPort;
+        port filterDataIn : DataPort;
+        port conditionDataOut : DataPort;
+
+        part edgeGateway : EdgeGateway;
+        part dataHistorian : DataHistorian;
+
+        connect sealDataIn to edgeGateway.inputData;
+        connect filterDataIn to edgeGateway.inputData;
+        connect edgeGateway.outputData to dataHistorian.inputData;
+        connect dataHistorian.outputData to conditionDataOut;
+
+        action collectConditionData {
+            in item sealCondition : ConditionData;
+            out item normalizedCondition : ConditionData;
+        }
+    }
+
+    part def ReliabilityAnalyticsService {
+        port conditionDataIn : DataPort;
+        port recommendationOut : CommandPort;
+
+        action assessAssetHealth {
+            in item conditionData : ConditionData;
+            out item workOrder : MaintenanceWorkOrder;
+        }
+
+        state def AnalyticsState {
+            state Normal;
+            state Watch;
+            state RecommendInspection;
+            state RecommendShutdown;
+
+            transition first Normal;
+            transition Normal_to_Watch
+                first Normal
+                then Watch
+                accept when conditionDataIn.data.vibration > 4.5;
+
+            transition Watch_to_RecommendInspection
+                first Watch
+                then RecommendInspection
+                accept when conditionDataIn.data.sealWearEstimate > 150.0;
+
+            transition RecommendInspection_to_RecommendShutdown
+                first RecommendInspection
+                then RecommendShutdown
+                accept when conditionDataIn.data.leakage > 10.0;
+        }
+    }
+
+    part def ServiceEngineer {
+        attribute certificationLevel : String = "Rotating equipment sealing specialist";
+
+        action inspectSealSystem {
+            in item conditionData : ConditionData;
+            out item workOrder : MaintenanceWorkOrder;
+        }
+    }
+
+    part def RepairCenter {
+        action refurbishSealAssembly {
+            in item failedSealData : ConditionData;
+            out attribute restoredToSpecification : Boolean;
+        }
+    }
+
+    part def LeakageSensor {
+        port dataOut : DataPort;
+        attribute measurementRange : LeakageRate = 100.0;
+    }
+
+    part def TemperatureSensor {
+        port dataOut : DataPort;
+        attribute measurementRange : Temperature = 300.0;
+    }
+
+    part def VibrationSensor {
+        port dataOut : DataPort;
+        attribute measurementRange : VibrationLevel = 25.0;
+    }
+
+    part def DifferentialPressureSensor {
+        port dataOut : DataPort;
+        attribute measurementRange : Pressure = 10.0;
+    }
+
+    part def EdgeGateway {
+        port inputData : DataPort;
+        port outputData : DataPort;
+    }
+
+    part def DataHistorian {
+        port inputData : DataPort;
+        port outputData : DataPort;
+        attribute retentionPeriod : TimeDuration = 94608000.0;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject group : JohnCraneGroup;
+
+        require constraint {
+            group.primaryFunction == "Improve reliability, containment, efficiency, and lifecycle performance of industrial rotating equipment"
+        }
+    }
+
+    requirement def ProcessContainmentRequirement {
+        subject seal : MechanicalSealSystem;
+
+        require constraint {
+            seal.conditionDataPort.data.leakage <= seal.maximumLeakage
+        }
+    }
+
+    requirement def BarrierPressureRequirement {
+        subject support : SealSupportSystem;
+        subject seal : MechanicalSealSystem;
+
+        require constraint {
+            support.barrierFluidSupplyPort.fluid.pressure >= seal.processIn.fluid.pressure + support.normalBarrierPressureMargin
+        }
+    }
+
+    requirement def ReliabilityMonitoringRequirement {
+        subject monitoring : ConditionMonitoringSystem;
+
+        require constraint {
+            monitoring.conditionDataOut.data.vibration >= 0.0 and
+            monitoring.conditionDataOut.data.leakage >= 0.0 and
+            monitoring.conditionDataOut.data.sealWearEstimate >= 0.0
+        }
+    }
+
+    requirement def FiltrationRequirement {
+        subject skid : FiltrationSkid;
+
+        require constraint {
+            skid.cleanFluidOut.fluid.flowRate <= skid.designFlow and
+            skid.cleanFluidOut.fluid.pressure <= skid.maximumOperatingPressure
+        }
+    }
+
+    requirement def CouplingPowerTransmissionRequirement {
+        subject coupling : FlexibleCoupling;
+
+        require constraint {
+            coupling.drivenSide.transmittedPower <= coupling.ratedPower and
+            coupling.drivenSide.speed <= coupling.ratedSpeed
+        }
+    }
+
+    requirement def MaintenanceRecommendationRequirement {
+        subject analytics : ReliabilityAnalyticsService;
+
+        require constraint {
+            analytics.recommendationOut.command.recommendedAction != ""
+        }
+    }
+
+    part johnCraneEnterprise : JohnCraneGroup;
+
+}

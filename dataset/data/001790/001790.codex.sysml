@@ -1,0 +1,377 @@
+package GravitationalEnergySystemModel {
+
+  value type Energy {
+    unit = "J";
+  }
+
+  value type Power {
+    unit = "W";
+  }
+
+  value type Mass {
+    unit = "kg";
+  }
+
+  value type Height {
+    unit = "m";
+  }
+
+  value type Velocity {
+    unit = "m/s";
+  }
+
+  value type Force {
+    unit = "N";
+  }
+
+  value type Efficiency {
+    unit = "1";
+  }
+
+  value type Voltage {
+    unit = "V";
+  }
+
+  value type Current {
+    unit = "A";
+  }
+
+  value type Time {
+    unit = "s";
+  }
+
+  item def ElectricalEnergy {
+    attribute amount : Energy;
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def MechanicalEnergy {
+    attribute amount : Energy;
+    attribute force : Force;
+    attribute velocity : Velocity;
+  }
+
+  item def GravitationalPotentialEnergy {
+    attribute amount : Energy;
+    attribute storedMass : Mass;
+    attribute elevation : Height;
+    attribute gravitationalAcceleration : Real = 9.80665;
+  }
+
+  item def ControlCommand {
+    attribute requestedMode : OperatingMode;
+    attribute requestedPower : Power;
+  }
+
+  item def Telemetry {
+    attribute storedEnergy : Energy;
+    attribute availablePower : Power;
+    attribute massHeight : Height;
+    attribute systemEfficiency : Efficiency;
+  }
+
+  enum def OperatingMode {
+    enum idle;
+    enum charge;
+    enum store;
+    enum discharge;
+    enum emergencyStop;
+    enum maintenance;
+  }
+
+  port def ElectricalPowerPort {
+    inout item energyFlow : ElectricalEnergy;
+  }
+
+  port def MechanicalPowerPort {
+    inout item energyFlow : MechanicalEnergy;
+  }
+
+  port def ControlPort {
+    in item command : ControlCommand;
+    out item status : Telemetry;
+  }
+
+  port def BrakeControlPort {
+    in item command : ControlCommand;
+  }
+
+  part def MotorGenerator {
+    attribute ratedPower : Power = 5000000;
+    attribute conversionEfficiency : Efficiency = 0.94;
+
+    port electricalPort : ElectricalPowerPort;
+    port mechanicalPort : MechanicalPowerPort;
+    port controlPort : ControlPort;
+
+    action convertElectricalToMechanical {
+      in item inputEnergy : ElectricalEnergy;
+      out item outputEnergy : MechanicalEnergy;
+    }
+
+    action convertMechanicalToElectrical {
+      in item inputEnergy : MechanicalEnergy;
+      out item outputEnergy : ElectricalEnergy;
+    }
+  }
+
+  part def LiftDrumAndCable {
+    attribute maximumCableLoad : Force = 12000000;
+    attribute drumRadius : Height = 2.5;
+    attribute mechanicalEfficiency : Efficiency = 0.96;
+
+    port drivePort : MechanicalPowerPort;
+    port loadPort : MechanicalPowerPort;
+
+    action windCable {
+      in item driveEnergy : MechanicalEnergy;
+      out item liftedEnergy : MechanicalEnergy;
+    }
+
+    action unwindCable {
+      in item descendingEnergy : MechanicalEnergy;
+      out item shaftEnergy : MechanicalEnergy;
+    }
+  }
+
+  part def GravityMass {
+    attribute mass : Mass = 1000000;
+    attribute minimumHeight : Height = 0;
+    attribute maximumHeight : Height = 120;
+    attribute currentHeight : Height;
+    attribute storedPotentialEnergy : Energy;
+
+    port mechanicalPort : MechanicalPowerPort;
+
+    action calculateStoredEnergy {
+      in attribute massInput : Mass;
+      in attribute heightInput : Height;
+      out attribute potentialEnergy : Energy;
+    }
+  }
+
+  part def GuideStructure {
+    attribute towerHeight : Height = 125;
+    attribute lateralLoadLimit : Force = 2000000;
+
+    part guideRails;
+    part foundation;
+    part upperPulleyFrame;
+  }
+
+  part def BrakingSystem {
+    attribute holdingForce : Force = 15000000;
+    attribute responseTime : Time = 0.25;
+
+    port mechanicalPort : MechanicalPowerPort;
+    port brakeControl : BrakeControlPort;
+
+    action holdMass;
+    action releaseMass;
+    action emergencyClamp;
+  }
+
+  part def PowerConverter {
+    attribute dcLinkVoltage : Voltage = 1500;
+    attribute converterEfficiency : Efficiency = 0.97;
+
+    port gridSidePort : ElectricalPowerPort;
+    port machineSidePort : ElectricalPowerPort;
+    port controlPort : ControlPort;
+
+    action conditionGridPower;
+    action regulateGeneratorOutput;
+  }
+
+  part def GridInterface {
+    attribute nominalVoltage : Voltage = 13800;
+    attribute maximumExportPower : Power = 5000000;
+    attribute maximumImportPower : Power = 5000000;
+
+    port gridPort : ElectricalPowerPort;
+    port converterPort : ElectricalPowerPort;
+    port controlPort : ControlPort;
+  }
+
+  part def SupervisoryController {
+    attribute commandedMode : OperatingMode;
+    attribute targetPower : Power;
+    attribute minimumReserveEnergy : Energy = 50000000;
+    attribute maximumStoredEnergy : Energy = 1176798000;
+
+    port operatorControl : ControlPort;
+    port gridControl : ControlPort;
+    port motorControl : ControlPort;
+    port converterControl : ControlPort;
+    port brakeControl : BrakeControlPort;
+
+    action selectOperatingMode;
+    action scheduleCharge;
+    action scheduleDischarge;
+    action protectSystem;
+  }
+
+  part def GravityEnergyStorageSystem {
+    attribute primaryFunction : String =
+      "Store electrical energy as gravitational potential energy by lifting a massive body, then recover that energy by lowering the body through a motor-generator to supply electrical power.";
+
+    attribute ratedChargePower : Power = 5000000;
+    attribute ratedDischargePower : Power = 5000000;
+    attribute usableEnergyCapacity : Energy = 1000000000;
+    attribute roundTripEfficiency : Efficiency = 0.85;
+
+    port gridElectricalPort : ElectricalPowerPort;
+    port operatorControlPort : ControlPort;
+
+    part gridInterface : GridInterface;
+    part powerConverter : PowerConverter;
+    part motorGenerator : MotorGenerator;
+    part liftDrive : LiftDrumAndCable;
+    part storageMass : GravityMass;
+    part guideStructure : GuideStructure;
+    part brakeSystem : BrakingSystem;
+    part controller : SupervisoryController;
+
+    connection gridConnection connect gridElectricalPort to gridInterface.gridPort;
+    connection gridToConverter connect gridInterface.converterPort to powerConverter.gridSidePort;
+    connection converterToMachine connect powerConverter.machineSidePort to motorGenerator.electricalPort;
+    connection machineToLiftDrive connect motorGenerator.mechanicalPort to liftDrive.drivePort;
+    connection liftDriveToMass connect liftDrive.loadPort to storageMass.mechanicalPort;
+    connection brakeToMass connect brakeSystem.mechanicalPort to storageMass.mechanicalPort;
+
+    connection operatorToController connect operatorControlPort to controller.operatorControl;
+    connection controllerToGrid connect controller.gridControl to gridInterface.controlPort;
+    connection controllerToConverter connect controller.converterControl to powerConverter.controlPort;
+    connection controllerToMachine connect controller.motorControl to motorGenerator.controlPort;
+    connection controllerToBrake connect controller.brakeControl to brakeSystem.brakeControl;
+
+    action chargeSystem {
+      in item importedEnergy : ElectricalEnergy;
+      out item storedEnergy : GravitationalPotentialEnergy;
+    }
+
+    action storeEnergy {
+      in item storedEnergy : GravitationalPotentialEnergy;
+      out item retainedEnergy : GravitationalPotentialEnergy;
+    }
+
+    action dischargeSystem {
+      in item storedEnergy : GravitationalPotentialEnergy;
+      out item exportedEnergy : ElectricalEnergy;
+    }
+
+    state def OperationalBehavior {
+      state idle;
+      state charging;
+      state storing;
+      state discharging;
+      state emergencyStopped;
+      state maintenance;
+
+      transition initial then idle;
+
+      transition idleToCharging
+        first idle
+        then charging
+        accept ControlCommand
+        if commandedMode == OperatingMode::charge;
+
+      transition chargingToStoring
+        first charging
+        then storing
+        if storageMass.currentHeight >= storageMass.maximumHeight;
+
+      transition storingToDischarging
+        first storing
+        then discharging
+        accept ControlCommand
+        if commandedMode == OperatingMode::discharge;
+
+      transition dischargingToIdle
+        first discharging
+        then idle
+        if storageMass.currentHeight <= storageMass.minimumHeight;
+
+      transition anyToEmergency
+        first idle, charging, storing, discharging
+        then emergencyStopped
+        accept ControlCommand
+        if commandedMode == OperatingMode::emergencyStop;
+
+      transition emergencyToMaintenance
+        first emergencyStopped
+        then maintenance
+        accept ControlCommand
+        if commandedMode == OperatingMode::maintenance;
+
+      transition maintenanceToIdle
+        first maintenance
+        then idle
+        accept ControlCommand
+        if commandedMode == OperatingMode::idle;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : GravityEnergyStorageSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Store electrical energy as gravitational potential energy by lifting a massive body, then recover that energy by lowering the body through a motor-generator to supply electrical power."
+    }
+  }
+
+  requirement def EnergyCapacityRequirement {
+    subject system : GravityEnergyStorageSystem;
+
+    require constraint {
+      system.usableEnergyCapacity >= 1000000000
+    }
+  }
+
+  requirement def PowerRatingRequirement {
+    subject system : GravityEnergyStorageSystem;
+
+    require constraint {
+      system.ratedChargePower >= 5000000 and
+      system.ratedDischargePower >= 5000000
+    }
+  }
+
+  requirement def EfficiencyRequirement {
+    subject system : GravityEnergyStorageSystem;
+
+    require constraint {
+      system.roundTripEfficiency >= 0.80
+    }
+  }
+
+  requirement def SafeHoldingRequirement {
+    subject system : GravityEnergyStorageSystem;
+
+    require constraint {
+      system.brakeSystem.holdingForce >
+      system.storageMass.mass * 9.80665
+    }
+  }
+
+  requirement def ElevationLimitRequirement {
+    subject system : GravityEnergyStorageSystem;
+
+    require constraint {
+      system.storageMass.currentHeight >= system.storageMass.minimumHeight and
+      system.storageMass.currentHeight <= system.storageMass.maximumHeight
+    }
+  }
+
+  part gravityStoragePlant : GravityEnergyStorageSystem;
+
+  satisfy PrimaryFunctionRequirement by gravityStoragePlant;
+  satisfy EnergyCapacityRequirement by gravityStoragePlant;
+  satisfy PowerRatingRequirement by gravityStoragePlant;
+  satisfy EfficiencyRequirement by gravityStoragePlant;
+  satisfy SafeHoldingRequirement by gravityStoragePlant;
+  satisfy ElevationLimitRequirement by gravityStoragePlant;
+}

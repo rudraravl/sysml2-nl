@@ -1,0 +1,586 @@
+package BirdAnatomySystem {
+  import ScalarValues::*;
+  import ISQ::*;
+
+  item def Air;
+  item def Oxygen;
+  item def CarbonDioxide;
+  item def Blood;
+  item def Nutrients;
+  item def MechanicalPower;
+  item def NeuralSignal;
+  item def Waste;
+  item def SoundWave;
+
+  value type Length_m :> Real { unit = "m"; }
+  value type Area_m2 :> Real { unit = "m^2"; }
+  value type Mass_kg :> Real { unit = "kg"; }
+  value type Volume_m3 :> Real { unit = "m^3"; }
+  value type Frequency_Hz :> Real { unit = "Hz"; }
+  value type Speed_mps :> Real { unit = "m/s"; }
+  value type Power_W :> Real { unit = "W"; }
+  value type Pressure_Pa :> Real { unit = "Pa"; }
+  value type Angle_deg :> Real { unit = "deg"; }
+  value type Energy_J :> Real { unit = "J"; }
+  value type Duration_s :> Real { unit = "s"; }
+
+  port def AirIntakePort {
+    in item inhaledAir : Air;
+  }
+
+  port def AirExhaustPort {
+    out item exhaledAir : Air;
+    out item carbonDioxide : CarbonDioxide;
+  }
+
+  port def BloodInPort {
+    in item blood : Blood;
+  }
+
+  port def BloodOutPort {
+    out item blood : Blood;
+  }
+
+  port def NutrientPort {
+    in item nutrients : Nutrients;
+  }
+
+  port def WastePort {
+    out item waste : Waste;
+  }
+
+  port def PowerPort {
+    out item power : MechanicalPower;
+  }
+
+  port def NeuralInputPort {
+    in item signal : NeuralSignal;
+  }
+
+  port def NeuralOutputPort {
+    out item signal : NeuralSignal;
+  }
+
+  port def SoundPort {
+    out item sound : SoundWave;
+  }
+
+  part def Wing {
+    attribute span : Length_m;
+    attribute area : Area_m2;
+    attribute featherCount : Integer;
+    attribute maximumStrokeAngle : Angle_deg;
+    attribute liftContribution : Real;
+
+    port neuralControl : NeuralInputPort;
+    port bloodSupply : BloodInPort;
+    port venousReturn : BloodOutPort;
+    port aerodynamicPower : PowerPort;
+
+    part primaryFeathers : FlightFeatherArray;
+    part secondaryFeathers : FlightFeatherArray;
+    part wingBones : WingSkeleton;
+    part flightMuscles : FlightMuscleGroup;
+
+    action GenerateLift {
+      in item air : Air;
+      in item musclePower : MechanicalPower;
+      out item liftPower : MechanicalPower;
+    }
+
+    action AdjustFeatherCamber {
+      in item control : NeuralSignal;
+    }
+  }
+
+  part def FlightFeatherArray {
+    attribute count : Integer;
+    attribute averageLength : Length_m;
+    attribute stiffness : Pressure_Pa;
+    attribute surfaceArea : Area_m2;
+  }
+
+  part def WingSkeleton {
+    attribute boneMass : Mass_kg;
+    attribute flexionRange : Angle_deg;
+
+    part humerus;
+    part radius;
+    part ulna;
+    part carpometacarpus;
+    part phalanges;
+  }
+
+  part def FlightMuscleGroup {
+    attribute maximumPowerOutput : Power_W;
+    attribute enduranceEnergyStore : Energy_J;
+
+    port oxygenatedBloodIn : BloodInPort;
+    port deoxygenatedBloodOut : BloodOutPort;
+    port neuralActivation : NeuralInputPort;
+    port mechanicalPowerOut : PowerPort;
+
+    part pectoralis;
+    part supracoracoideus;
+
+    action ContractForDownstroke {
+      in item activation : NeuralSignal;
+      out item power : MechanicalPower;
+    }
+
+    action ContractForUpstroke {
+      in item activation : NeuralSignal;
+      out item power : MechanicalPower;
+    }
+  }
+
+  part def RespiratorySystem {
+    attribute tidalVolume : Volume_m3;
+    attribute ventilationFrequency : Frequency_Hz;
+    attribute gasExchangeEfficiency : Real;
+
+    port airIn : AirIntakePort;
+    port airOut : AirExhaustPort;
+    port venousBloodIn : BloodInPort;
+    port oxygenatedBloodOut : BloodOutPort;
+
+    part trachea;
+    part lungs;
+    part anteriorAirSacs;
+    part posteriorAirSacs;
+    part syrinx : VocalOrgan;
+
+    action Ventilate {
+      in item air : Air;
+      out item oxygen : Oxygen;
+      out item carbonDioxide : CarbonDioxide;
+    }
+
+    action ExchangeGas {
+      in item venousBlood : Blood;
+      in item oxygen : Oxygen;
+      out item arterialBlood : Blood;
+      out item carbonDioxide : CarbonDioxide;
+    }
+  }
+
+  part def VocalOrgan {
+    attribute callFrequencyMin : Frequency_Hz;
+    attribute callFrequencyMax : Frequency_Hz;
+
+    port neuralControl : NeuralInputPort;
+    port soundOut : SoundPort;
+
+    action ProduceCall {
+      in item control : NeuralSignal;
+      out item call : SoundWave;
+    }
+  }
+
+  part def CardiovascularSystem {
+    attribute heartRateResting : Frequency_Hz;
+    attribute heartRateFlight : Frequency_Hz;
+    attribute strokeVolume : Volume_m3;
+    attribute oxygenTransportCapacity : Real;
+
+    port oxygenatedBloodIn : BloodInPort;
+    port oxygenatedBloodOut : BloodOutPort;
+    port venousBloodIn : BloodInPort;
+    port venousBloodOut : BloodOutPort;
+
+    part fourChamberedHeart;
+    part arteries;
+    part veins;
+    part capillaryBeds;
+
+    action CirculateBlood {
+      in item oxygenatedBlood : Blood;
+      in item venousBlood : Blood;
+      out item deliveredBlood : Blood;
+      out item returnBlood : Blood;
+    }
+  }
+
+  part def DigestiveSystem {
+    attribute foodProcessingCapacity : Mass_kg;
+    attribute nutrientAbsorptionEfficiency : Real;
+    attribute cropStorageVolume : Volume_m3;
+
+    port foodIn : NutrientPort;
+    port nutrientsOut : NutrientPort;
+    port wasteOut : WastePort;
+
+    part beak;
+    part esophagus;
+    part crop;
+    part proventriculus;
+    part gizzard;
+    part intestine;
+    part cloaca;
+
+    action ProcessFood {
+      in item food : Nutrients;
+      out item absorbedNutrients : Nutrients;
+      out item waste : Waste;
+    }
+  }
+
+  part def NervousSystem {
+    attribute brainMass : Mass_kg;
+    attribute reactionTime : Duration_s;
+    attribute visualProcessingBandwidth : Frequency_Hz;
+
+    port sensoryInput : NeuralInputPort;
+    port motorOutput : NeuralOutputPort;
+
+    part brain;
+    part spinalCord;
+    part opticNerves;
+    part vestibularSystem;
+    part peripheralNerves;
+
+    action IntegrateSensoryInformation {
+      in item visualSignal : NeuralSignal;
+      in item balanceSignal : NeuralSignal;
+      out item motorCommand : NeuralSignal;
+    }
+
+    action CoordinateFlight {
+      in item sensoryState : NeuralSignal;
+      out item wingCommand : NeuralSignal;
+      out item tailCommand : NeuralSignal;
+    }
+  }
+
+  part def SensorySystem {
+    attribute visualAcuity : Real;
+    attribute auditoryRangeMin : Frequency_Hz;
+    attribute auditoryRangeMax : Frequency_Hz;
+
+    port neuralOutput : NeuralOutputPort;
+
+    part eyes;
+    part ears;
+    part mechanoreceptors;
+    part magnetoreceptiveCells;
+
+    action DetectEnvironment {
+      out item sensorySignal : NeuralSignal;
+    }
+  }
+
+  part def SkeletalSystem {
+    attribute skeletalMass : Mass_kg;
+    attribute pneumaticBoneVolume : Volume_m3;
+    attribute structuralLoadFactor : Real;
+
+    part skull;
+    part vertebralColumn;
+    part keelSternum;
+    part ribCage;
+    part pelvis;
+    part legBones;
+    part wingSkeletonLeft : WingSkeleton;
+    part wingSkeletonRight : WingSkeleton;
+  }
+
+  part def TailAssembly {
+    attribute featherCount : Integer;
+    attribute controlSurfaceArea : Area_m2;
+    attribute maximumDeflection : Angle_deg;
+
+    port neuralControl : NeuralInputPort;
+    port bloodSupply : BloodInPort;
+    port venousReturn : BloodOutPort;
+
+    part rectrices : FlightFeatherArray;
+    part tailMuscles;
+
+    action StabilizeAndSteer {
+      in item control : NeuralSignal;
+    }
+  }
+
+  part def LegAssembly {
+    attribute strideLength : Length_m;
+    attribute gripForce : Pressure_Pa;
+
+    port neuralControl : NeuralInputPort;
+    port bloodSupply : BloodInPort;
+    port venousReturn : BloodOutPort;
+
+    part femur;
+    part tibiotarsus;
+    part tarsometatarsus;
+    part toes;
+    part tendons;
+
+    action Perch {
+      in item control : NeuralSignal;
+    }
+
+    action WalkOrLaunch {
+      in item control : NeuralSignal;
+      out item launchPower : MechanicalPower;
+    }
+  }
+
+  part def IntegumentarySystem {
+    attribute totalFeatherMass : Mass_kg;
+    attribute insulationEffectiveness : Real;
+    attribute waterproofingLevel : Real;
+
+    part contourFeathers;
+    part downFeathers;
+    part flightFeathers;
+    part skin;
+    part uropygialGland;
+
+    action InsulateBody;
+    action MaintainFeatherCondition;
+  }
+
+  part def Bird {
+    attribute bodyMass : Mass_kg = 0.045;
+    attribute wingspan : Length_m = 0.32;
+    attribute cruisingAirspeed : Speed_mps = 9.5;
+    attribute maximumAirspeed : Speed_mps = 18.0;
+    attribute enduranceEnergyReserve : Energy_J = 12500.0;
+
+    port airIn : AirIntakePort;
+    port airOut : AirExhaustPort;
+    port soundOut : SoundPort;
+    port foodIn : NutrientPort;
+    port wasteOut : WastePort;
+
+    part leftWing : Wing {
+      attribute span = 0.16;
+      attribute area = 0.012;
+      attribute featherCount = 34;
+      attribute maximumStrokeAngle = 115.0;
+      attribute liftContribution = 0.50;
+    }
+
+    part rightWing : Wing {
+      attribute span = 0.16;
+      attribute area = 0.012;
+      attribute featherCount = 34;
+      attribute maximumStrokeAngle = 115.0;
+      attribute liftContribution = 0.50;
+    }
+
+    part tail : TailAssembly {
+      attribute featherCount = 12;
+      attribute controlSurfaceArea = 0.004;
+      attribute maximumDeflection = 45.0;
+    }
+
+    part leftLeg : LegAssembly;
+    part rightLeg : LegAssembly;
+    part respiratory : RespiratorySystem;
+    part cardiovascular : CardiovascularSystem;
+    part digestive : DigestiveSystem;
+    part nervous : NervousSystem;
+    part sensory : SensorySystem;
+    part skeleton : SkeletalSystem;
+    part integument : IntegumentarySystem;
+
+    connect airIn to respiratory.airIn;
+    connect respiratory.airOut to airOut;
+    connect respiratory.syrinx.soundOut to soundOut;
+
+    connect foodIn to digestive.foodIn;
+    connect digestive.wasteOut to wasteOut;
+
+    connect respiratory.oxygenatedBloodOut to cardiovascular.oxygenatedBloodIn;
+    connect cardiovascular.venousBloodOut to respiratory.venousBloodIn;
+
+    connect cardiovascular.oxygenatedBloodOut to leftWing.bloodSupply;
+    connect cardiovascular.oxygenatedBloodOut to rightWing.bloodSupply;
+    connect cardiovascular.oxygenatedBloodOut to tail.bloodSupply;
+    connect cardiovascular.oxygenatedBloodOut to leftLeg.bloodSupply;
+    connect cardiovascular.oxygenatedBloodOut to rightLeg.bloodSupply;
+
+    connect leftWing.venousReturn to cardiovascular.venousBloodIn;
+    connect rightWing.venousReturn to cardiovascular.venousBloodIn;
+    connect tail.venousReturn to cardiovascular.venousBloodIn;
+    connect leftLeg.venousReturn to cardiovascular.venousBloodIn;
+    connect rightLeg.venousReturn to cardiovascular.venousBloodIn;
+
+    connect sensory.neuralOutput to nervous.sensoryInput;
+    connect nervous.motorOutput to leftWing.neuralControl;
+    connect nervous.motorOutput to rightWing.neuralControl;
+    connect nervous.motorOutput to tail.neuralControl;
+    connect nervous.motorOutput to leftLeg.neuralControl;
+    connect nervous.motorOutput to rightLeg.neuralControl;
+    connect nervous.motorOutput to respiratory.syrinx.neuralControl;
+
+    perform action SustainLife {
+      first digestive.ProcessFood;
+      then respiratory.Ventilate;
+      then respiratory.ExchangeGas;
+      then cardiovascular.CirculateBlood;
+    }
+
+    perform action Fly {
+      first sensory.DetectEnvironment;
+      then nervous.CoordinateFlight;
+      then leftWing.flightMuscles.ContractForDownstroke;
+      then rightWing.flightMuscles.ContractForDownstroke;
+      then leftWing.GenerateLift;
+      then rightWing.GenerateLift;
+      then tail.StabilizeAndSteer;
+    }
+
+    perform action Communicate {
+      first nervous.IntegrateSensoryInformation;
+      then respiratory.syrinx.ProduceCall;
+    }
+
+    state LifeCycle {
+      entry; then Resting;
+
+      state Resting;
+      state Foraging;
+      state PreparingForFlight;
+      state Flying;
+      state Landing;
+      state Vocalizing;
+
+      transition rest_to_forage first Resting then Foraging;
+      transition forage_to_prepare first Foraging then PreparingForFlight;
+      transition prepare_to_flying first PreparingForFlight then Flying;
+      transition flying_to_landing first Flying then Landing;
+      transition landing_to_rest first Landing then Resting;
+      transition rest_to_vocalizing first Resting then Vocalizing;
+      transition vocalizing_to_rest first Vocalizing then Resting;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject bird : Bird;
+
+    doc /* The system shall represent a bird anatomy whose primary high-level function is to sustain life while enabling powered flight, environmental sensing, movement, and communication. */
+
+    require constraint {
+      bird.leftWing.area + bird.rightWing.area > 0.015
+    }
+
+    require constraint {
+      bird.cruisingAirspeed > 0.0
+    }
+
+    require constraint {
+      bird.respiratory.gasExchangeEfficiency > 0.0
+    }
+
+    require constraint {
+      bird.cardiovascular.oxygenTransportCapacity > 0.0
+    }
+  }
+
+  requirement def FlightSupportRequirement {
+    subject bird : Bird;
+
+    doc /* Wings, tail, skeleton, muscles, respiratory system, cardiovascular system, and nervous system shall cooperate to generate lift, provide control authority, and deliver oxygenated blood during flight. */
+
+    require constraint {
+      bird.leftWing.maximumStrokeAngle >= 90.0
+    }
+
+    require constraint {
+      bird.rightWing.maximumStrokeAngle >= 90.0
+    }
+
+    require constraint {
+      bird.tail.controlSurfaceArea > 0.0
+    }
+
+    require constraint {
+      bird.skeleton.structuralLoadFactor >= 1.0
+    }
+  }
+
+  requirement def HomeostasisRequirement {
+    subject bird : Bird;
+
+    doc /* Respiratory, cardiovascular, digestive, integumentary, and waste systems shall maintain internal conditions sufficient for survival across resting, foraging, and flying states. */
+
+    require constraint {
+      bird.enduranceEnergyReserve > 0.0
+    }
+
+    require constraint {
+      bird.digestive.nutrientAbsorptionEfficiency > 0.0
+    }
+
+    require constraint {
+      bird.integument.insulationEffectiveness > 0.0
+    }
+  }
+
+  requirement def SensoryControlRequirement {
+    subject bird : Bird;
+
+    doc /* Sensory and nervous systems shall detect environmental conditions and issue coordinated motor commands to wings, tail, legs, and vocal organs. */
+
+    require constraint {
+      bird.nervous.reactionTime > 0.0
+    }
+
+    require constraint {
+      bird.sensory.visualAcuity > 0.0
+    }
+  }
+
+  part birdAnatomySystem : Bird {
+    attribute bodyMass = 0.045;
+    attribute wingspan = 0.32;
+    attribute cruisingAirspeed = 9.5;
+    attribute maximumAirspeed = 18.0;
+    attribute enduranceEnergyReserve = 12500.0;
+
+    part respiratory {
+      attribute tidalVolume = 0.000006;
+      attribute ventilationFrequency = 4.0;
+      attribute gasExchangeEfficiency = 0.72;
+    }
+
+    part cardiovascular {
+      attribute heartRateResting = 7.0;
+      attribute heartRateFlight = 18.0;
+      attribute strokeVolume = 0.0000007;
+      attribute oxygenTransportCapacity = 0.84;
+    }
+
+    part digestive {
+      attribute foodProcessingCapacity = 0.006;
+      attribute nutrientAbsorptionEfficiency = 0.68;
+      attribute cropStorageVolume = 0.000004;
+    }
+
+    part nervous {
+      attribute brainMass = 0.0012;
+      attribute reactionTime = 0.045;
+      attribute visualProcessingBandwidth = 60.0;
+    }
+
+    part sensory {
+      attribute visualAcuity = 1.4;
+      attribute auditoryRangeMin = 250.0;
+      attribute auditoryRangeMax = 8000.0;
+    }
+
+    part skeleton {
+      attribute skeletalMass = 0.0045;
+      attribute pneumaticBoneVolume = 0.000012;
+      attribute structuralLoadFactor = 2.8;
+    }
+
+    part integument {
+      attribute totalFeatherMass = 0.003;
+      attribute insulationEffectiveness = 0.81;
+      attribute waterproofingLevel = 0.74;
+    }
+  }
+}

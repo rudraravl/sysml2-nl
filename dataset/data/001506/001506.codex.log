@@ -1,0 +1,671 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-93l37ami
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6fa-2b17-7bb2-a427-3dc871ef7b4f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Motion planning and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MotionPlanningSystemSpecification {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ConfidenceLevel : Real {
+    range = "0.0..1.0";
+  }
+
+  attribute def PlanningMode : String;
+  attribute def PlannerState : String;
+
+  item def Pose3D {
+    attribute x : LengthValue;
+    attribute y : LengthValue;
+    attribute z : LengthValue;
+    attribute roll : PlaneAngleValue;
+    attribute pitch : PlaneAngleValue;
+    attribute yaw : PlaneAngleValue;
+  }
+
+  item def Velocity3D {
+    attribute vx : SpeedValue;
+    attribute vy : SpeedValue;
+    attribute vz : SpeedValue;
+    attribute yawRate : AngularVelocityValue;
+  }
+
+  item def Obstacle {
+    attribute obstacleId : String;
+    attribute pose : Pose3D;
+    attribute velocity : Velocity3D;
+    attribute boundingRadius : LengthValue;
+    attribute classificationConfidence : ConfidenceLevel;
+  }
+
+  item def EnvironmentMap {
+    attribute mapFrame : String;
+    attribute resolution : LengthValue;
+    attribute validHorizon : TimeValue;
+    item obstacles : Obstacle[0..*];
+  }
+
+  item def MotionGoal {
+    attribute goalPose : Pose3D;
+    attribute arrivalTolerance : LengthValue;
+    attribute maxArrivalTime : TimeValue;
+    attribute priority : Integer;
+  }
+
+  item def VehicleKinematicLimits {
+    attribute maxSpeed : SpeedValue;
+    attribute maxAcceleration : AccelerationValue;
+    attribute maxDeceleration : AccelerationValue;
+    attribute maxYawRate : AngularVelocityValue;
+    attribute minTurnRadius : LengthValue;
+  }
+
+  item def TrajectoryPoint {
+    attribute pose : Pose3D;
+    attribute velocity : Velocity3D;
+    attribute timeFromStart : TimeValue;
+  }
+
+  item def PlannedTrajectory {
+    attribute trajectoryId : String;
+    attribute generatedAt : TimeValue;
+    attribute planningMode : PlanningMode;
+    attribute feasibilityConfidence : ConfidenceLevel;
+    item points : TrajectoryPoint[2..*];
+  }
+
+  item def PlannerDiagnostic {
+    attribute state : PlannerState;
+    attribute cycleTime : TimeValue;
+    attribute activeObstacleCount : Integer;
+    attribute lastTrajectoryConfidence : ConfidenceLevel;
+    attribute faultCode : String;
+  }
+
+  port def PoseInputPort {
+    in item currentPose : Pose3D;
+    in item currentVelocity : Velocity3D;
+  }
+
+  port def MapInputPort {
+    in item environment : EnvironmentMap;
+  }
+
+  port def GoalInputPort {
+    in item goal : MotionGoal;
+  }
+
+  port def LimitInputPort {
+    in item limits : VehicleKinematicLimits;
+  }
+
+  port def TrajectoryOutputPort {
+    out item trajectory : PlannedTrajectory;
+  }
+
+  port def DiagnosticOutputPort {
+    out item diagnostic : PlannerDiagnostic;
+  }
+
+  action def ValidateInputs {
+    in item pose : Pose3D;
+    in item map : EnvironmentMap;
+    in item goal : MotionGoal;
+    in item limits : VehicleKinematicLimits;
+    out attribute inputsValid : Boolean;
+  }
+
+  action def BuildSearchSpace {
+    in item pose : Pose3D;
+    in item map : EnvironmentMap;
+    in item goal : MotionGoal;
+    in item limits : VehicleKinematicLimits;
+    out item candidateSpace : EnvironmentMap;
+  }
+
+  action def GenerateCandidateTrajectories {
+    in item startPose : Pose3D;
+    in item goal : MotionGoal;
+    in item candidateSpace : EnvironmentMap;
+    in item limits : VehicleKinematicLimits;
+    out item candidates : PlannedTrajectory[1..*];
+  }
+
+  action def EvaluateTrajectorySafety {
+    in item candidates : PlannedTrajectory[1..*];
+    in item map : EnvironmentMap;
+    out item safeCandidates : PlannedTrajectory[0..*];
+  }
+
+  action def SelectBestTrajectory {
+    in item safeCandidates : PlannedTrajectory[1..*];
+    out item selectedTrajectory : PlannedTrajectory;
+  }
+
+  action def PublishFallbackStop {
+    in item currentPose : Pose3D;
+    out item stopTrajectory : PlannedTrajectory;
+  }
+
+  state def MotionPlannerLifecycle {
+    state Initializing;
+    state Standby;
+    state Planning;
+    state PublishingTrajectory;
+    state DegradedStop;
+    state Faulted;
+
+    transition first Initializing;
+    transition Initializing_to_Standby
+      first Initializing
+      then Standby;
+
+    transition Standby_to_Planning
+      first Standby
+      then Planning;
+
+    transition Planning_to_PublishingTrajectory
+      first Planning
+      then PublishingTrajectory;
+
+    transition Planning_to_DegradedStop
+      first Planning
+      then DegradedStop;
+
+    transition PublishingTrajectory_to_Standby
+      first PublishingTrajectory
+      then Standby;
+
+    transition DegradedStop_to_Standby
+      first DegradedStop
+      then Standby;
+
+    transition Any_to_Faulted
+      first Initializing
+      then Faulted;
+  }
+
+  part def LocalizationInterface {
+    port poseOut : PoseInputPort;
+  }
+
+  part def PerceptionMapInterface {
+    port mapOut : MapInputPort;
+  }
+
+  part def GoalManager {
+    port goalOut : GoalInputPort;
+  }
+
+  part def VehicleModelProvider {
+    port limitsOut : LimitInputPort;
+  }
+
+  part def MotionPlanner {
+    port poseIn : PoseInputPort;
+    port mapIn : MapInputPort;
+    port goalIn : GoalInputPort;
+    port limitsIn : LimitInputPort;
+    port trajectoryOut : TrajectoryOutputPort;
+    port diagnosticOut : DiagnosticOutputPort;
+
+    attribute nominalCycleTime : TimeValue = 0.050 [s];
+    attribute maximumCycleTime : TimeValue = 0.100 [s];
+    attribute minimumTrajectoryHorizon : TimeValue = 3.0 [s];
+    attribute defaultSafetyClearance : LengthValue = 1.0 [m];
+    attribute minimumFeasibilityConfidence : ConfidenceLevel = 0.85;
+
+    perform action planMotion {
+      first start;
+      then validate : ValidateInputs;
+      then buildSpace : BuildSearchSpace;
+      then generateCandidates : GenerateCandidateTrajectories;
+      then evaluateSafety : EvaluateTrajectorySafety;
+      then selectTrajectory : SelectBestTrajectory;
+      then done;
+    }
+
+    perform action fallbackStop {
+      first start;
+      then stop : PublishFallbackStop;
+      then done;
+    }
+
+    exhibit state lifecycle : MotionPlannerLifecycle;
+  }
+
+  part def TrajectoryConsumer {
+    port trajectoryIn : TrajectoryOutputPort;
+    port diagnosticIn : DiagnosticOutputPort;
+  }
+
+  part def MotionPlanningSystem {
+    part localization : LocalizationInterface;
+    part perception : PerceptionMapInterface;
+    part goals : GoalManager;
+    part vehicleModel : VehicleModelProvider;
+    part planner : MotionPlanner;
+    part controller : TrajectoryConsumer;
+
+    connect localization.poseOut to planner.poseIn;
+    connect perception.mapOut to planner.mapIn;
+    connect goals.goalOut to planner.goalIn;
+    connect vehicleModel.limitsOut to planner.limitsIn;
+    connect planner.trajectoryOut to controller.trajectoryIn;
+    connect planner.diagnosticOut to controller.diagnosticIn;
+
+    attribute primaryFunction : String =
+      "Compute a feasible and collision-aware trajectory from the current vehicle state to a requested goal while respecting vehicle kinematic limits and publishing diagnostics.";
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : MotionPlanningSystem;
+
+    require constraint {
+      system.planner.minimumTrajectoryHorizon >= 3.0 [s]
+    }
+
+    doc
+      /*
+       The motion planning system shall transform localization, perception,
+       goal, and vehicle-limit inputs into a time-parameterized trajectory
+       suitable for downstream control.
+       */
+  }
+
+  requirement def CycleTimeRequirement {
+    subject planner : MotionPlanner;
+
+    require constraint {
+      planner.nominalCycleTime <= 0.050 [s] and
+      planner.maximumCycleTime <= 0.100 [s]
+    }
+  }
+
+  requirement def SafetyClearanceRequirement {
+    subject planner : MotionPlanner;
+
+    require constraint {
+      planner.defaultSafetyClearance >= 1.0 [m]
+    }
+  }
+
+  requirement def ConfidenceRequirement {
+    subject planner : MotionPlanner;
+
+    require constraint {
+      planner.minimumFeasibilityConfidence >= 0.85
+    }
+  }
+
+  requirement def FallbackBehaviorRequirement {
+    subject planner : MotionPlanner;
+
+    doc
+      /*
+       If no candidate trajectory satisfies collision and kinematic constraints,
+       the planner shall publish a controlled stop trajectory and report degraded
+       operation through diagnostics.
+       */
+  }
+
+  requirement def DiagnosticRequirement {
+    subject planner : MotionPlanner;
+
+    doc
+      /*
+       The planner shall publish lifecycle state, planning cycle time, obstacle
+       count, latest trajectory confidence, and a fault code on every planning
+       cycle.
+       */
+  }
+
+  satisfy PrimaryFunctionRequirement by MotionPlanningSystem;
+  satisfy CycleTimeRequirement by MotionPlanner;
+  satisfy SafetyClearanceRequirement by MotionPlanner;
+  satisfy ConfidenceRequirement by MotionPlanner;
+  satisfy FallbackBehaviorRequirement by MotionPlanner;
+  satisfy DiagnosticRequirement by MotionPlanner;
+}
+tokens used
+2,485
+package MotionPlanningSystemSpecification {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ConfidenceLevel : Real {
+    range = "0.0..1.0";
+  }
+
+  attribute def PlanningMode : String;
+  attribute def PlannerState : String;
+
+  item def Pose3D {
+    attribute x : LengthValue;
+    attribute y : LengthValue;
+    attribute z : LengthValue;
+    attribute roll : PlaneAngleValue;
+    attribute pitch : PlaneAngleValue;
+    attribute yaw : PlaneAngleValue;
+  }
+
+  item def Velocity3D {
+    attribute vx : SpeedValue;
+    attribute vy : SpeedValue;
+    attribute vz : SpeedValue;
+    attribute yawRate : AngularVelocityValue;
+  }
+
+  item def Obstacle {
+    attribute obstacleId : String;
+    attribute pose : Pose3D;
+    attribute velocity : Velocity3D;
+    attribute boundingRadius : LengthValue;
+    attribute classificationConfidence : ConfidenceLevel;
+  }
+
+  item def EnvironmentMap {
+    attribute mapFrame : String;
+    attribute resolution : LengthValue;
+    attribute validHorizon : TimeValue;
+    item obstacles : Obstacle[0..*];
+  }
+
+  item def MotionGoal {
+    attribute goalPose : Pose3D;
+    attribute arrivalTolerance : LengthValue;
+    attribute maxArrivalTime : TimeValue;
+    attribute priority : Integer;
+  }
+
+  item def VehicleKinematicLimits {
+    attribute maxSpeed : SpeedValue;
+    attribute maxAcceleration : AccelerationValue;
+    attribute maxDeceleration : AccelerationValue;
+    attribute maxYawRate : AngularVelocityValue;
+    attribute minTurnRadius : LengthValue;
+  }
+
+  item def TrajectoryPoint {
+    attribute pose : Pose3D;
+    attribute velocity : Velocity3D;
+    attribute timeFromStart : TimeValue;
+  }
+
+  item def PlannedTrajectory {
+    attribute trajectoryId : String;
+    attribute generatedAt : TimeValue;
+    attribute planningMode : PlanningMode;
+    attribute feasibilityConfidence : ConfidenceLevel;
+    item points : TrajectoryPoint[2..*];
+  }
+
+  item def PlannerDiagnostic {
+    attribute state : PlannerState;
+    attribute cycleTime : TimeValue;
+    attribute activeObstacleCount : Integer;
+    attribute lastTrajectoryConfidence : ConfidenceLevel;
+    attribute faultCode : String;
+  }
+
+  port def PoseInputPort {
+    in item currentPose : Pose3D;
+    in item currentVelocity : Velocity3D;
+  }
+
+  port def MapInputPort {
+    in item environment : EnvironmentMap;
+  }
+
+  port def GoalInputPort {
+    in item goal : MotionGoal;
+  }
+
+  port def LimitInputPort {
+    in item limits : VehicleKinematicLimits;
+  }
+
+  port def TrajectoryOutputPort {
+    out item trajectory : PlannedTrajectory;
+  }
+
+  port def DiagnosticOutputPort {
+    out item diagnostic : PlannerDiagnostic;
+  }
+
+  action def ValidateInputs {
+    in item pose : Pose3D;
+    in item map : EnvironmentMap;
+    in item goal : MotionGoal;
+    in item limits : VehicleKinematicLimits;
+    out attribute inputsValid : Boolean;
+  }
+
+  action def BuildSearchSpace {
+    in item pose : Pose3D;
+    in item map : EnvironmentMap;
+    in item goal : MotionGoal;
+    in item limits : VehicleKinematicLimits;
+    out item candidateSpace : EnvironmentMap;
+  }
+
+  action def GenerateCandidateTrajectories {
+    in item startPose : Pose3D;
+    in item goal : MotionGoal;
+    in item candidateSpace : EnvironmentMap;
+    in item limits : VehicleKinematicLimits;
+    out item candidates : PlannedTrajectory[1..*];
+  }
+
+  action def EvaluateTrajectorySafety {
+    in item candidates : PlannedTrajectory[1..*];
+    in item map : EnvironmentMap;
+    out item safeCandidates : PlannedTrajectory[0..*];
+  }
+
+  action def SelectBestTrajectory {
+    in item safeCandidates : PlannedTrajectory[1..*];
+    out item selectedTrajectory : PlannedTrajectory;
+  }
+
+  action def PublishFallbackStop {
+    in item currentPose : Pose3D;
+    out item stopTrajectory : PlannedTrajectory;
+  }
+
+  state def MotionPlannerLifecycle {
+    state Initializing;
+    state Standby;
+    state Planning;
+    state PublishingTrajectory;
+    state DegradedStop;
+    state Faulted;
+
+    transition first Initializing;
+    transition Initializing_to_Standby
+      first Initializing
+      then Standby;
+
+    transition Standby_to_Planning
+      first Standby
+      then Planning;
+
+    transition Planning_to_PublishingTrajectory
+      first Planning
+      then PublishingTrajectory;
+
+    transition Planning_to_DegradedStop
+      first Planning
+      then DegradedStop;
+
+    transition PublishingTrajectory_to_Standby
+      first PublishingTrajectory
+      then Standby;
+
+    transition DegradedStop_to_Standby
+      first DegradedStop
+      then Standby;
+
+    transition Any_to_Faulted
+      first Initializing
+      then Faulted;
+  }
+
+  part def LocalizationInterface {
+    port poseOut : PoseInputPort;
+  }
+
+  part def PerceptionMapInterface {
+    port mapOut : MapInputPort;
+  }
+
+  part def GoalManager {
+    port goalOut : GoalInputPort;
+  }
+
+  part def VehicleModelProvider {
+    port limitsOut : LimitInputPort;
+  }
+
+  part def MotionPlanner {
+    port poseIn : PoseInputPort;
+    port mapIn : MapInputPort;
+    port goalIn : GoalInputPort;
+    port limitsIn : LimitInputPort;
+    port trajectoryOut : TrajectoryOutputPort;
+    port diagnosticOut : DiagnosticOutputPort;
+
+    attribute nominalCycleTime : TimeValue = 0.050 [s];
+    attribute maximumCycleTime : TimeValue = 0.100 [s];
+    attribute minimumTrajectoryHorizon : TimeValue = 3.0 [s];
+    attribute defaultSafetyClearance : LengthValue = 1.0 [m];
+    attribute minimumFeasibilityConfidence : ConfidenceLevel = 0.85;
+
+    perform action planMotion {
+      first start;
+      then validate : ValidateInputs;
+      then buildSpace : BuildSearchSpace;
+      then generateCandidates : GenerateCandidateTrajectories;
+      then evaluateSafety : EvaluateTrajectorySafety;
+      then selectTrajectory : SelectBestTrajectory;
+      then done;
+    }
+
+    perform action fallbackStop {
+      first start;
+      then stop : PublishFallbackStop;
+      then done;
+    }
+
+    exhibit state lifecycle : MotionPlannerLifecycle;
+  }
+
+  part def TrajectoryConsumer {
+    port trajectoryIn : TrajectoryOutputPort;
+    port diagnosticIn : DiagnosticOutputPort;
+  }
+
+  part def MotionPlanningSystem {
+    part localization : LocalizationInterface;
+    part perception : PerceptionMapInterface;
+    part goals : GoalManager;
+    part vehicleModel : VehicleModelProvider;
+    part planner : MotionPlanner;
+    part controller : TrajectoryConsumer;
+
+    connect localization.poseOut to planner.poseIn;
+    connect perception.mapOut to planner.mapIn;
+    connect goals.goalOut to planner.goalIn;
+    connect vehicleModel.limitsOut to planner.limitsIn;
+    connect planner.trajectoryOut to controller.trajectoryIn;
+    connect planner.diagnosticOut to controller.diagnosticIn;
+
+    attribute primaryFunction : String =
+      "Compute a feasible and collision-aware trajectory from the current vehicle state to a requested goal while respecting vehicle kinematic limits and publishing diagnostics.";
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : MotionPlanningSystem;
+
+    require constraint {
+      system.planner.minimumTrajectoryHorizon >= 3.0 [s]
+    }
+
+    doc
+      /*
+       The motion planning system shall transform localization, perception,
+       goal, and vehicle-limit inputs into a time-parameterized trajectory
+       suitable for downstream control.
+       */
+  }
+
+  requirement def CycleTimeRequirement {
+    subject planner : MotionPlanner;
+
+    require constraint {
+      planner.nominalCycleTime <= 0.050 [s] and
+      planner.maximumCycleTime <= 0.100 [s]
+    }
+  }
+
+  requirement def SafetyClearanceRequirement {
+    subject planner : MotionPlanner;
+
+    require constraint {
+      planner.defaultSafetyClearance >= 1.0 [m]
+    }
+  }
+
+  requirement def ConfidenceRequirement {
+    subject planner : MotionPlanner;
+
+    require constraint {
+      planner.minimumFeasibilityConfidence >= 0.85
+    }
+  }
+
+  requirement def FallbackBehaviorRequirement {
+    subject planner : MotionPlanner;
+
+    doc
+      /*
+       If no candidate trajectory satisfies collision and kinematic constraints,
+       the planner shall publish a controlled stop trajectory and report degraded
+       operation through diagnostics.
+       */
+  }
+
+  requirement def DiagnosticRequirement {
+    subject planner : MotionPlanner;
+
+    doc
+      /*
+       The planner shall publish lifecycle state, planning cycle time, obstacle
+       count, latest trajectory confidence, and a fault code on every planning
+       cycle.
+       */
+  }
+
+  satisfy PrimaryFunctionRequirement by MotionPlanningSystem;
+  satisfy CycleTimeRequirement by MotionPlanner;
+  satisfy SafetyClearanceRequirement by MotionPlanner;
+  satisfy ConfidenceRequirement by MotionPlanner;
+  satisfy FallbackBehaviorRequirement by MotionPlanner;
+  satisfy DiagnosticRequirement by MotionPlanner;
+}

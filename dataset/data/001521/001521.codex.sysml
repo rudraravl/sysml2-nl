@@ -1,0 +1,432 @@
+package OperationalDesignDomainSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        :>> unit = "%";
+    }
+
+    attribute def KilometrePerHour : Real {
+        :>> unit = "km/h";
+    }
+
+    attribute def Metre : Real {
+        :>> unit = "m";
+    }
+
+    attribute def MillimetrePerHour : Real {
+        :>> unit = "mm/h";
+    }
+
+    attribute def Lux : Real {
+        :>> unit = "lx";
+    }
+
+    attribute def DegreeCelsius : Real {
+        :>> unit = "degC";
+    }
+
+    attribute def Second : Real {
+        :>> unit = "s";
+    }
+
+    enum def RoadClass {
+        enum arterial;
+        enum collector;
+        enum localStreet;
+        enum limitedAccessHighway;
+    }
+
+    enum def WeatherCondition {
+        enum clear;
+        enum cloudy;
+        enum lightRain;
+        enum moderateRain;
+        enum snow;
+        enum fog;
+        enum hail;
+    }
+
+    enum def LightingCondition {
+        enum daylight;
+        enum dusk;
+        enum nightStreetLit;
+        enum nightUnlit;
+    }
+
+    enum def LaneMarkingQuality {
+        enum clear;
+        enum worn;
+        enum temporaryConstruction;
+        enum absent;
+    }
+
+    enum def AutomationMode {
+        enum standby;
+        enum validatingODD;
+        enum autonomousCruise;
+        enum cautiousOperation;
+        enum minimalRiskManeuver;
+        enum manualFallback;
+        enum faulted;
+    }
+
+    item def VehiclePose {
+        attribute latitude : Real;
+        attribute longitude : Real;
+        attribute headingDeg : Real;
+        attribute speed : KilometrePerHour;
+    }
+
+    item def PerceptionFrame {
+        attribute timestamp : Second;
+        attribute egoPose : VehiclePose;
+        attribute detectedLaneCount : Integer;
+        attribute nearestObstacleRange : Metre;
+        attribute laneConfidence : Percent;
+        attribute objectConfidence : Percent;
+    }
+
+    item def ODDConditionSet {
+        attribute roadClass : RoadClass;
+        attribute weather : WeatherCondition;
+        attribute lighting : LightingCondition;
+        attribute laneMarkingQuality : LaneMarkingQuality;
+        attribute postedSpeedLimit : KilometrePerHour;
+        attribute precipitationRate : MillimetrePerHour;
+        attribute visibilityRange : Metre;
+        attribute ambientIlluminance : Lux;
+        attribute temperature : DegreeCelsius;
+        attribute mapConfidence : Percent;
+        attribute cellularCoverage : Percent;
+    }
+
+    item def ODDStatus {
+        attribute isWithinODD : Boolean;
+        attribute limitingReason : String;
+        attribute confidence : Percent;
+        attribute requestedMode : AutomationMode;
+    }
+
+    item def TrajectoryPlan {
+        attribute horizon : Second;
+        attribute targetSpeed : KilometrePerHour;
+        attribute minimumClearance : Metre;
+        attribute laneChangeRequested : Boolean;
+        attribute plannedStopDistance : Metre;
+    }
+
+    item def ControlCommand {
+        attribute steeringAngleDeg : Real;
+        attribute acceleration : Real;
+        attribute brakePressure : Percent;
+        attribute turnSignalLeft : Boolean;
+        attribute turnSignalRight : Boolean;
+    }
+
+    item def DriverAlert {
+        attribute message : String;
+        attribute urgency : Percent;
+        attribute timeToFallback : Second;
+    }
+
+    port def SensorDataPort {
+        out perceptionFrame : PerceptionFrame;
+    }
+
+    port def ODDInputPort {
+        in conditionSet : ODDConditionSet;
+    }
+
+    port def ODDStatusPort {
+        out status : ODDStatus;
+    }
+
+    port def PlanningPort {
+        in status : ODDStatus;
+        in perceptionFrame : PerceptionFrame;
+        out trajectory : TrajectoryPlan;
+    }
+
+    port def ControlPort {
+        in trajectory : TrajectoryPlan;
+        out command : ControlCommand;
+    }
+
+    port def ActuatorPort {
+        in command : ControlCommand;
+    }
+
+    port def DriverInterfacePort {
+        out alert : DriverAlert;
+        in driverOverride : Boolean;
+    }
+
+    part def OperationalDesignDomainManager {
+        port conditionInput : ODDInputPort;
+        port statusOutput : ODDStatusPort;
+
+        attribute maxPostedSpeed : KilometrePerHour = 80.0;
+        attribute minVisibilityRange : Metre = 120.0;
+        attribute maxPrecipitationRate : MillimetrePerHour = 10.0;
+        attribute minMapConfidence : Percent = 85.0;
+        attribute minCellularCoverage : Percent = 20.0;
+        attribute allowedRoadClasses : RoadClass[3] = (RoadClass::arterial, RoadClass::collector, RoadClass::limitedAccessHighway);
+
+        action evaluateODD {
+            in condition : ODDConditionSet;
+            out status : ODDStatus;
+
+            first start;
+            then checkSpeed;
+            then checkEnvironment;
+            then checkInfrastructure;
+            then publishStatus;
+            then done;
+
+            action checkSpeed {
+                in condition : ODDConditionSet;
+                out speedAllowed : Boolean;
+            }
+
+            action checkEnvironment {
+                in condition : ODDConditionSet;
+                out environmentAllowed : Boolean;
+            }
+
+            action checkInfrastructure {
+                in condition : ODDConditionSet;
+                out infrastructureAllowed : Boolean;
+            }
+
+            action publishStatus {
+                in speedAllowed : Boolean;
+                in environmentAllowed : Boolean;
+                in infrastructureAllowed : Boolean;
+                out status : ODDStatus;
+            }
+        }
+    }
+
+    part def PerceptionSubsystem {
+        port sensorOutput : SensorDataPort;
+
+        part frontCamera {
+            attribute horizontalFieldOfViewDeg : Real = 120.0;
+            attribute range : Metre = 150.0;
+            attribute minimumIlluminance : Lux = 2.0;
+        }
+
+        part frontRadar {
+            attribute range : Metre = 220.0;
+            attribute rangeResolution : Metre = 0.5;
+        }
+
+        part lidar {
+            attribute range : Metre = 120.0;
+            attribute angularResolutionDeg : Real = 0.2;
+        }
+
+        action fuseSensors {
+            out perceptionFrame : PerceptionFrame;
+        }
+    }
+
+    part def RouteAndMapSubsystem {
+        port conditionOutput : ODDInputPort;
+
+        part hdMapDatabase {
+            attribute mapAgeDays : Integer;
+            attribute mappedRoadClasses : RoadClass[*];
+        }
+
+        part localizationModule {
+            attribute nominalAccuracy : Metre = 0.25;
+            attribute degradedAccuracyLimit : Metre = 1.5;
+        }
+
+        action produceConditionSet {
+            out conditionSet : ODDConditionSet;
+        }
+    }
+
+    part def BehaviorPlanner {
+        port planning : PlanningPort;
+
+        attribute nominalHeadway : Second = 2.0;
+        attribute cautiousHeadway : Second = 3.5;
+        attribute minimumClearance : Metre = 2.0;
+        attribute planningHorizon : Second = 8.0;
+
+        action generateTrajectory {
+            in status : ODDStatus;
+            in perceptionFrame : PerceptionFrame;
+            out trajectory : TrajectoryPlan;
+        }
+    }
+
+    part def MotionController {
+        port control : ControlPort;
+
+        attribute maxAcceleration : Real = 2.0;
+        attribute maxDeceleration : Real = -4.0;
+        attribute maxSteeringRateDegPerSecond : Real = 120.0;
+
+        action trackTrajectory {
+            in trajectory : TrajectoryPlan;
+            out command : ControlCommand;
+        }
+    }
+
+    part def VehicleActuationSubsystem {
+        port actuatorInput : ActuatorPort;
+
+        part steeringActuator {
+            attribute responseTime : Second = 0.15;
+        }
+
+        part propulsionActuator {
+            attribute responseTime : Second = 0.20;
+        }
+
+        part brakingActuator {
+            attribute responseTime : Second = 0.10;
+        }
+    }
+
+    part def HumanMachineInterface {
+        port driverInterface : DriverInterfacePort;
+
+        action requestFallback {
+            in reason : String;
+            out alert : DriverAlert;
+        }
+    }
+
+    part def ODDConstrainedAutonomousShuttle {
+        port externalDriverInterface : DriverInterfacePort;
+
+        part perception : PerceptionSubsystem;
+        part oddManager : OperationalDesignDomainManager;
+        part mapAndRoute : RouteAndMapSubsystem;
+        part planner : BehaviorPlanner;
+        part controller : MotionController;
+        part actuation : VehicleActuationSubsystem;
+        part hmi : HumanMachineInterface;
+
+        connect mapAndRoute.conditionOutput to oddManager.conditionInput;
+        connect oddManager.statusOutput to planner.planning;
+        connect perception.sensorOutput to planner.planning;
+        connect planner.planning to controller.control;
+        connect controller.control to actuation.actuatorInput;
+        connect hmi.driverInterface to externalDriverInterface;
+
+        attribute primaryFunction : String =
+            "Transport passengers autonomously on approved public-road routes while continuously verifying that operating conditions remain inside the defined operational design domain and transitioning to a minimal-risk condition when they do not.";
+
+        state automode : AutomationMode {
+            entry; then standby;
+
+            state standby;
+            state validatingODD;
+            state autonomousCruise;
+            state cautiousOperation;
+            state minimalRiskManeuver;
+            state manualFallback;
+            state faulted;
+
+            transition standby_to_validating
+                first standby
+                accept startAutonomy
+                then validatingODD;
+
+            transition validating_to_cruise
+                first validatingODD
+                if oddManager.statusOutput.status.isWithinODD
+                then autonomousCruise;
+
+            transition validating_to_fallback
+                first validatingODD
+                if not oddManager.statusOutput.status.isWithinODD
+                then manualFallback;
+
+            transition cruise_to_cautious
+                first autonomousCruise
+                if perception.sensorOutput.perceptionFrame.nearestObstacleRange < 25.0
+                then cautiousOperation;
+
+            transition cautious_to_cruise
+                first cautiousOperation
+                if perception.sensorOutput.perceptionFrame.nearestObstacleRange >= 40.0 and oddManager.statusOutput.status.isWithinODD
+                then autonomousCruise;
+
+            transition cruise_to_minimal_risk
+                first autonomousCruise
+                if not oddManager.statusOutput.status.isWithinODD
+                then minimalRiskManeuver;
+
+            transition cautious_to_minimal_risk
+                first cautiousOperation
+                if not oddManager.statusOutput.status.isWithinODD
+                then minimalRiskManeuver;
+
+            transition minimal_risk_to_fallback
+                first minimalRiskManeuver
+                accept vehicleStopped
+                then manualFallback;
+
+            transition any_to_faulted
+                first standby
+                accept criticalFault
+                then faulted;
+        }
+    }
+
+    requirement def ODDSystemRequirement {
+        subject shuttle : ODDConstrainedAutonomousShuttle;
+    }
+
+    requirement reqPrimaryFunction : ODDSystemRequirement {
+        doc /* The system shall provide autonomous passenger transport only when the current route, road, weather, lighting, speed, visibility, lane marking, map, and communications conditions are within the declared operational design domain. */
+    }
+
+    requirement reqODDBoundary : ODDSystemRequirement {
+        doc /* The system shall classify operation as outside the operational design domain when posted speed exceeds 80 km/h, visibility is below 120 m, precipitation exceeds 10 mm/h, supported lane markings are unavailable, or map confidence is below 85 percent. */
+    }
+
+    requirement reqContinuousODDMonitoring : ODDSystemRequirement {
+        doc /* The system shall update operational design domain status continuously during autonomous operation and make the status available to planning within one second of a condition change. */
+
+        attribute maximumUpdateLatency : Second = 1.0;
+    }
+
+    requirement reqMinimalRiskTransition : ODDSystemRequirement {
+        doc /* The system shall initiate a minimal-risk maneuver when conditions leave the operational design domain during autonomous operation. */
+
+        attribute maximumTransitionDelay : Second = 2.0;
+    }
+
+    requirement reqPassengerAlert : ODDSystemRequirement {
+        doc /* The system shall alert the passenger or safety operator when autonomous operation is unavailable, degraded, or transitioning to fallback. */
+
+        attribute minimumFallbackWarning : Second = 5.0;
+    }
+
+    requirement reqSafeFollowing : ODDSystemRequirement {
+        doc /* The behavior planner shall maintain at least two seconds of nominal headway and increase headway during cautious operation. */
+
+        attribute nominalHeadway : Second = 2.0;
+        attribute cautiousHeadway : Second = 3.5;
+    }
+
+    part shuttleSystem : ODDConstrainedAutonomousShuttle;
+
+    satisfy reqPrimaryFunction by shuttleSystem;
+    satisfy reqODDBoundary by shuttleSystem.oddManager;
+    satisfy reqContinuousODDMonitoring by shuttleSystem.oddManager;
+    satisfy reqMinimalRiskTransition by shuttleSystem.planner;
+    satisfy reqPassengerAlert by shuttleSystem.hmi;
+    satisfy reqSafeFollowing by shuttleSystem.planner;
+}

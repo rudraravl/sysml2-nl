@@ -1,0 +1,859 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-s93qb5kw
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb611-3639-7050-a418-b00f32631c75
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a sensing unit that measures the relevant quantity using a Sudden Motion Sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SuddenMotionSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Acceleration {
+        :> scalarValues::Real;
+        unit = "m/s^2";
+    }
+
+    attribute def Velocity {
+        :> scalarValues::Real;
+        unit = "m/s";
+    }
+
+    attribute def Frequency {
+        :> scalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :> scalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> scalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def TimeInterval {
+        :> scalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def BitRate {
+        :> scalarValues::Real;
+        unit = "bit/s";
+    }
+
+    enum def AxisKind {
+        enum x;
+        enum y;
+        enum z;
+    }
+
+    enum def MotionSeverityKind {
+        enum none;
+        enum low;
+        enum moderate;
+        enum high;
+        enum critical;
+    }
+
+    enum def SensorHealthKind {
+        enum unknown;
+        enum initializing;
+        enum nominal;
+        enum degraded;
+        enum failed;
+    }
+
+    item def RawAccelerationSample {
+        attribute ax : Acceleration;
+        attribute ay : Acceleration;
+        attribute az : Acceleration;
+        attribute sampleTime : TimeInterval;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def FilteredMotionSample {
+        attribute axFiltered : Acceleration;
+        attribute ayFiltered : Acceleration;
+        attribute azFiltered : Acceleration;
+        attribute resultantAcceleration : Acceleration;
+        attribute highPassComponent : Acceleration;
+        attribute sampleTime : TimeInterval;
+    }
+
+    item def MotionEvent {
+        attribute peakAcceleration : Acceleration;
+        attribute dominantAxis : AxisKind;
+        attribute duration : TimeInterval;
+        attribute severity : MotionSeverityKind;
+        attribute eventTime : TimeInterval;
+    }
+
+    item def HealthStatus {
+        attribute health : SensorHealthKind;
+        attribute selfTestPassed : Boolean;
+        attribute supplyVoltage : Voltage;
+        attribute sensorTemperature : Temperature;
+        attribute lastUpdateTime : TimeInterval;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def ConfigurationCommand {
+        attribute sampleRate : Frequency;
+        attribute shockThreshold : Acceleration;
+        attribute highPassCutoff : Frequency;
+        attribute eventHoldoff : TimeInterval;
+        attribute enableSelfTest : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerFlow;
+    }
+
+    port def RawSamplePort {
+        out item sample : RawAccelerationSample;
+    }
+
+    port def FilteredSamplePort {
+        out item sample : FilteredMotionSample;
+    }
+
+    port def MotionEventPort {
+        out item event : MotionEvent;
+    }
+
+    port def HealthStatusPort {
+        out item status : HealthStatus;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def DigitalBusPort {
+        in item command : ConfigurationCommand;
+        out item sample : RawAccelerationSample;
+        out item status : HealthStatus;
+    }
+
+    action def AcquireSuddenMotionSample {
+        in item sensorReading : RawAccelerationSample;
+        out item acquiredSample : RawAccelerationSample;
+    }
+
+    action def FilterAcceleration {
+        in item rawSample : RawAccelerationSample;
+        out item filteredSample : FilteredMotionSample;
+
+        attribute cutoffFrequency : Frequency = 1.5;
+        attribute lowPassNoiseBandwidth : Frequency = 50.0;
+    }
+
+    action def DetectSuddenMotion {
+        in item filteredSample : FilteredMotionSample;
+        out item detectedEvent : MotionEvent;
+
+        attribute shockThreshold : Acceleration = 19.6;
+        attribute criticalThreshold : Acceleration = 49.0;
+        attribute minimumEventDuration : TimeInterval = 0.010;
+    }
+
+    action def PublishMotionData {
+        in item filteredSample : FilteredMotionSample;
+        in item detectedEvent : MotionEvent;
+        out item eventOutput : MotionEvent;
+    }
+
+    action def RunSensorSelfTest {
+        out item healthStatus : HealthStatus;
+
+        attribute maximumAllowedBias : Acceleration = 0.30;
+        attribute minimumSupplyVoltage : Voltage = 3.0;
+        attribute maximumSupplyVoltage : Voltage = 3.6;
+    }
+
+    state def SensingUnitStateMachine {
+        entry action initialize;
+        state poweredOff;
+        state initializing;
+        state selfTesting;
+        state sensing;
+        state eventDetected;
+        state faulted;
+
+        transition first poweredOff;
+        transition poweredOff_to_initializing
+            first poweredOff
+            then initializing;
+
+        transition initializing_to_selfTesting
+            first initializing
+            then selfTesting;
+
+        transition selfTesting_to_sensing
+            first selfTesting
+            then sensing
+            if selfTestPassed;
+
+        transition selfTesting_to_faulted
+            first selfTesting
+            then faulted
+            if not selfTestPassed;
+
+        transition sensing_to_eventDetected
+            first sensing
+            then eventDetected
+            if resultantAccelerationAboveThreshold;
+
+        transition eventDetected_to_sensing
+            first eventDetected
+            then sensing
+            if eventHoldoffExpired;
+
+        transition sensing_to_faulted
+            first sensing
+            then faulted
+            if sensorCommunicationLost or supplyOutOfRange;
+
+        transition faulted_to_initializing
+            first faulted
+            then initializing
+            if resetCommandReceived;
+    }
+
+    part def SuddenMotionSensor {
+        port powerIn : PowerInputPort;
+        port configurationIn : ConfigurationPort;
+        port digitalBus : DigitalBusPort;
+        port rawAccelerationOut : RawSamplePort;
+        port healthOut : HealthStatusPort;
+
+        attribute measurementRangePositive : Acceleration = 78.4;
+        attribute measurementRangeNegative : Acceleration = -78.4;
+        attribute noiseDensity : Acceleration = 0.002;
+        attribute sampleRate : Frequency = 400.0;
+        attribute startupTime : TimeInterval = 0.050;
+        attribute supplyVoltageNominal : Voltage = 3.3;
+        attribute supplyCurrentNominal : Current = 0.0005;
+        attribute operatingTemperatureMinimum : Temperature = -20.0;
+        attribute operatingTemperatureMaximum : Temperature = 70.0;
+        attribute health : SensorHealthKind = SensorHealthKind::unknown;
+
+        perform action selfTest : RunSensorSelfTest;
+        perform action acquire : AcquireSuddenMotionSample;
+
+        exhibit state behavior : SensingUnitStateMachine;
+    }
+
+    part def PowerConditioner {
+        port powerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+
+        attribute inputVoltageMinimum : Voltage = 4.5;
+        attribute inputVoltageMaximum : Voltage = 16.0;
+        attribute outputVoltageNominal : Voltage = 3.3;
+        attribute outputCurrentLimit : Current = 0.050;
+        attribute rippleLimit : Voltage = 0.020;
+    }
+
+    part def MotionSignalProcessor {
+        port rawSampleIn : RawSamplePort;
+        port configurationIn : ConfigurationPort;
+        port filteredSampleOut : FilteredSamplePort;
+        port motionEventOut : MotionEventPort;
+        port healthOut : HealthStatusPort;
+
+        attribute configuredSampleRate : Frequency = 400.0;
+        attribute highPassCutoff : Frequency = 1.5;
+        attribute shockThreshold : Acceleration = 19.6;
+        attribute criticalShockThreshold : Acceleration = 49.0;
+        attribute eventHoldoff : TimeInterval = 0.250;
+        attribute processingLatencyMaximum : TimeInterval = 0.005;
+
+        perform action filter : FilterAcceleration;
+        perform action detect : DetectSuddenMotion;
+        perform action publish : PublishMotionData;
+    }
+
+    part def CommunicationInterface {
+        port configurationIn : ConfigurationPort;
+        port filteredSampleIn : FilteredSamplePort;
+        port motionEventIn : MotionEventPort;
+        port healthIn : HealthStatusPort;
+        port motionEventOut : MotionEventPort;
+        port healthOut : HealthStatusPort;
+
+        attribute busDataRate : BitRate = 1000000.0;
+        attribute reportPeriod : TimeInterval = 0.020;
+        attribute eventMessageLatencyMaximum : TimeInterval = 0.010;
+    }
+
+    part def MechanicalMount {
+        attribute resonanceFrequencyMinimum : Frequency = 250.0;
+        attribute transmissibilityAtShockFrequency : Real = 0.95;
+        attribute maximumSurvivableAcceleration : Acceleration = 1470.0;
+    }
+
+    part def SensingUnit {
+        port externalPowerIn : PowerInputPort;
+        port configurationIn : ConfigurationPort;
+        port measuredMotionOut : MotionEventPort;
+        port healthStatusOut : HealthStatusPort;
+
+        part powerConditioner : PowerConditioner;
+        part suddenMotionSensor : SuddenMotionSensor;
+        part signalProcessor : MotionSignalProcessor;
+        part communicationInterface : CommunicationInterface;
+        part mechanicalMount : MechanicalMount;
+
+        attribute relevantMeasuredQuantity : String = "sudden translational acceleration";
+        attribute nominalSampleRate : Frequency = 400.0;
+        attribute measurementRange : Acceleration = 78.4;
+        attribute eventDetectionThreshold : Acceleration = 19.6;
+        attribute maximumEventReportLatency : TimeInterval = 0.020;
+        attribute maximumContinuousCurrent : Current = 0.010;
+
+        connect externalPowerIn.power to powerConditioner.powerIn.power;
+        connect powerConditioner.regulatedPowerOut.power to suddenMotionSensor.powerIn.power;
+
+        connect configurationIn.command to suddenMotionSensor.configurationIn.command;
+        connect configurationIn.command to signalProcessor.configurationIn.command;
+        connect configurationIn.command to communicationInterface.configurationIn.command;
+
+        connect suddenMotionSensor.rawAccelerationOut.sample to signalProcessor.rawSampleIn.sample;
+        connect suddenMotionSensor.healthOut.status to signalProcessor.healthOut.status;
+
+        connect signalProcessor.filteredSampleOut.sample to communicationInterface.filteredSampleIn.sample;
+        connect signalProcessor.motionEventOut.event to communicationInterface.motionEventIn.event;
+        connect signalProcessor.healthOut.status to communicationInterface.healthIn.status;
+
+        connect communicationInterface.motionEventOut.event to measuredMotionOut.event;
+        connect communicationInterface.healthOut.status to healthStatusOut.status;
+
+        exhibit state behavior : SensingUnitStateMachine;
+    }
+
+    requirement def MeasureSuddenMotionRequirement {
+        subject sensingUnit : SensingUnit;
+
+        doc /* The sensing unit shall measure sudden translational acceleration using a Sudden Motion Sensor and shall report motion events when measured acceleration exceeds the configured threshold. */
+
+        require constraint {
+            sensingUnit.eventDetectionThreshold <= 19.6
+        }
+
+        require constraint {
+            sensingUnit.maximumEventReportLatency <= 0.020
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject sensor : SuddenMotionSensor;
+
+        doc /* The Sudden Motion Sensor shall measure acceleration on three orthogonal axes over at least +/-78.4 m/s^2. */
+
+        require constraint {
+            sensor.measurementRangePositive >= 78.4 and sensor.measurementRangeNegative <= -78.4
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject sensingUnit : SensingUnit;
+
+        doc /* The sensing unit shall sample acceleration at not less than 400 Hz during nominal sensing operation. */
+
+        require constraint {
+            sensingUnit.nominalSampleRate >= 400.0
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject sensor : SuddenMotionSensor;
+
+        doc /* The Sudden Motion Sensor shall perform self-test during initialization and shall provide health status while sensing. */
+
+        require constraint {
+            sensor.startupTime <= 0.100
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : SensingUnit;
+
+        doc /* The sensing unit shall operate from conditioned 3.3 V power and shall draw no more than 10 mA in continuous sensing mode. */
+
+        require constraint {
+            sensingUnit.maximumContinuousCurrent <= 0.010
+        }
+    }
+
+    requirement def SurvivabilityRequirement {
+        subject mount : MechanicalMount;
+
+        doc /* The mechanical mount shall preserve sensor alignment and survive non-operating shock acceleration up to 1470 m/s^2. */
+
+        require constraint {
+            mount.maximumSurvivableAcceleration >= 1470.0
+        }
+    }
+
+    satisfy MeasureSuddenMotionRequirement by SensingUnit;
+    satisfy MeasurementRangeRequirement by SuddenMotionSensor;
+    satisfy SamplingRequirement by SensingUnit;
+    satisfy HealthMonitoringRequirement by SuddenMotionSensor;
+    satisfy PowerRequirement by SensingUnit;
+    satisfy SurvivabilityRequirement by MechanicalMount;
+
+    part sensingUnitInstance : SensingUnit {
+        attribute nominalSampleRate = 400.0;
+        attribute measurementRange = 78.4;
+        attribute eventDetectionThreshold = 19.6;
+        attribute maximumEventReportLatency = 0.020;
+        attribute maximumContinuousCurrent = 0.010;
+    }
+}
+tokens used
+3,204
+package SuddenMotionSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Acceleration {
+        :> scalarValues::Real;
+        unit = "m/s^2";
+    }
+
+    attribute def Velocity {
+        :> scalarValues::Real;
+        unit = "m/s";
+    }
+
+    attribute def Frequency {
+        :> scalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :> scalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> scalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def TimeInterval {
+        :> scalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def BitRate {
+        :> scalarValues::Real;
+        unit = "bit/s";
+    }
+
+    enum def AxisKind {
+        enum x;
+        enum y;
+        enum z;
+    }
+
+    enum def MotionSeverityKind {
+        enum none;
+        enum low;
+        enum moderate;
+        enum high;
+        enum critical;
+    }
+
+    enum def SensorHealthKind {
+        enum unknown;
+        enum initializing;
+        enum nominal;
+        enum degraded;
+        enum failed;
+    }
+
+    item def RawAccelerationSample {
+        attribute ax : Acceleration;
+        attribute ay : Acceleration;
+        attribute az : Acceleration;
+        attribute sampleTime : TimeInterval;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def FilteredMotionSample {
+        attribute axFiltered : Acceleration;
+        attribute ayFiltered : Acceleration;
+        attribute azFiltered : Acceleration;
+        attribute resultantAcceleration : Acceleration;
+        attribute highPassComponent : Acceleration;
+        attribute sampleTime : TimeInterval;
+    }
+
+    item def MotionEvent {
+        attribute peakAcceleration : Acceleration;
+        attribute dominantAxis : AxisKind;
+        attribute duration : TimeInterval;
+        attribute severity : MotionSeverityKind;
+        attribute eventTime : TimeInterval;
+    }
+
+    item def HealthStatus {
+        attribute health : SensorHealthKind;
+        attribute selfTestPassed : Boolean;
+        attribute supplyVoltage : Voltage;
+        attribute sensorTemperature : Temperature;
+        attribute lastUpdateTime : TimeInterval;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def ConfigurationCommand {
+        attribute sampleRate : Frequency;
+        attribute shockThreshold : Acceleration;
+        attribute highPassCutoff : Frequency;
+        attribute eventHoldoff : TimeInterval;
+        attribute enableSelfTest : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerFlow;
+    }
+
+    port def RawSamplePort {
+        out item sample : RawAccelerationSample;
+    }
+
+    port def FilteredSamplePort {
+        out item sample : FilteredMotionSample;
+    }
+
+    port def MotionEventPort {
+        out item event : MotionEvent;
+    }
+
+    port def HealthStatusPort {
+        out item status : HealthStatus;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def DigitalBusPort {
+        in item command : ConfigurationCommand;
+        out item sample : RawAccelerationSample;
+        out item status : HealthStatus;
+    }
+
+    action def AcquireSuddenMotionSample {
+        in item sensorReading : RawAccelerationSample;
+        out item acquiredSample : RawAccelerationSample;
+    }
+
+    action def FilterAcceleration {
+        in item rawSample : RawAccelerationSample;
+        out item filteredSample : FilteredMotionSample;
+
+        attribute cutoffFrequency : Frequency = 1.5;
+        attribute lowPassNoiseBandwidth : Frequency = 50.0;
+    }
+
+    action def DetectSuddenMotion {
+        in item filteredSample : FilteredMotionSample;
+        out item detectedEvent : MotionEvent;
+
+        attribute shockThreshold : Acceleration = 19.6;
+        attribute criticalThreshold : Acceleration = 49.0;
+        attribute minimumEventDuration : TimeInterval = 0.010;
+    }
+
+    action def PublishMotionData {
+        in item filteredSample : FilteredMotionSample;
+        in item detectedEvent : MotionEvent;
+        out item eventOutput : MotionEvent;
+    }
+
+    action def RunSensorSelfTest {
+        out item healthStatus : HealthStatus;
+
+        attribute maximumAllowedBias : Acceleration = 0.30;
+        attribute minimumSupplyVoltage : Voltage = 3.0;
+        attribute maximumSupplyVoltage : Voltage = 3.6;
+    }
+
+    state def SensingUnitStateMachine {
+        entry action initialize;
+        state poweredOff;
+        state initializing;
+        state selfTesting;
+        state sensing;
+        state eventDetected;
+        state faulted;
+
+        transition first poweredOff;
+        transition poweredOff_to_initializing
+            first poweredOff
+            then initializing;
+
+        transition initializing_to_selfTesting
+            first initializing
+            then selfTesting;
+
+        transition selfTesting_to_sensing
+            first selfTesting
+            then sensing
+            if selfTestPassed;
+
+        transition selfTesting_to_faulted
+            first selfTesting
+            then faulted
+            if not selfTestPassed;
+
+        transition sensing_to_eventDetected
+            first sensing
+            then eventDetected
+            if resultantAccelerationAboveThreshold;
+
+        transition eventDetected_to_sensing
+            first eventDetected
+            then sensing
+            if eventHoldoffExpired;
+
+        transition sensing_to_faulted
+            first sensing
+            then faulted
+            if sensorCommunicationLost or supplyOutOfRange;
+
+        transition faulted_to_initializing
+            first faulted
+            then initializing
+            if resetCommandReceived;
+    }
+
+    part def SuddenMotionSensor {
+        port powerIn : PowerInputPort;
+        port configurationIn : ConfigurationPort;
+        port digitalBus : DigitalBusPort;
+        port rawAccelerationOut : RawSamplePort;
+        port healthOut : HealthStatusPort;
+
+        attribute measurementRangePositive : Acceleration = 78.4;
+        attribute measurementRangeNegative : Acceleration = -78.4;
+        attribute noiseDensity : Acceleration = 0.002;
+        attribute sampleRate : Frequency = 400.0;
+        attribute startupTime : TimeInterval = 0.050;
+        attribute supplyVoltageNominal : Voltage = 3.3;
+        attribute supplyCurrentNominal : Current = 0.0005;
+        attribute operatingTemperatureMinimum : Temperature = -20.0;
+        attribute operatingTemperatureMaximum : Temperature = 70.0;
+        attribute health : SensorHealthKind = SensorHealthKind::unknown;
+
+        perform action selfTest : RunSensorSelfTest;
+        perform action acquire : AcquireSuddenMotionSample;
+
+        exhibit state behavior : SensingUnitStateMachine;
+    }
+
+    part def PowerConditioner {
+        port powerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+
+        attribute inputVoltageMinimum : Voltage = 4.5;
+        attribute inputVoltageMaximum : Voltage = 16.0;
+        attribute outputVoltageNominal : Voltage = 3.3;
+        attribute outputCurrentLimit : Current = 0.050;
+        attribute rippleLimit : Voltage = 0.020;
+    }
+
+    part def MotionSignalProcessor {
+        port rawSampleIn : RawSamplePort;
+        port configurationIn : ConfigurationPort;
+        port filteredSampleOut : FilteredSamplePort;
+        port motionEventOut : MotionEventPort;
+        port healthOut : HealthStatusPort;
+
+        attribute configuredSampleRate : Frequency = 400.0;
+        attribute highPassCutoff : Frequency = 1.5;
+        attribute shockThreshold : Acceleration = 19.6;
+        attribute criticalShockThreshold : Acceleration = 49.0;
+        attribute eventHoldoff : TimeInterval = 0.250;
+        attribute processingLatencyMaximum : TimeInterval = 0.005;
+
+        perform action filter : FilterAcceleration;
+        perform action detect : DetectSuddenMotion;
+        perform action publish : PublishMotionData;
+    }
+
+    part def CommunicationInterface {
+        port configurationIn : ConfigurationPort;
+        port filteredSampleIn : FilteredSamplePort;
+        port motionEventIn : MotionEventPort;
+        port healthIn : HealthStatusPort;
+        port motionEventOut : MotionEventPort;
+        port healthOut : HealthStatusPort;
+
+        attribute busDataRate : BitRate = 1000000.0;
+        attribute reportPeriod : TimeInterval = 0.020;
+        attribute eventMessageLatencyMaximum : TimeInterval = 0.010;
+    }
+
+    part def MechanicalMount {
+        attribute resonanceFrequencyMinimum : Frequency = 250.0;
+        attribute transmissibilityAtShockFrequency : Real = 0.95;
+        attribute maximumSurvivableAcceleration : Acceleration = 1470.0;
+    }
+
+    part def SensingUnit {
+        port externalPowerIn : PowerInputPort;
+        port configurationIn : ConfigurationPort;
+        port measuredMotionOut : MotionEventPort;
+        port healthStatusOut : HealthStatusPort;
+
+        part powerConditioner : PowerConditioner;
+        part suddenMotionSensor : SuddenMotionSensor;
+        part signalProcessor : MotionSignalProcessor;
+        part communicationInterface : CommunicationInterface;
+        part mechanicalMount : MechanicalMount;
+
+        attribute relevantMeasuredQuantity : String = "sudden translational acceleration";
+        attribute nominalSampleRate : Frequency = 400.0;
+        attribute measurementRange : Acceleration = 78.4;
+        attribute eventDetectionThreshold : Acceleration = 19.6;
+        attribute maximumEventReportLatency : TimeInterval = 0.020;
+        attribute maximumContinuousCurrent : Current = 0.010;
+
+        connect externalPowerIn.power to powerConditioner.powerIn.power;
+        connect powerConditioner.regulatedPowerOut.power to suddenMotionSensor.powerIn.power;
+
+        connect configurationIn.command to suddenMotionSensor.configurationIn.command;
+        connect configurationIn.command to signalProcessor.configurationIn.command;
+        connect configurationIn.command to communicationInterface.configurationIn.command;
+
+        connect suddenMotionSensor.rawAccelerationOut.sample to signalProcessor.rawSampleIn.sample;
+        connect suddenMotionSensor.healthOut.status to signalProcessor.healthOut.status;
+
+        connect signalProcessor.filteredSampleOut.sample to communicationInterface.filteredSampleIn.sample;
+        connect signalProcessor.motionEventOut.event to communicationInterface.motionEventIn.event;
+        connect signalProcessor.healthOut.status to communicationInterface.healthIn.status;
+
+        connect communicationInterface.motionEventOut.event to measuredMotionOut.event;
+        connect communicationInterface.healthOut.status to healthStatusOut.status;
+
+        exhibit state behavior : SensingUnitStateMachine;
+    }
+
+    requirement def MeasureSuddenMotionRequirement {
+        subject sensingUnit : SensingUnit;
+
+        doc /* The sensing unit shall measure sudden translational acceleration using a Sudden Motion Sensor and shall report motion events when measured acceleration exceeds the configured threshold. */
+
+        require constraint {
+            sensingUnit.eventDetectionThreshold <= 19.6
+        }
+
+        require constraint {
+            sensingUnit.maximumEventReportLatency <= 0.020
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject sensor : SuddenMotionSensor;
+
+        doc /* The Sudden Motion Sensor shall measure acceleration on three orthogonal axes over at least +/-78.4 m/s^2. */
+
+        require constraint {
+            sensor.measurementRangePositive >= 78.4 and sensor.measurementRangeNegative <= -78.4
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject sensingUnit : SensingUnit;
+
+        doc /* The sensing unit shall sample acceleration at not less than 400 Hz during nominal sensing operation. */
+
+        require constraint {
+            sensingUnit.nominalSampleRate >= 400.0
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject sensor : SuddenMotionSensor;
+
+        doc /* The Sudden Motion Sensor shall perform self-test during initialization and shall provide health status while sensing. */
+
+        require constraint {
+            sensor.startupTime <= 0.100
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : SensingUnit;
+
+        doc /* The sensing unit shall operate from conditioned 3.3 V power and shall draw no more than 10 mA in continuous sensing mode. */
+
+        require constraint {
+            sensingUnit.maximumContinuousCurrent <= 0.010
+        }
+    }
+
+    requirement def SurvivabilityRequirement {
+        subject mount : MechanicalMount;
+
+        doc /* The mechanical mount shall preserve sensor alignment and survive non-operating shock acceleration up to 1470 m/s^2. */
+
+        require constraint {
+            mount.maximumSurvivableAcceleration >= 1470.0
+        }
+    }
+
+    satisfy MeasureSuddenMotionRequirement by SensingUnit;
+    satisfy MeasurementRangeRequirement by SuddenMotionSensor;
+    satisfy SamplingRequirement by SensingUnit;
+    satisfy HealthMonitoringRequirement by SuddenMotionSensor;
+    satisfy PowerRequirement by SensingUnit;
+    satisfy SurvivabilityRequirement by MechanicalMount;
+
+    part sensingUnitInstance : SensingUnit {
+        attribute nominalSampleRate = 400.0;
+        attribute measurementRange = 78.4;
+        attribute eventDetectionThreshold = 19.6;
+        attribute maximumEventReportLatency = 0.020;
+        attribute maximumContinuousCurrent = 0.010;
+    }
+}

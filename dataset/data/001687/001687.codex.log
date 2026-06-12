@@ -1,0 +1,903 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_im53afp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7b2-c00d-70d1-8f75-d26b703ba078
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Vacuum cleaner and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VacuumCleanerSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AirPressure :> Pressure;
+    attribute def AirFlowRate :> Real {
+        unit = "L/s";
+    }
+    attribute def DustMass :> Mass;
+    attribute def ElectricPower :> Power;
+    attribute def BatteryCharge :> Real {
+        unit = "%";
+    }
+    attribute def SoundLevel :> Real {
+        unit = "dBA";
+    }
+    attribute def SuctionLevel :> Real {
+        unit = "%";
+    }
+
+    item def DustParticle {
+        attribute diameter : Length;
+        attribute mass : DustMass;
+    }
+
+    item def DustyAir {
+        attribute flowRate : AirFlowRate;
+        attribute dustConcentration : Real {
+            unit = "g/m^3";
+        }
+        attribute pressure : AirPressure;
+    }
+
+    item def CleanAir {
+        attribute flowRate : AirFlowRate;
+        attribute residualDustConcentration : Real {
+            unit = "mg/m^3";
+        }
+        attribute pressure : AirPressure;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : ElectricPower;
+    }
+
+    port def DustyAirInletPort {
+        in item dustyAir : DustyAir;
+    }
+
+    port def CleanAirOutletPort {
+        out item cleanAir : CleanAir;
+    }
+
+    port def EnergyInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def EnergyOutputPort {
+        out item energy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in attribute requestedPowerState : Boolean;
+        in attribute requestedSuctionLevel : SuctionLevel;
+        out attribute statusReady : Boolean;
+        out attribute faultActive : Boolean;
+    }
+
+    part def VacuumCleaner {
+        attribute totalMass : Mass = 4.8 [kg];
+        attribute nominalPower : ElectricPower = 550 [W];
+        attribute maximumAirFlow : AirFlowRate = 42.0;
+        attribute maximumSoundLevel : SoundLevel = 74.0;
+        attribute selectedSuctionLevel : SuctionLevel = 60.0;
+        attribute dustBinFillLevel : Real {
+            unit = "%";
+        }
+
+        port floorNozzle : DustyAirInletPort;
+        port exhaust : CleanAirOutletPort;
+        port chargingInput : EnergyInputPort;
+        port userControls : ControlPort;
+
+        part nozzle : FloorNozzle;
+        part suctionMotor : SuctionMotor;
+        part fanAssembly : CentrifugalFan;
+        part filterAssembly : FiltrationAssembly;
+        part dustBin : DustBin;
+        part batteryPack : BatteryPack;
+        part controller : VacuumController;
+        part handle : HandleAssembly;
+        part chassis : Chassis;
+
+        connect floorNozzle to nozzle.airIntake;
+        connect nozzle.airDischarge to fanAssembly.airInput;
+        connect fanAssembly.airOutput to dustBin.airInput;
+        connect dustBin.airOutput to filterAssembly.dirtyAirInput;
+        connect filterAssembly.cleanAirOutput to exhaust;
+
+        connect batteryPack.powerOutput to controller.powerInput;
+        connect controller.motorPowerOutput to suctionMotor.powerInput;
+        connect suctionMotor.shaftOutput to fanAssembly.shaftInput;
+        connect userControls to controller.userInterface;
+        connect chargingInput to batteryPack.chargeInput;
+
+        perform action CleanSurface;
+        exhibit state VacuumCleanerOperatingStates;
+    }
+
+    part def FloorNozzle {
+        attribute cleaningWidth : Length = 0.28 [m];
+        attribute inletHeight : Length = 0.012 [m];
+
+        port airIntake : DustyAirInletPort;
+        port airDischarge : CleanAirOutletPort;
+    }
+
+    part def CentrifugalFan {
+        attribute rotationalSpeed : Real {
+            unit = "rpm";
+        }
+        attribute pressureRise : AirPressure = 16500 [Pa];
+
+        port airInput : DustyAirInletPort;
+        port airOutput : CleanAirOutletPort;
+        port shaftInput {
+            in attribute torque : Torque;
+            in attribute speed : Real {
+                unit = "rpm";
+            }
+        }
+    }
+
+    part def SuctionMotor {
+        attribute ratedPower : ElectricPower = 500 [W];
+        attribute ratedSpeed : Real {
+            unit = "rpm";
+        } = 85000;
+        attribute efficiency : Real = 0.82;
+
+        port powerInput : EnergyInputPort;
+        port shaftOutput {
+            out attribute torque : Torque;
+            out attribute speed : Real {
+                unit = "rpm";
+            }
+        }
+    }
+
+    part def FiltrationAssembly {
+        attribute filtrationEfficiency : Real {
+            unit = "%";
+        } = 99.5;
+        attribute filterPressureDrop : AirPressure = 1200 [Pa];
+
+        port dirtyAirInput : DustyAirInletPort;
+        port cleanAirOutput : CleanAirOutletPort;
+
+        part preFilter : PreFilter;
+        part hepaFilter : HepaFilter;
+    }
+
+    part def PreFilter {
+        attribute particleRetentionThreshold : Length = 50 [um];
+        attribute efficiency : Real {
+            unit = "%";
+        } = 85.0;
+    }
+
+    part def HepaFilter {
+        attribute particleRetentionThreshold : Length = 0.3 [um];
+        attribute efficiency : Real {
+            unit = "%";
+        } = 99.5;
+    }
+
+    part def DustBin {
+        attribute capacity : Volume = 0.75 [L];
+        attribute fillLevel : Real {
+            unit = "%";
+        } = 0.0;
+        attribute removable : Boolean = true;
+
+        port airInput : DustyAirInletPort;
+        port airOutput : CleanAirOutletPort;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : ElectricPotential = 25.2 [V];
+        attribute capacity : Real {
+            unit = "Ah";
+        } = 3.0;
+        attribute stateOfCharge : BatteryCharge = 100.0;
+        attribute minimumOperatingCharge : BatteryCharge = 10.0;
+
+        port chargeInput : EnergyInputPort;
+        port powerOutput : EnergyOutputPort;
+    }
+
+    part def VacuumController {
+        attribute commandedOn : Boolean = false;
+        attribute commandedSuctionLevel : SuctionLevel = 60.0;
+        attribute overTemperatureFault : Boolean = false;
+        attribute dustBinFullFault : Boolean = false;
+        attribute filterBlockedFault : Boolean = false;
+
+        port powerInput : EnergyInputPort;
+        port motorPowerOutput : EnergyOutputPort;
+        port userInterface : ControlPort;
+    }
+
+    part def HandleAssembly {
+        attribute gripHeight : Length = 1.05 [m];
+        attribute controlReachDistance : Length = 0.08 [m];
+    }
+
+    part def Chassis {
+        attribute structuralMass : Mass = 1.2 [kg];
+        attribute wheelDiameter : Length = 0.065 [m];
+    }
+
+    action def CleanSurface {
+        in item incomingDustyAir : DustyAir;
+        in attribute requestedSuction : SuctionLevel;
+        out item outgoingCleanAir : CleanAir;
+        out attribute collectedDust : DustMass;
+
+        first start;
+        then energizeMotor;
+        then generateSuction;
+        then drawDustyAir;
+        then separateDust;
+        then filterAir;
+        then dischargeCleanAir;
+        then done;
+
+        action energizeMotor {
+            in item electricalEnergy : ElectricalEnergy;
+            out attribute motorSpeed : Real {
+                unit = "rpm";
+            }
+        }
+
+        action generateSuction {
+            in attribute motorSpeed : Real {
+                unit = "rpm";
+            }
+            out attribute pressureDrop : AirPressure;
+        }
+
+        action drawDustyAir {
+            in attribute pressureDrop : AirPressure;
+            out item entrainedDustyAir : DustyAir;
+        }
+
+        action separateDust {
+            in item entrainedDustyAir : DustyAir;
+            out attribute retainedDustMass : DustMass;
+            out item partiallyCleanedAir : DustyAir;
+        }
+
+        action filterAir {
+            in item partiallyCleanedAir : DustyAir;
+            out item filteredAir : CleanAir;
+        }
+
+        action dischargeCleanAir {
+            in item filteredAir : CleanAir;
+            out item outgoingCleanAir : CleanAir;
+        }
+    }
+
+    state def VacuumCleanerOperatingStates {
+        entry action initializeController;
+
+        state Off;
+        state Standby;
+        state Cleaning;
+        state Charging;
+        state Fault;
+
+        initial then Off;
+
+        transition Off_to_Standby
+            first Off
+            accept when batteryAvailable
+            then Standby;
+
+        transition Standby_to_Cleaning
+            first Standby
+            accept when userRequestsCleaning
+            if batterySufficient and binNotFull and filterNotBlocked
+            then Cleaning;
+
+        transition Cleaning_to_Standby
+            first Cleaning
+            accept when userStopsCleaning
+            then Standby;
+
+        transition Cleaning_to_Fault
+            first Cleaning
+            accept when protectionFaultDetected
+            then Fault;
+
+        transition Standby_to_Charging
+            first Standby
+            accept when chargerConnected
+            then Charging;
+
+        transition Charging_to_Standby
+            first Charging
+            accept when batteryFullyCharged
+            then Standby;
+
+        transition Fault_to_Standby
+            first Fault
+            accept when faultCleared
+            then Standby;
+
+        state Cleaning {
+            entry action rampMotorToRequestedSuction;
+            do action CleanSurface;
+            exit action rampMotorDown;
+        }
+
+        state Charging {
+            entry action disableMotorOutput;
+            do action restoreBatteryCharge;
+        }
+
+        state Fault {
+            entry action disableMotorOutput;
+            entry action indicateFaultToUser;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The vacuum cleaner shall remove loose dust and debris from a household floor surface by generating suction airflow, separating collected dust into a dust bin, filtering exhaust air, and discharging cleaned air back to the environment. */
+    }
+
+    requirement def SuctionPerformanceRequirement {
+        attribute minimumAirFlow : AirFlowRate = 30.0;
+        attribute minimumPressureDrop : AirPressure = 12000 [Pa];
+
+        require constraint {
+            maximumAirFlow >= minimumAirFlow
+        }
+    }
+
+    requirement def FiltrationRequirement {
+        attribute minimumFiltrationEfficiency : Real {
+            unit = "%";
+        } = 99.0;
+
+        require constraint {
+            filterAssembly.filtrationEfficiency >= minimumFiltrationEfficiency
+        }
+    }
+
+    requirement def NoiseRequirement {
+        attribute allowedMaximumSoundLevel : SoundLevel = 78.0;
+
+        require constraint {
+            maximumSoundLevel <= allowedMaximumSoundLevel
+        }
+    }
+
+    requirement def RuntimeRequirement {
+        attribute minimumRuntimeAtNormalSuction : Time = 1800 [s];
+
+        doc /* The vacuum cleaner shall support at least 30 minutes of cleaning operation at normal suction level from a fully charged battery. */
+    }
+
+    requirement def DustContainmentRequirement {
+        attribute minimumDustBinCapacity : Volume = 0.5 [L];
+
+        doc /* The vacuum cleaner shall contain collected dust in a removable bin without releasing visible debris during normal operation. */
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The vacuum cleaner shall stop motor output when over-temperature, blocked-filter, dust-bin-full, or low-battery protection conditions are detected. */
+    }
+
+    requirement def UserControlRequirement {
+        doc /* The vacuum cleaner shall allow the user to turn cleaning on or off and select suction level through an accessible handle-mounted control interface. */
+    }
+
+    satisfy PrimaryFunctionRequirement by VacuumCleaner;
+    satisfy SuctionPerformanceRequirement by VacuumCleaner;
+    satisfy FiltrationRequirement by FiltrationAssembly;
+    satisfy NoiseRequirement by VacuumCleaner;
+    satisfy RuntimeRequirement by BatteryPack;
+    satisfy DustContainmentRequirement by DustBin;
+    satisfy SafetyRequirement by VacuumController;
+    satisfy UserControlRequirement by VacuumController;
+
+    constraint def AirCleaningConstraint {
+        in attribute inletDustConcentration : Real {
+            unit = "g/m^3";
+        }
+        in attribute filtrationEfficiency : Real {
+            unit = "%";
+        }
+        out attribute outletDustConcentration : Real {
+            unit = "mg/m^3";
+        }
+
+        outletDustConcentration == inletDustConcentration * (100.0 - filtrationEfficiency) * 10.0;
+    }
+
+    constraint def RuntimeConstraint {
+        in attribute batteryCapacityAh : Real {
+            unit = "Ah";
+        }
+        in attribute batteryVoltage : ElectricPotential;
+        in attribute consumedPower : ElectricPower;
+        out attribute runtimeSeconds : Time;
+
+        runtimeSeconds == batteryCapacityAh * batteryVoltage / consumedPower * 3600.0;
+    }
+
+    part vacuumCleanerSystem : VacuumCleaner {
+        attribute selectedSuctionLevel = 70.0;
+        attribute dustBinFillLevel = 0.0;
+
+        part batteryPack {
+            attribute stateOfCharge = 100.0;
+        }
+
+        part dustBin {
+            attribute fillLevel = 0.0;
+        }
+
+        part filterAssembly {
+            attribute filtrationEfficiency = 99.5;
+        }
+    }
+}
+tokens used
+4,261
+package VacuumCleanerSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AirPressure :> Pressure;
+    attribute def AirFlowRate :> Real {
+        unit = "L/s";
+    }
+    attribute def DustMass :> Mass;
+    attribute def ElectricPower :> Power;
+    attribute def BatteryCharge :> Real {
+        unit = "%";
+    }
+    attribute def SoundLevel :> Real {
+        unit = "dBA";
+    }
+    attribute def SuctionLevel :> Real {
+        unit = "%";
+    }
+
+    item def DustParticle {
+        attribute diameter : Length;
+        attribute mass : DustMass;
+    }
+
+    item def DustyAir {
+        attribute flowRate : AirFlowRate;
+        attribute dustConcentration : Real {
+            unit = "g/m^3";
+        }
+        attribute pressure : AirPressure;
+    }
+
+    item def CleanAir {
+        attribute flowRate : AirFlowRate;
+        attribute residualDustConcentration : Real {
+            unit = "mg/m^3";
+        }
+        attribute pressure : AirPressure;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : ElectricPower;
+    }
+
+    port def DustyAirInletPort {
+        in item dustyAir : DustyAir;
+    }
+
+    port def CleanAirOutletPort {
+        out item cleanAir : CleanAir;
+    }
+
+    port def EnergyInputPort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def EnergyOutputPort {
+        out item energy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in attribute requestedPowerState : Boolean;
+        in attribute requestedSuctionLevel : SuctionLevel;
+        out attribute statusReady : Boolean;
+        out attribute faultActive : Boolean;
+    }
+
+    part def VacuumCleaner {
+        attribute totalMass : Mass = 4.8 [kg];
+        attribute nominalPower : ElectricPower = 550 [W];
+        attribute maximumAirFlow : AirFlowRate = 42.0;
+        attribute maximumSoundLevel : SoundLevel = 74.0;
+        attribute selectedSuctionLevel : SuctionLevel = 60.0;
+        attribute dustBinFillLevel : Real {
+            unit = "%";
+        }
+
+        port floorNozzle : DustyAirInletPort;
+        port exhaust : CleanAirOutletPort;
+        port chargingInput : EnergyInputPort;
+        port userControls : ControlPort;
+
+        part nozzle : FloorNozzle;
+        part suctionMotor : SuctionMotor;
+        part fanAssembly : CentrifugalFan;
+        part filterAssembly : FiltrationAssembly;
+        part dustBin : DustBin;
+        part batteryPack : BatteryPack;
+        part controller : VacuumController;
+        part handle : HandleAssembly;
+        part chassis : Chassis;
+
+        connect floorNozzle to nozzle.airIntake;
+        connect nozzle.airDischarge to fanAssembly.airInput;
+        connect fanAssembly.airOutput to dustBin.airInput;
+        connect dustBin.airOutput to filterAssembly.dirtyAirInput;
+        connect filterAssembly.cleanAirOutput to exhaust;
+
+        connect batteryPack.powerOutput to controller.powerInput;
+        connect controller.motorPowerOutput to suctionMotor.powerInput;
+        connect suctionMotor.shaftOutput to fanAssembly.shaftInput;
+        connect userControls to controller.userInterface;
+        connect chargingInput to batteryPack.chargeInput;
+
+        perform action CleanSurface;
+        exhibit state VacuumCleanerOperatingStates;
+    }
+
+    part def FloorNozzle {
+        attribute cleaningWidth : Length = 0.28 [m];
+        attribute inletHeight : Length = 0.012 [m];
+
+        port airIntake : DustyAirInletPort;
+        port airDischarge : CleanAirOutletPort;
+    }
+
+    part def CentrifugalFan {
+        attribute rotationalSpeed : Real {
+            unit = "rpm";
+        }
+        attribute pressureRise : AirPressure = 16500 [Pa];
+
+        port airInput : DustyAirInletPort;
+        port airOutput : CleanAirOutletPort;
+        port shaftInput {
+            in attribute torque : Torque;
+            in attribute speed : Real {
+                unit = "rpm";
+            }
+        }
+    }
+
+    part def SuctionMotor {
+        attribute ratedPower : ElectricPower = 500 [W];
+        attribute ratedSpeed : Real {
+            unit = "rpm";
+        } = 85000;
+        attribute efficiency : Real = 0.82;
+
+        port powerInput : EnergyInputPort;
+        port shaftOutput {
+            out attribute torque : Torque;
+            out attribute speed : Real {
+                unit = "rpm";
+            }
+        }
+    }
+
+    part def FiltrationAssembly {
+        attribute filtrationEfficiency : Real {
+            unit = "%";
+        } = 99.5;
+        attribute filterPressureDrop : AirPressure = 1200 [Pa];
+
+        port dirtyAirInput : DustyAirInletPort;
+        port cleanAirOutput : CleanAirOutletPort;
+
+        part preFilter : PreFilter;
+        part hepaFilter : HepaFilter;
+    }
+
+    part def PreFilter {
+        attribute particleRetentionThreshold : Length = 50 [um];
+        attribute efficiency : Real {
+            unit = "%";
+        } = 85.0;
+    }
+
+    part def HepaFilter {
+        attribute particleRetentionThreshold : Length = 0.3 [um];
+        attribute efficiency : Real {
+            unit = "%";
+        } = 99.5;
+    }
+
+    part def DustBin {
+        attribute capacity : Volume = 0.75 [L];
+        attribute fillLevel : Real {
+            unit = "%";
+        } = 0.0;
+        attribute removable : Boolean = true;
+
+        port airInput : DustyAirInletPort;
+        port airOutput : CleanAirOutletPort;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : ElectricPotential = 25.2 [V];
+        attribute capacity : Real {
+            unit = "Ah";
+        } = 3.0;
+        attribute stateOfCharge : BatteryCharge = 100.0;
+        attribute minimumOperatingCharge : BatteryCharge = 10.0;
+
+        port chargeInput : EnergyInputPort;
+        port powerOutput : EnergyOutputPort;
+    }
+
+    part def VacuumController {
+        attribute commandedOn : Boolean = false;
+        attribute commandedSuctionLevel : SuctionLevel = 60.0;
+        attribute overTemperatureFault : Boolean = false;
+        attribute dustBinFullFault : Boolean = false;
+        attribute filterBlockedFault : Boolean = false;
+
+        port powerInput : EnergyInputPort;
+        port motorPowerOutput : EnergyOutputPort;
+        port userInterface : ControlPort;
+    }
+
+    part def HandleAssembly {
+        attribute gripHeight : Length = 1.05 [m];
+        attribute controlReachDistance : Length = 0.08 [m];
+    }
+
+    part def Chassis {
+        attribute structuralMass : Mass = 1.2 [kg];
+        attribute wheelDiameter : Length = 0.065 [m];
+    }
+
+    action def CleanSurface {
+        in item incomingDustyAir : DustyAir;
+        in attribute requestedSuction : SuctionLevel;
+        out item outgoingCleanAir : CleanAir;
+        out attribute collectedDust : DustMass;
+
+        first start;
+        then energizeMotor;
+        then generateSuction;
+        then drawDustyAir;
+        then separateDust;
+        then filterAir;
+        then dischargeCleanAir;
+        then done;
+
+        action energizeMotor {
+            in item electricalEnergy : ElectricalEnergy;
+            out attribute motorSpeed : Real {
+                unit = "rpm";
+            }
+        }
+
+        action generateSuction {
+            in attribute motorSpeed : Real {
+                unit = "rpm";
+            }
+            out attribute pressureDrop : AirPressure;
+        }
+
+        action drawDustyAir {
+            in attribute pressureDrop : AirPressure;
+            out item entrainedDustyAir : DustyAir;
+        }
+
+        action separateDust {
+            in item entrainedDustyAir : DustyAir;
+            out attribute retainedDustMass : DustMass;
+            out item partiallyCleanedAir : DustyAir;
+        }
+
+        action filterAir {
+            in item partiallyCleanedAir : DustyAir;
+            out item filteredAir : CleanAir;
+        }
+
+        action dischargeCleanAir {
+            in item filteredAir : CleanAir;
+            out item outgoingCleanAir : CleanAir;
+        }
+    }
+
+    state def VacuumCleanerOperatingStates {
+        entry action initializeController;
+
+        state Off;
+        state Standby;
+        state Cleaning;
+        state Charging;
+        state Fault;
+
+        initial then Off;
+
+        transition Off_to_Standby
+            first Off
+            accept when batteryAvailable
+            then Standby;
+
+        transition Standby_to_Cleaning
+            first Standby
+            accept when userRequestsCleaning
+            if batterySufficient and binNotFull and filterNotBlocked
+            then Cleaning;
+
+        transition Cleaning_to_Standby
+            first Cleaning
+            accept when userStopsCleaning
+            then Standby;
+
+        transition Cleaning_to_Fault
+            first Cleaning
+            accept when protectionFaultDetected
+            then Fault;
+
+        transition Standby_to_Charging
+            first Standby
+            accept when chargerConnected
+            then Charging;
+
+        transition Charging_to_Standby
+            first Charging
+            accept when batteryFullyCharged
+            then Standby;
+
+        transition Fault_to_Standby
+            first Fault
+            accept when faultCleared
+            then Standby;
+
+        state Cleaning {
+            entry action rampMotorToRequestedSuction;
+            do action CleanSurface;
+            exit action rampMotorDown;
+        }
+
+        state Charging {
+            entry action disableMotorOutput;
+            do action restoreBatteryCharge;
+        }
+
+        state Fault {
+            entry action disableMotorOutput;
+            entry action indicateFaultToUser;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The vacuum cleaner shall remove loose dust and debris from a household floor surface by generating suction airflow, separating collected dust into a dust bin, filtering exhaust air, and discharging cleaned air back to the environment. */
+    }
+
+    requirement def SuctionPerformanceRequirement {
+        attribute minimumAirFlow : AirFlowRate = 30.0;
+        attribute minimumPressureDrop : AirPressure = 12000 [Pa];
+
+        require constraint {
+            maximumAirFlow >= minimumAirFlow
+        }
+    }
+
+    requirement def FiltrationRequirement {
+        attribute minimumFiltrationEfficiency : Real {
+            unit = "%";
+        } = 99.0;
+
+        require constraint {
+            filterAssembly.filtrationEfficiency >= minimumFiltrationEfficiency
+        }
+    }
+
+    requirement def NoiseRequirement {
+        attribute allowedMaximumSoundLevel : SoundLevel = 78.0;
+
+        require constraint {
+            maximumSoundLevel <= allowedMaximumSoundLevel
+        }
+    }
+
+    requirement def RuntimeRequirement {
+        attribute minimumRuntimeAtNormalSuction : Time = 1800 [s];
+
+        doc /* The vacuum cleaner shall support at least 30 minutes of cleaning operation at normal suction level from a fully charged battery. */
+    }
+
+    requirement def DustContainmentRequirement {
+        attribute minimumDustBinCapacity : Volume = 0.5 [L];
+
+        doc /* The vacuum cleaner shall contain collected dust in a removable bin without releasing visible debris during normal operation. */
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The vacuum cleaner shall stop motor output when over-temperature, blocked-filter, dust-bin-full, or low-battery protection conditions are detected. */
+    }
+
+    requirement def UserControlRequirement {
+        doc /* The vacuum cleaner shall allow the user to turn cleaning on or off and select suction level through an accessible handle-mounted control interface. */
+    }
+
+    satisfy PrimaryFunctionRequirement by VacuumCleaner;
+    satisfy SuctionPerformanceRequirement by VacuumCleaner;
+    satisfy FiltrationRequirement by FiltrationAssembly;
+    satisfy NoiseRequirement by VacuumCleaner;
+    satisfy RuntimeRequirement by BatteryPack;
+    satisfy DustContainmentRequirement by DustBin;
+    satisfy SafetyRequirement by VacuumController;
+    satisfy UserControlRequirement by VacuumController;
+
+    constraint def AirCleaningConstraint {
+        in attribute inletDustConcentration : Real {
+            unit = "g/m^3";
+        }
+        in attribute filtrationEfficiency : Real {
+            unit = "%";
+        }
+        out attribute outletDustConcentration : Real {
+            unit = "mg/m^3";
+        }
+
+        outletDustConcentration == inletDustConcentration * (100.0 - filtrationEfficiency) * 10.0;
+    }
+
+    constraint def RuntimeConstraint {
+        in attribute batteryCapacityAh : Real {
+            unit = "Ah";
+        }
+        in attribute batteryVoltage : ElectricPotential;
+        in attribute consumedPower : ElectricPower;
+        out attribute runtimeSeconds : Time;
+
+        runtimeSeconds == batteryCapacityAh * batteryVoltage / consumedPower * 3600.0;
+    }
+
+    part vacuumCleanerSystem : VacuumCleaner {
+        attribute selectedSuctionLevel = 70.0;
+        attribute dustBinFillLevel = 0.0;
+
+        part batteryPack {
+            attribute stateOfCharge = 100.0;
+        }
+
+        part dustBin {
+            attribute fillLevel = 0.0;
+        }
+
+        part filterAssembly {
+            attribute filtrationEfficiency = 99.5;
+        }
+    }
+}

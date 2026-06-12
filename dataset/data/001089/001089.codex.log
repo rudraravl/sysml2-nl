@@ -1,0 +1,763 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-9hd6rrwv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb564-06db-7171-81c3-a63ba51d8c39
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Hydrometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HydrometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Density :> scalarValues::Real {
+    unit = "kg/m^3";
+  }
+
+  attribute def Temperature :> scalarValues::Real {
+    unit = "degC";
+  }
+
+  attribute def Volume :> scalarValues::Real {
+    unit = "mL";
+  }
+
+  attribute def Mass :> scalarValues::Real {
+    unit = "g";
+  }
+
+  attribute def Length :> scalarValues::Real {
+    unit = "mm";
+  }
+
+  attribute def TimeDuration :> scalarValues::Real {
+    unit = "s";
+  }
+
+  attribute def Percent :> scalarValues::Real {
+    unit = "%";
+  }
+
+  attribute def SpecificGravity :> scalarValues::Real {
+    unit = "1";
+  }
+
+  item def LiquidSample {
+    attribute sampleVolume : Volume;
+    attribute sampleTemperature : Temperature;
+    attribute actualDensity : Density;
+    attribute clarity : Percent;
+  }
+
+  item def DensityReading {
+    attribute indicatedDensity : Density;
+    attribute indicatedSpecificGravity : SpecificGravity;
+    attribute referenceTemperature : Temperature;
+    attribute readingUncertainty : Density;
+    attribute readingTime : TimeDuration;
+  }
+
+  item def TemperatureReading {
+    attribute measuredTemperature : Temperature;
+    attribute uncertainty : Temperature;
+  }
+
+  item def CalibrationReference {
+    attribute referenceDensity : Density;
+    attribute referenceTemperature : Temperature;
+    attribute permissibleError : Density;
+  }
+
+  port def LiquidImmersionPort {
+    in item sample : LiquidSample;
+  }
+
+  port def ReadingOutputPort {
+    out item densityReading : DensityReading;
+  }
+
+  port def TemperatureOutputPort {
+    out item temperatureReading : TemperatureReading;
+  }
+
+  port def CalibrationPort {
+    in item calibrationReference : CalibrationReference;
+  }
+
+  part def Hydrometer {
+    attribute instrumentMass : Mass = 42.0 [g];
+    attribute overallLength : Length = 280.0 [mm];
+    attribute stemDiameter : Length = 6.0 [mm];
+    attribute bulbDiameter : Length = 24.0 [mm];
+    attribute minimumMeasurableDensity : Density = 700.0 [kg/m^3];
+    attribute maximumMeasurableDensity : Density = 1300.0 [kg/m^3];
+    attribute densityResolution : Density = 1.0 [kg/m^3];
+    attribute referenceTemperature : Temperature = 20.0 [degC];
+
+    port immersionPort : LiquidImmersionPort;
+    port readingPort : ReadingOutputPort;
+    port calibrationPort : CalibrationPort;
+
+    part weightedBulb {
+      attribute ballastMass : Mass = 29.0 [g];
+      attribute displacedVolumeAtReferenceMark : Volume = 42.0 [mL];
+    }
+
+    part sealedGlassBody {
+      attribute wallThickness : Length = 1.2 [mm];
+      attribute internalAirVolume : Volume = 18.0 [mL];
+    }
+
+    part graduatedStem {
+      attribute scaleStartDensity : Density = 700.0 [kg/m^3];
+      attribute scaleEndDensity : Density = 1300.0 [kg/m^3];
+      attribute majorDivision : Density = 10.0 [kg/m^3];
+      attribute minorDivision : Density = 1.0 [kg/m^3];
+    }
+
+    part calibrationScale {
+      attribute calibrationTemperature : Temperature = 20.0 [degC];
+      attribute maximumPermissibleError : Density = 1.0 [kg/m^3];
+    }
+
+    action measureDensity {
+      in item sample : LiquidSample;
+      out item reading : DensityReading;
+
+      first start;
+      then verifySampleVolume;
+      then floatInstrument;
+      then waitForEquilibrium;
+      then observeMeniscus;
+      then calculateCorrectedReading;
+      then publishReading;
+      then done;
+
+      action verifySampleVolume {
+        in item sample : LiquidSample;
+        attribute requiredMinimumVolume : Volume = 250.0 [mL];
+      }
+
+      action floatInstrument {
+        in item sample : LiquidSample;
+        attribute immersionTime : TimeDuration = 5.0 [s];
+      }
+
+      action waitForEquilibrium {
+        attribute settlingTime : TimeDuration = 30.0 [s];
+      }
+
+      action observeMeniscus {
+        attribute eyeLevelOffsetLimit : Length = 1.0 [mm];
+      }
+
+      action calculateCorrectedReading {
+        in item sample : LiquidSample;
+        out item reading : DensityReading;
+        attribute thermalCorrectionCoefficient : scalarValues::Real = 0.00025;
+      }
+
+      action publishReading {
+        out item reading : DensityReading;
+      }
+    }
+
+    state hydrometerOperationalState {
+      state stored;
+      state prepared;
+      state immersed;
+      state stabilizing;
+      state readingAvailable;
+      state cleaningRequired;
+      state outOfCalibration;
+
+      initial then stored;
+
+      transition stored_to_prepared
+        first stored
+        accept prepare
+        then prepared;
+
+      transition prepared_to_immersed
+        first prepared
+        accept insertIntoSample
+        then immersed;
+
+      transition immersed_to_stabilizing
+        first immersed
+        accept releaseHydrometer
+        then stabilizing;
+
+      transition stabilizing_to_readingAvailable
+        first stabilizing
+        accept equilibriumReached
+        then readingAvailable;
+
+      transition readingAvailable_to_cleaningRequired
+        first readingAvailable
+        accept removeFromSample
+        then cleaningRequired;
+
+      transition cleaningRequired_to_stored
+        first cleaningRequired
+        accept cleanAndDry
+        then stored;
+
+      transition prepared_to_outOfCalibration
+        first prepared
+        accept calibrationFailure
+        then outOfCalibration;
+
+      transition outOfCalibration_to_prepared
+        first outOfCalibration
+        accept recalibrated
+        then prepared;
+    }
+  }
+
+  part def SampleCylinder {
+    attribute internalVolume : Volume = 500.0 [mL];
+    attribute internalDiameter : Length = 45.0 [mm];
+    attribute minimumFillVolume : Volume = 250.0 [mL];
+
+    port samplePort : LiquidImmersionPort;
+  }
+
+  part def Thermometer {
+    attribute measurementRangeLow : Temperature = -10.0 [degC];
+    attribute measurementRangeHigh : Temperature = 110.0 [degC];
+    attribute temperatureResolution : Temperature = 0.1 [degC];
+    attribute temperatureUncertainty : Temperature = 0.2 [degC];
+
+    port sampleTemperatureInput : LiquidImmersionPort;
+    port temperatureOutput : TemperatureOutputPort;
+
+    action measureTemperature {
+      in item sample : LiquidSample;
+      out item temperatureReading : TemperatureReading;
+
+      first senseSampleTemperature;
+      then publishTemperature;
+
+      action senseSampleTemperature {
+        in item sample : LiquidSample;
+        attribute stabilizationTime : TimeDuration = 15.0 [s];
+      }
+
+      action publishTemperature {
+        out item temperatureReading : TemperatureReading;
+      }
+    }
+  }
+
+  part def HydrometerReadingSystem {
+    attribute primaryFunction : String = "Determine the density or specific gravity of a liquid sample by floating a calibrated hydrometer in the sample and reading the scale at the liquid meniscus.";
+    attribute nominalReferenceTemperature : Temperature = 20.0 [degC];
+
+    port sampleInput : LiquidImmersionPort;
+    port densityOutput : ReadingOutputPort;
+    port temperatureOutput : TemperatureOutputPort;
+    port calibrationInput : CalibrationPort;
+
+    part sampleCylinder : SampleCylinder;
+    part hydrometer : Hydrometer;
+    part thermometer : Thermometer;
+
+    connection sampleToCylinder
+      connect sampleInput to sampleCylinder.samplePort;
+
+    connection cylinderToHydrometer
+      connect sampleCylinder.samplePort to hydrometer.immersionPort;
+
+    connection cylinderToThermometer
+      connect sampleCylinder.samplePort to thermometer.sampleTemperatureInput;
+
+    connection hydrometerToDensityOutput
+      connect hydrometer.readingPort to densityOutput;
+
+    connection thermometerToTemperatureOutput
+      connect thermometer.temperatureOutput to temperatureOutput;
+
+    connection calibrationToHydrometer
+      connect calibrationInput to hydrometer.calibrationPort;
+
+    action performDensityMeasurement {
+      in item sample : LiquidSample;
+      out item densityReading : DensityReading;
+      out item temperatureReading : TemperatureReading;
+
+      first receiveSample;
+      then fillCylinder;
+      then measureSampleTemperature;
+      then measureSampleDensity;
+      then reportResult;
+
+      action receiveSample {
+        in item sample : LiquidSample;
+      }
+
+      action fillCylinder {
+        in item sample : LiquidSample;
+        attribute targetFillVolume : Volume = 400.0 [mL];
+      }
+
+      action measureSampleTemperature {
+        out item temperatureReading : TemperatureReading;
+      }
+
+      action measureSampleDensity {
+        out item densityReading : DensityReading;
+      }
+
+      action reportResult {
+        in item densityReading : DensityReading;
+        in item temperatureReading : TemperatureReading;
+      }
+    }
+  }
+
+  requirement def MeasureLiquidDensityRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The system shall determine the density and specific gravity of a liquid sample using buoyancy of a calibrated hydrometer. */
+
+    require constraint {
+      system.hydrometer.minimumMeasurableDensity <= 700.0 [kg/m^3] and
+      system.hydrometer.maximumMeasurableDensity >= 1300.0 [kg/m^3]
+    }
+  }
+
+  requirement def ReadingResolutionRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The hydrometer scale shall support density readings with a resolution of 1 kg/m^3 or finer. */
+
+    require constraint {
+      system.hydrometer.densityResolution <= 1.0 [kg/m^3]
+    }
+  }
+
+  requirement def TemperatureReferenceRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The system shall associate each density reading with the sample temperature and the hydrometer reference temperature. */
+
+    require constraint {
+      system.nominalReferenceTemperature == 20.0 [degC]
+    }
+  }
+
+  requirement def SampleVolumeRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The sample cylinder shall provide sufficient liquid volume and clearance for the hydrometer to float freely without touching the bottom or side wall. */
+
+    require constraint {
+      system.sampleCylinder.minimumFillVolume >= 250.0 [mL] and
+      system.sampleCylinder.internalDiameter >= 45.0 [mm]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The calibrated hydrometer shall indicate density within plus or minus 1 kg/m^3 at the reference temperature. */
+
+    require constraint {
+      system.hydrometer.calibrationScale.maximumPermissibleError <= 1.0 [kg/m^3]
+    }
+  }
+
+  satisfy MeasureLiquidDensityRequirement by HydrometerReadingSystem;
+  satisfy ReadingResolutionRequirement by HydrometerReadingSystem::hydrometer;
+  satisfy TemperatureReferenceRequirement by HydrometerReadingSystem;
+  satisfy SampleVolumeRequirement by HydrometerReadingSystem::sampleCylinder;
+  satisfy AccuracyRequirement by HydrometerReadingSystem::hydrometer;
+
+  part hydrometerDensityMeasurementSystem : HydrometerReadingSystem;
+
+}
+tokens used
+2,787
+package HydrometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Density :> scalarValues::Real {
+    unit = "kg/m^3";
+  }
+
+  attribute def Temperature :> scalarValues::Real {
+    unit = "degC";
+  }
+
+  attribute def Volume :> scalarValues::Real {
+    unit = "mL";
+  }
+
+  attribute def Mass :> scalarValues::Real {
+    unit = "g";
+  }
+
+  attribute def Length :> scalarValues::Real {
+    unit = "mm";
+  }
+
+  attribute def TimeDuration :> scalarValues::Real {
+    unit = "s";
+  }
+
+  attribute def Percent :> scalarValues::Real {
+    unit = "%";
+  }
+
+  attribute def SpecificGravity :> scalarValues::Real {
+    unit = "1";
+  }
+
+  item def LiquidSample {
+    attribute sampleVolume : Volume;
+    attribute sampleTemperature : Temperature;
+    attribute actualDensity : Density;
+    attribute clarity : Percent;
+  }
+
+  item def DensityReading {
+    attribute indicatedDensity : Density;
+    attribute indicatedSpecificGravity : SpecificGravity;
+    attribute referenceTemperature : Temperature;
+    attribute readingUncertainty : Density;
+    attribute readingTime : TimeDuration;
+  }
+
+  item def TemperatureReading {
+    attribute measuredTemperature : Temperature;
+    attribute uncertainty : Temperature;
+  }
+
+  item def CalibrationReference {
+    attribute referenceDensity : Density;
+    attribute referenceTemperature : Temperature;
+    attribute permissibleError : Density;
+  }
+
+  port def LiquidImmersionPort {
+    in item sample : LiquidSample;
+  }
+
+  port def ReadingOutputPort {
+    out item densityReading : DensityReading;
+  }
+
+  port def TemperatureOutputPort {
+    out item temperatureReading : TemperatureReading;
+  }
+
+  port def CalibrationPort {
+    in item calibrationReference : CalibrationReference;
+  }
+
+  part def Hydrometer {
+    attribute instrumentMass : Mass = 42.0 [g];
+    attribute overallLength : Length = 280.0 [mm];
+    attribute stemDiameter : Length = 6.0 [mm];
+    attribute bulbDiameter : Length = 24.0 [mm];
+    attribute minimumMeasurableDensity : Density = 700.0 [kg/m^3];
+    attribute maximumMeasurableDensity : Density = 1300.0 [kg/m^3];
+    attribute densityResolution : Density = 1.0 [kg/m^3];
+    attribute referenceTemperature : Temperature = 20.0 [degC];
+
+    port immersionPort : LiquidImmersionPort;
+    port readingPort : ReadingOutputPort;
+    port calibrationPort : CalibrationPort;
+
+    part weightedBulb {
+      attribute ballastMass : Mass = 29.0 [g];
+      attribute displacedVolumeAtReferenceMark : Volume = 42.0 [mL];
+    }
+
+    part sealedGlassBody {
+      attribute wallThickness : Length = 1.2 [mm];
+      attribute internalAirVolume : Volume = 18.0 [mL];
+    }
+
+    part graduatedStem {
+      attribute scaleStartDensity : Density = 700.0 [kg/m^3];
+      attribute scaleEndDensity : Density = 1300.0 [kg/m^3];
+      attribute majorDivision : Density = 10.0 [kg/m^3];
+      attribute minorDivision : Density = 1.0 [kg/m^3];
+    }
+
+    part calibrationScale {
+      attribute calibrationTemperature : Temperature = 20.0 [degC];
+      attribute maximumPermissibleError : Density = 1.0 [kg/m^3];
+    }
+
+    action measureDensity {
+      in item sample : LiquidSample;
+      out item reading : DensityReading;
+
+      first start;
+      then verifySampleVolume;
+      then floatInstrument;
+      then waitForEquilibrium;
+      then observeMeniscus;
+      then calculateCorrectedReading;
+      then publishReading;
+      then done;
+
+      action verifySampleVolume {
+        in item sample : LiquidSample;
+        attribute requiredMinimumVolume : Volume = 250.0 [mL];
+      }
+
+      action floatInstrument {
+        in item sample : LiquidSample;
+        attribute immersionTime : TimeDuration = 5.0 [s];
+      }
+
+      action waitForEquilibrium {
+        attribute settlingTime : TimeDuration = 30.0 [s];
+      }
+
+      action observeMeniscus {
+        attribute eyeLevelOffsetLimit : Length = 1.0 [mm];
+      }
+
+      action calculateCorrectedReading {
+        in item sample : LiquidSample;
+        out item reading : DensityReading;
+        attribute thermalCorrectionCoefficient : scalarValues::Real = 0.00025;
+      }
+
+      action publishReading {
+        out item reading : DensityReading;
+      }
+    }
+
+    state hydrometerOperationalState {
+      state stored;
+      state prepared;
+      state immersed;
+      state stabilizing;
+      state readingAvailable;
+      state cleaningRequired;
+      state outOfCalibration;
+
+      initial then stored;
+
+      transition stored_to_prepared
+        first stored
+        accept prepare
+        then prepared;
+
+      transition prepared_to_immersed
+        first prepared
+        accept insertIntoSample
+        then immersed;
+
+      transition immersed_to_stabilizing
+        first immersed
+        accept releaseHydrometer
+        then stabilizing;
+
+      transition stabilizing_to_readingAvailable
+        first stabilizing
+        accept equilibriumReached
+        then readingAvailable;
+
+      transition readingAvailable_to_cleaningRequired
+        first readingAvailable
+        accept removeFromSample
+        then cleaningRequired;
+
+      transition cleaningRequired_to_stored
+        first cleaningRequired
+        accept cleanAndDry
+        then stored;
+
+      transition prepared_to_outOfCalibration
+        first prepared
+        accept calibrationFailure
+        then outOfCalibration;
+
+      transition outOfCalibration_to_prepared
+        first outOfCalibration
+        accept recalibrated
+        then prepared;
+    }
+  }
+
+  part def SampleCylinder {
+    attribute internalVolume : Volume = 500.0 [mL];
+    attribute internalDiameter : Length = 45.0 [mm];
+    attribute minimumFillVolume : Volume = 250.0 [mL];
+
+    port samplePort : LiquidImmersionPort;
+  }
+
+  part def Thermometer {
+    attribute measurementRangeLow : Temperature = -10.0 [degC];
+    attribute measurementRangeHigh : Temperature = 110.0 [degC];
+    attribute temperatureResolution : Temperature = 0.1 [degC];
+    attribute temperatureUncertainty : Temperature = 0.2 [degC];
+
+    port sampleTemperatureInput : LiquidImmersionPort;
+    port temperatureOutput : TemperatureOutputPort;
+
+    action measureTemperature {
+      in item sample : LiquidSample;
+      out item temperatureReading : TemperatureReading;
+
+      first senseSampleTemperature;
+      then publishTemperature;
+
+      action senseSampleTemperature {
+        in item sample : LiquidSample;
+        attribute stabilizationTime : TimeDuration = 15.0 [s];
+      }
+
+      action publishTemperature {
+        out item temperatureReading : TemperatureReading;
+      }
+    }
+  }
+
+  part def HydrometerReadingSystem {
+    attribute primaryFunction : String = "Determine the density or specific gravity of a liquid sample by floating a calibrated hydrometer in the sample and reading the scale at the liquid meniscus.";
+    attribute nominalReferenceTemperature : Temperature = 20.0 [degC];
+
+    port sampleInput : LiquidImmersionPort;
+    port densityOutput : ReadingOutputPort;
+    port temperatureOutput : TemperatureOutputPort;
+    port calibrationInput : CalibrationPort;
+
+    part sampleCylinder : SampleCylinder;
+    part hydrometer : Hydrometer;
+    part thermometer : Thermometer;
+
+    connection sampleToCylinder
+      connect sampleInput to sampleCylinder.samplePort;
+
+    connection cylinderToHydrometer
+      connect sampleCylinder.samplePort to hydrometer.immersionPort;
+
+    connection cylinderToThermometer
+      connect sampleCylinder.samplePort to thermometer.sampleTemperatureInput;
+
+    connection hydrometerToDensityOutput
+      connect hydrometer.readingPort to densityOutput;
+
+    connection thermometerToTemperatureOutput
+      connect thermometer.temperatureOutput to temperatureOutput;
+
+    connection calibrationToHydrometer
+      connect calibrationInput to hydrometer.calibrationPort;
+
+    action performDensityMeasurement {
+      in item sample : LiquidSample;
+      out item densityReading : DensityReading;
+      out item temperatureReading : TemperatureReading;
+
+      first receiveSample;
+      then fillCylinder;
+      then measureSampleTemperature;
+      then measureSampleDensity;
+      then reportResult;
+
+      action receiveSample {
+        in item sample : LiquidSample;
+      }
+
+      action fillCylinder {
+        in item sample : LiquidSample;
+        attribute targetFillVolume : Volume = 400.0 [mL];
+      }
+
+      action measureSampleTemperature {
+        out item temperatureReading : TemperatureReading;
+      }
+
+      action measureSampleDensity {
+        out item densityReading : DensityReading;
+      }
+
+      action reportResult {
+        in item densityReading : DensityReading;
+        in item temperatureReading : TemperatureReading;
+      }
+    }
+  }
+
+  requirement def MeasureLiquidDensityRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The system shall determine the density and specific gravity of a liquid sample using buoyancy of a calibrated hydrometer. */
+
+    require constraint {
+      system.hydrometer.minimumMeasurableDensity <= 700.0 [kg/m^3] and
+      system.hydrometer.maximumMeasurableDensity >= 1300.0 [kg/m^3]
+    }
+  }
+
+  requirement def ReadingResolutionRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The hydrometer scale shall support density readings with a resolution of 1 kg/m^3 or finer. */
+
+    require constraint {
+      system.hydrometer.densityResolution <= 1.0 [kg/m^3]
+    }
+  }
+
+  requirement def TemperatureReferenceRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The system shall associate each density reading with the sample temperature and the hydrometer reference temperature. */
+
+    require constraint {
+      system.nominalReferenceTemperature == 20.0 [degC]
+    }
+  }
+
+  requirement def SampleVolumeRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The sample cylinder shall provide sufficient liquid volume and clearance for the hydrometer to float freely without touching the bottom or side wall. */
+
+    require constraint {
+      system.sampleCylinder.minimumFillVolume >= 250.0 [mL] and
+      system.sampleCylinder.internalDiameter >= 45.0 [mm]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject system : HydrometerReadingSystem;
+
+    doc /* The calibrated hydrometer shall indicate density within plus or minus 1 kg/m^3 at the reference temperature. */
+
+    require constraint {
+      system.hydrometer.calibrationScale.maximumPermissibleError <= 1.0 [kg/m^3]
+    }
+  }
+
+  satisfy MeasureLiquidDensityRequirement by HydrometerReadingSystem;
+  satisfy ReadingResolutionRequirement by HydrometerReadingSystem::hydrometer;
+  satisfy TemperatureReferenceRequirement by HydrometerReadingSystem;
+  satisfy SampleVolumeRequirement by HydrometerReadingSystem::sampleCylinder;
+  satisfy AccuracyRequirement by HydrometerReadingSystem::hydrometer;
+
+  part hydrometerDensityMeasurementSystem : HydrometerReadingSystem;
+
+}

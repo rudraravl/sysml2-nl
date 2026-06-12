@@ -1,0 +1,343 @@
+package StudFinderSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Capacitance;
+    attribute def Distance;
+    attribute def Frequency;
+    attribute def Time;
+    attribute def Mass;
+    attribute def Power;
+    attribute def Probability;
+    attribute def Boolean;
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute availablePower : Power;
+    }
+
+    item def SensorExcitation {
+        attribute driveVoltage : Voltage;
+        attribute driveFrequency : Frequency;
+    }
+
+    item def CapacitanceSample {
+        attribute measuredCapacitance : Capacitance;
+        attribute sampleTime : Time;
+        attribute sensorPosition : Distance;
+    }
+
+    item def WallScanData {
+        attribute baselineCapacitance : Capacitance;
+        attribute currentCapacitance : Capacitance;
+        attribute capacitanceDelta : Capacitance;
+        attribute confidence : Probability;
+        attribute estimatedStudCenterOffset : Distance;
+    }
+
+    item def UserCommand {
+        attribute scanRequested : Boolean;
+        attribute calibrationRequested : Boolean;
+        attribute powerToggleRequested : Boolean;
+    }
+
+    item def DetectionIndication {
+        attribute studDetected : Boolean;
+        attribute centerAligned : Boolean;
+        attribute confidence : Probability;
+        attribute lateralOffset : Distance;
+    }
+
+    item def AudibleSignal {
+        attribute toneFrequency : Frequency;
+        attribute pulseDuration : Time;
+        attribute enabled : Boolean;
+    }
+
+    item def VisualSignal {
+        attribute ledIntensity : Real;
+        attribute displayText : String;
+        attribute centerBarLevel : Real;
+    }
+
+    port def PowerPort {
+        out energy : ElectricalEnergy;
+    }
+
+    port def SensorDrivePort {
+        out excitation : SensorExcitation;
+        in sample : CapacitanceSample;
+    }
+
+    port def DataPort {
+        out scanData : WallScanData;
+    }
+
+    port def CommandPort {
+        in command : UserCommand;
+    }
+
+    port def IndicationPort {
+        out indication : DetectionIndication;
+    }
+
+    port def VisualPort {
+        out visual : VisualSignal;
+    }
+
+    port def AudioPort {
+        out audio : AudibleSignal;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Voltage = 9 [V];
+        attribute remainingCapacity : Real;
+        attribute lowBatteryThreshold : Voltage = 6.8 [V];
+
+        port powerOut : PowerPort;
+    }
+
+    part def CapacitiveWallSensor {
+        attribute electrodeSpacing : Distance = 18 [mm];
+        attribute scanDepth : Distance = 38 [mm];
+        attribute samplingFrequency : Frequency = 120 [Hz];
+        attribute noiseFloor : Capacitance = 0.03 [pF];
+
+        port drive : SensorDrivePort;
+    }
+
+    part def SignalConditioner {
+        attribute gain : Real = 24.0;
+        attribute lowPassCutoff : Frequency = 18 [Hz];
+        attribute analogSupplyVoltage : Voltage = 3.3 [V];
+
+        port sensorInterface : SensorDrivePort;
+        port conditionedData : DataPort;
+    }
+
+    part def DetectionProcessor {
+        attribute calibrationWindow : Time = 2 [s];
+        attribute minimumConfidence : Probability = 0.82;
+        attribute centerTolerance : Distance = 4 [mm];
+        attribute wallMotionMinimum : Distance = 20 [mm];
+
+        port scanInput : DataPort;
+        port commandInput : CommandPort;
+        port detectionOutput : IndicationPort;
+    }
+
+    part def UserInterface {
+        attribute scanButtonDebounceTime : Time = 30 [ms];
+        attribute displayRefreshPeriod : Time = 100 [ms];
+
+        port commandOut : CommandPort;
+        port indicationIn : IndicationPort;
+        port visualOut : VisualPort;
+        port audioOut : AudioPort;
+    }
+
+    part def LEDDisplay {
+        attribute maximumBrightness : Real = 1.0;
+        attribute normalBrightness : Real = 0.65;
+
+        port visualIn : VisualPort;
+    }
+
+    part def Buzzer {
+        attribute nominalToneFrequency : Frequency = 2400 [Hz];
+        attribute maximumPulseDuration : Time = 500 [ms];
+
+        port audioIn : AudioPort;
+    }
+
+    part def StudFinder {
+        attribute mass : Mass = 0.22 [kg];
+        attribute maximumWallThickness : Distance = 19 [mm];
+        attribute centerAccuracy : Distance = 6 [mm];
+        attribute startupTime : Time = 1.5 [s];
+
+        part battery : BatteryPack;
+        part sensor : CapacitiveWallSensor;
+        part conditioner : SignalConditioner;
+        part processor : DetectionProcessor;
+        part ui : UserInterface;
+        part display : LEDDisplay;
+        part buzzer : Buzzer;
+
+        port userCommands : CommandPort;
+        port userIndications : IndicationPort;
+
+        connect battery.powerOut to sensor.drive;
+        connect sensor.drive to conditioner.sensorInterface;
+        connect conditioner.conditionedData to processor.scanInput;
+        connect ui.commandOut to processor.commandInput;
+        connect processor.detectionOutput to ui.indicationIn;
+        connect ui.visualOut to display.visualIn;
+        connect ui.audioOut to buzzer.audioIn;
+        connect userCommands to ui.commandOut;
+        connect processor.detectionOutput to userIndications;
+
+        action calibrateAgainstWall {
+            in rawSamples : CapacitanceSample;
+            out baseline : Capacitance;
+            first collectInitialSamples;
+            then rejectOutliers;
+            then computeStableBaseline;
+        }
+
+        action scanWall {
+            in baseline : Capacitance;
+            in sample : CapacitanceSample;
+            out scanData : WallScanData;
+            first subtractBaseline;
+            then filterMotionNoise;
+            then estimateDensityChange;
+            then computeStudConfidence;
+        }
+
+        action indicateDetection {
+            in detection : DetectionIndication;
+            out visual : VisualSignal;
+            out audio : AudibleSignal;
+            first updateCenterBar;
+            then setDetectionText;
+            then emitToneWhenCentered;
+        }
+
+        state def OperatingState {
+            state off;
+            state selfTest;
+            state idle;
+            state calibrating;
+            state scanning;
+            state studDetected;
+            state centerLocated;
+            state lowBatteryFault;
+
+            transition initial then off;
+
+            transition powerOn
+                first off
+                accept UserCommand
+                if command.powerToggleRequested
+                then selfTest;
+
+            transition selfTestComplete
+                first selfTest
+                if battery.nominalVoltage > battery.lowBatteryThreshold
+                then idle;
+
+            transition batteryTooLow
+                first selfTest
+                if battery.nominalVoltage <= battery.lowBatteryThreshold
+                then lowBatteryFault;
+
+            transition startCalibration
+                first idle
+                accept UserCommand
+                if command.calibrationRequested
+                then calibrating;
+
+            transition calibrationComplete
+                first calibrating
+                then scanning
+                do calibrateAgainstWall;
+
+            transition continueScanning
+                first scanning
+                do scanWall
+                if processor.minimumConfidence > 0.0
+                then scanning;
+
+            transition detectStud
+                first scanning
+                if processor.detectionOutput.indication.studDetected
+                then studDetected;
+
+            transition locateCenter
+                first studDetected
+                if processor.detectionOutput.indication.centerAligned
+                then centerLocated
+                do indicateDetection;
+
+            transition movePastCenter
+                first centerLocated
+                if not processor.detectionOutput.indication.centerAligned
+                then studDetected;
+
+            transition loseStud
+                first studDetected
+                if not processor.detectionOutput.indication.studDetected
+                then scanning;
+
+            transition stopScan
+                first scanning
+                accept UserCommand
+                if not command.scanRequested
+                then idle;
+
+            transition powerOffFromIdle
+                first idle
+                accept UserCommand
+                if command.powerToggleRequested
+                then off;
+        }
+
+        exhibit stateMachine : OperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The stud finder shall detect the presence and approximate centerline of a wooden or metal stud behind a finished interior wall by sensing changes in wall dielectric properties and shall communicate the detection to the user through visual and audible indications. */
+
+        subject finder : StudFinder;
+
+        require constraint {
+            finder.maximumWallThickness >= 12 [mm]
+        }
+
+        require constraint {
+            finder.centerAccuracy <= 6 [mm]
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        doc /* The stud finder shall establish a wall-specific baseline before active scanning so that normal wall material variation is separated from stud-induced sensor response. */
+
+        subject finder : StudFinder;
+
+        require constraint {
+            finder.processor.calibrationWindow <= 3 [s]
+        }
+    }
+
+    requirement def DetectionConfidenceRequirement {
+        doc /* The stud finder shall report a stud only when the processed signal confidence exceeds the detection threshold. */
+
+        subject finder : StudFinder;
+
+        require constraint {
+            finder.processor.minimumConfidence >= 0.80
+        }
+    }
+
+    requirement def UserFeedbackRequirement {
+        doc /* The stud finder shall provide continuous feedback during scanning and distinct centerline feedback when the estimated stud center is aligned with the sensor center. */
+
+        subject finder : StudFinder;
+
+        require constraint {
+            finder.processor.centerTolerance <= 5 [mm]
+        }
+    }
+
+    part studFinderSystem : StudFinder;
+
+    satisfy PrimaryFunctionRequirement by studFinderSystem;
+    satisfy CalibrationRequirement by studFinderSystem;
+    satisfy DetectionConfidenceRequirement by studFinderSystem;
+    satisfy UserFeedbackRequirement by studFinderSystem;
+}

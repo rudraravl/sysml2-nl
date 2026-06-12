@@ -1,0 +1,495 @@
+package RoboticsPrimaryFunctionModel {
+
+    private import ScalarValues::*;
+    private import SI::*;
+
+    attribute def Percent :> ScalarValues::Real;
+    attribute def Reliability :> ScalarValues::Real;
+    attribute def TaskId :> ScalarValues::String;
+    attribute def MapId :> ScalarValues::String;
+
+    item def ElectricPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def MotionCommand {
+        attribute targetLinearSpeed : Speed;
+        attribute targetAngularSpeed : AngularVelocity;
+        attribute maxAcceleration : Acceleration;
+        attribute commandTimestamp : Time;
+    }
+
+    item def NavigationGoal {
+        attribute taskId : TaskId;
+        attribute xPosition : Length;
+        attribute yPosition : Length;
+        attribute heading : PlaneAngle;
+        attribute requiredArrivalAccuracy : Length;
+    }
+
+    item def PoseEstimate {
+        attribute xPosition : Length;
+        attribute yPosition : Length;
+        attribute heading : PlaneAngle;
+        attribute covarianceTrace : Real;
+        attribute timestamp : Time;
+    }
+
+    item def ObstacleReport {
+        attribute nearestObstacleDistance : Length;
+        attribute obstacleBearing : PlaneAngle;
+        attribute confidence : Percent;
+        attribute dynamicObstacle : Boolean;
+    }
+
+    item def Payload {
+        attribute mass : Mass;
+        attribute secured : Boolean;
+        attribute payloadIdentifier : String;
+    }
+
+    item def MissionStatus {
+        attribute taskId : TaskId;
+        attribute percentComplete : Percent;
+        attribute activeFault : Boolean;
+        attribute estimatedTimeRemaining : Time;
+    }
+
+    item def DiagnosticEvent {
+        attribute eventCode : String;
+        attribute severity : Integer;
+        attribute timestamp : Time;
+        attribute recoverable : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricPower;
+    }
+
+    port def PowerOutputPort {
+        out item powerOut : ElectricPower;
+    }
+
+    port def NavigationGoalPort {
+        in item goalIn : NavigationGoal;
+    }
+
+    port def PosePort {
+        out item poseOut : PoseEstimate;
+    }
+
+    port def ObstaclePort {
+        out item obstacleOut : ObstacleReport;
+    }
+
+    port def MotionCommandPort {
+        out item motionOut : MotionCommand;
+    }
+
+    port def PayloadPort {
+        inout item payloadItem : Payload;
+    }
+
+    port def StatusPort {
+        out item statusOut : MissionStatus;
+    }
+
+    port def DiagnosticPort {
+        out item diagnosticOut : DiagnosticEvent;
+    }
+
+    part def MobileServiceRobot {
+        attribute robotMass : Mass = 48 [kg];
+        attribute maximumPayloadMass : Mass = 12 [kg];
+        attribute maximumSpeed : Speed = 1.5 [m/s];
+        attribute nominalRuntime : Time = 4 [h];
+        attribute localizationAccuracy : Length = 0.05 [m];
+        attribute obstacleDetectionRange : Length = 5 [m];
+
+        port externalPower : PowerInputPort;
+        port operatorGoal : NavigationGoalPort;
+        port robotPose : PosePort;
+        port robotStatus : StatusPort;
+        port robotDiagnostics : DiagnosticPort;
+        port payloadInterface : PayloadPort;
+
+        part powerSubsystem : PowerSubsystem;
+        part perceptionSubsystem : PerceptionSubsystem;
+        part navigationSubsystem : NavigationSubsystem;
+        part motionSubsystem : MotionSubsystem;
+        part manipulationSubsystem : ManipulationSubsystem;
+        part safetySubsystem : SafetySubsystem;
+        part communicationSubsystem : CommunicationSubsystem;
+        part controller : RobotController;
+
+        connect externalPower.powerIn to powerSubsystem.chargeInput.powerIn;
+        connect powerSubsystem.logicPower.powerOut to controller.controlPower.powerIn;
+        connect powerSubsystem.drivePower.powerOut to motionSubsystem.drivePower.powerIn;
+        connect perceptionSubsystem.poseEstimate.poseOut to navigationSubsystem.currentPose.poseOut;
+        connect perceptionSubsystem.obstacleReport.obstacleOut to navigationSubsystem.obstacles.obstacleOut;
+        connect operatorGoal.goalIn to communicationSubsystem.goalReceiver.goalIn;
+        connect communicationSubsystem.assignedGoal.goalIn to controller.missionGoal.goalIn;
+        connect controller.navigationGoal.goalIn to navigationSubsystem.goalInput.goalIn;
+        connect navigationSubsystem.motionCommand.motionOut to motionSubsystem.commandInput.motionOut;
+        connect controller.manipulationGoal.goalIn to manipulationSubsystem.taskGoal.goalIn;
+        connect manipulationSubsystem.payloadPort.payloadItem to payloadInterface.payloadItem;
+        connect controller.status.statusOut to robotStatus.statusOut;
+        connect safetySubsystem.diagnostic.diagnosticOut to robotDiagnostics.diagnosticOut;
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : Energy = 1200 [W*h];
+        attribute nominalVoltage : Voltage = 48 [V];
+        attribute minimumOperationalStateOfCharge : Percent = 15.0;
+        attribute currentStateOfCharge : Percent;
+
+        port chargeInput : PowerInputPort;
+        port logicPower : PowerOutputPort;
+        port drivePower : PowerOutputPort;
+    }
+
+    part def PerceptionSubsystem {
+        attribute cameraFrameRate : Frequency = 30 [Hz];
+        attribute lidarScanRate : Frequency = 20 [Hz];
+        attribute maximumSensingRange : Length = 8 [m];
+
+        port poseEstimate : PosePort;
+        port obstacleReport : ObstaclePort;
+
+        part lidar : LidarSensor;
+        part stereoCamera : StereoCamera;
+        part imu : InertialMeasurementUnit;
+    }
+
+    part def LidarSensor {
+        attribute scanRange : Length = 8 [m];
+        attribute angularResolution : PlaneAngle = 0.5 [deg];
+        attribute scanRate : Frequency = 20 [Hz];
+    }
+
+    part def StereoCamera {
+        attribute baseline : Length = 0.12 [m];
+        attribute horizontalFieldOfView : PlaneAngle = 90 [deg];
+        attribute frameRate : Frequency = 30 [Hz];
+    }
+
+    part def InertialMeasurementUnit {
+        attribute gyroBiasStability : AngularVelocity = 0.02 [deg/s];
+        attribute accelerometerNoiseDensity : Acceleration = 0.03 [m/s^2];
+    }
+
+    part def NavigationSubsystem {
+        attribute plannerCycleTime : Time = 0.1 [s];
+        attribute nominalPathClearance : Length = 0.35 [m];
+        attribute goalTolerance : Length = 0.1 [m];
+
+        port goalInput : NavigationGoalPort;
+        port currentPose : PosePort;
+        port obstacles : ObstaclePort;
+        port motionCommand : MotionCommandPort;
+    }
+
+    part def MotionSubsystem {
+        attribute wheelRadius : Length = 0.09 [m];
+        attribute trackWidth : Length = 0.52 [m];
+        attribute maximumLinearSpeed : Speed = 1.5 [m/s];
+        attribute maximumAngularSpeed : AngularVelocity = 1.8 [rad/s];
+        attribute stoppingDistanceAtMaxSpeed : Length = 0.8 [m];
+
+        port drivePower : PowerInputPort;
+        port commandInput : MotionCommandPort;
+
+        part leftDriveMotor : DriveMotor;
+        part rightDriveMotor : DriveMotor;
+        part brakeSystem : BrakeSystem;
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 350 [W];
+        attribute maximumTorque : Torque = 18 [N*m];
+        attribute encoderResolution : Integer = 4096;
+    }
+
+    part def BrakeSystem {
+        attribute engagementTime : Time = 0.15 [s];
+        attribute holdingForce : Force = 900 [N];
+    }
+
+    part def ManipulationSubsystem {
+        attribute liftHeight : Length = 0.65 [m];
+        attribute gripForce : Force = 120 [N];
+        attribute payloadPlacementAccuracy : Length = 0.03 [m];
+
+        port taskGoal : NavigationGoalPort;
+        port payloadPort : PayloadPort;
+
+        part liftActuator : LiftActuator;
+        part gripper : Gripper;
+    }
+
+    part def LiftActuator {
+        attribute ratedLoad : Mass = 12 [kg];
+        attribute liftSpeed : Speed = 0.08 [m/s];
+    }
+
+    part def Gripper {
+        attribute maximumOpening : Length = 0.28 [m];
+        attribute closureTime : Time = 1.2 [s];
+    }
+
+    part def SafetySubsystem {
+        attribute emergencyStopLatency : Time = 0.05 [s];
+        attribute minimumHumanSeparation : Length = 0.75 [m];
+        attribute safeSpeedNearHuman : Speed = 0.3 [m/s];
+
+        port diagnostic : DiagnosticPort;
+    }
+
+    part def CommunicationSubsystem {
+        attribute wirelessLatencyBudget : Time = 0.2 [s];
+        attribute heartbeatPeriod : Time = 1 [s];
+
+        port goalReceiver : NavigationGoalPort;
+        port assignedGoal : NavigationGoalPort;
+    }
+
+    part def RobotController {
+        attribute controlLoopPeriod : Time = 0.02 [s];
+        attribute missionReliabilityTarget : Reliability = 0.995;
+
+        port controlPower : PowerInputPort;
+        port missionGoal : NavigationGoalPort;
+        port navigationGoal : NavigationGoalPort;
+        port manipulationGoal : NavigationGoalPort;
+        port status : StatusPort;
+    }
+
+    action def ExecuteServiceMission {
+        in item missionGoal : NavigationGoal;
+        inout item carriedPayload : Payload;
+        out item missionStatus : MissionStatus;
+
+        first start;
+        then validateGoal;
+        then navigateToPickup;
+        then acquirePayload;
+        then navigateToDelivery;
+        then releasePayload;
+        then reportCompletion;
+        then done;
+
+        action validateGoal {
+            in item goal : NavigationGoal;
+            out valid : Boolean;
+        }
+
+        action navigateToPickup {
+            in item goal : NavigationGoal;
+            out item poseAtPickup : PoseEstimate;
+        }
+
+        action acquirePayload {
+            inout item payload : Payload;
+            out graspConfirmed : Boolean;
+        }
+
+        action navigateToDelivery {
+            in item goal : NavigationGoal;
+            out item poseAtDelivery : PoseEstimate;
+        }
+
+        action releasePayload {
+            inout item payload : Payload;
+            out releaseConfirmed : Boolean;
+        }
+
+        action reportCompletion {
+            out item status : MissionStatus;
+        }
+    }
+
+    action def AvoidObstacle {
+        in item currentPose : PoseEstimate;
+        in item obstacle : ObstacleReport;
+        out item avoidanceCommand : MotionCommand;
+
+        first assessCollisionRisk;
+        then generateLocalDetour;
+        then limitSpeed;
+        then emitCommand;
+
+        action assessCollisionRisk {
+            in item obstacle : ObstacleReport;
+            out collisionRisk : Percent;
+        }
+
+        action generateLocalDetour {
+            out item detourCommand : MotionCommand;
+        }
+
+        action limitSpeed {
+            in item detourCommand : MotionCommand;
+            out item safeCommand : MotionCommand;
+        }
+
+        action emitCommand {
+            in item safeCommand : MotionCommand;
+        }
+    }
+
+    state def RobotOperationalStates {
+        entry action initializeController;
+        exit action storeMissionLog;
+
+        state poweredOff;
+        state initializing;
+        state idle;
+        state acceptingMission;
+        state navigating;
+        state manipulatingPayload;
+        state avoidingObstacle;
+        state charging;
+        state fault;
+        state emergencyStopped;
+        state missionComplete;
+
+        transition first poweredOff;
+        transition poweredOff_to_initializing
+            first poweredOff
+            then initializing
+            accept PowerApplied;
+
+        transition initializing_to_idle
+            first initializing
+            then idle
+            accept SelfTestPassed;
+
+        transition initializing_to_fault
+            first initializing
+            then fault
+            accept SelfTestFailed;
+
+        transition idle_to_acceptingMission
+            first idle
+            then acceptingMission
+            accept MissionReceived;
+
+        transition acceptingMission_to_navigating
+            first acceptingMission
+            then navigating
+            accept MissionValidated;
+
+        transition navigating_to_avoidingObstacle
+            first navigating
+            then avoidingObstacle
+            accept ObstacleWithinSafetyEnvelope;
+
+        transition avoidingObstacle_to_navigating
+            first avoidingObstacle
+            then navigating
+            accept PathClear;
+
+        transition navigating_to_manipulatingPayload
+            first navigating
+            then manipulatingPayload
+            accept ArrivedAtPayloadStation;
+
+        transition manipulatingPayload_to_navigating
+            first manipulatingPayload
+            then navigating
+            accept PayloadSecured;
+
+        transition navigating_to_missionComplete
+            first navigating
+            then missionComplete
+            accept ArrivedAtDeliveryGoal;
+
+        transition missionComplete_to_idle
+            first missionComplete
+            then idle
+            accept CompletionReported;
+
+        transition idle_to_charging
+            first idle
+            then charging
+            accept LowBattery;
+
+        transition charging_to_idle
+            first charging
+            then idle
+            accept BatteryCharged;
+
+        transition navigating_to_emergencyStopped
+            first navigating
+            then emergencyStopped
+            accept EmergencyStopPressed;
+
+        transition avoidingObstacle_to_emergencyStopped
+            first avoidingObstacle
+            then emergencyStopped
+            accept EmergencyStopPressed;
+
+        transition manipulatingPayload_to_emergencyStopped
+            first manipulatingPayload
+            then emergencyStopped
+            accept EmergencyStopPressed;
+
+        transition emergencyStopped_to_fault
+            first emergencyStopped
+            then fault
+            accept FaultLatched;
+
+        transition fault_to_idle
+            first fault
+            then idle
+            accept FaultCleared;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The mobile service robot shall autonomously transport a secured payload from an assigned pickup location to an assigned delivery location while maintaining localization, obstacle avoidance, status reporting, and safe motion control. */
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        attribute requiredAccuracy : Length = 0.10 [m];
+        doc /* The robot shall arrive at each assigned navigation goal within the required positional accuracy under nominal indoor operating conditions. */
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        attribute minimumClearance : Length = 0.35 [m];
+        attribute maximumResponseTime : Time = 0.20 [s];
+        doc /* The robot shall detect obstacles in its planned path and generate an avoidance command within the maximum response time while preserving minimum clearance. */
+    }
+
+    requirement def PayloadHandlingRequirement {
+        attribute payloadLimit : Mass = 12 [kg];
+        attribute placementAccuracy : Length = 0.03 [m];
+        doc /* The robot shall acquire, secure, transport, and release payloads up to the payload limit with the specified placement accuracy. */
+    }
+
+    requirement def SafetyStopRequirement {
+        attribute stopLatency : Time = 0.05 [s];
+        attribute maximumStoppingDistance : Length = 0.80 [m];
+        doc /* The robot shall enter an emergency stopped state within the stop latency and stop within the maximum stopping distance after emergency stop activation. */
+    }
+
+    requirement def RuntimeRequirement {
+        attribute minimumRuntime : Time = 3.5 [h];
+        doc /* The robot shall support autonomous mission execution for at least the minimum runtime before requiring recharge under nominal payload and speed conditions. */
+    }
+
+    satisfy PrimaryFunctionRequirement by MobileServiceRobot;
+    satisfy NavigationAccuracyRequirement by NavigationSubsystem;
+    satisfy ObstacleAvoidanceRequirement by PerceptionSubsystem;
+    satisfy ObstacleAvoidanceRequirement by NavigationSubsystem;
+    satisfy PayloadHandlingRequirement by ManipulationSubsystem;
+    satisfy SafetyStopRequirement by SafetySubsystem;
+    satisfy SafetyStopRequirement by MotionSubsystem;
+    satisfy RuntimeRequirement by PowerSubsystem;
+
+    perform action ExecuteServiceMission by MobileServiceRobot;
+    perform action AvoidObstacle by NavigationSubsystem;
+
+    exhibit state RobotOperationalStates by MobileServiceRobot;
+}

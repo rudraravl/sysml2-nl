@@ -1,0 +1,677 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7vro_ncb
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5c0-2a8e-7c73-9873-ef2c8c7f9431
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a sensing unit that measures the relevant quantity using a Photoelectric sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PhotoelectricSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real;
+    attribute def Count :> Integer;
+    attribute def BooleanValue :> Boolean;
+
+    item def OpticalBeam {
+        attribute wavelength : Length;
+        attribute radiantPower : Power;
+        attribute modulationFrequency : Frequency;
+    }
+
+    item def ReflectedLight {
+        attribute wavelength : Length;
+        attribute irradiance : Irradiance;
+        attribute timeOfFlight : Time;
+    }
+
+    item def ElectricalSignal {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute signalToNoiseRatio : Real;
+    }
+
+    item def DetectionResult {
+        attribute objectPresent : Boolean;
+        attribute measuredDistance : Length;
+        attribute reflectance : Percent;
+        attribute confidence : Percent;
+        attribute timestamp : Time;
+    }
+
+    item def PowerDC {
+        attribute voltage : ElectricPotential;
+        attribute currentLimit : ElectricCurrent;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthy : Boolean;
+        attribute lensContamination : Percent;
+        attribute supplyVoltageOk : Boolean;
+        attribute alignmentOk : Boolean;
+        attribute faultCode : Count;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerDC;
+    }
+
+    port def OpticalEmitterPort {
+        out item beam : OpticalBeam;
+    }
+
+    port def OpticalReceiverPort {
+        in item reflected : ReflectedLight;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : ElectricalSignal;
+    }
+
+    port def DetectionOutputPort {
+        out item result : DetectionResult;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def PhotoelectricEmitter {
+        port powerIn : PowerInputPort;
+        port opticalOut : OpticalEmitterPort;
+
+        attribute nominalWavelength : Length = 660 [SI::nm];
+        attribute emittedPower : Power = 2.5 [SI::mW];
+        attribute modulationFrequency : Frequency = 10 [SI::kHz];
+
+        action emitModulatedLight {
+            in item supply : PowerDC;
+            out item beam : OpticalBeam;
+
+            first start;
+            then validateSupply;
+            then generateCarrier;
+            then driveLed;
+            then produceBeam;
+            then done;
+
+            action validateSupply;
+            action generateCarrier;
+            action driveLed;
+            action produceBeam;
+        }
+    }
+
+    part def PhotoelectricReceiver {
+        port opticalIn : OpticalReceiverPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute detectorResponsivity : Real = 0.42;
+        attribute darkCurrent : ElectricCurrent = 20 [SI::nA];
+        attribute minimumIrradiance : Irradiance = 0.2 [SI::uW_per_m2];
+
+        action convertLightToSignal {
+            in item reflected : ReflectedLight;
+            out item signal : ElectricalSignal;
+
+            first receiveLight;
+            then rejectAmbientLight;
+            then photodiodeConversion;
+            then transimpedanceAmplification;
+            then outputSignal;
+            then done;
+
+            action receiveLight;
+            action rejectAmbientLight;
+            action photodiodeConversion;
+            action transimpedanceAmplification;
+            action outputSignal;
+        }
+    }
+
+    part def SignalProcessor {
+        port analogIn : AnalogSignalPort;
+        port detectionOut : DetectionOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        attribute detectionThreshold : ElectricPotential = 1.2 [SI::V];
+        attribute nearLimit : Length = 0.03 [SI::m];
+        attribute farLimit : Length = 2.0 [SI::m];
+        attribute minimumConfidence : Percent = 85.0;
+        attribute sampleRate : Frequency = 1 [SI::kHz];
+
+        action processPhotoelectricMeasurement {
+            in item signal : ElectricalSignal;
+            out item result : DetectionResult;
+            out item diagnostic : DiagnosticStatus;
+
+            first sampleSignal;
+            then demodulateSignal;
+            then estimateReflectance;
+            then estimateDistance;
+            then compareThreshold;
+            then calculateConfidence;
+            then publishResult;
+            then publishDiagnostics;
+            then done;
+
+            action sampleSignal;
+            action demodulateSignal;
+            action estimateReflectance;
+            action estimateDistance;
+            action compareThreshold;
+            action calculateConfidence;
+            action publishResult;
+            action publishDiagnostics;
+        }
+
+        state def ProcessorStateMachine {
+            state idle;
+            state sampling;
+            state detecting;
+            state objectDetected;
+            state noObjectDetected;
+            state faulted;
+
+            initial then idle;
+
+            transition idle_to_sampling
+                first idle
+                accept StartMeasurement
+                then sampling;
+
+            transition sampling_to_detecting
+                first sampling
+                accept SampleReady
+                then detecting;
+
+            transition detecting_to_object
+                first detecting
+                if signalAboveThreshold
+                then objectDetected;
+
+            transition detecting_to_no_object
+                first detecting
+                if signalBelowThreshold
+                then noObjectDetected;
+
+            transition any_to_fault
+                first idle
+                accept FaultDetected
+                then faulted;
+
+            transition fault_reset
+                first faulted
+                accept ResetCommand
+                then idle;
+        }
+
+        attribute signalAboveThreshold : Boolean;
+        attribute signalBelowThreshold : Boolean;
+    }
+
+    part def HousingAndOptics {
+        attribute ingressProtectionCode : String = "IP67";
+        attribute lensMaterial : String = "polycarbonate";
+        attribute opticalAxisTolerance : Angle = 2 [SI::deg];
+        attribute operatingTemperatureMin : Temperature = -25 [SI::degC];
+        attribute operatingTemperatureMax : Temperature = 55 [SI::degC];
+    }
+
+    part def PhotoelectricSensingUnit {
+        port powerIn : PowerInputPort;
+        port detectionOut : DetectionOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        part emitter : PhotoelectricEmitter;
+        part receiver : PhotoelectricReceiver;
+        part processor : SignalProcessor;
+        part housing : HousingAndOptics;
+
+        attribute measuredQuantity : String = "object presence and target distance inferred from reflected light intensity";
+        attribute nominalSupplyVoltage : ElectricPotential = 24 [SI::V];
+        attribute maximumSupplyCurrent : ElectricCurrent = 80 [SI::mA];
+        attribute responseTime : Time = 5 [SI::ms];
+        attribute repeatability : Length = 2 [SI::mm];
+
+        connect powerIn.power to emitter.powerIn.power;
+        connect emitter.opticalOut.beam to environmentIncidentBeam;
+        connect environmentReflectedLight to receiver.opticalIn.reflected;
+        connect receiver.analogOut.signal to processor.analogIn.signal;
+        connect processor.detectionOut.result to detectionOut.result;
+        connect processor.diagnosticOut.status to diagnosticOut.status;
+
+        item environmentIncidentBeam : OpticalBeam;
+        item environmentReflectedLight : ReflectedLight;
+
+        action performMeasurementCycle {
+            in item supply : PowerDC;
+            out item result : DetectionResult;
+            out item status : DiagnosticStatus;
+
+            first energizeUnit;
+            then emitLight;
+            then receiveReflection;
+            then convertSignal;
+            then computeDetection;
+            then updateOutputs;
+            then done;
+
+            action energizeUnit;
+            action emitLight :> emitter.emitModulatedLight;
+            action receiveReflection;
+            action convertSignal :> receiver.convertLightToSignal;
+            action computeDetection :> processor.processPhotoelectricMeasurement;
+            action updateOutputs;
+        }
+    }
+
+    requirement def MeasureUsingPhotoelectricSensorRequirement {
+        subject unit : PhotoelectricSensingUnit;
+
+        doc
+        /*
+         The sensing unit shall measure object presence and target distance by emitting modulated light from a photoelectric emitter, receiving reflected light with a photoelectric receiver, and processing the resulting electrical signal into a detection result.
+         */
+
+        require constraint {
+            unit.responseTime <= 5 [SI::ms]
+        }
+
+        require constraint {
+            unit.repeatability <= 2 [SI::mm]
+        }
+
+        require constraint {
+            unit.processor.minimumConfidence >= 85.0
+        }
+
+        require constraint {
+            unit.processor.nearLimit <= 0.03 [SI::m]
+        }
+
+        require constraint {
+            unit.processor.farLimit >= 2.0 [SI::m]
+        }
+    }
+
+    requirement def SupplyCompatibilityRequirement {
+        subject unit : PhotoelectricSensingUnit;
+
+        doc
+        /*
+         The sensing unit shall operate from a 24 V DC industrial supply while limiting current draw to no more than 80 mA.
+         */
+
+        require constraint {
+            unit.nominalSupplyVoltage == 24 [SI::V]
+        }
+
+        require constraint {
+            unit.maximumSupplyCurrent <= 80 [SI::mA]
+        }
+    }
+
+    requirement def DiagnosticCoverageRequirement {
+        subject unit : PhotoelectricSensingUnit;
+
+        doc
+        /*
+         The sensing unit shall provide diagnostic status for sensor health, lens contamination, supply voltage validity, optical alignment, and fault code reporting.
+         */
+
+        require constraint {
+            unit.processor.diagnosticOut.status.sensorHealthy implies unit.processor.diagnosticOut.status.supplyVoltageOk
+        }
+    }
+
+    satisfy MeasureUsingPhotoelectricSensorRequirement by PhotoelectricSensingUnit;
+    satisfy SupplyCompatibilityRequirement by PhotoelectricSensingUnit;
+    satisfy DiagnosticCoverageRequirement by PhotoelectricSensingUnit;
+
+    part photoelectricSensingUnit : PhotoelectricSensingUnit;
+
+}
+tokens used
+10,093
+package PhotoelectricSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real;
+    attribute def Count :> Integer;
+    attribute def BooleanValue :> Boolean;
+
+    item def OpticalBeam {
+        attribute wavelength : Length;
+        attribute radiantPower : Power;
+        attribute modulationFrequency : Frequency;
+    }
+
+    item def ReflectedLight {
+        attribute wavelength : Length;
+        attribute irradiance : Irradiance;
+        attribute timeOfFlight : Time;
+    }
+
+    item def ElectricalSignal {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute signalToNoiseRatio : Real;
+    }
+
+    item def DetectionResult {
+        attribute objectPresent : Boolean;
+        attribute measuredDistance : Length;
+        attribute reflectance : Percent;
+        attribute confidence : Percent;
+        attribute timestamp : Time;
+    }
+
+    item def PowerDC {
+        attribute voltage : ElectricPotential;
+        attribute currentLimit : ElectricCurrent;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthy : Boolean;
+        attribute lensContamination : Percent;
+        attribute supplyVoltageOk : Boolean;
+        attribute alignmentOk : Boolean;
+        attribute faultCode : Count;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerDC;
+    }
+
+    port def OpticalEmitterPort {
+        out item beam : OpticalBeam;
+    }
+
+    port def OpticalReceiverPort {
+        in item reflected : ReflectedLight;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : ElectricalSignal;
+    }
+
+    port def DetectionOutputPort {
+        out item result : DetectionResult;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def PhotoelectricEmitter {
+        port powerIn : PowerInputPort;
+        port opticalOut : OpticalEmitterPort;
+
+        attribute nominalWavelength : Length = 660 [SI::nm];
+        attribute emittedPower : Power = 2.5 [SI::mW];
+        attribute modulationFrequency : Frequency = 10 [SI::kHz];
+
+        action emitModulatedLight {
+            in item supply : PowerDC;
+            out item beam : OpticalBeam;
+
+            first start;
+            then validateSupply;
+            then generateCarrier;
+            then driveLed;
+            then produceBeam;
+            then done;
+
+            action validateSupply;
+            action generateCarrier;
+            action driveLed;
+            action produceBeam;
+        }
+    }
+
+    part def PhotoelectricReceiver {
+        port opticalIn : OpticalReceiverPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute detectorResponsivity : Real = 0.42;
+        attribute darkCurrent : ElectricCurrent = 20 [SI::nA];
+        attribute minimumIrradiance : Irradiance = 0.2 [SI::uW_per_m2];
+
+        action convertLightToSignal {
+            in item reflected : ReflectedLight;
+            out item signal : ElectricalSignal;
+
+            first receiveLight;
+            then rejectAmbientLight;
+            then photodiodeConversion;
+            then transimpedanceAmplification;
+            then outputSignal;
+            then done;
+
+            action receiveLight;
+            action rejectAmbientLight;
+            action photodiodeConversion;
+            action transimpedanceAmplification;
+            action outputSignal;
+        }
+    }
+
+    part def SignalProcessor {
+        port analogIn : AnalogSignalPort;
+        port detectionOut : DetectionOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        attribute detectionThreshold : ElectricPotential = 1.2 [SI::V];
+        attribute nearLimit : Length = 0.03 [SI::m];
+        attribute farLimit : Length = 2.0 [SI::m];
+        attribute minimumConfidence : Percent = 85.0;
+        attribute sampleRate : Frequency = 1 [SI::kHz];
+
+        action processPhotoelectricMeasurement {
+            in item signal : ElectricalSignal;
+            out item result : DetectionResult;
+            out item diagnostic : DiagnosticStatus;
+
+            first sampleSignal;
+            then demodulateSignal;
+            then estimateReflectance;
+            then estimateDistance;
+            then compareThreshold;
+            then calculateConfidence;
+            then publishResult;
+            then publishDiagnostics;
+            then done;
+
+            action sampleSignal;
+            action demodulateSignal;
+            action estimateReflectance;
+            action estimateDistance;
+            action compareThreshold;
+            action calculateConfidence;
+            action publishResult;
+            action publishDiagnostics;
+        }
+
+        state def ProcessorStateMachine {
+            state idle;
+            state sampling;
+            state detecting;
+            state objectDetected;
+            state noObjectDetected;
+            state faulted;
+
+            initial then idle;
+
+            transition idle_to_sampling
+                first idle
+                accept StartMeasurement
+                then sampling;
+
+            transition sampling_to_detecting
+                first sampling
+                accept SampleReady
+                then detecting;
+
+            transition detecting_to_object
+                first detecting
+                if signalAboveThreshold
+                then objectDetected;
+
+            transition detecting_to_no_object
+                first detecting
+                if signalBelowThreshold
+                then noObjectDetected;
+
+            transition any_to_fault
+                first idle
+                accept FaultDetected
+                then faulted;
+
+            transition fault_reset
+                first faulted
+                accept ResetCommand
+                then idle;
+        }
+
+        attribute signalAboveThreshold : Boolean;
+        attribute signalBelowThreshold : Boolean;
+    }
+
+    part def HousingAndOptics {
+        attribute ingressProtectionCode : String = "IP67";
+        attribute lensMaterial : String = "polycarbonate";
+        attribute opticalAxisTolerance : Angle = 2 [SI::deg];
+        attribute operatingTemperatureMin : Temperature = -25 [SI::degC];
+        attribute operatingTemperatureMax : Temperature = 55 [SI::degC];
+    }
+
+    part def PhotoelectricSensingUnit {
+        port powerIn : PowerInputPort;
+        port detectionOut : DetectionOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        part emitter : PhotoelectricEmitter;
+        part receiver : PhotoelectricReceiver;
+        part processor : SignalProcessor;
+        part housing : HousingAndOptics;
+
+        attribute measuredQuantity : String = "object presence and target distance inferred from reflected light intensity";
+        attribute nominalSupplyVoltage : ElectricPotential = 24 [SI::V];
+        attribute maximumSupplyCurrent : ElectricCurrent = 80 [SI::mA];
+        attribute responseTime : Time = 5 [SI::ms];
+        attribute repeatability : Length = 2 [SI::mm];
+
+        connect powerIn.power to emitter.powerIn.power;
+        connect emitter.opticalOut.beam to environmentIncidentBeam;
+        connect environmentReflectedLight to receiver.opticalIn.reflected;
+        connect receiver.analogOut.signal to processor.analogIn.signal;
+        connect processor.detectionOut.result to detectionOut.result;
+        connect processor.diagnosticOut.status to diagnosticOut.status;
+
+        item environmentIncidentBeam : OpticalBeam;
+        item environmentReflectedLight : ReflectedLight;
+
+        action performMeasurementCycle {
+            in item supply : PowerDC;
+            out item result : DetectionResult;
+            out item status : DiagnosticStatus;
+
+            first energizeUnit;
+            then emitLight;
+            then receiveReflection;
+            then convertSignal;
+            then computeDetection;
+            then updateOutputs;
+            then done;
+
+            action energizeUnit;
+            action emitLight :> emitter.emitModulatedLight;
+            action receiveReflection;
+            action convertSignal :> receiver.convertLightToSignal;
+            action computeDetection :> processor.processPhotoelectricMeasurement;
+            action updateOutputs;
+        }
+    }
+
+    requirement def MeasureUsingPhotoelectricSensorRequirement {
+        subject unit : PhotoelectricSensingUnit;
+
+        doc
+        /*
+         The sensing unit shall measure object presence and target distance by emitting modulated light from a photoelectric emitter, receiving reflected light with a photoelectric receiver, and processing the resulting electrical signal into a detection result.
+         */
+
+        require constraint {
+            unit.responseTime <= 5 [SI::ms]
+        }
+
+        require constraint {
+            unit.repeatability <= 2 [SI::mm]
+        }
+
+        require constraint {
+            unit.processor.minimumConfidence >= 85.0
+        }
+
+        require constraint {
+            unit.processor.nearLimit <= 0.03 [SI::m]
+        }
+
+        require constraint {
+            unit.processor.farLimit >= 2.0 [SI::m]
+        }
+    }
+
+    requirement def SupplyCompatibilityRequirement {
+        subject unit : PhotoelectricSensingUnit;
+
+        doc
+        /*
+         The sensing unit shall operate from a 24 V DC industrial supply while limiting current draw to no more than 80 mA.
+         */
+
+        require constraint {
+            unit.nominalSupplyVoltage == 24 [SI::V]
+        }
+
+        require constraint {
+            unit.maximumSupplyCurrent <= 80 [SI::mA]
+        }
+    }
+
+    requirement def DiagnosticCoverageRequirement {
+        subject unit : PhotoelectricSensingUnit;
+
+        doc
+        /*
+         The sensing unit shall provide diagnostic status for sensor health, lens contamination, supply voltage validity, optical alignment, and fault code reporting.
+         */
+
+        require constraint {
+            unit.processor.diagnosticOut.status.sensorHealthy implies unit.processor.diagnosticOut.status.supplyVoltageOk
+        }
+    }
+
+    satisfy MeasureUsingPhotoelectricSensorRequirement by PhotoelectricSensingUnit;
+    satisfy SupplyCompatibilityRequirement by PhotoelectricSensingUnit;
+    satisfy DiagnosticCoverageRequirement by PhotoelectricSensingUnit;
+
+    part photoelectricSensingUnit : PhotoelectricSensingUnit;
+
+}

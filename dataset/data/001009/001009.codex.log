@@ -1,0 +1,1129 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-43mq56gf
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb51b-5cf8-77e3-97ec-1ab135e96802
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Charge-coupled device and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ChargeCoupledDeviceSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricCharge {
+        attribute value : Real;
+        attribute unit : String = "C";
+    }
+
+    attribute def Voltage {
+        attribute value : Real;
+        attribute unit : String = "V";
+    }
+
+    attribute def Current {
+        attribute value : Real;
+        attribute unit : String = "A";
+    }
+
+    attribute def TimeDuration {
+        attribute value : Real;
+        attribute unit : String = "s";
+    }
+
+    attribute def Temperature {
+        attribute value : Real;
+        attribute unit : String = "K";
+    }
+
+    attribute def OpticalPower {
+        attribute value : Real;
+        attribute unit : String = "W";
+    }
+
+    attribute def Wavelength {
+        attribute value : Real;
+        attribute unit : String = "nm";
+    }
+
+    attribute def PixelCount {
+        attribute value : Integer;
+        attribute unit : String = "pixel";
+    }
+
+    attribute def FrameRate {
+        attribute value : Real;
+        attribute unit : String = "frame/s";
+    }
+
+    attribute def DigitalNumber {
+        attribute value : Integer;
+        attribute unit : String = "DN";
+    }
+
+    item def PhotonFlux {
+        attribute opticalPower : OpticalPower;
+        attribute centerWavelength : Wavelength;
+        attribute exposureDuration : TimeDuration;
+    }
+
+    item def PhotoelectronPacket {
+        attribute charge : ElectricCharge;
+        attribute electronCount : Integer;
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+    }
+
+    item def AnalogPixelSignal {
+        attribute voltage : Voltage;
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def DigitalPixelSample {
+        attribute value : DigitalNumber;
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+        attribute bitDepth : Integer;
+    }
+
+    item def ImageFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute frameNumber : Integer;
+        attribute integrationTime : TimeDuration;
+        item pixels : DigitalPixelSample[0..*];
+    }
+
+    item def ClockPhase {
+        attribute phaseName : String;
+        attribute highVoltage : Voltage;
+        attribute lowVoltage : Voltage;
+        attribute period : TimeDuration;
+    }
+
+    port def OpticalInputPort {
+        in item incidentPhotons : PhotonFlux;
+    }
+
+    port def DigitalImageOutputPort {
+        out item frame : ImageFrame;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def ControlInputPort {
+        in attribute exposureCommand : Boolean;
+        in attribute resetCommand : Boolean;
+        in attribute requestedIntegrationTime : TimeDuration;
+        in attribute requestedFrameRate : FrameRate;
+    }
+
+    port def ClockDrivePort {
+        out item verticalPhase1 : ClockPhase;
+        out item verticalPhase2 : ClockPhase;
+        out item horizontalPhase1 : ClockPhase;
+        out item horizontalPhase2 : ClockPhase;
+        out item resetGatePhase : ClockPhase;
+    }
+
+    port def ThermalPort {
+        out attribute dissipatedHeat : OpticalPower;
+        in attribute ambientTemperature : Temperature;
+    }
+
+    action def IntegratePhotons {
+        in item incidentPhotons : PhotonFlux;
+        in attribute quantumEfficiency : Real;
+        in attribute darkCurrent : Current;
+        in attribute integrationTime : TimeDuration;
+        out item accumulatedCharge : PhotoelectronPacket;
+
+        objective {
+            doc /* Convert incident photons in each photosensitive pixel into stored photoelectron charge during the commanded exposure interval. */
+        }
+    }
+
+    action def TransferCharge {
+        in item sourcePacket : PhotoelectronPacket;
+        in item verticalClock1 : ClockPhase;
+        in item verticalClock2 : ClockPhase;
+        in item horizontalClock1 : ClockPhase;
+        in item horizontalClock2 : ClockPhase;
+        out item shiftedPacket : PhotoelectronPacket;
+
+        objective {
+            doc /* Move discrete charge packets through potential wells from the imaging array to the serial register and output node while preserving spatial order. */
+        }
+    }
+
+    action def SenseCharge {
+        in item chargePacket : PhotoelectronPacket;
+        in attribute conversionGain : Real;
+        out item analogSignal : AnalogPixelSignal;
+
+        objective {
+            doc /* Convert transferred charge into an analog voltage proportional to collected photoelectrons. */
+        }
+    }
+
+    action def DigitizeSignal {
+        in item analogSignal : AnalogPixelSignal;
+        in attribute referenceVoltage : Voltage;
+        in attribute bitDepth : Integer;
+        out item digitalSample : DigitalPixelSample;
+
+        objective {
+            doc /* Quantize analog pixel voltage into a digital numeric sample for image formation. */
+        }
+    }
+
+    action def AssembleImageFrame {
+        in item samples : DigitalPixelSample[0..*];
+        in attribute width : PixelCount;
+        in attribute height : PixelCount;
+        out item frame : ImageFrame;
+
+        objective {
+            doc /* Arrange digitized pixel samples into a complete two-dimensional image frame. */
+        }
+    }
+
+    state def CCDOperatingState {
+        state idle;
+        state reset;
+        state integrating;
+        state verticalTransfer;
+        state serialReadout;
+        state digitizing;
+        state frameAvailable;
+        state fault;
+
+        initial then idle;
+
+        transition idle_to_reset
+            first idle
+            accept resetCommand
+            then reset;
+
+        transition reset_to_integrating
+            first reset
+            accept exposureCommand
+            then integrating;
+
+        transition integrating_to_verticalTransfer
+            first integrating
+            after integrationComplete
+            then verticalTransfer;
+
+        transition verticalTransfer_to_serialReadout
+            first verticalTransfer
+            after imageAreaShiftComplete
+            then serialReadout;
+
+        transition serialReadout_to_digitizing
+            first serialReadout
+            after outputNodeSamplesAvailable
+            then digitizing;
+
+        transition digitizing_to_frameAvailable
+            first digitizing
+            after allPixelsDigitized
+            then frameAvailable;
+
+        transition frameAvailable_to_idle
+            first frameAvailable
+            after frameDelivered
+            then idle;
+
+        transition any_to_fault
+            first idle
+            accept overTemperature
+            then fault;
+
+        transition fault_to_idle
+            first fault
+            accept resetCommand
+            then idle;
+    }
+
+    part def MicrolensArray {
+        attribute transmission : Real = 0.92;
+        attribute lensCount : PixelCount;
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+    }
+
+    part def ColorFilterArray {
+        attribute pattern : String = "Bayer RGGB";
+        attribute averageTransmission : Real = 0.55;
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+    }
+
+    part def PhotodiodePixel {
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+        attribute fullWellCapacity : ElectricCharge;
+        attribute quantumEfficiency : Real;
+        attribute darkCurrent : Current;
+        attribute saturationVoltage : Voltage;
+        port opticalIn : OpticalInputPort;
+        out item collectedCharge : PhotoelectronPacket;
+
+        perform action integrate : IntegratePhotons {
+            in incidentPhotons = opticalIn.incidentPhotons;
+            in quantumEfficiency = quantumEfficiency;
+            in darkCurrent = darkCurrent;
+            out accumulatedCharge = collectedCharge;
+        }
+    }
+
+    part def ImagingArray {
+        attribute rowCount : PixelCount;
+        attribute columnCount : PixelCount;
+        attribute pixelPitch : Real;
+        attribute activeAreaWidth : Real;
+        attribute activeAreaHeight : Real;
+
+        port opticalIn : OpticalInputPort;
+        part pixels : PhotodiodePixel[1..*];
+
+        out item parallelChargePackets : PhotoelectronPacket[0..*];
+    }
+
+    part def VerticalShiftRegister {
+        attribute transferEfficiency : Real = 0.999995;
+        attribute phaseCount : Integer = 2;
+
+        in item arrayChargePackets : PhotoelectronPacket[0..*];
+        in item verticalClock1 : ClockPhase;
+        in item verticalClock2 : ClockPhase;
+        out item serialRegisterPackets : PhotoelectronPacket[0..*];
+
+        perform action verticalChargeTransfer : TransferCharge {
+            in verticalClock1 = verticalClock1;
+            in verticalClock2 = verticalClock2;
+        }
+    }
+
+    part def HorizontalSerialRegister {
+        attribute transferEfficiency : Real = 0.999998;
+        attribute outputRate : Real;
+        attribute unit : String = "pixel/s";
+
+        in item serialRegisterPackets : PhotoelectronPacket[0..*];
+        in item horizontalClock1 : ClockPhase;
+        in item horizontalClock2 : ClockPhase;
+        out item outputChargePacket : PhotoelectronPacket;
+
+        perform action horizontalChargeTransfer : TransferCharge {
+            in horizontalClock1 = horizontalClock1;
+            in horizontalClock2 = horizontalClock2;
+        }
+    }
+
+    part def FloatingDiffusionOutputNode {
+        attribute capacitance : Real;
+        attribute capacitanceUnit : String = "F";
+        attribute conversionGain : Real;
+        attribute conversionGainUnit : String = "V/e-";
+        attribute resetNoise : Voltage;
+
+        in item inputChargePacket : PhotoelectronPacket;
+        out item analogPixelSignal : AnalogPixelSignal;
+
+        perform action chargeSensing : SenseCharge {
+            in chargePacket = inputChargePacket;
+            in conversionGain = conversionGain;
+            out analogSignal = analogPixelSignal;
+        }
+    }
+
+    part def CorrelatedDoubleSampler {
+        attribute sampleHoldNoise : Voltage;
+        attribute pedestalSuppression : Real;
+
+        in item rawAnalogPixelSignal : AnalogPixelSignal;
+        out item correctedAnalogPixelSignal : AnalogPixelSignal;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute bitDepth : Integer = 14;
+        attribute referenceVoltage : Voltage;
+        attribute maximumSampleRate : Real;
+        attribute sampleRateUnit : String = "sample/s";
+
+        in item analogPixelSignal : AnalogPixelSignal;
+        out item digitalPixelSample : DigitalPixelSample;
+
+        perform action digitize : DigitizeSignal {
+            in analogSignal = analogPixelSignal;
+            in referenceVoltage = referenceVoltage;
+            in bitDepth = bitDepth;
+            out digitalSample = digitalPixelSample;
+        }
+    }
+
+    part def TimingAndClockController {
+        attribute integrationTime : TimeDuration;
+        attribute frameRate : FrameRate;
+        attribute verticalClockHigh : Voltage;
+        attribute verticalClockLow : Voltage;
+        attribute horizontalClockHigh : Voltage;
+        attribute horizontalClockLow : Voltage;
+
+        port controlIn : ControlInputPort;
+        port clockOut : ClockDrivePort;
+
+        exhibit state operatingState : CCDOperatingState;
+    }
+
+    part def BiasAndPowerConditioner {
+        attribute inputVoltage : Voltage;
+        attribute analogBiasVoltage : Voltage;
+        attribute clockDriverVoltage : Voltage;
+        attribute digitalCoreVoltage : Voltage;
+        attribute efficiency : Real;
+
+        port powerIn : PowerInputPort;
+        port thermalOut : ThermalPort;
+    }
+
+    part def ThermalControl {
+        attribute operatingTemperatureSetpoint : Temperature;
+        attribute maximumAllowedTemperature : Temperature;
+        attribute temperatureStability : Temperature;
+
+        port thermalInterface : ThermalPort;
+        out attribute overTemperature : Boolean;
+    }
+
+    part def ImageFrameFormatter {
+        attribute outputWidth : PixelCount;
+        attribute outputHeight : PixelCount;
+        attribute bitDepth : Integer;
+
+        in item digitalSamples : DigitalPixelSample[0..*];
+        port imageOut : DigitalImageOutputPort;
+
+        perform action assembleFrame : AssembleImageFrame {
+            in samples = digitalSamples;
+            in width = outputWidth;
+            in height = outputHeight;
+            out frame = imageOut.frame;
+        }
+    }
+
+    part def ChargeCoupledDeviceCamera {
+        attribute primaryFunction : String = "Convert an optical image into an ordered digital image frame by accumulating photo-generated charge in an array of pixels, transferring that charge through coupled potential wells, sensing it as analog voltage, and digitizing the result.";
+        attribute nominalWidth : PixelCount = 4096;
+        attribute nominalHeight : PixelCount = 3072;
+        attribute nominalFrameRate : FrameRate;
+        attribute nominalIntegrationTime : TimeDuration;
+        attribute operatingTemperature : Temperature;
+
+        port opticalInput : OpticalInputPort;
+        port controlInput : ControlInputPort;
+        port powerInput : PowerInputPort;
+        port digitalImageOutput : DigitalImageOutputPort;
+        port thermalPort : ThermalPort;
+
+        part microlenses : MicrolensArray {
+            attribute lensCount = 12582912;
+        }
+
+        part filters : ColorFilterArray;
+
+        part imagingArray : ImagingArray {
+            attribute rowCount = 3072;
+            attribute columnCount = 4096;
+            attribute pixelPitch = 4.5;
+            attribute activeAreaWidth = 18.432;
+            attribute activeAreaHeight = 13.824;
+        }
+
+        part verticalRegister : VerticalShiftRegister;
+        part serialRegister : HorizontalSerialRegister;
+        part outputNode : FloatingDiffusionOutputNode {
+            attribute capacitance = 0.00000000000002;
+            attribute conversionGain = 0.000006;
+        }
+
+        part sampler : CorrelatedDoubleSampler;
+        part adc : AnalogToDigitalConverter {
+            attribute bitDepth = 14;
+        }
+
+        part controller : TimingAndClockController;
+        part powerConditioner : BiasAndPowerConditioner;
+        part thermalControl : ThermalControl;
+
+        part frameFormatter : ImageFrameFormatter {
+            attribute outputWidth = 4096;
+            attribute outputHeight = 3072;
+            attribute bitDepth = 14;
+        }
+
+        connect opticalInput to microlenses.opticalIn;
+        connect microlenses.opticalOut to filters.opticalIn;
+        connect filters.opticalOut to imagingArray.opticalIn;
+
+        connect controlInput to controller.controlIn;
+        connect powerInput to powerConditioner.powerIn;
+        connect powerConditioner.thermalOut to thermalControl.thermalInterface;
+        connect thermalControl.thermalInterface to thermalPort;
+
+        connect controller.clockOut.verticalPhase1 to verticalRegister.verticalClock1;
+        connect controller.clockOut.verticalPhase2 to verticalRegister.verticalClock2;
+        connect controller.clockOut.horizontalPhase1 to serialRegister.horizontalClock1;
+        connect controller.clockOut.horizontalPhase2 to serialRegister.horizontalClock2;
+
+        connect imagingArray.parallelChargePackets to verticalRegister.arrayChargePackets;
+        connect verticalRegister.serialRegisterPackets to serialRegister.serialRegisterPackets;
+        connect serialRegister.outputChargePacket to outputNode.inputChargePacket;
+        connect outputNode.analogPixelSignal to sampler.rawAnalogPixelSignal;
+        connect sampler.correctedAnalogPixelSignal to adc.analogPixelSignal;
+        connect adc.digitalPixelSample to frameFormatter.digitalSamples;
+        connect frameFormatter.imageOut to digitalImageOutput;
+    }
+
+    requirement def CCDPrimaryFunctionRequirement {
+        subject ccd : ChargeCoupledDeviceCamera;
+
+        require constraint {
+            ccd.primaryFunction == "Convert an optical image into an ordered digital image frame by accumulating photo-generated charge in an array of pixels, transferring that charge through coupled potential wells, sensing it as analog voltage, and digitizing the result."
+        }
+
+        doc /* The charge-coupled device system shall perform high-level image acquisition by converting incident optical energy into spatially ordered digital pixel values. */
+    }
+
+    requirement def PhotonToChargeRequirement {
+        subject pixel : PhotodiodePixel;
+
+        require constraint {
+            pixel.quantumEfficiency >= 0.35 and pixel.fullWellCapacity.value >= 0.000000000008
+        }
+
+        doc /* Each active pixel shall accumulate photoelectron charge proportional to incident photon flux during the exposure interval. */
+    }
+
+    requirement def ChargeTransferRequirement {
+        subject register : VerticalShiftRegister;
+
+        require constraint {
+            register.transferEfficiency >= 0.99999
+        }
+
+        doc /* The charge transfer structure shall move accumulated charge packets with sufficiently high efficiency to preserve image information. */
+    }
+
+    requirement def DigitizationRequirement {
+        subject converter : AnalogToDigitalConverter;
+
+        require constraint {
+            converter.bitDepth >= 12
+        }
+
+        doc /* The analog-to-digital converter shall digitize sensed pixel voltages with enough resolution for scientific or imaging use. */
+    }
+
+    requirement def ThermalOperatingRequirement {
+        subject thermalControl : ThermalControl;
+
+        require constraint {
+            thermalControl.maximumAllowedTemperature.value <= 313.15
+        }
+
+        doc /* The CCD system shall monitor and control thermal conditions to limit dark current and protect device operation. */
+    }
+
+    requirement def FrameFormationRequirement {
+        subject formatter : ImageFrameFormatter;
+
+        require constraint {
+            formatter.outputWidth.value == 4096 and formatter.outputHeight.value == 3072 and formatter.bitDepth == 14
+        }
+
+        doc /* The system shall assemble digitized samples into a complete ordered image frame matching the sensor geometry. */
+    }
+
+    satisfy CCDPrimaryFunctionRequirement by ChargeCoupledDeviceCamera;
+    satisfy PhotonToChargeRequirement by PhotodiodePixel;
+    satisfy ChargeTransferRequirement by VerticalShiftRegister;
+    satisfy DigitizationRequirement by AnalogToDigitalConverter;
+    satisfy ThermalOperatingRequirement by ThermalControl;
+    satisfy FrameFormationRequirement by ImageFrameFormatter;
+
+}
+tokens used
+4,026
+package ChargeCoupledDeviceSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricCharge {
+        attribute value : Real;
+        attribute unit : String = "C";
+    }
+
+    attribute def Voltage {
+        attribute value : Real;
+        attribute unit : String = "V";
+    }
+
+    attribute def Current {
+        attribute value : Real;
+        attribute unit : String = "A";
+    }
+
+    attribute def TimeDuration {
+        attribute value : Real;
+        attribute unit : String = "s";
+    }
+
+    attribute def Temperature {
+        attribute value : Real;
+        attribute unit : String = "K";
+    }
+
+    attribute def OpticalPower {
+        attribute value : Real;
+        attribute unit : String = "W";
+    }
+
+    attribute def Wavelength {
+        attribute value : Real;
+        attribute unit : String = "nm";
+    }
+
+    attribute def PixelCount {
+        attribute value : Integer;
+        attribute unit : String = "pixel";
+    }
+
+    attribute def FrameRate {
+        attribute value : Real;
+        attribute unit : String = "frame/s";
+    }
+
+    attribute def DigitalNumber {
+        attribute value : Integer;
+        attribute unit : String = "DN";
+    }
+
+    item def PhotonFlux {
+        attribute opticalPower : OpticalPower;
+        attribute centerWavelength : Wavelength;
+        attribute exposureDuration : TimeDuration;
+    }
+
+    item def PhotoelectronPacket {
+        attribute charge : ElectricCharge;
+        attribute electronCount : Integer;
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+    }
+
+    item def AnalogPixelSignal {
+        attribute voltage : Voltage;
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def DigitalPixelSample {
+        attribute value : DigitalNumber;
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+        attribute bitDepth : Integer;
+    }
+
+    item def ImageFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute frameNumber : Integer;
+        attribute integrationTime : TimeDuration;
+        item pixels : DigitalPixelSample[0..*];
+    }
+
+    item def ClockPhase {
+        attribute phaseName : String;
+        attribute highVoltage : Voltage;
+        attribute lowVoltage : Voltage;
+        attribute period : TimeDuration;
+    }
+
+    port def OpticalInputPort {
+        in item incidentPhotons : PhotonFlux;
+    }
+
+    port def DigitalImageOutputPort {
+        out item frame : ImageFrame;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def ControlInputPort {
+        in attribute exposureCommand : Boolean;
+        in attribute resetCommand : Boolean;
+        in attribute requestedIntegrationTime : TimeDuration;
+        in attribute requestedFrameRate : FrameRate;
+    }
+
+    port def ClockDrivePort {
+        out item verticalPhase1 : ClockPhase;
+        out item verticalPhase2 : ClockPhase;
+        out item horizontalPhase1 : ClockPhase;
+        out item horizontalPhase2 : ClockPhase;
+        out item resetGatePhase : ClockPhase;
+    }
+
+    port def ThermalPort {
+        out attribute dissipatedHeat : OpticalPower;
+        in attribute ambientTemperature : Temperature;
+    }
+
+    action def IntegratePhotons {
+        in item incidentPhotons : PhotonFlux;
+        in attribute quantumEfficiency : Real;
+        in attribute darkCurrent : Current;
+        in attribute integrationTime : TimeDuration;
+        out item accumulatedCharge : PhotoelectronPacket;
+
+        objective {
+            doc /* Convert incident photons in each photosensitive pixel into stored photoelectron charge during the commanded exposure interval. */
+        }
+    }
+
+    action def TransferCharge {
+        in item sourcePacket : PhotoelectronPacket;
+        in item verticalClock1 : ClockPhase;
+        in item verticalClock2 : ClockPhase;
+        in item horizontalClock1 : ClockPhase;
+        in item horizontalClock2 : ClockPhase;
+        out item shiftedPacket : PhotoelectronPacket;
+
+        objective {
+            doc /* Move discrete charge packets through potential wells from the imaging array to the serial register and output node while preserving spatial order. */
+        }
+    }
+
+    action def SenseCharge {
+        in item chargePacket : PhotoelectronPacket;
+        in attribute conversionGain : Real;
+        out item analogSignal : AnalogPixelSignal;
+
+        objective {
+            doc /* Convert transferred charge into an analog voltage proportional to collected photoelectrons. */
+        }
+    }
+
+    action def DigitizeSignal {
+        in item analogSignal : AnalogPixelSignal;
+        in attribute referenceVoltage : Voltage;
+        in attribute bitDepth : Integer;
+        out item digitalSample : DigitalPixelSample;
+
+        objective {
+            doc /* Quantize analog pixel voltage into a digital numeric sample for image formation. */
+        }
+    }
+
+    action def AssembleImageFrame {
+        in item samples : DigitalPixelSample[0..*];
+        in attribute width : PixelCount;
+        in attribute height : PixelCount;
+        out item frame : ImageFrame;
+
+        objective {
+            doc /* Arrange digitized pixel samples into a complete two-dimensional image frame. */
+        }
+    }
+
+    state def CCDOperatingState {
+        state idle;
+        state reset;
+        state integrating;
+        state verticalTransfer;
+        state serialReadout;
+        state digitizing;
+        state frameAvailable;
+        state fault;
+
+        initial then idle;
+
+        transition idle_to_reset
+            first idle
+            accept resetCommand
+            then reset;
+
+        transition reset_to_integrating
+            first reset
+            accept exposureCommand
+            then integrating;
+
+        transition integrating_to_verticalTransfer
+            first integrating
+            after integrationComplete
+            then verticalTransfer;
+
+        transition verticalTransfer_to_serialReadout
+            first verticalTransfer
+            after imageAreaShiftComplete
+            then serialReadout;
+
+        transition serialReadout_to_digitizing
+            first serialReadout
+            after outputNodeSamplesAvailable
+            then digitizing;
+
+        transition digitizing_to_frameAvailable
+            first digitizing
+            after allPixelsDigitized
+            then frameAvailable;
+
+        transition frameAvailable_to_idle
+            first frameAvailable
+            after frameDelivered
+            then idle;
+
+        transition any_to_fault
+            first idle
+            accept overTemperature
+            then fault;
+
+        transition fault_to_idle
+            first fault
+            accept resetCommand
+            then idle;
+    }
+
+    part def MicrolensArray {
+        attribute transmission : Real = 0.92;
+        attribute lensCount : PixelCount;
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+    }
+
+    part def ColorFilterArray {
+        attribute pattern : String = "Bayer RGGB";
+        attribute averageTransmission : Real = 0.55;
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+    }
+
+    part def PhotodiodePixel {
+        attribute rowIndex : Integer;
+        attribute columnIndex : Integer;
+        attribute fullWellCapacity : ElectricCharge;
+        attribute quantumEfficiency : Real;
+        attribute darkCurrent : Current;
+        attribute saturationVoltage : Voltage;
+        port opticalIn : OpticalInputPort;
+        out item collectedCharge : PhotoelectronPacket;
+
+        perform action integrate : IntegratePhotons {
+            in incidentPhotons = opticalIn.incidentPhotons;
+            in quantumEfficiency = quantumEfficiency;
+            in darkCurrent = darkCurrent;
+            out accumulatedCharge = collectedCharge;
+        }
+    }
+
+    part def ImagingArray {
+        attribute rowCount : PixelCount;
+        attribute columnCount : PixelCount;
+        attribute pixelPitch : Real;
+        attribute activeAreaWidth : Real;
+        attribute activeAreaHeight : Real;
+
+        port opticalIn : OpticalInputPort;
+        part pixels : PhotodiodePixel[1..*];
+
+        out item parallelChargePackets : PhotoelectronPacket[0..*];
+    }
+
+    part def VerticalShiftRegister {
+        attribute transferEfficiency : Real = 0.999995;
+        attribute phaseCount : Integer = 2;
+
+        in item arrayChargePackets : PhotoelectronPacket[0..*];
+        in item verticalClock1 : ClockPhase;
+        in item verticalClock2 : ClockPhase;
+        out item serialRegisterPackets : PhotoelectronPacket[0..*];
+
+        perform action verticalChargeTransfer : TransferCharge {
+            in verticalClock1 = verticalClock1;
+            in verticalClock2 = verticalClock2;
+        }
+    }
+
+    part def HorizontalSerialRegister {
+        attribute transferEfficiency : Real = 0.999998;
+        attribute outputRate : Real;
+        attribute unit : String = "pixel/s";
+
+        in item serialRegisterPackets : PhotoelectronPacket[0..*];
+        in item horizontalClock1 : ClockPhase;
+        in item horizontalClock2 : ClockPhase;
+        out item outputChargePacket : PhotoelectronPacket;
+
+        perform action horizontalChargeTransfer : TransferCharge {
+            in horizontalClock1 = horizontalClock1;
+            in horizontalClock2 = horizontalClock2;
+        }
+    }
+
+    part def FloatingDiffusionOutputNode {
+        attribute capacitance : Real;
+        attribute capacitanceUnit : String = "F";
+        attribute conversionGain : Real;
+        attribute conversionGainUnit : String = "V/e-";
+        attribute resetNoise : Voltage;
+
+        in item inputChargePacket : PhotoelectronPacket;
+        out item analogPixelSignal : AnalogPixelSignal;
+
+        perform action chargeSensing : SenseCharge {
+            in chargePacket = inputChargePacket;
+            in conversionGain = conversionGain;
+            out analogSignal = analogPixelSignal;
+        }
+    }
+
+    part def CorrelatedDoubleSampler {
+        attribute sampleHoldNoise : Voltage;
+        attribute pedestalSuppression : Real;
+
+        in item rawAnalogPixelSignal : AnalogPixelSignal;
+        out item correctedAnalogPixelSignal : AnalogPixelSignal;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute bitDepth : Integer = 14;
+        attribute referenceVoltage : Voltage;
+        attribute maximumSampleRate : Real;
+        attribute sampleRateUnit : String = "sample/s";
+
+        in item analogPixelSignal : AnalogPixelSignal;
+        out item digitalPixelSample : DigitalPixelSample;
+
+        perform action digitize : DigitizeSignal {
+            in analogSignal = analogPixelSignal;
+            in referenceVoltage = referenceVoltage;
+            in bitDepth = bitDepth;
+            out digitalSample = digitalPixelSample;
+        }
+    }
+
+    part def TimingAndClockController {
+        attribute integrationTime : TimeDuration;
+        attribute frameRate : FrameRate;
+        attribute verticalClockHigh : Voltage;
+        attribute verticalClockLow : Voltage;
+        attribute horizontalClockHigh : Voltage;
+        attribute horizontalClockLow : Voltage;
+
+        port controlIn : ControlInputPort;
+        port clockOut : ClockDrivePort;
+
+        exhibit state operatingState : CCDOperatingState;
+    }
+
+    part def BiasAndPowerConditioner {
+        attribute inputVoltage : Voltage;
+        attribute analogBiasVoltage : Voltage;
+        attribute clockDriverVoltage : Voltage;
+        attribute digitalCoreVoltage : Voltage;
+        attribute efficiency : Real;
+
+        port powerIn : PowerInputPort;
+        port thermalOut : ThermalPort;
+    }
+
+    part def ThermalControl {
+        attribute operatingTemperatureSetpoint : Temperature;
+        attribute maximumAllowedTemperature : Temperature;
+        attribute temperatureStability : Temperature;
+
+        port thermalInterface : ThermalPort;
+        out attribute overTemperature : Boolean;
+    }
+
+    part def ImageFrameFormatter {
+        attribute outputWidth : PixelCount;
+        attribute outputHeight : PixelCount;
+        attribute bitDepth : Integer;
+
+        in item digitalSamples : DigitalPixelSample[0..*];
+        port imageOut : DigitalImageOutputPort;
+
+        perform action assembleFrame : AssembleImageFrame {
+            in samples = digitalSamples;
+            in width = outputWidth;
+            in height = outputHeight;
+            out frame = imageOut.frame;
+        }
+    }
+
+    part def ChargeCoupledDeviceCamera {
+        attribute primaryFunction : String = "Convert an optical image into an ordered digital image frame by accumulating photo-generated charge in an array of pixels, transferring that charge through coupled potential wells, sensing it as analog voltage, and digitizing the result.";
+        attribute nominalWidth : PixelCount = 4096;
+        attribute nominalHeight : PixelCount = 3072;
+        attribute nominalFrameRate : FrameRate;
+        attribute nominalIntegrationTime : TimeDuration;
+        attribute operatingTemperature : Temperature;
+
+        port opticalInput : OpticalInputPort;
+        port controlInput : ControlInputPort;
+        port powerInput : PowerInputPort;
+        port digitalImageOutput : DigitalImageOutputPort;
+        port thermalPort : ThermalPort;
+
+        part microlenses : MicrolensArray {
+            attribute lensCount = 12582912;
+        }
+
+        part filters : ColorFilterArray;
+
+        part imagingArray : ImagingArray {
+            attribute rowCount = 3072;
+            attribute columnCount = 4096;
+            attribute pixelPitch = 4.5;
+            attribute activeAreaWidth = 18.432;
+            attribute activeAreaHeight = 13.824;
+        }
+
+        part verticalRegister : VerticalShiftRegister;
+        part serialRegister : HorizontalSerialRegister;
+        part outputNode : FloatingDiffusionOutputNode {
+            attribute capacitance = 0.00000000000002;
+            attribute conversionGain = 0.000006;
+        }
+
+        part sampler : CorrelatedDoubleSampler;
+        part adc : AnalogToDigitalConverter {
+            attribute bitDepth = 14;
+        }
+
+        part controller : TimingAndClockController;
+        part powerConditioner : BiasAndPowerConditioner;
+        part thermalControl : ThermalControl;
+
+        part frameFormatter : ImageFrameFormatter {
+            attribute outputWidth = 4096;
+            attribute outputHeight = 3072;
+            attribute bitDepth = 14;
+        }
+
+        connect opticalInput to microlenses.opticalIn;
+        connect microlenses.opticalOut to filters.opticalIn;
+        connect filters.opticalOut to imagingArray.opticalIn;
+
+        connect controlInput to controller.controlIn;
+        connect powerInput to powerConditioner.powerIn;
+        connect powerConditioner.thermalOut to thermalControl.thermalInterface;
+        connect thermalControl.thermalInterface to thermalPort;
+
+        connect controller.clockOut.verticalPhase1 to verticalRegister.verticalClock1;
+        connect controller.clockOut.verticalPhase2 to verticalRegister.verticalClock2;
+        connect controller.clockOut.horizontalPhase1 to serialRegister.horizontalClock1;
+        connect controller.clockOut.horizontalPhase2 to serialRegister.horizontalClock2;
+
+        connect imagingArray.parallelChargePackets to verticalRegister.arrayChargePackets;
+        connect verticalRegister.serialRegisterPackets to serialRegister.serialRegisterPackets;
+        connect serialRegister.outputChargePacket to outputNode.inputChargePacket;
+        connect outputNode.analogPixelSignal to sampler.rawAnalogPixelSignal;
+        connect sampler.correctedAnalogPixelSignal to adc.analogPixelSignal;
+        connect adc.digitalPixelSample to frameFormatter.digitalSamples;
+        connect frameFormatter.imageOut to digitalImageOutput;
+    }
+
+    requirement def CCDPrimaryFunctionRequirement {
+        subject ccd : ChargeCoupledDeviceCamera;
+
+        require constraint {
+            ccd.primaryFunction == "Convert an optical image into an ordered digital image frame by accumulating photo-generated charge in an array of pixels, transferring that charge through coupled potential wells, sensing it as analog voltage, and digitizing the result."
+        }
+
+        doc /* The charge-coupled device system shall perform high-level image acquisition by converting incident optical energy into spatially ordered digital pixel values. */
+    }
+
+    requirement def PhotonToChargeRequirement {
+        subject pixel : PhotodiodePixel;
+
+        require constraint {
+            pixel.quantumEfficiency >= 0.35 and pixel.fullWellCapacity.value >= 0.000000000008
+        }
+
+        doc /* Each active pixel shall accumulate photoelectron charge proportional to incident photon flux during the exposure interval. */
+    }
+
+    requirement def ChargeTransferRequirement {
+        subject register : VerticalShiftRegister;
+
+        require constraint {
+            register.transferEfficiency >= 0.99999
+        }
+
+        doc /* The charge transfer structure shall move accumulated charge packets with sufficiently high efficiency to preserve image information. */
+    }
+
+    requirement def DigitizationRequirement {
+        subject converter : AnalogToDigitalConverter;
+
+        require constraint {
+            converter.bitDepth >= 12
+        }
+
+        doc /* The analog-to-digital converter shall digitize sensed pixel voltages with enough resolution for scientific or imaging use. */
+    }
+
+    requirement def ThermalOperatingRequirement {
+        subject thermalControl : ThermalControl;
+
+        require constraint {
+            thermalControl.maximumAllowedTemperature.value <= 313.15
+        }
+
+        doc /* The CCD system shall monitor and control thermal conditions to limit dark current and protect device operation. */
+    }
+
+    requirement def FrameFormationRequirement {
+        subject formatter : ImageFrameFormatter;
+
+        require constraint {
+            formatter.outputWidth.value == 4096 and formatter.outputHeight.value == 3072 and formatter.bitDepth == 14
+        }
+
+        doc /* The system shall assemble digitized samples into a complete ordered image frame matching the sensor geometry. */
+    }
+
+    satisfy CCDPrimaryFunctionRequirement by ChargeCoupledDeviceCamera;
+    satisfy PhotonToChargeRequirement by PhotodiodePixel;
+    satisfy ChargeTransferRequirement by VerticalShiftRegister;
+    satisfy DigitizationRequirement by AnalogToDigitalConverter;
+    satisfy ThermalOperatingRequirement by ThermalControl;
+    satisfy FrameFormationRequirement by ImageFrameFormatter;
+
+}

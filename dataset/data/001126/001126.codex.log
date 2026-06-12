@@ -1,0 +1,837 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-jj4gv2w4
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb586-9406-7750-9016-6bcadee9402b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Lysimeter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LysimeterSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def LengthValue :> Real;
+  attribute def AreaValue :> Real;
+  attribute def VolumeValue :> Real;
+  attribute def MassValue :> Real;
+  attribute def FlowRateValue :> Real;
+  attribute def TemperatureValue :> Real;
+  attribute def PressureValue :> Real;
+  attribute def TimeValue :> Real;
+  attribute def WaterDepthValue :> Real;
+  attribute def ElectricalConductivityValue :> Real;
+
+  item def Water {
+    attribute volume : VolumeValue;
+    attribute temperature : TemperatureValue;
+  }
+
+  item def SoilWater :> Water {
+    attribute nitrateConcentration : Real;
+    attribute electricalConductivity : ElectricalConductivityValue;
+  }
+
+  item def Leachate :> SoilWater {
+    attribute collectedVolume : VolumeValue;
+  }
+
+  item def MeteorologicalData {
+    attribute precipitationDepth : WaterDepthValue;
+    attribute airTemperature : TemperatureValue;
+    attribute relativeHumidity : Real;
+    attribute windSpeed : Real;
+    attribute solarRadiation : Real;
+  }
+
+  item def MeasurementRecord {
+    attribute timestamp : TimeValue;
+    attribute soilMass : MassValue;
+    attribute precipitation : WaterDepthValue;
+    attribute irrigationVolume : VolumeValue;
+    attribute drainageVolume : VolumeValue;
+    attribute evapotranspirationEstimate : WaterDepthValue;
+  }
+
+  port def WaterInPort {
+    in item water : Water;
+  }
+
+  port def WaterOutPort {
+    out item water : Water;
+  }
+
+  port def LeachateOutPort {
+    out item leachate : Leachate;
+  }
+
+  port def DataOutPort {
+    out item record : MeasurementRecord;
+  }
+
+  port def WeatherDataInPort {
+    in item weather : MeteorologicalData;
+  }
+
+  part def Lysimeter {
+    attribute measurementArea : AreaValue = 1.0;
+    attribute soilColumnDepth : LengthValue = 1.5;
+    attribute maximumSoilMass : MassValue = 2500.0;
+    attribute evapotranspiration : WaterDepthValue;
+    attribute waterBalanceError : WaterDepthValue;
+
+    port precipitationIn : WaterInPort;
+    port irrigationIn : WaterInPort;
+    port weatherIn : WeatherDataInPort;
+    port leachateOut : LeachateOutPort;
+    port dataOut : DataOutPort;
+
+    part soilColumn : SoilColumn;
+    part weighingSystem : WeighingSystem;
+    part drainageCollector : DrainageCollector;
+    part irrigationDistributor : IrrigationDistributor;
+    part weatherStationInterface : WeatherStationInterface;
+    part controller : LysimeterController;
+    part dataLogger : DataLogger;
+    part enclosure : StructuralEnclosure;
+
+    connect precipitationIn to soilColumn.surfaceWaterIn;
+    connect irrigationIn to irrigationDistributor.supplyIn;
+    connect irrigationDistributor.distributedOut to soilColumn.surfaceWaterIn;
+    connect soilColumn.bottomDrain to drainageCollector.leachateIn;
+    connect drainageCollector.leachateOut to leachateOut;
+    connect weatherIn to weatherStationInterface.weatherIn;
+    connect weighingSystem.massDataOut to controller.massDataIn;
+    connect drainageCollector.volumeDataOut to controller.drainageDataIn;
+    connect weatherStationInterface.weatherDataOut to controller.weatherDataIn;
+    connect controller.recordOut to dataLogger.recordIn;
+    connect dataLogger.recordOut to dataOut;
+  }
+
+  part def SoilColumn {
+    attribute internalDiameter : LengthValue = 1.128;
+    attribute depth : LengthValue = 1.5;
+    attribute bulkDensity : Real = 1.35;
+    attribute currentWaterStorage : VolumeValue;
+    attribute currentMass : MassValue;
+
+    port surfaceWaterIn : WaterInPort;
+    port bottomDrain : LeachateOutPort;
+
+    part soilCore : UndisturbedSoilCore;
+    part rootZone : RootZone;
+    part porousSupportPlate : PorousSupportPlate;
+  }
+
+  part def UndisturbedSoilCore {
+    attribute height : LengthValue = 1.5;
+    attribute crossSectionalArea : AreaValue = 1.0;
+    attribute dryMass : MassValue;
+    attribute saturatedHydraulicConductivity : FlowRateValue;
+  }
+
+  part def RootZone {
+    attribute activeDepth : LengthValue = 0.8;
+    attribute rootWaterUptakeRate : FlowRateValue;
+  }
+
+  part def PorousSupportPlate {
+    attribute poreSize : LengthValue = 0.00002;
+    attribute drainageResistance : PressureValue;
+  }
+
+  part def WeighingSystem {
+    attribute capacity : MassValue = 3000.0;
+    attribute resolution : MassValue = 0.01;
+    attribute measuredMass : MassValue;
+
+    port massDataOut : DataOutPort;
+
+    part loadCellA : LoadCell;
+    part loadCellB : LoadCell;
+    part loadCellC : LoadCell;
+    part loadCellD : LoadCell;
+    part signalConditioner : SignalConditioner;
+  }
+
+  part def LoadCell {
+    attribute ratedCapacity : MassValue = 1000.0;
+    attribute accuracyClass : Real = 0.02;
+    attribute measuredLoad : MassValue;
+  }
+
+  part def SignalConditioner {
+    attribute samplingInterval : TimeValue = 60.0;
+    attribute filteredMass : MassValue;
+  }
+
+  part def DrainageCollector {
+    attribute collectorVolume : VolumeValue = 0.02;
+    attribute accumulatedLeachate : VolumeValue;
+    attribute drainageRate : FlowRateValue;
+
+    port leachateIn : WaterInPort;
+    port leachateOut : LeachateOutPort;
+    port volumeDataOut : DataOutPort;
+
+    part collectionVessel : CollectionVessel;
+    part tippingBucket : TippingBucketGauge;
+    part conductivitySensor : ConductivitySensor;
+  }
+
+  part def CollectionVessel {
+    attribute usableVolume : VolumeValue = 0.02;
+    attribute currentVolume : VolumeValue;
+  }
+
+  part def TippingBucketGauge {
+    attribute volumePerTip : VolumeValue = 0.00001;
+    attribute tipCount : Integer;
+  }
+
+  part def ConductivitySensor {
+    attribute measuredConductivity : ElectricalConductivityValue;
+    attribute measurementTemperature : TemperatureValue;
+  }
+
+  part def IrrigationDistributor {
+    attribute commandedVolume : VolumeValue;
+    attribute applicationRate : FlowRateValue;
+
+    port supplyIn : WaterInPort;
+    port distributedOut : WaterOutPort;
+
+    part flowMeter : FlowMeter;
+    part controlValve : ControlValve;
+    part sprayRing : SprayRing;
+  }
+
+  part def FlowMeter {
+    attribute measuredFlowRate : FlowRateValue;
+    attribute cumulativeVolume : VolumeValue;
+  }
+
+  part def ControlValve {
+    attribute openFraction : Real;
+    attribute commandedOpenFraction : Real;
+  }
+
+  part def SprayRing {
+    attribute nozzleCount : Integer = 12;
+    attribute wettedArea : AreaValue = 1.0;
+  }
+
+  part def WeatherStationInterface {
+    port weatherIn : WeatherDataInPort;
+    port weatherDataOut : DataOutPort;
+
+    attribute latestPrecipitation : WaterDepthValue;
+    attribute latestAirTemperature : TemperatureValue;
+    attribute latestRelativeHumidity : Real;
+  }
+
+  part def DataLogger {
+    attribute storageCapacity : Integer = 1000000;
+    attribute loggingInterval : TimeValue = 300.0;
+
+    port recordIn : DataOutPort;
+    port recordOut : DataOutPort;
+  }
+
+  part def StructuralEnclosure {
+    attribute wallHeight : LengthValue = 1.8;
+    attribute rimElevationAboveGround : LengthValue = 0.05;
+    attribute thermalInsulationResistance : Real;
+
+    part outerWall : CylinderWall;
+    part serviceHatch : ServiceHatch;
+  }
+
+  part def CylinderWall {
+    attribute diameter : LengthValue = 1.25;
+    attribute height : LengthValue = 1.8;
+    attribute thickness : LengthValue = 0.01;
+  }
+
+  part def ServiceHatch {
+    attribute openingArea : AreaValue = 0.2;
+    attribute isClosed : Boolean;
+  }
+
+  part def LysimeterController {
+    attribute currentState : String;
+    attribute lastMass : MassValue;
+    attribute currentMass : MassValue;
+    attribute massChange : MassValue;
+    attribute calculatedEvapotranspiration : WaterDepthValue;
+    attribute acceptedBalanceError : WaterDepthValue = 0.5;
+
+    port massDataIn : DataOutPort;
+    port drainageDataIn : DataOutPort;
+    port weatherDataIn : DataOutPort;
+    port recordOut : DataOutPort;
+
+    perform action monitorWaterBalance : MonitorWaterBalance;
+    perform action computeEvapotranspiration : ComputeEvapotranspiration;
+    perform action publishMeasurement : PublishMeasurement;
+
+    state controllerStates : LysimeterOperatingStates;
+  }
+
+  action def MonitorWaterBalance {
+    in soilMass : MassValue;
+    in precipitation : WaterDepthValue;
+    in irrigation : VolumeValue;
+    in drainage : VolumeValue;
+    out waterStorageChange : WaterDepthValue;
+    out balanceError : WaterDepthValue;
+  }
+
+  action def ComputeEvapotranspiration {
+    in previousMass : MassValue;
+    in currentMass : MassValue;
+    in precipitation : WaterDepthValue;
+    in irrigation : VolumeValue;
+    in drainage : VolumeValue;
+    in measurementArea : AreaValue;
+    out evapotranspiration : WaterDepthValue;
+  }
+
+  action def PublishMeasurement {
+    in timestamp : TimeValue;
+    in soilMass : MassValue;
+    in precipitation : WaterDepthValue;
+    in irrigationVolume : VolumeValue;
+    in drainageVolume : VolumeValue;
+    in evapotranspirationEstimate : WaterDepthValue;
+    out record : MeasurementRecord;
+  }
+
+  state def LysimeterOperatingStates {
+    entry; then Initializing;
+
+    state Initializing;
+    state Calibrating;
+    state Monitoring;
+    state Irrigating;
+    state Draining;
+    state PublishingData;
+    state Faulted;
+
+    transition Initializing_to_Calibrating
+      first Initializing
+      then Calibrating;
+
+    transition Calibrating_to_Monitoring
+      first Calibrating
+      then Monitoring;
+
+    transition Monitoring_to_Irrigating
+      first Monitoring
+      accept IrrigationCommand
+      then Irrigating;
+
+    transition Irrigating_to_Monitoring
+      first Irrigating
+      then Monitoring;
+
+    transition Monitoring_to_Draining
+      first Monitoring
+      accept DrainageDetected
+      then Draining;
+
+    transition Draining_to_PublishingData
+      first Draining
+      then PublishingData;
+
+    transition Monitoring_to_PublishingData
+      first Monitoring
+      accept LoggingIntervalElapsed
+      then PublishingData;
+
+    transition PublishingData_to_Monitoring
+      first PublishingData
+      then Monitoring;
+
+    transition Any_to_Faulted
+      first Monitoring
+      accept SensorFailure
+      then Faulted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The lysimeter shall quantify field-scale soil water balance by measuring mass change, water inputs, and drainage outputs so that evapotranspiration and leachate production can be estimated. */
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.measurementArea > 0.0
+    }
+  }
+
+  requirement def MassMeasurementRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.weighingSystem.resolution <= 0.05
+    }
+  }
+
+  requirement def DrainageMeasurementRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.drainageCollector.tippingBucket.volumePerTip <= 0.00002
+    }
+  }
+
+  requirement def LoggingRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.dataLogger.loggingInterval <= 900.0
+    }
+  }
+
+  requirement def SoilContainmentRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.soilColumn.depth >= 1.0
+    }
+  }
+
+  requirement def WaterBalanceAccuracyRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.controller.acceptedBalanceError <= 1.0
+    }
+  }
+
+  part fieldLysimeter : Lysimeter {
+    attribute measurementArea = 1.0;
+    attribute soilColumnDepth = 1.5;
+    attribute maximumSoilMass = 2500.0;
+  }
+
+}
+tokens used
+3,392
+package LysimeterSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def LengthValue :> Real;
+  attribute def AreaValue :> Real;
+  attribute def VolumeValue :> Real;
+  attribute def MassValue :> Real;
+  attribute def FlowRateValue :> Real;
+  attribute def TemperatureValue :> Real;
+  attribute def PressureValue :> Real;
+  attribute def TimeValue :> Real;
+  attribute def WaterDepthValue :> Real;
+  attribute def ElectricalConductivityValue :> Real;
+
+  item def Water {
+    attribute volume : VolumeValue;
+    attribute temperature : TemperatureValue;
+  }
+
+  item def SoilWater :> Water {
+    attribute nitrateConcentration : Real;
+    attribute electricalConductivity : ElectricalConductivityValue;
+  }
+
+  item def Leachate :> SoilWater {
+    attribute collectedVolume : VolumeValue;
+  }
+
+  item def MeteorologicalData {
+    attribute precipitationDepth : WaterDepthValue;
+    attribute airTemperature : TemperatureValue;
+    attribute relativeHumidity : Real;
+    attribute windSpeed : Real;
+    attribute solarRadiation : Real;
+  }
+
+  item def MeasurementRecord {
+    attribute timestamp : TimeValue;
+    attribute soilMass : MassValue;
+    attribute precipitation : WaterDepthValue;
+    attribute irrigationVolume : VolumeValue;
+    attribute drainageVolume : VolumeValue;
+    attribute evapotranspirationEstimate : WaterDepthValue;
+  }
+
+  port def WaterInPort {
+    in item water : Water;
+  }
+
+  port def WaterOutPort {
+    out item water : Water;
+  }
+
+  port def LeachateOutPort {
+    out item leachate : Leachate;
+  }
+
+  port def DataOutPort {
+    out item record : MeasurementRecord;
+  }
+
+  port def WeatherDataInPort {
+    in item weather : MeteorologicalData;
+  }
+
+  part def Lysimeter {
+    attribute measurementArea : AreaValue = 1.0;
+    attribute soilColumnDepth : LengthValue = 1.5;
+    attribute maximumSoilMass : MassValue = 2500.0;
+    attribute evapotranspiration : WaterDepthValue;
+    attribute waterBalanceError : WaterDepthValue;
+
+    port precipitationIn : WaterInPort;
+    port irrigationIn : WaterInPort;
+    port weatherIn : WeatherDataInPort;
+    port leachateOut : LeachateOutPort;
+    port dataOut : DataOutPort;
+
+    part soilColumn : SoilColumn;
+    part weighingSystem : WeighingSystem;
+    part drainageCollector : DrainageCollector;
+    part irrigationDistributor : IrrigationDistributor;
+    part weatherStationInterface : WeatherStationInterface;
+    part controller : LysimeterController;
+    part dataLogger : DataLogger;
+    part enclosure : StructuralEnclosure;
+
+    connect precipitationIn to soilColumn.surfaceWaterIn;
+    connect irrigationIn to irrigationDistributor.supplyIn;
+    connect irrigationDistributor.distributedOut to soilColumn.surfaceWaterIn;
+    connect soilColumn.bottomDrain to drainageCollector.leachateIn;
+    connect drainageCollector.leachateOut to leachateOut;
+    connect weatherIn to weatherStationInterface.weatherIn;
+    connect weighingSystem.massDataOut to controller.massDataIn;
+    connect drainageCollector.volumeDataOut to controller.drainageDataIn;
+    connect weatherStationInterface.weatherDataOut to controller.weatherDataIn;
+    connect controller.recordOut to dataLogger.recordIn;
+    connect dataLogger.recordOut to dataOut;
+  }
+
+  part def SoilColumn {
+    attribute internalDiameter : LengthValue = 1.128;
+    attribute depth : LengthValue = 1.5;
+    attribute bulkDensity : Real = 1.35;
+    attribute currentWaterStorage : VolumeValue;
+    attribute currentMass : MassValue;
+
+    port surfaceWaterIn : WaterInPort;
+    port bottomDrain : LeachateOutPort;
+
+    part soilCore : UndisturbedSoilCore;
+    part rootZone : RootZone;
+    part porousSupportPlate : PorousSupportPlate;
+  }
+
+  part def UndisturbedSoilCore {
+    attribute height : LengthValue = 1.5;
+    attribute crossSectionalArea : AreaValue = 1.0;
+    attribute dryMass : MassValue;
+    attribute saturatedHydraulicConductivity : FlowRateValue;
+  }
+
+  part def RootZone {
+    attribute activeDepth : LengthValue = 0.8;
+    attribute rootWaterUptakeRate : FlowRateValue;
+  }
+
+  part def PorousSupportPlate {
+    attribute poreSize : LengthValue = 0.00002;
+    attribute drainageResistance : PressureValue;
+  }
+
+  part def WeighingSystem {
+    attribute capacity : MassValue = 3000.0;
+    attribute resolution : MassValue = 0.01;
+    attribute measuredMass : MassValue;
+
+    port massDataOut : DataOutPort;
+
+    part loadCellA : LoadCell;
+    part loadCellB : LoadCell;
+    part loadCellC : LoadCell;
+    part loadCellD : LoadCell;
+    part signalConditioner : SignalConditioner;
+  }
+
+  part def LoadCell {
+    attribute ratedCapacity : MassValue = 1000.0;
+    attribute accuracyClass : Real = 0.02;
+    attribute measuredLoad : MassValue;
+  }
+
+  part def SignalConditioner {
+    attribute samplingInterval : TimeValue = 60.0;
+    attribute filteredMass : MassValue;
+  }
+
+  part def DrainageCollector {
+    attribute collectorVolume : VolumeValue = 0.02;
+    attribute accumulatedLeachate : VolumeValue;
+    attribute drainageRate : FlowRateValue;
+
+    port leachateIn : WaterInPort;
+    port leachateOut : LeachateOutPort;
+    port volumeDataOut : DataOutPort;
+
+    part collectionVessel : CollectionVessel;
+    part tippingBucket : TippingBucketGauge;
+    part conductivitySensor : ConductivitySensor;
+  }
+
+  part def CollectionVessel {
+    attribute usableVolume : VolumeValue = 0.02;
+    attribute currentVolume : VolumeValue;
+  }
+
+  part def TippingBucketGauge {
+    attribute volumePerTip : VolumeValue = 0.00001;
+    attribute tipCount : Integer;
+  }
+
+  part def ConductivitySensor {
+    attribute measuredConductivity : ElectricalConductivityValue;
+    attribute measurementTemperature : TemperatureValue;
+  }
+
+  part def IrrigationDistributor {
+    attribute commandedVolume : VolumeValue;
+    attribute applicationRate : FlowRateValue;
+
+    port supplyIn : WaterInPort;
+    port distributedOut : WaterOutPort;
+
+    part flowMeter : FlowMeter;
+    part controlValve : ControlValve;
+    part sprayRing : SprayRing;
+  }
+
+  part def FlowMeter {
+    attribute measuredFlowRate : FlowRateValue;
+    attribute cumulativeVolume : VolumeValue;
+  }
+
+  part def ControlValve {
+    attribute openFraction : Real;
+    attribute commandedOpenFraction : Real;
+  }
+
+  part def SprayRing {
+    attribute nozzleCount : Integer = 12;
+    attribute wettedArea : AreaValue = 1.0;
+  }
+
+  part def WeatherStationInterface {
+    port weatherIn : WeatherDataInPort;
+    port weatherDataOut : DataOutPort;
+
+    attribute latestPrecipitation : WaterDepthValue;
+    attribute latestAirTemperature : TemperatureValue;
+    attribute latestRelativeHumidity : Real;
+  }
+
+  part def DataLogger {
+    attribute storageCapacity : Integer = 1000000;
+    attribute loggingInterval : TimeValue = 300.0;
+
+    port recordIn : DataOutPort;
+    port recordOut : DataOutPort;
+  }
+
+  part def StructuralEnclosure {
+    attribute wallHeight : LengthValue = 1.8;
+    attribute rimElevationAboveGround : LengthValue = 0.05;
+    attribute thermalInsulationResistance : Real;
+
+    part outerWall : CylinderWall;
+    part serviceHatch : ServiceHatch;
+  }
+
+  part def CylinderWall {
+    attribute diameter : LengthValue = 1.25;
+    attribute height : LengthValue = 1.8;
+    attribute thickness : LengthValue = 0.01;
+  }
+
+  part def ServiceHatch {
+    attribute openingArea : AreaValue = 0.2;
+    attribute isClosed : Boolean;
+  }
+
+  part def LysimeterController {
+    attribute currentState : String;
+    attribute lastMass : MassValue;
+    attribute currentMass : MassValue;
+    attribute massChange : MassValue;
+    attribute calculatedEvapotranspiration : WaterDepthValue;
+    attribute acceptedBalanceError : WaterDepthValue = 0.5;
+
+    port massDataIn : DataOutPort;
+    port drainageDataIn : DataOutPort;
+    port weatherDataIn : DataOutPort;
+    port recordOut : DataOutPort;
+
+    perform action monitorWaterBalance : MonitorWaterBalance;
+    perform action computeEvapotranspiration : ComputeEvapotranspiration;
+    perform action publishMeasurement : PublishMeasurement;
+
+    state controllerStates : LysimeterOperatingStates;
+  }
+
+  action def MonitorWaterBalance {
+    in soilMass : MassValue;
+    in precipitation : WaterDepthValue;
+    in irrigation : VolumeValue;
+    in drainage : VolumeValue;
+    out waterStorageChange : WaterDepthValue;
+    out balanceError : WaterDepthValue;
+  }
+
+  action def ComputeEvapotranspiration {
+    in previousMass : MassValue;
+    in currentMass : MassValue;
+    in precipitation : WaterDepthValue;
+    in irrigation : VolumeValue;
+    in drainage : VolumeValue;
+    in measurementArea : AreaValue;
+    out evapotranspiration : WaterDepthValue;
+  }
+
+  action def PublishMeasurement {
+    in timestamp : TimeValue;
+    in soilMass : MassValue;
+    in precipitation : WaterDepthValue;
+    in irrigationVolume : VolumeValue;
+    in drainageVolume : VolumeValue;
+    in evapotranspirationEstimate : WaterDepthValue;
+    out record : MeasurementRecord;
+  }
+
+  state def LysimeterOperatingStates {
+    entry; then Initializing;
+
+    state Initializing;
+    state Calibrating;
+    state Monitoring;
+    state Irrigating;
+    state Draining;
+    state PublishingData;
+    state Faulted;
+
+    transition Initializing_to_Calibrating
+      first Initializing
+      then Calibrating;
+
+    transition Calibrating_to_Monitoring
+      first Calibrating
+      then Monitoring;
+
+    transition Monitoring_to_Irrigating
+      first Monitoring
+      accept IrrigationCommand
+      then Irrigating;
+
+    transition Irrigating_to_Monitoring
+      first Irrigating
+      then Monitoring;
+
+    transition Monitoring_to_Draining
+      first Monitoring
+      accept DrainageDetected
+      then Draining;
+
+    transition Draining_to_PublishingData
+      first Draining
+      then PublishingData;
+
+    transition Monitoring_to_PublishingData
+      first Monitoring
+      accept LoggingIntervalElapsed
+      then PublishingData;
+
+    transition PublishingData_to_Monitoring
+      first PublishingData
+      then Monitoring;
+
+    transition Any_to_Faulted
+      first Monitoring
+      accept SensorFailure
+      then Faulted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The lysimeter shall quantify field-scale soil water balance by measuring mass change, water inputs, and drainage outputs so that evapotranspiration and leachate production can be estimated. */
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.measurementArea > 0.0
+    }
+  }
+
+  requirement def MassMeasurementRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.weighingSystem.resolution <= 0.05
+    }
+  }
+
+  requirement def DrainageMeasurementRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.drainageCollector.tippingBucket.volumePerTip <= 0.00002
+    }
+  }
+
+  requirement def LoggingRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.dataLogger.loggingInterval <= 900.0
+    }
+  }
+
+  requirement def SoilContainmentRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.soilColumn.depth >= 1.0
+    }
+  }
+
+  requirement def WaterBalanceAccuracyRequirement {
+    subject lysimeter : Lysimeter;
+
+    require constraint {
+      lysimeter.controller.acceptedBalanceError <= 1.0
+    }
+  }
+
+  part fieldLysimeter : Lysimeter {
+    attribute measurementArea = 1.0;
+    attribute soilColumnDepth = 1.5;
+    attribute maximumSoilMass = 2500.0;
+  }
+
+}

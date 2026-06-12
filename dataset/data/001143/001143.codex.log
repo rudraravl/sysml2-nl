@@ -1,0 +1,833 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-wetdr86t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb596-6c45-71d3-83fa-1bcd9503c452
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Microbolometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MicrobolometerImagingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def Power :> ISQ::power;
+    attribute def Resistance :> ISQ::resistance;
+    attribute def Time :> ISQ::time;
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Length :> ISQ::length;
+    attribute def Angle :> ISQ::planeAngle;
+
+    item def InfraredRadiation {
+        attribute wavelength : Length;
+        attribute radiantPower : Power;
+        attribute sceneTemperature : Temperature;
+        attribute incidenceAngle : Angle;
+    }
+
+    item def ThermalSignal {
+        attribute absorbedPower : Power;
+        attribute detectorTemperatureRise : Temperature;
+        attribute responseTime : Time;
+    }
+
+    item def AnalogPixelSignal {
+        attribute pixelVoltage : Voltage;
+        attribute biasCurrent : Current;
+        attribute bolometerResistance : Resistance;
+        attribute noiseEquivalentTemperatureDifference : Temperature;
+    }
+
+    item def DigitalFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Frequency;
+        attribute bitDepth : Integer;
+        attribute calibratedTemperatureMap : Temperature[640, 480];
+    }
+
+    item def Command {
+        attribute commandId : Integer;
+        attribute requestedIntegrationTime : Time;
+        attribute requestedFrameRate : Frequency;
+    }
+
+    item def Status {
+        attribute focalPlaneTemperature : Temperature;
+        attribute electronicsTemperature : Temperature;
+        attribute operatingMode : String;
+        attribute faultCode : Integer;
+    }
+
+    port def OpticalInputPort {
+        in item radiation : InfraredRadiation;
+    }
+
+    port def ThermalPort {
+        out item thermalSignal : ThermalSignal;
+    }
+
+    port def AnalogSignalPort {
+        out item analogSignal : AnalogPixelSignal;
+    }
+
+    port def DigitalVideoPort {
+        out item frame : DigitalFrame;
+    }
+
+    port def CommandPort {
+        in item command : Command;
+    }
+
+    port def StatusPort {
+        out item status : Status;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    action def AbsorbInfraredRadiation {
+        in item radiation : InfraredRadiation;
+        out item thermalSignal : ThermalSignal;
+
+        attribute absorptivity : Real = 0.82;
+        attribute thermalConductance : Real;
+    }
+
+    action def ConvertThermalChangeToResistanceChange {
+        in item thermalSignal : ThermalSignal;
+        out item analogSignal : AnalogPixelSignal;
+
+        attribute temperatureCoefficientOfResistance : Real = -0.025;
+        attribute nominalResistance : Resistance = 100000 [SI::ohm];
+    }
+
+    action def ReadOutPixelArray {
+        in item analogSignal : AnalogPixelSignal;
+        out item rawFrame : DigitalFrame;
+
+        attribute integrationTime : Time = 8 [SI::ms];
+        attribute readoutNoise : Voltage;
+    }
+
+    action def CalibrateFrame {
+        in item rawFrame : DigitalFrame;
+        out item calibratedFrame : DigitalFrame;
+
+        attribute offsetCorrectionEnabled : Boolean = true;
+        attribute gainCorrectionEnabled : Boolean = true;
+        attribute badPixelReplacementEnabled : Boolean = true;
+    }
+
+    action def GenerateThermalImage {
+        in item radiation : InfraredRadiation;
+        out item frame : DigitalFrame;
+
+        first start;
+        then absorb : AbsorbInfraredRadiation {
+            in radiation = GenerateThermalImage::radiation;
+        }
+        then convert : ConvertThermalChangeToResistanceChange {
+            in thermalSignal = absorb.thermalSignal;
+        }
+        then readout : ReadOutPixelArray {
+            in analogSignal = convert.analogSignal;
+        }
+        then calibrate : CalibrateFrame {
+            in rawFrame = readout.rawFrame;
+        }
+        then done;
+
+        bind frame = calibrate.calibratedFrame;
+    }
+
+    part def InfraredOptics {
+        port opticalInput : OpticalInputPort;
+        port focusedOutput : OpticalInputPort;
+
+        attribute apertureDiameter : Length = 14 [SI::mm];
+        attribute focalLength : Length = 19 [SI::mm];
+        attribute spectralBandMinimum : Length = 8 [SI::um];
+        attribute spectralBandMaximum : Length = 14 [SI::um];
+        attribute transmission : Real = 0.91;
+    }
+
+    part def MicrobolometerPixel {
+        port thermalInput : ThermalPort;
+        port analogOutput : AnalogSignalPort;
+
+        attribute absorberTemperature : Temperature;
+        attribute substrateTemperature : Temperature = 300 [SI::K];
+        attribute nominalResistance : Resistance = 100000 [SI::ohm];
+        attribute temperatureCoefficientOfResistance : Real = -0.025;
+        attribute thermalTimeConstant : Time = 12 [SI::ms];
+        attribute pixelPitch : Length = 17 [SI::um];
+
+        perform action convertThermalChangeToResistanceChange : ConvertThermalChangeToResistanceChange;
+    }
+
+    part def MicrobolometerFocalPlaneArray {
+        port opticalInput : OpticalInputPort;
+        port analogOutput : AnalogSignalPort;
+
+        attribute horizontalPixels : Integer = 640;
+        attribute verticalPixels : Integer = 480;
+        attribute pixelPitch : Length = 17 [SI::um];
+        attribute activeAreaWidth : Length = 10.88 [SI::mm];
+        attribute activeAreaHeight : Length = 8.16 [SI::mm];
+        attribute nominalFpaTemperature : Temperature = 303 [SI::K];
+
+        part representativePixel : MicrobolometerPixel;
+
+        perform action absorbInfraredRadiation : AbsorbInfraredRadiation;
+        perform action convertThermalChangeToResistanceChange : ConvertThermalChangeToResistanceChange;
+    }
+
+    part def ReadoutIntegratedCircuit {
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalVideoPort;
+        port commandInput : CommandPort;
+
+        attribute biasVoltage : Voltage = 2.8 [SI::V];
+        attribute integrationTime : Time = 8 [SI::ms];
+        attribute maximumFrameRate : Frequency = 60 [SI::Hz];
+        attribute adcResolution : Integer = 14;
+        attribute columnParallelReadout : Boolean = true;
+
+        perform action readOutPixelArray : ReadOutPixelArray;
+    }
+
+    part def ThermalStabilizer {
+        port statusOutput : StatusPort;
+
+        attribute targetTemperature : Temperature = 303 [SI::K];
+        attribute allowableDrift : Temperature = 0.05 [SI::K];
+        attribute heaterPowerLimit : Power = 1.5 [SI::W];
+        attribute measuredTemperature : Temperature;
+    }
+
+    part def ImageSignalProcessor {
+        port digitalInput : DigitalVideoPort;
+        port digitalOutput : DigitalVideoPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+
+        attribute nonUniformityCorrectionEnabled : Boolean = true;
+        attribute temporalFilteringEnabled : Boolean = true;
+        attribute radiometricCalibrationEnabled : Boolean = true;
+        attribute outputFrameRate : Frequency = 30 [SI::Hz];
+
+        perform action calibrateFrame : CalibrateFrame;
+    }
+
+    part def Controller {
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port roicCommandOutput : CommandPort;
+        port ispCommandOutput : CommandPort;
+
+        attribute bootTime : Time = 2 [SI::s];
+        attribute healthMonitorPeriod : Time = 100 [SI::ms];
+
+        state def OperatingState {
+            entry; then Initializing;
+
+            state Initializing;
+            state Stabilizing;
+            state Imaging;
+            state Calibration;
+            state Fault;
+
+            transition Initializing_to_Stabilizing
+                first Initializing
+                accept after 2 [SI::s]
+                then Stabilizing;
+
+            transition Stabilizing_to_Imaging
+                first Stabilizing
+                accept when focalPlaneTemperatureStable
+                then Imaging;
+
+            transition Imaging_to_Calibration
+                first Imaging
+                accept when calibrationRequested
+                then Calibration;
+
+            transition Calibration_to_Imaging
+                first Calibration
+                accept after 500 [SI::ms]
+                then Imaging;
+
+            transition Any_to_Fault
+                first Initializing
+                accept when criticalFaultDetected
+                then Fault;
+
+            transition Stabilizing_to_Fault
+                first Stabilizing
+                accept when criticalFaultDetected
+                then Fault;
+
+            transition Imaging_to_Fault
+                first Imaging
+                accept when criticalFaultDetected
+                then Fault;
+
+            transition Calibration_to_Fault
+                first Calibration
+                accept when criticalFaultDetected
+                then Fault;
+        }
+    }
+
+    part def PowerConditioner {
+        port powerInput : PowerPort;
+        port electronicsPowerOutput : PowerPort;
+        port detectorPowerOutput : PowerPort;
+
+        attribute inputVoltageMinimum : Voltage = 9 [SI::V];
+        attribute inputVoltageMaximum : Voltage = 36 [SI::V];
+        attribute detectorRailVoltage : Voltage = 2.8 [SI::V];
+        attribute logicRailVoltage : Voltage = 3.3 [SI::V];
+        attribute efficiency : Real = 0.88;
+    }
+
+    part def MicrobolometerThermalImager {
+        port opticalInput : OpticalInputPort;
+        port videoOutput : DigitalVideoPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port powerInput : PowerPort;
+
+        attribute systemFrameRate : Frequency = 30 [SI::Hz];
+        attribute fieldOfViewHorizontal : Angle = 32 [SI::deg];
+        attribute fieldOfViewVertical : Angle = 24 [SI::deg];
+        attribute spectralBandMinimum : Length = 8 [SI::um];
+        attribute spectralBandMaximum : Length = 14 [SI::um];
+        attribute noiseEquivalentTemperatureDifference : Temperature = 0.05 [SI::K];
+        attribute operatingTemperatureMinimum : Temperature = 253 [SI::K];
+        attribute operatingTemperatureMaximum : Temperature = 323 [SI::K];
+
+        part optics : InfraredOptics;
+        part focalPlaneArray : MicrobolometerFocalPlaneArray;
+        part readoutCircuit : ReadoutIntegratedCircuit;
+        part stabilizer : ThermalStabilizer;
+        part processor : ImageSignalProcessor;
+        part controller : Controller;
+        part powerConditioner : PowerConditioner;
+
+        connect opticalInput to optics.opticalInput;
+        connect optics.focusedOutput to focalPlaneArray.opticalInput;
+        connect focalPlaneArray.analogOutput to readoutCircuit.analogInput;
+        connect readoutCircuit.digitalOutput to processor.digitalInput;
+        connect processor.digitalOutput to videoOutput;
+        connect commandInput to controller.commandInput;
+        connect controller.roicCommandOutput to readoutCircuit.commandInput;
+        connect controller.ispCommandOutput to processor.commandInput;
+        connect controller.statusOutput to statusOutput;
+        connect processor.statusOutput to statusOutput;
+        connect stabilizer.statusOutput to statusOutput;
+        connect powerInput to powerConditioner.powerInput;
+        connect powerConditioner.detectorPowerOutput to focalPlaneArray;
+        connect powerConditioner.electronicsPowerOutput to readoutCircuit;
+        connect powerConditioner.electronicsPowerOutput to processor;
+        connect powerConditioner.electronicsPowerOutput to controller;
+
+        perform action primaryFunction : GenerateThermalImage;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        doc
+        /*
+         * The system shall receive long-wave infrared radiation from a scene,
+         * focus it onto an uncooled microbolometer focal plane array, convert
+         * incident radiant power into temperature-dependent resistance changes,
+         * read out the resulting electrical signals, and produce calibrated
+         * digital thermal image frames representing scene temperature.
+         */
+
+        require constraint {
+            imager.spectralBandMinimum == 8 [SI::um] and
+            imager.spectralBandMaximum == 14 [SI::um] and
+            imager.systemFrameRate >= 30 [SI::Hz]
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.noiseEquivalentTemperatureDifference <= 0.05 [SI::K]
+        }
+    }
+
+    requirement def FrameFormatRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.focalPlaneArray.horizontalPixels == 640 and
+            imager.focalPlaneArray.verticalPixels == 480 and
+            imager.processor.outputFrameRate >= 30 [SI::Hz]
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.operatingTemperatureMinimum <= 253 [SI::K] and
+            imager.operatingTemperatureMaximum >= 323 [SI::K]
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.stabilizer.allowableDrift <= 0.05 [SI::K]
+        }
+    }
+
+    requirement def PowerInputRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.powerConditioner.inputVoltageMinimum <= 9 [SI::V] and
+            imager.powerConditioner.inputVoltageMaximum >= 36 [SI::V]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MicrobolometerThermalImager;
+    satisfy SensitivityRequirement by MicrobolometerThermalImager;
+    satisfy FrameFormatRequirement by MicrobolometerThermalImager;
+    satisfy OperatingTemperatureRequirement by MicrobolometerThermalImager;
+    satisfy ThermalStabilityRequirement by MicrobolometerThermalImager;
+    satisfy PowerInputRequirement by MicrobolometerThermalImager;
+
+}
+tokens used
+4,419
+package MicrobolometerImagingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def Power :> ISQ::power;
+    attribute def Resistance :> ISQ::resistance;
+    attribute def Time :> ISQ::time;
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Length :> ISQ::length;
+    attribute def Angle :> ISQ::planeAngle;
+
+    item def InfraredRadiation {
+        attribute wavelength : Length;
+        attribute radiantPower : Power;
+        attribute sceneTemperature : Temperature;
+        attribute incidenceAngle : Angle;
+    }
+
+    item def ThermalSignal {
+        attribute absorbedPower : Power;
+        attribute detectorTemperatureRise : Temperature;
+        attribute responseTime : Time;
+    }
+
+    item def AnalogPixelSignal {
+        attribute pixelVoltage : Voltage;
+        attribute biasCurrent : Current;
+        attribute bolometerResistance : Resistance;
+        attribute noiseEquivalentTemperatureDifference : Temperature;
+    }
+
+    item def DigitalFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Frequency;
+        attribute bitDepth : Integer;
+        attribute calibratedTemperatureMap : Temperature[640, 480];
+    }
+
+    item def Command {
+        attribute commandId : Integer;
+        attribute requestedIntegrationTime : Time;
+        attribute requestedFrameRate : Frequency;
+    }
+
+    item def Status {
+        attribute focalPlaneTemperature : Temperature;
+        attribute electronicsTemperature : Temperature;
+        attribute operatingMode : String;
+        attribute faultCode : Integer;
+    }
+
+    port def OpticalInputPort {
+        in item radiation : InfraredRadiation;
+    }
+
+    port def ThermalPort {
+        out item thermalSignal : ThermalSignal;
+    }
+
+    port def AnalogSignalPort {
+        out item analogSignal : AnalogPixelSignal;
+    }
+
+    port def DigitalVideoPort {
+        out item frame : DigitalFrame;
+    }
+
+    port def CommandPort {
+        in item command : Command;
+    }
+
+    port def StatusPort {
+        out item status : Status;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    action def AbsorbInfraredRadiation {
+        in item radiation : InfraredRadiation;
+        out item thermalSignal : ThermalSignal;
+
+        attribute absorptivity : Real = 0.82;
+        attribute thermalConductance : Real;
+    }
+
+    action def ConvertThermalChangeToResistanceChange {
+        in item thermalSignal : ThermalSignal;
+        out item analogSignal : AnalogPixelSignal;
+
+        attribute temperatureCoefficientOfResistance : Real = -0.025;
+        attribute nominalResistance : Resistance = 100000 [SI::ohm];
+    }
+
+    action def ReadOutPixelArray {
+        in item analogSignal : AnalogPixelSignal;
+        out item rawFrame : DigitalFrame;
+
+        attribute integrationTime : Time = 8 [SI::ms];
+        attribute readoutNoise : Voltage;
+    }
+
+    action def CalibrateFrame {
+        in item rawFrame : DigitalFrame;
+        out item calibratedFrame : DigitalFrame;
+
+        attribute offsetCorrectionEnabled : Boolean = true;
+        attribute gainCorrectionEnabled : Boolean = true;
+        attribute badPixelReplacementEnabled : Boolean = true;
+    }
+
+    action def GenerateThermalImage {
+        in item radiation : InfraredRadiation;
+        out item frame : DigitalFrame;
+
+        first start;
+        then absorb : AbsorbInfraredRadiation {
+            in radiation = GenerateThermalImage::radiation;
+        }
+        then convert : ConvertThermalChangeToResistanceChange {
+            in thermalSignal = absorb.thermalSignal;
+        }
+        then readout : ReadOutPixelArray {
+            in analogSignal = convert.analogSignal;
+        }
+        then calibrate : CalibrateFrame {
+            in rawFrame = readout.rawFrame;
+        }
+        then done;
+
+        bind frame = calibrate.calibratedFrame;
+    }
+
+    part def InfraredOptics {
+        port opticalInput : OpticalInputPort;
+        port focusedOutput : OpticalInputPort;
+
+        attribute apertureDiameter : Length = 14 [SI::mm];
+        attribute focalLength : Length = 19 [SI::mm];
+        attribute spectralBandMinimum : Length = 8 [SI::um];
+        attribute spectralBandMaximum : Length = 14 [SI::um];
+        attribute transmission : Real = 0.91;
+    }
+
+    part def MicrobolometerPixel {
+        port thermalInput : ThermalPort;
+        port analogOutput : AnalogSignalPort;
+
+        attribute absorberTemperature : Temperature;
+        attribute substrateTemperature : Temperature = 300 [SI::K];
+        attribute nominalResistance : Resistance = 100000 [SI::ohm];
+        attribute temperatureCoefficientOfResistance : Real = -0.025;
+        attribute thermalTimeConstant : Time = 12 [SI::ms];
+        attribute pixelPitch : Length = 17 [SI::um];
+
+        perform action convertThermalChangeToResistanceChange : ConvertThermalChangeToResistanceChange;
+    }
+
+    part def MicrobolometerFocalPlaneArray {
+        port opticalInput : OpticalInputPort;
+        port analogOutput : AnalogSignalPort;
+
+        attribute horizontalPixels : Integer = 640;
+        attribute verticalPixels : Integer = 480;
+        attribute pixelPitch : Length = 17 [SI::um];
+        attribute activeAreaWidth : Length = 10.88 [SI::mm];
+        attribute activeAreaHeight : Length = 8.16 [SI::mm];
+        attribute nominalFpaTemperature : Temperature = 303 [SI::K];
+
+        part representativePixel : MicrobolometerPixel;
+
+        perform action absorbInfraredRadiation : AbsorbInfraredRadiation;
+        perform action convertThermalChangeToResistanceChange : ConvertThermalChangeToResistanceChange;
+    }
+
+    part def ReadoutIntegratedCircuit {
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalVideoPort;
+        port commandInput : CommandPort;
+
+        attribute biasVoltage : Voltage = 2.8 [SI::V];
+        attribute integrationTime : Time = 8 [SI::ms];
+        attribute maximumFrameRate : Frequency = 60 [SI::Hz];
+        attribute adcResolution : Integer = 14;
+        attribute columnParallelReadout : Boolean = true;
+
+        perform action readOutPixelArray : ReadOutPixelArray;
+    }
+
+    part def ThermalStabilizer {
+        port statusOutput : StatusPort;
+
+        attribute targetTemperature : Temperature = 303 [SI::K];
+        attribute allowableDrift : Temperature = 0.05 [SI::K];
+        attribute heaterPowerLimit : Power = 1.5 [SI::W];
+        attribute measuredTemperature : Temperature;
+    }
+
+    part def ImageSignalProcessor {
+        port digitalInput : DigitalVideoPort;
+        port digitalOutput : DigitalVideoPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+
+        attribute nonUniformityCorrectionEnabled : Boolean = true;
+        attribute temporalFilteringEnabled : Boolean = true;
+        attribute radiometricCalibrationEnabled : Boolean = true;
+        attribute outputFrameRate : Frequency = 30 [SI::Hz];
+
+        perform action calibrateFrame : CalibrateFrame;
+    }
+
+    part def Controller {
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port roicCommandOutput : CommandPort;
+        port ispCommandOutput : CommandPort;
+
+        attribute bootTime : Time = 2 [SI::s];
+        attribute healthMonitorPeriod : Time = 100 [SI::ms];
+
+        state def OperatingState {
+            entry; then Initializing;
+
+            state Initializing;
+            state Stabilizing;
+            state Imaging;
+            state Calibration;
+            state Fault;
+
+            transition Initializing_to_Stabilizing
+                first Initializing
+                accept after 2 [SI::s]
+                then Stabilizing;
+
+            transition Stabilizing_to_Imaging
+                first Stabilizing
+                accept when focalPlaneTemperatureStable
+                then Imaging;
+
+            transition Imaging_to_Calibration
+                first Imaging
+                accept when calibrationRequested
+                then Calibration;
+
+            transition Calibration_to_Imaging
+                first Calibration
+                accept after 500 [SI::ms]
+                then Imaging;
+
+            transition Any_to_Fault
+                first Initializing
+                accept when criticalFaultDetected
+                then Fault;
+
+            transition Stabilizing_to_Fault
+                first Stabilizing
+                accept when criticalFaultDetected
+                then Fault;
+
+            transition Imaging_to_Fault
+                first Imaging
+                accept when criticalFaultDetected
+                then Fault;
+
+            transition Calibration_to_Fault
+                first Calibration
+                accept when criticalFaultDetected
+                then Fault;
+        }
+    }
+
+    part def PowerConditioner {
+        port powerInput : PowerPort;
+        port electronicsPowerOutput : PowerPort;
+        port detectorPowerOutput : PowerPort;
+
+        attribute inputVoltageMinimum : Voltage = 9 [SI::V];
+        attribute inputVoltageMaximum : Voltage = 36 [SI::V];
+        attribute detectorRailVoltage : Voltage = 2.8 [SI::V];
+        attribute logicRailVoltage : Voltage = 3.3 [SI::V];
+        attribute efficiency : Real = 0.88;
+    }
+
+    part def MicrobolometerThermalImager {
+        port opticalInput : OpticalInputPort;
+        port videoOutput : DigitalVideoPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port powerInput : PowerPort;
+
+        attribute systemFrameRate : Frequency = 30 [SI::Hz];
+        attribute fieldOfViewHorizontal : Angle = 32 [SI::deg];
+        attribute fieldOfViewVertical : Angle = 24 [SI::deg];
+        attribute spectralBandMinimum : Length = 8 [SI::um];
+        attribute spectralBandMaximum : Length = 14 [SI::um];
+        attribute noiseEquivalentTemperatureDifference : Temperature = 0.05 [SI::K];
+        attribute operatingTemperatureMinimum : Temperature = 253 [SI::K];
+        attribute operatingTemperatureMaximum : Temperature = 323 [SI::K];
+
+        part optics : InfraredOptics;
+        part focalPlaneArray : MicrobolometerFocalPlaneArray;
+        part readoutCircuit : ReadoutIntegratedCircuit;
+        part stabilizer : ThermalStabilizer;
+        part processor : ImageSignalProcessor;
+        part controller : Controller;
+        part powerConditioner : PowerConditioner;
+
+        connect opticalInput to optics.opticalInput;
+        connect optics.focusedOutput to focalPlaneArray.opticalInput;
+        connect focalPlaneArray.analogOutput to readoutCircuit.analogInput;
+        connect readoutCircuit.digitalOutput to processor.digitalInput;
+        connect processor.digitalOutput to videoOutput;
+        connect commandInput to controller.commandInput;
+        connect controller.roicCommandOutput to readoutCircuit.commandInput;
+        connect controller.ispCommandOutput to processor.commandInput;
+        connect controller.statusOutput to statusOutput;
+        connect processor.statusOutput to statusOutput;
+        connect stabilizer.statusOutput to statusOutput;
+        connect powerInput to powerConditioner.powerInput;
+        connect powerConditioner.detectorPowerOutput to focalPlaneArray;
+        connect powerConditioner.electronicsPowerOutput to readoutCircuit;
+        connect powerConditioner.electronicsPowerOutput to processor;
+        connect powerConditioner.electronicsPowerOutput to controller;
+
+        perform action primaryFunction : GenerateThermalImage;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        doc
+        /*
+         * The system shall receive long-wave infrared radiation from a scene,
+         * focus it onto an uncooled microbolometer focal plane array, convert
+         * incident radiant power into temperature-dependent resistance changes,
+         * read out the resulting electrical signals, and produce calibrated
+         * digital thermal image frames representing scene temperature.
+         */
+
+        require constraint {
+            imager.spectralBandMinimum == 8 [SI::um] and
+            imager.spectralBandMaximum == 14 [SI::um] and
+            imager.systemFrameRate >= 30 [SI::Hz]
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.noiseEquivalentTemperatureDifference <= 0.05 [SI::K]
+        }
+    }
+
+    requirement def FrameFormatRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.focalPlaneArray.horizontalPixels == 640 and
+            imager.focalPlaneArray.verticalPixels == 480 and
+            imager.processor.outputFrameRate >= 30 [SI::Hz]
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.operatingTemperatureMinimum <= 253 [SI::K] and
+            imager.operatingTemperatureMaximum >= 323 [SI::K]
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.stabilizer.allowableDrift <= 0.05 [SI::K]
+        }
+    }
+
+    requirement def PowerInputRequirement {
+        subject imager : MicrobolometerThermalImager;
+
+        require constraint {
+            imager.powerConditioner.inputVoltageMinimum <= 9 [SI::V] and
+            imager.powerConditioner.inputVoltageMaximum >= 36 [SI::V]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MicrobolometerThermalImager;
+    satisfy SensitivityRequirement by MicrobolometerThermalImager;
+    satisfy FrameFormatRequirement by MicrobolometerThermalImager;
+    satisfy OperatingTemperatureRequirement by MicrobolometerThermalImager;
+    satisfy ThermalStabilityRequirement by MicrobolometerThermalImager;
+    satisfy PowerInputRequirement by MicrobolometerThermalImager;
+
+}

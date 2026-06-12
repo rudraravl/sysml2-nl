@@ -1,0 +1,753 @@
+package MobileDeviceSystem {
+
+  import ScalarValues::*;
+  import Quantities::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percentage : Real {
+    unit = "%";
+  }
+
+  attribute def DataRate : Real {
+    unit = "Mb/s";
+  }
+
+  attribute def EnergyCapacity : Real {
+    unit = "Wh";
+  }
+
+  attribute def ElectricCurrent : Real {
+    unit = "A";
+  }
+
+  attribute def StorageCapacity : Real {
+    unit = "GB";
+  }
+
+  attribute def PixelCount : Real {
+    unit = "MP";
+  }
+
+  attribute def Frequency : Real {
+    unit = "GHz";
+  }
+
+  item def UserInput {
+    attribute gestureKind : String;
+    attribute inputLocationX : Real;
+    attribute inputLocationY : Real;
+    attribute timestamp : Time;
+  }
+
+  item def DisplayContent {
+    attribute contentType : String;
+    attribute brightnessLevel : Percentage;
+    attribute refreshRate : Frequency;
+  }
+
+  item def VoiceAudio {
+    attribute sampleRate : Frequency;
+    attribute duration : Time;
+  }
+
+  item def NetworkPacket {
+    attribute protocol : String;
+    attribute payloadSize : Mass;
+    attribute encrypted : Boolean;
+  }
+
+  item def PowerFlow {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute power : Power;
+  }
+
+  item def SensorReading {
+    attribute sensorKind : String;
+    attribute measuredValue : Real;
+    attribute confidence : Percentage;
+    attribute timestamp : Time;
+  }
+
+  item def LocationFix {
+    attribute latitude : Real;
+    attribute longitude : Real;
+    attribute horizontalAccuracy : Length;
+    attribute timestamp : Time;
+  }
+
+  port def TouchPort {
+    in item touch : UserInput;
+  }
+
+  port def DisplayPort {
+    out item visualOutput : DisplayContent;
+  }
+
+  port def AudioPort {
+    in item microphoneAudio : VoiceAudio;
+    out item speakerAudio : VoiceAudio;
+  }
+
+  port def WirelessPort {
+    in item downlink : NetworkPacket;
+    out item uplink : NetworkPacket;
+  }
+
+  port def ChargingPort {
+    in item chargingPower : PowerFlow;
+    out item accessoryData : NetworkPacket;
+    in item accessoryDataIn : NetworkPacket;
+  }
+
+  port def SensorPort {
+    out item reading : SensorReading;
+  }
+
+  part def Battery {
+    attribute nominalVoltage : ElectricPotential = 3.85 [V];
+    attribute capacity : EnergyCapacity = 18.5 [Wh];
+    attribute stateOfCharge : Percentage;
+    attribute health : Percentage;
+    attribute maximumChargePower : Power = 30 [W];
+
+    port chargeInput : ChargingPort;
+    port powerOutput {
+      out item suppliedPower : PowerFlow;
+    }
+
+    state def BatteryStateMachine {
+      state discharging;
+      state charging;
+      state full;
+      state lowPower;
+      state thermalLimited;
+
+      entry; then discharging;
+
+      transition discharging_to_lowPower
+        first discharging
+        if stateOfCharge <= 15.0
+        then lowPower;
+
+      transition lowPower_to_discharging
+        first lowPower
+        if stateOfCharge > 20.0
+        then discharging;
+
+      transition discharging_to_charging
+        first discharging
+        accept chargeInput.chargingPower
+        then charging;
+
+      transition lowPower_to_charging
+        first lowPower
+        accept chargeInput.chargingPower
+        then charging;
+
+      transition charging_to_full
+        first charging
+        if stateOfCharge >= 99.0
+        then full;
+
+      transition full_to_discharging
+        first full
+        if not chargeInput.chargingPower.power > 0 [W]
+        then discharging;
+
+      transition charging_to_thermalLimited
+        first charging
+        if maximumChargePower > 20 [W] and health < 80.0
+        then thermalLimited;
+
+      transition thermalLimited_to_charging
+        first thermalLimited
+        if health >= 80.0
+        then charging;
+    }
+
+    perform stateMachine : BatteryStateMachine;
+  }
+
+  part def Processor {
+    attribute coreCount : Integer = 8;
+    attribute peakClockFrequency : Frequency = 3.2 [GHz];
+    attribute secureExecutionEnabled : Boolean = true;
+
+    port powerInput {
+      in item suppliedPower : PowerFlow;
+    }
+
+    port appData {
+      in item appRequest : NetworkPacket;
+      out item appResponse : NetworkPacket;
+    }
+
+    action processUserTask {
+      in item input : UserInput;
+      in item networkData : NetworkPacket;
+      out item renderedContent : DisplayContent;
+      out item outgoingData : NetworkPacket;
+
+      first start;
+      then authenticateSession;
+      then evaluateApplicationIntent;
+      then computeResult;
+      then encryptOutgoingData;
+      then done;
+
+      action authenticateSession;
+      action evaluateApplicationIntent;
+      action computeResult;
+      action encryptOutgoingData;
+    }
+  }
+
+  part def DisplayAssembly {
+    attribute diagonalSize : Length = 0.165 [m];
+    attribute horizontalPixels : Integer = 2556;
+    attribute verticalPixels : Integer = 1179;
+    attribute maximumBrightness : Illuminance = 2000 [lx];
+
+    port touchInput : TouchPort;
+    port displayOutput : DisplayPort;
+    port powerInput {
+      in item suppliedPower : PowerFlow;
+    }
+
+    action presentInterface {
+      in item content : DisplayContent;
+      out item visibleContent : DisplayContent;
+
+      first receiveFrame;
+      then adjustBrightness;
+      then refreshPanel;
+      then done;
+
+      action receiveFrame;
+      action adjustBrightness;
+      action refreshPanel;
+    }
+  }
+
+  part def CameraSubsystem {
+    attribute rearCameraResolution : PixelCount = 48 [MP];
+    attribute frontCameraResolution : PixelCount = 12 [MP];
+    attribute opticalImageStabilization : Boolean = true;
+
+    port powerInput {
+      in item suppliedPower : PowerFlow;
+    }
+
+    port imageData {
+      out item capturedImage : NetworkPacket;
+    }
+
+    action captureImage {
+      out item image : NetworkPacket;
+
+      first focusLens;
+      then exposeSensor;
+      then processImageSignal;
+      then compressImage;
+      then done;
+
+      action focusLens;
+      action exposeSensor;
+      action processImageSignal;
+      action compressImage;
+    }
+  }
+
+  part def WirelessSubsystem {
+    attribute cellularSupported : Boolean = true;
+    attribute wifiSupported : Boolean = true;
+    attribute bluetoothSupported : Boolean = true;
+    attribute maximumDownlinkRate : DataRate = 2500 [Mb/s];
+    attribute maximumUplinkRate : DataRate = 300 [Mb/s];
+
+    port antenna : WirelessPort;
+    port processorData {
+      in item outboundPayload : NetworkPacket;
+      out item inboundPayload : NetworkPacket;
+    }
+
+    action maintainConnectivity {
+      in item outgoing : NetworkPacket;
+      out item incoming : NetworkPacket;
+
+      first scanAvailableNetworks;
+      then selectBestLink;
+      then authenticateRadioAccess;
+      then transmitAndReceivePackets;
+      then done;
+
+      action scanAvailableNetworks;
+      action selectBestLink;
+      action authenticateRadioAccess;
+      action transmitAndReceivePackets;
+    }
+
+    state def RadioStateMachine {
+      state offline;
+      state searching;
+      state connected;
+      state roaming;
+      state airplaneMode;
+
+      entry; then searching;
+
+      transition searching_to_connected
+        first searching
+        if maximumDownlinkRate > 0.0
+        then connected;
+
+      transition connected_to_roaming
+        first connected
+        if antenna.downlink.payloadSize > 0 [kg]
+        then roaming;
+
+      transition roaming_to_connected
+        first roaming
+        then connected;
+
+      transition connected_to_offline
+        first connected
+        if maximumDownlinkRate == 0.0
+        then offline;
+
+      transition offline_to_searching
+        first offline
+        then searching;
+
+      transition any_to_airplaneMode
+        first searching
+        then airplaneMode;
+
+      transition airplaneMode_to_searching
+        first airplaneMode
+        then searching;
+    }
+
+    perform radioBehavior : RadioStateMachine;
+  }
+
+  part def AudioSubsystem {
+    attribute speakerCount : Integer = 2;
+    attribute microphoneCount : Integer = 3;
+    attribute noiseCancellationSupported : Boolean = true;
+
+    port audio : AudioPort;
+    port powerInput {
+      in item suppliedPower : PowerFlow;
+    }
+
+    action handleVoiceCall {
+      in item microphoneSignal : VoiceAudio;
+      out item speakerSignal : VoiceAudio;
+
+      first sampleMicrophones;
+      then suppressNoise;
+      then encodeVoice;
+      then decodeRemoteVoice;
+      then driveSpeakers;
+      then done;
+
+      action sampleMicrophones;
+      action suppressNoise;
+      action encodeVoice;
+      action decodeRemoteVoice;
+      action driveSpeakers;
+    }
+  }
+
+  part def SensorSubsystem {
+    attribute accelerometerPresent : Boolean = true;
+    attribute gyroscopePresent : Boolean = true;
+    attribute magnetometerPresent : Boolean = true;
+    attribute ambientLightSensorPresent : Boolean = true;
+    attribute biometricSensorPresent : Boolean = true;
+
+    port sensors : SensorPort;
+
+    action collectContext {
+      out item motion : SensorReading;
+      out item light : SensorReading;
+      out item biometric : SensorReading;
+
+      first sampleMotionSensors;
+      then sampleAmbientLight;
+      then sampleBiometricSensor;
+      then validateReadings;
+      then done;
+
+      action sampleMotionSensors;
+      action sampleAmbientLight;
+      action sampleBiometricSensor;
+      action validateReadings;
+    }
+  }
+
+  part def LocationSubsystem {
+    attribute gnssSupported : Boolean = true;
+    attribute assistedLocationSupported : Boolean = true;
+    attribute targetAccuracy : Length = 5 [m];
+
+    port locationOutput {
+      out item fix : LocationFix;
+    }
+
+    action determinePosition {
+      out item position : LocationFix;
+
+      first acquireSatellites;
+      then combineWirelessAssistance;
+      then estimatePosition;
+      then reportLocation;
+      then done;
+
+      action acquireSatellites;
+      action combineWirelessAssistance;
+      action estimatePosition;
+      action reportLocation;
+    }
+  }
+
+  part def StorageSubsystem {
+    attribute nonvolatileCapacity : StorageCapacity = 256 [GB];
+    attribute volatileMemoryCapacity : StorageCapacity = 8 [GB];
+    attribute hardwareEncryptionEnabled : Boolean = true;
+
+    port dataAccess {
+      in item writeRequest : NetworkPacket;
+      out item readResponse : NetworkPacket;
+    }
+
+    action storeUserData {
+      in item dataToStore : NetworkPacket;
+      out item storageResult : NetworkPacket;
+
+      first validateRequest;
+      then encryptData;
+      then writeFlashPages;
+      then verifyIntegrity;
+      then done;
+
+      action validateRequest;
+      action encryptData;
+      action writeFlashPages;
+      action verifyIntegrity;
+    }
+  }
+
+  part def OperatingSystem {
+    attribute version : String = "MobileOS 1.0";
+    attribute multitaskingEnabled : Boolean = true;
+    attribute secureBootRequired : Boolean = true;
+
+    port userEvents {
+      in item inputEvent : UserInput;
+    }
+
+    port renderedFrames {
+      out item frame : DisplayContent;
+    }
+
+    port networkStack {
+      in item receivedPacket : NetworkPacket;
+      out item transmittedPacket : NetworkPacket;
+    }
+
+    action providePrimaryFunction {
+      in item userCommand : UserInput;
+      in item receivedData : NetworkPacket;
+      out item userVisibleResult : DisplayContent;
+      out item transmittedData : NetworkPacket;
+
+      first wakeDevice;
+      then verifyUserIdentity;
+      then interpretUserIntent;
+      then coordinateApplicationServices;
+      then presentResult;
+      then synchronizeData;
+      then done;
+
+      action wakeDevice;
+      action verifyUserIdentity;
+      action interpretUserIntent;
+      action coordinateApplicationServices;
+      action presentResult;
+      action synchronizeData;
+    }
+
+    state def DeviceUserStateMachine {
+      state poweredOff;
+      state booting;
+      state locked;
+      state unlockedIdle;
+      state activeApplication;
+      state callInProgress;
+      state standby;
+
+      entry; then poweredOff;
+
+      transition poweredOff_to_booting
+        first poweredOff
+        then booting;
+
+      transition booting_to_locked
+        first booting
+        if secureBootRequired
+        then locked;
+
+      transition locked_to_unlockedIdle
+        first locked
+        accept userEvents.inputEvent
+        then unlockedIdle;
+
+      transition unlockedIdle_to_activeApplication
+        first unlockedIdle
+        accept userEvents.inputEvent
+        then activeApplication;
+
+      transition activeApplication_to_unlockedIdle
+        first activeApplication
+        then unlockedIdle;
+
+      transition unlockedIdle_to_callInProgress
+        first unlockedIdle
+        accept networkStack.receivedPacket
+        then callInProgress;
+
+      transition callInProgress_to_unlockedIdle
+        first callInProgress
+        then unlockedIdle;
+
+      transition unlockedIdle_to_standby
+        first unlockedIdle
+        then standby;
+
+      transition standby_to_locked
+        first standby
+        then locked;
+    }
+
+    perform userStateBehavior : DeviceUserStateMachine;
+  }
+
+  part def MobileDevice {
+    attribute mass : Mass = 0.185 [kg];
+    attribute thickness : Length = 0.008 [m];
+    attribute width : Length = 0.071 [m];
+    attribute height : Length = 0.147 [m];
+    attribute ingressProtectionRating : String = "IP68";
+    attribute primaryFunction : String = "Enable a mobile user to communicate, access digital services, capture information, and interact with applications through a portable, battery-powered computing platform.";
+
+    port touch : TouchPort;
+    port screen : DisplayPort;
+    port audioJack : AudioPort;
+    port cellularWifiBluetooth : WirelessPort;
+    port usbC : ChargingPort;
+    port environmentalAndMotionSensors : SensorPort;
+    port locationService {
+      out item fix : LocationFix;
+    }
+
+    part battery : Battery;
+    part processor : Processor;
+    part display : DisplayAssembly;
+    part cameras : CameraSubsystem;
+    part wireless : WirelessSubsystem;
+    part audio : AudioSubsystem;
+    part sensors : SensorSubsystem;
+    part location : LocationSubsystem;
+    part storage : StorageSubsystem;
+    part os : OperatingSystem;
+
+    connect touch to display.touchInput;
+    connect display.displayOutput to screen;
+    connect audio.audio to audioJack;
+    connect wireless.antenna to cellularWifiBluetooth;
+    connect battery.chargeInput to usbC;
+    connect sensors.sensors to environmentalAndMotionSensors;
+    connect location.locationOutput to locationService;
+
+    connect battery.powerOutput to processor.powerInput;
+    connect battery.powerOutput to display.powerInput;
+    connect battery.powerOutput to cameras.powerInput;
+    connect battery.powerOutput to audio.powerInput;
+
+    connect display.touchInput to os.userEvents;
+    connect os.renderedFrames to display.displayOutput;
+    connect os.networkStack to wireless.processorData;
+    connect processor.appData to os.networkStack;
+    connect storage.dataAccess to processor.appData;
+    connect cameras.imageData to processor.appData;
+
+    action performMobileComputingMission {
+      in item userInput : UserInput;
+      in item receivedPacket : NetworkPacket;
+      out item displayedResult : DisplayContent;
+      out item transmittedPacket : NetworkPacket;
+
+      first receiveUserInteraction;
+      then authenticateAndUnlock;
+      then processApplicationTask;
+      then communicateWithNetwork;
+      then updateDisplay;
+      then preserveUserData;
+      then returnToEfficientPowerState;
+      then done;
+
+      action receiveUserInteraction {
+        out item capturedInput : UserInput;
+      }
+
+      action authenticateAndUnlock {
+        in item capturedInput : UserInput;
+        out item authenticatedInput : UserInput;
+      }
+
+      action processApplicationTask {
+        in item authenticatedInput : UserInput;
+        in item receivedPacket : NetworkPacket;
+        out item content : DisplayContent;
+        out item outgoingPayload : NetworkPacket;
+      }
+
+      action communicateWithNetwork {
+        in item outgoingPayload : NetworkPacket;
+        out item transmittedPacket : NetworkPacket;
+      }
+
+      action updateDisplay {
+        in item content : DisplayContent;
+        out item displayedResult : DisplayContent;
+      }
+
+      action preserveUserData;
+
+      action returnToEfficientPowerState;
+    }
+  }
+
+  requirement def MobileDevicePrimaryFunctionRequirement {
+    doc /* The mobile device shall provide portable, battery-powered computing that allows a user to communicate, access networked services, capture media and sensor information, store user data, and receive visual and audio feedback through an integrated handheld device. */
+
+    subject device : MobileDevice;
+
+    require constraint {
+      device.battery.capacity >= 15 [Wh]
+    }
+
+    require constraint {
+      device.wireless.maximumDownlinkRate >= 100 [Mb/s]
+    }
+
+    require constraint {
+      device.storage.nonvolatileCapacity >= 64 [GB]
+    }
+
+    require constraint {
+      device.display.horizontalPixels >= 1000
+    }
+
+    require constraint {
+      device.display.verticalPixels >= 700
+    }
+  }
+
+  requirement def PortabilityRequirement {
+    doc /* The mobile device shall be handheld and portable for continuous daily carry. */
+
+    subject device : MobileDevice;
+
+    require constraint {
+      device.mass <= 0.250 [kg]
+    }
+
+    require constraint {
+      device.thickness <= 0.012 [m]
+    }
+  }
+
+  requirement def CommunicationRequirement {
+    doc /* The mobile device shall exchange encrypted packet data over wireless networks and support voice audio interaction. */
+
+    subject device : MobileDevice;
+
+    require constraint {
+      device.wireless.cellularSupported == true
+    }
+
+    require constraint {
+      device.wireless.wifiSupported == true
+    }
+
+    require constraint {
+      device.audio.microphoneCount >= 1
+    }
+
+    require constraint {
+      device.audio.speakerCount >= 1
+    }
+  }
+
+  requirement def UserInteractionRequirement {
+    doc /* The mobile device shall accept direct touch input and provide high-resolution visual output for application interaction. */
+
+    subject device : MobileDevice;
+
+    require constraint {
+      device.display.diagonalSize >= 0.12 [m]
+    }
+
+    require constraint {
+      device.sensors.biometricSensorPresent == true
+    }
+  }
+
+  requirement def InformationCaptureRequirement {
+    doc /* The mobile device shall capture images, contextual sensor readings, and location information for user-authorized applications. */
+
+    subject device : MobileDevice;
+
+    require constraint {
+      device.cameras.rearCameraResolution >= 12 [MP]
+    }
+
+    require constraint {
+      device.location.targetAccuracy <= 10 [m]
+    }
+
+    require constraint {
+      device.sensors.accelerometerPresent == true
+    }
+  }
+
+  requirement def PowerOperationRequirement {
+    doc /* The mobile device shall operate from an internal rechargeable battery and accept external charging power. */
+
+    subject device : MobileDevice;
+
+    require constraint {
+      device.battery.nominalVoltage >= 3.0 [V]
+    }
+
+    require constraint {
+      device.battery.maximumChargePower >= 15 [W]
+    }
+  }
+
+  part mobileDeviceSystem {
+    part device : MobileDevice;
+
+    satisfy MobileDevicePrimaryFunctionRequirement by device;
+    satisfy PortabilityRequirement by device;
+    satisfy CommunicationRequirement by device;
+    satisfy UserInteractionRequirement by device;
+    satisfy InformationCaptureRequirement by device;
+    satisfy PowerOperationRequirement by device;
+  }
+}

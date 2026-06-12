@@ -1,0 +1,277 @@
+package DonaldRoutledgeHillSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ConfidenceScore : Real {
+    range = "0..1";
+  }
+
+  attribute def PageCount : Integer;
+  attribute def RecordCount : Integer;
+  attribute def ProcessingRate : Real;
+  attribute def PreservationRisk : Real;
+
+  item def Manuscript {
+    attribute title : String;
+    attribute authorName : String;
+    attribute estimatedYear : Integer;
+    attribute language : String;
+    attribute pages : PageCount;
+    attribute conditionRisk : PreservationRisk;
+  }
+
+  item def MechanicalDeviceDescription {
+    attribute deviceName : String;
+    attribute sourceCitation : String;
+    attribute operatingPrinciple : String;
+    attribute confidence : ConfidenceScore;
+  }
+
+  item def Translation {
+    attribute sourceLanguage : String;
+    attribute targetLanguage : String;
+    attribute translatedText : String;
+    attribute translatorConfidence : ConfidenceScore;
+  }
+
+  item def ScholarlyRecord {
+    attribute recordId : String;
+    attribute title : String;
+    attribute summary : String;
+    attribute historicalContext : String;
+    attribute primaryFunctionDescription : String;
+    attribute citationCount : RecordCount;
+  }
+
+  port def ManuscriptInputPort {
+    in manuscript : Manuscript;
+  }
+
+  port def RecordOutputPort {
+    out record : ScholarlyRecord;
+  }
+
+  port def ReviewPort {
+    out candidateRecord : ScholarlyRecord;
+    in reviewedRecord : ScholarlyRecord;
+  }
+
+  port def ArchivePort {
+    out archivedRecord : ScholarlyRecord;
+  }
+
+  part def DigitizationModule {
+    port input : ManuscriptInputPort;
+    port output {
+      out digitizedManuscript : Manuscript;
+    }
+
+    attribute scanResolution : Real = 600 [SI::Unit::dpi];
+    attribute averageThroughput : ProcessingRate = 35.0;
+    attribute maxPageSize : LengthValue = 0.42 [SI::Unit::m];
+
+    action scanManuscript {
+      in raw : Manuscript;
+      out scanned : Manuscript;
+    }
+  }
+
+  part def TranslationModule {
+    port input {
+      in digitizedManuscript : Manuscript;
+    }
+    port output {
+      out translation : Translation;
+    }
+
+    attribute supportedLanguages : String = "Arabic, Persian, Turkish, Latin, English";
+    attribute minimumConfidence : ConfidenceScore = 0.82;
+
+    action translateTechnicalText {
+      in source : Manuscript;
+      out translated : Translation;
+    }
+  }
+
+  part def MechanicalAnalysisModule {
+    port textInput {
+      in translation : Translation;
+    }
+    port deviceOutput {
+      out deviceDescription : MechanicalDeviceDescription;
+    }
+
+    attribute deviceTaxonomy : String = "water clocks, automata, pumps, mills, astronomical instruments";
+    attribute minimumAnalyticalConfidence : ConfidenceScore = 0.78;
+
+    action inferMechanism {
+      in technicalText : Translation;
+      out mechanism : MechanicalDeviceDescription;
+    }
+  }
+
+  part def HistoricalContextModule {
+    port mechanismInput {
+      in deviceDescription : MechanicalDeviceDescription;
+    }
+    port recordOutput {
+      out draftRecord : ScholarlyRecord;
+    }
+
+    attribute contextScope : String = "medieval engineering, Islamic technology, transmission of mechanical knowledge";
+    attribute bibliographyDepth : RecordCount = 25;
+
+    action buildContextualRecord {
+      in mechanism : MechanicalDeviceDescription;
+      out record : ScholarlyRecord;
+    }
+  }
+
+  part def PeerReviewModule {
+    port review : ReviewPort;
+
+    attribute reviewersRequired : RecordCount = 2;
+    attribute acceptanceThreshold : ConfidenceScore = 0.85;
+
+    state machine reviewLifecycle {
+      state draft;
+      state underReview;
+      state revisionRequired;
+      state accepted;
+      state rejected;
+
+      transition first draft then underReview;
+      transition underReview then accepted;
+      transition underReview then revisionRequired;
+      transition revisionRequired then underReview;
+      transition underReview then rejected;
+    }
+  }
+
+  part def ScholarlyArchive {
+    port archive : ArchivePort;
+
+    attribute retentionDuration : TimeValue = 100 [SI::Unit::yr];
+    attribute replicatedCopies : RecordCount = 4;
+    attribute searchIndexUpdateRate : ProcessingRate = 1200.0;
+
+    action preserveRecord {
+      in reviewedRecord : ScholarlyRecord;
+    }
+  }
+
+  part def HillHistoricalEngineeringSystem {
+    port manuscriptInput : ManuscriptInputPort;
+    port scholarlyOutput : RecordOutputPort;
+
+    attribute primaryFunction : String =
+      "Transform historical technical manuscripts into reviewed scholarly records that explain mechanical devices, engineering principles, and their cultural context.";
+
+    attribute nominalManuscriptRate : ProcessingRate = 12.0;
+    attribute targetRecordConfidence : ConfidenceScore = 0.90;
+
+    part digitizer : DigitizationModule;
+    part translator : TranslationModule;
+    part analyzer : MechanicalAnalysisModule;
+    part contextualizer : HistoricalContextModule;
+    part reviewer : PeerReviewModule;
+    part archive : ScholarlyArchive;
+
+    connect manuscriptInput.manuscript to digitizer.input.manuscript;
+    connect digitizer.output.digitizedManuscript to translator.input.digitizedManuscript;
+    connect translator.output.translation to analyzer.textInput.translation;
+    connect analyzer.deviceOutput.deviceDescription to contextualizer.mechanismInput.deviceDescription;
+    connect contextualizer.recordOutput.draftRecord to reviewer.review.candidateRecord;
+    connect reviewer.review.reviewedRecord to archive.archive.archivedRecord;
+    connect archive.archive.archivedRecord to scholarlyOutput.record;
+
+    action operateSystem {
+      in sourceManuscript : Manuscript;
+      out publishedRecord : ScholarlyRecord;
+
+      first start;
+      then digitize;
+      then translate;
+      then analyzeMechanism;
+      then contextualize;
+      then review;
+      then archiveRecord;
+      then done;
+
+      action start;
+      action digitize;
+      action translate;
+      action analyzeMechanism;
+      action contextualize;
+      action review;
+      action archiveRecord;
+      action done;
+    }
+
+    state machine operationalStates {
+      state idle;
+      state acquiringManuscript;
+      state digitizing;
+      state translating;
+      state analyzing;
+      state reviewing;
+      state archiving;
+      state publishing;
+      state maintenance;
+
+      transition first idle;
+      transition idle then acquiringManuscript;
+      transition acquiringManuscript then digitizing;
+      transition digitizing then translating;
+      transition translating then analyzing;
+      transition analyzing then reviewing;
+      transition reviewing then archiving;
+      transition archiving then publishing;
+      transition publishing then idle;
+      transition idle then maintenance;
+      transition maintenance then idle;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HillHistoricalEngineeringSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Transform historical technical manuscripts into reviewed scholarly records that explain mechanical devices, engineering principles, and their cultural context."
+    }
+  }
+
+  requirement def TranslationConfidenceRequirement {
+    subject module : TranslationModule;
+
+    require constraint {
+      module.minimumConfidence >= 0.82
+    }
+  }
+
+  requirement def ReviewRequirement {
+    subject module : PeerReviewModule;
+
+    require constraint {
+      module.reviewersRequired >= 2 and module.acceptanceThreshold >= 0.85
+    }
+  }
+
+  requirement def ArchiveDurabilityRequirement {
+    subject archive : ScholarlyArchive;
+
+    require constraint {
+      archive.replicatedCopies >= 3 and archive.retentionDuration >= 50 [SI::Unit::yr]
+    }
+  }
+
+  part hillSystem : HillHistoricalEngineeringSystem;
+
+  satisfy PrimaryFunctionRequirement by hillSystem;
+  satisfy TranslationConfidenceRequirement by hillSystem.translator;
+  satisfy ReviewRequirement by hillSystem.reviewer;
+  satisfy ArchiveDurabilityRequirement by hillSystem.archive;
+}

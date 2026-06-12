@@ -1,0 +1,853 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ju6hrn4m
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb641-548c-7422-8a50-370b7ce6aa40
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Wireless sensor network.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WirelessSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        unit = "%";
+    }
+
+    attribute def dBm : Real {
+        unit = "dBm";
+    }
+
+    attribute def Millivolt : Real {
+        unit = "mV";
+    }
+
+    attribute def Millisecond : Real {
+        unit = "ms";
+    }
+
+    attribute def PacketCount : Integer;
+
+    attribute def NodeIdentifier : String;
+    attribute def NetworkAddress : String;
+
+    item def EnvironmentalSample {
+        attribute sampleId : PacketCount;
+        attribute sourceNodeId : NodeIdentifier;
+        attribute measuredTemperature : TemperatureValue;
+        attribute relativeHumidity : Percent;
+        attribute batteryStateOfCharge : Percent;
+        attribute linkQuality : Percent;
+        attribute receivedSignalStrength : dBm;
+        attribute timestamp : TimeValue;
+    }
+
+    item def SensorCommand {
+        attribute destinationNodeId : NodeIdentifier;
+        attribute commandCode : String;
+        attribute requestedSamplePeriod : TimeValue;
+        attribute requiredTransmitPower : dBm;
+    }
+
+    item def WirelessPacket {
+        attribute packetId : PacketCount;
+        attribute sourceAddress : NetworkAddress;
+        attribute destinationAddress : NetworkAddress;
+        attribute payloadLength : Integer;
+        attribute cyclicRedundancyCheck : Integer;
+        item payload : EnvironmentalSample;
+    }
+
+    item def ElectricalEnergy {
+        attribute storedEnergy : EnergyValue;
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+    }
+
+    port def SampleOutputPort {
+        out item sample : EnvironmentalSample;
+    }
+
+    port def CommandInputPort {
+        in item command : SensorCommand;
+    }
+
+    port def WirelessTransmitPort {
+        out item packetOut : WirelessPacket;
+        in item packetIn : WirelessPacket;
+    }
+
+    port def WirelessReceivePort {
+        in item packetIn : WirelessPacket;
+        out item packetOut : WirelessPacket;
+    }
+
+    port def PowerPort {
+        inout item energy : ElectricalEnergy;
+    }
+
+    port def AnalogSensePort {
+        out attribute sensingVoltage : ElectricPotentialValue;
+        out attribute sensingCurrent : ElectricCurrentValue;
+    }
+
+    part def TemperatureHumiditySensingUnit {
+        attribute nodeId : NodeIdentifier = "field-node-017";
+        attribute networkAddress : NetworkAddress = "WSN-017";
+        attribute nominalSamplePeriod : TimeValue = 60 [s];
+        attribute measurementResolution : TemperatureValue = 0.1 [K];
+        attribute measurementAccuracy : TemperatureValue = 0.5 [K];
+        attribute operatingTemperatureMin : TemperatureValue = 253.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 333.15 [K];
+        attribute lowBatteryThreshold : Percent = 20.0 [%];
+
+        port sampleOut : SampleOutputPort;
+        port commandIn : CommandInputPort;
+        port radio : WirelessTransmitPort;
+        port power : PowerPort;
+
+        part sensorElement : DigitalTemperatureHumiditySensor;
+        part signalProcessor : MeasurementProcessor;
+        part radioModule : LowPowerWirelessRadio;
+        part powerSubsystem : BatteryPowerSubsystem;
+        part diagnostics : NodeDiagnostics;
+
+        connect sensorElement.rawSignal to signalProcessor.sensorInput;
+        connect signalProcessor.processedSample to sampleOut;
+        connect signalProcessor.packetOutput to radioModule.packetInput;
+        connect radioModule.antenna to radio;
+        connect powerSubsystem.loadOutput to sensorElement.powerInput;
+        connect powerSubsystem.loadOutput to signalProcessor.powerInput;
+        connect powerSubsystem.loadOutput to radioModule.powerInput;
+        connect powerSubsystem.statusOutput to diagnostics.powerStatusInput;
+        connect radioModule.linkStatusOutput to diagnostics.radioStatusInput;
+    }
+
+    part def DigitalTemperatureHumiditySensor {
+        attribute measurementRangeLow : TemperatureValue = 233.15 [K];
+        attribute measurementRangeHigh : TemperatureValue = 358.15 [K];
+        attribute conversionTime : TimeValue = 50 [ms];
+        attribute standbyCurrent : ElectricCurrentValue = 2 [uA];
+        attribute activeCurrent : ElectricCurrentValue = 800 [uA];
+
+        port rawSignal : AnalogSensePort;
+        port powerInput : PowerPort;
+
+        action senseEnvironment {
+            out attribute sensedTemperature : TemperatureValue;
+            out attribute sensedHumidity : Percent;
+            first start;
+            then stabilize for conversionTime;
+            then sampleTemperature;
+            then sampleHumidity;
+            then publishRawSignal;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute processorClockFrequency : FrequencyValue = 16 [MHz];
+        attribute analogReferenceVoltage : ElectricPotentialValue = 3.3 [V];
+        attribute packetSequence : PacketCount;
+        attribute calibrationOffset : TemperatureValue = 0.0 [K];
+        attribute humidityCalibrationScale : Real = 1.0;
+
+        port sensorInput : AnalogSensePort;
+        port processedSample : SampleOutputPort;
+        port packetOutput : WirelessTransmitPort;
+        port powerInput : PowerPort;
+
+        action acquireAndProcess {
+            in attribute rawVoltage : ElectricPotentialValue;
+            out item sample : EnvironmentalSample;
+
+            first readAnalogSignal;
+            then convertVoltageToTemperature;
+            then applyTemperatureCalibration;
+            then convertVoltageToHumidity;
+            then applyHumidityCalibration;
+            then attachNodeMetadata;
+            then attachPowerAndLinkDiagnostics;
+            then emitSample;
+            then encapsulateWirelessPacket;
+        }
+    }
+
+    part def LowPowerWirelessRadio {
+        attribute centerFrequency : FrequencyValue = 2.4 [GHz];
+        attribute channelBandwidth : FrequencyValue = 2 [MHz];
+        attribute transmitPower : dBm = 0.0 [dBm];
+        attribute receiverSensitivity : dBm = -95.0 [dBm];
+        attribute maximumPayloadBytes : Integer = 96;
+        attribute retryLimit : Integer = 3;
+        attribute acknowledgementTimeout : TimeValue = 25 [ms];
+
+        port packetInput : WirelessTransmitPort;
+        port antenna : WirelessTransmitPort;
+        port powerInput : PowerPort;
+        port linkStatusOutput : SampleOutputPort;
+
+        action transmitSamplePacket {
+            in item sample : EnvironmentalSample;
+            out item packet : WirelessPacket;
+
+            first createPacketHeader;
+            then serializeSamplePayload;
+            then calculateCrc;
+            then transmitOnAssignedChannel;
+            then waitForAcknowledgement;
+            if acknowledgementReceived then
+                updateLinkQuality;
+            else
+                retryTransmission;
+            end
+        }
+    }
+
+    part def BatteryPowerSubsystem {
+        attribute nominalVoltage : ElectricPotentialValue = 3.6 [V];
+        attribute usableCapacity : ElectricChargeValue = 2400 [mA*h];
+        attribute currentStateOfCharge : Percent = 100.0 [%];
+        attribute sleepCurrentBudget : ElectricCurrentValue = 20 [uA];
+        attribute activeCurrentBudget : ElectricCurrentValue = 35 [mA];
+
+        port loadOutput : PowerPort;
+        port statusOutput : SampleOutputPort;
+
+        action regulatePower {
+            first measureBatteryVoltage;
+            then estimateStateOfCharge;
+            then enableSensorRail;
+            then enableProcessorRail;
+            then enableRadioRailWhenRequested;
+            then publishPowerStatus;
+        }
+    }
+
+    part def NodeDiagnostics {
+        attribute lastPacketLossRatio : Percent;
+        attribute lastBatteryStateOfCharge : Percent;
+        attribute faultCode : String;
+
+        port powerStatusInput : SampleOutputPort;
+        port radioStatusInput : SampleOutputPort;
+
+        action evaluateHealth {
+            first checkBatteryThreshold;
+            then checkRadioLinkQuality;
+            then checkSensorPlausibility;
+            then updateFaultCode;
+        }
+    }
+
+    part def WirelessGateway {
+        attribute gatewayId : NodeIdentifier = "gateway-001";
+        attribute gatewayAddress : NetworkAddress = "WSN-GW-001";
+        attribute supportedNodeCount : Integer = 128;
+        attribute minimumAcceptedLinkQuality : Percent = 40.0 [%];
+
+        port radio : WirelessReceivePort;
+        port commandOut : CommandInputPort;
+        port uplink : SampleOutputPort;
+
+        part gatewayRadio : LowPowerWirelessRadio;
+        part packetValidator : PacketValidationProcessor;
+        part networkManager : WirelessNetworkManager;
+
+        connect radio to gatewayRadio.antenna;
+        connect gatewayRadio.packetInput to packetValidator.packetInput;
+        connect packetValidator.validSampleOutput to uplink;
+        connect networkManager.commandOutput to commandOut;
+    }
+
+    part def PacketValidationProcessor {
+        attribute acceptedPacketCount : PacketCount;
+        attribute rejectedPacketCount : PacketCount;
+
+        port packetInput : WirelessReceivePort;
+        port validSampleOutput : SampleOutputPort;
+
+        action validatePacket {
+            first receivePacket;
+            then verifyAddress;
+            then verifyCrc;
+            then verifyTimestampFreshness;
+            then extractEnvironmentalSample;
+            then publishValidSample;
+        }
+    }
+
+    part def WirelessNetworkManager {
+        attribute networkPanId : String = "ENV-MONITOR-PAN";
+        attribute channelNumber : Integer = 18;
+        attribute beaconPeriod : TimeValue = 10 [s];
+        attribute nodeJoinTimeout : TimeValue = 120 [s];
+
+        port commandOutput : CommandInputPort;
+
+        action manageNetwork {
+            first advertiseNetwork;
+            then authenticateJoiningNode;
+            then assignNetworkAddress;
+            then scheduleSamplingSlot;
+            then issueSamplingCommand;
+            then maintainRoutingTable;
+        }
+    }
+
+    part def WirelessSensorNetwork {
+        attribute networkName : String = "Environmental Monitoring Wireless Sensor Network";
+        attribute requiredCoverageRadius : LengthValue = 100 [m];
+        attribute requiredSampleDeliveryLatency : TimeValue = 5 [s];
+        attribute requiredPacketDeliveryRatio : Percent = 95.0 [%];
+
+        part sensingUnit : TemperatureHumiditySensingUnit;
+        part gateway : WirelessGateway;
+
+        connect sensingUnit.radio to gateway.radio;
+        connect gateway.commandOut to sensingUnit.commandIn;
+        connect sensingUnit.sampleOut to gateway.uplink;
+    }
+
+    state def SensingUnitOperationalStates {
+        entry action initializeNode;
+        state Off;
+        state Booting;
+        state JoiningNetwork;
+        state Sleep;
+        state Measuring;
+        state Processing;
+        state Transmitting;
+        state AwaitingAcknowledgement;
+        state Fault;
+
+        transition first Off then Booting;
+        transition Booting then JoiningNetwork
+            accept after 2 [s];
+        transition JoiningNetwork then Sleep
+            accept when networkAssociationComplete;
+        transition Sleep then Measuring
+            accept after 60 [s];
+        transition Measuring then Processing
+            accept when sensorConversionComplete;
+        transition Processing then Transmitting
+            accept when samplePacketReady;
+        transition Transmitting then AwaitingAcknowledgement
+            accept when radioFrameSent;
+        transition AwaitingAcknowledgement then Sleep
+            accept when acknowledgementReceived;
+        transition AwaitingAcknowledgement then Transmitting
+            accept when acknowledgementMissing and retryCount < 3;
+        transition AwaitingAcknowledgement then Fault
+            accept when acknowledgementMissing and retryCount >= 3;
+        transition Measuring then Fault
+            accept when sensorReadingOutOfRange;
+        transition Sleep then Fault
+            accept when batteryStateOfCharge < 20.0 [%];
+        transition Fault then JoiningNetwork
+            accept when resetCommandReceived;
+    }
+
+    action def PeriodicEnvironmentalMeasurement {
+        in part node : TemperatureHumiditySensingUnit;
+        out item deliveredSample : EnvironmentalSample;
+
+        first wakeFromSleep;
+        then powerSensor;
+        then performSensorConversion;
+        then processMeasurement;
+        then assembleWirelessPacket;
+        then transmitToGateway;
+        then receiveAcknowledgement;
+        then updateDiagnostics;
+        then returnToSleep;
+    }
+
+    action def GatewaySampleCollection {
+        in part network : WirelessSensorNetwork;
+        out item acceptedSample : EnvironmentalSample;
+
+        first listenOnAssignedChannel;
+        then receiveWirelessPacket;
+        then validatePacketIntegrity;
+        then rejectDuplicatePackets;
+        then forwardAcceptedSample;
+        then optionallySendConfigurationCommand;
+    }
+
+    requirement def MeasureEnvironmentalQuantityRequirement {
+        id = "REQ-WSN-001";
+        text = "The sensing unit shall measure ambient temperature and relative humidity and deliver each measurement through a wireless sensor network.";
+    }
+
+    requirement def TemperatureAccuracyRequirement {
+        id = "REQ-WSN-002";
+        text = "The sensing unit shall measure ambient temperature with accuracy no worse than 0.5 K over the operating range from 253.15 K to 333.15 K.";
+    }
+
+    requirement def HumidityAccuracyRequirement {
+        id = "REQ-WSN-003";
+        text = "The sensing unit shall measure relative humidity with accuracy no worse than 3 percent relative humidity over the range from 10 percent to 90 percent.";
+    }
+
+    requirement def SamplingPeriodRequirement {
+        id = "REQ-WSN-004";
+        text = "The sensing unit shall produce one valid environmental sample every 60 seconds during normal operation.";
+    }
+
+    requirement def WirelessDeliveryRequirement {
+        id = "REQ-WSN-005";
+        text = "The wireless sensor network shall deliver at least 95 percent of generated samples to the gateway within 5 seconds of measurement completion.";
+    }
+
+    requirement def LowPowerRequirement {
+        id = "REQ-WSN-006";
+        text = "The sensing unit shall operate from a battery supply and maintain sleep current less than or equal to 20 microamperes.";
+    }
+
+    requirement def FaultDetectionRequirement {
+        id = "REQ-WSN-007";
+        text = "The sensing unit shall detect sensor out-of-range conditions, low battery state below 20 percent, and repeated wireless acknowledgement failures.";
+    }
+
+    satisfy MeasureEnvironmentalQuantityRequirement by TemperatureHumiditySensingUnit;
+    satisfy TemperatureAccuracyRequirement by DigitalTemperatureHumiditySensor;
+    satisfy HumidityAccuracyRequirement by DigitalTemperatureHumiditySensor;
+    satisfy SamplingPeriodRequirement by PeriodicEnvironmentalMeasurement;
+    satisfy WirelessDeliveryRequirement by WirelessSensorNetwork;
+    satisfy LowPowerRequirement by BatteryPowerSubsystem;
+    satisfy FaultDetectionRequirement by NodeDiagnostics;
+
+    exhibit state SensingUnitOperationalStates by TemperatureHumiditySensingUnit;
+    perform action PeriodicEnvironmentalMeasurement by TemperatureHumiditySensingUnit;
+    perform action GatewaySampleCollection by WirelessGateway;
+}
+tokens used
+3,434
+package WirelessSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        unit = "%";
+    }
+
+    attribute def dBm : Real {
+        unit = "dBm";
+    }
+
+    attribute def Millivolt : Real {
+        unit = "mV";
+    }
+
+    attribute def Millisecond : Real {
+        unit = "ms";
+    }
+
+    attribute def PacketCount : Integer;
+
+    attribute def NodeIdentifier : String;
+    attribute def NetworkAddress : String;
+
+    item def EnvironmentalSample {
+        attribute sampleId : PacketCount;
+        attribute sourceNodeId : NodeIdentifier;
+        attribute measuredTemperature : TemperatureValue;
+        attribute relativeHumidity : Percent;
+        attribute batteryStateOfCharge : Percent;
+        attribute linkQuality : Percent;
+        attribute receivedSignalStrength : dBm;
+        attribute timestamp : TimeValue;
+    }
+
+    item def SensorCommand {
+        attribute destinationNodeId : NodeIdentifier;
+        attribute commandCode : String;
+        attribute requestedSamplePeriod : TimeValue;
+        attribute requiredTransmitPower : dBm;
+    }
+
+    item def WirelessPacket {
+        attribute packetId : PacketCount;
+        attribute sourceAddress : NetworkAddress;
+        attribute destinationAddress : NetworkAddress;
+        attribute payloadLength : Integer;
+        attribute cyclicRedundancyCheck : Integer;
+        item payload : EnvironmentalSample;
+    }
+
+    item def ElectricalEnergy {
+        attribute storedEnergy : EnergyValue;
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+    }
+
+    port def SampleOutputPort {
+        out item sample : EnvironmentalSample;
+    }
+
+    port def CommandInputPort {
+        in item command : SensorCommand;
+    }
+
+    port def WirelessTransmitPort {
+        out item packetOut : WirelessPacket;
+        in item packetIn : WirelessPacket;
+    }
+
+    port def WirelessReceivePort {
+        in item packetIn : WirelessPacket;
+        out item packetOut : WirelessPacket;
+    }
+
+    port def PowerPort {
+        inout item energy : ElectricalEnergy;
+    }
+
+    port def AnalogSensePort {
+        out attribute sensingVoltage : ElectricPotentialValue;
+        out attribute sensingCurrent : ElectricCurrentValue;
+    }
+
+    part def TemperatureHumiditySensingUnit {
+        attribute nodeId : NodeIdentifier = "field-node-017";
+        attribute networkAddress : NetworkAddress = "WSN-017";
+        attribute nominalSamplePeriod : TimeValue = 60 [s];
+        attribute measurementResolution : TemperatureValue = 0.1 [K];
+        attribute measurementAccuracy : TemperatureValue = 0.5 [K];
+        attribute operatingTemperatureMin : TemperatureValue = 253.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 333.15 [K];
+        attribute lowBatteryThreshold : Percent = 20.0 [%];
+
+        port sampleOut : SampleOutputPort;
+        port commandIn : CommandInputPort;
+        port radio : WirelessTransmitPort;
+        port power : PowerPort;
+
+        part sensorElement : DigitalTemperatureHumiditySensor;
+        part signalProcessor : MeasurementProcessor;
+        part radioModule : LowPowerWirelessRadio;
+        part powerSubsystem : BatteryPowerSubsystem;
+        part diagnostics : NodeDiagnostics;
+
+        connect sensorElement.rawSignal to signalProcessor.sensorInput;
+        connect signalProcessor.processedSample to sampleOut;
+        connect signalProcessor.packetOutput to radioModule.packetInput;
+        connect radioModule.antenna to radio;
+        connect powerSubsystem.loadOutput to sensorElement.powerInput;
+        connect powerSubsystem.loadOutput to signalProcessor.powerInput;
+        connect powerSubsystem.loadOutput to radioModule.powerInput;
+        connect powerSubsystem.statusOutput to diagnostics.powerStatusInput;
+        connect radioModule.linkStatusOutput to diagnostics.radioStatusInput;
+    }
+
+    part def DigitalTemperatureHumiditySensor {
+        attribute measurementRangeLow : TemperatureValue = 233.15 [K];
+        attribute measurementRangeHigh : TemperatureValue = 358.15 [K];
+        attribute conversionTime : TimeValue = 50 [ms];
+        attribute standbyCurrent : ElectricCurrentValue = 2 [uA];
+        attribute activeCurrent : ElectricCurrentValue = 800 [uA];
+
+        port rawSignal : AnalogSensePort;
+        port powerInput : PowerPort;
+
+        action senseEnvironment {
+            out attribute sensedTemperature : TemperatureValue;
+            out attribute sensedHumidity : Percent;
+            first start;
+            then stabilize for conversionTime;
+            then sampleTemperature;
+            then sampleHumidity;
+            then publishRawSignal;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute processorClockFrequency : FrequencyValue = 16 [MHz];
+        attribute analogReferenceVoltage : ElectricPotentialValue = 3.3 [V];
+        attribute packetSequence : PacketCount;
+        attribute calibrationOffset : TemperatureValue = 0.0 [K];
+        attribute humidityCalibrationScale : Real = 1.0;
+
+        port sensorInput : AnalogSensePort;
+        port processedSample : SampleOutputPort;
+        port packetOutput : WirelessTransmitPort;
+        port powerInput : PowerPort;
+
+        action acquireAndProcess {
+            in attribute rawVoltage : ElectricPotentialValue;
+            out item sample : EnvironmentalSample;
+
+            first readAnalogSignal;
+            then convertVoltageToTemperature;
+            then applyTemperatureCalibration;
+            then convertVoltageToHumidity;
+            then applyHumidityCalibration;
+            then attachNodeMetadata;
+            then attachPowerAndLinkDiagnostics;
+            then emitSample;
+            then encapsulateWirelessPacket;
+        }
+    }
+
+    part def LowPowerWirelessRadio {
+        attribute centerFrequency : FrequencyValue = 2.4 [GHz];
+        attribute channelBandwidth : FrequencyValue = 2 [MHz];
+        attribute transmitPower : dBm = 0.0 [dBm];
+        attribute receiverSensitivity : dBm = -95.0 [dBm];
+        attribute maximumPayloadBytes : Integer = 96;
+        attribute retryLimit : Integer = 3;
+        attribute acknowledgementTimeout : TimeValue = 25 [ms];
+
+        port packetInput : WirelessTransmitPort;
+        port antenna : WirelessTransmitPort;
+        port powerInput : PowerPort;
+        port linkStatusOutput : SampleOutputPort;
+
+        action transmitSamplePacket {
+            in item sample : EnvironmentalSample;
+            out item packet : WirelessPacket;
+
+            first createPacketHeader;
+            then serializeSamplePayload;
+            then calculateCrc;
+            then transmitOnAssignedChannel;
+            then waitForAcknowledgement;
+            if acknowledgementReceived then
+                updateLinkQuality;
+            else
+                retryTransmission;
+            end
+        }
+    }
+
+    part def BatteryPowerSubsystem {
+        attribute nominalVoltage : ElectricPotentialValue = 3.6 [V];
+        attribute usableCapacity : ElectricChargeValue = 2400 [mA*h];
+        attribute currentStateOfCharge : Percent = 100.0 [%];
+        attribute sleepCurrentBudget : ElectricCurrentValue = 20 [uA];
+        attribute activeCurrentBudget : ElectricCurrentValue = 35 [mA];
+
+        port loadOutput : PowerPort;
+        port statusOutput : SampleOutputPort;
+
+        action regulatePower {
+            first measureBatteryVoltage;
+            then estimateStateOfCharge;
+            then enableSensorRail;
+            then enableProcessorRail;
+            then enableRadioRailWhenRequested;
+            then publishPowerStatus;
+        }
+    }
+
+    part def NodeDiagnostics {
+        attribute lastPacketLossRatio : Percent;
+        attribute lastBatteryStateOfCharge : Percent;
+        attribute faultCode : String;
+
+        port powerStatusInput : SampleOutputPort;
+        port radioStatusInput : SampleOutputPort;
+
+        action evaluateHealth {
+            first checkBatteryThreshold;
+            then checkRadioLinkQuality;
+            then checkSensorPlausibility;
+            then updateFaultCode;
+        }
+    }
+
+    part def WirelessGateway {
+        attribute gatewayId : NodeIdentifier = "gateway-001";
+        attribute gatewayAddress : NetworkAddress = "WSN-GW-001";
+        attribute supportedNodeCount : Integer = 128;
+        attribute minimumAcceptedLinkQuality : Percent = 40.0 [%];
+
+        port radio : WirelessReceivePort;
+        port commandOut : CommandInputPort;
+        port uplink : SampleOutputPort;
+
+        part gatewayRadio : LowPowerWirelessRadio;
+        part packetValidator : PacketValidationProcessor;
+        part networkManager : WirelessNetworkManager;
+
+        connect radio to gatewayRadio.antenna;
+        connect gatewayRadio.packetInput to packetValidator.packetInput;
+        connect packetValidator.validSampleOutput to uplink;
+        connect networkManager.commandOutput to commandOut;
+    }
+
+    part def PacketValidationProcessor {
+        attribute acceptedPacketCount : PacketCount;
+        attribute rejectedPacketCount : PacketCount;
+
+        port packetInput : WirelessReceivePort;
+        port validSampleOutput : SampleOutputPort;
+
+        action validatePacket {
+            first receivePacket;
+            then verifyAddress;
+            then verifyCrc;
+            then verifyTimestampFreshness;
+            then extractEnvironmentalSample;
+            then publishValidSample;
+        }
+    }
+
+    part def WirelessNetworkManager {
+        attribute networkPanId : String = "ENV-MONITOR-PAN";
+        attribute channelNumber : Integer = 18;
+        attribute beaconPeriod : TimeValue = 10 [s];
+        attribute nodeJoinTimeout : TimeValue = 120 [s];
+
+        port commandOutput : CommandInputPort;
+
+        action manageNetwork {
+            first advertiseNetwork;
+            then authenticateJoiningNode;
+            then assignNetworkAddress;
+            then scheduleSamplingSlot;
+            then issueSamplingCommand;
+            then maintainRoutingTable;
+        }
+    }
+
+    part def WirelessSensorNetwork {
+        attribute networkName : String = "Environmental Monitoring Wireless Sensor Network";
+        attribute requiredCoverageRadius : LengthValue = 100 [m];
+        attribute requiredSampleDeliveryLatency : TimeValue = 5 [s];
+        attribute requiredPacketDeliveryRatio : Percent = 95.0 [%];
+
+        part sensingUnit : TemperatureHumiditySensingUnit;
+        part gateway : WirelessGateway;
+
+        connect sensingUnit.radio to gateway.radio;
+        connect gateway.commandOut to sensingUnit.commandIn;
+        connect sensingUnit.sampleOut to gateway.uplink;
+    }
+
+    state def SensingUnitOperationalStates {
+        entry action initializeNode;
+        state Off;
+        state Booting;
+        state JoiningNetwork;
+        state Sleep;
+        state Measuring;
+        state Processing;
+        state Transmitting;
+        state AwaitingAcknowledgement;
+        state Fault;
+
+        transition first Off then Booting;
+        transition Booting then JoiningNetwork
+            accept after 2 [s];
+        transition JoiningNetwork then Sleep
+            accept when networkAssociationComplete;
+        transition Sleep then Measuring
+            accept after 60 [s];
+        transition Measuring then Processing
+            accept when sensorConversionComplete;
+        transition Processing then Transmitting
+            accept when samplePacketReady;
+        transition Transmitting then AwaitingAcknowledgement
+            accept when radioFrameSent;
+        transition AwaitingAcknowledgement then Sleep
+            accept when acknowledgementReceived;
+        transition AwaitingAcknowledgement then Transmitting
+            accept when acknowledgementMissing and retryCount < 3;
+        transition AwaitingAcknowledgement then Fault
+            accept when acknowledgementMissing and retryCount >= 3;
+        transition Measuring then Fault
+            accept when sensorReadingOutOfRange;
+        transition Sleep then Fault
+            accept when batteryStateOfCharge < 20.0 [%];
+        transition Fault then JoiningNetwork
+            accept when resetCommandReceived;
+    }
+
+    action def PeriodicEnvironmentalMeasurement {
+        in part node : TemperatureHumiditySensingUnit;
+        out item deliveredSample : EnvironmentalSample;
+
+        first wakeFromSleep;
+        then powerSensor;
+        then performSensorConversion;
+        then processMeasurement;
+        then assembleWirelessPacket;
+        then transmitToGateway;
+        then receiveAcknowledgement;
+        then updateDiagnostics;
+        then returnToSleep;
+    }
+
+    action def GatewaySampleCollection {
+        in part network : WirelessSensorNetwork;
+        out item acceptedSample : EnvironmentalSample;
+
+        first listenOnAssignedChannel;
+        then receiveWirelessPacket;
+        then validatePacketIntegrity;
+        then rejectDuplicatePackets;
+        then forwardAcceptedSample;
+        then optionallySendConfigurationCommand;
+    }
+
+    requirement def MeasureEnvironmentalQuantityRequirement {
+        id = "REQ-WSN-001";
+        text = "The sensing unit shall measure ambient temperature and relative humidity and deliver each measurement through a wireless sensor network.";
+    }
+
+    requirement def TemperatureAccuracyRequirement {
+        id = "REQ-WSN-002";
+        text = "The sensing unit shall measure ambient temperature with accuracy no worse than 0.5 K over the operating range from 253.15 K to 333.15 K.";
+    }
+
+    requirement def HumidityAccuracyRequirement {
+        id = "REQ-WSN-003";
+        text = "The sensing unit shall measure relative humidity with accuracy no worse than 3 percent relative humidity over the range from 10 percent to 90 percent.";
+    }
+
+    requirement def SamplingPeriodRequirement {
+        id = "REQ-WSN-004";
+        text = "The sensing unit shall produce one valid environmental sample every 60 seconds during normal operation.";
+    }
+
+    requirement def WirelessDeliveryRequirement {
+        id = "REQ-WSN-005";
+        text = "The wireless sensor network shall deliver at least 95 percent of generated samples to the gateway within 5 seconds of measurement completion.";
+    }
+
+    requirement def LowPowerRequirement {
+        id = "REQ-WSN-006";
+        text = "The sensing unit shall operate from a battery supply and maintain sleep current less than or equal to 20 microamperes.";
+    }
+
+    requirement def FaultDetectionRequirement {
+        id = "REQ-WSN-007";
+        text = "The sensing unit shall detect sensor out-of-range conditions, low battery state below 20 percent, and repeated wireless acknowledgement failures.";
+    }
+
+    satisfy MeasureEnvironmentalQuantityRequirement by TemperatureHumiditySensingUnit;
+    satisfy TemperatureAccuracyRequirement by DigitalTemperatureHumiditySensor;
+    satisfy HumidityAccuracyRequirement by DigitalTemperatureHumiditySensor;
+    satisfy SamplingPeriodRequirement by PeriodicEnvironmentalMeasurement;
+    satisfy WirelessDeliveryRequirement by WirelessSensorNetwork;
+    satisfy LowPowerRequirement by BatteryPowerSubsystem;
+    satisfy FaultDetectionRequirement by NodeDiagnostics;
+
+    exhibit state SensingUnitOperationalStates by TemperatureHumiditySensingUnit;
+    perform action PeriodicEnvironmentalMeasurement by TemperatureHumiditySensingUnit;
+    perform action GatewaySampleCollection by WirelessGateway;
+}

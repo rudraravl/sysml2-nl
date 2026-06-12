@@ -1,0 +1,677 @@
+package AmazonRoboticsFulfillmentSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Identifier :> String;
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+  attribute def Count :> Integer;
+  attribute def MoneyUSD :> Real {
+    unit = "USD";
+  }
+
+  item def CustomerOrder {
+    attribute orderId : Identifier;
+    attribute priority : Integer;
+    attribute requestedShipBy : Time;
+    attribute lineCount : Count;
+  }
+
+  item def InventoryBin {
+    attribute binId : Identifier;
+    attribute skuCount : Count;
+    attribute mass : Mass;
+  }
+
+  item def StoragePod {
+    attribute podId : Identifier;
+    attribute maxMass : Mass;
+    attribute currentMass : Mass;
+    attribute binCount : Count;
+  }
+
+  item def PickedItem {
+    attribute sku : Identifier;
+    attribute quantity : Count;
+    attribute fragile : Boolean;
+  }
+
+  item def Tote {
+    attribute toteId : Identifier;
+    attribute capacityVolume : Volume;
+    attribute currentVolume : Volume;
+  }
+
+  item def RoutePlan {
+    attribute routeId : Identifier;
+    attribute pathLength : Length;
+    attribute estimatedTravelTime : Time;
+  }
+
+  item def RobotCommand {
+    attribute commandId : Identifier;
+    attribute targetLocation : Identifier;
+    attribute maxSpeed : Speed;
+  }
+
+  item def RobotTelemetry {
+    attribute robotId : Identifier;
+    attribute batteryStateOfCharge : Percent;
+    attribute currentSpeed : Speed;
+    attribute payloadMass : Mass;
+    attribute faultActive : Boolean;
+  }
+
+  item def SafetyEvent {
+    attribute eventId : Identifier;
+    attribute severity : Integer;
+    attribute stopRequired : Boolean;
+  }
+
+  port def OrderInputPort {
+    in item order : CustomerOrder;
+  }
+
+  port def ToteOutputPort {
+    out item tote : Tote;
+  }
+
+  port def PodTransferPort {
+    inout item pod : StoragePod;
+  }
+
+  port def CommandPort {
+    in item command : RobotCommand;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : RobotTelemetry;
+  }
+
+  port def RoutePort {
+    out item route : RoutePlan;
+  }
+
+  port def SafetyPort {
+    inout item event : SafetyEvent;
+  }
+
+  port def PowerPort {
+    out attribute voltage : ElectricPotential;
+    out attribute availableEnergy : Energy;
+  }
+
+  part def AutonomousMobileDriveUnit {
+    attribute robotId : Identifier;
+    attribute maxPayload : Mass = 340 [kg];
+    attribute maxSpeed : Speed = 1.7 [m/s];
+    attribute nominalSpeed : Speed = 1.3 [m/s];
+    attribute batteryCapacity : Energy = 5200 [W*h];
+    attribute stateOfCharge : Percent;
+    attribute localizationError : Length;
+    attribute driveTemperature : Temperature;
+    attribute activeFault : Boolean;
+
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+    port podInterface : PodTransferPort;
+    port safetyInterface : SafetyPort;
+    port powerOut : PowerPort;
+
+    action receiveMission {
+      in item command : RobotCommand;
+      out item routeRequest : RoutePlan;
+    }
+
+    action navigateToPod {
+      in item route : RoutePlan;
+      out attribute arrived : Boolean;
+    }
+
+    action liftPod {
+      inout item pod : StoragePod;
+      out attribute liftComplete : Boolean;
+    }
+
+    action transportPodToStation {
+      in item route : RoutePlan;
+      inout item pod : StoragePod;
+      out attribute delivered : Boolean;
+    }
+
+    action returnPodToStorage {
+      in item route : RoutePlan;
+      inout item pod : StoragePod;
+      out attribute stored : Boolean;
+    }
+
+    action dockAndCharge {
+      in attribute requiredEnergy : Energy;
+      out attribute charged : Boolean;
+    }
+
+    state machine robotOperationalStates {
+      state idle;
+      state assigned;
+      state navigatingToPod;
+      state lifting;
+      state delivering;
+      state waitingAtStation;
+      state returningPod;
+      state charging;
+      state faulted;
+
+      initial then idle;
+
+      transition idle_to_assigned
+        first idle
+        accept RobotCommand
+        then assigned;
+
+      transition assigned_to_navigating
+        first assigned
+        then navigatingToPod;
+
+      transition navigating_to_lifting
+        first navigatingToPod
+        if localizationError <= 0.05 [m]
+        then lifting;
+
+      transition lifting_to_delivering
+        first lifting
+        if activeFault == false
+        then delivering;
+
+      transition delivering_to_waiting
+        first delivering
+        then waitingAtStation;
+
+      transition waiting_to_returning
+        first waitingAtStation
+        then returningPod;
+
+      transition returning_to_idle
+        first returningPod
+        then idle;
+
+      transition idle_to_charging
+        first idle
+        if stateOfCharge < 25 [%]
+        then charging;
+
+      transition charging_to_idle
+        first charging
+        if stateOfCharge >= 90 [%]
+        then idle;
+
+      transition any_to_fault
+        first idle
+        accept SafetyEvent
+        if activeFault == true
+        then faulted;
+
+      transition fault_to_idle
+        first faulted
+        if activeFault == false
+        then idle;
+    }
+  }
+
+  part def StoragePodFleet {
+    attribute podCount : Count = 12000;
+    attribute averageBinsPerPod : Count = 96;
+    attribute maximumPodMass : Mass = 340 [kg];
+
+    port podAccess : PodTransferPort;
+
+    part pods[12000] : StoragePod;
+  }
+
+  part def InventoryStorageGrid {
+    attribute gridId : Identifier;
+    attribute storageLocations : Count = 18000;
+    attribute aisleWidth : Length = 1.05 [m];
+    attribute usableArea : Area = 42000 [m^2];
+
+    port podAccess : PodTransferPort;
+    port safetyInterface : SafetyPort;
+
+    part podFleet : StoragePodFleet;
+  }
+
+  part def HumanPickStation {
+    attribute stationId : Identifier;
+    attribute targetPickRate : Count = 450;
+    attribute ergonomicHeight : Length = 1.05 [m];
+    attribute activeOperatorPresent : Boolean;
+
+    port podInput : PodTransferPort;
+    port toteOutput : ToteOutputPort;
+    port safetyInterface : SafetyPort;
+
+    action presentPod {
+      inout item pod : StoragePod;
+      out attribute readyForPick : Boolean;
+    }
+
+    action pickItems {
+      in item order : CustomerOrder;
+      inout item pod : StoragePod;
+      out item pickedItem : PickedItem;
+    }
+
+    action placeIntoTote {
+      in item pickedItem : PickedItem;
+      inout item tote : Tote;
+      out attribute placementConfirmed : Boolean;
+    }
+
+    state machine stationStates {
+      state unavailable;
+      state ready;
+      state podPresent;
+      state picking;
+      state toteComplete;
+      state stopped;
+
+      initial then unavailable;
+
+      transition unavailable_to_ready
+        first unavailable
+        if activeOperatorPresent == true
+        then ready;
+
+      transition ready_to_podPresent
+        first ready
+        accept StoragePod
+        then podPresent;
+
+      transition podPresent_to_picking
+        first podPresent
+        accept CustomerOrder
+        then picking;
+
+      transition picking_to_toteComplete
+        first picking
+        then toteComplete;
+
+      transition toteComplete_to_ready
+        first toteComplete
+        then ready;
+
+      transition any_to_stopped
+        first ready
+        accept SafetyEvent
+        then stopped;
+    }
+  }
+
+  part def PackingStation {
+    attribute stationId : Identifier;
+    attribute targetPackRate : Count = 320;
+    attribute labelPrintAccuracy : Percent = 99.95 [%];
+
+    port toteInput : ToteOutputPort;
+    port safetyInterface : SafetyPort;
+
+    action scanTote {
+      in item tote : Tote;
+      out attribute scanValid : Boolean;
+    }
+
+    action packOrder {
+      in item tote : Tote;
+      out attribute packageMass : Mass;
+      out attribute packageComplete : Boolean;
+    }
+
+    action printAndApplyLabel {
+      in attribute packageMass : Mass;
+      out attribute labeled : Boolean;
+    }
+  }
+
+  part def FleetManagementSystem {
+    attribute softwareVersion : Identifier;
+    attribute planningCycleTime : Time = 0.25 [s];
+    attribute activeRobots : Count;
+    attribute averageUtilization : Percent;
+    attribute orderBacklog : Count;
+
+    port orderIn : OrderInputPort;
+    port routeOut : RoutePort;
+    port commandOut : CommandPort;
+    port telemetryIn : TelemetryPort;
+    port safetyInterface : SafetyPort;
+
+    action receiveCustomerOrders {
+      in item order : CustomerOrder;
+      out attribute accepted : Boolean;
+    }
+
+    action allocatePodAndStation {
+      in item order : CustomerOrder;
+      out item pod : StoragePod;
+      out attribute stationId : Identifier;
+    }
+
+    action planRobotRoute {
+      in item pod : StoragePod;
+      out item route : RoutePlan;
+    }
+
+    action dispatchRobot {
+      in item route : RoutePlan;
+      out item command : RobotCommand;
+    }
+
+    action monitorFleet {
+      in item telemetry : RobotTelemetry;
+      out attribute interventionRequired : Boolean;
+    }
+
+    action replanAroundCongestion {
+      in item telemetry : RobotTelemetry;
+      out item route : RoutePlan;
+    }
+
+    state machine fulfillmentControlStates {
+      state initializing;
+      state acceptingOrders;
+      state planning;
+      state dispatching;
+      state monitoring;
+      state degradedMode;
+      state emergencyStop;
+
+      initial then initializing;
+
+      transition initializing_to_accepting
+        first initializing
+        then acceptingOrders;
+
+      transition accepting_to_planning
+        first acceptingOrders
+        accept CustomerOrder
+        then planning;
+
+      transition planning_to_dispatching
+        first planning
+        then dispatching;
+
+      transition dispatching_to_monitoring
+        first dispatching
+        then monitoring;
+
+      transition monitoring_to_accepting
+        first monitoring
+        then acceptingOrders;
+
+      transition monitoring_to_degraded
+        first monitoring
+        if averageUtilization > 95 [%]
+        then degradedMode;
+
+      transition degraded_to_monitoring
+        first degradedMode
+        if averageUtilization <= 85 [%]
+        then monitoring;
+
+      transition any_to_emergencyStop
+        first monitoring
+        accept SafetyEvent
+        then emergencyStop;
+    }
+  }
+
+  part def SafetyControlSystem {
+    attribute safetyIntegrityLevel : Identifier = "PLd";
+    attribute emergencyStopLatency : Time = 0.12 [s];
+    attribute minimumHumanSeparation : Length = 0.5 [m];
+
+    port safetyNetwork : SafetyPort;
+
+    action detectObstacle {
+      out item event : SafetyEvent;
+    }
+
+    action enforceStop {
+      in item event : SafetyEvent;
+      out attribute robotsStopped : Boolean;
+    }
+
+    action releaseStop {
+      out attribute released : Boolean;
+    }
+  }
+
+  part def ChargingInfrastructure {
+    attribute chargerCount : Count = 240;
+    attribute chargerVoltage : ElectricPotential = 48 [V];
+    attribute chargerPower : Power = 1600 [W];
+    attribute targetChargeTime : Time = 1800 [s];
+
+    port powerSupply : PowerPort;
+    port safetyInterface : SafetyPort;
+
+    action chargeRobot {
+      inout part robot : AutonomousMobileDriveUnit;
+      out attribute complete : Boolean;
+    }
+  }
+
+  part def FulfillmentConveyorInterface {
+    attribute conveyorSpeed : Speed = 0.8 [m/s];
+    attribute toteCapacityPerHour : Count = 18000;
+
+    port toteIn : ToteOutputPort;
+    port safetyInterface : SafetyPort;
+
+    action transferToteToPacking {
+      in item tote : Tote;
+      out attribute transferred : Boolean;
+    }
+  }
+
+  part def AmazonRoboticsFulfillmentSystem {
+    doc /* Primary function: coordinate autonomous mobile robots, storage pods, pick stations, packing stations, charging infrastructure, and safety controls to retrieve inventory from dense storage and deliver the correct items to outbound order packing with high throughput, accuracy, and operator safety. */
+
+    attribute facilityId : Identifier;
+    attribute dailyOrderCapacity : Count = 850000;
+    attribute targetOrderCycleTime : Time = 1800 [s];
+    attribute targetInventoryAccuracy : Percent = 99.9 [%];
+    attribute targetSystemAvailability : Percent = 99.5 [%];
+    attribute nominalRobotCount : Count = 3200;
+
+    port customerOrderInput : OrderInputPort;
+    port outboundToteOutput : ToteOutputPort;
+    port safetyNetwork : SafetyPort;
+
+    part fleetManager : FleetManagementSystem;
+    part storageGrid : InventoryStorageGrid;
+    part robots[3200] : AutonomousMobileDriveUnit;
+    part pickStations[96] : HumanPickStation;
+    part packStations[72] : PackingStation;
+    part chargers : ChargingInfrastructure;
+    part conveyorInterface : FulfillmentConveyorInterface;
+    part safetyController : SafetyControlSystem;
+
+    connect customerOrderInput to fleetManager.orderIn;
+    connect fleetManager.commandOut to robots.commandIn;
+    connect robots.telemetryOut to fleetManager.telemetryIn;
+    connect fleetManager.routeOut to robots.commandIn;
+    connect robots.podInterface to storageGrid.podAccess;
+    connect robots.podInterface to pickStations.podInput;
+    connect pickStations.toteOutput to conveyorInterface.toteIn;
+    connect conveyorInterface.toteIn to packStations.toteInput;
+    connect packStations.toteInput to outboundToteOutput;
+    connect chargers.powerSupply to robots.powerOut;
+    connect safetyNetwork to safetyController.safetyNetwork;
+    connect safetyController.safetyNetwork to fleetManager.safetyInterface;
+    connect safetyController.safetyNetwork to storageGrid.safetyInterface;
+    connect safetyController.safetyNetwork to robots.safetyInterface;
+    connect safetyController.safetyNetwork to pickStations.safetyInterface;
+    connect safetyController.safetyNetwork to packStations.safetyInterface;
+    connect safetyController.safetyNetwork to chargers.safetyInterface;
+    connect safetyController.safetyNetwork to conveyorInterface.safetyInterface;
+
+    action fulfillOrder {
+      in item order : CustomerOrder;
+      out item completedTote : Tote;
+
+      first start;
+      then acceptOrder;
+      then selectInventoryPod;
+      then dispatchDriveUnit;
+      then retrievePod;
+      then presentPodAtPickStation;
+      then pickOrderLines;
+      then conveyToteToPacking;
+      then packAndLabel;
+      then done;
+
+      action acceptOrder {
+        in item order : CustomerOrder;
+        out attribute accepted : Boolean;
+      }
+
+      action selectInventoryPod {
+        in item order : CustomerOrder;
+        out item pod : StoragePod;
+      }
+
+      action dispatchDriveUnit {
+        in item pod : StoragePod;
+        out item command : RobotCommand;
+      }
+
+      action retrievePod {
+        in item command : RobotCommand;
+        out item pod : StoragePod;
+      }
+
+      action presentPodAtPickStation {
+        in item pod : StoragePod;
+        out attribute ready : Boolean;
+      }
+
+      action pickOrderLines {
+        in item order : CustomerOrder;
+        inout item pod : StoragePod;
+        out item tote : Tote;
+      }
+
+      action conveyToteToPacking {
+        in item tote : Tote;
+        out attribute transferred : Boolean;
+      }
+
+      action packAndLabel {
+        in item tote : Tote;
+        out item completedTote : Tote;
+      }
+    }
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    subject system : AmazonRoboticsFulfillmentSystem;
+    attribute maximumOrderCycleTime : Time = 1800 [s];
+
+    require constraint {
+      system.targetOrderCycleTime <= maximumOrderCycleTime
+    }
+
+    doc /* The system shall retrieve inventory pods using autonomous mobile robots and support completion of customer orders within the target order cycle time. */
+  }
+
+  requirement def InventoryAccuracyRequirement {
+    subject system : AmazonRoboticsFulfillmentSystem;
+    attribute minimumAccuracy : Percent = 99.9 [%];
+
+    require constraint {
+      system.targetInventoryAccuracy >= minimumAccuracy
+    }
+
+    doc /* The system shall maintain high inventory accuracy while moving pods between storage and pick stations. */
+  }
+
+  requirement def RobotPayloadRequirement {
+    subject robot : AutonomousMobileDriveUnit;
+    attribute requiredPayload : Mass = 340 [kg];
+
+    require constraint {
+      robot.maxPayload >= requiredPayload
+    }
+
+    doc /* Each mobile drive unit shall be capable of transporting a fully loaded storage pod. */
+  }
+
+  requirement def RobotNavigationRequirement {
+    subject robot : AutonomousMobileDriveUnit;
+    attribute maximumLocalizationError : Length = 0.05 [m];
+
+    require constraint {
+      robot.localizationError <= maximumLocalizationError
+    }
+
+    doc /* Each mobile drive unit shall localize accurately enough to dock beneath and transport storage pods. */
+  }
+
+  requirement def SafetyStopRequirement {
+    subject safety : SafetyControlSystem;
+    attribute maximumStopLatency : Time = 0.15 [s];
+
+    require constraint {
+      safety.emergencyStopLatency <= maximumStopLatency
+    }
+
+    doc /* The safety control system shall command a protective stop within the allowed latency when a stop-required safety event is detected. */
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system : AmazonRoboticsFulfillmentSystem;
+    attribute minimumAvailability : Percent = 99.5 [%];
+
+    require constraint {
+      system.targetSystemAvailability >= minimumAvailability
+    }
+
+    doc /* The fulfillment system shall maintain high availability for continuous order processing. */
+  }
+
+  requirement def ChargingCapacityRequirement {
+    subject charging : ChargingInfrastructure;
+    attribute minimumChargerCount : Count = 200;
+    attribute maximumChargeTime : Time = 1800 [s];
+
+    require constraint {
+      charging.chargerCount >= minimumChargerCount and charging.targetChargeTime <= maximumChargeTime
+    }
+
+    doc /* The charging infrastructure shall support continuous robot operation by providing sufficient chargers and charge duration. */
+  }
+
+  requirement def PickStationThroughputRequirement {
+    subject station : HumanPickStation;
+    attribute minimumPickRate : Count = 400;
+
+    require constraint {
+      station.targetPickRate >= minimumPickRate
+    }
+
+    doc /* Each pick station shall support the required item picking throughput when supplied with pods by mobile robots. */
+  }
+
+  satisfy HighLevelFunctionRequirement by AmazonRoboticsFulfillmentSystem;
+  satisfy InventoryAccuracyRequirement by AmazonRoboticsFulfillmentSystem;
+  satisfy RobotPayloadRequirement by AutonomousMobileDriveUnit;
+  satisfy RobotNavigationRequirement by AutonomousMobileDriveUnit;
+  satisfy SafetyStopRequirement by SafetyControlSystem;
+  satisfy AvailabilityRequirement by AmazonRoboticsFulfillmentSystem;
+  satisfy ChargingCapacityRequirement by ChargingInfrastructure;
+  satisfy PickStationThroughputRequirement by HumanPickStation;
+
+}

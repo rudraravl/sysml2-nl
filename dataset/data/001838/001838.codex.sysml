@@ -1,0 +1,400 @@
+package PropellerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def RevolutionsPerMinute :> Real {
+    doc /* Rotational speed in revolutions per minute. */
+  }
+
+  attribute def Newton :> Real {
+    doc /* Force measured in newtons. */
+  }
+
+  attribute def NewtonMeter :> Real {
+    doc /* Torque measured in newton meters. */
+  }
+
+  attribute def Watt :> Real {
+    doc /* Power measured in watts. */
+  }
+
+  attribute def Degree :> Real {
+    doc /* Angular measure in degrees. */
+  }
+
+  attribute def KilogramPerCubicMeter :> Real {
+    doc /* Fluid density measured in kilograms per cubic meter. */
+  }
+
+  item def RotaryPower {
+    attribute shaftSpeed : RevolutionsPerMinute;
+    attribute torque : NewtonMeter;
+    attribute mechanicalPower : Watt;
+  }
+
+  item def FluidFlow {
+    attribute density : KilogramPerCubicMeter;
+    attribute axialVelocity : Real;
+    attribute massFlowRate : Real;
+  }
+
+  item def ThrustForce {
+    attribute magnitude : Newton;
+    attribute direction : String;
+  }
+
+  item def PitchCommand {
+    attribute requestedPitch : Degree;
+  }
+
+  item def HealthSignal {
+    attribute vibrationLevel : Real;
+    attribute temperature : Real;
+    attribute overspeedDetected : Boolean;
+  }
+
+  port def RotaryInputPort {
+    in item powerIn : RotaryPower;
+  }
+
+  port def FluidInletPort {
+    in item incomingFlow : FluidFlow;
+  }
+
+  port def FluidOutletPort {
+    out item acceleratedFlow : FluidFlow;
+  }
+
+  port def ThrustOutputPort {
+    out item thrust : ThrustForce;
+  }
+
+  port def PitchControlPort {
+    in item command : PitchCommand;
+  }
+
+  port def HealthMonitorPort {
+    out item health : HealthSignal;
+  }
+
+  action def ConvertRotaryPowerToThrust {
+    in item suppliedPower : RotaryPower;
+    in item inletFlow : FluidFlow;
+    in pitchAngle : Degree;
+    out item outletFlow : FluidFlow;
+    out item generatedThrust : ThrustForce;
+
+    attribute propulsiveEfficiency : Real;
+    attribute bladeLoading : Real;
+
+    constraint {
+      propulsiveEfficiency >= 0.0 and propulsiveEfficiency <= 1.0
+    }
+
+    constraint {
+      generatedThrust.magnitude >= 0.0
+    }
+  }
+
+  action def AdjustBladePitch {
+    in item command : PitchCommand;
+    out pitchAngle : Degree;
+
+    constraint {
+      pitchAngle >= 5.0 and pitchAngle <= 45.0
+    }
+  }
+
+  action def MonitorPropellerHealth {
+    in shaftSpeed : RevolutionsPerMinute;
+    in vibration : Real;
+    in bearingTemperature : Real;
+    out item health : HealthSignal;
+  }
+
+  state def PropellerOperatingState {
+    entry action initialize {
+    }
+
+    state Off;
+    state Idle;
+    state ProducingThrust;
+    state OverspeedProtection;
+    state Faulted;
+
+    transition first Off;
+
+    transition startFromOff
+      first Off
+      then Idle;
+
+    transition engageThrust
+      first Idle
+      then ProducingThrust;
+
+    transition reducePower
+      first ProducingThrust
+      then Idle;
+
+    transition detectOverspeed
+      first ProducingThrust
+      then OverspeedProtection;
+
+    transition recoverFromOverspeed
+      first OverspeedProtection
+      then Idle;
+
+    transition detectFaultFromIdle
+      first Idle
+      then Faulted;
+
+    transition detectFaultFromThrust
+      first ProducingThrust
+      then Faulted;
+
+    transition shutdownFromIdle
+      first Idle
+      then Off;
+
+    transition shutdownFromFault
+      first Faulted
+      then Off;
+  }
+
+  part def Hub {
+    attribute diameter : Real;
+    attribute mass : Real;
+    attribute maxTorque : NewtonMeter;
+
+    port rotaryInput : RotaryInputPort;
+  }
+
+  part def Blade {
+    attribute radius : Real;
+    attribute chordLength : Real;
+    attribute pitchAngle : Degree;
+    attribute twistAngle : Degree;
+    attribute material : String;
+    attribute liftCoefficient : Real;
+    attribute dragCoefficient : Real;
+
+    port pitchControl : PitchControlPort;
+  }
+
+  part def PitchActuator {
+    attribute responseTime : Real;
+    attribute minimumPitch : Degree = 5.0;
+    attribute maximumPitch : Degree = 45.0;
+    attribute commandedPitch : Degree;
+
+    port pitchCommandIn : PitchControlPort;
+    port bladePitchOut : PitchControlPort;
+
+    perform action adjustPitch : AdjustBladePitch {
+      in item command = pitchCommandIn.command;
+      out pitchAngle = commandedPitch;
+    }
+  }
+
+  part def Shaft {
+    attribute ratedSpeed : RevolutionsPerMinute;
+    attribute maximumSpeed : RevolutionsPerMinute;
+    attribute transmittedTorque : NewtonMeter;
+
+    port shaftPowerIn : RotaryInputPort;
+    port shaftPowerOut : RotaryInputPort;
+  }
+
+  part def FluidDomain {
+    attribute ambientDensity : KilogramPerCubicMeter;
+    attribute inletVelocity : Real;
+    attribute outletVelocity : Real;
+
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+  }
+
+  part def PropellerAssembly {
+    attribute bladeCount : Integer = 3;
+    attribute diameter : Real;
+    attribute nominalPitch : Degree;
+    attribute nominalSpeed : RevolutionsPerMinute;
+    attribute ratedThrust : Newton;
+    attribute efficiency : Real;
+
+    port rotaryInput : RotaryInputPort;
+    port fluidInlet : FluidInletPort;
+    port fluidOutlet : FluidOutletPort;
+    port thrustOutput : ThrustOutputPort;
+    port pitchControl : PitchControlPort;
+    port healthOutput : HealthMonitorPort;
+
+    part hub : Hub;
+    part shaft : Shaft;
+    part pitchActuator : PitchActuator;
+    part blade1 : Blade;
+    part blade2 : Blade;
+    part blade3 : Blade;
+    part flowPath : FluidDomain;
+
+    connect rotaryInput to shaft.shaftPowerIn;
+    connect shaft.shaftPowerOut to hub.rotaryInput;
+    connect pitchControl to pitchActuator.pitchCommandIn;
+    connect pitchActuator.bladePitchOut to blade1.pitchControl;
+    connect pitchActuator.bladePitchOut to blade2.pitchControl;
+    connect pitchActuator.bladePitchOut to blade3.pitchControl;
+    connect fluidInlet to flowPath.inlet;
+    connect flowPath.outlet to fluidOutlet;
+
+    perform action generateThrust : ConvertRotaryPowerToThrust {
+      in item suppliedPower = rotaryInput.powerIn;
+      in item inletFlow = fluidInlet.incomingFlow;
+      in pitchAngle = pitchActuator.commandedPitch;
+      out item outletFlow = fluidOutlet.acceleratedFlow;
+      out item generatedThrust = thrustOutput.thrust;
+      propulsiveEfficiency = efficiency;
+    }
+
+    perform action monitorHealth : MonitorPropellerHealth {
+      in shaftSpeed = rotaryInput.powerIn.shaftSpeed;
+      in vibration = healthOutput.health.vibrationLevel;
+      in bearingTemperature = healthOutput.health.temperature;
+      out item health = healthOutput.health;
+    }
+
+    exhibit state operatingState : PropellerOperatingState;
+  }
+
+  part def PropellerBasedPropulsionSystem {
+    doc /* Primary function: convert supplied rotary mechanical power into axial fluid acceleration that produces thrust along the propeller axis. */
+
+    attribute systemName : String = "Propeller-Based Propulsion System";
+    attribute primaryFunction : String = "Generate thrust by rotating pitched blades through a fluid.";
+    attribute designMedium : String = "Air or water";
+    attribute requiredThrust : Newton;
+    attribute operatingSpeed : RevolutionsPerMinute;
+
+    port powerInput : RotaryInputPort;
+    port ambientFluidInput : FluidInletPort;
+    port acceleratedFluidOutput : FluidOutletPort;
+    port thrustOutput : ThrustOutputPort;
+    port pitchCommandInput : PitchControlPort;
+    port healthOutput : HealthMonitorPort;
+
+    part propeller : PropellerAssembly {
+      bladeCount = 3;
+      nominalPitch = 25.0;
+      nominalSpeed = 2400.0;
+      ratedThrust = 1250.0;
+      efficiency = 0.82;
+    }
+
+    connect powerInput to propeller.rotaryInput;
+    connect ambientFluidInput to propeller.fluidInlet;
+    connect propeller.fluidOutlet to acceleratedFluidOutput;
+    connect propeller.thrustOutput to thrustOutput;
+    connect pitchCommandInput to propeller.pitchControl;
+    connect propeller.healthOutput to healthOutput;
+  }
+
+  requirement def GenerateThrustRequirement {
+    subject system : PropellerBasedPropulsionSystem;
+
+    require constraint {
+      system.thrustOutput.thrust.magnitude >= system.requiredThrust
+    }
+
+    doc /* The system shall generate thrust not less than the required thrust when supplied with rated rotary power and nominal inlet flow. */
+  }
+
+  requirement def ConvertPowerRequirement {
+    subject system : PropellerBasedPropulsionSystem;
+
+    require constraint {
+      system.propeller.efficiency >= 0.75
+    }
+
+    doc /* The system shall convert rotary mechanical power to useful propulsive output with efficiency of at least 75 percent at nominal operating condition. */
+  }
+
+  requirement def PitchControlRequirement {
+    subject system : PropellerBasedPropulsionSystem;
+
+    require constraint {
+      system.propeller.pitchActuator.commandedPitch >= system.propeller.pitchActuator.minimumPitch and
+      system.propeller.pitchActuator.commandedPitch <= system.propeller.pitchActuator.maximumPitch
+    }
+
+    doc /* The blade pitch control shall keep commanded blade pitch within the allowable mechanical range. */
+  }
+
+  requirement def OverspeedProtectionRequirement {
+    subject system : PropellerBasedPropulsionSystem;
+
+    require constraint {
+      system.powerInput.powerIn.shaftSpeed <= system.propeller.shaft.maximumSpeed
+    }
+
+    doc /* The propeller system shall detect and protect against operation above the maximum shaft speed. */
+  }
+
+  requirement def HealthMonitoringRequirement {
+    subject system : PropellerBasedPropulsionSystem;
+
+    require constraint {
+      system.healthOutput.health.overspeedDetected ==
+      (system.powerInput.powerIn.shaftSpeed > system.propeller.shaft.maximumSpeed)
+    }
+
+    doc /* The system shall report health status including overspeed indication, vibration level, and temperature. */
+  }
+
+  part exampleSystem : PropellerBasedPropulsionSystem {
+    requiredThrust = 1000.0;
+    operatingSpeed = 2400.0;
+
+    propeller.diameter = 1.8;
+    propeller.hub.diameter = 0.25;
+    propeller.hub.mass = 18.0;
+    propeller.hub.maxTorque = 750.0;
+
+    propeller.shaft.ratedSpeed = 2400.0;
+    propeller.shaft.maximumSpeed = 2850.0;
+    propeller.shaft.transmittedTorque = 520.0;
+
+    propeller.blade1.radius = 0.9;
+    propeller.blade1.chordLength = 0.16;
+    propeller.blade1.pitchAngle = 25.0;
+    propeller.blade1.twistAngle = 12.0;
+    propeller.blade1.material = "carbon fiber composite";
+    propeller.blade1.liftCoefficient = 0.85;
+    propeller.blade1.dragCoefficient = 0.035;
+
+    propeller.blade2.radius = 0.9;
+    propeller.blade2.chordLength = 0.16;
+    propeller.blade2.pitchAngle = 25.0;
+    propeller.blade2.twistAngle = 12.0;
+    propeller.blade2.material = "carbon fiber composite";
+    propeller.blade2.liftCoefficient = 0.85;
+    propeller.blade2.dragCoefficient = 0.035;
+
+    propeller.blade3.radius = 0.9;
+    propeller.blade3.chordLength = 0.16;
+    propeller.blade3.pitchAngle = 25.0;
+    propeller.blade3.twistAngle = 12.0;
+    propeller.blade3.material = "carbon fiber composite";
+    propeller.blade3.liftCoefficient = 0.85;
+    propeller.blade3.dragCoefficient = 0.035;
+
+    propeller.flowPath.ambientDensity = 1.225;
+    propeller.flowPath.inletVelocity = 45.0;
+    propeller.flowPath.outletVelocity = 61.0;
+  }
+
+  satisfy GenerateThrustRequirement by exampleSystem;
+  satisfy ConvertPowerRequirement by exampleSystem;
+  satisfy PitchControlRequirement by exampleSystem;
+  satisfy OverspeedProtectionRequirement by exampleSystem;
+  satisfy HealthMonitoringRequirement by exampleSystem;
+}

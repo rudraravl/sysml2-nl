@@ -1,0 +1,1315 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7nf7sxuc
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb666-ca67-7363-80c3-0ea6ff6bfe52
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Automated retail and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomatedRetailSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Money {
+        doc /* Monetary amount in US dollars. */
+        attribute amount : Real;
+        attribute currencyCode : String = "USD";
+    }
+
+    value def Percent {
+        doc /* Percentage value from 0 to 100. */
+        attribute value : Real;
+    }
+
+    value def Count {
+        attribute value : Integer;
+    }
+
+    value def TemperatureCelsius {
+        attribute value : Real;
+        unit = "degC";
+    }
+
+    value def MassGram {
+        attribute value : Real;
+        unit = "g";
+    }
+
+    value def VolumeMilliliter {
+        attribute value : Real;
+        unit = "mL";
+    }
+
+    value def TimeSecond {
+        attribute value : Real;
+        unit = "s";
+    }
+
+    value def EnergyKilowattHour {
+        attribute value : Real;
+        unit = "kWh";
+    }
+
+    value def Identifier {
+        attribute value : String;
+    }
+
+    enum def PaymentStatus {
+        enum pending;
+        enum authorized;
+        enum captured;
+        enum declined;
+        enum refunded;
+    }
+
+    enum def OrderStatus {
+        enum initiated;
+        enum basketOpen;
+        enum priced;
+        enum paymentAuthorized;
+        enum dispensing;
+        enum completed;
+        enum cancelled;
+        enum failed;
+    }
+
+    enum def ProductCategory {
+        enum snack;
+        enum beverage;
+        enum grocery;
+        enum personalCare;
+        enum electronicsAccessory;
+    }
+
+    enum def DoorState {
+        enum locked;
+        enum unlocked;
+        enum open;
+        enum closed;
+    }
+
+    enum def MachineAvailability {
+        enum available;
+        enum degraded;
+        enum outOfService;
+        enum maintenance;
+    }
+
+    item def ProductItem {
+        attribute sku : Identifier;
+        attribute name : String;
+        attribute category : ProductCategory;
+        attribute unitPrice : Money;
+        attribute mass : MassGram;
+        attribute volume : VolumeMilliliter;
+        attribute requiresRefrigeration : Boolean;
+        attribute minimumStorageTemperature : TemperatureCelsius;
+        attribute maximumStorageTemperature : TemperatureCelsius;
+    }
+
+    item def BasketItem {
+        attribute sku : Identifier;
+        attribute quantity : Count;
+        attribute unitPrice : Money;
+        attribute lineTotal : Money;
+    }
+
+    item def CustomerCredential {
+        attribute credentialId : Identifier;
+        attribute tokenizedAccountReference : Identifier;
+        attribute ageVerified : Boolean;
+    }
+
+    item def PaymentAuthorization {
+        attribute authorizationId : Identifier;
+        attribute orderId : Identifier;
+        attribute approvedAmount : Money;
+        attribute status : PaymentStatus;
+    }
+
+    item def Receipt {
+        attribute receiptId : Identifier;
+        attribute orderId : Identifier;
+        attribute totalPaid : Money;
+        attribute issuedAtUtc : String;
+    }
+
+    item def InventoryEvent {
+        attribute sku : Identifier;
+        attribute deltaQuantity : Integer;
+        attribute remainingQuantity : Count;
+        attribute eventTimeUtc : String;
+    }
+
+    item def TelemetryReport {
+        attribute machineId : Identifier;
+        attribute availability : MachineAvailability;
+        attribute internalTemperature : TemperatureCelsius;
+        attribute energyConsumedToday : EnergyKilowattHour;
+        attribute cashlessPaymentSuccessRate : Percent;
+        attribute openServiceAlarms : Count;
+    }
+
+    item def MaintenanceCommand {
+        attribute commandId : Identifier;
+        attribute targetSubsystem : String;
+        attribute requestedAction : String;
+        attribute issuedBy : Identifier;
+    }
+
+    port def CustomerInteractionPort {
+        out displayText : String;
+        out productCatalog : ProductItem;
+        in selection : BasketItem;
+        in cancelRequest : Boolean;
+        in helpRequest : Boolean;
+    }
+
+    port def PaymentPort {
+        in credential : CustomerCredential;
+        in requestedAmount : Money;
+        out authorization : PaymentAuthorization;
+        out paymentStatus : PaymentStatus;
+    }
+
+    port def DispensePort {
+        in dispenseRequest : BasketItem;
+        out dispensedProduct : ProductItem;
+        out dispenseComplete : Boolean;
+        out dispenseFault : Boolean;
+    }
+
+    port def InventoryPort {
+        in inventoryEvent : InventoryEvent;
+        out availableProduct : ProductItem;
+        out lowStockAlert : InventoryEvent;
+    }
+
+    port def EnvironmentControlPort {
+        out measuredTemperature : TemperatureCelsius;
+        in coolingCommand : Boolean;
+        in lightingCommand : Boolean;
+    }
+
+    port def NetworkServicePort {
+        out telemetry : TelemetryReport;
+        out receipt : Receipt;
+        in maintenanceCommand : MaintenanceCommand;
+        in priceUpdate : ProductItem;
+    }
+
+    port def PowerPort {
+        in supplyVoltage : Real;
+        out consumedEnergy : EnergyKilowattHour;
+        out powerAvailable : Boolean;
+    }
+
+    part def AutomatedRetailKiosk {
+        doc /* Primary function: autonomously offer retail products to a customer, accept a digital payment, dispense purchased items, maintain inventory and product storage conditions, and report operational status to remote services without requiring an on-site cashier. */
+
+        attribute machineId : Identifier;
+        attribute availability : MachineAvailability = MachineAvailability::available;
+        attribute maximumBasketItems : Count = 12;
+        attribute targetRefrigeratedTemperature : TemperatureCelsius = 4.0;
+        attribute maximumTransactionDuration : TimeSecond = 180.0;
+
+        port customerInterface : CustomerInteractionPort;
+        port paymentService : PaymentPort;
+        port productDispense : DispensePort;
+        port inventoryService : InventoryPort;
+        port environmentService : EnvironmentControlPort;
+        port networkService : NetworkServicePort;
+        port electricalPower : PowerPort;
+
+        part userInterface : TouchscreenInterface;
+        part cardReader : CashlessPaymentTerminal;
+        part controller : RetailTransactionController;
+        part inventory : InventoryManager;
+        part dispenser : ProductDispensingUnit;
+        part refrigeration : RefrigeratedStorageUnit;
+        part security : SecurityAccessUnit;
+        part telemetryGateway : RemoteOperationsGateway;
+        part powerSubsystem : PowerManagementUnit;
+
+        connect customerInterface to userInterface.customerPort;
+        connect userInterface.transactionPort to controller.customerCommandPort;
+        connect controller.paymentRequestPort to cardReader.paymentPort;
+        connect cardReader.externalPaymentPort to paymentService;
+        connect controller.dispenseCommandPort to dispenser.dispensePort;
+        connect dispenser.externalDispensePort to productDispense;
+        connect controller.inventoryCommandPort to inventory.inventoryPort;
+        connect inventory.externalInventoryPort to inventoryService;
+        connect inventory.storageConditionPort to refrigeration.storagePort;
+        connect refrigeration.environmentPort to environmentService;
+        connect controller.securityCommandPort to security.accessPort;
+        connect controller.telemetryPort to telemetryGateway.localTelemetryPort;
+        connect telemetryGateway.remoteNetworkPort to networkService;
+        connect electricalPower to powerSubsystem.inputPowerPort;
+        connect powerSubsystem.controlledPowerPort to controller.powerPort;
+        connect powerSubsystem.controlledPowerPort to userInterface.powerPort;
+        connect powerSubsystem.controlledPowerPort to cardReader.powerPort;
+        connect powerSubsystem.controlledPowerPort to dispenser.powerPort;
+        connect powerSubsystem.controlledPowerPort to refrigeration.powerPort;
+        connect powerSubsystem.controlledPowerPort to telemetryGateway.powerPort;
+    }
+
+    part def TouchscreenInterface {
+        attribute screenBrightness : Percent = 85.0;
+        attribute supportsAudioPrompt : Boolean = true;
+        attribute selectedLanguage : String = "en-US";
+
+        port customerPort : CustomerInteractionPort;
+        port transactionPort : CustomerInteractionPort;
+        port powerPort : PowerPort;
+
+        action showCatalog {
+            in products : ProductItem;
+            out selectedItems : BasketItem;
+        }
+
+        action displayOrderSummary {
+            in basket : BasketItem;
+            in total : Money;
+            out customerAccepted : Boolean;
+        }
+    }
+
+    part def CashlessPaymentTerminal {
+        attribute pciCompliant : Boolean = true;
+        attribute contactlessEnabled : Boolean = true;
+        attribute magneticStripeEnabled : Boolean = false;
+        attribute authorizationTimeout : TimeSecond = 15.0;
+
+        port paymentPort : PaymentPort;
+        port externalPaymentPort : PaymentPort;
+        port powerPort : PowerPort;
+
+        action authorizePayment {
+            in credential : CustomerCredential;
+            in amount : Money;
+            out authorization : PaymentAuthorization;
+        }
+
+        action capturePayment {
+            in authorization : PaymentAuthorization;
+            out capturedStatus : PaymentStatus;
+        }
+
+        action voidAuthorization {
+            in authorization : PaymentAuthorization;
+            out voidedStatus : PaymentStatus;
+        }
+    }
+
+    part def RetailTransactionController {
+        attribute currentOrderId : Identifier;
+        attribute currentOrderStatus : OrderStatus = OrderStatus::initiated;
+        attribute calculatedSubtotal : Money;
+        attribute calculatedTax : Money;
+        attribute calculatedTotal : Money;
+        attribute salesTaxRate : Percent = 8.25;
+
+        port customerCommandPort : CustomerInteractionPort;
+        port paymentRequestPort : PaymentPort;
+        port dispenseCommandPort : DispensePort;
+        port inventoryCommandPort : InventoryPort;
+        port securityCommandPort : AccessControlPort;
+        port telemetryPort : NetworkServicePort;
+        port powerPort : PowerPort;
+
+        action createOrder {
+            in selectedItems : BasketItem;
+            out orderId : Identifier;
+            out orderStatus : OrderStatus;
+        }
+
+        action calculatePrice {
+            in basket : BasketItem;
+            out subtotal : Money;
+            out tax : Money;
+            out total : Money;
+        }
+
+        action completeSale {
+            in authorization : PaymentAuthorization;
+            in dispenseComplete : Boolean;
+            out receipt : Receipt;
+        }
+
+        state machine transactionLifecycle {
+            state idle;
+            state selectingProducts;
+            state pricingOrder;
+            state authorizingPayment;
+            state dispensingProducts;
+            state issuingReceipt;
+            state cancellingOrder;
+            state faulted;
+
+            transition first idle then selectingProducts;
+            transition selectingProducts then pricingOrder
+                accept selectionReceived;
+            transition selectingProducts then cancellingOrder
+                accept cancelRequest;
+            transition pricingOrder then authorizingPayment
+                accept customerAcceptedPrice;
+            transition pricingOrder then cancellingOrder
+                accept customerRejectedPrice;
+            transition authorizingPayment then dispensingProducts
+                accept paymentApproved;
+            transition authorizingPayment then cancellingOrder
+                accept paymentDeclined;
+            transition dispensingProducts then issuingReceipt
+                accept allItemsDispensed;
+            transition dispensingProducts then faulted
+                accept dispenseFaultDetected;
+            transition issuingReceipt then idle
+                accept receiptIssued;
+            transition cancellingOrder then idle
+                accept cancellationComplete;
+            transition faulted then idle
+                accept faultRecovered;
+        }
+    }
+
+    port def AccessControlPort {
+        in unlockRequest : Boolean;
+        in serviceCredential : CustomerCredential;
+        out doorState : DoorState;
+        out tamperAlarm : Boolean;
+    }
+
+    part def InventoryManager {
+        attribute totalSkuCapacity : Count = 120;
+        attribute lowStockThreshold : Count = 4;
+        attribute reservedItemCount : Count = 0;
+
+        port inventoryPort : InventoryPort;
+        port externalInventoryPort : InventoryPort;
+        port storageConditionPort : EnvironmentControlPort;
+
+        action reserveItems {
+            in requestedItems : BasketItem;
+            out reservationAccepted : Boolean;
+            out reservedItems : BasketItem;
+        }
+
+        action decrementStock {
+            in dispensedItems : BasketItem;
+            out event : InventoryEvent;
+        }
+
+        action applyPriceUpdate {
+            in updatedProduct : ProductItem;
+            out catalogProduct : ProductItem;
+        }
+    }
+
+    part def ProductDispensingUnit {
+        attribute motorCount : Count = 24;
+        attribute maximumDispenseMass : MassGram = 2500.0;
+        attribute averageDispenseTime : TimeSecond = 6.0;
+
+        port dispensePort : DispensePort;
+        port externalDispensePort : DispensePort;
+        port powerPort : PowerPort;
+
+        part lift : ProductLift;
+        part chute : RetrievalChute;
+        part sensorArray : DispenseSensorArray;
+
+        connect dispensePort to lift.liftCommandPort;
+        connect lift.chutePort to chute.chutePort;
+        connect chute.sensorPort to sensorArray.sensorPort;
+        connect sensorArray.confirmationPort to externalDispensePort;
+
+        action moveProductToChute {
+            in item : BasketItem;
+            out productReleased : Boolean;
+        }
+
+        action verifyDelivery {
+            out dispenseComplete : Boolean;
+            out dispenseFault : Boolean;
+        }
+    }
+
+    part def ProductLift {
+        attribute ratedLoad : MassGram = 3000.0;
+        attribute verticalTravelTime : TimeSecond = 4.0;
+
+        port liftCommandPort : DispensePort;
+        port chutePort : DispensePort;
+    }
+
+    part def RetrievalChute {
+        attribute chuteDoorState : DoorState = DoorState::locked;
+        attribute customerAccessTimeout : TimeSecond = 20.0;
+
+        port chutePort : DispensePort;
+        port sensorPort : DispensePort;
+    }
+
+    part def DispenseSensorArray {
+        attribute opticalBeamCount : Count = 6;
+        attribute scaleResolution : MassGram = 2.0;
+
+        port sensorPort : DispensePort;
+        port confirmationPort : DispensePort;
+    }
+
+    part def RefrigeratedStorageUnit {
+        attribute currentTemperature : TemperatureCelsius = 4.0;
+        attribute compressorDutyCycle : Percent = 35.0;
+        attribute maximumAllowedTemperature : TemperatureCelsius = 8.0;
+        attribute minimumAllowedTemperature : TemperatureCelsius = 1.0;
+
+        port storagePort : EnvironmentControlPort;
+        port environmentPort : EnvironmentControlPort;
+        port powerPort : PowerPort;
+
+        action regulateTemperature {
+            in measuredTemperature : TemperatureCelsius;
+            out coolingCommand : Boolean;
+        }
+
+        state machine refrigerationControl {
+            state monitoring;
+            state cooling;
+            state temperatureAlarm;
+
+            transition first monitoring;
+            transition monitoring then cooling
+                accept temperatureAboveTarget;
+            transition cooling then monitoring
+                accept temperatureAtTarget;
+            transition monitoring then temperatureAlarm
+                accept temperatureOutOfRange;
+            transition cooling then temperatureAlarm
+                accept coolingFailure;
+            transition temperatureAlarm then monitoring
+                accept serviceClearedAlarm;
+        }
+    }
+
+    part def SecurityAccessUnit {
+        attribute frontDoorState : DoorState = DoorState::locked;
+        attribute serviceDoorState : DoorState = DoorState::locked;
+        attribute tamperDetected : Boolean = false;
+
+        port accessPort : AccessControlPort;
+
+        action validateServiceAccess {
+            in credential : CustomerCredential;
+            out accessGranted : Boolean;
+        }
+
+        action lockAllDoors {
+            out frontDoorState : DoorState;
+            out serviceDoorState : DoorState;
+        }
+    }
+
+    part def RemoteOperationsGateway {
+        attribute cellularSignalStrength : Percent = 92.0;
+        attribute telemetryUploadPeriod : TimeSecond = 60.0;
+        attribute offlineBufferCapacity : Count = 1000;
+
+        port localTelemetryPort : NetworkServicePort;
+        port remoteNetworkPort : NetworkServicePort;
+        port powerPort : PowerPort;
+
+        action uploadTelemetry {
+            in report : TelemetryReport;
+            out uploadAccepted : Boolean;
+        }
+
+        action receiveMaintenanceCommand {
+            out command : MaintenanceCommand;
+        }
+
+        action publishReceipt {
+            in receipt : Receipt;
+            out delivered : Boolean;
+        }
+    }
+
+    part def PowerManagementUnit {
+        attribute nominalInputVoltage : Real = 120.0;
+        attribute peakPowerWatts : Real = 1500.0;
+        attribute backupRuntime : TimeSecond = 900.0;
+        attribute energyConsumedToday : EnergyKilowattHour = 0.0;
+
+        port inputPowerPort : PowerPort;
+        port controlledPowerPort : PowerPort;
+
+        action shedNoncriticalLoads {
+            in powerAvailable : Boolean;
+            out displayEnabled : Boolean;
+            out refrigerationEnabled : Boolean;
+            out paymentEnabled : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The automated retail system shall autonomously sell stocked retail products by presenting a catalog, accepting customer selections, authorizing payment, dispensing purchased items, updating inventory, issuing a receipt, and reporting operational status. */
+        subject kiosk : AutomatedRetailKiosk;
+    }
+
+    requirement def PaymentAuthorizationRequirement {
+        doc /* The system shall authorize cashless payment before dispensing any selected product. */
+        subject controller : RetailTransactionController;
+        require constraint {
+            controller.currentOrderStatus == OrderStatus::paymentAuthorized
+        }
+    }
+
+    requirement def DispenseVerificationRequirement {
+        doc /* The system shall confirm physical delivery of each purchased product using dispense sensors before completing the order. */
+        subject dispenser : ProductDispensingUnit;
+    }
+
+    requirement def InventoryAccuracyRequirement {
+        doc /* The system shall decrement inventory count for each successfully dispensed product and generate a low-stock alert when remaining quantity is below threshold. */
+        subject inventory : InventoryManager;
+    }
+
+    requirement def RefrigerationRequirement {
+        doc /* Products requiring refrigeration shall be stored between 1 degC and 8 degC during normal operation. */
+        subject refrigeration : RefrigeratedStorageUnit;
+        require constraint {
+            refrigeration.currentTemperature >= refrigeration.minimumAllowedTemperature and
+            refrigeration.currentTemperature <= refrigeration.maximumAllowedTemperature
+        }
+    }
+
+    requirement def AvailabilityReportingRequirement {
+        doc /* The system shall transmit availability, temperature, payment success, energy, alarm, and inventory telemetry to remote operations at least once every 60 seconds while network service is available. */
+        subject gateway : RemoteOperationsGateway;
+    }
+
+    requirement def CustomerSafetyRequirement {
+        doc /* Customer-accessible doors shall remain locked except during authorized product retrieval or approved maintenance access. */
+        subject security : SecurityAccessUnit;
+    }
+
+    satisfy PrimaryFunctionRequirement by AutomatedRetailKiosk;
+    satisfy PaymentAuthorizationRequirement by RetailTransactionController;
+    satisfy DispenseVerificationRequirement by ProductDispensingUnit;
+    satisfy InventoryAccuracyRequirement by InventoryManager;
+    satisfy RefrigerationRequirement by RefrigeratedStorageUnit;
+    satisfy AvailabilityReportingRequirement by RemoteOperationsGateway;
+    satisfy CustomerSafetyRequirement by SecurityAccessUnit;
+
+    package OperationalScenario {
+        part kiosk : AutomatedRetailKiosk {
+            attribute machineId : Identifier = "AR-KIOSK-CHICAGO-001";
+            attribute availability : MachineAvailability = MachineAvailability::available;
+        }
+
+        item bottledWater : ProductItem {
+            attribute sku : Identifier = "BEV-WATER-500";
+            attribute name : String = "Still Water 500 mL";
+            attribute category : ProductCategory = ProductCategory::beverage;
+            attribute unitPrice : Money = 1.75;
+            attribute mass : MassGram = 525.0;
+            attribute volume : VolumeMilliliter = 500.0;
+            attribute requiresRefrigeration : Boolean = true;
+            attribute minimumStorageTemperature : TemperatureCelsius = 1.0;
+            attribute maximumStorageTemperature : TemperatureCelsius = 8.0;
+        }
+
+        item proteinBar : ProductItem {
+            attribute sku : Identifier = "SNK-PROTEIN-060";
+            attribute name : String = "Protein Bar 60 g";
+            attribute category : ProductCategory = ProductCategory::snack;
+            attribute unitPrice : Money = 2.95;
+            attribute mass : MassGram = 60.0;
+            attribute volume : VolumeMilliliter = 120.0;
+            attribute requiresRefrigeration : Boolean = false;
+            attribute minimumStorageTemperature : TemperatureCelsius = 5.0;
+            attribute maximumStorageTemperature : TemperatureCelsius = 30.0;
+        }
+
+        action customerPurchase {
+            out finalStatus : OrderStatus;
+
+            first start;
+            then browseCatalog;
+            then selectProducts;
+            then calculateTotal;
+            then authorizePayment;
+            then reserveInventory;
+            then dispenseItems;
+            then verifyDispense;
+            then decrementInventory;
+            then issueReceipt;
+            then reportTelemetry;
+            then done;
+
+            flow bottledWater to selectProducts;
+            flow proteinBar to selectProducts;
+        }
+    }
+}
+tokens used
+5,648
+package AutomatedRetailSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value def Money {
+        doc /* Monetary amount in US dollars. */
+        attribute amount : Real;
+        attribute currencyCode : String = "USD";
+    }
+
+    value def Percent {
+        doc /* Percentage value from 0 to 100. */
+        attribute value : Real;
+    }
+
+    value def Count {
+        attribute value : Integer;
+    }
+
+    value def TemperatureCelsius {
+        attribute value : Real;
+        unit = "degC";
+    }
+
+    value def MassGram {
+        attribute value : Real;
+        unit = "g";
+    }
+
+    value def VolumeMilliliter {
+        attribute value : Real;
+        unit = "mL";
+    }
+
+    value def TimeSecond {
+        attribute value : Real;
+        unit = "s";
+    }
+
+    value def EnergyKilowattHour {
+        attribute value : Real;
+        unit = "kWh";
+    }
+
+    value def Identifier {
+        attribute value : String;
+    }
+
+    enum def PaymentStatus {
+        enum pending;
+        enum authorized;
+        enum captured;
+        enum declined;
+        enum refunded;
+    }
+
+    enum def OrderStatus {
+        enum initiated;
+        enum basketOpen;
+        enum priced;
+        enum paymentAuthorized;
+        enum dispensing;
+        enum completed;
+        enum cancelled;
+        enum failed;
+    }
+
+    enum def ProductCategory {
+        enum snack;
+        enum beverage;
+        enum grocery;
+        enum personalCare;
+        enum electronicsAccessory;
+    }
+
+    enum def DoorState {
+        enum locked;
+        enum unlocked;
+        enum open;
+        enum closed;
+    }
+
+    enum def MachineAvailability {
+        enum available;
+        enum degraded;
+        enum outOfService;
+        enum maintenance;
+    }
+
+    item def ProductItem {
+        attribute sku : Identifier;
+        attribute name : String;
+        attribute category : ProductCategory;
+        attribute unitPrice : Money;
+        attribute mass : MassGram;
+        attribute volume : VolumeMilliliter;
+        attribute requiresRefrigeration : Boolean;
+        attribute minimumStorageTemperature : TemperatureCelsius;
+        attribute maximumStorageTemperature : TemperatureCelsius;
+    }
+
+    item def BasketItem {
+        attribute sku : Identifier;
+        attribute quantity : Count;
+        attribute unitPrice : Money;
+        attribute lineTotal : Money;
+    }
+
+    item def CustomerCredential {
+        attribute credentialId : Identifier;
+        attribute tokenizedAccountReference : Identifier;
+        attribute ageVerified : Boolean;
+    }
+
+    item def PaymentAuthorization {
+        attribute authorizationId : Identifier;
+        attribute orderId : Identifier;
+        attribute approvedAmount : Money;
+        attribute status : PaymentStatus;
+    }
+
+    item def Receipt {
+        attribute receiptId : Identifier;
+        attribute orderId : Identifier;
+        attribute totalPaid : Money;
+        attribute issuedAtUtc : String;
+    }
+
+    item def InventoryEvent {
+        attribute sku : Identifier;
+        attribute deltaQuantity : Integer;
+        attribute remainingQuantity : Count;
+        attribute eventTimeUtc : String;
+    }
+
+    item def TelemetryReport {
+        attribute machineId : Identifier;
+        attribute availability : MachineAvailability;
+        attribute internalTemperature : TemperatureCelsius;
+        attribute energyConsumedToday : EnergyKilowattHour;
+        attribute cashlessPaymentSuccessRate : Percent;
+        attribute openServiceAlarms : Count;
+    }
+
+    item def MaintenanceCommand {
+        attribute commandId : Identifier;
+        attribute targetSubsystem : String;
+        attribute requestedAction : String;
+        attribute issuedBy : Identifier;
+    }
+
+    port def CustomerInteractionPort {
+        out displayText : String;
+        out productCatalog : ProductItem;
+        in selection : BasketItem;
+        in cancelRequest : Boolean;
+        in helpRequest : Boolean;
+    }
+
+    port def PaymentPort {
+        in credential : CustomerCredential;
+        in requestedAmount : Money;
+        out authorization : PaymentAuthorization;
+        out paymentStatus : PaymentStatus;
+    }
+
+    port def DispensePort {
+        in dispenseRequest : BasketItem;
+        out dispensedProduct : ProductItem;
+        out dispenseComplete : Boolean;
+        out dispenseFault : Boolean;
+    }
+
+    port def InventoryPort {
+        in inventoryEvent : InventoryEvent;
+        out availableProduct : ProductItem;
+        out lowStockAlert : InventoryEvent;
+    }
+
+    port def EnvironmentControlPort {
+        out measuredTemperature : TemperatureCelsius;
+        in coolingCommand : Boolean;
+        in lightingCommand : Boolean;
+    }
+
+    port def NetworkServicePort {
+        out telemetry : TelemetryReport;
+        out receipt : Receipt;
+        in maintenanceCommand : MaintenanceCommand;
+        in priceUpdate : ProductItem;
+    }
+
+    port def PowerPort {
+        in supplyVoltage : Real;
+        out consumedEnergy : EnergyKilowattHour;
+        out powerAvailable : Boolean;
+    }
+
+    part def AutomatedRetailKiosk {
+        doc /* Primary function: autonomously offer retail products to a customer, accept a digital payment, dispense purchased items, maintain inventory and product storage conditions, and report operational status to remote services without requiring an on-site cashier. */
+
+        attribute machineId : Identifier;
+        attribute availability : MachineAvailability = MachineAvailability::available;
+        attribute maximumBasketItems : Count = 12;
+        attribute targetRefrigeratedTemperature : TemperatureCelsius = 4.0;
+        attribute maximumTransactionDuration : TimeSecond = 180.0;
+
+        port customerInterface : CustomerInteractionPort;
+        port paymentService : PaymentPort;
+        port productDispense : DispensePort;
+        port inventoryService : InventoryPort;
+        port environmentService : EnvironmentControlPort;
+        port networkService : NetworkServicePort;
+        port electricalPower : PowerPort;
+
+        part userInterface : TouchscreenInterface;
+        part cardReader : CashlessPaymentTerminal;
+        part controller : RetailTransactionController;
+        part inventory : InventoryManager;
+        part dispenser : ProductDispensingUnit;
+        part refrigeration : RefrigeratedStorageUnit;
+        part security : SecurityAccessUnit;
+        part telemetryGateway : RemoteOperationsGateway;
+        part powerSubsystem : PowerManagementUnit;
+
+        connect customerInterface to userInterface.customerPort;
+        connect userInterface.transactionPort to controller.customerCommandPort;
+        connect controller.paymentRequestPort to cardReader.paymentPort;
+        connect cardReader.externalPaymentPort to paymentService;
+        connect controller.dispenseCommandPort to dispenser.dispensePort;
+        connect dispenser.externalDispensePort to productDispense;
+        connect controller.inventoryCommandPort to inventory.inventoryPort;
+        connect inventory.externalInventoryPort to inventoryService;
+        connect inventory.storageConditionPort to refrigeration.storagePort;
+        connect refrigeration.environmentPort to environmentService;
+        connect controller.securityCommandPort to security.accessPort;
+        connect controller.telemetryPort to telemetryGateway.localTelemetryPort;
+        connect telemetryGateway.remoteNetworkPort to networkService;
+        connect electricalPower to powerSubsystem.inputPowerPort;
+        connect powerSubsystem.controlledPowerPort to controller.powerPort;
+        connect powerSubsystem.controlledPowerPort to userInterface.powerPort;
+        connect powerSubsystem.controlledPowerPort to cardReader.powerPort;
+        connect powerSubsystem.controlledPowerPort to dispenser.powerPort;
+        connect powerSubsystem.controlledPowerPort to refrigeration.powerPort;
+        connect powerSubsystem.controlledPowerPort to telemetryGateway.powerPort;
+    }
+
+    part def TouchscreenInterface {
+        attribute screenBrightness : Percent = 85.0;
+        attribute supportsAudioPrompt : Boolean = true;
+        attribute selectedLanguage : String = "en-US";
+
+        port customerPort : CustomerInteractionPort;
+        port transactionPort : CustomerInteractionPort;
+        port powerPort : PowerPort;
+
+        action showCatalog {
+            in products : ProductItem;
+            out selectedItems : BasketItem;
+        }
+
+        action displayOrderSummary {
+            in basket : BasketItem;
+            in total : Money;
+            out customerAccepted : Boolean;
+        }
+    }
+
+    part def CashlessPaymentTerminal {
+        attribute pciCompliant : Boolean = true;
+        attribute contactlessEnabled : Boolean = true;
+        attribute magneticStripeEnabled : Boolean = false;
+        attribute authorizationTimeout : TimeSecond = 15.0;
+
+        port paymentPort : PaymentPort;
+        port externalPaymentPort : PaymentPort;
+        port powerPort : PowerPort;
+
+        action authorizePayment {
+            in credential : CustomerCredential;
+            in amount : Money;
+            out authorization : PaymentAuthorization;
+        }
+
+        action capturePayment {
+            in authorization : PaymentAuthorization;
+            out capturedStatus : PaymentStatus;
+        }
+
+        action voidAuthorization {
+            in authorization : PaymentAuthorization;
+            out voidedStatus : PaymentStatus;
+        }
+    }
+
+    part def RetailTransactionController {
+        attribute currentOrderId : Identifier;
+        attribute currentOrderStatus : OrderStatus = OrderStatus::initiated;
+        attribute calculatedSubtotal : Money;
+        attribute calculatedTax : Money;
+        attribute calculatedTotal : Money;
+        attribute salesTaxRate : Percent = 8.25;
+
+        port customerCommandPort : CustomerInteractionPort;
+        port paymentRequestPort : PaymentPort;
+        port dispenseCommandPort : DispensePort;
+        port inventoryCommandPort : InventoryPort;
+        port securityCommandPort : AccessControlPort;
+        port telemetryPort : NetworkServicePort;
+        port powerPort : PowerPort;
+
+        action createOrder {
+            in selectedItems : BasketItem;
+            out orderId : Identifier;
+            out orderStatus : OrderStatus;
+        }
+
+        action calculatePrice {
+            in basket : BasketItem;
+            out subtotal : Money;
+            out tax : Money;
+            out total : Money;
+        }
+
+        action completeSale {
+            in authorization : PaymentAuthorization;
+            in dispenseComplete : Boolean;
+            out receipt : Receipt;
+        }
+
+        state machine transactionLifecycle {
+            state idle;
+            state selectingProducts;
+            state pricingOrder;
+            state authorizingPayment;
+            state dispensingProducts;
+            state issuingReceipt;
+            state cancellingOrder;
+            state faulted;
+
+            transition first idle then selectingProducts;
+            transition selectingProducts then pricingOrder
+                accept selectionReceived;
+            transition selectingProducts then cancellingOrder
+                accept cancelRequest;
+            transition pricingOrder then authorizingPayment
+                accept customerAcceptedPrice;
+            transition pricingOrder then cancellingOrder
+                accept customerRejectedPrice;
+            transition authorizingPayment then dispensingProducts
+                accept paymentApproved;
+            transition authorizingPayment then cancellingOrder
+                accept paymentDeclined;
+            transition dispensingProducts then issuingReceipt
+                accept allItemsDispensed;
+            transition dispensingProducts then faulted
+                accept dispenseFaultDetected;
+            transition issuingReceipt then idle
+                accept receiptIssued;
+            transition cancellingOrder then idle
+                accept cancellationComplete;
+            transition faulted then idle
+                accept faultRecovered;
+        }
+    }
+
+    port def AccessControlPort {
+        in unlockRequest : Boolean;
+        in serviceCredential : CustomerCredential;
+        out doorState : DoorState;
+        out tamperAlarm : Boolean;
+    }
+
+    part def InventoryManager {
+        attribute totalSkuCapacity : Count = 120;
+        attribute lowStockThreshold : Count = 4;
+        attribute reservedItemCount : Count = 0;
+
+        port inventoryPort : InventoryPort;
+        port externalInventoryPort : InventoryPort;
+        port storageConditionPort : EnvironmentControlPort;
+
+        action reserveItems {
+            in requestedItems : BasketItem;
+            out reservationAccepted : Boolean;
+            out reservedItems : BasketItem;
+        }
+
+        action decrementStock {
+            in dispensedItems : BasketItem;
+            out event : InventoryEvent;
+        }
+
+        action applyPriceUpdate {
+            in updatedProduct : ProductItem;
+            out catalogProduct : ProductItem;
+        }
+    }
+
+    part def ProductDispensingUnit {
+        attribute motorCount : Count = 24;
+        attribute maximumDispenseMass : MassGram = 2500.0;
+        attribute averageDispenseTime : TimeSecond = 6.0;
+
+        port dispensePort : DispensePort;
+        port externalDispensePort : DispensePort;
+        port powerPort : PowerPort;
+
+        part lift : ProductLift;
+        part chute : RetrievalChute;
+        part sensorArray : DispenseSensorArray;
+
+        connect dispensePort to lift.liftCommandPort;
+        connect lift.chutePort to chute.chutePort;
+        connect chute.sensorPort to sensorArray.sensorPort;
+        connect sensorArray.confirmationPort to externalDispensePort;
+
+        action moveProductToChute {
+            in item : BasketItem;
+            out productReleased : Boolean;
+        }
+
+        action verifyDelivery {
+            out dispenseComplete : Boolean;
+            out dispenseFault : Boolean;
+        }
+    }
+
+    part def ProductLift {
+        attribute ratedLoad : MassGram = 3000.0;
+        attribute verticalTravelTime : TimeSecond = 4.0;
+
+        port liftCommandPort : DispensePort;
+        port chutePort : DispensePort;
+    }
+
+    part def RetrievalChute {
+        attribute chuteDoorState : DoorState = DoorState::locked;
+        attribute customerAccessTimeout : TimeSecond = 20.0;
+
+        port chutePort : DispensePort;
+        port sensorPort : DispensePort;
+    }
+
+    part def DispenseSensorArray {
+        attribute opticalBeamCount : Count = 6;
+        attribute scaleResolution : MassGram = 2.0;
+
+        port sensorPort : DispensePort;
+        port confirmationPort : DispensePort;
+    }
+
+    part def RefrigeratedStorageUnit {
+        attribute currentTemperature : TemperatureCelsius = 4.0;
+        attribute compressorDutyCycle : Percent = 35.0;
+        attribute maximumAllowedTemperature : TemperatureCelsius = 8.0;
+        attribute minimumAllowedTemperature : TemperatureCelsius = 1.0;
+
+        port storagePort : EnvironmentControlPort;
+        port environmentPort : EnvironmentControlPort;
+        port powerPort : PowerPort;
+
+        action regulateTemperature {
+            in measuredTemperature : TemperatureCelsius;
+            out coolingCommand : Boolean;
+        }
+
+        state machine refrigerationControl {
+            state monitoring;
+            state cooling;
+            state temperatureAlarm;
+
+            transition first monitoring;
+            transition monitoring then cooling
+                accept temperatureAboveTarget;
+            transition cooling then monitoring
+                accept temperatureAtTarget;
+            transition monitoring then temperatureAlarm
+                accept temperatureOutOfRange;
+            transition cooling then temperatureAlarm
+                accept coolingFailure;
+            transition temperatureAlarm then monitoring
+                accept serviceClearedAlarm;
+        }
+    }
+
+    part def SecurityAccessUnit {
+        attribute frontDoorState : DoorState = DoorState::locked;
+        attribute serviceDoorState : DoorState = DoorState::locked;
+        attribute tamperDetected : Boolean = false;
+
+        port accessPort : AccessControlPort;
+
+        action validateServiceAccess {
+            in credential : CustomerCredential;
+            out accessGranted : Boolean;
+        }
+
+        action lockAllDoors {
+            out frontDoorState : DoorState;
+            out serviceDoorState : DoorState;
+        }
+    }
+
+    part def RemoteOperationsGateway {
+        attribute cellularSignalStrength : Percent = 92.0;
+        attribute telemetryUploadPeriod : TimeSecond = 60.0;
+        attribute offlineBufferCapacity : Count = 1000;
+
+        port localTelemetryPort : NetworkServicePort;
+        port remoteNetworkPort : NetworkServicePort;
+        port powerPort : PowerPort;
+
+        action uploadTelemetry {
+            in report : TelemetryReport;
+            out uploadAccepted : Boolean;
+        }
+
+        action receiveMaintenanceCommand {
+            out command : MaintenanceCommand;
+        }
+
+        action publishReceipt {
+            in receipt : Receipt;
+            out delivered : Boolean;
+        }
+    }
+
+    part def PowerManagementUnit {
+        attribute nominalInputVoltage : Real = 120.0;
+        attribute peakPowerWatts : Real = 1500.0;
+        attribute backupRuntime : TimeSecond = 900.0;
+        attribute energyConsumedToday : EnergyKilowattHour = 0.0;
+
+        port inputPowerPort : PowerPort;
+        port controlledPowerPort : PowerPort;
+
+        action shedNoncriticalLoads {
+            in powerAvailable : Boolean;
+            out displayEnabled : Boolean;
+            out refrigerationEnabled : Boolean;
+            out paymentEnabled : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The automated retail system shall autonomously sell stocked retail products by presenting a catalog, accepting customer selections, authorizing payment, dispensing purchased items, updating inventory, issuing a receipt, and reporting operational status. */
+        subject kiosk : AutomatedRetailKiosk;
+    }
+
+    requirement def PaymentAuthorizationRequirement {
+        doc /* The system shall authorize cashless payment before dispensing any selected product. */
+        subject controller : RetailTransactionController;
+        require constraint {
+            controller.currentOrderStatus == OrderStatus::paymentAuthorized
+        }
+    }
+
+    requirement def DispenseVerificationRequirement {
+        doc /* The system shall confirm physical delivery of each purchased product using dispense sensors before completing the order. */
+        subject dispenser : ProductDispensingUnit;
+    }
+
+    requirement def InventoryAccuracyRequirement {
+        doc /* The system shall decrement inventory count for each successfully dispensed product and generate a low-stock alert when remaining quantity is below threshold. */
+        subject inventory : InventoryManager;
+    }
+
+    requirement def RefrigerationRequirement {
+        doc /* Products requiring refrigeration shall be stored between 1 degC and 8 degC during normal operation. */
+        subject refrigeration : RefrigeratedStorageUnit;
+        require constraint {
+            refrigeration.currentTemperature >= refrigeration.minimumAllowedTemperature and
+            refrigeration.currentTemperature <= refrigeration.maximumAllowedTemperature
+        }
+    }
+
+    requirement def AvailabilityReportingRequirement {
+        doc /* The system shall transmit availability, temperature, payment success, energy, alarm, and inventory telemetry to remote operations at least once every 60 seconds while network service is available. */
+        subject gateway : RemoteOperationsGateway;
+    }
+
+    requirement def CustomerSafetyRequirement {
+        doc /* Customer-accessible doors shall remain locked except during authorized product retrieval or approved maintenance access. */
+        subject security : SecurityAccessUnit;
+    }
+
+    satisfy PrimaryFunctionRequirement by AutomatedRetailKiosk;
+    satisfy PaymentAuthorizationRequirement by RetailTransactionController;
+    satisfy DispenseVerificationRequirement by ProductDispensingUnit;
+    satisfy InventoryAccuracyRequirement by InventoryManager;
+    satisfy RefrigerationRequirement by RefrigeratedStorageUnit;
+    satisfy AvailabilityReportingRequirement by RemoteOperationsGateway;
+    satisfy CustomerSafetyRequirement by SecurityAccessUnit;
+
+    package OperationalScenario {
+        part kiosk : AutomatedRetailKiosk {
+            attribute machineId : Identifier = "AR-KIOSK-CHICAGO-001";
+            attribute availability : MachineAvailability = MachineAvailability::available;
+        }
+
+        item bottledWater : ProductItem {
+            attribute sku : Identifier = "BEV-WATER-500";
+            attribute name : String = "Still Water 500 mL";
+            attribute category : ProductCategory = ProductCategory::beverage;
+            attribute unitPrice : Money = 1.75;
+            attribute mass : MassGram = 525.0;
+            attribute volume : VolumeMilliliter = 500.0;
+            attribute requiresRefrigeration : Boolean = true;
+            attribute minimumStorageTemperature : TemperatureCelsius = 1.0;
+            attribute maximumStorageTemperature : TemperatureCelsius = 8.0;
+        }
+
+        item proteinBar : ProductItem {
+            attribute sku : Identifier = "SNK-PROTEIN-060";
+            attribute name : String = "Protein Bar 60 g";
+            attribute category : ProductCategory = ProductCategory::snack;
+            attribute unitPrice : Money = 2.95;
+            attribute mass : MassGram = 60.0;
+            attribute volume : VolumeMilliliter = 120.0;
+            attribute requiresRefrigeration : Boolean = false;
+            attribute minimumStorageTemperature : TemperatureCelsius = 5.0;
+            attribute maximumStorageTemperature : TemperatureCelsius = 30.0;
+        }
+
+        action customerPurchase {
+            out finalStatus : OrderStatus;
+
+            first start;
+            then browseCatalog;
+            then selectProducts;
+            then calculateTotal;
+            then authorizePayment;
+            then reserveInventory;
+            then dispenseItems;
+            then verifyDispense;
+            then decrementInventory;
+            then issueReceipt;
+            then reportTelemetry;
+            then done;
+
+            flow bottledWater to selectProducts;
+            flow proteinBar to selectProducts;
+        }
+    }
+}

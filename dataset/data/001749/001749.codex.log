@@ -1,0 +1,1477 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-5llxs37l
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7ee-d8a1-78f2-bb66-1ba31ac1e7a1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Automobile and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomobileSystemModel {
+
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+    private import USCustomaryUnits::*;
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def Speed :> ISQ::speed {
+        unit = SI::m / SI::s;
+    }
+
+    attribute def Acceleration :> ISQ::acceleration {
+        unit = SI::m / SI::s^2;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::N;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::K;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::Pa;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::l;
+    }
+
+    attribute def RotationalSpeed {
+        :>> num : Real;
+        unit = SI::rad / SI::s;
+    }
+
+    attribute def Torque {
+        :>> num : Real;
+        unit = SI::N * SI::m;
+    }
+
+    attribute def FuelEconomy {
+        :>> num : Real;
+        unit = SI::km / SI::l;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::V;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::A;
+    }
+
+    attribute def DriverCommandKind {
+        enum accelerationDemand;
+        enum brakingDemand;
+        enum steeringDemand;
+        enum gearSelection;
+        enum ignitionRequest;
+        enum parkingRequest;
+        enum lightingRequest;
+    }
+
+    attribute def GearPositionKind {
+        enum park;
+        enum reverse;
+        enum neutral;
+        enum drive;
+        enum low;
+    }
+
+    attribute def VehicleOperatingModeKind {
+        enum off;
+        enum standby;
+        enum starting;
+        enum ready;
+        enum driving;
+        enum braking;
+        enum parked;
+        enum faulted;
+    }
+
+    item def DriverCommand {
+        attribute commandKind : DriverCommandKind;
+        attribute normalizedMagnitude : Real;
+        attribute requestedGear : GearPositionKind;
+    }
+
+    item def Passenger {
+        attribute bodyMass : Mass;
+        attribute seated : Boolean;
+        attribute belted : Boolean;
+    }
+
+    item def Cargo {
+        attribute cargoMass : Mass;
+        attribute secured : Boolean;
+    }
+
+    item def Fuel {
+        attribute lowerHeatingValue : Energy;
+        attribute volume : Volume;
+        attribute octaneRating : Real;
+    }
+
+    item def MechanicalPower {
+        attribute torque : Torque;
+        attribute rotationalSpeed : RotationalSpeed;
+        attribute power : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def HydraulicBrakePressure {
+        attribute pressure : Pressure;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature : Temperature;
+        attribute heatFlow : Power;
+    }
+
+    item def MotionState {
+        attribute speed : Speed;
+        attribute longitudinalAcceleration : Acceleration;
+        attribute headingAngle : Real;
+        attribute yawRate : RotationalSpeed;
+    }
+
+    item def RoadLoad {
+        attribute rollingResistanceForce : Force;
+        attribute aerodynamicDragForce : Force;
+        attribute gradeForce : Force;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : Temperature;
+        attribute massFlowRate : Real;
+        attribute carbonDioxideRate : Real;
+        attribute nitrogenOxidesRate : Real;
+    }
+
+    item def DiagnosticMessage {
+        attribute troubleCode : String;
+        attribute severity : Real;
+        attribute messageActive : Boolean;
+    }
+
+    port def DriverInterfacePort {
+        in item command : DriverCommand;
+        out item motionFeedback : MotionState;
+        out item diagnosticStatus : DiagnosticMessage;
+    }
+
+    port def PassengerAccessPort {
+        in item occupant : Passenger;
+        out item occupantMotion : MotionState;
+    }
+
+    port def CargoAccessPort {
+        in item load : Cargo;
+    }
+
+    port def FuelPort {
+        in item fuel : Fuel;
+    }
+
+    port def MechanicalPowerPort {
+        inout item shaftPower : MechanicalPower;
+    }
+
+    port def ElectricalPowerPort {
+        inout item electricPower : ElectricalPower;
+    }
+
+    port def BrakeHydraulicPort {
+        inout item brakePressure : HydraulicBrakePressure;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def RoadInterfacePort {
+        in item roadLoad : RoadLoad;
+        out item vehicleMotion : MotionState;
+    }
+
+    part def Engine {
+        attribute displacement : Volume = 2.0 [SI::l];
+        attribute peakPower : Power = 150000 [SI::W];
+        attribute peakTorque : Torque = 250 [SI::N * SI::m];
+        attribute idleSpeed : RotationalSpeed = 84 [SI::rad / SI::s];
+        attribute redlineSpeed : RotationalSpeed = 650 [SI::rad / SI::s];
+        attribute coolantTemperature : Temperature = 363 [SI::K];
+        attribute running : Boolean = false;
+
+        port fuelIn : FuelPort;
+        port crankshaftOut : MechanicalPowerPort;
+        port starterPowerIn : ElectricalPowerPort;
+        port coolantThermal : ThermalPort;
+        port exhaustOut : ExhaustPort;
+
+        action startEngine {
+            first startStarter;
+            then injectFuel;
+            then establishCombustion;
+            then setRunning;
+
+            action startStarter;
+            action injectFuel;
+            action establishCombustion;
+            action setRunning {
+                running = true;
+            }
+        }
+
+        action stopEngine {
+            first cutFuel;
+            then stopRotation;
+            then setStopped;
+
+            action cutFuel;
+            action stopRotation;
+            action setStopped {
+                running = false;
+            }
+        }
+    }
+
+    part def Transmission {
+        attribute currentGear : GearPositionKind = GearPositionKind::park;
+        attribute gearRatio1 : Real = 4.71;
+        attribute gearRatio2 : Real = 3.14;
+        attribute gearRatio3 : Real = 2.10;
+        attribute gearRatio4 : Real = 1.67;
+        attribute gearRatio5 : Real = 1.29;
+        attribute gearRatio6 : Real = 1.00;
+        attribute finalDriveRatio : Real = 3.42;
+
+        port engineSide : MechanicalPowerPort;
+        port axleSide : MechanicalPowerPort;
+        port electricalControl : ElectricalPowerPort;
+
+        action selectGear {
+            in item requested : DriverCommand;
+            if requested.requestedGear == GearPositionKind::park then parkGear;
+            else if requested.requestedGear == GearPositionKind::reverse then reverseGear;
+            else if requested.requestedGear == GearPositionKind::neutral then neutralGear;
+            else driveGear;
+
+            action parkGear { currentGear = GearPositionKind::park; }
+            action reverseGear { currentGear = GearPositionKind::reverse; }
+            action neutralGear { currentGear = GearPositionKind::neutral; }
+            action driveGear { currentGear = GearPositionKind::drive; }
+        }
+    }
+
+    part def Driveline {
+        attribute driveshaftTorqueLimit : Torque = 4200 [SI::N * SI::m];
+
+        port transmissionIn : MechanicalPowerPort;
+        port frontAxleOut : MechanicalPowerPort;
+        port rearAxleOut : MechanicalPowerPort;
+    }
+
+    part def WheelAssembly {
+        attribute tireRadius : Length = 0.34 [SI::m];
+        attribute tirePressure : Pressure = 240000 [SI::Pa];
+        attribute normalForce : Force;
+        attribute wheelSpeed : RotationalSpeed;
+
+        port axlePower : MechanicalPowerPort;
+        port roadContact : RoadInterfacePort;
+        port brakeInput : BrakeHydraulicPort;
+    }
+
+    part def BrakingSystem {
+        attribute maximumBrakePressure : Pressure = 12000000 [SI::Pa];
+        attribute antiLockActive : Boolean = false;
+
+        port commandIn : DriverInterfacePort;
+        port powerIn : ElectricalPowerPort;
+        port frontLeftBrake : BrakeHydraulicPort;
+        port frontRightBrake : BrakeHydraulicPort;
+        port rearLeftBrake : BrakeHydraulicPort;
+        port rearRightBrake : BrakeHydraulicPort;
+
+        action applyServiceBrakes {
+            in item command : DriverCommand;
+            out item pressure : HydraulicBrakePressure;
+            pressure.pressure = command.normalizedMagnitude * maximumBrakePressure;
+        }
+
+        action modulateAntiLock {
+            antiLockActive = true;
+        }
+
+        action releaseBrakes {
+            antiLockActive = false;
+        }
+    }
+
+    part def SteeringSystem {
+        attribute maximumRoadWheelAngle : Real = 0.61;
+        attribute steeringAssistPower : Power = 900 [SI::W];
+
+        port commandIn : DriverInterfacePort;
+        port electricalPowerIn : ElectricalPowerPort;
+        port frontLeftRoadInterface : RoadInterfacePort;
+        port frontRightRoadInterface : RoadInterfacePort;
+
+        action steerVehicle {
+            in item command : DriverCommand;
+            attribute commandedRoadWheelAngle : Real = command.normalizedMagnitude * maximumRoadWheelAngle;
+        }
+    }
+
+    part def FuelSystem {
+        attribute tankCapacity : Volume = 55 [SI::l];
+        attribute usableFuelVolume : Volume = 50 [SI::l];
+        attribute pumpPressure : Pressure = 400000 [SI::Pa];
+
+        port filler : FuelPort;
+        port engineFuelSupply : FuelPort;
+        port electricalPowerIn : ElectricalPowerPort;
+
+        action supplyFuel {
+            out item meteredFuel : Fuel;
+        }
+    }
+
+    part def ElectricalSystem {
+        attribute nominalVoltage : Voltage = 12 [SI::V];
+        attribute batteryCapacity : Energy = 2500000 [SI::J];
+        attribute alternatorPeakPower : Power = 1800 [SI::W];
+        attribute stateOfCharge : Real = 0.85;
+
+        port batteryOutput : ElectricalPowerPort;
+        port starterOutput : ElectricalPowerPort;
+        port controlPowerOutput : ElectricalPowerPort;
+        port lightingPowerOutput : ElectricalPowerPort;
+        port alternatorInput : MechanicalPowerPort;
+
+        action distributePower;
+        action rechargeBattery {
+            stateOfCharge = stateOfCharge + 0.01;
+        }
+    }
+
+    part def BodyStructure {
+        attribute curbMass : Mass = 1520 [SI::kg];
+        attribute length : Length = 4.72 [SI::m];
+        attribute width : Length = 1.84 [SI::m];
+        attribute height : Length = 1.45 [SI::m];
+        attribute dragCoefficient : Real = 0.29;
+        attribute frontalArea : Real = 2.25;
+
+        port passengerAccess[5] : PassengerAccessPort;
+        port cargoAccess : CargoAccessPort;
+        port roadInterface : RoadInterfacePort;
+    }
+
+    part def Cabin {
+        attribute seatingCapacity : Integer = 5;
+        attribute targetCabinTemperature : Temperature = 295 [SI::K];
+
+        port driverInterface : DriverInterfacePort;
+        port passengerInterface[4] : PassengerAccessPort;
+        port electricalPowerIn : ElectricalPowerPort;
+        port thermalInterface : ThermalPort;
+    }
+
+    part def LightingSystem {
+        attribute headlampPower : Power = 110 [SI::W];
+        attribute tailLampPower : Power = 18 [SI::W];
+        attribute active : Boolean = false;
+
+        port driverCommand : DriverInterfacePort;
+        port electricalPowerIn : ElectricalPowerPort;
+
+        action activateLights { active = true; }
+        action deactivateLights { active = false; }
+    }
+
+    part def ThermalManagementSystem {
+        attribute radiatorHeatRejection : Power = 45000 [SI::W];
+        attribute coolantSetPoint : Temperature = 363 [SI::K];
+
+        port engineThermal : ThermalPort;
+        port cabinThermal : ThermalPort;
+        port electricalPowerIn : ElectricalPowerPort;
+
+        action regulateEngineTemperature;
+        action conditionCabinAir;
+    }
+
+    part def VehicleControlUnit {
+        attribute operatingMode : VehicleOperatingModeKind = VehicleOperatingModeKind::off;
+        attribute vehicleSpeedEstimate : Speed = 0 [SI::m / SI::s];
+        attribute faultPresent : Boolean = false;
+
+        port driverInterface : DriverInterfacePort;
+        port enginePowerControl : ElectricalPowerPort;
+        port transmissionControl : ElectricalPowerPort;
+        port brakeControl : ElectricalPowerPort;
+        port steeringControl : ElectricalPowerPort;
+        port diagnosticsOut : DriverInterfacePort;
+
+        state def AutomobileOperatingStateMachine {
+            entry action initializeController;
+
+            state off;
+            state standby;
+            state starting;
+            state ready;
+            state driving;
+            state braking;
+            state parked;
+            state faulted;
+
+            transition first off then standby
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::ignitionRequest;
+
+            transition standby then starting
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::ignitionRequest and command.normalizedMagnitude > 0.5;
+
+            transition starting then ready
+                if faultPresent == false;
+
+            transition ready then driving
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::accelerationDemand and command.normalizedMagnitude > 0.0;
+
+            transition driving then braking
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::brakingDemand and command.normalizedMagnitude > 0.0;
+
+            transition braking then driving
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::accelerationDemand and command.normalizedMagnitude > 0.0;
+
+            transition ready then parked
+                accept DriverCommand
+                if command.requestedGear == GearPositionKind::park;
+
+            transition driving then faulted
+                if faultPresent == true;
+
+            transition braking then faulted
+                if faultPresent == true;
+
+            transition faulted then off
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::ignitionRequest and command.normalizedMagnitude == 0.0;
+        }
+
+        action interpretDriverCommands {
+            in item command : DriverCommand;
+        }
+
+        action coordinatePropulsion {
+            in item command : DriverCommand;
+        }
+
+        action coordinateBraking {
+            in item command : DriverCommand;
+        }
+
+        action reportDiagnostics {
+            out item diagnostic : DiagnosticMessage;
+        }
+    }
+
+    part def Automobile {
+        attribute maximumOccupants : Integer = 5;
+        attribute grossVehicleMassRating : Mass = 2100 [SI::kg];
+        attribute curbMass : Mass = 1520 [SI::kg];
+        attribute payloadCapacity : Mass = 580 [SI::kg];
+        attribute topSpeed : Speed = 58 [SI::m / SI::s];
+        attribute zeroToHundredKphTime : Real = 8.5;
+        attribute fuelEconomyCombined : FuelEconomy = 14.5 [SI::km / SI::l];
+        attribute primaryFunction : String = "Transport a driver, passengers, and cargo over roads by converting stored fuel energy into controlled vehicle motion while providing steering, braking, occupant protection, and operator feedback.";
+
+        port driverPort : DriverInterfacePort;
+        port passengerPorts[4] : PassengerAccessPort;
+        port cargoPort : CargoAccessPort;
+        port fuelFillerPort : FuelPort;
+        port roadPort : RoadInterfacePort;
+        port exhaustPort : ExhaustPort;
+
+        part engine : Engine;
+        part transmission : Transmission;
+        part driveline : Driveline;
+        part fuelSystem : FuelSystem;
+        part electricalSystem : ElectricalSystem;
+        part brakingSystem : BrakingSystem;
+        part steeringSystem : SteeringSystem;
+        part body : BodyStructure;
+        part cabin : Cabin;
+        part lighting : LightingSystem;
+        part thermalManagement : ThermalManagementSystem;
+        part controller : VehicleControlUnit;
+
+        part frontLeftWheel : WheelAssembly;
+        part frontRightWheel : WheelAssembly;
+        part rearLeftWheel : WheelAssembly;
+        part rearRightWheel : WheelAssembly;
+
+        connect driverPort to cabin.driverInterface;
+        connect driverPort to controller.driverInterface;
+        connect passengerPorts to body.passengerAccess;
+        connect cargoPort to body.cargoAccess;
+        connect fuelFillerPort to fuelSystem.filler;
+        connect roadPort to body.roadInterface;
+        connect engine.exhaustOut to exhaustPort;
+
+        connect fuelSystem.engineFuelSupply to engine.fuelIn;
+        connect engine.crankshaftOut to transmission.engineSide;
+        connect transmission.axleSide to driveline.transmissionIn;
+        connect driveline.frontAxleOut to frontLeftWheel.axlePower;
+        connect driveline.frontAxleOut to frontRightWheel.axlePower;
+        connect driveline.rearAxleOut to rearLeftWheel.axlePower;
+        connect driveline.rearAxleOut to rearRightWheel.axlePower;
+
+        connect brakingSystem.frontLeftBrake to frontLeftWheel.brakeInput;
+        connect brakingSystem.frontRightBrake to frontRightWheel.brakeInput;
+        connect brakingSystem.rearLeftBrake to rearLeftWheel.brakeInput;
+        connect brakingSystem.rearRightBrake to rearRightWheel.brakeInput;
+
+        connect steeringSystem.frontLeftRoadInterface to frontLeftWheel.roadContact;
+        connect steeringSystem.frontRightRoadInterface to frontRightWheel.roadContact;
+        connect frontLeftWheel.roadContact to roadPort;
+        connect frontRightWheel.roadContact to roadPort;
+        connect rearLeftWheel.roadContact to roadPort;
+        connect rearRightWheel.roadContact to roadPort;
+
+        connect electricalSystem.starterOutput to engine.starterPowerIn;
+        connect electricalSystem.controlPowerOutput to controller.enginePowerControl;
+        connect electricalSystem.controlPowerOutput to controller.transmissionControl;
+        connect electricalSystem.controlPowerOutput to controller.brakeControl;
+        connect electricalSystem.controlPowerOutput to controller.steeringControl;
+        connect electricalSystem.controlPowerOutput to fuelSystem.electricalPowerIn;
+        connect electricalSystem.controlPowerOutput to brakingSystem.powerIn;
+        connect electricalSystem.controlPowerOutput to steeringSystem.electricalPowerIn;
+        connect electricalSystem.lightingPowerOutput to lighting.electricalPowerIn;
+        connect electricalSystem.controlPowerOutput to cabin.electricalPowerIn;
+        connect electricalSystem.controlPowerOutput to thermalManagement.electricalPowerIn;
+        connect engine.crankshaftOut to electricalSystem.alternatorInput;
+
+        connect engine.coolantThermal to thermalManagement.engineThermal;
+        connect cabin.thermalInterface to thermalManagement.cabinThermal;
+
+        connect driverPort to brakingSystem.commandIn;
+        connect driverPort to steeringSystem.commandIn;
+        connect driverPort to lighting.driverCommand;
+
+        action performPrimaryTransportationFunction {
+            in item driverCommand : DriverCommand;
+            in item passengerLoad[0..5] : Passenger;
+            in item cargoLoad : Cargo;
+            out item achievedMotion : MotionState;
+
+            first acceptDriverInputs;
+            then startOrMaintainPowertrain;
+            then generateTractiveEffort;
+            then guideVehiclePath;
+            then manageSpeedAndStopping;
+            then provideOccupantAndCargoTransport;
+            then provideFeedback;
+
+            action acceptDriverInputs {
+                in item command : DriverCommand = driverCommand;
+            }
+
+            action startOrMaintainPowertrain {
+                action supplyFuelToEngine;
+                action supplyElectricalPower;
+                action convertFuelEnergyToShaftPower;
+            }
+
+            action generateTractiveEffort {
+                action multiplyTorqueThroughTransmission;
+                action deliverTorqueToWheels;
+                action exchangeForceWithRoad;
+            }
+
+            action guideVehiclePath {
+                action interpretSteeringInput;
+                action setFrontWheelAngles;
+            }
+
+            action manageSpeedAndStopping {
+                action interpretBrakeInput;
+                action applyFrictionBrakes;
+                action regulateWheelSlip;
+            }
+
+            action provideOccupantAndCargoTransport {
+                action supportOccupants;
+                action restrainCargo;
+                action isolateRoadLoads;
+            }
+
+            action provideFeedback {
+                out item motion : MotionState = achievedMotion;
+            }
+        }
+    }
+
+    requirement def PrimaryTransportationRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall transport people and cargo on road surfaces by accepting driver commands, producing controlled propulsion, steering, and braking, and maintaining operator feedback. */
+
+        require constraint {
+            automobile.maximumOccupants >= 1 and
+            automobile.payloadCapacity >= 300 [SI::kg] and
+            automobile.topSpeed >= 30 [SI::m / SI::s]
+        }
+    }
+
+    requirement def PropulsionRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall convert onboard fuel energy into mechanical wheel power sufficient to accelerate and sustain road travel. */
+
+        require constraint {
+            automobile.engine.peakPower >= 80000 [SI::W] and
+            automobile.engine.peakTorque >= 150 [SI::N * SI::m]
+        }
+    }
+
+    requirement def BrakingRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall reduce speed and stop under driver command using service brakes with wheel slip modulation. */
+
+        require constraint {
+            automobile.brakingSystem.maximumBrakePressure >= 8000000 [SI::Pa]
+        }
+    }
+
+    requirement def SteeringRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall change path according to driver steering input through the front road wheels. */
+
+        require constraint {
+            automobile.steeringSystem.maximumRoadWheelAngle >= 0.5
+        }
+    }
+
+    requirement def OccupantAndCargoRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall carry occupants and cargo within rated mass and seating limits. */
+
+        require constraint {
+            automobile.maximumOccupants == 5 and
+            automobile.grossVehicleMassRating >= automobile.curbMass + automobile.payloadCapacity
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall store sufficient fuel and electrical energy to support propulsion, starting, control, lighting, and cabin functions. */
+
+        require constraint {
+            automobile.fuelSystem.tankCapacity >= 40 [SI::l] and
+            automobile.electricalSystem.nominalVoltage == 12 [SI::V]
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall reject engine heat and provide conditioned cabin thermal exchange during normal operation. */
+
+        require constraint {
+            automobile.thermalManagement.radiatorHeatRejection >= 30000 [SI::W]
+        }
+    }
+
+    satisfy PrimaryTransportationRequirement by Automobile::performPrimaryTransportationFunction;
+    satisfy PropulsionRequirement by Automobile::engine;
+    satisfy BrakingRequirement by Automobile::brakingSystem;
+    satisfy SteeringRequirement by Automobile::steeringSystem;
+    satisfy OccupantAndCargoRequirement by Automobile::body;
+    satisfy EnergyStorageRequirement by Automobile::fuelSystem;
+    satisfy ThermalManagementRequirement by Automobile::thermalManagement;
+
+    part familySedan : Automobile {
+        :>> maximumOccupants = 5;
+        :>> grossVehicleMassRating = 2100 [SI::kg];
+        :>> curbMass = 1520 [SI::kg];
+        :>> payloadCapacity = 580 [SI::kg];
+        :>> topSpeed = 58 [SI::m / SI::s];
+        :>> fuelEconomyCombined = 14.5 [SI::km / SI::l];
+    }
+}
+tokens used
+5,408
+package AutomobileSystemModel {
+
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+    private import USCustomaryUnits::*;
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def Speed :> ISQ::speed {
+        unit = SI::m / SI::s;
+    }
+
+    attribute def Acceleration :> ISQ::acceleration {
+        unit = SI::m / SI::s^2;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::N;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::K;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::Pa;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::l;
+    }
+
+    attribute def RotationalSpeed {
+        :>> num : Real;
+        unit = SI::rad / SI::s;
+    }
+
+    attribute def Torque {
+        :>> num : Real;
+        unit = SI::N * SI::m;
+    }
+
+    attribute def FuelEconomy {
+        :>> num : Real;
+        unit = SI::km / SI::l;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::V;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::A;
+    }
+
+    attribute def DriverCommandKind {
+        enum accelerationDemand;
+        enum brakingDemand;
+        enum steeringDemand;
+        enum gearSelection;
+        enum ignitionRequest;
+        enum parkingRequest;
+        enum lightingRequest;
+    }
+
+    attribute def GearPositionKind {
+        enum park;
+        enum reverse;
+        enum neutral;
+        enum drive;
+        enum low;
+    }
+
+    attribute def VehicleOperatingModeKind {
+        enum off;
+        enum standby;
+        enum starting;
+        enum ready;
+        enum driving;
+        enum braking;
+        enum parked;
+        enum faulted;
+    }
+
+    item def DriverCommand {
+        attribute commandKind : DriverCommandKind;
+        attribute normalizedMagnitude : Real;
+        attribute requestedGear : GearPositionKind;
+    }
+
+    item def Passenger {
+        attribute bodyMass : Mass;
+        attribute seated : Boolean;
+        attribute belted : Boolean;
+    }
+
+    item def Cargo {
+        attribute cargoMass : Mass;
+        attribute secured : Boolean;
+    }
+
+    item def Fuel {
+        attribute lowerHeatingValue : Energy;
+        attribute volume : Volume;
+        attribute octaneRating : Real;
+    }
+
+    item def MechanicalPower {
+        attribute torque : Torque;
+        attribute rotationalSpeed : RotationalSpeed;
+        attribute power : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def HydraulicBrakePressure {
+        attribute pressure : Pressure;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature : Temperature;
+        attribute heatFlow : Power;
+    }
+
+    item def MotionState {
+        attribute speed : Speed;
+        attribute longitudinalAcceleration : Acceleration;
+        attribute headingAngle : Real;
+        attribute yawRate : RotationalSpeed;
+    }
+
+    item def RoadLoad {
+        attribute rollingResistanceForce : Force;
+        attribute aerodynamicDragForce : Force;
+        attribute gradeForce : Force;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : Temperature;
+        attribute massFlowRate : Real;
+        attribute carbonDioxideRate : Real;
+        attribute nitrogenOxidesRate : Real;
+    }
+
+    item def DiagnosticMessage {
+        attribute troubleCode : String;
+        attribute severity : Real;
+        attribute messageActive : Boolean;
+    }
+
+    port def DriverInterfacePort {
+        in item command : DriverCommand;
+        out item motionFeedback : MotionState;
+        out item diagnosticStatus : DiagnosticMessage;
+    }
+
+    port def PassengerAccessPort {
+        in item occupant : Passenger;
+        out item occupantMotion : MotionState;
+    }
+
+    port def CargoAccessPort {
+        in item load : Cargo;
+    }
+
+    port def FuelPort {
+        in item fuel : Fuel;
+    }
+
+    port def MechanicalPowerPort {
+        inout item shaftPower : MechanicalPower;
+    }
+
+    port def ElectricalPowerPort {
+        inout item electricPower : ElectricalPower;
+    }
+
+    port def BrakeHydraulicPort {
+        inout item brakePressure : HydraulicBrakePressure;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def RoadInterfacePort {
+        in item roadLoad : RoadLoad;
+        out item vehicleMotion : MotionState;
+    }
+
+    part def Engine {
+        attribute displacement : Volume = 2.0 [SI::l];
+        attribute peakPower : Power = 150000 [SI::W];
+        attribute peakTorque : Torque = 250 [SI::N * SI::m];
+        attribute idleSpeed : RotationalSpeed = 84 [SI::rad / SI::s];
+        attribute redlineSpeed : RotationalSpeed = 650 [SI::rad / SI::s];
+        attribute coolantTemperature : Temperature = 363 [SI::K];
+        attribute running : Boolean = false;
+
+        port fuelIn : FuelPort;
+        port crankshaftOut : MechanicalPowerPort;
+        port starterPowerIn : ElectricalPowerPort;
+        port coolantThermal : ThermalPort;
+        port exhaustOut : ExhaustPort;
+
+        action startEngine {
+            first startStarter;
+            then injectFuel;
+            then establishCombustion;
+            then setRunning;
+
+            action startStarter;
+            action injectFuel;
+            action establishCombustion;
+            action setRunning {
+                running = true;
+            }
+        }
+
+        action stopEngine {
+            first cutFuel;
+            then stopRotation;
+            then setStopped;
+
+            action cutFuel;
+            action stopRotation;
+            action setStopped {
+                running = false;
+            }
+        }
+    }
+
+    part def Transmission {
+        attribute currentGear : GearPositionKind = GearPositionKind::park;
+        attribute gearRatio1 : Real = 4.71;
+        attribute gearRatio2 : Real = 3.14;
+        attribute gearRatio3 : Real = 2.10;
+        attribute gearRatio4 : Real = 1.67;
+        attribute gearRatio5 : Real = 1.29;
+        attribute gearRatio6 : Real = 1.00;
+        attribute finalDriveRatio : Real = 3.42;
+
+        port engineSide : MechanicalPowerPort;
+        port axleSide : MechanicalPowerPort;
+        port electricalControl : ElectricalPowerPort;
+
+        action selectGear {
+            in item requested : DriverCommand;
+            if requested.requestedGear == GearPositionKind::park then parkGear;
+            else if requested.requestedGear == GearPositionKind::reverse then reverseGear;
+            else if requested.requestedGear == GearPositionKind::neutral then neutralGear;
+            else driveGear;
+
+            action parkGear { currentGear = GearPositionKind::park; }
+            action reverseGear { currentGear = GearPositionKind::reverse; }
+            action neutralGear { currentGear = GearPositionKind::neutral; }
+            action driveGear { currentGear = GearPositionKind::drive; }
+        }
+    }
+
+    part def Driveline {
+        attribute driveshaftTorqueLimit : Torque = 4200 [SI::N * SI::m];
+
+        port transmissionIn : MechanicalPowerPort;
+        port frontAxleOut : MechanicalPowerPort;
+        port rearAxleOut : MechanicalPowerPort;
+    }
+
+    part def WheelAssembly {
+        attribute tireRadius : Length = 0.34 [SI::m];
+        attribute tirePressure : Pressure = 240000 [SI::Pa];
+        attribute normalForce : Force;
+        attribute wheelSpeed : RotationalSpeed;
+
+        port axlePower : MechanicalPowerPort;
+        port roadContact : RoadInterfacePort;
+        port brakeInput : BrakeHydraulicPort;
+    }
+
+    part def BrakingSystem {
+        attribute maximumBrakePressure : Pressure = 12000000 [SI::Pa];
+        attribute antiLockActive : Boolean = false;
+
+        port commandIn : DriverInterfacePort;
+        port powerIn : ElectricalPowerPort;
+        port frontLeftBrake : BrakeHydraulicPort;
+        port frontRightBrake : BrakeHydraulicPort;
+        port rearLeftBrake : BrakeHydraulicPort;
+        port rearRightBrake : BrakeHydraulicPort;
+
+        action applyServiceBrakes {
+            in item command : DriverCommand;
+            out item pressure : HydraulicBrakePressure;
+            pressure.pressure = command.normalizedMagnitude * maximumBrakePressure;
+        }
+
+        action modulateAntiLock {
+            antiLockActive = true;
+        }
+
+        action releaseBrakes {
+            antiLockActive = false;
+        }
+    }
+
+    part def SteeringSystem {
+        attribute maximumRoadWheelAngle : Real = 0.61;
+        attribute steeringAssistPower : Power = 900 [SI::W];
+
+        port commandIn : DriverInterfacePort;
+        port electricalPowerIn : ElectricalPowerPort;
+        port frontLeftRoadInterface : RoadInterfacePort;
+        port frontRightRoadInterface : RoadInterfacePort;
+
+        action steerVehicle {
+            in item command : DriverCommand;
+            attribute commandedRoadWheelAngle : Real = command.normalizedMagnitude * maximumRoadWheelAngle;
+        }
+    }
+
+    part def FuelSystem {
+        attribute tankCapacity : Volume = 55 [SI::l];
+        attribute usableFuelVolume : Volume = 50 [SI::l];
+        attribute pumpPressure : Pressure = 400000 [SI::Pa];
+
+        port filler : FuelPort;
+        port engineFuelSupply : FuelPort;
+        port electricalPowerIn : ElectricalPowerPort;
+
+        action supplyFuel {
+            out item meteredFuel : Fuel;
+        }
+    }
+
+    part def ElectricalSystem {
+        attribute nominalVoltage : Voltage = 12 [SI::V];
+        attribute batteryCapacity : Energy = 2500000 [SI::J];
+        attribute alternatorPeakPower : Power = 1800 [SI::W];
+        attribute stateOfCharge : Real = 0.85;
+
+        port batteryOutput : ElectricalPowerPort;
+        port starterOutput : ElectricalPowerPort;
+        port controlPowerOutput : ElectricalPowerPort;
+        port lightingPowerOutput : ElectricalPowerPort;
+        port alternatorInput : MechanicalPowerPort;
+
+        action distributePower;
+        action rechargeBattery {
+            stateOfCharge = stateOfCharge + 0.01;
+        }
+    }
+
+    part def BodyStructure {
+        attribute curbMass : Mass = 1520 [SI::kg];
+        attribute length : Length = 4.72 [SI::m];
+        attribute width : Length = 1.84 [SI::m];
+        attribute height : Length = 1.45 [SI::m];
+        attribute dragCoefficient : Real = 0.29;
+        attribute frontalArea : Real = 2.25;
+
+        port passengerAccess[5] : PassengerAccessPort;
+        port cargoAccess : CargoAccessPort;
+        port roadInterface : RoadInterfacePort;
+    }
+
+    part def Cabin {
+        attribute seatingCapacity : Integer = 5;
+        attribute targetCabinTemperature : Temperature = 295 [SI::K];
+
+        port driverInterface : DriverInterfacePort;
+        port passengerInterface[4] : PassengerAccessPort;
+        port electricalPowerIn : ElectricalPowerPort;
+        port thermalInterface : ThermalPort;
+    }
+
+    part def LightingSystem {
+        attribute headlampPower : Power = 110 [SI::W];
+        attribute tailLampPower : Power = 18 [SI::W];
+        attribute active : Boolean = false;
+
+        port driverCommand : DriverInterfacePort;
+        port electricalPowerIn : ElectricalPowerPort;
+
+        action activateLights { active = true; }
+        action deactivateLights { active = false; }
+    }
+
+    part def ThermalManagementSystem {
+        attribute radiatorHeatRejection : Power = 45000 [SI::W];
+        attribute coolantSetPoint : Temperature = 363 [SI::K];
+
+        port engineThermal : ThermalPort;
+        port cabinThermal : ThermalPort;
+        port electricalPowerIn : ElectricalPowerPort;
+
+        action regulateEngineTemperature;
+        action conditionCabinAir;
+    }
+
+    part def VehicleControlUnit {
+        attribute operatingMode : VehicleOperatingModeKind = VehicleOperatingModeKind::off;
+        attribute vehicleSpeedEstimate : Speed = 0 [SI::m / SI::s];
+        attribute faultPresent : Boolean = false;
+
+        port driverInterface : DriverInterfacePort;
+        port enginePowerControl : ElectricalPowerPort;
+        port transmissionControl : ElectricalPowerPort;
+        port brakeControl : ElectricalPowerPort;
+        port steeringControl : ElectricalPowerPort;
+        port diagnosticsOut : DriverInterfacePort;
+
+        state def AutomobileOperatingStateMachine {
+            entry action initializeController;
+
+            state off;
+            state standby;
+            state starting;
+            state ready;
+            state driving;
+            state braking;
+            state parked;
+            state faulted;
+
+            transition first off then standby
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::ignitionRequest;
+
+            transition standby then starting
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::ignitionRequest and command.normalizedMagnitude > 0.5;
+
+            transition starting then ready
+                if faultPresent == false;
+
+            transition ready then driving
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::accelerationDemand and command.normalizedMagnitude > 0.0;
+
+            transition driving then braking
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::brakingDemand and command.normalizedMagnitude > 0.0;
+
+            transition braking then driving
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::accelerationDemand and command.normalizedMagnitude > 0.0;
+
+            transition ready then parked
+                accept DriverCommand
+                if command.requestedGear == GearPositionKind::park;
+
+            transition driving then faulted
+                if faultPresent == true;
+
+            transition braking then faulted
+                if faultPresent == true;
+
+            transition faulted then off
+                accept DriverCommand
+                if command.commandKind == DriverCommandKind::ignitionRequest and command.normalizedMagnitude == 0.0;
+        }
+
+        action interpretDriverCommands {
+            in item command : DriverCommand;
+        }
+
+        action coordinatePropulsion {
+            in item command : DriverCommand;
+        }
+
+        action coordinateBraking {
+            in item command : DriverCommand;
+        }
+
+        action reportDiagnostics {
+            out item diagnostic : DiagnosticMessage;
+        }
+    }
+
+    part def Automobile {
+        attribute maximumOccupants : Integer = 5;
+        attribute grossVehicleMassRating : Mass = 2100 [SI::kg];
+        attribute curbMass : Mass = 1520 [SI::kg];
+        attribute payloadCapacity : Mass = 580 [SI::kg];
+        attribute topSpeed : Speed = 58 [SI::m / SI::s];
+        attribute zeroToHundredKphTime : Real = 8.5;
+        attribute fuelEconomyCombined : FuelEconomy = 14.5 [SI::km / SI::l];
+        attribute primaryFunction : String = "Transport a driver, passengers, and cargo over roads by converting stored fuel energy into controlled vehicle motion while providing steering, braking, occupant protection, and operator feedback.";
+
+        port driverPort : DriverInterfacePort;
+        port passengerPorts[4] : PassengerAccessPort;
+        port cargoPort : CargoAccessPort;
+        port fuelFillerPort : FuelPort;
+        port roadPort : RoadInterfacePort;
+        port exhaustPort : ExhaustPort;
+
+        part engine : Engine;
+        part transmission : Transmission;
+        part driveline : Driveline;
+        part fuelSystem : FuelSystem;
+        part electricalSystem : ElectricalSystem;
+        part brakingSystem : BrakingSystem;
+        part steeringSystem : SteeringSystem;
+        part body : BodyStructure;
+        part cabin : Cabin;
+        part lighting : LightingSystem;
+        part thermalManagement : ThermalManagementSystem;
+        part controller : VehicleControlUnit;
+
+        part frontLeftWheel : WheelAssembly;
+        part frontRightWheel : WheelAssembly;
+        part rearLeftWheel : WheelAssembly;
+        part rearRightWheel : WheelAssembly;
+
+        connect driverPort to cabin.driverInterface;
+        connect driverPort to controller.driverInterface;
+        connect passengerPorts to body.passengerAccess;
+        connect cargoPort to body.cargoAccess;
+        connect fuelFillerPort to fuelSystem.filler;
+        connect roadPort to body.roadInterface;
+        connect engine.exhaustOut to exhaustPort;
+
+        connect fuelSystem.engineFuelSupply to engine.fuelIn;
+        connect engine.crankshaftOut to transmission.engineSide;
+        connect transmission.axleSide to driveline.transmissionIn;
+        connect driveline.frontAxleOut to frontLeftWheel.axlePower;
+        connect driveline.frontAxleOut to frontRightWheel.axlePower;
+        connect driveline.rearAxleOut to rearLeftWheel.axlePower;
+        connect driveline.rearAxleOut to rearRightWheel.axlePower;
+
+        connect brakingSystem.frontLeftBrake to frontLeftWheel.brakeInput;
+        connect brakingSystem.frontRightBrake to frontRightWheel.brakeInput;
+        connect brakingSystem.rearLeftBrake to rearLeftWheel.brakeInput;
+        connect brakingSystem.rearRightBrake to rearRightWheel.brakeInput;
+
+        connect steeringSystem.frontLeftRoadInterface to frontLeftWheel.roadContact;
+        connect steeringSystem.frontRightRoadInterface to frontRightWheel.roadContact;
+        connect frontLeftWheel.roadContact to roadPort;
+        connect frontRightWheel.roadContact to roadPort;
+        connect rearLeftWheel.roadContact to roadPort;
+        connect rearRightWheel.roadContact to roadPort;
+
+        connect electricalSystem.starterOutput to engine.starterPowerIn;
+        connect electricalSystem.controlPowerOutput to controller.enginePowerControl;
+        connect electricalSystem.controlPowerOutput to controller.transmissionControl;
+        connect electricalSystem.controlPowerOutput to controller.brakeControl;
+        connect electricalSystem.controlPowerOutput to controller.steeringControl;
+        connect electricalSystem.controlPowerOutput to fuelSystem.electricalPowerIn;
+        connect electricalSystem.controlPowerOutput to brakingSystem.powerIn;
+        connect electricalSystem.controlPowerOutput to steeringSystem.electricalPowerIn;
+        connect electricalSystem.lightingPowerOutput to lighting.electricalPowerIn;
+        connect electricalSystem.controlPowerOutput to cabin.electricalPowerIn;
+        connect electricalSystem.controlPowerOutput to thermalManagement.electricalPowerIn;
+        connect engine.crankshaftOut to electricalSystem.alternatorInput;
+
+        connect engine.coolantThermal to thermalManagement.engineThermal;
+        connect cabin.thermalInterface to thermalManagement.cabinThermal;
+
+        connect driverPort to brakingSystem.commandIn;
+        connect driverPort to steeringSystem.commandIn;
+        connect driverPort to lighting.driverCommand;
+
+        action performPrimaryTransportationFunction {
+            in item driverCommand : DriverCommand;
+            in item passengerLoad[0..5] : Passenger;
+            in item cargoLoad : Cargo;
+            out item achievedMotion : MotionState;
+
+            first acceptDriverInputs;
+            then startOrMaintainPowertrain;
+            then generateTractiveEffort;
+            then guideVehiclePath;
+            then manageSpeedAndStopping;
+            then provideOccupantAndCargoTransport;
+            then provideFeedback;
+
+            action acceptDriverInputs {
+                in item command : DriverCommand = driverCommand;
+            }
+
+            action startOrMaintainPowertrain {
+                action supplyFuelToEngine;
+                action supplyElectricalPower;
+                action convertFuelEnergyToShaftPower;
+            }
+
+            action generateTractiveEffort {
+                action multiplyTorqueThroughTransmission;
+                action deliverTorqueToWheels;
+                action exchangeForceWithRoad;
+            }
+
+            action guideVehiclePath {
+                action interpretSteeringInput;
+                action setFrontWheelAngles;
+            }
+
+            action manageSpeedAndStopping {
+                action interpretBrakeInput;
+                action applyFrictionBrakes;
+                action regulateWheelSlip;
+            }
+
+            action provideOccupantAndCargoTransport {
+                action supportOccupants;
+                action restrainCargo;
+                action isolateRoadLoads;
+            }
+
+            action provideFeedback {
+                out item motion : MotionState = achievedMotion;
+            }
+        }
+    }
+
+    requirement def PrimaryTransportationRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall transport people and cargo on road surfaces by accepting driver commands, producing controlled propulsion, steering, and braking, and maintaining operator feedback. */
+
+        require constraint {
+            automobile.maximumOccupants >= 1 and
+            automobile.payloadCapacity >= 300 [SI::kg] and
+            automobile.topSpeed >= 30 [SI::m / SI::s]
+        }
+    }
+
+    requirement def PropulsionRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall convert onboard fuel energy into mechanical wheel power sufficient to accelerate and sustain road travel. */
+
+        require constraint {
+            automobile.engine.peakPower >= 80000 [SI::W] and
+            automobile.engine.peakTorque >= 150 [SI::N * SI::m]
+        }
+    }
+
+    requirement def BrakingRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall reduce speed and stop under driver command using service brakes with wheel slip modulation. */
+
+        require constraint {
+            automobile.brakingSystem.maximumBrakePressure >= 8000000 [SI::Pa]
+        }
+    }
+
+    requirement def SteeringRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall change path according to driver steering input through the front road wheels. */
+
+        require constraint {
+            automobile.steeringSystem.maximumRoadWheelAngle >= 0.5
+        }
+    }
+
+    requirement def OccupantAndCargoRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall carry occupants and cargo within rated mass and seating limits. */
+
+        require constraint {
+            automobile.maximumOccupants == 5 and
+            automobile.grossVehicleMassRating >= automobile.curbMass + automobile.payloadCapacity
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall store sufficient fuel and electrical energy to support propulsion, starting, control, lighting, and cabin functions. */
+
+        require constraint {
+            automobile.fuelSystem.tankCapacity >= 40 [SI::l] and
+            automobile.electricalSystem.nominalVoltage == 12 [SI::V]
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        subject automobile : Automobile;
+
+        doc /* The automobile shall reject engine heat and provide conditioned cabin thermal exchange during normal operation. */
+
+        require constraint {
+            automobile.thermalManagement.radiatorHeatRejection >= 30000 [SI::W]
+        }
+    }
+
+    satisfy PrimaryTransportationRequirement by Automobile::performPrimaryTransportationFunction;
+    satisfy PropulsionRequirement by Automobile::engine;
+    satisfy BrakingRequirement by Automobile::brakingSystem;
+    satisfy SteeringRequirement by Automobile::steeringSystem;
+    satisfy OccupantAndCargoRequirement by Automobile::body;
+    satisfy EnergyStorageRequirement by Automobile::fuelSystem;
+    satisfy ThermalManagementRequirement by Automobile::thermalManagement;
+
+    part familySedan : Automobile {
+        :>> maximumOccupants = 5;
+        :>> grossVehicleMassRating = 2100 [SI::kg];
+        :>> curbMass = 1520 [SI::kg];
+        :>> payloadCapacity = 580 [SI::kg];
+        :>> topSpeed = 58 [SI::m / SI::s];
+        :>> fuelEconomyCombined = 14.5 [SI::km / SI::l];
+    }
+}

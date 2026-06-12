@@ -1,0 +1,1467 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2rv5rgbp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7a6-434d-7fe1-8cb2-d68e02293edf
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a OpenTherm and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OpenThermHeatingControlSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "bar";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "kW";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "mA";
+    }
+
+    attribute def Percentage {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Frequency {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    item def OpenThermFrame {
+        attribute messageType : Integer;
+        attribute dataId : Integer;
+        attribute dataValue : Integer;
+        attribute parityBit : Boolean;
+        attribute validChecksum : Boolean;
+    }
+
+    item def HeatDemandCommand {
+        attribute centralHeatingEnable : Boolean;
+        attribute domesticHotWaterEnable : Boolean;
+        attribute coolingEnable : Boolean;
+        attribute setpoint : Temperature;
+        attribute modulationRequest : Percentage;
+    }
+
+    item def BoilerStatus {
+        attribute faultIndication : Boolean;
+        attribute centralHeatingActive : Boolean;
+        attribute domesticHotWaterActive : Boolean;
+        attribute flameOn : Boolean;
+        attribute diagnosticIndication : Boolean;
+        attribute currentFlowTemperature : Temperature;
+        attribute returnTemperature : Temperature;
+        attribute waterPressure : Pressure;
+        attribute burnerModulation : Percentage;
+    }
+
+    item def WaterFlow {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : Real;
+    }
+
+    item def GasFlow {
+        attribute valveOpen : Boolean;
+        attribute requestedPower : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def OpenThermMasterPort {
+        out commandFrame : OpenThermFrame;
+        in responseFrame : OpenThermFrame;
+        out masterCurrent : Current;
+        in slaveVoltage : Voltage;
+    }
+
+    port def OpenThermSlavePort {
+        in commandFrame : OpenThermFrame;
+        out responseFrame : OpenThermFrame;
+        in masterCurrent : Current;
+        out slaveVoltage : Voltage;
+    }
+
+    port def RoomAirPort {
+        in sensedTemperature : Temperature;
+        out heatRequest : HeatDemandCommand;
+    }
+
+    port def WaterCircuitPort {
+        in returnWater : WaterFlow;
+        out supplyWater : WaterFlow;
+    }
+
+    port def GasSupplyPort {
+        in gas : GasFlow;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The OpenTherm heating control system shall provide high-level closed-loop modulation of a boiler by exchanging digital OpenTherm messages between a room controller and a boiler controller so that indoor temperature demand is satisfied efficiently while reporting boiler status and faults. */
+    }
+
+    requirement def OpenThermCommunicationRequirement {
+        attribute nominalBusVoltage : Voltage = 15.0;
+        attribute maximumBusVoltage : Voltage = 42.0;
+        attribute nominalBitRate : Frequency = 1000.0;
+
+        require constraint {
+            nominalBusVoltage > 7.0 and
+            maximumBusVoltage <= 42.0 and
+            nominalBitRate == 1000.0
+        }
+    }
+
+    requirement def ComfortControlRequirement {
+        attribute allowedTemperatureError : Temperature = 0.5;
+        attribute maximumOvershoot : Temperature = 1.0;
+
+        require constraint {
+            allowedTemperatureError <= 0.5 and
+            maximumOvershoot <= 1.0
+        }
+    }
+
+    requirement def SafetyRequirement {
+        attribute maximumFlowTemperature : Temperature = 85.0;
+        attribute minimumWaterPressure : Pressure = 0.8;
+        attribute maximumWaterPressure : Pressure = 3.0;
+
+        require constraint {
+            maximumFlowTemperature <= 90.0 and
+            minimumWaterPressure >= 0.5 and
+            maximumWaterPressure <= 3.5
+        }
+    }
+
+    action def MeasureRoomTemperature {
+        in actualRoomTemperature : Temperature;
+        out measuredRoomTemperature : Temperature;
+
+        measuredRoomTemperature = actualRoomTemperature;
+    }
+
+    action def ComputeHeatDemand {
+        in measuredRoomTemperature : Temperature;
+        in desiredRoomTemperature : Temperature;
+        in previousDemand : Percentage;
+        out command : HeatDemandCommand;
+
+        attribute error : Temperature;
+        error = desiredRoomTemperature - measuredRoomTemperature;
+
+        command.centralHeatingEnable = error > 0.2;
+        command.domesticHotWaterEnable = false;
+        command.coolingEnable = false;
+        command.setpoint = 35.0 + (error * 12.0);
+        command.modulationRequest =
+            if error <= 0.0 then 0.0
+            else if error >= 4.0 then 100.0
+            else error * 25.0;
+    }
+
+    action def EncodeOpenThermCommand {
+        in command : HeatDemandCommand;
+        out frame : OpenThermFrame;
+
+        frame.messageType = 1;
+        frame.dataId = 1;
+        frame.dataValue = command.modulationRequest;
+        frame.parityBit = true;
+        frame.validChecksum = true;
+    }
+
+    action def DecodeBoilerStatus {
+        in frame : OpenThermFrame;
+        out status : BoilerStatus;
+
+        status.faultIndication = not frame.validChecksum;
+        status.centralHeatingActive = frame.dataId == 1;
+        status.domesticHotWaterActive = frame.dataId == 2;
+        status.flameOn = frame.dataValue > 0;
+        status.diagnosticIndication = false;
+        status.currentFlowTemperature = 50.0;
+        status.returnTemperature = 38.0;
+        status.waterPressure = 1.5;
+        status.burnerModulation = frame.dataValue;
+    }
+
+    action def ControlBurnerModulation {
+        in command : HeatDemandCommand;
+        in returnWater : WaterFlow;
+        in status : BoilerStatus;
+        out gasRequest : GasFlow;
+        out supplyWater : WaterFlow;
+
+        gasRequest.valveOpen =
+            command.centralHeatingEnable and
+            not status.faultIndication and
+            status.waterPressure >= 0.8 and
+            status.waterPressure <= 3.0;
+
+        gasRequest.requestedPower =
+            if gasRequest.valveOpen then command.modulationRequest * 0.24
+            else 0.0;
+
+        supplyWater.pressure = returnWater.pressure;
+        supplyWater.flowRate = returnWater.flowRate;
+        supplyWater.temperature =
+            if gasRequest.valveOpen then command.setpoint
+            else returnWater.temperature;
+    }
+
+    action def GenerateBoilerResponse {
+        in status : BoilerStatus;
+        out frame : OpenThermFrame;
+
+        frame.messageType = 4;
+        frame.dataId = 25;
+        frame.dataValue = status.burnerModulation;
+        frame.parityBit = true;
+        frame.validChecksum = not status.faultIndication;
+    }
+
+    state def RoomControllerStateMachine {
+        entry action InitializeController;
+        state Standby;
+        state RequestingHeat;
+        state AwaitingBoilerResponse;
+        state FaultObserved;
+
+        transition first Standby;
+
+        transition Standby_to_RequestingHeat
+            first Standby
+            then RequestingHeat
+            accept HeatDemandCommand
+            if heatRequest.centralHeatingEnable;
+
+        transition RequestingHeat_to_AwaitingBoilerResponse
+            first RequestingHeat
+            then AwaitingBoilerResponse
+            accept OpenThermFrame
+            if commandFrame.validChecksum;
+
+        transition AwaitingBoilerResponse_to_RequestingHeat
+            first AwaitingBoilerResponse
+            then RequestingHeat
+            accept BoilerStatus
+            if not status.faultIndication and status.centralHeatingActive;
+
+        transition AwaitingBoilerResponse_to_Standby
+            first AwaitingBoilerResponse
+            then Standby
+            accept BoilerStatus
+            if not status.faultIndication and not status.centralHeatingActive;
+
+        transition AwaitingBoilerResponse_to_FaultObserved
+            first AwaitingBoilerResponse
+            then FaultObserved
+            accept BoilerStatus
+            if status.faultIndication;
+
+        transition FaultObserved_to_Standby
+            first FaultObserved
+            then Standby
+            accept HeatDemandCommand
+            if not heatRequest.centralHeatingEnable;
+    }
+
+    state def BoilerControllerStateMachine {
+        state Idle;
+        state ValidatingCommand;
+        state HeatingWater;
+        state PumpOverrun;
+        state Lockout;
+
+        transition first Idle;
+
+        transition Idle_to_ValidatingCommand
+            first Idle
+            then ValidatingCommand
+            accept OpenThermFrame
+            if commandFrame.validChecksum;
+
+        transition ValidatingCommand_to_HeatingWater
+            first ValidatingCommand
+            then HeatingWater
+            accept HeatDemandCommand
+            if command.centralHeatingEnable;
+
+        transition ValidatingCommand_to_Idle
+            first ValidatingCommand
+            then Idle
+            accept HeatDemandCommand
+            if not command.centralHeatingEnable;
+
+        transition HeatingWater_to_PumpOverrun
+            first HeatingWater
+            then PumpOverrun
+            accept HeatDemandCommand
+            if not command.centralHeatingEnable;
+
+        transition HeatingWater_to_Lockout
+            first HeatingWater
+            then Lockout
+            accept BoilerStatus
+            if status.faultIndication or status.waterPressure < 0.8 or status.waterPressure > 3.0;
+
+        transition PumpOverrun_to_Idle
+            first PumpOverrun
+            then Idle
+            after 180.0;
+
+        transition Lockout_to_Idle
+            first Lockout
+            then Idle
+            accept ResetCommand;
+    }
+
+    part def RoomController {
+        attribute desiredRoomTemperature : Temperature = 21.0;
+        attribute measuredRoomTemperature : Temperature;
+        attribute activeDemand : Percentage;
+        attribute communicationTimeout : TimeDuration = 1.0;
+
+        port room : RoomAirPort;
+        port opentherm : OpenThermMasterPort;
+        port power : PowerPort;
+
+        action measure : MeasureRoomTemperature {
+            in actualRoomTemperature = room.sensedTemperature;
+            out measuredRoomTemperature = measuredRoomTemperature;
+        }
+
+        action demandCalculation : ComputeHeatDemand {
+            in measuredRoomTemperature = measuredRoomTemperature;
+            in desiredRoomTemperature = desiredRoomTemperature;
+            in previousDemand = activeDemand;
+            out command = room.heatRequest;
+        }
+
+        action encodeCommand : EncodeOpenThermCommand {
+            in command = room.heatRequest;
+            out frame = opentherm.commandFrame;
+        }
+
+        action decodeStatus : DecodeBoilerStatus {
+            in frame = opentherm.responseFrame;
+        }
+
+        exhibit state controllerBehavior : RoomControllerStateMachine;
+    }
+
+    part def OpenThermBus {
+        attribute nominalVoltage : Voltage = 15.0;
+        attribute maximumVoltage : Voltage = 42.0;
+        attribute bitRate : Frequency = 1000.0;
+        attribute maximumFrameInterval : TimeDuration = 1.0;
+
+        port masterSide : OpenThermMasterPort;
+        port slaveSide : OpenThermSlavePort;
+
+        connection commandPath connect masterSide.commandFrame to slaveSide.commandFrame;
+        connection responsePath connect slaveSide.responseFrame to masterSide.responseFrame;
+        connection currentLoopPath connect masterSide.masterCurrent to slaveSide.masterCurrent;
+        connection voltageSensePath connect slaveSide.slaveVoltage to masterSide.slaveVoltage;
+    }
+
+    part def BoilerUnit {
+        attribute maximumThermalPower : Power = 24.0;
+        attribute minimumThermalPower : Power = 3.0;
+        attribute maximumFlowTemperature : Temperature = 85.0;
+        attribute minimumWaterPressure : Pressure = 0.8;
+        attribute maximumWaterPressure : Pressure = 3.0;
+
+        port opentherm : OpenThermSlavePort;
+        port waterCircuit : WaterCircuitPort;
+        port gasSupply : GasSupplyPort;
+        port power : PowerPort;
+
+        part controller : BoilerController;
+        part burner : ModulatingBurner;
+        part heatExchanger : HeatExchanger;
+        part pump : CirculationPump;
+        part sensorSet : BoilerSensorSet;
+        part safetyLimiter : SafetyLimiter;
+
+        connection controllerToBurner connect controller.gasControl to burner.gasInput;
+        connection burnerToHeatExchanger connect burner.thermalOutput to heatExchanger.heatInput;
+        connection pumpToHeatExchanger connect pump.waterOutput to heatExchanger.returnInput;
+        connection exchangerToCircuit connect heatExchanger.supplyOutput to waterCircuit.supplyWater;
+        connection circuitToPump connect waterCircuit.returnWater to pump.waterInput;
+        connection sensorToController connect sensorSet.statusOutput to controller.statusInput;
+        connection limiterToController connect safetyLimiter.tripOutput to controller.safetyTripInput;
+        connection openthermToController connect opentherm.commandFrame to controller.commandInput;
+        connection controllerToOpentherm connect controller.responseOutput to opentherm.responseFrame;
+    }
+
+    part def BoilerController {
+        port commandInput {
+            in commandFrame : OpenThermFrame;
+        }
+
+        port responseOutput {
+            out responseFrame : OpenThermFrame;
+        }
+
+        port statusInput {
+            in status : BoilerStatus;
+        }
+
+        port safetyTripInput {
+            in safetyTrip : Boolean;
+        }
+
+        port gasControl {
+            out gasRequest : GasFlow;
+        }
+
+        action decodeCommand {
+            in frame : OpenThermFrame = commandInput.commandFrame;
+            out command : HeatDemandCommand;
+        }
+
+        action burnerControl : ControlBurnerModulation {
+            in command = decodeCommand.command;
+            in status = statusInput.status;
+            out gasRequest = gasControl.gasRequest;
+        }
+
+        action responseGeneration : GenerateBoilerResponse {
+            in status = statusInput.status;
+            out frame = responseOutput.responseFrame;
+        }
+
+        exhibit state boilerBehavior : BoilerControllerStateMachine;
+    }
+
+    part def ModulatingBurner {
+        attribute ignitionEnabled : Boolean;
+        attribute actualPower : Power;
+
+        port gasInput {
+            in gasRequest : GasFlow;
+        }
+
+        port thermalOutput {
+            out thermalPower : Power;
+        }
+
+        action modulate {
+            in request : GasFlow = gasInput.gasRequest;
+            out deliveredPower : Power = thermalOutput.thermalPower;
+
+            deliveredPower =
+                if request.valveOpen then request.requestedPower
+                else 0.0;
+        }
+    }
+
+    part def HeatExchanger {
+        port heatInput {
+            in thermalPower : Power;
+        }
+
+        port returnInput {
+            in returnWater : WaterFlow;
+        }
+
+        port supplyOutput {
+            out supplyWater : WaterFlow;
+        }
+
+        action transferHeat {
+            in power : Power = heatInput.thermalPower;
+            in incoming : WaterFlow = returnInput.returnWater;
+            out outgoing : WaterFlow = supplyOutput.supplyWater;
+
+            outgoing.pressure = incoming.pressure;
+            outgoing.flowRate = incoming.flowRate;
+            outgoing.temperature =
+                incoming.temperature + (power * 1.7);
+        }
+    }
+
+    part def CirculationPump {
+        attribute commandedOn : Boolean;
+        attribute nominalFlowRate : Real = 12.0;
+
+        port waterInput {
+            in returnWater : WaterFlow;
+        }
+
+        port waterOutput {
+            out pumpedWater : WaterFlow;
+        }
+
+        action circulate {
+            in incoming : WaterFlow = waterInput.returnWater;
+            out outgoing : WaterFlow = waterOutput.pumpedWater;
+
+            outgoing.temperature = incoming.temperature;
+            outgoing.pressure = incoming.pressure + 0.2;
+            outgoing.flowRate =
+                if commandedOn then nominalFlowRate
+                else 0.0;
+        }
+    }
+
+    part def BoilerSensorSet {
+        port flowTemperatureSensor {
+            in temperature : Temperature;
+        }
+
+        port returnTemperatureSensor {
+            in temperature : Temperature;
+        }
+
+        port pressureSensor {
+            in pressure : Pressure;
+        }
+
+        port flameSensor {
+            in flameDetected : Boolean;
+        }
+
+        port statusOutput {
+            out status : BoilerStatus;
+        }
+
+        action collectStatus {
+            out status : BoilerStatus = statusOutput.status;
+
+            status.faultIndication = false;
+            status.centralHeatingActive = true;
+            status.domesticHotWaterActive = false;
+            status.flameOn = flameSensor.flameDetected;
+            status.diagnosticIndication = false;
+            status.currentFlowTemperature = flowTemperatureSensor.temperature;
+            status.returnTemperature = returnTemperatureSensor.temperature;
+            status.waterPressure = pressureSensor.pressure;
+            status.burnerModulation = 45.0;
+        }
+    }
+
+    part def SafetyLimiter {
+        attribute maximumAllowedTemperature : Temperature = 90.0;
+        attribute minimumAllowedPressure : Pressure = 0.5;
+        attribute maximumAllowedPressure : Pressure = 3.5;
+
+        port measuredFlowTemperature {
+            in temperature : Temperature;
+        }
+
+        port measuredPressure {
+            in pressure : Pressure;
+        }
+
+        port tripOutput {
+            out tripped : Boolean;
+        }
+
+        action evaluateSafety {
+            out tripped : Boolean = tripOutput.tripped;
+
+            tripped =
+                measuredFlowTemperature.temperature > maximumAllowedTemperature or
+                measuredPressure.pressure < minimumAllowedPressure or
+                measuredPressure.pressure > maximumAllowedPressure;
+        }
+    }
+
+    part def HydronicHeatingLoop {
+        port boilerConnection : WaterCircuitPort;
+        port radiatorSupply {
+            in hotWater : WaterFlow;
+        }
+
+        port radiatorReturn {
+            out cooledWater : WaterFlow;
+        }
+
+        part radiators[6] : Radiator;
+        part returnManifold : ReturnManifold;
+        part supplyManifold : SupplyManifold;
+
+        connection supplyToRadiators connect boilerConnection.supplyWater to supplyManifold.inlet;
+        connection radiatorsToReturn connect radiators.returnOutlet to returnManifold.inlets;
+        connection returnToBoiler connect returnManifold.outlet to boilerConnection.returnWater;
+    }
+
+    part def Radiator {
+        attribute heatEmission : Power;
+        port supplyInlet {
+            in hotWater : WaterFlow;
+        }
+
+        port returnOutlet {
+            out cooledWater : WaterFlow;
+        }
+
+        action emitHeat {
+            in incoming : WaterFlow = supplyInlet.hotWater;
+            out outgoing : WaterFlow = returnOutlet.cooledWater;
+
+            heatEmission = (incoming.temperature - 20.0) * 0.15;
+            outgoing.temperature = incoming.temperature - 8.0;
+            outgoing.pressure = incoming.pressure - 0.05;
+            outgoing.flowRate = incoming.flowRate;
+        }
+    }
+
+    part def SupplyManifold {
+        port inlet {
+            in supplyWater : WaterFlow;
+        }
+
+        port outlets[6] {
+            out distributedWater : WaterFlow;
+        }
+
+        connection distribute connect inlet.supplyWater to outlets.distributedWater;
+    }
+
+    part def ReturnManifold {
+        port inlets[6] {
+            in cooledWater : WaterFlow;
+        }
+
+        port outlet {
+            out returnWater : WaterFlow;
+        }
+    }
+
+    part def OpenThermHeatingSystem {
+        doc /* Primary function: maintain indoor thermal comfort by using OpenTherm digital communication to modulate boiler heat output according to room demand, while exchanging status, diagnostic, and safety information between the room controller and boiler. */
+
+        attribute roomSetpoint : Temperature = 21.0;
+        attribute nominalRoomTemperature : Temperature = 20.0;
+
+        part controller : RoomController;
+        part bus : OpenThermBus;
+        part boiler : BoilerUnit;
+        part heatingLoop : HydronicHeatingLoop;
+
+        port electricalSupply : PowerPort;
+        port gasSupply : GasSupplyPort;
+        port roomAir : RoomAirPort;
+
+        connection controllerBusCommand connect controller.opentherm to bus.masterSide;
+        connection busBoilerLink connect bus.slaveSide to boiler.opentherm;
+        connection boilerHeatingLoop connect boiler.waterCircuit to heatingLoop.boilerConnection;
+        connection roomToController connect roomAir to controller.room;
+        connection supplyPowerToController connect electricalSupply.power to controller.power.power;
+        connection supplyPowerToBoiler connect electricalSupply.power to boiler.power.power;
+        connection gasToBoiler connect gasSupply.gas to boiler.gasSupply.gas;
+
+        satisfy PrimaryFunctionRequirement by OpenThermHeatingSystem;
+        satisfy OpenThermCommunicationRequirement by bus;
+        satisfy ComfortControlRequirement by controller;
+        satisfy SafetyRequirement by boiler.safetyLimiter;
+    }
+
+    analysis def ComfortPerformanceAnalysis {
+        subject system : OpenThermHeatingSystem;
+
+        attribute steadyStateError : Temperature;
+        attribute boilerModulation : Percentage;
+        attribute estimatedGasPower : Power;
+
+        constraint {
+            steadyStateError <= 0.5 and
+            boilerModulation >= 0.0 and
+            boilerModulation <= 100.0 and
+            estimatedGasPower <= system.boiler.maximumThermalPower
+        }
+    }
+
+    verification def VerifyOpenThermPrimaryFunction {
+        subject system : OpenThermHeatingSystem;
+
+        objective PrimaryFunctionRequirement;
+
+        action testClosedLoopHeating {
+            in initialRoomTemperature : Temperature = 18.0;
+            in desiredRoomTemperature : Temperature = 21.0;
+            out achievedRoomTemperature : Temperature;
+            out faultFree : Boolean;
+
+            achievedRoomTemperature = 21.0;
+            faultFree = true;
+        }
+
+        assert constraint {
+            testClosedLoopHeating.achievedRoomTemperature >= 20.5 and
+            testClosedLoopHeating.achievedRoomTemperature <= 21.5 and
+            testClosedLoopHeating.faultFree
+        }
+    }
+}
+tokens used
+5,068
+package OpenThermHeatingControlSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "bar";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "kW";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "mA";
+    }
+
+    attribute def Percentage {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Frequency {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    item def OpenThermFrame {
+        attribute messageType : Integer;
+        attribute dataId : Integer;
+        attribute dataValue : Integer;
+        attribute parityBit : Boolean;
+        attribute validChecksum : Boolean;
+    }
+
+    item def HeatDemandCommand {
+        attribute centralHeatingEnable : Boolean;
+        attribute domesticHotWaterEnable : Boolean;
+        attribute coolingEnable : Boolean;
+        attribute setpoint : Temperature;
+        attribute modulationRequest : Percentage;
+    }
+
+    item def BoilerStatus {
+        attribute faultIndication : Boolean;
+        attribute centralHeatingActive : Boolean;
+        attribute domesticHotWaterActive : Boolean;
+        attribute flameOn : Boolean;
+        attribute diagnosticIndication : Boolean;
+        attribute currentFlowTemperature : Temperature;
+        attribute returnTemperature : Temperature;
+        attribute waterPressure : Pressure;
+        attribute burnerModulation : Percentage;
+    }
+
+    item def WaterFlow {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : Real;
+    }
+
+    item def GasFlow {
+        attribute valveOpen : Boolean;
+        attribute requestedPower : Power;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def OpenThermMasterPort {
+        out commandFrame : OpenThermFrame;
+        in responseFrame : OpenThermFrame;
+        out masterCurrent : Current;
+        in slaveVoltage : Voltage;
+    }
+
+    port def OpenThermSlavePort {
+        in commandFrame : OpenThermFrame;
+        out responseFrame : OpenThermFrame;
+        in masterCurrent : Current;
+        out slaveVoltage : Voltage;
+    }
+
+    port def RoomAirPort {
+        in sensedTemperature : Temperature;
+        out heatRequest : HeatDemandCommand;
+    }
+
+    port def WaterCircuitPort {
+        in returnWater : WaterFlow;
+        out supplyWater : WaterFlow;
+    }
+
+    port def GasSupplyPort {
+        in gas : GasFlow;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The OpenTherm heating control system shall provide high-level closed-loop modulation of a boiler by exchanging digital OpenTherm messages between a room controller and a boiler controller so that indoor temperature demand is satisfied efficiently while reporting boiler status and faults. */
+    }
+
+    requirement def OpenThermCommunicationRequirement {
+        attribute nominalBusVoltage : Voltage = 15.0;
+        attribute maximumBusVoltage : Voltage = 42.0;
+        attribute nominalBitRate : Frequency = 1000.0;
+
+        require constraint {
+            nominalBusVoltage > 7.0 and
+            maximumBusVoltage <= 42.0 and
+            nominalBitRate == 1000.0
+        }
+    }
+
+    requirement def ComfortControlRequirement {
+        attribute allowedTemperatureError : Temperature = 0.5;
+        attribute maximumOvershoot : Temperature = 1.0;
+
+        require constraint {
+            allowedTemperatureError <= 0.5 and
+            maximumOvershoot <= 1.0
+        }
+    }
+
+    requirement def SafetyRequirement {
+        attribute maximumFlowTemperature : Temperature = 85.0;
+        attribute minimumWaterPressure : Pressure = 0.8;
+        attribute maximumWaterPressure : Pressure = 3.0;
+
+        require constraint {
+            maximumFlowTemperature <= 90.0 and
+            minimumWaterPressure >= 0.5 and
+            maximumWaterPressure <= 3.5
+        }
+    }
+
+    action def MeasureRoomTemperature {
+        in actualRoomTemperature : Temperature;
+        out measuredRoomTemperature : Temperature;
+
+        measuredRoomTemperature = actualRoomTemperature;
+    }
+
+    action def ComputeHeatDemand {
+        in measuredRoomTemperature : Temperature;
+        in desiredRoomTemperature : Temperature;
+        in previousDemand : Percentage;
+        out command : HeatDemandCommand;
+
+        attribute error : Temperature;
+        error = desiredRoomTemperature - measuredRoomTemperature;
+
+        command.centralHeatingEnable = error > 0.2;
+        command.domesticHotWaterEnable = false;
+        command.coolingEnable = false;
+        command.setpoint = 35.0 + (error * 12.0);
+        command.modulationRequest =
+            if error <= 0.0 then 0.0
+            else if error >= 4.0 then 100.0
+            else error * 25.0;
+    }
+
+    action def EncodeOpenThermCommand {
+        in command : HeatDemandCommand;
+        out frame : OpenThermFrame;
+
+        frame.messageType = 1;
+        frame.dataId = 1;
+        frame.dataValue = command.modulationRequest;
+        frame.parityBit = true;
+        frame.validChecksum = true;
+    }
+
+    action def DecodeBoilerStatus {
+        in frame : OpenThermFrame;
+        out status : BoilerStatus;
+
+        status.faultIndication = not frame.validChecksum;
+        status.centralHeatingActive = frame.dataId == 1;
+        status.domesticHotWaterActive = frame.dataId == 2;
+        status.flameOn = frame.dataValue > 0;
+        status.diagnosticIndication = false;
+        status.currentFlowTemperature = 50.0;
+        status.returnTemperature = 38.0;
+        status.waterPressure = 1.5;
+        status.burnerModulation = frame.dataValue;
+    }
+
+    action def ControlBurnerModulation {
+        in command : HeatDemandCommand;
+        in returnWater : WaterFlow;
+        in status : BoilerStatus;
+        out gasRequest : GasFlow;
+        out supplyWater : WaterFlow;
+
+        gasRequest.valveOpen =
+            command.centralHeatingEnable and
+            not status.faultIndication and
+            status.waterPressure >= 0.8 and
+            status.waterPressure <= 3.0;
+
+        gasRequest.requestedPower =
+            if gasRequest.valveOpen then command.modulationRequest * 0.24
+            else 0.0;
+
+        supplyWater.pressure = returnWater.pressure;
+        supplyWater.flowRate = returnWater.flowRate;
+        supplyWater.temperature =
+            if gasRequest.valveOpen then command.setpoint
+            else returnWater.temperature;
+    }
+
+    action def GenerateBoilerResponse {
+        in status : BoilerStatus;
+        out frame : OpenThermFrame;
+
+        frame.messageType = 4;
+        frame.dataId = 25;
+        frame.dataValue = status.burnerModulation;
+        frame.parityBit = true;
+        frame.validChecksum = not status.faultIndication;
+    }
+
+    state def RoomControllerStateMachine {
+        entry action InitializeController;
+        state Standby;
+        state RequestingHeat;
+        state AwaitingBoilerResponse;
+        state FaultObserved;
+
+        transition first Standby;
+
+        transition Standby_to_RequestingHeat
+            first Standby
+            then RequestingHeat
+            accept HeatDemandCommand
+            if heatRequest.centralHeatingEnable;
+
+        transition RequestingHeat_to_AwaitingBoilerResponse
+            first RequestingHeat
+            then AwaitingBoilerResponse
+            accept OpenThermFrame
+            if commandFrame.validChecksum;
+
+        transition AwaitingBoilerResponse_to_RequestingHeat
+            first AwaitingBoilerResponse
+            then RequestingHeat
+            accept BoilerStatus
+            if not status.faultIndication and status.centralHeatingActive;
+
+        transition AwaitingBoilerResponse_to_Standby
+            first AwaitingBoilerResponse
+            then Standby
+            accept BoilerStatus
+            if not status.faultIndication and not status.centralHeatingActive;
+
+        transition AwaitingBoilerResponse_to_FaultObserved
+            first AwaitingBoilerResponse
+            then FaultObserved
+            accept BoilerStatus
+            if status.faultIndication;
+
+        transition FaultObserved_to_Standby
+            first FaultObserved
+            then Standby
+            accept HeatDemandCommand
+            if not heatRequest.centralHeatingEnable;
+    }
+
+    state def BoilerControllerStateMachine {
+        state Idle;
+        state ValidatingCommand;
+        state HeatingWater;
+        state PumpOverrun;
+        state Lockout;
+
+        transition first Idle;
+
+        transition Idle_to_ValidatingCommand
+            first Idle
+            then ValidatingCommand
+            accept OpenThermFrame
+            if commandFrame.validChecksum;
+
+        transition ValidatingCommand_to_HeatingWater
+            first ValidatingCommand
+            then HeatingWater
+            accept HeatDemandCommand
+            if command.centralHeatingEnable;
+
+        transition ValidatingCommand_to_Idle
+            first ValidatingCommand
+            then Idle
+            accept HeatDemandCommand
+            if not command.centralHeatingEnable;
+
+        transition HeatingWater_to_PumpOverrun
+            first HeatingWater
+            then PumpOverrun
+            accept HeatDemandCommand
+            if not command.centralHeatingEnable;
+
+        transition HeatingWater_to_Lockout
+            first HeatingWater
+            then Lockout
+            accept BoilerStatus
+            if status.faultIndication or status.waterPressure < 0.8 or status.waterPressure > 3.0;
+
+        transition PumpOverrun_to_Idle
+            first PumpOverrun
+            then Idle
+            after 180.0;
+
+        transition Lockout_to_Idle
+            first Lockout
+            then Idle
+            accept ResetCommand;
+    }
+
+    part def RoomController {
+        attribute desiredRoomTemperature : Temperature = 21.0;
+        attribute measuredRoomTemperature : Temperature;
+        attribute activeDemand : Percentage;
+        attribute communicationTimeout : TimeDuration = 1.0;
+
+        port room : RoomAirPort;
+        port opentherm : OpenThermMasterPort;
+        port power : PowerPort;
+
+        action measure : MeasureRoomTemperature {
+            in actualRoomTemperature = room.sensedTemperature;
+            out measuredRoomTemperature = measuredRoomTemperature;
+        }
+
+        action demandCalculation : ComputeHeatDemand {
+            in measuredRoomTemperature = measuredRoomTemperature;
+            in desiredRoomTemperature = desiredRoomTemperature;
+            in previousDemand = activeDemand;
+            out command = room.heatRequest;
+        }
+
+        action encodeCommand : EncodeOpenThermCommand {
+            in command = room.heatRequest;
+            out frame = opentherm.commandFrame;
+        }
+
+        action decodeStatus : DecodeBoilerStatus {
+            in frame = opentherm.responseFrame;
+        }
+
+        exhibit state controllerBehavior : RoomControllerStateMachine;
+    }
+
+    part def OpenThermBus {
+        attribute nominalVoltage : Voltage = 15.0;
+        attribute maximumVoltage : Voltage = 42.0;
+        attribute bitRate : Frequency = 1000.0;
+        attribute maximumFrameInterval : TimeDuration = 1.0;
+
+        port masterSide : OpenThermMasterPort;
+        port slaveSide : OpenThermSlavePort;
+
+        connection commandPath connect masterSide.commandFrame to slaveSide.commandFrame;
+        connection responsePath connect slaveSide.responseFrame to masterSide.responseFrame;
+        connection currentLoopPath connect masterSide.masterCurrent to slaveSide.masterCurrent;
+        connection voltageSensePath connect slaveSide.slaveVoltage to masterSide.slaveVoltage;
+    }
+
+    part def BoilerUnit {
+        attribute maximumThermalPower : Power = 24.0;
+        attribute minimumThermalPower : Power = 3.0;
+        attribute maximumFlowTemperature : Temperature = 85.0;
+        attribute minimumWaterPressure : Pressure = 0.8;
+        attribute maximumWaterPressure : Pressure = 3.0;
+
+        port opentherm : OpenThermSlavePort;
+        port waterCircuit : WaterCircuitPort;
+        port gasSupply : GasSupplyPort;
+        port power : PowerPort;
+
+        part controller : BoilerController;
+        part burner : ModulatingBurner;
+        part heatExchanger : HeatExchanger;
+        part pump : CirculationPump;
+        part sensorSet : BoilerSensorSet;
+        part safetyLimiter : SafetyLimiter;
+
+        connection controllerToBurner connect controller.gasControl to burner.gasInput;
+        connection burnerToHeatExchanger connect burner.thermalOutput to heatExchanger.heatInput;
+        connection pumpToHeatExchanger connect pump.waterOutput to heatExchanger.returnInput;
+        connection exchangerToCircuit connect heatExchanger.supplyOutput to waterCircuit.supplyWater;
+        connection circuitToPump connect waterCircuit.returnWater to pump.waterInput;
+        connection sensorToController connect sensorSet.statusOutput to controller.statusInput;
+        connection limiterToController connect safetyLimiter.tripOutput to controller.safetyTripInput;
+        connection openthermToController connect opentherm.commandFrame to controller.commandInput;
+        connection controllerToOpentherm connect controller.responseOutput to opentherm.responseFrame;
+    }
+
+    part def BoilerController {
+        port commandInput {
+            in commandFrame : OpenThermFrame;
+        }
+
+        port responseOutput {
+            out responseFrame : OpenThermFrame;
+        }
+
+        port statusInput {
+            in status : BoilerStatus;
+        }
+
+        port safetyTripInput {
+            in safetyTrip : Boolean;
+        }
+
+        port gasControl {
+            out gasRequest : GasFlow;
+        }
+
+        action decodeCommand {
+            in frame : OpenThermFrame = commandInput.commandFrame;
+            out command : HeatDemandCommand;
+        }
+
+        action burnerControl : ControlBurnerModulation {
+            in command = decodeCommand.command;
+            in status = statusInput.status;
+            out gasRequest = gasControl.gasRequest;
+        }
+
+        action responseGeneration : GenerateBoilerResponse {
+            in status = statusInput.status;
+            out frame = responseOutput.responseFrame;
+        }
+
+        exhibit state boilerBehavior : BoilerControllerStateMachine;
+    }
+
+    part def ModulatingBurner {
+        attribute ignitionEnabled : Boolean;
+        attribute actualPower : Power;
+
+        port gasInput {
+            in gasRequest : GasFlow;
+        }
+
+        port thermalOutput {
+            out thermalPower : Power;
+        }
+
+        action modulate {
+            in request : GasFlow = gasInput.gasRequest;
+            out deliveredPower : Power = thermalOutput.thermalPower;
+
+            deliveredPower =
+                if request.valveOpen then request.requestedPower
+                else 0.0;
+        }
+    }
+
+    part def HeatExchanger {
+        port heatInput {
+            in thermalPower : Power;
+        }
+
+        port returnInput {
+            in returnWater : WaterFlow;
+        }
+
+        port supplyOutput {
+            out supplyWater : WaterFlow;
+        }
+
+        action transferHeat {
+            in power : Power = heatInput.thermalPower;
+            in incoming : WaterFlow = returnInput.returnWater;
+            out outgoing : WaterFlow = supplyOutput.supplyWater;
+
+            outgoing.pressure = incoming.pressure;
+            outgoing.flowRate = incoming.flowRate;
+            outgoing.temperature =
+                incoming.temperature + (power * 1.7);
+        }
+    }
+
+    part def CirculationPump {
+        attribute commandedOn : Boolean;
+        attribute nominalFlowRate : Real = 12.0;
+
+        port waterInput {
+            in returnWater : WaterFlow;
+        }
+
+        port waterOutput {
+            out pumpedWater : WaterFlow;
+        }
+
+        action circulate {
+            in incoming : WaterFlow = waterInput.returnWater;
+            out outgoing : WaterFlow = waterOutput.pumpedWater;
+
+            outgoing.temperature = incoming.temperature;
+            outgoing.pressure = incoming.pressure + 0.2;
+            outgoing.flowRate =
+                if commandedOn then nominalFlowRate
+                else 0.0;
+        }
+    }
+
+    part def BoilerSensorSet {
+        port flowTemperatureSensor {
+            in temperature : Temperature;
+        }
+
+        port returnTemperatureSensor {
+            in temperature : Temperature;
+        }
+
+        port pressureSensor {
+            in pressure : Pressure;
+        }
+
+        port flameSensor {
+            in flameDetected : Boolean;
+        }
+
+        port statusOutput {
+            out status : BoilerStatus;
+        }
+
+        action collectStatus {
+            out status : BoilerStatus = statusOutput.status;
+
+            status.faultIndication = false;
+            status.centralHeatingActive = true;
+            status.domesticHotWaterActive = false;
+            status.flameOn = flameSensor.flameDetected;
+            status.diagnosticIndication = false;
+            status.currentFlowTemperature = flowTemperatureSensor.temperature;
+            status.returnTemperature = returnTemperatureSensor.temperature;
+            status.waterPressure = pressureSensor.pressure;
+            status.burnerModulation = 45.0;
+        }
+    }
+
+    part def SafetyLimiter {
+        attribute maximumAllowedTemperature : Temperature = 90.0;
+        attribute minimumAllowedPressure : Pressure = 0.5;
+        attribute maximumAllowedPressure : Pressure = 3.5;
+
+        port measuredFlowTemperature {
+            in temperature : Temperature;
+        }
+
+        port measuredPressure {
+            in pressure : Pressure;
+        }
+
+        port tripOutput {
+            out tripped : Boolean;
+        }
+
+        action evaluateSafety {
+            out tripped : Boolean = tripOutput.tripped;
+
+            tripped =
+                measuredFlowTemperature.temperature > maximumAllowedTemperature or
+                measuredPressure.pressure < minimumAllowedPressure or
+                measuredPressure.pressure > maximumAllowedPressure;
+        }
+    }
+
+    part def HydronicHeatingLoop {
+        port boilerConnection : WaterCircuitPort;
+        port radiatorSupply {
+            in hotWater : WaterFlow;
+        }
+
+        port radiatorReturn {
+            out cooledWater : WaterFlow;
+        }
+
+        part radiators[6] : Radiator;
+        part returnManifold : ReturnManifold;
+        part supplyManifold : SupplyManifold;
+
+        connection supplyToRadiators connect boilerConnection.supplyWater to supplyManifold.inlet;
+        connection radiatorsToReturn connect radiators.returnOutlet to returnManifold.inlets;
+        connection returnToBoiler connect returnManifold.outlet to boilerConnection.returnWater;
+    }
+
+    part def Radiator {
+        attribute heatEmission : Power;
+        port supplyInlet {
+            in hotWater : WaterFlow;
+        }
+
+        port returnOutlet {
+            out cooledWater : WaterFlow;
+        }
+
+        action emitHeat {
+            in incoming : WaterFlow = supplyInlet.hotWater;
+            out outgoing : WaterFlow = returnOutlet.cooledWater;
+
+            heatEmission = (incoming.temperature - 20.0) * 0.15;
+            outgoing.temperature = incoming.temperature - 8.0;
+            outgoing.pressure = incoming.pressure - 0.05;
+            outgoing.flowRate = incoming.flowRate;
+        }
+    }
+
+    part def SupplyManifold {
+        port inlet {
+            in supplyWater : WaterFlow;
+        }
+
+        port outlets[6] {
+            out distributedWater : WaterFlow;
+        }
+
+        connection distribute connect inlet.supplyWater to outlets.distributedWater;
+    }
+
+    part def ReturnManifold {
+        port inlets[6] {
+            in cooledWater : WaterFlow;
+        }
+
+        port outlet {
+            out returnWater : WaterFlow;
+        }
+    }
+
+    part def OpenThermHeatingSystem {
+        doc /* Primary function: maintain indoor thermal comfort by using OpenTherm digital communication to modulate boiler heat output according to room demand, while exchanging status, diagnostic, and safety information between the room controller and boiler. */
+
+        attribute roomSetpoint : Temperature = 21.0;
+        attribute nominalRoomTemperature : Temperature = 20.0;
+
+        part controller : RoomController;
+        part bus : OpenThermBus;
+        part boiler : BoilerUnit;
+        part heatingLoop : HydronicHeatingLoop;
+
+        port electricalSupply : PowerPort;
+        port gasSupply : GasSupplyPort;
+        port roomAir : RoomAirPort;
+
+        connection controllerBusCommand connect controller.opentherm to bus.masterSide;
+        connection busBoilerLink connect bus.slaveSide to boiler.opentherm;
+        connection boilerHeatingLoop connect boiler.waterCircuit to heatingLoop.boilerConnection;
+        connection roomToController connect roomAir to controller.room;
+        connection supplyPowerToController connect electricalSupply.power to controller.power.power;
+        connection supplyPowerToBoiler connect electricalSupply.power to boiler.power.power;
+        connection gasToBoiler connect gasSupply.gas to boiler.gasSupply.gas;
+
+        satisfy PrimaryFunctionRequirement by OpenThermHeatingSystem;
+        satisfy OpenThermCommunicationRequirement by bus;
+        satisfy ComfortControlRequirement by controller;
+        satisfy SafetyRequirement by boiler.safetyLimiter;
+    }
+
+    analysis def ComfortPerformanceAnalysis {
+        subject system : OpenThermHeatingSystem;
+
+        attribute steadyStateError : Temperature;
+        attribute boilerModulation : Percentage;
+        attribute estimatedGasPower : Power;
+
+        constraint {
+            steadyStateError <= 0.5 and
+            boilerModulation >= 0.0 and
+            boilerModulation <= 100.0 and
+            estimatedGasPower <= system.boiler.maximumThermalPower
+        }
+    }
+
+    verification def VerifyOpenThermPrimaryFunction {
+        subject system : OpenThermHeatingSystem;
+
+        objective PrimaryFunctionRequirement;
+
+        action testClosedLoopHeating {
+            in initialRoomTemperature : Temperature = 18.0;
+            in desiredRoomTemperature : Temperature = 21.0;
+            out achievedRoomTemperature : Temperature;
+            out faultFree : Boolean;
+
+            achievedRoomTemperature = 21.0;
+            faultFree = true;
+        }
+
+        assert constraint {
+            testClosedLoopHeating.achievedRoomTemperature >= 20.5 and
+            testClosedLoopHeating.achievedRoomTemperature <= 21.5 and
+            testClosedLoopHeating.faultFree
+        }
+    }
+}

@@ -1,0 +1,887 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7xl7blp5
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb757-aceb-7a52-9959-71a9cb4a4d01
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Technology in science fiction and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ScienceFictionTechnologyModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Velocity :> scalar;
+    attribute def Power :> scalar;
+    attribute def Energy :> scalar;
+    attribute def Temperature :> scalar;
+    attribute def MagneticFluxDensity :> scalar;
+    attribute def CurvatureMagnitude :> scalar;
+    attribute def Distance :> scalar;
+    attribute def TimeDuration :> scalar;
+    attribute def Probability :> scalar;
+
+    item def AntimatterFuel {
+        attribute mass : Mass;
+        attribute containmentStability : Probability;
+        attribute energyDensity : Energy;
+    }
+
+    item def DeuteriumFuel {
+        attribute mass : Mass;
+        attribute purity : Probability;
+    }
+
+    item def PlasmaStream {
+        attribute temperature : Temperature;
+        attribute flowRate : MassFlowRate;
+        attribute powerEquivalent : Power;
+    }
+
+    item def GravitonField {
+        attribute curvature : CurvatureMagnitude;
+        attribute fieldRadius : Distance;
+        attribute stability : Probability;
+    }
+
+    item def NavigationSolution {
+        attribute originDistance : Distance;
+        attribute destinationDistance : Distance;
+        attribute commandedCruiseVelocity : Velocity;
+        attribute estimatedTransitTime : TimeDuration;
+    }
+
+    item def TelemetryPacket {
+        attribute reactorPower : Power;
+        attribute coilTemperature : Temperature;
+        attribute bubbleStability : Probability;
+        attribute actualVelocity : Velocity;
+    }
+
+    port def FuelInputPort {
+        in item fuel : AntimatterFuel;
+    }
+
+    port def DeuteriumInputPort {
+        in item fuel : DeuteriumFuel;
+    }
+
+    port def PlasmaPort {
+        out item plasma : PlasmaStream;
+    }
+
+    port def FieldPort {
+        out item field : GravitonField;
+    }
+
+    port def NavigationPort {
+        in item solution : NavigationSolution;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    part def QuantumVacuumSensor {
+        attribute measuredCurvature : CurvatureMagnitude;
+        attribute measuredVelocity : Velocity;
+        attribute sensorConfidence : Probability;
+        port telemetryOut : TelemetryPort;
+    }
+
+    part def AntimatterContainmentBottle {
+        attribute storedAntimatterMass : Mass;
+        attribute magneticFieldStrength : MagneticFluxDensity;
+        attribute containmentIntegrity : Probability;
+        port antimatterIn : FuelInputPort;
+    }
+
+    part def DeuteriumTank {
+        attribute storedDeuteriumMass : Mass;
+        attribute tankTemperature : Temperature;
+        port deuteriumIn : DeuteriumInputPort;
+    }
+
+    part def MatterAntimatterReactor {
+        attribute maximumOutputPower : Power;
+        attribute currentOutputPower : Power;
+        attribute coreTemperature : Temperature;
+        attribute reactionEfficiency : Probability;
+        port antimatterFeed : FuelInputPort;
+        port deuteriumFeed : DeuteriumInputPort;
+        port plasmaOut : PlasmaPort;
+    }
+
+    part def PlasmaConditioner {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute confinementFieldStrength : MagneticFluxDensity;
+        attribute conversionEfficiency : Probability;
+        port plasmaIn : PlasmaPort;
+        port conditionedPlasmaOut : PlasmaPort;
+    }
+
+    part def WarpFieldCoil {
+        attribute coilIndex : Integer;
+        attribute coilTemperature : Temperature;
+        attribute fieldContribution : CurvatureMagnitude;
+        attribute maximumFieldContribution : CurvatureMagnitude;
+        port plasmaIn : PlasmaPort;
+        port fieldOut : FieldPort;
+    }
+
+    part def NavigationComputer {
+        attribute selectedDestinationDistance : Distance;
+        attribute calculatedCruiseVelocity : Velocity;
+        attribute safetyMargin : Probability;
+        port navigationIn : NavigationPort;
+        port telemetryOut : TelemetryPort;
+    }
+
+    part def WarpFieldController {
+        attribute requestedVelocity : Velocity;
+        attribute permittedVelocity : Velocity;
+        attribute bubbleStabilityTarget : Probability;
+        attribute commandedCurvature : CurvatureMagnitude;
+        port navigationIn : NavigationPort;
+        port sensorTelemetryIn : TelemetryPort;
+        port fieldCommandOut : FieldPort;
+    }
+
+    part def InertialIsolationGrid {
+        attribute dampingFactor : Probability;
+        attribute maximumCompensatedAcceleration : Acceleration;
+        attribute gridTemperature : Temperature;
+    }
+
+    part def EmergencyShutdownSystem {
+        attribute tripThresholdTemperature : Temperature;
+        attribute minimumBubbleStability : Probability;
+        attribute shutdownDelay : TimeDuration;
+    }
+
+    action def GenerateWarpPlasma {
+        in antimatter : AntimatterFuel;
+        in deuterium : DeuteriumFuel;
+        out plasma : PlasmaStream;
+    }
+
+    action def ShapeWarpBubble {
+        in plasma : PlasmaStream;
+        in navigation : NavigationSolution;
+        out field : GravitonField;
+    }
+
+    action def RegulateBubbleStability {
+        in measuredTelemetry : TelemetryPacket;
+        in commandedSolution : NavigationSolution;
+        out correctedField : GravitonField;
+    }
+
+    action def CollapseWarpBubbleSafely {
+        in currentField : GravitonField;
+        out residualField : GravitonField;
+    }
+
+    state def WarpDriveOperatingState {
+        entry action InitializeDiagnostics;
+        state Offline;
+        state Standby;
+        state Charging;
+        state BubbleFormation;
+        state SuperluminalCruise;
+        state Deceleration;
+        state SafeShutdown;
+        state Fault;
+
+        transition first Offline;
+        transition Offline_to_Standby
+            first Offline then Standby
+            accept StartCommand;
+        transition Standby_to_Charging
+            first Standby then Charging
+            accept ValidNavigationSolution;
+        transition Charging_to_BubbleFormation
+            first Charging then BubbleFormation
+            if reactorPowerAvailable;
+        transition BubbleFormation_to_Cruise
+            first BubbleFormation then SuperluminalCruise
+            if bubbleStable;
+        transition Cruise_to_Deceleration
+            first SuperluminalCruise then Deceleration
+            accept DestinationApproach;
+        transition Deceleration_to_SafeShutdown
+            first Deceleration then SafeShutdown
+            if velocityBelowSublightLimit;
+        transition SafeShutdown_to_Standby
+            first SafeShutdown then Standby
+            if residualCurvatureNominal;
+        transition Any_to_Fault
+            first Standby then Fault
+            if criticalContainmentLoss;
+        transition Charging_to_Fault
+            first Charging then Fault
+            if reactorOverTemperature;
+        transition Cruise_to_Fault
+            first SuperluminalCruise then Fault
+            if bubbleInstabilityDetected;
+        transition Fault_to_SafeShutdown
+            first Fault then SafeShutdown
+            accept EmergencyShutdownCommand;
+    }
+
+    part def AlcubierreWarpPropulsionSystem {
+        doc /* 
+         * A science-fiction faster-than-light propulsion system whose primary
+         * high-level function is to translate a crewed spacecraft between distant
+         * points by contracting spacetime ahead of the vessel and expanding
+         * spacetime behind it while the vessel remains locally inertial.
+         */
+
+        attribute nominalCruiseVelocity : Velocity = 2.99792458e9 [m/s];
+        attribute maximumCruiseVelocity : Velocity = 2.99792458e10 [m/s];
+        attribute nominalReactorPower : Power = 4.5e15 [W];
+        attribute maximumReactorPower : Power = 7.2e15 [W];
+        attribute nominalBubbleRadius : Distance = 250 [m];
+        attribute minimumBubbleStability : Probability = 0.995;
+        attribute maximumCoilTemperature : Temperature = 1200 [K];
+        attribute maximumTransitDuration : TimeDuration = 2.592e6 [s];
+
+        port antimatterFuelIn : FuelInputPort;
+        port deuteriumFuelIn : DeuteriumInputPort;
+        port navigationCommandIn : NavigationPort;
+        port telemetryOut : TelemetryPort;
+
+        part antimatterBottle : AntimatterContainmentBottle {
+            attribute storedAntimatterMass = 1500 [kg];
+            attribute magneticFieldStrength = 42 [T];
+            attribute containmentIntegrity = 0.99999;
+        }
+
+        part deuteriumTank : DeuteriumTank {
+            attribute storedDeuteriumMass = 1500 [kg];
+            attribute tankTemperature = 24 [K];
+        }
+
+        part reactor : MatterAntimatterReactor {
+            attribute maximumOutputPower = 7.2e15 [W];
+            attribute currentOutputPower = 0 [W];
+            attribute coreTemperature = 300 [K];
+            attribute reactionEfficiency = 0.92;
+        }
+
+        part conditioner : PlasmaConditioner {
+            attribute inletTemperature = 0 [K];
+            attribute outletTemperature = 8.0e7 [K];
+            attribute confinementFieldStrength = 18 [T];
+            attribute conversionEfficiency = 0.88;
+        }
+
+        part forwardCoil : WarpFieldCoil {
+            attribute coilIndex = 1;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.42;
+        }
+
+        part portCoil : WarpFieldCoil {
+            attribute coilIndex = 2;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.38;
+        }
+
+        part starboardCoil : WarpFieldCoil {
+            attribute coilIndex = 3;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.38;
+        }
+
+        part aftCoil : WarpFieldCoil {
+            attribute coilIndex = 4;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.44;
+        }
+
+        part navigationComputer : NavigationComputer {
+            attribute selectedDestinationDistance = 4.01e16 [m];
+            attribute calculatedCruiseVelocity = 2.99792458e9 [m/s];
+            attribute safetyMargin = 0.997;
+        }
+
+        part fieldController : WarpFieldController {
+            attribute requestedVelocity = 2.99792458e9 [m/s];
+            attribute permittedVelocity = 2.99792458e9 [m/s];
+            attribute bubbleStabilityTarget = 0.997;
+            attribute commandedCurvature = 1.0;
+        }
+
+        part vacuumSensor : QuantumVacuumSensor {
+            attribute measuredCurvature = 0.0;
+            attribute measuredVelocity = 0 [m/s];
+            attribute sensorConfidence = 0.999;
+        }
+
+        part isolationGrid : InertialIsolationGrid {
+            attribute dampingFactor = 0.9999;
+            attribute maximumCompensatedAcceleration = 120 [m/s^2];
+            attribute gridTemperature = 295 [K];
+        }
+
+        part emergencyShutdown : EmergencyShutdownSystem {
+            attribute tripThresholdTemperature = 1200 [K];
+            attribute minimumBubbleStability = 0.995;
+            attribute shutdownDelay = 0.25 [s];
+        }
+
+        connection fuelAntimatterToBottle connect antimatterFuelIn to antimatterBottle.antimatterIn;
+        connection fuelDeuteriumToTank connect deuteriumFuelIn to deuteriumTank.deuteriumIn;
+        connection antimatterBottleToReactor connect antimatterBottle.antimatterIn to reactor.antimatterFeed;
+        connection deuteriumTankToReactor connect deuteriumTank.deuteriumIn to reactor.deuteriumFeed;
+        connection reactorToConditioner connect reactor.plasmaOut to conditioner.plasmaIn;
+        connection conditionerToForwardCoil connect conditioner.conditionedPlasmaOut to forwardCoil.plasmaIn;
+        connection conditionerToPortCoil connect conditioner.conditionedPlasmaOut to portCoil.plasmaIn;
+        connection conditionerToStarboardCoil connect conditioner.conditionedPlasmaOut to starboardCoil.plasmaIn;
+        connection conditionerToAftCoil connect conditioner.conditionedPlasmaOut to aftCoil.plasmaIn;
+        connection navigationToComputer connect navigationCommandIn to navigationComputer.navigationIn;
+        connection navigationToController connect navigationCommandIn to fieldController.navigationIn;
+        connection sensorToController connect vacuumSensor.telemetryOut to fieldController.sensorTelemetryIn;
+        connection systemTelemetry connect navigationComputer.telemetryOut to telemetryOut;
+
+        perform action GenerateWarpPlasma {
+            in antimatter = AntimatterFuel {
+                mass = 1500 [kg];
+                containmentStability = 0.99999;
+                energyDensity = 8.98755179e16 [J];
+            }
+            in deuterium = DeuteriumFuel {
+                mass = 1500 [kg];
+                purity = 0.999;
+            }
+        }
+
+        perform action ShapeWarpBubble;
+        perform action RegulateBubbleStability;
+        perform action CollapseWarpBubbleSafely;
+
+        exhibit state WarpDriveOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide faster-than-light effective translation by generating a controlled spacetime curvature bubble around the spacecraft. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.nominalCruiseVelocity > 2.99792458e8 [m/s]
+        }
+    }
+
+    requirement def LocalInertialFrameRequirement {
+        doc /* The system shall keep the spacecraft interior locally inertial during bubble acceleration, cruise, and collapse. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.isolationGrid.dampingFactor >= 0.999
+        }
+    }
+
+    requirement def BubbleStabilityRequirement {
+        doc /* The generated warp bubble shall maintain sufficient stability during superluminal cruise. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.minimumBubbleStability >= 0.995
+        }
+    }
+
+    requirement def ReactorPowerRequirement {
+        doc /* The reactor shall provide enough conditioned plasma power to sustain the nominal curvature field. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.maximumReactorPower >= system.nominalReactorPower
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc /* Warp field coils shall remain below their maximum operational temperature during nominal operation. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.forwardCoil.coilTemperature < system.maximumCoilTemperature and
+            system.portCoil.coilTemperature < system.maximumCoilTemperature and
+            system.starboardCoil.coilTemperature < system.maximumCoilTemperature and
+            system.aftCoil.coilTemperature < system.maximumCoilTemperature
+        }
+    }
+
+    requirement def EmergencyCollapseRequirement {
+        doc /* The system shall collapse the curvature bubble safely when critical instability, containment loss, or coil overtemperature is detected. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.emergencyShutdown.shutdownDelay <= 0.5 [s]
+        }
+    }
+
+    requirement def TransitPerformanceRequirement {
+        doc /* The system shall support interstellar transit to a nearby star-class destination within the specified maximum duration. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.navigationComputer.selectedDestinationDistance / system.nominalCruiseVelocity <= system.maximumTransitDuration
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by AlcubierreWarpPropulsionSystem;
+    satisfy LocalInertialFrameRequirement by AlcubierreWarpPropulsionSystem.isolationGrid;
+    satisfy BubbleStabilityRequirement by AlcubierreWarpPropulsionSystem.fieldController;
+    satisfy ReactorPowerRequirement by AlcubierreWarpPropulsionSystem.reactor;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.forwardCoil;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.portCoil;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.starboardCoil;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.aftCoil;
+    satisfy EmergencyCollapseRequirement by AlcubierreWarpPropulsionSystem.emergencyShutdown;
+    satisfy TransitPerformanceRequirement by AlcubierreWarpPropulsionSystem.navigationComputer;
+}
+tokens used
+4,919
+package ScienceFictionTechnologyModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Velocity :> scalar;
+    attribute def Power :> scalar;
+    attribute def Energy :> scalar;
+    attribute def Temperature :> scalar;
+    attribute def MagneticFluxDensity :> scalar;
+    attribute def CurvatureMagnitude :> scalar;
+    attribute def Distance :> scalar;
+    attribute def TimeDuration :> scalar;
+    attribute def Probability :> scalar;
+
+    item def AntimatterFuel {
+        attribute mass : Mass;
+        attribute containmentStability : Probability;
+        attribute energyDensity : Energy;
+    }
+
+    item def DeuteriumFuel {
+        attribute mass : Mass;
+        attribute purity : Probability;
+    }
+
+    item def PlasmaStream {
+        attribute temperature : Temperature;
+        attribute flowRate : MassFlowRate;
+        attribute powerEquivalent : Power;
+    }
+
+    item def GravitonField {
+        attribute curvature : CurvatureMagnitude;
+        attribute fieldRadius : Distance;
+        attribute stability : Probability;
+    }
+
+    item def NavigationSolution {
+        attribute originDistance : Distance;
+        attribute destinationDistance : Distance;
+        attribute commandedCruiseVelocity : Velocity;
+        attribute estimatedTransitTime : TimeDuration;
+    }
+
+    item def TelemetryPacket {
+        attribute reactorPower : Power;
+        attribute coilTemperature : Temperature;
+        attribute bubbleStability : Probability;
+        attribute actualVelocity : Velocity;
+    }
+
+    port def FuelInputPort {
+        in item fuel : AntimatterFuel;
+    }
+
+    port def DeuteriumInputPort {
+        in item fuel : DeuteriumFuel;
+    }
+
+    port def PlasmaPort {
+        out item plasma : PlasmaStream;
+    }
+
+    port def FieldPort {
+        out item field : GravitonField;
+    }
+
+    port def NavigationPort {
+        in item solution : NavigationSolution;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    part def QuantumVacuumSensor {
+        attribute measuredCurvature : CurvatureMagnitude;
+        attribute measuredVelocity : Velocity;
+        attribute sensorConfidence : Probability;
+        port telemetryOut : TelemetryPort;
+    }
+
+    part def AntimatterContainmentBottle {
+        attribute storedAntimatterMass : Mass;
+        attribute magneticFieldStrength : MagneticFluxDensity;
+        attribute containmentIntegrity : Probability;
+        port antimatterIn : FuelInputPort;
+    }
+
+    part def DeuteriumTank {
+        attribute storedDeuteriumMass : Mass;
+        attribute tankTemperature : Temperature;
+        port deuteriumIn : DeuteriumInputPort;
+    }
+
+    part def MatterAntimatterReactor {
+        attribute maximumOutputPower : Power;
+        attribute currentOutputPower : Power;
+        attribute coreTemperature : Temperature;
+        attribute reactionEfficiency : Probability;
+        port antimatterFeed : FuelInputPort;
+        port deuteriumFeed : DeuteriumInputPort;
+        port plasmaOut : PlasmaPort;
+    }
+
+    part def PlasmaConditioner {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute confinementFieldStrength : MagneticFluxDensity;
+        attribute conversionEfficiency : Probability;
+        port plasmaIn : PlasmaPort;
+        port conditionedPlasmaOut : PlasmaPort;
+    }
+
+    part def WarpFieldCoil {
+        attribute coilIndex : Integer;
+        attribute coilTemperature : Temperature;
+        attribute fieldContribution : CurvatureMagnitude;
+        attribute maximumFieldContribution : CurvatureMagnitude;
+        port plasmaIn : PlasmaPort;
+        port fieldOut : FieldPort;
+    }
+
+    part def NavigationComputer {
+        attribute selectedDestinationDistance : Distance;
+        attribute calculatedCruiseVelocity : Velocity;
+        attribute safetyMargin : Probability;
+        port navigationIn : NavigationPort;
+        port telemetryOut : TelemetryPort;
+    }
+
+    part def WarpFieldController {
+        attribute requestedVelocity : Velocity;
+        attribute permittedVelocity : Velocity;
+        attribute bubbleStabilityTarget : Probability;
+        attribute commandedCurvature : CurvatureMagnitude;
+        port navigationIn : NavigationPort;
+        port sensorTelemetryIn : TelemetryPort;
+        port fieldCommandOut : FieldPort;
+    }
+
+    part def InertialIsolationGrid {
+        attribute dampingFactor : Probability;
+        attribute maximumCompensatedAcceleration : Acceleration;
+        attribute gridTemperature : Temperature;
+    }
+
+    part def EmergencyShutdownSystem {
+        attribute tripThresholdTemperature : Temperature;
+        attribute minimumBubbleStability : Probability;
+        attribute shutdownDelay : TimeDuration;
+    }
+
+    action def GenerateWarpPlasma {
+        in antimatter : AntimatterFuel;
+        in deuterium : DeuteriumFuel;
+        out plasma : PlasmaStream;
+    }
+
+    action def ShapeWarpBubble {
+        in plasma : PlasmaStream;
+        in navigation : NavigationSolution;
+        out field : GravitonField;
+    }
+
+    action def RegulateBubbleStability {
+        in measuredTelemetry : TelemetryPacket;
+        in commandedSolution : NavigationSolution;
+        out correctedField : GravitonField;
+    }
+
+    action def CollapseWarpBubbleSafely {
+        in currentField : GravitonField;
+        out residualField : GravitonField;
+    }
+
+    state def WarpDriveOperatingState {
+        entry action InitializeDiagnostics;
+        state Offline;
+        state Standby;
+        state Charging;
+        state BubbleFormation;
+        state SuperluminalCruise;
+        state Deceleration;
+        state SafeShutdown;
+        state Fault;
+
+        transition first Offline;
+        transition Offline_to_Standby
+            first Offline then Standby
+            accept StartCommand;
+        transition Standby_to_Charging
+            first Standby then Charging
+            accept ValidNavigationSolution;
+        transition Charging_to_BubbleFormation
+            first Charging then BubbleFormation
+            if reactorPowerAvailable;
+        transition BubbleFormation_to_Cruise
+            first BubbleFormation then SuperluminalCruise
+            if bubbleStable;
+        transition Cruise_to_Deceleration
+            first SuperluminalCruise then Deceleration
+            accept DestinationApproach;
+        transition Deceleration_to_SafeShutdown
+            first Deceleration then SafeShutdown
+            if velocityBelowSublightLimit;
+        transition SafeShutdown_to_Standby
+            first SafeShutdown then Standby
+            if residualCurvatureNominal;
+        transition Any_to_Fault
+            first Standby then Fault
+            if criticalContainmentLoss;
+        transition Charging_to_Fault
+            first Charging then Fault
+            if reactorOverTemperature;
+        transition Cruise_to_Fault
+            first SuperluminalCruise then Fault
+            if bubbleInstabilityDetected;
+        transition Fault_to_SafeShutdown
+            first Fault then SafeShutdown
+            accept EmergencyShutdownCommand;
+    }
+
+    part def AlcubierreWarpPropulsionSystem {
+        doc /* 
+         * A science-fiction faster-than-light propulsion system whose primary
+         * high-level function is to translate a crewed spacecraft between distant
+         * points by contracting spacetime ahead of the vessel and expanding
+         * spacetime behind it while the vessel remains locally inertial.
+         */
+
+        attribute nominalCruiseVelocity : Velocity = 2.99792458e9 [m/s];
+        attribute maximumCruiseVelocity : Velocity = 2.99792458e10 [m/s];
+        attribute nominalReactorPower : Power = 4.5e15 [W];
+        attribute maximumReactorPower : Power = 7.2e15 [W];
+        attribute nominalBubbleRadius : Distance = 250 [m];
+        attribute minimumBubbleStability : Probability = 0.995;
+        attribute maximumCoilTemperature : Temperature = 1200 [K];
+        attribute maximumTransitDuration : TimeDuration = 2.592e6 [s];
+
+        port antimatterFuelIn : FuelInputPort;
+        port deuteriumFuelIn : DeuteriumInputPort;
+        port navigationCommandIn : NavigationPort;
+        port telemetryOut : TelemetryPort;
+
+        part antimatterBottle : AntimatterContainmentBottle {
+            attribute storedAntimatterMass = 1500 [kg];
+            attribute magneticFieldStrength = 42 [T];
+            attribute containmentIntegrity = 0.99999;
+        }
+
+        part deuteriumTank : DeuteriumTank {
+            attribute storedDeuteriumMass = 1500 [kg];
+            attribute tankTemperature = 24 [K];
+        }
+
+        part reactor : MatterAntimatterReactor {
+            attribute maximumOutputPower = 7.2e15 [W];
+            attribute currentOutputPower = 0 [W];
+            attribute coreTemperature = 300 [K];
+            attribute reactionEfficiency = 0.92;
+        }
+
+        part conditioner : PlasmaConditioner {
+            attribute inletTemperature = 0 [K];
+            attribute outletTemperature = 8.0e7 [K];
+            attribute confinementFieldStrength = 18 [T];
+            attribute conversionEfficiency = 0.88;
+        }
+
+        part forwardCoil : WarpFieldCoil {
+            attribute coilIndex = 1;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.42;
+        }
+
+        part portCoil : WarpFieldCoil {
+            attribute coilIndex = 2;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.38;
+        }
+
+        part starboardCoil : WarpFieldCoil {
+            attribute coilIndex = 3;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.38;
+        }
+
+        part aftCoil : WarpFieldCoil {
+            attribute coilIndex = 4;
+            attribute coilTemperature = 300 [K];
+            attribute fieldContribution = 0.0;
+            attribute maximumFieldContribution = 0.44;
+        }
+
+        part navigationComputer : NavigationComputer {
+            attribute selectedDestinationDistance = 4.01e16 [m];
+            attribute calculatedCruiseVelocity = 2.99792458e9 [m/s];
+            attribute safetyMargin = 0.997;
+        }
+
+        part fieldController : WarpFieldController {
+            attribute requestedVelocity = 2.99792458e9 [m/s];
+            attribute permittedVelocity = 2.99792458e9 [m/s];
+            attribute bubbleStabilityTarget = 0.997;
+            attribute commandedCurvature = 1.0;
+        }
+
+        part vacuumSensor : QuantumVacuumSensor {
+            attribute measuredCurvature = 0.0;
+            attribute measuredVelocity = 0 [m/s];
+            attribute sensorConfidence = 0.999;
+        }
+
+        part isolationGrid : InertialIsolationGrid {
+            attribute dampingFactor = 0.9999;
+            attribute maximumCompensatedAcceleration = 120 [m/s^2];
+            attribute gridTemperature = 295 [K];
+        }
+
+        part emergencyShutdown : EmergencyShutdownSystem {
+            attribute tripThresholdTemperature = 1200 [K];
+            attribute minimumBubbleStability = 0.995;
+            attribute shutdownDelay = 0.25 [s];
+        }
+
+        connection fuelAntimatterToBottle connect antimatterFuelIn to antimatterBottle.antimatterIn;
+        connection fuelDeuteriumToTank connect deuteriumFuelIn to deuteriumTank.deuteriumIn;
+        connection antimatterBottleToReactor connect antimatterBottle.antimatterIn to reactor.antimatterFeed;
+        connection deuteriumTankToReactor connect deuteriumTank.deuteriumIn to reactor.deuteriumFeed;
+        connection reactorToConditioner connect reactor.plasmaOut to conditioner.plasmaIn;
+        connection conditionerToForwardCoil connect conditioner.conditionedPlasmaOut to forwardCoil.plasmaIn;
+        connection conditionerToPortCoil connect conditioner.conditionedPlasmaOut to portCoil.plasmaIn;
+        connection conditionerToStarboardCoil connect conditioner.conditionedPlasmaOut to starboardCoil.plasmaIn;
+        connection conditionerToAftCoil connect conditioner.conditionedPlasmaOut to aftCoil.plasmaIn;
+        connection navigationToComputer connect navigationCommandIn to navigationComputer.navigationIn;
+        connection navigationToController connect navigationCommandIn to fieldController.navigationIn;
+        connection sensorToController connect vacuumSensor.telemetryOut to fieldController.sensorTelemetryIn;
+        connection systemTelemetry connect navigationComputer.telemetryOut to telemetryOut;
+
+        perform action GenerateWarpPlasma {
+            in antimatter = AntimatterFuel {
+                mass = 1500 [kg];
+                containmentStability = 0.99999;
+                energyDensity = 8.98755179e16 [J];
+            }
+            in deuterium = DeuteriumFuel {
+                mass = 1500 [kg];
+                purity = 0.999;
+            }
+        }
+
+        perform action ShapeWarpBubble;
+        perform action RegulateBubbleStability;
+        perform action CollapseWarpBubbleSafely;
+
+        exhibit state WarpDriveOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide faster-than-light effective translation by generating a controlled spacetime curvature bubble around the spacecraft. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.nominalCruiseVelocity > 2.99792458e8 [m/s]
+        }
+    }
+
+    requirement def LocalInertialFrameRequirement {
+        doc /* The system shall keep the spacecraft interior locally inertial during bubble acceleration, cruise, and collapse. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.isolationGrid.dampingFactor >= 0.999
+        }
+    }
+
+    requirement def BubbleStabilityRequirement {
+        doc /* The generated warp bubble shall maintain sufficient stability during superluminal cruise. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.minimumBubbleStability >= 0.995
+        }
+    }
+
+    requirement def ReactorPowerRequirement {
+        doc /* The reactor shall provide enough conditioned plasma power to sustain the nominal curvature field. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.maximumReactorPower >= system.nominalReactorPower
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        doc /* Warp field coils shall remain below their maximum operational temperature during nominal operation. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.forwardCoil.coilTemperature < system.maximumCoilTemperature and
+            system.portCoil.coilTemperature < system.maximumCoilTemperature and
+            system.starboardCoil.coilTemperature < system.maximumCoilTemperature and
+            system.aftCoil.coilTemperature < system.maximumCoilTemperature
+        }
+    }
+
+    requirement def EmergencyCollapseRequirement {
+        doc /* The system shall collapse the curvature bubble safely when critical instability, containment loss, or coil overtemperature is detected. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.emergencyShutdown.shutdownDelay <= 0.5 [s]
+        }
+    }
+
+    requirement def TransitPerformanceRequirement {
+        doc /* The system shall support interstellar transit to a nearby star-class destination within the specified maximum duration. */
+        subject system : AlcubierreWarpPropulsionSystem;
+        require constraint {
+            system.navigationComputer.selectedDestinationDistance / system.nominalCruiseVelocity <= system.maximumTransitDuration
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by AlcubierreWarpPropulsionSystem;
+    satisfy LocalInertialFrameRequirement by AlcubierreWarpPropulsionSystem.isolationGrid;
+    satisfy BubbleStabilityRequirement by AlcubierreWarpPropulsionSystem.fieldController;
+    satisfy ReactorPowerRequirement by AlcubierreWarpPropulsionSystem.reactor;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.forwardCoil;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.portCoil;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.starboardCoil;
+    satisfy ThermalSafetyRequirement by AlcubierreWarpPropulsionSystem.aftCoil;
+    satisfy EmergencyCollapseRequirement by AlcubierreWarpPropulsionSystem.emergencyShutdown;
+    satisfy TransitPerformanceRequirement by AlcubierreWarpPropulsionSystem.navigationComputer;
+}

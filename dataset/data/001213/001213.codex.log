@@ -1,0 +1,1005 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-5j62khkw
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5dc-ec43-7c70-b7c5-b60902f7a291
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a sensing unit that measures the relevant quantity using a Quantum sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package QuantumSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value type MagneticFluxDensity :> Real {
+        unit = "T";
+    }
+
+    value type MagneticFluxDensityNoise :> Real {
+        unit = "T/sqrt(Hz)";
+    }
+
+    value type FrequencyHz :> Real {
+        unit = "Hz";
+    }
+
+    value type VoltageV :> Real {
+        unit = "V";
+    }
+
+    value type CurrentA :> Real {
+        unit = "A";
+    }
+
+    value type PowerW :> Real {
+        unit = "W";
+    }
+
+    value type TemperatureK :> Real {
+        unit = "K";
+    }
+
+    value type TimeS :> Real {
+        unit = "s";
+    }
+
+    value type DigitalCount :> Integer;
+
+    value type Probability :> Real {
+        range = "0..1";
+    }
+
+    item def MagneticField {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute magnitude : MagneticFluxDensity;
+    }
+
+    item def OpticalPumpBeam {
+        attribute wavelength : Real { unit = "nm"; }
+        attribute opticalPower : PowerW;
+        attribute modulationFrequency : FrequencyHz;
+    }
+
+    item def MicrowaveDrive {
+        attribute carrierFrequency : FrequencyHz;
+        attribute drivePower : PowerW;
+        attribute sweepSpan : FrequencyHz;
+    }
+
+    item def PhotodiodeSignal {
+        attribute voltage : VoltageV;
+        attribute shotNoiseVoltage : VoltageV;
+        attribute sampleTime : TimeS;
+    }
+
+    item def DigitalMagneticMeasurement {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute magnitude : MagneticFluxDensity;
+        attribute timestamp : TimeS;
+        attribute uncertainty : MagneticFluxDensity;
+        attribute valid : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute laserLocked : Boolean;
+        attribute microwaveLocked : Boolean;
+        attribute temperatureStable : Boolean;
+        attribute sensorContrast : Probability;
+        attribute faultCode : Integer;
+    }
+
+    port def FieldSensePort {
+        in item field : MagneticField;
+    }
+
+    port def OpticalPort {
+        out item beam : OpticalPumpBeam;
+    }
+
+    port def MicrowavePort {
+        out item drive : MicrowaveDrive;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : PhotodiodeSignal;
+    }
+
+    port def MeasurementDataPort {
+        out item measurement : DigitalMagneticMeasurement;
+    }
+
+    port def HealthPort {
+        out item status : HealthStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : VoltageV;
+        in attribute supplyCurrent : CurrentA;
+    }
+
+    port def ThermalPort {
+        inout attribute temperature : TemperatureK;
+        inout attribute heatFlow : PowerW;
+    }
+
+    part def QuantumMagnetometerSensingUnit {
+
+        attribute measurementRange : MagneticFluxDensity = 0.01;
+        attribute biasFieldSetpoint : MagneticFluxDensity = 0.00005;
+        attribute sensitivity : MagneticFluxDensityNoise = 5.0e-12;
+        attribute bandwidth : FrequencyHz = 1000.0;
+        attribute sampleRate : FrequencyHz = 10000.0;
+        attribute warmupTime : TimeS = 20.0;
+        attribute operatingTemperature : TemperatureK = 300.0;
+        attribute maxPowerConsumption : PowerW = 8.0;
+
+        port fieldInput : FieldSensePort;
+        port dcPower : PowerInputPort;
+        port thermalInterface : ThermalPort;
+        port dataOutput : MeasurementDataPort;
+        port healthOutput : HealthPort;
+
+        part quantumSensorHead : NVCenterDiamondSensor {
+            attribute activeVolume = 1.0e-9;
+            attribute nominalTemperature = 300.0;
+        }
+
+        part laserPump : OpticalPumpLaser {
+            attribute wavelength = 532.0;
+            attribute nominalOpticalPower = 0.15;
+        }
+
+        part microwaveExciter : MicrowaveExcitationModule {
+            attribute centerFrequency = 2.87e9;
+            attribute nominalDrivePower = 0.05;
+        }
+
+        part photodetector : FluorescencePhotodetector {
+            attribute transimpedanceGain = 100000.0;
+            attribute darkCurrent = 1.0e-9;
+        }
+
+        part analogFrontEnd : LowNoiseAnalogFrontEnd {
+            attribute inputNoiseDensity = 2.0e-9;
+            attribute gain = 20.0;
+            attribute antiAliasCutoff = 5000.0;
+        }
+
+        part digitizer : AnalogToDigitalConverter {
+            attribute resolutionBits = 18;
+            attribute conversionRate = 10000.0;
+            attribute referenceVoltage = 2.5;
+        }
+
+        part signalProcessor : QuantumSignalProcessor {
+            attribute lockInReferenceFrequency = 100000.0;
+            attribute averagingWindow = 0.01;
+            attribute calibrationScale = 2.8e10;
+        }
+
+        part thermalController : TemperatureControlModule {
+            attribute setpoint = 300.0;
+            attribute stability = 0.01;
+            attribute heaterCapacity = 2.0;
+        }
+
+        part biasCoilDriver : BiasFieldCoilDriver {
+            attribute coilConstant = 0.0001;
+            attribute maxCoilCurrent = 0.5;
+        }
+
+        connect fieldInput.field to quantumSensorHead.environmentField;
+        connect laserPump.opticalOutput to quantumSensorHead.opticalPumpInput;
+        connect microwaveExciter.microwaveOutput to quantumSensorHead.microwaveInput;
+        connect quantumSensorHead.fluorescenceOutput to photodetector.opticalFluorescenceInput;
+        connect photodetector.analogOutput to analogFrontEnd.rawSignalInput;
+        connect analogFrontEnd.conditionedOutput to digitizer.analogInput;
+        connect digitizer.digitalOutput to signalProcessor.sampleInput;
+        connect signalProcessor.measurementOutput to dataOutput.measurement;
+        connect signalProcessor.healthOutput to healthOutput.status;
+        connect thermalInterface.temperature to thermalController.externalTemperature;
+        connect thermalController.controlledTemperature to quantumSensorHead.sensorTemperature;
+        connect biasCoilDriver.biasFieldOutput to quantumSensorHead.biasFieldInput;
+    }
+
+    part def NVCenterDiamondSensor {
+
+        attribute activeVolume : Real { unit = "m^3"; }
+        attribute nominalTemperature : TemperatureK;
+        attribute zeroFieldSplitting : FrequencyHz = 2.87e9;
+        attribute gyromagneticRatio : Real { unit = "Hz/T"; } = 2.8e10;
+        attribute fluorescenceContrast : Probability = 0.035;
+        attribute spinCoherenceTime : TimeS = 0.0005;
+
+        in item environmentField : MagneticField;
+        in item opticalPumpInput : OpticalPumpBeam;
+        in item microwaveInput : MicrowaveDrive;
+        in attribute biasFieldInput : MagneticFluxDensity;
+        in attribute sensorTemperature : TemperatureK;
+        out item fluorescenceOutput : PhotodiodeSignal;
+
+        action def TransduceMagneticField {
+            in item field : MagneticField;
+            in item microwave : MicrowaveDrive;
+            in item pump : OpticalPumpBeam;
+            in attribute temperature : TemperatureK;
+            out item fluorescence : PhotodiodeSignal;
+
+            first start;
+            then initializeSpinPolarization;
+            then applyMicrowaveSweep;
+            then detectOpticallyDetectedMagneticResonance;
+            then estimateResonanceShift;
+            then emitFluorescenceSignal;
+            then done;
+
+            action initializeSpinPolarization;
+            action applyMicrowaveSweep;
+            action detectOpticallyDetectedMagneticResonance;
+            action estimateResonanceShift;
+            action emitFluorescenceSignal;
+        }
+
+        state def SensorHeadStateMachine {
+            state Off;
+            state OpticalPumpStabilizing;
+            state SpinInitialized;
+            state ResonanceTracking;
+            state Fault;
+
+            initial state Off;
+
+            transition Off_to_OpticalPumpStabilizing
+                first Off
+                then OpticalPumpStabilizing
+                accept when opticalPumpInput.opticalPower > 0.01;
+
+            transition OpticalPumpStabilizing_to_SpinInitialized
+                first OpticalPumpStabilizing
+                then SpinInitialized
+                accept after 0.2 [s];
+
+            transition SpinInitialized_to_ResonanceTracking
+                first SpinInitialized
+                then ResonanceTracking
+                accept when microwaveInput.drivePower > 0.001;
+
+            transition ResonanceTracking_to_Fault
+                first ResonanceTracking
+                then Fault
+                accept when sensorTemperature < 280.0 or sensorTemperature > 320.0;
+
+            transition Fault_to_OpticalPumpStabilizing
+                first Fault
+                then OpticalPumpStabilizing
+                accept when sensorTemperature >= 295.0 and sensorTemperature <= 305.0;
+        }
+    }
+
+    part def OpticalPumpLaser {
+        attribute wavelength : Real { unit = "nm"; }
+        attribute nominalOpticalPower : PowerW;
+        attribute powerStability : Real = 0.002;
+        attribute currentLimit : CurrentA = 0.8;
+
+        port powerInput : PowerInputPort;
+        out item opticalOutput : OpticalPumpBeam;
+
+        action def RegulateOpticalPower {
+            in attribute requestedPower : PowerW;
+            out item beam : OpticalPumpBeam;
+        }
+    }
+
+    part def MicrowaveExcitationModule {
+        attribute centerFrequency : FrequencyHz;
+        attribute nominalDrivePower : PowerW;
+        attribute frequencyResolution : FrequencyHz = 1.0;
+        attribute phaseNoise : Real { unit = "dBc/Hz"; } = -90.0;
+
+        port powerInput : PowerInputPort;
+        out item microwaveOutput : MicrowaveDrive;
+
+        action def SweepResonance {
+            in attribute startFrequency : FrequencyHz;
+            in attribute stopFrequency : FrequencyHz;
+            in attribute stepFrequency : FrequencyHz;
+            out item drive : MicrowaveDrive;
+        }
+    }
+
+    part def FluorescencePhotodetector {
+        attribute transimpedanceGain : Real { unit = "V/A"; }
+        attribute darkCurrent : CurrentA;
+        attribute bandwidth : FrequencyHz = 200000.0;
+
+        in item opticalFluorescenceInput : PhotodiodeSignal;
+        out item analogOutput : PhotodiodeSignal;
+    }
+
+    part def LowNoiseAnalogFrontEnd {
+        attribute inputNoiseDensity : Real { unit = "V/sqrt(Hz)"; }
+        attribute gain : Real;
+        attribute antiAliasCutoff : FrequencyHz;
+
+        in item rawSignalInput : PhotodiodeSignal;
+        out item conditionedOutput : PhotodiodeSignal;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer;
+        attribute conversionRate : FrequencyHz;
+        attribute referenceVoltage : VoltageV;
+
+        in item analogInput : PhotodiodeSignal;
+        out attribute digitalOutput : DigitalCount;
+    }
+
+    part def QuantumSignalProcessor {
+        attribute lockInReferenceFrequency : FrequencyHz;
+        attribute averagingWindow : TimeS;
+        attribute calibrationScale : Real { unit = "Hz/T"; }
+        attribute noiseRejectBandwidth : FrequencyHz = 1000.0;
+
+        in attribute sampleInput : DigitalCount;
+        out item measurementOutput : DigitalMagneticMeasurement;
+        out item healthOutput : HealthStatus;
+
+        action def DemodulateAndEstimateField {
+            in attribute samples : DigitalCount;
+            in attribute calibrationScale : Real;
+            out item measurement : DigitalMagneticMeasurement;
+
+            first acquireWindow;
+            then lockInDemodulate;
+            then fitResonanceFrequencies;
+            then convertFrequencyShiftToMagneticField;
+            then estimateUncertainty;
+            then publishMeasurement;
+
+            action acquireWindow;
+            action lockInDemodulate;
+            action fitResonanceFrequencies;
+            action convertFrequencyShiftToMagneticField;
+            action estimateUncertainty;
+            action publishMeasurement;
+        }
+
+        state def ProcessingStateMachine {
+            state Idle;
+            state Calibrating;
+            state Measuring;
+            state Degraded;
+            state Faulted;
+
+            initial state Idle;
+
+            transition Idle_to_Calibrating
+                first Idle
+                then Calibrating
+                accept when sampleInput >= 0;
+
+            transition Calibrating_to_Measuring
+                first Calibrating
+                then Measuring
+                accept after 5.0 [s];
+
+            transition Measuring_to_Degraded
+                first Measuring
+                then Degraded
+                accept when healthOutput.sensorContrast < 0.015;
+
+            transition Degraded_to_Measuring
+                first Degraded
+                then Measuring
+                accept when healthOutput.sensorContrast >= 0.025;
+
+            transition Measuring_to_Faulted
+                first Measuring
+                then Faulted
+                accept when healthOutput.laserLocked == false or healthOutput.microwaveLocked == false;
+        }
+    }
+
+    part def TemperatureControlModule {
+        attribute setpoint : TemperatureK;
+        attribute stability : TemperatureK;
+        attribute heaterCapacity : PowerW;
+
+        inout attribute externalTemperature : TemperatureK;
+        out attribute controlledTemperature : TemperatureK;
+
+        action def StabilizeSensorTemperature {
+            in attribute measuredTemperature : TemperatureK;
+            in attribute setpoint : TemperatureK;
+            out attribute controlledTemperature : TemperatureK;
+        }
+    }
+
+    part def BiasFieldCoilDriver {
+        attribute coilConstant : Real { unit = "T/A"; }
+        attribute maxCoilCurrent : CurrentA;
+        attribute commandedCurrent : CurrentA = 0.0;
+
+        out attribute biasFieldOutput : MagneticFluxDensity;
+
+        action def ApplyBiasField {
+            in attribute requestedBias : MagneticFluxDensity;
+            out attribute coilCurrent : CurrentA;
+            out attribute generatedBias : MagneticFluxDensity;
+        }
+    }
+
+    requirement def MeasureMagneticFieldWithQuantumSensor {
+        doc /* The sensing unit shall measure magnetic flux density using a quantum sensor based on optically detected magnetic resonance of nitrogen-vacancy centers in diamond. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.quantumSensorHead.zeroFieldSplitting == 2.87e9
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        doc /* The sensing unit shall achieve magnetic-field sensitivity no worse than 10 pT/sqrt(Hz) over the specified bandwidth. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.sensitivity <= 1.0e-11
+        }
+    }
+
+    requirement def BandwidthRequirement {
+        doc /* The sensing unit shall provide valid magnetic-field measurements from DC through at least 1 kHz. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.bandwidth >= 1000.0
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The sensing unit shall measure magnetic flux density magnitude from 0 T to at least 10 mT without saturating. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRange >= 0.01
+        }
+    }
+
+    requirement def TemperatureStabilityRequirement {
+        doc /* The sensing unit shall maintain the quantum sensor head temperature within 0.01 K of the configured setpoint during measurement. */
+        subject controller : TemperatureControlModule;
+
+        require constraint {
+            controller.stability <= 0.01
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The sensing unit shall consume no more than 8 W during steady-state measurement operation. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.maxPowerConsumption <= 8.0
+        }
+    }
+
+    satisfy MeasureMagneticFieldWithQuantumSensor by QuantumMagnetometerSensingUnit;
+    satisfy SensitivityRequirement by QuantumSignalProcessor;
+    satisfy BandwidthRequirement by LowNoiseAnalogFrontEnd;
+    satisfy MeasurementRangeRequirement by BiasFieldCoilDriver;
+    satisfy TemperatureStabilityRequirement by TemperatureControlModule;
+    satisfy PowerRequirement by QuantumMagnetometerSensingUnit;
+
+    part quantumMagneticSensingUnit : QuantumMagnetometerSensingUnit;
+
+}
+tokens used
+3,849
+package QuantumSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value type MagneticFluxDensity :> Real {
+        unit = "T";
+    }
+
+    value type MagneticFluxDensityNoise :> Real {
+        unit = "T/sqrt(Hz)";
+    }
+
+    value type FrequencyHz :> Real {
+        unit = "Hz";
+    }
+
+    value type VoltageV :> Real {
+        unit = "V";
+    }
+
+    value type CurrentA :> Real {
+        unit = "A";
+    }
+
+    value type PowerW :> Real {
+        unit = "W";
+    }
+
+    value type TemperatureK :> Real {
+        unit = "K";
+    }
+
+    value type TimeS :> Real {
+        unit = "s";
+    }
+
+    value type DigitalCount :> Integer;
+
+    value type Probability :> Real {
+        range = "0..1";
+    }
+
+    item def MagneticField {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute magnitude : MagneticFluxDensity;
+    }
+
+    item def OpticalPumpBeam {
+        attribute wavelength : Real { unit = "nm"; }
+        attribute opticalPower : PowerW;
+        attribute modulationFrequency : FrequencyHz;
+    }
+
+    item def MicrowaveDrive {
+        attribute carrierFrequency : FrequencyHz;
+        attribute drivePower : PowerW;
+        attribute sweepSpan : FrequencyHz;
+    }
+
+    item def PhotodiodeSignal {
+        attribute voltage : VoltageV;
+        attribute shotNoiseVoltage : VoltageV;
+        attribute sampleTime : TimeS;
+    }
+
+    item def DigitalMagneticMeasurement {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute magnitude : MagneticFluxDensity;
+        attribute timestamp : TimeS;
+        attribute uncertainty : MagneticFluxDensity;
+        attribute valid : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute laserLocked : Boolean;
+        attribute microwaveLocked : Boolean;
+        attribute temperatureStable : Boolean;
+        attribute sensorContrast : Probability;
+        attribute faultCode : Integer;
+    }
+
+    port def FieldSensePort {
+        in item field : MagneticField;
+    }
+
+    port def OpticalPort {
+        out item beam : OpticalPumpBeam;
+    }
+
+    port def MicrowavePort {
+        out item drive : MicrowaveDrive;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : PhotodiodeSignal;
+    }
+
+    port def MeasurementDataPort {
+        out item measurement : DigitalMagneticMeasurement;
+    }
+
+    port def HealthPort {
+        out item status : HealthStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : VoltageV;
+        in attribute supplyCurrent : CurrentA;
+    }
+
+    port def ThermalPort {
+        inout attribute temperature : TemperatureK;
+        inout attribute heatFlow : PowerW;
+    }
+
+    part def QuantumMagnetometerSensingUnit {
+
+        attribute measurementRange : MagneticFluxDensity = 0.01;
+        attribute biasFieldSetpoint : MagneticFluxDensity = 0.00005;
+        attribute sensitivity : MagneticFluxDensityNoise = 5.0e-12;
+        attribute bandwidth : FrequencyHz = 1000.0;
+        attribute sampleRate : FrequencyHz = 10000.0;
+        attribute warmupTime : TimeS = 20.0;
+        attribute operatingTemperature : TemperatureK = 300.0;
+        attribute maxPowerConsumption : PowerW = 8.0;
+
+        port fieldInput : FieldSensePort;
+        port dcPower : PowerInputPort;
+        port thermalInterface : ThermalPort;
+        port dataOutput : MeasurementDataPort;
+        port healthOutput : HealthPort;
+
+        part quantumSensorHead : NVCenterDiamondSensor {
+            attribute activeVolume = 1.0e-9;
+            attribute nominalTemperature = 300.0;
+        }
+
+        part laserPump : OpticalPumpLaser {
+            attribute wavelength = 532.0;
+            attribute nominalOpticalPower = 0.15;
+        }
+
+        part microwaveExciter : MicrowaveExcitationModule {
+            attribute centerFrequency = 2.87e9;
+            attribute nominalDrivePower = 0.05;
+        }
+
+        part photodetector : FluorescencePhotodetector {
+            attribute transimpedanceGain = 100000.0;
+            attribute darkCurrent = 1.0e-9;
+        }
+
+        part analogFrontEnd : LowNoiseAnalogFrontEnd {
+            attribute inputNoiseDensity = 2.0e-9;
+            attribute gain = 20.0;
+            attribute antiAliasCutoff = 5000.0;
+        }
+
+        part digitizer : AnalogToDigitalConverter {
+            attribute resolutionBits = 18;
+            attribute conversionRate = 10000.0;
+            attribute referenceVoltage = 2.5;
+        }
+
+        part signalProcessor : QuantumSignalProcessor {
+            attribute lockInReferenceFrequency = 100000.0;
+            attribute averagingWindow = 0.01;
+            attribute calibrationScale = 2.8e10;
+        }
+
+        part thermalController : TemperatureControlModule {
+            attribute setpoint = 300.0;
+            attribute stability = 0.01;
+            attribute heaterCapacity = 2.0;
+        }
+
+        part biasCoilDriver : BiasFieldCoilDriver {
+            attribute coilConstant = 0.0001;
+            attribute maxCoilCurrent = 0.5;
+        }
+
+        connect fieldInput.field to quantumSensorHead.environmentField;
+        connect laserPump.opticalOutput to quantumSensorHead.opticalPumpInput;
+        connect microwaveExciter.microwaveOutput to quantumSensorHead.microwaveInput;
+        connect quantumSensorHead.fluorescenceOutput to photodetector.opticalFluorescenceInput;
+        connect photodetector.analogOutput to analogFrontEnd.rawSignalInput;
+        connect analogFrontEnd.conditionedOutput to digitizer.analogInput;
+        connect digitizer.digitalOutput to signalProcessor.sampleInput;
+        connect signalProcessor.measurementOutput to dataOutput.measurement;
+        connect signalProcessor.healthOutput to healthOutput.status;
+        connect thermalInterface.temperature to thermalController.externalTemperature;
+        connect thermalController.controlledTemperature to quantumSensorHead.sensorTemperature;
+        connect biasCoilDriver.biasFieldOutput to quantumSensorHead.biasFieldInput;
+    }
+
+    part def NVCenterDiamondSensor {
+
+        attribute activeVolume : Real { unit = "m^3"; }
+        attribute nominalTemperature : TemperatureK;
+        attribute zeroFieldSplitting : FrequencyHz = 2.87e9;
+        attribute gyromagneticRatio : Real { unit = "Hz/T"; } = 2.8e10;
+        attribute fluorescenceContrast : Probability = 0.035;
+        attribute spinCoherenceTime : TimeS = 0.0005;
+
+        in item environmentField : MagneticField;
+        in item opticalPumpInput : OpticalPumpBeam;
+        in item microwaveInput : MicrowaveDrive;
+        in attribute biasFieldInput : MagneticFluxDensity;
+        in attribute sensorTemperature : TemperatureK;
+        out item fluorescenceOutput : PhotodiodeSignal;
+
+        action def TransduceMagneticField {
+            in item field : MagneticField;
+            in item microwave : MicrowaveDrive;
+            in item pump : OpticalPumpBeam;
+            in attribute temperature : TemperatureK;
+            out item fluorescence : PhotodiodeSignal;
+
+            first start;
+            then initializeSpinPolarization;
+            then applyMicrowaveSweep;
+            then detectOpticallyDetectedMagneticResonance;
+            then estimateResonanceShift;
+            then emitFluorescenceSignal;
+            then done;
+
+            action initializeSpinPolarization;
+            action applyMicrowaveSweep;
+            action detectOpticallyDetectedMagneticResonance;
+            action estimateResonanceShift;
+            action emitFluorescenceSignal;
+        }
+
+        state def SensorHeadStateMachine {
+            state Off;
+            state OpticalPumpStabilizing;
+            state SpinInitialized;
+            state ResonanceTracking;
+            state Fault;
+
+            initial state Off;
+
+            transition Off_to_OpticalPumpStabilizing
+                first Off
+                then OpticalPumpStabilizing
+                accept when opticalPumpInput.opticalPower > 0.01;
+
+            transition OpticalPumpStabilizing_to_SpinInitialized
+                first OpticalPumpStabilizing
+                then SpinInitialized
+                accept after 0.2 [s];
+
+            transition SpinInitialized_to_ResonanceTracking
+                first SpinInitialized
+                then ResonanceTracking
+                accept when microwaveInput.drivePower > 0.001;
+
+            transition ResonanceTracking_to_Fault
+                first ResonanceTracking
+                then Fault
+                accept when sensorTemperature < 280.0 or sensorTemperature > 320.0;
+
+            transition Fault_to_OpticalPumpStabilizing
+                first Fault
+                then OpticalPumpStabilizing
+                accept when sensorTemperature >= 295.0 and sensorTemperature <= 305.0;
+        }
+    }
+
+    part def OpticalPumpLaser {
+        attribute wavelength : Real { unit = "nm"; }
+        attribute nominalOpticalPower : PowerW;
+        attribute powerStability : Real = 0.002;
+        attribute currentLimit : CurrentA = 0.8;
+
+        port powerInput : PowerInputPort;
+        out item opticalOutput : OpticalPumpBeam;
+
+        action def RegulateOpticalPower {
+            in attribute requestedPower : PowerW;
+            out item beam : OpticalPumpBeam;
+        }
+    }
+
+    part def MicrowaveExcitationModule {
+        attribute centerFrequency : FrequencyHz;
+        attribute nominalDrivePower : PowerW;
+        attribute frequencyResolution : FrequencyHz = 1.0;
+        attribute phaseNoise : Real { unit = "dBc/Hz"; } = -90.0;
+
+        port powerInput : PowerInputPort;
+        out item microwaveOutput : MicrowaveDrive;
+
+        action def SweepResonance {
+            in attribute startFrequency : FrequencyHz;
+            in attribute stopFrequency : FrequencyHz;
+            in attribute stepFrequency : FrequencyHz;
+            out item drive : MicrowaveDrive;
+        }
+    }
+
+    part def FluorescencePhotodetector {
+        attribute transimpedanceGain : Real { unit = "V/A"; }
+        attribute darkCurrent : CurrentA;
+        attribute bandwidth : FrequencyHz = 200000.0;
+
+        in item opticalFluorescenceInput : PhotodiodeSignal;
+        out item analogOutput : PhotodiodeSignal;
+    }
+
+    part def LowNoiseAnalogFrontEnd {
+        attribute inputNoiseDensity : Real { unit = "V/sqrt(Hz)"; }
+        attribute gain : Real;
+        attribute antiAliasCutoff : FrequencyHz;
+
+        in item rawSignalInput : PhotodiodeSignal;
+        out item conditionedOutput : PhotodiodeSignal;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer;
+        attribute conversionRate : FrequencyHz;
+        attribute referenceVoltage : VoltageV;
+
+        in item analogInput : PhotodiodeSignal;
+        out attribute digitalOutput : DigitalCount;
+    }
+
+    part def QuantumSignalProcessor {
+        attribute lockInReferenceFrequency : FrequencyHz;
+        attribute averagingWindow : TimeS;
+        attribute calibrationScale : Real { unit = "Hz/T"; }
+        attribute noiseRejectBandwidth : FrequencyHz = 1000.0;
+
+        in attribute sampleInput : DigitalCount;
+        out item measurementOutput : DigitalMagneticMeasurement;
+        out item healthOutput : HealthStatus;
+
+        action def DemodulateAndEstimateField {
+            in attribute samples : DigitalCount;
+            in attribute calibrationScale : Real;
+            out item measurement : DigitalMagneticMeasurement;
+
+            first acquireWindow;
+            then lockInDemodulate;
+            then fitResonanceFrequencies;
+            then convertFrequencyShiftToMagneticField;
+            then estimateUncertainty;
+            then publishMeasurement;
+
+            action acquireWindow;
+            action lockInDemodulate;
+            action fitResonanceFrequencies;
+            action convertFrequencyShiftToMagneticField;
+            action estimateUncertainty;
+            action publishMeasurement;
+        }
+
+        state def ProcessingStateMachine {
+            state Idle;
+            state Calibrating;
+            state Measuring;
+            state Degraded;
+            state Faulted;
+
+            initial state Idle;
+
+            transition Idle_to_Calibrating
+                first Idle
+                then Calibrating
+                accept when sampleInput >= 0;
+
+            transition Calibrating_to_Measuring
+                first Calibrating
+                then Measuring
+                accept after 5.0 [s];
+
+            transition Measuring_to_Degraded
+                first Measuring
+                then Degraded
+                accept when healthOutput.sensorContrast < 0.015;
+
+            transition Degraded_to_Measuring
+                first Degraded
+                then Measuring
+                accept when healthOutput.sensorContrast >= 0.025;
+
+            transition Measuring_to_Faulted
+                first Measuring
+                then Faulted
+                accept when healthOutput.laserLocked == false or healthOutput.microwaveLocked == false;
+        }
+    }
+
+    part def TemperatureControlModule {
+        attribute setpoint : TemperatureK;
+        attribute stability : TemperatureK;
+        attribute heaterCapacity : PowerW;
+
+        inout attribute externalTemperature : TemperatureK;
+        out attribute controlledTemperature : TemperatureK;
+
+        action def StabilizeSensorTemperature {
+            in attribute measuredTemperature : TemperatureK;
+            in attribute setpoint : TemperatureK;
+            out attribute controlledTemperature : TemperatureK;
+        }
+    }
+
+    part def BiasFieldCoilDriver {
+        attribute coilConstant : Real { unit = "T/A"; }
+        attribute maxCoilCurrent : CurrentA;
+        attribute commandedCurrent : CurrentA = 0.0;
+
+        out attribute biasFieldOutput : MagneticFluxDensity;
+
+        action def ApplyBiasField {
+            in attribute requestedBias : MagneticFluxDensity;
+            out attribute coilCurrent : CurrentA;
+            out attribute generatedBias : MagneticFluxDensity;
+        }
+    }
+
+    requirement def MeasureMagneticFieldWithQuantumSensor {
+        doc /* The sensing unit shall measure magnetic flux density using a quantum sensor based on optically detected magnetic resonance of nitrogen-vacancy centers in diamond. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.quantumSensorHead.zeroFieldSplitting == 2.87e9
+        }
+    }
+
+    requirement def SensitivityRequirement {
+        doc /* The sensing unit shall achieve magnetic-field sensitivity no worse than 10 pT/sqrt(Hz) over the specified bandwidth. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.sensitivity <= 1.0e-11
+        }
+    }
+
+    requirement def BandwidthRequirement {
+        doc /* The sensing unit shall provide valid magnetic-field measurements from DC through at least 1 kHz. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.bandwidth >= 1000.0
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The sensing unit shall measure magnetic flux density magnitude from 0 T to at least 10 mT without saturating. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRange >= 0.01
+        }
+    }
+
+    requirement def TemperatureStabilityRequirement {
+        doc /* The sensing unit shall maintain the quantum sensor head temperature within 0.01 K of the configured setpoint during measurement. */
+        subject controller : TemperatureControlModule;
+
+        require constraint {
+            controller.stability <= 0.01
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The sensing unit shall consume no more than 8 W during steady-state measurement operation. */
+        subject sensingUnit : QuantumMagnetometerSensingUnit;
+
+        require constraint {
+            sensingUnit.maxPowerConsumption <= 8.0
+        }
+    }
+
+    satisfy MeasureMagneticFieldWithQuantumSensor by QuantumMagnetometerSensingUnit;
+    satisfy SensitivityRequirement by QuantumSignalProcessor;
+    satisfy BandwidthRequirement by LowNoiseAnalogFrontEnd;
+    satisfy MeasurementRangeRequirement by BiasFieldCoilDriver;
+    satisfy TemperatureStabilityRequirement by TemperatureControlModule;
+    satisfy PowerRequirement by QuantumMagnetometerSensingUnit;
+
+    part quantumMagneticSensingUnit : QuantumMagnetometerSensingUnit;
+
+}

@@ -1,0 +1,973 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-44wqnnpm
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7fb-8733-7b62-ad7c-7b6717644277
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Comilla District and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ComillaDistrictModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import SI::*;
+
+    attribute def PopulationCount :> ScalarValues::Integer;
+    attribute def Percentage :> ScalarValues::Real {
+        attribute unit : String = "%";
+    }
+    attribute def AreaValue :> ScalarValues::Real {
+        attribute unit : String = "km^2";
+    }
+    attribute def LengthValue :> ScalarValues::Real {
+        attribute unit : String = "km";
+    }
+    attribute def FlowRateValue :> ScalarValues::Real {
+        attribute unit : String = "m^3/s";
+    }
+    attribute def EnergyValue :> ScalarValues::Real {
+        attribute unit : String = "MWh";
+    }
+    attribute def CurrencyValue :> ScalarValues::Real {
+        attribute unit : String = "BDT";
+    }
+    attribute def TimeValue :> ScalarValues::Real {
+        attribute unit : String = "h";
+    }
+
+    item def Citizen {
+        attribute age : ScalarValues::Integer;
+        attribute residenceWard : String;
+        attribute serviceNeed : String;
+    }
+
+    item def AdministrativeRequest {
+        attribute requestId : String;
+        attribute requestType : String;
+        attribute priority : String;
+        attribute submittedTime : TimeValue;
+    }
+
+    item def PublicServiceDecision {
+        attribute decisionId : String;
+        attribute approved : Boolean;
+        attribute responsibleOffice : String;
+        attribute targetCompletionTime : TimeValue;
+    }
+
+    item def AgriculturalProduct {
+        attribute productName : String;
+        attribute massTonnes : ScalarValues::Real;
+        attribute originUpazila : String;
+    }
+
+    item def EmergencyAlert {
+        attribute alertType : String;
+        attribute severity : String;
+        attribute affectedArea : String;
+        attribute issuedTime : TimeValue;
+    }
+
+    item def TransportFlow {
+        attribute passengerTripsPerDay : PopulationCount;
+        attribute freightTonnesPerDay : ScalarValues::Real;
+        attribute congestionIndex : Percentage;
+    }
+
+    item def UtilityFlow {
+        attribute waterFlow : FlowRateValue;
+        attribute electricityDemand : EnergyValue;
+        attribute sanitationLoad : FlowRateValue;
+    }
+
+    port def CitizenServicePort {
+        in item request : AdministrativeRequest;
+        out item decision : PublicServiceDecision;
+        out item alert : EmergencyAlert;
+    }
+
+    port def TransportPort {
+        inout item flow : TransportFlow;
+    }
+
+    port def UtilityPort {
+        inout item utilities : UtilityFlow;
+    }
+
+    port def TradePort {
+        out item agriculturalOutput : AgriculturalProduct;
+        in item marketDemand : AgriculturalProduct;
+    }
+
+    part def Upazila {
+        attribute name : String;
+        attribute area : AreaValue;
+        attribute population : PopulationCount;
+        attribute literacyRate : Percentage;
+
+        port servicePort : CitizenServicePort;
+        port transportPort : TransportPort;
+        port utilityPort : UtilityPort;
+        port tradePort : TradePort;
+
+        part unionDigitalCenter {
+            attribute operators : PopulationCount;
+            attribute dailyRequestCapacity : PopulationCount;
+        }
+
+        part healthComplex {
+            attribute beds : PopulationCount;
+            attribute doctors : PopulationCount;
+            attribute emergencyCapacityPerDay : PopulationCount;
+        }
+
+        part educationNetwork {
+            attribute primarySchools : PopulationCount;
+            attribute secondarySchools : PopulationCount;
+            attribute colleges : PopulationCount;
+        }
+
+        part localRoadNetwork {
+            attribute pavedRoadLength : LengthValue;
+            attribute bridgeCount : PopulationCount;
+            attribute averageTravelSpeed : ScalarValues::Real;
+        }
+    }
+
+    part def DistrictAdministration {
+        attribute headquarters : String;
+        attribute administrativeStaff : PopulationCount;
+        attribute budgetAnnual : CurrencyValue;
+
+        port districtCitizenPort : CitizenServicePort;
+        port emergencyBroadcastPort : CitizenServicePort;
+
+        part deputyCommissionerOffice {
+            attribute caseProcessingCapacityPerDay : PopulationCount;
+            attribute landRecordDigitizationRate : Percentage;
+        }
+
+        part disasterManagementCell {
+            attribute shelters : PopulationCount;
+            attribute reliefStorageTonnes : ScalarValues::Real;
+            attribute responseReadinessLevel : Percentage;
+        }
+
+        part planningAndDevelopmentOffice {
+            attribute activeProjects : PopulationCount;
+            attribute annualDevelopmentProgramBudget : CurrencyValue;
+        }
+    }
+
+    part def TransportInfrastructure {
+        attribute regionalRoadLength : LengthValue;
+        attribute railStations : PopulationCount;
+        attribute riverLandingPoints : PopulationCount;
+
+        port districtTransportPort : TransportPort;
+
+        part dhakaChattogramHighwaySegment {
+            attribute lengthWithinDistrict : LengthValue = 44.0;
+            attribute dailyVehicleCapacity : PopulationCount = 85000;
+        }
+
+        part railCorridor {
+            attribute trackLengthWithinDistrict : LengthValue = 55.0;
+            attribute dailyPassengerCapacity : PopulationCount = 42000;
+        }
+
+        part busTerminals {
+            attribute terminalCount : PopulationCount = 9;
+            attribute dailyBoardingCapacity : PopulationCount = 70000;
+        }
+    }
+
+    part def UtilityInfrastructure {
+        attribute gridSubstations : PopulationCount;
+        attribute waterTreatmentPlants : PopulationCount;
+        attribute drainageCanalLength : LengthValue;
+
+        port districtUtilityPort : UtilityPort;
+
+        part electricDistributionNetwork {
+            attribute feederCount : PopulationCount;
+            attribute peakDemand : EnergyValue;
+            attribute reliabilityRate : Percentage;
+        }
+
+        part municipalWaterSystem {
+            attribute productionCapacity : FlowRateValue;
+            attribute householdCoverage : Percentage;
+        }
+
+        part sanitationAndDrainageSystem {
+            attribute wasteCollectionCoverage : Percentage;
+            attribute stormwaterCapacity : FlowRateValue;
+        }
+    }
+
+    part def EconomicResourceNetwork {
+        attribute annualAgriculturalOutputTonnes : ScalarValues::Real;
+        attribute marketCenters : PopulationCount;
+        attribute industrialUnits : PopulationCount;
+
+        port districtTradePort : TradePort;
+
+        part riceProduction {
+            attribute annualTonnes : ScalarValues::Real;
+            attribute irrigatedArea : AreaValue;
+        }
+
+        part fisheryProduction {
+            attribute annualTonnes : ScalarValues::Real;
+            attribute pondArea : AreaValue;
+        }
+
+        part smallAndMediumIndustries {
+            attribute employment : PopulationCount;
+            attribute annualRevenue : CurrencyValue;
+        }
+    }
+
+    part def ComillaDistrictSystem {
+        attribute districtName : String = "Comilla District";
+        attribute country : String = "Bangladesh";
+        attribute division : String = "Chattogram";
+        attribute area : AreaValue = 3085.17;
+        attribute population : PopulationCount = 6400000;
+        attribute primaryFunction : String = "Coordinate public administration, mobility, utilities, emergency response, and local economic exchange for residents and institutions across Comilla District.";
+
+        port citizenInterface : CitizenServicePort;
+        port transportInterface : TransportPort;
+        port utilityInterface : UtilityPort;
+        port tradeInterface : TradePort;
+
+        part administration : DistrictAdministration {
+            attribute headquarters = "Cumilla City";
+            attribute administrativeStaff = 5200;
+            attribute budgetAnnual = 18500000000.0;
+        }
+
+        part transport : TransportInfrastructure {
+            attribute regionalRoadLength = 1430.0;
+            attribute railStations = 15;
+            attribute riverLandingPoints = 11;
+        }
+
+        part utilities : UtilityInfrastructure {
+            attribute gridSubstations = 28;
+            attribute waterTreatmentPlants = 14;
+            attribute drainageCanalLength = 310.0;
+        }
+
+        part economy : EconomicResourceNetwork {
+            attribute annualAgriculturalOutputTonnes = 1650000.0;
+            attribute marketCenters = 173;
+            attribute industrialUnits = 4200;
+        }
+
+        part comillaSadar : Upazila {
+            attribute name = "Comilla Sadar";
+            attribute area = 187.71;
+            attribute population = 745000;
+            attribute literacyRate = 78.4;
+        }
+
+        part burichang : Upazila {
+            attribute name = "Burichang";
+            attribute area = 163.76;
+            attribute population = 340000;
+            attribute literacyRate = 73.1;
+        }
+
+        part chandina : Upazila {
+            attribute name = "Chandina";
+            attribute area = 201.92;
+            attribute population = 430000;
+            attribute literacyRate = 74.8;
+        }
+
+        part daudkandi : Upazila {
+            attribute name = "Daudkandi";
+            attribute area = 316.57;
+            attribute population = 510000;
+            attribute literacyRate = 72.5;
+        }
+
+        part laksam : Upazila {
+            attribute name = "Laksam";
+            attribute area = 135.61;
+            attribute population = 310000;
+            attribute literacyRate = 76.2;
+        }
+
+        part muradnagar : Upazila {
+            attribute name = "Muradnagar";
+            attribute area = 340.73;
+            attribute population = 620000;
+            attribute literacyRate = 70.9;
+        }
+
+        connect citizenInterface to administration.districtCitizenPort;
+        connect transportInterface to transport.districtTransportPort;
+        connect utilityInterface to utilities.districtUtilityPort;
+        connect tradeInterface to economy.districtTradePort;
+
+        connect administration.districtCitizenPort to comillaSadar.servicePort;
+        connect administration.districtCitizenPort to burichang.servicePort;
+        connect administration.districtCitizenPort to chandina.servicePort;
+        connect administration.districtCitizenPort to daudkandi.servicePort;
+        connect administration.districtCitizenPort to laksam.servicePort;
+        connect administration.districtCitizenPort to muradnagar.servicePort;
+
+        connect transport.districtTransportPort to comillaSadar.transportPort;
+        connect transport.districtTransportPort to burichang.transportPort;
+        connect transport.districtTransportPort to chandina.transportPort;
+        connect transport.districtTransportPort to daudkandi.transportPort;
+        connect transport.districtTransportPort to laksam.transportPort;
+        connect transport.districtTransportPort to muradnagar.transportPort;
+
+        connect utilities.districtUtilityPort to comillaSadar.utilityPort;
+        connect utilities.districtUtilityPort to burichang.utilityPort;
+        connect utilities.districtUtilityPort to chandina.utilityPort;
+        connect utilities.districtUtilityPort to daudkandi.utilityPort;
+        connect utilities.districtUtilityPort to laksam.utilityPort;
+        connect utilities.districtUtilityPort to muradnagar.utilityPort;
+
+        connect economy.districtTradePort to comillaSadar.tradePort;
+        connect economy.districtTradePort to burichang.tradePort;
+        connect economy.districtTradePort to chandina.tradePort;
+        connect economy.districtTradePort to daudkandi.tradePort;
+        connect economy.districtTradePort to laksam.tradePort;
+        connect economy.districtTradePort to muradnagar.tradePort;
+    }
+
+    action def ReceiveCitizenRequest {
+        in item request : AdministrativeRequest;
+        out item validatedRequest : AdministrativeRequest;
+    }
+
+    action def AssignResponsibleOffice {
+        in item validatedRequest : AdministrativeRequest;
+        out item decision : PublicServiceDecision;
+    }
+
+    action def DispatchDistrictService {
+        in item decision : PublicServiceDecision;
+        out item completionNotice : PublicServiceDecision;
+    }
+
+    action def MonitorDistrictStatus {
+        in item utilityStatus : UtilityFlow;
+        in item transportStatus : TransportFlow;
+        out item alert : EmergencyAlert;
+    }
+
+    action def CoordinateComillaDistrictServices {
+        in item request : AdministrativeRequest;
+        in item utilityStatus : UtilityFlow;
+        in item transportStatus : TransportFlow;
+        out item decision : PublicServiceDecision;
+        out item alert : EmergencyAlert;
+
+        action receive : ReceiveCitizenRequest {
+            in request = request;
+        }
+
+        action assign : AssignResponsibleOffice {
+            in validatedRequest = receive.validatedRequest;
+        }
+
+        action dispatch : DispatchDistrictService {
+            in decision = assign.decision;
+        }
+
+        action monitor : MonitorDistrictStatus {
+            in utilityStatus = utilityStatus;
+            in transportStatus = transportStatus;
+        }
+
+        bind decision = dispatch.completionNotice;
+        bind alert = monitor.alert;
+    }
+
+    state def DistrictOperationalState {
+        entry action initializeDailyCoordination;
+
+        state NormalOperations;
+        state ServiceCongestion;
+        state EmergencyResponse;
+        state Recovery;
+
+        transition first NormalOperations;
+
+        transition NormalOperations_to_ServiceCongestion
+            first NormalOperations
+            then ServiceCongestion
+            if congestionIndexAboveThreshold;
+
+        transition ServiceCongestion_to_NormalOperations
+            first ServiceCongestion
+            then NormalOperations
+            if pendingRequestsReduced;
+
+        transition Any_to_EmergencyResponse
+            first NormalOperations
+            then EmergencyResponse
+            if severeWeatherOrInfrastructureFailureDetected;
+
+        transition EmergencyResponse_to_Recovery
+            first EmergencyResponse
+            then Recovery
+            if immediateRiskControlled;
+
+        transition Recovery_to_NormalOperations
+            first Recovery
+            then NormalOperations
+            if essentialServicesRestored;
+    }
+
+    requirement def DistrictPurposeRequirement {
+        doc /* The Comilla District system shall provide a coordinated regional operating structure that supports public administration, resident services, transportation, utilities, emergency response, and economic exchange across its upazilas. */
+    }
+
+    requirement def CitizenServiceRequirement {
+        doc /* The system shall receive, validate, route, and resolve citizen service requests through district and upazila offices. */
+    }
+
+    requirement def EmergencyResponseRequirement {
+        doc /* The system shall issue emergency alerts and coordinate shelters, transport access, relief inventory, and local administrative offices during floods, storms, accidents, and infrastructure failures. */
+    }
+
+    requirement def MobilityRequirement {
+        doc /* The system shall maintain district-level passenger and freight movement through road, rail, terminal, and local transport interfaces. */
+    }
+
+    requirement def UtilityContinuityRequirement {
+        doc /* The system shall coordinate electricity, water, sanitation, and drainage services to support households, institutions, markets, and emergency operations. */
+    }
+
+    requirement def EconomicSupportRequirement {
+        doc /* The system shall support agricultural, fishery, market, and small-industry flows between upazilas and regional trade corridors. */
+    }
+
+    satisfy DistrictPurposeRequirement by ComillaDistrictSystem;
+    satisfy CitizenServiceRequirement by ComillaDistrictSystem.administration;
+    satisfy EmergencyResponseRequirement by ComillaDistrictSystem.administration.disasterManagementCell;
+    satisfy MobilityRequirement by ComillaDistrictSystem.transport;
+    satisfy UtilityContinuityRequirement by ComillaDistrictSystem.utilities;
+    satisfy EconomicSupportRequirement by ComillaDistrictSystem.economy;
+
+    analysis def DistrictCapacityAnalysis {
+        subject district : ComillaDistrictSystem;
+
+        objective evaluateAdministrativeCoverage {
+            doc /* Determine whether population, office capacity, transport capacity, utility reliability, and emergency resources are sufficient for daily district operation. */
+        }
+
+        constraint populationServedPerStaff {
+            district.population / district.administration.administrativeStaff <= 1500;
+        }
+
+        constraint minimumUtilityReliability {
+            district.utilities.electricDistributionNetwork.reliabilityRate >= 95.0;
+        }
+
+        constraint emergencyShelterCoverage {
+            district.administration.disasterManagementCell.shelters >= 250;
+        }
+
+        constraint transportCapacityAdequacy {
+            district.transport.dhakaChattogramHighwaySegment.dailyVehicleCapacity >= 75000;
+        }
+    }
+
+}
+tokens used
+4,703
+package ComillaDistrictModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import SI::*;
+
+    attribute def PopulationCount :> ScalarValues::Integer;
+    attribute def Percentage :> ScalarValues::Real {
+        attribute unit : String = "%";
+    }
+    attribute def AreaValue :> ScalarValues::Real {
+        attribute unit : String = "km^2";
+    }
+    attribute def LengthValue :> ScalarValues::Real {
+        attribute unit : String = "km";
+    }
+    attribute def FlowRateValue :> ScalarValues::Real {
+        attribute unit : String = "m^3/s";
+    }
+    attribute def EnergyValue :> ScalarValues::Real {
+        attribute unit : String = "MWh";
+    }
+    attribute def CurrencyValue :> ScalarValues::Real {
+        attribute unit : String = "BDT";
+    }
+    attribute def TimeValue :> ScalarValues::Real {
+        attribute unit : String = "h";
+    }
+
+    item def Citizen {
+        attribute age : ScalarValues::Integer;
+        attribute residenceWard : String;
+        attribute serviceNeed : String;
+    }
+
+    item def AdministrativeRequest {
+        attribute requestId : String;
+        attribute requestType : String;
+        attribute priority : String;
+        attribute submittedTime : TimeValue;
+    }
+
+    item def PublicServiceDecision {
+        attribute decisionId : String;
+        attribute approved : Boolean;
+        attribute responsibleOffice : String;
+        attribute targetCompletionTime : TimeValue;
+    }
+
+    item def AgriculturalProduct {
+        attribute productName : String;
+        attribute massTonnes : ScalarValues::Real;
+        attribute originUpazila : String;
+    }
+
+    item def EmergencyAlert {
+        attribute alertType : String;
+        attribute severity : String;
+        attribute affectedArea : String;
+        attribute issuedTime : TimeValue;
+    }
+
+    item def TransportFlow {
+        attribute passengerTripsPerDay : PopulationCount;
+        attribute freightTonnesPerDay : ScalarValues::Real;
+        attribute congestionIndex : Percentage;
+    }
+
+    item def UtilityFlow {
+        attribute waterFlow : FlowRateValue;
+        attribute electricityDemand : EnergyValue;
+        attribute sanitationLoad : FlowRateValue;
+    }
+
+    port def CitizenServicePort {
+        in item request : AdministrativeRequest;
+        out item decision : PublicServiceDecision;
+        out item alert : EmergencyAlert;
+    }
+
+    port def TransportPort {
+        inout item flow : TransportFlow;
+    }
+
+    port def UtilityPort {
+        inout item utilities : UtilityFlow;
+    }
+
+    port def TradePort {
+        out item agriculturalOutput : AgriculturalProduct;
+        in item marketDemand : AgriculturalProduct;
+    }
+
+    part def Upazila {
+        attribute name : String;
+        attribute area : AreaValue;
+        attribute population : PopulationCount;
+        attribute literacyRate : Percentage;
+
+        port servicePort : CitizenServicePort;
+        port transportPort : TransportPort;
+        port utilityPort : UtilityPort;
+        port tradePort : TradePort;
+
+        part unionDigitalCenter {
+            attribute operators : PopulationCount;
+            attribute dailyRequestCapacity : PopulationCount;
+        }
+
+        part healthComplex {
+            attribute beds : PopulationCount;
+            attribute doctors : PopulationCount;
+            attribute emergencyCapacityPerDay : PopulationCount;
+        }
+
+        part educationNetwork {
+            attribute primarySchools : PopulationCount;
+            attribute secondarySchools : PopulationCount;
+            attribute colleges : PopulationCount;
+        }
+
+        part localRoadNetwork {
+            attribute pavedRoadLength : LengthValue;
+            attribute bridgeCount : PopulationCount;
+            attribute averageTravelSpeed : ScalarValues::Real;
+        }
+    }
+
+    part def DistrictAdministration {
+        attribute headquarters : String;
+        attribute administrativeStaff : PopulationCount;
+        attribute budgetAnnual : CurrencyValue;
+
+        port districtCitizenPort : CitizenServicePort;
+        port emergencyBroadcastPort : CitizenServicePort;
+
+        part deputyCommissionerOffice {
+            attribute caseProcessingCapacityPerDay : PopulationCount;
+            attribute landRecordDigitizationRate : Percentage;
+        }
+
+        part disasterManagementCell {
+            attribute shelters : PopulationCount;
+            attribute reliefStorageTonnes : ScalarValues::Real;
+            attribute responseReadinessLevel : Percentage;
+        }
+
+        part planningAndDevelopmentOffice {
+            attribute activeProjects : PopulationCount;
+            attribute annualDevelopmentProgramBudget : CurrencyValue;
+        }
+    }
+
+    part def TransportInfrastructure {
+        attribute regionalRoadLength : LengthValue;
+        attribute railStations : PopulationCount;
+        attribute riverLandingPoints : PopulationCount;
+
+        port districtTransportPort : TransportPort;
+
+        part dhakaChattogramHighwaySegment {
+            attribute lengthWithinDistrict : LengthValue = 44.0;
+            attribute dailyVehicleCapacity : PopulationCount = 85000;
+        }
+
+        part railCorridor {
+            attribute trackLengthWithinDistrict : LengthValue = 55.0;
+            attribute dailyPassengerCapacity : PopulationCount = 42000;
+        }
+
+        part busTerminals {
+            attribute terminalCount : PopulationCount = 9;
+            attribute dailyBoardingCapacity : PopulationCount = 70000;
+        }
+    }
+
+    part def UtilityInfrastructure {
+        attribute gridSubstations : PopulationCount;
+        attribute waterTreatmentPlants : PopulationCount;
+        attribute drainageCanalLength : LengthValue;
+
+        port districtUtilityPort : UtilityPort;
+
+        part electricDistributionNetwork {
+            attribute feederCount : PopulationCount;
+            attribute peakDemand : EnergyValue;
+            attribute reliabilityRate : Percentage;
+        }
+
+        part municipalWaterSystem {
+            attribute productionCapacity : FlowRateValue;
+            attribute householdCoverage : Percentage;
+        }
+
+        part sanitationAndDrainageSystem {
+            attribute wasteCollectionCoverage : Percentage;
+            attribute stormwaterCapacity : FlowRateValue;
+        }
+    }
+
+    part def EconomicResourceNetwork {
+        attribute annualAgriculturalOutputTonnes : ScalarValues::Real;
+        attribute marketCenters : PopulationCount;
+        attribute industrialUnits : PopulationCount;
+
+        port districtTradePort : TradePort;
+
+        part riceProduction {
+            attribute annualTonnes : ScalarValues::Real;
+            attribute irrigatedArea : AreaValue;
+        }
+
+        part fisheryProduction {
+            attribute annualTonnes : ScalarValues::Real;
+            attribute pondArea : AreaValue;
+        }
+
+        part smallAndMediumIndustries {
+            attribute employment : PopulationCount;
+            attribute annualRevenue : CurrencyValue;
+        }
+    }
+
+    part def ComillaDistrictSystem {
+        attribute districtName : String = "Comilla District";
+        attribute country : String = "Bangladesh";
+        attribute division : String = "Chattogram";
+        attribute area : AreaValue = 3085.17;
+        attribute population : PopulationCount = 6400000;
+        attribute primaryFunction : String = "Coordinate public administration, mobility, utilities, emergency response, and local economic exchange for residents and institutions across Comilla District.";
+
+        port citizenInterface : CitizenServicePort;
+        port transportInterface : TransportPort;
+        port utilityInterface : UtilityPort;
+        port tradeInterface : TradePort;
+
+        part administration : DistrictAdministration {
+            attribute headquarters = "Cumilla City";
+            attribute administrativeStaff = 5200;
+            attribute budgetAnnual = 18500000000.0;
+        }
+
+        part transport : TransportInfrastructure {
+            attribute regionalRoadLength = 1430.0;
+            attribute railStations = 15;
+            attribute riverLandingPoints = 11;
+        }
+
+        part utilities : UtilityInfrastructure {
+            attribute gridSubstations = 28;
+            attribute waterTreatmentPlants = 14;
+            attribute drainageCanalLength = 310.0;
+        }
+
+        part economy : EconomicResourceNetwork {
+            attribute annualAgriculturalOutputTonnes = 1650000.0;
+            attribute marketCenters = 173;
+            attribute industrialUnits = 4200;
+        }
+
+        part comillaSadar : Upazila {
+            attribute name = "Comilla Sadar";
+            attribute area = 187.71;
+            attribute population = 745000;
+            attribute literacyRate = 78.4;
+        }
+
+        part burichang : Upazila {
+            attribute name = "Burichang";
+            attribute area = 163.76;
+            attribute population = 340000;
+            attribute literacyRate = 73.1;
+        }
+
+        part chandina : Upazila {
+            attribute name = "Chandina";
+            attribute area = 201.92;
+            attribute population = 430000;
+            attribute literacyRate = 74.8;
+        }
+
+        part daudkandi : Upazila {
+            attribute name = "Daudkandi";
+            attribute area = 316.57;
+            attribute population = 510000;
+            attribute literacyRate = 72.5;
+        }
+
+        part laksam : Upazila {
+            attribute name = "Laksam";
+            attribute area = 135.61;
+            attribute population = 310000;
+            attribute literacyRate = 76.2;
+        }
+
+        part muradnagar : Upazila {
+            attribute name = "Muradnagar";
+            attribute area = 340.73;
+            attribute population = 620000;
+            attribute literacyRate = 70.9;
+        }
+
+        connect citizenInterface to administration.districtCitizenPort;
+        connect transportInterface to transport.districtTransportPort;
+        connect utilityInterface to utilities.districtUtilityPort;
+        connect tradeInterface to economy.districtTradePort;
+
+        connect administration.districtCitizenPort to comillaSadar.servicePort;
+        connect administration.districtCitizenPort to burichang.servicePort;
+        connect administration.districtCitizenPort to chandina.servicePort;
+        connect administration.districtCitizenPort to daudkandi.servicePort;
+        connect administration.districtCitizenPort to laksam.servicePort;
+        connect administration.districtCitizenPort to muradnagar.servicePort;
+
+        connect transport.districtTransportPort to comillaSadar.transportPort;
+        connect transport.districtTransportPort to burichang.transportPort;
+        connect transport.districtTransportPort to chandina.transportPort;
+        connect transport.districtTransportPort to daudkandi.transportPort;
+        connect transport.districtTransportPort to laksam.transportPort;
+        connect transport.districtTransportPort to muradnagar.transportPort;
+
+        connect utilities.districtUtilityPort to comillaSadar.utilityPort;
+        connect utilities.districtUtilityPort to burichang.utilityPort;
+        connect utilities.districtUtilityPort to chandina.utilityPort;
+        connect utilities.districtUtilityPort to daudkandi.utilityPort;
+        connect utilities.districtUtilityPort to laksam.utilityPort;
+        connect utilities.districtUtilityPort to muradnagar.utilityPort;
+
+        connect economy.districtTradePort to comillaSadar.tradePort;
+        connect economy.districtTradePort to burichang.tradePort;
+        connect economy.districtTradePort to chandina.tradePort;
+        connect economy.districtTradePort to daudkandi.tradePort;
+        connect economy.districtTradePort to laksam.tradePort;
+        connect economy.districtTradePort to muradnagar.tradePort;
+    }
+
+    action def ReceiveCitizenRequest {
+        in item request : AdministrativeRequest;
+        out item validatedRequest : AdministrativeRequest;
+    }
+
+    action def AssignResponsibleOffice {
+        in item validatedRequest : AdministrativeRequest;
+        out item decision : PublicServiceDecision;
+    }
+
+    action def DispatchDistrictService {
+        in item decision : PublicServiceDecision;
+        out item completionNotice : PublicServiceDecision;
+    }
+
+    action def MonitorDistrictStatus {
+        in item utilityStatus : UtilityFlow;
+        in item transportStatus : TransportFlow;
+        out item alert : EmergencyAlert;
+    }
+
+    action def CoordinateComillaDistrictServices {
+        in item request : AdministrativeRequest;
+        in item utilityStatus : UtilityFlow;
+        in item transportStatus : TransportFlow;
+        out item decision : PublicServiceDecision;
+        out item alert : EmergencyAlert;
+
+        action receive : ReceiveCitizenRequest {
+            in request = request;
+        }
+
+        action assign : AssignResponsibleOffice {
+            in validatedRequest = receive.validatedRequest;
+        }
+
+        action dispatch : DispatchDistrictService {
+            in decision = assign.decision;
+        }
+
+        action monitor : MonitorDistrictStatus {
+            in utilityStatus = utilityStatus;
+            in transportStatus = transportStatus;
+        }
+
+        bind decision = dispatch.completionNotice;
+        bind alert = monitor.alert;
+    }
+
+    state def DistrictOperationalState {
+        entry action initializeDailyCoordination;
+
+        state NormalOperations;
+        state ServiceCongestion;
+        state EmergencyResponse;
+        state Recovery;
+
+        transition first NormalOperations;
+
+        transition NormalOperations_to_ServiceCongestion
+            first NormalOperations
+            then ServiceCongestion
+            if congestionIndexAboveThreshold;
+
+        transition ServiceCongestion_to_NormalOperations
+            first ServiceCongestion
+            then NormalOperations
+            if pendingRequestsReduced;
+
+        transition Any_to_EmergencyResponse
+            first NormalOperations
+            then EmergencyResponse
+            if severeWeatherOrInfrastructureFailureDetected;
+
+        transition EmergencyResponse_to_Recovery
+            first EmergencyResponse
+            then Recovery
+            if immediateRiskControlled;
+
+        transition Recovery_to_NormalOperations
+            first Recovery
+            then NormalOperations
+            if essentialServicesRestored;
+    }
+
+    requirement def DistrictPurposeRequirement {
+        doc /* The Comilla District system shall provide a coordinated regional operating structure that supports public administration, resident services, transportation, utilities, emergency response, and economic exchange across its upazilas. */
+    }
+
+    requirement def CitizenServiceRequirement {
+        doc /* The system shall receive, validate, route, and resolve citizen service requests through district and upazila offices. */
+    }
+
+    requirement def EmergencyResponseRequirement {
+        doc /* The system shall issue emergency alerts and coordinate shelters, transport access, relief inventory, and local administrative offices during floods, storms, accidents, and infrastructure failures. */
+    }
+
+    requirement def MobilityRequirement {
+        doc /* The system shall maintain district-level passenger and freight movement through road, rail, terminal, and local transport interfaces. */
+    }
+
+    requirement def UtilityContinuityRequirement {
+        doc /* The system shall coordinate electricity, water, sanitation, and drainage services to support households, institutions, markets, and emergency operations. */
+    }
+
+    requirement def EconomicSupportRequirement {
+        doc /* The system shall support agricultural, fishery, market, and small-industry flows between upazilas and regional trade corridors. */
+    }
+
+    satisfy DistrictPurposeRequirement by ComillaDistrictSystem;
+    satisfy CitizenServiceRequirement by ComillaDistrictSystem.administration;
+    satisfy EmergencyResponseRequirement by ComillaDistrictSystem.administration.disasterManagementCell;
+    satisfy MobilityRequirement by ComillaDistrictSystem.transport;
+    satisfy UtilityContinuityRequirement by ComillaDistrictSystem.utilities;
+    satisfy EconomicSupportRequirement by ComillaDistrictSystem.economy;
+
+    analysis def DistrictCapacityAnalysis {
+        subject district : ComillaDistrictSystem;
+
+        objective evaluateAdministrativeCoverage {
+            doc /* Determine whether population, office capacity, transport capacity, utility reliability, and emergency resources are sufficient for daily district operation. */
+        }
+
+        constraint populationServedPerStaff {
+            district.population / district.administration.administrativeStaff <= 1500;
+        }
+
+        constraint minimumUtilityReliability {
+            district.utilities.electricDistributionNetwork.reliabilityRate >= 95.0;
+        }
+
+        constraint emergencyShelterCoverage {
+            district.administration.disasterManagementCell.shelters >= 250;
+        }
+
+        constraint transportCapacityAdequacy {
+            district.transport.dhakaChattogramHighwaySegment.dailyVehicleCapacity >= 75000;
+        }
+    }
+
+}

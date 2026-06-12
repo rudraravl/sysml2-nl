@@ -1,0 +1,759 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ikk5kh2h
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6e0-a817-72e2-84dc-f2ada8409df3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Journal of Electrical and Computer Engineering and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package JournalECEBasedSmartMicrogrid {
+
+  doc /* Primary function: coordinate distributed solar generation, battery storage, grid exchange, and prioritized electrical loads to maintain stable, efficient, and resilient power delivery for a campus-scale microgrid. */
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def Volt :> ISQ::electricPotentialUnit;
+  value def Ampere :> ISQ::electricCurrentUnit;
+  value def Watt :> ISQ::powerUnit;
+  value def WattHour :> ISQ::energyUnit;
+  value def Hertz :> ISQ::frequencyUnit;
+  value def Percent;
+  value def Celsius :> ISQ::temperatureUnit;
+  value def Second :> ISQ::timeUnit;
+  value def Millisecond :> ISQ::timeUnit;
+  value def Kilogram :> ISQ::massUnit;
+
+  item def DC_Power {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def AC_Power {
+    attribute rmsVoltage : Volt;
+    attribute rmsCurrent : Ampere;
+    attribute realPower : Watt;
+    attribute frequency : Hertz;
+    attribute powerFactor : Real;
+  }
+
+  item def ControlCommand {
+    attribute commandId : Integer;
+    attribute targetPower : Watt;
+    attribute enable : Boolean;
+    attribute issuedAt : Second;
+  }
+
+  item def SensorTelemetry {
+    attribute measuredVoltage : Volt;
+    attribute measuredCurrent : Ampere;
+    attribute measuredPower : Watt;
+    attribute measuredFrequency : Hertz;
+    attribute temperature : Celsius;
+    attribute timestamp : Second;
+  }
+
+  item def ForecastData {
+    attribute solarIrradianceEstimate : Real;
+    attribute loadDemandEstimate : Watt;
+    attribute forecastHorizon : Second;
+    attribute confidence : Percent;
+  }
+
+  port def DCPowerPort {
+    out item powerOut : DC_Power;
+    in item powerIn : DC_Power;
+  }
+
+  port def ACPowerPort {
+    out item powerOut : AC_Power;
+    in item powerIn : AC_Power;
+  }
+
+  port def TelemetryPort {
+    out item telemetryOut : SensorTelemetry;
+    in item telemetryIn : SensorTelemetry;
+  }
+
+  port def CommandPort {
+    out item commandOut : ControlCommand;
+    in item commandIn : ControlCommand;
+  }
+
+  port def ForecastPort {
+    out item forecastOut : ForecastData;
+    in item forecastIn : ForecastData;
+  }
+
+  action def SampleTelemetry {
+    in samplePeriod : Millisecond;
+    out telemetry : SensorTelemetry;
+  }
+
+  action def PredictDemandAndGeneration {
+    in telemetry : SensorTelemetry;
+    in forecast : ForecastData;
+    out predictedNetPower : Watt;
+  }
+
+  action def OptimizePowerDispatch {
+    in predictedNetPower : Watt;
+    in batteryStateOfCharge : Percent;
+    in gridAvailable : Boolean;
+    out pvCommand : ControlCommand;
+    out batteryCommand : ControlCommand;
+    out gridCommand : ControlCommand;
+    out loadCommand : ControlCommand;
+  }
+
+  action def ProtectMicrogrid {
+    in telemetry : SensorTelemetry;
+    out isolationCommand : ControlCommand;
+  }
+
+  action def ExecuteDispatch {
+    in pvCommand : ControlCommand;
+    in batteryCommand : ControlCommand;
+    in gridCommand : ControlCommand;
+    in loadCommand : ControlCommand;
+  }
+
+  state def MicrogridOperatingState {
+    entry action SampleTelemetry;
+    state Startup;
+    state GridConnected;
+    state Islanded;
+    state PeakShaving;
+    state FaultIsolation;
+    state Shutdown;
+
+    transition first Startup;
+    transition Startup to GridConnected
+      if gridSynchronized;
+
+    transition GridConnected to PeakShaving
+      if loadDemandExceedsContractLimit;
+
+    transition PeakShaving to GridConnected
+      if loadDemandBelowContractLimit;
+
+    transition GridConnected to Islanded
+      if gridUnavailable;
+
+    transition Islanded to GridConnected
+      if gridRestored and synchronizationStable;
+
+    transition GridConnected to FaultIsolation
+      if protectionTrip;
+
+    transition Islanded to FaultIsolation
+      if protectionTrip;
+
+    transition FaultIsolation to Shutdown
+      if unsafeToReconnect;
+
+    transition FaultIsolation to Islanded
+      if faultCleared and gridUnavailable;
+
+    transition FaultIsolation to GridConnected
+      if faultCleared and gridRestored;
+  }
+
+  part def PhotovoltaicArray {
+    attribute ratedPower : Watt = 250000;
+    attribute nominalDCVoltage : Volt = 750;
+    attribute panelTemperature : Celsius;
+    attribute conversionEfficiency : Percent = 21;
+
+    port dcOutput : DCPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def BatteryEnergyStorageSystem {
+    attribute ratedEnergy : WattHour = 500000;
+    attribute maxChargePower : Watt = 150000;
+    attribute maxDischargePower : Watt = 150000;
+    attribute stateOfCharge : Percent;
+    attribute minimumReserve : Percent = 20;
+    attribute nominalDCVoltage : Volt = 700;
+
+    port dcPort : DCPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def BidirectionalInverter {
+    attribute ratedACPower : Watt = 300000;
+    attribute dcBusVoltage : Volt = 750;
+    attribute nominalACVoltage : Volt = 480;
+    attribute nominalFrequency : Hertz = 60;
+    attribute switchingFrequency : Hertz = 12000;
+
+    port dcSide : DCPowerPort;
+    port acSide : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def GridIntertie {
+    attribute nominalVoltage : Volt = 480;
+    attribute nominalFrequency : Hertz = 60;
+    attribute importLimit : Watt = 400000;
+    attribute exportLimit : Watt = 100000;
+    attribute synchronized : Boolean;
+
+    port utilityPort : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def CriticalLoadPanel {
+    attribute nominalVoltage : Volt = 480;
+    attribute priorityLevel : Integer = 1;
+    attribute requiredPower : Watt;
+    attribute shedAllowed : Boolean = false;
+
+    port acInput : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def FlexibleLoadPanel {
+    attribute nominalVoltage : Volt = 480;
+    attribute priorityLevel : Integer = 3;
+    attribute requestedPower : Watt;
+    attribute shedAllowed : Boolean = true;
+
+    port acInput : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def ProtectionRelay {
+    attribute overVoltageLimit : Volt = 528;
+    attribute underVoltageLimit : Volt = 432;
+    attribute overFrequencyLimit : Hertz = 61;
+    attribute underFrequencyLimit : Hertz = 59;
+    attribute tripDelay : Millisecond = 100;
+
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    perform action ProtectMicrogrid;
+  }
+
+  part def EnergyManagementController {
+    attribute controlCycle : Millisecond = 250;
+    attribute demandResponseEnabled : Boolean = true;
+    attribute targetBatteryReserve : Percent = 35;
+    attribute gridSynchronized : Boolean;
+    attribute gridAvailable : Boolean;
+
+    port pvCommand : CommandPort;
+    port batteryCommand : CommandPort;
+    port inverterCommand : CommandPort;
+    port gridCommand : CommandPort;
+    port loadCommand : CommandPort;
+    port telemetryInput : TelemetryPort;
+    port forecastInput : ForecastPort;
+
+    perform action SampleTelemetry;
+    perform action PredictDemandAndGeneration;
+    perform action OptimizePowerDispatch;
+    perform action ExecuteDispatch;
+
+    exhibit state MicrogridOperatingState;
+  }
+
+  part def WeatherAndLoadForecaster {
+    attribute updatePeriod : Second = 300;
+    attribute forecastHorizon : Second = 3600;
+    attribute modelConfidence : Percent;
+
+    port forecastOutput : ForecastPort;
+    port telemetryInput : TelemetryPort;
+  }
+
+  part def CampusSmartMicrogrid {
+    attribute designPowerCapacity : Watt = 500000;
+    attribute nominalVoltage : Volt = 480;
+    attribute nominalFrequency : Hertz = 60;
+    attribute maximumOutageRideThrough : Second = 14400;
+    attribute installedMass : Kilogram = 18000;
+
+    part pv : PhotovoltaicArray;
+    part battery : BatteryEnergyStorageSystem;
+    part inverter : BidirectionalInverter;
+    part grid : GridIntertie;
+    part criticalLoads : CriticalLoadPanel;
+    part flexibleLoads : FlexibleLoadPanel;
+    part relay : ProtectionRelay;
+    part controller : EnergyManagementController;
+    part forecaster : WeatherAndLoadForecaster;
+
+    port campusGridPort : ACPowerPort;
+    port campusCriticalLoadPort : ACPowerPort;
+    port campusFlexibleLoadPort : ACPowerPort;
+
+    connect pv.dcOutput to inverter.dcSide;
+    connect battery.dcPort to inverter.dcSide;
+    connect inverter.acSide to grid.utilityPort;
+    connect inverter.acSide to criticalLoads.acInput;
+    connect inverter.acSide to flexibleLoads.acInput;
+    connect grid.utilityPort to campusGridPort;
+    connect criticalLoads.acInput to campusCriticalLoadPort;
+    connect flexibleLoads.acInput to campusFlexibleLoadPort;
+
+    connect pv.telemetry to controller.telemetryInput;
+    connect battery.telemetry to controller.telemetryInput;
+    connect inverter.telemetry to controller.telemetryInput;
+    connect grid.telemetry to controller.telemetryInput;
+    connect criticalLoads.telemetry to controller.telemetryInput;
+    connect flexibleLoads.telemetry to controller.telemetryInput;
+    connect relay.telemetry to controller.telemetryInput;
+    connect forecaster.forecastOutput to controller.forecastInput;
+
+    connect controller.pvCommand to pv.command;
+    connect controller.batteryCommand to battery.command;
+    connect controller.inverterCommand to inverter.command;
+    connect controller.gridCommand to grid.command;
+    connect controller.loadCommand to flexibleLoads.command;
+    connect relay.command to grid.command;
+  }
+
+  requirement def MaintainCriticalLoadPower {
+    subject microgrid : CampusSmartMicrogrid;
+    require constraint {
+      microgrid.criticalLoads.requiredPower <= microgrid.designPowerCapacity
+    }
+  }
+
+  requirement def FrequencyRegulation {
+    subject microgrid : CampusSmartMicrogrid;
+    require constraint {
+      microgrid.nominalFrequency >= 59.5 and microgrid.nominalFrequency <= 60.5
+    }
+  }
+
+  requirement def BatteryReserveProtection {
+    subject storage : BatteryEnergyStorageSystem;
+    require constraint {
+      storage.stateOfCharge >= storage.minimumReserve
+    }
+  }
+
+  requirement def GridExchangeLimit {
+    subject intertie : GridIntertie;
+    require constraint {
+      intertie.importLimit <= 400000 and intertie.exportLimit <= 100000
+    }
+  }
+
+  requirement def RapidFaultIsolation {
+    subject relay : ProtectionRelay;
+    require constraint {
+      relay.tripDelay <= 100
+    }
+  }
+
+  requirement def IslandedOperationRideThrough {
+    subject microgrid : CampusSmartMicrogrid;
+    require constraint {
+      microgrid.maximumOutageRideThrough >= 14400
+    }
+  }
+
+  satisfy MaintainCriticalLoadPower by CampusSmartMicrogrid;
+  satisfy FrequencyRegulation by CampusSmartMicrogrid;
+  satisfy BatteryReserveProtection by BatteryEnergyStorageSystem;
+  satisfy GridExchangeLimit by GridIntertie;
+  satisfy RapidFaultIsolation by ProtectionRelay;
+  satisfy IslandedOperationRideThrough by CampusSmartMicrogrid;
+
+  part campusMicrogrid : CampusSmartMicrogrid;
+
+}
+tokens used
+4,065
+package JournalECEBasedSmartMicrogrid {
+
+  doc /* Primary function: coordinate distributed solar generation, battery storage, grid exchange, and prioritized electrical loads to maintain stable, efficient, and resilient power delivery for a campus-scale microgrid. */
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def Volt :> ISQ::electricPotentialUnit;
+  value def Ampere :> ISQ::electricCurrentUnit;
+  value def Watt :> ISQ::powerUnit;
+  value def WattHour :> ISQ::energyUnit;
+  value def Hertz :> ISQ::frequencyUnit;
+  value def Percent;
+  value def Celsius :> ISQ::temperatureUnit;
+  value def Second :> ISQ::timeUnit;
+  value def Millisecond :> ISQ::timeUnit;
+  value def Kilogram :> ISQ::massUnit;
+
+  item def DC_Power {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute power : Watt;
+  }
+
+  item def AC_Power {
+    attribute rmsVoltage : Volt;
+    attribute rmsCurrent : Ampere;
+    attribute realPower : Watt;
+    attribute frequency : Hertz;
+    attribute powerFactor : Real;
+  }
+
+  item def ControlCommand {
+    attribute commandId : Integer;
+    attribute targetPower : Watt;
+    attribute enable : Boolean;
+    attribute issuedAt : Second;
+  }
+
+  item def SensorTelemetry {
+    attribute measuredVoltage : Volt;
+    attribute measuredCurrent : Ampere;
+    attribute measuredPower : Watt;
+    attribute measuredFrequency : Hertz;
+    attribute temperature : Celsius;
+    attribute timestamp : Second;
+  }
+
+  item def ForecastData {
+    attribute solarIrradianceEstimate : Real;
+    attribute loadDemandEstimate : Watt;
+    attribute forecastHorizon : Second;
+    attribute confidence : Percent;
+  }
+
+  port def DCPowerPort {
+    out item powerOut : DC_Power;
+    in item powerIn : DC_Power;
+  }
+
+  port def ACPowerPort {
+    out item powerOut : AC_Power;
+    in item powerIn : AC_Power;
+  }
+
+  port def TelemetryPort {
+    out item telemetryOut : SensorTelemetry;
+    in item telemetryIn : SensorTelemetry;
+  }
+
+  port def CommandPort {
+    out item commandOut : ControlCommand;
+    in item commandIn : ControlCommand;
+  }
+
+  port def ForecastPort {
+    out item forecastOut : ForecastData;
+    in item forecastIn : ForecastData;
+  }
+
+  action def SampleTelemetry {
+    in samplePeriod : Millisecond;
+    out telemetry : SensorTelemetry;
+  }
+
+  action def PredictDemandAndGeneration {
+    in telemetry : SensorTelemetry;
+    in forecast : ForecastData;
+    out predictedNetPower : Watt;
+  }
+
+  action def OptimizePowerDispatch {
+    in predictedNetPower : Watt;
+    in batteryStateOfCharge : Percent;
+    in gridAvailable : Boolean;
+    out pvCommand : ControlCommand;
+    out batteryCommand : ControlCommand;
+    out gridCommand : ControlCommand;
+    out loadCommand : ControlCommand;
+  }
+
+  action def ProtectMicrogrid {
+    in telemetry : SensorTelemetry;
+    out isolationCommand : ControlCommand;
+  }
+
+  action def ExecuteDispatch {
+    in pvCommand : ControlCommand;
+    in batteryCommand : ControlCommand;
+    in gridCommand : ControlCommand;
+    in loadCommand : ControlCommand;
+  }
+
+  state def MicrogridOperatingState {
+    entry action SampleTelemetry;
+    state Startup;
+    state GridConnected;
+    state Islanded;
+    state PeakShaving;
+    state FaultIsolation;
+    state Shutdown;
+
+    transition first Startup;
+    transition Startup to GridConnected
+      if gridSynchronized;
+
+    transition GridConnected to PeakShaving
+      if loadDemandExceedsContractLimit;
+
+    transition PeakShaving to GridConnected
+      if loadDemandBelowContractLimit;
+
+    transition GridConnected to Islanded
+      if gridUnavailable;
+
+    transition Islanded to GridConnected
+      if gridRestored and synchronizationStable;
+
+    transition GridConnected to FaultIsolation
+      if protectionTrip;
+
+    transition Islanded to FaultIsolation
+      if protectionTrip;
+
+    transition FaultIsolation to Shutdown
+      if unsafeToReconnect;
+
+    transition FaultIsolation to Islanded
+      if faultCleared and gridUnavailable;
+
+    transition FaultIsolation to GridConnected
+      if faultCleared and gridRestored;
+  }
+
+  part def PhotovoltaicArray {
+    attribute ratedPower : Watt = 250000;
+    attribute nominalDCVoltage : Volt = 750;
+    attribute panelTemperature : Celsius;
+    attribute conversionEfficiency : Percent = 21;
+
+    port dcOutput : DCPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def BatteryEnergyStorageSystem {
+    attribute ratedEnergy : WattHour = 500000;
+    attribute maxChargePower : Watt = 150000;
+    attribute maxDischargePower : Watt = 150000;
+    attribute stateOfCharge : Percent;
+    attribute minimumReserve : Percent = 20;
+    attribute nominalDCVoltage : Volt = 700;
+
+    port dcPort : DCPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def BidirectionalInverter {
+    attribute ratedACPower : Watt = 300000;
+    attribute dcBusVoltage : Volt = 750;
+    attribute nominalACVoltage : Volt = 480;
+    attribute nominalFrequency : Hertz = 60;
+    attribute switchingFrequency : Hertz = 12000;
+
+    port dcSide : DCPowerPort;
+    port acSide : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def GridIntertie {
+    attribute nominalVoltage : Volt = 480;
+    attribute nominalFrequency : Hertz = 60;
+    attribute importLimit : Watt = 400000;
+    attribute exportLimit : Watt = 100000;
+    attribute synchronized : Boolean;
+
+    port utilityPort : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def CriticalLoadPanel {
+    attribute nominalVoltage : Volt = 480;
+    attribute priorityLevel : Integer = 1;
+    attribute requiredPower : Watt;
+    attribute shedAllowed : Boolean = false;
+
+    port acInput : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def FlexibleLoadPanel {
+    attribute nominalVoltage : Volt = 480;
+    attribute priorityLevel : Integer = 3;
+    attribute requestedPower : Watt;
+    attribute shedAllowed : Boolean = true;
+
+    port acInput : ACPowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def ProtectionRelay {
+    attribute overVoltageLimit : Volt = 528;
+    attribute underVoltageLimit : Volt = 432;
+    attribute overFrequencyLimit : Hertz = 61;
+    attribute underFrequencyLimit : Hertz = 59;
+    attribute tripDelay : Millisecond = 100;
+
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    perform action ProtectMicrogrid;
+  }
+
+  part def EnergyManagementController {
+    attribute controlCycle : Millisecond = 250;
+    attribute demandResponseEnabled : Boolean = true;
+    attribute targetBatteryReserve : Percent = 35;
+    attribute gridSynchronized : Boolean;
+    attribute gridAvailable : Boolean;
+
+    port pvCommand : CommandPort;
+    port batteryCommand : CommandPort;
+    port inverterCommand : CommandPort;
+    port gridCommand : CommandPort;
+    port loadCommand : CommandPort;
+    port telemetryInput : TelemetryPort;
+    port forecastInput : ForecastPort;
+
+    perform action SampleTelemetry;
+    perform action PredictDemandAndGeneration;
+    perform action OptimizePowerDispatch;
+    perform action ExecuteDispatch;
+
+    exhibit state MicrogridOperatingState;
+  }
+
+  part def WeatherAndLoadForecaster {
+    attribute updatePeriod : Second = 300;
+    attribute forecastHorizon : Second = 3600;
+    attribute modelConfidence : Percent;
+
+    port forecastOutput : ForecastPort;
+    port telemetryInput : TelemetryPort;
+  }
+
+  part def CampusSmartMicrogrid {
+    attribute designPowerCapacity : Watt = 500000;
+    attribute nominalVoltage : Volt = 480;
+    attribute nominalFrequency : Hertz = 60;
+    attribute maximumOutageRideThrough : Second = 14400;
+    attribute installedMass : Kilogram = 18000;
+
+    part pv : PhotovoltaicArray;
+    part battery : BatteryEnergyStorageSystem;
+    part inverter : BidirectionalInverter;
+    part grid : GridIntertie;
+    part criticalLoads : CriticalLoadPanel;
+    part flexibleLoads : FlexibleLoadPanel;
+    part relay : ProtectionRelay;
+    part controller : EnergyManagementController;
+    part forecaster : WeatherAndLoadForecaster;
+
+    port campusGridPort : ACPowerPort;
+    port campusCriticalLoadPort : ACPowerPort;
+    port campusFlexibleLoadPort : ACPowerPort;
+
+    connect pv.dcOutput to inverter.dcSide;
+    connect battery.dcPort to inverter.dcSide;
+    connect inverter.acSide to grid.utilityPort;
+    connect inverter.acSide to criticalLoads.acInput;
+    connect inverter.acSide to flexibleLoads.acInput;
+    connect grid.utilityPort to campusGridPort;
+    connect criticalLoads.acInput to campusCriticalLoadPort;
+    connect flexibleLoads.acInput to campusFlexibleLoadPort;
+
+    connect pv.telemetry to controller.telemetryInput;
+    connect battery.telemetry to controller.telemetryInput;
+    connect inverter.telemetry to controller.telemetryInput;
+    connect grid.telemetry to controller.telemetryInput;
+    connect criticalLoads.telemetry to controller.telemetryInput;
+    connect flexibleLoads.telemetry to controller.telemetryInput;
+    connect relay.telemetry to controller.telemetryInput;
+    connect forecaster.forecastOutput to controller.forecastInput;
+
+    connect controller.pvCommand to pv.command;
+    connect controller.batteryCommand to battery.command;
+    connect controller.inverterCommand to inverter.command;
+    connect controller.gridCommand to grid.command;
+    connect controller.loadCommand to flexibleLoads.command;
+    connect relay.command to grid.command;
+  }
+
+  requirement def MaintainCriticalLoadPower {
+    subject microgrid : CampusSmartMicrogrid;
+    require constraint {
+      microgrid.criticalLoads.requiredPower <= microgrid.designPowerCapacity
+    }
+  }
+
+  requirement def FrequencyRegulation {
+    subject microgrid : CampusSmartMicrogrid;
+    require constraint {
+      microgrid.nominalFrequency >= 59.5 and microgrid.nominalFrequency <= 60.5
+    }
+  }
+
+  requirement def BatteryReserveProtection {
+    subject storage : BatteryEnergyStorageSystem;
+    require constraint {
+      storage.stateOfCharge >= storage.minimumReserve
+    }
+  }
+
+  requirement def GridExchangeLimit {
+    subject intertie : GridIntertie;
+    require constraint {
+      intertie.importLimit <= 400000 and intertie.exportLimit <= 100000
+    }
+  }
+
+  requirement def RapidFaultIsolation {
+    subject relay : ProtectionRelay;
+    require constraint {
+      relay.tripDelay <= 100
+    }
+  }
+
+  requirement def IslandedOperationRideThrough {
+    subject microgrid : CampusSmartMicrogrid;
+    require constraint {
+      microgrid.maximumOutageRideThrough >= 14400
+    }
+  }
+
+  satisfy MaintainCriticalLoadPower by CampusSmartMicrogrid;
+  satisfy FrequencyRegulation by CampusSmartMicrogrid;
+  satisfy BatteryReserveProtection by BatteryEnergyStorageSystem;
+  satisfy GridExchangeLimit by GridIntertie;
+  satisfy RapidFaultIsolation by ProtectionRelay;
+  satisfy IslandedOperationRideThrough by CampusSmartMicrogrid;
+
+  part campusMicrogrid : CampusSmartMicrogrid;
+
+}

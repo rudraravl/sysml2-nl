@@ -1,0 +1,482 @@
+package EductorJetPumpingSubsystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure;
+    attribute def FlowRate :> ISQ::volumeFlowRate;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Density :> ISQ::massDensity;
+    attribute def DynamicViscosity :> ISQ::dynamicViscosity;
+    attribute def Efficiency :> ScalarValues::Real;
+    attribute def Ratio :> ScalarValues::Real;
+    attribute def Speed :> ISQ::frequency;
+    attribute def Power :> ISQ::power;
+    attribute def Length :> ISQ::length;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def Volume :> ISQ::volume;
+
+    item def Fluid {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute density : Density;
+        attribute viscosity : DynamicViscosity;
+        attribute vaporPressure : Pressure;
+    }
+
+    item def MotiveFluid :> Fluid;
+    item def SuctionFluid :> Fluid;
+    item def MixedDischargeFluid :> Fluid;
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute activePower : Power;
+    }
+
+    item def ControlSignal {
+        attribute command : PumpCommandKind;
+        attribute setpointFlow : FlowRate;
+        attribute setpointPressure : Pressure;
+    }
+
+    enum def PumpCommandKind {
+        enum idle;
+        enum start;
+        enum stop;
+        enum prime;
+        enum flush;
+        enum emergencyStop;
+    }
+
+    enum def PumpOperatingMode {
+        enum shutdown;
+        enum standby;
+        enum priming;
+        enum running;
+        enum flushing;
+        enum faulted;
+    }
+
+    port def FluidInletPort {
+        in item fluid : Fluid;
+        attribute allowablePressureMin : Pressure;
+        attribute allowablePressureMax : Pressure;
+    }
+
+    port def FluidOutletPort {
+        out item fluid : Fluid;
+        attribute ratedPressure : Pressure;
+        attribute ratedFlow : FlowRate;
+    }
+
+    port def BidirectionalFluidServicePort {
+        inout item fluid : Fluid;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : PumpStatus;
+    }
+
+    item def PumpStatus {
+        attribute mode : PumpOperatingMode;
+        attribute motivePressure : Pressure;
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute dischargeFlow : FlowRate;
+        attribute faultCode : Integer;
+    }
+
+    part def Strainer {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        attribute meshOpening : Length = 0.001 [m];
+        attribute cleanPressureDrop : Pressure = 5000 [Pa];
+        attribute cloggedPressureDropLimit : Pressure = 35000 [Pa];
+
+        action filterFluid {
+            in item incoming : Fluid;
+            out item filtered : Fluid;
+        }
+    }
+
+    part def IsolationValve {
+        port upstream : BidirectionalFluidServicePort;
+        port downstream : BidirectionalFluidServicePort;
+        attribute commandedOpen : Boolean;
+        attribute openFraction : Ratio;
+        attribute fullOpenPressureDrop : Pressure = 2000 [Pa];
+
+        action openValve {
+            out attribute commandedOpen = true;
+            out attribute openFraction = 1.0;
+        }
+
+        action closeValve {
+            out attribute commandedOpen = false;
+            out attribute openFraction = 0.0;
+        }
+    }
+
+    part def CheckValve {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+        attribute crackingPressure : Pressure = 10000 [Pa];
+        attribute reverseLeakageFlowMax : FlowRate = 0.000001 [m^3/s];
+
+        action preventReverseFlow {
+            in attribute reverseDifferentialPressure : Pressure;
+            out attribute reverseFlowBlocked : Boolean;
+        }
+    }
+
+    part def PressureSensor {
+        port process : BidirectionalFluidServicePort;
+        attribute measuredPressure : Pressure;
+        attribute rangeMin : Pressure = 0 [Pa];
+        attribute rangeMax : Pressure = 1600000 [Pa];
+        attribute accuracy : Ratio = 0.005;
+    }
+
+    part def FlowSensor {
+        port process : BidirectionalFluidServicePort;
+        attribute measuredFlow : FlowRate;
+        attribute rangeMin : FlowRate = 0 [m^3/s];
+        attribute rangeMax : FlowRate = 0.08 [m^3/s];
+        attribute accuracy : Ratio = 0.01;
+    }
+
+    part def TemperatureSensor {
+        port process : BidirectionalFluidServicePort;
+        attribute measuredTemperature : Temperature;
+        attribute rangeMin : Temperature = 273.15 [K];
+        attribute rangeMax : Temperature = 373.15 [K];
+        attribute accuracy : Temperature = 0.5 [K];
+    }
+
+    part def CentrifugalMotivePump {
+        port suction : FluidInletPort;
+        port discharge : FluidOutletPort;
+        port powerIn : ElectricalPowerPort;
+        port control : ControlPort;
+
+        attribute ratedSpeed : Speed = 60 [Hz];
+        attribute ratedHydraulicPower : Power = 12000 [W];
+        attribute ratedFlow : FlowRate = 0.025 [m^3/s];
+        attribute ratedDischargePressure : Pressure = 900000 [Pa];
+        attribute minimumSuctionPressure : Pressure = 120000 [Pa];
+        attribute efficiency : Efficiency = 0.72;
+        attribute running : Boolean;
+
+        action startMotor {
+            in item power : ElectricalPower;
+            out attribute running = true;
+        }
+
+        action stopMotor {
+            out attribute running = false;
+        }
+
+        action pressurizeMotiveFluid {
+            in item lowPressureFluid : MotiveFluid;
+            out item highPressureFluid : MotiveFluid;
+        }
+    }
+
+    part def EductorJetPump {
+        port motiveInlet : FluidInletPort;
+        port suctionInlet : FluidInletPort;
+        port dischargeOutlet : FluidOutletPort;
+
+        attribute nozzleThroatDiameter : Length = 0.018 [m];
+        attribute diffuserExitDiameter : Length = 0.065 [m];
+        attribute mixingTubeLength : Length = 0.42 [m];
+        attribute motivePressureRequired : Pressure = 700000 [Pa];
+        attribute minimumSuctionPressure : Pressure = 60000 [Pa];
+        attribute ratedMotiveFlow : FlowRate = 0.018 [m^3/s];
+        attribute ratedSuctionFlow : FlowRate = 0.012 [m^3/s];
+        attribute ratedDischargeFlow : FlowRate = 0.030 [m^3/s];
+        attribute entrainmentRatio : Ratio = 0.67;
+        attribute pressureRecoveryEfficiency : Efficiency = 0.38;
+        attribute cavitationMarginRequired : Pressure = 25000 [Pa];
+
+        part motiveNozzle {
+            attribute inletDiameter : Length = 0.045 [m];
+            attribute throatDiameter : Length = 0.018 [m];
+            attribute dischargeCoefficient : Ratio = 0.96;
+        }
+
+        part suctionChamber {
+            attribute chamberDiameter : Length = 0.09 [m];
+            attribute allowableVacuumPressureMin : Pressure = 45000 [Pa];
+        }
+
+        part mixingTube {
+            attribute diameter : Length = 0.04 [m];
+            attribute length : Length = 0.42 [m];
+        }
+
+        part diffuser {
+            attribute inletDiameter : Length = 0.04 [m];
+            attribute outletDiameter : Length = 0.065 [m];
+            attribute pressureRecoveryCoefficient : Ratio = 0.52;
+        }
+
+        action accelerateMotiveJet {
+            in item motive : MotiveFluid;
+            out item highVelocityJet : MotiveFluid;
+        }
+
+        action entrainSuctionFluid {
+            in item highVelocityJet : MotiveFluid;
+            in item suction : SuctionFluid;
+            out item twoStreamMixture : MixedDischargeFluid;
+        }
+
+        action recoverPressure {
+            in item twoStreamMixture : MixedDischargeFluid;
+            out item discharge : MixedDischargeFluid;
+        }
+
+        calc def calculateEntrainmentRatio {
+            in motiveFlow : FlowRate;
+            in suctionFlow : FlowRate;
+            return entrainmentRatio : Ratio;
+        }
+    }
+
+    part def PumpController {
+        port control : ControlPort;
+
+        attribute commandedMode : PumpOperatingMode;
+        attribute faultCode : Integer;
+        attribute startDelay : TimeDuration = 2 [s];
+        attribute flushDuration : TimeDuration = 60 [s];
+        attribute lowSuctionPressureTrip : Pressure = 55000 [Pa];
+        attribute highDischargePressureTrip : Pressure = 1200000 [Pa];
+        attribute lowMotivePressureTrip : Pressure = 620000 [Pa];
+
+        action evaluateCommand {
+            in item command : ControlSignal;
+            out attribute requestedMode : PumpOperatingMode;
+        }
+
+        action monitorProtection {
+            in attribute suctionPressure : Pressure;
+            in attribute motivePressure : Pressure;
+            in attribute dischargePressure : Pressure;
+            out attribute trip : Boolean;
+            out attribute faultCode : Integer;
+        }
+
+        state def OperatingState {
+            entry action initializeStatus;
+
+            state shutdown;
+            state standby;
+            state priming;
+            state running;
+            state flushing;
+            state faulted;
+
+            transition initial then shutdown;
+            transition shutdown_to_standby
+                first shutdown
+                accept ControlSignal
+                if command == PumpCommandKind::start
+                then standby;
+
+            transition standby_to_priming
+                first standby
+                accept ControlSignal
+                if command == PumpCommandKind::prime
+                then priming;
+
+            transition priming_to_running
+                first priming
+                accept ControlSignal
+                if command == PumpCommandKind::start
+                then running;
+
+            transition running_to_flushing
+                first running
+                accept ControlSignal
+                if command == PumpCommandKind::flush
+                then flushing;
+
+            transition flushing_to_standby
+                first flushing
+                after flushDuration
+                then standby;
+
+            transition standby_to_shutdown
+                first standby
+                accept ControlSignal
+                if command == PumpCommandKind::stop
+                then shutdown;
+
+            transition running_to_standby
+                first running
+                accept ControlSignal
+                if command == PumpCommandKind::stop
+                then standby;
+
+            transition any_to_faulted
+                first shutdown, standby, priming, running, flushing
+                accept ControlSignal
+                if command == PumpCommandKind::emergencyStop
+                then faulted;
+        }
+    }
+
+    part def EductorJetPumpingSubsystem {
+        port motiveSupplyIn : FluidInletPort;
+        port suctionSourceIn : FluidInletPort;
+        port dischargeOut : FluidOutletPort;
+        port electricalPowerIn : ElectricalPowerPort;
+        port operatorControl : ControlPort;
+
+        attribute designMotivePressure : Pressure = 800000 [Pa];
+        attribute designSuctionPressure : Pressure = 100000 [Pa];
+        attribute designDischargePressure : Pressure = 320000 [Pa];
+        attribute designMotiveFlow : FlowRate = 0.018 [m^3/s];
+        attribute designSuctionFlow : FlowRate = 0.012 [m^3/s];
+        attribute designTotalDischargeFlow : FlowRate = 0.030 [m^3/s];
+        attribute allowableFluidTemperatureMin : Temperature = 278.15 [K];
+        attribute allowableFluidTemperatureMax : Temperature = 333.15 [K];
+        attribute totalInternalVolume : Volume = 0.18 [m^3];
+
+        part motiveInletValve : IsolationValve;
+        part suctionInletValve : IsolationValve;
+        part dischargeIsolationValve : IsolationValve;
+        part motiveStrainer : Strainer;
+        part suctionStrainer : Strainer;
+        part motivePump : CentrifugalMotivePump;
+        part eductor : EductorJetPump;
+        part dischargeCheckValve : CheckValve;
+        part controller : PumpController;
+        part motivePressureSensor : PressureSensor;
+        part suctionPressureSensor : PressureSensor;
+        part dischargePressureSensor : PressureSensor;
+        part dischargeFlowSensor : FlowSensor;
+        part dischargeTemperatureSensor : TemperatureSensor;
+
+        connect motiveSupplyIn to motiveInletValve.upstream;
+        connect motiveInletValve.downstream to motiveStrainer.inlet;
+        connect motiveStrainer.outlet to motivePump.suction;
+        connect motivePump.discharge to eductor.motiveInlet;
+
+        connect suctionSourceIn to suctionInletValve.upstream;
+        connect suctionInletValve.downstream to suctionStrainer.inlet;
+        connect suctionStrainer.outlet to eductor.suctionInlet;
+
+        connect eductor.dischargeOutlet to dischargeCheckValve.inlet;
+        connect dischargeCheckValve.outlet to dischargeIsolationValve.upstream;
+        connect dischargeIsolationValve.downstream to dischargeOut;
+
+        connect electricalPowerIn to motivePump.powerIn;
+        connect operatorControl to controller.control;
+        connect controller.control to motivePump.control;
+
+        connect motivePressureSensor.process to eductor.motiveInlet;
+        connect suctionPressureSensor.process to eductor.suctionInlet;
+        connect dischargePressureSensor.process to dischargeOut;
+        connect dischargeFlowSensor.process to dischargeOut;
+        connect dischargeTemperatureSensor.process to dischargeOut;
+
+        action startSubsystem {
+            first controller.evaluateCommand;
+            then motiveInletValve.openValve;
+            then suctionInletValve.openValve;
+            then dischargeIsolationValve.openValve;
+            then motivePump.startMotor;
+            then eductor.accelerateMotiveJet;
+            then eductor.entrainSuctionFluid;
+            then eductor.recoverPressure;
+        }
+
+        action stopSubsystem {
+            first motivePump.stopMotor;
+            then motiveInletValve.closeValve;
+            then suctionInletValve.closeValve;
+            then dischargeIsolationValve.closeValve;
+        }
+
+        action protectSubsystem {
+            first controller.monitorProtection;
+            if controller.monitorProtection.trip then stopSubsystem;
+        }
+    }
+
+    requirement def MoveFluidByEductorJet {
+        subject subsystem : EductorJetPumpingSubsystem;
+
+        require constraint {
+            subsystem.designTotalDischargeFlow >= 0.030 [m^3/s]
+        }
+
+        require constraint {
+            subsystem.designDischargePressure >= 300000 [Pa]
+        }
+
+        require constraint {
+            subsystem.eductor.entrainmentRatio >= 0.60
+        }
+    }
+
+    requirement def MotiveFluidPressureRequirement {
+        subject subsystem : EductorJetPumpingSubsystem;
+
+        require constraint {
+            subsystem.designMotivePressure >= subsystem.eductor.motivePressureRequired
+        }
+    }
+
+    requirement def CavitationProtectionRequirement {
+        subject subsystem : EductorJetPumpingSubsystem;
+
+        require constraint {
+            subsystem.designSuctionPressure - subsystem.eductor.minimumSuctionPressure >= subsystem.eductor.cavitationMarginRequired
+        }
+    }
+
+    requirement def ReverseFlowPreventionRequirement {
+        subject subsystem : EductorJetPumpingSubsystem;
+
+        require constraint {
+            subsystem.dischargeCheckValve.reverseLeakageFlowMax <= 0.000001 [m^3/s]
+        }
+    }
+
+    requirement def TemperatureOperatingEnvelopeRequirement {
+        subject subsystem : EductorJetPumpingSubsystem;
+
+        require constraint {
+            subsystem.allowableFluidTemperatureMin >= 278.15 [K] and
+            subsystem.allowableFluidTemperatureMax <= 333.15 [K]
+        }
+    }
+
+    requirement def ProtectionTripRequirement {
+        subject subsystem : EductorJetPumpingSubsystem;
+
+        require constraint {
+            subsystem.controller.lowSuctionPressureTrip >= 55000 [Pa] and
+            subsystem.controller.highDischargePressureTrip <= 1200000 [Pa] and
+            subsystem.controller.lowMotivePressureTrip >= 620000 [Pa]
+        }
+    }
+
+    satisfy MoveFluidByEductorJet by EductorJetPumpingSubsystem;
+    satisfy MotiveFluidPressureRequirement by EductorJetPumpingSubsystem;
+    satisfy CavitationProtectionRequirement by EductorJetPumpingSubsystem;
+    satisfy ReverseFlowPreventionRequirement by EductorJetPumpingSubsystem;
+    satisfy TemperatureOperatingEnvelopeRequirement by EductorJetPumpingSubsystem;
+    satisfy ProtectionTripRequirement by EductorJetPumpingSubsystem;
+}

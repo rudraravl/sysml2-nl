@@ -1,0 +1,1195 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-33o6ga5j
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb82f-9253-7583-9cb8-c145bdbebcc4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a pumping subsystem that moves fluid using a Mud pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MudPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    alias Litre = SI::litre;
+    alias Minute = SI::minute;
+    alias Bar = SI::bar;
+
+    value type PressureValue specializes Real {
+        unit = Bar;
+        quantityKind = ISQ::pressure;
+    }
+
+    value type FlowRateValue specializes Real {
+        unit = Litre / Minute;
+        quantityKind = ISQ::volumeFlowRate;
+    }
+
+    value type TemperatureValue specializes Real {
+        unit = SI::degreeCelsius;
+        quantityKind = ISQ::thermodynamicTemperature;
+    }
+
+    value type RotationalSpeedValue specializes Real {
+        unit = SI::revolution / Minute;
+        quantityKind = ISQ::frequency;
+    }
+
+    value type PowerValue specializes Real {
+        unit = SI::kilowatt;
+        quantityKind = ISQ::power;
+    }
+
+    value type VolumeValue specializes Real {
+        unit = Litre;
+        quantityKind = ISQ::volume;
+    }
+
+    value type EfficiencyValue specializes Real {
+        unit = SI::one;
+        quantityKind = ISQ::dimensionless;
+    }
+
+    value type TimeValue specializes Real {
+        unit = SI::second;
+        quantityKind = ISQ::time;
+    }
+
+    value type MassFractionValue specializes Real {
+        unit = SI::one;
+        quantityKind = ISQ::dimensionless;
+    }
+
+    item def DrillingMud {
+        attribute density : Real;
+        attribute solidsFraction : MassFractionValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+        attribute volumeFlowRate : FlowRateValue;
+    }
+
+    item def MechanicalPower {
+        attribute deliveredPower : PowerValue;
+        attribute shaftSpeed : RotationalSpeedValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute availablePower : PowerValue;
+    }
+
+    item def PumpCommand {
+        attribute requestedFlowRate : FlowRateValue;
+        attribute requestedDischargePressure : PressureValue;
+        attribute enable : Boolean;
+        attribute emergencyStop : Boolean;
+        attribute flushRequest : Boolean;
+    }
+
+    item def PumpStatus {
+        attribute actualFlowRate : FlowRateValue;
+        attribute suctionPressure : PressureValue;
+        attribute dischargePressure : PressureValue;
+        attribute mudTemperature : TemperatureValue;
+        attribute shaftSpeed : RotationalSpeedValue;
+        attribute pumpRunning : Boolean;
+        attribute faultActive : Boolean;
+        attribute cavitationDetected : Boolean;
+        attribute overPressureDetected : Boolean;
+        attribute maintenanceRequired : Boolean;
+    }
+
+    port def MudInletPort {
+        in item mudIn : DrillingMud;
+    }
+
+    port def MudOutletPort {
+        out item mudOut : DrillingMud;
+    }
+
+    port def MudTransferPort {
+        inout item mud : DrillingMud;
+    }
+
+    port def ElectricalPowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def MechanicalPowerPort {
+        inout item shaftPower : MechanicalPower;
+    }
+
+    port def CommandPort {
+        in item command : PumpCommand;
+    }
+
+    port def StatusPort {
+        out item status : PumpStatus;
+    }
+
+    port def ReliefReturnPort {
+        out item relievedMud : DrillingMud;
+    }
+
+    part def MudTank {
+        attribute capacity : VolumeValue = 60000 [Litre];
+        attribute usableVolume : VolumeValue = 45000 [Litre];
+        attribute minimumOperatingVolume : VolumeValue = 8000 [Litre];
+        attribute mudTemperature : TemperatureValue;
+        attribute mudSolidsFraction : MassFractionValue;
+
+        port outlet : MudOutletPort;
+        port returnInlet : MudInletPort;
+    }
+
+    part def SuctionManifold {
+        attribute internalVolume : VolumeValue = 1200 [Litre];
+        attribute maximumSuctionPressure : PressureValue = 12 [Bar];
+        attribute minimumNetPositiveSuctionPressure : PressureValue = 2.5 [Bar];
+
+        port tankConnection : MudInletPort;
+        port pumpConnection : MudOutletPort;
+    }
+
+    part def DischargeManifold {
+        attribute ratedPressure : PressureValue = 350 [Bar];
+        attribute internalVolume : VolumeValue = 850 [Litre];
+
+        port pumpConnection : MudInletPort;
+        port standpipeConnection : MudOutletPort;
+        port reliefConnection : MudOutletPort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : PowerValue = 1200 [SI::kilowatt];
+        attribute nominalSpeed : RotationalSpeedValue = 1200 [SI::revolution / Minute];
+        attribute efficiency : EfficiencyValue = 0.95;
+        attribute enabled : Boolean;
+
+        port electricalInput : ElectricalPowerInputPort;
+        port shaftOutput : MechanicalPowerPort;
+    }
+
+    part def VariableFrequencyDrive {
+        attribute maximumOutputPower : PowerValue = 1300 [SI::kilowatt];
+        attribute commandedSpeed : RotationalSpeedValue;
+        attribute outputFrequency : Real;
+        attribute driveEnabled : Boolean;
+
+        port powerInput : ElectricalPowerInputPort;
+        port commandInput : CommandPort;
+        port motorPowerOutput : ElectricalPowerInputPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def GearReducer {
+        attribute reductionRatio : Real = 4.2;
+        attribute mechanicalEfficiency : EfficiencyValue = 0.97;
+        attribute oilTemperature : TemperatureValue;
+
+        port highSpeedShaft : MechanicalPowerPort;
+        port lowSpeedShaft : MechanicalPowerPort;
+    }
+
+    part def TriplexMudPump {
+        attribute ratedFlowRate : FlowRateValue = 2400 [Litre / Minute];
+        attribute ratedDischargePressure : PressureValue = 300 [Bar];
+        attribute maximumAllowablePressure : PressureValue = 350 [Bar];
+        attribute minimumSuctionPressure : PressureValue = 1.5 [Bar];
+        attribute volumetricEfficiency : EfficiencyValue = 0.91;
+        attribute mechanicalEfficiency : EfficiencyValue = 0.88;
+        attribute strokeRate : RotationalSpeedValue;
+        attribute running : Boolean;
+        attribute linerDiameter : Real;
+        attribute strokeLength : Real;
+
+        port suctionInlet : MudInletPort;
+        port dischargeOutlet : MudOutletPort;
+        port shaftInput : MechanicalPowerPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+
+        action startPump {
+            in command : PumpCommand;
+            out status : PumpStatus;
+        }
+
+        action stopPump {
+            out status : PumpStatus;
+        }
+
+        action regulateFlow {
+            in requestedFlowRate : FlowRateValue;
+            in requestedPressure : PressureValue;
+            out strokeRateCommand : RotationalSpeedValue;
+        }
+
+        action detectFaults {
+            in suctionPressure : PressureValue;
+            in dischargePressure : PressureValue;
+            in mudTemperature : TemperatureValue;
+            out cavitationDetected : Boolean;
+            out overPressureDetected : Boolean;
+            out maintenanceRequired : Boolean;
+        }
+
+        state machine PumpOperatingStates {
+            state Off;
+            state Priming;
+            state Running;
+            state FlowRegulation;
+            state Flushing;
+            state Faulted;
+            state EmergencyStopped;
+
+            initial then Off;
+
+            transition Off_to_Priming
+                first Off
+                accept PumpCommand
+                if command.enable and not command.emergencyStop
+                then Priming;
+
+            transition Priming_to_Running
+                first Priming
+                if suctionInlet.mudIn.pressure >= minimumSuctionPressure
+                then Running;
+
+            transition Running_to_FlowRegulation
+                first Running
+                if commandInput.command.requestedFlowRate > 0 [Litre / Minute]
+                then FlowRegulation;
+
+            transition FlowRegulation_to_Running
+                first FlowRegulation
+                if abs(statusOutput.status.actualFlowRate - commandInput.command.requestedFlowRate) <= 50 [Litre / Minute]
+                then Running;
+
+            transition Running_to_Flushing
+                first Running
+                accept PumpCommand
+                if command.flushRequest
+                then Flushing;
+
+            transition Flushing_to_Off
+                first Flushing
+                after 180 [SI::second]
+                then Off;
+
+            transition Any_to_Faulted
+                first Running
+                if statusOutput.status.cavitationDetected or statusOutput.status.overPressureDetected
+                then Faulted;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept PumpCommand
+                if not command.enable
+                then Off;
+
+            transition Any_to_EmergencyStopped
+                first Off
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+
+            transition Running_to_EmergencyStopped
+                first Running
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+
+            transition Priming_to_EmergencyStopped
+                first Priming
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+
+            transition FlowRegulation_to_EmergencyStopped
+                first FlowRegulation
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+        }
+    }
+
+    part def PulsationDampener {
+        attribute gasPrechargePressure : PressureValue = 70 [Bar];
+        attribute maximumWorkingPressure : PressureValue = 350 [Bar];
+        attribute dampeningEfficiency : EfficiencyValue = 0.75;
+
+        port inlet : MudInletPort;
+        port outlet : MudOutletPort;
+    }
+
+    part def PressureReliefValve {
+        attribute setPressure : PressureValue = 325 [Bar];
+        attribute reseatPressure : PressureValue = 290 [Bar];
+        attribute ratedReliefFlow : FlowRateValue = 2600 [Litre / Minute];
+        attribute open : Boolean;
+
+        port inlet : MudInletPort;
+        port normalOutlet : MudOutletPort;
+        port reliefOutlet : ReliefReturnPort;
+
+        state machine ReliefValveStates {
+            state Closed;
+            state Open;
+            initial then Closed;
+
+            transition OpenOnHighPressure
+                first Closed
+                if inlet.mudIn.pressure >= setPressure
+                then Open;
+
+            transition CloseAfterPressureRecovery
+                first Open
+                if inlet.mudIn.pressure <= reseatPressure
+                then Closed;
+        }
+    }
+
+    part def FlowMeter {
+        attribute measurementRange : FlowRateValue = 3000 [Litre / Minute];
+        attribute accuracy : EfficiencyValue = 0.01;
+
+        port inlet : MudInletPort;
+        port outlet : MudOutletPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PressureTransmitter {
+        attribute range : PressureValue = 400 [Bar];
+        attribute accuracy : EfficiencyValue = 0.005;
+
+        port processConnection : MudTransferPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PumpController {
+        attribute targetFlowRate : FlowRateValue;
+        attribute targetPressure : PressureValue;
+        attribute lowSuctionPressureTrip : PressureValue = 1.5 [Bar];
+        attribute highDischargePressureTrip : PressureValue = 330 [Bar];
+        attribute maximumMudTemperature : TemperatureValue = 85 [SI::degreeCelsius];
+
+        port operatorCommand : CommandPort;
+        port pumpCommand : CommandPort;
+        port driveCommand : CommandPort;
+        port statusInput : StatusPort;
+        port statusOutput : StatusPort;
+
+        action computeSpeedCommand {
+            in requestedFlowRate : FlowRateValue;
+            in measuredFlowRate : FlowRateValue;
+            out requestedStrokeRate : RotationalSpeedValue;
+        }
+
+        action tripOnUnsafeCondition {
+            in suctionPressure : PressureValue;
+            in dischargePressure : PressureValue;
+            in mudTemperature : TemperatureValue;
+            out emergencyStop : Boolean;
+        }
+
+        state machine ControllerStates {
+            state Idle;
+            state Ready;
+            state CommandingStart;
+            state Controlling;
+            state Shutdown;
+            state Trip;
+
+            initial then Idle;
+
+            transition Idle_to_Ready
+                first Idle
+                if operatorCommand.command.enable and not operatorCommand.command.emergencyStop
+                then Ready;
+
+            transition Ready_to_CommandingStart
+                first Ready
+                then CommandingStart;
+
+            transition CommandingStart_to_Controlling
+                first CommandingStart
+                if statusInput.status.pumpRunning
+                then Controlling;
+
+            transition Controlling_to_Shutdown
+                first Controlling
+                if not operatorCommand.command.enable
+                then Shutdown;
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                after 30 [SI::second]
+                then Idle;
+
+            transition Controlling_to_Trip
+                first Controlling
+                if statusInput.status.suctionPressure < lowSuctionPressureTrip
+                   or statusInput.status.dischargePressure > highDischargePressureTrip
+                   or statusInput.status.mudTemperature > maximumMudTemperature
+                   or operatorCommand.command.emergencyStop
+                then Trip;
+
+            transition Trip_to_Idle
+                first Trip
+                if not operatorCommand.command.enable
+                then Idle;
+        }
+    }
+
+    part def MudPumpSubsystem {
+        attribute subsystemRatedFlowRate : FlowRateValue = 2400 [Litre / Minute];
+        attribute subsystemRatedPressure : PressureValue = 300 [Bar];
+        attribute normalOperatingFlowRate : FlowRateValue = 1800 [Litre / Minute];
+        attribute normalOperatingPressure : PressureValue = 220 [Bar];
+        attribute maximumStartTime : TimeValue = 45 [SI::second];
+
+        port electricalSupply : ElectricalPowerInputPort;
+        port operatorCommand : CommandPort;
+        port subsystemStatus : StatusPort;
+        port mudReturnToTank : MudInletPort;
+        port mudDischargeToStandpipe : MudOutletPort;
+
+        part mudTank : MudTank;
+        part suctionManifold : SuctionManifold;
+        part drive : VariableFrequencyDrive;
+        part motor : ElectricMotor;
+        part gearbox : GearReducer;
+        part mudPump : TriplexMudPump;
+        part dampener : PulsationDampener;
+        part reliefValve : PressureReliefValve;
+        part flowMeter : FlowMeter;
+        part suctionPressureTransmitter : PressureTransmitter;
+        part dischargePressureTransmitter : PressureTransmitter;
+        part controller : PumpController;
+        part dischargeManifold : DischargeManifold;
+
+        connect electricalSupply to drive.powerInput;
+        connect drive.motorPowerOutput to motor.electricalInput;
+        connect motor.shaftOutput to gearbox.highSpeedShaft;
+        connect gearbox.lowSpeedShaft to mudPump.shaftInput;
+
+        connect mudTank.outlet to suctionManifold.tankConnection;
+        connect suctionManifold.pumpConnection to mudPump.suctionInlet;
+        connect mudPump.dischargeOutlet to dampener.inlet;
+        connect dampener.outlet to dischargeManifold.pumpConnection;
+        connect dischargeManifold.standpipeConnection to flowMeter.inlet;
+        connect flowMeter.outlet to mudDischargeToStandpipe;
+        connect dischargeManifold.reliefConnection to reliefValve.inlet;
+        connect reliefValve.reliefOutlet to mudReturnToTank;
+        connect mudReturnToTank to mudTank.returnInlet;
+
+        connect operatorCommand to controller.operatorCommand;
+        connect controller.pumpCommand to mudPump.commandInput;
+        connect controller.driveCommand to drive.commandInput;
+        connect mudPump.statusOutput to controller.statusInput;
+        connect flowMeter.statusOutput to controller.statusInput;
+        connect suctionPressureTransmitter.statusOutput to controller.statusInput;
+        connect dischargePressureTransmitter.statusOutput to controller.statusInput;
+        connect controller.statusOutput to subsystemStatus;
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : MudPumpSubsystem;
+    }
+
+    requirement FlowCapacityRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The mud pumping subsystem shall deliver drilling mud at a continuous flow rate of at least 1800 L/min at normal operating pressure. */
+
+        require constraint {
+            subsystem.normalOperatingFlowRate >= 1800 [Litre / Minute]
+        }
+    }
+
+    requirement PressureCapabilityRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The mud pumping subsystem shall sustain a discharge pressure of 300 bar without exceeding rated component limits. */
+
+        require constraint {
+            subsystem.subsystemRatedPressure >= 300 [Bar]
+            and subsystem.mudPump.ratedDischargePressure >= subsystem.subsystemRatedPressure
+            and subsystem.dischargeManifold.ratedPressure >= subsystem.subsystemRatedPressure
+            and subsystem.dampener.maximumWorkingPressure >= subsystem.subsystemRatedPressure
+        }
+    }
+
+    requirement OverPressureProtectionRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The subsystem shall open the relief path before discharge pressure exceeds 350 bar. */
+
+        require constraint {
+            subsystem.reliefValve.setPressure <= 325 [Bar]
+            and subsystem.reliefValve.setPressure < subsystem.mudPump.maximumAllowablePressure
+        }
+    }
+
+    requirement LowSuctionPressureTripRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The controller shall trip the pump when suction pressure falls below the minimum safe suction pressure. */
+
+        require constraint {
+            subsystem.controller.lowSuctionPressureTrip == subsystem.mudPump.minimumSuctionPressure
+        }
+    }
+
+    requirement StartTimeRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The subsystem shall transition from enabled command to stable running status within 45 seconds when mud volume and suction pressure are available. */
+
+        require constraint {
+            subsystem.maximumStartTime <= 45 [SI::second]
+        }
+    }
+
+    requirement TemperatureProtectionRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The controller shall command shutdown when measured mud temperature exceeds 85 degC. */
+
+        require constraint {
+            subsystem.controller.maximumMudTemperature <= 85 [SI::degreeCelsius]
+        }
+    }
+
+    requirement StatusReportingRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The subsystem shall report actual flow rate, suction pressure, discharge pressure, mud temperature, running state, and active fault state. */
+    }
+
+    requirement PrimeVolumeRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The mud tank shall maintain at least 8000 L usable volume for pump priming and cavitation avoidance. */
+
+        require constraint {
+            subsystem.mudTank.minimumOperatingVolume >= 8000 [Litre]
+        }
+    }
+
+    requirement PowerMarginRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The motor and drive shall provide at least 1200 kW rated power to support rated mud pump operation. */
+
+        require constraint {
+            subsystem.motor.ratedPower >= 1200 [SI::kilowatt]
+            and subsystem.drive.maximumOutputPower >= subsystem.motor.ratedPower
+        }
+    }
+
+    satisfy FlowCapacityRequirement by MudPumpSubsystem::mudPump;
+    satisfy PressureCapabilityRequirement by MudPumpSubsystem::mudPump;
+    satisfy PressureCapabilityRequirement by MudPumpSubsystem::dischargeManifold;
+    satisfy OverPressureProtectionRequirement by MudPumpSubsystem::reliefValve;
+    satisfy LowSuctionPressureTripRequirement by MudPumpSubsystem::controller;
+    satisfy StartTimeRequirement by MudPumpSubsystem::controller;
+    satisfy TemperatureProtectionRequirement by MudPumpSubsystem::controller;
+    satisfy StatusReportingRequirement by MudPumpSubsystem::subsystemStatus;
+    satisfy PrimeVolumeRequirement by MudPumpSubsystem::mudTank;
+    satisfy PowerMarginRequirement by MudPumpSubsystem::motor;
+    satisfy PowerMarginRequirement by MudPumpSubsystem::drive;
+}
+tokens used
+5,495
+package MudPumpingSubsystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    alias Litre = SI::litre;
+    alias Minute = SI::minute;
+    alias Bar = SI::bar;
+
+    value type PressureValue specializes Real {
+        unit = Bar;
+        quantityKind = ISQ::pressure;
+    }
+
+    value type FlowRateValue specializes Real {
+        unit = Litre / Minute;
+        quantityKind = ISQ::volumeFlowRate;
+    }
+
+    value type TemperatureValue specializes Real {
+        unit = SI::degreeCelsius;
+        quantityKind = ISQ::thermodynamicTemperature;
+    }
+
+    value type RotationalSpeedValue specializes Real {
+        unit = SI::revolution / Minute;
+        quantityKind = ISQ::frequency;
+    }
+
+    value type PowerValue specializes Real {
+        unit = SI::kilowatt;
+        quantityKind = ISQ::power;
+    }
+
+    value type VolumeValue specializes Real {
+        unit = Litre;
+        quantityKind = ISQ::volume;
+    }
+
+    value type EfficiencyValue specializes Real {
+        unit = SI::one;
+        quantityKind = ISQ::dimensionless;
+    }
+
+    value type TimeValue specializes Real {
+        unit = SI::second;
+        quantityKind = ISQ::time;
+    }
+
+    value type MassFractionValue specializes Real {
+        unit = SI::one;
+        quantityKind = ISQ::dimensionless;
+    }
+
+    item def DrillingMud {
+        attribute density : Real;
+        attribute solidsFraction : MassFractionValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+        attribute volumeFlowRate : FlowRateValue;
+    }
+
+    item def MechanicalPower {
+        attribute deliveredPower : PowerValue;
+        attribute shaftSpeed : RotationalSpeedValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute availablePower : PowerValue;
+    }
+
+    item def PumpCommand {
+        attribute requestedFlowRate : FlowRateValue;
+        attribute requestedDischargePressure : PressureValue;
+        attribute enable : Boolean;
+        attribute emergencyStop : Boolean;
+        attribute flushRequest : Boolean;
+    }
+
+    item def PumpStatus {
+        attribute actualFlowRate : FlowRateValue;
+        attribute suctionPressure : PressureValue;
+        attribute dischargePressure : PressureValue;
+        attribute mudTemperature : TemperatureValue;
+        attribute shaftSpeed : RotationalSpeedValue;
+        attribute pumpRunning : Boolean;
+        attribute faultActive : Boolean;
+        attribute cavitationDetected : Boolean;
+        attribute overPressureDetected : Boolean;
+        attribute maintenanceRequired : Boolean;
+    }
+
+    port def MudInletPort {
+        in item mudIn : DrillingMud;
+    }
+
+    port def MudOutletPort {
+        out item mudOut : DrillingMud;
+    }
+
+    port def MudTransferPort {
+        inout item mud : DrillingMud;
+    }
+
+    port def ElectricalPowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def MechanicalPowerPort {
+        inout item shaftPower : MechanicalPower;
+    }
+
+    port def CommandPort {
+        in item command : PumpCommand;
+    }
+
+    port def StatusPort {
+        out item status : PumpStatus;
+    }
+
+    port def ReliefReturnPort {
+        out item relievedMud : DrillingMud;
+    }
+
+    part def MudTank {
+        attribute capacity : VolumeValue = 60000 [Litre];
+        attribute usableVolume : VolumeValue = 45000 [Litre];
+        attribute minimumOperatingVolume : VolumeValue = 8000 [Litre];
+        attribute mudTemperature : TemperatureValue;
+        attribute mudSolidsFraction : MassFractionValue;
+
+        port outlet : MudOutletPort;
+        port returnInlet : MudInletPort;
+    }
+
+    part def SuctionManifold {
+        attribute internalVolume : VolumeValue = 1200 [Litre];
+        attribute maximumSuctionPressure : PressureValue = 12 [Bar];
+        attribute minimumNetPositiveSuctionPressure : PressureValue = 2.5 [Bar];
+
+        port tankConnection : MudInletPort;
+        port pumpConnection : MudOutletPort;
+    }
+
+    part def DischargeManifold {
+        attribute ratedPressure : PressureValue = 350 [Bar];
+        attribute internalVolume : VolumeValue = 850 [Litre];
+
+        port pumpConnection : MudInletPort;
+        port standpipeConnection : MudOutletPort;
+        port reliefConnection : MudOutletPort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : PowerValue = 1200 [SI::kilowatt];
+        attribute nominalSpeed : RotationalSpeedValue = 1200 [SI::revolution / Minute];
+        attribute efficiency : EfficiencyValue = 0.95;
+        attribute enabled : Boolean;
+
+        port electricalInput : ElectricalPowerInputPort;
+        port shaftOutput : MechanicalPowerPort;
+    }
+
+    part def VariableFrequencyDrive {
+        attribute maximumOutputPower : PowerValue = 1300 [SI::kilowatt];
+        attribute commandedSpeed : RotationalSpeedValue;
+        attribute outputFrequency : Real;
+        attribute driveEnabled : Boolean;
+
+        port powerInput : ElectricalPowerInputPort;
+        port commandInput : CommandPort;
+        port motorPowerOutput : ElectricalPowerInputPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def GearReducer {
+        attribute reductionRatio : Real = 4.2;
+        attribute mechanicalEfficiency : EfficiencyValue = 0.97;
+        attribute oilTemperature : TemperatureValue;
+
+        port highSpeedShaft : MechanicalPowerPort;
+        port lowSpeedShaft : MechanicalPowerPort;
+    }
+
+    part def TriplexMudPump {
+        attribute ratedFlowRate : FlowRateValue = 2400 [Litre / Minute];
+        attribute ratedDischargePressure : PressureValue = 300 [Bar];
+        attribute maximumAllowablePressure : PressureValue = 350 [Bar];
+        attribute minimumSuctionPressure : PressureValue = 1.5 [Bar];
+        attribute volumetricEfficiency : EfficiencyValue = 0.91;
+        attribute mechanicalEfficiency : EfficiencyValue = 0.88;
+        attribute strokeRate : RotationalSpeedValue;
+        attribute running : Boolean;
+        attribute linerDiameter : Real;
+        attribute strokeLength : Real;
+
+        port suctionInlet : MudInletPort;
+        port dischargeOutlet : MudOutletPort;
+        port shaftInput : MechanicalPowerPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+
+        action startPump {
+            in command : PumpCommand;
+            out status : PumpStatus;
+        }
+
+        action stopPump {
+            out status : PumpStatus;
+        }
+
+        action regulateFlow {
+            in requestedFlowRate : FlowRateValue;
+            in requestedPressure : PressureValue;
+            out strokeRateCommand : RotationalSpeedValue;
+        }
+
+        action detectFaults {
+            in suctionPressure : PressureValue;
+            in dischargePressure : PressureValue;
+            in mudTemperature : TemperatureValue;
+            out cavitationDetected : Boolean;
+            out overPressureDetected : Boolean;
+            out maintenanceRequired : Boolean;
+        }
+
+        state machine PumpOperatingStates {
+            state Off;
+            state Priming;
+            state Running;
+            state FlowRegulation;
+            state Flushing;
+            state Faulted;
+            state EmergencyStopped;
+
+            initial then Off;
+
+            transition Off_to_Priming
+                first Off
+                accept PumpCommand
+                if command.enable and not command.emergencyStop
+                then Priming;
+
+            transition Priming_to_Running
+                first Priming
+                if suctionInlet.mudIn.pressure >= minimumSuctionPressure
+                then Running;
+
+            transition Running_to_FlowRegulation
+                first Running
+                if commandInput.command.requestedFlowRate > 0 [Litre / Minute]
+                then FlowRegulation;
+
+            transition FlowRegulation_to_Running
+                first FlowRegulation
+                if abs(statusOutput.status.actualFlowRate - commandInput.command.requestedFlowRate) <= 50 [Litre / Minute]
+                then Running;
+
+            transition Running_to_Flushing
+                first Running
+                accept PumpCommand
+                if command.flushRequest
+                then Flushing;
+
+            transition Flushing_to_Off
+                first Flushing
+                after 180 [SI::second]
+                then Off;
+
+            transition Any_to_Faulted
+                first Running
+                if statusOutput.status.cavitationDetected or statusOutput.status.overPressureDetected
+                then Faulted;
+
+            transition Faulted_to_Off
+                first Faulted
+                accept PumpCommand
+                if not command.enable
+                then Off;
+
+            transition Any_to_EmergencyStopped
+                first Off
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+
+            transition Running_to_EmergencyStopped
+                first Running
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+
+            transition Priming_to_EmergencyStopped
+                first Priming
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+
+            transition FlowRegulation_to_EmergencyStopped
+                first FlowRegulation
+                accept PumpCommand
+                if command.emergencyStop
+                then EmergencyStopped;
+        }
+    }
+
+    part def PulsationDampener {
+        attribute gasPrechargePressure : PressureValue = 70 [Bar];
+        attribute maximumWorkingPressure : PressureValue = 350 [Bar];
+        attribute dampeningEfficiency : EfficiencyValue = 0.75;
+
+        port inlet : MudInletPort;
+        port outlet : MudOutletPort;
+    }
+
+    part def PressureReliefValve {
+        attribute setPressure : PressureValue = 325 [Bar];
+        attribute reseatPressure : PressureValue = 290 [Bar];
+        attribute ratedReliefFlow : FlowRateValue = 2600 [Litre / Minute];
+        attribute open : Boolean;
+
+        port inlet : MudInletPort;
+        port normalOutlet : MudOutletPort;
+        port reliefOutlet : ReliefReturnPort;
+
+        state machine ReliefValveStates {
+            state Closed;
+            state Open;
+            initial then Closed;
+
+            transition OpenOnHighPressure
+                first Closed
+                if inlet.mudIn.pressure >= setPressure
+                then Open;
+
+            transition CloseAfterPressureRecovery
+                first Open
+                if inlet.mudIn.pressure <= reseatPressure
+                then Closed;
+        }
+    }
+
+    part def FlowMeter {
+        attribute measurementRange : FlowRateValue = 3000 [Litre / Minute];
+        attribute accuracy : EfficiencyValue = 0.01;
+
+        port inlet : MudInletPort;
+        port outlet : MudOutletPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PressureTransmitter {
+        attribute range : PressureValue = 400 [Bar];
+        attribute accuracy : EfficiencyValue = 0.005;
+
+        port processConnection : MudTransferPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PumpController {
+        attribute targetFlowRate : FlowRateValue;
+        attribute targetPressure : PressureValue;
+        attribute lowSuctionPressureTrip : PressureValue = 1.5 [Bar];
+        attribute highDischargePressureTrip : PressureValue = 330 [Bar];
+        attribute maximumMudTemperature : TemperatureValue = 85 [SI::degreeCelsius];
+
+        port operatorCommand : CommandPort;
+        port pumpCommand : CommandPort;
+        port driveCommand : CommandPort;
+        port statusInput : StatusPort;
+        port statusOutput : StatusPort;
+
+        action computeSpeedCommand {
+            in requestedFlowRate : FlowRateValue;
+            in measuredFlowRate : FlowRateValue;
+            out requestedStrokeRate : RotationalSpeedValue;
+        }
+
+        action tripOnUnsafeCondition {
+            in suctionPressure : PressureValue;
+            in dischargePressure : PressureValue;
+            in mudTemperature : TemperatureValue;
+            out emergencyStop : Boolean;
+        }
+
+        state machine ControllerStates {
+            state Idle;
+            state Ready;
+            state CommandingStart;
+            state Controlling;
+            state Shutdown;
+            state Trip;
+
+            initial then Idle;
+
+            transition Idle_to_Ready
+                first Idle
+                if operatorCommand.command.enable and not operatorCommand.command.emergencyStop
+                then Ready;
+
+            transition Ready_to_CommandingStart
+                first Ready
+                then CommandingStart;
+
+            transition CommandingStart_to_Controlling
+                first CommandingStart
+                if statusInput.status.pumpRunning
+                then Controlling;
+
+            transition Controlling_to_Shutdown
+                first Controlling
+                if not operatorCommand.command.enable
+                then Shutdown;
+
+            transition Shutdown_to_Idle
+                first Shutdown
+                after 30 [SI::second]
+                then Idle;
+
+            transition Controlling_to_Trip
+                first Controlling
+                if statusInput.status.suctionPressure < lowSuctionPressureTrip
+                   or statusInput.status.dischargePressure > highDischargePressureTrip
+                   or statusInput.status.mudTemperature > maximumMudTemperature
+                   or operatorCommand.command.emergencyStop
+                then Trip;
+
+            transition Trip_to_Idle
+                first Trip
+                if not operatorCommand.command.enable
+                then Idle;
+        }
+    }
+
+    part def MudPumpSubsystem {
+        attribute subsystemRatedFlowRate : FlowRateValue = 2400 [Litre / Minute];
+        attribute subsystemRatedPressure : PressureValue = 300 [Bar];
+        attribute normalOperatingFlowRate : FlowRateValue = 1800 [Litre / Minute];
+        attribute normalOperatingPressure : PressureValue = 220 [Bar];
+        attribute maximumStartTime : TimeValue = 45 [SI::second];
+
+        port electricalSupply : ElectricalPowerInputPort;
+        port operatorCommand : CommandPort;
+        port subsystemStatus : StatusPort;
+        port mudReturnToTank : MudInletPort;
+        port mudDischargeToStandpipe : MudOutletPort;
+
+        part mudTank : MudTank;
+        part suctionManifold : SuctionManifold;
+        part drive : VariableFrequencyDrive;
+        part motor : ElectricMotor;
+        part gearbox : GearReducer;
+        part mudPump : TriplexMudPump;
+        part dampener : PulsationDampener;
+        part reliefValve : PressureReliefValve;
+        part flowMeter : FlowMeter;
+        part suctionPressureTransmitter : PressureTransmitter;
+        part dischargePressureTransmitter : PressureTransmitter;
+        part controller : PumpController;
+        part dischargeManifold : DischargeManifold;
+
+        connect electricalSupply to drive.powerInput;
+        connect drive.motorPowerOutput to motor.electricalInput;
+        connect motor.shaftOutput to gearbox.highSpeedShaft;
+        connect gearbox.lowSpeedShaft to mudPump.shaftInput;
+
+        connect mudTank.outlet to suctionManifold.tankConnection;
+        connect suctionManifold.pumpConnection to mudPump.suctionInlet;
+        connect mudPump.dischargeOutlet to dampener.inlet;
+        connect dampener.outlet to dischargeManifold.pumpConnection;
+        connect dischargeManifold.standpipeConnection to flowMeter.inlet;
+        connect flowMeter.outlet to mudDischargeToStandpipe;
+        connect dischargeManifold.reliefConnection to reliefValve.inlet;
+        connect reliefValve.reliefOutlet to mudReturnToTank;
+        connect mudReturnToTank to mudTank.returnInlet;
+
+        connect operatorCommand to controller.operatorCommand;
+        connect controller.pumpCommand to mudPump.commandInput;
+        connect controller.driveCommand to drive.commandInput;
+        connect mudPump.statusOutput to controller.statusInput;
+        connect flowMeter.statusOutput to controller.statusInput;
+        connect suctionPressureTransmitter.statusOutput to controller.statusInput;
+        connect dischargePressureTransmitter.statusOutput to controller.statusInput;
+        connect controller.statusOutput to subsystemStatus;
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : MudPumpSubsystem;
+    }
+
+    requirement FlowCapacityRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The mud pumping subsystem shall deliver drilling mud at a continuous flow rate of at least 1800 L/min at normal operating pressure. */
+
+        require constraint {
+            subsystem.normalOperatingFlowRate >= 1800 [Litre / Minute]
+        }
+    }
+
+    requirement PressureCapabilityRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The mud pumping subsystem shall sustain a discharge pressure of 300 bar without exceeding rated component limits. */
+
+        require constraint {
+            subsystem.subsystemRatedPressure >= 300 [Bar]
+            and subsystem.mudPump.ratedDischargePressure >= subsystem.subsystemRatedPressure
+            and subsystem.dischargeManifold.ratedPressure >= subsystem.subsystemRatedPressure
+            and subsystem.dampener.maximumWorkingPressure >= subsystem.subsystemRatedPressure
+        }
+    }
+
+    requirement OverPressureProtectionRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The subsystem shall open the relief path before discharge pressure exceeds 350 bar. */
+
+        require constraint {
+            subsystem.reliefValve.setPressure <= 325 [Bar]
+            and subsystem.reliefValve.setPressure < subsystem.mudPump.maximumAllowablePressure
+        }
+    }
+
+    requirement LowSuctionPressureTripRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The controller shall trip the pump when suction pressure falls below the minimum safe suction pressure. */
+
+        require constraint {
+            subsystem.controller.lowSuctionPressureTrip == subsystem.mudPump.minimumSuctionPressure
+        }
+    }
+
+    requirement StartTimeRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The subsystem shall transition from enabled command to stable running status within 45 seconds when mud volume and suction pressure are available. */
+
+        require constraint {
+            subsystem.maximumStartTime <= 45 [SI::second]
+        }
+    }
+
+    requirement TemperatureProtectionRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The controller shall command shutdown when measured mud temperature exceeds 85 degC. */
+
+        require constraint {
+            subsystem.controller.maximumMudTemperature <= 85 [SI::degreeCelsius]
+        }
+    }
+
+    requirement StatusReportingRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The subsystem shall report actual flow rate, suction pressure, discharge pressure, mud temperature, running state, and active fault state. */
+    }
+
+    requirement PrimeVolumeRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The mud tank shall maintain at least 8000 L usable volume for pump priming and cavitation avoidance. */
+
+        require constraint {
+            subsystem.mudTank.minimumOperatingVolume >= 8000 [Litre]
+        }
+    }
+
+    requirement PowerMarginRequirement specializes PumpingSubsystemRequirement {
+        doc
+        /* The motor and drive shall provide at least 1200 kW rated power to support rated mud pump operation. */
+
+        require constraint {
+            subsystem.motor.ratedPower >= 1200 [SI::kilowatt]
+            and subsystem.drive.maximumOutputPower >= subsystem.motor.ratedPower
+        }
+    }
+
+    satisfy FlowCapacityRequirement by MudPumpSubsystem::mudPump;
+    satisfy PressureCapabilityRequirement by MudPumpSubsystem::mudPump;
+    satisfy PressureCapabilityRequirement by MudPumpSubsystem::dischargeManifold;
+    satisfy OverPressureProtectionRequirement by MudPumpSubsystem::reliefValve;
+    satisfy LowSuctionPressureTripRequirement by MudPumpSubsystem::controller;
+    satisfy StartTimeRequirement by MudPumpSubsystem::controller;
+    satisfy TemperatureProtectionRequirement by MudPumpSubsystem::controller;
+    satisfy StatusReportingRequirement by MudPumpSubsystem::subsystemStatus;
+    satisfy PrimeVolumeRequirement by MudPumpSubsystem::mudTank;
+    satisfy PowerMarginRequirement by MudPumpSubsystem::motor;
+    satisfy PowerMarginRequirement by MudPumpSubsystem::drive;
+}

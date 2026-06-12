@@ -1,0 +1,417 @@
+package InternetAccessSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Mbps :> Real;
+  attribute def Millisecond :> Real;
+  attribute def Percent :> Real;
+  attribute def Watt :> Real;
+  attribute def IPv4Address :> String;
+  attribute def SSID :> String;
+  attribute def CredentialToken :> String;
+
+  item def EthernetFrame {
+    attribute sourceMac : String;
+    attribute destinationMac : String;
+    attribute ethertype : String;
+    attribute payloadBytes : Integer;
+  }
+
+  item def WiFiFrame {
+    attribute ssid : SSID;
+    attribute sourceMac : String;
+    attribute destinationMac : String;
+    attribute payloadBytes : Integer;
+    attribute encrypted : Boolean;
+  }
+
+  item def IPPacket {
+    attribute sourceAddress : IPv4Address;
+    attribute destinationAddress : IPv4Address;
+    attribute protocol : String;
+    attribute payloadBytes : Integer;
+    attribute timeToLive : Integer;
+  }
+
+  item def DNSQuery {
+    attribute clientAddress : IPv4Address;
+    attribute requestedName : String;
+    attribute recordType : String;
+  }
+
+  item def DNSResponse {
+    attribute requestedName : String;
+    attribute resolvedAddress : IPv4Address;
+    attribute timeToLiveSeconds : Integer;
+  }
+
+  item def AuthenticationRequest {
+    attribute subscriberId : String;
+    attribute credential : CredentialToken;
+  }
+
+  item def AuthenticationResult {
+    attribute accepted : Boolean;
+    attribute assignedAddress : IPv4Address;
+    attribute leaseTimeSeconds : Integer;
+  }
+
+  port def EthernetPort {
+    in item rxFrame : EthernetFrame;
+    out item txFrame : EthernetFrame;
+  }
+
+  port def WirelessAccessPort {
+    in item uplinkFrame : WiFiFrame;
+    out item downlinkFrame : WiFiFrame;
+  }
+
+  port def WANPort {
+    in item inboundPacket : IPPacket;
+    out item outboundPacket : IPPacket;
+  }
+
+  port def ServiceControlPort {
+    in item authRequest : AuthenticationRequest;
+    out item authResult : AuthenticationResult;
+  }
+
+  port def DNSPort {
+    in item query : DNSQuery;
+    out item response : DNSResponse;
+  }
+
+  part def ClientDevice {
+    attribute deviceName : String;
+    attribute macAddress : String;
+    attribute assignedAddress : IPv4Address;
+    attribute linkRate : Mbps;
+    attribute connected : Boolean;
+
+    port wifi : WirelessAccessPort;
+    port ethernet : EthernetPort;
+
+    action connectToNetwork {
+      in ssid : SSID;
+      in credential : CredentialToken;
+      out success : Boolean;
+    }
+
+    action requestWebResource {
+      in hostName : String;
+      in resourcePath : String;
+      out deliveredBytes : Integer;
+      out completed : Boolean;
+    }
+
+    state def ClientConnectivityState {
+      state disconnected;
+      state associating;
+      state authenticated;
+      state online;
+      state degraded;
+
+      entry action initializeConnection {
+        connected = false;
+      }
+
+      transition first disconnected;
+      transition disconnected_to_associating
+        first disconnected then associating;
+      transition associating_to_authenticated
+        first associating then authenticated;
+      transition authenticated_to_online
+        first authenticated then online;
+      transition online_to_degraded
+        first online then degraded;
+      transition degraded_to_online
+        first degraded then online;
+      transition online_to_disconnected
+        first online then disconnected;
+    }
+  }
+
+  part def AccessRouter {
+    attribute lanAddress : IPv4Address = "192.168.1.1";
+    attribute wanAddress : IPv4Address;
+    attribute natEnabled : Boolean = true;
+    attribute firewallEnabled : Boolean = true;
+    attribute maxLanThroughput : Mbps = 1000.0;
+    attribute currentLanLoad : Percent;
+    attribute currentWanLoad : Percent;
+    attribute powerConsumption : Watt = 12.0;
+
+    port lanEthernet[4] : EthernetPort;
+    port wifi24 : WirelessAccessPort;
+    port wifi5 : WirelessAccessPort;
+    port wan : WANPort;
+    port dns : DNSPort;
+    port subscriberControl : ServiceControlPort;
+
+    action assignClientAddress {
+      in clientMac : String;
+      out address : IPv4Address;
+      out leaseSeconds : Integer;
+    }
+
+    action translateAddress {
+      in privatePacket : IPPacket;
+      out publicPacket : IPPacket;
+    }
+
+    action filterTraffic {
+      in candidatePacket : IPPacket;
+      out allowed : Boolean;
+    }
+
+    action routePacket {
+      in packetIn : IPPacket;
+      out packetOut : IPPacket;
+      out forwarded : Boolean;
+    }
+
+    state def RouterOperationalState {
+      state booting;
+      state awaitingService;
+      state operational;
+      state serviceDegraded;
+      state faulted;
+
+      transition initial_boot first booting;
+      transition boot_to_awaitingService first booting then awaitingService;
+      transition awaitingService_to_operational first awaitingService then operational;
+      transition operational_to_serviceDegraded first operational then serviceDegraded;
+      transition serviceDegraded_to_operational first serviceDegraded then operational;
+      transition operational_to_faulted first operational then faulted;
+      transition faulted_to_booting first faulted then booting;
+    }
+  }
+
+  part def OpticalNetworkTerminal {
+    attribute opticalReceivePowerDbm : Real;
+    attribute opticalTransmitPowerDbm : Real;
+    attribute provisionedDownloadRate : Mbps = 1000.0;
+    attribute provisionedUploadRate : Mbps = 500.0;
+    attribute linkAvailable : Boolean;
+
+    port customerWan : WANPort;
+    port providerWan : WANPort;
+    port serviceControl : ServiceControlPort;
+
+    action convertOpticalToEthernet {
+      in opticalPacket : IPPacket;
+      out ethernetPacket : IPPacket;
+    }
+
+    action verifyProvisioning {
+      in request : AuthenticationRequest;
+      out result : AuthenticationResult;
+    }
+
+    state def TerminalState {
+      state offline;
+      state ranging;
+      state registered;
+      state forwarding;
+      state lossOfSignal;
+
+      transition initial_offline first offline;
+      transition offline_to_ranging first offline then ranging;
+      transition ranging_to_registered first ranging then registered;
+      transition registered_to_forwarding first registered then forwarding;
+      transition forwarding_to_lossOfSignal first forwarding then lossOfSignal;
+      transition lossOfSignal_to_ranging first lossOfSignal then ranging;
+    }
+  }
+
+  part def InternetServiceProviderNetwork {
+    attribute autonomousSystemNumber : Integer;
+    attribute backboneCapacity : Mbps = 1000000.0;
+    attribute averageAccessLatency : Millisecond = 12.0;
+    attribute packetLossRate : Percent = 0.1;
+
+    port subscriberEdge : WANPort;
+    port subscriberControl : ServiceControlPort;
+    port recursiveDns : DNSPort;
+    port publicInternetPeering : WANPort;
+
+    action authenticateSubscriber {
+      in request : AuthenticationRequest;
+      out result : AuthenticationResult;
+    }
+
+    action forwardToInternet {
+      in subscriberPacket : IPPacket;
+      out internetPacket : IPPacket;
+    }
+
+    action resolveDomainName {
+      in query : DNSQuery;
+      out response : DNSResponse;
+    }
+  }
+
+  part def PublicInternet {
+    attribute globalReachability : Percent = 99.9;
+    attribute nominalRoundTripLatency : Millisecond = 45.0;
+
+    port providerPeering : WANPort;
+
+    action deliverPacket {
+      in packetFromSubscriber : IPPacket;
+      out responsePacket : IPPacket;
+      out delivered : Boolean;
+    }
+  }
+
+  part def InternetAccessSystem {
+    attribute serviceName : String = "Residential Internet Access";
+    attribute advertisedDownloadRate : Mbps = 1000.0;
+    attribute advertisedUploadRate : Mbps = 500.0;
+    attribute maximumRoundTripLatency : Millisecond = 80.0;
+    attribute minimumAvailability : Percent = 99.5;
+    attribute primaryFunction : String =
+      "Provide authenticated client devices with routed, filtered, and address-translated packet connectivity from a local home network to reachable services on the public Internet.";
+
+    part laptop : ClientDevice {
+      attribute deviceName = "Laptop";
+      attribute macAddress = "40:8D:5C:2A:91:10";
+      attribute linkRate = 866.0;
+    }
+
+    part phone : ClientDevice {
+      attribute deviceName = "Smartphone";
+      attribute macAddress = "7C:9E:BD:44:03:2B";
+      attribute linkRate = 433.0;
+    }
+
+    part router : AccessRouter;
+    part terminal : OpticalNetworkTerminal;
+    part provider : InternetServiceProviderNetwork {
+      attribute autonomousSystemNumber = 64512;
+    }
+
+    part internet : PublicInternet;
+
+    connect laptop.wifi to router.wifi5;
+    connect phone.wifi to router.wifi5;
+    connect router.wan to terminal.customerWan;
+    connect router.subscriberControl to terminal.serviceControl;
+    connect terminal.providerWan to provider.subscriberEdge;
+    connect terminal.serviceControl to provider.subscriberControl;
+    connect router.dns to provider.recursiveDns;
+    connect provider.publicInternetPeering to internet.providerPeering;
+
+    action provideInternetAccess {
+      in clientCredential : CredentialToken;
+      in destinationHost : String;
+      out clientOnline : Boolean;
+      out resourceReachable : Boolean;
+      out observedLatency : Millisecond;
+
+      first start;
+      then authenticateAccess;
+      then assignNetworkAddress;
+      then resolveDestination;
+      then routeTraffic;
+      then reportConnectivity;
+
+      action start;
+      action authenticateAccess {
+        out accepted : Boolean;
+      }
+      action assignNetworkAddress {
+        out assignedAddress : IPv4Address;
+      }
+      action resolveDestination {
+        out destinationAddress : IPv4Address;
+      }
+      action routeTraffic {
+        out delivered : Boolean;
+        out roundTripLatency : Millisecond;
+      }
+      action reportConnectivity;
+    }
+
+    state def SystemServiceState {
+      state initializing;
+      state authenticatingSubscriber;
+      state servingClients;
+      state impairedService;
+      state unavailable;
+
+      transition initial_state first initializing;
+      transition initializing_to_authenticating first initializing then authenticatingSubscriber;
+      transition authenticating_to_serving first authenticatingSubscriber then servingClients;
+      transition serving_to_impaired first servingClients then impairedService;
+      transition impaired_to_serving first impairedService then servingClients;
+      transition serving_to_unavailable first servingClients then unavailable;
+      transition unavailable_to_initializing first unavailable then initializing;
+    }
+  }
+
+  requirement def InternetAccessPrimaryFunctionRequirement {
+    subject system : InternetAccessSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Provide authenticated client devices with routed, filtered, and address-translated packet connectivity from a local home network to reachable services on the public Internet."
+    }
+  }
+
+  requirement def ThroughputRequirement {
+    subject system : InternetAccessSystem;
+
+    require constraint {
+      system.advertisedDownloadRate >= 1000.0 and
+      system.advertisedUploadRate >= 500.0
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject system : InternetAccessSystem;
+
+    require constraint {
+      system.maximumRoundTripLatency <= 80.0
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system : InternetAccessSystem;
+
+    require constraint {
+      system.minimumAvailability >= 99.5
+    }
+  }
+
+  requirement def SecurityRequirement {
+    subject router : AccessRouter;
+
+    require constraint {
+      router.natEnabled == true and
+      router.firewallEnabled == true
+    }
+  }
+
+  requirement def AddressAssignmentRequirement {
+    subject router : AccessRouter;
+
+    doc /* The access router shall assign a private IPv4 address to each authenticated client device before forwarding client traffic to the service provider network. */
+  }
+
+  requirement def NameResolutionRequirement {
+    subject system : InternetAccessSystem;
+
+    doc /* The system shall provide DNS query forwarding so client devices can resolve domain names before initiating Internet sessions. */
+  }
+
+  satisfy InternetAccessPrimaryFunctionRequirement by InternetAccessSystem;
+  satisfy ThroughputRequirement by InternetAccessSystem;
+  satisfy LatencyRequirement by InternetAccessSystem;
+  satisfy AvailabilityRequirement by InternetAccessSystem;
+  satisfy SecurityRequirement by AccessRouter;
+  satisfy AddressAssignmentRequirement by AccessRouter;
+  satisfy NameResolutionRequirement by InternetAccessSystem;
+}

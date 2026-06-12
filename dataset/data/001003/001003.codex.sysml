@@ -1,0 +1,391 @@
+package CO2SensingUnitModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  unit def ppm;
+  unit def second;
+  unit def millisecond;
+  unit def degreeCelsius;
+  unit def percentRH;
+  unit def volt;
+  unit def milliampere;
+  unit def watt;
+
+  attribute def CO2Concentration {
+    attribute value : Real;
+    attribute unit : String = "ppm";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degreeCelsius";
+  }
+
+  attribute def RelativeHumidity {
+    attribute value : Real;
+    attribute unit : String = "percentRH";
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "volt";
+  }
+
+  attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "milliampere";
+  }
+
+  attribute def Power {
+    attribute value : Real;
+    attribute unit : String = "watt";
+  }
+
+  attribute def TimeDuration {
+    attribute value : Real;
+    attribute unit : String = "second";
+  }
+
+  item def AmbientAirSample {
+    attribute carbonDioxide : CO2Concentration;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute pressure_kPa : Real;
+  }
+
+  item def FilteredAirSample {
+    attribute carbonDioxide : CO2Concentration;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute particleLoad_mgPerM3 : Real;
+  }
+
+  item def CO2Measurement {
+    attribute concentration : CO2Concentration;
+    attribute sampleTemperature : Temperature;
+    attribute sampleHumidity : RelativeHumidity;
+    attribute timestamp_ms : Real;
+    attribute valid : Boolean;
+    attribute diagnosticCode : Integer;
+  }
+
+  item def SensorCommand {
+    attribute requestMeasurement : Boolean;
+    attribute resetFault : Boolean;
+    attribute calibrationRequested : Boolean;
+  }
+
+  item def HealthStatus {
+    attribute ready : Boolean;
+    attribute faulted : Boolean;
+    attribute warmupComplete : Boolean;
+    attribute calibrationDue : Boolean;
+    attribute diagnosticCode : Integer;
+  }
+
+  item def ElectricalEnergy {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : Current;
+  }
+
+  port def GasIntakePort {
+    in item air : AmbientAirSample;
+  }
+
+  port def FilteredGasPort {
+    in item incomingAir : AmbientAirSample;
+    out item filteredAir : FilteredAirSample;
+  }
+
+  port def SamplePort {
+    in item sample : FilteredAirSample;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalEnergy;
+  }
+
+  port def CommandPort {
+    in item command : SensorCommand;
+  }
+
+  port def MeasurementPort {
+    out item measurement : CO2Measurement;
+  }
+
+  port def StatusPort {
+    out item status : HealthStatus;
+  }
+
+  port def InternalMeasurementPort {
+    out item rawMeasurement : CO2Measurement;
+  }
+
+  part def ParticulateFilter {
+    port inlet : FilteredGasPort;
+    port outlet : FilteredGasPort;
+
+    attribute removalEfficiency_percent : Real = 95.0;
+    attribute maxParticleLoad_mgPerM3 : Real = 10.0;
+    attribute pressureDrop_kPa : Real = 0.4;
+  }
+
+  part def DiffusionChamber {
+    port inlet : SamplePort;
+    port sensorInterface : SamplePort;
+
+    attribute chamberVolume_ml : Real = 8.0;
+    attribute settlingTime_s : Real = 3.0;
+    attribute opticalPathLength_mm : Real = 20.0;
+  }
+
+  part def NDIRCarbonDioxideSensor {
+    port samplePort : SamplePort;
+    port powerPort : PowerInputPort;
+    port measurementPort : InternalMeasurementPort;
+    port statusPort : StatusPort;
+
+    attribute lowerRangeLimit : CO2Concentration = (value = 0.0);
+    attribute upperRangeLimit : CO2Concentration = (value = 5000.0);
+    attribute accuracyBelow2000ppm_ppm : Real = 50.0;
+    attribute accuracyAbove2000ppm_percentReading : Real = 3.0;
+    attribute resolution : CO2Concentration = (value = 1.0);
+    attribute responseTime_t90 : TimeDuration = (value = 30.0);
+    attribute warmupTime : TimeDuration = (value = 60.0);
+    attribute measurementPeriod : TimeDuration = (value = 1.0);
+    attribute nominalSupplyVoltage : Voltage = (value = 5.0);
+    attribute maxSupplyCurrent : Current = (value = 120.0);
+    attribute infraredSourcePower_mW : Real = 180.0;
+    attribute detectorSignal_mV : Real;
+  }
+
+  part def TemperatureHumidityCompensator {
+    port measurementIn : InternalMeasurementPort;
+    port measurementOut : MeasurementPort;
+
+    attribute temperatureCompensationEnabled : Boolean = true;
+    attribute humidityCompensationEnabled : Boolean = true;
+    attribute referenceTemperature : Temperature = (value = 25.0);
+    attribute referenceHumidity : RelativeHumidity = (value = 50.0);
+  }
+
+  part def Microcontroller {
+    port commandIn : CommandPort;
+    port sensorDataIn : InternalMeasurementPort;
+    port measurementOut : MeasurementPort;
+    port healthOut : StatusPort;
+    port powerIn : PowerInputPort;
+
+    attribute sampleInterval : TimeDuration = (value = 1.0);
+    attribute faultLatch : Boolean = false;
+    attribute latestCO2 : CO2Concentration;
+    attribute latestMeasurementValid : Boolean;
+  }
+
+  part def VoltageRegulator {
+    port inputPower : PowerInputPort;
+    port regulatedPower : PowerInputPort;
+
+    attribute inputVoltageMin : Voltage = (value = 4.5);
+    attribute inputVoltageMax : Voltage = (value = 12.0);
+    attribute outputVoltage : Voltage = (value = 5.0);
+    attribute outputCurrentLimit : Current = (value = 250.0);
+    attribute efficiency_percent : Real = 88.0;
+  }
+
+  part def CO2SensingUnit {
+    port ambientAirIn : GasIntakePort;
+    port externalPower : PowerInputPort;
+    port commandIn : CommandPort;
+    port co2MeasurementOut : MeasurementPort;
+    port healthStatusOut : StatusPort;
+
+    part filter : ParticulateFilter;
+    part chamber : DiffusionChamber;
+    part co2Sensor : NDIRCarbonDioxideSensor;
+    part compensator : TemperatureHumidityCompensator;
+    part controller : Microcontroller;
+    part regulator : VoltageRegulator;
+
+    attribute measurementRangeLow : CO2Concentration = (value = 0.0);
+    attribute measurementRangeHigh : CO2Concentration = (value = 5000.0);
+    attribute nominalSampleInterval : TimeDuration = (value = 1.0);
+    attribute startupTime : TimeDuration = (value = 65.0);
+    attribute maximumOperatingPower : Power = (value = 1.5);
+    attribute operatingTemperatureMin : Temperature = (value = -10.0);
+    attribute operatingTemperatureMax : Temperature = (value = 50.0);
+    attribute operatingHumidityMax : RelativeHumidity = (value = 95.0);
+
+    connect ambientAirIn.air to filter.inlet.incomingAir;
+    connect filter.outlet.filteredAir to chamber.inlet.sample;
+    connect chamber.sensorInterface.sample to co2Sensor.samplePort.sample;
+    connect externalPower.power to regulator.inputPower.power;
+    connect regulator.regulatedPower.power to co2Sensor.powerPort.power;
+    connect regulator.regulatedPower.power to controller.powerIn.power;
+    connect commandIn.command to controller.commandIn.command;
+    connect co2Sensor.measurementPort.rawMeasurement to controller.sensorDataIn.rawMeasurement;
+    connect co2Sensor.measurementPort.rawMeasurement to compensator.measurementIn.rawMeasurement;
+    connect compensator.measurementOut.measurement to co2MeasurementOut.measurement;
+    connect controller.healthOut.status to healthStatusOut.status;
+
+    exhibit state operatingState : CO2SensingUnitOperatingState;
+    perform action measureCarbonDioxide : CO2MeasurementCycle;
+  }
+
+  action def CO2MeasurementCycle {
+    in item sample : FilteredAirSample;
+    in item command : SensorCommand;
+    out item result : CO2Measurement;
+    out item status : HealthStatus;
+
+    action stabilizeSample;
+    action illuminateGasPath;
+    action detectInfraredAbsorption;
+    action computeRawConcentration;
+    action compensateForTemperatureAndHumidity;
+    action validateMeasurement;
+    action publishMeasurement;
+
+    first stabilizeSample then illuminateGasPath;
+    then detectInfraredAbsorption;
+    then computeRawConcentration;
+    then compensateForTemperatureAndHumidity;
+    then validateMeasurement;
+    then publishMeasurement;
+  }
+
+  state def CO2SensingUnitOperatingState {
+    state off;
+    state selfTest;
+    state warmup;
+    state measuring;
+    state calibration;
+    state fault;
+
+    entry action initializeStatus {
+      out item status : HealthStatus;
+    }
+
+    transition initial then off;
+
+    transition powerApplied
+      first off
+      then selfTest;
+
+    transition selfTestPassed
+      first selfTest
+      then warmup;
+
+    transition selfTestFailed
+      first selfTest
+      then fault;
+
+    transition warmupElapsed
+      first warmup
+      then measuring;
+
+    transition measurementFaultDetected
+      first measuring
+      then fault;
+
+    transition calibrationRequested
+      first measuring
+      then calibration;
+
+    transition calibrationCompleted
+      first calibration
+      then measuring;
+
+    transition calibrationFailed
+      first calibration
+      then fault;
+
+    transition resetCommandAccepted
+      first fault
+      then selfTest;
+
+    transition powerRemoved
+      first measuring
+      then off;
+  }
+
+  requirement def CO2MeasurementCapabilityRequirement {
+    subject unit : CO2SensingUnit;
+
+    require constraint {
+      unit.measurementRangeLow.value <= 0.0 and
+      unit.measurementRangeHigh.value >= 5000.0
+    }
+  }
+
+  requirement def CO2AccuracyRequirement {
+    subject sensor : NDIRCarbonDioxideSensor;
+
+    require constraint {
+      sensor.accuracyBelow2000ppm_ppm <= 50.0 and
+      sensor.accuracyAbove2000ppm_percentReading <= 3.0
+    }
+  }
+
+  requirement def CO2ResponseTimeRequirement {
+    subject sensor : NDIRCarbonDioxideSensor;
+
+    require constraint {
+      sensor.responseTime_t90.value <= 30.0
+    }
+  }
+
+  requirement def CO2StartupRequirement {
+    subject unit : CO2SensingUnit;
+
+    require constraint {
+      unit.startupTime.value <= 65.0
+    }
+  }
+
+  requirement def CO2PowerRequirement {
+    subject unit : CO2SensingUnit;
+
+    require constraint {
+      unit.maximumOperatingPower.value <= 1.5
+    }
+  }
+
+  requirement def CO2EnvironmentRequirement {
+    subject unit : CO2SensingUnit;
+
+    require constraint {
+      unit.operatingTemperatureMin.value <= -10.0 and
+      unit.operatingTemperatureMax.value >= 50.0 and
+      unit.operatingHumidityMax.value >= 95.0
+    }
+  }
+
+  requirement def CO2ValidityRequirement {
+    subject measurement : CO2Measurement;
+
+    require constraint {
+      measurement.valid implies
+      measurement.concentration.value >= 0.0 and
+      measurement.concentration.value <= 5000.0
+    }
+  }
+
+  requirement def CO2SensingUnitRequirementSet {
+    doc /* The sensing unit shall measure ambient carbon dioxide concentration using an NDIR carbon dioxide sensor, compensate the measurement for sample temperature and humidity, publish a validated concentration value, and report operational health. */
+
+    requirement measurementCapability : CO2MeasurementCapabilityRequirement;
+    requirement accuracy : CO2AccuracyRequirement;
+    requirement responseTime : CO2ResponseTimeRequirement;
+    requirement startup : CO2StartupRequirement;
+    requirement power : CO2PowerRequirement;
+    requirement environment : CO2EnvironmentRequirement;
+    requirement validity : CO2ValidityRequirement;
+  }
+
+  part co2SensingUnit : CO2SensingUnit;
+
+  requirement co2SensingUnitRequirements : CO2SensingUnitRequirementSet;
+
+}

@@ -1,0 +1,525 @@
+package SSMIS_Based_Environmental_Sensing_System {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FrequencyGHz : Real {
+        unit = "GHz";
+    }
+
+    attribute def TemperatureK : Real {
+        unit = "K";
+    }
+
+    attribute def PowerW : Real {
+        unit = "W";
+    }
+
+    attribute def VoltageV : Real {
+        unit = "V";
+    }
+
+    attribute def DataRateMbps : Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def AngleDeg : Real {
+        unit = "deg";
+    }
+
+    attribute def TimeSeconds : Real {
+        unit = "s";
+    }
+
+    attribute def LengthM : Real {
+        unit = "m";
+    }
+
+    attribute def MassKg : Real {
+        unit = "kg";
+    }
+
+    attribute def Reliability : Real {
+        unit = "1";
+    }
+
+    item def MicrowaveRadiance {
+        attribute frequency : FrequencyGHz;
+        attribute brightnessTemperature : TemperatureK;
+        attribute polarization : String;
+        attribute scanAngle : AngleDeg;
+        attribute sampleTime : TimeSeconds;
+    }
+
+    item def CalibratedRadiance {
+        attribute frequency : FrequencyGHz;
+        attribute antennaTemperature : TemperatureK;
+        attribute brightnessTemperature : TemperatureK;
+        attribute calibrationQuality : Reliability;
+        attribute geoLatitudeDeg : AngleDeg;
+        attribute geoLongitudeDeg : AngleDeg;
+    }
+
+    item def EnvironmentalProduct {
+        attribute seaSurfaceWindSpeed : Real;
+        attribute columnWaterVapor : Real;
+        attribute cloudLiquidWater : Real;
+        attribute precipitationRate : Real;
+        attribute atmosphericTemperatureProfileQuality : Reliability;
+        attribute retrievalTime : TimeSeconds;
+    }
+
+    item def CommandPacket {
+        attribute commandId : Integer;
+        attribute priority : Integer;
+        attribute executionTime : TimeSeconds;
+        attribute payloadBytes : Integer;
+    }
+
+    item def TelemetryPacket {
+        attribute packetId : Integer;
+        attribute generationTime : TimeSeconds;
+        attribute healthStatus : String;
+        attribute payloadBytes : Integer;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageV;
+        attribute power : PowerW;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PowerOutputPort {
+        out item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : CommandPacket;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def RadianceInputPort {
+        in item radiance : MicrowaveRadiance;
+    }
+
+    port def RadianceOutputPort {
+        out item radiance : MicrowaveRadiance;
+    }
+
+    port def CalibratedRadianceOutputPort {
+        out item calibratedRadiance : CalibratedRadiance;
+    }
+
+    port def CalibratedRadianceInputPort {
+        in item calibratedRadiance : CalibratedRadiance;
+    }
+
+    port def ProductOutputPort {
+        out item product : EnvironmentalProduct;
+    }
+
+    port def ProductInputPort {
+        in item product : EnvironmentalProduct;
+    }
+
+    part def RotatingMicrowaveAntenna {
+        attribute apertureDiameter : LengthM = 0.61;
+        attribute spinRateRpm : Real = 31.6;
+        attribute scanConeAngle : AngleDeg = 53.1;
+        attribute pointingError : AngleDeg <= 0.15;
+
+        port radianceOut : RadianceOutputPort;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        action collectConicalScanRadiance {
+            in item sceneRadiance : MicrowaveRadiance;
+            out item sampledRadiance : MicrowaveRadiance;
+
+            first start;
+            then stabilizeSpin;
+            then sampleEarthScene;
+            then tagScanGeometry;
+            then done;
+
+            action stabilizeSpin;
+            action sampleEarthScene;
+            action tagScanGeometry;
+        }
+    }
+
+    part def MicrowaveReceiverBank {
+        attribute channelCount : Integer = 24;
+        attribute minimumFrequency : FrequencyGHz = 19.35;
+        attribute maximumFrequency : FrequencyGHz = 183.31;
+        attribute receiverNoiseTemperature : TemperatureK <= 850.0;
+
+        port radianceIn : RadianceInputPort;
+        port radianceOut : RadianceOutputPort;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        part lowFrequencyReceiver {
+            attribute centerFrequency : FrequencyGHz = 19.35;
+            attribute polarizationModes : String = "vertical,horizontal";
+        }
+
+        part imagingReceiver {
+            attribute centerFrequency : FrequencyGHz = 37.0;
+            attribute polarizationModes : String = "vertical,horizontal";
+        }
+
+        part waterVaporReceiver {
+            attribute centerFrequency : FrequencyGHz = 183.31;
+            attribute polarizationModes : String = "vertical";
+        }
+
+        action amplifyAndFilterRadiance {
+            in item rawRadiance : MicrowaveRadiance;
+            out item channelizedRadiance : MicrowaveRadiance;
+        }
+    }
+
+    part def CalibrationAssembly {
+        attribute hotLoadTemperature : TemperatureK = 295.0;
+        attribute coldSpaceTemperature : TemperatureK = 2.73;
+        attribute calibrationCycleTime : TimeSeconds <= 8.0;
+        attribute calibrationAccuracy : TemperatureK <= 1.0;
+
+        port radianceIn : RadianceInputPort;
+        port calibratedOut : CalibratedRadianceOutputPort;
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        part hotReferenceLoad {
+            attribute physicalTemperature : TemperatureK = 295.0;
+            attribute stability : TemperatureK <= 0.1;
+        }
+
+        part coldSpaceViewMirror {
+            attribute viewTemperature : TemperatureK = 2.73;
+            attribute emissivity : Real >= 0.995;
+        }
+
+        action calibrateRadiance {
+            in item channelizedRadiance : MicrowaveRadiance;
+            out item calibratedRadiance : CalibratedRadiance;
+
+            first start;
+            then observeHotReference;
+            then observeColdReference;
+            then computeGainAndOffset;
+            then applyCalibration;
+            then done;
+
+            action observeHotReference;
+            action observeColdReference;
+            action computeGainAndOffset;
+            action applyCalibration;
+        }
+    }
+
+    part def ScanControlElectronics {
+        attribute controlLoopPeriod : TimeSeconds = 0.05;
+        attribute allowedSpinRateError : Real <= 0.05;
+
+        port commandIn : CommandInputPort;
+        port telemetryOut : TelemetryOutputPort;
+        port powerIn : PowerInputPort;
+
+        action regulateAntennaSpin {
+            first start;
+            then readEncoder;
+            then compareSpinRate;
+            then driveMotorController;
+            then publishSpinTelemetry;
+            then done;
+
+            action readEncoder;
+            action compareSpinRate;
+            action driveMotorController;
+            action publishSpinTelemetry;
+        }
+    }
+
+    part def OnboardProcessingUnit {
+        attribute processorPower : PowerW <= 45.0;
+        attribute radianceLatency : TimeSeconds <= 4.0;
+        attribute productLatency : TimeSeconds <= 30.0;
+        attribute outputDataRate : DataRateMbps <= 12.0;
+
+        port calibratedIn : CalibratedRadianceInputPort;
+        port productOut : ProductOutputPort;
+        port telemetryOut : TelemetryOutputPort;
+        port commandIn : CommandInputPort;
+        port powerIn : PowerInputPort;
+
+        part geolocationProcessor {
+            attribute orbitKnowledgeError : LengthM <= 100.0;
+            attribute attitudeKnowledgeError : AngleDeg <= 0.05;
+        }
+
+        part retrievalProcessor {
+            attribute supportedProducts : String =
+                "ocean wind speed, sea ice concentration, water vapor, cloud liquid water, precipitation rate, atmospheric temperature sounding";
+        }
+
+        action generateEnvironmentalProducts {
+            in item calibratedRadiance : CalibratedRadiance;
+            out item product : EnvironmentalProduct;
+
+            first start;
+            then geolocateObservation;
+            then screenInvalidSamples;
+            then retrieveSurfaceAndAtmosphere;
+            then packageProduct;
+            then done;
+
+            action geolocateObservation;
+            action screenInvalidSamples;
+            action retrieveSurfaceAndAtmosphere;
+            action packageProduct;
+        }
+    }
+
+    part def SpacecraftInterfaceUnit {
+        attribute commandDataRate : DataRateMbps = 1.0;
+        attribute telemetryDataRate : DataRateMbps = 20.0;
+
+        port commandIn : CommandInputPort;
+        port commandOutAntenna : CommandInputPort;
+        port commandOutReceiver : CommandInputPort;
+        port commandOutCalibration : CommandInputPort;
+        port commandOutProcessor : CommandInputPort;
+        port commandOutControl : CommandInputPort;
+
+        port telemetryInAntenna : TelemetryOutputPort;
+        port telemetryInReceiver : TelemetryOutputPort;
+        port telemetryInCalibration : TelemetryOutputPort;
+        port telemetryInProcessor : TelemetryOutputPort;
+        port telemetryInControl : TelemetryOutputPort;
+        port telemetryOut : TelemetryOutputPort;
+        port productIn : ProductInputPort;
+    }
+
+    part def PowerConditioningUnit {
+        attribute inputVoltage : VoltageV = 28.0;
+        attribute regulatedVoltage : VoltageV = 12.0;
+        attribute maximumOutputPower : PowerW = 280.0;
+        attribute conversionEfficiency : Real >= 0.88;
+
+        port spacecraftPowerIn : PowerInputPort;
+        port powerOutAntenna : PowerOutputPort;
+        port powerOutReceiver : PowerOutputPort;
+        port powerOutCalibration : PowerOutputPort;
+        port powerOutProcessor : PowerOutputPort;
+        port powerOutControl : PowerOutputPort;
+    }
+
+    part def SSMISBasedPayload {
+        doc
+            /* High-level primary function:
+               The system passively measures microwave radiance emitted and scattered by Earth's surface and atmosphere,
+               calibrates the observations across multiple microwave channels, geolocates the samples, and produces
+               environmental data products for weather, ocean, ice, and atmospheric monitoring. */
+
+        attribute payloadMass : MassKg <= 95.0;
+        attribute averagePower : PowerW <= 220.0;
+        attribute designLifeYears : Real >= 5.0;
+        attribute operationalAvailability : Reliability >= 0.97;
+
+        port spacecraftPowerIn : PowerInputPort;
+        port spacecraftCommandIn : CommandInputPort;
+        port spacecraftTelemetryOut : TelemetryOutputPort;
+        port environmentalProductOut : ProductOutputPort;
+
+        part antenna : RotatingMicrowaveAntenna;
+        part receivers : MicrowaveReceiverBank;
+        part calibrator : CalibrationAssembly;
+        part scanControl : ScanControlElectronics;
+        part processor : OnboardProcessingUnit;
+        part interfaceUnit : SpacecraftInterfaceUnit;
+        part powerUnit : PowerConditioningUnit;
+
+        connect spacecraftPowerIn to powerUnit.spacecraftPowerIn;
+        connect powerUnit.powerOutAntenna to antenna.powerIn;
+        connect powerUnit.powerOutReceiver to receivers.powerIn;
+        connect powerUnit.powerOutCalibration to calibrator.powerIn;
+        connect powerUnit.powerOutProcessor to processor.powerIn;
+        connect powerUnit.powerOutControl to scanControl.powerIn;
+
+        connect spacecraftCommandIn to interfaceUnit.commandIn;
+        connect interfaceUnit.commandOutAntenna to antenna.commandIn;
+        connect interfaceUnit.commandOutReceiver to receivers.commandIn;
+        connect interfaceUnit.commandOutCalibration to calibrator.commandIn;
+        connect interfaceUnit.commandOutProcessor to processor.commandIn;
+        connect interfaceUnit.commandOutControl to scanControl.commandIn;
+
+        connect antenna.radianceOut to receivers.radianceIn;
+        connect receivers.radianceOut to calibrator.radianceIn;
+        connect calibrator.calibratedOut to processor.calibratedIn;
+        connect processor.productOut to interfaceUnit.productIn;
+        connect processor.productOut to environmentalProductOut;
+
+        connect antenna.telemetryOut to interfaceUnit.telemetryInAntenna;
+        connect receivers.telemetryOut to interfaceUnit.telemetryInReceiver;
+        connect calibrator.telemetryOut to interfaceUnit.telemetryInCalibration;
+        connect processor.telemetryOut to interfaceUnit.telemetryInProcessor;
+        connect scanControl.telemetryOut to interfaceUnit.telemetryInControl;
+        connect interfaceUnit.telemetryOut to spacecraftTelemetryOut;
+
+        state def PayloadOperationalStateMachine {
+            state Off;
+            state Standby;
+            state SpinUp;
+            state Calibrating;
+            state Observing;
+            state SafeMode;
+            state DownlinkReady;
+
+            transition initial then Off;
+
+            transition Off_to_Standby
+                first Off
+                accept CommandPacket
+                if command.commandId == 100
+                then Standby;
+
+            transition Standby_to_SpinUp
+                first Standby
+                accept CommandPacket
+                if command.commandId == 110
+                then SpinUp;
+
+            transition SpinUp_to_Calibrating
+                first SpinUp
+                if antenna.spinRateRpm >= 31.5
+                then Calibrating;
+
+            transition Calibrating_to_Observing
+                first Calibrating
+                if calibrator.calibrationAccuracy <= 1.0
+                then Observing;
+
+            transition Observing_to_DownlinkReady
+                first Observing
+                if processor.outputDataRate > 0.0
+                then DownlinkReady;
+
+            transition Any_to_SafeMode
+                first Observing
+                if averagePower > 250.0
+                then SafeMode;
+
+            transition SafeMode_to_Standby
+                first SafeMode
+                accept CommandPacket
+                if command.commandId == 120
+                then Standby;
+        }
+
+        action performPrimaryMission {
+            out item environmentalProduct : EnvironmentalProduct;
+
+            first receiveSpacecraftPowerAndCommands;
+            then stabilizeConicalScanning;
+            then acquireMultichannelMicrowaveRadiance;
+            then calibrateAgainstHotAndColdReferences;
+            then geolocateAndRetrieveEnvironmentalParameters;
+            then outputEnvironmentalProducts;
+            then done;
+
+            action receiveSpacecraftPowerAndCommands;
+            action stabilizeConicalScanning;
+            action acquireMultichannelMicrowaveRadiance;
+            action calibrateAgainstHotAndColdReferences;
+            action geolocateAndRetrieveEnvironmentalParameters;
+            action outputEnvironmentalProducts;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject payload : SSMISBasedPayload;
+
+        require constraint {
+            payload shall passively observe Earth microwave radiance in multiple imaging and sounding channels,
+            calibrate the observations, and produce geolocated environmental products for operational meteorology.
+        }
+    }
+
+    requirement def FrequencyCoverageRequirement {
+        subject receivers : MicrowaveReceiverBank;
+
+        require constraint {
+            receivers.minimumFrequency <= 19.35 and receivers.maximumFrequency >= 183.31
+        }
+    }
+
+    requirement def CalibrationAccuracyRequirement {
+        subject calibrator : CalibrationAssembly;
+
+        require constraint {
+            calibrator.calibrationAccuracy <= 1.0
+        }
+    }
+
+    requirement def ProductLatencyRequirement {
+        subject processor : OnboardProcessingUnit;
+
+        require constraint {
+            processor.productLatency <= 30.0
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject payload : SSMISBasedPayload;
+
+        require constraint {
+            payload.averagePower <= 220.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject payload : SSMISBasedPayload;
+
+        require constraint {
+            payload.operationalAvailability >= 0.97
+        }
+    }
+
+    requirement def PointingRequirement {
+        subject antenna : RotatingMicrowaveAntenna;
+
+        require constraint {
+            antenna.pointingError <= 0.15
+        }
+    }
+
+    requirement def EnvironmentalProductRequirement {
+        subject product : EnvironmentalProduct;
+
+        require constraint {
+            product.atmosphericTemperatureProfileQuality >= 0.90
+        }
+    }
+
+    part ssmisEnvironmentalSensingSystem : SSMISBasedPayload;
+
+    satisfy PrimaryFunctionRequirement by ssmisEnvironmentalSensingSystem;
+    satisfy PowerRequirement by ssmisEnvironmentalSensingSystem;
+    satisfy AvailabilityRequirement by ssmisEnvironmentalSensingSystem;
+    satisfy FrequencyCoverageRequirement by ssmisEnvironmentalSensingSystem.receivers;
+    satisfy CalibrationAccuracyRequirement by ssmisEnvironmentalSensingSystem.calibrator;
+    satisfy ProductLatencyRequirement by ssmisEnvironmentalSensingSystem.processor;
+    satisfy PointingRequirement by ssmisEnvironmentalSensingSystem.antenna;
+}

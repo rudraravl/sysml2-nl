@@ -1,0 +1,577 @@
+package AtomicClockSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+    import Time::*;
+
+    attribute def FractionalFrequency {
+        value : Real;
+    }
+
+    attribute def Stability {
+        value : Real;
+    }
+
+    attribute def SignalToNoiseRatio {
+        value : Real;
+    }
+
+    attribute def AllanDeviation {
+        value : Real;
+    }
+
+    attribute def PhaseError {
+        value : Real;
+    }
+
+    attribute def TimeError {
+        value : Real;
+    }
+
+    attribute def ClockMode {
+        enum operational;
+        enum warmUp;
+        enum locked;
+        enum holdover;
+        enum faulted;
+        enum maintenance;
+    }
+
+    item def RFSignal {
+        attribute frequency : Frequency;
+        attribute power : Power;
+        attribute phase : AngleValue;
+        attribute modulationDepth : Real;
+    }
+
+    item def OpticalSignal {
+        attribute wavelength : Length;
+        attribute opticalPower : Power;
+        attribute linewidth : Frequency;
+    }
+
+    item def TimePulse {
+        attribute epochTime : TimeValue;
+        attribute pulseWidth : DurationValue;
+        attribute riseTime : DurationValue;
+        attribute amplitude : ElectricPotential;
+    }
+
+    item def FrequencyReference {
+        attribute nominalFrequency : Frequency;
+        attribute fractionalOffset : FractionalFrequency;
+        attribute stabilityAt1s : AllanDeviation;
+        attribute phaseNoiseAt1Hz : Real;
+    }
+
+    item def ControlCommand {
+        attribute targetFrequency : Frequency;
+        attribute tuningWord : Integer;
+        attribute correction : FractionalFrequency;
+        attribute issuedAt : TimeValue;
+    }
+
+    item def TelemetryPacket {
+        attribute clockMode : ClockMode;
+        attribute temperature : Temperature;
+        attribute magneticField : MagneticFluxDensity;
+        attribute lockIndicator : Boolean;
+        attribute frequencyError : Frequency;
+        attribute timeError : TimeError;
+        attribute healthCode : Integer;
+    }
+
+    item def PowerInput {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute ripple : ElectricPotential;
+    }
+
+    item def HeatFlow {
+        attribute heatRate : Power;
+        attribute sinkTemperature : Temperature;
+    }
+
+    port def RfInputPort {
+        in item signal : RFSignal;
+    }
+
+    port def RfOutputPort {
+        out item signal : RFSignal;
+    }
+
+    port def OpticalOutputPort {
+        out item light : OpticalSignal;
+    }
+
+    port def OpticalInputPort {
+        in item light : OpticalSignal;
+    }
+
+    port def TimeOutputPort {
+        out item pulse : TimePulse;
+    }
+
+    port def FrequencyOutputPort {
+        out item reference : FrequencyReference;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryOutputPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def PowerPort {
+        in item power : PowerInput;
+    }
+
+    port def ThermalPort {
+        out item heat : HeatFlow;
+    }
+
+    part def AtomicClock {
+        attribute primaryFunction : String = "Generate a highly stable and accurate time and frequency reference by locking a local oscillator to an atomic resonance.";
+        attribute mode : ClockMode;
+        attribute timeAccuracy : TimeError;
+        attribute frequencyAccuracy : FractionalFrequency;
+        attribute shortTermStability : AllanDeviation;
+        attribute longTermDrift : FractionalFrequency;
+        attribute operatingTemperature : Temperature;
+        attribute totalPowerConsumption : Power;
+
+        port powerIn : PowerPort;
+        port heatOut : ThermalPort;
+        port commandIn : CommandInputPort;
+        port frequencyOut : FrequencyOutputPort;
+        port onePulsePerSecondOut : TimeOutputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        part physicsPackage : AtomicPhysicsPackage;
+        part localOscillator : QuartzLocalOscillator;
+        part synthesizer : MicrowaveSynthesizer;
+        part servoController : FrequencyServoController;
+        part timeScaleGenerator : DigitalTimeScaleGenerator;
+        part powerConditioner : PowerConditioningUnit;
+        part thermalController : ThermalControlUnit;
+        part healthManager : ClockHealthManager;
+
+        connect powerIn to powerConditioner.externalPowerIn;
+        connect powerConditioner.conditionedPowerOut to physicsPackage.powerIn;
+        connect powerConditioner.conditionedPowerOut to localOscillator.powerIn;
+        connect powerConditioner.conditionedPowerOut to synthesizer.powerIn;
+        connect powerConditioner.conditionedPowerOut to servoController.powerIn;
+        connect powerConditioner.conditionedPowerOut to timeScaleGenerator.powerIn;
+        connect powerConditioner.conditionedPowerOut to thermalController.powerIn;
+        connect powerConditioner.conditionedPowerOut to healthManager.powerIn;
+
+        connect localOscillator.rfOut to synthesizer.referenceIn;
+        connect synthesizer.microwaveOut to physicsPackage.microwaveIn;
+        connect physicsPackage.discriminatorOut to servoController.errorSignalIn;
+        connect servoController.correctionOut to localOscillator.controlIn;
+        connect localOscillator.rfOut to timeScaleGenerator.referenceIn;
+        connect timeScaleGenerator.frequencyOut to frequencyOut;
+        connect timeScaleGenerator.onePpsOut to onePulsePerSecondOut;
+
+        connect thermalController.heatCommandOut to physicsPackage.thermalControlIn;
+        connect physicsPackage.temperatureTelemetryOut to healthManager.temperatureIn;
+        connect physicsPackage.lockTelemetryOut to healthManager.lockStatusIn;
+        connect servoController.servoTelemetryOut to healthManager.servoStatusIn;
+        connect healthManager.telemetryOut to telemetryOut;
+        connect healthManager.commandOut to servoController.commandIn;
+        connect commandIn to healthManager.commandIn;
+
+        connect physicsPackage.heatOut to heatOut;
+        connect localOscillator.heatOut to heatOut;
+        connect synthesizer.heatOut to heatOut;
+        connect powerConditioner.heatOut to heatOut;
+    }
+
+    part def AtomicPhysicsPackage {
+        attribute atomSpecies : String = "Cesium-133";
+        attribute resonanceFrequency : Frequency = 9192631770.0 [Hz];
+        attribute cellTemperature : Temperature;
+        attribute magneticFieldBias : MagneticFluxDensity;
+        attribute resonanceLinewidth : Frequency;
+        attribute detectedSignalToNoiseRatio : SignalToNoiseRatio;
+
+        port powerIn : PowerPort;
+        port microwaveIn : RfInputPort;
+        port thermalControlIn : CommandInputPort;
+        port discriminatorOut : RfOutputPort;
+        port temperatureTelemetryOut : TelemetryOutputPort;
+        port lockTelemetryOut : TelemetryOutputPort;
+        port heatOut : ThermalPort;
+
+        part atomicVaporCell : AtomicVaporCell;
+        part resonanceCavity : MicrowaveResonanceCavity;
+        part opticalPump : OpticalPumpModule;
+        part photodetector : PhotodetectorModule;
+        part magneticShield : MagneticShieldAssembly;
+
+        connect microwaveIn to resonanceCavity.microwaveIn;
+        connect resonanceCavity.fieldOut to atomicVaporCell.microwaveIn;
+        connect opticalPump.lightOut to atomicVaporCell.pumpLightIn;
+        connect atomicVaporCell.transmittedLightOut to photodetector.lightIn;
+        connect photodetector.rfOut to discriminatorOut;
+        connect thermalControlIn to atomicVaporCell.heaterCommandIn;
+    }
+
+    part def AtomicVaporCell {
+        attribute atomSpecies : String = "Cesium-133";
+        attribute vaporPressure : Pressure;
+        attribute bufferGasPressure : Pressure;
+        attribute wallTemperature : Temperature;
+        attribute transitionFrequency : Frequency = 9192631770.0 [Hz];
+
+        port microwaveIn : RfInputPort;
+        port pumpLightIn : OpticalInputPort;
+        port transmittedLightOut : OpticalOutputPort;
+        port heaterCommandIn : CommandInputPort;
+    }
+
+    part def MicrowaveResonanceCavity {
+        attribute centerFrequency : Frequency = 9192631770.0 [Hz];
+        attribute qualityFactor : Real;
+        attribute insertionLoss : Real;
+
+        port microwaveIn : RfInputPort;
+        port fieldOut : RfOutputPort;
+    }
+
+    part def OpticalPumpModule {
+        attribute opticalFrequency : Frequency;
+        attribute wavelength : Length = 894.6 [nm];
+        attribute outputPower : Power;
+        attribute current : ElectricCurrent;
+        attribute laserTemperature : Temperature;
+
+        port powerIn : PowerPort;
+        port lightOut : OpticalOutputPort;
+    }
+
+    part def PhotodetectorModule {
+        attribute responsivity : Real;
+        attribute darkCurrent : ElectricCurrent;
+        attribute bandwidth : Frequency;
+        attribute noiseEquivalentPower : Power;
+
+        port powerIn : PowerPort;
+        port lightIn : OpticalInputPort;
+        port rfOut : RfOutputPort;
+    }
+
+    part def MagneticShieldAssembly {
+        attribute shieldingFactor : Real;
+        attribute residualField : MagneticFluxDensity;
+        attribute biasField : MagneticFluxDensity;
+    }
+
+    part def QuartzLocalOscillator {
+        attribute nominalFrequency : Frequency = 10000000.0 [Hz];
+        attribute tuningRange : FractionalFrequency;
+        attribute phaseNoiseAt1HzOffset : Real;
+        attribute agingRatePerDay : FractionalFrequency;
+        attribute ovenTemperature : Temperature;
+
+        port powerIn : PowerPort;
+        port controlIn : CommandInputPort;
+        port rfOut : RfOutputPort;
+        port heatOut : ThermalPort;
+    }
+
+    part def MicrowaveSynthesizer {
+        attribute inputFrequency : Frequency = 10000000.0 [Hz];
+        attribute outputFrequency : Frequency = 9192631770.0 [Hz];
+        attribute multiplicationRatio : Real = 919.263177;
+        attribute spuriousLevel : Real;
+        attribute outputPower : Power;
+
+        port powerIn : PowerPort;
+        port referenceIn : RfInputPort;
+        port microwaveOut : RfOutputPort;
+        port heatOut : ThermalPort;
+    }
+
+    part def FrequencyServoController {
+        attribute loopBandwidth : Frequency;
+        attribute proportionalGain : Real;
+        attribute integralGain : Real;
+        attribute frequencyErrorEstimate : Frequency;
+        attribute lockThreshold : Frequency;
+        attribute locked : Boolean;
+
+        port powerIn : PowerPort;
+        port errorSignalIn : RfInputPort;
+        port correctionOut : CommandInputPort;
+        port commandIn : CommandInputPort;
+        port servoTelemetryOut : TelemetryOutputPort;
+
+        action def MeasureFrequencyError {
+            in discriminatorSignal : RFSignal;
+            out error : Frequency;
+        }
+
+        action def ComputeCorrection {
+            in error : Frequency;
+            in proportionalGain : Real;
+            in integralGain : Real;
+            out correction : FractionalFrequency;
+        }
+
+        action def ApplyOscillatorCorrection {
+            in correction : FractionalFrequency;
+            out command : ControlCommand;
+        }
+
+        state def ServoStateMachine {
+            state off;
+            state acquiring;
+            state locked;
+            state holdover;
+            state fault;
+
+            transition first off then acquiring;
+            transition acquiring then locked
+                accept when frequencyErrorEstimate <= lockThreshold;
+            transition locked then holdover
+                accept when locked == false;
+            transition holdover then locked
+                accept when frequencyErrorEstimate <= lockThreshold;
+            transition acquiring then fault
+                accept when frequencyErrorEstimate > 100.0 [Hz];
+            transition locked then fault
+                accept when frequencyErrorEstimate > 1000.0 [Hz];
+        }
+    }
+
+    part def DigitalTimeScaleGenerator {
+        attribute epoch : TimeValue;
+        attribute tickRate : Frequency = 10000000.0 [Hz];
+        attribute outputFrequency : Frequency = 10000000.0 [Hz];
+        attribute onePpsWidth : DurationValue = 100.0 [ms];
+        attribute accumulatedPhaseError : PhaseError;
+        attribute accumulatedTimeError : TimeError;
+
+        port powerIn : PowerPort;
+        port referenceIn : RfInputPort;
+        port frequencyOut : FrequencyOutputPort;
+        port onePpsOut : TimeOutputPort;
+
+        action def DivideReferenceFrequency {
+            in reference : RFSignal;
+            out frequencyReference : FrequencyReference;
+            out pulse : TimePulse;
+        }
+
+        action def CorrectTimeScale {
+            in correction : FractionalFrequency;
+            in currentTimeError : TimeError;
+            out correctedPulse : TimePulse;
+        }
+    }
+
+    part def PowerConditioningUnit {
+        attribute inputVoltageRangeLow : ElectricPotential = 18.0 [V];
+        attribute inputVoltageRangeHigh : ElectricPotential = 36.0 [V];
+        attribute regulatedVoltage : ElectricPotential = 12.0 [V];
+        attribute efficiency : Real;
+        attribute outputRipple : ElectricPotential;
+
+        port externalPowerIn : PowerPort;
+        port conditionedPowerOut : PowerPort;
+        port heatOut : ThermalPort;
+    }
+
+    part def ThermalControlUnit {
+        attribute physicsPackageSetpoint : Temperature = 60.0 [degC];
+        attribute oscillatorOvenSetpoint : Temperature = 75.0 [degC];
+        attribute temperatureStability : Temperature;
+        attribute heaterPower : Power;
+
+        port powerIn : PowerPort;
+        port heatCommandOut : CommandInputPort;
+    }
+
+    part def ClockHealthManager {
+        attribute healthCode : Integer;
+        attribute faultDetected : Boolean;
+        attribute lastFrequencyError : Frequency;
+        attribute lastTimeError : TimeError;
+        attribute currentMode : ClockMode;
+
+        port powerIn : PowerPort;
+        port commandIn : CommandInputPort;
+        port temperatureIn : TelemetryOutputPort;
+        port lockStatusIn : TelemetryOutputPort;
+        port servoStatusIn : TelemetryOutputPort;
+        port commandOut : CommandInputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        action def EvaluateHealth {
+            in temperature : Temperature;
+            in locked : Boolean;
+            in frequencyError : Frequency;
+            out healthCode : Integer;
+            out mode : ClockMode;
+        }
+
+        action def GenerateTelemetry {
+            in healthCode : Integer;
+            in mode : ClockMode;
+            in timeError : TimeError;
+            out packet : TelemetryPacket;
+        }
+    }
+
+    requirement def AtomicClockPrimaryFunctionRequirement {
+        doc /* The atomic clock shall provide a stable and accurate time and frequency reference by disciplining a local oscillator to the cesium-133 atomic transition. */
+        subject clock : AtomicClock;
+
+        require constraint {
+            clock.frequencyAccuracy.value <= 1.0e-12
+        }
+
+        require constraint {
+            clock.timeAccuracy.value <= 1.0e-6
+        }
+    }
+
+    requirement def ResonanceLockRequirement {
+        doc /* The clock shall maintain lock to the atomic resonance during normal operation. */
+        subject servo : FrequencyServoController;
+
+        require constraint {
+            servo.locked == true
+        }
+
+        require constraint {
+            servo.frequencyErrorEstimate <= servo.lockThreshold
+        }
+    }
+
+    requirement def OutputFrequencyRequirement {
+        doc /* The clock shall output a 10 MHz frequency reference derived from the disciplined oscillator. */
+        subject generator : DigitalTimeScaleGenerator;
+
+        require constraint {
+            generator.outputFrequency == 10000000.0 [Hz]
+        }
+    }
+
+    requirement def OnePulsePerSecondRequirement {
+        doc /* The clock shall generate a one pulse per second timing output aligned to the internal time scale. */
+        subject generator : DigitalTimeScaleGenerator;
+
+        require constraint {
+            generator.onePpsWidth >= 10.0 [ms]
+        }
+
+        require constraint {
+            generator.onePpsWidth <= 200.0 [ms]
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The complete atomic clock shall operate from a nominal 28 V direct current input supply. */
+        subject clock : AtomicClock;
+
+        require constraint {
+            clock.totalPowerConsumption <= 35.0 [W]
+        }
+    }
+
+    requirement def ThermalRequirement {
+        doc /* The clock shall regulate the atomic physics package temperature tightly enough to preserve resonance stability. */
+        subject thermal : ThermalControlUnit;
+
+        require constraint {
+            thermal.physicsPackageSetpoint == 60.0 [degC]
+        }
+
+        require constraint {
+            thermal.temperatureStability <= 0.01 [K]
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        doc /* The clock shall report operating mode, lock state, temperature, frequency error, time error, and health status through telemetry. */
+        subject manager : ClockHealthManager;
+
+        require constraint {
+            manager.healthCode >= 0
+        }
+    }
+
+    satisfy AtomicClockPrimaryFunctionRequirement by AtomicClock;
+    satisfy ResonanceLockRequirement by FrequencyServoController;
+    satisfy OutputFrequencyRequirement by DigitalTimeScaleGenerator;
+    satisfy OnePulsePerSecondRequirement by DigitalTimeScaleGenerator;
+    satisfy PowerRequirement by AtomicClock;
+    satisfy ThermalRequirement by ThermalControlUnit;
+    satisfy HealthMonitoringRequirement by ClockHealthManager;
+
+    part atomicClockSystem : AtomicClock {
+        attribute mode = ClockMode::warmUp;
+        attribute frequencyAccuracy : FractionalFrequency = 1.0e-12;
+        attribute shortTermStability : AllanDeviation = 3.0e-12;
+        attribute longTermDrift : FractionalFrequency = 5.0e-13;
+        attribute operatingTemperature = 25.0 [degC];
+        attribute totalPowerConsumption = 28.0 [W];
+
+        part physicsPackage {
+            attribute cellTemperature = 60.0 [degC];
+            attribute magneticFieldBias = 1.0e-7 [T];
+            attribute resonanceLinewidth = 500.0 [Hz];
+            attribute detectedSignalToNoiseRatio : SignalToNoiseRatio = 45.0;
+        }
+
+        part localOscillator {
+            attribute tuningRange : FractionalFrequency = 5.0e-8;
+            attribute phaseNoiseAt1HzOffset = -90.0;
+            attribute agingRatePerDay : FractionalFrequency = 1.0e-10;
+            attribute ovenTemperature = 75.0 [degC];
+        }
+
+        part synthesizer {
+            attribute outputPower = 10.0 [dBm];
+            attribute spuriousLevel = -70.0;
+        }
+
+        part servoController {
+            attribute loopBandwidth = 1.0 [Hz];
+            attribute proportionalGain = 0.7;
+            attribute integralGain = 0.05;
+            attribute frequencyErrorEstimate = 0.1 [Hz];
+            attribute lockThreshold = 1.0 [Hz];
+            attribute locked = true;
+        }
+
+        part timeScaleGenerator {
+            attribute outputFrequency = 10000000.0 [Hz];
+            attribute onePpsWidth = 100.0 [ms];
+            attribute accumulatedTimeError : TimeError = 2.0e-7;
+        }
+
+        part powerConditioner {
+            attribute efficiency = 0.88;
+            attribute outputRipple = 5.0 [mV];
+        }
+
+        part thermalController {
+            attribute temperatureStability = 0.005 [K];
+            attribute heaterPower = 8.0 [W];
+        }
+
+        part healthManager {
+            attribute healthCode = 0;
+            attribute faultDetected = false;
+            attribute currentMode = ClockMode::locked;
+            attribute lastFrequencyError = 0.1 [Hz];
+            attribute lastTimeError : TimeError = 2.0e-7;
+        }
+    }
+}

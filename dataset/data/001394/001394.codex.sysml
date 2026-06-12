@@ -1,0 +1,388 @@
+package DataSecuritySystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percentage : Real {
+        unit = "%";
+    }
+
+    attribute def Bits : Integer;
+    attribute def Bytes : Integer;
+    attribute def BytesPerSecond : Real;
+    attribute def Millisecond : Real {
+        unit = "ms";
+    }
+
+    attribute def RiskScore : Real {
+        range = "0..100";
+    }
+
+    enum def ClassificationLevel {
+        enum public;
+        enum internal;
+        enum confidential;
+        enum restricted;
+    }
+
+    enum def SecurityDecision {
+        enum allow;
+        enum deny;
+        enum quarantine;
+        enum escalate;
+    }
+
+    enum def ThreatSeverity {
+        enum none;
+        enum low;
+        enum medium;
+        enum high;
+        enum critical;
+    }
+
+    item def DataPayload {
+        attribute payloadSize : Bytes;
+        attribute classification : ClassificationLevel;
+        attribute ownerId : String;
+        attribute sourceSystemId : String;
+        attribute integrityHash : String;
+    }
+
+    item def EncryptedDataPayload :> DataPayload {
+        attribute encryptionAlgorithm : String;
+        attribute keyIdentifier : String;
+        attribute initializationVector : String;
+    }
+
+    item def AccessRequest {
+        attribute requesterId : String;
+        attribute subjectRole : String;
+        attribute requestedOperation : String;
+        attribute targetResourceId : String;
+        attribute requestTime : String;
+        attribute networkZone : String;
+    }
+
+    item def AccessDecision {
+        attribute decision : SecurityDecision;
+        attribute reasonCode : String;
+        attribute risk : RiskScore;
+        attribute expiresIn : Millisecond;
+    }
+
+    item def AuditEvent {
+        attribute eventId : String;
+        attribute actorId : String;
+        attribute action : String;
+        attribute resourceId : String;
+        attribute outcome : SecurityDecision;
+        attribute severity : ThreatSeverity;
+        attribute eventTime : String;
+    }
+
+    item def ThreatIndicator {
+        attribute indicatorId : String;
+        attribute severity : ThreatSeverity;
+        attribute confidence : Percentage;
+        attribute description : String;
+    }
+
+    port def DataIngressPort {
+        in item incomingData : DataPayload;
+        out item rejectedData : DataPayload;
+    }
+
+    port def SecureDataPort {
+        out item protectedData : EncryptedDataPayload;
+        in item retrievedData : EncryptedDataPayload;
+    }
+
+    port def AccessControlPort {
+        in item request : AccessRequest;
+        out item decision : AccessDecision;
+    }
+
+    port def AuditPort {
+        out item auditEvent : AuditEvent;
+    }
+
+    port def ThreatIntelPort {
+        in item indicator : ThreatIndicator;
+    }
+
+    action def ClassifyData {
+        in item data : DataPayload;
+        out attribute classification : ClassificationLevel;
+    }
+
+    action def EncryptData {
+        in item plainData : DataPayload;
+        in attribute keyLength : Bits;
+        out item cipherData : EncryptedDataPayload;
+    }
+
+    action def ValidateAccess {
+        in item request : AccessRequest;
+        in attribute classification : ClassificationLevel;
+        out item decision : AccessDecision;
+    }
+
+    action def DetectThreat {
+        in item data : DataPayload;
+        in item indicator : ThreatIndicator;
+        out attribute severity : ThreatSeverity;
+        out attribute risk : RiskScore;
+    }
+
+    action def RecordAuditEvent {
+        in item decision : AccessDecision;
+        in item request : AccessRequest;
+        out item event : AuditEvent;
+    }
+
+    state def SecurityOperatingState {
+        entry action initializeSecurityContext;
+        state idle;
+        state monitoring;
+        state protectingData;
+        state evaluatingAccess;
+        state respondingToThreat;
+        state degradedProtection;
+        state lockedDown;
+
+        transition first idle;
+        transition idle_to_monitoring
+            first idle then monitoring;
+
+        transition monitoring_to_protectingData
+            first monitoring then protectingData
+            accept DataPayload;
+
+        transition monitoring_to_evaluatingAccess
+            first monitoring then evaluatingAccess
+            accept AccessRequest;
+
+        transition protectingData_to_monitoring
+            first protectingData then monitoring;
+
+        transition evaluatingAccess_to_monitoring
+            first evaluatingAccess then monitoring;
+
+        transition monitoring_to_respondingToThreat
+            first monitoring then respondingToThreat
+            if threatSeverity >= ThreatSeverity::high;
+
+        transition respondingToThreat_to_lockedDown
+            first respondingToThreat then lockedDown
+            if threatSeverity == ThreatSeverity::critical;
+
+        transition respondingToThreat_to_degradedProtection
+            first respondingToThreat then degradedProtection
+            if threatSeverity == ThreatSeverity::high;
+
+        transition degradedProtection_to_monitoring
+            first degradedProtection then monitoring
+            if serviceIntegrityRestored == true;
+
+        transition lockedDown_to_monitoring
+            first lockedDown then monitoring
+            if administratorRecoveryApproved == true;
+
+        attribute threatSeverity : ThreatSeverity;
+        attribute serviceIntegrityRestored : Boolean;
+        attribute administratorRecoveryApproved : Boolean;
+    }
+
+    part def DataSecurityGateway {
+        attribute maxThroughput : BytesPerSecond;
+        attribute averageDecisionLatency : Millisecond;
+        attribute encryptionKeyLength : Bits;
+        attribute requiredAvailability : Percentage;
+
+        port ingress : DataIngressPort;
+        port secureStoreInterface : SecureDataPort;
+        port accessInterface : AccessControlPort;
+        port auditInterface : AuditPort;
+        port threatIntelInterface : ThreatIntelPort;
+
+        perform action classify : ClassifyData;
+        perform action encrypt : EncryptData;
+        perform action validate : ValidateAccess;
+        perform action detect : DetectThreat;
+        perform action audit : RecordAuditEvent;
+
+        exhibit state operatingState : SecurityOperatingState;
+    }
+
+    part def IdentityProvider {
+        port accessPort : AccessControlPort;
+        attribute tokenValidityPeriod : Millisecond;
+        attribute supportedAuthenticationFactors : Integer;
+    }
+
+    part def PolicyEngine {
+        port accessPort : AccessControlPort;
+        attribute policyVersion : String;
+        attribute minimumAllowedRoleStrength : Integer;
+        attribute maximumPermittedRisk : RiskScore;
+    }
+
+    part def CryptographicModule {
+        port dataPort : SecureDataPort;
+        attribute supportedAlgorithm : String = "AES-256-GCM";
+        attribute keyLength : Bits = 256;
+        attribute keyRotationInterval : Millisecond;
+    }
+
+    part def SecureDataRepository {
+        port storagePort : SecureDataPort;
+        attribute retainedPayloadCapacity : Bytes;
+        attribute encryptedAtRest : Boolean = true;
+        attribute replicationFactor : Integer;
+    }
+
+    part def SecurityMonitoringService {
+        port auditPort : AuditPort;
+        port threatPort : ThreatIntelPort;
+        attribute detectionCoverage : Percentage;
+        attribute alertLatency : Millisecond;
+    }
+
+    part def AdministratorConsole {
+        port auditPort : AuditPort;
+        port accessPort : AccessControlPort;
+        attribute privilegedSessionTimeout : Millisecond;
+    }
+
+    part dataSecuritySystem : DataSecurityGateway {
+        attribute maxThroughput = 500000000.0;
+        attribute averageDecisionLatency = 75.0;
+        attribute encryptionKeyLength = 256;
+        attribute requiredAvailability = 99.95;
+
+        part identityProvider : IdentityProvider {
+            attribute tokenValidityPeriod = 3600000.0;
+            attribute supportedAuthenticationFactors = 3;
+        }
+
+        part policyEngine : PolicyEngine {
+            attribute policyVersion = "DSP-2026.06";
+            attribute minimumAllowedRoleStrength = 2;
+            attribute maximumPermittedRisk = 35.0;
+        }
+
+        part cryptoModule : CryptographicModule {
+            attribute keyRotationInterval = 2592000000.0;
+        }
+
+        part repository : SecureDataRepository {
+            attribute retainedPayloadCapacity = 1000000000000000;
+            attribute replicationFactor = 3;
+        }
+
+        part monitoringService : SecurityMonitoringService {
+            attribute detectionCoverage = 98.0;
+            attribute alertLatency = 5000.0;
+        }
+
+        part administratorConsole : AdministratorConsole {
+            attribute privilegedSessionTimeout = 900000.0;
+        }
+
+        connect ingress to cryptoModule.dataPort;
+        connect cryptoModule.dataPort to repository.storagePort;
+        connect accessInterface to identityProvider.accessPort;
+        connect identityProvider.accessPort to policyEngine.accessPort;
+        connect policyEngine.accessPort to administratorConsole.accessPort;
+        connect auditInterface to monitoringService.auditPort;
+        connect monitoringService.auditPort to administratorConsole.auditPort;
+        connect threatIntelInterface to monitoringService.threatPort;
+    }
+
+    action def ProtectDataFlow {
+        in item incoming : DataPayload;
+        in item accessRequest : AccessRequest;
+        in item threatIndicator : ThreatIndicator;
+        out item protectedPayload : EncryptedDataPayload;
+        out item decision : AccessDecision;
+        out item auditEvent : AuditEvent;
+
+        first start;
+        then classifyAction : ClassifyData {
+            in data = incoming;
+        }
+        then threatDetection : DetectThreat {
+            in data = incoming;
+            in indicator = threatIndicator;
+        }
+        then accessValidation : ValidateAccess {
+            in request = accessRequest;
+            in classification = classifyAction.classification;
+        }
+        then encryptionAction : EncryptData {
+            in plainData = incoming;
+            in keyLength = 256;
+        }
+        then auditAction : RecordAuditEvent {
+            in decision = accessValidation.decision;
+            in request = accessRequest;
+        }
+        then done;
+
+        bind protectedPayload = encryptionAction.cipherData;
+        bind decision = accessValidation.decision;
+        bind auditEvent = auditAction.event;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject securedSystem : DataSecurityGateway;
+        doc
+        /* The system shall protect organizational data by classifying incoming payloads, enforcing identity-aware access policy, encrypting sensitive content in transit and at rest, detecting high-risk activity, and producing auditable security events. */
+    }
+
+    requirement def EncryptionRequirement {
+        subject securedSystem : DataSecurityGateway;
+        require constraint {
+            securedSystem.encryptionKeyLength >= 256
+        }
+        doc
+        /* Restricted and confidential data shall be encrypted with keys of at least 256 bits before storage or external transfer. */
+    }
+
+    requirement def AccessDecisionLatencyRequirement {
+        subject securedSystem : DataSecurityGateway;
+        require constraint {
+            securedSystem.averageDecisionLatency <= 100.0
+        }
+        doc
+        /* The system shall produce an access decision within 100 milliseconds for normal operating conditions. */
+    }
+
+    requirement def AuditabilityRequirement {
+        subject securedSystem : DataSecurityGateway;
+        doc
+        /* Every access decision, rejected payload, administrative action, and detected high-severity threat shall generate an audit event containing actor, resource, action, outcome, severity, and timestamp. */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject securedSystem : DataSecurityGateway;
+        require constraint {
+            securedSystem.requiredAvailability >= 99.9
+        }
+        doc
+        /* The data security capability shall maintain at least 99.9 percent service availability for protection, access control, and audit event capture. */
+    }
+
+    requirement def ThreatResponseRequirement {
+        subject securedSystem : DataSecurityGateway;
+        doc
+        /* The system shall enter degraded protection or lockdown state when threat severity is high or critical, and shall require validated administrative recovery before returning to monitoring. */
+    }
+
+    satisfy PrimaryFunctionRequirement by dataSecuritySystem;
+    satisfy EncryptionRequirement by dataSecuritySystem;
+    satisfy AccessDecisionLatencyRequirement by dataSecuritySystem;
+    satisfy AuditabilityRequirement by dataSecuritySystem;
+    satisfy AvailabilityRequirement by dataSecuritySystem;
+    satisfy ThreatResponseRequirement by dataSecuritySystem;
+}

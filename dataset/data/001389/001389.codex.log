@@ -1,0 +1,1135 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-z56rs3_o
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb685-a8e5-7013-a063-69e023e623ee
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a robotic system that performs its primary task using a Continuum robot.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ContinuumRoboticSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def LengthValue :> Real {
+        unit = m;
+    }
+
+    value def AngleValue :> Real {
+        unit = rad;
+    }
+
+    value def PressureValue :> Real {
+        unit = Pa;
+    }
+
+    value def ForceValue :> Real {
+        unit = N;
+    }
+
+    value def TorqueValue :> Real {
+        unit = N * m;
+    }
+
+    value def TimeValue :> Real {
+        unit = s;
+    }
+
+    value def VelocityValue :> Real {
+        unit = m / s;
+    }
+
+    value def ElectricPotentialValue :> Real {
+        unit = V;
+    }
+
+    value def ElectricCurrentValue :> Real {
+        unit = A;
+    }
+
+    value def FlowRateValue :> Real {
+        unit = m^3 / s;
+    }
+
+    value def TemperatureValue :> Real {
+        unit = K;
+    }
+
+    item def ElectricPower {
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+    }
+
+    item def PneumaticSupply {
+        attribute pressure : PressureValue;
+        attribute flowRate : FlowRateValue;
+    }
+
+    item def TendonCommand {
+        attribute tendonId : Integer;
+        attribute targetTension : ForceValue;
+        attribute targetLengthChange : LengthValue;
+    }
+
+    item def ChamberCommand {
+        attribute chamberId : Integer;
+        attribute targetPressure : PressureValue;
+    }
+
+    item def ShapeCommand {
+        attribute targetCurvature : Real;
+        attribute targetBendingPlane : AngleValue;
+        attribute targetExtension : LengthValue;
+        attribute maxTipVelocity : VelocityValue;
+    }
+
+    item def EndEffectorCommand {
+        attribute gripForce : ForceValue;
+        attribute aperture : LengthValue;
+        attribute toolEnabled : Boolean;
+    }
+
+    item def PoseEstimate {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : AngleValue;
+        attribute pitch : AngleValue;
+        attribute yaw : AngleValue;
+    }
+
+    item def ContinuumShapeEstimate {
+        attribute segment1Curvature : Real;
+        attribute segment1Plane : AngleValue;
+        attribute segment2Curvature : Real;
+        attribute segment2Plane : AngleValue;
+        attribute segment3Curvature : Real;
+        attribute segment3Plane : AngleValue;
+        attribute tipPose : PoseEstimate;
+    }
+
+    item def TaskObject {
+        attribute mass : Real;
+        attribute requiredGripForce : ForceValue;
+        attribute targetPlacementX : LengthValue;
+        attribute targetPlacementY : LengthValue;
+        attribute targetPlacementZ : LengthValue;
+    }
+
+    item def SafetyStatus {
+        attribute emergencyStopActive : Boolean;
+        attribute collisionRisk : Boolean;
+        attribute overPressure : Boolean;
+        attribute excessiveTension : Boolean;
+        attribute sterileBoundaryViolated : Boolean;
+    }
+
+    port def ElectricPowerPort {
+        in item power : ElectricPower;
+    }
+
+    port def PneumaticInputPort {
+        in item supply : PneumaticSupply;
+    }
+
+    port def PneumaticOutputPort {
+        out item supply : PneumaticSupply;
+    }
+
+    port def ShapeCommandPort {
+        in item command : ShapeCommand;
+    }
+
+    port def ChamberCommandPort {
+        in item command : ChamberCommand;
+    }
+
+    port def TendonCommandPort {
+        in item command : TendonCommand;
+    }
+
+    port def EndEffectorCommandPort {
+        in item command : EndEffectorCommand;
+    }
+
+    port def ShapeFeedbackPort {
+        out item estimate : ContinuumShapeEstimate;
+    }
+
+    port def PoseFeedbackPort {
+        out item pose : PoseEstimate;
+    }
+
+    port def SafetyStatusPort {
+        out item status : SafetyStatus;
+    }
+
+    port def ObjectTransferPort {
+        inout item object : TaskObject;
+    }
+
+    port def DataPort {
+        inout item data : String;
+    }
+
+    part def PowerSubsystem {
+        attribute nominalBusVoltage : ElectricPotentialValue = 48 [V];
+        attribute maxContinuousCurrent : ElectricCurrentValue = 35 [A];
+
+        port mainsIn : ElectricPowerPort;
+        port controllerOut : ElectricPowerPort;
+        port actuatorOut : ElectricPowerPort;
+        port sensorOut : ElectricPowerPort;
+    }
+
+    part def PneumaticSubsystem {
+        attribute reservoirPressure : PressureValue = 700000 [Pa];
+        attribute regulatedPressure : PressureValue = 320000 [Pa];
+        attribute maxFlowRate : FlowRateValue = 0.00045 [m^3/s];
+
+        port electricalIn : ElectricPowerPort;
+        port airIn : PneumaticInputPort;
+        port chamberSupplyOut : PneumaticOutputPort;
+    }
+
+    part def Segment {
+        attribute length : LengthValue;
+        attribute outerDiameter : LengthValue;
+        attribute maxCurvature : Real;
+        attribute maxExtension : LengthValue;
+        attribute maxPressure : PressureValue = 350000 [Pa];
+        attribute maxTendonTension : ForceValue = 45 [N];
+
+        port pneumaticIn : PneumaticInputPort;
+        port chamberCommandIn : ChamberCommandPort;
+        port tendonCommandIn : TendonCommandPort;
+        port shapeEstimateOut : ShapeFeedbackPort;
+    }
+
+    part def ContinuumRobot {
+        attribute totalLength : LengthValue = 0.72 [m];
+        attribute payloadCapacity : ForceValue = 18 [N];
+        attribute minimumBendRadius : LengthValue = 0.09 [m];
+        attribute allowableTipForce : ForceValue = 12 [N];
+
+        port powerIn : ElectricPowerPort;
+        port pneumaticIn : PneumaticInputPort;
+        port shapeCommandIn : ShapeCommandPort;
+        port shapeFeedbackOut : ShapeFeedbackPort;
+        port tipPoseOut : PoseFeedbackPort;
+        port objectInterface : ObjectTransferPort;
+
+        part baseSection : Segment {
+            attribute length = 0.24 [m];
+            attribute outerDiameter = 0.052 [m];
+            attribute maxCurvature = 8.5;
+            attribute maxExtension = 0.035 [m];
+        }
+
+        part middleSection : Segment {
+            attribute length = 0.24 [m];
+            attribute outerDiameter = 0.044 [m];
+            attribute maxCurvature = 10.5;
+            attribute maxExtension = 0.032 [m];
+        }
+
+        part distalSection : Segment {
+            attribute length = 0.24 [m];
+            attribute outerDiameter = 0.036 [m];
+            attribute maxCurvature = 13.0;
+            attribute maxExtension = 0.028 [m];
+        }
+
+        part endEffector : AdaptiveSoftGripper;
+
+        connect pneumaticIn to baseSection.pneumaticIn;
+        connect pneumaticIn to middleSection.pneumaticIn;
+        connect pneumaticIn to distalSection.pneumaticIn;
+        connect distalSection.shapeEstimateOut to shapeFeedbackOut;
+        connect endEffector.objectInterface to objectInterface;
+    }
+
+    part def AdaptiveSoftGripper {
+        attribute maxAperture : LengthValue = 0.08 [m];
+        attribute minAperture : LengthValue = 0.004 [m];
+        attribute maxGripForce : ForceValue = 16 [N];
+        attribute padContactPressureLimit : PressureValue = 45000 [Pa];
+
+        port powerIn : ElectricPowerPort;
+        port pneumaticIn : PneumaticInputPort;
+        port commandIn : EndEffectorCommandPort;
+        port objectInterface : ObjectTransferPort;
+        port poseOut : PoseFeedbackPort;
+    }
+
+    part def PerceptionSubsystem {
+        attribute cameraFrameRate : Real = 60;
+        attribute depthRange : LengthValue = 2.5 [m];
+        attribute poseAccuracy : LengthValue = 0.004 [m];
+
+        port powerIn : ElectricPowerPort;
+        port dataOut : DataPort;
+        port objectPoseOut : PoseFeedbackPort;
+    }
+
+    part def ShapeSensingSubsystem {
+        attribute fiberSampleRate : Real = 1000;
+        attribute curvatureResolution : Real = 0.02;
+        attribute tipPositionResolution : LengthValue = 0.002 [m];
+
+        port powerIn : ElectricPowerPort;
+        port shapeEstimateOut : ShapeFeedbackPort;
+    }
+
+    part def RobotController {
+        attribute controlPeriod : TimeValue = 0.004 [s];
+        attribute maxAllowedTipSpeed : VelocityValue = 0.12 [m/s];
+        attribute maxAllowedCurvatureRate : Real = 3.0;
+
+        port powerIn : ElectricPowerPort;
+        port perceptionIn : DataPort;
+        port shapeFeedbackIn : ShapeFeedbackPort;
+        port safetyIn : DataPort;
+        port continuumCommandOut : ShapeCommandPort;
+        port gripperCommandOut : EndEffectorCommandPort;
+        port chamberCommandOut : ChamberCommandPort;
+        port tendonCommandOut : TendonCommandPort;
+    }
+
+    part def SafetySupervisor {
+        attribute pressureLimit : PressureValue = 350000 [Pa];
+        attribute tendonTensionLimit : ForceValue = 45 [N];
+        attribute collisionDistanceLimit : LengthValue = 0.025 [m];
+        attribute maxSurfaceTemperature : TemperatureValue = 318 [K];
+
+        port powerIn : ElectricPowerPort;
+        port shapeFeedbackIn : ShapeFeedbackPort;
+        port statusOut : SafetyStatusPort;
+        port controllerDataOut : DataPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute displayRefreshRate : Real = 30;
+
+        port powerIn : ElectricPowerPort;
+        port commandDataOut : DataPort;
+        port statusDataIn : DataPort;
+    }
+
+    action def InitializeSystem {
+        first start;
+        then powerOnControllers;
+        then pressurizePneumatics;
+        then calibrateShapeSensors;
+        then homeContinuumRobot;
+        then verifySafetyInterlocks;
+        then done;
+    }
+
+    action def PlanContinuumMotion {
+        in item objectPose : PoseEstimate;
+        in item currentShape : ContinuumShapeEstimate;
+        out item shapeCommand : ShapeCommand;
+
+        first receiveTask;
+        then computeCollisionFreeBackboneCurve;
+        then limitCurvatureAndVelocity;
+        then emitShapeCommand;
+    }
+
+    action def ExecutePrimaryManipulationTask {
+        inout item object : TaskObject;
+
+        first identifyObject;
+        then approachWithContinuumBackbone;
+        then conformAroundObstacle;
+        then alignSoftGripper;
+        then graspObject;
+        then retractThroughConstrainedPath;
+        then placeObjectAtTarget;
+        then releaseObject;
+        then returnToReadyShape;
+    }
+
+    action def RegulateSegmentPressure {
+        in item command : ChamberCommand;
+        in item supply : PneumaticSupply;
+        out item regulatedSupply : PneumaticSupply;
+
+        first comparePressureSetpoint;
+        then actuateValve;
+        then measurePressure;
+        then closePressureLoop;
+    }
+
+    action def MonitorSafety {
+        in item shape : ContinuumShapeEstimate;
+        out item status : SafetyStatus;
+
+        first sampleSensors;
+        then checkPressureLimits;
+        then checkTendonTensionLimits;
+        then checkCollisionEnvelope;
+        then checkEmergencyStop;
+        then publishSafetyStatus;
+    }
+
+    state def ContinuumRobotOperationalState {
+        entry action InitializeSystem;
+
+        state Off;
+        state Initializing;
+        state Ready;
+        state Planning;
+        state Shaping;
+        state Grasping;
+        state Transporting;
+        state Releasing;
+        state Fault;
+        state EmergencyStopped;
+
+        transition first Off then Initializing;
+        transition Initializing then Ready
+            accept after 6 [s];
+
+        transition Ready then Planning
+            accept taskRequested;
+
+        transition Planning then Shaping
+            accept planValid;
+
+        transition Shaping then Grasping
+            accept tipAtPregraspPose;
+
+        transition Grasping then Transporting
+            accept objectSecured;
+
+        transition Transporting then Releasing
+            accept objectAtTargetPose;
+
+        transition Releasing then Ready
+            accept objectReleased;
+
+        transition Ready then Fault
+            accept faultDetected;
+
+        transition Planning then Fault
+            accept faultDetected;
+
+        transition Shaping then Fault
+            accept faultDetected;
+
+        transition Grasping then Fault
+            accept faultDetected;
+
+        transition Transporting then Fault
+            accept faultDetected;
+
+        transition Releasing then Fault
+            accept faultDetected;
+
+        transition Fault then Initializing
+            accept resetCommand;
+
+        transition Off then EmergencyStopped
+            accept emergencyStop;
+
+        transition Initializing then EmergencyStopped
+            accept emergencyStop;
+
+        transition Ready then EmergencyStopped
+            accept emergencyStop;
+
+        transition Planning then EmergencyStopped
+            accept emergencyStop;
+
+        transition Shaping then EmergencyStopped
+            accept emergencyStop;
+
+        transition Grasping then EmergencyStopped
+            accept emergencyStop;
+
+        transition Transporting then EmergencyStopped
+            accept emergencyStop;
+
+        transition Releasing then EmergencyStopped
+            accept emergencyStop;
+
+        transition Fault then EmergencyStopped
+            accept emergencyStop;
+    }
+
+    requirement def PrimaryContinuumTaskRequirement {
+        subject system : ContinuumRoboticWorkcell;
+        doc
+        /*
+         * The robotic system shall perform its primary manipulation task using the continuum robot as the only robot that contacts, grasps, transports, and releases the task object.
+         */
+    }
+
+    requirement def ShapeControlRequirement {
+        subject robot : ContinuumRobot;
+        attribute maxTipPositionError : LengthValue = 0.006 [m];
+        attribute maxCurvatureError : Real = 0.08;
+        doc
+        /*
+         * The continuum robot shall regulate its backbone shape so that commanded tip position error remains no greater than maxTipPositionError during approach, grasp, transport, and release.
+         */
+    }
+
+    requirement def SafetyRequirement {
+        subject supervisor : SafetySupervisor;
+        attribute maxPressure : PressureValue = 350000 [Pa];
+        attribute maxTension : ForceValue = 45 [N];
+        doc
+        /*
+         * The safety supervisor shall command a fault response when pressure, tendon tension, collision distance, temperature, or emergency stop limits are violated.
+         */
+    }
+
+    requirement def PayloadRequirement {
+        subject robot : ContinuumRobot;
+        attribute requiredPayloadForce : ForceValue = 10 [N];
+        doc
+        /*
+         * The continuum robot and gripper shall securely manipulate task objects requiring up to requiredPayloadForce without exceeding allowable tip force or gripper contact pressure limits.
+         */
+    }
+
+    requirement def ConstrainedAccessRequirement {
+        subject robot : ContinuumRobot;
+        attribute passageDiameter : LengthValue = 0.07 [m];
+        attribute passageLength : LengthValue = 0.45 [m];
+        doc
+        /*
+         * The continuum robot shall reach through a constrained passage with diameter no greater than passageDiameter and length no less than passageLength while maintaining obstacle clearance.
+         */
+    }
+
+    part def ContinuumRoboticWorkcell {
+        attribute workEnvelopeRadius : LengthValue = 0.9 [m];
+        attribute primaryTaskCycleTime : TimeValue = 28 [s];
+
+        port externalPowerIn : ElectricPowerPort;
+        port compressedAirIn : PneumaticInputPort;
+        port taskObjectPort : ObjectTransferPort;
+
+        part power : PowerSubsystem;
+        part pneumatics : PneumaticSubsystem;
+        part controller : RobotController;
+        part continuumRobot : ContinuumRobot;
+        part perception : PerceptionSubsystem;
+        part shapeSensing : ShapeSensingSubsystem;
+        part safety : SafetySupervisor;
+        part hmi : HumanMachineInterface;
+
+        connect externalPowerIn to power.mainsIn;
+        connect power.controllerOut to controller.powerIn;
+        connect power.actuatorOut to continuumRobot.powerIn;
+        connect power.sensorOut to perception.powerIn;
+        connect power.sensorOut to shapeSensing.powerIn;
+        connect power.controllerOut to safety.powerIn;
+        connect power.controllerOut to hmi.powerIn;
+
+        connect compressedAirIn to pneumatics.airIn;
+        connect power.actuatorOut to pneumatics.electricalIn;
+        connect pneumatics.chamberSupplyOut to continuumRobot.pneumaticIn;
+
+        connect perception.dataOut to controller.perceptionIn;
+        connect shapeSensing.shapeEstimateOut to controller.shapeFeedbackIn;
+        connect shapeSensing.shapeEstimateOut to safety.shapeFeedbackIn;
+        connect safety.controllerDataOut to controller.safetyIn;
+
+        connect controller.continuumCommandOut to continuumRobot.shapeCommandIn;
+        connect controller.gripperCommandOut to continuumRobot.endEffector.commandIn;
+        connect controller.chamberCommandOut to continuumRobot.baseSection.chamberCommandIn;
+        connect controller.chamberCommandOut to continuumRobot.middleSection.chamberCommandIn;
+        connect controller.chamberCommandOut to continuumRobot.distalSection.chamberCommandIn;
+        connect controller.tendonCommandOut to continuumRobot.baseSection.tendonCommandIn;
+        connect controller.tendonCommandOut to continuumRobot.middleSection.tendonCommandIn;
+        connect controller.tendonCommandOut to continuumRobot.distalSection.tendonCommandIn;
+
+        connect continuumRobot.objectInterface to taskObjectPort;
+    }
+
+    satisfy PrimaryContinuumTaskRequirement by ContinuumRoboticWorkcell.continuumRobot;
+    satisfy ShapeControlRequirement by ContinuumRoboticWorkcell.controller;
+    satisfy SafetyRequirement by ContinuumRoboticWorkcell.safety;
+    satisfy PayloadRequirement by ContinuumRoboticWorkcell.continuumRobot.endEffector;
+    satisfy ConstrainedAccessRequirement by ContinuumRoboticWorkcell.continuumRobot;
+
+    perform action InitializeSystem by ContinuumRoboticWorkcell;
+    perform action PlanContinuumMotion by ContinuumRoboticWorkcell.controller;
+    perform action ExecutePrimaryManipulationTask by ContinuumRoboticWorkcell.continuumRobot;
+    perform action MonitorSafety by ContinuumRoboticWorkcell.safety;
+}
+tokens used
+5,182
+package ContinuumRoboticSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def LengthValue :> Real {
+        unit = m;
+    }
+
+    value def AngleValue :> Real {
+        unit = rad;
+    }
+
+    value def PressureValue :> Real {
+        unit = Pa;
+    }
+
+    value def ForceValue :> Real {
+        unit = N;
+    }
+
+    value def TorqueValue :> Real {
+        unit = N * m;
+    }
+
+    value def TimeValue :> Real {
+        unit = s;
+    }
+
+    value def VelocityValue :> Real {
+        unit = m / s;
+    }
+
+    value def ElectricPotentialValue :> Real {
+        unit = V;
+    }
+
+    value def ElectricCurrentValue :> Real {
+        unit = A;
+    }
+
+    value def FlowRateValue :> Real {
+        unit = m^3 / s;
+    }
+
+    value def TemperatureValue :> Real {
+        unit = K;
+    }
+
+    item def ElectricPower {
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+    }
+
+    item def PneumaticSupply {
+        attribute pressure : PressureValue;
+        attribute flowRate : FlowRateValue;
+    }
+
+    item def TendonCommand {
+        attribute tendonId : Integer;
+        attribute targetTension : ForceValue;
+        attribute targetLengthChange : LengthValue;
+    }
+
+    item def ChamberCommand {
+        attribute chamberId : Integer;
+        attribute targetPressure : PressureValue;
+    }
+
+    item def ShapeCommand {
+        attribute targetCurvature : Real;
+        attribute targetBendingPlane : AngleValue;
+        attribute targetExtension : LengthValue;
+        attribute maxTipVelocity : VelocityValue;
+    }
+
+    item def EndEffectorCommand {
+        attribute gripForce : ForceValue;
+        attribute aperture : LengthValue;
+        attribute toolEnabled : Boolean;
+    }
+
+    item def PoseEstimate {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : AngleValue;
+        attribute pitch : AngleValue;
+        attribute yaw : AngleValue;
+    }
+
+    item def ContinuumShapeEstimate {
+        attribute segment1Curvature : Real;
+        attribute segment1Plane : AngleValue;
+        attribute segment2Curvature : Real;
+        attribute segment2Plane : AngleValue;
+        attribute segment3Curvature : Real;
+        attribute segment3Plane : AngleValue;
+        attribute tipPose : PoseEstimate;
+    }
+
+    item def TaskObject {
+        attribute mass : Real;
+        attribute requiredGripForce : ForceValue;
+        attribute targetPlacementX : LengthValue;
+        attribute targetPlacementY : LengthValue;
+        attribute targetPlacementZ : LengthValue;
+    }
+
+    item def SafetyStatus {
+        attribute emergencyStopActive : Boolean;
+        attribute collisionRisk : Boolean;
+        attribute overPressure : Boolean;
+        attribute excessiveTension : Boolean;
+        attribute sterileBoundaryViolated : Boolean;
+    }
+
+    port def ElectricPowerPort {
+        in item power : ElectricPower;
+    }
+
+    port def PneumaticInputPort {
+        in item supply : PneumaticSupply;
+    }
+
+    port def PneumaticOutputPort {
+        out item supply : PneumaticSupply;
+    }
+
+    port def ShapeCommandPort {
+        in item command : ShapeCommand;
+    }
+
+    port def ChamberCommandPort {
+        in item command : ChamberCommand;
+    }
+
+    port def TendonCommandPort {
+        in item command : TendonCommand;
+    }
+
+    port def EndEffectorCommandPort {
+        in item command : EndEffectorCommand;
+    }
+
+    port def ShapeFeedbackPort {
+        out item estimate : ContinuumShapeEstimate;
+    }
+
+    port def PoseFeedbackPort {
+        out item pose : PoseEstimate;
+    }
+
+    port def SafetyStatusPort {
+        out item status : SafetyStatus;
+    }
+
+    port def ObjectTransferPort {
+        inout item object : TaskObject;
+    }
+
+    port def DataPort {
+        inout item data : String;
+    }
+
+    part def PowerSubsystem {
+        attribute nominalBusVoltage : ElectricPotentialValue = 48 [V];
+        attribute maxContinuousCurrent : ElectricCurrentValue = 35 [A];
+
+        port mainsIn : ElectricPowerPort;
+        port controllerOut : ElectricPowerPort;
+        port actuatorOut : ElectricPowerPort;
+        port sensorOut : ElectricPowerPort;
+    }
+
+    part def PneumaticSubsystem {
+        attribute reservoirPressure : PressureValue = 700000 [Pa];
+        attribute regulatedPressure : PressureValue = 320000 [Pa];
+        attribute maxFlowRate : FlowRateValue = 0.00045 [m^3/s];
+
+        port electricalIn : ElectricPowerPort;
+        port airIn : PneumaticInputPort;
+        port chamberSupplyOut : PneumaticOutputPort;
+    }
+
+    part def Segment {
+        attribute length : LengthValue;
+        attribute outerDiameter : LengthValue;
+        attribute maxCurvature : Real;
+        attribute maxExtension : LengthValue;
+        attribute maxPressure : PressureValue = 350000 [Pa];
+        attribute maxTendonTension : ForceValue = 45 [N];
+
+        port pneumaticIn : PneumaticInputPort;
+        port chamberCommandIn : ChamberCommandPort;
+        port tendonCommandIn : TendonCommandPort;
+        port shapeEstimateOut : ShapeFeedbackPort;
+    }
+
+    part def ContinuumRobot {
+        attribute totalLength : LengthValue = 0.72 [m];
+        attribute payloadCapacity : ForceValue = 18 [N];
+        attribute minimumBendRadius : LengthValue = 0.09 [m];
+        attribute allowableTipForce : ForceValue = 12 [N];
+
+        port powerIn : ElectricPowerPort;
+        port pneumaticIn : PneumaticInputPort;
+        port shapeCommandIn : ShapeCommandPort;
+        port shapeFeedbackOut : ShapeFeedbackPort;
+        port tipPoseOut : PoseFeedbackPort;
+        port objectInterface : ObjectTransferPort;
+
+        part baseSection : Segment {
+            attribute length = 0.24 [m];
+            attribute outerDiameter = 0.052 [m];
+            attribute maxCurvature = 8.5;
+            attribute maxExtension = 0.035 [m];
+        }
+
+        part middleSection : Segment {
+            attribute length = 0.24 [m];
+            attribute outerDiameter = 0.044 [m];
+            attribute maxCurvature = 10.5;
+            attribute maxExtension = 0.032 [m];
+        }
+
+        part distalSection : Segment {
+            attribute length = 0.24 [m];
+            attribute outerDiameter = 0.036 [m];
+            attribute maxCurvature = 13.0;
+            attribute maxExtension = 0.028 [m];
+        }
+
+        part endEffector : AdaptiveSoftGripper;
+
+        connect pneumaticIn to baseSection.pneumaticIn;
+        connect pneumaticIn to middleSection.pneumaticIn;
+        connect pneumaticIn to distalSection.pneumaticIn;
+        connect distalSection.shapeEstimateOut to shapeFeedbackOut;
+        connect endEffector.objectInterface to objectInterface;
+    }
+
+    part def AdaptiveSoftGripper {
+        attribute maxAperture : LengthValue = 0.08 [m];
+        attribute minAperture : LengthValue = 0.004 [m];
+        attribute maxGripForce : ForceValue = 16 [N];
+        attribute padContactPressureLimit : PressureValue = 45000 [Pa];
+
+        port powerIn : ElectricPowerPort;
+        port pneumaticIn : PneumaticInputPort;
+        port commandIn : EndEffectorCommandPort;
+        port objectInterface : ObjectTransferPort;
+        port poseOut : PoseFeedbackPort;
+    }
+
+    part def PerceptionSubsystem {
+        attribute cameraFrameRate : Real = 60;
+        attribute depthRange : LengthValue = 2.5 [m];
+        attribute poseAccuracy : LengthValue = 0.004 [m];
+
+        port powerIn : ElectricPowerPort;
+        port dataOut : DataPort;
+        port objectPoseOut : PoseFeedbackPort;
+    }
+
+    part def ShapeSensingSubsystem {
+        attribute fiberSampleRate : Real = 1000;
+        attribute curvatureResolution : Real = 0.02;
+        attribute tipPositionResolution : LengthValue = 0.002 [m];
+
+        port powerIn : ElectricPowerPort;
+        port shapeEstimateOut : ShapeFeedbackPort;
+    }
+
+    part def RobotController {
+        attribute controlPeriod : TimeValue = 0.004 [s];
+        attribute maxAllowedTipSpeed : VelocityValue = 0.12 [m/s];
+        attribute maxAllowedCurvatureRate : Real = 3.0;
+
+        port powerIn : ElectricPowerPort;
+        port perceptionIn : DataPort;
+        port shapeFeedbackIn : ShapeFeedbackPort;
+        port safetyIn : DataPort;
+        port continuumCommandOut : ShapeCommandPort;
+        port gripperCommandOut : EndEffectorCommandPort;
+        port chamberCommandOut : ChamberCommandPort;
+        port tendonCommandOut : TendonCommandPort;
+    }
+
+    part def SafetySupervisor {
+        attribute pressureLimit : PressureValue = 350000 [Pa];
+        attribute tendonTensionLimit : ForceValue = 45 [N];
+        attribute collisionDistanceLimit : LengthValue = 0.025 [m];
+        attribute maxSurfaceTemperature : TemperatureValue = 318 [K];
+
+        port powerIn : ElectricPowerPort;
+        port shapeFeedbackIn : ShapeFeedbackPort;
+        port statusOut : SafetyStatusPort;
+        port controllerDataOut : DataPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute displayRefreshRate : Real = 30;
+
+        port powerIn : ElectricPowerPort;
+        port commandDataOut : DataPort;
+        port statusDataIn : DataPort;
+    }
+
+    action def InitializeSystem {
+        first start;
+        then powerOnControllers;
+        then pressurizePneumatics;
+        then calibrateShapeSensors;
+        then homeContinuumRobot;
+        then verifySafetyInterlocks;
+        then done;
+    }
+
+    action def PlanContinuumMotion {
+        in item objectPose : PoseEstimate;
+        in item currentShape : ContinuumShapeEstimate;
+        out item shapeCommand : ShapeCommand;
+
+        first receiveTask;
+        then computeCollisionFreeBackboneCurve;
+        then limitCurvatureAndVelocity;
+        then emitShapeCommand;
+    }
+
+    action def ExecutePrimaryManipulationTask {
+        inout item object : TaskObject;
+
+        first identifyObject;
+        then approachWithContinuumBackbone;
+        then conformAroundObstacle;
+        then alignSoftGripper;
+        then graspObject;
+        then retractThroughConstrainedPath;
+        then placeObjectAtTarget;
+        then releaseObject;
+        then returnToReadyShape;
+    }
+
+    action def RegulateSegmentPressure {
+        in item command : ChamberCommand;
+        in item supply : PneumaticSupply;
+        out item regulatedSupply : PneumaticSupply;
+
+        first comparePressureSetpoint;
+        then actuateValve;
+        then measurePressure;
+        then closePressureLoop;
+    }
+
+    action def MonitorSafety {
+        in item shape : ContinuumShapeEstimate;
+        out item status : SafetyStatus;
+
+        first sampleSensors;
+        then checkPressureLimits;
+        then checkTendonTensionLimits;
+        then checkCollisionEnvelope;
+        then checkEmergencyStop;
+        then publishSafetyStatus;
+    }
+
+    state def ContinuumRobotOperationalState {
+        entry action InitializeSystem;
+
+        state Off;
+        state Initializing;
+        state Ready;
+        state Planning;
+        state Shaping;
+        state Grasping;
+        state Transporting;
+        state Releasing;
+        state Fault;
+        state EmergencyStopped;
+
+        transition first Off then Initializing;
+        transition Initializing then Ready
+            accept after 6 [s];
+
+        transition Ready then Planning
+            accept taskRequested;
+
+        transition Planning then Shaping
+            accept planValid;
+
+        transition Shaping then Grasping
+            accept tipAtPregraspPose;
+
+        transition Grasping then Transporting
+            accept objectSecured;
+
+        transition Transporting then Releasing
+            accept objectAtTargetPose;
+
+        transition Releasing then Ready
+            accept objectReleased;
+
+        transition Ready then Fault
+            accept faultDetected;
+
+        transition Planning then Fault
+            accept faultDetected;
+
+        transition Shaping then Fault
+            accept faultDetected;
+
+        transition Grasping then Fault
+            accept faultDetected;
+
+        transition Transporting then Fault
+            accept faultDetected;
+
+        transition Releasing then Fault
+            accept faultDetected;
+
+        transition Fault then Initializing
+            accept resetCommand;
+
+        transition Off then EmergencyStopped
+            accept emergencyStop;
+
+        transition Initializing then EmergencyStopped
+            accept emergencyStop;
+
+        transition Ready then EmergencyStopped
+            accept emergencyStop;
+
+        transition Planning then EmergencyStopped
+            accept emergencyStop;
+
+        transition Shaping then EmergencyStopped
+            accept emergencyStop;
+
+        transition Grasping then EmergencyStopped
+            accept emergencyStop;
+
+        transition Transporting then EmergencyStopped
+            accept emergencyStop;
+
+        transition Releasing then EmergencyStopped
+            accept emergencyStop;
+
+        transition Fault then EmergencyStopped
+            accept emergencyStop;
+    }
+
+    requirement def PrimaryContinuumTaskRequirement {
+        subject system : ContinuumRoboticWorkcell;
+        doc
+        /*
+         * The robotic system shall perform its primary manipulation task using the continuum robot as the only robot that contacts, grasps, transports, and releases the task object.
+         */
+    }
+
+    requirement def ShapeControlRequirement {
+        subject robot : ContinuumRobot;
+        attribute maxTipPositionError : LengthValue = 0.006 [m];
+        attribute maxCurvatureError : Real = 0.08;
+        doc
+        /*
+         * The continuum robot shall regulate its backbone shape so that commanded tip position error remains no greater than maxTipPositionError during approach, grasp, transport, and release.
+         */
+    }
+
+    requirement def SafetyRequirement {
+        subject supervisor : SafetySupervisor;
+        attribute maxPressure : PressureValue = 350000 [Pa];
+        attribute maxTension : ForceValue = 45 [N];
+        doc
+        /*
+         * The safety supervisor shall command a fault response when pressure, tendon tension, collision distance, temperature, or emergency stop limits are violated.
+         */
+    }
+
+    requirement def PayloadRequirement {
+        subject robot : ContinuumRobot;
+        attribute requiredPayloadForce : ForceValue = 10 [N];
+        doc
+        /*
+         * The continuum robot and gripper shall securely manipulate task objects requiring up to requiredPayloadForce without exceeding allowable tip force or gripper contact pressure limits.
+         */
+    }
+
+    requirement def ConstrainedAccessRequirement {
+        subject robot : ContinuumRobot;
+        attribute passageDiameter : LengthValue = 0.07 [m];
+        attribute passageLength : LengthValue = 0.45 [m];
+        doc
+        /*
+         * The continuum robot shall reach through a constrained passage with diameter no greater than passageDiameter and length no less than passageLength while maintaining obstacle clearance.
+         */
+    }
+
+    part def ContinuumRoboticWorkcell {
+        attribute workEnvelopeRadius : LengthValue = 0.9 [m];
+        attribute primaryTaskCycleTime : TimeValue = 28 [s];
+
+        port externalPowerIn : ElectricPowerPort;
+        port compressedAirIn : PneumaticInputPort;
+        port taskObjectPort : ObjectTransferPort;
+
+        part power : PowerSubsystem;
+        part pneumatics : PneumaticSubsystem;
+        part controller : RobotController;
+        part continuumRobot : ContinuumRobot;
+        part perception : PerceptionSubsystem;
+        part shapeSensing : ShapeSensingSubsystem;
+        part safety : SafetySupervisor;
+        part hmi : HumanMachineInterface;
+
+        connect externalPowerIn to power.mainsIn;
+        connect power.controllerOut to controller.powerIn;
+        connect power.actuatorOut to continuumRobot.powerIn;
+        connect power.sensorOut to perception.powerIn;
+        connect power.sensorOut to shapeSensing.powerIn;
+        connect power.controllerOut to safety.powerIn;
+        connect power.controllerOut to hmi.powerIn;
+
+        connect compressedAirIn to pneumatics.airIn;
+        connect power.actuatorOut to pneumatics.electricalIn;
+        connect pneumatics.chamberSupplyOut to continuumRobot.pneumaticIn;
+
+        connect perception.dataOut to controller.perceptionIn;
+        connect shapeSensing.shapeEstimateOut to controller.shapeFeedbackIn;
+        connect shapeSensing.shapeEstimateOut to safety.shapeFeedbackIn;
+        connect safety.controllerDataOut to controller.safetyIn;
+
+        connect controller.continuumCommandOut to continuumRobot.shapeCommandIn;
+        connect controller.gripperCommandOut to continuumRobot.endEffector.commandIn;
+        connect controller.chamberCommandOut to continuumRobot.baseSection.chamberCommandIn;
+        connect controller.chamberCommandOut to continuumRobot.middleSection.chamberCommandIn;
+        connect controller.chamberCommandOut to continuumRobot.distalSection.chamberCommandIn;
+        connect controller.tendonCommandOut to continuumRobot.baseSection.tendonCommandIn;
+        connect controller.tendonCommandOut to continuumRobot.middleSection.tendonCommandIn;
+        connect controller.tendonCommandOut to continuumRobot.distalSection.tendonCommandIn;
+
+        connect continuumRobot.objectInterface to taskObjectPort;
+    }
+
+    satisfy PrimaryContinuumTaskRequirement by ContinuumRoboticWorkcell.continuumRobot;
+    satisfy ShapeControlRequirement by ContinuumRoboticWorkcell.controller;
+    satisfy SafetyRequirement by ContinuumRoboticWorkcell.safety;
+    satisfy PayloadRequirement by ContinuumRoboticWorkcell.continuumRobot.endEffector;
+    satisfy ConstrainedAccessRequirement by ContinuumRoboticWorkcell.continuumRobot;
+
+    perform action InitializeSystem by ContinuumRoboticWorkcell;
+    perform action PlanContinuumMotion by ContinuumRoboticWorkcell.controller;
+    perform action ExecutePrimaryManipulationTask by ContinuumRoboticWorkcell.continuumRobot;
+    perform action MonitorSafety by ContinuumRoboticWorkcell.safety;
+}

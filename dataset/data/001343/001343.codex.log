@@ -1,0 +1,755 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-q00h92al
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb658-7f5b-7451-9f69-135150abd166
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Anybots and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AnybotsTelepresenceSystem {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> ScalarValues::Real;
+    attribute def DataRate :> ScalarValues::Real;
+    attribute def Currency :> ScalarValues::Real;
+
+    item def VideoFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Frequency;
+        attribute encoding : String;
+    }
+
+    item def AudioStream {
+        attribute channelCount : Integer;
+        attribute sampleRate : Frequency;
+        attribute codec : String;
+    }
+
+    item def DriveCommand {
+        attribute forwardVelocity : Speed;
+        attribute yawRate : AngularVelocity;
+        attribute issuedAt : Time;
+    }
+
+    item def HeadCommand {
+        attribute panAngle : Angle;
+        attribute tiltAngle : Angle;
+    }
+
+    item def NavigationStatus {
+        attribute poseX : Length;
+        attribute poseY : Length;
+        attribute heading : Angle;
+        attribute obstacleDistance : Length;
+        attribute isBalanced : Boolean;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : Percent;
+        attribute packVoltage : ElectricPotential;
+        attribute estimatedRuntime : Time;
+        attribute isCharging : Boolean;
+    }
+
+    item def NetworkPacket {
+        attribute payloadBytes : Integer;
+        attribute latency : Time;
+        attribute encrypted : Boolean;
+    }
+
+    port def OperatorNetworkPort {
+        out commandPacket : NetworkPacket;
+        in telemetryPacket : NetworkPacket;
+        in videoFrame : VideoFrame;
+        in audioFromRobot : AudioStream;
+        out audioToRobot : AudioStream;
+    }
+
+    port def RobotNetworkPort {
+        in commandPacket : NetworkPacket;
+        out telemetryPacket : NetworkPacket;
+        out videoFrame : VideoFrame;
+        out audioFromRobot : AudioStream;
+        in audioToRobot : AudioStream;
+    }
+
+    port def DriveControlPort {
+        in driveCommand : DriveCommand;
+        out navigationStatus : NavigationStatus;
+    }
+
+    port def HeadControlPort {
+        in headCommand : HeadCommand;
+    }
+
+    port def PowerPort {
+        out batteryStatus : BatteryStatus;
+        in chargingPower : Power;
+    }
+
+    part def AnybotsTelepresenceRobot {
+        attribute maximumSpeed : Speed = 1.2 [m/s];
+        attribute operatingHeight : Length = 1.55 [m];
+        attribute mass : Mass = 15.0 [kg];
+        attribute minimumObstacleClearance : Length = 0.35 [m];
+
+        port network : RobotNetworkPort;
+        port driveControl : DriveControlPort;
+        port headControl : HeadControlPort;
+        port power : PowerPort;
+
+        part mobilityBase {
+            attribute wheelDiameter : Length = 0.20 [m];
+            attribute trackWidth : Length = 0.42 [m];
+            attribute maxYawRate : AngularVelocity = 1.1 [rad/s];
+            port control : DriveControlPort;
+        }
+
+        part balancingController {
+            attribute correctionRate : Frequency = 100 [Hz];
+            attribute maximumTiltAngle : Angle = 0.20 [rad];
+        }
+
+        part cameraMast {
+            attribute mastHeight : Length = 1.25 [m];
+            part panTiltHead {
+                attribute panRange : Angle = 3.14 [rad];
+                attribute tiltRange : Angle = 0.80 [rad];
+                port control : HeadControlPort;
+            }
+            part frontCamera {
+                attribute horizontalResolution : Integer = 1280;
+                attribute verticalResolution : Integer = 720;
+                attribute nominalFrameRate : Frequency = 30 [Hz];
+            }
+            part display {
+                attribute diagonalSize : Length = 0.254 [m];
+                attribute brightness : LuminousIntensity = 300 [cd];
+            }
+        }
+
+        part audioSubsystem {
+            part microphoneArray {
+                attribute microphoneCount : Integer = 2;
+                attribute sampleRate : Frequency = 48000 [Hz];
+            }
+            part speaker {
+                attribute ratedPower : Power = 4 [W];
+            }
+        }
+
+        part onboardComputer {
+            attribute processorLoad : Percent;
+            attribute commandTimeout : Time = 0.5 [s];
+            attribute videoBitrate : DataRate = 2500000.0;
+        }
+
+        part wirelessModule {
+            attribute minimumRequiredBandwidth : DataRate = 3000000.0;
+            attribute maximumAcceptableLatency : Time = 0.25 [s];
+            port network : RobotNetworkPort;
+        }
+
+        part batteryPack {
+            attribute nominalVoltage : ElectricPotential = 24 [V];
+            attribute capacity : ElectricCharge = 10 [A*h];
+            attribute lowChargeThreshold : Percent = 20.0;
+            port power : PowerPort;
+        }
+
+        connect wirelessModule.network to network;
+        connect mobilityBase.control to driveControl;
+        connect cameraMast.panTiltHead.control to headControl;
+        connect batteryPack.power to power;
+
+        state def RobotOperationalState {
+            entry action initializeSensors {
+                send BatteryStatus {
+                    stateOfCharge = 100.0;
+                    packVoltage = 24 [V];
+                    estimatedRuntime = 7200 [s];
+                    isCharging = false;
+                } via power.batteryStatus;
+            }
+
+            state Off;
+            state Booting;
+            state Available;
+            state TelepresenceSessionActive;
+            state ObstacleAvoidance;
+            state LowBatteryReturn;
+            state Charging;
+            state Fault;
+
+            transition first Off;
+            transition Off_to_Booting
+                first Off
+                then Booting;
+
+            transition Booting_to_Available
+                first Booting
+                then Available;
+
+            transition Available_to_Session
+                first Available
+                accept NetworkPacket via network.commandPacket
+                then TelepresenceSessionActive;
+
+            transition Session_to_ObstacleAvoidance
+                first TelepresenceSessionActive
+                if driveControl.navigationStatus.obstacleDistance < minimumObstacleClearance
+                then ObstacleAvoidance;
+
+            transition ObstacleAvoidance_to_Session
+                first ObstacleAvoidance
+                if driveControl.navigationStatus.obstacleDistance >= minimumObstacleClearance
+                then TelepresenceSessionActive;
+
+            transition Session_to_LowBatteryReturn
+                first TelepresenceSessionActive
+                if power.batteryStatus.stateOfCharge <= batteryPack.lowChargeThreshold
+                then LowBatteryReturn;
+
+            transition LowBatteryReturn_to_Charging
+                first LowBatteryReturn
+                if power.batteryStatus.isCharging
+                then Charging;
+
+            transition Charging_to_Available
+                first Charging
+                if power.batteryStatus.stateOfCharge >= 95.0
+                then Available;
+
+            transition Any_to_Fault
+                first Available
+                then Fault
+                if not driveControl.navigationStatus.isBalanced;
+        }
+
+        action def ExecuteRemotePresence {
+            in drive : DriveCommand;
+            in head : HeadCommand;
+            in remoteAudio : AudioStream;
+            out localVideo : VideoFrame;
+            out localAudio : AudioStream;
+            out status : NavigationStatus;
+
+            action decodeOperatorCommands;
+            action commandBase;
+            action commandHead;
+            action captureVideo;
+            action captureAudio;
+            action transmitMediaAndTelemetry;
+
+            flow drive to commandBase;
+            flow head to commandHead;
+            flow remoteAudio to transmitMediaAndTelemetry;
+            flow captureVideo to localVideo;
+            flow captureAudio to localAudio;
+            flow commandBase to status;
+        }
+    }
+
+    part def RemoteOperatorStation {
+        attribute displayResolutionX : Integer = 1920;
+        attribute displayResolutionY : Integer = 1080;
+        attribute operatorCommandRate : Frequency = 20 [Hz];
+
+        port network : OperatorNetworkPort;
+
+        part operatorConsole {
+            attribute supportedBrowser : String = "HTML5 WebRTC client";
+        }
+
+        part joystick {
+            attribute maximumForwardCommand : Speed = 1.2 [m/s];
+            attribute maximumYawCommand : AngularVelocity = 1.1 [rad/s];
+        }
+
+        part headset {
+            attribute audioSampleRate : Frequency = 48000 [Hz];
+        }
+
+        action def ConductRemoteVisit {
+            out driveCommand : DriveCommand;
+            out headCommand : HeadCommand;
+            out voiceAudio : AudioStream;
+            in robotVideo : VideoFrame;
+            in robotAudio : AudioStream;
+            in robotStatus : NavigationStatus;
+        }
+    }
+
+    part def ChargingDock {
+        attribute outputVoltage : ElectricPotential = 24 [V];
+        attribute maximumChargePower : Power = 120 [W];
+        port powerOut {
+            out chargingPower : Power;
+        }
+    }
+
+    part def AnybotsBasedSystem {
+        attribute primaryFunction : String =
+            "Provide mobile two-way audio and video telepresence so a remote operator can navigate an indoor workplace, converse with local people, and inspect surroundings at human standing height.";
+
+        part robot : AnybotsTelepresenceRobot;
+        part operatorStation : RemoteOperatorStation;
+        part dock : ChargingDock;
+
+        connect operatorStation.network.commandPacket to robot.network.commandPacket;
+        connect robot.network.telemetryPacket to operatorStation.network.telemetryPacket;
+        connect robot.network.videoFrame to operatorStation.network.videoFrame;
+        connect robot.network.audioFromRobot to operatorStation.network.audioFromRobot;
+        connect operatorStation.network.audioToRobot to robot.network.audioToRobot;
+        connect dock.powerOut.chargingPower to robot.power.chargingPower;
+
+        requirement def PrimaryTelepresenceFunction {
+            doc "The system shall enable a remote user to see, hear, speak, and move through an indoor environment using an Anybots-style mobile telepresence robot.";
+            subject system : AnybotsBasedSystem;
+            require constraint {
+                system.robot.maximumSpeed >= 1.0 [m/s]
+            }
+        }
+
+        requirement def HumanHeightViewpoint {
+            doc "The robot shall provide a camera viewpoint approximating a standing adult conversation height.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.operatingHeight >= 1.4 [m] and robot.operatingHeight <= 1.7 [m]
+            }
+        }
+
+        requirement def RealTimeCommunication {
+            doc "The communication path shall support interactive telepresence with bounded end-to-end latency.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.wirelessModule.maximumAcceptableLatency <= 0.25 [s]
+            }
+        }
+
+        requirement def VideoQuality {
+            doc "The robot shall transmit high-definition video sufficient for hallway navigation and face-to-face conversation.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.cameraMast.frontCamera.horizontalResolution >= 1280 and
+                robot.cameraMast.frontCamera.verticalResolution >= 720 and
+                robot.cameraMast.frontCamera.nominalFrameRate >= 30 [Hz]
+            }
+        }
+
+        requirement def AudioConversation {
+            doc "The system shall provide bidirectional speech audio between the remote operator and people near the robot.";
+            subject station : RemoteOperatorStation;
+            require constraint {
+                station.headset.audioSampleRate >= 16000 [Hz]
+            }
+        }
+
+        requirement def SafeIndoorMobility {
+            doc "The robot shall avoid commanded motion into nearby obstacles while under remote control.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.minimumObstacleClearance >= 0.30 [m]
+            }
+        }
+
+        requirement def BatteryReturn {
+            doc "The robot shall enter a return-to-charge behavior when battery state of charge reaches the configured low threshold.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.batteryPack.lowChargeThreshold >= 15.0 and
+                robot.batteryPack.lowChargeThreshold <= 25.0
+            }
+        }
+
+        requirement def StableBalance {
+            doc "The robot shall monitor balance continuously and enter a fault state when stable operation cannot be maintained.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.balancingController.correctionRate >= 50 [Hz]
+            }
+        }
+    }
+}
+tokens used
+4,013
+package AnybotsTelepresenceSystem {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> ScalarValues::Real;
+    attribute def DataRate :> ScalarValues::Real;
+    attribute def Currency :> ScalarValues::Real;
+
+    item def VideoFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Frequency;
+        attribute encoding : String;
+    }
+
+    item def AudioStream {
+        attribute channelCount : Integer;
+        attribute sampleRate : Frequency;
+        attribute codec : String;
+    }
+
+    item def DriveCommand {
+        attribute forwardVelocity : Speed;
+        attribute yawRate : AngularVelocity;
+        attribute issuedAt : Time;
+    }
+
+    item def HeadCommand {
+        attribute panAngle : Angle;
+        attribute tiltAngle : Angle;
+    }
+
+    item def NavigationStatus {
+        attribute poseX : Length;
+        attribute poseY : Length;
+        attribute heading : Angle;
+        attribute obstacleDistance : Length;
+        attribute isBalanced : Boolean;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : Percent;
+        attribute packVoltage : ElectricPotential;
+        attribute estimatedRuntime : Time;
+        attribute isCharging : Boolean;
+    }
+
+    item def NetworkPacket {
+        attribute payloadBytes : Integer;
+        attribute latency : Time;
+        attribute encrypted : Boolean;
+    }
+
+    port def OperatorNetworkPort {
+        out commandPacket : NetworkPacket;
+        in telemetryPacket : NetworkPacket;
+        in videoFrame : VideoFrame;
+        in audioFromRobot : AudioStream;
+        out audioToRobot : AudioStream;
+    }
+
+    port def RobotNetworkPort {
+        in commandPacket : NetworkPacket;
+        out telemetryPacket : NetworkPacket;
+        out videoFrame : VideoFrame;
+        out audioFromRobot : AudioStream;
+        in audioToRobot : AudioStream;
+    }
+
+    port def DriveControlPort {
+        in driveCommand : DriveCommand;
+        out navigationStatus : NavigationStatus;
+    }
+
+    port def HeadControlPort {
+        in headCommand : HeadCommand;
+    }
+
+    port def PowerPort {
+        out batteryStatus : BatteryStatus;
+        in chargingPower : Power;
+    }
+
+    part def AnybotsTelepresenceRobot {
+        attribute maximumSpeed : Speed = 1.2 [m/s];
+        attribute operatingHeight : Length = 1.55 [m];
+        attribute mass : Mass = 15.0 [kg];
+        attribute minimumObstacleClearance : Length = 0.35 [m];
+
+        port network : RobotNetworkPort;
+        port driveControl : DriveControlPort;
+        port headControl : HeadControlPort;
+        port power : PowerPort;
+
+        part mobilityBase {
+            attribute wheelDiameter : Length = 0.20 [m];
+            attribute trackWidth : Length = 0.42 [m];
+            attribute maxYawRate : AngularVelocity = 1.1 [rad/s];
+            port control : DriveControlPort;
+        }
+
+        part balancingController {
+            attribute correctionRate : Frequency = 100 [Hz];
+            attribute maximumTiltAngle : Angle = 0.20 [rad];
+        }
+
+        part cameraMast {
+            attribute mastHeight : Length = 1.25 [m];
+            part panTiltHead {
+                attribute panRange : Angle = 3.14 [rad];
+                attribute tiltRange : Angle = 0.80 [rad];
+                port control : HeadControlPort;
+            }
+            part frontCamera {
+                attribute horizontalResolution : Integer = 1280;
+                attribute verticalResolution : Integer = 720;
+                attribute nominalFrameRate : Frequency = 30 [Hz];
+            }
+            part display {
+                attribute diagonalSize : Length = 0.254 [m];
+                attribute brightness : LuminousIntensity = 300 [cd];
+            }
+        }
+
+        part audioSubsystem {
+            part microphoneArray {
+                attribute microphoneCount : Integer = 2;
+                attribute sampleRate : Frequency = 48000 [Hz];
+            }
+            part speaker {
+                attribute ratedPower : Power = 4 [W];
+            }
+        }
+
+        part onboardComputer {
+            attribute processorLoad : Percent;
+            attribute commandTimeout : Time = 0.5 [s];
+            attribute videoBitrate : DataRate = 2500000.0;
+        }
+
+        part wirelessModule {
+            attribute minimumRequiredBandwidth : DataRate = 3000000.0;
+            attribute maximumAcceptableLatency : Time = 0.25 [s];
+            port network : RobotNetworkPort;
+        }
+
+        part batteryPack {
+            attribute nominalVoltage : ElectricPotential = 24 [V];
+            attribute capacity : ElectricCharge = 10 [A*h];
+            attribute lowChargeThreshold : Percent = 20.0;
+            port power : PowerPort;
+        }
+
+        connect wirelessModule.network to network;
+        connect mobilityBase.control to driveControl;
+        connect cameraMast.panTiltHead.control to headControl;
+        connect batteryPack.power to power;
+
+        state def RobotOperationalState {
+            entry action initializeSensors {
+                send BatteryStatus {
+                    stateOfCharge = 100.0;
+                    packVoltage = 24 [V];
+                    estimatedRuntime = 7200 [s];
+                    isCharging = false;
+                } via power.batteryStatus;
+            }
+
+            state Off;
+            state Booting;
+            state Available;
+            state TelepresenceSessionActive;
+            state ObstacleAvoidance;
+            state LowBatteryReturn;
+            state Charging;
+            state Fault;
+
+            transition first Off;
+            transition Off_to_Booting
+                first Off
+                then Booting;
+
+            transition Booting_to_Available
+                first Booting
+                then Available;
+
+            transition Available_to_Session
+                first Available
+                accept NetworkPacket via network.commandPacket
+                then TelepresenceSessionActive;
+
+            transition Session_to_ObstacleAvoidance
+                first TelepresenceSessionActive
+                if driveControl.navigationStatus.obstacleDistance < minimumObstacleClearance
+                then ObstacleAvoidance;
+
+            transition ObstacleAvoidance_to_Session
+                first ObstacleAvoidance
+                if driveControl.navigationStatus.obstacleDistance >= minimumObstacleClearance
+                then TelepresenceSessionActive;
+
+            transition Session_to_LowBatteryReturn
+                first TelepresenceSessionActive
+                if power.batteryStatus.stateOfCharge <= batteryPack.lowChargeThreshold
+                then LowBatteryReturn;
+
+            transition LowBatteryReturn_to_Charging
+                first LowBatteryReturn
+                if power.batteryStatus.isCharging
+                then Charging;
+
+            transition Charging_to_Available
+                first Charging
+                if power.batteryStatus.stateOfCharge >= 95.0
+                then Available;
+
+            transition Any_to_Fault
+                first Available
+                then Fault
+                if not driveControl.navigationStatus.isBalanced;
+        }
+
+        action def ExecuteRemotePresence {
+            in drive : DriveCommand;
+            in head : HeadCommand;
+            in remoteAudio : AudioStream;
+            out localVideo : VideoFrame;
+            out localAudio : AudioStream;
+            out status : NavigationStatus;
+
+            action decodeOperatorCommands;
+            action commandBase;
+            action commandHead;
+            action captureVideo;
+            action captureAudio;
+            action transmitMediaAndTelemetry;
+
+            flow drive to commandBase;
+            flow head to commandHead;
+            flow remoteAudio to transmitMediaAndTelemetry;
+            flow captureVideo to localVideo;
+            flow captureAudio to localAudio;
+            flow commandBase to status;
+        }
+    }
+
+    part def RemoteOperatorStation {
+        attribute displayResolutionX : Integer = 1920;
+        attribute displayResolutionY : Integer = 1080;
+        attribute operatorCommandRate : Frequency = 20 [Hz];
+
+        port network : OperatorNetworkPort;
+
+        part operatorConsole {
+            attribute supportedBrowser : String = "HTML5 WebRTC client";
+        }
+
+        part joystick {
+            attribute maximumForwardCommand : Speed = 1.2 [m/s];
+            attribute maximumYawCommand : AngularVelocity = 1.1 [rad/s];
+        }
+
+        part headset {
+            attribute audioSampleRate : Frequency = 48000 [Hz];
+        }
+
+        action def ConductRemoteVisit {
+            out driveCommand : DriveCommand;
+            out headCommand : HeadCommand;
+            out voiceAudio : AudioStream;
+            in robotVideo : VideoFrame;
+            in robotAudio : AudioStream;
+            in robotStatus : NavigationStatus;
+        }
+    }
+
+    part def ChargingDock {
+        attribute outputVoltage : ElectricPotential = 24 [V];
+        attribute maximumChargePower : Power = 120 [W];
+        port powerOut {
+            out chargingPower : Power;
+        }
+    }
+
+    part def AnybotsBasedSystem {
+        attribute primaryFunction : String =
+            "Provide mobile two-way audio and video telepresence so a remote operator can navigate an indoor workplace, converse with local people, and inspect surroundings at human standing height.";
+
+        part robot : AnybotsTelepresenceRobot;
+        part operatorStation : RemoteOperatorStation;
+        part dock : ChargingDock;
+
+        connect operatorStation.network.commandPacket to robot.network.commandPacket;
+        connect robot.network.telemetryPacket to operatorStation.network.telemetryPacket;
+        connect robot.network.videoFrame to operatorStation.network.videoFrame;
+        connect robot.network.audioFromRobot to operatorStation.network.audioFromRobot;
+        connect operatorStation.network.audioToRobot to robot.network.audioToRobot;
+        connect dock.powerOut.chargingPower to robot.power.chargingPower;
+
+        requirement def PrimaryTelepresenceFunction {
+            doc "The system shall enable a remote user to see, hear, speak, and move through an indoor environment using an Anybots-style mobile telepresence robot.";
+            subject system : AnybotsBasedSystem;
+            require constraint {
+                system.robot.maximumSpeed >= 1.0 [m/s]
+            }
+        }
+
+        requirement def HumanHeightViewpoint {
+            doc "The robot shall provide a camera viewpoint approximating a standing adult conversation height.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.operatingHeight >= 1.4 [m] and robot.operatingHeight <= 1.7 [m]
+            }
+        }
+
+        requirement def RealTimeCommunication {
+            doc "The communication path shall support interactive telepresence with bounded end-to-end latency.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.wirelessModule.maximumAcceptableLatency <= 0.25 [s]
+            }
+        }
+
+        requirement def VideoQuality {
+            doc "The robot shall transmit high-definition video sufficient for hallway navigation and face-to-face conversation.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.cameraMast.frontCamera.horizontalResolution >= 1280 and
+                robot.cameraMast.frontCamera.verticalResolution >= 720 and
+                robot.cameraMast.frontCamera.nominalFrameRate >= 30 [Hz]
+            }
+        }
+
+        requirement def AudioConversation {
+            doc "The system shall provide bidirectional speech audio between the remote operator and people near the robot.";
+            subject station : RemoteOperatorStation;
+            require constraint {
+                station.headset.audioSampleRate >= 16000 [Hz]
+            }
+        }
+
+        requirement def SafeIndoorMobility {
+            doc "The robot shall avoid commanded motion into nearby obstacles while under remote control.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.minimumObstacleClearance >= 0.30 [m]
+            }
+        }
+
+        requirement def BatteryReturn {
+            doc "The robot shall enter a return-to-charge behavior when battery state of charge reaches the configured low threshold.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.batteryPack.lowChargeThreshold >= 15.0 and
+                robot.batteryPack.lowChargeThreshold <= 25.0
+            }
+        }
+
+        requirement def StableBalance {
+            doc "The robot shall monitor balance continuously and enter a fault state when stable operation cannot be maintained.";
+            subject robot : AnybotsTelepresenceRobot;
+            require constraint {
+                robot.balancingController.correctionRate >= 50 [Hz]
+            }
+        }
+    }
+}

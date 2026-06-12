@@ -1,0 +1,909 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-nnl4u4lv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb855-333f-7ce2-a648-f59135822339
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Safety and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SafetyControlSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Probability;
+    attribute def IntegrityLevel;
+    attribute def DiagnosticCoverage;
+
+    item def EmergencyStopSignal {
+        attribute asserted : Boolean;
+        attribute sourceId : String;
+        attribute timeStamp : Time;
+    }
+
+    item def GuardDoorSignal {
+        attribute closed : Boolean;
+        attribute locked : Boolean;
+        attribute timeStamp : Time;
+    }
+
+    item def PresenceSignal {
+        attribute detected : Boolean;
+        attribute zoneId : String;
+        attribute confidence : Real;
+    }
+
+    item def SafetyCommand {
+        attribute safeTorqueOff : Boolean;
+        attribute brakeApply : Boolean;
+        attribute alarmEnable : Boolean;
+        attribute resetPermitted : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute healthy : Boolean;
+        attribute faultCode : String;
+        attribute diagnosticCoverage : DiagnosticCoverage;
+    }
+
+    item def OperatorResetRequest {
+        attribute requested : Boolean;
+        attribute keySwitchEnabled : Boolean;
+    }
+
+    valueType def Millisecond specializes Time;
+    valueType def Volt specializes ElectricPotential;
+    valueType def Ampere specializes ElectricCurrent;
+    valueType def Meter specializes Length;
+    valueType def Percent;
+    valueType def SafetyIntegrityLevel specializes IntegrityLevel;
+
+    port def EmergencyStopInputPort {
+        in item signal : EmergencyStopSignal;
+    }
+
+    port def GuardDoorInputPort {
+        in item signal : GuardDoorSignal;
+    }
+
+    port def PresenceInputPort {
+        in item signal : PresenceSignal;
+    }
+
+    port def ResetInputPort {
+        in item request : OperatorResetRequest;
+    }
+
+    port def SafetyCommandOutputPort {
+        out item command : SafetyCommand;
+    }
+
+    port def HealthOutputPort {
+        out item status : HealthStatus;
+    }
+
+    port def PowerPort {
+        in item supplyVoltage : Volt;
+        out item loadCurrent : Ampere;
+    }
+
+    part def SafetyController {
+        attribute cycleTime : Millisecond = 10 [ms];
+        attribute requiredSil : SafetyIntegrityLevel = 3;
+        attribute maxReactionTime : Millisecond = 100 [ms];
+
+        port estopIn : EmergencyStopInputPort;
+        port guardIn : GuardDoorInputPort;
+        port presenceIn : PresenceInputPort;
+        port resetIn : ResetInputPort;
+        port commandOut : SafetyCommandOutputPort;
+        port healthOut : HealthOutputPort;
+        port power : PowerPort;
+
+        part logicProcessor : DualChannelSafetyLogic;
+        part diagnosticMonitor : DiagnosticMonitor;
+        part eventRecorder : SafetyEventRecorder;
+
+        state def ControllerStateMachine {
+            state Initializing;
+            state SafeStopped;
+            state Monitoring;
+            state HazardDetected;
+            state Faulted;
+            state ResetValidation;
+
+            entry action initialize {
+                send SafetyCommand {
+                    safeTorqueOff = true;
+                    brakeApply = true;
+                    alarmEnable = true;
+                    resetPermitted = false;
+                } via commandOut;
+            }
+
+            transition first Initializing then SafeStopped;
+
+            transition SafeStopped then ResetValidation
+                accept resetIn.request
+                if resetIn.request.requested and resetIn.request.keySwitchEnabled;
+
+            transition ResetValidation then Monitoring
+                if guardIn.signal.closed and guardIn.signal.locked and
+                   not estopIn.signal.asserted and
+                   not presenceIn.signal.detected and
+                   diagnosticMonitor.selfTestPassed;
+
+            transition ResetValidation then SafeStopped
+                if not guardIn.signal.closed or estopIn.signal.asserted or presenceIn.signal.detected;
+
+            transition Monitoring then HazardDetected
+                if estopIn.signal.asserted or
+                   not guardIn.signal.closed or
+                   not guardIn.signal.locked or
+                   presenceIn.signal.detected;
+
+            transition Monitoring then Faulted
+                if not diagnosticMonitor.selfTestPassed;
+
+            transition HazardDetected then SafeStopped
+                after 100 [ms];
+
+            transition Faulted then SafeStopped
+                accept resetIn.request
+                if diagnosticMonitor.selfTestPassed and resetIn.request.keySwitchEnabled;
+        }
+
+        action def EvaluateSafetyInputs {
+            in estop : EmergencyStopSignal;
+            in guard : GuardDoorSignal;
+            in presence : PresenceSignal;
+            out hazardous : Boolean;
+
+            hazardous = estop.asserted or not guard.closed or not guard.locked or presence.detected;
+        }
+
+        action def IssueSafeStop {
+            out command : SafetyCommand;
+
+            command.safeTorqueOff = true;
+            command.brakeApply = true;
+            command.alarmEnable = true;
+            command.resetPermitted = false;
+        }
+
+        action def PermitOperation {
+            out command : SafetyCommand;
+
+            command.safeTorqueOff = false;
+            command.brakeApply = false;
+            command.alarmEnable = false;
+            command.resetPermitted = false;
+        }
+    }
+
+    part def DualChannelSafetyLogic {
+        attribute channelAgreementWindow : Millisecond = 20 [ms];
+        attribute discrepancyFaultTime : Millisecond = 50 [ms];
+
+        part channelA : LogicChannel;
+        part channelB : LogicChannel;
+        part voter : TwoOutOfTwoVoter;
+
+        port estopIn : EmergencyStopInputPort;
+        port guardIn : GuardDoorInputPort;
+        port presenceIn : PresenceInputPort;
+        port commandOut : SafetyCommandOutputPort;
+        port healthOut : HealthOutputPort;
+
+        connect estopIn to channelA.estopIn;
+        connect estopIn to channelB.estopIn;
+        connect guardIn to channelA.guardIn;
+        connect guardIn to channelB.guardIn;
+        connect presenceIn to channelA.presenceIn;
+        connect presenceIn to channelB.presenceIn;
+        connect channelA.commandOut to voter.channelACommandIn;
+        connect channelB.commandOut to voter.channelBCommandIn;
+        connect voter.votedCommandOut to commandOut;
+    }
+
+    part def LogicChannel {
+        port estopIn : EmergencyStopInputPort;
+        port guardIn : GuardDoorInputPort;
+        port presenceIn : PresenceInputPort;
+        port commandOut : SafetyCommandOutputPort;
+
+        action def ComputeChannelCommand {
+            in estop : EmergencyStopSignal;
+            in guard : GuardDoorSignal;
+            in presence : PresenceSignal;
+            out command : SafetyCommand;
+
+            command.safeTorqueOff = estop.asserted or not guard.closed or not guard.locked or presence.detected;
+            command.brakeApply = command.safeTorqueOff;
+            command.alarmEnable = command.safeTorqueOff;
+            command.resetPermitted = false;
+        }
+    }
+
+    part def TwoOutOfTwoVoter {
+        port channelACommandIn : SafetyCommandOutputPort;
+        port channelBCommandIn : SafetyCommandOutputPort;
+        port votedCommandOut : SafetyCommandOutputPort;
+        port healthOut : HealthOutputPort;
+
+        action def VoteSafeCommand {
+            in commandA : SafetyCommand;
+            in commandB : SafetyCommand;
+            out voted : SafetyCommand;
+            out status : HealthStatus;
+
+            voted.safeTorqueOff = commandA.safeTorqueOff or commandB.safeTorqueOff;
+            voted.brakeApply = commandA.brakeApply or commandB.brakeApply;
+            voted.alarmEnable = commandA.alarmEnable or commandB.alarmEnable;
+            voted.resetPermitted = commandA.resetPermitted and commandB.resetPermitted;
+
+            status.healthy =
+                commandA.safeTorqueOff == commandB.safeTorqueOff and
+                commandA.brakeApply == commandB.brakeApply;
+            status.faultCode = "CHANNEL_DISCREPANCY";
+            status.diagnosticCoverage = 99.0;
+        }
+    }
+
+    part def EmergencyStopDevice {
+        attribute contactVoltage : Volt = 24 [V];
+        attribute contactCurrent : Ampere = 0.05 [A];
+        attribute resetType : String = "manual twist release";
+
+        port signalOut : EmergencyStopInputPort;
+    }
+
+    part def GuardDoorInterlock {
+        attribute lockHoldingForce : Force = 1200 [N];
+        attribute responseTime : Millisecond = 25 [ms];
+
+        port signalOut : GuardDoorInputPort;
+        port power : PowerPort;
+    }
+
+    part def PresenceScanner {
+        attribute protectiveFieldRange : Meter = 4.0 [m];
+        attribute resolution : Meter = 0.07 [m];
+        attribute responseTime : Millisecond = 60 [ms];
+
+        port signalOut : PresenceInputPort;
+        port power : PowerPort;
+    }
+
+    part def SafeTorqueOffRelay {
+        attribute outputVoltage : Volt = 24 [V];
+        attribute maxLoadCurrent : Ampere = 2.0 [A];
+        attribute dropOutTime : Millisecond = 20 [ms];
+
+        port commandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+        port healthOut : HealthOutputPort;
+
+        state def RelayStateMachine {
+            state Energized;
+            state DeEnergized;
+            state WeldedFault;
+
+            transition Energized then DeEnergized
+                if commandIn.command.safeTorqueOff;
+
+            transition DeEnergized then Energized
+                if not commandIn.command.safeTorqueOff and commandIn.command.resetPermitted;
+
+            transition Energized then WeldedFault
+                if healthOut.status.faultCode == "CONTACT_WELD";
+        }
+    }
+
+    part def BrakeActuator {
+        attribute brakeTorque : Torque = 80 [N*m];
+        attribute applyTime : Millisecond = 75 [ms];
+
+        port commandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+    }
+
+    part def AudibleVisualAlarm {
+        attribute soundPressureLevel : Real = 95;
+        attribute beaconVoltage : Volt = 24 [V];
+
+        port commandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+    }
+
+    part def OperatorResetStation {
+        attribute resetHoldTime : Millisecond = 500 [ms];
+
+        port resetOut : ResetInputPort;
+        port power : PowerPort;
+    }
+
+    part def DiagnosticMonitor {
+        attribute proofTestInterval : Time = 24 [h];
+        attribute selfTestPassed : Boolean = true;
+        attribute diagnosticCoverage : DiagnosticCoverage = 99.0;
+
+        port healthOut : HealthOutputPort;
+
+        action def RunSelfTest {
+            out status : HealthStatus;
+
+            status.healthy = selfTestPassed;
+            status.faultCode = "NONE";
+            status.diagnosticCoverage = diagnosticCoverage;
+        }
+    }
+
+    part def SafetyEventRecorder {
+        attribute memoryDepth : Integer = 10000;
+        attribute retainedAfterPowerLoss : Boolean = true;
+
+        action def RecordEvent {
+            in eventTime : Time;
+            in eventCode : String;
+            in activeCommand : SafetyCommand;
+        }
+    }
+
+    part def SafetyControlledMachine {
+        attribute hazardousMotionSpeed : Real = 1.5;
+        attribute stoppingTime : Millisecond = 85 [ms];
+
+        port safetyCommandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+
+        part drive : SafeTorqueOffRelay;
+        part brake : BrakeActuator;
+
+        connect safetyCommandIn to drive.commandIn;
+        connect safetyCommandIn to brake.commandIn;
+    }
+
+    part def SafetySystem {
+        attribute primaryFunction : String =
+            "Detect unsafe operator, access, and emergency-stop conditions and place the controlled machine into a de-energized safe stopped state within the required reaction time.";
+
+        part emergencyStop : EmergencyStopDevice;
+        part guardDoorInterlock : GuardDoorInterlock;
+        part presenceScanner : PresenceScanner;
+        part resetStation : OperatorResetStation;
+        part controller : SafetyController;
+        part machine : SafetyControlledMachine;
+        part alarm : AudibleVisualAlarm;
+
+        connect emergencyStop.signalOut to controller.estopIn;
+        connect guardDoorInterlock.signalOut to controller.guardIn;
+        connect presenceScanner.signalOut to controller.presenceIn;
+        connect resetStation.resetOut to controller.resetIn;
+        connect controller.commandOut to machine.safetyCommandIn;
+        connect controller.commandOut to alarm.commandIn;
+    }
+
+    requirement def SafeStopRequirement {
+        subject system : SafetySystem;
+
+        require constraint {
+            system.controller.maxReactionTime <= 100 [ms]
+        }
+
+        doc /* The safety system shall command safe torque off, apply braking, and enable alarm indication no later than 100 ms after detection of an emergency stop, opened guard, unlocked guard, or protected-zone presence. */
+    }
+
+    requirement def ManualResetRequirement {
+        subject system : SafetySystem;
+
+        require constraint {
+            system.resetStation.resetHoldTime >= 500 [ms]
+        }
+
+        doc /* Restart shall require a deliberate manual reset with the reset key switch enabled after all hazardous input conditions have cleared. */
+    }
+
+    requirement def GuardLockRequirement {
+        subject interlock : GuardDoorInterlock;
+
+        require constraint {
+            interlock.lockHoldingForce >= 1000 [N]
+        }
+
+        doc /* The guard door interlock shall prevent access to hazardous motion until machine motion has reached a safe stopped state. */
+    }
+
+    requirement def PresenceDetectionRequirement {
+        subject scanner : PresenceScanner;
+
+        require constraint {
+            scanner.responseTime <= 60 [ms] and scanner.protectiveFieldRange >= 3.5 [m]
+        }
+
+        doc /* The presence scanner shall detect a person entering the protected zone with sufficient range and response time for the configured stopping distance. */
+    }
+
+    requirement def DiagnosticCoverageRequirement {
+        subject controller : SafetyController;
+
+        require constraint {
+            controller.diagnosticMonitor.diagnosticCoverage >= 99.0
+        }
+
+        doc /* The safety controller shall provide high diagnostic coverage through dual-channel comparison, self-test, and fault reporting. */
+    }
+
+    requirement def FailSafeOutputRequirement {
+        subject relay : SafeTorqueOffRelay;
+
+        require constraint {
+            relay.dropOutTime <= 20 [ms]
+        }
+
+        doc /* The safe torque off relay shall transition to the de-energized state on any detected hazardous input, power fault, or internal diagnostic fault. */
+    }
+
+    satisfy SafeStopRequirement by SafetySystem;
+    satisfy ManualResetRequirement by SafetySystem;
+    satisfy GuardLockRequirement by GuardDoorInterlock;
+    satisfy PresenceDetectionRequirement by PresenceScanner;
+    satisfy DiagnosticCoverageRequirement by SafetyController;
+    satisfy FailSafeOutputRequirement by SafeTorqueOffRelay;
+}
+tokens used
+3,488
+package SafetyControlSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Probability;
+    attribute def IntegrityLevel;
+    attribute def DiagnosticCoverage;
+
+    item def EmergencyStopSignal {
+        attribute asserted : Boolean;
+        attribute sourceId : String;
+        attribute timeStamp : Time;
+    }
+
+    item def GuardDoorSignal {
+        attribute closed : Boolean;
+        attribute locked : Boolean;
+        attribute timeStamp : Time;
+    }
+
+    item def PresenceSignal {
+        attribute detected : Boolean;
+        attribute zoneId : String;
+        attribute confidence : Real;
+    }
+
+    item def SafetyCommand {
+        attribute safeTorqueOff : Boolean;
+        attribute brakeApply : Boolean;
+        attribute alarmEnable : Boolean;
+        attribute resetPermitted : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute healthy : Boolean;
+        attribute faultCode : String;
+        attribute diagnosticCoverage : DiagnosticCoverage;
+    }
+
+    item def OperatorResetRequest {
+        attribute requested : Boolean;
+        attribute keySwitchEnabled : Boolean;
+    }
+
+    valueType def Millisecond specializes Time;
+    valueType def Volt specializes ElectricPotential;
+    valueType def Ampere specializes ElectricCurrent;
+    valueType def Meter specializes Length;
+    valueType def Percent;
+    valueType def SafetyIntegrityLevel specializes IntegrityLevel;
+
+    port def EmergencyStopInputPort {
+        in item signal : EmergencyStopSignal;
+    }
+
+    port def GuardDoorInputPort {
+        in item signal : GuardDoorSignal;
+    }
+
+    port def PresenceInputPort {
+        in item signal : PresenceSignal;
+    }
+
+    port def ResetInputPort {
+        in item request : OperatorResetRequest;
+    }
+
+    port def SafetyCommandOutputPort {
+        out item command : SafetyCommand;
+    }
+
+    port def HealthOutputPort {
+        out item status : HealthStatus;
+    }
+
+    port def PowerPort {
+        in item supplyVoltage : Volt;
+        out item loadCurrent : Ampere;
+    }
+
+    part def SafetyController {
+        attribute cycleTime : Millisecond = 10 [ms];
+        attribute requiredSil : SafetyIntegrityLevel = 3;
+        attribute maxReactionTime : Millisecond = 100 [ms];
+
+        port estopIn : EmergencyStopInputPort;
+        port guardIn : GuardDoorInputPort;
+        port presenceIn : PresenceInputPort;
+        port resetIn : ResetInputPort;
+        port commandOut : SafetyCommandOutputPort;
+        port healthOut : HealthOutputPort;
+        port power : PowerPort;
+
+        part logicProcessor : DualChannelSafetyLogic;
+        part diagnosticMonitor : DiagnosticMonitor;
+        part eventRecorder : SafetyEventRecorder;
+
+        state def ControllerStateMachine {
+            state Initializing;
+            state SafeStopped;
+            state Monitoring;
+            state HazardDetected;
+            state Faulted;
+            state ResetValidation;
+
+            entry action initialize {
+                send SafetyCommand {
+                    safeTorqueOff = true;
+                    brakeApply = true;
+                    alarmEnable = true;
+                    resetPermitted = false;
+                } via commandOut;
+            }
+
+            transition first Initializing then SafeStopped;
+
+            transition SafeStopped then ResetValidation
+                accept resetIn.request
+                if resetIn.request.requested and resetIn.request.keySwitchEnabled;
+
+            transition ResetValidation then Monitoring
+                if guardIn.signal.closed and guardIn.signal.locked and
+                   not estopIn.signal.asserted and
+                   not presenceIn.signal.detected and
+                   diagnosticMonitor.selfTestPassed;
+
+            transition ResetValidation then SafeStopped
+                if not guardIn.signal.closed or estopIn.signal.asserted or presenceIn.signal.detected;
+
+            transition Monitoring then HazardDetected
+                if estopIn.signal.asserted or
+                   not guardIn.signal.closed or
+                   not guardIn.signal.locked or
+                   presenceIn.signal.detected;
+
+            transition Monitoring then Faulted
+                if not diagnosticMonitor.selfTestPassed;
+
+            transition HazardDetected then SafeStopped
+                after 100 [ms];
+
+            transition Faulted then SafeStopped
+                accept resetIn.request
+                if diagnosticMonitor.selfTestPassed and resetIn.request.keySwitchEnabled;
+        }
+
+        action def EvaluateSafetyInputs {
+            in estop : EmergencyStopSignal;
+            in guard : GuardDoorSignal;
+            in presence : PresenceSignal;
+            out hazardous : Boolean;
+
+            hazardous = estop.asserted or not guard.closed or not guard.locked or presence.detected;
+        }
+
+        action def IssueSafeStop {
+            out command : SafetyCommand;
+
+            command.safeTorqueOff = true;
+            command.brakeApply = true;
+            command.alarmEnable = true;
+            command.resetPermitted = false;
+        }
+
+        action def PermitOperation {
+            out command : SafetyCommand;
+
+            command.safeTorqueOff = false;
+            command.brakeApply = false;
+            command.alarmEnable = false;
+            command.resetPermitted = false;
+        }
+    }
+
+    part def DualChannelSafetyLogic {
+        attribute channelAgreementWindow : Millisecond = 20 [ms];
+        attribute discrepancyFaultTime : Millisecond = 50 [ms];
+
+        part channelA : LogicChannel;
+        part channelB : LogicChannel;
+        part voter : TwoOutOfTwoVoter;
+
+        port estopIn : EmergencyStopInputPort;
+        port guardIn : GuardDoorInputPort;
+        port presenceIn : PresenceInputPort;
+        port commandOut : SafetyCommandOutputPort;
+        port healthOut : HealthOutputPort;
+
+        connect estopIn to channelA.estopIn;
+        connect estopIn to channelB.estopIn;
+        connect guardIn to channelA.guardIn;
+        connect guardIn to channelB.guardIn;
+        connect presenceIn to channelA.presenceIn;
+        connect presenceIn to channelB.presenceIn;
+        connect channelA.commandOut to voter.channelACommandIn;
+        connect channelB.commandOut to voter.channelBCommandIn;
+        connect voter.votedCommandOut to commandOut;
+    }
+
+    part def LogicChannel {
+        port estopIn : EmergencyStopInputPort;
+        port guardIn : GuardDoorInputPort;
+        port presenceIn : PresenceInputPort;
+        port commandOut : SafetyCommandOutputPort;
+
+        action def ComputeChannelCommand {
+            in estop : EmergencyStopSignal;
+            in guard : GuardDoorSignal;
+            in presence : PresenceSignal;
+            out command : SafetyCommand;
+
+            command.safeTorqueOff = estop.asserted or not guard.closed or not guard.locked or presence.detected;
+            command.brakeApply = command.safeTorqueOff;
+            command.alarmEnable = command.safeTorqueOff;
+            command.resetPermitted = false;
+        }
+    }
+
+    part def TwoOutOfTwoVoter {
+        port channelACommandIn : SafetyCommandOutputPort;
+        port channelBCommandIn : SafetyCommandOutputPort;
+        port votedCommandOut : SafetyCommandOutputPort;
+        port healthOut : HealthOutputPort;
+
+        action def VoteSafeCommand {
+            in commandA : SafetyCommand;
+            in commandB : SafetyCommand;
+            out voted : SafetyCommand;
+            out status : HealthStatus;
+
+            voted.safeTorqueOff = commandA.safeTorqueOff or commandB.safeTorqueOff;
+            voted.brakeApply = commandA.brakeApply or commandB.brakeApply;
+            voted.alarmEnable = commandA.alarmEnable or commandB.alarmEnable;
+            voted.resetPermitted = commandA.resetPermitted and commandB.resetPermitted;
+
+            status.healthy =
+                commandA.safeTorqueOff == commandB.safeTorqueOff and
+                commandA.brakeApply == commandB.brakeApply;
+            status.faultCode = "CHANNEL_DISCREPANCY";
+            status.diagnosticCoverage = 99.0;
+        }
+    }
+
+    part def EmergencyStopDevice {
+        attribute contactVoltage : Volt = 24 [V];
+        attribute contactCurrent : Ampere = 0.05 [A];
+        attribute resetType : String = "manual twist release";
+
+        port signalOut : EmergencyStopInputPort;
+    }
+
+    part def GuardDoorInterlock {
+        attribute lockHoldingForce : Force = 1200 [N];
+        attribute responseTime : Millisecond = 25 [ms];
+
+        port signalOut : GuardDoorInputPort;
+        port power : PowerPort;
+    }
+
+    part def PresenceScanner {
+        attribute protectiveFieldRange : Meter = 4.0 [m];
+        attribute resolution : Meter = 0.07 [m];
+        attribute responseTime : Millisecond = 60 [ms];
+
+        port signalOut : PresenceInputPort;
+        port power : PowerPort;
+    }
+
+    part def SafeTorqueOffRelay {
+        attribute outputVoltage : Volt = 24 [V];
+        attribute maxLoadCurrent : Ampere = 2.0 [A];
+        attribute dropOutTime : Millisecond = 20 [ms];
+
+        port commandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+        port healthOut : HealthOutputPort;
+
+        state def RelayStateMachine {
+            state Energized;
+            state DeEnergized;
+            state WeldedFault;
+
+            transition Energized then DeEnergized
+                if commandIn.command.safeTorqueOff;
+
+            transition DeEnergized then Energized
+                if not commandIn.command.safeTorqueOff and commandIn.command.resetPermitted;
+
+            transition Energized then WeldedFault
+                if healthOut.status.faultCode == "CONTACT_WELD";
+        }
+    }
+
+    part def BrakeActuator {
+        attribute brakeTorque : Torque = 80 [N*m];
+        attribute applyTime : Millisecond = 75 [ms];
+
+        port commandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+    }
+
+    part def AudibleVisualAlarm {
+        attribute soundPressureLevel : Real = 95;
+        attribute beaconVoltage : Volt = 24 [V];
+
+        port commandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+    }
+
+    part def OperatorResetStation {
+        attribute resetHoldTime : Millisecond = 500 [ms];
+
+        port resetOut : ResetInputPort;
+        port power : PowerPort;
+    }
+
+    part def DiagnosticMonitor {
+        attribute proofTestInterval : Time = 24 [h];
+        attribute selfTestPassed : Boolean = true;
+        attribute diagnosticCoverage : DiagnosticCoverage = 99.0;
+
+        port healthOut : HealthOutputPort;
+
+        action def RunSelfTest {
+            out status : HealthStatus;
+
+            status.healthy = selfTestPassed;
+            status.faultCode = "NONE";
+            status.diagnosticCoverage = diagnosticCoverage;
+        }
+    }
+
+    part def SafetyEventRecorder {
+        attribute memoryDepth : Integer = 10000;
+        attribute retainedAfterPowerLoss : Boolean = true;
+
+        action def RecordEvent {
+            in eventTime : Time;
+            in eventCode : String;
+            in activeCommand : SafetyCommand;
+        }
+    }
+
+    part def SafetyControlledMachine {
+        attribute hazardousMotionSpeed : Real = 1.5;
+        attribute stoppingTime : Millisecond = 85 [ms];
+
+        port safetyCommandIn : SafetyCommandOutputPort;
+        port power : PowerPort;
+
+        part drive : SafeTorqueOffRelay;
+        part brake : BrakeActuator;
+
+        connect safetyCommandIn to drive.commandIn;
+        connect safetyCommandIn to brake.commandIn;
+    }
+
+    part def SafetySystem {
+        attribute primaryFunction : String =
+            "Detect unsafe operator, access, and emergency-stop conditions and place the controlled machine into a de-energized safe stopped state within the required reaction time.";
+
+        part emergencyStop : EmergencyStopDevice;
+        part guardDoorInterlock : GuardDoorInterlock;
+        part presenceScanner : PresenceScanner;
+        part resetStation : OperatorResetStation;
+        part controller : SafetyController;
+        part machine : SafetyControlledMachine;
+        part alarm : AudibleVisualAlarm;
+
+        connect emergencyStop.signalOut to controller.estopIn;
+        connect guardDoorInterlock.signalOut to controller.guardIn;
+        connect presenceScanner.signalOut to controller.presenceIn;
+        connect resetStation.resetOut to controller.resetIn;
+        connect controller.commandOut to machine.safetyCommandIn;
+        connect controller.commandOut to alarm.commandIn;
+    }
+
+    requirement def SafeStopRequirement {
+        subject system : SafetySystem;
+
+        require constraint {
+            system.controller.maxReactionTime <= 100 [ms]
+        }
+
+        doc /* The safety system shall command safe torque off, apply braking, and enable alarm indication no later than 100 ms after detection of an emergency stop, opened guard, unlocked guard, or protected-zone presence. */
+    }
+
+    requirement def ManualResetRequirement {
+        subject system : SafetySystem;
+
+        require constraint {
+            system.resetStation.resetHoldTime >= 500 [ms]
+        }
+
+        doc /* Restart shall require a deliberate manual reset with the reset key switch enabled after all hazardous input conditions have cleared. */
+    }
+
+    requirement def GuardLockRequirement {
+        subject interlock : GuardDoorInterlock;
+
+        require constraint {
+            interlock.lockHoldingForce >= 1000 [N]
+        }
+
+        doc /* The guard door interlock shall prevent access to hazardous motion until machine motion has reached a safe stopped state. */
+    }
+
+    requirement def PresenceDetectionRequirement {
+        subject scanner : PresenceScanner;
+
+        require constraint {
+            scanner.responseTime <= 60 [ms] and scanner.protectiveFieldRange >= 3.5 [m]
+        }
+
+        doc /* The presence scanner shall detect a person entering the protected zone with sufficient range and response time for the configured stopping distance. */
+    }
+
+    requirement def DiagnosticCoverageRequirement {
+        subject controller : SafetyController;
+
+        require constraint {
+            controller.diagnosticMonitor.diagnosticCoverage >= 99.0
+        }
+
+        doc /* The safety controller shall provide high diagnostic coverage through dual-channel comparison, self-test, and fault reporting. */
+    }
+
+    requirement def FailSafeOutputRequirement {
+        subject relay : SafeTorqueOffRelay;
+
+        require constraint {
+            relay.dropOutTime <= 20 [ms]
+        }
+
+        doc /* The safe torque off relay shall transition to the de-energized state on any detected hazardous input, power fault, or internal diagnostic fault. */
+    }
+
+    satisfy SafeStopRequirement by SafetySystem;
+    satisfy ManualResetRequirement by SafetySystem;
+    satisfy GuardLockRequirement by GuardDoorInterlock;
+    satisfy PresenceDetectionRequirement by PresenceScanner;
+    satisfy DiagnosticCoverageRequirement by SafetyController;
+    satisfy FailSafeOutputRequirement by SafeTorqueOffRelay;
+}

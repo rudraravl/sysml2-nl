@@ -1,0 +1,889 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6is5chsy
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb857-2c98-7f00-9f5e-218729f0cfee
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Sail and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SailBasedPropulsionSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Area {
+        :> ISQ::area;
+        unit = SI::squareMetre;
+    }
+
+    attribute def Length {
+        :> ISQ::length;
+        unit = SI::metre;
+    }
+
+    attribute def Speed {
+        :> ISQ::speed;
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def Force {
+        :> ISQ::force;
+        unit = SI::newton;
+    }
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = SI::pascal;
+    }
+
+    attribute def Angle {
+        :> ISQ::planeAngle;
+        unit = SI::degree;
+    }
+
+    attribute def Mass {
+        :> ISQ::mass;
+        unit = SI::kilogram;
+    }
+
+    item def AirFlow {
+        attribute apparentWindSpeed : Speed;
+        attribute apparentWindAngle : Angle;
+        attribute dynamicPressure : Pressure;
+    }
+
+    item def AerodynamicLoad {
+        attribute liftForce : Force;
+        attribute dragForce : Force;
+        attribute resultantForce : Force;
+        attribute centerOfPressureHeight : Length;
+    }
+
+    item def ControlCommand {
+        attribute commandedSheetAngle : Angle;
+        attribute commandedTrimState : String;
+    }
+
+    item def StructuralLoad {
+        attribute mastCompression : Force;
+        attribute sheetTension : Force;
+        attribute luffTension : Force;
+    }
+
+    port def AirInteractionPort {
+        in item wind : AirFlow;
+        out item load : AerodynamicLoad;
+    }
+
+    port def MechanicalAttachmentPort {
+        out item transmittedLoad : StructuralLoad;
+    }
+
+    port def SailControlPort {
+        in item command : ControlCommand;
+        out item measuredSheetTension : StructuralLoad;
+    }
+
+    part def Sail {
+        attribute sailArea : Area = 32 [SI::squareMetre];
+        attribute luffLength : Length = 10.5 [SI::metre];
+        attribute footLength : Length = 4.2 [SI::metre];
+        attribute mass : Mass = 18 [SI::kilogram];
+        attribute sheetAngle : Angle = 35 [SI::degree];
+        attribute camberRatio : Real = 0.12;
+        attribute maximumAllowableSheetTension : Force = 4200 [SI::newton];
+
+        port airPort : AirInteractionPort;
+        port tackAttachment : MechanicalAttachmentPort;
+        port headAttachment : MechanicalAttachmentPort;
+        port clewAttachment : MechanicalAttachmentPort;
+        port controlPort : SailControlPort;
+
+        perform action GeneratePropulsiveForce {
+            in item incidentAir : AirFlow;
+            out item aerodynamicLoad : AerodynamicLoad;
+
+            first start;
+            then computeDynamicPressure;
+            then resolveLiftAndDrag;
+            then publishLoad;
+            then done;
+
+            action computeDynamicPressure {
+                in item incidentAir : AirFlow;
+                out attribute pressure : Pressure;
+            }
+
+            action resolveLiftAndDrag {
+                in attribute pressure : Pressure;
+                out item aerodynamicLoad : AerodynamicLoad;
+            }
+
+            action publishLoad {
+                in item aerodynamicLoad : AerodynamicLoad;
+                out item load : AerodynamicLoad;
+            }
+        }
+
+        perform action TrimSail {
+            in item trimCommand : ControlCommand;
+            out attribute resultingSheetAngle : Angle;
+
+            first receiveCommand;
+            then compareCommandToCurrentTrim;
+            then adjustSheetAngle;
+            then verifySheetTension;
+            then done;
+
+            action receiveCommand {
+                in item trimCommand : ControlCommand;
+            }
+
+            action compareCommandToCurrentTrim {
+                in attribute sheetAngle : Angle;
+                in attribute commandedSheetAngle : Angle;
+                out attribute trimError : Angle;
+            }
+
+            action adjustSheetAngle {
+                in attribute trimError : Angle;
+                out attribute resultingSheetAngle : Angle;
+            }
+
+            action verifySheetTension {
+                in item measuredLoad : StructuralLoad;
+                out attribute withinLimit : Boolean;
+            }
+        }
+
+        state machine OperationalState {
+            entry action initializeTrim {
+                out attribute sheetAngle : Angle = 35 [SI::degree];
+            }
+
+            state Stowed;
+            state Hoisting;
+            state Drawing;
+            state Reefed;
+            state Luffing;
+            state Overloaded;
+            state Lowering;
+
+            initial then Stowed;
+
+            transition Stowed_to_Hoisting
+                first Stowed
+                accept ControlCommand
+                if command.commandedTrimState == "hoist"
+                then Hoisting;
+
+            transition Hoisting_to_Drawing
+                first Hoisting
+                if luffLength > 0 [SI::metre]
+                then Drawing;
+
+            transition Drawing_to_Reefed
+                first Drawing
+                accept ControlCommand
+                if command.commandedTrimState == "reef"
+                then Reefed;
+
+            transition Reefed_to_Drawing
+                first Reefed
+                accept ControlCommand
+                if command.commandedTrimState == "full_sail"
+                then Drawing;
+
+            transition Drawing_to_Luffing
+                first Drawing
+                if airPort.wind.apparentWindAngle < 8 [SI::degree]
+                then Luffing;
+
+            transition Luffing_to_Drawing
+                first Luffing
+                if airPort.wind.apparentWindAngle >= 8 [SI::degree]
+                then Drawing;
+
+            transition Drawing_to_Overloaded
+                first Drawing
+                if controlPort.measuredSheetTension.sheetTension > maximumAllowableSheetTension
+                then Overloaded;
+
+            transition Reefed_to_Overloaded
+                first Reefed
+                if controlPort.measuredSheetTension.sheetTension > maximumAllowableSheetTension
+                then Overloaded;
+
+            transition Overloaded_to_Reefed
+                first Overloaded
+                accept ControlCommand
+                if command.commandedTrimState == "depower"
+                then Reefed;
+
+            transition Drawing_to_Lowering
+                first Drawing
+                accept ControlCommand
+                if command.commandedTrimState == "lower"
+                then Lowering;
+
+            transition Reefed_to_Lowering
+                first Reefed
+                accept ControlCommand
+                if command.commandedTrimState == "lower"
+                then Lowering;
+
+            transition Lowering_to_Stowed
+                first Lowering
+                then Stowed;
+        }
+    }
+
+    part def Mast {
+        attribute height : Length = 12 [SI::metre];
+        attribute allowableCompressionLoad : Force = 18500 [SI::newton];
+
+        port headFitting : MechanicalAttachmentPort;
+        port tackFitting : MechanicalAttachmentPort;
+    }
+
+    part def Boom {
+        attribute length : Length = 4.8 [SI::metre];
+        attribute allowableBendingLoad : Force = 6200 [SI::newton];
+
+        port clewFitting : MechanicalAttachmentPort;
+        port sheetBlock : MechanicalAttachmentPort;
+    }
+
+    part def SheetControlAssembly {
+        attribute maximumLineTension : Force = 5000 [SI::newton];
+        attribute trimRate : Angle = 4 [SI::degree];
+
+        port controlInput : SailControlPort;
+        port clewLoadPort : MechanicalAttachmentPort;
+
+        perform action ApplyTrimCommand {
+            in item command : ControlCommand;
+            out item resultingLoad : StructuralLoad;
+
+            first readCommand;
+            then tensionSheet;
+            then holdTrim;
+            then done;
+
+            action readCommand {
+                in item command : ControlCommand;
+            }
+
+            action tensionSheet {
+                out item resultingLoad : StructuralLoad;
+            }
+
+            action holdTrim {
+                in item resultingLoad : StructuralLoad;
+            }
+        }
+    }
+
+    part def HullInterface {
+        attribute displacementMass : Mass = 1400 [SI::kilogram];
+
+        port mastStep : MechanicalAttachmentPort;
+        port sheetAnchor : MechanicalAttachmentPort;
+        port propulsiveLoadReceiver : MechanicalAttachmentPort;
+    }
+
+    part def SailBasedSystem {
+        attribute primaryFunction : String = "Convert kinetic energy from apparent wind into controlled aerodynamic force for propulsion or station keeping.";
+        attribute nominalOperatingWindSpeed : Speed = 8 [SI::metrePerSecond];
+        attribute maximumOperatingWindSpeed : Speed = 18 [SI::metrePerSecond];
+
+        part sail : Sail;
+        part mast : Mast;
+        part boom : Boom;
+        part sheetControl : SheetControlAssembly;
+        part hullInterface : HullInterface;
+
+        port environmentAir : AirInteractionPort;
+        port operatorCommand : SailControlPort;
+        port deliveredPropulsiveLoad : MechanicalAttachmentPort;
+
+        connect environmentAir.wind to sail.airPort.wind;
+        connect sail.airPort.load to environmentAir.load;
+
+        connect sail.headAttachment.transmittedLoad to mast.headFitting.transmittedLoad;
+        connect sail.tackAttachment.transmittedLoad to mast.tackFitting.transmittedLoad;
+        connect sail.clewAttachment.transmittedLoad to boom.clewFitting.transmittedLoad;
+        connect boom.sheetBlock.transmittedLoad to sheetControl.clewLoadPort.transmittedLoad;
+
+        connect operatorCommand.command to sheetControl.controlInput.command;
+        connect sheetControl.controlInput.command to sail.controlPort.command;
+        connect sail.controlPort.measuredSheetTension to operatorCommand.measuredSheetTension;
+
+        connect mast.tackFitting.transmittedLoad to hullInterface.mastStep.transmittedLoad;
+        connect sheetControl.clewLoadPort.transmittedLoad to hullInterface.sheetAnchor.transmittedLoad;
+        connect hullInterface.propulsiveLoadReceiver.transmittedLoad to deliveredPropulsiveLoad.transmittedLoad;
+
+        perform action ProvideWindPoweredPropulsion {
+            in item ambientWind : AirFlow;
+            in item trimCommand : ControlCommand;
+            out item propulsiveLoad : StructuralLoad;
+
+            first senseApparentWind;
+            then trimSailForWind;
+            then generateAerodynamicLoad;
+            then transmitLoadToStructure;
+            then deliverUsefulForce;
+            then done;
+
+            action senseApparentWind {
+                in item ambientWind : AirFlow;
+                out item apparentWind : AirFlow;
+            }
+
+            action trimSailForWind {
+                in item trimCommand : ControlCommand;
+                in item apparentWind : AirFlow;
+                out attribute selectedSheetAngle : Angle;
+            }
+
+            action generateAerodynamicLoad {
+                in item apparentWind : AirFlow;
+                in attribute selectedSheetAngle : Angle;
+                out item aerodynamicLoad : AerodynamicLoad;
+            }
+
+            action transmitLoadToStructure {
+                in item aerodynamicLoad : AerodynamicLoad;
+                out item structuralLoad : StructuralLoad;
+            }
+
+            action deliverUsefulForce {
+                in item structuralLoad : StructuralLoad;
+                out item propulsiveLoad : StructuralLoad;
+            }
+        }
+    }
+
+    requirement def PrimarySailFunctionRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.primaryFunction == "Convert kinetic energy from apparent wind into controlled aerodynamic force for propulsion or station keeping."
+        }
+
+        doc /* The system shall use a sail as its central energy-conversion element to produce controlled aerodynamic force from apparent wind. */
+    }
+
+    requirement def WindOperatingEnvelopeRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.nominalOperatingWindSpeed <= system.maximumOperatingWindSpeed
+        }
+
+        require constraint {
+            system.maximumOperatingWindSpeed == 18 [SI::metrePerSecond]
+        }
+
+        doc /* The sail-based system shall define a bounded wind operating envelope for normal use. */
+    }
+
+    requirement def SailLoadProtectionRequirement {
+        subject sail : Sail;
+
+        require constraint {
+            sail.controlPort.measuredSheetTension.sheetTension <= sail.maximumAllowableSheetTension
+        }
+
+        doc /* The sail shall identify overload conditions when sheet tension exceeds the allowable operating limit. */
+    }
+
+    requirement def TrimControlRequirement {
+        subject sail : Sail;
+
+        require constraint {
+            sail.sheetAngle >= 0 [SI::degree] and sail.sheetAngle <= 90 [SI::degree]
+        }
+
+        doc /* The sail shall support commanded trim over a bounded sheet-angle range. */
+    }
+
+    requirement def StructuralTransmissionRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.mast.allowableCompressionLoad > system.sail.maximumAllowableSheetTension
+        }
+
+        require constraint {
+            system.sheetControl.maximumLineTension >= system.sail.maximumAllowableSheetTension
+        }
+
+        doc /* The supporting structure and sheet-control assembly shall transmit sail loads without exceeding declared operating limits. */
+    }
+
+    requirement def HighLevelBehaviorRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.maximumOperatingWindSpeed > 0 [SI::metrePerSecond]
+        }
+
+        doc /* The system shall accept wind and trim commands, produce aerodynamic load at the sail, transmit that load through mast, boom, and sheet controls, and deliver useful propulsive load to the supported platform. */
+    }
+
+    part sailPoweredVesselPropulsion : SailBasedSystem;
+
+    satisfy PrimarySailFunctionRequirement by sailPoweredVesselPropulsion;
+    satisfy WindOperatingEnvelopeRequirement by sailPoweredVesselPropulsion;
+    satisfy StructuralTransmissionRequirement by sailPoweredVesselPropulsion;
+    satisfy HighLevelBehaviorRequirement by sailPoweredVesselPropulsion;
+    satisfy SailLoadProtectionRequirement by sailPoweredVesselPropulsion.sail;
+    satisfy TrimControlRequirement by sailPoweredVesselPropulsion.sail;
+}
+tokens used
+4,318
+package SailBasedPropulsionSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Area {
+        :> ISQ::area;
+        unit = SI::squareMetre;
+    }
+
+    attribute def Length {
+        :> ISQ::length;
+        unit = SI::metre;
+    }
+
+    attribute def Speed {
+        :> ISQ::speed;
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def Force {
+        :> ISQ::force;
+        unit = SI::newton;
+    }
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = SI::pascal;
+    }
+
+    attribute def Angle {
+        :> ISQ::planeAngle;
+        unit = SI::degree;
+    }
+
+    attribute def Mass {
+        :> ISQ::mass;
+        unit = SI::kilogram;
+    }
+
+    item def AirFlow {
+        attribute apparentWindSpeed : Speed;
+        attribute apparentWindAngle : Angle;
+        attribute dynamicPressure : Pressure;
+    }
+
+    item def AerodynamicLoad {
+        attribute liftForce : Force;
+        attribute dragForce : Force;
+        attribute resultantForce : Force;
+        attribute centerOfPressureHeight : Length;
+    }
+
+    item def ControlCommand {
+        attribute commandedSheetAngle : Angle;
+        attribute commandedTrimState : String;
+    }
+
+    item def StructuralLoad {
+        attribute mastCompression : Force;
+        attribute sheetTension : Force;
+        attribute luffTension : Force;
+    }
+
+    port def AirInteractionPort {
+        in item wind : AirFlow;
+        out item load : AerodynamicLoad;
+    }
+
+    port def MechanicalAttachmentPort {
+        out item transmittedLoad : StructuralLoad;
+    }
+
+    port def SailControlPort {
+        in item command : ControlCommand;
+        out item measuredSheetTension : StructuralLoad;
+    }
+
+    part def Sail {
+        attribute sailArea : Area = 32 [SI::squareMetre];
+        attribute luffLength : Length = 10.5 [SI::metre];
+        attribute footLength : Length = 4.2 [SI::metre];
+        attribute mass : Mass = 18 [SI::kilogram];
+        attribute sheetAngle : Angle = 35 [SI::degree];
+        attribute camberRatio : Real = 0.12;
+        attribute maximumAllowableSheetTension : Force = 4200 [SI::newton];
+
+        port airPort : AirInteractionPort;
+        port tackAttachment : MechanicalAttachmentPort;
+        port headAttachment : MechanicalAttachmentPort;
+        port clewAttachment : MechanicalAttachmentPort;
+        port controlPort : SailControlPort;
+
+        perform action GeneratePropulsiveForce {
+            in item incidentAir : AirFlow;
+            out item aerodynamicLoad : AerodynamicLoad;
+
+            first start;
+            then computeDynamicPressure;
+            then resolveLiftAndDrag;
+            then publishLoad;
+            then done;
+
+            action computeDynamicPressure {
+                in item incidentAir : AirFlow;
+                out attribute pressure : Pressure;
+            }
+
+            action resolveLiftAndDrag {
+                in attribute pressure : Pressure;
+                out item aerodynamicLoad : AerodynamicLoad;
+            }
+
+            action publishLoad {
+                in item aerodynamicLoad : AerodynamicLoad;
+                out item load : AerodynamicLoad;
+            }
+        }
+
+        perform action TrimSail {
+            in item trimCommand : ControlCommand;
+            out attribute resultingSheetAngle : Angle;
+
+            first receiveCommand;
+            then compareCommandToCurrentTrim;
+            then adjustSheetAngle;
+            then verifySheetTension;
+            then done;
+
+            action receiveCommand {
+                in item trimCommand : ControlCommand;
+            }
+
+            action compareCommandToCurrentTrim {
+                in attribute sheetAngle : Angle;
+                in attribute commandedSheetAngle : Angle;
+                out attribute trimError : Angle;
+            }
+
+            action adjustSheetAngle {
+                in attribute trimError : Angle;
+                out attribute resultingSheetAngle : Angle;
+            }
+
+            action verifySheetTension {
+                in item measuredLoad : StructuralLoad;
+                out attribute withinLimit : Boolean;
+            }
+        }
+
+        state machine OperationalState {
+            entry action initializeTrim {
+                out attribute sheetAngle : Angle = 35 [SI::degree];
+            }
+
+            state Stowed;
+            state Hoisting;
+            state Drawing;
+            state Reefed;
+            state Luffing;
+            state Overloaded;
+            state Lowering;
+
+            initial then Stowed;
+
+            transition Stowed_to_Hoisting
+                first Stowed
+                accept ControlCommand
+                if command.commandedTrimState == "hoist"
+                then Hoisting;
+
+            transition Hoisting_to_Drawing
+                first Hoisting
+                if luffLength > 0 [SI::metre]
+                then Drawing;
+
+            transition Drawing_to_Reefed
+                first Drawing
+                accept ControlCommand
+                if command.commandedTrimState == "reef"
+                then Reefed;
+
+            transition Reefed_to_Drawing
+                first Reefed
+                accept ControlCommand
+                if command.commandedTrimState == "full_sail"
+                then Drawing;
+
+            transition Drawing_to_Luffing
+                first Drawing
+                if airPort.wind.apparentWindAngle < 8 [SI::degree]
+                then Luffing;
+
+            transition Luffing_to_Drawing
+                first Luffing
+                if airPort.wind.apparentWindAngle >= 8 [SI::degree]
+                then Drawing;
+
+            transition Drawing_to_Overloaded
+                first Drawing
+                if controlPort.measuredSheetTension.sheetTension > maximumAllowableSheetTension
+                then Overloaded;
+
+            transition Reefed_to_Overloaded
+                first Reefed
+                if controlPort.measuredSheetTension.sheetTension > maximumAllowableSheetTension
+                then Overloaded;
+
+            transition Overloaded_to_Reefed
+                first Overloaded
+                accept ControlCommand
+                if command.commandedTrimState == "depower"
+                then Reefed;
+
+            transition Drawing_to_Lowering
+                first Drawing
+                accept ControlCommand
+                if command.commandedTrimState == "lower"
+                then Lowering;
+
+            transition Reefed_to_Lowering
+                first Reefed
+                accept ControlCommand
+                if command.commandedTrimState == "lower"
+                then Lowering;
+
+            transition Lowering_to_Stowed
+                first Lowering
+                then Stowed;
+        }
+    }
+
+    part def Mast {
+        attribute height : Length = 12 [SI::metre];
+        attribute allowableCompressionLoad : Force = 18500 [SI::newton];
+
+        port headFitting : MechanicalAttachmentPort;
+        port tackFitting : MechanicalAttachmentPort;
+    }
+
+    part def Boom {
+        attribute length : Length = 4.8 [SI::metre];
+        attribute allowableBendingLoad : Force = 6200 [SI::newton];
+
+        port clewFitting : MechanicalAttachmentPort;
+        port sheetBlock : MechanicalAttachmentPort;
+    }
+
+    part def SheetControlAssembly {
+        attribute maximumLineTension : Force = 5000 [SI::newton];
+        attribute trimRate : Angle = 4 [SI::degree];
+
+        port controlInput : SailControlPort;
+        port clewLoadPort : MechanicalAttachmentPort;
+
+        perform action ApplyTrimCommand {
+            in item command : ControlCommand;
+            out item resultingLoad : StructuralLoad;
+
+            first readCommand;
+            then tensionSheet;
+            then holdTrim;
+            then done;
+
+            action readCommand {
+                in item command : ControlCommand;
+            }
+
+            action tensionSheet {
+                out item resultingLoad : StructuralLoad;
+            }
+
+            action holdTrim {
+                in item resultingLoad : StructuralLoad;
+            }
+        }
+    }
+
+    part def HullInterface {
+        attribute displacementMass : Mass = 1400 [SI::kilogram];
+
+        port mastStep : MechanicalAttachmentPort;
+        port sheetAnchor : MechanicalAttachmentPort;
+        port propulsiveLoadReceiver : MechanicalAttachmentPort;
+    }
+
+    part def SailBasedSystem {
+        attribute primaryFunction : String = "Convert kinetic energy from apparent wind into controlled aerodynamic force for propulsion or station keeping.";
+        attribute nominalOperatingWindSpeed : Speed = 8 [SI::metrePerSecond];
+        attribute maximumOperatingWindSpeed : Speed = 18 [SI::metrePerSecond];
+
+        part sail : Sail;
+        part mast : Mast;
+        part boom : Boom;
+        part sheetControl : SheetControlAssembly;
+        part hullInterface : HullInterface;
+
+        port environmentAir : AirInteractionPort;
+        port operatorCommand : SailControlPort;
+        port deliveredPropulsiveLoad : MechanicalAttachmentPort;
+
+        connect environmentAir.wind to sail.airPort.wind;
+        connect sail.airPort.load to environmentAir.load;
+
+        connect sail.headAttachment.transmittedLoad to mast.headFitting.transmittedLoad;
+        connect sail.tackAttachment.transmittedLoad to mast.tackFitting.transmittedLoad;
+        connect sail.clewAttachment.transmittedLoad to boom.clewFitting.transmittedLoad;
+        connect boom.sheetBlock.transmittedLoad to sheetControl.clewLoadPort.transmittedLoad;
+
+        connect operatorCommand.command to sheetControl.controlInput.command;
+        connect sheetControl.controlInput.command to sail.controlPort.command;
+        connect sail.controlPort.measuredSheetTension to operatorCommand.measuredSheetTension;
+
+        connect mast.tackFitting.transmittedLoad to hullInterface.mastStep.transmittedLoad;
+        connect sheetControl.clewLoadPort.transmittedLoad to hullInterface.sheetAnchor.transmittedLoad;
+        connect hullInterface.propulsiveLoadReceiver.transmittedLoad to deliveredPropulsiveLoad.transmittedLoad;
+
+        perform action ProvideWindPoweredPropulsion {
+            in item ambientWind : AirFlow;
+            in item trimCommand : ControlCommand;
+            out item propulsiveLoad : StructuralLoad;
+
+            first senseApparentWind;
+            then trimSailForWind;
+            then generateAerodynamicLoad;
+            then transmitLoadToStructure;
+            then deliverUsefulForce;
+            then done;
+
+            action senseApparentWind {
+                in item ambientWind : AirFlow;
+                out item apparentWind : AirFlow;
+            }
+
+            action trimSailForWind {
+                in item trimCommand : ControlCommand;
+                in item apparentWind : AirFlow;
+                out attribute selectedSheetAngle : Angle;
+            }
+
+            action generateAerodynamicLoad {
+                in item apparentWind : AirFlow;
+                in attribute selectedSheetAngle : Angle;
+                out item aerodynamicLoad : AerodynamicLoad;
+            }
+
+            action transmitLoadToStructure {
+                in item aerodynamicLoad : AerodynamicLoad;
+                out item structuralLoad : StructuralLoad;
+            }
+
+            action deliverUsefulForce {
+                in item structuralLoad : StructuralLoad;
+                out item propulsiveLoad : StructuralLoad;
+            }
+        }
+    }
+
+    requirement def PrimarySailFunctionRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.primaryFunction == "Convert kinetic energy from apparent wind into controlled aerodynamic force for propulsion or station keeping."
+        }
+
+        doc /* The system shall use a sail as its central energy-conversion element to produce controlled aerodynamic force from apparent wind. */
+    }
+
+    requirement def WindOperatingEnvelopeRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.nominalOperatingWindSpeed <= system.maximumOperatingWindSpeed
+        }
+
+        require constraint {
+            system.maximumOperatingWindSpeed == 18 [SI::metrePerSecond]
+        }
+
+        doc /* The sail-based system shall define a bounded wind operating envelope for normal use. */
+    }
+
+    requirement def SailLoadProtectionRequirement {
+        subject sail : Sail;
+
+        require constraint {
+            sail.controlPort.measuredSheetTension.sheetTension <= sail.maximumAllowableSheetTension
+        }
+
+        doc /* The sail shall identify overload conditions when sheet tension exceeds the allowable operating limit. */
+    }
+
+    requirement def TrimControlRequirement {
+        subject sail : Sail;
+
+        require constraint {
+            sail.sheetAngle >= 0 [SI::degree] and sail.sheetAngle <= 90 [SI::degree]
+        }
+
+        doc /* The sail shall support commanded trim over a bounded sheet-angle range. */
+    }
+
+    requirement def StructuralTransmissionRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.mast.allowableCompressionLoad > system.sail.maximumAllowableSheetTension
+        }
+
+        require constraint {
+            system.sheetControl.maximumLineTension >= system.sail.maximumAllowableSheetTension
+        }
+
+        doc /* The supporting structure and sheet-control assembly shall transmit sail loads without exceeding declared operating limits. */
+    }
+
+    requirement def HighLevelBehaviorRequirement {
+        subject system : SailBasedSystem;
+
+        require constraint {
+            system.maximumOperatingWindSpeed > 0 [SI::metrePerSecond]
+        }
+
+        doc /* The system shall accept wind and trim commands, produce aerodynamic load at the sail, transmit that load through mast, boom, and sheet controls, and deliver useful propulsive load to the supported platform. */
+    }
+
+    part sailPoweredVesselPropulsion : SailBasedSystem;
+
+    satisfy PrimarySailFunctionRequirement by sailPoweredVesselPropulsion;
+    satisfy WindOperatingEnvelopeRequirement by sailPoweredVesselPropulsion;
+    satisfy StructuralTransmissionRequirement by sailPoweredVesselPropulsion;
+    satisfy HighLevelBehaviorRequirement by sailPoweredVesselPropulsion;
+    satisfy SailLoadProtectionRequirement by sailPoweredVesselPropulsion.sail;
+    satisfy TrimControlRequirement by sailPoweredVesselPropulsion.sail;
+}

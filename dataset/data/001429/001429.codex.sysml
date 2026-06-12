@@ -1,0 +1,548 @@
+package FloorPlanSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Area :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Illuminance {
+        unit = SI::lux;
+    }
+
+    attribute def AirFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def OccupancyCount :> ScalarValues::Integer;
+
+    attribute def RoomName :> ScalarValues::String;
+
+    item def Occupant {
+        attribute id : String;
+        attribute preferredTemperature : Temperature = 22 [SI::degreeCelsius];
+    }
+
+    item def ConditionedAir {
+        attribute temperature : Temperature;
+        attribute flowRate : AirFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute availablePower : Power;
+    }
+
+    item def LightCommand {
+        attribute requestedIlluminance : Illuminance;
+        attribute manualOverride : Boolean;
+    }
+
+    item def OccupancySignal {
+        attribute occupied : Boolean;
+        attribute count : OccupancyCount;
+    }
+
+    item def EmergencyAlert {
+        attribute active : Boolean;
+        attribute message : String;
+    }
+
+    port def OccupantAccessPort {
+        in item enteringOccupant : Occupant;
+        out item exitingOccupant : Occupant;
+    }
+
+    port def AirDistributionPort {
+        in item suppliedAir : ConditionedAir;
+        out item returnAir : ConditionedAir;
+    }
+
+    port def PowerPort {
+        in item electricalSupply : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in item occupancyInput : OccupancySignal;
+        in item emergencyInput : EmergencyAlert;
+        out item lightingOutput : LightCommand;
+    }
+
+    port def CirculationPort {
+        inout item pedestrianFlow : Occupant;
+    }
+
+    part def Room {
+        attribute roomName : RoomName;
+        attribute floorArea : Area;
+        attribute width : Length;
+        attribute length : Length;
+        attribute targetTemperature : Temperature = 22 [SI::degreeCelsius];
+        attribute designOccupancy : OccupancyCount;
+
+        port entry : OccupantAccessPort;
+        port air : AirDistributionPort;
+        port power : PowerPort;
+        port controls : ControlPort;
+        port circulation : CirculationPort;
+
+        item occupancy : OccupancySignal;
+
+        perform action updateOccupancy {
+            in item sensorSignal : OccupancySignal;
+            out item roomOccupancy : OccupancySignal;
+        }
+
+        perform action regulateRoomEnvironment {
+            in item occupancyInput : OccupancySignal;
+            in item suppliedAir : ConditionedAir;
+            out item returnAir : ConditionedAir;
+        }
+    }
+
+    part def Corridor :> Room {
+        attribute evacuationWidth : Length;
+        port northConnection : CirculationPort;
+        port southConnection : CirculationPort;
+        port eastConnection : CirculationPort;
+        port westConnection : CirculationPort;
+    }
+
+    part def Door {
+        attribute clearWidth : Length;
+        attribute fireRated : Boolean;
+        attribute normallyOpen : Boolean;
+
+        port sideA : CirculationPort;
+        port sideB : CirculationPort;
+
+        state def DoorOperatingState {
+            state closed;
+            state open;
+            state locked;
+            state emergencyUnlocked;
+
+            transition first closed;
+            transition closed_to_open
+                first closed
+                then open;
+
+            transition open_to_closed
+                first open
+                then closed;
+
+            transition closed_to_locked
+                first closed
+                then locked;
+
+            transition locked_to_emergencyUnlocked
+                first locked
+                then emergencyUnlocked;
+        }
+    }
+
+    part def Wall {
+        attribute length : Length;
+        attribute acousticRating : Integer;
+        attribute fireResistanceMinutes : Integer;
+    }
+
+    part def Window {
+        attribute width : Length;
+        attribute height : Length;
+        attribute operable : Boolean;
+        attribute solarGainCoefficient : Real;
+    }
+
+    part def HVACZone {
+        attribute zoneName : String;
+        attribute maximumAirFlow : AirFlowRate;
+        attribute heatingCapacity : Power;
+        attribute coolingCapacity : Power;
+
+        port supply : AirDistributionPort;
+        port return : AirDistributionPort;
+        port power : PowerPort;
+
+        perform action conditionAir {
+            in item returnAir : ConditionedAir;
+            out item suppliedAir : ConditionedAir;
+        }
+    }
+
+    part def LightingZone {
+        attribute zoneName : String;
+        attribute installedPower : Power;
+        attribute targetIlluminance : Illuminance;
+
+        port power : PowerPort;
+        port controls : ControlPort;
+
+        perform action provideIllumination {
+            in item command : LightCommand;
+        }
+    }
+
+    part def FireSafetySystem {
+        attribute alarmActive : Boolean = false;
+
+        port alertOut : ControlPort;
+        port power : PowerPort;
+
+        perform action detectEmergency {
+            out item alert : EmergencyAlert;
+        }
+
+        perform action supportEvacuation {
+            in item alert : EmergencyAlert;
+        }
+
+        state def FireSafetyState {
+            state normal;
+            state alarm;
+            state evacuationSupport;
+            state reset;
+
+            transition initial_normal
+                first normal;
+
+            transition fire_detected
+                first normal
+                then alarm;
+
+            transition alarm_to_evacuation
+                first alarm
+                then evacuationSupport;
+
+            transition evacuation_to_reset
+                first evacuationSupport
+                then reset;
+
+            transition reset_to_normal
+                first reset
+                then normal;
+        }
+    }
+
+    part def FloorControlSystem {
+        attribute occupiedMode : Boolean;
+        attribute energySavingMode : Boolean;
+
+        port controls : ControlPort;
+        port power : PowerPort;
+
+        perform action monitorFloor {
+            in item lobbyOccupancy : OccupancySignal;
+            in item officeOccupancy : OccupancySignal;
+            in item meetingOccupancy : OccupancySignal;
+            in item emergency : EmergencyAlert;
+        }
+
+        perform action optimizeOperation {
+            out item lightingCommand : LightCommand;
+        }
+
+        state def FloorControlState {
+            state unoccupied;
+            state occupied;
+            state energySaving;
+            state emergency;
+
+            transition initial_unoccupied
+                first unoccupied;
+
+            transition occupancy_detected
+                first unoccupied
+                then occupied;
+
+            transition no_occupancy
+                first occupied
+                then energySaving;
+
+            transition emergency_signal
+                first occupied
+                then emergency;
+
+            transition emergency_clear
+                first emergency
+                then occupied;
+        }
+    }
+
+    part def FloorPlanBasedFacility {
+        attribute totalFloorArea : Area = 315 [SI::squareMetre];
+        attribute primaryFunction : String = "Organize habitable rooms, circulation paths, utilities, and safety systems into a coordinated floor plan that supports safe occupant movement, comfortable work activities, environmental control, and emergency response.";
+
+        part northWall : Wall {
+            attribute length = 21 [SI::metre];
+            attribute acousticRating = 45;
+            attribute fireResistanceMinutes = 60;
+        }
+
+        part southWall : Wall {
+            attribute length = 21 [SI::metre];
+            attribute acousticRating = 45;
+            attribute fireResistanceMinutes = 60;
+        }
+
+        part eastWall : Wall {
+            attribute length = 15 [SI::metre];
+            attribute acousticRating = 45;
+            attribute fireResistanceMinutes = 60;
+        }
+
+        part westWall : Wall {
+            attribute length = 15 [SI::metre];
+            attribute acousticRating = 45;
+            attribute fireResistanceMinutes = 60;
+        }
+
+        part lobby : Room {
+            attribute roomName = "Lobby";
+            attribute floorArea = 42 [SI::squareMetre];
+            attribute width = 6 [SI::metre];
+            attribute length = 7 [SI::metre];
+            attribute designOccupancy = 10;
+        }
+
+        part openOffice : Room {
+            attribute roomName = "Open Office";
+            attribute floorArea = 108 [SI::squareMetre];
+            attribute width = 9 [SI::metre];
+            attribute length = 12 [SI::metre];
+            attribute designOccupancy = 24;
+        }
+
+        part meetingRoom : Room {
+            attribute roomName = "Meeting Room";
+            attribute floorArea = 36 [SI::squareMetre];
+            attribute width = 6 [SI::metre];
+            attribute length = 6 [SI::metre];
+            attribute designOccupancy = 12;
+        }
+
+        part breakRoom : Room {
+            attribute roomName = "Break Room";
+            attribute floorArea = 24 [SI::squareMetre];
+            attribute width = 4 [SI::metre];
+            attribute length = 6 [SI::metre];
+            attribute designOccupancy = 8;
+        }
+
+        part restroomCore : Room {
+            attribute roomName = "Restroom Core";
+            attribute floorArea = 30 [SI::squareMetre];
+            attribute width = 5 [SI::metre];
+            attribute length = 6 [SI::metre];
+            attribute designOccupancy = 6;
+        }
+
+        part utilityRoom : Room {
+            attribute roomName = "Utility Room";
+            attribute floorArea = 18 [SI::squareMetre];
+            attribute width = 3 [SI::metre];
+            attribute length = 6 [SI::metre];
+            attribute designOccupancy = 2;
+        }
+
+        part mainCorridor : Corridor {
+            attribute roomName = "Main Corridor";
+            attribute floorArea = 57 [SI::squareMetre];
+            attribute width = 3 [SI::metre];
+            attribute length = 19 [SI::metre];
+            attribute designOccupancy = 40;
+            attribute evacuationWidth = 2.4 [SI::metre];
+        }
+
+        part mainEntryDoor : Door {
+            attribute clearWidth = 1.8 [SI::metre];
+            attribute fireRated = false;
+            attribute normallyOpen = false;
+        }
+
+        part officeDoor : Door {
+            attribute clearWidth = 1.0 [SI::metre];
+            attribute fireRated = true;
+            attribute normallyOpen = true;
+        }
+
+        part meetingDoor : Door {
+            attribute clearWidth = 0.9 [SI::metre];
+            attribute fireRated = true;
+            attribute normallyOpen = false;
+        }
+
+        part breakRoomDoor : Door {
+            attribute clearWidth = 0.9 [SI::metre];
+            attribute fireRated = true;
+            attribute normallyOpen = false;
+        }
+
+        part restroomDoor : Door {
+            attribute clearWidth = 0.9 [SI::metre];
+            attribute fireRated = true;
+            attribute normallyOpen = false;
+        }
+
+        part utilityDoor : Door {
+            attribute clearWidth = 0.9 [SI::metre];
+            attribute fireRated = true;
+            attribute normallyOpen = false;
+        }
+
+        part officeWindows : Window[6] {
+            attribute width = 1.5 [SI::metre];
+            attribute height = 1.4 [SI::metre];
+            attribute operable = true;
+            attribute solarGainCoefficient = 0.38;
+        }
+
+        part meetingWindows : Window[2] {
+            attribute width = 1.2 [SI::metre];
+            attribute height = 1.4 [SI::metre];
+            attribute operable = true;
+            attribute solarGainCoefficient = 0.35;
+        }
+
+        part hvacNorthZone : HVACZone {
+            attribute zoneName = "North Occupied Zone";
+            attribute maximumAirFlow = 1.2 [SI::cubicMetrePerSecond];
+            attribute heatingCapacity = 9500 [SI::watt];
+            attribute coolingCapacity = 12000 [SI::watt];
+        }
+
+        part hvacSouthZone : HVACZone {
+            attribute zoneName = "South Support Zone";
+            attribute maximumAirFlow = 0.8 [SI::cubicMetrePerSecond];
+            attribute heatingCapacity = 6500 [SI::watt];
+            attribute coolingCapacity = 8500 [SI::watt];
+        }
+
+        part officeLighting : LightingZone {
+            attribute zoneName = "Office Lighting";
+            attribute installedPower = 900 [SI::watt];
+            attribute targetIlluminance = 500 [SI::lux];
+        }
+
+        part publicLighting : LightingZone {
+            attribute zoneName = "Lobby and Corridor Lighting";
+            attribute installedPower = 650 [SI::watt];
+            attribute targetIlluminance = 300 [SI::lux];
+        }
+
+        part supportLighting : LightingZone {
+            attribute zoneName = "Support Space Lighting";
+            attribute installedPower = 420 [SI::watt];
+            attribute targetIlluminance = 250 [SI::lux];
+        }
+
+        part fireSafety : FireSafetySystem;
+        part floorController : FloorControlSystem;
+
+        connect mainEntryDoor.sideA to lobby.circulation;
+        connect mainEntryDoor.sideB to mainCorridor.southConnection;
+
+        connect officeDoor.sideA to mainCorridor.northConnection;
+        connect officeDoor.sideB to openOffice.circulation;
+
+        connect meetingDoor.sideA to mainCorridor.eastConnection;
+        connect meetingDoor.sideB to meetingRoom.circulation;
+
+        connect breakRoomDoor.sideA to mainCorridor.westConnection;
+        connect breakRoomDoor.sideB to breakRoom.circulation;
+
+        connect restroomDoor.sideA to mainCorridor.westConnection;
+        connect restroomDoor.sideB to restroomCore.circulation;
+
+        connect utilityDoor.sideA to mainCorridor.eastConnection;
+        connect utilityDoor.sideB to utilityRoom.circulation;
+
+        connect hvacNorthZone.supply to openOffice.air;
+        connect hvacNorthZone.supply to meetingRoom.air;
+        connect hvacNorthZone.return to mainCorridor.air;
+
+        connect hvacSouthZone.supply to lobby.air;
+        connect hvacSouthZone.supply to breakRoom.air;
+        connect hvacSouthZone.supply to restroomCore.air;
+        connect hvacSouthZone.supply to utilityRoom.air;
+        connect hvacSouthZone.return to mainCorridor.air;
+
+        connect officeLighting.controls to openOffice.controls;
+        connect officeLighting.controls to meetingRoom.controls;
+
+        connect publicLighting.controls to lobby.controls;
+        connect publicLighting.controls to mainCorridor.controls;
+
+        connect supportLighting.controls to breakRoom.controls;
+        connect supportLighting.controls to restroomCore.controls;
+        connect supportLighting.controls to utilityRoom.controls;
+
+        connect fireSafety.alertOut to floorController.controls;
+        connect floorController.controls to officeLighting.controls;
+        connect floorController.controls to publicLighting.controls;
+        connect floorController.controls to supportLighting.controls;
+
+        perform action operateFacility {
+            first perform floorController.monitorFloor;
+            then perform floorController.optimizeOperation;
+            then perform hvacNorthZone.conditionAir;
+            then perform hvacSouthZone.conditionAir;
+            then perform officeLighting.provideIllumination;
+            then perform publicLighting.provideIllumination;
+            then perform supportLighting.provideIllumination;
+        }
+
+        perform action evacuateFacility {
+            first perform fireSafety.detectEmergency;
+            then perform fireSafety.supportEvacuation;
+        }
+    }
+
+    requirement def FloorPlanPrimaryFunctionRequirement {
+        doc /* The floor plan based system shall provide a coordinated arrangement of rooms, circulation paths, environmental services, lighting, and safety functions to support daily occupancy and emergency egress. */
+    }
+
+    requirement def CirculationRequirement {
+        doc /* The main corridor shall connect the lobby, open office, meeting room, break room, restroom core, and utility room through doors with clear widths suitable for normal movement and evacuation. */
+    }
+
+    requirement def EnvironmentalComfortRequirement {
+        doc /* Occupied rooms shall be served by HVAC zones capable of maintaining a target temperature of 22 degrees Celsius during occupied operation. */
+    }
+
+    requirement def LightingRequirement {
+        doc /* Lighting zones shall provide at least 500 lux in office work areas, 300 lux in lobby and corridor areas, and 250 lux in support spaces. */
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The fire safety system shall detect emergency conditions, issue alerts to the floor controller, and support evacuation by placing controlled doors and lighting into emergency operation. */
+    }
+
+    requirement def OccupancyEfficiencyRequirement {
+        doc /* The floor control system shall transition to an energy saving mode when no occupancy is detected in normally occupied rooms. */
+    }
+
+    satisfy FloorPlanPrimaryFunctionRequirement by FloorPlanBasedFacility;
+    satisfy CirculationRequirement by FloorPlanBasedFacility::mainCorridor;
+    satisfy EnvironmentalComfortRequirement by FloorPlanBasedFacility::hvacNorthZone;
+    satisfy EnvironmentalComfortRequirement by FloorPlanBasedFacility::hvacSouthZone;
+    satisfy LightingRequirement by FloorPlanBasedFacility::officeLighting;
+    satisfy LightingRequirement by FloorPlanBasedFacility::publicLighting;
+    satisfy LightingRequirement by FloorPlanBasedFacility::supportLighting;
+    satisfy SafetyRequirement by FloorPlanBasedFacility::fireSafety;
+    satisfy OccupancyEfficiencyRequirement by FloorPlanBasedFacility::floorController;
+
+}

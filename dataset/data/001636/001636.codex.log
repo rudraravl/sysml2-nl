@@ -1,0 +1,659 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-g3oleorz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb77c-70de-7c81-a8c0-73dd7d3360eb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a ZDNet and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ZDNetBasedTechnologyInsightSystem {
+
+  attribute def Percent;
+  attribute def Seconds;
+  attribute def RequestsPerSecond;
+  attribute def ArticlesPerHour;
+  attribute def Bytes;
+  attribute def Score;
+  attribute def Count;
+
+  item def ZDNetArticle {
+    attribute articleId : String;
+    attribute title : String;
+    attribute sourceUrl : String;
+    attribute author : String;
+    attribute publishedAt : String;
+    attribute category : String;
+    attribute bodyText : String;
+    attribute canonicalHash : String;
+  }
+
+  item def ArticleFeed {
+    attribute feedId : String;
+    attribute sourceName : String = "ZDNet";
+    attribute retrievedAt : String;
+    attribute articleCount : Count;
+  }
+
+  item def ClassifiedInsight {
+    attribute insightId : String;
+    attribute topic : String;
+    attribute summary : String;
+    attribute relevanceScore : Score;
+    attribute confidence : Percent;
+    attribute urgency : String;
+  }
+
+  item def UserPreferenceProfile {
+    attribute userId : String;
+    attribute preferredTopics : String;
+    attribute blockedTopics : String;
+    attribute minimumRelevance : Score;
+  }
+
+  item def InsightDigest {
+    attribute digestId : String;
+    attribute generatedAt : String;
+    attribute headlineCount : Count;
+    attribute primaryFunctionSummary : String =
+      "The system monitors ZDNet technology content, extracts key technology developments, classifies them by relevance, and delivers concise decision-ready insight digests to users.";
+  }
+
+  item def DeliveryReceipt {
+    attribute receiptId : String;
+    attribute deliveredAt : String;
+    attribute channel : String;
+    attribute status : String;
+  }
+
+  port def FeedInputPort {
+    in item feed : ArticleFeed;
+    in item article : ZDNetArticle;
+  }
+
+  port def ArticleOutputPort {
+    out item article : ZDNetArticle;
+  }
+
+  port def InsightOutputPort {
+    out item insight : ClassifiedInsight;
+  }
+
+  port def PreferenceInputPort {
+    in item profile : UserPreferenceProfile;
+  }
+
+  port def DigestOutputPort {
+    out item digest : InsightDigest;
+  }
+
+  port def ReceiptInputPort {
+    in item receipt : DeliveryReceipt;
+  }
+
+  part def ZDNetTechnologyInsightSystem {
+    attribute availabilityTarget : Percent = 99.5;
+    attribute maximumDigestLatency : Seconds = 300;
+    attribute ingestionCapacity : ArticlesPerHour = 1200;
+    attribute apiRateLimit : RequestsPerSecond = 20;
+
+    port feedIn : FeedInputPort;
+    port preferencesIn : PreferenceInputPort;
+    port digestOut : DigestOutputPort;
+    port receiptIn : ReceiptInputPort;
+
+    part sourceAdapter : ZDNetSourceAdapter;
+    part contentNormalizer : ContentNormalizer;
+    part duplicateDetector : DuplicateDetector;
+    part topicClassifier : TopicClassifier;
+    part relevanceEngine : RelevanceEngine;
+    part digestComposer : DigestComposer;
+    part deliveryManager : DeliveryManager;
+    part observabilityMonitor : ObservabilityMonitor;
+
+    connect feedIn to sourceAdapter.feedIn;
+    connect sourceAdapter.articleOut to contentNormalizer.articleIn;
+    connect contentNormalizer.articleOut to duplicateDetector.articleIn;
+    connect duplicateDetector.uniqueArticleOut to topicClassifier.articleIn;
+    connect topicClassifier.insightOut to relevanceEngine.insightIn;
+    connect preferencesIn to relevanceEngine.preferenceIn;
+    connect relevanceEngine.prioritizedInsightOut to digestComposer.insightIn;
+    connect digestComposer.digestOut to deliveryManager.digestIn;
+    connect deliveryManager.digestOut to digestOut;
+    connect receiptIn to deliveryManager.receiptIn;
+  }
+
+  part def ZDNetSourceAdapter {
+    attribute sourceName : String = "ZDNet";
+    attribute pollingInterval : Seconds = 60;
+    attribute maximumArticleSize : Bytes = 2000000;
+
+    port feedIn : FeedInputPort;
+    port articleOut : ArticleOutputPort;
+
+    action fetchFeed {
+      in item feed : ArticleFeed;
+      out item article : ZDNetArticle;
+    }
+
+    state machine FeedAcquisitionState {
+      state idle;
+      state polling;
+      state validating;
+      state publishing;
+      state degraded;
+
+      transition first idle then polling;
+      transition polling then validating;
+      transition validating then publishing;
+      transition publishing then idle;
+      transition validating then degraded;
+      transition degraded then polling;
+    }
+  }
+
+  part def ContentNormalizer {
+    attribute language : String = "en-US";
+    attribute minimumBodyLength : Count = 300;
+
+    port articleIn : ArticleOutputPort;
+    port articleOut : ArticleOutputPort;
+
+    action normalizeArticle {
+      in item rawArticle : ZDNetArticle;
+      out item normalizedArticle : ZDNetArticle;
+    }
+  }
+
+  part def DuplicateDetector {
+    attribute similarityThreshold : Percent = 92;
+
+    port articleIn : ArticleOutputPort;
+    port uniqueArticleOut : ArticleOutputPort;
+
+    action calculateCanonicalHash {
+      in item article : ZDNetArticle;
+      out hash : String;
+    }
+
+    action rejectDuplicate {
+      in item article : ZDNetArticle;
+    }
+  }
+
+  part def TopicClassifier {
+    attribute supportedTopics : String =
+      "artificial intelligence, cybersecurity, cloud computing, enterprise software, hardware, networking, mobile, data management";
+
+    port articleIn : ArticleOutputPort;
+    port insightOut : InsightOutputPort;
+
+    action classifyArticle {
+      in item article : ZDNetArticle;
+      out item insight : ClassifiedInsight;
+    }
+
+    state machine ClassificationState {
+      state waitingForArticle;
+      state extractingSignals;
+      state assigningTopic;
+      state estimatingConfidence;
+      state emittingInsight;
+
+      transition first waitingForArticle then extractingSignals;
+      transition extractingSignals then assigningTopic;
+      transition assigningTopic then estimatingConfidence;
+      transition estimatingConfidence then emittingInsight;
+      transition emittingInsight then waitingForArticle;
+    }
+  }
+
+  part def RelevanceEngine {
+    attribute defaultMinimumRelevance : Score = 0.65;
+    attribute highUrgencyThreshold : Score = 0.85;
+
+    port insightIn : InsightOutputPort;
+    port preferenceIn : PreferenceInputPort;
+    port prioritizedInsightOut : InsightOutputPort;
+
+    action rankInsight {
+      in item insight : ClassifiedInsight;
+      in item profile : UserPreferenceProfile;
+      out item rankedInsight : ClassifiedInsight;
+    }
+  }
+
+  part def DigestComposer {
+    attribute maximumHeadlinesPerDigest : Count = 12;
+    attribute targetSummaryLength : Count = 120;
+
+    port insightIn : InsightOutputPort;
+    port digestOut : DigestOutputPort;
+
+    action composeDigest {
+      in item insight : ClassifiedInsight;
+      out item digest : InsightDigest;
+    }
+  }
+
+  part def DeliveryManager {
+    attribute supportedChannels : String = "email, web dashboard, webhook";
+    attribute retryLimit : Count = 3;
+    attribute retryDelay : Seconds = 30;
+
+    port digestIn : DigestOutputPort;
+    port digestOut : DigestOutputPort;
+    port receiptIn : ReceiptInputPort;
+
+    action deliverDigest {
+      in item digest : InsightDigest;
+      out item receipt : DeliveryReceipt;
+    }
+
+    state machine DeliveryState {
+      state ready;
+      state sending;
+      state awaitingReceipt;
+      state delivered;
+      state retrying;
+      state failed;
+
+      transition first ready then sending;
+      transition sending then awaitingReceipt;
+      transition awaitingReceipt then delivered;
+      transition awaitingReceipt then retrying;
+      transition retrying then sending;
+      transition retrying then failed;
+      transition delivered then ready;
+      transition failed then ready;
+    }
+  }
+
+  part def ObservabilityMonitor {
+    attribute healthCheckInterval : Seconds = 15;
+    attribute errorRateLimit : Percent = 2;
+    attribute latencyWarningThreshold : Seconds = 240;
+
+    action recordIngestionMetric {
+      in articleCount : Count;
+      in intervalSeconds : Seconds;
+    }
+
+    action raiseOperationalAlert {
+      in alertName : String;
+      in severity : String;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ZDNetTechnologyInsightSystem;
+    doc /* The system shall provide a high-level technology intelligence function by ingesting ZDNet technology content, transforming articles into classified insights, ranking them against user interests, and delivering concise digests. */
+  }
+
+  requirement def IngestionRequirement {
+    subject adapter : ZDNetSourceAdapter;
+    attribute requiredCapacity : ArticlesPerHour = 1200;
+    doc /* The source adapter shall ingest ZDNet article feeds at or above the required capacity without losing valid articles. */
+  }
+
+  requirement def ClassificationRequirement {
+    subject classifier : TopicClassifier;
+    attribute minimumConfidence : Percent = 80;
+    doc /* The classifier shall assign each normalized article to a technology topic with at least the minimum confidence when sufficient article content is available. */
+  }
+
+  requirement def RelevanceRequirement {
+    subject engine : RelevanceEngine;
+    attribute minimumRelevantScore : Score = 0.65;
+    doc /* The relevance engine shall suppress insights below the configured relevance threshold for each user preference profile. */
+  }
+
+  requirement def DigestLatencyRequirement {
+    subject system : ZDNetTechnologyInsightSystem;
+    attribute maximumLatency : Seconds = 300;
+    doc /* The system shall deliver an insight digest within five minutes of ingesting a relevant ZDNet article. */
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system : ZDNetTechnologyInsightSystem;
+    attribute requiredAvailability : Percent = 99.5;
+    doc /* The system shall maintain monthly service availability of at least 99.5 percent for ingestion, classification, digest composition, and delivery. */
+  }
+
+  satisfy PrimaryFunctionRequirement by ZDNetTechnologyInsightSystem;
+  satisfy IngestionRequirement by ZDNetSourceAdapter;
+  satisfy ClassificationRequirement by TopicClassifier;
+  satisfy RelevanceRequirement by RelevanceEngine;
+  satisfy DigestLatencyRequirement by ZDNetTechnologyInsightSystem;
+  satisfy AvailabilityRequirement by ZDNetTechnologyInsightSystem;
+}
+tokens used
+2,619
+package ZDNetBasedTechnologyInsightSystem {
+
+  attribute def Percent;
+  attribute def Seconds;
+  attribute def RequestsPerSecond;
+  attribute def ArticlesPerHour;
+  attribute def Bytes;
+  attribute def Score;
+  attribute def Count;
+
+  item def ZDNetArticle {
+    attribute articleId : String;
+    attribute title : String;
+    attribute sourceUrl : String;
+    attribute author : String;
+    attribute publishedAt : String;
+    attribute category : String;
+    attribute bodyText : String;
+    attribute canonicalHash : String;
+  }
+
+  item def ArticleFeed {
+    attribute feedId : String;
+    attribute sourceName : String = "ZDNet";
+    attribute retrievedAt : String;
+    attribute articleCount : Count;
+  }
+
+  item def ClassifiedInsight {
+    attribute insightId : String;
+    attribute topic : String;
+    attribute summary : String;
+    attribute relevanceScore : Score;
+    attribute confidence : Percent;
+    attribute urgency : String;
+  }
+
+  item def UserPreferenceProfile {
+    attribute userId : String;
+    attribute preferredTopics : String;
+    attribute blockedTopics : String;
+    attribute minimumRelevance : Score;
+  }
+
+  item def InsightDigest {
+    attribute digestId : String;
+    attribute generatedAt : String;
+    attribute headlineCount : Count;
+    attribute primaryFunctionSummary : String =
+      "The system monitors ZDNet technology content, extracts key technology developments, classifies them by relevance, and delivers concise decision-ready insight digests to users.";
+  }
+
+  item def DeliveryReceipt {
+    attribute receiptId : String;
+    attribute deliveredAt : String;
+    attribute channel : String;
+    attribute status : String;
+  }
+
+  port def FeedInputPort {
+    in item feed : ArticleFeed;
+    in item article : ZDNetArticle;
+  }
+
+  port def ArticleOutputPort {
+    out item article : ZDNetArticle;
+  }
+
+  port def InsightOutputPort {
+    out item insight : ClassifiedInsight;
+  }
+
+  port def PreferenceInputPort {
+    in item profile : UserPreferenceProfile;
+  }
+
+  port def DigestOutputPort {
+    out item digest : InsightDigest;
+  }
+
+  port def ReceiptInputPort {
+    in item receipt : DeliveryReceipt;
+  }
+
+  part def ZDNetTechnologyInsightSystem {
+    attribute availabilityTarget : Percent = 99.5;
+    attribute maximumDigestLatency : Seconds = 300;
+    attribute ingestionCapacity : ArticlesPerHour = 1200;
+    attribute apiRateLimit : RequestsPerSecond = 20;
+
+    port feedIn : FeedInputPort;
+    port preferencesIn : PreferenceInputPort;
+    port digestOut : DigestOutputPort;
+    port receiptIn : ReceiptInputPort;
+
+    part sourceAdapter : ZDNetSourceAdapter;
+    part contentNormalizer : ContentNormalizer;
+    part duplicateDetector : DuplicateDetector;
+    part topicClassifier : TopicClassifier;
+    part relevanceEngine : RelevanceEngine;
+    part digestComposer : DigestComposer;
+    part deliveryManager : DeliveryManager;
+    part observabilityMonitor : ObservabilityMonitor;
+
+    connect feedIn to sourceAdapter.feedIn;
+    connect sourceAdapter.articleOut to contentNormalizer.articleIn;
+    connect contentNormalizer.articleOut to duplicateDetector.articleIn;
+    connect duplicateDetector.uniqueArticleOut to topicClassifier.articleIn;
+    connect topicClassifier.insightOut to relevanceEngine.insightIn;
+    connect preferencesIn to relevanceEngine.preferenceIn;
+    connect relevanceEngine.prioritizedInsightOut to digestComposer.insightIn;
+    connect digestComposer.digestOut to deliveryManager.digestIn;
+    connect deliveryManager.digestOut to digestOut;
+    connect receiptIn to deliveryManager.receiptIn;
+  }
+
+  part def ZDNetSourceAdapter {
+    attribute sourceName : String = "ZDNet";
+    attribute pollingInterval : Seconds = 60;
+    attribute maximumArticleSize : Bytes = 2000000;
+
+    port feedIn : FeedInputPort;
+    port articleOut : ArticleOutputPort;
+
+    action fetchFeed {
+      in item feed : ArticleFeed;
+      out item article : ZDNetArticle;
+    }
+
+    state machine FeedAcquisitionState {
+      state idle;
+      state polling;
+      state validating;
+      state publishing;
+      state degraded;
+
+      transition first idle then polling;
+      transition polling then validating;
+      transition validating then publishing;
+      transition publishing then idle;
+      transition validating then degraded;
+      transition degraded then polling;
+    }
+  }
+
+  part def ContentNormalizer {
+    attribute language : String = "en-US";
+    attribute minimumBodyLength : Count = 300;
+
+    port articleIn : ArticleOutputPort;
+    port articleOut : ArticleOutputPort;
+
+    action normalizeArticle {
+      in item rawArticle : ZDNetArticle;
+      out item normalizedArticle : ZDNetArticle;
+    }
+  }
+
+  part def DuplicateDetector {
+    attribute similarityThreshold : Percent = 92;
+
+    port articleIn : ArticleOutputPort;
+    port uniqueArticleOut : ArticleOutputPort;
+
+    action calculateCanonicalHash {
+      in item article : ZDNetArticle;
+      out hash : String;
+    }
+
+    action rejectDuplicate {
+      in item article : ZDNetArticle;
+    }
+  }
+
+  part def TopicClassifier {
+    attribute supportedTopics : String =
+      "artificial intelligence, cybersecurity, cloud computing, enterprise software, hardware, networking, mobile, data management";
+
+    port articleIn : ArticleOutputPort;
+    port insightOut : InsightOutputPort;
+
+    action classifyArticle {
+      in item article : ZDNetArticle;
+      out item insight : ClassifiedInsight;
+    }
+
+    state machine ClassificationState {
+      state waitingForArticle;
+      state extractingSignals;
+      state assigningTopic;
+      state estimatingConfidence;
+      state emittingInsight;
+
+      transition first waitingForArticle then extractingSignals;
+      transition extractingSignals then assigningTopic;
+      transition assigningTopic then estimatingConfidence;
+      transition estimatingConfidence then emittingInsight;
+      transition emittingInsight then waitingForArticle;
+    }
+  }
+
+  part def RelevanceEngine {
+    attribute defaultMinimumRelevance : Score = 0.65;
+    attribute highUrgencyThreshold : Score = 0.85;
+
+    port insightIn : InsightOutputPort;
+    port preferenceIn : PreferenceInputPort;
+    port prioritizedInsightOut : InsightOutputPort;
+
+    action rankInsight {
+      in item insight : ClassifiedInsight;
+      in item profile : UserPreferenceProfile;
+      out item rankedInsight : ClassifiedInsight;
+    }
+  }
+
+  part def DigestComposer {
+    attribute maximumHeadlinesPerDigest : Count = 12;
+    attribute targetSummaryLength : Count = 120;
+
+    port insightIn : InsightOutputPort;
+    port digestOut : DigestOutputPort;
+
+    action composeDigest {
+      in item insight : ClassifiedInsight;
+      out item digest : InsightDigest;
+    }
+  }
+
+  part def DeliveryManager {
+    attribute supportedChannels : String = "email, web dashboard, webhook";
+    attribute retryLimit : Count = 3;
+    attribute retryDelay : Seconds = 30;
+
+    port digestIn : DigestOutputPort;
+    port digestOut : DigestOutputPort;
+    port receiptIn : ReceiptInputPort;
+
+    action deliverDigest {
+      in item digest : InsightDigest;
+      out item receipt : DeliveryReceipt;
+    }
+
+    state machine DeliveryState {
+      state ready;
+      state sending;
+      state awaitingReceipt;
+      state delivered;
+      state retrying;
+      state failed;
+
+      transition first ready then sending;
+      transition sending then awaitingReceipt;
+      transition awaitingReceipt then delivered;
+      transition awaitingReceipt then retrying;
+      transition retrying then sending;
+      transition retrying then failed;
+      transition delivered then ready;
+      transition failed then ready;
+    }
+  }
+
+  part def ObservabilityMonitor {
+    attribute healthCheckInterval : Seconds = 15;
+    attribute errorRateLimit : Percent = 2;
+    attribute latencyWarningThreshold : Seconds = 240;
+
+    action recordIngestionMetric {
+      in articleCount : Count;
+      in intervalSeconds : Seconds;
+    }
+
+    action raiseOperationalAlert {
+      in alertName : String;
+      in severity : String;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ZDNetTechnologyInsightSystem;
+    doc /* The system shall provide a high-level technology intelligence function by ingesting ZDNet technology content, transforming articles into classified insights, ranking them against user interests, and delivering concise digests. */
+  }
+
+  requirement def IngestionRequirement {
+    subject adapter : ZDNetSourceAdapter;
+    attribute requiredCapacity : ArticlesPerHour = 1200;
+    doc /* The source adapter shall ingest ZDNet article feeds at or above the required capacity without losing valid articles. */
+  }
+
+  requirement def ClassificationRequirement {
+    subject classifier : TopicClassifier;
+    attribute minimumConfidence : Percent = 80;
+    doc /* The classifier shall assign each normalized article to a technology topic with at least the minimum confidence when sufficient article content is available. */
+  }
+
+  requirement def RelevanceRequirement {
+    subject engine : RelevanceEngine;
+    attribute minimumRelevantScore : Score = 0.65;
+    doc /* The relevance engine shall suppress insights below the configured relevance threshold for each user preference profile. */
+  }
+
+  requirement def DigestLatencyRequirement {
+    subject system : ZDNetTechnologyInsightSystem;
+    attribute maximumLatency : Seconds = 300;
+    doc /* The system shall deliver an insight digest within five minutes of ingesting a relevant ZDNet article. */
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system : ZDNetTechnologyInsightSystem;
+    attribute requiredAvailability : Percent = 99.5;
+    doc /* The system shall maintain monthly service availability of at least 99.5 percent for ingestion, classification, digest composition, and delivery. */
+  }
+
+  satisfy PrimaryFunctionRequirement by ZDNetTechnologyInsightSystem;
+  satisfy IngestionRequirement by ZDNetSourceAdapter;
+  satisfy ClassificationRequirement by TopicClassifier;
+  satisfy RelevanceRequirement by RelevanceEngine;
+  satisfy DigestLatencyRequirement by ZDNetTechnologyInsightSystem;
+  satisfy AvailabilityRequirement by ZDNetTechnologyInsightSystem;
+}

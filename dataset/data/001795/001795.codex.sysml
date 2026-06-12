@@ -1,0 +1,604 @@
+package InclinedPlaneSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Angle {
+    attribute value : Real;
+    unit = "deg";
+  }
+
+  attribute def Length {
+    attribute value : Real;
+    unit = "m";
+  }
+
+  attribute def Mass {
+    attribute value : Real;
+    unit = "kg";
+  }
+
+  attribute def Force {
+    attribute value : Real;
+    unit = "N";
+  }
+
+  attribute def Velocity {
+    attribute value : Real;
+    unit = "m/s";
+  }
+
+  attribute def Acceleration {
+    attribute value : Real;
+    unit = "m/s^2";
+  }
+
+  attribute def Coefficient {
+    attribute value : Real;
+  }
+
+  attribute def Energy {
+    attribute value : Real;
+    unit = "J";
+  }
+
+  item def Load {
+    attribute loadMass : Mass;
+    attribute loadLength : Length;
+    attribute loadWidth : Length;
+    attribute loadHeight : Length;
+  }
+
+  item def MotionCommand {
+    attribute targetPosition : Length;
+    attribute targetSpeed : Velocity;
+    attribute allowPoweredAssist : Boolean;
+  }
+
+  item def MotionStatus {
+    attribute currentPosition : Length;
+    attribute currentSpeed : Velocity;
+    attribute currentAcceleration : Acceleration;
+    attribute isAtTop : Boolean;
+    attribute isAtBottom : Boolean;
+  }
+
+  item def SafetySignal {
+    attribute emergencyStopRequested : Boolean;
+    attribute overloadDetected : Boolean;
+    attribute surfaceObstructed : Boolean;
+  }
+
+  port def LoadTransferPort {
+    out item transferredLoad : Load;
+    in item receivedLoad : Load;
+  }
+
+  port def MechanicalSupportPort {
+    in item supportedLoad : Load;
+    out force normalReaction : Force;
+    out force frictionForce : Force;
+  }
+
+  port def CommandPort {
+    in item command : MotionCommand;
+  }
+
+  port def StatusPort {
+    out item status : MotionStatus;
+  }
+
+  port def SafetyPort {
+    in item safetyInput : SafetySignal;
+    out item safetyOutput : SafetySignal;
+  }
+
+  part def RampSurface {
+    attribute rampLength : Length = 4.0 [m];
+    attribute rampWidth : Length = 1.2 [m];
+    attribute riseHeight : Length = 1.0 [m];
+    attribute inclineAngle : Angle = 14.48 [deg];
+    attribute surfaceFrictionCoefficient : Coefficient = 0.18;
+    attribute maximumDistributedLoad : Mass = 250.0 [kg];
+
+    port lowerLoadInterface : LoadTransferPort;
+    port upperLoadInterface : LoadTransferPort;
+    port supportInterface : MechanicalSupportPort;
+
+    constraint slopeGeometry {
+      riseHeight == rampLength * sin(inclineAngle);
+    }
+
+    constraint safeRampCapacity {
+      supportInterface.supportedLoad.loadMass <= maximumDistributedLoad;
+    }
+  }
+
+  part def BaseSupportFrame {
+    attribute frameMass : Mass = 38.0 [kg];
+    attribute allowableReactionForce : Force = 3500.0 [N];
+    attribute floorContactFrictionCoefficient : Coefficient = 0.55;
+
+    port rampMount : MechanicalSupportPort;
+    port floorInterface : MechanicalSupportPort;
+
+    constraint frameStrength {
+      rampMount.normalReaction <= allowableReactionForce;
+    }
+  }
+
+  part def LoadCarriage {
+    attribute carriageMass : Mass = 22.0 [kg];
+    attribute wheelRadius : Length = 0.075 [m];
+    attribute rollingResistanceCoefficient : Coefficient = 0.035;
+    attribute payloadCapacity : Mass = 180.0 [kg];
+    attribute positionAlongRamp : Length = 0.0 [m];
+    attribute speedAlongRamp : Velocity = 0.0 [m/s];
+
+    port loadPort : LoadTransferPort;
+    port rampContact : MechanicalSupportPort;
+    port statusPort : StatusPort;
+
+    constraint payloadLimit {
+      loadPort.receivedLoad.loadMass <= payloadCapacity;
+    }
+
+    action def AcceptLoad {
+      in item loadIn : Load;
+      out item loadSecured : Load;
+      first start;
+      then secureLoad;
+      then verifyCapacity;
+      then done;
+
+      action start;
+      action secureLoad;
+      action verifyCapacity;
+      action done;
+    }
+
+    action def MoveAlongRamp {
+      in item motionCommand : MotionCommand;
+      out item motionStatus : MotionStatus;
+
+      first computeRequiredForce;
+      then accelerateCarriage;
+      then regulateSpeed;
+      then stopAtTarget;
+
+      action computeRequiredForce;
+      action accelerateCarriage;
+      action regulateSpeed;
+      action stopAtTarget;
+    }
+
+    state def CarriageOperatingState {
+      entry action initializePosition;
+
+      state Idle;
+      state Loading;
+      state Ascending;
+      state Descending;
+      state Holding;
+      state EmergencyStopped;
+
+      transition initial then Idle;
+
+      transition Idle_to_Loading
+        first Idle
+        accept Load
+        then Loading;
+
+      transition Loading_to_Holding
+        first Loading
+        if loadPort.receivedLoad.loadMass <= payloadCapacity
+        then Holding;
+
+      transition Holding_to_Ascending
+        first Holding
+        accept MotionCommand
+        if statusPort.status.currentPosition < 4.0 [m]
+        then Ascending;
+
+      transition Ascending_to_Holding
+        first Ascending
+        if statusPort.status.isAtTop
+        then Holding;
+
+      transition Holding_to_Descending
+        first Holding
+        accept MotionCommand
+        if statusPort.status.currentPosition > 0.0 [m]
+        then Descending;
+
+      transition Descending_to_Holding
+        first Descending
+        if statusPort.status.isAtBottom
+        then Holding;
+
+      transition Any_to_EmergencyStopped
+        first Idle
+        accept SafetySignal
+        if safetyInput.emergencyStopRequested
+        then EmergencyStopped;
+    }
+  }
+
+  part def WinchAssist {
+    attribute ratedPullForce : Force = 1200.0 [N];
+    attribute cableLength : Length = 5.0 [m];
+    attribute cableSpeedLimit : Velocity = 0.35 [m/s];
+    attribute motorEfficiency : Coefficient = 0.82;
+    attribute storedEnergyLimit : Energy = 15000.0 [J];
+
+    port commandInput : CommandPort;
+    port statusOutput : StatusPort;
+    port carriageCoupling : MechanicalSupportPort;
+    port safetyInterface : SafetyPort;
+
+    action def ProvideAssistForce {
+      in item command : MotionCommand;
+      out force assistForce : Force;
+
+      first readCommand;
+      then calculateInclineComponent;
+      then limitForce;
+      then applyCableTension;
+
+      action readCommand;
+      action calculateInclineComponent;
+      action limitForce;
+      action applyCableTension;
+    }
+
+    state def WinchState {
+      state Disabled;
+      state Ready;
+      state PullingUp;
+      state PayingOut;
+      state Faulted;
+
+      transition initial then Disabled;
+
+      transition Disabled_to_Ready
+        first Disabled
+        if safetyInterface.safetyInput.emergencyStopRequested == false
+        then Ready;
+
+      transition Ready_to_PullingUp
+        first Ready
+        accept MotionCommand
+        if commandInput.command.allowPoweredAssist == true and commandInput.command.targetPosition > statusOutput.status.currentPosition
+        then PullingUp;
+
+      transition Ready_to_PayingOut
+        first Ready
+        accept MotionCommand
+        if commandInput.command.targetPosition < statusOutput.status.currentPosition
+        then PayingOut;
+
+      transition PullingUp_to_Ready
+        first PullingUp
+        if statusOutput.status.isAtTop
+        then Ready;
+
+      transition PayingOut_to_Ready
+        first PayingOut
+        if statusOutput.status.isAtBottom
+        then Ready;
+
+      transition Any_to_Faulted
+        first Ready
+        accept SafetySignal
+        if safetyInterface.safetyInput.overloadDetected or safetyInterface.safetyInput.emergencyStopRequested
+        then Faulted;
+    }
+  }
+
+  part def BrakeAssembly {
+    attribute holdingForce : Force = 1800.0 [N];
+    attribute releaseTime : Real = 0.25;
+    attribute failSafeEngaged : Boolean = true;
+
+    port carriageBrakeInterface : MechanicalSupportPort;
+    port safetyInterface : SafetyPort;
+
+    action def EngageBrake {
+      out force brakingForce : Force;
+      first detectStopCondition;
+      then applySpringBrake;
+      then confirmHold;
+
+      action detectStopCondition;
+      action applySpringBrake;
+      action confirmHold;
+    }
+
+    action def ReleaseBrake {
+      first verifySafeRelease;
+      then energizeReleaseActuator;
+      then confirmReleased;
+
+      action verifySafeRelease;
+      action energizeReleaseActuator;
+      action confirmReleased;
+    }
+  }
+
+  part def SafetyController {
+    attribute maximumAllowedSpeed : Velocity = 0.45 [m/s];
+    attribute maximumAllowedLoad : Mass = 180.0 [kg];
+    attribute obstructionDetected : Boolean = false;
+    attribute emergencyStopActive : Boolean = false;
+
+    port commandInput : CommandPort;
+    port carriageStatusInput : StatusPort;
+    port safetyNetwork : SafetyPort;
+
+    action def MonitorSafety {
+      in item status : MotionStatus;
+      out item safetySignal : SafetySignal;
+
+      first sampleSensors;
+      then evaluateSpeed;
+      then evaluateLoad;
+      then evaluateObstruction;
+      then publishSafetySignal;
+
+      action sampleSensors;
+      action evaluateSpeed;
+      action evaluateLoad;
+      action evaluateObstruction;
+      action publishSafetySignal;
+    }
+
+    constraint overspeedProtection {
+      carriageStatusInput.status.currentSpeed <= maximumAllowedSpeed;
+    }
+  }
+
+  part def InclinedPlaneTransportSystem {
+    attribute systemPurpose : String = "Move a load between a lower elevation and an upper elevation by reducing the force required for vertical lifting through motion along an inclined plane.";
+    attribute gravitationalAcceleration : Acceleration = 9.80665 [m/s^2];
+    attribute nominalRampAngle : Angle = 14.48 [deg];
+    attribute maximumPayload : Mass = 180.0 [kg];
+    attribute nominalTravelDistance : Length = 4.0 [m];
+    attribute upperElevation : Length = 1.0 [m];
+    attribute maximumOperatingSpeed : Velocity = 0.35 [m/s];
+
+    part ramp : RampSurface;
+    part frame : BaseSupportFrame;
+    part carriage : LoadCarriage;
+    part winch : WinchAssist;
+    part brake : BrakeAssembly;
+    part safetyController : SafetyController;
+
+    port lowerLoadPort : LoadTransferPort;
+    port upperLoadPort : LoadTransferPort;
+    port operatorCommandPort : CommandPort;
+    port systemStatusPort : StatusPort;
+    port externalSafetyPort : SafetyPort;
+
+    connect lowerLoadPort to ramp.lowerLoadInterface;
+    connect upperLoadPort to ramp.upperLoadInterface;
+    connect ramp.supportInterface to frame.rampMount;
+    connect carriage.rampContact to ramp.supportInterface;
+    connect carriage.loadPort to lowerLoadPort;
+    connect carriage.statusPort to systemStatusPort;
+    connect operatorCommandPort to winch.commandInput;
+    connect winch.statusOutput to systemStatusPort;
+    connect winch.carriageCoupling to carriage.rampContact;
+    connect brake.carriageBrakeInterface to carriage.rampContact;
+    connect safetyController.commandInput to operatorCommandPort;
+    connect safetyController.carriageStatusInput to systemStatusPort;
+    connect safetyController.safetyNetwork to externalSafetyPort;
+    connect safetyController.safetyNetwork to winch.safetyInterface;
+    connect safetyController.safetyNetwork to brake.safetyInterface;
+
+    constraint inclinedPlaneMechanicalAdvantage {
+      upperElevation == nominalTravelDistance * sin(nominalRampAngle);
+    }
+
+    constraint requiredPullForceLessThanDirectLift {
+      maximumPayload * gravitationalAcceleration * sin(nominalRampAngle)
+      + maximumPayload * gravitationalAcceleration * ramp.surfaceFrictionCoefficient * cos(nominalRampAngle)
+      < maximumPayload * gravitationalAcceleration;
+    }
+
+    constraint operationalSpeedLimit {
+      systemStatusPort.status.currentSpeed <= maximumOperatingSpeed;
+    }
+
+    action def TransportLoad {
+      in item loadToMove : Load;
+      in item requestedMotion : MotionCommand;
+      out item finalStatus : MotionStatus;
+
+      first receiveLoadAtLowerEnd;
+      then verifyLoadWithinCapacity;
+      then secureLoadOnCarriage;
+      then releaseBrake;
+      then moveCarriageAlongRamp;
+      then stopAtRequestedElevation;
+      then engageBrake;
+      then transferLoadAtDestination;
+      then reportFinalStatus;
+
+      action receiveLoadAtLowerEnd;
+      action verifyLoadWithinCapacity;
+      action secureLoadOnCarriage;
+      action releaseBrake;
+      action moveCarriageAlongRamp;
+      action stopAtRequestedElevation;
+      action engageBrake;
+      action transferLoadAtDestination;
+      action reportFinalStatus;
+    }
+
+    state def SystemOperatingState {
+      state PoweredOff;
+      state Ready;
+      state Loading;
+      state MovingUp;
+      state MovingDown;
+      state Unloading;
+      state HoldingPosition;
+      state EmergencyStop;
+      state Maintenance;
+
+      transition initial then PoweredOff;
+
+      transition PowerOn
+        first PoweredOff
+        then Ready;
+
+      transition BeginLoading
+        first Ready
+        accept Load
+        then Loading;
+
+      transition LoadSecured
+        first Loading
+        if lowerLoadPort.receivedLoad.loadMass <= maximumPayload
+        then HoldingPosition;
+
+      transition CommandMoveUp
+        first HoldingPosition
+        accept MotionCommand
+        if operatorCommandPort.command.targetPosition > systemStatusPort.status.currentPosition
+        then MovingUp;
+
+      transition CommandMoveDown
+        first HoldingPosition
+        accept MotionCommand
+        if operatorCommandPort.command.targetPosition < systemStatusPort.status.currentPosition
+        then MovingDown;
+
+      transition ArriveUpperEnd
+        first MovingUp
+        if systemStatusPort.status.isAtTop
+        then Unloading;
+
+      transition ArriveLowerEnd
+        first MovingDown
+        if systemStatusPort.status.isAtBottom
+        then Unloading;
+
+      transition FinishUnloading
+        first Unloading
+        then Ready;
+
+      transition HoldPosition
+        first MovingUp
+        accept MotionCommand
+        if operatorCommandPort.command.targetSpeed == 0.0 [m/s]
+        then HoldingPosition;
+
+      transition EmergencyStopRequested
+        first Ready
+        accept SafetySignal
+        if externalSafetyPort.safetyInput.emergencyStopRequested
+        then EmergencyStop;
+
+      transition ResetAfterEmergency
+        first EmergencyStop
+        if externalSafetyPort.safetyInput.emergencyStopRequested == false
+        then Ready;
+
+      transition EnterMaintenance
+        first PoweredOff
+        then Maintenance;
+
+      transition ExitMaintenance
+        first Maintenance
+        then PoweredOff;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     The inclined plane transport system shall move a load between two elevations by supporting the load on a carriage and guiding it along a ramp so that the required applied force is less than the force required for direct vertical lifting.
+    */
+
+    subject system : InclinedPlaneTransportSystem;
+
+    require constraint {
+      system.requiredPullForceLessThanDirectLift;
+    }
+  }
+
+  requirement def CapacityRequirement {
+    doc
+    /*
+     The system shall transport a payload mass of at least 180 kg while maintaining ramp, carriage, frame, and braking loads within their rated limits.
+    */
+
+    subject system : InclinedPlaneTransportSystem;
+
+    require constraint {
+      system.maximumPayload >= 180.0 [kg];
+    }
+  }
+
+  requirement def ElevationRequirement {
+    doc
+    /*
+     The system shall provide a nominal elevation change of 1.0 m over a ramp travel distance of 4.0 m.
+    */
+
+    subject system : InclinedPlaneTransportSystem;
+
+    require constraint {
+      system.upperElevation == 1.0 [m] and system.nominalTravelDistance == 4.0 [m];
+    }
+  }
+
+  requirement def SpeedControlRequirement {
+    doc
+    /*
+     The system shall limit carriage speed to no more than 0.35 m/s during powered or gravity-assisted motion.
+    */
+
+    subject system : InclinedPlaneTransportSystem;
+
+    require constraint {
+      system.systemStatusPort.status.currentSpeed <= 0.35 [m/s];
+    }
+  }
+
+  requirement def BrakeSafetyRequirement {
+    doc
+    /*
+     The brake assembly shall hold the loaded carriage stationary on the incline whenever the system is stopped, unpowered, or in emergency stop.
+    */
+
+    subject brake : BrakeAssembly;
+
+    require constraint {
+      brake.holdingForce >= 1800.0 [N] and brake.failSafeEngaged == true;
+    }
+  }
+
+  requirement def EmergencyStopRequirement {
+    doc
+    /*
+     The system shall enter EmergencyStop state and command braking when an emergency stop input, overload condition, overspeed condition, or obstruction condition is detected.
+    */
+
+    subject system : InclinedPlaneTransportSystem;
+
+    require constraint {
+      system.safetyController.maximumAllowedSpeed <= 0.45 [m/s];
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by InclinedPlaneTransportSystem;
+  satisfy CapacityRequirement by InclinedPlaneTransportSystem;
+  satisfy ElevationRequirement by InclinedPlaneTransportSystem;
+  satisfy SpeedControlRequirement by InclinedPlaneTransportSystem;
+  satisfy BrakeSafetyRequirement by BrakeAssembly;
+  satisfy EmergencyStopRequirement by SafetyController;
+
+}

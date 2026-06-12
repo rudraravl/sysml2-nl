@@ -1,0 +1,385 @@
+package BarometerModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  doc /* Primary function: measure ambient atmospheric pressure, compensate the measurement for temperature and calibration bias, present the current pressure, and report short-term pressure trend information. */
+
+  unit hectopascal :> pascal {
+    conversionFactor = 100.0;
+  }
+
+  value type Pressure_hPa :> Real {
+    unit = hectopascal;
+  }
+
+  value type Temperature_C :> Real {
+    unit = degreeCelsius;
+  }
+
+  value type Voltage_V :> Real {
+    unit = volt;
+  }
+
+  value type Time_s :> Real {
+    unit = second;
+  }
+
+  value type Percent :> Real;
+
+  enum def PressureTrendKind {
+    enum steady;
+    enum rising;
+    enum falling;
+  }
+
+  enum def BarometerModeKind {
+    enum off;
+    enum startup;
+    enum measuring;
+    enum calibrating;
+    enum fault;
+  }
+
+  item def AmbientAir {
+    attribute pressure : Pressure_hPa;
+    attribute temperature : Temperature_C;
+    attribute relativeHumidity : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : Voltage_V;
+    attribute available : Boolean;
+  }
+
+  item def PressureReading {
+    attribute pressure : Pressure_hPa;
+    attribute compensatedTemperature : Temperature_C;
+    attribute timestamp : Time_s;
+    attribute valid : Boolean;
+  }
+
+  item def PressureReport {
+    attribute currentPressure : Pressure_hPa;
+    attribute trend : PressureTrendKind;
+    attribute confidence : Percent;
+    attribute reportTime : Time_s;
+  }
+
+  item def TrendAlert {
+    attribute trend : PressureTrendKind;
+    attribute pressureChangeRate : Pressure_hPa;
+    attribute active : Boolean;
+  }
+
+  port def AmbientPressurePort {
+    in item air : AmbientAir;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ReadingPort {
+    out item reading : PressureReading;
+  }
+
+  port def ReportPort {
+    out item report : PressureReport;
+  }
+
+  port def AlertPort {
+    out item alert : TrendAlert;
+  }
+
+  part def PressureSensor {
+    port ambient : AmbientPressurePort;
+    port readingOut : ReadingPort;
+
+    attribute rawPressure : Pressure_hPa;
+    attribute sensorTemperature : Temperature_C;
+    attribute sensorBias : Pressure_hPa = 0.0;
+    attribute accuracy : Pressure_hPa = 1.0;
+    attribute samplePeriod : Time_s = 1.0;
+
+    action measurePressure {
+      in item air : AmbientAir;
+      out item reading : PressureReading;
+
+      first start;
+      then acquireRawPressure;
+      then applyTemperatureCompensation;
+      then applyBiasCorrection;
+      then publishReading;
+
+      action acquireRawPressure {
+        in item air : AmbientAir;
+        out attribute raw : Pressure_hPa;
+      }
+
+      action applyTemperatureCompensation {
+        in attribute raw : Pressure_hPa;
+        in attribute temperature : Temperature_C;
+        out attribute compensated : Pressure_hPa;
+      }
+
+      action applyBiasCorrection {
+        in attribute compensated : Pressure_hPa;
+        in attribute bias : Pressure_hPa;
+        out attribute corrected : Pressure_hPa;
+      }
+
+      action publishReading {
+        in attribute corrected : Pressure_hPa;
+        out item reading : PressureReading;
+      }
+    }
+  }
+
+  part def TemperatureSensor {
+    port ambient : AmbientPressurePort;
+
+    attribute measuredTemperature : Temperature_C;
+    attribute accuracy : Temperature_C = 0.5;
+
+    action senseTemperature {
+      in item air : AmbientAir;
+      out attribute temperature : Temperature_C;
+    }
+  }
+
+  part def SignalProcessor {
+    port readingIn : ReadingPort;
+    port reportOut : ReportPort;
+    port alertOut : AlertPort;
+
+    attribute currentPressure : Pressure_hPa;
+    attribute previousPressure : Pressure_hPa;
+    attribute pressureDelta : Pressure_hPa;
+    attribute trend : PressureTrendKind = PressureTrendKind::steady;
+    attribute trendThreshold : Pressure_hPa = 1.5;
+    attribute calculationPeriod : Time_s = 60.0;
+
+    action computePressureTrend {
+      in item latestReading : PressureReading;
+      out item report : PressureReport;
+      out item alert : TrendAlert;
+
+      first acceptReading;
+      then compareWithHistory;
+      then classifyTrend;
+      then createReport;
+      then createAlert;
+
+      action acceptReading {
+        in item latestReading : PressureReading;
+        out attribute acceptedPressure : Pressure_hPa;
+      }
+
+      action compareWithHistory {
+        in attribute acceptedPressure : Pressure_hPa;
+        in attribute previousPressure : Pressure_hPa;
+        out attribute delta : Pressure_hPa;
+      }
+
+      action classifyTrend {
+        in attribute delta : Pressure_hPa;
+        in attribute threshold : Pressure_hPa;
+        out attribute trend : PressureTrendKind;
+      }
+
+      action createReport {
+        in attribute pressure : Pressure_hPa;
+        in attribute trend : PressureTrendKind;
+        out item report : PressureReport;
+      }
+
+      action createAlert {
+        in attribute trend : PressureTrendKind;
+        in attribute delta : Pressure_hPa;
+        out item alert : TrendAlert;
+      }
+    }
+  }
+
+  part def Display {
+    port reportIn : ReportPort;
+
+    attribute shownPressure : Pressure_hPa;
+    attribute shownTrend : PressureTrendKind;
+    attribute updatePeriod : Time_s = 1.0;
+
+    action updateDisplay {
+      in item report : PressureReport;
+    }
+  }
+
+  part def PowerSubsystem {
+    port externalPower : PowerInputPort;
+
+    attribute inputVoltage : Voltage_V;
+    attribute regulatedVoltage : Voltage_V = 3.3;
+    attribute powerAvailable : Boolean;
+
+    action regulatePower {
+      in item power : ElectricalPower;
+      out attribute regulatedVoltage : Voltage_V;
+      out attribute powerAvailable : Boolean;
+    }
+  }
+
+  part def Barometer {
+    port ambientAir : AmbientPressurePort;
+    port powerInput : PowerInputPort;
+    port pressureReport : ReportPort;
+    port weatherAlert : AlertPort;
+
+    part powerSubsystem : PowerSubsystem;
+    part pressureSensor : PressureSensor;
+    part temperatureSensor : TemperatureSensor;
+    part processor : SignalProcessor;
+    part display : Display;
+
+    attribute operatingMode : BarometerModeKind = BarometerModeKind::off;
+    attribute measurementRangeLow : Pressure_hPa = 800.0;
+    attribute measurementRangeHigh : Pressure_hPa = 1100.0;
+    attribute nominalSamplePeriod : Time_s = 1.0;
+
+    connect powerInput to powerSubsystem.externalPower;
+    connect ambientAir to pressureSensor.ambient;
+    connect ambientAir to temperatureSensor.ambient;
+    connect pressureSensor.readingOut to processor.readingIn;
+    connect processor.reportOut to display.reportIn;
+    connect processor.reportOut to pressureReport;
+    connect processor.alertOut to weatherAlert;
+
+    state def BarometerOperationalStates {
+      entry action initializeHardware;
+      exit action storeLastReading;
+
+      state off;
+      state startup;
+      state measuring;
+      state calibrating;
+      state fault;
+
+      transition powerApplied
+        first off
+        then startup;
+
+      transition startupComplete
+        first startup
+        then measuring;
+
+      transition calibrationRequested
+        first measuring
+        then calibrating;
+
+      transition calibrationComplete
+        first calibrating
+        then measuring;
+
+      transition invalidReadingDetected
+        first measuring
+        then fault;
+
+      transition faultCleared
+        first fault
+        then startup;
+
+      transition powerRemoved
+        first measuring
+        then off;
+    }
+
+    action performPrimaryFunction {
+      in item air : AmbientAir;
+      in item power : ElectricalPower;
+      out item report : PressureReport;
+      out item alert : TrendAlert;
+
+      first receivePower;
+      then sampleAmbientPressure;
+      then compensateMeasurement;
+      then determinePressureTrend;
+      then publishPressureReport;
+
+      action receivePower {
+        in item power : ElectricalPower;
+      }
+
+      action sampleAmbientPressure {
+        in item air : AmbientAir;
+        out item reading : PressureReading;
+      }
+
+      action compensateMeasurement {
+        in item reading : PressureReading;
+        out item compensatedReading : PressureReading;
+      }
+
+      action determinePressureTrend {
+        in item compensatedReading : PressureReading;
+        out item report : PressureReport;
+        out item alert : TrendAlert;
+      }
+
+      action publishPressureReport {
+        in item report : PressureReport;
+        in item alert : TrendAlert;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject barometer : Barometer;
+
+    doc /* The barometer shall measure ambient atmospheric pressure and provide a human-readable pressure report with trend classification. */
+
+    require constraint {
+      barometer.measurementRangeLow <= 800.0 and
+      barometer.measurementRangeHigh >= 1100.0
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject sensor : PressureSensor;
+
+    doc /* The pressure sensor shall measure atmospheric pressure with accuracy of 1 hPa or better. */
+
+    require constraint {
+      sensor.accuracy <= 1.0
+    }
+  }
+
+  requirement def SamplingRequirement {
+    subject barometer : Barometer;
+
+    doc /* The barometer shall update pressure measurements at least once every second during normal measuring mode. */
+
+    require constraint {
+      barometer.nominalSamplePeriod <= 1.0
+    }
+  }
+
+  requirement def TrendRequirement {
+    subject processor : SignalProcessor;
+
+    doc /* The signal processor shall classify pressure trend as rising, falling, or steady based on recent compensated pressure readings. */
+
+    require constraint {
+      processor.trendThreshold > 0.0
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject powerSubsystem : PowerSubsystem;
+
+    doc /* The power subsystem shall provide regulated low-voltage power for sensing, processing, and display functions. */
+
+    require constraint {
+      powerSubsystem.regulatedVoltage == 3.3
+    }
+  }
+
+  part barometerSystem : Barometer;
+}

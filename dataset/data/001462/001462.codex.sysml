@@ -1,0 +1,387 @@
+package IRobotVacuumSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent;
+    attribute def Area;
+    attribute def DustMass;
+    attribute def Duration;
+    attribute def Power;
+    attribute def Voltage;
+    attribute def Current;
+    attribute def LinearVelocity;
+    attribute def AngularVelocity;
+    attribute def Distance;
+    attribute def Force;
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute availablePower : Power;
+    }
+
+    item def DustAndDebris {
+        attribute collectedMass : DustMass;
+        attribute particleLoad : Percent;
+    }
+
+    item def FloorSurface {
+        attribute area : Area;
+        attribute obstacleDensity : Percent;
+        attribute dirtLevel : Percent;
+    }
+
+    item def CleaningCommand {
+        attribute requestedArea : Area;
+        attribute targetCleanliness : Percent;
+        attribute maxCleaningTime : Duration;
+    }
+
+    item def CleaningReport {
+        attribute cleanedArea : Area;
+        attribute remainingDirtEstimate : Percent;
+        attribute missionDuration : Duration;
+        attribute binFillLevel : Percent;
+        attribute batteryRemaining : Percent;
+    }
+
+    item def PoseEstimate {
+        attribute xPosition : Distance;
+        attribute yPosition : Distance;
+        attribute heading : AngleValue;
+        attribute confidence : Percent;
+    }
+
+    item def ObstacleObservation {
+        attribute range : Distance;
+        attribute bearing : AngleValue;
+        attribute collisionRisk : Percent;
+    }
+
+    port def PowerPort {
+        out item energy : ElectricalEnergy;
+    }
+
+    port def ChargePort {
+        in item energy : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item command : CleaningCommand;
+    }
+
+    port def ReportPort {
+        out item report : CleaningReport;
+    }
+
+    port def DebrisIntakePort {
+        in item debris : DustAndDebris;
+    }
+
+    port def DebrisStoragePort {
+        out item debris : DustAndDebris;
+    }
+
+    port def SensorPort {
+        out item pose : PoseEstimate;
+        out item obstacle : ObstacleObservation;
+    }
+
+    port def DriveControlPort {
+        in item desiredPose : PoseEstimate;
+    }
+
+    port def SuctionControlPort {
+        in item command : CleaningCommand;
+    }
+
+    part def BatteryPack {
+        attribute stateOfCharge : Percent;
+        attribute nominalVoltage : Voltage = 14.4 [V];
+        attribute usableCapacity : ElectricalEnergy;
+        attribute lowChargeThreshold : Percent = 20;
+        port powerOut : PowerPort;
+        port chargeIn : ChargePort;
+    }
+
+    part def DockingStation {
+        attribute dockAvailable : Boolean;
+        attribute chargePower : Power = 45 [W];
+        port chargeOut : PowerPort;
+    }
+
+    part def MobilitySubsystem {
+        attribute maximumSpeed : LinearVelocity = 0.5 [m/s];
+        attribute turningRate : AngularVelocity;
+        attribute tractionForce : Force;
+        port driveCommand : DriveControlPort;
+    }
+
+    part def CleaningSubsystem {
+        attribute suctionPower : Power = 30 [W];
+        attribute brushSpeed : AngularVelocity;
+        attribute cleaningWidth : Distance = 0.18 [m];
+        port suctionCommand : SuctionControlPort;
+        port intake : DebrisIntakePort;
+    }
+
+    part def DirtBin {
+        attribute capacity : DustMass = 0.45 [kg];
+        attribute fillLevel : Percent;
+        port storedDebris : DebrisStoragePort;
+    }
+
+    part def SensorSuite {
+        attribute localizationConfidence : Percent;
+        attribute cliffDetected : Boolean;
+        attribute bumpDetected : Boolean;
+        attribute dirtDetected : Boolean;
+        port perceptionOut : SensorPort;
+    }
+
+    part def NavigationController {
+        attribute mappedArea : Area;
+        attribute coverageComplete : Percent;
+        attribute currentPose : PoseEstimate;
+        port sensorIn : SensorPort;
+        port driveOut : DriveControlPort;
+    }
+
+    part def MissionController {
+        attribute activeMission : Boolean;
+        attribute commandedArea : Area;
+        attribute missionElapsedTime : Duration;
+        attribute targetCleanliness : Percent;
+        port commandIn : CommandPort;
+        port reportOut : ReportPort;
+        port sensorIn : SensorPort;
+        port driveOut : DriveControlPort;
+        port suctionOut : SuctionControlPort;
+    }
+
+    part def IRobotVacuum {
+        doc /* Primary function: autonomously clean an indoor floor area by navigating through rooms, detecting obstacles and dirt, collecting dust and debris, managing battery energy, and returning to its docking station when cleaning is complete or energy is low. */
+
+        attribute totalMass : MassValue = 3.8 [kg];
+        attribute ratedRuntime : Duration = 90 [min];
+        attribute maximumCleanableArea : Area = 120 [m^2];
+
+        port userCommand : CommandPort;
+        port userReport : ReportPort;
+        port debrisIntake : DebrisIntakePort;
+        port dockCharge : ChargePort;
+
+        part battery : BatteryPack;
+        part mobility : MobilitySubsystem;
+        part cleaning : CleaningSubsystem;
+        part bin : DirtBin;
+        part sensors : SensorSuite;
+        part navigator : NavigationController;
+        part mission : MissionController;
+
+        connect battery.powerOut to mobility.driveCommand;
+        connect battery.powerOut to cleaning.suctionCommand;
+        connect sensors.perceptionOut to navigator.sensorIn;
+        connect sensors.perceptionOut to mission.sensorIn;
+        connect navigator.driveOut to mobility.driveCommand;
+        connect mission.driveOut to mobility.driveCommand;
+        connect mission.suctionOut to cleaning.suctionCommand;
+        connect cleaning.intake to debrisIntake;
+        connect cleaning.intake to bin.storedDebris;
+        connect userCommand to mission.commandIn;
+        connect mission.reportOut to userReport;
+        connect dockCharge to battery.chargeIn;
+    }
+
+    part def HomeCleaningEnvironment {
+        attribute floorArea : Area = 85 [m^2];
+        attribute averageDirtLevel : Percent = 65;
+        attribute obstacleDensity : Percent = 30;
+        part robot : IRobotVacuum;
+        part dock : DockingStation;
+        item floor : FloorSurface;
+        item looseDebris : DustAndDebris;
+
+        connect dock.chargeOut to robot.dockCharge;
+        connect looseDebris to robot.debrisIntake;
+    }
+
+    action def StartCleaningMission {
+        in item command : CleaningCommand;
+        out item acceptedCommand : CleaningCommand;
+        first start;
+        then validateCommand;
+        then initializeMap;
+        then enableBrushAndSuction;
+        then acceptedCommand;
+    }
+
+    action def NavigateAndClean {
+        in item floor : FloorSurface;
+        in item command : CleaningCommand;
+        out item report : CleaningReport;
+        first localize;
+        then planCoveragePath;
+        then followPath;
+        then detectDirt;
+        then applySuction;
+        then updateCoverage;
+        then report;
+    }
+
+    action def AvoidObstacle {
+        in item observation : ObstacleObservation;
+        out item revisedPose : PoseEstimate;
+        first assessCollisionRisk;
+        then stopForwardMotion;
+        then rotateAwayFromObstacle;
+        then computeBypassTrajectory;
+        then revisedPose;
+    }
+
+    action def ReturnToDock {
+        in item pose : PoseEstimate;
+        out item dockedReport : CleaningReport;
+        first locateDock;
+        then planDockingPath;
+        then navigateToDock;
+        then alignChargeContacts;
+        then beginCharging;
+        then dockedReport;
+    }
+
+    state def CleaningMissionStates {
+        entry action initializeRobot;
+
+        state Idle;
+        state AcceptingCommand;
+        state Mapping;
+        state Cleaning;
+        state AvoidingObstacle;
+        state ReturningToDock;
+        state Charging;
+        state ReportingFault;
+        state MissionComplete;
+
+        transition first Idle;
+
+        transition Idle_to_AcceptingCommand
+            first Idle
+            accept CleaningCommand
+            then AcceptingCommand;
+
+        transition AcceptingCommand_to_Mapping
+            first AcceptingCommand
+            if commandIsValid
+            then Mapping;
+
+        transition Mapping_to_Cleaning
+            first Mapping
+            if localizationConfidenceSufficient
+            then Cleaning;
+
+        transition Cleaning_to_AvoidingObstacle
+            first Cleaning
+            if obstacleDetected
+            then AvoidingObstacle;
+
+        transition AvoidingObstacle_to_Cleaning
+            first AvoidingObstacle
+            if bypassPathAvailable
+            then Cleaning;
+
+        transition Cleaning_to_ReturningToDock_LowBattery
+            first Cleaning
+            if batteryStateOfChargeBelow20Percent
+            then ReturningToDock;
+
+        transition Cleaning_to_ReturningToDock_BinFull
+            first Cleaning
+            if binFillLevelAbove90Percent
+            then ReturningToDock;
+
+        transition Cleaning_to_MissionComplete
+            first Cleaning
+            if requestedAreaCleanedAndTargetCleanlinessReached
+            then MissionComplete;
+
+        transition MissionComplete_to_ReturningToDock
+            first MissionComplete
+            then ReturningToDock;
+
+        transition ReturningToDock_to_Charging
+            first ReturningToDock
+            if chargingContactsEngaged
+            then Charging;
+
+        transition Charging_to_Idle
+            first Charging
+            if batteryStateOfChargeAtLeast95Percent
+            then Idle;
+
+        transition Mapping_to_ReportingFault
+            first Mapping
+            if localizationLost
+            then ReportingFault;
+
+        transition AvoidingObstacle_to_ReportingFault
+            first AvoidingObstacle
+            if robotTrapped
+            then ReportingFault;
+    }
+
+    requirement def PrimaryCleaningFunction {
+        id = "REQ-IRBT-001";
+        text = "The iRobot vacuum system shall autonomously clean a commanded indoor floor area by navigating, detecting obstacles, collecting dust and debris, and reporting mission completion status.";
+    }
+
+    requirement def CoverageRequirement {
+        id = "REQ-IRBT-002";
+        text = "The system shall clean at least 95 percent of the commanded accessible floor area during a normal mission.";
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        id = "REQ-IRBT-003";
+        text = "The system shall detect and avoid obstacles with sufficient clearance to prevent damaging contact during autonomous motion.";
+    }
+
+    requirement def BatteryReturnRequirement {
+        id = "REQ-IRBT-004";
+        text = "The system shall return to the docking station before battery state of charge falls below 10 percent during normal operation.";
+    }
+
+    requirement def DebrisCollectionRequirement {
+        id = "REQ-IRBT-005";
+        text = "The cleaning subsystem shall collect dust and debris from the floor surface and store it in the onboard dirt bin until the bin reaches its usable capacity.";
+    }
+
+    requirement def MissionReportRequirement {
+        id = "REQ-IRBT-006";
+        text = "The system shall provide a cleaning report containing cleaned area, mission duration, battery remaining, bin fill level, and estimated remaining dirt.";
+    }
+
+    requirement def DockingRequirement {
+        id = "REQ-IRBT-007";
+        text = "The system shall align with the docking station charge contacts and begin charging after mission completion, low battery, or full bin condition.";
+    }
+
+    satisfy PrimaryCleaningFunction by IRobotVacuum;
+    satisfy CoverageRequirement by MissionController;
+    satisfy ObstacleAvoidanceRequirement by SensorSuite;
+    satisfy ObstacleAvoidanceRequirement by NavigationController;
+    satisfy BatteryReturnRequirement by BatteryPack;
+    satisfy BatteryReturnRequirement by MissionController;
+    satisfy DebrisCollectionRequirement by CleaningSubsystem;
+    satisfy DebrisCollectionRequirement by DirtBin;
+    satisfy MissionReportRequirement by MissionController;
+    satisfy DockingRequirement by MobilitySubsystem;
+    satisfy DockingRequirement by DockingStation;
+
+    exhibit state CleaningMissionStates by MissionController;
+    perform action StartCleaningMission by MissionController;
+    perform action NavigateAndClean by MissionController;
+    perform action AvoidObstacle by NavigationController;
+    perform action ReturnToDock by MissionController;
+}

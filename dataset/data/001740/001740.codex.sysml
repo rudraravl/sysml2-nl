@@ -1,0 +1,481 @@
+package AirConditioningSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+    import Requirements::*;
+
+    attribute def Temperature :> ISQ::temperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def RelativeHumidity {
+        :>> scalarValues = Real;
+        unit = "%";
+    }
+
+    attribute def Pressure {
+        :>> scalarValues = Real;
+        unit = SI::pascal;
+    }
+
+    attribute def VolumetricFlowRate {
+        :>> scalarValues = Real;
+        unit = "m^3/s";
+    }
+
+    attribute def Power {
+        :>> scalarValues = Real;
+        unit = SI::watt;
+    }
+
+    attribute def Energy {
+        :>> scalarValues = Real;
+        unit = SI::joule;
+    }
+
+    attribute def NoiseLevel {
+        :>> scalarValues = Real;
+        unit = "dBA";
+    }
+
+    attribute def AirQualityIndex {
+        :>> scalarValues = Real;
+    }
+
+    enum def OperatingMode {
+        enum off;
+        enum standby;
+        enum cooling;
+        enum dehumidifying;
+        enum fanOnly;
+        enum fault;
+    }
+
+    enum def FanSpeed {
+        enum low;
+        enum medium;
+        enum high;
+        enum automatic;
+    }
+
+    enum def RefrigerantPhase {
+        enum liquid;
+        enum vapor;
+        enum mixed;
+    }
+
+    item def Air {
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumetricFlowRate;
+        attribute airQuality : AirQualityIndex;
+    }
+
+    item def ConditionedAir :> Air {
+        attribute targetTemperature : Temperature;
+        attribute targetHumidity : RelativeHumidity;
+    }
+
+    item def Refrigerant {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute phase : RefrigerantPhase;
+        attribute massFlowRate : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute requestedMode : OperatingMode;
+        attribute requestedFanSpeed : FanSpeed;
+        attribute temperatureSetpoint : Temperature;
+        attribute humiditySetpoint : RelativeHumidity;
+    }
+
+    item def SensorReading {
+        attribute measuredTemperature : Temperature;
+        attribute measuredHumidity : RelativeHumidity;
+        attribute measuredAirQuality : AirQualityIndex;
+        attribute timestamp_s : Real;
+    }
+
+    port def AirInletPort {
+        in item incomingAir : Air;
+    }
+
+    port def AirOutletPort {
+        out item outgoingAir : ConditionedAir;
+    }
+
+    port def RefrigerantPort {
+        inout item refrigerant : Refrigerant;
+    }
+
+    port def ElectricalPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def ControlInputPort {
+        in item command : ControlSignal;
+    }
+
+    port def SensorOutputPort {
+        out item reading : SensorReading;
+    }
+
+    part def Filter {
+        port inlet : AirInletPort;
+        port outlet : AirOutletPort;
+
+        attribute particulateRemovalEfficiency : Real = 0.92;
+        attribute pressureDrop : Pressure = 35 [SI::pascal];
+
+        action filterAir {
+            in item unfilteredAir : Air;
+            out item filteredAir : Air;
+        }
+    }
+
+    part def EvaporatorCoil {
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+        port refrigerantIn : RefrigerantPort;
+        port refrigerantOut : RefrigerantPort;
+
+        attribute heatTransferCapacity : Power = 3500 [SI::watt];
+        attribute condensateRate_L_per_hr : Real;
+        attribute coilSurfaceTemperature : Temperature;
+
+        action absorbHeat {
+            in item warmAir : Air;
+            inout item lowPressureRefrigerant : Refrigerant;
+            out item cooledAir : ConditionedAir;
+        }
+    }
+
+    part def Compressor {
+        port electricalInput : ElectricalPort;
+        port suctionPort : RefrigerantPort;
+        port dischargePort : RefrigerantPort;
+
+        attribute ratedPower : Power = 1100 [SI::watt];
+        attribute compressionRatio : Real = 3.2;
+        attribute dischargeTemperature : Temperature;
+
+        action compressRefrigerant {
+            in item lowPressureVapor : Refrigerant;
+            out item highPressureVapor : Refrigerant;
+        }
+    }
+
+    part def CondenserCoil {
+        port refrigerantIn : RefrigerantPort;
+        port refrigerantOut : RefrigerantPort;
+        port ambientAirIn : AirInletPort;
+        port exhaustAirOut : AirOutletPort;
+
+        attribute heatRejectionCapacity : Power = 4700 [SI::watt];
+        attribute condenserFanPower : Power = 180 [SI::watt];
+
+        action rejectHeat {
+            in item hotRefrigerant : Refrigerant;
+            in item ambientAir : Air;
+            out item cooledRefrigerant : Refrigerant;
+            out item heatedExhaustAir : Air;
+        }
+    }
+
+    part def ExpansionValve {
+        port highPressureIn : RefrigerantPort;
+        port lowPressureOut : RefrigerantPort;
+
+        attribute openingPercent : Real;
+        attribute pressureReduction : Pressure;
+
+        action meterRefrigerant {
+            in item liquidRefrigerant : Refrigerant;
+            out item lowPressureMixedRefrigerant : Refrigerant;
+        }
+    }
+
+    part def BlowerFan {
+        port electricalInput : ElectricalPort;
+        port airIn : AirInletPort;
+        port airOut : AirOutletPort;
+        port control : ControlInputPort;
+
+        attribute speed : FanSpeed = FanSpeed::automatic;
+        attribute ratedFlowRate : VolumetricFlowRate = 0.42 ["m^3/s"];
+        attribute ratedPower : Power = 250 [SI::watt];
+        attribute noise : NoiseLevel = 46 ["dBA"];
+
+        action moveAir {
+            in item returnAir : Air;
+            out item supplyAir : Air;
+        }
+    }
+
+    part def ThermostatController {
+        port controlInput : ControlInputPort;
+        port sensorInput : SensorOutputPort;
+        port compressorCommand : ControlInputPort;
+        port blowerCommand : ControlInputPort;
+        port valveCommand : ControlInputPort;
+
+        attribute currentMode : OperatingMode = OperatingMode::standby;
+        attribute temperatureSetpoint : Temperature = 22 [SI::degreeCelsius];
+        attribute humiditySetpoint : RelativeHumidity = 50 ["%"];
+        attribute coolingDeadband : Temperature = 1 [SI::degreeCelsius];
+
+        action evaluateComfortDemand {
+            in item reading : SensorReading;
+            out item command : ControlSignal;
+        }
+
+        state def ControlStateMachine {
+            state off;
+            state standby;
+            state cooling;
+            state dehumidifying;
+            state fanOnly;
+            state fault;
+
+            transition off_to_standby
+                first off
+                then standby;
+
+            transition standby_to_cooling
+                first standby
+                then cooling;
+
+            transition cooling_to_standby
+                first cooling
+                then standby;
+
+            transition standby_to_dehumidifying
+                first standby
+                then dehumidifying;
+
+            transition dehumidifying_to_standby
+                first dehumidifying
+                then standby;
+
+            transition any_to_fault
+                first standby
+                then fault;
+
+            transition fault_to_standby
+                first fault
+                then standby;
+        }
+    }
+
+    part def TemperatureHumiditySensor {
+        port airSample : AirInletPort;
+        port sensorOutput : SensorOutputPort;
+
+        attribute accuracyTemperature : Temperature = 0.3 [SI::degreeCelsius];
+        attribute accuracyHumidity : RelativeHumidity = 2 ["%"];
+
+        action measureIndoorAir {
+            in item sampledAir : Air;
+            out item reading : SensorReading;
+        }
+    }
+
+    part def PowerSupply {
+        port mainsInput : ElectricalPort;
+        port compressorOutput : ElectricalPort;
+        port fanOutput : ElectricalPort;
+        port controllerOutput : ElectricalPort;
+
+        attribute nominalVoltage : Real = 240;
+        attribute nominalFrequency : Real = 60;
+        attribute maxContinuousPower : Power = 1800 [SI::watt];
+
+        action distributePower {
+            in item mains : ElectricalPower;
+            out item compressorPower : ElectricalPower;
+            out item fanPower : ElectricalPower;
+            out item controllerPower : ElectricalPower;
+        }
+    }
+
+    part def CondensateDrain {
+        attribute maxDrainRate_L_per_hr : Real = 2.5;
+        attribute overflowDetected : Boolean = false;
+
+        action removeCondensate {
+            in attribute condensateRate_L_per_hr : Real;
+            out attribute drained_L_per_hr : Real;
+        }
+    }
+
+    part def AirConditioner {
+        port returnAirIn : AirInletPort;
+        port conditionedAirOut : AirOutletPort;
+        port ambientAirIn : AirInletPort;
+        port exhaustAirOut : AirOutletPort;
+        port electricalInput : ElectricalPort;
+        port userCommand : ControlInputPort;
+
+        part filter : Filter;
+        part evaporator : EvaporatorCoil;
+        part compressor : Compressor;
+        part condenser : CondenserCoil;
+        part expansionValve : ExpansionValve;
+        part blower : BlowerFan;
+        part controller : ThermostatController;
+        part indoorSensor : TemperatureHumiditySensor;
+        part powerSupply : PowerSupply;
+        part drain : CondensateDrain;
+
+        attribute ratedCoolingCapacity : Power = 3500 [SI::watt];
+        attribute seasonalEnergyEfficiencyRatio : Real = 15.5;
+        attribute minimumSupplyAirTemperature : Temperature = 12 [SI::degreeCelsius];
+        attribute maximumIndoorNoise : NoiseLevel = 50 ["dBA"];
+        attribute currentMode : OperatingMode;
+
+        connect returnAirIn to filter.inlet;
+        connect filter.outlet to evaporator.airIn;
+        connect evaporator.airOut to blower.airIn;
+        connect blower.airOut to conditionedAirOut;
+
+        connect evaporator.refrigerantOut to compressor.suctionPort;
+        connect compressor.dischargePort to condenser.refrigerantIn;
+        connect condenser.refrigerantOut to expansionValve.highPressureIn;
+        connect expansionValve.lowPressureOut to evaporator.refrigerantIn;
+
+        connect ambientAirIn to condenser.ambientAirIn;
+        connect condenser.exhaustAirOut to exhaustAirOut;
+
+        connect electricalInput to powerSupply.mainsInput;
+        connect powerSupply.compressorOutput to compressor.electricalInput;
+        connect powerSupply.fanOutput to blower.electricalInput;
+        connect userCommand to controller.controlInput;
+        connect controller.blowerCommand to blower.control;
+        connect returnAirIn to indoorSensor.airSample;
+        connect indoorSensor.sensorOutput to controller.sensorInput;
+
+        action conditionIndoorAir {
+            in item indoorReturnAir : Air;
+            in item outdoorAir : Air;
+            in item mainsPower : ElectricalPower;
+            in item occupantCommand : ControlSignal;
+            out item cooledSupplyAir : ConditionedAir;
+
+            first start;
+            then measureIndoorCondition;
+            then determineDemand;
+            then filterReturnAir;
+            then coolAndDehumidifyAir;
+            then circulateConditionedAir;
+            then stop;
+
+            action measureIndoorCondition {
+                in item indoorReturnAir : Air;
+                out item measuredCondition : SensorReading;
+            }
+
+            action determineDemand {
+                in item measuredCondition : SensorReading;
+                in item occupantCommand : ControlSignal;
+                out item operatingCommand : ControlSignal;
+            }
+
+            action filterReturnAir {
+                in item indoorReturnAir : Air;
+                out item filteredAir : Air;
+            }
+
+            action coolAndDehumidifyAir {
+                in item filteredAir : Air;
+                out item cooledDryAir : ConditionedAir;
+            }
+
+            action circulateConditionedAir {
+                in item cooledDryAir : ConditionedAir;
+                out item cooledSupplyAir : ConditionedAir;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The air conditioning system shall maintain indoor thermal comfort by removing heat and moisture from return air and delivering conditioned air to the occupied space. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.ratedCoolingCapacity >= 3000 [SI::watt]
+        }
+    }
+
+    requirement def TemperatureControlRequirement {
+        doc /* The system shall maintain the indoor air temperature within 1 degree Celsius of the user setpoint during cooling operation. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.controller.coolingDeadband <= 1 [SI::degreeCelsius]
+        }
+    }
+
+    requirement def HumidityControlRequirement {
+        doc /* The system shall reduce indoor relative humidity toward a comfort setpoint during dehumidifying operation. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.controller.humiditySetpoint <= 55 ["%"]
+        }
+    }
+
+    requirement def EnergyRequirement {
+        doc /* The system shall provide cooling with a seasonal energy efficiency ratio of at least 14. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.seasonalEnergyEfficiencyRatio >= 14
+        }
+    }
+
+    requirement def AirflowRequirement {
+        doc /* The blower shall provide sufficient airflow across the evaporator coil to distribute conditioned air to the occupied space. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.blower.ratedFlowRate >= 0.35 ["m^3/s"]
+        }
+    }
+
+    requirement def NoiseRequirement {
+        doc /* The system shall limit indoor acoustic noise during normal cooling operation. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.maximumIndoorNoise <= 50 ["dBA"]
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The controller shall transition the system to fault mode when a condensate overflow, sensor failure, or abnormal compressor condition is detected. */
+        subject ac : AirConditioner;
+        require constraint {
+            ac.controller.currentMode != OperatingMode::cooling or ac.drain.overflowDetected == false
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by AirConditioner;
+    satisfy TemperatureControlRequirement by AirConditioner;
+    satisfy HumidityControlRequirement by AirConditioner;
+    satisfy EnergyRequirement by AirConditioner;
+    satisfy AirflowRequirement by BlowerFan;
+    satisfy NoiseRequirement by AirConditioner;
+    satisfy SafetyRequirement by ThermostatController;
+
+    part residentialAirConditioningSystem : AirConditioner {
+        attribute ratedCoolingCapacity = 3600 [SI::watt];
+        attribute seasonalEnergyEfficiencyRatio = 16;
+        attribute minimumSupplyAirTemperature = 11 [SI::degreeCelsius];
+        attribute maximumIndoorNoise = 48 ["dBA"];
+    }
+
+}

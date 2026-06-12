@@ -1,0 +1,1153 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6prmk2j9
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb60d-2ddd-7c83-9d39-342e7d7b70d0
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Stream gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package StreamGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def AreaValue :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def VelocityValue :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def FlowRateValue :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def VoltageValue :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def PercentValue :> ScalarValues::Real {
+        unit = SI::percent;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    enum def GaugeHealthState {
+        enum nominal;
+        enum degraded;
+        enum failed;
+        enum maintenance;
+    }
+
+    enum def TelemetryPriority {
+        enum routine;
+        enum alert;
+        enum emergency;
+    }
+
+    enum def MeasurementQuality {
+        enum valid;
+        enum estimated;
+        enum suspect;
+        enum invalid;
+    }
+
+    item def RiverWater {
+        attribute temperature : TemperatureValue;
+        attribute stageHeight : LengthValue;
+        attribute velocity : VelocityValue;
+        attribute suspendedSedimentConcentration : ScalarValues::Real;
+    }
+
+    item def StageMeasurement {
+        attribute waterLevel : LengthValue;
+        attribute referenceDatumOffset : LengthValue;
+        attribute sampleTime : TimeValue;
+        attribute quality : MeasurementQuality;
+    }
+
+    item def VelocityMeasurement {
+        attribute meanVelocity : VelocityValue;
+        attribute sampleTime : TimeValue;
+        attribute quality : MeasurementQuality;
+    }
+
+    item def FlowComputation {
+        attribute crossSectionArea : AreaValue;
+        attribute discharge : FlowRateValue;
+        attribute ratingCurveResidual : PercentValue;
+        attribute quality : MeasurementQuality;
+    }
+
+    item def GaugeTelemetryPacket {
+        attribute stationIdentifier : ScalarValues::String;
+        attribute waterLevel : LengthValue;
+        attribute discharge : FlowRateValue;
+        attribute batteryStateOfCharge : PercentValue;
+        attribute enclosureTemperature : TemperatureValue;
+        attribute health : GaugeHealthState;
+        attribute priority : TelemetryPriority;
+        attribute generatedAt : TimeValue;
+    }
+
+    item def MaintenanceCommand {
+        attribute resetRequested : ScalarValues::Boolean;
+        attribute recalibrationRequested : ScalarValues::Boolean;
+        attribute newSamplePeriod : TimeValue;
+        attribute issuedAt : TimeValue;
+    }
+
+    item def AlertMessage {
+        attribute stationIdentifier : ScalarValues::String;
+        attribute alertLevel : ScalarValues::Integer;
+        attribute measuredStage : LengthValue;
+        attribute measuredDischarge : FlowRateValue;
+        attribute thresholdExceededBy : LengthValue;
+        attribute priority : TelemetryPriority;
+    }
+
+    port def WaterInterface {
+        in item water : RiverWater;
+    }
+
+    port def MeasurementOutputPort {
+        out item stage : StageMeasurement;
+        out item velocity : VelocityMeasurement;
+    }
+
+    port def ComputationPort {
+        in item stage : StageMeasurement;
+        in item velocity : VelocityMeasurement;
+        out item flow : FlowComputation;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : GaugeTelemetryPacket;
+        out item alert : AlertMessage;
+        in item command : MaintenanceCommand;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute availablePower : PowerValue;
+    }
+
+    port def PowerDistributionPort {
+        out attribute regulatedVoltage : VoltageValue;
+        out attribute availablePower : PowerValue;
+    }
+
+    part def StreamGaugeSystem {
+        attribute stationIdentifier : ScalarValues::String = "SG-CH-017";
+        attribute samplePeriod : TimeValue = 300 [SI::second];
+        attribute telemetryPeriod : TimeValue = 900 [SI::second];
+        attribute floodStageThreshold : LengthValue = 4.5 [SI::metre];
+        attribute emergencyStageThreshold : LengthValue = 5.7 [SI::metre];
+        attribute minimumBatteryStateOfCharge : PercentValue = 20 [SI::percent];
+        attribute health : GaugeHealthState = GaugeHealthState::nominal;
+
+        port waterPort : WaterInterface;
+        port telemetryPort : TelemetryPort;
+
+        part stillingWell : StillingWell;
+        part stageSensor : RadarStageSensor;
+        part velocitySensor : AcousticVelocitySensor;
+        part controller : GaugeController;
+        part powerSubsystem : SolarBatteryPowerSubsystem;
+        part telemetrySubsystem : CellularTelemetrySubsystem;
+        part enclosure : WeatherproofEnclosure;
+        part datumReference : SurveyDatumReference;
+
+        connect waterPort.water to stillingWell.waterInput.water;
+        connect stillingWell.conditionedWater.water to stageSensor.waterInput.water;
+        connect waterPort.water to velocitySensor.waterInput.water;
+
+        connect stageSensor.measurementOut.stage to controller.computation.stage;
+        connect velocitySensor.measurementOut.velocity to controller.computation.velocity;
+
+        connect controller.telemetryOut.telemetry to telemetrySubsystem.telemetryIn.telemetry;
+        connect controller.telemetryOut.alert to telemetrySubsystem.telemetryIn.alert;
+        connect telemetrySubsystem.commandOut.command to controller.telemetryOut.command;
+
+        connect powerSubsystem.controllerPower.regulatedVoltage to controller.powerIn.supplyVoltage;
+        connect powerSubsystem.controllerPower.availablePower to controller.powerIn.availablePower;
+        connect powerSubsystem.sensorPower.regulatedVoltage to stageSensor.powerIn.supplyVoltage;
+        connect powerSubsystem.sensorPower.availablePower to stageSensor.powerIn.availablePower;
+        connect powerSubsystem.sensorPower.regulatedVoltage to velocitySensor.powerIn.supplyVoltage;
+        connect powerSubsystem.sensorPower.availablePower to velocitySensor.powerIn.availablePower;
+        connect powerSubsystem.radioPower.regulatedVoltage to telemetrySubsystem.powerIn.supplyVoltage;
+        connect powerSubsystem.radioPower.availablePower to telemetrySubsystem.powerIn.availablePower;
+
+        perform action measureAndReport;
+        exhibit state gaugeOperatingState;
+    }
+
+    part def StillingWell {
+        attribute intakeDiameter : LengthValue = 0.10 [SI::metre];
+        attribute wellDiameter : LengthValue = 0.30 [SI::metre];
+        attribute sedimentTrapVolume : ISQ::volume = 0.015 [SI::cubicMetre];
+        attribute dampingTimeConstant : TimeValue = 45 [SI::second];
+
+        port waterInput : WaterInterface;
+        port conditionedWater : WaterInterface;
+    }
+
+    part def RadarStageSensor {
+        attribute measurementRange : LengthValue = 12 [SI::metre];
+        attribute stageAccuracy : LengthValue = 0.003 [SI::metre];
+        attribute beamAngle : ScalarValues::Real = 8.0;
+        attribute warmupTime : TimeValue = 5 [SI::second];
+
+        port waterInput : WaterInterface;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerInputPort;
+
+        perform action acquireStage;
+    }
+
+    part def AcousticVelocitySensor {
+        attribute velocityRange : VelocityValue = 6 [SI::metrePerSecond];
+        attribute velocityAccuracy : VelocityValue = 0.02 [SI::metrePerSecond];
+        attribute acousticPathLength : LengthValue = 2.5 [SI::metre];
+        attribute foulingMargin : PercentValue = 15 [SI::percent];
+
+        port waterInput : WaterInterface;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerInputPort;
+
+        perform action acquireVelocity;
+    }
+
+    part def GaugeController {
+        attribute processorClockPower : PowerValue = 1.8 [SI::watt];
+        attribute localStorageCapacityDays : ScalarValues::Integer = 90;
+        attribute ratingCurveCoefficientA : ScalarValues::Real = 18.2;
+        attribute ratingCurveCoefficientB : ScalarValues::Real = 2.35;
+        attribute datumCorrection : LengthValue = 0.00 [SI::metre];
+        attribute lastComputedDischarge : FlowRateValue;
+        attribute health : GaugeHealthState = GaugeHealthState::nominal;
+
+        port computation : ComputationPort;
+        port telemetryOut : TelemetryPort;
+        port powerIn : PowerInputPort;
+
+        perform action computeDischarge;
+        perform action evaluateAlerts;
+        perform action storeRecord;
+        perform action processMaintenanceCommand;
+    }
+
+    part def CellularTelemetrySubsystem {
+        attribute transmitPower : PowerValue = 5 [SI::watt];
+        attribute routineRetryLimit : ScalarValues::Integer = 3;
+        attribute emergencyRetryLimit : ScalarValues::Integer = 12;
+        attribute antennaGain : ScalarValues::Real = 5.0;
+
+        port telemetryIn : TelemetryPort;
+        port commandOut : TelemetryPort;
+        port powerIn : PowerInputPort;
+
+        perform action transmitTelemetry;
+        perform action receiveMaintenanceCommand;
+    }
+
+    part def SolarBatteryPowerSubsystem {
+        attribute solarPanelPeakPower : PowerValue = 40 [SI::watt];
+        attribute batteryCapacity : ISQ::energy = 720000 [SI::joule];
+        attribute batteryStateOfCharge : PercentValue = 85 [SI::percent];
+        attribute lowPowerThreshold : PercentValue = 20 [SI::percent];
+        attribute regulatedBusVoltage : VoltageValue = 12 [SI::volt];
+
+        port controllerPower : PowerDistributionPort;
+        port sensorPower : PowerDistributionPort;
+        port radioPower : PowerDistributionPort;
+
+        perform action manageEnergy;
+    }
+
+    part def WeatherproofEnclosure {
+        attribute ingressProtectionRating : ScalarValues::String = "IP67";
+        attribute internalTemperature : TemperatureValue = 293.15 [SI::kelvin];
+        attribute minimumOperatingTemperature : TemperatureValue = 243.15 [SI::kelvin];
+        attribute maximumOperatingTemperature : TemperatureValue = 333.15 [SI::kelvin];
+        attribute enclosurePressureEqualized : ScalarValues::Boolean = true;
+    }
+
+    part def SurveyDatumReference {
+        attribute benchmarkElevation : LengthValue = 210.437 [SI::metre];
+        attribute staffGaugeZeroElevation : LengthValue = 207.100 [SI::metre];
+        attribute verticalDatumName : ScalarValues::String = "NAVD88";
+        attribute lastSurveyAgeDays : ScalarValues::Integer = 183;
+    }
+
+    action def AcquireStage {
+        in item water : RiverWater;
+        in attribute datumCorrection : LengthValue;
+        out item stage : StageMeasurement;
+
+        first start;
+        then sampleRange;
+        then compensateDatum;
+        then classifyQuality;
+        then done;
+
+        action sampleRange;
+        action compensateDatum;
+        action classifyQuality;
+    }
+
+    action def AcquireVelocity {
+        in item water : RiverWater;
+        out item velocity : VelocityMeasurement;
+
+        first start;
+        then emitAcousticPulse;
+        then estimateTransitTime;
+        then computeMeanVelocity;
+        then validateSignal;
+        then done;
+
+        action emitAcousticPulse;
+        action estimateTransitTime;
+        action computeMeanVelocity;
+        action validateSignal;
+    }
+
+    action def ComputeDischarge {
+        in item stage : StageMeasurement;
+        in item velocity : VelocityMeasurement;
+        in attribute ratingCurveCoefficientA : ScalarValues::Real;
+        in attribute ratingCurveCoefficientB : ScalarValues::Real;
+        out item flow : FlowComputation;
+
+        first start;
+        then computeCrossSectionArea;
+        then applyRatingCurve;
+        then reconcileVelocityObservation;
+        then assignQuality;
+        then done;
+
+        action computeCrossSectionArea;
+        action applyRatingCurve;
+        action reconcileVelocityObservation;
+        action assignQuality;
+    }
+
+    action def EvaluateAlerts {
+        in item stage : StageMeasurement;
+        in item flow : FlowComputation;
+        in attribute floodStageThreshold : LengthValue;
+        in attribute emergencyStageThreshold : LengthValue;
+        out item alert : AlertMessage;
+
+        first start;
+        then compareFloodThresholds;
+        then setPriority;
+        then publishWhenExceeded;
+        then done;
+
+        action compareFloodThresholds;
+        action setPriority;
+        action publishWhenExceeded;
+    }
+
+    action def TransmitTelemetry {
+        in item telemetry : GaugeTelemetryPacket;
+        in item alert : AlertMessage;
+        out attribute acknowledged : ScalarValues::Boolean;
+
+        first start;
+        then openNetworkSession;
+        then sendRoutinePacket;
+        then sendAlertIfPresent;
+        then confirmReceipt;
+        then closeNetworkSession;
+        then done;
+
+        action openNetworkSession;
+        action sendRoutinePacket;
+        action sendAlertIfPresent;
+        action confirmReceipt;
+        action closeNetworkSession;
+    }
+
+    action def ManageEnergy {
+        in attribute solarPower : PowerValue;
+        in attribute batteryStateOfCharge : PercentValue;
+        out attribute regulatedVoltage : VoltageValue;
+        out attribute lowPowerModeRequested : ScalarValues::Boolean;
+
+        first start;
+        then chargeBatteryWhenAvailable;
+        then regulateOutputBus;
+        then evaluateLowPowerThreshold;
+        then done;
+
+        action chargeBatteryWhenAvailable;
+        action regulateOutputBus;
+        action evaluateLowPowerThreshold;
+    }
+
+    action def MeasureAndReport {
+        in item water : RiverWater;
+        out item telemetry : GaugeTelemetryPacket;
+        out item alert : AlertMessage;
+
+        first start;
+        then acquireStage;
+        then acquireVelocity;
+        then computeDischarge;
+        then evaluateAlerts;
+        then storeRecord;
+        then transmitTelemetry;
+        then done;
+
+        action acquireStage : AcquireStage;
+        action acquireVelocity : AcquireVelocity;
+        action computeDischarge : ComputeDischarge;
+        action evaluateAlerts : EvaluateAlerts;
+        action storeRecord;
+        action transmitTelemetry : TransmitTelemetry;
+    }
+
+    state def GaugeOperatingState {
+        entry action initializeStation;
+        exit action persistShutdownRecord;
+
+        state initializing;
+        state monitoring;
+        state transmitting;
+        state lowPower;
+        state alerting;
+        state maintenance;
+        state faulted;
+
+        initial then initializing;
+
+        transition initializing_to_monitoring
+            first initializing
+            accept after 30 [SI::second]
+            then monitoring;
+
+        transition monitoring_to_transmitting
+            first monitoring
+            accept when telemetryDue
+            then transmitting;
+
+        transition transmitting_to_monitoring
+            first transmitting
+            accept when transmissionAcknowledged
+            then monitoring;
+
+        transition monitoring_to_alerting
+            first monitoring
+            accept when stageExceedsFloodThreshold
+            then alerting;
+
+        transition alerting_to_monitoring
+            first alerting
+            accept when alertAcknowledged and stageBelowFloodThreshold
+            then monitoring;
+
+        transition monitoring_to_lowPower
+            first monitoring
+            accept when batteryStateOfChargeBelowMinimum
+            then lowPower;
+
+        transition lowPower_to_monitoring
+            first lowPower
+            accept when batteryStateOfChargeRecovered
+            then monitoring;
+
+        transition monitoring_to_maintenance
+            first monitoring
+            accept when maintenanceCommandReceived
+            then maintenance;
+
+        transition maintenance_to_monitoring
+            first maintenance
+            accept when maintenanceComplete
+            then monitoring;
+
+        transition any_to_faulted
+            first monitoring
+            accept when criticalSensorFailure
+            then faulted;
+
+        transition faulted_to_maintenance
+            first faulted
+            accept when technicianResetReceived
+            then maintenance;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject gauge : StreamGaugeSystem;
+
+        require constraint {
+            gauge shall continuously measure stream stage, estimate discharge, detect flood threshold exceedance, and communicate time-stamped hydrologic telemetry to remote operators.
+        }
+    }
+
+    requirement def StageAccuracyRequirement {
+        subject sensor : RadarStageSensor;
+
+        require constraint {
+            sensor.stageAccuracy <= 0.005 [SI::metre]
+        }
+    }
+
+    requirement def DischargeReportingRequirement {
+        subject gauge : StreamGaugeSystem;
+
+        require constraint {
+            gauge.telemetryPeriod <= 900 [SI::second]
+        }
+    }
+
+    requirement def FloodAlertRequirement {
+        subject gauge : StreamGaugeSystem;
+
+        require constraint {
+            gauge.floodStageThreshold < gauge.emergencyStageThreshold
+        }
+    }
+
+    requirement def PowerAutonomyRequirement {
+        subject power : SolarBatteryPowerSubsystem;
+
+        require constraint {
+            power.batteryStateOfCharge >= power.lowPowerThreshold
+        }
+    }
+
+    requirement def EnvironmentalProtectionRequirement {
+        subject enclosure : WeatherproofEnclosure;
+
+        require constraint {
+            enclosure.enclosurePressureEqualized == true
+        }
+    }
+
+    requirement def LocalRecordRetentionRequirement {
+        subject controller : GaugeController;
+
+        require constraint {
+            controller.localStorageCapacityDays >= 30
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by StreamGaugeSystem;
+    satisfy StageAccuracyRequirement by RadarStageSensor;
+    satisfy DischargeReportingRequirement by StreamGaugeSystem;
+    satisfy FloodAlertRequirement by StreamGaugeSystem;
+    satisfy PowerAutonomyRequirement by SolarBatteryPowerSubsystem;
+    satisfy EnvironmentalProtectionRequirement by WeatherproofEnclosure;
+    satisfy LocalRecordRetentionRequirement by GaugeController;
+
+    part streamGauge : StreamGaugeSystem {
+        attribute stationIdentifier = "SG-CH-017";
+        attribute samplePeriod = 300 [SI::second];
+        attribute telemetryPeriod = 900 [SI::second];
+        attribute floodStageThreshold = 4.5 [SI::metre];
+        attribute emergencyStageThreshold = 5.7 [SI::metre];
+    }
+
+}
+tokens used
+4,116
+package StreamGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def AreaValue :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def VelocityValue :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def FlowRateValue :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def VoltageValue :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def PercentValue :> ScalarValues::Real {
+        unit = SI::percent;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    enum def GaugeHealthState {
+        enum nominal;
+        enum degraded;
+        enum failed;
+        enum maintenance;
+    }
+
+    enum def TelemetryPriority {
+        enum routine;
+        enum alert;
+        enum emergency;
+    }
+
+    enum def MeasurementQuality {
+        enum valid;
+        enum estimated;
+        enum suspect;
+        enum invalid;
+    }
+
+    item def RiverWater {
+        attribute temperature : TemperatureValue;
+        attribute stageHeight : LengthValue;
+        attribute velocity : VelocityValue;
+        attribute suspendedSedimentConcentration : ScalarValues::Real;
+    }
+
+    item def StageMeasurement {
+        attribute waterLevel : LengthValue;
+        attribute referenceDatumOffset : LengthValue;
+        attribute sampleTime : TimeValue;
+        attribute quality : MeasurementQuality;
+    }
+
+    item def VelocityMeasurement {
+        attribute meanVelocity : VelocityValue;
+        attribute sampleTime : TimeValue;
+        attribute quality : MeasurementQuality;
+    }
+
+    item def FlowComputation {
+        attribute crossSectionArea : AreaValue;
+        attribute discharge : FlowRateValue;
+        attribute ratingCurveResidual : PercentValue;
+        attribute quality : MeasurementQuality;
+    }
+
+    item def GaugeTelemetryPacket {
+        attribute stationIdentifier : ScalarValues::String;
+        attribute waterLevel : LengthValue;
+        attribute discharge : FlowRateValue;
+        attribute batteryStateOfCharge : PercentValue;
+        attribute enclosureTemperature : TemperatureValue;
+        attribute health : GaugeHealthState;
+        attribute priority : TelemetryPriority;
+        attribute generatedAt : TimeValue;
+    }
+
+    item def MaintenanceCommand {
+        attribute resetRequested : ScalarValues::Boolean;
+        attribute recalibrationRequested : ScalarValues::Boolean;
+        attribute newSamplePeriod : TimeValue;
+        attribute issuedAt : TimeValue;
+    }
+
+    item def AlertMessage {
+        attribute stationIdentifier : ScalarValues::String;
+        attribute alertLevel : ScalarValues::Integer;
+        attribute measuredStage : LengthValue;
+        attribute measuredDischarge : FlowRateValue;
+        attribute thresholdExceededBy : LengthValue;
+        attribute priority : TelemetryPriority;
+    }
+
+    port def WaterInterface {
+        in item water : RiverWater;
+    }
+
+    port def MeasurementOutputPort {
+        out item stage : StageMeasurement;
+        out item velocity : VelocityMeasurement;
+    }
+
+    port def ComputationPort {
+        in item stage : StageMeasurement;
+        in item velocity : VelocityMeasurement;
+        out item flow : FlowComputation;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : GaugeTelemetryPacket;
+        out item alert : AlertMessage;
+        in item command : MaintenanceCommand;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute availablePower : PowerValue;
+    }
+
+    port def PowerDistributionPort {
+        out attribute regulatedVoltage : VoltageValue;
+        out attribute availablePower : PowerValue;
+    }
+
+    part def StreamGaugeSystem {
+        attribute stationIdentifier : ScalarValues::String = "SG-CH-017";
+        attribute samplePeriod : TimeValue = 300 [SI::second];
+        attribute telemetryPeriod : TimeValue = 900 [SI::second];
+        attribute floodStageThreshold : LengthValue = 4.5 [SI::metre];
+        attribute emergencyStageThreshold : LengthValue = 5.7 [SI::metre];
+        attribute minimumBatteryStateOfCharge : PercentValue = 20 [SI::percent];
+        attribute health : GaugeHealthState = GaugeHealthState::nominal;
+
+        port waterPort : WaterInterface;
+        port telemetryPort : TelemetryPort;
+
+        part stillingWell : StillingWell;
+        part stageSensor : RadarStageSensor;
+        part velocitySensor : AcousticVelocitySensor;
+        part controller : GaugeController;
+        part powerSubsystem : SolarBatteryPowerSubsystem;
+        part telemetrySubsystem : CellularTelemetrySubsystem;
+        part enclosure : WeatherproofEnclosure;
+        part datumReference : SurveyDatumReference;
+
+        connect waterPort.water to stillingWell.waterInput.water;
+        connect stillingWell.conditionedWater.water to stageSensor.waterInput.water;
+        connect waterPort.water to velocitySensor.waterInput.water;
+
+        connect stageSensor.measurementOut.stage to controller.computation.stage;
+        connect velocitySensor.measurementOut.velocity to controller.computation.velocity;
+
+        connect controller.telemetryOut.telemetry to telemetrySubsystem.telemetryIn.telemetry;
+        connect controller.telemetryOut.alert to telemetrySubsystem.telemetryIn.alert;
+        connect telemetrySubsystem.commandOut.command to controller.telemetryOut.command;
+
+        connect powerSubsystem.controllerPower.regulatedVoltage to controller.powerIn.supplyVoltage;
+        connect powerSubsystem.controllerPower.availablePower to controller.powerIn.availablePower;
+        connect powerSubsystem.sensorPower.regulatedVoltage to stageSensor.powerIn.supplyVoltage;
+        connect powerSubsystem.sensorPower.availablePower to stageSensor.powerIn.availablePower;
+        connect powerSubsystem.sensorPower.regulatedVoltage to velocitySensor.powerIn.supplyVoltage;
+        connect powerSubsystem.sensorPower.availablePower to velocitySensor.powerIn.availablePower;
+        connect powerSubsystem.radioPower.regulatedVoltage to telemetrySubsystem.powerIn.supplyVoltage;
+        connect powerSubsystem.radioPower.availablePower to telemetrySubsystem.powerIn.availablePower;
+
+        perform action measureAndReport;
+        exhibit state gaugeOperatingState;
+    }
+
+    part def StillingWell {
+        attribute intakeDiameter : LengthValue = 0.10 [SI::metre];
+        attribute wellDiameter : LengthValue = 0.30 [SI::metre];
+        attribute sedimentTrapVolume : ISQ::volume = 0.015 [SI::cubicMetre];
+        attribute dampingTimeConstant : TimeValue = 45 [SI::second];
+
+        port waterInput : WaterInterface;
+        port conditionedWater : WaterInterface;
+    }
+
+    part def RadarStageSensor {
+        attribute measurementRange : LengthValue = 12 [SI::metre];
+        attribute stageAccuracy : LengthValue = 0.003 [SI::metre];
+        attribute beamAngle : ScalarValues::Real = 8.0;
+        attribute warmupTime : TimeValue = 5 [SI::second];
+
+        port waterInput : WaterInterface;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerInputPort;
+
+        perform action acquireStage;
+    }
+
+    part def AcousticVelocitySensor {
+        attribute velocityRange : VelocityValue = 6 [SI::metrePerSecond];
+        attribute velocityAccuracy : VelocityValue = 0.02 [SI::metrePerSecond];
+        attribute acousticPathLength : LengthValue = 2.5 [SI::metre];
+        attribute foulingMargin : PercentValue = 15 [SI::percent];
+
+        port waterInput : WaterInterface;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerInputPort;
+
+        perform action acquireVelocity;
+    }
+
+    part def GaugeController {
+        attribute processorClockPower : PowerValue = 1.8 [SI::watt];
+        attribute localStorageCapacityDays : ScalarValues::Integer = 90;
+        attribute ratingCurveCoefficientA : ScalarValues::Real = 18.2;
+        attribute ratingCurveCoefficientB : ScalarValues::Real = 2.35;
+        attribute datumCorrection : LengthValue = 0.00 [SI::metre];
+        attribute lastComputedDischarge : FlowRateValue;
+        attribute health : GaugeHealthState = GaugeHealthState::nominal;
+
+        port computation : ComputationPort;
+        port telemetryOut : TelemetryPort;
+        port powerIn : PowerInputPort;
+
+        perform action computeDischarge;
+        perform action evaluateAlerts;
+        perform action storeRecord;
+        perform action processMaintenanceCommand;
+    }
+
+    part def CellularTelemetrySubsystem {
+        attribute transmitPower : PowerValue = 5 [SI::watt];
+        attribute routineRetryLimit : ScalarValues::Integer = 3;
+        attribute emergencyRetryLimit : ScalarValues::Integer = 12;
+        attribute antennaGain : ScalarValues::Real = 5.0;
+
+        port telemetryIn : TelemetryPort;
+        port commandOut : TelemetryPort;
+        port powerIn : PowerInputPort;
+
+        perform action transmitTelemetry;
+        perform action receiveMaintenanceCommand;
+    }
+
+    part def SolarBatteryPowerSubsystem {
+        attribute solarPanelPeakPower : PowerValue = 40 [SI::watt];
+        attribute batteryCapacity : ISQ::energy = 720000 [SI::joule];
+        attribute batteryStateOfCharge : PercentValue = 85 [SI::percent];
+        attribute lowPowerThreshold : PercentValue = 20 [SI::percent];
+        attribute regulatedBusVoltage : VoltageValue = 12 [SI::volt];
+
+        port controllerPower : PowerDistributionPort;
+        port sensorPower : PowerDistributionPort;
+        port radioPower : PowerDistributionPort;
+
+        perform action manageEnergy;
+    }
+
+    part def WeatherproofEnclosure {
+        attribute ingressProtectionRating : ScalarValues::String = "IP67";
+        attribute internalTemperature : TemperatureValue = 293.15 [SI::kelvin];
+        attribute minimumOperatingTemperature : TemperatureValue = 243.15 [SI::kelvin];
+        attribute maximumOperatingTemperature : TemperatureValue = 333.15 [SI::kelvin];
+        attribute enclosurePressureEqualized : ScalarValues::Boolean = true;
+    }
+
+    part def SurveyDatumReference {
+        attribute benchmarkElevation : LengthValue = 210.437 [SI::metre];
+        attribute staffGaugeZeroElevation : LengthValue = 207.100 [SI::metre];
+        attribute verticalDatumName : ScalarValues::String = "NAVD88";
+        attribute lastSurveyAgeDays : ScalarValues::Integer = 183;
+    }
+
+    action def AcquireStage {
+        in item water : RiverWater;
+        in attribute datumCorrection : LengthValue;
+        out item stage : StageMeasurement;
+
+        first start;
+        then sampleRange;
+        then compensateDatum;
+        then classifyQuality;
+        then done;
+
+        action sampleRange;
+        action compensateDatum;
+        action classifyQuality;
+    }
+
+    action def AcquireVelocity {
+        in item water : RiverWater;
+        out item velocity : VelocityMeasurement;
+
+        first start;
+        then emitAcousticPulse;
+        then estimateTransitTime;
+        then computeMeanVelocity;
+        then validateSignal;
+        then done;
+
+        action emitAcousticPulse;
+        action estimateTransitTime;
+        action computeMeanVelocity;
+        action validateSignal;
+    }
+
+    action def ComputeDischarge {
+        in item stage : StageMeasurement;
+        in item velocity : VelocityMeasurement;
+        in attribute ratingCurveCoefficientA : ScalarValues::Real;
+        in attribute ratingCurveCoefficientB : ScalarValues::Real;
+        out item flow : FlowComputation;
+
+        first start;
+        then computeCrossSectionArea;
+        then applyRatingCurve;
+        then reconcileVelocityObservation;
+        then assignQuality;
+        then done;
+
+        action computeCrossSectionArea;
+        action applyRatingCurve;
+        action reconcileVelocityObservation;
+        action assignQuality;
+    }
+
+    action def EvaluateAlerts {
+        in item stage : StageMeasurement;
+        in item flow : FlowComputation;
+        in attribute floodStageThreshold : LengthValue;
+        in attribute emergencyStageThreshold : LengthValue;
+        out item alert : AlertMessage;
+
+        first start;
+        then compareFloodThresholds;
+        then setPriority;
+        then publishWhenExceeded;
+        then done;
+
+        action compareFloodThresholds;
+        action setPriority;
+        action publishWhenExceeded;
+    }
+
+    action def TransmitTelemetry {
+        in item telemetry : GaugeTelemetryPacket;
+        in item alert : AlertMessage;
+        out attribute acknowledged : ScalarValues::Boolean;
+
+        first start;
+        then openNetworkSession;
+        then sendRoutinePacket;
+        then sendAlertIfPresent;
+        then confirmReceipt;
+        then closeNetworkSession;
+        then done;
+
+        action openNetworkSession;
+        action sendRoutinePacket;
+        action sendAlertIfPresent;
+        action confirmReceipt;
+        action closeNetworkSession;
+    }
+
+    action def ManageEnergy {
+        in attribute solarPower : PowerValue;
+        in attribute batteryStateOfCharge : PercentValue;
+        out attribute regulatedVoltage : VoltageValue;
+        out attribute lowPowerModeRequested : ScalarValues::Boolean;
+
+        first start;
+        then chargeBatteryWhenAvailable;
+        then regulateOutputBus;
+        then evaluateLowPowerThreshold;
+        then done;
+
+        action chargeBatteryWhenAvailable;
+        action regulateOutputBus;
+        action evaluateLowPowerThreshold;
+    }
+
+    action def MeasureAndReport {
+        in item water : RiverWater;
+        out item telemetry : GaugeTelemetryPacket;
+        out item alert : AlertMessage;
+
+        first start;
+        then acquireStage;
+        then acquireVelocity;
+        then computeDischarge;
+        then evaluateAlerts;
+        then storeRecord;
+        then transmitTelemetry;
+        then done;
+
+        action acquireStage : AcquireStage;
+        action acquireVelocity : AcquireVelocity;
+        action computeDischarge : ComputeDischarge;
+        action evaluateAlerts : EvaluateAlerts;
+        action storeRecord;
+        action transmitTelemetry : TransmitTelemetry;
+    }
+
+    state def GaugeOperatingState {
+        entry action initializeStation;
+        exit action persistShutdownRecord;
+
+        state initializing;
+        state monitoring;
+        state transmitting;
+        state lowPower;
+        state alerting;
+        state maintenance;
+        state faulted;
+
+        initial then initializing;
+
+        transition initializing_to_monitoring
+            first initializing
+            accept after 30 [SI::second]
+            then monitoring;
+
+        transition monitoring_to_transmitting
+            first monitoring
+            accept when telemetryDue
+            then transmitting;
+
+        transition transmitting_to_monitoring
+            first transmitting
+            accept when transmissionAcknowledged
+            then monitoring;
+
+        transition monitoring_to_alerting
+            first monitoring
+            accept when stageExceedsFloodThreshold
+            then alerting;
+
+        transition alerting_to_monitoring
+            first alerting
+            accept when alertAcknowledged and stageBelowFloodThreshold
+            then monitoring;
+
+        transition monitoring_to_lowPower
+            first monitoring
+            accept when batteryStateOfChargeBelowMinimum
+            then lowPower;
+
+        transition lowPower_to_monitoring
+            first lowPower
+            accept when batteryStateOfChargeRecovered
+            then monitoring;
+
+        transition monitoring_to_maintenance
+            first monitoring
+            accept when maintenanceCommandReceived
+            then maintenance;
+
+        transition maintenance_to_monitoring
+            first maintenance
+            accept when maintenanceComplete
+            then monitoring;
+
+        transition any_to_faulted
+            first monitoring
+            accept when criticalSensorFailure
+            then faulted;
+
+        transition faulted_to_maintenance
+            first faulted
+            accept when technicianResetReceived
+            then maintenance;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject gauge : StreamGaugeSystem;
+
+        require constraint {
+            gauge shall continuously measure stream stage, estimate discharge, detect flood threshold exceedance, and communicate time-stamped hydrologic telemetry to remote operators.
+        }
+    }
+
+    requirement def StageAccuracyRequirement {
+        subject sensor : RadarStageSensor;
+
+        require constraint {
+            sensor.stageAccuracy <= 0.005 [SI::metre]
+        }
+    }
+
+    requirement def DischargeReportingRequirement {
+        subject gauge : StreamGaugeSystem;
+
+        require constraint {
+            gauge.telemetryPeriod <= 900 [SI::second]
+        }
+    }
+
+    requirement def FloodAlertRequirement {
+        subject gauge : StreamGaugeSystem;
+
+        require constraint {
+            gauge.floodStageThreshold < gauge.emergencyStageThreshold
+        }
+    }
+
+    requirement def PowerAutonomyRequirement {
+        subject power : SolarBatteryPowerSubsystem;
+
+        require constraint {
+            power.batteryStateOfCharge >= power.lowPowerThreshold
+        }
+    }
+
+    requirement def EnvironmentalProtectionRequirement {
+        subject enclosure : WeatherproofEnclosure;
+
+        require constraint {
+            enclosure.enclosurePressureEqualized == true
+        }
+    }
+
+    requirement def LocalRecordRetentionRequirement {
+        subject controller : GaugeController;
+
+        require constraint {
+            controller.localStorageCapacityDays >= 30
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by StreamGaugeSystem;
+    satisfy StageAccuracyRequirement by RadarStageSensor;
+    satisfy DischargeReportingRequirement by StreamGaugeSystem;
+    satisfy FloodAlertRequirement by StreamGaugeSystem;
+    satisfy PowerAutonomyRequirement by SolarBatteryPowerSubsystem;
+    satisfy EnvironmentalProtectionRequirement by WeatherproofEnclosure;
+    satisfy LocalRecordRetentionRequirement by GaugeController;
+
+    part streamGauge : StreamGaugeSystem {
+        attribute stationIdentifier = "SG-CH-017";
+        attribute samplePeriod = 300 [SI::second];
+        attribute telemetryPeriod = 900 [SI::second];
+        attribute floodStageThreshold = 4.5 [SI::metre];
+        attribute emergencyStageThreshold = 5.7 [SI::metre];
+    }
+
+}

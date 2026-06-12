@@ -1,0 +1,855 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-g7zegij_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb614-875b-7211-9ed7-ba9c1b9208f0
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Synthetic aperture radar and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SyntheticApertureRadarSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Power :> ISQ::power;
+    attribute def Distance :> ISQ::length;
+    attribute def Velocity :> ISQ::speed;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def DataRate :> ISQ::dataRate;
+    attribute def Resolution :> ISQ::length;
+
+    item def RFChirpPulse {
+        attribute centerFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute pulseDuration : TimeDuration;
+        attribute peakPower : Power;
+        attribute polarization : String;
+    }
+
+    item def EchoReturn {
+        attribute receiveFrequency : Frequency;
+        attribute timeDelay : TimeDuration;
+        attribute dopplerShift : Frequency;
+        attribute amplitude : Real;
+        attribute phase : Angle;
+        attribute polarization : String;
+    }
+
+    item def NavigationState {
+        attribute positionX : Distance;
+        attribute positionY : Distance;
+        attribute altitude : Distance;
+        attribute groundSpeed : Velocity;
+        attribute heading : Angle;
+        attribute timeTag : TimeDuration;
+    }
+
+    item def RawPhaseHistoryData {
+        attribute sampleRate : Frequency;
+        attribute quantizationBits : Integer;
+        attribute coherentPulseCount : Integer;
+        attribute dataRate : DataRate;
+    }
+
+    item def FocusedSARImage {
+        attribute rangeResolution : Resolution;
+        attribute azimuthResolution : Resolution;
+        attribute swathWidth : Distance;
+        attribute imageLength : Distance;
+        attribute pixelSpacing : Distance;
+        attribute georeferenced : Boolean;
+    }
+
+    port def RFTransmitPort {
+        out item pulse : RFChirpPulse;
+    }
+
+    port def RFReceivePort {
+        in item echo : EchoReturn;
+    }
+
+    port def NavigationPort {
+        out item navState : NavigationState;
+    }
+
+    port def DataPort {
+        out item rawData : RawPhaseHistoryData;
+        out item image : FocusedSARImage;
+    }
+
+    port def ControlPort {
+        in item command : String;
+        out item status : String;
+    }
+
+    part def SyntheticApertureRadar {
+        attribute operatingCenterFrequency : Frequency = 9.65 [GHz];
+        attribute chirpBandwidth : Frequency = 600 [MHz];
+        attribute peakTransmitPower : Power = 1200 [W];
+        attribute pulseRepetitionFrequency : Frequency = 1800 [Hz];
+        attribute nominalAltitude : Distance = 6000 [m];
+        attribute platformGroundSpeed : Velocity = 140 [m/s];
+        attribute nominalSwathWidth : Distance = 12000 [m];
+        attribute targetRangeResolution : Resolution = 0.25 [m];
+        attribute targetAzimuthResolution : Resolution = 0.30 [m];
+
+        port transmitAperture : RFTransmitPort;
+        port receiveAperture : RFReceivePort;
+        port navigationOut : NavigationPort;
+        port missionControl : ControlPort;
+        port productOut : DataPort;
+
+        part waveformGenerator {
+            attribute centerFrequency : Frequency = 9.65 [GHz];
+            attribute bandwidth : Frequency = 600 [MHz];
+            attribute pulseDuration : TimeDuration = 40 [us];
+            attribute prf : Frequency = 1800 [Hz];
+
+            port generatedPulse : RFTransmitPort;
+        }
+
+        part transmitter {
+            attribute peakPower : Power = 1200 [W];
+            attribute dutyCycle : Real = 0.072;
+            attribute transmitLoss : Real = 1.8;
+
+            port rfInput : RFTransmitPort;
+            port rfOutput : RFTransmitPort;
+        }
+
+        part antennaArray {
+            attribute apertureLength : Distance = 1.8 [m];
+            attribute apertureWidth : Distance = 0.35 [m];
+            attribute beamwidthAzimuth : Angle = 3.2 [deg];
+            attribute beamwidthElevation : Angle = 18 [deg];
+            attribute polarization : String = "HH";
+
+            port txPort : RFTransmitPort;
+            port rxPort : RFReceivePort;
+        }
+
+        part receiver {
+            attribute noiseFigure : Real = 3.1;
+            attribute instantaneousBandwidth : Frequency = 700 [MHz];
+            attribute dynamicRange : Real = 82.0;
+
+            port echoInput : RFReceivePort;
+            port sampledOutput : DataPort;
+        }
+
+        part timingAndSynchronizationUnit {
+            attribute clockStability : Real = 1.0e-10;
+            attribute coherentProcessingInterval : TimeDuration = 1.2 [s];
+            attribute timingJitter : TimeDuration = 2 [ns];
+
+            port control : ControlPort;
+        }
+
+        part navigationUnit {
+            attribute positionAccuracy : Distance = 0.05 [m];
+            attribute velocityAccuracy : Velocity = 0.02 [m/s];
+            attribute attitudeAccuracy : Angle = 0.01 [deg];
+
+            port navOutput : NavigationPort;
+        }
+
+        part signalProcessor {
+            attribute rangeCompressionEnabled : Boolean = true;
+            attribute azimuthCompressionEnabled : Boolean = true;
+            attribute motionCompensationEnabled : Boolean = true;
+            attribute autofocusEnabled : Boolean = true;
+            attribute outputRangeResolution : Resolution = 0.25 [m];
+            attribute outputAzimuthResolution : Resolution = 0.30 [m];
+
+            port rawInput : DataPort;
+            port navInput : NavigationPort;
+            port focusedOutput : DataPort;
+        }
+
+        part missionComputer {
+            attribute selectedMode : String = "Stripmap";
+            attribute commandedSwathWidth : Distance = 12000 [m];
+            attribute commandedLookAngle : Angle = 35 [deg];
+            attribute imageProductLatency : TimeDuration = 8 [s];
+
+            port operatorControl : ControlPort;
+            port processorControl : ControlPort;
+            port imageOutput : DataPort;
+        }
+
+        connect waveformGenerator.generatedPulse to transmitter.rfInput;
+        connect transmitter.rfOutput to antennaArray.txPort;
+        connect antennaArray.rxPort to receiver.echoInput;
+        connect receiver.sampledOutput to signalProcessor.rawInput;
+        connect navigationUnit.navOutput to signalProcessor.navInput;
+        connect navigationUnit.navOutput to navigationOut;
+        connect signalProcessor.focusedOutput to missionComputer.imageOutput;
+        connect missionComputer.imageOutput to productOut;
+        connect missionControl to missionComputer.operatorControl;
+        connect timingAndSynchronizationUnit.control to missionComputer.processorControl;
+        connect transmitter.rfOutput to transmitAperture;
+        connect receiveAperture to antennaArray.rxPort;
+
+        action transmitWidebandPulse {
+            in pulseCommand : String;
+            out pulse : RFChirpPulse;
+
+            first start;
+            then synthesizeChirp;
+            then amplifyPulse;
+            then radiatePulse;
+            then done;
+
+            action synthesizeChirp {
+                out pulse : RFChirpPulse {
+                    centerFrequency = 9.65 [GHz];
+                    bandwidth = 600 [MHz];
+                    pulseDuration = 40 [us];
+                    peakPower = 2 [W];
+                    polarization = "HH";
+                }
+            }
+
+            action amplifyPulse {
+                in lowPowerPulse : RFChirpPulse;
+                out highPowerPulse : RFChirpPulse {
+                    peakPower = 1200 [W];
+                }
+            }
+
+            action radiatePulse {
+                in highPowerPulse : RFChirpPulse;
+            }
+        }
+
+        action collectCoherentEchoes {
+            in navState : NavigationState;
+            in echo : EchoReturn;
+            out phaseHistory : RawPhaseHistoryData;
+
+            first receiveEcho;
+            then digitizeEcho;
+            then timeTagSamples;
+            then accumulateSyntheticAperture;
+            then done;
+
+            action receiveEcho;
+            action digitizeEcho;
+            action timeTagSamples;
+            action accumulateSyntheticAperture {
+                out phaseHistory : RawPhaseHistoryData {
+                    sampleRate = 900 [MHz];
+                    quantizationBits = 14;
+                    coherentPulseCount = 2160;
+                    dataRate = 2.4 [Gbps];
+                }
+            }
+        }
+
+        action formFocusedImage {
+            in phaseHistory : RawPhaseHistoryData;
+            in navigation : NavigationState;
+            out image : FocusedSARImage;
+
+            first rangeCompress;
+            then applyMotionCompensation;
+            then azimuthCompress;
+            then autofocus;
+            then geocode;
+            then done;
+
+            action rangeCompress;
+            action applyMotionCompensation;
+            action azimuthCompress;
+            action autofocus;
+            action geocode {
+                out image : FocusedSARImage {
+                    rangeResolution = 0.25 [m];
+                    azimuthResolution = 0.30 [m];
+                    swathWidth = 12000 [m];
+                    imageLength = 25000 [m];
+                    pixelSpacing = 0.20 [m];
+                    georeferenced = true;
+                }
+            }
+        }
+
+        state def SAROperationalState {
+            state poweredOff;
+            state initializing;
+            state standby;
+            state calibrating;
+            state imaging;
+            state processing;
+            state downlinking;
+            state faulted;
+
+            transition initial then poweredOff;
+
+            transition powerOn
+                first poweredOff
+                accept "PowerOn"
+                then initializing;
+
+            transition initializationComplete
+                first initializing
+                accept "BuiltInTestPassed"
+                then standby;
+
+            transition calibrationCommanded
+                first standby
+                accept "Calibrate"
+                then calibrating;
+
+            transition calibrationComplete
+                first calibrating
+                accept "CalibrationValid"
+                then standby;
+
+            transition imagingCommanded
+                first standby
+                accept "StartImaging"
+                then imaging;
+
+            transition apertureCollected
+                first imaging
+                accept "SyntheticApertureComplete"
+                then processing;
+
+            transition imageReady
+                first processing
+                accept "ImageProductReady"
+                then downlinking;
+
+            transition downlinkComplete
+                first downlinking
+                accept "ProductDelivered"
+                then standby;
+
+            transition faultDetectedFromInitializing
+                first initializing
+                accept "CriticalFault"
+                then faulted;
+
+            transition faultDetectedFromStandby
+                first standby
+                accept "CriticalFault"
+                then faulted;
+
+            transition faultDetectedFromImaging
+                first imaging
+                accept "CriticalFault"
+                then faulted;
+
+            transition resetFault
+                first faulted
+                accept "Reset"
+                then initializing;
+        }
+
+        perform transmitWidebandPulse;
+        perform collectCoherentEchoes;
+        perform formFocusedImage;
+    }
+
+    part def AirborneSARInstallation {
+        part radar : SyntheticApertureRadar;
+        part aircraftPlatform {
+            attribute cruiseAltitude : Distance = 6000 [m];
+            attribute cruiseGroundSpeed : Velocity = 140 [m/s];
+            attribute trackStability : Distance = 0.15 [m];
+        }
+
+        part groundScene {
+            attribute sceneCenterRange : Distance = 18000 [m];
+            attribute illuminatedSwathWidth : Distance = 12000 [m];
+            attribute surfaceType : String = "Mixed terrain and infrastructure";
+        }
+
+        connect radar.navigationOut to radar.signalProcessor.navInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The Synthetic Aperture Radar shall illuminate a ground scene with coherent wideband radio-frequency pulses, receive time-delayed and Doppler-shifted echoes over platform motion, coherently process the resulting phase history, and produce a high-resolution two-dimensional radar image independent of daylight and with useful performance through cloud cover, smoke, haze, and light precipitation. */
+
+        require constraint {
+            sar.targetRangeResolution <= 0.30 [m] and
+            sar.targetAzimuthResolution <= 0.35 [m] and
+            sar.nominalSwathWidth >= 10000 [m]
+        }
+    }
+
+    requirement def CoherentCollectionRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The radar shall preserve phase coherence across a synthetic aperture collection interval long enough to focus azimuth detail finer than the physical antenna beamwidth. */
+
+        require constraint {
+            sar.pulseRepetitionFrequency >= 1000 [Hz] and
+            sar.platformGroundSpeed >= 80 [m/s]
+        }
+    }
+
+    requirement def WidebandWaveformRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The radar shall transmit a linear frequency-modulated waveform with bandwidth sufficient to support sub-meter range resolution. */
+
+        require constraint {
+            sar.chirpBandwidth >= 500 [MHz] and
+            sar.peakTransmitPower >= 1000 [W]
+        }
+    }
+
+    requirement def ImageProductRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The radar shall output a georeferenced focused SAR image containing range and azimuth resolution metadata, swath width, pixel spacing, and image validity status. */
+
+        require constraint {
+            sar.signalProcessor.motionCompensationEnabled == true and
+            sar.signalProcessor.azimuthCompressionEnabled == true and
+            sar.signalProcessor.rangeCompressionEnabled == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SyntheticApertureRadar;
+    satisfy CoherentCollectionRequirement by SyntheticApertureRadar;
+    satisfy WidebandWaveformRequirement by SyntheticApertureRadar;
+    satisfy ImageProductRequirement by SyntheticApertureRadar;
+
+}
+tokens used
+4,262
+package SyntheticApertureRadarSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Power :> ISQ::power;
+    attribute def Distance :> ISQ::length;
+    attribute def Velocity :> ISQ::speed;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def DataRate :> ISQ::dataRate;
+    attribute def Resolution :> ISQ::length;
+
+    item def RFChirpPulse {
+        attribute centerFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute pulseDuration : TimeDuration;
+        attribute peakPower : Power;
+        attribute polarization : String;
+    }
+
+    item def EchoReturn {
+        attribute receiveFrequency : Frequency;
+        attribute timeDelay : TimeDuration;
+        attribute dopplerShift : Frequency;
+        attribute amplitude : Real;
+        attribute phase : Angle;
+        attribute polarization : String;
+    }
+
+    item def NavigationState {
+        attribute positionX : Distance;
+        attribute positionY : Distance;
+        attribute altitude : Distance;
+        attribute groundSpeed : Velocity;
+        attribute heading : Angle;
+        attribute timeTag : TimeDuration;
+    }
+
+    item def RawPhaseHistoryData {
+        attribute sampleRate : Frequency;
+        attribute quantizationBits : Integer;
+        attribute coherentPulseCount : Integer;
+        attribute dataRate : DataRate;
+    }
+
+    item def FocusedSARImage {
+        attribute rangeResolution : Resolution;
+        attribute azimuthResolution : Resolution;
+        attribute swathWidth : Distance;
+        attribute imageLength : Distance;
+        attribute pixelSpacing : Distance;
+        attribute georeferenced : Boolean;
+    }
+
+    port def RFTransmitPort {
+        out item pulse : RFChirpPulse;
+    }
+
+    port def RFReceivePort {
+        in item echo : EchoReturn;
+    }
+
+    port def NavigationPort {
+        out item navState : NavigationState;
+    }
+
+    port def DataPort {
+        out item rawData : RawPhaseHistoryData;
+        out item image : FocusedSARImage;
+    }
+
+    port def ControlPort {
+        in item command : String;
+        out item status : String;
+    }
+
+    part def SyntheticApertureRadar {
+        attribute operatingCenterFrequency : Frequency = 9.65 [GHz];
+        attribute chirpBandwidth : Frequency = 600 [MHz];
+        attribute peakTransmitPower : Power = 1200 [W];
+        attribute pulseRepetitionFrequency : Frequency = 1800 [Hz];
+        attribute nominalAltitude : Distance = 6000 [m];
+        attribute platformGroundSpeed : Velocity = 140 [m/s];
+        attribute nominalSwathWidth : Distance = 12000 [m];
+        attribute targetRangeResolution : Resolution = 0.25 [m];
+        attribute targetAzimuthResolution : Resolution = 0.30 [m];
+
+        port transmitAperture : RFTransmitPort;
+        port receiveAperture : RFReceivePort;
+        port navigationOut : NavigationPort;
+        port missionControl : ControlPort;
+        port productOut : DataPort;
+
+        part waveformGenerator {
+            attribute centerFrequency : Frequency = 9.65 [GHz];
+            attribute bandwidth : Frequency = 600 [MHz];
+            attribute pulseDuration : TimeDuration = 40 [us];
+            attribute prf : Frequency = 1800 [Hz];
+
+            port generatedPulse : RFTransmitPort;
+        }
+
+        part transmitter {
+            attribute peakPower : Power = 1200 [W];
+            attribute dutyCycle : Real = 0.072;
+            attribute transmitLoss : Real = 1.8;
+
+            port rfInput : RFTransmitPort;
+            port rfOutput : RFTransmitPort;
+        }
+
+        part antennaArray {
+            attribute apertureLength : Distance = 1.8 [m];
+            attribute apertureWidth : Distance = 0.35 [m];
+            attribute beamwidthAzimuth : Angle = 3.2 [deg];
+            attribute beamwidthElevation : Angle = 18 [deg];
+            attribute polarization : String = "HH";
+
+            port txPort : RFTransmitPort;
+            port rxPort : RFReceivePort;
+        }
+
+        part receiver {
+            attribute noiseFigure : Real = 3.1;
+            attribute instantaneousBandwidth : Frequency = 700 [MHz];
+            attribute dynamicRange : Real = 82.0;
+
+            port echoInput : RFReceivePort;
+            port sampledOutput : DataPort;
+        }
+
+        part timingAndSynchronizationUnit {
+            attribute clockStability : Real = 1.0e-10;
+            attribute coherentProcessingInterval : TimeDuration = 1.2 [s];
+            attribute timingJitter : TimeDuration = 2 [ns];
+
+            port control : ControlPort;
+        }
+
+        part navigationUnit {
+            attribute positionAccuracy : Distance = 0.05 [m];
+            attribute velocityAccuracy : Velocity = 0.02 [m/s];
+            attribute attitudeAccuracy : Angle = 0.01 [deg];
+
+            port navOutput : NavigationPort;
+        }
+
+        part signalProcessor {
+            attribute rangeCompressionEnabled : Boolean = true;
+            attribute azimuthCompressionEnabled : Boolean = true;
+            attribute motionCompensationEnabled : Boolean = true;
+            attribute autofocusEnabled : Boolean = true;
+            attribute outputRangeResolution : Resolution = 0.25 [m];
+            attribute outputAzimuthResolution : Resolution = 0.30 [m];
+
+            port rawInput : DataPort;
+            port navInput : NavigationPort;
+            port focusedOutput : DataPort;
+        }
+
+        part missionComputer {
+            attribute selectedMode : String = "Stripmap";
+            attribute commandedSwathWidth : Distance = 12000 [m];
+            attribute commandedLookAngle : Angle = 35 [deg];
+            attribute imageProductLatency : TimeDuration = 8 [s];
+
+            port operatorControl : ControlPort;
+            port processorControl : ControlPort;
+            port imageOutput : DataPort;
+        }
+
+        connect waveformGenerator.generatedPulse to transmitter.rfInput;
+        connect transmitter.rfOutput to antennaArray.txPort;
+        connect antennaArray.rxPort to receiver.echoInput;
+        connect receiver.sampledOutput to signalProcessor.rawInput;
+        connect navigationUnit.navOutput to signalProcessor.navInput;
+        connect navigationUnit.navOutput to navigationOut;
+        connect signalProcessor.focusedOutput to missionComputer.imageOutput;
+        connect missionComputer.imageOutput to productOut;
+        connect missionControl to missionComputer.operatorControl;
+        connect timingAndSynchronizationUnit.control to missionComputer.processorControl;
+        connect transmitter.rfOutput to transmitAperture;
+        connect receiveAperture to antennaArray.rxPort;
+
+        action transmitWidebandPulse {
+            in pulseCommand : String;
+            out pulse : RFChirpPulse;
+
+            first start;
+            then synthesizeChirp;
+            then amplifyPulse;
+            then radiatePulse;
+            then done;
+
+            action synthesizeChirp {
+                out pulse : RFChirpPulse {
+                    centerFrequency = 9.65 [GHz];
+                    bandwidth = 600 [MHz];
+                    pulseDuration = 40 [us];
+                    peakPower = 2 [W];
+                    polarization = "HH";
+                }
+            }
+
+            action amplifyPulse {
+                in lowPowerPulse : RFChirpPulse;
+                out highPowerPulse : RFChirpPulse {
+                    peakPower = 1200 [W];
+                }
+            }
+
+            action radiatePulse {
+                in highPowerPulse : RFChirpPulse;
+            }
+        }
+
+        action collectCoherentEchoes {
+            in navState : NavigationState;
+            in echo : EchoReturn;
+            out phaseHistory : RawPhaseHistoryData;
+
+            first receiveEcho;
+            then digitizeEcho;
+            then timeTagSamples;
+            then accumulateSyntheticAperture;
+            then done;
+
+            action receiveEcho;
+            action digitizeEcho;
+            action timeTagSamples;
+            action accumulateSyntheticAperture {
+                out phaseHistory : RawPhaseHistoryData {
+                    sampleRate = 900 [MHz];
+                    quantizationBits = 14;
+                    coherentPulseCount = 2160;
+                    dataRate = 2.4 [Gbps];
+                }
+            }
+        }
+
+        action formFocusedImage {
+            in phaseHistory : RawPhaseHistoryData;
+            in navigation : NavigationState;
+            out image : FocusedSARImage;
+
+            first rangeCompress;
+            then applyMotionCompensation;
+            then azimuthCompress;
+            then autofocus;
+            then geocode;
+            then done;
+
+            action rangeCompress;
+            action applyMotionCompensation;
+            action azimuthCompress;
+            action autofocus;
+            action geocode {
+                out image : FocusedSARImage {
+                    rangeResolution = 0.25 [m];
+                    azimuthResolution = 0.30 [m];
+                    swathWidth = 12000 [m];
+                    imageLength = 25000 [m];
+                    pixelSpacing = 0.20 [m];
+                    georeferenced = true;
+                }
+            }
+        }
+
+        state def SAROperationalState {
+            state poweredOff;
+            state initializing;
+            state standby;
+            state calibrating;
+            state imaging;
+            state processing;
+            state downlinking;
+            state faulted;
+
+            transition initial then poweredOff;
+
+            transition powerOn
+                first poweredOff
+                accept "PowerOn"
+                then initializing;
+
+            transition initializationComplete
+                first initializing
+                accept "BuiltInTestPassed"
+                then standby;
+
+            transition calibrationCommanded
+                first standby
+                accept "Calibrate"
+                then calibrating;
+
+            transition calibrationComplete
+                first calibrating
+                accept "CalibrationValid"
+                then standby;
+
+            transition imagingCommanded
+                first standby
+                accept "StartImaging"
+                then imaging;
+
+            transition apertureCollected
+                first imaging
+                accept "SyntheticApertureComplete"
+                then processing;
+
+            transition imageReady
+                first processing
+                accept "ImageProductReady"
+                then downlinking;
+
+            transition downlinkComplete
+                first downlinking
+                accept "ProductDelivered"
+                then standby;
+
+            transition faultDetectedFromInitializing
+                first initializing
+                accept "CriticalFault"
+                then faulted;
+
+            transition faultDetectedFromStandby
+                first standby
+                accept "CriticalFault"
+                then faulted;
+
+            transition faultDetectedFromImaging
+                first imaging
+                accept "CriticalFault"
+                then faulted;
+
+            transition resetFault
+                first faulted
+                accept "Reset"
+                then initializing;
+        }
+
+        perform transmitWidebandPulse;
+        perform collectCoherentEchoes;
+        perform formFocusedImage;
+    }
+
+    part def AirborneSARInstallation {
+        part radar : SyntheticApertureRadar;
+        part aircraftPlatform {
+            attribute cruiseAltitude : Distance = 6000 [m];
+            attribute cruiseGroundSpeed : Velocity = 140 [m/s];
+            attribute trackStability : Distance = 0.15 [m];
+        }
+
+        part groundScene {
+            attribute sceneCenterRange : Distance = 18000 [m];
+            attribute illuminatedSwathWidth : Distance = 12000 [m];
+            attribute surfaceType : String = "Mixed terrain and infrastructure";
+        }
+
+        connect radar.navigationOut to radar.signalProcessor.navInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The Synthetic Aperture Radar shall illuminate a ground scene with coherent wideband radio-frequency pulses, receive time-delayed and Doppler-shifted echoes over platform motion, coherently process the resulting phase history, and produce a high-resolution two-dimensional radar image independent of daylight and with useful performance through cloud cover, smoke, haze, and light precipitation. */
+
+        require constraint {
+            sar.targetRangeResolution <= 0.30 [m] and
+            sar.targetAzimuthResolution <= 0.35 [m] and
+            sar.nominalSwathWidth >= 10000 [m]
+        }
+    }
+
+    requirement def CoherentCollectionRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The radar shall preserve phase coherence across a synthetic aperture collection interval long enough to focus azimuth detail finer than the physical antenna beamwidth. */
+
+        require constraint {
+            sar.pulseRepetitionFrequency >= 1000 [Hz] and
+            sar.platformGroundSpeed >= 80 [m/s]
+        }
+    }
+
+    requirement def WidebandWaveformRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The radar shall transmit a linear frequency-modulated waveform with bandwidth sufficient to support sub-meter range resolution. */
+
+        require constraint {
+            sar.chirpBandwidth >= 500 [MHz] and
+            sar.peakTransmitPower >= 1000 [W]
+        }
+    }
+
+    requirement def ImageProductRequirement {
+        subject sar : SyntheticApertureRadar;
+
+        doc /* The radar shall output a georeferenced focused SAR image containing range and azimuth resolution metadata, swath width, pixel spacing, and image validity status. */
+
+        require constraint {
+            sar.signalProcessor.motionCompensationEnabled == true and
+            sar.signalProcessor.azimuthCompressionEnabled == true and
+            sar.signalProcessor.rangeCompressionEnabled == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SyntheticApertureRadar;
+    satisfy CoherentCollectionRequirement by SyntheticApertureRadar;
+    satisfy WidebandWaveformRequirement by SyntheticApertureRadar;
+    satisfy ImageProductRequirement by SyntheticApertureRadar;
+
+}

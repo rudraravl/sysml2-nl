@@ -1,0 +1,345 @@
+package LightAddressablePotentiometricSensingUnit {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def OpticalPower :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Time :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def Concentration {
+    unit = "mol/L";
+  }
+
+  attribute def pH {
+    unit = "pH";
+  }
+
+  attribute def Position2D {
+    attribute x : Length;
+    attribute y : Length;
+  }
+
+  item def OpticalPulse {
+    attribute wavelength : Length;
+    attribute power : OpticalPower;
+    attribute modulationFrequency : Frequency;
+    attribute spotPosition : Position2D;
+  }
+
+  item def BiasSignal {
+    attribute voltage : Voltage;
+    attribute sweepRate : Voltage;
+  }
+
+  item def PhotocurrentSignal {
+    attribute amplitude : Current;
+    attribute phase : Real;
+    attribute frequency : Frequency;
+    attribute biasVoltage : Voltage;
+  }
+
+  item def ChemicalSample {
+    attribute hydrogenIonActivity : Real;
+    attribute analyteConcentration : Concentration;
+    attribute temperature : Temperature;
+  }
+
+  item def MeasurementResult {
+    attribute measuredPH : pH;
+    attribute analyteConcentration : Concentration;
+    attribute temperature : Temperature;
+    attribute confidence : Real;
+    attribute timestamp : Time;
+  }
+
+  port def OpticalOutPort {
+    out item pulse : OpticalPulse;
+  }
+
+  port def OpticalInPort {
+    in item pulse : OpticalPulse;
+  }
+
+  port def ElectricalBiasPort {
+    out item bias : BiasSignal;
+  }
+
+  port def BiasInputPort {
+    in item bias : BiasSignal;
+  }
+
+  port def CurrentOutputPort {
+    out item current : PhotocurrentSignal;
+  }
+
+  port def CurrentInputPort {
+    in item current : PhotocurrentSignal;
+  }
+
+  port def FluidPort {
+    in item sample : ChemicalSample;
+  }
+
+  port def DataOutPort {
+    out item result : MeasurementResult;
+  }
+
+  part def LightAddressablePotentiometricSensor {
+    port opticalInput : OpticalInPort;
+    port biasInput : BiasInputPort;
+    port sampleInput : FluidPort;
+    port photocurrentOutput : CurrentOutputPort;
+
+    part semiconductorSubstrate;
+    part insulatingLayer;
+    part ionSensitiveMembrane;
+    part referenceElectrode;
+
+    attribute membraneSensitivity : Voltage = 0.057 [SI::volt];
+    attribute operatingTemperature : Temperature = 298.15 [SI::kelvin];
+    attribute activeAreaWidth : Length = 10 [SI::millimetre];
+    attribute activeAreaHeight : Length = 10 [SI::millimetre];
+
+    action generatePhotocurrent {
+      in item pulse : OpticalPulse;
+      in item bias : BiasSignal;
+      in item sample : ChemicalSample;
+      out item current : PhotocurrentSignal;
+
+      current.frequency = pulse.modulationFrequency;
+      current.biasVoltage = bias.voltage;
+      current.amplitude = 2.5e-6 [SI::ampere];
+      current.phase = 0.0;
+    }
+  }
+
+  part def ModulatedLightSource {
+    port opticalOutput : OpticalOutPort;
+
+    attribute wavelength : Length = 850 [SI::nanometre];
+    attribute maximumOpticalPower : OpticalPower = 20e-3 [SI::watt];
+    attribute modulationFrequency : Frequency = 1e3 [SI::hertz];
+
+    action illuminateSpot {
+      in attribute targetPosition : Position2D;
+      out item pulse : OpticalPulse;
+
+      pulse.wavelength = wavelength;
+      pulse.power = 10e-3 [SI::watt];
+      pulse.modulationFrequency = modulationFrequency;
+      pulse.spotPosition = targetPosition;
+    }
+  }
+
+  part def BiasController {
+    port biasOutput : ElectricalBiasPort;
+
+    attribute startVoltage : Voltage = -1.0 [SI::volt];
+    attribute stopVoltage : Voltage = 1.0 [SI::volt];
+    attribute sweepRate : Voltage = 0.010 [SI::volt];
+
+    action applyBias {
+      in attribute requestedVoltage : Voltage;
+      out item bias : BiasSignal;
+
+      bias.voltage = requestedVoltage;
+      bias.sweepRate = sweepRate;
+    }
+  }
+
+  part def TransimpedanceAmplifier {
+    port currentInput : CurrentInputPort;
+    port signalOutput : DataOutPort;
+
+    attribute gain : Real = 1000000.0;
+    attribute inputNoiseCurrent : Current = 5e-12 [SI::ampere];
+
+    action convertCurrentToMeasurement {
+      in item current : PhotocurrentSignal;
+      out item partialResult : MeasurementResult;
+
+      partialResult.confidence = 0.95;
+      partialResult.timestamp = 0 [SI::second];
+    }
+  }
+
+  part def SignalProcessor {
+    port currentInput : CurrentInputPort;
+    port resultOutput : DataOutPort;
+
+    attribute calibrationSlope : Voltage = 0.057 [SI::volt];
+    attribute calibrationOffset : Voltage = 0.000 [SI::volt];
+    attribute minimumConfidence : Real = 0.90;
+
+    action extractSurfacePotential {
+      in item currentTrace : PhotocurrentSignal;
+      out attribute surfacePotential : Voltage;
+
+      surfacePotential = currentTrace.biasVoltage;
+    }
+
+    action computePH {
+      in attribute surfacePotential : Voltage;
+      in item sample : ChemicalSample;
+      out item result : MeasurementResult;
+
+      result.measuredPH = 7.0;
+      result.analyteConcentration = sample.analyteConcentration;
+      result.temperature = sample.temperature;
+      result.confidence = 0.95;
+      result.timestamp = 0 [SI::second];
+    }
+  }
+
+  part def SampleInterface {
+    port fluidInput : FluidPort;
+    port sensorFluidOutput : FluidPort;
+
+    attribute sampleVolume : Volume = 250 [SI::microlitre];
+    attribute flowRate : Real = 50.0;
+
+    action deliverSample {
+      in item incoming : ChemicalSample;
+      out item conditioned : ChemicalSample;
+
+      conditioned.hydrogenIonActivity = incoming.hydrogenIonActivity;
+      conditioned.analyteConcentration = incoming.analyteConcentration;
+      conditioned.temperature = incoming.temperature;
+    }
+  }
+
+  part def TemperatureSensor {
+    port dataOutput : DataOutPort;
+
+    attribute accuracy : Temperature = 0.2 [SI::kelvin];
+
+    action measureTemperature {
+      in item sample : ChemicalSample;
+      out attribute temperature : Temperature;
+
+      temperature = sample.temperature;
+    }
+  }
+
+  part def SensingUnit {
+    port sampleIn : FluidPort;
+    port measurementOut : DataOutPort;
+
+    part lightSource : ModulatedLightSource;
+    part biasController : BiasController;
+    part laps : LightAddressablePotentiometricSensor;
+    part amplifier : TransimpedanceAmplifier;
+    part processor : SignalProcessor;
+    part sampleInterface : SampleInterface;
+    part temperatureSensor : TemperatureSensor;
+
+    connect lightSource.opticalOutput to laps.opticalInput;
+    connect biasController.biasOutput to laps.biasInput;
+    connect sampleIn to sampleInterface.fluidInput;
+    connect sampleInterface.sensorFluidOutput to laps.sampleInput;
+    connect laps.photocurrentOutput to amplifier.currentInput;
+    connect laps.photocurrentOutput to processor.currentInput;
+    connect processor.resultOutput to measurementOut;
+
+    state def MeasurementStateMachine {
+      state idle;
+      state initialize;
+      state calibrate;
+      state acceptSample;
+      state scanSurface;
+      state extractSignal;
+      state computeResult;
+      state publishResult;
+      state fault;
+
+      transition first idle;
+      transition idle_to_initialize from idle to initialize;
+      transition initialize_to_calibrate from initialize to calibrate;
+      transition calibrate_to_acceptSample from calibrate to acceptSample;
+      transition acceptSample_to_scanSurface from acceptSample to scanSurface;
+      transition scanSurface_to_extractSignal from scanSurface to extractSignal;
+      transition extractSignal_to_computeResult from extractSignal to computeResult;
+      transition computeResult_to_publishResult from computeResult to publishResult;
+      transition publishResult_to_idle from publishResult to idle;
+      transition scanSurface_to_fault from scanSurface to fault;
+      transition fault_to_idle from fault to idle;
+    }
+
+    action performMeasurement {
+      in item sample : ChemicalSample;
+      out item result : MeasurementResult;
+
+      action deliver : sampleInterface.deliverSample;
+      action illuminate : lightSource.illuminateSpot;
+      action bias : biasController.applyBias;
+      action sense : laps.generatePhotocurrent;
+      action process : processor.computePH;
+
+      result.measuredPH = 7.0;
+      result.analyteConcentration = sample.analyteConcentration;
+      result.temperature = sample.temperature;
+      result.confidence = 0.95;
+      result.timestamp = 0 [SI::second];
+    }
+  }
+
+  requirement def MeasurePHRequirement {
+    doc /* The sensing unit shall measure hydrogen ion activity as pH using a light-addressable potentiometric sensor. */
+    require constraint { measuredPH >= 2.0 and measuredPH <= 12.0 }
+  }
+
+  requirement def AccuracyRequirement {
+    doc /* The sensing unit shall report pH with absolute error not greater than 0.05 pH at 298.15 K after calibration. */
+    require constraint { absoluteError <= 0.05 }
+  }
+
+  requirement def SpatialAddressingRequirement {
+    doc /* The sensing unit shall address at least 100 distinct sensing locations on the LAPS active area using a modulated light spot. */
+    require constraint { addressedLocations >= 100 }
+  }
+
+  requirement def ResponseTimeRequirement {
+    doc /* The sensing unit shall produce a valid measurement result within 10 seconds after sample acceptance. */
+    require constraint { responseTime <= 10 [SI::second] }
+  }
+
+  requirement def OpticalSafetyRequirement {
+    doc /* The optical source shall limit emitted optical power at the sensor surface to 20 mW or less. */
+    require constraint { opticalPower <= 20e-3 [SI::watt] }
+  }
+
+  requirement def ConfidenceRequirement {
+    doc /* The sensing unit shall mark a result valid only when computed confidence is at least 0.90. */
+    require constraint { confidence >= 0.90 }
+  }
+
+  satisfy MeasurePHRequirement by SensingUnit;
+  satisfy AccuracyRequirement by SignalProcessor;
+  satisfy SpatialAddressingRequirement by ModulatedLightSource;
+  satisfy ResponseTimeRequirement by SensingUnit;
+  satisfy OpticalSafetyRequirement by ModulatedLightSource;
+  satisfy ConfidenceRequirement by SignalProcessor;
+
+}

@@ -1,0 +1,486 @@
+package CatalyticBeadSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PercentLEL :> Real {
+        doc /* Percent of lower explosive limit. */
+        unit = "%LEL";
+    }
+
+    attribute def DegreeCelsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def Millivolt :> Real {
+        unit = "mV";
+    }
+
+    attribute def Milliampere :> Real {
+        unit = "mA";
+    }
+
+    attribute def Milliwatt :> Real {
+        unit = "mW";
+    }
+
+    attribute def Ohm :> Real {
+        unit = "Ohm";
+    }
+
+    item def CombustibleGasMixture {
+        attribute methaneEquivalentConcentration : PercentLEL;
+        attribute oxygenConcentration : Real unit "%";
+        attribute humidity : Real unit "%RH";
+        attribute ambientTemperature : DegreeCelsius;
+        attribute pressure : Real unit "kPa";
+    }
+
+    item def SensorElectricalSignal {
+        attribute bridgeDifferentialVoltage : Millivolt;
+        attribute beadResistanceActive : Ohm;
+        attribute beadResistanceReference : Ohm;
+        attribute heaterCurrent : Milliampere;
+    }
+
+    item def GasMeasurement {
+        attribute concentration : PercentLEL;
+        attribute compensatedConcentration : PercentLEL;
+        attribute confidence : Real;
+        attribute timestamp : Real unit "s";
+        attribute sensorTemperature : DegreeCelsius;
+        attribute status : MeasurementStatus;
+    }
+
+    enum def MeasurementStatus {
+        enum ok;
+        enum warmup;
+        enum inhibited;
+        enum fault;
+        enum overRange;
+        enum calibrationRequired;
+    }
+
+    enum def UnitMode {
+        enum off;
+        enum warmup;
+        enum monitoring;
+        enum calibration;
+        enum fault;
+        enum inhibited;
+    }
+
+    port def GasInletPort {
+        in item gasSample : CombustibleGasMixture;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Real unit "V";
+        in attribute supplyCurrentLimit : Milliampere;
+    }
+
+    port def DigitalMeasurementPort {
+        out item measurement : GasMeasurement;
+        out attribute faultCode : Integer;
+        in attribute resetCommand : Boolean;
+        in attribute calibrationCommand : Boolean;
+        in attribute inhibitCommand : Boolean;
+    }
+
+    port def AnalogDiagnosticPort {
+        out attribute bridgeVoltage : Millivolt;
+        out attribute activeBeadResistance : Ohm;
+        out attribute referenceBeadResistance : Ohm;
+    }
+
+    part def FlameArrestor {
+        port inlet : GasInletPort;
+        port protectedOutlet : GasInletPort;
+
+        attribute meshMaterial : String = "316 stainless steel";
+        attribute maximumPoreDiameter : Real unit "mm" = 0.45;
+        attribute pressureDropAtNominalFlow : Real unit "Pa" = 35.0;
+        attribute ignitionContainmentRating : Boolean = true;
+    }
+
+    part def DiffusionChamber {
+        port chamberInlet : GasInletPort;
+        port sensorExposure : GasInletPort;
+
+        attribute internalVolume : Real unit "cm^3" = 1.8;
+        attribute responseTimeT50 : Real unit "s" = 6.0;
+        attribute responseTimeT90 : Real unit "s" = 18.0;
+        attribute hydrophobicMembrane : Boolean = true;
+    }
+
+    part def CatalyticBeadSensor {
+        port gasExposure : GasInletPort;
+        port electricalOutput {
+            out item signal : SensorElectricalSignal;
+        }
+
+        attribute activeBeadNominalResistance : Ohm = 3.5;
+        attribute referenceBeadNominalResistance : Ohm = 3.5;
+        attribute operatingTemperature : DegreeCelsius = 500.0;
+        attribute heaterPower : Milliwatt = 420.0;
+        attribute sensitivity : Real unit "mV/%LEL" = 0.22;
+        attribute measurableRange : PercentLEL = 100.0;
+        attribute poisonResistanceLevel : String = "silicone-resistant catalytic coating";
+        attribute minimumOxygenForValidReading : Real unit "%" = 10.0;
+        attribute beadThermalTimeConstant : Real unit "s" = 4.0;
+
+        action oxidizeCombustibleGas {
+            in item exposedGas : CombustibleGasMixture;
+            out item rawSignal : SensorElectricalSignal;
+
+            assert exposedGas.oxygenConcentration >= minimumOxygenForValidReading;
+            rawSignal.bridgeDifferentialVoltage =
+                sensitivity * exposedGas.methaneEquivalentConcentration;
+            rawSignal.beadResistanceActive =
+                activeBeadNominalResistance + 0.002 * exposedGas.methaneEquivalentConcentration;
+            rawSignal.beadResistanceReference =
+                referenceBeadNominalResistance;
+            rawSignal.heaterCurrent = 145.0;
+        }
+    }
+
+    part def WheatstoneBridgeExcitation {
+        port power : ElectricalPowerPort;
+        port sensorDrive {
+            out attribute bridgeVoltageSupply : Real unit "V";
+            out attribute regulatedHeaterCurrent : Milliampere;
+            in item sensorSignal : SensorElectricalSignal;
+        }
+
+        attribute excitationVoltage : Real unit "V" = 2.50;
+        attribute currentLimit : Milliampere = 180.0;
+        attribute bridgeBalanceOffset : Millivolt = 0.0;
+        attribute stability : Real unit "%/month" = 0.5;
+    }
+
+    part def SignalConditioner {
+        port rawInput {
+            in item signal : SensorElectricalSignal;
+        }
+
+        port conditionedOutput {
+            out attribute amplifiedVoltage : Millivolt;
+            out attribute sensorTemperatureEstimate : DegreeCelsius;
+        }
+
+        attribute instrumentationGain : Real = 32.0;
+        attribute lowPassCutoffFrequency : Real unit "Hz" = 2.0;
+        attribute adcResolution : Integer = 16;
+        attribute inputReferredNoise : Millivolt = 0.02;
+
+        action amplifyAndFilter {
+            in item rawSignal : SensorElectricalSignal;
+            out attribute filteredVoltage : Millivolt;
+            filteredVoltage =
+                rawSignal.bridgeDifferentialVoltage * instrumentationGain;
+        }
+    }
+
+    part def TemperatureHumidityCompensator {
+        port gasContext {
+            in item gasSample : CombustibleGasMixture;
+        }
+
+        port signalContext {
+            in attribute amplifiedVoltage : Millivolt;
+        }
+
+        port compensatedOutput {
+            out item measurement : GasMeasurement;
+        }
+
+        attribute zeroOffset : Millivolt = 0.0;
+        attribute spanCoefficient : Real unit "%LEL/mV" = 0.142;
+        attribute temperatureCoefficient : Real unit "%LEL/degC" = -0.035;
+        attribute humidityCoefficient : Real unit "%LEL/%RH" = -0.006;
+        attribute calibrationTemperature : DegreeCelsius = 20.0;
+        attribute calibrationHumidity : Real unit "%RH" = 50.0;
+
+        action computeConcentration {
+            in attribute voltage : Millivolt;
+            in item sample : CombustibleGasMixture;
+            out item result : GasMeasurement;
+
+            result.concentration =
+                (voltage - zeroOffset) * spanCoefficient;
+
+            result.compensatedConcentration =
+                result.concentration
+                + temperatureCoefficient * (sample.ambientTemperature - calibrationTemperature)
+                + humidityCoefficient * (sample.humidity - calibrationHumidity);
+
+            result.sensorTemperature = sample.ambientTemperature;
+            result.confidence = 0.95;
+            result.status = MeasurementStatus::ok;
+        }
+    }
+
+    part def Microcontroller {
+        port conditionedInput {
+            in attribute amplifiedVoltage : Millivolt;
+            in attribute sensorTemperatureEstimate : DegreeCelsius;
+        }
+
+        port environmentInput {
+            in item gasSample : CombustibleGasMixture;
+        }
+
+        port measurementOutput : DigitalMeasurementPort;
+
+        attribute samplePeriod : Real unit "s" = 0.5;
+        attribute warmupDuration : Real unit "s" = 60.0;
+        attribute overRangeThreshold : PercentLEL = 100.0;
+        attribute alarmThresholdLow : PercentLEL = 10.0;
+        attribute alarmThresholdHigh : PercentLEL = 20.0;
+        attribute mode : UnitMode = UnitMode::off;
+        attribute lastMeasurement : GasMeasurement;
+
+        action sampleAndPublish {
+            in attribute voltage : Millivolt;
+            in item gasSample : CombustibleGasMixture;
+            out item publishedMeasurement : GasMeasurement;
+
+            publishedMeasurement.concentration = voltage * 0.142;
+            publishedMeasurement.compensatedConcentration =
+                publishedMeasurement.concentration
+                - 0.035 * (gasSample.ambientTemperature - 20.0)
+                - 0.006 * (gasSample.humidity - 50.0);
+            publishedMeasurement.timestamp = 0.0;
+            publishedMeasurement.sensorTemperature = gasSample.ambientTemperature;
+            publishedMeasurement.confidence = 0.95;
+
+            if publishedMeasurement.compensatedConcentration > overRangeThreshold {
+                publishedMeasurement.status = MeasurementStatus::overRange;
+            } else if gasSample.oxygenConcentration < 10.0 {
+                publishedMeasurement.status = MeasurementStatus::inhibited;
+            } else {
+                publishedMeasurement.status = MeasurementStatus::ok;
+            }
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state Warmup;
+            state Monitoring;
+            state Calibration;
+            state Inhibited;
+            state Fault;
+
+            transition initial then Off;
+
+            transition powerApplied
+                first Off
+                then Warmup;
+
+            transition warmupComplete
+                first Warmup
+                then Monitoring
+                accept after warmupDuration;
+
+            transition calibrationRequested
+                first Monitoring
+                then Calibration
+                accept measurementOutput.calibrationCommand;
+
+            transition calibrationComplete
+                first Calibration
+                then Monitoring;
+
+            transition inhibitRequested
+                first Monitoring
+                then Inhibited
+                accept measurementOutput.inhibitCommand;
+
+            transition inhibitCleared
+                first Inhibited
+                then Monitoring
+                accept not measurementOutput.inhibitCommand;
+
+            transition faultDetected
+                first Warmup
+                then Fault;
+
+            transition monitoringFaultDetected
+                first Monitoring
+                then Fault;
+
+            transition resetFault
+                first Fault
+                then Warmup
+                accept measurementOutput.resetCommand;
+        }
+    }
+
+    part def Diagnostics {
+        port sensorInput {
+            in item signal : SensorElectricalSignal;
+        }
+
+        port diagnosticOutput : AnalogDiagnosticPort;
+
+        attribute openCircuitResistanceThreshold : Ohm = 20.0;
+        attribute shortCircuitResistanceThreshold : Ohm = 0.5;
+        attribute driftLimit : PercentLEL = 5.0;
+        attribute calibrationInterval : Real unit "d" = 180.0;
+
+        action evaluateSensorHealth {
+            in item signal : SensorElectricalSignal;
+            out attribute faultCode : Integer;
+
+            if signal.beadResistanceActive > openCircuitResistanceThreshold {
+                faultCode = 101;
+            } else if signal.beadResistanceActive < shortCircuitResistanceThreshold {
+                faultCode = 102;
+            } else if signal.beadResistanceReference > openCircuitResistanceThreshold {
+                faultCode = 103;
+            } else {
+                faultCode = 0;
+            }
+        }
+    }
+
+    part def CatalyticBeadSensingUnit {
+        port gasInlet : GasInletPort;
+        port powerInput : ElectricalPowerPort;
+        port measurementInterface : DigitalMeasurementPort;
+        port diagnosticInterface : AnalogDiagnosticPort;
+
+        part flameArrestor : FlameArrestor;
+        part diffusionChamber : DiffusionChamber;
+        part beadSensor : CatalyticBeadSensor;
+        part bridgeExcitation : WheatstoneBridgeExcitation;
+        part signalConditioner : SignalConditioner;
+        part compensator : TemperatureHumidityCompensator;
+        part controller : Microcontroller;
+        part diagnostics : Diagnostics;
+
+        attribute enclosureIngressProtection : String = "IP66";
+        attribute operatingTemperatureMin : DegreeCelsius = -40.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 75.0;
+        attribute measurementRange : PercentLEL = 100.0;
+        attribute accuracyBelow50LEL : PercentLEL = 3.0;
+        attribute accuracyAbove50LEL : Real unit "%" = 5.0;
+        attribute responseTimeT90 : Real unit "s" = 25.0;
+        attribute supplyVoltageNominal : Real unit "V" = 24.0;
+        attribute maximumPowerConsumption : Real unit "W" = 1.2;
+
+        connect gasInlet to flameArrestor.inlet;
+        connect flameArrestor.protectedOutlet to diffusionChamber.chamberInlet;
+        connect diffusionChamber.sensorExposure to beadSensor.gasExposure;
+
+        connect powerInput to bridgeExcitation.power;
+        connect beadSensor.electricalOutput.signal to bridgeExcitation.sensorDrive.sensorSignal;
+        connect beadSensor.electricalOutput.signal to signalConditioner.rawInput.signal;
+        connect beadSensor.electricalOutput.signal to diagnostics.sensorInput.signal;
+
+        connect signalConditioner.conditionedOutput.amplifiedVoltage to controller.conditionedInput.amplifiedVoltage;
+        connect signalConditioner.conditionedOutput.sensorTemperatureEstimate to controller.conditionedInput.sensorTemperatureEstimate;
+
+        connect diffusionChamber.sensorExposure.gasSample to controller.environmentInput.gasSample;
+        connect diffusionChamber.sensorExposure.gasSample to compensator.gasContext.gasSample;
+        connect signalConditioner.conditionedOutput.amplifiedVoltage to compensator.signalContext.amplifiedVoltage;
+
+        connect controller.measurementOutput to measurementInterface;
+        connect diagnostics.diagnosticOutput to diagnosticInterface;
+    }
+
+    requirement def ReqDetectCombustibleGas {
+        subject sensingUnit : CatalyticBeadSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRange >= 100.0 [%LEL]
+        }
+
+        doc /* The sensing unit shall measure combustible gas concentration from 0 to 100 %LEL using a catalytic bead sensor. */
+    }
+
+    requirement def ReqCatalyticBeadPrinciple {
+        subject sensor : CatalyticBeadSensor;
+
+        require constraint {
+            sensor.operatingTemperature >= 450.0 [degC] and
+            sensor.operatingTemperature <= 550.0 [degC]
+        }
+
+        doc /* The active bead shall oxidize combustible gas on a catalyst-coated element and produce a resistance change relative to a reference bead. */
+    }
+
+    requirement def ReqOxygenValidity {
+        subject sensor : CatalyticBeadSensor;
+
+        require constraint {
+            sensor.minimumOxygenForValidReading == 10.0 [%]
+        }
+
+        doc /* The sensing unit shall mark readings inhibited when oxygen concentration is below the minimum needed for catalytic oxidation. */
+    }
+
+    requirement def ReqResponseTime {
+        subject sensingUnit : CatalyticBeadSensingUnit;
+
+        require constraint {
+            sensingUnit.responseTimeT90 <= 30.0 [s]
+        }
+
+        doc /* The sensing unit shall report 90 percent of final indication within 30 seconds for a methane step input. */
+    }
+
+    requirement def ReqAccuracy {
+        subject sensingUnit : CatalyticBeadSensingUnit;
+
+        require constraint {
+            sensingUnit.accuracyBelow50LEL <= 3.0 [%LEL] and
+            sensingUnit.accuracyAbove50LEL <= 5.0 [%]
+        }
+
+        doc /* The sensing unit shall maintain specified accuracy after temperature and humidity compensation. */
+    }
+
+    requirement def ReqFaultDetection {
+        subject diagnostics : Diagnostics;
+
+        require constraint {
+            diagnostics.openCircuitResistanceThreshold == 20.0 [Ohm] and
+            diagnostics.shortCircuitResistanceThreshold == 0.5 [Ohm]
+        }
+
+        doc /* The sensing unit shall detect catalytic bead open-circuit and short-circuit faults. */
+    }
+
+    requirement def ReqExplosionProtection {
+        subject arrestor : FlameArrestor;
+
+        require constraint {
+            arrestor.ignitionContainmentRating == true and
+            arrestor.maximumPoreDiameter <= 0.45 [mm]
+        }
+
+        doc /* The gas path shall include a flame arrestor between the external atmosphere and heated catalytic bead. */
+    }
+
+    requirement def ReqEnvironmentalOperation {
+        subject sensingUnit : CatalyticBeadSensingUnit;
+
+        require constraint {
+            sensingUnit.operatingTemperatureMin <= -40.0 [degC] and
+            sensingUnit.operatingTemperatureMax >= 75.0 [degC]
+        }
+
+        doc /* The sensing unit shall operate across the specified industrial ambient temperature range. */
+    }
+
+    satisfy ReqDetectCombustibleGas by CatalyticBeadSensingUnit;
+    satisfy ReqCatalyticBeadPrinciple by CatalyticBeadSensor;
+    satisfy ReqOxygenValidity by CatalyticBeadSensor;
+    satisfy ReqResponseTime by CatalyticBeadSensingUnit;
+    satisfy ReqAccuracy by CatalyticBeadSensingUnit;
+    satisfy ReqFaultDetection by Diagnostics;
+    satisfy ReqExplosionProtection by FlameArrestor;
+    satisfy ReqEnvironmentalOperation by CatalyticBeadSensingUnit;
+}

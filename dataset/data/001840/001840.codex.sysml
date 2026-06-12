@@ -1,0 +1,508 @@
+package PulsometerSteamPumpSubsystem {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Pressure {
+        :>> unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :>> unit = "degC";
+    }
+
+    attribute def VolumetricFlowRate {
+        :>> unit = "m^3/s";
+    }
+
+    attribute def MassFlowRate {
+        :>> unit = "kg/s";
+    }
+
+    attribute def Volume {
+        :>> unit = "m^3";
+    }
+
+    attribute def Length {
+        :>> unit = "m";
+    }
+
+    attribute def TimeDuration {
+        :>> unit = "s";
+    }
+
+    attribute def SteamQuality {
+        :>> unit = "1";
+    }
+
+    attribute def Efficiency {
+        :>> unit = "1";
+    }
+
+    attribute def LevelFraction {
+        :>> unit = "1";
+    }
+
+    item def LiquidWater {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute volumetricFlow : VolumetricFlowRate;
+        attribute density : Real;
+    }
+
+    item def Steam {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+        attribute quality : SteamQuality;
+    }
+
+    item def Condensate {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute volumetricFlow : VolumetricFlowRate;
+    }
+
+    item def ExhaustVapor {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+    }
+
+    port def LiquidPort {
+        inout item fluid : LiquidWater;
+        attribute portPressure : Pressure;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def SteamInletPort {
+        in item steamSupply : Steam;
+        attribute portPressure : Pressure;
+        attribute massFlow : MassFlowRate;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustVapor;
+        attribute portPressure : Pressure;
+        attribute massFlow : MassFlowRate;
+    }
+
+    port def DrainPort {
+        out item drainFlow : Condensate;
+        attribute flowRate : VolumetricFlowRate;
+    }
+
+    port def SignalPort {
+        inout item signal : Boolean;
+    }
+
+    action def AdmitSteamToChamber {
+        in chamberPressure : Pressure;
+        in supplyPressure : Pressure;
+        out admitted : Boolean;
+    }
+
+    action def CondenseSteamInChamber {
+        in chamberTemperature : Temperature;
+        in liquidTemperature : Temperature;
+        out vacuumCreated : Boolean;
+        out resultingPressure : Pressure;
+    }
+
+    action def DrawLiquidIntoChamber {
+        in suctionPressure : Pressure;
+        in chamberPressure : Pressure;
+        out inletValveOpen : Boolean;
+        out chamberLevel : LevelFraction;
+    }
+
+    action def DischargeLiquidFromChamber {
+        in chamberPressure : Pressure;
+        in deliveryPressure : Pressure;
+        out dischargeValveOpen : Boolean;
+        out deliveredFlow : VolumetricFlowRate;
+    }
+
+    action def AlternatePulseChambers {
+        in leftReady : Boolean;
+        in rightReady : Boolean;
+        out leftAdmitSteam : Boolean;
+        out rightAdmitSteam : Boolean;
+    }
+
+    action def VentResidualSteam {
+        in chamberPressure : Pressure;
+        out vented : Boolean;
+    }
+
+    state def PulsometerChamberCycle {
+        attribute chamberLevel : LevelFraction;
+        attribute chamberPressure : Pressure;
+        attribute chamberTemperature : Temperature;
+
+        state idle;
+        state steamAdmission;
+        state liquidDischarge;
+        state steamCondensation;
+        state liquidSuction;
+        state venting;
+
+        entry action initialize {
+            chamberLevel = 0.0;
+        }
+
+        transition first idle then steamAdmission;
+
+        transition steamAdmission then liquidDischarge
+            accept after 0.35 [chamberPressure > 220.0];
+
+        transition liquidDischarge then venting
+            accept after 1.20 [chamberLevel < 0.15];
+
+        transition venting then steamCondensation
+            accept after 0.15;
+
+        transition steamCondensation then liquidSuction
+            accept after 0.60 [chamberPressure < 55.0];
+
+        transition liquidSuction then steamAdmission
+            accept after 1.40 [chamberLevel > 0.85];
+    }
+
+    part def CheckValve {
+        port upstream : LiquidPort;
+        port downstream : LiquidPort;
+
+        attribute crackingPressure : Pressure = 3.0;
+        attribute reverseLeakageFlow : VolumetricFlowRate = 0.000001;
+        attribute isOpen : Boolean;
+
+        constraint valveDirection {
+            downstream.portPressure >= upstream.portPressure - crackingPressure or isOpen == true;
+        }
+    }
+
+    part def SteamStopValve {
+        port inlet : SteamInletPort;
+        port outlet : SteamInletPort;
+        port command : SignalPort;
+
+        attribute commandedOpen : Boolean;
+        attribute maximumMassFlow : MassFlowRate = 0.12;
+
+        constraint steamFlowLimit {
+            outlet.massFlow <= maximumMassFlow;
+        }
+    }
+
+    part def SteamDistributionBall {
+        port steamSupply : SteamInletPort;
+        port leftSteam : SteamInletPort;
+        port rightSteam : SteamInletPort;
+        port exhaust : ExhaustPort;
+
+        attribute positionLeft : Boolean;
+        attribute switchPressureDifference : Pressure = 18.0;
+
+        action switchChambers : AlternatePulseChambers;
+    }
+
+    part def PulsometerChamber {
+        port steamPort : SteamInletPort;
+        port suctionPort : LiquidPort;
+        port deliveryPort : LiquidPort;
+        port exhaustPort : ExhaustPort;
+        port drainPort : DrainPort;
+
+        attribute chamberVolume : Volume = 0.045;
+        attribute maximumWorkingPressure : Pressure = 450.0;
+        attribute minimumVacuumPressure : Pressure = 35.0;
+        attribute nominalPulsePeriod : TimeDuration = 3.7;
+        attribute liquidLevel : LevelFraction;
+        attribute internalPressure : Pressure;
+        attribute wallTemperature : Temperature;
+
+        part inletCheckValve : CheckValve;
+        part deliveryCheckValve : CheckValve;
+
+        state cycle : PulsometerChamberCycle;
+
+        action admitSteam : AdmitSteamToChamber;
+        action condenseSteam : CondenseSteamInChamber;
+        action drawLiquid : DrawLiquidIntoChamber;
+        action dischargeLiquid : DischargeLiquidFromChamber;
+        action ventSteam : VentResidualSteam;
+
+        connect suctionPort to inletCheckValve.upstream;
+        connect inletCheckValve.downstream to deliveryCheckValve.upstream;
+        connect deliveryCheckValve.downstream to deliveryPort;
+
+        constraint chamberPressureLimit {
+            internalPressure <= maximumWorkingPressure;
+        }
+
+        constraint chamberVacuumCapability {
+            internalPressure >= minimumVacuumPressure;
+        }
+
+        constraint levelBounds {
+            liquidLevel >= 0.0 and liquidLevel <= 1.0;
+        }
+    }
+
+    part def SteamChest {
+        port steamInlet : SteamInletPort;
+        port leftOutlet : SteamInletPort;
+        port rightOutlet : SteamInletPort;
+        port exhaustOutlet : ExhaustPort;
+
+        attribute inletPressure : Pressure;
+        attribute chestTemperature : Temperature;
+
+        part stopValve : SteamStopValve;
+        part distributionBall : SteamDistributionBall;
+
+        connect steamInlet to stopValve.inlet;
+        connect stopValve.outlet to distributionBall.steamSupply;
+        connect distributionBall.leftSteam to leftOutlet;
+        connect distributionBall.rightSteam to rightOutlet;
+        connect distributionBall.exhaust to exhaustOutlet;
+    }
+
+    part def SuctionManifold {
+        port sourceConnection : LiquidPort;
+        port leftBranch : LiquidPort;
+        port rightBranch : LiquidPort;
+
+        attribute staticSuctionHead : Length = 2.5;
+        attribute allowableNpshMargin : Pressure = 12.0;
+        attribute manifoldPressure : Pressure;
+
+        constraint suctionPressureAvailable {
+            manifoldPressure > 35.0;
+        }
+    }
+
+    part def DeliveryManifold {
+        port leftBranch : LiquidPort;
+        port rightBranch : LiquidPort;
+        port dischargeConnection : LiquidPort;
+
+        attribute staticDeliveryHead : Length = 18.0;
+        attribute dischargePressure : Pressure;
+        attribute ratedFlow : VolumetricFlowRate = 0.018;
+
+        constraint deliveryPressureRequirement {
+            dischargePressure >= 180.0;
+        }
+    }
+
+    part def CondensateDrain {
+        port leftDrain : DrainPort;
+        port rightDrain : DrainPort;
+        port drainOutlet : DrainPort;
+
+        attribute maximumDrainFlow : VolumetricFlowRate = 0.002;
+    }
+
+    part def PulsometerSteamPump {
+        port steamSupply : SteamInletPort;
+        port suctionInlet : LiquidPort;
+        port dischargeOutlet : LiquidPort;
+        port exhaustOutlet : ExhaustPort;
+        port condensateOutlet : DrainPort;
+        port startCommand : SignalPort;
+
+        attribute ratedSteamPressure : Pressure = 275.0;
+        attribute ratedDischargePressure : Pressure = 180.0;
+        attribute ratedLiquidFlow : VolumetricFlowRate = 0.018;
+        attribute steamConsumption : MassFlowRate = 0.09;
+        attribute hydraulicEfficiency : Efficiency = 0.42;
+        attribute maximumLiquidTemperature : Temperature = 82.0;
+
+        part steamChest : SteamChest;
+        part leftChamber : PulsometerChamber;
+        part rightChamber : PulsometerChamber;
+        part suctionManifold : SuctionManifold;
+        part deliveryManifold : DeliveryManifold;
+        part condensateDrain : CondensateDrain;
+
+        connect steamSupply to steamChest.steamInlet;
+        connect steamChest.leftOutlet to leftChamber.steamPort;
+        connect steamChest.rightOutlet to rightChamber.steamPort;
+        connect steamChest.exhaustOutlet to exhaustOutlet;
+
+        connect suctionInlet to suctionManifold.sourceConnection;
+        connect suctionManifold.leftBranch to leftChamber.suctionPort;
+        connect suctionManifold.rightBranch to rightChamber.suctionPort;
+
+        connect leftChamber.deliveryPort to deliveryManifold.leftBranch;
+        connect rightChamber.deliveryPort to deliveryManifold.rightBranch;
+        connect deliveryManifold.dischargeConnection to dischargeOutlet;
+
+        connect leftChamber.drainPort to condensateDrain.leftDrain;
+        connect rightChamber.drainPort to condensateDrain.rightDrain;
+        connect condensateDrain.drainOutlet to condensateOutlet;
+
+        connect startCommand to steamChest.stopValve.command;
+
+        constraint liquidFlowRating {
+            dischargeOutlet.flowRate >= ratedLiquidFlow;
+        }
+
+        constraint steamPressureOperatingRange {
+            steamSupply.portPressure >= 200.0 and steamSupply.portPressure <= 450.0;
+        }
+
+        constraint dischargePressureCapability {
+            dischargeOutlet.portPressure >= ratedDischargePressure;
+        }
+
+        constraint liquidTemperatureLimit {
+            suctionInlet.fluid.temperature <= maximumLiquidTemperature;
+        }
+    }
+
+    part def FluidSourceTank {
+        port outlet : LiquidPort;
+
+        attribute inventoryVolume : Volume = 5.0;
+        attribute liquidTemperature : Temperature = 25.0;
+        attribute ventedPressure : Pressure = 101.3;
+    }
+
+    part def SteamHeader {
+        port outlet : SteamInletPort;
+
+        attribute headerPressure : Pressure = 300.0;
+        attribute headerTemperature : Temperature = 155.0;
+        attribute quality : SteamQuality = 0.98;
+    }
+
+    part def ReceivingVessel {
+        port inlet : LiquidPort;
+
+        attribute requiredInletPressure : Pressure = 170.0;
+        attribute receivedVolume : Volume;
+    }
+
+    part def ExhaustSilencer {
+        port inlet : ExhaustPort;
+        port outlet : ExhaustPort;
+
+        attribute backPressure : Pressure = 105.0;
+        attribute soundAttenuation : Real = 18.0;
+    }
+
+    part def PumpingSubsystem {
+        port fluidSupplyInterface : LiquidPort;
+        port fluidDeliveryInterface : LiquidPort;
+        port steamUtilityInterface : SteamInletPort;
+        port exhaustInterface : ExhaustPort;
+        port condensateInterface : DrainPort;
+        port operatorStart : SignalPort;
+
+        attribute subsystemRatedFlow : VolumetricFlowRate = 0.018;
+        attribute subsystemRatedLift : Length = 18.0;
+        attribute startupTime : TimeDuration = 8.0;
+        attribute availability : Efficiency = 0.97;
+
+        part sourceTank : FluidSourceTank;
+        part steamHeader : SteamHeader;
+        part pump : PulsometerSteamPump;
+        part receiver : ReceivingVessel;
+        part exhaustSilencer : ExhaustSilencer;
+
+        connect sourceTank.outlet to pump.suctionInlet;
+        connect steamHeader.outlet to pump.steamSupply;
+        connect pump.dischargeOutlet to receiver.inlet;
+        connect pump.exhaustOutlet to exhaustSilencer.inlet;
+        connect exhaustSilencer.outlet to exhaustInterface;
+        connect pump.condensateOutlet to condensateInterface;
+        connect operatorStart to pump.startCommand;
+
+        connect fluidSupplyInterface to sourceTank.outlet;
+        connect fluidDeliveryInterface to receiver.inlet;
+        connect steamUtilityInterface to steamHeader.outlet;
+
+        constraint subsystemFlowRequirement {
+            fluidDeliveryInterface.flowRate >= subsystemRatedFlow;
+        }
+
+        constraint subsystemLiftRequirement {
+            pump.deliveryManifold.staticDeliveryHead >= subsystemRatedLift;
+        }
+    }
+
+    requirement def MoveFluidRequirement {
+        doc /* The pumping subsystem shall move liquid water from a vented source to a receiving vessel using steam as the motive energy. */
+        subject subsystem : PumpingSubsystem;
+        require constraint {
+            subsystem.fluidDeliveryInterface.flowRate >= 0.018
+        }
+    }
+
+    requirement def PulsometerPrincipleRequirement {
+        doc /* The pump shall use alternating steam admission and condensation in two chambers to create discharge pressure and suction vacuum without a piston or rotating impeller. */
+        subject pump : PulsometerSteamPump;
+        require constraint {
+            pump.leftChamber.nominalPulsePeriod > 0.0 and pump.rightChamber.nominalPulsePeriod > 0.0
+        }
+    }
+
+    requirement def SteamSupplyRequirement {
+        doc /* The subsystem shall operate from saturated or near-saturated steam between 200 kPa and 450 kPa. */
+        subject pump : PulsometerSteamPump;
+        require constraint {
+            pump.steamSupply.portPressure >= 200.0 and pump.steamSupply.portPressure <= 450.0
+        }
+    }
+
+    requirement def DischargePressureRequirement {
+        doc /* The subsystem shall deliver liquid to the receiving vessel at not less than 180 kPa. */
+        subject pump : PulsometerSteamPump;
+        require constraint {
+            pump.dischargeOutlet.portPressure >= 180.0
+        }
+    }
+
+    requirement def SuctionRequirement {
+        doc /* The suction manifold shall maintain adequate pressure margin during chamber filling. */
+        subject manifold : SuctionManifold;
+        require constraint {
+            manifold.manifoldPressure > 35.0
+        }
+    }
+
+    requirement def CheckValveRequirement {
+        doc /* Each chamber shall include suction and delivery check valves to prevent reverse flow during alternating pulses. */
+        subject chamber : PulsometerChamber;
+        require constraint {
+            chamber.inletCheckValve.reverseLeakageFlow <= 0.000001 and chamber.deliveryCheckValve.reverseLeakageFlow <= 0.000001
+        }
+    }
+
+    requirement def LiquidTemperatureRequirement {
+        doc /* Suction liquid temperature shall remain low enough to condense admitted steam and create vacuum. */
+        subject pump : PulsometerSteamPump;
+        require constraint {
+            pump.suctionInlet.fluid.temperature <= 82.0
+        }
+    }
+
+    requirement def ExhaustRequirement {
+        doc /* Exhaust steam and vapor shall be routed to a silenced exhaust interface without obstructing chamber cycling. */
+        subject silencer : ExhaustSilencer;
+        require constraint {
+            silencer.backPressure <= 115.0
+        }
+    }
+
+    satisfy MoveFluidRequirement by PumpingSubsystem;
+    satisfy PulsometerPrincipleRequirement by PulsometerSteamPump;
+    satisfy SteamSupplyRequirement by PulsometerSteamPump;
+    satisfy DischargePressureRequirement by PulsometerSteamPump;
+    satisfy SuctionRequirement by SuctionManifold;
+    satisfy CheckValveRequirement by PulsometerChamber;
+    satisfy LiquidTemperatureRequirement by PulsometerSteamPump;
+    satisfy ExhaustRequirement by ExhaustSilencer;
+}

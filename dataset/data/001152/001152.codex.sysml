@@ -1,0 +1,538 @@
+package NanoTetherballSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Concentration :> Real {
+        unit = mol / m^3;
+    }
+
+    attribute def BindingFraction :> Real {
+        unit = one;
+    }
+
+    attribute def ResonanceFrequency :> Real {
+        unit = Hz;
+    }
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    attribute def Pressure :> Real {
+        unit = Pa;
+    }
+
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+
+    attribute def Current :> Real {
+        unit = A;
+    }
+
+    attribute def TimeInterval :> Real {
+        unit = s;
+    }
+
+    attribute def SignalToNoiseRatio :> Real {
+        unit = dB;
+    }
+
+    attribute def MeasurementUncertainty :> Real {
+        unit = one;
+    }
+
+    attribute def FlowRate :> Real {
+        unit = m^3 / s;
+    }
+
+    item def SampleFluid {
+        attribute analyteConcentration : Concentration;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute volumetricFlow : FlowRate;
+    }
+
+    item def FunctionalizedNanoTetherball {
+        attribute tetherLength : Length;
+        attribute beadDiameter : Length;
+        attribute receptorSurfaceDensity : Real;
+        attribute bindingFraction : BindingFraction;
+        attribute effectiveMass : Mass;
+    }
+
+    item def OpticalInterrogationSignal {
+        attribute wavelength : Length;
+        attribute opticalPower : Power;
+        attribute modulationFrequency : ResonanceFrequency;
+    }
+
+    item def RawSensorSignal {
+        attribute measuredFrequency : ResonanceFrequency;
+        attribute amplitude : Voltage;
+        attribute noiseRms : Voltage;
+        attribute acquisitionTime : TimeInterval;
+    }
+
+    item def ConditionedSignal {
+        attribute filteredFrequency : ResonanceFrequency;
+        attribute snr : SignalToNoiseRatio;
+        attribute baselineCorrectedShift : ResonanceFrequency;
+    }
+
+    item def ConcentrationEstimate {
+        attribute value : Concentration;
+        attribute uncertainty : MeasurementUncertainty;
+        attribute timestamp : TimeInterval;
+        attribute valid : Boolean;
+    }
+
+    item def CalibrationProfile {
+        attribute baselineFrequency : ResonanceFrequency;
+        attribute sensitivity : Real;
+        attribute zeroOffset : Concentration;
+        attribute temperatureCoefficient : Real;
+        attribute validUntil : TimeInterval;
+    }
+
+    port def FluidInletPort {
+        in item sample : SampleFluid;
+    }
+
+    port def FluidOutletPort {
+        out item sample : SampleFluid;
+    }
+
+    port def OpticalDrivePort {
+        out item drive : OpticalInterrogationSignal;
+    }
+
+    port def OpticalSensePort {
+        in item response : RawSensorSignal;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def MeasurementOutputPort {
+        out item estimate : ConcentrationEstimate;
+    }
+
+    port def CalibrationPort {
+        in item profile : CalibrationProfile;
+    }
+
+    port def DiagnosticPort {
+        out attribute sensorReady : Boolean;
+        out attribute faultActive : Boolean;
+        out attribute snr : SignalToNoiseRatio;
+        out attribute internalTemperature : Temperature;
+    }
+
+    part def NanoTetherballSensor {
+        port fluidIn : FluidInletPort;
+        port fluidOut : FluidOutletPort;
+        port opticalDrive : OpticalDrivePort;
+        port opticalResponse : OpticalSensePort;
+
+        part tetherball : FunctionalizedNanoTetherball {
+            attribute tetherLength = 250 [nm];
+            attribute beadDiameter = 80 [nm];
+            attribute bindingFraction : BindingFraction;
+        }
+
+        attribute resonanceFrequency : ResonanceFrequency;
+        attribute baselineFrequency : ResonanceFrequency = 2.4 [MHz];
+        attribute minimumDetectableShift : ResonanceFrequency = 5 [Hz];
+        attribute operatingTemperature : Temperature;
+        attribute analyteBindingFraction : BindingFraction;
+
+        action def TransduceBindingToFrequencyShift {
+            in item sample : SampleFluid;
+            in item probe : FunctionalizedNanoTetherball;
+            out item raw : RawSensorSignal;
+
+            first start;
+            then updateBindingFraction;
+            then computeMassLoading;
+            then computeResonanceShift;
+            then emitRawSignal;
+            then done;
+
+            action updateBindingFraction;
+            action computeMassLoading;
+            action computeResonanceShift;
+            action emitRawSignal;
+        }
+
+        perform action transduction : TransduceBindingToFrequencyShift;
+    }
+
+    part def MicrofluidicInterface {
+        port inlet : FluidInletPort;
+        port outlet : FluidOutletPort;
+
+        attribute channelVolume : Volume = 2.5 [uL];
+        attribute nominalFlowRate : FlowRate = 1.0e-9 [m^3/s];
+        attribute maxPressure : Pressure = 150 [kPa];
+
+        action def DeliverSample {
+            in item incoming : SampleFluid;
+            out item conditioned : SampleFluid;
+
+            first start;
+            then regulateFlow;
+            then stabilizePressure;
+            then passToSensor;
+            then done;
+
+            action regulateFlow;
+            action stabilizePressure;
+            action passToSensor;
+        }
+
+        perform action delivery : DeliverSample;
+    }
+
+    part def OpticalInterrogator {
+        port driveOut : OpticalDrivePort;
+        port responseIn : OpticalSensePort;
+
+        attribute laserWavelength : Length = 635 [nm];
+        attribute opticalPower : Power = 2.0 [mW];
+        attribute modulationFrequency : ResonanceFrequency;
+
+        action def SweepAndTrackResonance {
+            in attribute expectedBaseline : ResonanceFrequency;
+            out item raw : RawSensorSignal;
+
+            first start;
+            then sweepFrequency;
+            then locateResonancePeak;
+            then lockTrackingLoop;
+            then reportSignal;
+            then done;
+
+            action sweepFrequency;
+            action locateResonancePeak;
+            action lockTrackingLoop;
+            action reportSignal;
+        }
+
+        perform action interrogation : SweepAndTrackResonance;
+    }
+
+    part def SignalConditioner {
+        port rawIn : OpticalSensePort;
+
+        attribute lowPassCutoff : ResonanceFrequency = 50 [kHz];
+        attribute minimumSnr : SignalToNoiseRatio = 20 [dB];
+
+        action def FilterAndValidate {
+            in item raw : RawSensorSignal;
+            out item conditioned : ConditionedSignal;
+
+            first start;
+            then removeOutliers;
+            then filterNoise;
+            then correctBaseline;
+            then evaluateSnr;
+            then done;
+
+            action removeOutliers;
+            action filterNoise;
+            action correctBaseline;
+            action evaluateSnr;
+        }
+
+        perform action conditioning : FilterAndValidate;
+    }
+
+    part def ConcentrationEstimator {
+        port measurementOut : MeasurementOutputPort;
+        port calibrationIn : CalibrationPort;
+
+        attribute activeCalibration : CalibrationProfile;
+        attribute maximumRelativeUncertainty : MeasurementUncertainty = 0.05 [one];
+        attribute responseTime : TimeInterval = 1.0 [s];
+
+        action def EstimateConcentration {
+            in item signal : ConditionedSignal;
+            in item calibration : CalibrationProfile;
+            out item estimate : ConcentrationEstimate;
+
+            first start;
+            then applyTemperatureCompensation;
+            then convertFrequencyShiftToConcentration;
+            then computeUncertainty;
+            then setValidityFlag;
+            then publishEstimate;
+            then done;
+
+            action applyTemperatureCompensation;
+            action convertFrequencyShiftToConcentration;
+            action computeUncertainty;
+            action setValidityFlag;
+            action publishEstimate;
+        }
+
+        perform action estimation : EstimateConcentration;
+    }
+
+    part def HealthMonitor {
+        port diagnostics : DiagnosticPort;
+
+        attribute internalTemperature : Temperature;
+        attribute maxInternalTemperature : Temperature = 323.15 [K];
+        attribute sensorReady : Boolean;
+        attribute faultActive : Boolean;
+        attribute latestSnr : SignalToNoiseRatio;
+
+        state def MonitoringStateMachine {
+            state initializing;
+            state selfTest;
+            state ready;
+            state measuring;
+            state degraded;
+            state fault;
+
+            entry action initializeElectronics;
+            entry action verifyCalibration;
+            entry action checkOptics;
+            entry action checkFluidPath;
+
+            transition first initializing then selfTest;
+            transition selfTest then ready
+                if calibrationValid and opticsStable and fluidPathClear;
+            transition selfTest then fault
+                if not calibrationValid or not opticsStable or not fluidPathClear;
+            transition ready then measuring
+                if samplePresent;
+            transition measuring then ready
+                if measurementComplete and latestSnr >= 20 [dB];
+            transition measuring then degraded
+                if latestSnr < 20 [dB] and latestSnr >= 12 [dB];
+            transition degraded then measuring
+                if latestSnr >= 20 [dB];
+            transition degraded then fault
+                if latestSnr < 12 [dB];
+            transition measuring then fault
+                if internalTemperature > 323.15 [K];
+            transition fault then selfTest
+                if resetCommanded;
+        }
+
+        perform state monitor : MonitoringStateMachine;
+    }
+
+    part def NanoTetherballSensingUnit {
+        port sampleIn : FluidInletPort;
+        port sampleOut : FluidOutletPort;
+        port power : ElectricalPowerPort;
+        port resultOut : MeasurementOutputPort;
+        port calibration : CalibrationPort;
+        port diagnostics : DiagnosticPort;
+
+        part microfluidics : MicrofluidicInterface;
+        part sensor : NanoTetherballSensor;
+        part interrogator : OpticalInterrogator;
+        part conditioner : SignalConditioner;
+        part estimator : ConcentrationEstimator;
+        part health : HealthMonitor;
+
+        attribute supplyVoltage : Voltage = 3.3 [V];
+        attribute standbyCurrent : Current = 8 [mA];
+        attribute measuringCurrent : Current = 42 [mA];
+        attribute measurementRangeMin : Concentration = 1.0e-12 [mol/m^3];
+        attribute measurementRangeMax : Concentration = 1.0e-3 [mol/m^3];
+        attribute responseTime : TimeInterval = 2.0 [s];
+        attribute targetUncertainty : MeasurementUncertainty = 0.05 [one];
+
+        connect sampleIn to microfluidics.inlet;
+        connect microfluidics.outlet to sensor.fluidIn;
+        connect sensor.fluidOut to sampleOut;
+        connect interrogator.driveOut to sensor.opticalDrive;
+        connect sensor.opticalResponse to interrogator.responseIn;
+        connect estimator.measurementOut to resultOut;
+        connect calibration to estimator.calibrationIn;
+        connect health.diagnostics to diagnostics;
+
+        action def MeasureAnalyteConcentration {
+            in item sample : SampleFluid;
+            in item calibrationProfile : CalibrationProfile;
+            out item concentration : ConcentrationEstimate;
+
+            first start;
+            then acceptSample;
+            then stabilizeNanoTetherball;
+            then interrogateResonance;
+            then conditionSignal;
+            then estimateQuantity;
+            then publishResult;
+            then done;
+
+            action acceptSample {
+                in item sample : SampleFluid;
+            }
+
+            action stabilizeNanoTetherball {
+                out attribute stable : Boolean;
+            }
+
+            action interrogateResonance {
+                out item raw : RawSensorSignal;
+            }
+
+            action conditionSignal {
+                in item raw : RawSensorSignal;
+                out item conditioned : ConditionedSignal;
+            }
+
+            action estimateQuantity {
+                in item conditioned : ConditionedSignal;
+                in item calibrationProfile : CalibrationProfile;
+                out item concentration : ConcentrationEstimate;
+            }
+
+            action publishResult {
+                in item concentration : ConcentrationEstimate;
+            }
+        }
+
+        perform action measure : MeasureAnalyteConcentration;
+    }
+
+    requirement def RelevantQuantityMeasurementRequirement {
+        subject sensingUnit : NanoTetherballSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeMin <= 1.0e-12 [mol/m^3]
+        }
+
+        require constraint {
+            sensingUnit.measurementRangeMax >= 1.0e-3 [mol/m^3]
+        }
+
+        require constraint {
+            sensingUnit.targetUncertainty <= 0.05 [one]
+        }
+
+        require constraint {
+            sensingUnit.responseTime <= 2.0 [s]
+        }
+    }
+
+    requirement def NanoTetherballSensorRequirement {
+        subject sensor : NanoTetherballSensor;
+
+        require constraint {
+            sensor.baselineFrequency > 1.0 [MHz]
+        }
+
+        require constraint {
+            sensor.minimumDetectableShift <= 5 [Hz]
+        }
+
+        require constraint {
+            sensor.tetherball.tetherLength >= 100 [nm] and
+            sensor.tetherball.tetherLength <= 500 [nm]
+        }
+
+        require constraint {
+            sensor.tetherball.beadDiameter >= 20 [nm] and
+            sensor.tetherball.beadDiameter <= 200 [nm]
+        }
+    }
+
+    requirement def FluidHandlingRequirement {
+        subject microfluidics : MicrofluidicInterface;
+
+        require constraint {
+            microfluidics.nominalFlowRate >= 1.0e-10 [m^3/s]
+        }
+
+        require constraint {
+            microfluidics.maxPressure >= 100 [kPa]
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject conditioner : SignalConditioner;
+
+        require constraint {
+            conditioner.minimumSnr >= 20 [dB]
+        }
+    }
+
+    requirement def ElectricalRequirement {
+        subject sensingUnit : NanoTetherballSensingUnit;
+
+        require constraint {
+            sensingUnit.supplyVoltage == 3.3 [V]
+        }
+
+        require constraint {
+            sensingUnit.measuringCurrent <= 50 [mA]
+        }
+    }
+
+    requirement def SafetyAndHealthRequirement {
+        subject monitor : HealthMonitor;
+
+        require constraint {
+            monitor.maxInternalTemperature <= 323.15 [K]
+        }
+    }
+
+    satisfy RelevantQuantityMeasurementRequirement by NanoTetherballSensingUnit;
+    satisfy NanoTetherballSensorRequirement by NanoTetherballSensor;
+    satisfy FluidHandlingRequirement by MicrofluidicInterface;
+    satisfy SignalQualityRequirement by SignalConditioner;
+    satisfy ElectricalRequirement by NanoTetherballSensingUnit;
+    satisfy SafetyAndHealthRequirement by HealthMonitor;
+
+    part sensingUnit : NanoTetherballSensingUnit {
+        attribute measurementRangeMin = 1.0e-12 [mol/m^3];
+        attribute measurementRangeMax = 1.0e-3 [mol/m^3];
+        attribute responseTime = 2.0 [s];
+        attribute targetUncertainty = 0.05 [one];
+
+        part sensor {
+            attribute baselineFrequency = 2.4 [MHz];
+            attribute minimumDetectableShift = 5 [Hz];
+            part tetherball {
+                attribute tetherLength = 250 [nm];
+                attribute beadDiameter = 80 [nm];
+            }
+        }
+
+        part microfluidics {
+            attribute channelVolume = 2.5 [uL];
+            attribute nominalFlowRate = 1.0e-9 [m^3/s];
+            attribute maxPressure = 150 [kPa];
+        }
+
+        part interrogator {
+            attribute laserWavelength = 635 [nm];
+            attribute opticalPower = 2.0 [mW];
+        }
+
+        part conditioner {
+            attribute lowPassCutoff = 50 [kHz];
+            attribute minimumSnr = 20 [dB];
+        }
+
+        part estimator {
+            attribute responseTime = 1.0 [s];
+            attribute maximumRelativeUncertainty = 0.05 [one];
+        }
+
+        part health {
+            attribute maxInternalTemperature = 323.15 [K];
+        }
+    }
+}

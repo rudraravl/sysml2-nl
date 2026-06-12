@@ -1,0 +1,1153 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7rk01788
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb700-602b-7902-b374-fff35e054cc7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Nest learning thermostat and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NestLearningThermostatSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def TemperatureRate {
+        :> ScalarValues::Real;
+        unit = "degC/min";
+    }
+
+    attribute def RelativeHumidity {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def AirQualityIndex {
+        :> ScalarValues::Integer;
+    }
+
+    attribute def ElectricalPower {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "min";
+    }
+
+    attribute def OccupancyConfidence {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def NetworkSignalStrength {
+        :> ScalarValues::Real;
+        unit = "dBm";
+    }
+
+    attribute def EnergyUse {
+        :> ScalarValues::Real;
+        unit = "kWh";
+    }
+
+    enum def HVACMode {
+        enum off;
+        enum heat;
+        enum cool;
+        enum heatCool;
+        enum eco;
+    }
+
+    enum def FanMode {
+        enum auto;
+        enum on;
+        enum circulate;
+    }
+
+    enum def UserIntent {
+        enum raiseTemperature;
+        enum lowerTemperature;
+        enum setEco;
+        enum resumeSchedule;
+        enum holdTemperature;
+        enum disableSystem;
+    }
+
+    enum def ConnectivityState {
+        enum offline;
+        enum localOnly;
+        enum cloudConnected;
+    }
+
+    item def TemperatureReading {
+        attribute measuredTemperature : Temperature;
+        attribute measurementTime : TimeDuration;
+        attribute sensorId : ScalarValues::String;
+    }
+
+    item def HumidityReading {
+        attribute measuredHumidity : RelativeHumidity;
+        attribute measurementTime : TimeDuration;
+    }
+
+    item def OccupancyReading {
+        attribute occupied : ScalarValues::Boolean;
+        attribute confidence : OccupancyConfidence;
+        attribute measurementTime : TimeDuration;
+    }
+
+    item def HVACCommand {
+        attribute requestedMode : HVACMode;
+        attribute fanRequest : FanMode;
+        attribute heatCall : ScalarValues::Boolean;
+        attribute coolCall : ScalarValues::Boolean;
+        attribute fanCall : ScalarValues::Boolean;
+    }
+
+    item def UserCommand {
+        attribute intent : UserIntent;
+        attribute requestedSetpoint : Temperature;
+        attribute holdDuration : TimeDuration;
+    }
+
+    item def ScheduleProfile {
+        attribute morningSetpoint : Temperature;
+        attribute daytimeSetpoint : Temperature;
+        attribute eveningSetpoint : Temperature;
+        attribute sleepSetpoint : Temperature;
+        attribute ecoHeatSetpoint : Temperature;
+        attribute ecoCoolSetpoint : Temperature;
+    }
+
+    item def WeatherForecast {
+        attribute outdoorTemperature : Temperature;
+        attribute predictedHigh : Temperature;
+        attribute predictedLow : Temperature;
+        attribute humidity : RelativeHumidity;
+    }
+
+    item def EnergyReport {
+        attribute heatingEnergy : EnergyUse;
+        attribute coolingEnergy : EnergyUse;
+        attribute fanEnergy : EnergyUse;
+        attribute reportWindow : TimeDuration;
+    }
+
+    port def TemperatureSensorPort {
+        out item reading : TemperatureReading;
+    }
+
+    port def HumiditySensorPort {
+        out item reading : HumidityReading;
+    }
+
+    port def OccupancySensorPort {
+        out item reading : OccupancyReading;
+    }
+
+    port def UserInputPort {
+        in item command : UserCommand;
+    }
+
+    port def HVACControlPort {
+        out item command : HVACCommand;
+        in item equipmentStatus : HVACCommand;
+    }
+
+    port def NetworkPort {
+        in item remoteCommand : UserCommand;
+        in item weather : WeatherForecast;
+        out item report : EnergyReport;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute availablePower : ElectricalPower;
+    }
+
+    part def AmbientSensor {
+        port temperaturePort : TemperatureSensorPort;
+        port humidityPort : HumiditySensorPort;
+
+        attribute temperatureAccuracy : Temperature = 0.2;
+        attribute humidityAccuracy : RelativeHumidity = 3.0;
+
+        action senseAmbientConditions {
+            out item temperatureReading : TemperatureReading;
+            out item humidityReading : HumidityReading;
+        }
+    }
+
+    part def OccupancySensor {
+        port occupancyPort : OccupancySensorPort;
+
+        attribute detectionRange : ScalarValues::Real = 6.0;
+        attribute minimumConfidenceForOccupied : OccupancyConfidence = 70.0;
+
+        action detectPresence {
+            out item occupancyReading : OccupancyReading;
+        }
+    }
+
+    part def UserInterface {
+        port userPort : UserInputPort;
+
+        attribute displayTemperature : Temperature;
+        attribute selectedMode : HVACMode;
+        attribute displayBrightness : ScalarValues::Real;
+
+        action acceptManualAdjustment {
+            in attribute rotationDelta : ScalarValues::Real;
+            out item command : UserCommand;
+        }
+
+        action showSystemStatus {
+            in attribute indoorTemperature : Temperature;
+            in attribute activeMode : HVACMode;
+            in attribute targetTemperature : Temperature;
+        }
+    }
+
+    part def WirelessModule {
+        port networkPort : NetworkPort;
+
+        attribute connectivity : ConnectivityState;
+        attribute signalStrength : NetworkSignalStrength;
+        attribute encryptedSessionActive : ScalarValues::Boolean;
+
+        action synchronizeWithCloud {
+            in item latestReport : EnergyReport;
+            out item weather : WeatherForecast;
+            out item remoteCommand : UserCommand;
+        }
+    }
+
+    part def LearningController {
+        port temperatureInput : TemperatureSensorPort;
+        port humidityInput : HumiditySensorPort;
+        port occupancyInput : OccupancySensorPort;
+        port localUserInput : UserInputPort;
+        port remoteNetwork : NetworkPort;
+        port hvacOutput : HVACControlPort;
+
+        attribute currentTemperature : Temperature;
+        attribute currentHumidity : RelativeHumidity;
+        attribute targetHeatSetpoint : Temperature = 20.0;
+        attribute targetCoolSetpoint : Temperature = 24.0;
+        attribute learnedProfile : ScheduleProfile;
+        attribute activeMode : HVACMode = HVACMode::heatCool;
+        attribute fanMode : FanMode = FanMode::auto;
+        attribute occupiedConfidence : OccupancyConfidence;
+        attribute temperatureTrend : TemperatureRate;
+        attribute compressorProtectionDelay : TimeDuration = 5.0;
+        attribute minimumRunTime : TimeDuration = 3.0;
+        attribute dailyHeatingEnergy : EnergyUse;
+        attribute dailyCoolingEnergy : EnergyUse;
+
+        action evaluateThermalDemand {
+            in attribute sensedTemperature : Temperature;
+            in attribute heatSetpoint : Temperature;
+            in attribute coolSetpoint : Temperature;
+            in attribute mode : HVACMode;
+            out item command : HVACCommand;
+        }
+
+        action learnSchedule {
+            in item userCommand : UserCommand;
+            in item occupancy : OccupancyReading;
+            in attribute indoorTemperature : Temperature;
+            in item weather : WeatherForecast;
+            out item updatedProfile : ScheduleProfile;
+        }
+
+        action applyEcoPolicy {
+            in item occupancy : OccupancyReading;
+            in item profile : ScheduleProfile;
+            out attribute heatSetpoint : Temperature;
+            out attribute coolSetpoint : Temperature;
+        }
+
+        action generateEnergyReport {
+            in item equipmentStatus : HVACCommand;
+            out item report : EnergyReport;
+        }
+
+        state def ControllerStateMachine {
+            state Initializing;
+            state Learning;
+            state ScheduledComfort;
+            state EcoAway;
+            state ManualHold;
+            state Heating;
+            state Cooling;
+            state Idle;
+            state OfflineSafeControl;
+            state Fault;
+
+            initial then Initializing;
+
+            transition Initializing_to_Learning
+                first Initializing
+                then Learning;
+
+            transition Learning_to_ScheduledComfort
+                first Learning
+                then ScheduledComfort
+                if learnedProfile.morningSetpoint > 0.0;
+
+            transition ScheduledComfort_to_EcoAway
+                first ScheduledComfort
+                then EcoAway
+                if occupiedConfidence < 30.0;
+
+            transition EcoAway_to_ScheduledComfort
+                first EcoAway
+                then ScheduledComfort
+                if occupiedConfidence >= 70.0;
+
+            transition ScheduledComfort_to_ManualHold
+                first ScheduledComfort
+                then ManualHold
+                accept UserCommand
+                if command.intent == UserIntent::holdTemperature;
+
+            transition ManualHold_to_ScheduledComfort
+                first ManualHold
+                then ScheduledComfort
+                if command.holdDuration <= 0.0;
+
+            transition ScheduledComfort_to_Heating
+                first ScheduledComfort
+                then Heating
+                if currentTemperature < targetHeatSetpoint - 0.3;
+
+            transition ScheduledComfort_to_Cooling
+                first ScheduledComfort
+                then Cooling
+                if currentTemperature > targetCoolSetpoint + 0.3;
+
+            transition Heating_to_Idle
+                first Heating
+                then Idle
+                if currentTemperature >= targetHeatSetpoint;
+
+            transition Cooling_to_Idle
+                first Cooling
+                then Idle
+                if currentTemperature <= targetCoolSetpoint;
+
+            transition Idle_to_Heating
+                first Idle
+                then Heating
+                if activeMode == HVACMode::heat or activeMode == HVACMode::heatCool;
+
+            transition Idle_to_Cooling
+                first Idle
+                then Cooling
+                if activeMode == HVACMode::cool or activeMode == HVACMode::heatCool;
+
+            transition ScheduledComfort_to_OfflineSafeControl
+                first ScheduledComfort
+                then OfflineSafeControl
+                if remoteNetwork.connectivity == ConnectivityState::offline;
+
+            transition OfflineSafeControl_to_ScheduledComfort
+                first OfflineSafeControl
+                then ScheduledComfort
+                if remoteNetwork.connectivity == ConnectivityState::cloudConnected;
+
+            transition Any_to_Fault
+                first ScheduledComfort
+                then Fault
+                if currentTemperature < 0.0 or currentTemperature > 50.0;
+        }
+    }
+
+    part def HVACInterface {
+        port controlPort : HVACControlPort;
+        port powerPort : PowerPort;
+
+        attribute heatRelayClosed : ScalarValues::Boolean;
+        attribute coolRelayClosed : ScalarValues::Boolean;
+        attribute fanRelayClosed : ScalarValues::Boolean;
+        attribute commonWireDetected : ScalarValues::Boolean;
+        attribute controlVoltage : Voltage = 24.0;
+
+        action energizeRelays {
+            in item command : HVACCommand;
+            out attribute heatRelay : ScalarValues::Boolean;
+            out attribute coolRelay : ScalarValues::Boolean;
+            out attribute fanRelay : ScalarValues::Boolean;
+        }
+    }
+
+    part def NestLearningThermostat {
+        part ambientSensor : AmbientSensor;
+        part occupancySensor : OccupancySensor;
+        part userInterface : UserInterface;
+        part wirelessModule : WirelessModule;
+        part controller : LearningController;
+        part hvacInterface : HVACInterface;
+
+        port powerInput : PowerPort;
+        port hvacControl : HVACControlPort;
+        port cloudNetwork : NetworkPort;
+        port userCommands : UserInputPort;
+
+        attribute primaryFunction : ScalarValues::String =
+            "Automatically maintain comfortable indoor temperature while learning occupant preferences, optimizing energy use, and controlling heating, cooling, and fan equipment.";
+
+        attribute enclosureTemperatureLimit : Temperature = 45.0;
+        attribute nominalOperatingPower : ElectricalPower = 3.5;
+        attribute expectedServiceVoltage : Voltage = 24.0;
+
+        connect ambientSensor.temperaturePort to controller.temperatureInput;
+        connect ambientSensor.humidityPort to controller.humidityInput;
+        connect occupancySensor.occupancyPort to controller.occupancyInput;
+        connect userInterface.userPort to controller.localUserInput;
+        connect wirelessModule.networkPort to controller.remoteNetwork;
+        connect controller.hvacOutput to hvacInterface.controlPort;
+        connect hvacInterface.controlPort to hvacControl;
+        connect hvacInterface.powerPort to powerInput;
+        connect wirelessModule.networkPort to cloudNetwork;
+        connect userInterface.userPort to userCommands;
+
+        action regulateIndoorClimate {
+            in item temperatureReading : TemperatureReading;
+            in item humidityReading : HumidityReading;
+            in item occupancyReading : OccupancyReading;
+            in item localCommand : UserCommand;
+            in item remoteCommand : UserCommand;
+            out item hvacCommand : HVACCommand;
+
+            first start;
+            then sense;
+            then updateLearning;
+            then selectSetpoints;
+            then commandEquipment;
+            then reportEnergy;
+            then done;
+
+            action sense {
+                out attribute indoorTemperature : Temperature;
+                out attribute indoorHumidity : RelativeHumidity;
+                out attribute occupancyConfidence : OccupancyConfidence;
+            }
+
+            action updateLearning {
+                in item localCommand : UserCommand;
+                in item remoteCommand : UserCommand;
+                out item schedule : ScheduleProfile;
+            }
+
+            action selectSetpoints {
+                in item schedule : ScheduleProfile;
+                in attribute occupancyConfidence : OccupancyConfidence;
+                out attribute heatSetpoint : Temperature;
+                out attribute coolSetpoint : Temperature;
+            }
+
+            action commandEquipment {
+                in attribute indoorTemperature : Temperature;
+                in attribute heatSetpoint : Temperature;
+                in attribute coolSetpoint : Temperature;
+                out item hvacCommand : HVACCommand;
+            }
+
+            action reportEnergy {
+                in item hvacCommand : HVACCommand;
+                out item report : EnergyReport;
+            }
+        }
+    }
+
+    part def ResidenceHVACSystem {
+        part thermostat : NestLearningThermostat;
+        part heatingPlant {
+            port commandInput : HVACControlPort;
+            attribute maximumHeatOutput : ElectricalPower = 12000.0;
+            attribute enabled : ScalarValues::Boolean;
+        }
+        part coolingPlant {
+            port commandInput : HVACControlPort;
+            attribute maximumCoolingPower : ElectricalPower = 3500.0;
+            attribute enabled : ScalarValues::Boolean;
+        }
+        part indoorFan {
+            port commandInput : HVACControlPort;
+            attribute fanPower : ElectricalPower = 450.0;
+            attribute enabled : ScalarValues::Boolean;
+        }
+        part conditionedSpace {
+            attribute indoorTemperature : Temperature = 21.0;
+            attribute indoorHumidity : RelativeHumidity = 45.0;
+            attribute thermalLossRate : TemperatureRate = 0.03;
+        }
+
+        connect thermostat.hvacControl to heatingPlant.commandInput;
+        connect thermostat.hvacControl to coolingPlant.commandInput;
+        connect thermostat.hvacControl to indoorFan.commandInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The thermostat shall maintain indoor thermal comfort by sensing indoor conditions, learning occupant preferences and occupancy patterns, selecting appropriate setpoints, and commanding connected HVAC equipment. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.controller.currentTemperature >= thermostat.controller.targetHeatSetpoint - 1.0 and
+            thermostat.controller.currentTemperature <= thermostat.controller.targetCoolSetpoint + 1.0
+        }
+    }
+
+    requirement def LearningRequirement {
+        doc /* The thermostat shall update its schedule profile from repeated manual adjustments and occupancy observations without requiring explicit schedule programming. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.controller.learnedProfile.ecoHeatSetpoint < thermostat.controller.learnedProfile.morningSetpoint and
+            thermostat.controller.learnedProfile.ecoCoolSetpoint > thermostat.controller.learnedProfile.eveningSetpoint
+        }
+    }
+
+    requirement def EnergyOptimizationRequirement {
+        doc /* The thermostat shall reduce HVAC operation during unoccupied periods by entering Eco mode when occupancy confidence remains below 30 percent. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.controller.occupiedConfidence < 30.0 implies thermostat.controller.activeMode == HVACMode::eco
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The thermostat shall prevent simultaneous heating and cooling commands and shall enforce compressor protection delay before restarting cooling. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            not (thermostat.hvacInterface.heatRelayClosed and thermostat.hvacInterface.coolRelayClosed)
+        }
+    }
+
+    requirement def ConnectivityRequirement {
+        doc /* The thermostat shall continue local climate control using the learned schedule when cloud connectivity is unavailable. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.wirelessModule.connectivity == ConnectivityState::offline implies thermostat.controller.activeMode != HVACMode::off
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The thermostat shall operate from a nominal 24 volt HVAC control circuit and consume less than 5 watts during normal operation. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.expectedServiceVoltage == 24.0 and
+            thermostat.nominalOperatingPower < 5.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NestLearningThermostat::regulateIndoorClimate;
+    satisfy LearningRequirement by LearningController::learnSchedule;
+    satisfy EnergyOptimizationRequirement by LearningController::applyEcoPolicy;
+    satisfy SafetyRequirement by HVACInterface::energizeRelays;
+    satisfy ConnectivityRequirement by LearningController::ControllerStateMachine;
+    satisfy PowerRequirement by NestLearningThermostat;
+
+    part residenceInstallation : ResidenceHVACSystem;
+
+}
+tokens used
+5,022
+package NestLearningThermostatSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def TemperatureRate {
+        :> ScalarValues::Real;
+        unit = "degC/min";
+    }
+
+    attribute def RelativeHumidity {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def AirQualityIndex {
+        :> ScalarValues::Integer;
+    }
+
+    attribute def ElectricalPower {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "min";
+    }
+
+    attribute def OccupancyConfidence {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def NetworkSignalStrength {
+        :> ScalarValues::Real;
+        unit = "dBm";
+    }
+
+    attribute def EnergyUse {
+        :> ScalarValues::Real;
+        unit = "kWh";
+    }
+
+    enum def HVACMode {
+        enum off;
+        enum heat;
+        enum cool;
+        enum heatCool;
+        enum eco;
+    }
+
+    enum def FanMode {
+        enum auto;
+        enum on;
+        enum circulate;
+    }
+
+    enum def UserIntent {
+        enum raiseTemperature;
+        enum lowerTemperature;
+        enum setEco;
+        enum resumeSchedule;
+        enum holdTemperature;
+        enum disableSystem;
+    }
+
+    enum def ConnectivityState {
+        enum offline;
+        enum localOnly;
+        enum cloudConnected;
+    }
+
+    item def TemperatureReading {
+        attribute measuredTemperature : Temperature;
+        attribute measurementTime : TimeDuration;
+        attribute sensorId : ScalarValues::String;
+    }
+
+    item def HumidityReading {
+        attribute measuredHumidity : RelativeHumidity;
+        attribute measurementTime : TimeDuration;
+    }
+
+    item def OccupancyReading {
+        attribute occupied : ScalarValues::Boolean;
+        attribute confidence : OccupancyConfidence;
+        attribute measurementTime : TimeDuration;
+    }
+
+    item def HVACCommand {
+        attribute requestedMode : HVACMode;
+        attribute fanRequest : FanMode;
+        attribute heatCall : ScalarValues::Boolean;
+        attribute coolCall : ScalarValues::Boolean;
+        attribute fanCall : ScalarValues::Boolean;
+    }
+
+    item def UserCommand {
+        attribute intent : UserIntent;
+        attribute requestedSetpoint : Temperature;
+        attribute holdDuration : TimeDuration;
+    }
+
+    item def ScheduleProfile {
+        attribute morningSetpoint : Temperature;
+        attribute daytimeSetpoint : Temperature;
+        attribute eveningSetpoint : Temperature;
+        attribute sleepSetpoint : Temperature;
+        attribute ecoHeatSetpoint : Temperature;
+        attribute ecoCoolSetpoint : Temperature;
+    }
+
+    item def WeatherForecast {
+        attribute outdoorTemperature : Temperature;
+        attribute predictedHigh : Temperature;
+        attribute predictedLow : Temperature;
+        attribute humidity : RelativeHumidity;
+    }
+
+    item def EnergyReport {
+        attribute heatingEnergy : EnergyUse;
+        attribute coolingEnergy : EnergyUse;
+        attribute fanEnergy : EnergyUse;
+        attribute reportWindow : TimeDuration;
+    }
+
+    port def TemperatureSensorPort {
+        out item reading : TemperatureReading;
+    }
+
+    port def HumiditySensorPort {
+        out item reading : HumidityReading;
+    }
+
+    port def OccupancySensorPort {
+        out item reading : OccupancyReading;
+    }
+
+    port def UserInputPort {
+        in item command : UserCommand;
+    }
+
+    port def HVACControlPort {
+        out item command : HVACCommand;
+        in item equipmentStatus : HVACCommand;
+    }
+
+    port def NetworkPort {
+        in item remoteCommand : UserCommand;
+        in item weather : WeatherForecast;
+        out item report : EnergyReport;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute availablePower : ElectricalPower;
+    }
+
+    part def AmbientSensor {
+        port temperaturePort : TemperatureSensorPort;
+        port humidityPort : HumiditySensorPort;
+
+        attribute temperatureAccuracy : Temperature = 0.2;
+        attribute humidityAccuracy : RelativeHumidity = 3.0;
+
+        action senseAmbientConditions {
+            out item temperatureReading : TemperatureReading;
+            out item humidityReading : HumidityReading;
+        }
+    }
+
+    part def OccupancySensor {
+        port occupancyPort : OccupancySensorPort;
+
+        attribute detectionRange : ScalarValues::Real = 6.0;
+        attribute minimumConfidenceForOccupied : OccupancyConfidence = 70.0;
+
+        action detectPresence {
+            out item occupancyReading : OccupancyReading;
+        }
+    }
+
+    part def UserInterface {
+        port userPort : UserInputPort;
+
+        attribute displayTemperature : Temperature;
+        attribute selectedMode : HVACMode;
+        attribute displayBrightness : ScalarValues::Real;
+
+        action acceptManualAdjustment {
+            in attribute rotationDelta : ScalarValues::Real;
+            out item command : UserCommand;
+        }
+
+        action showSystemStatus {
+            in attribute indoorTemperature : Temperature;
+            in attribute activeMode : HVACMode;
+            in attribute targetTemperature : Temperature;
+        }
+    }
+
+    part def WirelessModule {
+        port networkPort : NetworkPort;
+
+        attribute connectivity : ConnectivityState;
+        attribute signalStrength : NetworkSignalStrength;
+        attribute encryptedSessionActive : ScalarValues::Boolean;
+
+        action synchronizeWithCloud {
+            in item latestReport : EnergyReport;
+            out item weather : WeatherForecast;
+            out item remoteCommand : UserCommand;
+        }
+    }
+
+    part def LearningController {
+        port temperatureInput : TemperatureSensorPort;
+        port humidityInput : HumiditySensorPort;
+        port occupancyInput : OccupancySensorPort;
+        port localUserInput : UserInputPort;
+        port remoteNetwork : NetworkPort;
+        port hvacOutput : HVACControlPort;
+
+        attribute currentTemperature : Temperature;
+        attribute currentHumidity : RelativeHumidity;
+        attribute targetHeatSetpoint : Temperature = 20.0;
+        attribute targetCoolSetpoint : Temperature = 24.0;
+        attribute learnedProfile : ScheduleProfile;
+        attribute activeMode : HVACMode = HVACMode::heatCool;
+        attribute fanMode : FanMode = FanMode::auto;
+        attribute occupiedConfidence : OccupancyConfidence;
+        attribute temperatureTrend : TemperatureRate;
+        attribute compressorProtectionDelay : TimeDuration = 5.0;
+        attribute minimumRunTime : TimeDuration = 3.0;
+        attribute dailyHeatingEnergy : EnergyUse;
+        attribute dailyCoolingEnergy : EnergyUse;
+
+        action evaluateThermalDemand {
+            in attribute sensedTemperature : Temperature;
+            in attribute heatSetpoint : Temperature;
+            in attribute coolSetpoint : Temperature;
+            in attribute mode : HVACMode;
+            out item command : HVACCommand;
+        }
+
+        action learnSchedule {
+            in item userCommand : UserCommand;
+            in item occupancy : OccupancyReading;
+            in attribute indoorTemperature : Temperature;
+            in item weather : WeatherForecast;
+            out item updatedProfile : ScheduleProfile;
+        }
+
+        action applyEcoPolicy {
+            in item occupancy : OccupancyReading;
+            in item profile : ScheduleProfile;
+            out attribute heatSetpoint : Temperature;
+            out attribute coolSetpoint : Temperature;
+        }
+
+        action generateEnergyReport {
+            in item equipmentStatus : HVACCommand;
+            out item report : EnergyReport;
+        }
+
+        state def ControllerStateMachine {
+            state Initializing;
+            state Learning;
+            state ScheduledComfort;
+            state EcoAway;
+            state ManualHold;
+            state Heating;
+            state Cooling;
+            state Idle;
+            state OfflineSafeControl;
+            state Fault;
+
+            initial then Initializing;
+
+            transition Initializing_to_Learning
+                first Initializing
+                then Learning;
+
+            transition Learning_to_ScheduledComfort
+                first Learning
+                then ScheduledComfort
+                if learnedProfile.morningSetpoint > 0.0;
+
+            transition ScheduledComfort_to_EcoAway
+                first ScheduledComfort
+                then EcoAway
+                if occupiedConfidence < 30.0;
+
+            transition EcoAway_to_ScheduledComfort
+                first EcoAway
+                then ScheduledComfort
+                if occupiedConfidence >= 70.0;
+
+            transition ScheduledComfort_to_ManualHold
+                first ScheduledComfort
+                then ManualHold
+                accept UserCommand
+                if command.intent == UserIntent::holdTemperature;
+
+            transition ManualHold_to_ScheduledComfort
+                first ManualHold
+                then ScheduledComfort
+                if command.holdDuration <= 0.0;
+
+            transition ScheduledComfort_to_Heating
+                first ScheduledComfort
+                then Heating
+                if currentTemperature < targetHeatSetpoint - 0.3;
+
+            transition ScheduledComfort_to_Cooling
+                first ScheduledComfort
+                then Cooling
+                if currentTemperature > targetCoolSetpoint + 0.3;
+
+            transition Heating_to_Idle
+                first Heating
+                then Idle
+                if currentTemperature >= targetHeatSetpoint;
+
+            transition Cooling_to_Idle
+                first Cooling
+                then Idle
+                if currentTemperature <= targetCoolSetpoint;
+
+            transition Idle_to_Heating
+                first Idle
+                then Heating
+                if activeMode == HVACMode::heat or activeMode == HVACMode::heatCool;
+
+            transition Idle_to_Cooling
+                first Idle
+                then Cooling
+                if activeMode == HVACMode::cool or activeMode == HVACMode::heatCool;
+
+            transition ScheduledComfort_to_OfflineSafeControl
+                first ScheduledComfort
+                then OfflineSafeControl
+                if remoteNetwork.connectivity == ConnectivityState::offline;
+
+            transition OfflineSafeControl_to_ScheduledComfort
+                first OfflineSafeControl
+                then ScheduledComfort
+                if remoteNetwork.connectivity == ConnectivityState::cloudConnected;
+
+            transition Any_to_Fault
+                first ScheduledComfort
+                then Fault
+                if currentTemperature < 0.0 or currentTemperature > 50.0;
+        }
+    }
+
+    part def HVACInterface {
+        port controlPort : HVACControlPort;
+        port powerPort : PowerPort;
+
+        attribute heatRelayClosed : ScalarValues::Boolean;
+        attribute coolRelayClosed : ScalarValues::Boolean;
+        attribute fanRelayClosed : ScalarValues::Boolean;
+        attribute commonWireDetected : ScalarValues::Boolean;
+        attribute controlVoltage : Voltage = 24.0;
+
+        action energizeRelays {
+            in item command : HVACCommand;
+            out attribute heatRelay : ScalarValues::Boolean;
+            out attribute coolRelay : ScalarValues::Boolean;
+            out attribute fanRelay : ScalarValues::Boolean;
+        }
+    }
+
+    part def NestLearningThermostat {
+        part ambientSensor : AmbientSensor;
+        part occupancySensor : OccupancySensor;
+        part userInterface : UserInterface;
+        part wirelessModule : WirelessModule;
+        part controller : LearningController;
+        part hvacInterface : HVACInterface;
+
+        port powerInput : PowerPort;
+        port hvacControl : HVACControlPort;
+        port cloudNetwork : NetworkPort;
+        port userCommands : UserInputPort;
+
+        attribute primaryFunction : ScalarValues::String =
+            "Automatically maintain comfortable indoor temperature while learning occupant preferences, optimizing energy use, and controlling heating, cooling, and fan equipment.";
+
+        attribute enclosureTemperatureLimit : Temperature = 45.0;
+        attribute nominalOperatingPower : ElectricalPower = 3.5;
+        attribute expectedServiceVoltage : Voltage = 24.0;
+
+        connect ambientSensor.temperaturePort to controller.temperatureInput;
+        connect ambientSensor.humidityPort to controller.humidityInput;
+        connect occupancySensor.occupancyPort to controller.occupancyInput;
+        connect userInterface.userPort to controller.localUserInput;
+        connect wirelessModule.networkPort to controller.remoteNetwork;
+        connect controller.hvacOutput to hvacInterface.controlPort;
+        connect hvacInterface.controlPort to hvacControl;
+        connect hvacInterface.powerPort to powerInput;
+        connect wirelessModule.networkPort to cloudNetwork;
+        connect userInterface.userPort to userCommands;
+
+        action regulateIndoorClimate {
+            in item temperatureReading : TemperatureReading;
+            in item humidityReading : HumidityReading;
+            in item occupancyReading : OccupancyReading;
+            in item localCommand : UserCommand;
+            in item remoteCommand : UserCommand;
+            out item hvacCommand : HVACCommand;
+
+            first start;
+            then sense;
+            then updateLearning;
+            then selectSetpoints;
+            then commandEquipment;
+            then reportEnergy;
+            then done;
+
+            action sense {
+                out attribute indoorTemperature : Temperature;
+                out attribute indoorHumidity : RelativeHumidity;
+                out attribute occupancyConfidence : OccupancyConfidence;
+            }
+
+            action updateLearning {
+                in item localCommand : UserCommand;
+                in item remoteCommand : UserCommand;
+                out item schedule : ScheduleProfile;
+            }
+
+            action selectSetpoints {
+                in item schedule : ScheduleProfile;
+                in attribute occupancyConfidence : OccupancyConfidence;
+                out attribute heatSetpoint : Temperature;
+                out attribute coolSetpoint : Temperature;
+            }
+
+            action commandEquipment {
+                in attribute indoorTemperature : Temperature;
+                in attribute heatSetpoint : Temperature;
+                in attribute coolSetpoint : Temperature;
+                out item hvacCommand : HVACCommand;
+            }
+
+            action reportEnergy {
+                in item hvacCommand : HVACCommand;
+                out item report : EnergyReport;
+            }
+        }
+    }
+
+    part def ResidenceHVACSystem {
+        part thermostat : NestLearningThermostat;
+        part heatingPlant {
+            port commandInput : HVACControlPort;
+            attribute maximumHeatOutput : ElectricalPower = 12000.0;
+            attribute enabled : ScalarValues::Boolean;
+        }
+        part coolingPlant {
+            port commandInput : HVACControlPort;
+            attribute maximumCoolingPower : ElectricalPower = 3500.0;
+            attribute enabled : ScalarValues::Boolean;
+        }
+        part indoorFan {
+            port commandInput : HVACControlPort;
+            attribute fanPower : ElectricalPower = 450.0;
+            attribute enabled : ScalarValues::Boolean;
+        }
+        part conditionedSpace {
+            attribute indoorTemperature : Temperature = 21.0;
+            attribute indoorHumidity : RelativeHumidity = 45.0;
+            attribute thermalLossRate : TemperatureRate = 0.03;
+        }
+
+        connect thermostat.hvacControl to heatingPlant.commandInput;
+        connect thermostat.hvacControl to coolingPlant.commandInput;
+        connect thermostat.hvacControl to indoorFan.commandInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The thermostat shall maintain indoor thermal comfort by sensing indoor conditions, learning occupant preferences and occupancy patterns, selecting appropriate setpoints, and commanding connected HVAC equipment. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.controller.currentTemperature >= thermostat.controller.targetHeatSetpoint - 1.0 and
+            thermostat.controller.currentTemperature <= thermostat.controller.targetCoolSetpoint + 1.0
+        }
+    }
+
+    requirement def LearningRequirement {
+        doc /* The thermostat shall update its schedule profile from repeated manual adjustments and occupancy observations without requiring explicit schedule programming. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.controller.learnedProfile.ecoHeatSetpoint < thermostat.controller.learnedProfile.morningSetpoint and
+            thermostat.controller.learnedProfile.ecoCoolSetpoint > thermostat.controller.learnedProfile.eveningSetpoint
+        }
+    }
+
+    requirement def EnergyOptimizationRequirement {
+        doc /* The thermostat shall reduce HVAC operation during unoccupied periods by entering Eco mode when occupancy confidence remains below 30 percent. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.controller.occupiedConfidence < 30.0 implies thermostat.controller.activeMode == HVACMode::eco
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The thermostat shall prevent simultaneous heating and cooling commands and shall enforce compressor protection delay before restarting cooling. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            not (thermostat.hvacInterface.heatRelayClosed and thermostat.hvacInterface.coolRelayClosed)
+        }
+    }
+
+    requirement def ConnectivityRequirement {
+        doc /* The thermostat shall continue local climate control using the learned schedule when cloud connectivity is unavailable. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.wirelessModule.connectivity == ConnectivityState::offline implies thermostat.controller.activeMode != HVACMode::off
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The thermostat shall operate from a nominal 24 volt HVAC control circuit and consume less than 5 watts during normal operation. */
+
+        subject thermostat : NestLearningThermostat;
+
+        require constraint {
+            thermostat.expectedServiceVoltage == 24.0 and
+            thermostat.nominalOperatingPower < 5.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NestLearningThermostat::regulateIndoorClimate;
+    satisfy LearningRequirement by LearningController::learnSchedule;
+    satisfy EnergyOptimizationRequirement by LearningController::applyEcoPolicy;
+    satisfy SafetyRequirement by HVACInterface::energizeRelays;
+    satisfy ConnectivityRequirement by LearningController::ControllerStateMachine;
+    satisfy PowerRequirement by NestLearningThermostat;
+
+    part residenceInstallation : ResidenceHVACSystem;
+
+}

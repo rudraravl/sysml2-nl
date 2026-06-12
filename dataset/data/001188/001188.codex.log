@@ -1,0 +1,929 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-76jh5bus
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5c5-cc75-7163-93d9-6473d2de718b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Phototransistor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PhototransistorBasedLightSensingSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Voltage {
+    :> Real;
+    unit = "V";
+  }
+
+  value def Current {
+    :> Real;
+    unit = "A";
+  }
+
+  value def Resistance {
+    :> Real;
+    unit = "Ohm";
+  }
+
+  value def Capacitance {
+    :> Real;
+    unit = "F";
+  }
+
+  value def OpticalIrradiance {
+    :> Real;
+    unit = "W/m^2";
+  }
+
+  value def Wavelength {
+    :> Real;
+    unit = "nm";
+  }
+
+  value def Time {
+    :> Real;
+    unit = "s";
+  }
+
+  value def Temperature {
+    :> Real;
+    unit = "degC";
+  }
+
+  value def LogicalLevel {
+    :> Boolean;
+  }
+
+  item def IncidentLight {
+    attribute irradiance : OpticalIrradiance;
+    attribute wavelength : Wavelength;
+  }
+
+  item def ElectricalSignal {
+    attribute voltage : Voltage;
+    attribute current : Current;
+  }
+
+  item def DigitalDetection {
+    attribute detected : LogicalLevel;
+    attribute confidence : Real;
+  }
+
+  port def OpticalInputPort {
+    in item light : IncidentLight;
+  }
+
+  port def AnalogElectricalPort {
+    inout item signal : ElectricalSignal;
+  }
+
+  port def DigitalOutputPort {
+    out item detection : DigitalDetection;
+  }
+
+  port def PowerInputPort {
+    in item supply : ElectricalSignal;
+  }
+
+  port def GroundPort {
+    inout item reference : ElectricalSignal;
+  }
+
+  part def Phototransistor {
+    attribute collectorEmitterVoltageMax : Voltage = 30.0;
+    attribute collectorCurrentMax : Current = 0.05;
+    attribute peakSensitivityWavelength : Wavelength = 850.0;
+    attribute darkCurrent : Current = 0.0000001;
+    attribute opticalCurrentGain : Real = 120.0;
+    attribute riseTime : Time = 0.000015;
+    attribute fallTime : Time = 0.000015;
+
+    port opticalInput : OpticalInputPort;
+    port collector : AnalogElectricalPort;
+    port emitter : AnalogElectricalPort;
+
+    action convertLightToCurrent {
+      in item receivedLight : IncidentLight;
+      out item photoCurrentSignal : ElectricalSignal;
+
+      first start;
+      then computePhotocurrent;
+      then driveCollectorEmitterCurrent;
+      then done;
+
+      action computePhotocurrent {
+        in item receivedLight : IncidentLight;
+        out attribute generatedCurrent : Current;
+      }
+
+      action driveCollectorEmitterCurrent {
+        in attribute generatedCurrent : Current;
+        out item photoCurrentSignal : ElectricalSignal;
+      }
+    }
+
+    state phototransistorOperatingState {
+      entry action initializeJunction;
+
+      state NonConducting;
+      state PhotoConducting;
+      state Saturated;
+
+      transition initial then NonConducting;
+
+      transition noLightDetected
+        first NonConducting
+        accept when opticalInput.light.irradiance <= 0.02
+        then NonConducting;
+
+      transition lightDetected
+        first NonConducting
+        accept when opticalInput.light.irradiance > 0.02 and opticalInput.light.irradiance < 20.0
+        then PhotoConducting;
+
+      transition highLightDetected
+        first PhotoConducting
+        accept when opticalInput.light.irradiance >= 20.0
+        then Saturated;
+
+      transition lightReduced
+        first Saturated
+        accept when opticalInput.light.irradiance < 20.0
+        then PhotoConducting;
+
+      transition darknessReturned
+        first PhotoConducting
+        accept when opticalInput.light.irradiance <= 0.02
+        then NonConducting;
+    }
+  }
+
+  part def BiasNetwork {
+    attribute supplyVoltage : Voltage = 5.0;
+    attribute pullupResistance : Resistance = 10000.0;
+    attribute biasCurrentLimit : Current = 0.0005;
+
+    port supply : PowerInputPort;
+    port signalNode : AnalogElectricalPort;
+    port ground : GroundPort;
+  }
+
+  part def LowPassFilter {
+    attribute seriesResistance : Resistance = 1000.0;
+    attribute shuntCapacitance : Capacitance = 0.0000001;
+    attribute cutoffFrequencyHz : Real = 1591.5;
+
+    port rawInput : AnalogElectricalPort;
+    port filteredOutput : AnalogElectricalPort;
+    port ground : GroundPort;
+
+    action attenuateNoise {
+      in item rawSignal : ElectricalSignal;
+      out item filteredSignal : ElectricalSignal;
+    }
+  }
+
+  part def ThresholdComparator {
+    attribute referenceThreshold : Voltage = 2.5;
+    attribute hysteresis : Voltage = 0.15;
+    attribute propagationDelay : Time = 0.000002;
+
+    port analogInput : AnalogElectricalPort;
+    port digitalOutput : DigitalOutputPort;
+    port supply : PowerInputPort;
+    port ground : GroundPort;
+
+    action compareSignalToThreshold {
+      in item filteredSignal : ElectricalSignal;
+      out item detection : DigitalDetection;
+    }
+
+    state comparatorState {
+      state BelowThreshold;
+      state AboveThreshold;
+
+      transition initial then BelowThreshold;
+
+      transition assertDetection
+        first BelowThreshold
+        accept when analogInput.signal.voltage >= referenceThreshold + hysteresis
+        then AboveThreshold;
+
+      transition clearDetection
+        first AboveThreshold
+        accept when analogInput.signal.voltage <= referenceThreshold - hysteresis
+        then BelowThreshold;
+    }
+  }
+
+  part def MicrocontrollerInterface {
+    attribute inputHighMinimum : Voltage = 2.0;
+    attribute inputLowMaximum : Voltage = 0.8;
+    attribute samplePeriod : Time = 0.001;
+
+    port detectionInput : DigitalOutputPort;
+    port systemOutput : DigitalOutputPort;
+
+    action sampleDetection {
+      in item comparatorDetection : DigitalDetection;
+      out item reportedDetection : DigitalDetection;
+    }
+
+    state reportingState {
+      state Idle;
+      state LightAbsent;
+      state LightPresent;
+
+      transition initial then Idle;
+
+      transition beginMonitoring
+        first Idle
+        then LightAbsent;
+
+      transition reportLight
+        first LightAbsent
+        accept when detectionInput.detection.detected == true
+        then LightPresent;
+
+      transition reportDark
+        first LightPresent
+        accept when detectionInput.detection.detected == false
+        then LightAbsent;
+    }
+  }
+
+  part def StatusIndicator {
+    attribute onCurrent : Current = 0.01;
+    attribute forwardVoltage : Voltage = 2.0;
+
+    port commandInput : DigitalOutputPort;
+    port supply : PowerInputPort;
+    port ground : GroundPort;
+
+    state indicatorState {
+      state Off;
+      state On;
+
+      transition initial then Off;
+
+      transition illuminate
+        first Off
+        accept when commandInput.detection.detected == true
+        then On;
+
+      transition extinguish
+        first On
+        accept when commandInput.detection.detected == false
+        then Off;
+    }
+  }
+
+  part def PhototransistorLightSensorSystem {
+    attribute operatingSupplyVoltage : Voltage = 5.0;
+    attribute minimumDetectableIrradiance : OpticalIrradiance = 0.05;
+    attribute maximumDetectableIrradiance : OpticalIrradiance = 25.0;
+    attribute nominalResponseTime : Time = 0.002;
+    attribute operatingTemperatureMin : Temperature = -20.0;
+    attribute operatingTemperatureMax : Temperature = 70.0;
+
+    port sensedLight : OpticalInputPort;
+    port powerInput : PowerInputPort;
+    port groundReference : GroundPort;
+    port detectionOutput : DigitalOutputPort;
+
+    part phototransistor : Phototransistor;
+    part biasNetwork : BiasNetwork;
+    part filter : LowPassFilter;
+    part comparator : ThresholdComparator;
+    part controllerInterface : MicrocontrollerInterface;
+    part indicator : StatusIndicator;
+
+    connect sensedLight to phototransistor.opticalInput;
+    connect powerInput to biasNetwork.supply;
+    connect powerInput to comparator.supply;
+    connect powerInput to indicator.supply;
+    connect groundReference to biasNetwork.ground;
+    connect groundReference to phototransistor.emitter;
+    connect groundReference to filter.ground;
+    connect groundReference to comparator.ground;
+    connect groundReference to indicator.ground;
+    connect biasNetwork.signalNode to phototransistor.collector;
+    connect biasNetwork.signalNode to filter.rawInput;
+    connect filter.filteredOutput to comparator.analogInput;
+    connect comparator.digitalOutput to controllerInterface.detectionInput;
+    connect controllerInterface.systemOutput to detectionOutput;
+    connect controllerInterface.systemOutput to indicator.commandInput;
+
+    action senseLightAndReportDetection {
+      in item environmentLight : IncidentLight;
+      out item reportedDetection : DigitalDetection;
+
+      first receiveLight;
+      then generatePhotocurrent;
+      then createVoltageSignal;
+      then filterAnalogSignal;
+      then compareAgainstThreshold;
+      then publishDetection;
+      then done;
+
+      action receiveLight {
+        in item environmentLight : IncidentLight;
+        out item opticalStimulus : IncidentLight;
+      }
+
+      action generatePhotocurrent {
+        in item opticalStimulus : IncidentLight;
+        out item collectorCurrent : ElectricalSignal;
+      }
+
+      action createVoltageSignal {
+        in item collectorCurrent : ElectricalSignal;
+        out item rawVoltageSignal : ElectricalSignal;
+      }
+
+      action filterAnalogSignal {
+        in item rawVoltageSignal : ElectricalSignal;
+        out item stableVoltageSignal : ElectricalSignal;
+      }
+
+      action compareAgainstThreshold {
+        in item stableVoltageSignal : ElectricalSignal;
+        out item thresholdResult : DigitalDetection;
+      }
+
+      action publishDetection {
+        in item thresholdResult : DigitalDetection;
+        out item reportedDetection : DigitalDetection;
+      }
+    }
+
+    state systemState {
+      state Unpowered;
+      state Initializing;
+      state Monitoring;
+      state LightDetected;
+      state Fault;
+
+      transition initial then Unpowered;
+
+      transition powerApplied
+        first Unpowered
+        accept when powerInput.supply.voltage >= 4.75
+        then Initializing;
+
+      transition initializationComplete
+        first Initializing
+        after 0.01 s
+        then Monitoring;
+
+      transition detectionAsserted
+        first Monitoring
+        accept when comparator.digitalOutput.detection.detected == true
+        then LightDetected;
+
+      transition detectionCleared
+        first LightDetected
+        accept when comparator.digitalOutput.detection.detected == false
+        then Monitoring;
+
+      transition undervoltageFault
+        first Monitoring
+        accept when powerInput.supply.voltage < 4.5
+        then Fault;
+
+      transition recoverPower
+        first Fault
+        accept when powerInput.supply.voltage >= 4.75
+        then Initializing;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall convert incident light received by the phototransistor into a stable digital detection output indicating whether the measured optical irradiance exceeds the configured detection threshold. */
+
+    require constraint {
+      sensorSystem.detectionOutput.detection.detected ==
+        (sensorSystem.sensedLight.light.irradiance >= sensorSystem.minimumDetectableIrradiance);
+    }
+  }
+
+  requirement def ResponseTimeRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall report a change in light detection state within the nominal response time after the incident irradiance crosses the detection threshold. */
+
+    require constraint {
+      sensorSystem.nominalResponseTime <= 0.002;
+    }
+  }
+
+  requirement def SupplyVoltageRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall operate from a nominal five volt electrical supply. */
+
+    require constraint {
+      sensorSystem.operatingSupplyVoltage == 5.0;
+    }
+  }
+
+  requirement def SensitivityRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall detect near-infrared or visible light within the specified optical irradiance range. */
+
+    require constraint {
+      sensorSystem.minimumDetectableIrradiance <= 0.05 and
+      sensorSystem.maximumDetectableIrradiance >= 25.0;
+    }
+  }
+
+  requirement def EnvironmentalRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall operate across the specified ambient temperature range. */
+
+    require constraint {
+      sensorSystem.operatingTemperatureMin <= -20.0 and
+      sensorSystem.operatingTemperatureMax >= 70.0;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by PhototransistorLightSensorSystem;
+  satisfy ResponseTimeRequirement by PhototransistorLightSensorSystem;
+  satisfy SupplyVoltageRequirement by PhototransistorLightSensorSystem;
+  satisfy SensitivityRequirement by PhototransistorLightSensorSystem;
+  satisfy EnvironmentalRequirement by PhototransistorLightSensorSystem;
+
+  part lightDetectionSystem : PhototransistorLightSensorSystem;
+
+}
+tokens used
+4,545
+package PhototransistorBasedLightSensingSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Voltage {
+    :> Real;
+    unit = "V";
+  }
+
+  value def Current {
+    :> Real;
+    unit = "A";
+  }
+
+  value def Resistance {
+    :> Real;
+    unit = "Ohm";
+  }
+
+  value def Capacitance {
+    :> Real;
+    unit = "F";
+  }
+
+  value def OpticalIrradiance {
+    :> Real;
+    unit = "W/m^2";
+  }
+
+  value def Wavelength {
+    :> Real;
+    unit = "nm";
+  }
+
+  value def Time {
+    :> Real;
+    unit = "s";
+  }
+
+  value def Temperature {
+    :> Real;
+    unit = "degC";
+  }
+
+  value def LogicalLevel {
+    :> Boolean;
+  }
+
+  item def IncidentLight {
+    attribute irradiance : OpticalIrradiance;
+    attribute wavelength : Wavelength;
+  }
+
+  item def ElectricalSignal {
+    attribute voltage : Voltage;
+    attribute current : Current;
+  }
+
+  item def DigitalDetection {
+    attribute detected : LogicalLevel;
+    attribute confidence : Real;
+  }
+
+  port def OpticalInputPort {
+    in item light : IncidentLight;
+  }
+
+  port def AnalogElectricalPort {
+    inout item signal : ElectricalSignal;
+  }
+
+  port def DigitalOutputPort {
+    out item detection : DigitalDetection;
+  }
+
+  port def PowerInputPort {
+    in item supply : ElectricalSignal;
+  }
+
+  port def GroundPort {
+    inout item reference : ElectricalSignal;
+  }
+
+  part def Phototransistor {
+    attribute collectorEmitterVoltageMax : Voltage = 30.0;
+    attribute collectorCurrentMax : Current = 0.05;
+    attribute peakSensitivityWavelength : Wavelength = 850.0;
+    attribute darkCurrent : Current = 0.0000001;
+    attribute opticalCurrentGain : Real = 120.0;
+    attribute riseTime : Time = 0.000015;
+    attribute fallTime : Time = 0.000015;
+
+    port opticalInput : OpticalInputPort;
+    port collector : AnalogElectricalPort;
+    port emitter : AnalogElectricalPort;
+
+    action convertLightToCurrent {
+      in item receivedLight : IncidentLight;
+      out item photoCurrentSignal : ElectricalSignal;
+
+      first start;
+      then computePhotocurrent;
+      then driveCollectorEmitterCurrent;
+      then done;
+
+      action computePhotocurrent {
+        in item receivedLight : IncidentLight;
+        out attribute generatedCurrent : Current;
+      }
+
+      action driveCollectorEmitterCurrent {
+        in attribute generatedCurrent : Current;
+        out item photoCurrentSignal : ElectricalSignal;
+      }
+    }
+
+    state phototransistorOperatingState {
+      entry action initializeJunction;
+
+      state NonConducting;
+      state PhotoConducting;
+      state Saturated;
+
+      transition initial then NonConducting;
+
+      transition noLightDetected
+        first NonConducting
+        accept when opticalInput.light.irradiance <= 0.02
+        then NonConducting;
+
+      transition lightDetected
+        first NonConducting
+        accept when opticalInput.light.irradiance > 0.02 and opticalInput.light.irradiance < 20.0
+        then PhotoConducting;
+
+      transition highLightDetected
+        first PhotoConducting
+        accept when opticalInput.light.irradiance >= 20.0
+        then Saturated;
+
+      transition lightReduced
+        first Saturated
+        accept when opticalInput.light.irradiance < 20.0
+        then PhotoConducting;
+
+      transition darknessReturned
+        first PhotoConducting
+        accept when opticalInput.light.irradiance <= 0.02
+        then NonConducting;
+    }
+  }
+
+  part def BiasNetwork {
+    attribute supplyVoltage : Voltage = 5.0;
+    attribute pullupResistance : Resistance = 10000.0;
+    attribute biasCurrentLimit : Current = 0.0005;
+
+    port supply : PowerInputPort;
+    port signalNode : AnalogElectricalPort;
+    port ground : GroundPort;
+  }
+
+  part def LowPassFilter {
+    attribute seriesResistance : Resistance = 1000.0;
+    attribute shuntCapacitance : Capacitance = 0.0000001;
+    attribute cutoffFrequencyHz : Real = 1591.5;
+
+    port rawInput : AnalogElectricalPort;
+    port filteredOutput : AnalogElectricalPort;
+    port ground : GroundPort;
+
+    action attenuateNoise {
+      in item rawSignal : ElectricalSignal;
+      out item filteredSignal : ElectricalSignal;
+    }
+  }
+
+  part def ThresholdComparator {
+    attribute referenceThreshold : Voltage = 2.5;
+    attribute hysteresis : Voltage = 0.15;
+    attribute propagationDelay : Time = 0.000002;
+
+    port analogInput : AnalogElectricalPort;
+    port digitalOutput : DigitalOutputPort;
+    port supply : PowerInputPort;
+    port ground : GroundPort;
+
+    action compareSignalToThreshold {
+      in item filteredSignal : ElectricalSignal;
+      out item detection : DigitalDetection;
+    }
+
+    state comparatorState {
+      state BelowThreshold;
+      state AboveThreshold;
+
+      transition initial then BelowThreshold;
+
+      transition assertDetection
+        first BelowThreshold
+        accept when analogInput.signal.voltage >= referenceThreshold + hysteresis
+        then AboveThreshold;
+
+      transition clearDetection
+        first AboveThreshold
+        accept when analogInput.signal.voltage <= referenceThreshold - hysteresis
+        then BelowThreshold;
+    }
+  }
+
+  part def MicrocontrollerInterface {
+    attribute inputHighMinimum : Voltage = 2.0;
+    attribute inputLowMaximum : Voltage = 0.8;
+    attribute samplePeriod : Time = 0.001;
+
+    port detectionInput : DigitalOutputPort;
+    port systemOutput : DigitalOutputPort;
+
+    action sampleDetection {
+      in item comparatorDetection : DigitalDetection;
+      out item reportedDetection : DigitalDetection;
+    }
+
+    state reportingState {
+      state Idle;
+      state LightAbsent;
+      state LightPresent;
+
+      transition initial then Idle;
+
+      transition beginMonitoring
+        first Idle
+        then LightAbsent;
+
+      transition reportLight
+        first LightAbsent
+        accept when detectionInput.detection.detected == true
+        then LightPresent;
+
+      transition reportDark
+        first LightPresent
+        accept when detectionInput.detection.detected == false
+        then LightAbsent;
+    }
+  }
+
+  part def StatusIndicator {
+    attribute onCurrent : Current = 0.01;
+    attribute forwardVoltage : Voltage = 2.0;
+
+    port commandInput : DigitalOutputPort;
+    port supply : PowerInputPort;
+    port ground : GroundPort;
+
+    state indicatorState {
+      state Off;
+      state On;
+
+      transition initial then Off;
+
+      transition illuminate
+        first Off
+        accept when commandInput.detection.detected == true
+        then On;
+
+      transition extinguish
+        first On
+        accept when commandInput.detection.detected == false
+        then Off;
+    }
+  }
+
+  part def PhototransistorLightSensorSystem {
+    attribute operatingSupplyVoltage : Voltage = 5.0;
+    attribute minimumDetectableIrradiance : OpticalIrradiance = 0.05;
+    attribute maximumDetectableIrradiance : OpticalIrradiance = 25.0;
+    attribute nominalResponseTime : Time = 0.002;
+    attribute operatingTemperatureMin : Temperature = -20.0;
+    attribute operatingTemperatureMax : Temperature = 70.0;
+
+    port sensedLight : OpticalInputPort;
+    port powerInput : PowerInputPort;
+    port groundReference : GroundPort;
+    port detectionOutput : DigitalOutputPort;
+
+    part phototransistor : Phototransistor;
+    part biasNetwork : BiasNetwork;
+    part filter : LowPassFilter;
+    part comparator : ThresholdComparator;
+    part controllerInterface : MicrocontrollerInterface;
+    part indicator : StatusIndicator;
+
+    connect sensedLight to phototransistor.opticalInput;
+    connect powerInput to biasNetwork.supply;
+    connect powerInput to comparator.supply;
+    connect powerInput to indicator.supply;
+    connect groundReference to biasNetwork.ground;
+    connect groundReference to phototransistor.emitter;
+    connect groundReference to filter.ground;
+    connect groundReference to comparator.ground;
+    connect groundReference to indicator.ground;
+    connect biasNetwork.signalNode to phototransistor.collector;
+    connect biasNetwork.signalNode to filter.rawInput;
+    connect filter.filteredOutput to comparator.analogInput;
+    connect comparator.digitalOutput to controllerInterface.detectionInput;
+    connect controllerInterface.systemOutput to detectionOutput;
+    connect controllerInterface.systemOutput to indicator.commandInput;
+
+    action senseLightAndReportDetection {
+      in item environmentLight : IncidentLight;
+      out item reportedDetection : DigitalDetection;
+
+      first receiveLight;
+      then generatePhotocurrent;
+      then createVoltageSignal;
+      then filterAnalogSignal;
+      then compareAgainstThreshold;
+      then publishDetection;
+      then done;
+
+      action receiveLight {
+        in item environmentLight : IncidentLight;
+        out item opticalStimulus : IncidentLight;
+      }
+
+      action generatePhotocurrent {
+        in item opticalStimulus : IncidentLight;
+        out item collectorCurrent : ElectricalSignal;
+      }
+
+      action createVoltageSignal {
+        in item collectorCurrent : ElectricalSignal;
+        out item rawVoltageSignal : ElectricalSignal;
+      }
+
+      action filterAnalogSignal {
+        in item rawVoltageSignal : ElectricalSignal;
+        out item stableVoltageSignal : ElectricalSignal;
+      }
+
+      action compareAgainstThreshold {
+        in item stableVoltageSignal : ElectricalSignal;
+        out item thresholdResult : DigitalDetection;
+      }
+
+      action publishDetection {
+        in item thresholdResult : DigitalDetection;
+        out item reportedDetection : DigitalDetection;
+      }
+    }
+
+    state systemState {
+      state Unpowered;
+      state Initializing;
+      state Monitoring;
+      state LightDetected;
+      state Fault;
+
+      transition initial then Unpowered;
+
+      transition powerApplied
+        first Unpowered
+        accept when powerInput.supply.voltage >= 4.75
+        then Initializing;
+
+      transition initializationComplete
+        first Initializing
+        after 0.01 s
+        then Monitoring;
+
+      transition detectionAsserted
+        first Monitoring
+        accept when comparator.digitalOutput.detection.detected == true
+        then LightDetected;
+
+      transition detectionCleared
+        first LightDetected
+        accept when comparator.digitalOutput.detection.detected == false
+        then Monitoring;
+
+      transition undervoltageFault
+        first Monitoring
+        accept when powerInput.supply.voltage < 4.5
+        then Fault;
+
+      transition recoverPower
+        first Fault
+        accept when powerInput.supply.voltage >= 4.75
+        then Initializing;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall convert incident light received by the phototransistor into a stable digital detection output indicating whether the measured optical irradiance exceeds the configured detection threshold. */
+
+    require constraint {
+      sensorSystem.detectionOutput.detection.detected ==
+        (sensorSystem.sensedLight.light.irradiance >= sensorSystem.minimumDetectableIrradiance);
+    }
+  }
+
+  requirement def ResponseTimeRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall report a change in light detection state within the nominal response time after the incident irradiance crosses the detection threshold. */
+
+    require constraint {
+      sensorSystem.nominalResponseTime <= 0.002;
+    }
+  }
+
+  requirement def SupplyVoltageRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall operate from a nominal five volt electrical supply. */
+
+    require constraint {
+      sensorSystem.operatingSupplyVoltage == 5.0;
+    }
+  }
+
+  requirement def SensitivityRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall detect near-infrared or visible light within the specified optical irradiance range. */
+
+    require constraint {
+      sensorSystem.minimumDetectableIrradiance <= 0.05 and
+      sensorSystem.maximumDetectableIrradiance >= 25.0;
+    }
+  }
+
+  requirement def EnvironmentalRequirement {
+    subject sensorSystem : PhototransistorLightSensorSystem;
+
+    doc /* The system shall operate across the specified ambient temperature range. */
+
+    require constraint {
+      sensorSystem.operatingTemperatureMin <= -20.0 and
+      sensorSystem.operatingTemperatureMax >= 70.0;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by PhototransistorLightSensorSystem;
+  satisfy ResponseTimeRequirement by PhototransistorLightSensorSystem;
+  satisfy SupplyVoltageRequirement by PhototransistorLightSensorSystem;
+  satisfy SensitivityRequirement by PhototransistorLightSensorSystem;
+  satisfy EnvironmentalRequirement by PhototransistorLightSensorSystem;
+
+  part lightDetectionSystem : PhototransistorLightSensorSystem;
+
+}

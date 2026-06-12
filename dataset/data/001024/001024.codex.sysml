@@ -1,0 +1,493 @@
+package DiffusionTensorImagingSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def MagneticFluxDensity :> ISQ::magneticFluxDensity {
+        unit = "T";
+    }
+
+    attribute def GradientStrength :> ISQ::magneticFluxDensity {
+        unit = "mT/m";
+    }
+
+    attribute def SlewRate {
+        unit = "T/m/s";
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = "MHz";
+    }
+
+    attribute def TimeInterval :> ISQ::time {
+        unit = "s";
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = "degC";
+    }
+
+    attribute def SignalToNoiseRatio {
+        unit = "dB";
+    }
+
+    attribute def VoxelSize {
+        unit = "mm";
+    }
+
+    attribute def BValue {
+        unit = "s/mm^2";
+    }
+
+    attribute def DirectionCount {
+        unit = "count";
+    }
+
+    attribute def TensorElement {
+        unit = "mm^2/s";
+    }
+
+    item def Patient {
+        attribute patientId : String;
+        attribute ageYears : Integer;
+        attribute weightKg : Real;
+        attribute implantScreeningPassed : Boolean;
+    }
+
+    item def AnatomicalRegion {
+        attribute name : String;
+        attribute coverageMm : Real;
+    }
+
+    item def DiffusionWeightedRawData {
+        attribute echoTime : TimeInterval;
+        attribute repetitionTime : TimeInterval;
+        attribute bValue : BValue;
+        attribute diffusionDirections : DirectionCount;
+        attribute sliceThickness : VoxelSize;
+        attribute rawSNR : SignalToNoiseRatio;
+    }
+
+    item def GradientDirectionTable {
+        attribute directionCount : DirectionCount;
+        attribute normalized : Boolean;
+        attribute maximumBValue : BValue;
+    }
+
+    item def TensorField {
+        attribute tensorDxx : TensorElement;
+        attribute tensorDyy : TensorElement;
+        attribute tensorDzz : TensorElement;
+        attribute tensorDxy : TensorElement;
+        attribute tensorDxz : TensorElement;
+        attribute tensorDyz : TensorElement;
+        attribute voxelCount : Integer;
+    }
+
+    item def FractionalAnisotropyMap {
+        attribute meanFA : Real;
+        attribute maximumFA : Real;
+        attribute voxelSize : VoxelSize;
+    }
+
+    item def MeanDiffusivityMap {
+        attribute meanMD : TensorElement;
+        attribute voxelSize : VoxelSize;
+    }
+
+    item def ColorDirectionMap {
+        attribute redLeftRightEncoding : Boolean;
+        attribute greenAnteriorPosteriorEncoding : Boolean;
+        attribute blueSuperiorInferiorEncoding : Boolean;
+    }
+
+    item def FiberTractography {
+        attribute tractCount : Integer;
+        attribute minimumFAThreshold : Real;
+        attribute maximumTurningAngleDeg : Real;
+    }
+
+    item def DTIStudyReport {
+        attribute studyUid : String;
+        attribute acquisitionComplete : Boolean;
+        attribute tensorFitSuccessful : Boolean;
+        attribute primaryFindingSummary : String;
+    }
+
+    port def PatientAccessPort {
+        in item patient : Patient;
+        in item targetRegion : AnatomicalRegion;
+    }
+
+    port def MagneticFieldPort {
+        out attribute fieldStrength : MagneticFluxDensity;
+        out attribute homogeneityPpm : Real;
+    }
+
+    port def RFPort {
+        out attribute transmitFrequency : Frequency;
+        in attribute receivedSignalLevel : Real;
+    }
+
+    port def GradientPort {
+        out attribute xGradient : GradientStrength;
+        out attribute yGradient : GradientStrength;
+        out attribute zGradient : GradientStrength;
+        out item directionTable : GradientDirectionTable;
+    }
+
+    port def CoolingPort {
+        out attribute coolantTemperature : Temperature;
+        in attribute heatLoadKW : Real;
+    }
+
+    port def RawDataPort {
+        out item rawData : DiffusionWeightedRawData;
+    }
+
+    port def ProcessedDataPort {
+        out item tensorField : TensorField;
+        out item faMap : FractionalAnisotropyMap;
+        out item mdMap : MeanDiffusivityMap;
+        out item colorDirectionMap : ColorDirectionMap;
+        out item tractography : FiberTractography;
+    }
+
+    port def ReportPort {
+        out item report : DTIStudyReport;
+    }
+
+    port def OperatorControlPort {
+        in attribute protocolRequested : Boolean;
+        in attribute scanStartCommand : Boolean;
+        out attribute scanReady : Boolean;
+        out attribute scanProgressPercent : Real;
+        out attribute alertMessage : String;
+    }
+
+    part def MagnetSubsystem {
+        port fieldPort : MagneticFieldPort;
+
+        attribute nominalFieldStrength : MagneticFluxDensity = 3.0;
+        attribute boreDiameterMm : Real = 700.0;
+        attribute fieldHomogeneityPpm : Real = 0.5;
+        attribute rampedToField : Boolean;
+
+        action stabilizeField {
+            in attribute targetField : MagneticFluxDensity;
+            out attribute stable : Boolean;
+        }
+    }
+
+    part def GradientSubsystem {
+        port gradientPort : GradientPort;
+        port coolingPort : CoolingPort;
+
+        attribute maximumGradientStrength : GradientStrength = 80.0;
+        attribute maximumSlewRate : SlewRate = 200.0;
+        attribute activeDutyCyclePercent : Real;
+        attribute coilTemperature : Temperature;
+
+        action generateDiffusionEncoding {
+            in item directions : GradientDirectionTable;
+            out attribute encodingApplied : Boolean;
+        }
+    }
+
+    part def RFSubsystem {
+        port rfPort : RFPort;
+
+        attribute coilChannelCount : Integer = 32;
+        attribute transmitFrequency : Frequency = 127.7;
+        attribute receiveBandwidthKHz : Real = 250.0;
+
+        action exciteAndReceive {
+            in attribute echoTime : TimeInterval;
+            out attribute signalCaptured : Boolean;
+        }
+    }
+
+    part def PatientTable {
+        port patientPort : PatientAccessPort;
+
+        attribute tablePositionMm : Real;
+        attribute maximumLoadKg : Real = 250.0;
+        attribute patientCentered : Boolean;
+
+        action positionPatient {
+            in item targetRegion : AnatomicalRegion;
+            out attribute positioned : Boolean;
+        }
+    }
+
+    part def AcquisitionController {
+        port operatorPort : OperatorControlPort;
+        port rawDataPort : RawDataPort;
+
+        attribute selectedBValue : BValue = 1000.0;
+        attribute selectedDirectionCount : DirectionCount = 64;
+        attribute echoTime : TimeInterval = 0.089;
+        attribute repetitionTime : TimeInterval = 7.5;
+        attribute sliceThickness : VoxelSize = 2.0;
+        attribute acquisitionTime : TimeInterval = 420.0;
+
+        action prepareDTIProtocol {
+            in item region : AnatomicalRegion;
+            out item table : GradientDirectionTable;
+        }
+
+        action acquireDiffusionWeightedImages {
+            in item table : GradientDirectionTable;
+            out item data : DiffusionWeightedRawData;
+        }
+    }
+
+    part def TensorProcessingUnit {
+        port rawDataIn : RawDataPort;
+        port processedOut : ProcessedDataPort;
+
+        attribute motionCorrectionEnabled : Boolean = true;
+        attribute eddyCurrentCorrectionEnabled : Boolean = true;
+        attribute tensorFitMethod : String = "weighted linear least squares";
+        attribute minimumAcceptableSNR : SignalToNoiseRatio = 20.0;
+
+        action preprocessRawData {
+            in item raw : DiffusionWeightedRawData;
+            out item corrected : DiffusionWeightedRawData;
+        }
+
+        action estimateDiffusionTensor {
+            in item corrected : DiffusionWeightedRawData;
+            out item tensor : TensorField;
+        }
+
+        action deriveClinicalMaps {
+            in item tensor : TensorField;
+            out item fa : FractionalAnisotropyMap;
+            out item md : MeanDiffusivityMap;
+            out item color : ColorDirectionMap;
+        }
+
+        action computeTractography {
+            in item tensor : TensorField;
+            in item fa : FractionalAnisotropyMap;
+            out item tracts : FiberTractography;
+        }
+    }
+
+    part def VisualizationAndReportingWorkstation {
+        port processedIn : ProcessedDataPort;
+        port reportOut : ReportPort;
+
+        attribute displayResolutionX : Integer = 3840;
+        attribute displayResolutionY : Integer = 2160;
+        attribute interactiveReviewEnabled : Boolean = true;
+
+        action renderTensorProducts {
+            in item fa : FractionalAnisotropyMap;
+            in item md : MeanDiffusivityMap;
+            in item color : ColorDirectionMap;
+            in item tracts : FiberTractography;
+            out attribute rendered : Boolean;
+        }
+
+        action createStudyReport {
+            in item tensor : TensorField;
+            in item fa : FractionalAnisotropyMap;
+            in item md : MeanDiffusivityMap;
+            in item tracts : FiberTractography;
+            out item report : DTIStudyReport;
+        }
+    }
+
+    part def SafetyMonitor {
+        port operatorPort : OperatorControlPort;
+
+        attribute maximumPatientSARWPerKg : Real = 3.2;
+        attribute maximumGradientTemperature : Temperature = 45.0;
+        attribute emergencyStopActive : Boolean;
+        attribute implantRiskDetected : Boolean;
+
+        action evaluateScanSafety {
+            in item patient : Patient;
+            in attribute coilTemperature : Temperature;
+            out attribute safeToScan : Boolean;
+        }
+
+        action issueAlert {
+            in attribute message : String;
+            out attribute alertSent : Boolean;
+        }
+    }
+
+    part def DiffusionTensorImagingScanner {
+        part magnet : MagnetSubsystem;
+        part gradients : GradientSubsystem;
+        part rfSystem : RFSubsystem;
+        part table : PatientTable;
+        part acquisition : AcquisitionController;
+        part processing : TensorProcessingUnit;
+        part workstation : VisualizationAndReportingWorkstation;
+        part safety : SafetyMonitor;
+
+        port patientAccess : PatientAccessPort;
+        port operatorConsole : OperatorControlPort;
+        port clinicalReport : ReportPort;
+
+        connect patientAccess to table.patientPort;
+        connect operatorConsole to acquisition.operatorPort;
+        connect operatorConsole to safety.operatorPort;
+        connect acquisition.rawDataPort to processing.rawDataIn;
+        connect processing.processedOut to workstation.processedIn;
+        connect workstation.reportOut to clinicalReport;
+        connect magnet.fieldPort to rfSystem.rfPort;
+        connect gradients.gradientPort to acquisition.rawDataPort;
+        connect gradients.coolingPort to safety.operatorPort;
+
+        attribute primaryFunction : String =
+            "Acquire diffusion-weighted magnetic resonance images, estimate water diffusion tensors in tissue, and produce anisotropy, diffusivity, direction, and tractography outputs for high-level characterization of neural white matter microstructure.";
+
+        state def ScannerOperationalState {
+            entry action initializeScanner;
+
+            state Idle;
+            state PatientLoaded;
+            state SafetyChecked;
+            state ProtocolPrepared;
+            state AcquiringDiffusionData;
+            state ProcessingTensorData;
+            state ReviewingResults;
+            state ReportingComplete;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_PatientLoaded
+                first Idle
+                then PatientLoaded
+                accept patientAccess.patient;
+
+            transition PatientLoaded_to_SafetyChecked
+                first PatientLoaded
+                then SafetyChecked
+                if patientAccess.patient.implantScreeningPassed;
+
+            transition SafetyChecked_to_ProtocolPrepared
+                first SafetyChecked
+                then ProtocolPrepared
+                accept operatorConsole.protocolRequested;
+
+            transition ProtocolPrepared_to_AcquiringDiffusionData
+                first ProtocolPrepared
+                then AcquiringDiffusionData
+                accept operatorConsole.scanStartCommand;
+
+            transition AcquiringDiffusionData_to_ProcessingTensorData
+                first AcquiringDiffusionData
+                then ProcessingTensorData
+                if operatorConsole.scanProgressPercent >= 100.0;
+
+            transition ProcessingTensorData_to_ReviewingResults
+                first ProcessingTensorData
+                then ReviewingResults
+                if clinicalReport.report.tensorFitSuccessful;
+
+            transition ReviewingResults_to_ReportingComplete
+                first ReviewingResults
+                then ReportingComplete
+                if clinicalReport.report.acquisitionComplete;
+
+            transition Any_to_Fault
+                first Idle
+                then Fault
+                if safety.emergencyStopActive or safety.implantRiskDetected;
+        }
+
+        action performDTIStudy {
+            in item patient : Patient;
+            in item region : AnatomicalRegion;
+            out item report : DTIStudyReport;
+
+            first start;
+            then position = table.positionPatient(region);
+            then safetyCheck = safety.evaluateScanSafety(patient, gradients.coilTemperature);
+            then stabilize = magnet.stabilizeField(magnet.nominalFieldStrength);
+            then protocol = acquisition.prepareDTIProtocol(region);
+            then encoding = gradients.generateDiffusionEncoding(protocol.table);
+            then raw = acquisition.acquireDiffusionWeightedImages(protocol.table);
+            then corrected = processing.preprocessRawData(raw.data);
+            then tensor = processing.estimateDiffusionTensor(corrected.corrected);
+            then maps = processing.deriveClinicalMaps(tensor.tensor);
+            then tracts = processing.computeTractography(tensor.tensor, maps.fa);
+            then rendered = workstation.renderTensorProducts(maps.fa, maps.md, maps.color, tracts.tracts);
+            then finalReport = workstation.createStudyReport(tensor.tensor, maps.fa, maps.md, tracts.tracts);
+            then done;
+
+            bind report = finalReport.report;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide high-level diffusion tensor imaging by acquiring diffusion-weighted MRI data, estimating diffusion tensors, and generating clinically interpretable maps and fiber tractography outputs. */
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The system shall prevent diffusion imaging acquisition when implant screening fails, emergency stop is active, or monitored gradient temperature exceeds the configured safety limit. */
+    }
+
+    requirement def TensorQualityRequirement {
+        doc /* The system shall acquire at least 30 non-collinear diffusion encoding directions with a b-value of at least 1000 s/mm^2 and sufficient signal-to-noise ratio for tensor estimation. */
+    }
+
+    requirement def OutputRequirement {
+        doc /* The system shall output a fractional anisotropy map, mean diffusivity map, color direction map, fiber tractography dataset, and DTI study report for each completed scan. */
+    }
+
+    requirement def PatientPositioningRequirement {
+        doc /* The system shall position the selected anatomical region at scanner isocenter before diffusion-weighted acquisition begins. */
+    }
+
+    satisfy PrimaryFunctionRequirement by DiffusionTensorImagingScanner;
+    satisfy SafetyRequirement by DiffusionTensorImagingScanner.safety;
+    satisfy TensorQualityRequirement by DiffusionTensorImagingScanner.acquisition;
+    satisfy TensorQualityRequirement by DiffusionTensorImagingScanner.processing;
+    satisfy OutputRequirement by DiffusionTensorImagingScanner.workstation;
+    satisfy PatientPositioningRequirement by DiffusionTensorImagingScanner.table;
+
+    constraint def MinimumDirectionConstraint {
+        in directionCount : DirectionCount;
+        directionCount >= 30;
+    }
+
+    constraint def MinimumBValueConstraint {
+        in b : BValue;
+        b >= 1000.0;
+    }
+
+    constraint def GradientTemperatureConstraint {
+        in gradientTemperature : Temperature;
+        in maximumAllowed : Temperature;
+        gradientTemperature <= maximumAllowed;
+    }
+
+    constraint def FractionalAnisotropyRangeConstraint {
+        in fa : Real;
+        fa >= 0.0 and fa <= 1.0;
+    }
+
+    part dtiSystem : DiffusionTensorImagingScanner {
+        assert constraint MinimumDirectionConstraint {
+            directionCount = acquisition.selectedDirectionCount;
+        }
+
+        assert constraint MinimumBValueConstraint {
+            b = acquisition.selectedBValue;
+        }
+
+        assert constraint GradientTemperatureConstraint {
+            gradientTemperature = gradients.coilTemperature;
+            maximumAllowed = safety.maximumGradientTemperature;
+        }
+    }
+}

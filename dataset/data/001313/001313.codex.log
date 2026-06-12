@@ -1,0 +1,1283 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-u60jrlrl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb63a-b656-7b63-bbc7-1d535cb1f337
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a sensing unit that measures the relevant quantity using a Water sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WaterSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent {
+        unit = "%";
+        quantityKind = "ratio";
+    }
+
+    value def Millimeter {
+        unit = "mm";
+        quantityKind = "length";
+    }
+
+    value def DegreeCelsius {
+        unit = "degC";
+        quantityKind = "thermodynamic temperature";
+    }
+
+    value def Volt {
+        unit = "V";
+        quantityKind = "electric potential";
+    }
+
+    value def MilliAmpere {
+        unit = "mA";
+        quantityKind = "electric current";
+    }
+
+    value def Millisecond {
+        unit = "ms";
+        quantityKind = "time";
+    }
+
+    value def LiquidLevel {
+        :> Real;
+        unit = Millimeter;
+    }
+
+    value def WaterPresenceRatio {
+        :> Real;
+        unit = Percent;
+    }
+
+    value def SensorVoltage {
+        :> Real;
+        unit = Volt;
+    }
+
+    value def SupplyVoltage {
+        :> Real;
+        unit = Volt;
+    }
+
+    value def SupplyCurrent {
+        :> Real;
+        unit = MilliAmpere;
+    }
+
+    value def SamplePeriod {
+        :> Real;
+        unit = Millisecond;
+    }
+
+    value def AmbientTemperature {
+        :> Real;
+        unit = DegreeCelsius;
+    }
+
+    enum def SensingStatus {
+        enum idle;
+        enum warmingUp;
+        enum measuring;
+        enum valid;
+        enum fault;
+    }
+
+    enum def WaterDetectionState {
+        enum dry;
+        enum wet;
+        enum submerged;
+        enum outOfRange;
+    }
+
+    item def WaterContact {
+        attribute level : LiquidLevel;
+        attribute presence : WaterPresenceRatio;
+        attribute temperature : AmbientTemperature;
+    }
+
+    item def RawWaterSensorSignal {
+        attribute analogVoltage : SensorVoltage;
+        attribute excitationVoltage : SupplyVoltage;
+        attribute sensorCurrent : SupplyCurrent;
+        attribute sampleAge : SamplePeriod;
+    }
+
+    item def WaterMeasurement {
+        attribute measuredLevel : LiquidLevel;
+        attribute measuredPresence : WaterPresenceRatio;
+        attribute detectionState : WaterDetectionState;
+        attribute status : SensingStatus;
+        attribute confidence : Percent;
+        attribute timestampAge : SamplePeriod;
+    }
+
+    item def PowerFeed {
+        attribute voltage : SupplyVoltage;
+        attribute currentLimit : SupplyCurrent;
+    }
+
+    item def DiagnosticReport {
+        attribute status : SensingStatus;
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute calibrationExpired : Boolean;
+        attribute measuredVoltage : SensorVoltage;
+    }
+
+    port def WaterContactPort {
+        in item contact : WaterContact;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : RawWaterSensorSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : WaterMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerFeed;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute resetFault : Boolean;
+    }
+
+    part def WaterSensor {
+        attribute sensingRangeMin : LiquidLevel = 0.0 [mm];
+        attribute sensingRangeMax : LiquidLevel = 100.0 [mm];
+        attribute minimumDetectablePresence : WaterPresenceRatio = 10.0 [%];
+        attribute excitationVoltageNominal : SupplyVoltage = 5.0 [V];
+        attribute operatingCurrentMax : SupplyCurrent = 20.0 [mA];
+        attribute responseTimeMax : SamplePeriod = 100.0 [ms];
+
+        port waterContact : WaterContactPort;
+        port powerIn : PowerInputPort;
+        port analogOut : AnalogSignalPort;
+        port diagnostics : DiagnosticPort;
+
+        action senseWater {
+            in item contact : WaterContact;
+            in item power : PowerFeed;
+            out item rawSignal : RawWaterSensorSignal;
+
+            first start;
+            then validatePower;
+            then convertContactToVoltage;
+            then publishSignal;
+            then done;
+
+            action validatePower {
+                in item power : PowerFeed;
+                assert constraint {
+                    power.voltage >= 4.75 [V] and power.voltage <= 5.25 [V]
+                }
+            }
+
+            action convertContactToVoltage {
+                in item contact : WaterContact;
+                out item rawSignal : RawWaterSensorSignal;
+                assert constraint {
+                    rawSignal.analogVoltage >= 0.0 [V] and rawSignal.analogVoltage <= 5.0 [V]
+                }
+            }
+
+            action publishSignal {
+                in item rawSignal : RawWaterSensorSignal;
+            }
+        }
+
+        state def WaterSensorStateMachine {
+            state off;
+            state stabilizing;
+            state sensing;
+            state failed;
+
+            transition initial then off;
+
+            transition powerApplied
+                first off
+                accept powerIn.power
+                if powerIn.power.voltage >= 4.75 [V] and powerIn.power.voltage <= 5.25 [V]
+                then stabilizing;
+
+            transition stabilizationComplete
+                first stabilizing
+                after 50.0 [ms]
+                then sensing;
+
+            transition invalidPower
+                first stabilizing
+                if powerIn.power.voltage < 4.75 [V] or powerIn.power.voltage > 5.25 [V]
+                then failed;
+
+            transition signalFault
+                first sensing
+                if analogOut.signal.analogVoltage < 0.0 [V] or analogOut.signal.analogVoltage > 5.0 [V]
+                then failed;
+        }
+
+        exhibit stateMachine : WaterSensorStateMachine;
+    }
+
+    part def SignalConditioner {
+        attribute inputVoltageMin : SensorVoltage = 0.0 [V];
+        attribute inputVoltageMax : SensorVoltage = 5.0 [V];
+        attribute filteredNoiseLimit : SensorVoltage = 0.05 [V];
+        attribute samplePeriodNominal : SamplePeriod = 20.0 [ms];
+
+        port rawIn {
+            in item signal : RawWaterSensorSignal;
+        }
+
+        port conditionedOut {
+            out item signal : RawWaterSensorSignal;
+        }
+
+        action filterAndValidate {
+            in item rawSignal : RawWaterSensorSignal;
+            out item conditionedSignal : RawWaterSensorSignal;
+
+            first receiveRawSignal;
+            then rejectInvalidVoltage;
+            then lowPassFilter;
+            then outputConditionedSignal;
+            then done;
+
+            action rejectInvalidVoltage {
+                in item rawSignal : RawWaterSensorSignal;
+                assert constraint {
+                    rawSignal.analogVoltage >= inputVoltageMin and rawSignal.analogVoltage <= inputVoltageMax
+                }
+            }
+
+            action lowPassFilter {
+                in item rawSignal : RawWaterSensorSignal;
+                out item conditionedSignal : RawWaterSensorSignal;
+            }
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute dryThreshold : SensorVoltage = 0.75 [V];
+        attribute wetThreshold : SensorVoltage = 1.50 [V];
+        attribute submergedThreshold : SensorVoltage = 3.50 [V];
+        attribute levelScale : Real = 25.0;
+        attribute confidenceNominal : Percent = 95.0 [%];
+
+        port signalIn {
+            in item signal : RawWaterSensorSignal;
+        }
+
+        port measurementOut : MeasurementPort;
+        port diagnosticOut : DiagnosticPort;
+        port control : ControlPort;
+
+        action computeWaterMeasurement {
+            in item signal : RawWaterSensorSignal;
+            out item measurement : WaterMeasurement;
+            out item report : DiagnosticReport;
+
+            first acquireSample;
+            then classifyWaterState;
+            then calculateLevel;
+            then calculateConfidence;
+            then publishMeasurement;
+            then done;
+
+            action classifyWaterState {
+                in item signal : RawWaterSensorSignal;
+                out attribute state : WaterDetectionState;
+
+                assert constraint {
+                    signal.analogVoltage >= 0.0 [V] and signal.analogVoltage <= 5.0 [V]
+                }
+            }
+
+            action calculateLevel {
+                in item signal : RawWaterSensorSignal;
+                out attribute level : LiquidLevel;
+
+                assert constraint {
+                    level >= 0.0 [mm] and level <= 100.0 [mm]
+                }
+            }
+
+            action calculateConfidence {
+                in item signal : RawWaterSensorSignal;
+                out attribute confidence : Percent;
+
+                assert constraint {
+                    confidence >= 0.0 [%] and confidence <= 100.0 [%]
+                }
+            }
+        }
+
+        state def ProcessorStateMachine {
+            state disabled;
+            state initializing;
+            state sampling;
+            state reporting;
+            state faultLatched;
+
+            transition initial then disabled;
+
+            transition enableRequested
+                first disabled
+                accept control.enable
+                if control.enable == true
+                then initializing;
+
+            transition initialized
+                first initializing
+                after 100.0 [ms]
+                then sampling;
+
+            transition sampleReady
+                first sampling
+                accept signalIn.signal
+                then reporting;
+
+            transition reportPublished
+                first reporting
+                after 20.0 [ms]
+                then sampling;
+
+            transition openCircuitDetected
+                first sampling
+                if signalIn.signal.analogVoltage <= 0.05 [V]
+                then faultLatched;
+
+            transition shortCircuitDetected
+                first sampling
+                if signalIn.signal.analogVoltage >= 4.95 [V]
+                then faultLatched;
+
+            transition resetFault
+                first faultLatched
+                accept control.resetFault
+                if control.resetFault == true
+                then initializing;
+
+            transition disableRequested
+                first sampling
+                accept control.enable
+                if control.enable == false
+                then disabled;
+        }
+
+        exhibit stateMachine : ProcessorStateMachine;
+    }
+
+    part def RegulatedPowerSupply {
+        attribute nominalOutputVoltage : SupplyVoltage = 5.0 [V];
+        attribute maxOutputCurrent : SupplyCurrent = 50.0 [mA];
+
+        port powerOut {
+            out item power : PowerFeed;
+        }
+
+        action regulatePower {
+            out item power : PowerFeed;
+            assert constraint {
+                power.voltage >= 4.75 [V] and power.voltage <= 5.25 [V] and
+                power.currentLimit >= 20.0 [mA]
+            }
+        }
+    }
+
+    part def WaterSensingUnit {
+        attribute samplePeriod : SamplePeriod = 100.0 [ms];
+        attribute operatingTemperatureMin : AmbientTemperature = 0.0 [degC];
+        attribute operatingTemperatureMax : AmbientTemperature = 60.0 [degC];
+        attribute measurementRangeMin : LiquidLevel = 0.0 [mm];
+        attribute measurementRangeMax : LiquidLevel = 100.0 [mm];
+        attribute levelAccuracy : LiquidLevel = 5.0 [mm];
+
+        part powerSupply : RegulatedPowerSupply;
+        part sensor : WaterSensor;
+        part conditioner : SignalConditioner;
+        part processor : MeasurementProcessor;
+
+        port waterInput : WaterContactPort;
+        port controlInput : ControlPort;
+        port measurementOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        connect waterInput.contact to sensor.waterContact.contact;
+        connect powerSupply.powerOut.power to sensor.powerIn.power;
+        connect sensor.analogOut.signal to conditioner.rawIn.signal;
+        connect conditioner.conditionedOut.signal to processor.signalIn.signal;
+        connect processor.measurementOut.measurement to measurementOutput.measurement;
+        connect processor.diagnosticOut.report to diagnosticOutput.report;
+        connect controlInput.enable to processor.control.enable;
+        connect controlInput.resetFault to processor.control.resetFault;
+
+        action performSensingCycle {
+            in item contact : WaterContact;
+            in attribute enable : Boolean;
+            out item measurement : WaterMeasurement;
+            out item report : DiagnosticReport;
+
+            first receiveWaterContact;
+            then powerSensor;
+            then senseWater;
+            then conditionSignal;
+            then computeMeasurement;
+            then publishOutputs;
+            then done;
+
+            action receiveWaterContact {
+                in item contact : WaterContact;
+                assert constraint {
+                    contact.level >= measurementRangeMin and contact.level <= measurementRangeMax
+                }
+            }
+
+            action powerSensor {
+                perform powerSupply.regulatePower;
+            }
+
+            action senseWater {
+                perform sensor.senseWater;
+            }
+
+            action conditionSignal {
+                perform conditioner.filterAndValidate;
+            }
+
+            action computeMeasurement {
+                perform processor.computeWaterMeasurement;
+            }
+
+            action publishOutputs {
+                out item measurement : WaterMeasurement;
+                out item report : DiagnosticReport;
+            }
+        }
+
+        state def UnitOperationalStateMachine {
+            state off;
+            state ready;
+            state measuring;
+            state reporting;
+            state degraded;
+            state failed;
+
+            transition initial then off;
+
+            transition enabled
+                first off
+                accept controlInput.enable
+                if controlInput.enable == true
+                then ready;
+
+            transition beginMeasurement
+                first ready
+                accept waterInput.contact
+                then measuring;
+
+            transition measurementComplete
+                first measuring
+                after samplePeriod
+                then reporting;
+
+            transition reportComplete
+                first reporting
+                after 10.0 [ms]
+                then ready;
+
+            transition diagnosticWarning
+                first measuring
+                if processor.diagnosticOut.report.calibrationExpired == true
+                then degraded;
+
+            transition diagnosticFault
+                first measuring
+                if processor.diagnosticOut.report.sensorOpenCircuit == true or
+                   processor.diagnosticOut.report.sensorShortCircuit == true
+                then failed;
+
+            transition resetFromFailed
+                first failed
+                accept controlInput.resetFault
+                if controlInput.resetFault == true
+                then ready;
+
+            transition disabled
+                first ready
+                accept controlInput.enable
+                if controlInput.enable == false
+                then off;
+        }
+
+        exhibit stateMachine : UnitOperationalStateMachine;
+    }
+
+    requirement def WaterSensingUnitRequirement {
+        subject unit : WaterSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin == 0.0 [mm] and
+            unit.measurementRangeMax == 100.0 [mm]
+        }
+
+        require constraint {
+            unit.samplePeriod <= 100.0 [ms]
+        }
+
+        require constraint {
+            unit.levelAccuracy <= 5.0 [mm]
+        }
+    }
+
+    requirement def WaterSensorRequirement {
+        subject sensor : WaterSensor;
+
+        require constraint {
+            sensor.excitationVoltageNominal == 5.0 [V]
+        }
+
+        require constraint {
+            sensor.sensingRangeMin <= 0.0 [mm] and
+            sensor.sensingRangeMax >= 100.0 [mm]
+        }
+
+        require constraint {
+            sensor.responseTimeMax <= 100.0 [ms]
+        }
+    }
+
+    requirement def MeasurementOutputRequirement {
+        subject measurement : WaterMeasurement;
+
+        require constraint {
+            measurement.measuredLevel >= 0.0 [mm] and
+            measurement.measuredLevel <= 100.0 [mm]
+        }
+
+        require constraint {
+            measurement.measuredPresence >= 0.0 [%] and
+            measurement.measuredPresence <= 100.0 [%]
+        }
+
+        require constraint {
+            measurement.confidence >= 90.0 [%]
+        }
+
+        require constraint {
+            measurement.status == SensingStatus::valid
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject report : DiagnosticReport;
+
+        require constraint {
+            not (report.sensorOpenCircuit == true and report.sensorShortCircuit == true)
+        }
+
+        require constraint {
+            report.measuredVoltage >= 0.0 [V] and report.measuredVoltage <= 5.0 [V]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject unit : WaterSensingUnit;
+
+        require constraint {
+            unit.operatingTemperatureMin <= 0.0 [degC] and
+            unit.operatingTemperatureMax >= 60.0 [degC]
+        }
+    }
+
+    satisfy WaterSensingUnitRequirement by WaterSensingUnit;
+    satisfy WaterSensorRequirement by WaterSensor;
+    satisfy EnvironmentalRequirement by WaterSensingUnit;
+
+    part waterSensingUnit : WaterSensingUnit {
+        attribute samplePeriod = 100.0 [ms];
+        attribute measurementRangeMin = 0.0 [mm];
+        attribute measurementRangeMax = 100.0 [mm];
+        attribute levelAccuracy = 5.0 [mm];
+
+        part sensor : WaterSensor {
+            attribute sensingRangeMin = 0.0 [mm];
+            attribute sensingRangeMax = 100.0 [mm];
+            attribute excitationVoltageNominal = 5.0 [V];
+            attribute operatingCurrentMax = 20.0 [mA];
+            attribute responseTimeMax = 100.0 [ms];
+        }
+
+        part conditioner : SignalConditioner {
+            attribute inputVoltageMin = 0.0 [V];
+            attribute inputVoltageMax = 5.0 [V];
+            attribute samplePeriodNominal = 20.0 [ms];
+        }
+
+        part processor : MeasurementProcessor {
+            attribute dryThreshold = 0.75 [V];
+            attribute wetThreshold = 1.50 [V];
+            attribute submergedThreshold = 3.50 [V];
+            attribute confidenceNominal = 95.0 [%];
+        }
+
+        part powerSupply : RegulatedPowerSupply {
+            attribute nominalOutputVoltage = 5.0 [V];
+            attribute maxOutputCurrent = 50.0 [mA];
+        }
+    }
+
+}
+tokens used
+4,088
+package WaterSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent {
+        unit = "%";
+        quantityKind = "ratio";
+    }
+
+    value def Millimeter {
+        unit = "mm";
+        quantityKind = "length";
+    }
+
+    value def DegreeCelsius {
+        unit = "degC";
+        quantityKind = "thermodynamic temperature";
+    }
+
+    value def Volt {
+        unit = "V";
+        quantityKind = "electric potential";
+    }
+
+    value def MilliAmpere {
+        unit = "mA";
+        quantityKind = "electric current";
+    }
+
+    value def Millisecond {
+        unit = "ms";
+        quantityKind = "time";
+    }
+
+    value def LiquidLevel {
+        :> Real;
+        unit = Millimeter;
+    }
+
+    value def WaterPresenceRatio {
+        :> Real;
+        unit = Percent;
+    }
+
+    value def SensorVoltage {
+        :> Real;
+        unit = Volt;
+    }
+
+    value def SupplyVoltage {
+        :> Real;
+        unit = Volt;
+    }
+
+    value def SupplyCurrent {
+        :> Real;
+        unit = MilliAmpere;
+    }
+
+    value def SamplePeriod {
+        :> Real;
+        unit = Millisecond;
+    }
+
+    value def AmbientTemperature {
+        :> Real;
+        unit = DegreeCelsius;
+    }
+
+    enum def SensingStatus {
+        enum idle;
+        enum warmingUp;
+        enum measuring;
+        enum valid;
+        enum fault;
+    }
+
+    enum def WaterDetectionState {
+        enum dry;
+        enum wet;
+        enum submerged;
+        enum outOfRange;
+    }
+
+    item def WaterContact {
+        attribute level : LiquidLevel;
+        attribute presence : WaterPresenceRatio;
+        attribute temperature : AmbientTemperature;
+    }
+
+    item def RawWaterSensorSignal {
+        attribute analogVoltage : SensorVoltage;
+        attribute excitationVoltage : SupplyVoltage;
+        attribute sensorCurrent : SupplyCurrent;
+        attribute sampleAge : SamplePeriod;
+    }
+
+    item def WaterMeasurement {
+        attribute measuredLevel : LiquidLevel;
+        attribute measuredPresence : WaterPresenceRatio;
+        attribute detectionState : WaterDetectionState;
+        attribute status : SensingStatus;
+        attribute confidence : Percent;
+        attribute timestampAge : SamplePeriod;
+    }
+
+    item def PowerFeed {
+        attribute voltage : SupplyVoltage;
+        attribute currentLimit : SupplyCurrent;
+    }
+
+    item def DiagnosticReport {
+        attribute status : SensingStatus;
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute calibrationExpired : Boolean;
+        attribute measuredVoltage : SensorVoltage;
+    }
+
+    port def WaterContactPort {
+        in item contact : WaterContact;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : RawWaterSensorSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : WaterMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item power : PowerFeed;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute resetFault : Boolean;
+    }
+
+    part def WaterSensor {
+        attribute sensingRangeMin : LiquidLevel = 0.0 [mm];
+        attribute sensingRangeMax : LiquidLevel = 100.0 [mm];
+        attribute minimumDetectablePresence : WaterPresenceRatio = 10.0 [%];
+        attribute excitationVoltageNominal : SupplyVoltage = 5.0 [V];
+        attribute operatingCurrentMax : SupplyCurrent = 20.0 [mA];
+        attribute responseTimeMax : SamplePeriod = 100.0 [ms];
+
+        port waterContact : WaterContactPort;
+        port powerIn : PowerInputPort;
+        port analogOut : AnalogSignalPort;
+        port diagnostics : DiagnosticPort;
+
+        action senseWater {
+            in item contact : WaterContact;
+            in item power : PowerFeed;
+            out item rawSignal : RawWaterSensorSignal;
+
+            first start;
+            then validatePower;
+            then convertContactToVoltage;
+            then publishSignal;
+            then done;
+
+            action validatePower {
+                in item power : PowerFeed;
+                assert constraint {
+                    power.voltage >= 4.75 [V] and power.voltage <= 5.25 [V]
+                }
+            }
+
+            action convertContactToVoltage {
+                in item contact : WaterContact;
+                out item rawSignal : RawWaterSensorSignal;
+                assert constraint {
+                    rawSignal.analogVoltage >= 0.0 [V] and rawSignal.analogVoltage <= 5.0 [V]
+                }
+            }
+
+            action publishSignal {
+                in item rawSignal : RawWaterSensorSignal;
+            }
+        }
+
+        state def WaterSensorStateMachine {
+            state off;
+            state stabilizing;
+            state sensing;
+            state failed;
+
+            transition initial then off;
+
+            transition powerApplied
+                first off
+                accept powerIn.power
+                if powerIn.power.voltage >= 4.75 [V] and powerIn.power.voltage <= 5.25 [V]
+                then stabilizing;
+
+            transition stabilizationComplete
+                first stabilizing
+                after 50.0 [ms]
+                then sensing;
+
+            transition invalidPower
+                first stabilizing
+                if powerIn.power.voltage < 4.75 [V] or powerIn.power.voltage > 5.25 [V]
+                then failed;
+
+            transition signalFault
+                first sensing
+                if analogOut.signal.analogVoltage < 0.0 [V] or analogOut.signal.analogVoltage > 5.0 [V]
+                then failed;
+        }
+
+        exhibit stateMachine : WaterSensorStateMachine;
+    }
+
+    part def SignalConditioner {
+        attribute inputVoltageMin : SensorVoltage = 0.0 [V];
+        attribute inputVoltageMax : SensorVoltage = 5.0 [V];
+        attribute filteredNoiseLimit : SensorVoltage = 0.05 [V];
+        attribute samplePeriodNominal : SamplePeriod = 20.0 [ms];
+
+        port rawIn {
+            in item signal : RawWaterSensorSignal;
+        }
+
+        port conditionedOut {
+            out item signal : RawWaterSensorSignal;
+        }
+
+        action filterAndValidate {
+            in item rawSignal : RawWaterSensorSignal;
+            out item conditionedSignal : RawWaterSensorSignal;
+
+            first receiveRawSignal;
+            then rejectInvalidVoltage;
+            then lowPassFilter;
+            then outputConditionedSignal;
+            then done;
+
+            action rejectInvalidVoltage {
+                in item rawSignal : RawWaterSensorSignal;
+                assert constraint {
+                    rawSignal.analogVoltage >= inputVoltageMin and rawSignal.analogVoltage <= inputVoltageMax
+                }
+            }
+
+            action lowPassFilter {
+                in item rawSignal : RawWaterSensorSignal;
+                out item conditionedSignal : RawWaterSensorSignal;
+            }
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute dryThreshold : SensorVoltage = 0.75 [V];
+        attribute wetThreshold : SensorVoltage = 1.50 [V];
+        attribute submergedThreshold : SensorVoltage = 3.50 [V];
+        attribute levelScale : Real = 25.0;
+        attribute confidenceNominal : Percent = 95.0 [%];
+
+        port signalIn {
+            in item signal : RawWaterSensorSignal;
+        }
+
+        port measurementOut : MeasurementPort;
+        port diagnosticOut : DiagnosticPort;
+        port control : ControlPort;
+
+        action computeWaterMeasurement {
+            in item signal : RawWaterSensorSignal;
+            out item measurement : WaterMeasurement;
+            out item report : DiagnosticReport;
+
+            first acquireSample;
+            then classifyWaterState;
+            then calculateLevel;
+            then calculateConfidence;
+            then publishMeasurement;
+            then done;
+
+            action classifyWaterState {
+                in item signal : RawWaterSensorSignal;
+                out attribute state : WaterDetectionState;
+
+                assert constraint {
+                    signal.analogVoltage >= 0.0 [V] and signal.analogVoltage <= 5.0 [V]
+                }
+            }
+
+            action calculateLevel {
+                in item signal : RawWaterSensorSignal;
+                out attribute level : LiquidLevel;
+
+                assert constraint {
+                    level >= 0.0 [mm] and level <= 100.0 [mm]
+                }
+            }
+
+            action calculateConfidence {
+                in item signal : RawWaterSensorSignal;
+                out attribute confidence : Percent;
+
+                assert constraint {
+                    confidence >= 0.0 [%] and confidence <= 100.0 [%]
+                }
+            }
+        }
+
+        state def ProcessorStateMachine {
+            state disabled;
+            state initializing;
+            state sampling;
+            state reporting;
+            state faultLatched;
+
+            transition initial then disabled;
+
+            transition enableRequested
+                first disabled
+                accept control.enable
+                if control.enable == true
+                then initializing;
+
+            transition initialized
+                first initializing
+                after 100.0 [ms]
+                then sampling;
+
+            transition sampleReady
+                first sampling
+                accept signalIn.signal
+                then reporting;
+
+            transition reportPublished
+                first reporting
+                after 20.0 [ms]
+                then sampling;
+
+            transition openCircuitDetected
+                first sampling
+                if signalIn.signal.analogVoltage <= 0.05 [V]
+                then faultLatched;
+
+            transition shortCircuitDetected
+                first sampling
+                if signalIn.signal.analogVoltage >= 4.95 [V]
+                then faultLatched;
+
+            transition resetFault
+                first faultLatched
+                accept control.resetFault
+                if control.resetFault == true
+                then initializing;
+
+            transition disableRequested
+                first sampling
+                accept control.enable
+                if control.enable == false
+                then disabled;
+        }
+
+        exhibit stateMachine : ProcessorStateMachine;
+    }
+
+    part def RegulatedPowerSupply {
+        attribute nominalOutputVoltage : SupplyVoltage = 5.0 [V];
+        attribute maxOutputCurrent : SupplyCurrent = 50.0 [mA];
+
+        port powerOut {
+            out item power : PowerFeed;
+        }
+
+        action regulatePower {
+            out item power : PowerFeed;
+            assert constraint {
+                power.voltage >= 4.75 [V] and power.voltage <= 5.25 [V] and
+                power.currentLimit >= 20.0 [mA]
+            }
+        }
+    }
+
+    part def WaterSensingUnit {
+        attribute samplePeriod : SamplePeriod = 100.0 [ms];
+        attribute operatingTemperatureMin : AmbientTemperature = 0.0 [degC];
+        attribute operatingTemperatureMax : AmbientTemperature = 60.0 [degC];
+        attribute measurementRangeMin : LiquidLevel = 0.0 [mm];
+        attribute measurementRangeMax : LiquidLevel = 100.0 [mm];
+        attribute levelAccuracy : LiquidLevel = 5.0 [mm];
+
+        part powerSupply : RegulatedPowerSupply;
+        part sensor : WaterSensor;
+        part conditioner : SignalConditioner;
+        part processor : MeasurementProcessor;
+
+        port waterInput : WaterContactPort;
+        port controlInput : ControlPort;
+        port measurementOutput : MeasurementPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        connect waterInput.contact to sensor.waterContact.contact;
+        connect powerSupply.powerOut.power to sensor.powerIn.power;
+        connect sensor.analogOut.signal to conditioner.rawIn.signal;
+        connect conditioner.conditionedOut.signal to processor.signalIn.signal;
+        connect processor.measurementOut.measurement to measurementOutput.measurement;
+        connect processor.diagnosticOut.report to diagnosticOutput.report;
+        connect controlInput.enable to processor.control.enable;
+        connect controlInput.resetFault to processor.control.resetFault;
+
+        action performSensingCycle {
+            in item contact : WaterContact;
+            in attribute enable : Boolean;
+            out item measurement : WaterMeasurement;
+            out item report : DiagnosticReport;
+
+            first receiveWaterContact;
+            then powerSensor;
+            then senseWater;
+            then conditionSignal;
+            then computeMeasurement;
+            then publishOutputs;
+            then done;
+
+            action receiveWaterContact {
+                in item contact : WaterContact;
+                assert constraint {
+                    contact.level >= measurementRangeMin and contact.level <= measurementRangeMax
+                }
+            }
+
+            action powerSensor {
+                perform powerSupply.regulatePower;
+            }
+
+            action senseWater {
+                perform sensor.senseWater;
+            }
+
+            action conditionSignal {
+                perform conditioner.filterAndValidate;
+            }
+
+            action computeMeasurement {
+                perform processor.computeWaterMeasurement;
+            }
+
+            action publishOutputs {
+                out item measurement : WaterMeasurement;
+                out item report : DiagnosticReport;
+            }
+        }
+
+        state def UnitOperationalStateMachine {
+            state off;
+            state ready;
+            state measuring;
+            state reporting;
+            state degraded;
+            state failed;
+
+            transition initial then off;
+
+            transition enabled
+                first off
+                accept controlInput.enable
+                if controlInput.enable == true
+                then ready;
+
+            transition beginMeasurement
+                first ready
+                accept waterInput.contact
+                then measuring;
+
+            transition measurementComplete
+                first measuring
+                after samplePeriod
+                then reporting;
+
+            transition reportComplete
+                first reporting
+                after 10.0 [ms]
+                then ready;
+
+            transition diagnosticWarning
+                first measuring
+                if processor.diagnosticOut.report.calibrationExpired == true
+                then degraded;
+
+            transition diagnosticFault
+                first measuring
+                if processor.diagnosticOut.report.sensorOpenCircuit == true or
+                   processor.diagnosticOut.report.sensorShortCircuit == true
+                then failed;
+
+            transition resetFromFailed
+                first failed
+                accept controlInput.resetFault
+                if controlInput.resetFault == true
+                then ready;
+
+            transition disabled
+                first ready
+                accept controlInput.enable
+                if controlInput.enable == false
+                then off;
+        }
+
+        exhibit stateMachine : UnitOperationalStateMachine;
+    }
+
+    requirement def WaterSensingUnitRequirement {
+        subject unit : WaterSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin == 0.0 [mm] and
+            unit.measurementRangeMax == 100.0 [mm]
+        }
+
+        require constraint {
+            unit.samplePeriod <= 100.0 [ms]
+        }
+
+        require constraint {
+            unit.levelAccuracy <= 5.0 [mm]
+        }
+    }
+
+    requirement def WaterSensorRequirement {
+        subject sensor : WaterSensor;
+
+        require constraint {
+            sensor.excitationVoltageNominal == 5.0 [V]
+        }
+
+        require constraint {
+            sensor.sensingRangeMin <= 0.0 [mm] and
+            sensor.sensingRangeMax >= 100.0 [mm]
+        }
+
+        require constraint {
+            sensor.responseTimeMax <= 100.0 [ms]
+        }
+    }
+
+    requirement def MeasurementOutputRequirement {
+        subject measurement : WaterMeasurement;
+
+        require constraint {
+            measurement.measuredLevel >= 0.0 [mm] and
+            measurement.measuredLevel <= 100.0 [mm]
+        }
+
+        require constraint {
+            measurement.measuredPresence >= 0.0 [%] and
+            measurement.measuredPresence <= 100.0 [%]
+        }
+
+        require constraint {
+            measurement.confidence >= 90.0 [%]
+        }
+
+        require constraint {
+            measurement.status == SensingStatus::valid
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject report : DiagnosticReport;
+
+        require constraint {
+            not (report.sensorOpenCircuit == true and report.sensorShortCircuit == true)
+        }
+
+        require constraint {
+            report.measuredVoltage >= 0.0 [V] and report.measuredVoltage <= 5.0 [V]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject unit : WaterSensingUnit;
+
+        require constraint {
+            unit.operatingTemperatureMin <= 0.0 [degC] and
+            unit.operatingTemperatureMax >= 60.0 [degC]
+        }
+    }
+
+    satisfy WaterSensingUnitRequirement by WaterSensingUnit;
+    satisfy WaterSensorRequirement by WaterSensor;
+    satisfy EnvironmentalRequirement by WaterSensingUnit;
+
+    part waterSensingUnit : WaterSensingUnit {
+        attribute samplePeriod = 100.0 [ms];
+        attribute measurementRangeMin = 0.0 [mm];
+        attribute measurementRangeMax = 100.0 [mm];
+        attribute levelAccuracy = 5.0 [mm];
+
+        part sensor : WaterSensor {
+            attribute sensingRangeMin = 0.0 [mm];
+            attribute sensingRangeMax = 100.0 [mm];
+            attribute excitationVoltageNominal = 5.0 [V];
+            attribute operatingCurrentMax = 20.0 [mA];
+            attribute responseTimeMax = 100.0 [ms];
+        }
+
+        part conditioner : SignalConditioner {
+            attribute inputVoltageMin = 0.0 [V];
+            attribute inputVoltageMax = 5.0 [V];
+            attribute samplePeriodNominal = 20.0 [ms];
+        }
+
+        part processor : MeasurementProcessor {
+            attribute dryThreshold = 0.75 [V];
+            attribute wetThreshold = 1.50 [V];
+            attribute submergedThreshold = 3.50 [V];
+            attribute confidenceNominal = 95.0 [%];
+        }
+
+        part powerSupply : RegulatedPowerSupply {
+            attribute nominalOutputVoltage = 5.0 [V];
+            attribute maxOutputCurrent = 50.0 [mA];
+        }
+    }
+
+}

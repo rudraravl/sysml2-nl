@@ -1,0 +1,825 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_71b474l
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb756-e100-70b1-a907-e33b24fd2830
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Technology forecasting and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TechnologyForecastingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Probability {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    attribute def ConfidenceScore {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    attribute def Currency {
+        :> ScalarValues::Real;
+        unit = USD;
+    }
+
+    attribute def DataVolume {
+        :> ScalarValues::Real;
+        unit = GB;
+    }
+
+    attribute def ProcessingRate {
+        :> ScalarValues::Real;
+        unit = GB_per_h;
+    }
+
+    attribute def ForecastHorizon {
+        :> ScalarValues::Real;
+        unit = yr;
+    }
+
+    attribute def TrendVelocity {
+        :> ScalarValues::Real;
+        unit = one_per_yr;
+    }
+
+    attribute def MarketImpact {
+        :> ScalarValues::Real;
+        unit = USD_per_yr;
+    }
+
+    item def TechnologySignal {
+        attribute sourceName : String;
+        attribute captureTime : Time;
+        attribute topic : String;
+        attribute rawVolume : DataVolume;
+        attribute sourceReliability : ConfidenceScore;
+    }
+
+    item def CleanSignal {
+        attribute topic : String;
+        attribute normalizedVolume : DataVolume;
+        attribute qualityScore : ConfidenceScore;
+        attribute duplicateRatio : Probability;
+    }
+
+    item def FeatureVector {
+        attribute topic : String;
+        attribute publicationGrowth : TrendVelocity;
+        attribute patentGrowth : TrendVelocity;
+        attribute investmentGrowth : TrendVelocity;
+        attribute talentGrowth : TrendVelocity;
+        attribute regulationPressure : Probability;
+        attribute maturityIndex : Probability;
+    }
+
+    item def ForecastScenario {
+        attribute technologyName : String;
+        attribute horizon : ForecastHorizon;
+        attribute adoptionProbability : Probability;
+        attribute expectedMarketImpact : MarketImpact;
+        attribute confidence : ConfidenceScore;
+        attribute riskLevel : Probability;
+        attribute recommendedAction : String;
+    }
+
+    item def ForecastReport {
+        attribute reportId : String;
+        attribute generatedAt : Time;
+        attribute executiveSummary : String;
+        attribute averageConfidence : ConfidenceScore;
+        attribute scenarioCount : Integer;
+    }
+
+    port def SignalInputPort {
+        in signal : TechnologySignal;
+    }
+
+    port def CleanSignalPort {
+        out cleanSignal : CleanSignal;
+    }
+
+    port def FeaturePort {
+        out featureVector : FeatureVector;
+    }
+
+    port def ScenarioPort {
+        out scenario : ForecastScenario;
+    }
+
+    port def ReportPort {
+        out report : ForecastReport;
+    }
+
+    port def AnalystCommandPort {
+        in requestedTopic : String;
+        in requestedHorizon : ForecastHorizon;
+        out acknowledgement : String;
+    }
+
+    port def GovernancePort {
+        in policyConstraint : String;
+        out complianceStatus : String;
+    }
+
+    action def IngestSignals {
+        in rawSignal : TechnologySignal;
+        out acceptedSignal : TechnologySignal;
+
+        constraint {
+            acceptedSignal.sourceReliability >= 0.5
+        }
+    }
+
+    action def NormalizeSignals {
+        in rawSignal : TechnologySignal;
+        out cleanSignal : CleanSignal;
+
+        constraint {
+            cleanSignal.qualityScore >= 0.8
+        }
+    }
+
+    action def ExtractTechnologyFeatures {
+        in cleanSignal : CleanSignal;
+        out featureVector : FeatureVector;
+    }
+
+    action def GenerateForecastScenario {
+        in featureVector : FeatureVector;
+        in horizon : ForecastHorizon;
+        out scenario : ForecastScenario;
+
+        constraint {
+            scenario.horizon == horizon
+            scenario.confidence >= 0.7
+        }
+    }
+
+    action def RankForecastScenarios {
+        in scenario : ForecastScenario;
+        out rankedScenario : ForecastScenario;
+    }
+
+    action def PublishForecastReport {
+        in scenario : ForecastScenario;
+        out report : ForecastReport;
+
+        constraint {
+            report.averageConfidence >= 0.75
+        }
+    }
+
+    state def ForecastLifecycle {
+        entry action InitializeForecastingWorkspace;
+        state Idle;
+        state CollectingSignals;
+        state PreparingData;
+        state ModelingTrends;
+        state EvaluatingScenarios;
+        state PublishingInsights;
+        state MonitoringFeedback;
+        state Faulted;
+
+        transition first Idle;
+
+        transition Idle_to_CollectingSignals
+            first Idle
+            then CollectingSignals
+            accept StartForecastRequest;
+
+        transition CollectingSignals_to_PreparingData
+            first CollectingSignals
+            then PreparingData
+            accept MinimumSignalSetAvailable;
+
+        transition PreparingData_to_ModelingTrends
+            first PreparingData
+            then ModelingTrends
+            accept DataQualityAccepted;
+
+        transition ModelingTrends_to_EvaluatingScenarios
+            first ModelingTrends
+            then EvaluatingScenarios
+            accept CandidateForecastsGenerated;
+
+        transition EvaluatingScenarios_to_PublishingInsights
+            first EvaluatingScenarios
+            then PublishingInsights
+            accept ScenarioConfidenceAccepted;
+
+        transition PublishingInsights_to_MonitoringFeedback
+            first PublishingInsights
+            then MonitoringFeedback
+            accept ReportDistributed;
+
+        transition MonitoringFeedback_to_CollectingSignals
+            first MonitoringFeedback
+            then CollectingSignals
+            accept NewEvidenceDetected;
+
+        transition Any_to_Faulted
+            first Idle
+            then Faulted
+            accept CriticalDataIntegrityFailure;
+    }
+
+    part def DataSourceAdapter {
+        port signalInput : SignalInputPort;
+        attribute supportedSourceCount : Integer;
+        attribute ingestionRate : ProcessingRate;
+        attribute minimumReliability : ConfidenceScore = 0.5;
+    }
+
+    part def SignalRepository {
+        port signalInput : SignalInputPort;
+        port cleanSignalOutput : CleanSignalPort;
+        attribute retainedRawData : DataVolume;
+        attribute retainedCleanData : DataVolume;
+        attribute retentionPeriod : Time;
+    }
+
+    part def DataQualityEngine {
+        port signalInput : SignalInputPort;
+        port cleanSignalOutput : CleanSignalPort;
+        attribute targetQualityScore : ConfidenceScore = 0.8;
+        attribute maximumDuplicateRatio : Probability = 0.1;
+
+        perform action NormalizeSignals;
+    }
+
+    part def FeatureEngineeringEngine {
+        port cleanSignalInput : CleanSignalPort;
+        port featureOutput : FeaturePort;
+        attribute featureRefreshInterval : Time;
+        attribute minimumTopicCoverage : Probability = 0.85;
+
+        perform action ExtractTechnologyFeatures;
+    }
+
+    part def ForecastModelEngine {
+        port featureInput : FeaturePort;
+        port scenarioOutput : ScenarioPort;
+        attribute defaultHorizon : ForecastHorizon = 5;
+        attribute minimumScenarioConfidence : ConfidenceScore = 0.7;
+        attribute modelVersion : String;
+
+        perform action GenerateForecastScenario;
+    }
+
+    part def ScenarioEvaluator {
+        port scenarioInput : ScenarioPort;
+        port scenarioOutput : ScenarioPort;
+        attribute riskWeight : Probability = 0.35;
+        attribute impactWeight : Probability = 0.40;
+        attribute confidenceWeight : Probability = 0.25;
+
+        perform action RankForecastScenarios;
+    }
+
+    part def ReportGenerator {
+        port scenarioInput : ScenarioPort;
+        port reportOutput : ReportPort;
+        attribute reportLatencyTarget : Time;
+        attribute minimumAverageConfidence : ConfidenceScore = 0.75;
+
+        perform action PublishForecastReport;
+    }
+
+    part def AnalystWorkbench {
+        port commandPort : AnalystCommandPort;
+        port reportInput : ReportPort;
+        attribute activeUsers : Integer;
+        attribute maximumConcurrentStudies : Integer;
+    }
+
+    part def GovernanceMonitor {
+        port governancePort : GovernancePort;
+        attribute auditCoverage : Probability = 1.0;
+        attribute explainabilityThreshold : ConfidenceScore = 0.8;
+    }
+
+    part def TechnologyForecastingSystem {
+        doc /* Primary high-level function: continuously transform heterogeneous evidence about emerging technologies into ranked, confidence-scored forecasts that help decision makers select research, investment, acquisition, and risk-mitigation actions. */
+
+        part sourceAdapters[4] : DataSourceAdapter {
+            attribute supportedSourceCount = 12;
+            attribute ingestionRate = 250;
+        }
+
+        part repository : SignalRepository {
+            attribute retainedRawData = 12000;
+            attribute retainedCleanData = 7600;
+        }
+
+        part qualityEngine : DataQualityEngine;
+        part featureEngine : FeatureEngineeringEngine;
+        part forecastEngine : ForecastModelEngine {
+            attribute modelVersion = "Bayesian-Ensemble-Trend-Model-3.2";
+        }
+
+        part evaluator : ScenarioEvaluator;
+        part reportGenerator : ReportGenerator;
+        part analystWorkbench : AnalystWorkbench {
+            attribute maximumConcurrentStudies = 50;
+        }
+
+        part governanceMonitor : GovernanceMonitor;
+
+        port externalSignalInput : SignalInputPort;
+        port analystCommand : AnalystCommandPort;
+        port governanceInterface : GovernancePort;
+        port forecastReportOutput : ReportPort;
+
+        attribute operationalAvailability : Probability = 0.995;
+        attribute maximumForecastHorizon : ForecastHorizon = 10;
+        attribute minimumPublishedConfidence : ConfidenceScore = 0.75;
+        attribute annualOperatingCost : Currency = 4200000;
+
+        connection externalSignalInput.signal to sourceAdapters.signalInput.signal;
+        connection sourceAdapters.signalInput.signal to repository.signalInput.signal;
+        connection repository.signalInput.signal to qualityEngine.signalInput.signal;
+        connection qualityEngine.cleanSignalOutput.cleanSignal to repository.cleanSignalOutput.cleanSignal;
+        connection qualityEngine.cleanSignalOutput.cleanSignal to featureEngine.cleanSignalInput.cleanSignal;
+        connection featureEngine.featureOutput.featureVector to forecastEngine.featureInput.featureVector;
+        connection forecastEngine.scenarioOutput.scenario to evaluator.scenarioInput.scenario;
+        connection evaluator.scenarioOutput.scenario to reportGenerator.scenarioInput.scenario;
+        connection reportGenerator.reportOutput.report to analystWorkbench.reportInput.report;
+        connection reportGenerator.reportOutput.report to forecastReportOutput.report;
+        connection analystCommand.requestedTopic to analystWorkbench.commandPort.requestedTopic;
+        connection analystCommand.requestedHorizon to analystWorkbench.commandPort.requestedHorizon;
+        connection governanceInterface.policyConstraint to governanceMonitor.governancePort.policyConstraint;
+
+        perform action IngestSignals;
+        exhibit state ForecastLifecycle;
+    }
+
+    requirement def ForecastPrimaryFunctionRequirement {
+        subject system : TechnologyForecastingSystem;
+        doc /* The system shall forecast the probable emergence, adoption, market impact, and risk profile of selected technologies using evidence from scientific, patent, market, investment, workforce, and regulatory signals. */
+    }
+
+    requirement def ForecastConfidenceRequirement {
+        subject system : TechnologyForecastingSystem;
+        attribute requiredConfidence : ConfidenceScore = 0.75;
+        doc /* Each published forecast report shall have an average confidence score of at least 0.75. */
+
+        require constraint {
+            system.minimumPublishedConfidence >= requiredConfidence
+        }
+    }
+
+    requirement def ForecastHorizonRequirement {
+        subject system : TechnologyForecastingSystem;
+        attribute requiredMaximumHorizon : ForecastHorizon = 10;
+        doc /* The system shall support forecast horizons up to 10 years. */
+
+        require constraint {
+            system.maximumForecastHorizon >= requiredMaximumHorizon
+        }
+    }
+
+    requirement def EvidenceTraceabilityRequirement {
+        subject system : TechnologyForecastingSystem;
+        doc /* Each forecast scenario shall be traceable to normalized signals and feature vectors used to generate it. */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : TechnologyForecastingSystem;
+        attribute requiredAvailability : Probability = 0.99;
+        doc /* The system shall maintain operational availability of at least 0.99 for forecasting and reporting functions. */
+
+        require constraint {
+            system.operationalAvailability >= requiredAvailability
+        }
+    }
+
+    requirement def GovernanceRequirement {
+        subject system : TechnologyForecastingSystem;
+        doc /* The system shall evaluate forecasts against configured policy constraints and produce compliance status for audit review. */
+    }
+
+    satisfy ForecastPrimaryFunctionRequirement by TechnologyForecastingSystem;
+    satisfy ForecastConfidenceRequirement by TechnologyForecastingSystem;
+    satisfy ForecastHorizonRequirement by TechnologyForecastingSystem;
+    satisfy EvidenceTraceabilityRequirement by TechnologyForecastingSystem;
+    satisfy AvailabilityRequirement by TechnologyForecastingSystem;
+    satisfy GovernanceRequirement by TechnologyForecastingSystem;
+}
+tokens used
+2,956
+package TechnologyForecastingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Probability {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    attribute def ConfidenceScore {
+        :> ScalarValues::Real;
+        unit = one;
+    }
+
+    attribute def Currency {
+        :> ScalarValues::Real;
+        unit = USD;
+    }
+
+    attribute def DataVolume {
+        :> ScalarValues::Real;
+        unit = GB;
+    }
+
+    attribute def ProcessingRate {
+        :> ScalarValues::Real;
+        unit = GB_per_h;
+    }
+
+    attribute def ForecastHorizon {
+        :> ScalarValues::Real;
+        unit = yr;
+    }
+
+    attribute def TrendVelocity {
+        :> ScalarValues::Real;
+        unit = one_per_yr;
+    }
+
+    attribute def MarketImpact {
+        :> ScalarValues::Real;
+        unit = USD_per_yr;
+    }
+
+    item def TechnologySignal {
+        attribute sourceName : String;
+        attribute captureTime : Time;
+        attribute topic : String;
+        attribute rawVolume : DataVolume;
+        attribute sourceReliability : ConfidenceScore;
+    }
+
+    item def CleanSignal {
+        attribute topic : String;
+        attribute normalizedVolume : DataVolume;
+        attribute qualityScore : ConfidenceScore;
+        attribute duplicateRatio : Probability;
+    }
+
+    item def FeatureVector {
+        attribute topic : String;
+        attribute publicationGrowth : TrendVelocity;
+        attribute patentGrowth : TrendVelocity;
+        attribute investmentGrowth : TrendVelocity;
+        attribute talentGrowth : TrendVelocity;
+        attribute regulationPressure : Probability;
+        attribute maturityIndex : Probability;
+    }
+
+    item def ForecastScenario {
+        attribute technologyName : String;
+        attribute horizon : ForecastHorizon;
+        attribute adoptionProbability : Probability;
+        attribute expectedMarketImpact : MarketImpact;
+        attribute confidence : ConfidenceScore;
+        attribute riskLevel : Probability;
+        attribute recommendedAction : String;
+    }
+
+    item def ForecastReport {
+        attribute reportId : String;
+        attribute generatedAt : Time;
+        attribute executiveSummary : String;
+        attribute averageConfidence : ConfidenceScore;
+        attribute scenarioCount : Integer;
+    }
+
+    port def SignalInputPort {
+        in signal : TechnologySignal;
+    }
+
+    port def CleanSignalPort {
+        out cleanSignal : CleanSignal;
+    }
+
+    port def FeaturePort {
+        out featureVector : FeatureVector;
+    }
+
+    port def ScenarioPort {
+        out scenario : ForecastScenario;
+    }
+
+    port def ReportPort {
+        out report : ForecastReport;
+    }
+
+    port def AnalystCommandPort {
+        in requestedTopic : String;
+        in requestedHorizon : ForecastHorizon;
+        out acknowledgement : String;
+    }
+
+    port def GovernancePort {
+        in policyConstraint : String;
+        out complianceStatus : String;
+    }
+
+    action def IngestSignals {
+        in rawSignal : TechnologySignal;
+        out acceptedSignal : TechnologySignal;
+
+        constraint {
+            acceptedSignal.sourceReliability >= 0.5
+        }
+    }
+
+    action def NormalizeSignals {
+        in rawSignal : TechnologySignal;
+        out cleanSignal : CleanSignal;
+
+        constraint {
+            cleanSignal.qualityScore >= 0.8
+        }
+    }
+
+    action def ExtractTechnologyFeatures {
+        in cleanSignal : CleanSignal;
+        out featureVector : FeatureVector;
+    }
+
+    action def GenerateForecastScenario {
+        in featureVector : FeatureVector;
+        in horizon : ForecastHorizon;
+        out scenario : ForecastScenario;
+
+        constraint {
+            scenario.horizon == horizon
+            scenario.confidence >= 0.7
+        }
+    }
+
+    action def RankForecastScenarios {
+        in scenario : ForecastScenario;
+        out rankedScenario : ForecastScenario;
+    }
+
+    action def PublishForecastReport {
+        in scenario : ForecastScenario;
+        out report : ForecastReport;
+
+        constraint {
+            report.averageConfidence >= 0.75
+        }
+    }
+
+    state def ForecastLifecycle {
+        entry action InitializeForecastingWorkspace;
+        state Idle;
+        state CollectingSignals;
+        state PreparingData;
+        state ModelingTrends;
+        state EvaluatingScenarios;
+        state PublishingInsights;
+        state MonitoringFeedback;
+        state Faulted;
+
+        transition first Idle;
+
+        transition Idle_to_CollectingSignals
+            first Idle
+            then CollectingSignals
+            accept StartForecastRequest;
+
+        transition CollectingSignals_to_PreparingData
+            first CollectingSignals
+            then PreparingData
+            accept MinimumSignalSetAvailable;
+
+        transition PreparingData_to_ModelingTrends
+            first PreparingData
+            then ModelingTrends
+            accept DataQualityAccepted;
+
+        transition ModelingTrends_to_EvaluatingScenarios
+            first ModelingTrends
+            then EvaluatingScenarios
+            accept CandidateForecastsGenerated;
+
+        transition EvaluatingScenarios_to_PublishingInsights
+            first EvaluatingScenarios
+            then PublishingInsights
+            accept ScenarioConfidenceAccepted;
+
+        transition PublishingInsights_to_MonitoringFeedback
+            first PublishingInsights
+            then MonitoringFeedback
+            accept ReportDistributed;
+
+        transition MonitoringFeedback_to_CollectingSignals
+            first MonitoringFeedback
+            then CollectingSignals
+            accept NewEvidenceDetected;
+
+        transition Any_to_Faulted
+            first Idle
+            then Faulted
+            accept CriticalDataIntegrityFailure;
+    }
+
+    part def DataSourceAdapter {
+        port signalInput : SignalInputPort;
+        attribute supportedSourceCount : Integer;
+        attribute ingestionRate : ProcessingRate;
+        attribute minimumReliability : ConfidenceScore = 0.5;
+    }
+
+    part def SignalRepository {
+        port signalInput : SignalInputPort;
+        port cleanSignalOutput : CleanSignalPort;
+        attribute retainedRawData : DataVolume;
+        attribute retainedCleanData : DataVolume;
+        attribute retentionPeriod : Time;
+    }
+
+    part def DataQualityEngine {
+        port signalInput : SignalInputPort;
+        port cleanSignalOutput : CleanSignalPort;
+        attribute targetQualityScore : ConfidenceScore = 0.8;
+        attribute maximumDuplicateRatio : Probability = 0.1;
+
+        perform action NormalizeSignals;
+    }
+
+    part def FeatureEngineeringEngine {
+        port cleanSignalInput : CleanSignalPort;
+        port featureOutput : FeaturePort;
+        attribute featureRefreshInterval : Time;
+        attribute minimumTopicCoverage : Probability = 0.85;
+
+        perform action ExtractTechnologyFeatures;
+    }
+
+    part def ForecastModelEngine {
+        port featureInput : FeaturePort;
+        port scenarioOutput : ScenarioPort;
+        attribute defaultHorizon : ForecastHorizon = 5;
+        attribute minimumScenarioConfidence : ConfidenceScore = 0.7;
+        attribute modelVersion : String;
+
+        perform action GenerateForecastScenario;
+    }
+
+    part def ScenarioEvaluator {
+        port scenarioInput : ScenarioPort;
+        port scenarioOutput : ScenarioPort;
+        attribute riskWeight : Probability = 0.35;
+        attribute impactWeight : Probability = 0.40;
+        attribute confidenceWeight : Probability = 0.25;
+
+        perform action RankForecastScenarios;
+    }
+
+    part def ReportGenerator {
+        port scenarioInput : ScenarioPort;
+        port reportOutput : ReportPort;
+        attribute reportLatencyTarget : Time;
+        attribute minimumAverageConfidence : ConfidenceScore = 0.75;
+
+        perform action PublishForecastReport;
+    }
+
+    part def AnalystWorkbench {
+        port commandPort : AnalystCommandPort;
+        port reportInput : ReportPort;
+        attribute activeUsers : Integer;
+        attribute maximumConcurrentStudies : Integer;
+    }
+
+    part def GovernanceMonitor {
+        port governancePort : GovernancePort;
+        attribute auditCoverage : Probability = 1.0;
+        attribute explainabilityThreshold : ConfidenceScore = 0.8;
+    }
+
+    part def TechnologyForecastingSystem {
+        doc /* Primary high-level function: continuously transform heterogeneous evidence about emerging technologies into ranked, confidence-scored forecasts that help decision makers select research, investment, acquisition, and risk-mitigation actions. */
+
+        part sourceAdapters[4] : DataSourceAdapter {
+            attribute supportedSourceCount = 12;
+            attribute ingestionRate = 250;
+        }
+
+        part repository : SignalRepository {
+            attribute retainedRawData = 12000;
+            attribute retainedCleanData = 7600;
+        }
+
+        part qualityEngine : DataQualityEngine;
+        part featureEngine : FeatureEngineeringEngine;
+        part forecastEngine : ForecastModelEngine {
+            attribute modelVersion = "Bayesian-Ensemble-Trend-Model-3.2";
+        }
+
+        part evaluator : ScenarioEvaluator;
+        part reportGenerator : ReportGenerator;
+        part analystWorkbench : AnalystWorkbench {
+            attribute maximumConcurrentStudies = 50;
+        }
+
+        part governanceMonitor : GovernanceMonitor;
+
+        port externalSignalInput : SignalInputPort;
+        port analystCommand : AnalystCommandPort;
+        port governanceInterface : GovernancePort;
+        port forecastReportOutput : ReportPort;
+
+        attribute operationalAvailability : Probability = 0.995;
+        attribute maximumForecastHorizon : ForecastHorizon = 10;
+        attribute minimumPublishedConfidence : ConfidenceScore = 0.75;
+        attribute annualOperatingCost : Currency = 4200000;
+
+        connection externalSignalInput.signal to sourceAdapters.signalInput.signal;
+        connection sourceAdapters.signalInput.signal to repository.signalInput.signal;
+        connection repository.signalInput.signal to qualityEngine.signalInput.signal;
+        connection qualityEngine.cleanSignalOutput.cleanSignal to repository.cleanSignalOutput.cleanSignal;
+        connection qualityEngine.cleanSignalOutput.cleanSignal to featureEngine.cleanSignalInput.cleanSignal;
+        connection featureEngine.featureOutput.featureVector to forecastEngine.featureInput.featureVector;
+        connection forecastEngine.scenarioOutput.scenario to evaluator.scenarioInput.scenario;
+        connection evaluator.scenarioOutput.scenario to reportGenerator.scenarioInput.scenario;
+        connection reportGenerator.reportOutput.report to analystWorkbench.reportInput.report;
+        connection reportGenerator.reportOutput.report to forecastReportOutput.report;
+        connection analystCommand.requestedTopic to analystWorkbench.commandPort.requestedTopic;
+        connection analystCommand.requestedHorizon to analystWorkbench.commandPort.requestedHorizon;
+        connection governanceInterface.policyConstraint to governanceMonitor.governancePort.policyConstraint;
+
+        perform action IngestSignals;
+        exhibit state ForecastLifecycle;
+    }
+
+    requirement def ForecastPrimaryFunctionRequirement {
+        subject system : TechnologyForecastingSystem;
+        doc /* The system shall forecast the probable emergence, adoption, market impact, and risk profile of selected technologies using evidence from scientific, patent, market, investment, workforce, and regulatory signals. */
+    }
+
+    requirement def ForecastConfidenceRequirement {
+        subject system : TechnologyForecastingSystem;
+        attribute requiredConfidence : ConfidenceScore = 0.75;
+        doc /* Each published forecast report shall have an average confidence score of at least 0.75. */
+
+        require constraint {
+            system.minimumPublishedConfidence >= requiredConfidence
+        }
+    }
+
+    requirement def ForecastHorizonRequirement {
+        subject system : TechnologyForecastingSystem;
+        attribute requiredMaximumHorizon : ForecastHorizon = 10;
+        doc /* The system shall support forecast horizons up to 10 years. */
+
+        require constraint {
+            system.maximumForecastHorizon >= requiredMaximumHorizon
+        }
+    }
+
+    requirement def EvidenceTraceabilityRequirement {
+        subject system : TechnologyForecastingSystem;
+        doc /* Each forecast scenario shall be traceable to normalized signals and feature vectors used to generate it. */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : TechnologyForecastingSystem;
+        attribute requiredAvailability : Probability = 0.99;
+        doc /* The system shall maintain operational availability of at least 0.99 for forecasting and reporting functions. */
+
+        require constraint {
+            system.operationalAvailability >= requiredAvailability
+        }
+    }
+
+    requirement def GovernanceRequirement {
+        subject system : TechnologyForecastingSystem;
+        doc /* The system shall evaluate forecasts against configured policy constraints and produce compliance status for audit review. */
+    }
+
+    satisfy ForecastPrimaryFunctionRequirement by TechnologyForecastingSystem;
+    satisfy ForecastConfidenceRequirement by TechnologyForecastingSystem;
+    satisfy ForecastHorizonRequirement by TechnologyForecastingSystem;
+    satisfy EvidenceTraceabilityRequirement by TechnologyForecastingSystem;
+    satisfy AvailabilityRequirement by TechnologyForecastingSystem;
+    satisfy GovernanceRequirement by TechnologyForecastingSystem;
+}

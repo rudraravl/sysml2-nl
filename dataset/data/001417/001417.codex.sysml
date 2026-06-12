@@ -1,0 +1,337 @@
+package EnergidTechnologiesRoboticControlModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    attribute def Hertz :> Real {
+        unit = "Hz";
+    }
+
+    attribute def NewtonMeter :> Real {
+        unit = "N*m";
+    }
+
+    attribute def RadianPerSecond :> Real {
+        unit = "rad/s";
+    }
+
+    attribute def Millimeter :> Real {
+        unit = "mm";
+    }
+
+    item def JointCommand {
+        attribute jointId : Integer;
+        attribute targetPosition : Real;
+        attribute targetVelocity : RadianPerSecond;
+        attribute torqueLimit : NewtonMeter;
+        attribute commandTime : Millisecond;
+    }
+
+    item def JointState {
+        attribute jointId : Integer;
+        attribute measuredPosition : Real;
+        attribute measuredVelocity : RadianPerSecond;
+        attribute measuredTorque : NewtonMeter;
+        attribute health : HealthStatus;
+    }
+
+    item def CartesianPose {
+        attribute x : Millimeter;
+        attribute y : Millimeter;
+        attribute z : Millimeter;
+        attribute roll : Real;
+        attribute pitch : Real;
+        attribute yaw : Real;
+    }
+
+    item def MotionPlan {
+        attribute planId : Integer;
+        attribute startPose : CartesianPose;
+        attribute goalPose : CartesianPose;
+        attribute nominalDuration : Millisecond;
+        attribute clearanceMargin : Millimeter;
+    }
+
+    item def SafetyEvent {
+        attribute eventId : Integer;
+        attribute severity : SafetySeverity;
+        attribute description : String;
+        attribute eventTime : Millisecond;
+    }
+
+    enum def HealthStatus {
+        enum nominal;
+        enum degraded;
+        enum faulted;
+        enum offline;
+    }
+
+    enum def SafetySeverity {
+        enum advisory;
+        enum warning;
+        enum stopRequired;
+        enum emergency;
+    }
+
+    enum def ControlMode {
+        enum idle;
+        enum manualJog;
+        enum automaticPathExecution;
+        enum guardedStop;
+        enum emergencyStop;
+        enum recovery;
+    }
+
+    port def CommandInputPort {
+        in item requestedPose : CartesianPose;
+        in item requestedMode : ControlMode;
+        in item operatorEnable : Boolean;
+    }
+
+    port def MotionPlanPort {
+        out item plannedMotion : MotionPlan;
+    }
+
+    port def JointCommandPort {
+        out item command : JointCommand;
+    }
+
+    port def JointFeedbackPort {
+        in item feedback : JointState;
+    }
+
+    port def SafetyPort {
+        in item safetyEvent : SafetyEvent;
+        out item safeToMove : Boolean;
+    }
+
+    port def StatusPort {
+        out item currentMode : ControlMode;
+        out item systemHealth : HealthStatus;
+        out item activePose : CartesianPose;
+    }
+
+    action def ComputeKinematicSolution {
+        in item desiredPose : CartesianPose;
+        in item currentJointStates : JointState[1..*];
+        out item jointCommands : JointCommand[1..*];
+
+        attribute maximumSolveTime : Millisecond = 4.0;
+        attribute maximumPositionError : Millimeter = 0.5;
+    }
+
+    action def GenerateCollisionAwareMotionPlan {
+        in item startPose : CartesianPose;
+        in item goalPose : CartesianPose;
+        out item plan : MotionPlan;
+
+        attribute minimumClearance : Millimeter = 25.0;
+        attribute replanningRate : Hertz = 20.0;
+    }
+
+    action def ExecuteServoControlLoop {
+        in item jointCommands : JointCommand[1..*];
+        in item jointFeedback : JointState[1..*];
+        out item correctedCommands : JointCommand[1..*];
+
+        attribute loopRate : Hertz = 1000.0;
+        attribute maximumLatency : Millisecond = 2.0;
+    }
+
+    action def EvaluateSafetyInterlocks {
+        in item safetyEvent : SafetyEvent;
+        in item operatorEnable : Boolean;
+        out item safeToMove : Boolean;
+
+        attribute stopResponseTime : Millisecond = 50.0;
+    }
+
+    part def RobotArm {
+        attribute jointCount : Integer = 6;
+        attribute payloadCapacity : Real = 10.0;
+        attribute maximumReach : Millimeter = 1300.0;
+
+        port jointCommands : JointCommandPort;
+        port jointFeedback : JointFeedbackPort;
+    }
+
+    part def OperatorConsole {
+        port commandInput : CommandInputPort;
+        port statusDisplay : StatusPort;
+
+        attribute enabled : Boolean;
+        attribute selectedMode : ControlMode;
+    }
+
+    part def SensorSuite {
+        port jointFeedback : JointFeedbackPort;
+        port safetyOutput : SafetyPort;
+
+        attribute updateRate : Hertz = 500.0;
+        attribute positionResolution : Millimeter = 0.05;
+    }
+
+    part def EnergidMotionController {
+        port operatorCommands : CommandInputPort;
+        port motionPlans : MotionPlanPort;
+        port jointCommands : JointCommandPort;
+        port jointFeedback : JointFeedbackPort;
+        port safety : SafetyPort;
+        port status : StatusPort;
+
+        attribute controllerCycleRate : Hertz = 1000.0;
+        attribute kinematicSolveRate : Hertz = 250.0;
+        attribute pathPlanningRate : Hertz = 20.0;
+        attribute availabilityTarget : Percent = 99.5;
+        attribute activeMode : ControlMode = ControlMode::idle;
+        attribute health : HealthStatus = HealthStatus::nominal;
+
+        perform action planMotion : GenerateCollisionAwareMotionPlan;
+        perform action solveKinematics : ComputeKinematicSolution;
+        perform action servoControl : ExecuteServoControlLoop;
+        perform action checkSafety : EvaluateSafetyInterlocks;
+
+        state def ControllerStateMachine {
+            state idle;
+            state manualJog;
+            state automaticPathExecution;
+            state guardedStop;
+            state emergencyStop;
+            state recovery;
+
+            initial then idle;
+
+            transition idle_to_manual
+                first idle
+                accept ControlMode::manualJog
+                then manualJog;
+
+            transition idle_to_auto
+                first idle
+                accept ControlMode::automaticPathExecution
+                then automaticPathExecution;
+
+            transition manual_to_guardedStop
+                first manualJog
+                accept SafetySeverity::stopRequired
+                then guardedStop;
+
+            transition auto_to_guardedStop
+                first automaticPathExecution
+                accept SafetySeverity::stopRequired
+                then guardedStop;
+
+            transition any_to_emergency
+                first idle
+                accept SafetySeverity::emergency
+                then emergencyStop;
+
+            transition guarded_to_recovery
+                first guardedStop
+                accept ControlMode::recovery
+                then recovery;
+
+            transition emergency_to_recovery
+                first emergencyStop
+                accept ControlMode::recovery
+                then recovery;
+
+            transition recovery_to_idle
+                first recovery
+                accept ControlMode::idle
+                then idle;
+        }
+    }
+
+    part def EnergidBasedRoboticManipulationSystem {
+        doc
+        /* A high-level system inspired by Energid Technologies robotic control capabilities.
+           Its primary function is to convert operator or autonomy goals into safe,
+           collision-aware, real-time robot motion for complex manipulators. */
+
+        part console : OperatorConsole;
+        part controller : EnergidMotionController;
+        part robot : RobotArm;
+        part sensors : SensorSuite;
+
+        port externalCommand : CommandInputPort;
+        port externalStatus : StatusPort;
+
+        connect externalCommand to console.commandInput;
+        connect console.commandInput to controller.operatorCommands;
+        connect controller.status to console.statusDisplay;
+        connect console.statusDisplay to externalStatus;
+        connect controller.jointCommands to robot.jointCommands;
+        connect robot.jointFeedback to controller.jointFeedback;
+        connect sensors.jointFeedback to controller.jointFeedback;
+        connect sensors.safetyOutput to controller.safety;
+
+        attribute commandedPose : CartesianPose;
+        attribute measuredPose : CartesianPose;
+        attribute safeOperation : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall transform high-level robot task goals into safe executable manipulator motion. */
+
+        subject system : EnergidBasedRoboticManipulationSystem;
+
+        require constraint {
+            system.controller.controllerCycleRate >= 1000.0
+        }
+    }
+
+    requirement def MotionAccuracyRequirement {
+        doc /* The system shall maintain end-effector positioning accuracy suitable for precision robotic manipulation. */
+
+        subject system : EnergidBasedRoboticManipulationSystem;
+
+        require constraint {
+            system.controller.solveKinematics.maximumPositionError <= 0.5
+        }
+    }
+
+    requirement def SafetyStopRequirement {
+        doc /* The system shall stop commanded robot motion within the required response time after a stop-required safety event. */
+
+        subject system : EnergidBasedRoboticManipulationSystem;
+
+        require constraint {
+            system.controller.checkSafety.stopResponseTime <= 50.0
+        }
+    }
+
+    requirement def CollisionAvoidanceRequirement {
+        doc /* The system shall generate motion plans with a minimum clearance margin from known obstacles. */
+
+        subject system : EnergidBasedRoboticManipulationSystem;
+
+        require constraint {
+            system.controller.planMotion.minimumClearance >= 25.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The controller shall support high operational availability for industrial and field robotic workflows. */
+
+        subject system : EnergidBasedRoboticManipulationSystem;
+
+        require constraint {
+            system.controller.availabilityTarget >= 99.5
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by EnergidBasedRoboticManipulationSystem;
+    satisfy MotionAccuracyRequirement by EnergidBasedRoboticManipulationSystem;
+    satisfy SafetyStopRequirement by EnergidBasedRoboticManipulationSystem;
+    satisfy CollisionAvoidanceRequirement by EnergidBasedRoboticManipulationSystem;
+    satisfy AvailabilityRequirement by EnergidBasedRoboticManipulationSystem;
+}

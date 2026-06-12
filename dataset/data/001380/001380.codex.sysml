@@ -1,0 +1,685 @@
+package ClaytronicsSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue :> ISQ::mass {
+        :>> unit = SI::kilogram;
+    }
+
+    attribute def LengthValue :> ISQ::length {
+        :>> unit = SI::metre;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        :>> unit = SI::second;
+    }
+
+    attribute def ElectricPotentialValue :> ISQ::electricPotential {
+        :>> unit = SI::volt;
+    }
+
+    attribute def ElectricCurrentValue :> ISQ::electricCurrent {
+        :>> unit = SI::ampere;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        :>> unit = SI::watt;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        :>> unit = SI::joule;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        :>> unit = SI::kelvin;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        :>> unit = SI::hertz;
+    }
+
+    attribute def DataRateValue :> ScalarValues::Real {
+        unit : String = "bit/s";
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        :>> unit = SI::newton;
+    }
+
+    attribute def ProbabilityValue :> ScalarValues::Real {
+        unit : String = "1";
+    }
+
+    attribute def Position3D {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+    }
+
+    attribute def Orientation3D {
+        attribute roll : ScalarValues::Real;
+        attribute pitch : ScalarValues::Real;
+        attribute yaw : ScalarValues::Real;
+    }
+
+    attribute def ShapeVoxelResolution {
+        attribute voxelPitch : LengthValue;
+        attribute surfaceTolerance : LengthValue;
+        attribute maximumGap : LengthValue;
+    }
+
+    item def PowerPacket {
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+        attribute availablePower : PowerValue;
+    }
+
+    item def ControlPacket {
+        attribute packetId : ScalarValues::Integer;
+        attribute timestamp : TimeValue;
+        attribute targetShapeId : ScalarValues::String;
+        attribute checksum : ScalarValues::Integer;
+    }
+
+    item def NeighborCoordinationMessage {
+        attribute senderId : ScalarValues::Integer;
+        attribute localPosition : Position3D;
+        attribute desiredPosition : Position3D;
+        attribute bondRequest : ScalarValues::Boolean;
+        attribute detachRequest : ScalarValues::Boolean;
+        attribute confidence : ProbabilityValue;
+    }
+
+    item def ShapePlan {
+        attribute shapeId : ScalarValues::String;
+        attribute voxelCount : ScalarValues::Integer;
+        attribute resolution : ShapeVoxelResolution;
+        attribute formationDeadline : TimeValue;
+    }
+
+    item def HealthReport {
+        attribute catomId : ScalarValues::Integer;
+        attribute temperature : TemperatureValue;
+        attribute storedEnergy : EnergyValue;
+        attribute actuatorHealthy : ScalarValues::Boolean;
+        attribute communicationHealthy : ScalarValues::Boolean;
+        attribute localizationError : LengthValue;
+    }
+
+    port def PowerPort {
+        in item powerIn : PowerPacket;
+        out item powerStatus : HealthReport;
+    }
+
+    port def DataPort {
+        in item commandIn : ControlPacket;
+        in item planIn : ShapePlan;
+        out item healthOut : HealthReport;
+    }
+
+    port def NeighborPort {
+        in item neighborIn : NeighborCoordinationMessage;
+        out item neighborOut : NeighborCoordinationMessage;
+    }
+
+    port def MechanicalBondPort {
+        in item requestedBond : NeighborCoordinationMessage;
+        out item achievedBond : NeighborCoordinationMessage;
+    }
+
+    part def ElectrostaticAdhesionActuator {
+        attribute maxBondForce : ForceValue = 0.012 [SI::newton];
+        attribute bondVoltage : ElectricPotentialValue = 80 [SI::volt];
+        attribute responseTime : TimeValue = 0.004 [SI::second];
+        attribute bonded : ScalarValues::Boolean;
+
+        port controlPort : NeighborPort;
+        port bondPort : MechanicalBondPort;
+
+        action energizeBond {
+            in item request : NeighborCoordinationMessage;
+            out item result : NeighborCoordinationMessage;
+        }
+
+        action releaseBond {
+            in item request : NeighborCoordinationMessage;
+            out item result : NeighborCoordinationMessage;
+        }
+    }
+
+    part def MicroLocomotionDrive {
+        attribute maxTranslationStep : LengthValue = 0.001 [SI::metre];
+        attribute maxStepRate : FrequencyValue = 50 [SI::hertz];
+        attribute positioningAccuracy : LengthValue = 0.0002 [SI::metre];
+
+        port commandPort : NeighborPort;
+
+        action moveToLocalTarget {
+            in attribute current : Position3D;
+            in attribute target : Position3D;
+            out attribute achieved : Position3D;
+        }
+    }
+
+    part def CatomProcessor {
+        attribute clockFrequency : FrequencyValue = 200000000 [SI::hertz];
+        attribute localMemoryBytes : ScalarValues::Integer = 262144;
+        attribute activePlanId : ScalarValues::String;
+
+        port dataPort : DataPort;
+        port neighborPort : NeighborPort;
+
+        action computeDesiredPose {
+            in item plan : ShapePlan;
+            in attribute currentPosition : Position3D;
+            out attribute desiredPosition : Position3D;
+            out attribute desiredOrientation : Orientation3D;
+        }
+
+        action selectNeighbors {
+            in item plan : ShapePlan;
+            out item coordination : NeighborCoordinationMessage;
+        }
+
+        action validateHealth {
+            in item report : HealthReport;
+            out attribute acceptable : ScalarValues::Boolean;
+        }
+    }
+
+    part def CatomPowerUnit {
+        attribute nominalVoltage : ElectricPotentialValue = 3.7 [SI::volt];
+        attribute storedEnergyCapacity : EnergyValue = 4.5 [SI::joule];
+        attribute peakPower : PowerValue = 0.25 [SI::watt];
+        attribute lowEnergyThreshold : EnergyValue = 0.45 [SI::joule];
+
+        port powerPort : PowerPort;
+
+        action regulatePower {
+            in item suppliedPower : PowerPacket;
+            out item regulatedPower : PowerPacket;
+        }
+    }
+
+    part def CatomRadio {
+        attribute carrierFrequency : FrequencyValue = 2400000000 [SI::hertz];
+        attribute maximumDataRate : DataRateValue = 2000000;
+        attribute communicationRange : LengthValue = 0.02 [SI::metre];
+        attribute packetLossProbability : ProbabilityValue = 0.001;
+
+        port meshDataPort : DataPort;
+        port neighborDataPort : NeighborPort;
+
+        action broadcastNeighborState {
+            in item message : NeighborCoordinationMessage;
+            out item transmitted : NeighborCoordinationMessage;
+        }
+
+        action receiveShapePlan {
+            in item packet : ControlPacket;
+            out item plan : ShapePlan;
+        }
+    }
+
+    part def CatomSensorSuite {
+        attribute localizationAccuracy : LengthValue = 0.00015 [SI::metre];
+        attribute temperatureAccuracy : TemperatureValue = 0.5 [SI::kelvin];
+        attribute samplingRate : FrequencyValue = 100 [SI::hertz];
+
+        port reportPort : DataPort;
+
+        action measurePose {
+            out attribute position : Position3D;
+            out attribute orientation : Orientation3D;
+        }
+
+        action measureHealth {
+            out item report : HealthReport;
+        }
+    }
+
+    part def ClaytronicAtom {
+        attribute catomId : ScalarValues::Integer;
+        attribute diameter : LengthValue = 0.001 [SI::metre];
+        attribute mass : MassValue = 0.0000008 [SI::kilogram];
+        attribute currentPosition : Position3D;
+        attribute desiredPosition : Position3D;
+        attribute currentOrientation : Orientation3D;
+        attribute desiredOrientation : Orientation3D;
+        attribute operational : ScalarValues::Boolean;
+
+        port powerPort : PowerPort;
+        port commandPort : DataPort;
+        port northNeighborPort : NeighborPort;
+        port southNeighborPort : NeighborPort;
+        port eastNeighborPort : NeighborPort;
+        port westNeighborPort : NeighborPort;
+        port upNeighborPort : NeighborPort;
+        port downNeighborPort : NeighborPort;
+        port bondPort : MechanicalBondPort;
+
+        part processor : CatomProcessor;
+        part radio : CatomRadio;
+        part powerUnit : CatomPowerUnit;
+        part sensors : CatomSensorSuite;
+        part drive : MicroLocomotionDrive;
+        part actuator : ElectrostaticAdhesionActuator;
+
+        connect powerPort to powerUnit.powerPort;
+        connect commandPort to processor.dataPort;
+        connect commandPort to radio.meshDataPort;
+        connect processor.neighborPort to radio.neighborDataPort;
+        connect processor.neighborPort to drive.commandPort;
+        connect processor.neighborPort to actuator.controlPort;
+        connect actuator.bondPort to bondPort;
+        connect sensors.reportPort to processor.dataPort;
+
+        state def CatomOperationalState {
+            state unpowered;
+            state booting;
+            state idle;
+            state receivingPlan;
+            state localizing;
+            state moving;
+            state bonding;
+            state holdingShape;
+            state lowEnergy;
+            state fault;
+
+            entry action initialize {
+                out attribute ready : ScalarValues::Boolean;
+            }
+
+            transition first unpowered then booting
+                accept PowerPacket;
+
+            transition booting then idle
+                if operational;
+
+            transition idle then receivingPlan
+                accept ShapePlan;
+
+            transition receivingPlan then localizing
+                if operational;
+
+            transition localizing then moving
+                if currentPosition != desiredPosition;
+
+            transition moving then bonding
+                if currentPosition == desiredPosition;
+
+            transition bonding then holdingShape
+                if actuator.bonded;
+
+            transition holdingShape then receivingPlan
+                accept ShapePlan;
+
+            transition idle then lowEnergy
+                if powerUnit.lowEnergyThreshold >= powerUnit.storedEnergyCapacity;
+
+            transition moving then fault
+                if not operational;
+
+            transition bonding then fault
+                if not actuator.bonded and not operational;
+        }
+
+        perform action processor.computeDesiredPose;
+        perform action sensors.measurePose;
+        perform action drive.moveToLocalTarget;
+        perform action actuator.energizeBond;
+    }
+
+    part def ShapeCompiler {
+        attribute maximumInputFacets : ScalarValues::Integer = 2000000;
+        attribute nominalVoxelPitch : LengthValue = 0.001 [SI::metre];
+        attribute planningLatency : TimeValue = 0.5 [SI::second];
+
+        port commandPort : DataPort;
+
+        action compileTargetShape {
+            in attribute highLevelShapeName : ScalarValues::String;
+            in attribute targetVolume : ScalarValues::Real;
+            out item plan : ShapePlan;
+        }
+
+        action updateShapePlan {
+            in item previousPlan : ShapePlan;
+            in attribute deformationRequest : ScalarValues::String;
+            out item revisedPlan : ShapePlan;
+        }
+    }
+
+    part def GlobalCoordinator {
+        attribute supportedCatomCount : ScalarValues::Integer = 1000000;
+        attribute controlCyclePeriod : TimeValue = 0.02 [SI::second];
+        attribute globalShapeErrorLimit : LengthValue = 0.002 [SI::metre];
+
+        port operatorCommandPort : DataPort;
+        port clayMassNetworkPort : DataPort;
+
+        part compiler : ShapeCompiler;
+
+        connect compiler.commandPort to clayMassNetworkPort;
+
+        action distributePlan {
+            in item plan : ShapePlan;
+            out item command : ControlPacket;
+        }
+
+        action collectHealth {
+            in item report : HealthReport;
+            out attribute degradedCatomCount : ScalarValues::Integer;
+        }
+
+        action correctFormation {
+            in item report : HealthReport;
+            out item revisedPlan : ShapePlan;
+        }
+    }
+
+    part def PowerDistributionGrid {
+        attribute supplyVoltage : ElectricPotentialValue = 12 [SI::volt];
+        attribute maximumPower : PowerValue = 250 [SI::watt];
+        attribute conversionEfficiency : ProbabilityValue = 0.91;
+
+        port sourcePort : PowerPort;
+        port clayMassPowerPort : PowerPort;
+
+        action providePower {
+            out item power : PowerPacket;
+        }
+    }
+
+    part def ClaytronicMatterLattice {
+        attribute catomCount : ScalarValues::Integer = 250000;
+        attribute latticePitch : LengthValue = 0.0011 [SI::metre];
+        attribute maximumEnvelopeLength : LengthValue = 0.7 [SI::metre];
+        attribute maximumEnvelopeWidth : LengthValue = 0.7 [SI::metre];
+        attribute maximumEnvelopeHeight : LengthValue = 0.7 [SI::metre];
+        attribute aggregateMass : MassValue = 0.2 [SI::kilogram];
+        attribute nominalShapeTolerance : LengthValue = 0.002 [SI::metre];
+        attribute reconfigurationTime : TimeValue = 5 [SI::second];
+
+        port powerInput : PowerPort;
+        port commandInput : DataPort;
+        port healthOutput : DataPort;
+
+        part catoms[250000] : ClaytronicAtom;
+
+        connection def NeighborMeshLink {
+            end a : NeighborPort;
+            end b : NeighborPort;
+        }
+
+        connection def BondLink {
+            end a : MechanicalBondPort;
+            end b : MechanicalBondPort;
+        }
+
+        action formTargetShape {
+            in item plan : ShapePlan;
+            out attribute achievedTolerance : LengthValue;
+            out attribute completionTime : TimeValue;
+        }
+
+        action maintainShape {
+            in attribute disturbanceForce : ForceValue;
+            out attribute shapeStable : ScalarValues::Boolean;
+        }
+
+        action reconfigureShape {
+            in item oldPlan : ShapePlan;
+            in item newPlan : ShapePlan;
+            out attribute reconfigurationComplete : ScalarValues::Boolean;
+        }
+
+        state def LatticeFormationState {
+            state dispersed;
+            state planLoaded;
+            state selfOrganizing;
+            state surfaceClosing;
+            state rigidized;
+            state reconfiguring;
+            state degraded;
+
+            transition first dispersed then planLoaded
+                accept ShapePlan;
+
+            transition planLoaded then selfOrganizing;
+
+            transition selfOrganizing then surfaceClosing
+                if nominalShapeTolerance <= 0.002 [SI::metre];
+
+            transition surfaceClosing then rigidized
+                if reconfigurationTime <= 5 [SI::second];
+
+            transition rigidized then reconfiguring
+                accept ShapePlan;
+
+            transition reconfiguring then rigidized
+                if nominalShapeTolerance <= 0.002 [SI::metre];
+
+            transition rigidized then degraded
+                if catomCount < 240000;
+        }
+    }
+
+    part def HumanInteractionShell {
+        attribute visualSurfaceResolution : ShapeVoxelResolution;
+        attribute touchForceLimit : ForceValue = 5 [SI::newton];
+        attribute safeSurfaceTemperature : TemperatureValue = 315 [SI::kelvin];
+
+        port shellCommandPort : DataPort;
+        port shellHealthPort : DataPort;
+
+        action renderPhysicalObject {
+            in item plan : ShapePlan;
+            out attribute userPerceivesObject : ScalarValues::Boolean;
+        }
+
+        action absorbUserContact {
+            in attribute appliedForce : ForceValue;
+            out attribute contactSafe : ScalarValues::Boolean;
+        }
+    }
+
+    part def ClaytronicsSystem {
+        attribute systemName : ScalarValues::String = "Programmable Claytronic Matter System";
+        attribute primaryFunction : ScalarValues::String =
+            "Dynamically organize large numbers of millimeter-scale claytronic atoms into commanded three-dimensional physical shapes so digital objects can be rendered, touched, and reconfigured as programmable matter.";
+        attribute maximumShapeVolume : ScalarValues::Real = 0.343;
+        attribute targetShapeTolerance : LengthValue = 0.002 [SI::metre];
+        attribute nominalFormationTime : TimeValue = 5 [SI::second];
+        attribute availability : ProbabilityValue = 0.995;
+
+        port operatorInput : DataPort;
+        port externalPower : PowerPort;
+        port statusOutput : DataPort;
+
+        part coordinator : GlobalCoordinator;
+        part powerGrid : PowerDistributionGrid;
+        part lattice : ClaytronicMatterLattice;
+        part interactionShell : HumanInteractionShell;
+
+        connect operatorInput to coordinator.operatorCommandPort;
+        connect coordinator.clayMassNetworkPort to lattice.commandInput;
+        connect externalPower to powerGrid.sourcePort;
+        connect powerGrid.clayMassPowerPort to lattice.powerInput;
+        connect lattice.healthOutput to coordinator.clayMassNetworkPort;
+        connect lattice.healthOutput to interactionShell.shellHealthPort;
+        connect coordinator.clayMassNetworkPort to interactionShell.shellCommandPort;
+        connect statusOutput to coordinator.operatorCommandPort;
+
+        action acceptUserShapeRequest {
+            in attribute requestedShapeName : ScalarValues::String;
+            in attribute requestedScale : ScalarValues::Real;
+            out item targetPlan : ShapePlan;
+        }
+
+        action synthesizePhysicalShape {
+            in item targetPlan : ShapePlan;
+            out attribute achievedTolerance : LengthValue;
+            out attribute stable : ScalarValues::Boolean;
+        }
+
+        action adaptToUpdatedRequest {
+            in item currentPlan : ShapePlan;
+            in item requestedPlan : ShapePlan;
+            out attribute reconfigured : ScalarValues::Boolean;
+        }
+
+        state def SystemMissionState {
+            state standby;
+            state planning;
+            state distributing;
+            state forming;
+            state interactiveUse;
+            state reconfiguring;
+            state shutdown;
+            state faultRecovery;
+
+            transition first standby;
+
+            transition standby then planning
+                accept ControlPacket;
+
+            transition planning then distributing
+                if coordinator.compiler.planningLatency <= 0.5 [SI::second];
+
+            transition distributing then forming;
+
+            transition forming then interactiveUse
+                if lattice.nominalShapeTolerance <= targetShapeTolerance;
+
+            transition interactiveUse then reconfiguring
+                accept ShapePlan;
+
+            transition reconfiguring then interactiveUse
+                if lattice.reconfigurationTime <= nominalFormationTime;
+
+            transition interactiveUse then shutdown
+                accept ControlPacket;
+
+            transition forming then faultRecovery
+                if availability < 0.995;
+
+            transition faultRecovery then forming
+                if availability >= 0.995;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ClaytronicsSystem;
+        doc
+        /*
+         * The ClaytronicsSystem shall transform a digital shape request into a stable,
+         * touchable three-dimensional physical form by coordinating many ClaytronicAtom
+         * units as programmable matter.
+         */
+        require constraint {
+            system.nominalFormationTime <= 5 [SI::second]
+        }
+        require constraint {
+            system.targetShapeTolerance <= 0.002 [SI::metre]
+        }
+    }
+
+    requirement def CatomCoordinationRequirement {
+        subject lattice : ClaytronicMatterLattice;
+        doc
+        /*
+         * Each claytronic atom in the lattice shall exchange neighbor coordination
+         * messages and locally move, bond, or detach to reduce global shape error.
+         */
+        require constraint {
+            lattice.catomCount >= 100000
+        }
+        require constraint {
+            lattice.latticePitch <= 0.0015 [SI::metre]
+        }
+    }
+
+    requirement def ShapeStabilityRequirement {
+        subject shell : HumanInteractionShell;
+        doc
+        /*
+         * The rendered claytronic surface shall remain stable during ordinary user
+         * interaction and shall limit contact force and surface temperature to safe values.
+         */
+        require constraint {
+            shell.touchForceLimit <= 5 [SI::newton]
+        }
+        require constraint {
+            shell.safeSurfaceTemperature <= 315 [SI::kelvin]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject grid : PowerDistributionGrid;
+        doc
+        /*
+         * The power distribution grid shall provide regulated energy to the claytronic
+         * matter lattice during formation, holding, and reconfiguration modes.
+         */
+        require constraint {
+            grid.maximumPower >= 250 [SI::watt]
+        }
+        require constraint {
+            grid.conversionEfficiency >= 0.90
+        }
+    }
+
+    requirement def CommunicationRequirement {
+        subject catom : ClaytronicAtom;
+        doc
+        /*
+         * Each claytronic atom shall communicate with adjacent atoms and the global
+         * coordinator with sufficient range and data rate for distributed shape formation.
+         */
+        require constraint {
+            catom.radio.communicationRange >= 0.02 [SI::metre]
+        }
+        require constraint {
+            catom.radio.maximumDataRate >= 2000000
+        }
+    }
+
+    requirement def FaultToleranceRequirement {
+        subject system : ClaytronicsSystem;
+        doc
+        /*
+         * The system shall continue forming and maintaining commanded shapes despite
+         * localized atom faults by replanning around failed units.
+         */
+        require constraint {
+            system.availability >= 0.995
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ClaytronicsSystem;
+    satisfy CatomCoordinationRequirement by ClaytronicMatterLattice;
+    satisfy ShapeStabilityRequirement by HumanInteractionShell;
+    satisfy PowerRequirement by PowerDistributionGrid;
+    satisfy CommunicationRequirement by ClaytronicAtom;
+    satisfy FaultToleranceRequirement by ClaytronicsSystem;
+
+    part claytronicsDemoSystem : ClaytronicsSystem {
+        attribute :>> maximumShapeVolume = 0.343;
+        attribute :>> targetShapeTolerance = 0.002 [SI::metre];
+        attribute :>> nominalFormationTime = 5 [SI::second];
+
+        part :>> lattice {
+            attribute :>> catomCount = 250000;
+            attribute :>> latticePitch = 0.0011 [SI::metre];
+            attribute :>> nominalShapeTolerance = 0.002 [SI::metre];
+        }
+
+        part :>> powerGrid {
+            attribute :>> supplyVoltage = 12 [SI::volt];
+            attribute :>> maximumPower = 250 [SI::watt];
+        }
+    }
+}

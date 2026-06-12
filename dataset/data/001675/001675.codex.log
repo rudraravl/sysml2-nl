@@ -1,0 +1,1425 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ry95denz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7a4-e434-7a63-9c92-90ed8d6b90be
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a OpenHAN and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OpenHAN_EnergyManagementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Money;
+    attribute def EnergyPrice :> Money;
+    attribute def Percent;
+    attribute def TemperatureCelsius;
+    attribute def VoltageRMS :> ElectricPotential;
+    attribute def CurrentRMS :> ElectricCurrent;
+    attribute def RealPower :> Power;
+    attribute def ApparentPower :> Power;
+    attribute def EnergyKWh :> Energy;
+    attribute def FrequencyHz :> Frequency;
+    attribute def TimeInterval :> Time;
+    attribute def DataRate;
+    attribute def SignalStrength;
+    attribute def CyberTrustLevel;
+
+    enum def DeviceMode {
+        enum idle;
+        enum normal;
+        enum shedLoad;
+        enum critical;
+        enum offline;
+        enum faulted;
+    }
+
+    enum def DemandResponseEventType {
+        enum priceResponse;
+        enum emergencyCurtailment;
+        enum gridReliability;
+        enum renewableSurplus;
+    }
+
+    enum def AuthorizationDecision {
+        enum allowed;
+        enum denied;
+        enum pending;
+    }
+
+    enum def MessagePriority {
+        enum routine;
+        enum urgent;
+        enum emergency;
+    }
+
+    item def MeterReading {
+        attribute timestamp : Time;
+        attribute voltage : VoltageRMS;
+        attribute current : CurrentRMS;
+        attribute realPower : RealPower;
+        attribute apparentPower : ApparentPower;
+        attribute cumulativeEnergy : EnergyKWh;
+        attribute frequency : FrequencyHz;
+        attribute qualityPercent : Percent;
+    }
+
+    item def PriceSignal {
+        attribute effectiveStart : Time;
+        attribute effectiveDuration : TimeInterval;
+        attribute energyPrice : EnergyPrice;
+        attribute criticalPeak : Boolean;
+        attribute priority : MessagePriority;
+    }
+
+    item def DemandResponseCommand {
+        attribute eventId : String;
+        attribute eventType : DemandResponseEventType;
+        attribute requestedCurtailment : RealPower;
+        attribute startTime : Time;
+        attribute duration : TimeInterval;
+        attribute optOutAllowed : Boolean;
+        attribute priority : MessagePriority;
+    }
+
+    item def DeviceStatus {
+        attribute deviceId : String;
+        attribute mode : DeviceMode;
+        attribute availableLoad : RealPower;
+        attribute controllableLoad : RealPower;
+        attribute localOverride : Boolean;
+        attribute faultPresent : Boolean;
+        attribute lastHeartbeat : Time;
+    }
+
+    item def ControlCommand {
+        attribute targetDeviceId : String;
+        attribute requestedMode : DeviceMode;
+        attribute powerLimit : RealPower;
+        attribute validUntil : Time;
+        attribute priority : MessagePriority;
+    }
+
+    item def SecurityCredential {
+        attribute subjectId : String;
+        attribute issuerId : String;
+        attribute validFrom : Time;
+        attribute validUntil : Time;
+        attribute trustLevel : CyberTrustLevel;
+    }
+
+    item def AuthorizationResult {
+        attribute subjectId : String;
+        attribute commandId : String;
+        attribute decision : AuthorizationDecision;
+        attribute reason : String;
+    }
+
+    item def NetworkHealth {
+        attribute linkAvailable : Boolean;
+        attribute signalStrength : SignalStrength;
+        attribute dataRate : DataRate;
+        attribute packetLossPercent : Percent;
+        attribute lastSuccessfulExchange : Time;
+    }
+
+    port def MeterDataPort {
+        out item reading : MeterReading;
+        out item status : DeviceStatus;
+        in item command : ControlCommand;
+    }
+
+    port def PriceAndEventPort {
+        in item price : PriceSignal;
+        in item demandResponse : DemandResponseCommand;
+        out item authorization : AuthorizationResult;
+    }
+
+    port def HANControlPort {
+        out item command : ControlCommand;
+        in item status : DeviceStatus;
+        in item health : NetworkHealth;
+    }
+
+    port def ApplianceControlPort {
+        in item command : ControlCommand;
+        out item status : DeviceStatus;
+    }
+
+    port def SecurityPort {
+        in item credential : SecurityCredential;
+        in item command : ControlCommand;
+        out item authorization : AuthorizationResult;
+    }
+
+    port def ElectricServicePort {
+        inout attribute voltage : VoltageRMS;
+        inout attribute current : CurrentRMS;
+        inout attribute realPower : RealPower;
+        inout attribute frequency : FrequencyHz;
+    }
+
+    interface def MeterToEnergyManager {
+        end meter : MeterDataPort;
+        end manager : MeterDataPort;
+        flow reading from meter.reading to manager.reading;
+        flow status from meter.status to manager.status;
+        flow command from manager.command to meter.command;
+    }
+
+    interface def UtilityToGateway {
+        end utility : PriceAndEventPort;
+        end gateway : PriceAndEventPort;
+        flow price from utility.price to gateway.price;
+        flow demandResponse from utility.demandResponse to gateway.demandResponse;
+        flow authorization from gateway.authorization to utility.authorization;
+    }
+
+    interface def GatewayToDevice {
+        end gateway : HANControlPort;
+        end device : ApplianceControlPort;
+        flow command from gateway.command to device.command;
+        flow status from device.status to gateway.status;
+    }
+
+    interface def SecurityAuthorization {
+        end gateway : SecurityPort;
+        end security : SecurityPort;
+        flow credential from gateway.credential to security.credential;
+        flow command from gateway.command to security.command;
+        flow authorization from security.authorization to gateway.authorization;
+    }
+
+    part def SmartMeter {
+        attribute meterId : String;
+        attribute ratedVoltage : VoltageRMS = 240 [V];
+        attribute serviceFrequency : FrequencyHz = 60 [Hz];
+        attribute measurementInterval : TimeInterval = 15 [s];
+        attribute maxServicePower : RealPower = 24000 [W];
+
+        port utilityService : ElectricServicePort;
+        port premisesService : ElectricServicePort;
+        port meterData : MeterDataPort;
+
+        action measureElectricService {
+            in attribute sampleVoltage : VoltageRMS;
+            in attribute sampleCurrent : CurrentRMS;
+            out item reading : MeterReading;
+        }
+
+        state def MeterOperatingState {
+            entry action initializeMeter;
+            state authenticating;
+            state measuring;
+            state reporting;
+            state localDisconnect;
+            state fault;
+
+            transition first authenticating;
+            transition authenticating then measuring
+                accept SecurityCredential
+                if credential.trustLevel >= 80;
+            transition measuring then reporting
+                accept TimeEvent
+                if measurementInterval <= 15 [s];
+            transition reporting then measuring;
+            transition measuring then localDisconnect
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.critical;
+            transition measuring then fault
+                if utilityService.voltage < 180 [V] or utilityService.voltage > 260 [V];
+            transition fault then measuring
+                if utilityService.voltage >= 216 [V] and utilityService.voltage <= 252 [V];
+        }
+    }
+
+    part def UtilityHeadEnd {
+        attribute utilityId : String;
+        attribute defaultPrice : EnergyPrice;
+        attribute eventLeadTime : TimeInterval = 30 [min];
+
+        port customerEventPort : PriceAndEventPort;
+
+        action publishPriceSignal {
+            out item price : PriceSignal;
+        }
+
+        action initiateDemandResponse {
+            in attribute targetCurtailment : RealPower;
+            out item demandResponse : DemandResponseCommand;
+        }
+    }
+
+    part def OpenHANGateway {
+        attribute gatewayId : String;
+        attribute supportedProtocol : String = "OpenHAN over Zigbee Smart Energy";
+        attribute maxManagedDevices : Integer = 64;
+        attribute minimumAcceptedTrust : CyberTrustLevel = 75;
+        attribute latestMeasuredLoad : RealPower;
+        attribute activeCurtailmentTarget : RealPower;
+        attribute localCustomerOverride : Boolean = false;
+
+        port utilityPort : PriceAndEventPort;
+        port meterPort : MeterDataPort;
+        port securityPort : SecurityPort;
+        port hvacPort : HANControlPort;
+        port waterHeaterPort : HANControlPort;
+        port evsePort : HANControlPort;
+        port batteryPort : HANControlPort;
+        port displayPort : HANControlPort;
+
+        action receiveGridSignal {
+            in item price : PriceSignal;
+            in item demandResponse : DemandResponseCommand;
+            out item commandPlan : ControlCommand;
+        }
+
+        action optimizeHomeLoad {
+            in item reading : MeterReading;
+            in item price : PriceSignal;
+            in item demandResponse : DemandResponseCommand;
+            out item hvacCommand : ControlCommand;
+            out item waterHeaterCommand : ControlCommand;
+            out item evseCommand : ControlCommand;
+            out item batteryCommand : ControlCommand;
+        }
+
+        action authorizeCommand {
+            in item credential : SecurityCredential;
+            in item command : ControlCommand;
+            out item result : AuthorizationResult;
+        }
+
+        action aggregateStatus {
+            in item hvacStatus : DeviceStatus;
+            in item waterHeaterStatus : DeviceStatus;
+            in item evseStatus : DeviceStatus;
+            in item batteryStatus : DeviceStatus;
+            out item premisesStatus : DeviceStatus;
+        }
+
+        state def GatewayEnergyManagementState {
+            entry action bootSecureStack;
+            state commissioning;
+            state monitoring;
+            state priceOptimizing;
+            state demandResponseActive;
+            state emergencyCurtailment;
+            state customerOverride;
+            state communicationsLost;
+            state degradedOperation;
+
+            transition first commissioning;
+            transition commissioning then monitoring
+                accept AuthorizationResult
+                if authorization.decision == AuthorizationDecision.allowed;
+
+            transition monitoring then priceOptimizing
+                accept PriceSignal
+                if price.criticalPeak == true;
+
+            transition priceOptimizing then monitoring
+                accept PriceSignal
+                if price.criticalPeak == false;
+
+            transition monitoring then demandResponseActive
+                accept DemandResponseCommand
+                if demandResponse.eventType == DemandResponseEventType.gridReliability;
+
+            transition demandResponseActive then emergencyCurtailment
+                accept DemandResponseCommand
+                if demandResponse.eventType == DemandResponseEventType.emergencyCurtailment;
+
+            transition demandResponseActive then monitoring
+                accept TimeEvent
+                if activeCurtailmentTarget <= 0 [W];
+
+            transition emergencyCurtailment then monitoring
+                accept TimeEvent
+                if activeCurtailmentTarget <= 0 [W];
+
+            transition monitoring then customerOverride
+                if localCustomerOverride == true;
+
+            transition customerOverride then monitoring
+                if localCustomerOverride == false;
+
+            transition monitoring then communicationsLost
+                accept NetworkHealth
+                if health.linkAvailable == false;
+
+            transition communicationsLost then degradedOperation
+                accept TimeEvent
+                if health.linkAvailable == false;
+
+            transition communicationsLost then monitoring
+                accept NetworkHealth
+                if health.linkAvailable == true;
+        }
+    }
+
+    part def SecurityService {
+        attribute serviceId : String;
+        attribute credentialRotationInterval : TimeInterval = 90 [day];
+        attribute minimumTrustLevel : CyberTrustLevel = 75;
+
+        port authorizationPort : SecurityPort;
+
+        action validateCredential {
+            in item credential : SecurityCredential;
+            out item result : AuthorizationResult;
+        }
+
+        action authorizeDeviceControl {
+            in item command : ControlCommand;
+            in item credential : SecurityCredential;
+            out item result : AuthorizationResult;
+        }
+    }
+
+    part def SmartThermostat {
+        attribute deviceId : String;
+        attribute currentTemperature : TemperatureCelsius;
+        attribute occupiedSetpoint : TemperatureCelsius = 22;
+        attribute economySetpoint : TemperatureCelsius = 26;
+        attribute maxControllableLoad : RealPower = 3500 [W];
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action adjustSetpoint {
+            in attribute targetTemperature : TemperatureCelsius;
+            out item status : DeviceStatus;
+        }
+
+        state def ThermostatState {
+            state comfortable;
+            state economy;
+            state shed;
+            state override;
+            state fault;
+
+            transition first comfortable;
+            transition comfortable then economy
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.normal and command.powerLimit < 2500 [W];
+            transition economy then shed
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.shedLoad;
+            transition shed then comfortable
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.normal;
+            transition economy then override
+                if status.localOverride == true;
+            transition override then comfortable
+                if status.localOverride == false;
+            transition comfortable then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def ElectricWaterHeater {
+        attribute deviceId : String;
+        attribute tankTemperature : TemperatureCelsius;
+        attribute minimumSafeTemperature : TemperatureCelsius = 49;
+        attribute normalSetpoint : TemperatureCelsius = 54;
+        attribute elementPower : RealPower = 4500 [W];
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action deferHeating {
+            in attribute deferDuration : TimeInterval;
+            out item status : DeviceStatus;
+        }
+
+        state def WaterHeaterState {
+            state heating;
+            state standby;
+            state deferred;
+            state recovery;
+            state fault;
+
+            transition first standby;
+            transition standby then heating
+                if tankTemperature < normalSetpoint;
+            transition heating then standby
+                if tankTemperature >= normalSetpoint;
+            transition heating then deferred
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.shedLoad and tankTemperature >= minimumSafeTemperature;
+            transition deferred then recovery
+                if tankTemperature < minimumSafeTemperature;
+            transition recovery then standby
+                if tankTemperature >= normalSetpoint;
+            transition standby then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def ElectricVehicleSupplyEquipment {
+        attribute deviceId : String;
+        attribute maximumChargePower : RealPower = 9600 [W];
+        attribute minimumChargePower : RealPower = 1400 [W];
+        attribute scheduledDepartureTime : Time;
+        attribute requiredEnergyByDeparture : EnergyKWh;
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action scheduleCharging {
+            in item price : PriceSignal;
+            in item command : ControlCommand;
+            out item status : DeviceStatus;
+        }
+
+        state def EVSEState {
+            state unplugged;
+            state waiting;
+            state charging;
+            state limitedCharging;
+            state paused;
+            state fault;
+
+            transition first unplugged;
+            transition unplugged then waiting
+                if status.availableLoad > 0 [W];
+            transition waiting then charging
+                accept PriceSignal
+                if price.criticalPeak == false;
+            transition charging then limitedCharging
+                accept ControlCommand
+                if command.powerLimit < maximumChargePower and command.powerLimit >= minimumChargePower;
+            transition limitedCharging then paused
+                accept ControlCommand
+                if command.powerLimit < minimumChargePower;
+            transition paused then charging
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.normal;
+            transition charging then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def HomeBatterySystem {
+        attribute deviceId : String;
+        attribute ratedChargePower : RealPower = 5000 [W];
+        attribute ratedDischargePower : RealPower = 5000 [W];
+        attribute usableCapacity : EnergyKWh = 13.5 [kW*h];
+        attribute stateOfCharge : Percent;
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action dischargeForCurtailment {
+            in attribute requestedSupport : RealPower;
+            out item status : DeviceStatus;
+        }
+
+        action chargeDuringSurplus {
+            in attribute availableSurplus : RealPower;
+            out item status : DeviceStatus;
+        }
+
+        state def BatteryState {
+            state standby;
+            state charging;
+            state discharging;
+            state reserveHold;
+            state fault;
+
+            transition first standby;
+            transition standby then discharging
+                accept DemandResponseCommand
+                if demandResponse.requestedCurtailment > 0 [W] and stateOfCharge > 25;
+            transition discharging then reserveHold
+                if stateOfCharge <= 20;
+            transition standby then charging
+                accept DemandResponseCommand
+                if demandResponse.eventType == DemandResponseEventType.renewableSurplus;
+            transition charging then standby
+                if stateOfCharge >= 95;
+            transition standby then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def InHomeDisplay {
+        attribute deviceId : String;
+        attribute refreshInterval : TimeInterval = 5 [s];
+        attribute displayedPrice : EnergyPrice;
+        attribute displayedLoad : RealPower;
+
+        port control : ApplianceControlPort;
+
+        action updateCustomerDisplay {
+            in item reading : MeterReading;
+            in item price : PriceSignal;
+            in item premisesStatus : DeviceStatus;
+        }
+    }
+
+    part def OpenHANPremisesSystem {
+        attribute premisesId : String;
+        attribute primaryFunction : String =
+            "Coordinate secure Home Area Network communication between the utility, smart meter, energy manager, and controllable customer devices to monitor energy use, receive prices and demand-response events, and automatically optimize premises electrical load while preserving customer comfort, safety, and override authority.";
+
+        part utility : UtilityHeadEnd;
+        part meter : SmartMeter;
+        part gateway : OpenHANGateway;
+        part security : SecurityService;
+        part thermostat : SmartThermostat;
+        part waterHeater : ElectricWaterHeater;
+        part evse : ElectricVehicleSupplyEquipment;
+        part battery : HomeBatterySystem;
+        part display : InHomeDisplay;
+
+        interface utilityGateway : UtilityToGateway
+            connect utility.customerEventPort to gateway.utilityPort;
+
+        interface meterGateway : MeterToEnergyManager
+            connect meter.meterData to gateway.meterPort;
+
+        interface gatewaySecurity : SecurityAuthorization
+            connect gateway.securityPort to security.authorizationPort;
+
+        interface gatewayThermostat : GatewayToDevice
+            connect gateway.hvacPort to thermostat.control;
+
+        interface gatewayWaterHeater : GatewayToDevice
+            connect gateway.waterHeaterPort to waterHeater.control;
+
+        interface gatewayEVSE : GatewayToDevice
+            connect gateway.evsePort to evse.control;
+
+        interface gatewayBattery : GatewayToDevice
+            connect gateway.batteryPort to battery.control;
+
+        interface gatewayDisplay : GatewayToDevice
+            connect gateway.displayPort to display.control;
+
+        connect meter.premisesService to thermostat.electrical;
+        connect meter.premisesService to waterHeater.electrical;
+        connect meter.premisesService to evse.electrical;
+        connect meter.premisesService to battery.electrical;
+
+        action performPrimaryFunction {
+            first start;
+            then collectMeterReading;
+            then authenticateGridMessage;
+            then evaluatePriceAndDemandResponse;
+            then calculateLoadPlan;
+            then dispatchDeviceCommands;
+            then verifyDeviceStatus;
+            then updateDisplay;
+            then reportPremisesResponse;
+        }
+
+        constraint maxDeviceCount {
+            gateway.maxManagedDevices >= 5;
+        }
+
+        constraint serviceVoltageRange {
+            meter.premisesService.voltage >= 216 [V] and meter.premisesService.voltage <= 252 [V];
+        }
+
+        constraint emergencyCurtailmentPriority {
+            gateway.activeCurtailmentTarget <=
+                thermostat.maxControllableLoad +
+                waterHeater.elementPower +
+                evse.maximumChargePower +
+                battery.ratedDischargePower;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The OpenHAN premises system shall provide secure, standards-based home area network coordination for metering, price communication, demand response, distributed energy resource control, and customer load optimization. */
+    }
+
+    requirement def SecureCommunicationRequirement {
+        doc
+        /* The system shall authenticate utility-originated price and demand-response messages before commands are issued to customer devices. */
+
+        require constraint {
+            gateway.securityPort.authorization.decision == AuthorizationDecision.allowed;
+        }
+    }
+
+    requirement def MeteringRequirement {
+        doc
+        /* The smart meter shall provide voltage, current, power, energy, and frequency readings to the OpenHAN gateway at intervals no greater than fifteen seconds during normal operation. */
+
+        require constraint {
+            meter.measurementInterval <= 15 [s];
+        }
+    }
+
+    requirement def DemandResponseRequirement {
+        doc
+        /* The gateway shall calculate and dispatch device control commands capable of meeting a requested curtailment target without violating explicitly modeled safety limits. */
+
+        require constraint {
+            gateway.activeCurtailmentTarget <=
+                thermostat.maxControllableLoad +
+                waterHeater.elementPower +
+                evse.maximumChargePower +
+                battery.ratedDischargePower;
+        }
+    }
+
+    requirement def CustomerOverrideRequirement {
+        doc
+        /* The system shall preserve customer override authority except when an emergency curtailment command is active and authorized. */
+
+        require constraint {
+            gateway.localCustomerOverride == true implies
+            gateway.activeCurtailmentTarget == 0 [W] or
+            gateway.utilityPort.demandResponse.eventType != DemandResponseEventType.emergencyCurtailment;
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc
+        /* Load control shall not command water heater deferral below the minimum safe tank temperature and shall not command electric vehicle charging below the modeled minimum charge power unless charging is paused. */
+
+        require constraint {
+            waterHeater.tankTemperature >= waterHeater.minimumSafeTemperature;
+        }
+
+        require constraint {
+            evse.control.command.powerLimit >= evse.minimumChargePower or
+            evse.control.command.requestedMode == DeviceMode.shedLoad;
+        }
+    }
+
+    requirement def ResilienceRequirement {
+        doc
+        /* If utility communication is unavailable, the gateway shall continue local energy monitoring and use the most recent valid price and device status information for degraded operation. */
+    }
+
+    satisfy PrimaryFunctionRequirement by OpenHANPremisesSystem;
+    satisfy SecureCommunicationRequirement by OpenHANPremisesSystem.gateway;
+    satisfy MeteringRequirement by OpenHANPremisesSystem.meter;
+    satisfy DemandResponseRequirement by OpenHANPremisesSystem.gateway;
+    satisfy CustomerOverrideRequirement by OpenHANPremisesSystem.gateway;
+    satisfy SafetyRequirement by OpenHANPremisesSystem;
+    satisfy ResilienceRequirement by OpenHANPremisesSystem.gateway;
+
+}
+tokens used
+6,126
+package OpenHAN_EnergyManagementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Money;
+    attribute def EnergyPrice :> Money;
+    attribute def Percent;
+    attribute def TemperatureCelsius;
+    attribute def VoltageRMS :> ElectricPotential;
+    attribute def CurrentRMS :> ElectricCurrent;
+    attribute def RealPower :> Power;
+    attribute def ApparentPower :> Power;
+    attribute def EnergyKWh :> Energy;
+    attribute def FrequencyHz :> Frequency;
+    attribute def TimeInterval :> Time;
+    attribute def DataRate;
+    attribute def SignalStrength;
+    attribute def CyberTrustLevel;
+
+    enum def DeviceMode {
+        enum idle;
+        enum normal;
+        enum shedLoad;
+        enum critical;
+        enum offline;
+        enum faulted;
+    }
+
+    enum def DemandResponseEventType {
+        enum priceResponse;
+        enum emergencyCurtailment;
+        enum gridReliability;
+        enum renewableSurplus;
+    }
+
+    enum def AuthorizationDecision {
+        enum allowed;
+        enum denied;
+        enum pending;
+    }
+
+    enum def MessagePriority {
+        enum routine;
+        enum urgent;
+        enum emergency;
+    }
+
+    item def MeterReading {
+        attribute timestamp : Time;
+        attribute voltage : VoltageRMS;
+        attribute current : CurrentRMS;
+        attribute realPower : RealPower;
+        attribute apparentPower : ApparentPower;
+        attribute cumulativeEnergy : EnergyKWh;
+        attribute frequency : FrequencyHz;
+        attribute qualityPercent : Percent;
+    }
+
+    item def PriceSignal {
+        attribute effectiveStart : Time;
+        attribute effectiveDuration : TimeInterval;
+        attribute energyPrice : EnergyPrice;
+        attribute criticalPeak : Boolean;
+        attribute priority : MessagePriority;
+    }
+
+    item def DemandResponseCommand {
+        attribute eventId : String;
+        attribute eventType : DemandResponseEventType;
+        attribute requestedCurtailment : RealPower;
+        attribute startTime : Time;
+        attribute duration : TimeInterval;
+        attribute optOutAllowed : Boolean;
+        attribute priority : MessagePriority;
+    }
+
+    item def DeviceStatus {
+        attribute deviceId : String;
+        attribute mode : DeviceMode;
+        attribute availableLoad : RealPower;
+        attribute controllableLoad : RealPower;
+        attribute localOverride : Boolean;
+        attribute faultPresent : Boolean;
+        attribute lastHeartbeat : Time;
+    }
+
+    item def ControlCommand {
+        attribute targetDeviceId : String;
+        attribute requestedMode : DeviceMode;
+        attribute powerLimit : RealPower;
+        attribute validUntil : Time;
+        attribute priority : MessagePriority;
+    }
+
+    item def SecurityCredential {
+        attribute subjectId : String;
+        attribute issuerId : String;
+        attribute validFrom : Time;
+        attribute validUntil : Time;
+        attribute trustLevel : CyberTrustLevel;
+    }
+
+    item def AuthorizationResult {
+        attribute subjectId : String;
+        attribute commandId : String;
+        attribute decision : AuthorizationDecision;
+        attribute reason : String;
+    }
+
+    item def NetworkHealth {
+        attribute linkAvailable : Boolean;
+        attribute signalStrength : SignalStrength;
+        attribute dataRate : DataRate;
+        attribute packetLossPercent : Percent;
+        attribute lastSuccessfulExchange : Time;
+    }
+
+    port def MeterDataPort {
+        out item reading : MeterReading;
+        out item status : DeviceStatus;
+        in item command : ControlCommand;
+    }
+
+    port def PriceAndEventPort {
+        in item price : PriceSignal;
+        in item demandResponse : DemandResponseCommand;
+        out item authorization : AuthorizationResult;
+    }
+
+    port def HANControlPort {
+        out item command : ControlCommand;
+        in item status : DeviceStatus;
+        in item health : NetworkHealth;
+    }
+
+    port def ApplianceControlPort {
+        in item command : ControlCommand;
+        out item status : DeviceStatus;
+    }
+
+    port def SecurityPort {
+        in item credential : SecurityCredential;
+        in item command : ControlCommand;
+        out item authorization : AuthorizationResult;
+    }
+
+    port def ElectricServicePort {
+        inout attribute voltage : VoltageRMS;
+        inout attribute current : CurrentRMS;
+        inout attribute realPower : RealPower;
+        inout attribute frequency : FrequencyHz;
+    }
+
+    interface def MeterToEnergyManager {
+        end meter : MeterDataPort;
+        end manager : MeterDataPort;
+        flow reading from meter.reading to manager.reading;
+        flow status from meter.status to manager.status;
+        flow command from manager.command to meter.command;
+    }
+
+    interface def UtilityToGateway {
+        end utility : PriceAndEventPort;
+        end gateway : PriceAndEventPort;
+        flow price from utility.price to gateway.price;
+        flow demandResponse from utility.demandResponse to gateway.demandResponse;
+        flow authorization from gateway.authorization to utility.authorization;
+    }
+
+    interface def GatewayToDevice {
+        end gateway : HANControlPort;
+        end device : ApplianceControlPort;
+        flow command from gateway.command to device.command;
+        flow status from device.status to gateway.status;
+    }
+
+    interface def SecurityAuthorization {
+        end gateway : SecurityPort;
+        end security : SecurityPort;
+        flow credential from gateway.credential to security.credential;
+        flow command from gateway.command to security.command;
+        flow authorization from security.authorization to gateway.authorization;
+    }
+
+    part def SmartMeter {
+        attribute meterId : String;
+        attribute ratedVoltage : VoltageRMS = 240 [V];
+        attribute serviceFrequency : FrequencyHz = 60 [Hz];
+        attribute measurementInterval : TimeInterval = 15 [s];
+        attribute maxServicePower : RealPower = 24000 [W];
+
+        port utilityService : ElectricServicePort;
+        port premisesService : ElectricServicePort;
+        port meterData : MeterDataPort;
+
+        action measureElectricService {
+            in attribute sampleVoltage : VoltageRMS;
+            in attribute sampleCurrent : CurrentRMS;
+            out item reading : MeterReading;
+        }
+
+        state def MeterOperatingState {
+            entry action initializeMeter;
+            state authenticating;
+            state measuring;
+            state reporting;
+            state localDisconnect;
+            state fault;
+
+            transition first authenticating;
+            transition authenticating then measuring
+                accept SecurityCredential
+                if credential.trustLevel >= 80;
+            transition measuring then reporting
+                accept TimeEvent
+                if measurementInterval <= 15 [s];
+            transition reporting then measuring;
+            transition measuring then localDisconnect
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.critical;
+            transition measuring then fault
+                if utilityService.voltage < 180 [V] or utilityService.voltage > 260 [V];
+            transition fault then measuring
+                if utilityService.voltage >= 216 [V] and utilityService.voltage <= 252 [V];
+        }
+    }
+
+    part def UtilityHeadEnd {
+        attribute utilityId : String;
+        attribute defaultPrice : EnergyPrice;
+        attribute eventLeadTime : TimeInterval = 30 [min];
+
+        port customerEventPort : PriceAndEventPort;
+
+        action publishPriceSignal {
+            out item price : PriceSignal;
+        }
+
+        action initiateDemandResponse {
+            in attribute targetCurtailment : RealPower;
+            out item demandResponse : DemandResponseCommand;
+        }
+    }
+
+    part def OpenHANGateway {
+        attribute gatewayId : String;
+        attribute supportedProtocol : String = "OpenHAN over Zigbee Smart Energy";
+        attribute maxManagedDevices : Integer = 64;
+        attribute minimumAcceptedTrust : CyberTrustLevel = 75;
+        attribute latestMeasuredLoad : RealPower;
+        attribute activeCurtailmentTarget : RealPower;
+        attribute localCustomerOverride : Boolean = false;
+
+        port utilityPort : PriceAndEventPort;
+        port meterPort : MeterDataPort;
+        port securityPort : SecurityPort;
+        port hvacPort : HANControlPort;
+        port waterHeaterPort : HANControlPort;
+        port evsePort : HANControlPort;
+        port batteryPort : HANControlPort;
+        port displayPort : HANControlPort;
+
+        action receiveGridSignal {
+            in item price : PriceSignal;
+            in item demandResponse : DemandResponseCommand;
+            out item commandPlan : ControlCommand;
+        }
+
+        action optimizeHomeLoad {
+            in item reading : MeterReading;
+            in item price : PriceSignal;
+            in item demandResponse : DemandResponseCommand;
+            out item hvacCommand : ControlCommand;
+            out item waterHeaterCommand : ControlCommand;
+            out item evseCommand : ControlCommand;
+            out item batteryCommand : ControlCommand;
+        }
+
+        action authorizeCommand {
+            in item credential : SecurityCredential;
+            in item command : ControlCommand;
+            out item result : AuthorizationResult;
+        }
+
+        action aggregateStatus {
+            in item hvacStatus : DeviceStatus;
+            in item waterHeaterStatus : DeviceStatus;
+            in item evseStatus : DeviceStatus;
+            in item batteryStatus : DeviceStatus;
+            out item premisesStatus : DeviceStatus;
+        }
+
+        state def GatewayEnergyManagementState {
+            entry action bootSecureStack;
+            state commissioning;
+            state monitoring;
+            state priceOptimizing;
+            state demandResponseActive;
+            state emergencyCurtailment;
+            state customerOverride;
+            state communicationsLost;
+            state degradedOperation;
+
+            transition first commissioning;
+            transition commissioning then monitoring
+                accept AuthorizationResult
+                if authorization.decision == AuthorizationDecision.allowed;
+
+            transition monitoring then priceOptimizing
+                accept PriceSignal
+                if price.criticalPeak == true;
+
+            transition priceOptimizing then monitoring
+                accept PriceSignal
+                if price.criticalPeak == false;
+
+            transition monitoring then demandResponseActive
+                accept DemandResponseCommand
+                if demandResponse.eventType == DemandResponseEventType.gridReliability;
+
+            transition demandResponseActive then emergencyCurtailment
+                accept DemandResponseCommand
+                if demandResponse.eventType == DemandResponseEventType.emergencyCurtailment;
+
+            transition demandResponseActive then monitoring
+                accept TimeEvent
+                if activeCurtailmentTarget <= 0 [W];
+
+            transition emergencyCurtailment then monitoring
+                accept TimeEvent
+                if activeCurtailmentTarget <= 0 [W];
+
+            transition monitoring then customerOverride
+                if localCustomerOverride == true;
+
+            transition customerOverride then monitoring
+                if localCustomerOverride == false;
+
+            transition monitoring then communicationsLost
+                accept NetworkHealth
+                if health.linkAvailable == false;
+
+            transition communicationsLost then degradedOperation
+                accept TimeEvent
+                if health.linkAvailable == false;
+
+            transition communicationsLost then monitoring
+                accept NetworkHealth
+                if health.linkAvailable == true;
+        }
+    }
+
+    part def SecurityService {
+        attribute serviceId : String;
+        attribute credentialRotationInterval : TimeInterval = 90 [day];
+        attribute minimumTrustLevel : CyberTrustLevel = 75;
+
+        port authorizationPort : SecurityPort;
+
+        action validateCredential {
+            in item credential : SecurityCredential;
+            out item result : AuthorizationResult;
+        }
+
+        action authorizeDeviceControl {
+            in item command : ControlCommand;
+            in item credential : SecurityCredential;
+            out item result : AuthorizationResult;
+        }
+    }
+
+    part def SmartThermostat {
+        attribute deviceId : String;
+        attribute currentTemperature : TemperatureCelsius;
+        attribute occupiedSetpoint : TemperatureCelsius = 22;
+        attribute economySetpoint : TemperatureCelsius = 26;
+        attribute maxControllableLoad : RealPower = 3500 [W];
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action adjustSetpoint {
+            in attribute targetTemperature : TemperatureCelsius;
+            out item status : DeviceStatus;
+        }
+
+        state def ThermostatState {
+            state comfortable;
+            state economy;
+            state shed;
+            state override;
+            state fault;
+
+            transition first comfortable;
+            transition comfortable then economy
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.normal and command.powerLimit < 2500 [W];
+            transition economy then shed
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.shedLoad;
+            transition shed then comfortable
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.normal;
+            transition economy then override
+                if status.localOverride == true;
+            transition override then comfortable
+                if status.localOverride == false;
+            transition comfortable then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def ElectricWaterHeater {
+        attribute deviceId : String;
+        attribute tankTemperature : TemperatureCelsius;
+        attribute minimumSafeTemperature : TemperatureCelsius = 49;
+        attribute normalSetpoint : TemperatureCelsius = 54;
+        attribute elementPower : RealPower = 4500 [W];
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action deferHeating {
+            in attribute deferDuration : TimeInterval;
+            out item status : DeviceStatus;
+        }
+
+        state def WaterHeaterState {
+            state heating;
+            state standby;
+            state deferred;
+            state recovery;
+            state fault;
+
+            transition first standby;
+            transition standby then heating
+                if tankTemperature < normalSetpoint;
+            transition heating then standby
+                if tankTemperature >= normalSetpoint;
+            transition heating then deferred
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.shedLoad and tankTemperature >= minimumSafeTemperature;
+            transition deferred then recovery
+                if tankTemperature < minimumSafeTemperature;
+            transition recovery then standby
+                if tankTemperature >= normalSetpoint;
+            transition standby then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def ElectricVehicleSupplyEquipment {
+        attribute deviceId : String;
+        attribute maximumChargePower : RealPower = 9600 [W];
+        attribute minimumChargePower : RealPower = 1400 [W];
+        attribute scheduledDepartureTime : Time;
+        attribute requiredEnergyByDeparture : EnergyKWh;
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action scheduleCharging {
+            in item price : PriceSignal;
+            in item command : ControlCommand;
+            out item status : DeviceStatus;
+        }
+
+        state def EVSEState {
+            state unplugged;
+            state waiting;
+            state charging;
+            state limitedCharging;
+            state paused;
+            state fault;
+
+            transition first unplugged;
+            transition unplugged then waiting
+                if status.availableLoad > 0 [W];
+            transition waiting then charging
+                accept PriceSignal
+                if price.criticalPeak == false;
+            transition charging then limitedCharging
+                accept ControlCommand
+                if command.powerLimit < maximumChargePower and command.powerLimit >= minimumChargePower;
+            transition limitedCharging then paused
+                accept ControlCommand
+                if command.powerLimit < minimumChargePower;
+            transition paused then charging
+                accept ControlCommand
+                if command.requestedMode == DeviceMode.normal;
+            transition charging then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def HomeBatterySystem {
+        attribute deviceId : String;
+        attribute ratedChargePower : RealPower = 5000 [W];
+        attribute ratedDischargePower : RealPower = 5000 [W];
+        attribute usableCapacity : EnergyKWh = 13.5 [kW*h];
+        attribute stateOfCharge : Percent;
+
+        port control : ApplianceControlPort;
+        port electrical : ElectricServicePort;
+
+        action dischargeForCurtailment {
+            in attribute requestedSupport : RealPower;
+            out item status : DeviceStatus;
+        }
+
+        action chargeDuringSurplus {
+            in attribute availableSurplus : RealPower;
+            out item status : DeviceStatus;
+        }
+
+        state def BatteryState {
+            state standby;
+            state charging;
+            state discharging;
+            state reserveHold;
+            state fault;
+
+            transition first standby;
+            transition standby then discharging
+                accept DemandResponseCommand
+                if demandResponse.requestedCurtailment > 0 [W] and stateOfCharge > 25;
+            transition discharging then reserveHold
+                if stateOfCharge <= 20;
+            transition standby then charging
+                accept DemandResponseCommand
+                if demandResponse.eventType == DemandResponseEventType.renewableSurplus;
+            transition charging then standby
+                if stateOfCharge >= 95;
+            transition standby then fault
+                if status.faultPresent == true;
+        }
+    }
+
+    part def InHomeDisplay {
+        attribute deviceId : String;
+        attribute refreshInterval : TimeInterval = 5 [s];
+        attribute displayedPrice : EnergyPrice;
+        attribute displayedLoad : RealPower;
+
+        port control : ApplianceControlPort;
+
+        action updateCustomerDisplay {
+            in item reading : MeterReading;
+            in item price : PriceSignal;
+            in item premisesStatus : DeviceStatus;
+        }
+    }
+
+    part def OpenHANPremisesSystem {
+        attribute premisesId : String;
+        attribute primaryFunction : String =
+            "Coordinate secure Home Area Network communication between the utility, smart meter, energy manager, and controllable customer devices to monitor energy use, receive prices and demand-response events, and automatically optimize premises electrical load while preserving customer comfort, safety, and override authority.";
+
+        part utility : UtilityHeadEnd;
+        part meter : SmartMeter;
+        part gateway : OpenHANGateway;
+        part security : SecurityService;
+        part thermostat : SmartThermostat;
+        part waterHeater : ElectricWaterHeater;
+        part evse : ElectricVehicleSupplyEquipment;
+        part battery : HomeBatterySystem;
+        part display : InHomeDisplay;
+
+        interface utilityGateway : UtilityToGateway
+            connect utility.customerEventPort to gateway.utilityPort;
+
+        interface meterGateway : MeterToEnergyManager
+            connect meter.meterData to gateway.meterPort;
+
+        interface gatewaySecurity : SecurityAuthorization
+            connect gateway.securityPort to security.authorizationPort;
+
+        interface gatewayThermostat : GatewayToDevice
+            connect gateway.hvacPort to thermostat.control;
+
+        interface gatewayWaterHeater : GatewayToDevice
+            connect gateway.waterHeaterPort to waterHeater.control;
+
+        interface gatewayEVSE : GatewayToDevice
+            connect gateway.evsePort to evse.control;
+
+        interface gatewayBattery : GatewayToDevice
+            connect gateway.batteryPort to battery.control;
+
+        interface gatewayDisplay : GatewayToDevice
+            connect gateway.displayPort to display.control;
+
+        connect meter.premisesService to thermostat.electrical;
+        connect meter.premisesService to waterHeater.electrical;
+        connect meter.premisesService to evse.electrical;
+        connect meter.premisesService to battery.electrical;
+
+        action performPrimaryFunction {
+            first start;
+            then collectMeterReading;
+            then authenticateGridMessage;
+            then evaluatePriceAndDemandResponse;
+            then calculateLoadPlan;
+            then dispatchDeviceCommands;
+            then verifyDeviceStatus;
+            then updateDisplay;
+            then reportPremisesResponse;
+        }
+
+        constraint maxDeviceCount {
+            gateway.maxManagedDevices >= 5;
+        }
+
+        constraint serviceVoltageRange {
+            meter.premisesService.voltage >= 216 [V] and meter.premisesService.voltage <= 252 [V];
+        }
+
+        constraint emergencyCurtailmentPriority {
+            gateway.activeCurtailmentTarget <=
+                thermostat.maxControllableLoad +
+                waterHeater.elementPower +
+                evse.maximumChargePower +
+                battery.ratedDischargePower;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The OpenHAN premises system shall provide secure, standards-based home area network coordination for metering, price communication, demand response, distributed energy resource control, and customer load optimization. */
+    }
+
+    requirement def SecureCommunicationRequirement {
+        doc
+        /* The system shall authenticate utility-originated price and demand-response messages before commands are issued to customer devices. */
+
+        require constraint {
+            gateway.securityPort.authorization.decision == AuthorizationDecision.allowed;
+        }
+    }
+
+    requirement def MeteringRequirement {
+        doc
+        /* The smart meter shall provide voltage, current, power, energy, and frequency readings to the OpenHAN gateway at intervals no greater than fifteen seconds during normal operation. */
+
+        require constraint {
+            meter.measurementInterval <= 15 [s];
+        }
+    }
+
+    requirement def DemandResponseRequirement {
+        doc
+        /* The gateway shall calculate and dispatch device control commands capable of meeting a requested curtailment target without violating explicitly modeled safety limits. */
+
+        require constraint {
+            gateway.activeCurtailmentTarget <=
+                thermostat.maxControllableLoad +
+                waterHeater.elementPower +
+                evse.maximumChargePower +
+                battery.ratedDischargePower;
+        }
+    }
+
+    requirement def CustomerOverrideRequirement {
+        doc
+        /* The system shall preserve customer override authority except when an emergency curtailment command is active and authorized. */
+
+        require constraint {
+            gateway.localCustomerOverride == true implies
+            gateway.activeCurtailmentTarget == 0 [W] or
+            gateway.utilityPort.demandResponse.eventType != DemandResponseEventType.emergencyCurtailment;
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc
+        /* Load control shall not command water heater deferral below the minimum safe tank temperature and shall not command electric vehicle charging below the modeled minimum charge power unless charging is paused. */
+
+        require constraint {
+            waterHeater.tankTemperature >= waterHeater.minimumSafeTemperature;
+        }
+
+        require constraint {
+            evse.control.command.powerLimit >= evse.minimumChargePower or
+            evse.control.command.requestedMode == DeviceMode.shedLoad;
+        }
+    }
+
+    requirement def ResilienceRequirement {
+        doc
+        /* If utility communication is unavailable, the gateway shall continue local energy monitoring and use the most recent valid price and device status information for degraded operation. */
+    }
+
+    satisfy PrimaryFunctionRequirement by OpenHANPremisesSystem;
+    satisfy SecureCommunicationRequirement by OpenHANPremisesSystem.gateway;
+    satisfy MeteringRequirement by OpenHANPremisesSystem.meter;
+    satisfy DemandResponseRequirement by OpenHANPremisesSystem.gateway;
+    satisfy CustomerOverrideRequirement by OpenHANPremisesSystem.gateway;
+    satisfy SafetyRequirement by OpenHANPremisesSystem;
+    satisfy ResilienceRequirement by OpenHANPremisesSystem.gateway;
+
+}

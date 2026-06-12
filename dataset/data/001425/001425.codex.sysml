@@ -1,0 +1,461 @@
+package FANUCRobotWorkcellModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent;
+    attribute def SpeedRPM;
+    attribute def PressureBar;
+    attribute def PayloadKg;
+    attribute def PositionMillimeter;
+    attribute def AngleDegree;
+    attribute def TemperatureCelsius;
+    attribute def CurrentAmpere;
+    attribute def VoltageVolt;
+    attribute def TimeSecond;
+
+    item def ElectricalPower {
+        attribute voltage : VoltageVolt;
+        attribute current : CurrentAmpere;
+        attribute frequencyHz : Real;
+    }
+
+    item def MotionCommand {
+        attribute targetX : PositionMillimeter;
+        attribute targetY : PositionMillimeter;
+        attribute targetZ : PositionMillimeter;
+        attribute wristRoll : AngleDegree;
+        attribute wristPitch : AngleDegree;
+        attribute wristYaw : AngleDegree;
+        attribute speedOverride : Percent;
+        attribute pathBlendRadius : PositionMillimeter;
+    }
+
+    item def RobotStatus {
+        attribute servoPowerOn : Boolean;
+        attribute programRunning : Boolean;
+        attribute faultActive : Boolean;
+        attribute emergencyStopActive : Boolean;
+        attribute currentPayload : PayloadKg;
+        attribute jointTemperatureMax : TemperatureCelsius;
+    }
+
+    item def PartBlank {
+        attribute partId : String;
+        attribute mass : PayloadKg;
+        attribute length : PositionMillimeter;
+        attribute width : PositionMillimeter;
+        attribute height : PositionMillimeter;
+    }
+
+    item def FinishedPart {
+        attribute partId : String;
+        attribute processComplete : Boolean;
+        attribute qualityAccepted : Boolean;
+    }
+
+    item def CompressedAir {
+        attribute pressure : PressureBar;
+        attribute flowRateNlMin : Real;
+    }
+
+    item def SafetySignal {
+        attribute channelA : Boolean;
+        attribute channelB : Boolean;
+        attribute safetyRated : Boolean;
+    }
+
+    item def DigitalIO {
+        attribute signalName : String;
+        attribute value : Boolean;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def EthernetPort {
+        in item command : MotionCommand;
+        out item status : RobotStatus;
+    }
+
+    port def PneumaticPort {
+        in item air : CompressedAir;
+    }
+
+    port def SafetyInputPort {
+        in item signal : SafetySignal;
+    }
+
+    port def SafetyOutputPort {
+        out item signal : SafetySignal;
+    }
+
+    port def MaterialInputPort {
+        in item blank : PartBlank;
+    }
+
+    port def MaterialOutputPort {
+        out item finished : FinishedPart;
+    }
+
+    port def ToolIOPort {
+        in item toolCommand : DigitalIO;
+        out item toolFeedback : DigitalIO;
+    }
+
+    action def MoveToPick {
+        in item command : MotionCommand;
+        out item status : RobotStatus;
+    }
+
+    action def CloseGripper {
+        in item air : CompressedAir;
+        out item toolFeedback : DigitalIO;
+    }
+
+    action def MoveToProcess {
+        in item command : MotionCommand;
+        out item status : RobotStatus;
+    }
+
+    action def ExecutePrimaryHandlingCycle {
+        in item blank : PartBlank;
+        in item pickCommand : MotionCommand;
+        in item placeCommand : MotionCommand;
+        out item finished : FinishedPart;
+
+        first start;
+        then moveToPick : MoveToPick;
+        then gripPart : CloseGripper;
+        then moveToProcess : MoveToProcess;
+        then releasePart : action {
+            out item released : DigitalIO;
+        }
+        then inspectResult : action {
+            in item handledPart : PartBlank;
+            out item acceptedPart : FinishedPart;
+        }
+        then done;
+    }
+
+    state def RobotOperationalStateMachine {
+        entry; then Initializing;
+
+        state Initializing;
+        state ServoReady;
+        state AutomaticCycle;
+        state ManualTeach;
+        state Hold;
+        state Faulted;
+        state EmergencyStopped;
+
+        transition Initializing_to_ServoReady
+            first Initializing
+            accept after 5 [s]
+            then ServoReady;
+
+        transition ServoReady_to_AutomaticCycle
+            first ServoReady
+            accept DigitalIO
+            if action { out valid : Boolean = true; }
+            then AutomaticCycle;
+
+        transition AutomaticCycle_to_Hold
+            first AutomaticCycle
+            accept DigitalIO
+            then Hold;
+
+        transition Hold_to_AutomaticCycle
+            first Hold
+            accept DigitalIO
+            then AutomaticCycle;
+
+        transition ServoReady_to_ManualTeach
+            first ServoReady
+            accept DigitalIO
+            then ManualTeach;
+
+        transition ManualTeach_to_ServoReady
+            first ManualTeach
+            accept DigitalIO
+            then ServoReady;
+
+        transition Any_to_Faulted
+            first ServoReady
+            accept RobotStatus
+            if action { out faultDetected : Boolean = true; }
+            then Faulted;
+
+        transition Faulted_to_Initializing
+            first Faulted
+            accept DigitalIO
+            then Initializing;
+
+        transition Any_to_EmergencyStopped
+            first AutomaticCycle
+            accept SafetySignal
+            if action { out estop : Boolean = true; }
+            then EmergencyStopped;
+
+        transition EmergencyStopped_to_Initializing
+            first EmergencyStopped
+            accept SafetySignal
+            then Initializing;
+    }
+
+    part def FANUCRobotArm {
+        attribute modelName : String = "FANUC M-20iD/25";
+        attribute controlledAxes : Integer = 6;
+        attribute ratedPayload : PayloadKg = 25;
+        attribute repeatability : PositionMillimeter = 0.02;
+        attribute reach : PositionMillimeter = 1831;
+        attribute baseRotationLimit : AngleDegree = 370;
+        attribute wristRotationLimit : AngleDegree = 720;
+
+        port toolIO : ToolIOPort;
+        port motionNetwork : EthernetPort;
+        port safetyIn : SafetyInputPort;
+        port powerIn : PowerInPort;
+
+        perform stateMachine : RobotOperationalStateMachine;
+    }
+
+    part def FANUCRobotController {
+        attribute controllerFamily : String = "FANUC R-30iB Plus";
+        attribute servoAmplifierCount : Integer = 6;
+        attribute teachPendantConnected : Boolean = true;
+        attribute safetyProcessorHealthy : Boolean = true;
+        attribute programName : String = "HIGH_LEVEL_PICK_PROCESS_PLACE";
+
+        port acPower : PowerInPort;
+        port robotNetwork : EthernetPort;
+        port cellNetwork : EthernetPort;
+        port safetyIn : SafetyInputPort;
+        port safetyOut : SafetyOutputPort;
+    }
+
+    part def EndEffector {
+        attribute typeName : String = "Dual-finger pneumatic gripper";
+        attribute maximumGripPayload : PayloadKg = 25;
+        attribute jawStroke : PositionMillimeter = 80;
+        attribute requiredPressure : PressureBar = 6;
+        attribute gripConfirmed : Boolean;
+
+        port pneumaticSupply : PneumaticPort;
+        port io : ToolIOPort;
+        port materialIn : MaterialInputPort;
+        port materialOut : MaterialOutputPort;
+    }
+
+    part def VisionSensor {
+        attribute sensorType : String = "2D industrial camera";
+        attribute fieldOfViewX : PositionMillimeter = 500;
+        attribute fieldOfViewY : PositionMillimeter = 400;
+        attribute exposureTimeMs : Real = 8.0;
+        attribute inspectionPass : Boolean;
+
+        port network : EthernetPort;
+        port powerIn : PowerInPort;
+    }
+
+    part def InfeedConveyor {
+        attribute beltSpeed : SpeedRPM = 45;
+        attribute usableWidth : PositionMillimeter = 600;
+        attribute partPresent : Boolean;
+
+        port powerIn : PowerInPort;
+        port materialOut : MaterialOutputPort;
+        port controlNetwork : EthernetPort;
+    }
+
+    part def OutfeedConveyor {
+        attribute beltSpeed : SpeedRPM = 45;
+        attribute usableWidth : PositionMillimeter = 600;
+        attribute readyToReceive : Boolean;
+
+        port powerIn : PowerInPort;
+        port materialIn : MaterialInputPort;
+        port controlNetwork : EthernetPort;
+    }
+
+    part def SafetySystem {
+        attribute emergencyStopHealthy : Boolean = true;
+        attribute lightCurtainClear : Boolean = true;
+        attribute gateClosed : Boolean = true;
+        attribute safetyCategory : String = "ISO 13849-1 Category 3 PL d";
+
+        port guardedInput : SafetyInputPort;
+        port robotSafeOutput : SafetyOutputPort;
+        port controllerSafeOutput : SafetyOutputPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute selectedMode : String = "AUTO";
+        attribute cycleStartCommanded : Boolean;
+        attribute faultResetCommanded : Boolean;
+        attribute speedOverride : Percent = 80;
+
+        port network : EthernetPort;
+        port powerIn : PowerInPort;
+    }
+
+    part def IndustrialPowerSupply {
+        attribute inputVoltage : VoltageVolt = 480;
+        attribute outputControlVoltage : VoltageVolt = 24;
+        attribute outputRobotVoltage : VoltageVolt = 480;
+        attribute nominalFrequencyHz : Real = 60.0;
+
+        port robotPower : PowerInPort;
+        port controllerPower : PowerInPort;
+        port auxiliaryPower : PowerInPort;
+    }
+
+    part def PneumaticSupply {
+        attribute regulatedPressure : PressureBar = 6;
+        attribute minimumPressure : PressureBar = 5;
+        attribute maximumPressure : PressureBar = 7;
+        attribute dryAirAvailable : Boolean = true;
+
+        port airOut : PneumaticPort;
+    }
+
+    part def FANUCBasedHandlingCell {
+        attribute cellName : String = "FANUC High-Level Material Handling Cell";
+        attribute primaryFunction : String = "Automatically pick incoming parts, move them through a programmed FANUC robot path, present them for inspection or processing, and place accepted parts onto the outfeed conveyor.";
+        attribute nominalCycleTime : TimeSecond = 12;
+        attribute targetAvailability : Percent = 95;
+        attribute maximumPartMass : PayloadKg = 20;
+
+        part robot : FANUCRobotArm;
+        part controller : FANUCRobotController;
+        part gripper : EndEffector;
+        part vision : VisionSensor;
+        part infeed : InfeedConveyor;
+        part outfeed : OutfeedConveyor;
+        part safety : SafetySystem;
+        part hmi : HumanMachineInterface;
+        part power : IndustrialPowerSupply;
+        part pneumatics : PneumaticSupply;
+
+        port rawMaterialIn : MaterialInputPort;
+        port completedMaterialOut : MaterialOutputPort;
+
+        connect power.robotPower to robot.powerIn;
+        connect power.controllerPower to controller.acPower;
+        connect power.auxiliaryPower to hmi.powerIn;
+        connect power.auxiliaryPower to vision.powerIn;
+        connect power.auxiliaryPower to infeed.powerIn;
+        connect power.auxiliaryPower to outfeed.powerIn;
+
+        connect controller.robotNetwork to robot.motionNetwork;
+        connect controller.cellNetwork to hmi.network;
+        connect controller.cellNetwork to vision.network;
+        connect controller.cellNetwork to infeed.controlNetwork;
+        connect controller.cellNetwork to outfeed.controlNetwork;
+
+        connect pneumatics.airOut to gripper.pneumaticSupply;
+        connect robot.toolIO to gripper.io;
+
+        connect safety.robotSafeOutput to robot.safetyIn;
+        connect safety.controllerSafeOutput to controller.safetyIn;
+        connect controller.safetyOut to safety.guardedInput;
+
+        connect rawMaterialIn to infeed.materialOut;
+        connect infeed.materialOut to gripper.materialIn;
+        connect gripper.materialOut to outfeed.materialIn;
+        connect outfeed.materialIn to completedMaterialOut;
+
+        perform mainCycle : ExecutePrimaryHandlingCycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject cell : FANUCBasedHandlingCell;
+
+        require constraint {
+            cell.primaryFunction ==
+            "Automatically pick incoming parts, move them through a programmed FANUC robot path, present them for inspection or processing, and place accepted parts onto the outfeed conveyor."
+        }
+
+        doc
+        /*
+         The FANUC-based system shall provide high-level automated material handling using a FANUC robot arm, FANUC robot controller, end effector, sensing, safety, and conveyor equipment.
+        */
+    }
+
+    requirement def PayloadRequirement {
+        subject cell : FANUCBasedHandlingCell;
+
+        require constraint {
+            cell.robot.ratedPayload >= cell.maximumPartMass
+        }
+
+        doc
+        /*
+         The selected FANUC robot shall have rated payload capacity greater than or equal to the maximum handled part mass.
+        */
+    }
+
+    requirement def CycleTimeRequirement {
+        subject cell : FANUCBasedHandlingCell;
+
+        require constraint {
+            cell.nominalCycleTime <= 15
+        }
+
+        doc
+        /*
+         The automated handling cycle shall complete within fifteen seconds under nominal operating conditions.
+        */
+    }
+
+    requirement def SafetyRequirement {
+        subject cell : FANUCBasedHandlingCell;
+
+        require constraint {
+            cell.safety.emergencyStopHealthy == true and
+            cell.safety.gateClosed == true and
+            cell.safety.lightCurtainClear == true
+        }
+
+        doc
+        /*
+         Automatic robot motion shall be permitted only when safety devices are healthy and the guarded work envelope is clear and closed.
+        */
+    }
+
+    requirement def AirPressureRequirement {
+        subject cell : FANUCBasedHandlingCell;
+
+        require constraint {
+            cell.pneumatics.regulatedPressure >= cell.gripper.requiredPressure
+        }
+
+        doc
+        /*
+         Pneumatic supply pressure shall be sufficient to actuate and hold the end effector during part transfer.
+        */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject cell : FANUCBasedHandlingCell;
+
+        require constraint {
+            cell.targetAvailability >= 95
+        }
+
+        doc
+        /*
+         The FANUC-based cell shall be designed for at least ninety-five percent operational availability during scheduled production.
+        */
+    }
+
+    satisfy PrimaryFunctionRequirement by FANUCBasedHandlingCell;
+    satisfy PayloadRequirement by FANUCBasedHandlingCell;
+    satisfy CycleTimeRequirement by FANUCBasedHandlingCell;
+    satisfy SafetyRequirement by FANUCBasedHandlingCell;
+    satisfy AirPressureRequirement by FANUCBasedHandlingCell;
+    satisfy AvailabilityRequirement by FANUCBasedHandlingCell;
+
+}

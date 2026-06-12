@@ -1,0 +1,997 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-upupzppo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6a5-7923-7ad0-9616-c8e5f78ba182
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Ethics of technology and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EthicalTechnologyGovernanceModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    unit def percent;
+    unit def scoreUnit;
+    unit def decisionPerHour;
+    unit def incident;
+    unit def hour;
+    unit def day;
+
+    attribute def RiskScore :> Real {
+        doc /* Dimensionless ethical risk score from 0.0 to 1.0. */
+    }
+
+    attribute def FairnessScore :> Real {
+        doc /* Dimensionless fairness score from 0.0 to 1.0. */
+    }
+
+    attribute def ConfidenceScore :> Real {
+        doc /* Dimensionless confidence score from 0.0 to 1.0. */
+    }
+
+    attribute def ConsentCoverage :> Real {
+        doc /* Percentage of processed data covered by valid consent. */
+    }
+
+    attribute def ProcessingRate :> Real {
+        doc /* Decisions processed per hour. */
+    }
+
+    attribute def RetentionPeriod :> Real {
+        doc /* Data retention duration in days. */
+    }
+
+    attribute def ResponseTime :> Real {
+        doc /* Human escalation response time in hours. */
+    }
+
+    enum def DecisionCategory {
+        enum lowImpact;
+        enum mediumImpact;
+        enum highImpact;
+        enum prohibited;
+    }
+
+    enum def EthicalStateKind {
+        enum proposed;
+        enum underReview;
+        enum approved;
+        enum monitored;
+        enum suspended;
+        enum retired;
+    }
+
+    item def UserData {
+        attribute subjectId : String;
+        attribute dataPurpose : String;
+        attribute sensitivityLevel : Integer;
+        attribute consentValid : Boolean;
+        attribute retentionLimit : RetentionPeriod;
+    }
+
+    item def ConsentRecord {
+        attribute subjectId : String;
+        attribute grantedPurpose : String;
+        attribute granted : Boolean;
+        attribute expiryInDays : RetentionPeriod;
+    }
+
+    item def AutomatedDecision {
+        attribute decisionId : String;
+        attribute category : DecisionCategory;
+        attribute confidence : ConfidenceScore;
+        attribute rationale : String;
+        attribute reversible : Boolean;
+    }
+
+    item def EthicalAssessment {
+        attribute assessmentId : String;
+        attribute overallRisk : RiskScore;
+        attribute fairness : FairnessScore;
+        attribute explainabilityComplete : Boolean;
+        attribute humanReviewRequired : Boolean;
+        attribute approvedForRelease : Boolean;
+    }
+
+    item def AuditEvent {
+        attribute eventId : String;
+        attribute actor : String;
+        attribute eventType : String;
+        attribute riskAtEvent : RiskScore;
+        attribute immutable : Boolean;
+    }
+
+    item def RemediationOrder {
+        attribute orderId : String;
+        attribute affectedFunction : String;
+        attribute requiredAction : String;
+        attribute dueInHours : ResponseTime;
+    }
+
+    port def DataInputPort {
+        in item userData : UserData;
+        in item consent : ConsentRecord;
+    }
+
+    port def DecisionOutputPort {
+        out item decision : AutomatedDecision;
+        out item assessment : EthicalAssessment;
+    }
+
+    port def AuditPort {
+        out item event : AuditEvent;
+    }
+
+    port def OversightPort {
+        out item escalation : EthicalAssessment;
+        in item remediation : RemediationOrder;
+    }
+
+    interface def DataToConsentCheck {
+        end source : DataInputPort;
+        end target : DataInputPort;
+    }
+
+    interface def AssessmentToOversight {
+        end source : DecisionOutputPort;
+        end target : OversightPort;
+    }
+
+    interface def EventsToAudit {
+        end source : AuditPort;
+        end target : AuditPort;
+    }
+
+    action def VerifyConsent {
+        in item data : UserData;
+        in item consent : ConsentRecord;
+        out attribute validUse : Boolean;
+
+        assert constraint {
+            validUse == consent.granted and
+            data.subjectId == consent.subjectId and
+            data.dataPurpose == consent.grantedPurpose and
+            consent.expiryInDays > 0.0
+        }
+    }
+
+    action def AssessEthicalRisk {
+        in item data : UserData;
+        in item decision : AutomatedDecision;
+        out item assessment : EthicalAssessment;
+
+        attribute privacyRisk : RiskScore;
+        attribute autonomyRisk : RiskScore;
+        attribute safetyRisk : RiskScore;
+        attribute fairnessValue : FairnessScore;
+
+        assert constraint {
+            privacyRisk >= 0.0 and privacyRisk <= 1.0
+        }
+
+        assert constraint {
+            autonomyRisk >= 0.0 and autonomyRisk <= 1.0
+        }
+
+        assert constraint {
+            safetyRisk >= 0.0 and safetyRisk <= 1.0
+        }
+
+        assert constraint {
+            assessment.overallRisk == (privacyRisk + autonomyRisk + safetyRisk) / 3.0
+        }
+
+        assert constraint {
+            assessment.humanReviewRequired ==
+                assessment.overallRisk >= 0.60 or
+                decision.category == DecisionCategory::highImpact or
+                decision.category == DecisionCategory::prohibited
+        }
+
+        assert constraint {
+            assessment.approvedForRelease ==
+                assessment.overallRisk < 0.60 and
+                assessment.fairness >= 0.85 and
+                assessment.explainabilityComplete == true and
+                decision.category != DecisionCategory::prohibited
+        }
+    }
+
+    action def GenerateExplanation {
+        in item decision : AutomatedDecision;
+        out attribute explanationText : String;
+        out attribute explanationComplete : Boolean;
+    }
+
+    action def EscalateToHumanReview {
+        in item assessment : EthicalAssessment;
+        out item remediation : RemediationOrder;
+    }
+
+    action def RecordAuditEvent {
+        in item assessment : EthicalAssessment;
+        in attribute actor : String;
+        out item event : AuditEvent;
+
+        assert constraint {
+            event.immutable == true
+        }
+    }
+
+    action def SuspendUnsafeFunction {
+        in item assessment : EthicalAssessment;
+        out item remediation : RemediationOrder;
+
+        assert constraint {
+            remediation.requiredAction == "Suspend affected automated function until ethical risk is reduced."
+        }
+    }
+
+    state def EthicalLifecycle {
+        attribute stateKind : EthicalStateKind;
+
+        state proposed;
+        state underReview;
+        state approved;
+        state monitored;
+        state suspended;
+        state retired;
+
+        transition first proposed;
+
+        transition submitReview
+            first proposed
+            then underReview;
+
+        transition approveDeployment
+            first underReview
+            then approved
+            if assessment.approvedForRelease == true;
+
+        transition startMonitoring
+            first approved
+            then monitored;
+
+        transition suspendForRisk
+            first monitored
+            then suspended
+            if assessment.overallRisk >= 0.75;
+
+        transition restoreAfterRemediation
+            first suspended
+            then monitored
+            if assessment.overallRisk < 0.40 and assessment.fairness >= 0.90;
+
+        transition retireSystem
+            first monitored
+            then retired;
+    }
+
+    part def ConsentManager {
+        port dataIn : DataInputPort;
+        port consentOut : DataInputPort;
+
+        attribute consentCoverage : ConsentCoverage;
+        attribute minimumConsentCoverage : ConsentCoverage = 99.0;
+
+        perform action verify : VerifyConsent;
+
+        constraint consentCoverageConstraint {
+            consentCoverage >= minimumConsentCoverage
+        }
+    }
+
+    part def FairnessMonitor {
+        port decisionIn : DecisionOutputPort;
+        port assessmentOut : DecisionOutputPort;
+
+        attribute currentFairness : FairnessScore;
+        attribute minimumFairness : FairnessScore = 0.85;
+        attribute protectedClassDisparity : RiskScore;
+
+        constraint fairnessConstraint {
+            currentFairness >= minimumFairness and protectedClassDisparity <= 0.10
+        }
+    }
+
+    part def ExplainabilityService {
+        port decisionIn : DecisionOutputPort;
+        port assessmentOut : DecisionOutputPort;
+
+        attribute explanationCompleteness : ConsentCoverage;
+        attribute minimumExplanationCompleteness : ConsentCoverage = 95.0;
+
+        perform action explain : GenerateExplanation;
+
+        constraint explanationConstraint {
+            explanationCompleteness >= minimumExplanationCompleteness
+        }
+    }
+
+    part def RiskAssessmentEngine {
+        port dataIn : DataInputPort;
+        port decisionIn : DecisionOutputPort;
+        port assessmentOut : DecisionOutputPort;
+
+        attribute maximumAllowedRisk : RiskScore = 0.60;
+        attribute emergencyStopRisk : RiskScore = 0.75;
+        attribute processingRate : ProcessingRate;
+
+        perform action assess : AssessEthicalRisk;
+
+        constraint riskConstraint {
+            maximumAllowedRisk < emergencyStopRisk
+        }
+    }
+
+    part def HumanOversightBoard {
+        port oversight : OversightPort;
+
+        attribute maximumResponseTime : ResponseTime = 24.0;
+        attribute reviewCapacity : ProcessingRate;
+        attribute activeEscalations : Integer;
+
+        perform action escalate : EscalateToHumanReview;
+
+        constraint responseConstraint {
+            maximumResponseTime <= 24.0
+        }
+    }
+
+    part def AuditLedger {
+        port audit : AuditPort;
+
+        attribute retentionPeriod : RetentionPeriod = 2555.0;
+        attribute tamperEvidenceEnabled : Boolean = true;
+        attribute auditCompleteness : ConsentCoverage;
+
+        perform action record : RecordAuditEvent;
+
+        constraint auditConstraint {
+            tamperEvidenceEnabled == true and auditCompleteness >= 99.5
+        }
+    }
+
+    part def RemediationController {
+        port oversight : OversightPort;
+        port audit : AuditPort;
+
+        attribute openOrders : Integer;
+        attribute maximumOpenOrders : Integer = 25;
+
+        perform action suspend : SuspendUnsafeFunction;
+
+        constraint remediationConstraint {
+            openOrders <= maximumOpenOrders
+        }
+    }
+
+    part def EthicalTechnologySystem {
+        doc /* Primary function: govern an automated technology service so that data use, automated decisions, human oversight, transparency, fairness, accountability, and remediation remain aligned with explicit ethical obligations. */
+
+        port externalData : DataInputPort;
+        port externalDecision : DecisionOutputPort;
+        port externalAudit : AuditPort;
+        port externalOversight : OversightPort;
+
+        part consentManager : ConsentManager;
+        part fairnessMonitor : FairnessMonitor;
+        part explainabilityService : ExplainabilityService;
+        part riskEngine : RiskAssessmentEngine;
+        part oversightBoard : HumanOversightBoard;
+        part auditLedger : AuditLedger;
+        part remediationController : RemediationController;
+
+        attribute lifecycleState : EthicalStateKind;
+        attribute systemEthicalRisk : RiskScore;
+        attribute systemFairness : FairnessScore;
+        attribute consentCoverage : ConsentCoverage;
+        attribute decisionThroughput : ProcessingRate;
+        attribute maximumRetention : RetentionPeriod = 365.0;
+
+        connect externalData to consentManager.dataIn;
+        connect consentManager.consentOut to riskEngine.dataIn;
+        connect externalDecision to riskEngine.decisionIn;
+        connect riskEngine.assessmentOut to fairnessMonitor.decisionIn;
+        connect fairnessMonitor.assessmentOut to explainabilityService.decisionIn;
+        connect explainabilityService.assessmentOut to externalDecision;
+        connect explainabilityService.assessmentOut to oversightBoard.oversight;
+        connect oversightBoard.oversight to remediationController.oversight;
+        connect remediationController.audit to auditLedger.audit;
+        connect auditLedger.audit to externalAudit;
+
+        perform action verifyConsent : VerifyConsent;
+        perform action assessRisk : AssessEthicalRisk;
+        perform action generateExplanation : GenerateExplanation;
+        perform action escalateReview : EscalateToHumanReview;
+        perform action recordAudit : RecordAuditEvent;
+
+        exhibit state lifecycle : EthicalLifecycle;
+
+        constraint ethicalOperatingEnvelope {
+            systemEthicalRisk <= 0.60 and
+            systemFairness >= 0.85 and
+            consentCoverage >= 99.0 and
+            maximumRetention <= 365.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EthicalTechnologySystem;
+
+        require constraint {
+            system.systemEthicalRisk <= 0.60
+        }
+
+        doc /* The system shall provide high-level ethical governance for technology-mediated decisions by assessing risk, enforcing consent, checking fairness, producing explanations, escalating high-impact cases, recording immutable audit evidence, and triggering remediation. */
+    }
+
+    requirement def ConsentRequirement {
+        subject system : EthicalTechnologySystem;
+
+        require constraint {
+            system.consentCoverage >= 99.0
+        }
+
+        doc /* The system shall process user data only when the intended purpose is covered by valid consent. */
+    }
+
+    requirement def FairnessRequirement {
+        subject monitor : FairnessMonitor;
+
+        require constraint {
+            monitor.currentFairness >= 0.85 and monitor.protectedClassDisparity <= 0.10
+        }
+
+        doc /* The system shall monitor automated decisions for disparate impact and block release when fairness falls below the accepted threshold. */
+    }
+
+    requirement def TransparencyRequirement {
+        subject service : ExplainabilityService;
+
+        require constraint {
+            service.explanationCompleteness >= 95.0
+        }
+
+        doc /* The system shall generate meaningful explanations for automated decisions before they are exposed externally. */
+    }
+
+    requirement def HumanOversightRequirement {
+        subject board : HumanOversightBoard;
+
+        require constraint {
+            board.maximumResponseTime <= 24.0
+        }
+
+        doc /* The system shall escalate high-risk, high-impact, prohibited, or low-confidence decisions to qualified human review within one day. */
+    }
+
+    requirement def AuditabilityRequirement {
+        subject ledger : AuditLedger;
+
+        require constraint {
+            ledger.tamperEvidenceEnabled == true and ledger.auditCompleteness >= 99.5
+        }
+
+        doc /* The system shall maintain tamper-evident records of ethical assessments, decisions, escalations, and remediation actions. */
+    }
+
+    requirement def RemediationRequirement {
+        subject controller : RemediationController;
+
+        require constraint {
+            controller.openOrders <= controller.maximumOpenOrders
+        }
+
+        doc /* The system shall issue and track remediation orders when ethical risk exceeds the approved operating envelope. */
+    }
+
+    satisfy PrimaryFunctionRequirement by EthicalTechnologySystem;
+    satisfy ConsentRequirement by ConsentManager;
+    satisfy FairnessRequirement by FairnessMonitor;
+    satisfy TransparencyRequirement by ExplainabilityService;
+    satisfy HumanOversightRequirement by HumanOversightBoard;
+    satisfy AuditabilityRequirement by AuditLedger;
+    satisfy RemediationRequirement by RemediationController;
+}
+tokens used
+3,640
+package EthicalTechnologyGovernanceModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    unit def percent;
+    unit def scoreUnit;
+    unit def decisionPerHour;
+    unit def incident;
+    unit def hour;
+    unit def day;
+
+    attribute def RiskScore :> Real {
+        doc /* Dimensionless ethical risk score from 0.0 to 1.0. */
+    }
+
+    attribute def FairnessScore :> Real {
+        doc /* Dimensionless fairness score from 0.0 to 1.0. */
+    }
+
+    attribute def ConfidenceScore :> Real {
+        doc /* Dimensionless confidence score from 0.0 to 1.0. */
+    }
+
+    attribute def ConsentCoverage :> Real {
+        doc /* Percentage of processed data covered by valid consent. */
+    }
+
+    attribute def ProcessingRate :> Real {
+        doc /* Decisions processed per hour. */
+    }
+
+    attribute def RetentionPeriod :> Real {
+        doc /* Data retention duration in days. */
+    }
+
+    attribute def ResponseTime :> Real {
+        doc /* Human escalation response time in hours. */
+    }
+
+    enum def DecisionCategory {
+        enum lowImpact;
+        enum mediumImpact;
+        enum highImpact;
+        enum prohibited;
+    }
+
+    enum def EthicalStateKind {
+        enum proposed;
+        enum underReview;
+        enum approved;
+        enum monitored;
+        enum suspended;
+        enum retired;
+    }
+
+    item def UserData {
+        attribute subjectId : String;
+        attribute dataPurpose : String;
+        attribute sensitivityLevel : Integer;
+        attribute consentValid : Boolean;
+        attribute retentionLimit : RetentionPeriod;
+    }
+
+    item def ConsentRecord {
+        attribute subjectId : String;
+        attribute grantedPurpose : String;
+        attribute granted : Boolean;
+        attribute expiryInDays : RetentionPeriod;
+    }
+
+    item def AutomatedDecision {
+        attribute decisionId : String;
+        attribute category : DecisionCategory;
+        attribute confidence : ConfidenceScore;
+        attribute rationale : String;
+        attribute reversible : Boolean;
+    }
+
+    item def EthicalAssessment {
+        attribute assessmentId : String;
+        attribute overallRisk : RiskScore;
+        attribute fairness : FairnessScore;
+        attribute explainabilityComplete : Boolean;
+        attribute humanReviewRequired : Boolean;
+        attribute approvedForRelease : Boolean;
+    }
+
+    item def AuditEvent {
+        attribute eventId : String;
+        attribute actor : String;
+        attribute eventType : String;
+        attribute riskAtEvent : RiskScore;
+        attribute immutable : Boolean;
+    }
+
+    item def RemediationOrder {
+        attribute orderId : String;
+        attribute affectedFunction : String;
+        attribute requiredAction : String;
+        attribute dueInHours : ResponseTime;
+    }
+
+    port def DataInputPort {
+        in item userData : UserData;
+        in item consent : ConsentRecord;
+    }
+
+    port def DecisionOutputPort {
+        out item decision : AutomatedDecision;
+        out item assessment : EthicalAssessment;
+    }
+
+    port def AuditPort {
+        out item event : AuditEvent;
+    }
+
+    port def OversightPort {
+        out item escalation : EthicalAssessment;
+        in item remediation : RemediationOrder;
+    }
+
+    interface def DataToConsentCheck {
+        end source : DataInputPort;
+        end target : DataInputPort;
+    }
+
+    interface def AssessmentToOversight {
+        end source : DecisionOutputPort;
+        end target : OversightPort;
+    }
+
+    interface def EventsToAudit {
+        end source : AuditPort;
+        end target : AuditPort;
+    }
+
+    action def VerifyConsent {
+        in item data : UserData;
+        in item consent : ConsentRecord;
+        out attribute validUse : Boolean;
+
+        assert constraint {
+            validUse == consent.granted and
+            data.subjectId == consent.subjectId and
+            data.dataPurpose == consent.grantedPurpose and
+            consent.expiryInDays > 0.0
+        }
+    }
+
+    action def AssessEthicalRisk {
+        in item data : UserData;
+        in item decision : AutomatedDecision;
+        out item assessment : EthicalAssessment;
+
+        attribute privacyRisk : RiskScore;
+        attribute autonomyRisk : RiskScore;
+        attribute safetyRisk : RiskScore;
+        attribute fairnessValue : FairnessScore;
+
+        assert constraint {
+            privacyRisk >= 0.0 and privacyRisk <= 1.0
+        }
+
+        assert constraint {
+            autonomyRisk >= 0.0 and autonomyRisk <= 1.0
+        }
+
+        assert constraint {
+            safetyRisk >= 0.0 and safetyRisk <= 1.0
+        }
+
+        assert constraint {
+            assessment.overallRisk == (privacyRisk + autonomyRisk + safetyRisk) / 3.0
+        }
+
+        assert constraint {
+            assessment.humanReviewRequired ==
+                assessment.overallRisk >= 0.60 or
+                decision.category == DecisionCategory::highImpact or
+                decision.category == DecisionCategory::prohibited
+        }
+
+        assert constraint {
+            assessment.approvedForRelease ==
+                assessment.overallRisk < 0.60 and
+                assessment.fairness >= 0.85 and
+                assessment.explainabilityComplete == true and
+                decision.category != DecisionCategory::prohibited
+        }
+    }
+
+    action def GenerateExplanation {
+        in item decision : AutomatedDecision;
+        out attribute explanationText : String;
+        out attribute explanationComplete : Boolean;
+    }
+
+    action def EscalateToHumanReview {
+        in item assessment : EthicalAssessment;
+        out item remediation : RemediationOrder;
+    }
+
+    action def RecordAuditEvent {
+        in item assessment : EthicalAssessment;
+        in attribute actor : String;
+        out item event : AuditEvent;
+
+        assert constraint {
+            event.immutable == true
+        }
+    }
+
+    action def SuspendUnsafeFunction {
+        in item assessment : EthicalAssessment;
+        out item remediation : RemediationOrder;
+
+        assert constraint {
+            remediation.requiredAction == "Suspend affected automated function until ethical risk is reduced."
+        }
+    }
+
+    state def EthicalLifecycle {
+        attribute stateKind : EthicalStateKind;
+
+        state proposed;
+        state underReview;
+        state approved;
+        state monitored;
+        state suspended;
+        state retired;
+
+        transition first proposed;
+
+        transition submitReview
+            first proposed
+            then underReview;
+
+        transition approveDeployment
+            first underReview
+            then approved
+            if assessment.approvedForRelease == true;
+
+        transition startMonitoring
+            first approved
+            then monitored;
+
+        transition suspendForRisk
+            first monitored
+            then suspended
+            if assessment.overallRisk >= 0.75;
+
+        transition restoreAfterRemediation
+            first suspended
+            then monitored
+            if assessment.overallRisk < 0.40 and assessment.fairness >= 0.90;
+
+        transition retireSystem
+            first monitored
+            then retired;
+    }
+
+    part def ConsentManager {
+        port dataIn : DataInputPort;
+        port consentOut : DataInputPort;
+
+        attribute consentCoverage : ConsentCoverage;
+        attribute minimumConsentCoverage : ConsentCoverage = 99.0;
+
+        perform action verify : VerifyConsent;
+
+        constraint consentCoverageConstraint {
+            consentCoverage >= minimumConsentCoverage
+        }
+    }
+
+    part def FairnessMonitor {
+        port decisionIn : DecisionOutputPort;
+        port assessmentOut : DecisionOutputPort;
+
+        attribute currentFairness : FairnessScore;
+        attribute minimumFairness : FairnessScore = 0.85;
+        attribute protectedClassDisparity : RiskScore;
+
+        constraint fairnessConstraint {
+            currentFairness >= minimumFairness and protectedClassDisparity <= 0.10
+        }
+    }
+
+    part def ExplainabilityService {
+        port decisionIn : DecisionOutputPort;
+        port assessmentOut : DecisionOutputPort;
+
+        attribute explanationCompleteness : ConsentCoverage;
+        attribute minimumExplanationCompleteness : ConsentCoverage = 95.0;
+
+        perform action explain : GenerateExplanation;
+
+        constraint explanationConstraint {
+            explanationCompleteness >= minimumExplanationCompleteness
+        }
+    }
+
+    part def RiskAssessmentEngine {
+        port dataIn : DataInputPort;
+        port decisionIn : DecisionOutputPort;
+        port assessmentOut : DecisionOutputPort;
+
+        attribute maximumAllowedRisk : RiskScore = 0.60;
+        attribute emergencyStopRisk : RiskScore = 0.75;
+        attribute processingRate : ProcessingRate;
+
+        perform action assess : AssessEthicalRisk;
+
+        constraint riskConstraint {
+            maximumAllowedRisk < emergencyStopRisk
+        }
+    }
+
+    part def HumanOversightBoard {
+        port oversight : OversightPort;
+
+        attribute maximumResponseTime : ResponseTime = 24.0;
+        attribute reviewCapacity : ProcessingRate;
+        attribute activeEscalations : Integer;
+
+        perform action escalate : EscalateToHumanReview;
+
+        constraint responseConstraint {
+            maximumResponseTime <= 24.0
+        }
+    }
+
+    part def AuditLedger {
+        port audit : AuditPort;
+
+        attribute retentionPeriod : RetentionPeriod = 2555.0;
+        attribute tamperEvidenceEnabled : Boolean = true;
+        attribute auditCompleteness : ConsentCoverage;
+
+        perform action record : RecordAuditEvent;
+
+        constraint auditConstraint {
+            tamperEvidenceEnabled == true and auditCompleteness >= 99.5
+        }
+    }
+
+    part def RemediationController {
+        port oversight : OversightPort;
+        port audit : AuditPort;
+
+        attribute openOrders : Integer;
+        attribute maximumOpenOrders : Integer = 25;
+
+        perform action suspend : SuspendUnsafeFunction;
+
+        constraint remediationConstraint {
+            openOrders <= maximumOpenOrders
+        }
+    }
+
+    part def EthicalTechnologySystem {
+        doc /* Primary function: govern an automated technology service so that data use, automated decisions, human oversight, transparency, fairness, accountability, and remediation remain aligned with explicit ethical obligations. */
+
+        port externalData : DataInputPort;
+        port externalDecision : DecisionOutputPort;
+        port externalAudit : AuditPort;
+        port externalOversight : OversightPort;
+
+        part consentManager : ConsentManager;
+        part fairnessMonitor : FairnessMonitor;
+        part explainabilityService : ExplainabilityService;
+        part riskEngine : RiskAssessmentEngine;
+        part oversightBoard : HumanOversightBoard;
+        part auditLedger : AuditLedger;
+        part remediationController : RemediationController;
+
+        attribute lifecycleState : EthicalStateKind;
+        attribute systemEthicalRisk : RiskScore;
+        attribute systemFairness : FairnessScore;
+        attribute consentCoverage : ConsentCoverage;
+        attribute decisionThroughput : ProcessingRate;
+        attribute maximumRetention : RetentionPeriod = 365.0;
+
+        connect externalData to consentManager.dataIn;
+        connect consentManager.consentOut to riskEngine.dataIn;
+        connect externalDecision to riskEngine.decisionIn;
+        connect riskEngine.assessmentOut to fairnessMonitor.decisionIn;
+        connect fairnessMonitor.assessmentOut to explainabilityService.decisionIn;
+        connect explainabilityService.assessmentOut to externalDecision;
+        connect explainabilityService.assessmentOut to oversightBoard.oversight;
+        connect oversightBoard.oversight to remediationController.oversight;
+        connect remediationController.audit to auditLedger.audit;
+        connect auditLedger.audit to externalAudit;
+
+        perform action verifyConsent : VerifyConsent;
+        perform action assessRisk : AssessEthicalRisk;
+        perform action generateExplanation : GenerateExplanation;
+        perform action escalateReview : EscalateToHumanReview;
+        perform action recordAudit : RecordAuditEvent;
+
+        exhibit state lifecycle : EthicalLifecycle;
+
+        constraint ethicalOperatingEnvelope {
+            systemEthicalRisk <= 0.60 and
+            systemFairness >= 0.85 and
+            consentCoverage >= 99.0 and
+            maximumRetention <= 365.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EthicalTechnologySystem;
+
+        require constraint {
+            system.systemEthicalRisk <= 0.60
+        }
+
+        doc /* The system shall provide high-level ethical governance for technology-mediated decisions by assessing risk, enforcing consent, checking fairness, producing explanations, escalating high-impact cases, recording immutable audit evidence, and triggering remediation. */
+    }
+
+    requirement def ConsentRequirement {
+        subject system : EthicalTechnologySystem;
+
+        require constraint {
+            system.consentCoverage >= 99.0
+        }
+
+        doc /* The system shall process user data only when the intended purpose is covered by valid consent. */
+    }
+
+    requirement def FairnessRequirement {
+        subject monitor : FairnessMonitor;
+
+        require constraint {
+            monitor.currentFairness >= 0.85 and monitor.protectedClassDisparity <= 0.10
+        }
+
+        doc /* The system shall monitor automated decisions for disparate impact and block release when fairness falls below the accepted threshold. */
+    }
+
+    requirement def TransparencyRequirement {
+        subject service : ExplainabilityService;
+
+        require constraint {
+            service.explanationCompleteness >= 95.0
+        }
+
+        doc /* The system shall generate meaningful explanations for automated decisions before they are exposed externally. */
+    }
+
+    requirement def HumanOversightRequirement {
+        subject board : HumanOversightBoard;
+
+        require constraint {
+            board.maximumResponseTime <= 24.0
+        }
+
+        doc /* The system shall escalate high-risk, high-impact, prohibited, or low-confidence decisions to qualified human review within one day. */
+    }
+
+    requirement def AuditabilityRequirement {
+        subject ledger : AuditLedger;
+
+        require constraint {
+            ledger.tamperEvidenceEnabled == true and ledger.auditCompleteness >= 99.5
+        }
+
+        doc /* The system shall maintain tamper-evident records of ethical assessments, decisions, escalations, and remediation actions. */
+    }
+
+    requirement def RemediationRequirement {
+        subject controller : RemediationController;
+
+        require constraint {
+            controller.openOrders <= controller.maximumOpenOrders
+        }
+
+        doc /* The system shall issue and track remediation orders when ethical risk exceeds the approved operating envelope. */
+    }
+
+    satisfy PrimaryFunctionRequirement by EthicalTechnologySystem;
+    satisfy ConsentRequirement by ConsentManager;
+    satisfy FairnessRequirement by FairnessMonitor;
+    satisfy TransparencyRequirement by ExplainabilityService;
+    satisfy HumanOversightRequirement by HumanOversightBoard;
+    satisfy AuditabilityRequirement by AuditLedger;
+    satisfy RemediationRequirement by RemediationController;
+}

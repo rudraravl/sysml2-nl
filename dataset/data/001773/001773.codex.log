@@ -1,0 +1,863 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-j6v99w25
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb805-350b-7e82-8f87-38f383ded2ca
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Espresso machine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EspressoMachineSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "bar";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Volume {
+        :> scalarValues::Real;
+        unit = "mL";
+    }
+
+    attribute def Mass {
+        :> scalarValues::Real;
+        unit = "g";
+    }
+
+    attribute def Duration {
+        :> scalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Power {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "mL/s";
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute volume : Volume;
+    }
+
+    item def HeatedWater :> Water {
+        attribute pressure : Pressure;
+    }
+
+    item def GroundCoffee {
+        attribute doseMass : Mass;
+        attribute grindSetting : String;
+    }
+
+    item def Espresso {
+        attribute beverageVolume : Volume;
+        attribute extractionTime : Duration;
+        attribute brewPressure : Pressure;
+        attribute brewTemperature : Temperature;
+    }
+
+    item def Steam {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def WasteWater {
+        attribute volume : Volume;
+        attribute temperature : Temperature;
+    }
+
+    port def WaterInletPort {
+        in item water : Water;
+    }
+
+    port def PressurizedWaterPort {
+        out item water : HeatedWater;
+    }
+
+    port def CoffeeInputPort {
+        in item coffee : GroundCoffee;
+    }
+
+    port def BeverageOutputPort {
+        out item espresso : Espresso;
+    }
+
+    port def SteamOutputPort {
+        out item steam : Steam;
+    }
+
+    port def WasteOutputPort {
+        out item waste : WasteWater;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute availablePower : Power;
+    }
+
+    port def UserCommandPort {
+        in attribute startSingleShot : Boolean;
+        in attribute startDoubleShot : Boolean;
+        in attribute startSteam : Boolean;
+        in attribute stop : Boolean;
+    }
+
+    port def StatusPort {
+        out attribute ready : Boolean;
+        out attribute brewing : Boolean;
+        out attribute steaming : Boolean;
+        out attribute faulted : Boolean;
+        out attribute displayedTemperature : Temperature;
+        out attribute displayedPressure : Pressure;
+    }
+
+    part def WaterReservoir {
+        attribute capacity : Volume = 2000.0;
+        attribute currentVolume : Volume;
+        port fillPort : WaterInletPort;
+        port outlet : WaterInletPort;
+    }
+
+    part def Pump {
+        attribute ratedPressure : Pressure = 15.0;
+        attribute nominalFlowRate : FlowRate = 6.0;
+        port inlet : WaterInletPort;
+        port outlet : PressurizedWaterPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def Boiler {
+        attribute targetBrewTemperature : Temperature = 93.0;
+        attribute targetSteamTemperature : Temperature = 135.0;
+        attribute heaterPower : Power = 1400.0;
+        attribute currentTemperature : Temperature;
+        port inlet : WaterInletPort;
+        port hotWaterOutlet : PressurizedWaterPort;
+        port steamOutlet : SteamOutputPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def BrewGroup {
+        attribute nominalBrewPressure : Pressure = 9.0;
+        attribute preInfusionDuration : Duration = 5.0;
+        port waterInlet : PressurizedWaterPort;
+        port coffeeInlet : CoffeeInputPort;
+        port beverageOutlet : BeverageOutputPort;
+        port wasteOutlet : WasteOutputPort;
+    }
+
+    part def Portafilter {
+        attribute basketCapacity : Mass = 18.0;
+        attribute installed : Boolean;
+        port coffeeLoadPort : CoffeeInputPort;
+        port brewedEspressoPort : BeverageOutputPort;
+    }
+
+    part def SteamWand {
+        attribute openValve : Boolean;
+        port steamInlet : SteamOutputPort;
+        port steamNozzle : SteamOutputPort;
+    }
+
+    part def DripTray {
+        attribute capacity : Volume = 500.0;
+        attribute collectedWaste : Volume;
+        port wasteInlet : WasteOutputPort;
+    }
+
+    part def ControlUnit {
+        attribute brewTemperatureSetpoint : Temperature = 93.0;
+        attribute steamTemperatureSetpoint : Temperature = 135.0;
+        attribute brewPressureSetpoint : Pressure = 9.0;
+        attribute singleShotVolume : Volume = 30.0;
+        attribute doubleShotVolume : Volume = 60.0;
+        port commandPort : UserCommandPort;
+        port statusPort : StatusPort;
+        port power : ElectricalPowerPort;
+    }
+
+    action def HeatWater {
+        in item inletWater : Water;
+        in attribute targetTemperature : Temperature;
+        out item heatedWater : HeatedWater;
+    }
+
+    action def PressurizeWater {
+        in item inletWater : Water;
+        in attribute targetPressure : Pressure;
+        out item pressurizedWater : HeatedWater;
+    }
+
+    action def ExtractEspresso {
+        in item brewWater : HeatedWater;
+        in item coffee : GroundCoffee;
+        in attribute targetVolume : Volume;
+        out item espresso : Espresso;
+        out item waste : WasteWater;
+    }
+
+    action def GenerateSteam {
+        in item inletWater : Water;
+        out item steam : Steam;
+    }
+
+    action def PrepareEspressoShot {
+        in item water : Water;
+        in item coffee : GroundCoffee;
+        in attribute shotVolume : Volume;
+        out item beverage : Espresso;
+
+        action heat : HeatWater;
+        action pump : PressurizeWater;
+        action extract : ExtractEspresso;
+
+        flow water to heat.inletWater;
+        flow heat.heatedWater to pump.inletWater;
+        flow pump.pressurizedWater to extract.brewWater;
+        flow coffee to extract.coffee;
+        flow shotVolume to extract.targetVolume;
+        flow extract.espresso to beverage;
+    }
+
+    state def EspressoMachineOperatingState {
+        entry action initializeStatus;
+        state Off;
+        state Heating;
+        state Ready;
+        state PreInfusion;
+        state Brewing;
+        state Steaming;
+        state Cleaning;
+        state Fault;
+
+        transition initial then Off;
+
+        transition Off_to_Heating
+            first Off
+            accept after 1 s
+            if powerAvailable
+            then Heating;
+
+        transition Heating_to_Ready
+            first Heating
+            accept when boilerAtBrewTemperature
+            then Ready;
+
+        transition Ready_to_PreInfusion
+            first Ready
+            accept startSingleShot or startDoubleShot
+            if reservoirHasWater and portafilterInstalled
+            then PreInfusion;
+
+        transition PreInfusion_to_Brewing
+            first PreInfusion
+            accept after 5 s
+            then Brewing;
+
+        transition Brewing_to_Ready
+            first Brewing
+            accept when targetShotVolumeReached
+            then Ready;
+
+        transition Ready_to_Steaming
+            first Ready
+            accept startSteam
+            if reservoirHasWater
+            then Steaming;
+
+        transition Steaming_to_Ready
+            first Steaming
+            accept stop
+            then Ready;
+
+        transition Ready_to_Cleaning
+            first Ready
+            accept stop
+            if purgeRequired
+            then Cleaning;
+
+        transition Cleaning_to_Ready
+            first Cleaning
+            accept after 10 s
+            then Ready;
+
+        transition Any_to_Fault
+            first Off, Heating, Ready, PreInfusion, Brewing, Steaming, Cleaning
+            accept when overTemperature or reservoirEmpty or pumpOverPressure
+            then Fault;
+
+        transition Fault_to_Off
+            first Fault
+            accept stop
+            then Off;
+    }
+
+    part def EspressoMachine {
+        attribute primaryFunction : String =
+            "Prepare espresso by heating water, pressurizing it, and forcing it through compacted ground coffee to produce a controlled-volume beverage.";
+
+        attribute maximumBrewPressure : Pressure = 15.0;
+        attribute nominalExtractionPressure : Pressure = 9.0;
+        attribute brewTemperatureRangeLow : Temperature = 90.0;
+        attribute brewTemperatureRangeHigh : Temperature = 96.0;
+        attribute warmUpTimeLimit : Duration = 120.0;
+
+        port waterFill : WaterInletPort;
+        port coffeeLoad : CoffeeInputPort;
+        port beverageDispense : BeverageOutputPort;
+        port steamDispense : SteamOutputPort;
+        port wasteDrain : WasteOutputPort;
+        port mainsPower : ElectricalPowerPort;
+        port userInterface : UserCommandPort;
+        port machineStatus : StatusPort;
+
+        part reservoir : WaterReservoir;
+        part pump : Pump;
+        part boiler : Boiler;
+        part brewGroup : BrewGroup;
+        part portafilter : Portafilter;
+        part steamWand : SteamWand;
+        part dripTray : DripTray;
+        part controller : ControlUnit;
+
+        perform stateMachine : EspressoMachineOperatingState;
+
+        connect waterFill to reservoir.fillPort;
+        connect reservoir.outlet to pump.inlet;
+        connect pump.outlet to boiler.inlet;
+        connect boiler.hotWaterOutlet to brewGroup.waterInlet;
+        connect coffeeLoad to portafilter.coffeeLoadPort;
+        connect portafilter.brewedEspressoPort to brewGroup.coffeeInlet;
+        connect brewGroup.beverageOutlet to beverageDispense;
+        connect brewGroup.wasteOutlet to dripTray.wasteInlet;
+        connect dripTray.wasteInlet to wasteDrain;
+        connect boiler.steamOutlet to steamWand.steamInlet;
+        connect steamWand.steamNozzle to steamDispense;
+        connect mainsPower to pump.power;
+        connect mainsPower to boiler.power;
+        connect mainsPower to controller.power;
+        connect userInterface to controller.commandPort;
+        connect controller.statusPort to machineStatus;
+
+        action prepareSingleShot : PrepareEspressoShot {
+            in shotVolume = 30.0;
+        }
+
+        action prepareDoubleShot : PrepareEspressoShot {
+            in shotVolume = 60.0;
+        }
+
+        action steamMilk : GenerateSteam;
+    }
+
+    requirement def PrepareEspressoRequirement {
+        doc
+            /* The espresso machine shall produce espresso from water and ground coffee as its primary function. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.nominalExtractionPressure == 9.0
+        }
+    }
+
+    requirement def BrewTemperatureRequirement {
+        doc
+            /* During brewing, the machine shall deliver water to the brew group between 90 degC and 96 degC. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.brewTemperatureRangeLow >= 90.0 and
+            machine.brewTemperatureRangeHigh <= 96.0
+        }
+    }
+
+    requirement def ShotVolumeRequirement {
+        doc
+            /* The machine shall support single and double espresso shot volumes. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.controller.singleShotVolume == 30.0 and
+            machine.controller.doubleShotVolume == 60.0
+        }
+    }
+
+    requirement def WarmUpRequirement {
+        doc
+            /* The machine shall reach brew-ready temperature within 120 seconds after power is available. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.warmUpTimeLimit <= 120.0
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc
+            /* The machine shall detect and enter a fault state before brew pressure exceeds 15 bar. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.maximumBrewPressure <= 15.0
+        }
+    }
+
+    satisfy PrepareEspressoRequirement by EspressoMachine;
+    satisfy BrewTemperatureRequirement by EspressoMachine;
+    satisfy ShotVolumeRequirement by EspressoMachine;
+    satisfy WarmUpRequirement by EspressoMachine;
+    satisfy PressureSafetyRequirement by EspressoMachine;
+
+    part espressoMachine : EspressoMachine;
+
+}
+tokens used
+3,011
+package EspressoMachineSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "bar";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Volume {
+        :> scalarValues::Real;
+        unit = "mL";
+    }
+
+    attribute def Mass {
+        :> scalarValues::Real;
+        unit = "g";
+    }
+
+    attribute def Duration {
+        :> scalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Power {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "mL/s";
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute volume : Volume;
+    }
+
+    item def HeatedWater :> Water {
+        attribute pressure : Pressure;
+    }
+
+    item def GroundCoffee {
+        attribute doseMass : Mass;
+        attribute grindSetting : String;
+    }
+
+    item def Espresso {
+        attribute beverageVolume : Volume;
+        attribute extractionTime : Duration;
+        attribute brewPressure : Pressure;
+        attribute brewTemperature : Temperature;
+    }
+
+    item def Steam {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def WasteWater {
+        attribute volume : Volume;
+        attribute temperature : Temperature;
+    }
+
+    port def WaterInletPort {
+        in item water : Water;
+    }
+
+    port def PressurizedWaterPort {
+        out item water : HeatedWater;
+    }
+
+    port def CoffeeInputPort {
+        in item coffee : GroundCoffee;
+    }
+
+    port def BeverageOutputPort {
+        out item espresso : Espresso;
+    }
+
+    port def SteamOutputPort {
+        out item steam : Steam;
+    }
+
+    port def WasteOutputPort {
+        out item waste : WasteWater;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Real;
+        in attribute availablePower : Power;
+    }
+
+    port def UserCommandPort {
+        in attribute startSingleShot : Boolean;
+        in attribute startDoubleShot : Boolean;
+        in attribute startSteam : Boolean;
+        in attribute stop : Boolean;
+    }
+
+    port def StatusPort {
+        out attribute ready : Boolean;
+        out attribute brewing : Boolean;
+        out attribute steaming : Boolean;
+        out attribute faulted : Boolean;
+        out attribute displayedTemperature : Temperature;
+        out attribute displayedPressure : Pressure;
+    }
+
+    part def WaterReservoir {
+        attribute capacity : Volume = 2000.0;
+        attribute currentVolume : Volume;
+        port fillPort : WaterInletPort;
+        port outlet : WaterInletPort;
+    }
+
+    part def Pump {
+        attribute ratedPressure : Pressure = 15.0;
+        attribute nominalFlowRate : FlowRate = 6.0;
+        port inlet : WaterInletPort;
+        port outlet : PressurizedWaterPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def Boiler {
+        attribute targetBrewTemperature : Temperature = 93.0;
+        attribute targetSteamTemperature : Temperature = 135.0;
+        attribute heaterPower : Power = 1400.0;
+        attribute currentTemperature : Temperature;
+        port inlet : WaterInletPort;
+        port hotWaterOutlet : PressurizedWaterPort;
+        port steamOutlet : SteamOutputPort;
+        port power : ElectricalPowerPort;
+    }
+
+    part def BrewGroup {
+        attribute nominalBrewPressure : Pressure = 9.0;
+        attribute preInfusionDuration : Duration = 5.0;
+        port waterInlet : PressurizedWaterPort;
+        port coffeeInlet : CoffeeInputPort;
+        port beverageOutlet : BeverageOutputPort;
+        port wasteOutlet : WasteOutputPort;
+    }
+
+    part def Portafilter {
+        attribute basketCapacity : Mass = 18.0;
+        attribute installed : Boolean;
+        port coffeeLoadPort : CoffeeInputPort;
+        port brewedEspressoPort : BeverageOutputPort;
+    }
+
+    part def SteamWand {
+        attribute openValve : Boolean;
+        port steamInlet : SteamOutputPort;
+        port steamNozzle : SteamOutputPort;
+    }
+
+    part def DripTray {
+        attribute capacity : Volume = 500.0;
+        attribute collectedWaste : Volume;
+        port wasteInlet : WasteOutputPort;
+    }
+
+    part def ControlUnit {
+        attribute brewTemperatureSetpoint : Temperature = 93.0;
+        attribute steamTemperatureSetpoint : Temperature = 135.0;
+        attribute brewPressureSetpoint : Pressure = 9.0;
+        attribute singleShotVolume : Volume = 30.0;
+        attribute doubleShotVolume : Volume = 60.0;
+        port commandPort : UserCommandPort;
+        port statusPort : StatusPort;
+        port power : ElectricalPowerPort;
+    }
+
+    action def HeatWater {
+        in item inletWater : Water;
+        in attribute targetTemperature : Temperature;
+        out item heatedWater : HeatedWater;
+    }
+
+    action def PressurizeWater {
+        in item inletWater : Water;
+        in attribute targetPressure : Pressure;
+        out item pressurizedWater : HeatedWater;
+    }
+
+    action def ExtractEspresso {
+        in item brewWater : HeatedWater;
+        in item coffee : GroundCoffee;
+        in attribute targetVolume : Volume;
+        out item espresso : Espresso;
+        out item waste : WasteWater;
+    }
+
+    action def GenerateSteam {
+        in item inletWater : Water;
+        out item steam : Steam;
+    }
+
+    action def PrepareEspressoShot {
+        in item water : Water;
+        in item coffee : GroundCoffee;
+        in attribute shotVolume : Volume;
+        out item beverage : Espresso;
+
+        action heat : HeatWater;
+        action pump : PressurizeWater;
+        action extract : ExtractEspresso;
+
+        flow water to heat.inletWater;
+        flow heat.heatedWater to pump.inletWater;
+        flow pump.pressurizedWater to extract.brewWater;
+        flow coffee to extract.coffee;
+        flow shotVolume to extract.targetVolume;
+        flow extract.espresso to beverage;
+    }
+
+    state def EspressoMachineOperatingState {
+        entry action initializeStatus;
+        state Off;
+        state Heating;
+        state Ready;
+        state PreInfusion;
+        state Brewing;
+        state Steaming;
+        state Cleaning;
+        state Fault;
+
+        transition initial then Off;
+
+        transition Off_to_Heating
+            first Off
+            accept after 1 s
+            if powerAvailable
+            then Heating;
+
+        transition Heating_to_Ready
+            first Heating
+            accept when boilerAtBrewTemperature
+            then Ready;
+
+        transition Ready_to_PreInfusion
+            first Ready
+            accept startSingleShot or startDoubleShot
+            if reservoirHasWater and portafilterInstalled
+            then PreInfusion;
+
+        transition PreInfusion_to_Brewing
+            first PreInfusion
+            accept after 5 s
+            then Brewing;
+
+        transition Brewing_to_Ready
+            first Brewing
+            accept when targetShotVolumeReached
+            then Ready;
+
+        transition Ready_to_Steaming
+            first Ready
+            accept startSteam
+            if reservoirHasWater
+            then Steaming;
+
+        transition Steaming_to_Ready
+            first Steaming
+            accept stop
+            then Ready;
+
+        transition Ready_to_Cleaning
+            first Ready
+            accept stop
+            if purgeRequired
+            then Cleaning;
+
+        transition Cleaning_to_Ready
+            first Cleaning
+            accept after 10 s
+            then Ready;
+
+        transition Any_to_Fault
+            first Off, Heating, Ready, PreInfusion, Brewing, Steaming, Cleaning
+            accept when overTemperature or reservoirEmpty or pumpOverPressure
+            then Fault;
+
+        transition Fault_to_Off
+            first Fault
+            accept stop
+            then Off;
+    }
+
+    part def EspressoMachine {
+        attribute primaryFunction : String =
+            "Prepare espresso by heating water, pressurizing it, and forcing it through compacted ground coffee to produce a controlled-volume beverage.";
+
+        attribute maximumBrewPressure : Pressure = 15.0;
+        attribute nominalExtractionPressure : Pressure = 9.0;
+        attribute brewTemperatureRangeLow : Temperature = 90.0;
+        attribute brewTemperatureRangeHigh : Temperature = 96.0;
+        attribute warmUpTimeLimit : Duration = 120.0;
+
+        port waterFill : WaterInletPort;
+        port coffeeLoad : CoffeeInputPort;
+        port beverageDispense : BeverageOutputPort;
+        port steamDispense : SteamOutputPort;
+        port wasteDrain : WasteOutputPort;
+        port mainsPower : ElectricalPowerPort;
+        port userInterface : UserCommandPort;
+        port machineStatus : StatusPort;
+
+        part reservoir : WaterReservoir;
+        part pump : Pump;
+        part boiler : Boiler;
+        part brewGroup : BrewGroup;
+        part portafilter : Portafilter;
+        part steamWand : SteamWand;
+        part dripTray : DripTray;
+        part controller : ControlUnit;
+
+        perform stateMachine : EspressoMachineOperatingState;
+
+        connect waterFill to reservoir.fillPort;
+        connect reservoir.outlet to pump.inlet;
+        connect pump.outlet to boiler.inlet;
+        connect boiler.hotWaterOutlet to brewGroup.waterInlet;
+        connect coffeeLoad to portafilter.coffeeLoadPort;
+        connect portafilter.brewedEspressoPort to brewGroup.coffeeInlet;
+        connect brewGroup.beverageOutlet to beverageDispense;
+        connect brewGroup.wasteOutlet to dripTray.wasteInlet;
+        connect dripTray.wasteInlet to wasteDrain;
+        connect boiler.steamOutlet to steamWand.steamInlet;
+        connect steamWand.steamNozzle to steamDispense;
+        connect mainsPower to pump.power;
+        connect mainsPower to boiler.power;
+        connect mainsPower to controller.power;
+        connect userInterface to controller.commandPort;
+        connect controller.statusPort to machineStatus;
+
+        action prepareSingleShot : PrepareEspressoShot {
+            in shotVolume = 30.0;
+        }
+
+        action prepareDoubleShot : PrepareEspressoShot {
+            in shotVolume = 60.0;
+        }
+
+        action steamMilk : GenerateSteam;
+    }
+
+    requirement def PrepareEspressoRequirement {
+        doc
+            /* The espresso machine shall produce espresso from water and ground coffee as its primary function. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.nominalExtractionPressure == 9.0
+        }
+    }
+
+    requirement def BrewTemperatureRequirement {
+        doc
+            /* During brewing, the machine shall deliver water to the brew group between 90 degC and 96 degC. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.brewTemperatureRangeLow >= 90.0 and
+            machine.brewTemperatureRangeHigh <= 96.0
+        }
+    }
+
+    requirement def ShotVolumeRequirement {
+        doc
+            /* The machine shall support single and double espresso shot volumes. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.controller.singleShotVolume == 30.0 and
+            machine.controller.doubleShotVolume == 60.0
+        }
+    }
+
+    requirement def WarmUpRequirement {
+        doc
+            /* The machine shall reach brew-ready temperature within 120 seconds after power is available. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.warmUpTimeLimit <= 120.0
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc
+            /* The machine shall detect and enter a fault state before brew pressure exceeds 15 bar. */
+
+        subject machine : EspressoMachine;
+
+        require constraint {
+            machine.maximumBrewPressure <= 15.0
+        }
+    }
+
+    satisfy PrepareEspressoRequirement by EspressoMachine;
+    satisfy BrewTemperatureRequirement by EspressoMachine;
+    satisfy ShotVolumeRequirement by EspressoMachine;
+    satisfy WarmUpRequirement by EspressoMachine;
+    satisfy PressureSafetyRequirement by EspressoMachine;
+
+    part espressoMachine : EspressoMachine;
+
+}

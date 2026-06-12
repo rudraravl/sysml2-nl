@@ -1,0 +1,1077 @@
+package OilTerminalSpecification {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Volume;
+  attribute def VolumetricFlowRate;
+  attribute def Pressure;
+  attribute def Temperature;
+  attribute def Density;
+  attribute def Mass;
+  attribute def Time;
+  attribute def Percent;
+  attribute def Currency;
+
+  item def CrudeOil {
+    attribute apiGravity : Real;
+    attribute density : Density;
+    attribute sulfurContent : Percent;
+    attribute waterCut : Percent;
+    attribute temperature : Temperature;
+    attribute volume : Volume;
+  }
+
+  item def RefinedProduct {
+    attribute productGrade : String;
+    attribute density : Density;
+    attribute temperature : Temperature;
+    attribute volume : Volume;
+  }
+
+  item def Vapor {
+    attribute hydrocarbonConcentration : Percent;
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+  }
+
+  item def Firewater {
+    attribute volume : Volume;
+    attribute pressure : Pressure;
+    attribute flowRate : VolumetricFlowRate;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute frequency : Real;
+    attribute available : Boolean;
+  }
+
+  item def ControlSignal {
+    attribute commandName : String;
+    attribute commandValue : String;
+    attribute timestamp : Time;
+  }
+
+  item def MeasurementSignal {
+    attribute tagName : String;
+    attribute measuredValue : Real;
+    attribute qualityGood : Boolean;
+    attribute timestamp : Time;
+  }
+
+  port def LiquidProductPort {
+    inout item oil : CrudeOil;
+    inout item product : RefinedProduct;
+  }
+
+  port def VaporPort {
+    inout item vapor : Vapor;
+  }
+
+  port def FirewaterPort {
+    inout item firewater : Firewater;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+    out item status : MeasurementSignal;
+  }
+
+  port def MeasurementPort {
+    out item measurement : MeasurementSignal;
+  }
+
+  part def OilTerminal {
+    doc
+    /* The oil terminal receives petroleum from marine vessels and pipelines, stores it safely in segregated tanks, measures quantity and quality, and transfers approved product to outbound pipelines, road loading bays, or ships while maintaining containment, fire protection, vapor control, and operational supervision. */
+
+    attribute nominalStorageCapacity : Volume;
+    attribute maximumReceiptFlowRate : VolumetricFlowRate;
+    attribute maximumExportFlowRate : VolumetricFlowRate;
+    attribute minimumOperatingPressure : Pressure;
+    attribute maximumOperatingPressure : Pressure;
+    attribute operatingAvailabilityTarget : Percent;
+
+    port marineOilPort : LiquidProductPort;
+    port pipelineReceiptPort : LiquidProductPort;
+    port pipelineExportPort : LiquidProductPort;
+    port truckLoadingPort : LiquidProductPort;
+    port vaporRecoveryInterface : VaporPort;
+    port utilityPowerInterface : PowerPort;
+    port firewaterInterface : FirewaterPort;
+    port operatorInterface : ControlPort;
+
+    part jetty : MarineJetty;
+    part inboundPipelineManifold : PipelineManifold;
+    part storageFarm : StorageTankFarm;
+    part transferPumpStation : TransferPumpStation;
+    part meteringSkid : CustodyTransferMeteringSkid;
+    part truckLoadingRack : TruckLoadingRack;
+    part vaporRecoveryUnit : VaporRecoveryUnit;
+    part fireProtectionSystem : FireProtectionSystem;
+    part controlSystem : TerminalControlSystem;
+    part containmentSystem : SecondaryContainmentSystem;
+    part powerDistributionSystem : PowerDistributionSystem;
+    part qualityLaboratory : ProductQualityLaboratory;
+
+    connect marineOilPort to jetty.shipConnection;
+    connect jetty.shoreConnection to inboundPipelineManifold.marineReceiptConnection;
+    connect pipelineReceiptPort to inboundPipelineManifold.pipelineReceiptConnection;
+    connect inboundPipelineManifold.storageConnection to storageFarm.receiptHeader;
+    connect storageFarm.exportHeader to transferPumpStation.suctionHeader;
+    connect transferPumpStation.dischargeHeader to meteringSkid.inlet;
+    connect meteringSkid.pipelineOutlet to pipelineExportPort;
+    connect meteringSkid.truckOutlet to truckLoadingRack.supplyHeader;
+    connect truckLoadingRack.loadingConnection to truckLoadingPort;
+
+    connect storageFarm.vaporHeader to vaporRecoveryUnit.vaporInlet;
+    connect vaporRecoveryUnit.vaporOutlet to vaporRecoveryInterface;
+
+    connect utilityPowerInterface to powerDistributionSystem.gridSupply;
+    connect powerDistributionSystem.motorControlCenter to transferPumpStation.powerSupply;
+    connect powerDistributionSystem.controlPower to controlSystem.powerSupply;
+    connect powerDistributionSystem.vruPower to vaporRecoveryUnit.powerSupply;
+
+    connect firewaterInterface to fireProtectionSystem.firewaterSupply;
+    connect fireProtectionSystem.tankFarmRingMain to storageFarm.fireProtectionConnection;
+    connect fireProtectionSystem.jettyMonitorHeader to jetty.fireProtectionConnection;
+    connect fireProtectionSystem.loadingRackHeader to truckLoadingRack.fireProtectionConnection;
+
+    connect controlSystem.terminalCommandPort to operatorInterface;
+    connect controlSystem.jettyControlPort to jetty.controlPort;
+    connect controlSystem.manifoldControlPort to inboundPipelineManifold.controlPort;
+    connect controlSystem.tankFarmControlPort to storageFarm.controlPort;
+    connect controlSystem.pumpStationControlPort to transferPumpStation.controlPort;
+    connect controlSystem.meteringControlPort to meteringSkid.controlPort;
+    connect controlSystem.loadingRackControlPort to truckLoadingRack.controlPort;
+    connect controlSystem.vaporRecoveryControlPort to vaporRecoveryUnit.controlPort;
+    connect controlSystem.fireProtectionControlPort to fireProtectionSystem.controlPort;
+
+    perform receiveStoreAndDispatchOil;
+
+    action receiveStoreAndDispatchOil {
+      in item inboundBatch : CrudeOil;
+      out item outboundBatch : CrudeOil;
+
+      first startReceipt;
+      then verifyProductQuality;
+      then alignReceiptPath;
+      then transferToAssignedTank;
+      then monitorInventoryAndContainment;
+      then authorizeDispatch;
+      then alignExportPath;
+      then meterAndTransferOutboundBatch;
+      then completeBatchAccounting;
+
+      action startReceipt {
+        out item receiptCommand : ControlSignal;
+      }
+
+      action verifyProductQuality {
+        in item sample : CrudeOil;
+        out item acceptedBatch : CrudeOil;
+      }
+
+      action alignReceiptPath {
+        out item valveCommands : ControlSignal;
+      }
+
+      action transferToAssignedTank {
+        in item acceptedBatch : CrudeOil;
+        out item storedBatch : CrudeOil;
+      }
+
+      action monitorInventoryAndContainment {
+        in item storedBatch : CrudeOil;
+        out item inventoryMeasurement : MeasurementSignal;
+      }
+
+      action authorizeDispatch {
+        in item inventoryMeasurement : MeasurementSignal;
+        out item dispatchAuthorization : ControlSignal;
+      }
+
+      action alignExportPath {
+        in item dispatchAuthorization : ControlSignal;
+        out item pumpStartCommand : ControlSignal;
+      }
+
+      action meterAndTransferOutboundBatch {
+        in item pumpStartCommand : ControlSignal;
+        out item meteredBatch : CrudeOil;
+      }
+
+      action completeBatchAccounting {
+        in item meteredBatch : CrudeOil;
+        out item outboundBatch : CrudeOil;
+      }
+    }
+
+    state def TerminalOperatingState {
+      entry action initializeControlSystem;
+      state Offline;
+      state Standby;
+      state Receiving;
+      state Storing;
+      state Dispatching;
+      state SimultaneousReceiptAndDispatch;
+      state EmergencyShutdown;
+      state FireResponse;
+      state Maintenance;
+
+      transition first Offline;
+      transition Offline to Standby
+        accept ControlSignal
+        if command.commandName == "EnergizeTerminal";
+
+      transition Standby to Receiving
+        accept ControlSignal
+        if command.commandName == "StartReceipt";
+
+      transition Receiving to Storing
+        accept MeasurementSignal
+        if measurement.tagName == "ReceiptBatchComplete" and measurement.qualityGood == true;
+
+      transition Storing to Dispatching
+        accept ControlSignal
+        if command.commandName == "StartDispatch";
+
+      transition Receiving to SimultaneousReceiptAndDispatch
+        accept ControlSignal
+        if command.commandName == "StartDispatch" and storageFarm.availableWorkingCapacity > 0.0;
+
+      transition Dispatching to Standby
+        accept MeasurementSignal
+        if measurement.tagName == "DispatchBatchComplete" and measurement.qualityGood == true;
+
+      transition SimultaneousReceiptAndDispatch to Standby
+        accept MeasurementSignal
+        if measurement.tagName == "AllBatchTransfersComplete" and measurement.qualityGood == true;
+
+      transition Standby to Maintenance
+        accept ControlSignal
+        if command.commandName == "AuthorizeMaintenance";
+
+      transition Maintenance to Standby
+        accept ControlSignal
+        if command.commandName == "ReturnToService";
+
+      transition Standby to EmergencyShutdown
+        accept MeasurementSignal
+        if measurement.tagName == "HighHighTankLevel" or measurement.tagName == "GasDetected";
+
+      transition Receiving to EmergencyShutdown
+        accept MeasurementSignal
+        if measurement.tagName == "Overpressure" or measurement.tagName == "HighHighTankLevel";
+
+      transition Dispatching to EmergencyShutdown
+        accept MeasurementSignal
+        if measurement.tagName == "PumpSealLeak" or measurement.tagName == "Overpressure";
+
+      transition EmergencyShutdown to FireResponse
+        accept MeasurementSignal
+        if measurement.tagName == "ConfirmedFire";
+
+      transition EmergencyShutdown to Standby
+        accept ControlSignal
+        if command.commandName == "ResetAfterSafeInspection";
+
+      transition FireResponse to Standby
+        accept ControlSignal
+        if command.commandName == "FireAllClearAndReset";
+    }
+  }
+
+  part def MarineJetty {
+    attribute maximumBerthDisplacement : Mass;
+    attribute maximumUnloadingRate : VolumetricFlowRate;
+    attribute loadingArmDesignPressure : Pressure;
+
+    port shipConnection : LiquidProductPort;
+    port shoreConnection : LiquidProductPort;
+    port vaporConnection : VaporPort;
+    port fireProtectionConnection : FirewaterPort;
+    port controlPort : ControlPort;
+
+    part loadingArmA : MarineLoadingArm;
+    part loadingArmB : MarineLoadingArm;
+    part emergencyReleaseCoupler : EmergencyReleaseCoupler;
+    part berthIsolationValve : MotorOperatedValve;
+    part berthGasDetector : GasDetector;
+
+    connect shipConnection to loadingArmA.shipSidePort;
+    connect loadingArmA.shoreSidePort to loadingArmB.shipSidePort;
+    connect loadingArmB.shoreSidePort to emergencyReleaseCoupler.inlet;
+    connect emergencyReleaseCoupler.outlet to berthIsolationValve.inlet;
+    connect berthIsolationValve.outlet to shoreConnection;
+  }
+
+  part def MarineLoadingArm {
+    attribute nominalDiameter : Real;
+    attribute designPressure : Pressure;
+    attribute designFlowRate : VolumetricFlowRate;
+
+    port shipSidePort : LiquidProductPort;
+    port shoreSidePort : LiquidProductPort;
+  }
+
+  part def EmergencyReleaseCoupler {
+    attribute releasePressureLimit : Pressure;
+    attribute closedOnRelease : Boolean;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+  }
+
+  part def PipelineManifold {
+    attribute designPressure : Pressure;
+    attribute maximumHeaderFlowRate : VolumetricFlowRate;
+
+    port marineReceiptConnection : LiquidProductPort;
+    port pipelineReceiptConnection : LiquidProductPort;
+    port storageConnection : LiquidProductPort;
+    port controlPort : ControlPort;
+
+    part receiptHeader : Header;
+    part tankSelectionValveA : MotorOperatedValve;
+    part tankSelectionValveB : MotorOperatedValve;
+    part pressureTransmitter : PressureTransmitter;
+    part flowTransmitter : FlowTransmitter;
+
+    connect marineReceiptConnection to receiptHeader.inletA;
+    connect pipelineReceiptConnection to receiptHeader.inletB;
+    connect receiptHeader.outlet to tankSelectionValveA.inlet;
+    connect tankSelectionValveA.outlet to tankSelectionValveB.inlet;
+    connect tankSelectionValveB.outlet to storageConnection;
+  }
+
+  part def Header {
+    attribute nominalDiameter : Real;
+    attribute designPressure : Pressure;
+
+    port inletA : LiquidProductPort;
+    port inletB : LiquidProductPort;
+    port outlet : LiquidProductPort;
+  }
+
+  part def StorageTankFarm {
+    attribute totalGrossCapacity : Volume;
+    attribute totalWorkingCapacity : Volume;
+    attribute availableWorkingCapacity : Volume;
+    attribute maximumTankFillPercent : Percent;
+    attribute minimumHeelVolume : Volume;
+
+    port receiptHeader : LiquidProductPort;
+    port exportHeader : LiquidProductPort;
+    port vaporHeader : VaporPort;
+    port fireProtectionConnection : FirewaterPort;
+    port controlPort : ControlPort;
+
+    part tank101 : FloatingRoofStorageTank;
+    part tank102 : FloatingRoofStorageTank;
+    part tank103 : FixedRoofProductTank;
+    part tank104 : FixedRoofProductTank;
+    part tankFarmDrainSystem : OilyWaterDrainSystem;
+    part tankFarmBund : SecondaryContainmentSystem;
+
+    connect receiptHeader to tank101.inletOutletNozzle;
+    connect receiptHeader to tank102.inletOutletNozzle;
+    connect receiptHeader to tank103.inletOutletNozzle;
+    connect receiptHeader to tank104.inletOutletNozzle;
+
+    connect tank101.inletOutletNozzle to exportHeader;
+    connect tank102.inletOutletNozzle to exportHeader;
+    connect tank103.inletOutletNozzle to exportHeader;
+    connect tank104.inletOutletNozzle to exportHeader;
+
+    connect tank101.vaporVent to vaporHeader;
+    connect tank102.vaporVent to vaporHeader;
+    connect tank103.vaporVent to vaporHeader;
+    connect tank104.vaporVent to vaporHeader;
+
+    constraint fillLimit {
+      tank101.currentFillPercent <= maximumTankFillPercent;
+      tank102.currentFillPercent <= maximumTankFillPercent;
+      tank103.currentFillPercent <= maximumTankFillPercent;
+      tank104.currentFillPercent <= maximumTankFillPercent;
+    }
+  }
+
+  part def FloatingRoofStorageTank {
+    attribute tankNumber : String;
+    attribute grossCapacity : Volume;
+    attribute workingCapacity : Volume;
+    attribute currentInventory : Volume;
+    attribute currentFillPercent : Percent;
+    attribute designPressure : Pressure;
+    attribute roofSealIntegrityGood : Boolean;
+
+    port inletOutletNozzle : LiquidProductPort;
+    port vaporVent : VaporPort;
+    port firewaterFoamConnection : FirewaterPort;
+    port levelMeasurement : MeasurementPort;
+
+    part inletValve : MotorOperatedValve;
+    part outletValve : MotorOperatedValve;
+    part levelRadar : LevelTransmitter;
+    part temperatureElement : TemperatureTransmitter;
+    part highHighLevelSwitch : LevelSwitch;
+    part rimSealFireDetector : FireDetector;
+  }
+
+  part def FixedRoofProductTank {
+    attribute tankNumber : String;
+    attribute grossCapacity : Volume;
+    attribute workingCapacity : Volume;
+    attribute currentInventory : Volume;
+    attribute currentFillPercent : Percent;
+    attribute vaporSpacePressure : Pressure;
+
+    port inletOutletNozzle : LiquidProductPort;
+    port vaporVent : VaporPort;
+    port firewaterFoamConnection : FirewaterPort;
+    port levelMeasurement : MeasurementPort;
+
+    part pressureVacuumVent : PressureVacuumVent;
+    part flameArrestor : FlameArrestor;
+    part levelRadar : LevelTransmitter;
+    part highHighLevelSwitch : LevelSwitch;
+  }
+
+  part def TransferPumpStation {
+    attribute installedPumpCount : Integer;
+    attribute availablePumpCount : Integer;
+    attribute ratedStationFlowRate : VolumetricFlowRate;
+    attribute dischargePressureLimit : Pressure;
+
+    port suctionHeader : LiquidProductPort;
+    port dischargeHeader : LiquidProductPort;
+    port powerSupply : PowerPort;
+    port controlPort : ControlPort;
+
+    part pumpA : CentrifugalTransferPump;
+    part pumpB : CentrifugalTransferPump;
+    part pumpC : CentrifugalTransferPump;
+    part suctionStrainer : Strainer;
+    part dischargeCheckValve : CheckValve;
+    part pressureProtectionValve : PressureSafetyValve;
+
+    connect suctionHeader to suctionStrainer.inlet;
+    connect suctionStrainer.outlet to pumpA.suctionPort;
+    connect suctionStrainer.outlet to pumpB.suctionPort;
+    connect suctionStrainer.outlet to pumpC.suctionPort;
+    connect pumpA.dischargePort to dischargeCheckValve.inlet;
+    connect pumpB.dischargePort to dischargeCheckValve.inlet;
+    connect pumpC.dischargePort to dischargeCheckValve.inlet;
+    connect dischargeCheckValve.outlet to dischargeHeader;
+  }
+
+  part def CentrifugalTransferPump {
+    attribute ratedFlowRate : VolumetricFlowRate;
+    attribute ratedDifferentialPressure : Pressure;
+    attribute motorPower : Real;
+    attribute running : Boolean;
+    attribute healthy : Boolean;
+
+    port suctionPort : LiquidProductPort;
+    port dischargePort : LiquidProductPort;
+    port electricalPort : PowerPort;
+    port controlPort : ControlPort;
+
+    state def PumpState {
+      state Stopped;
+      state Starting;
+      state Running;
+      state Tripped;
+      transition first Stopped;
+      transition Stopped to Starting accept ControlSignal if command.commandName == "StartPump";
+      transition Starting to Running accept MeasurementSignal if measurement.tagName == "PumpAtSpeed";
+      transition Running to Stopped accept ControlSignal if command.commandName == "StopPump";
+      transition Running to Tripped accept MeasurementSignal if measurement.tagName == "PumpFault";
+      transition Tripped to Stopped accept ControlSignal if command.commandName == "ResetPumpTrip";
+    }
+  }
+
+  part def CustodyTransferMeteringSkid {
+    attribute meterAccuracy : Percent;
+    attribute maximumMeteringFlowRate : VolumetricFlowRate;
+    attribute provingRequired : Boolean;
+
+    port inlet : LiquidProductPort;
+    port pipelineOutlet : LiquidProductPort;
+    port truckOutlet : LiquidProductPort;
+    port controlPort : ControlPort;
+
+    part filterSeparator : FilterSeparator;
+    part meterRunA : CoriolisMeterRun;
+    part meterRunB : CoriolisMeterRun;
+    part sampler : AutomaticSampler;
+    part batchController : BatchController;
+    part outletSelectorValve : MotorOperatedValve;
+
+    connect inlet to filterSeparator.inlet;
+    connect filterSeparator.outlet to meterRunA.inlet;
+    connect filterSeparator.outlet to meterRunB.inlet;
+    connect meterRunA.outlet to outletSelectorValve.inlet;
+    connect meterRunB.outlet to outletSelectorValve.inlet;
+    connect outletSelectorValve.outlet to pipelineOutlet;
+    connect outletSelectorValve.outlet to truckOutlet;
+  }
+
+  part def TruckLoadingRack {
+    attribute loadingBayCount : Integer;
+    attribute maximumLoadingRatePerBay : VolumetricFlowRate;
+    attribute groundingRequired : Boolean;
+
+    port supplyHeader : LiquidProductPort;
+    port loadingConnection : LiquidProductPort;
+    port fireProtectionConnection : FirewaterPort;
+    port controlPort : ControlPort;
+
+    part bay1 : LoadingBay;
+    part bay2 : LoadingBay;
+    part bay3 : LoadingBay;
+    part additiveInjectionSkid : AdditiveInjectionSkid;
+
+    connect supplyHeader to additiveInjectionSkid.inlet;
+    connect additiveInjectionSkid.outlet to bay1.loadingArmConnection;
+    connect additiveInjectionSkid.outlet to bay2.loadingArmConnection;
+    connect additiveInjectionSkid.outlet to bay3.loadingArmConnection;
+    connect bay1.truckConnection to loadingConnection;
+    connect bay2.truckConnection to loadingConnection;
+    connect bay3.truckConnection to loadingConnection;
+  }
+
+  part def LoadingBay {
+    attribute bayNumber : Integer;
+    attribute truckGrounded : Boolean;
+    attribute overfillSensorHealthy : Boolean;
+    attribute permissiveToLoad : Boolean;
+
+    port loadingArmConnection : LiquidProductPort;
+    port truckConnection : LiquidProductPort;
+    port controlPort : ControlPort;
+
+    part presetController : BatchController;
+    part loadingArm : MarineLoadingArm;
+    part groundingMonitor : GroundingMonitor;
+    part overfillMonitor : LevelSwitch;
+  }
+
+  part def VaporRecoveryUnit {
+    attribute designVaporFlowRate : VolumetricFlowRate;
+    attribute hydrocarbonRemovalEfficiency : Percent;
+    attribute online : Boolean;
+
+    port vaporInlet : VaporPort;
+    port vaporOutlet : VaporPort;
+    port powerSupply : PowerPort;
+    port controlPort : ControlPort;
+
+    part knockoutDrum : VaporKnockoutDrum;
+    part blower : VaporBlower;
+    part carbonBedA : ActivatedCarbonBed;
+    part carbonBedB : ActivatedCarbonBed;
+
+    connect vaporInlet to knockoutDrum.inlet;
+    connect knockoutDrum.outlet to blower.inlet;
+    connect blower.outlet to carbonBedA.inlet;
+    connect blower.outlet to carbonBedB.inlet;
+    connect carbonBedA.outlet to vaporOutlet;
+    connect carbonBedB.outlet to vaporOutlet;
+  }
+
+  part def FireProtectionSystem {
+    attribute firewaterStorageVolume : Volume;
+    attribute firePumpRatedFlowRate : VolumetricFlowRate;
+    attribute foamConcentrateVolume : Volume;
+    attribute automaticActivationEnabled : Boolean;
+
+    port firewaterSupply : FirewaterPort;
+    port tankFarmRingMain : FirewaterPort;
+    port jettyMonitorHeader : FirewaterPort;
+    port loadingRackHeader : FirewaterPort;
+    port controlPort : ControlPort;
+
+    part firewaterTank : FirewaterTank;
+    part dieselFirePump : FirePump;
+    part electricFirePump : FirePump;
+    part foamSystem : FoamInjectionSystem;
+    part delugeValveStation : DelugeValveStation;
+
+    connect firewaterSupply to firewaterTank.makeupConnection;
+    connect firewaterTank.outlet to dieselFirePump.suction;
+    connect firewaterTank.outlet to electricFirePump.suction;
+    connect dieselFirePump.discharge to foamSystem.waterInlet;
+    connect electricFirePump.discharge to foamSystem.waterInlet;
+    connect foamSystem.foamWaterOutlet to delugeValveStation.inlet;
+    connect delugeValveStation.tankFarmOutlet to tankFarmRingMain;
+    connect delugeValveStation.jettyOutlet to jettyMonitorHeader;
+    connect delugeValveStation.loadingRackOutlet to loadingRackHeader;
+  }
+
+  part def TerminalControlSystem {
+    attribute safetyIntegrityLevel : Integer;
+    attribute historianRetentionDays : Integer;
+    attribute operatorConsoleCount : Integer;
+
+    port powerSupply : PowerPort;
+    port terminalCommandPort : ControlPort;
+    port jettyControlPort : ControlPort;
+    port manifoldControlPort : ControlPort;
+    port tankFarmControlPort : ControlPort;
+    port pumpStationControlPort : ControlPort;
+    port meteringControlPort : ControlPort;
+    port loadingRackControlPort : ControlPort;
+    port vaporRecoveryControlPort : ControlPort;
+    port fireProtectionControlPort : ControlPort;
+
+    part distributedControlSystem : DistributedControlSystem;
+    part emergencyShutdownSystem : EmergencyShutdownSystem;
+    part historian : ProcessHistorian;
+    part operatorWorkstation : OperatorWorkstation;
+
+    action executeEmergencyShutdown {
+      first closeMarineIsolationValves;
+      then stopTransferPumps;
+      then closeTankInletValves;
+      then isolateTruckLoadingRack;
+      then activateAlarmBeacons;
+
+      action closeMarineIsolationValves;
+      action stopTransferPumps;
+      action closeTankInletValves;
+      action isolateTruckLoadingRack;
+      action activateAlarmBeacons;
+    }
+  }
+
+  part def ProductQualityLaboratory {
+    attribute minimumSampleRetentionDays : Integer;
+    attribute apiGravityMeasurementAccuracy : Real;
+    attribute waterContentMeasurementAccuracy : Percent;
+
+    port sampleReceiptPort : LiquidProductPort;
+    port resultPort : MeasurementPort;
+
+    action analyzeReceiptSample {
+      in item sample : CrudeOil;
+      out item qualityResult : MeasurementSignal;
+    }
+  }
+
+  part def SecondaryContainmentSystem {
+    attribute containmentVolume : Volume;
+    attribute rainwaterDrainValveNormallyClosed : Boolean;
+    attribute hydrocarbonDetectionEnabled : Boolean;
+
+    port drainOutlet : LiquidProductPort;
+    port controlPort : ControlPort;
+  }
+
+  part def MotorOperatedValve {
+    attribute valveTag : String;
+    attribute nominalDiameter : Real;
+    attribute designPressure : Pressure;
+    attribute open : Boolean;
+    attribute failPosition : String;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+    port controlPort : ControlPort;
+  }
+
+  part def CheckValve {
+    attribute nominalDiameter : Real;
+    attribute crackingPressure : Pressure;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+  }
+
+  part def PressureSafetyValve {
+    attribute setPressure : Pressure;
+    attribute relievingCapacity : VolumetricFlowRate;
+
+    port protectedSide : LiquidProductPort;
+    port dischargeSide : LiquidProductPort;
+  }
+
+  part def Strainer {
+    attribute meshSize : Real;
+    attribute differentialPressureLimit : Pressure;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+  }
+
+  part def FilterSeparator {
+    attribute filtrationRatingMicron : Real;
+    attribute waterSeparationEfficiency : Percent;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+  }
+
+  part def CoriolisMeterRun {
+    attribute meterFactor : Real;
+    attribute flowAccuracy : Percent;
+    attribute densityAccuracy : Real;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+    port measurementPort : MeasurementPort;
+  }
+
+  part def AutomaticSampler {
+    attribute sampleFrequencyVolume : Volume;
+    attribute sampleContainerVolume : Volume;
+
+    port sampleInlet : LiquidProductPort;
+    port resultPort : MeasurementPort;
+  }
+
+  part def BatchController {
+    attribute targetBatchVolume : Volume;
+    attribute deliveredBatchVolume : Volume;
+    attribute batchActive : Boolean;
+
+    port controlPort : ControlPort;
+    port measurementPort : MeasurementPort;
+  }
+
+  part def AdditiveInjectionSkid {
+    attribute additiveTankVolume : Volume;
+    attribute injectionRatio : Percent;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+    port controlPort : ControlPort;
+  }
+
+  part def PressureVacuumVent {
+    attribute pressureSetPoint : Pressure;
+    attribute vacuumSetPoint : Pressure;
+
+    port vaporPort : VaporPort;
+  }
+
+  part def FlameArrestor {
+    attribute elementMaterial : String;
+    attribute designPressure : Pressure;
+
+    port inlet : VaporPort;
+    port outlet : VaporPort;
+  }
+
+  part def VaporKnockoutDrum {
+    attribute liquidHoldUpVolume : Volume;
+    attribute highLevelTripEnabled : Boolean;
+
+    port inlet : VaporPort;
+    port outlet : VaporPort;
+    port drain : LiquidProductPort;
+  }
+
+  part def VaporBlower {
+    attribute ratedVaporFlowRate : VolumetricFlowRate;
+    attribute dischargePressure : Pressure;
+    attribute running : Boolean;
+
+    port inlet : VaporPort;
+    port outlet : VaporPort;
+    port powerSupply : PowerPort;
+  }
+
+  part def ActivatedCarbonBed {
+    attribute adsorptionCapacity : Mass;
+    attribute breakthroughHydrocarbonPercent : Percent;
+    attribute inService : Boolean;
+
+    port inlet : VaporPort;
+    port outlet : VaporPort;
+  }
+
+  part def FirewaterTank {
+    attribute grossCapacity : Volume;
+    attribute usableCapacity : Volume;
+    attribute currentVolume : Volume;
+
+    port makeupConnection : FirewaterPort;
+    port outlet : FirewaterPort;
+  }
+
+  part def FirePump {
+    attribute ratedFlowRate : VolumetricFlowRate;
+    attribute ratedDischargePressure : Pressure;
+    attribute driverType : String;
+    attribute running : Boolean;
+
+    port suction : FirewaterPort;
+    port discharge : FirewaterPort;
+    port controlPort : ControlPort;
+  }
+
+  part def FoamInjectionSystem {
+    attribute foamConcentrateType : String;
+    attribute proportioningRatio : Percent;
+
+    port waterInlet : FirewaterPort;
+    port foamWaterOutlet : FirewaterPort;
+  }
+
+  part def DelugeValveStation {
+    attribute automaticTripEnabled : Boolean;
+
+    port inlet : FirewaterPort;
+    port tankFarmOutlet : FirewaterPort;
+    port jettyOutlet : FirewaterPort;
+    port loadingRackOutlet : FirewaterPort;
+    port controlPort : ControlPort;
+  }
+
+  part def PowerDistributionSystem {
+    attribute incomingVoltage : Real;
+    attribute emergencyGeneratorCapacity : Real;
+    attribute upsAutonomyTime : Time;
+
+    port gridSupply : PowerPort;
+    port motorControlCenter : PowerPort;
+    port controlPower : PowerPort;
+    port vruPower : PowerPort;
+
+    part mainSwitchgear : Switchgear;
+    part emergencyGenerator : EmergencyGenerator;
+    part uninterruptiblePowerSupply : UninterruptiblePowerSupply;
+  }
+
+  part def Switchgear {
+    attribute ratedVoltage : Real;
+    attribute ratedCurrent : Real;
+
+    port supply : PowerPort;
+    port load : PowerPort;
+  }
+
+  part def EmergencyGenerator {
+    attribute ratedPower : Real;
+    attribute fuelStorageTime : Time;
+
+    port outputPower : PowerPort;
+  }
+
+  part def UninterruptiblePowerSupply {
+    attribute ratedPower : Real;
+    attribute autonomyTime : Time;
+
+    port inputPower : PowerPort;
+    port outputPower : PowerPort;
+  }
+
+  part def OilyWaterDrainSystem {
+    attribute separatorCapacity : VolumetricFlowRate;
+    attribute oilDetectionEnabled : Boolean;
+
+    port inlet : LiquidProductPort;
+    port outlet : LiquidProductPort;
+  }
+
+  part def GroundingMonitor {
+    attribute groundContinuityVerified : Boolean;
+
+    port controlPort : ControlPort;
+  }
+
+  part def LevelTransmitter {
+    attribute range : Volume;
+    attribute accuracy : Percent;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def LevelSwitch {
+    attribute tripSetPoint : Percent;
+    attribute tripped : Boolean;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def PressureTransmitter {
+    attribute range : Pressure;
+    attribute accuracy : Percent;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def FlowTransmitter {
+    attribute range : VolumetricFlowRate;
+    attribute accuracy : Percent;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def TemperatureTransmitter {
+    attribute range : Temperature;
+    attribute accuracy : Real;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def GasDetector {
+    attribute alarmSetPoint : Percent;
+    attribute gasDetected : Boolean;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def FireDetector {
+    attribute detectorType : String;
+    attribute fireDetected : Boolean;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def DistributedControlSystem {
+    attribute controllerRedundancy : String;
+    attribute scanTime : Time;
+
+    port controlPort : ControlPort;
+  }
+
+  part def EmergencyShutdownSystem {
+    attribute safetyIntegrityLevel : Integer;
+    attribute proofTestInterval : Time;
+
+    port controlPort : ControlPort;
+  }
+
+  part def ProcessHistorian {
+    attribute retentionDays : Integer;
+    attribute samplingInterval : Time;
+
+    port measurementPort : MeasurementPort;
+  }
+
+  part def OperatorWorkstation {
+    attribute displayCount : Integer;
+    attribute alarmSummaryEnabled : Boolean;
+
+    port operatorPort : ControlPort;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject terminal : OilTerminal;
+
+    doc
+    /* The terminal shall provide the primary function of receiving, storing, measuring, and dispatching petroleum products while preserving product segregation, custody-transfer accuracy, personnel safety, environmental containment, and emergency response capability. */
+
+    require constraint {
+      terminal.nominalStorageCapacity >= 500000.0;
+      terminal.maximumReceiptFlowRate >= 5000.0;
+      terminal.maximumExportFlowRate >= 4500.0;
+      terminal.operatingAvailabilityTarget >= 98.0;
+    }
+  }
+
+  requirement def StorageContainmentRequirement {
+    subject tankFarm : StorageTankFarm;
+
+    doc
+    /* Each storage tank and bunded area shall prevent uncontrolled oil release during normal operation and credible single-equipment failure. */
+
+    require constraint {
+      tankFarm.totalWorkingCapacity <= tankFarm.totalGrossCapacity;
+      tankFarm.maximumTankFillPercent <= 95.0;
+      tankFarm.availableWorkingCapacity >= 0.0;
+    }
+  }
+
+  requirement def CustodyTransferRequirement {
+    subject metering : CustodyTransferMeteringSkid;
+
+    doc
+    /* The custody transfer metering system shall measure outbound batch volume and density with accuracy adequate for commercial transfer. */
+
+    require constraint {
+      metering.meterAccuracy <= 0.25;
+      metering.maximumMeteringFlowRate >= 4500.0;
+    }
+  }
+
+  requirement def FireProtectionRequirement {
+    subject fireSystem : FireProtectionSystem;
+
+    doc
+    /* The fire protection system shall provide automatic and manual firewater and foam response for the tank farm, marine jetty, and truck loading rack. */
+
+    require constraint {
+      fireSystem.firewaterStorageVolume >= 10000.0;
+      fireSystem.firePumpRatedFlowRate >= 2000.0;
+      fireSystem.foamConcentrateVolume >= 1000.0;
+    }
+  }
+
+  requirement def EmergencyShutdownRequirement {
+    subject controlSystem : TerminalControlSystem;
+
+    doc
+    /* The control system shall isolate hydrocarbon transfer paths and stop active transfer equipment when emergency shutdown conditions are detected. */
+
+    require constraint {
+      controlSystem.safetyIntegrityLevel >= 2;
+      controlSystem.operatorConsoleCount >= 2;
+    }
+  }
+
+  requirement def VaporControlRequirement {
+    subject vru : VaporRecoveryUnit;
+
+    doc
+    /* The vapor recovery unit shall collect and treat hydrocarbon vapor from fixed-roof tanks and loading operations before discharge to the terminal vapor interface. */
+
+    require constraint {
+      vru.hydrocarbonRemovalEfficiency >= 95.0;
+      vru.designVaporFlowRate >= 500.0;
+    }
+  }
+
+  requirement def TruckLoadingSafetyRequirement {
+    subject rack : TruckLoadingRack;
+
+    doc
+    /* The truck loading rack shall permit loading only when grounding, overfill protection, and batch authorization permissives are satisfied. */
+
+    require constraint {
+      rack.loadingBayCount >= 2;
+      rack.maximumLoadingRatePerBay >= 300.0;
+      rack.groundingRequired == true;
+    }
+  }
+
+  requirement def PowerAvailabilityRequirement {
+    subject power : PowerDistributionSystem;
+
+    doc
+    /* The power distribution system shall supply normal and emergency electrical power to transfer, control, vapor recovery, and fire protection loads. */
+
+    require constraint {
+      power.emergencyGeneratorCapacity >= 1000.0;
+      power.upsAutonomyTime >= 30.0;
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by OilTerminal;
+  satisfy StorageContainmentRequirement by StorageTankFarm;
+  satisfy CustodyTransferRequirement by CustodyTransferMeteringSkid;
+  satisfy FireProtectionRequirement by FireProtectionSystem;
+  satisfy EmergencyShutdownRequirement by TerminalControlSystem;
+  satisfy VaporControlRequirement by VaporRecoveryUnit;
+  satisfy TruckLoadingSafetyRequirement by TruckLoadingRack;
+  satisfy PowerAvailabilityRequirement by PowerDistributionSystem;
+}

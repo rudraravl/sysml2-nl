@@ -1,0 +1,1349 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_akjznub
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb635-d42f-7900-9a41-8467b3161d83
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Visible Light Photon Counter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VisibleLightPhotonCounterSystemModel {
+
+  private import ScalarValues::*;
+  private import ISQ::*;
+  private import SI::*;
+
+  value def Kelvin :> Real {
+    unit = "K";
+  }
+
+  value def Celsius :> Real {
+    unit = "degC";
+  }
+
+  value def Volt :> Real {
+    unit = "V";
+  }
+
+  value def Ampere :> Real {
+    unit = "A";
+  }
+
+  value def Watt :> Real {
+    unit = "W";
+  }
+
+  value def Nanometer :> Real {
+    unit = "nm";
+  }
+
+  value def Hertz :> Real {
+    unit = "Hz";
+  }
+
+  value def CountRate :> Real {
+    unit = "count/s";
+  }
+
+  value def Probability :> Real {
+    unit = "1";
+  }
+
+  value def TimeInterval :> Real {
+    unit = "s";
+  }
+
+  value def EnergyElectronVolt :> Real {
+    unit = "eV";
+  }
+
+  item def IncidentPhoton {
+    attribute wavelength : Nanometer;
+    attribute photonEnergy : EnergyElectronVolt;
+    attribute arrivalTime : TimeInterval;
+    attribute polarizationAngle : Real;
+  }
+
+  item def AbsorbedPhoton {
+    attribute wavelength : Nanometer;
+    attribute absorbedEnergy : EnergyElectronVolt;
+    attribute absorptionTime : TimeInterval;
+  }
+
+  item def ElectronHolePair {
+    attribute generatedCharge : Real;
+    attribute creationTime : TimeInterval;
+  }
+
+  item def AvalanchePulse {
+    attribute peakCurrent : Ampere;
+    attribute riseTime : TimeInterval;
+    attribute pulseWidth : TimeInterval;
+    attribute gain : Real;
+  }
+
+  item def DigitalPhotonEvent {
+    attribute eventTime : TimeInterval;
+    attribute channelId : Integer;
+    attribute pulseAmplitude : Volt;
+    attribute validated : Boolean;
+  }
+
+  item def ThermalLoad {
+    attribute heatFlow : Watt;
+    attribute sourceTemperature : Kelvin;
+  }
+
+  item def BiasCommand {
+    attribute targetBiasVoltage : Volt;
+    attribute rampRate : Real;
+  }
+
+  item def TemperatureCommand {
+    attribute targetTemperature : Kelvin;
+    attribute maximumCooldownRate : Real;
+  }
+
+  item def HealthStatus {
+    attribute detectorTemperature : Kelvin;
+    attribute biasVoltage : Volt;
+    attribute darkCountRate : CountRate;
+    attribute photonDetectionEfficiency : Probability;
+    attribute ready : Boolean;
+    attribute faultCode : Integer;
+  }
+
+  port def OpticalInputPort {
+    in item photon : IncidentPhoton;
+  }
+
+  port def PhotonAbsorptionPort {
+    in item photon : IncidentPhoton;
+    out item absorbedPhoton : AbsorbedPhoton;
+  }
+
+  port def ChargeGenerationPort {
+    in item absorbedPhoton : AbsorbedPhoton;
+    out item chargeCarrier : ElectronHolePair;
+  }
+
+  port def AvalanchePort {
+    in item chargeCarrier : ElectronHolePair;
+    out item avalanchePulse : AvalanchePulse;
+  }
+
+  port def ElectricalPulsePort {
+    out item avalanchePulse : AvalanchePulse;
+  }
+
+  port def DigitalEventPort {
+    out item event : DigitalPhotonEvent;
+  }
+
+  port def ThermalPort {
+    inout item thermalLoad : ThermalLoad;
+  }
+
+  port def BiasControlPort {
+    in item command : BiasCommand;
+    out attribute actualBiasVoltage : Volt;
+  }
+
+  port def TemperatureControlPort {
+    in item command : TemperatureCommand;
+    out attribute actualTemperature : Kelvin;
+  }
+
+  port def StatusPort {
+    out item status : HealthStatus;
+  }
+
+  part def OpticalCollectionAssembly {
+    attribute apertureDiameter : Real;
+    attribute numericalAperture : Real;
+    attribute spectralTransmission : Probability;
+    attribute fieldOfView : Real;
+
+    port opticalInput : OpticalInputPort;
+    port focusedOutput : OpticalInputPort;
+
+    action focusVisiblePhoton {
+      in item incomingPhoton : IncidentPhoton;
+      out item focusedPhoton : IncidentPhoton;
+
+      first start;
+      then validateVisibleBand;
+      then transmitThroughFilter;
+      then focusOnDetector;
+      then done;
+
+      action validateVisibleBand {
+        in item incomingPhoton : IncidentPhoton;
+        out valid : Boolean;
+      }
+
+      action transmitThroughFilter {
+        in item incomingPhoton : IncidentPhoton;
+        out item filteredPhoton : IncidentPhoton;
+      }
+
+      action focusOnDetector {
+        in item filteredPhoton : IncidentPhoton;
+        out item focusedPhoton : IncidentPhoton;
+      }
+    }
+  }
+
+  part def VisibleLightPhotonCounterDetector {
+    attribute operatingTemperature : Kelvin = 7.0;
+    attribute cutoffWavelength : Nanometer = 1050.0;
+    attribute minimumVisibleWavelength : Nanometer = 380.0;
+    attribute maximumVisibleWavelength : Nanometer = 750.0;
+    attribute quantumEfficiency : Probability = 0.88;
+    attribute internalGain : Real = 50000.0;
+    attribute activeAreaDiameter : Real;
+    attribute darkCountRateAtSetpoint : CountRate = 20000.0;
+    attribute deadTime : TimeInterval = 0.00000005;
+
+    port opticalAbsorption : PhotonAbsorptionPort;
+    port chargeGeneration : ChargeGenerationPort;
+    port avalancheOutput : AvalanchePort;
+    port thermalInterface : ThermalPort;
+    port biasInterface : BiasControlPort;
+
+    action convertPhotonToAvalanchePulse {
+      in item photon : IncidentPhoton;
+      out item pulse : AvalanchePulse;
+
+      first receivePhoton;
+      then absorbPhoton;
+      then createCarrierPair;
+      then amplifyByImpactIonization;
+      then emitElectricalPulse;
+      then done;
+
+      action receivePhoton {
+        in item photon : IncidentPhoton;
+        out accepted : Boolean;
+      }
+
+      action absorbPhoton {
+        in item photon : IncidentPhoton;
+        out item absorbedPhoton : AbsorbedPhoton;
+      }
+
+      action createCarrierPair {
+        in item absorbedPhoton : AbsorbedPhoton;
+        out item carrier : ElectronHolePair;
+      }
+
+      action amplifyByImpactIonization {
+        in item carrier : ElectronHolePair;
+        out item pulse : AvalanchePulse;
+      }
+
+      action emitElectricalPulse {
+        in item pulse : AvalanchePulse;
+      }
+    }
+
+    state def DetectorOperatingState {
+      state off;
+      state cooling;
+      state biasRamping;
+      state armed;
+      state detecting;
+      state saturated;
+      state fault;
+
+      entry action initialize {
+        out ready : Boolean;
+      }
+
+      transition initial then off;
+
+      transition powerApplied
+        first off
+        accept PowerOn
+        then cooling;
+
+      transition temperatureReached
+        first cooling
+        accept TemperatureStable
+        if operatingTemperature <= 8.0
+        then biasRamping;
+
+      transition biasStable
+        first biasRamping
+        accept BiasStable
+        then armed;
+
+      transition photonDetected
+        first armed
+        accept PhotonArrival
+        then detecting;
+
+      transition recoveryComplete
+        first detecting
+        accept DeadTimeExpired
+        then armed;
+
+      transition countRateExceeded
+        first armed
+        accept SaturationDetected
+        then saturated;
+
+      transition countRateNormal
+        first saturated
+        accept FluxReduced
+        then armed;
+
+      transition faultDetectedFromAny
+        first off
+        accept FaultDetected
+        then fault;
+
+      transition shutdown
+        first armed
+        accept PowerOff
+        then off;
+    }
+  }
+
+  part def CryogenicThermalController {
+    attribute setpointTemperature : Kelvin = 7.0;
+    attribute allowableTemperatureRipple : Kelvin = 0.02;
+    attribute cooldownPower : Watt = 1.5;
+    attribute heatLiftCapacity : Watt = 0.25;
+    attribute maximumDetectorTemperature : Kelvin = 9.0;
+
+    port detectorThermalPort : ThermalPort;
+    port commandPort : TemperatureControlPort;
+    port statusPort : StatusPort;
+
+    action regulateDetectorTemperature {
+      in item command : TemperatureCommand;
+      in item detectorHeat : ThermalLoad;
+      out attribute actualTemperature : Kelvin;
+
+      first readSetpoint;
+      then compareTemperature;
+      then adjustCoolerPower;
+      then rejectHeat;
+      then reportTemperature;
+      then done;
+    }
+
+    state def ThermalState {
+      state off;
+      state coolingDown;
+      state stabilizing;
+      state regulated;
+      state overTemperature;
+
+      transition initial then off;
+
+      transition enableCooling
+        first off
+        accept CoolingEnabled
+        then coolingDown;
+
+      transition nearSetpoint
+        first coolingDown
+        accept TemperatureBelow10K
+        then stabilizing;
+
+      transition stable
+        first stabilizing
+        accept TemperatureStable
+        then regulated;
+
+      transition tooWarm
+        first regulated
+        accept TemperatureLimitExceeded
+        then overTemperature;
+
+      transition recovered
+        first overTemperature
+        accept TemperatureRecovered
+        then stabilizing;
+    }
+  }
+
+  part def BiasSupply {
+    attribute nominalBiasVoltage : Volt = 6.8;
+    attribute biasStability : Volt = 0.001;
+    attribute maximumBiasVoltage : Volt = 8.0;
+    attribute quenchResistance : Real = 100000.0;
+    attribute leakageCurrentLimit : Ampere = 0.000001;
+
+    port controlPort : BiasControlPort;
+    port detectorBiasPort : BiasControlPort;
+    port statusPort : StatusPort;
+
+    action rampAndRegulateBias {
+      in item command : BiasCommand;
+      out attribute actualBiasVoltage : Volt;
+
+      first validateCommand;
+      then rampVoltage;
+      then regulateVoltage;
+      then monitorLeakageCurrent;
+      then done;
+    }
+  }
+
+  part def PulseConditioningElectronics {
+    attribute transimpedanceGain : Real = 10000.0;
+    attribute bandwidth : Hertz = 100000000.0;
+    attribute discriminatorThreshold : Volt = 0.015;
+    attribute timingJitter : TimeInterval = 0.00000000025;
+    attribute minimumPulseSeparation : TimeInterval = 0.00000005;
+
+    port pulseInput : ElectricalPulsePort;
+    port eventOutput : DigitalEventPort;
+    port statusPort : StatusPort;
+
+    action conditionAndDiscriminatePulse {
+      in item rawPulse : AvalanchePulse;
+      out item event : DigitalPhotonEvent;
+
+      first amplifyPulse;
+      then shapePulse;
+      then compareToThreshold;
+      then timestampEvent;
+      then publishEvent;
+      then done;
+    }
+  }
+
+  part def EventProcessor {
+    attribute maximumEventRate : CountRate = 10000000.0;
+    attribute integrationWindow : TimeInterval = 0.001;
+    attribute backgroundSubtractionEnabled : Boolean = true;
+    attribute measuredCountRate : CountRate;
+    attribute correctedCountRate : CountRate;
+
+    port eventInput : DigitalEventPort;
+    port statusOutput : StatusPort;
+
+    action countAndReportPhotons {
+      in item event : DigitalPhotonEvent;
+      out item status : HealthStatus;
+
+      first validateEvent;
+      then incrementCounter;
+      then compensateDeadTime;
+      then updateRateEstimate;
+      then publishHealthStatus;
+      then done;
+    }
+  }
+
+  part def VisibleLightPhotonCounterSystem {
+    attribute primaryFunction : String = "Detect individual visible-light photons and convert each accepted photon into a time-stamped digital event while maintaining cryogenic, bias, and signal-conditioning conditions required for low-noise photon counting.";
+    attribute supportedMinimumWavelength : Nanometer = 380.0;
+    attribute supportedMaximumWavelength : Nanometer = 750.0;
+    attribute nominalDetectorTemperature : Kelvin = 7.0;
+    attribute nominalBiasVoltage : Volt = 6.8;
+    attribute targetPhotonDetectionEfficiency : Probability = 0.85;
+    attribute maximumDarkCountRate : CountRate = 50000.0;
+    attribute maximumValidatedEventRate : CountRate = 10000000.0;
+
+    port opticalInput : OpticalInputPort;
+    port digitalPhotonEvents : DigitalEventPort;
+    port healthStatus : StatusPort;
+    port temperatureCommand : TemperatureControlPort;
+    port biasCommand : BiasControlPort;
+
+    part optics : OpticalCollectionAssembly {
+      attribute apertureDiameter = 25.0;
+      attribute numericalAperture = 0.22;
+      attribute spectralTransmission = 0.92;
+      attribute fieldOfView = 2.0;
+    }
+
+    part detector : VisibleLightPhotonCounterDetector {
+      attribute activeAreaDiameter = 1.0;
+    }
+
+    part thermalController : CryogenicThermalController;
+    part biasSupply : BiasSupply;
+    part pulseElectronics : PulseConditioningElectronics;
+    part eventProcessor : EventProcessor;
+
+    connect opticalInput to optics.opticalInput;
+    connect optics.focusedOutput to detector.opticalAbsorption;
+    connect detector.chargeGeneration to detector.opticalAbsorption;
+    connect detector.avalancheOutput to pulseElectronics.pulseInput;
+    connect pulseElectronics.eventOutput to eventProcessor.eventInput;
+    connect eventProcessor.statusOutput to healthStatus;
+    connect thermalController.detectorThermalPort to detector.thermalInterface;
+    connect temperatureCommand to thermalController.commandPort;
+    connect biasCommand to biasSupply.controlPort;
+    connect biasSupply.detectorBiasPort to detector.biasInterface;
+    connect pulseElectronics.eventOutput to digitalPhotonEvents;
+
+    action performPhotonCounting {
+      in item incomingPhoton : IncidentPhoton;
+      out item photonEvent : DigitalPhotonEvent;
+      out item status : HealthStatus;
+
+      first collectPhoton;
+      then convertPhoton;
+      then conditionPulse;
+      then processEvent;
+      then reportStatus;
+      then done;
+
+      action collectPhoton {
+        in item incomingPhoton : IncidentPhoton;
+        out item focusedPhoton : IncidentPhoton;
+      }
+
+      action convertPhoton {
+        in item focusedPhoton : IncidentPhoton;
+        out item pulse : AvalanchePulse;
+      }
+
+      action conditionPulse {
+        in item pulse : AvalanchePulse;
+        out item photonEvent : DigitalPhotonEvent;
+      }
+
+      action processEvent {
+        in item photonEvent : DigitalPhotonEvent;
+        out item status : HealthStatus;
+      }
+
+      action reportStatus {
+        in item status : HealthStatus;
+      }
+    }
+
+    state def SystemState {
+      state unpowered;
+      state initializing;
+      state cooling;
+      state biasing;
+      state ready;
+      state counting;
+      state saturated;
+      state degraded;
+      state fault;
+      state shutdown;
+
+      transition initial then unpowered;
+
+      transition start
+        first unpowered
+        accept PowerOn
+        then initializing;
+
+      transition initialized
+        first initializing
+        accept SelfTestPassed
+        then cooling;
+
+      transition cold
+        first cooling
+        accept TemperatureStable
+        then biasing;
+
+      transition biased
+        first biasing
+        accept BiasStable
+        then ready;
+
+      transition beginCounting
+        first ready
+        accept AcquisitionStart
+        then counting;
+
+      transition pauseCounting
+        first counting
+        accept AcquisitionStop
+        then ready;
+
+      transition highFlux
+        first counting
+        accept SaturationDetected
+        then saturated;
+
+      transition fluxRecovered
+        first saturated
+        accept FluxReduced
+        then counting;
+
+      transition noisyButUsable
+        first counting
+        accept DarkCountElevated
+        then degraded;
+
+      transition recoveredFromDegraded
+        first degraded
+        accept NoiseRecovered
+        then counting;
+
+      transition faultFromReady
+        first ready
+        accept FaultDetected
+        then fault;
+
+      transition faultFromCounting
+        first counting
+        accept FaultDetected
+        then fault;
+
+      transition powerDown
+        first ready
+        accept PowerOff
+        then shutdown;
+
+      transition shutdownComplete
+        first shutdown
+        accept SafeToRemovePower
+        then unpowered;
+    }
+  }
+
+  requirement def DetectVisiblePhotonsRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The system shall detect individual photons in the visible wavelength band and produce one validated digital photon event for each accepted detector pulse. */
+    require constraint {
+      system.supportedMinimumWavelength <= 380.0 and
+      system.supportedMaximumWavelength >= 750.0
+    }
+  }
+
+  requirement def PhotonDetectionEfficiencyRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The system shall provide photon detection efficiency of at least 85 percent at the nominal operating temperature and nominal bias voltage for supported visible wavelengths. */
+    require constraint {
+      system.targetPhotonDetectionEfficiency >= 0.85
+    }
+  }
+
+  requirement def DarkCountRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The system shall maintain dark count rate at or below 50000 counts per second when the optical input is blocked and the detector temperature is regulated at the nominal setpoint. */
+    require constraint {
+      system.maximumDarkCountRate <= 50000.0
+    }
+  }
+
+  requirement def CryogenicOperationRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The detector shall be regulated near 7 K to support low-noise visible-light photon counting. */
+    require constraint {
+      system.nominalDetectorTemperature <= 7.5 and
+      system.nominalDetectorTemperature >= 6.5
+    }
+  }
+
+  requirement def BiasStabilityRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The detector bias supply shall regulate the detector bias to the commanded nominal value without exceeding the detector maximum bias voltage. */
+    require constraint {
+      system.nominalBiasVoltage <= 8.0
+    }
+  }
+
+  requirement def EventRateRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The event processor shall accept and report validated photon events up to 10000000 counts per second. */
+    require constraint {
+      system.maximumValidatedEventRate >= 10000000.0
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The primary function of the Visible Light Photon Counter system is to transform incident visible photons into low-noise, time-stamped digital photon-count events. */
+  }
+
+  part vlpcSystem : VisibleLightPhotonCounterSystem;
+
+  satisfy DetectVisiblePhotonsRequirement by vlpcSystem;
+  satisfy PhotonDetectionEfficiencyRequirement by vlpcSystem;
+  satisfy DarkCountRequirement by vlpcSystem;
+  satisfy CryogenicOperationRequirement by vlpcSystem;
+  satisfy BiasStabilityRequirement by vlpcSystem;
+  satisfy EventRateRequirement by vlpcSystem;
+  satisfy PrimaryFunctionRequirement by vlpcSystem;
+}
+tokens used
+4,314
+package VisibleLightPhotonCounterSystemModel {
+
+  private import ScalarValues::*;
+  private import ISQ::*;
+  private import SI::*;
+
+  value def Kelvin :> Real {
+    unit = "K";
+  }
+
+  value def Celsius :> Real {
+    unit = "degC";
+  }
+
+  value def Volt :> Real {
+    unit = "V";
+  }
+
+  value def Ampere :> Real {
+    unit = "A";
+  }
+
+  value def Watt :> Real {
+    unit = "W";
+  }
+
+  value def Nanometer :> Real {
+    unit = "nm";
+  }
+
+  value def Hertz :> Real {
+    unit = "Hz";
+  }
+
+  value def CountRate :> Real {
+    unit = "count/s";
+  }
+
+  value def Probability :> Real {
+    unit = "1";
+  }
+
+  value def TimeInterval :> Real {
+    unit = "s";
+  }
+
+  value def EnergyElectronVolt :> Real {
+    unit = "eV";
+  }
+
+  item def IncidentPhoton {
+    attribute wavelength : Nanometer;
+    attribute photonEnergy : EnergyElectronVolt;
+    attribute arrivalTime : TimeInterval;
+    attribute polarizationAngle : Real;
+  }
+
+  item def AbsorbedPhoton {
+    attribute wavelength : Nanometer;
+    attribute absorbedEnergy : EnergyElectronVolt;
+    attribute absorptionTime : TimeInterval;
+  }
+
+  item def ElectronHolePair {
+    attribute generatedCharge : Real;
+    attribute creationTime : TimeInterval;
+  }
+
+  item def AvalanchePulse {
+    attribute peakCurrent : Ampere;
+    attribute riseTime : TimeInterval;
+    attribute pulseWidth : TimeInterval;
+    attribute gain : Real;
+  }
+
+  item def DigitalPhotonEvent {
+    attribute eventTime : TimeInterval;
+    attribute channelId : Integer;
+    attribute pulseAmplitude : Volt;
+    attribute validated : Boolean;
+  }
+
+  item def ThermalLoad {
+    attribute heatFlow : Watt;
+    attribute sourceTemperature : Kelvin;
+  }
+
+  item def BiasCommand {
+    attribute targetBiasVoltage : Volt;
+    attribute rampRate : Real;
+  }
+
+  item def TemperatureCommand {
+    attribute targetTemperature : Kelvin;
+    attribute maximumCooldownRate : Real;
+  }
+
+  item def HealthStatus {
+    attribute detectorTemperature : Kelvin;
+    attribute biasVoltage : Volt;
+    attribute darkCountRate : CountRate;
+    attribute photonDetectionEfficiency : Probability;
+    attribute ready : Boolean;
+    attribute faultCode : Integer;
+  }
+
+  port def OpticalInputPort {
+    in item photon : IncidentPhoton;
+  }
+
+  port def PhotonAbsorptionPort {
+    in item photon : IncidentPhoton;
+    out item absorbedPhoton : AbsorbedPhoton;
+  }
+
+  port def ChargeGenerationPort {
+    in item absorbedPhoton : AbsorbedPhoton;
+    out item chargeCarrier : ElectronHolePair;
+  }
+
+  port def AvalanchePort {
+    in item chargeCarrier : ElectronHolePair;
+    out item avalanchePulse : AvalanchePulse;
+  }
+
+  port def ElectricalPulsePort {
+    out item avalanchePulse : AvalanchePulse;
+  }
+
+  port def DigitalEventPort {
+    out item event : DigitalPhotonEvent;
+  }
+
+  port def ThermalPort {
+    inout item thermalLoad : ThermalLoad;
+  }
+
+  port def BiasControlPort {
+    in item command : BiasCommand;
+    out attribute actualBiasVoltage : Volt;
+  }
+
+  port def TemperatureControlPort {
+    in item command : TemperatureCommand;
+    out attribute actualTemperature : Kelvin;
+  }
+
+  port def StatusPort {
+    out item status : HealthStatus;
+  }
+
+  part def OpticalCollectionAssembly {
+    attribute apertureDiameter : Real;
+    attribute numericalAperture : Real;
+    attribute spectralTransmission : Probability;
+    attribute fieldOfView : Real;
+
+    port opticalInput : OpticalInputPort;
+    port focusedOutput : OpticalInputPort;
+
+    action focusVisiblePhoton {
+      in item incomingPhoton : IncidentPhoton;
+      out item focusedPhoton : IncidentPhoton;
+
+      first start;
+      then validateVisibleBand;
+      then transmitThroughFilter;
+      then focusOnDetector;
+      then done;
+
+      action validateVisibleBand {
+        in item incomingPhoton : IncidentPhoton;
+        out valid : Boolean;
+      }
+
+      action transmitThroughFilter {
+        in item incomingPhoton : IncidentPhoton;
+        out item filteredPhoton : IncidentPhoton;
+      }
+
+      action focusOnDetector {
+        in item filteredPhoton : IncidentPhoton;
+        out item focusedPhoton : IncidentPhoton;
+      }
+    }
+  }
+
+  part def VisibleLightPhotonCounterDetector {
+    attribute operatingTemperature : Kelvin = 7.0;
+    attribute cutoffWavelength : Nanometer = 1050.0;
+    attribute minimumVisibleWavelength : Nanometer = 380.0;
+    attribute maximumVisibleWavelength : Nanometer = 750.0;
+    attribute quantumEfficiency : Probability = 0.88;
+    attribute internalGain : Real = 50000.0;
+    attribute activeAreaDiameter : Real;
+    attribute darkCountRateAtSetpoint : CountRate = 20000.0;
+    attribute deadTime : TimeInterval = 0.00000005;
+
+    port opticalAbsorption : PhotonAbsorptionPort;
+    port chargeGeneration : ChargeGenerationPort;
+    port avalancheOutput : AvalanchePort;
+    port thermalInterface : ThermalPort;
+    port biasInterface : BiasControlPort;
+
+    action convertPhotonToAvalanchePulse {
+      in item photon : IncidentPhoton;
+      out item pulse : AvalanchePulse;
+
+      first receivePhoton;
+      then absorbPhoton;
+      then createCarrierPair;
+      then amplifyByImpactIonization;
+      then emitElectricalPulse;
+      then done;
+
+      action receivePhoton {
+        in item photon : IncidentPhoton;
+        out accepted : Boolean;
+      }
+
+      action absorbPhoton {
+        in item photon : IncidentPhoton;
+        out item absorbedPhoton : AbsorbedPhoton;
+      }
+
+      action createCarrierPair {
+        in item absorbedPhoton : AbsorbedPhoton;
+        out item carrier : ElectronHolePair;
+      }
+
+      action amplifyByImpactIonization {
+        in item carrier : ElectronHolePair;
+        out item pulse : AvalanchePulse;
+      }
+
+      action emitElectricalPulse {
+        in item pulse : AvalanchePulse;
+      }
+    }
+
+    state def DetectorOperatingState {
+      state off;
+      state cooling;
+      state biasRamping;
+      state armed;
+      state detecting;
+      state saturated;
+      state fault;
+
+      entry action initialize {
+        out ready : Boolean;
+      }
+
+      transition initial then off;
+
+      transition powerApplied
+        first off
+        accept PowerOn
+        then cooling;
+
+      transition temperatureReached
+        first cooling
+        accept TemperatureStable
+        if operatingTemperature <= 8.0
+        then biasRamping;
+
+      transition biasStable
+        first biasRamping
+        accept BiasStable
+        then armed;
+
+      transition photonDetected
+        first armed
+        accept PhotonArrival
+        then detecting;
+
+      transition recoveryComplete
+        first detecting
+        accept DeadTimeExpired
+        then armed;
+
+      transition countRateExceeded
+        first armed
+        accept SaturationDetected
+        then saturated;
+
+      transition countRateNormal
+        first saturated
+        accept FluxReduced
+        then armed;
+
+      transition faultDetectedFromAny
+        first off
+        accept FaultDetected
+        then fault;
+
+      transition shutdown
+        first armed
+        accept PowerOff
+        then off;
+    }
+  }
+
+  part def CryogenicThermalController {
+    attribute setpointTemperature : Kelvin = 7.0;
+    attribute allowableTemperatureRipple : Kelvin = 0.02;
+    attribute cooldownPower : Watt = 1.5;
+    attribute heatLiftCapacity : Watt = 0.25;
+    attribute maximumDetectorTemperature : Kelvin = 9.0;
+
+    port detectorThermalPort : ThermalPort;
+    port commandPort : TemperatureControlPort;
+    port statusPort : StatusPort;
+
+    action regulateDetectorTemperature {
+      in item command : TemperatureCommand;
+      in item detectorHeat : ThermalLoad;
+      out attribute actualTemperature : Kelvin;
+
+      first readSetpoint;
+      then compareTemperature;
+      then adjustCoolerPower;
+      then rejectHeat;
+      then reportTemperature;
+      then done;
+    }
+
+    state def ThermalState {
+      state off;
+      state coolingDown;
+      state stabilizing;
+      state regulated;
+      state overTemperature;
+
+      transition initial then off;
+
+      transition enableCooling
+        first off
+        accept CoolingEnabled
+        then coolingDown;
+
+      transition nearSetpoint
+        first coolingDown
+        accept TemperatureBelow10K
+        then stabilizing;
+
+      transition stable
+        first stabilizing
+        accept TemperatureStable
+        then regulated;
+
+      transition tooWarm
+        first regulated
+        accept TemperatureLimitExceeded
+        then overTemperature;
+
+      transition recovered
+        first overTemperature
+        accept TemperatureRecovered
+        then stabilizing;
+    }
+  }
+
+  part def BiasSupply {
+    attribute nominalBiasVoltage : Volt = 6.8;
+    attribute biasStability : Volt = 0.001;
+    attribute maximumBiasVoltage : Volt = 8.0;
+    attribute quenchResistance : Real = 100000.0;
+    attribute leakageCurrentLimit : Ampere = 0.000001;
+
+    port controlPort : BiasControlPort;
+    port detectorBiasPort : BiasControlPort;
+    port statusPort : StatusPort;
+
+    action rampAndRegulateBias {
+      in item command : BiasCommand;
+      out attribute actualBiasVoltage : Volt;
+
+      first validateCommand;
+      then rampVoltage;
+      then regulateVoltage;
+      then monitorLeakageCurrent;
+      then done;
+    }
+  }
+
+  part def PulseConditioningElectronics {
+    attribute transimpedanceGain : Real = 10000.0;
+    attribute bandwidth : Hertz = 100000000.0;
+    attribute discriminatorThreshold : Volt = 0.015;
+    attribute timingJitter : TimeInterval = 0.00000000025;
+    attribute minimumPulseSeparation : TimeInterval = 0.00000005;
+
+    port pulseInput : ElectricalPulsePort;
+    port eventOutput : DigitalEventPort;
+    port statusPort : StatusPort;
+
+    action conditionAndDiscriminatePulse {
+      in item rawPulse : AvalanchePulse;
+      out item event : DigitalPhotonEvent;
+
+      first amplifyPulse;
+      then shapePulse;
+      then compareToThreshold;
+      then timestampEvent;
+      then publishEvent;
+      then done;
+    }
+  }
+
+  part def EventProcessor {
+    attribute maximumEventRate : CountRate = 10000000.0;
+    attribute integrationWindow : TimeInterval = 0.001;
+    attribute backgroundSubtractionEnabled : Boolean = true;
+    attribute measuredCountRate : CountRate;
+    attribute correctedCountRate : CountRate;
+
+    port eventInput : DigitalEventPort;
+    port statusOutput : StatusPort;
+
+    action countAndReportPhotons {
+      in item event : DigitalPhotonEvent;
+      out item status : HealthStatus;
+
+      first validateEvent;
+      then incrementCounter;
+      then compensateDeadTime;
+      then updateRateEstimate;
+      then publishHealthStatus;
+      then done;
+    }
+  }
+
+  part def VisibleLightPhotonCounterSystem {
+    attribute primaryFunction : String = "Detect individual visible-light photons and convert each accepted photon into a time-stamped digital event while maintaining cryogenic, bias, and signal-conditioning conditions required for low-noise photon counting.";
+    attribute supportedMinimumWavelength : Nanometer = 380.0;
+    attribute supportedMaximumWavelength : Nanometer = 750.0;
+    attribute nominalDetectorTemperature : Kelvin = 7.0;
+    attribute nominalBiasVoltage : Volt = 6.8;
+    attribute targetPhotonDetectionEfficiency : Probability = 0.85;
+    attribute maximumDarkCountRate : CountRate = 50000.0;
+    attribute maximumValidatedEventRate : CountRate = 10000000.0;
+
+    port opticalInput : OpticalInputPort;
+    port digitalPhotonEvents : DigitalEventPort;
+    port healthStatus : StatusPort;
+    port temperatureCommand : TemperatureControlPort;
+    port biasCommand : BiasControlPort;
+
+    part optics : OpticalCollectionAssembly {
+      attribute apertureDiameter = 25.0;
+      attribute numericalAperture = 0.22;
+      attribute spectralTransmission = 0.92;
+      attribute fieldOfView = 2.0;
+    }
+
+    part detector : VisibleLightPhotonCounterDetector {
+      attribute activeAreaDiameter = 1.0;
+    }
+
+    part thermalController : CryogenicThermalController;
+    part biasSupply : BiasSupply;
+    part pulseElectronics : PulseConditioningElectronics;
+    part eventProcessor : EventProcessor;
+
+    connect opticalInput to optics.opticalInput;
+    connect optics.focusedOutput to detector.opticalAbsorption;
+    connect detector.chargeGeneration to detector.opticalAbsorption;
+    connect detector.avalancheOutput to pulseElectronics.pulseInput;
+    connect pulseElectronics.eventOutput to eventProcessor.eventInput;
+    connect eventProcessor.statusOutput to healthStatus;
+    connect thermalController.detectorThermalPort to detector.thermalInterface;
+    connect temperatureCommand to thermalController.commandPort;
+    connect biasCommand to biasSupply.controlPort;
+    connect biasSupply.detectorBiasPort to detector.biasInterface;
+    connect pulseElectronics.eventOutput to digitalPhotonEvents;
+
+    action performPhotonCounting {
+      in item incomingPhoton : IncidentPhoton;
+      out item photonEvent : DigitalPhotonEvent;
+      out item status : HealthStatus;
+
+      first collectPhoton;
+      then convertPhoton;
+      then conditionPulse;
+      then processEvent;
+      then reportStatus;
+      then done;
+
+      action collectPhoton {
+        in item incomingPhoton : IncidentPhoton;
+        out item focusedPhoton : IncidentPhoton;
+      }
+
+      action convertPhoton {
+        in item focusedPhoton : IncidentPhoton;
+        out item pulse : AvalanchePulse;
+      }
+
+      action conditionPulse {
+        in item pulse : AvalanchePulse;
+        out item photonEvent : DigitalPhotonEvent;
+      }
+
+      action processEvent {
+        in item photonEvent : DigitalPhotonEvent;
+        out item status : HealthStatus;
+      }
+
+      action reportStatus {
+        in item status : HealthStatus;
+      }
+    }
+
+    state def SystemState {
+      state unpowered;
+      state initializing;
+      state cooling;
+      state biasing;
+      state ready;
+      state counting;
+      state saturated;
+      state degraded;
+      state fault;
+      state shutdown;
+
+      transition initial then unpowered;
+
+      transition start
+        first unpowered
+        accept PowerOn
+        then initializing;
+
+      transition initialized
+        first initializing
+        accept SelfTestPassed
+        then cooling;
+
+      transition cold
+        first cooling
+        accept TemperatureStable
+        then biasing;
+
+      transition biased
+        first biasing
+        accept BiasStable
+        then ready;
+
+      transition beginCounting
+        first ready
+        accept AcquisitionStart
+        then counting;
+
+      transition pauseCounting
+        first counting
+        accept AcquisitionStop
+        then ready;
+
+      transition highFlux
+        first counting
+        accept SaturationDetected
+        then saturated;
+
+      transition fluxRecovered
+        first saturated
+        accept FluxReduced
+        then counting;
+
+      transition noisyButUsable
+        first counting
+        accept DarkCountElevated
+        then degraded;
+
+      transition recoveredFromDegraded
+        first degraded
+        accept NoiseRecovered
+        then counting;
+
+      transition faultFromReady
+        first ready
+        accept FaultDetected
+        then fault;
+
+      transition faultFromCounting
+        first counting
+        accept FaultDetected
+        then fault;
+
+      transition powerDown
+        first ready
+        accept PowerOff
+        then shutdown;
+
+      transition shutdownComplete
+        first shutdown
+        accept SafeToRemovePower
+        then unpowered;
+    }
+  }
+
+  requirement def DetectVisiblePhotonsRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The system shall detect individual photons in the visible wavelength band and produce one validated digital photon event for each accepted detector pulse. */
+    require constraint {
+      system.supportedMinimumWavelength <= 380.0 and
+      system.supportedMaximumWavelength >= 750.0
+    }
+  }
+
+  requirement def PhotonDetectionEfficiencyRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The system shall provide photon detection efficiency of at least 85 percent at the nominal operating temperature and nominal bias voltage for supported visible wavelengths. */
+    require constraint {
+      system.targetPhotonDetectionEfficiency >= 0.85
+    }
+  }
+
+  requirement def DarkCountRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The system shall maintain dark count rate at or below 50000 counts per second when the optical input is blocked and the detector temperature is regulated at the nominal setpoint. */
+    require constraint {
+      system.maximumDarkCountRate <= 50000.0
+    }
+  }
+
+  requirement def CryogenicOperationRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The detector shall be regulated near 7 K to support low-noise visible-light photon counting. */
+    require constraint {
+      system.nominalDetectorTemperature <= 7.5 and
+      system.nominalDetectorTemperature >= 6.5
+    }
+  }
+
+  requirement def BiasStabilityRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The detector bias supply shall regulate the detector bias to the commanded nominal value without exceeding the detector maximum bias voltage. */
+    require constraint {
+      system.nominalBiasVoltage <= 8.0
+    }
+  }
+
+  requirement def EventRateRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The event processor shall accept and report validated photon events up to 10000000 counts per second. */
+    require constraint {
+      system.maximumValidatedEventRate >= 10000000.0
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : VisibleLightPhotonCounterSystem;
+    doc /* The primary function of the Visible Light Photon Counter system is to transform incident visible photons into low-noise, time-stamped digital photon-count events. */
+  }
+
+  part vlpcSystem : VisibleLightPhotonCounterSystem;
+
+  satisfy DetectVisiblePhotonsRequirement by vlpcSystem;
+  satisfy PhotonDetectionEfficiencyRequirement by vlpcSystem;
+  satisfy DarkCountRequirement by vlpcSystem;
+  satisfy CryogenicOperationRequirement by vlpcSystem;
+  satisfy BiasStabilityRequirement by vlpcSystem;
+  satisfy EventRateRequirement by vlpcSystem;
+  satisfy PrimaryFunctionRequirement by vlpcSystem;
+}

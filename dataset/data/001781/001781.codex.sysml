@@ -1,0 +1,321 @@
+package FluidDynamicsSystemModel {
+    import ScalarValues::*;
+
+    attribute def Pressure :> Real { doc /* Unit: pascal (Pa). */ }
+    attribute def Temperature :> Real { doc /* Unit: kelvin (K). */ }
+    attribute def Density :> Real { doc /* Unit: kilogram per cubic meter (kg/m^3). */ }
+    attribute def DynamicViscosity :> Real { doc /* Unit: pascal second (Pa*s). */ }
+    attribute def Velocity :> Real { doc /* Unit: meter per second (m/s). */ }
+    attribute def VolumetricFlowRate :> Real { doc /* Unit: cubic meter per second (m^3/s). */ }
+    attribute def MassFlowRate :> Real { doc /* Unit: kilogram per second (kg/s). */ }
+    attribute def Diameter :> Real { doc /* Unit: meter (m). */ }
+    attribute def Area :> Real { doc /* Unit: square meter (m^2). */ }
+    attribute def Length :> Real { doc /* Unit: meter (m). */ }
+    attribute def Power :> Real { doc /* Unit: watt (W). */ }
+    attribute def RotationalSpeed :> Real { doc /* Unit: revolution per minute (rpm). */ }
+    attribute def ReynoldsNumber :> Real { doc /* Dimensionless. */ }
+    attribute def PressureLossCoefficient :> Real { doc /* Dimensionless. */ }
+
+    item def WorkingFluid {
+        attribute density : Density;
+        attribute dynamicViscosity : DynamicViscosity;
+        attribute temperature : Temperature;
+        attribute staticPressure : Pressure;
+        attribute velocity : Velocity;
+        attribute massFlowRate : MassFlowRate;
+        attribute volumetricFlowRate : VolumetricFlowRate;
+        attribute reynoldsNumber : ReynoldsNumber;
+    }
+
+    port def FluidPort {
+        inout item fluid : WorkingFluid;
+        attribute staticPressure : Pressure;
+        attribute temperature : Temperature;
+        attribute velocity : Velocity;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute suppliedPower : Power;
+    }
+
+    port def ControlPort {
+        in attribute commandedPumpSpeed : RotationalSpeed;
+        in attribute commandedValveOpening : Real;
+        out attribute measuredFlowRate : MassFlowRate;
+        out attribute measuredPressureDrop : Pressure;
+    }
+
+    action def AccelerateFluid {
+        in item inletFluid : WorkingFluid;
+        in attribute shaftPower : Power;
+        out item outletFluid : WorkingFluid;
+
+        doc /*
+        Converts shaft power into increased fluid total pressure and kinetic energy.
+        */
+    }
+
+    action def ConditionFlow {
+        in item disturbedFluid : WorkingFluid;
+        out item uniformFluid : WorkingFluid;
+
+        doc /*
+        Reduces swirl and velocity nonuniformity before the test section.
+        */
+    }
+
+    action def MeasureFlowState {
+        in item observedFluid : WorkingFluid;
+        out attribute measuredVelocity : Velocity;
+        out attribute measuredPressure : Pressure;
+        out attribute measuredMassFlowRate : MassFlowRate;
+    }
+
+    action def RegulateFlow {
+        in attribute targetMassFlowRate : MassFlowRate;
+        in attribute measuredMassFlowRate : MassFlowRate;
+        out attribute pumpSpeedCommand : RotationalSpeed;
+        out attribute valveOpeningCommand : Real;
+    }
+
+    state def FluidLoopOperatingState {
+        state Off;
+        state Priming;
+        state Stabilizing;
+        state SteadyFlow;
+        state Fault;
+        state Shutdown;
+
+        transition first Off;
+        transition Off then Priming;
+        transition Priming then Stabilizing;
+        transition Stabilizing then SteadyFlow;
+        transition SteadyFlow then Fault;
+        transition Fault then Shutdown;
+        transition SteadyFlow then Shutdown;
+    }
+
+    part def CentrifugalPump {
+        port suction : FluidPort;
+        port discharge : FluidPort;
+        port powerInput : ElectricalPowerPort;
+        port controlInput : ControlPort;
+
+        attribute impellerDiameter : Diameter = 0.18;
+        attribute nominalSpeed : RotationalSpeed = 3600.0;
+        attribute maximumSpeed : RotationalSpeed = 4800.0;
+        attribute nominalHydraulicPower : Power = 2200.0;
+        attribute nominalPressureRise : Pressure = 85000.0;
+
+        perform action pumpAction : AccelerateFluid {
+            in inletFluid = suction.fluid;
+            in shaftPower = powerInput.suppliedPower;
+            out outletFluid = discharge.fluid;
+        }
+    }
+
+    part def FlowStraightener {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute cellDiameter : Diameter = 0.006;
+        attribute length : Length = 0.24;
+        attribute pressureLossCoefficient : PressureLossCoefficient = 0.35;
+
+        perform action straighten : ConditionFlow {
+            in disturbedFluid = inlet.fluid;
+            out uniformFluid = outlet.fluid;
+        }
+    }
+
+    part def TestSection {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute hydraulicDiameter : Diameter = 0.10;
+        attribute crossSectionArea : Area = 0.00785;
+        attribute length : Length = 0.75;
+        attribute targetVelocity : Velocity = 12.0;
+        attribute minimumReynoldsNumber : ReynoldsNumber = 80000.0;
+
+        constraint reynoldsAdequate {
+            inlet.fluid.reynoldsNumber >= minimumReynoldsNumber
+        }
+    }
+
+    part def Diffuser {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+
+        attribute inletArea : Area = 0.00785;
+        attribute outletArea : Area = 0.0200;
+        attribute pressureRecoveryCoefficient : Real = 0.62;
+    }
+
+    part def Reservoir {
+        port returnInlet : FluidPort;
+        port supplyOutlet : FluidPort;
+
+        attribute storedFluidVolume : Real = 0.12;
+        attribute referencePressure : Pressure = 101325.0;
+        attribute referenceTemperature : Temperature = 293.15;
+    }
+
+    part def ControlValve {
+        port inlet : FluidPort;
+        port outlet : FluidPort;
+        port controlInput : ControlPort;
+
+        attribute openingFraction : Real = 0.72;
+        attribute minimumOpeningFraction : Real = 0.10;
+        attribute maximumOpeningFraction : Real = 1.00;
+        attribute pressureLossCoefficient : PressureLossCoefficient = 1.40;
+
+        constraint valveOpeningRange {
+            openingFraction >= minimumOpeningFraction and openingFraction <= maximumOpeningFraction
+        }
+    }
+
+    part def FlowSensor {
+        port sensedFlow : FluidPort;
+        port signal : ControlPort;
+
+        attribute velocityAccuracy : Velocity = 0.05;
+        attribute pressureAccuracy : Pressure = 50.0;
+
+        perform action measurement : MeasureFlowState {
+            in observedFluid = sensedFlow.fluid;
+            out measuredVelocity = sensedFlow.velocity;
+            out measuredPressure = sensedFlow.staticPressure;
+            out measuredMassFlowRate = signal.measuredFlowRate;
+        }
+    }
+
+    part def FlowController {
+        port controlSignal : ControlPort;
+
+        attribute targetMassFlowRate : MassFlowRate = 1.18;
+        attribute allowableFlowError : MassFlowRate = 0.03;
+        attribute targetPressureDrop : Pressure = 4200.0;
+
+        perform action controllerAction : RegulateFlow {
+            in targetMassFlowRate = targetMassFlowRate;
+            in measuredMassFlowRate = controlSignal.measuredFlowRate;
+            out pumpSpeedCommand = controlSignal.commandedPumpSpeed;
+            out valveOpeningCommand = controlSignal.commandedValveOpening;
+        }
+    }
+
+    part def ClosedLoopFluidDynamicsSystem {
+        doc /*
+        Primary function: circulate and regulate a working fluid through a controlled test section
+        to produce a stable, measurable flow field for high-level fluid dynamics evaluation.
+        */
+
+        part reservoir : Reservoir;
+        part pump : CentrifugalPump;
+        part straightener : FlowStraightener;
+        part testSection : TestSection;
+        part diffuser : Diffuser;
+        part valve : ControlValve;
+        part flowSensor : FlowSensor;
+        part controller : FlowController;
+
+        port electricalSupply : ElectricalPowerPort;
+
+        attribute nominalFluidDensity : Density = 998.0;
+        attribute nominalFluidViscosity : DynamicViscosity = 0.001002;
+        attribute nominalMassFlowRate : MassFlowRate = 1.18;
+        attribute nominalVolumetricFlowRate : VolumetricFlowRate = 0.00118;
+        attribute nominalTestSectionVelocity : Velocity = 12.0;
+        attribute nominalOperatingPressure : Pressure = 185000.0;
+        attribute maximumSafePressure : Pressure = 250000.0;
+        attribute nominalTemperature : Temperature = 293.15;
+
+        state operatingState : FluidLoopOperatingState;
+
+        connect electricalSupply to pump.powerInput;
+        connect reservoir.supplyOutlet to pump.suction;
+        connect pump.discharge to straightener.inlet;
+        connect straightener.outlet to testSection.inlet;
+        connect testSection.outlet to diffuser.inlet;
+        connect diffuser.outlet to valve.inlet;
+        connect valve.outlet to reservoir.returnInlet;
+        connect testSection.inlet to flowSensor.sensedFlow;
+        connect flowSensor.signal to controller.controlSignal;
+        connect controller.controlSignal to pump.controlInput;
+        connect controller.controlSignal to valve.controlInput;
+
+        constraint pressureSafety {
+            pump.discharge.staticPressure <= maximumSafePressure
+        }
+
+        constraint continuity {
+            pump.discharge.massFlowRate == straightener.inlet.massFlowRate and
+            straightener.outlet.massFlowRate == testSection.inlet.massFlowRate and
+            testSection.outlet.massFlowRate == diffuser.inlet.massFlowRate and
+            diffuser.outlet.massFlowRate == valve.inlet.massFlowRate
+        }
+
+        constraint targetFlow {
+            testSection.inlet.massFlowRate >= nominalMassFlowRate - controller.allowableFlowError and
+            testSection.inlet.massFlowRate <= nominalMassFlowRate + controller.allowableFlowError
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /*
+        The system shall establish a stable, controlled fluid flow through the test section
+        for observation of fluid dynamic behavior.
+        */
+
+        subject system : ClosedLoopFluidDynamicsSystem;
+
+        require constraint {
+            system.testSection.inlet.velocity >= 11.5 and
+            system.testSection.inlet.velocity <= 12.5
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        subject system : ClosedLoopFluidDynamicsSystem;
+
+        require constraint {
+            system.pump.discharge.staticPressure <= system.maximumSafePressure
+        }
+    }
+
+    requirement def FlowContinuityRequirement {
+        subject system : ClosedLoopFluidDynamicsSystem;
+
+        require constraint {
+            system.pump.discharge.massFlowRate == system.testSection.inlet.massFlowRate
+        }
+    }
+
+    requirement def ReynoldsNumberRequirement {
+        subject system : ClosedLoopFluidDynamicsSystem;
+
+        require constraint {
+            system.testSection.inlet.fluid.reynoldsNumber >= system.testSection.minimumReynoldsNumber
+        }
+    }
+
+    requirement def MeasurementRequirement {
+        subject system : ClosedLoopFluidDynamicsSystem;
+
+        require constraint {
+            system.flowSensor.velocityAccuracy <= 0.05 and
+            system.flowSensor.pressureAccuracy <= 50.0
+        }
+    }
+
+    part fluidDynamicsSystem : ClosedLoopFluidDynamicsSystem;
+
+    satisfy PrimaryFunctionRequirement by fluidDynamicsSystem;
+    satisfy PressureContainmentRequirement by fluidDynamicsSystem;
+    satisfy FlowContinuityRequirement by fluidDynamicsSystem;
+    satisfy ReynoldsNumberRequirement by fluidDynamicsSystem;
+    satisfy MeasurementRequirement by fluidDynamicsSystem;
+}

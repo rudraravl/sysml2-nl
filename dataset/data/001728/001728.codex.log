@@ -1,0 +1,1023 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-mm2r280t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7d9-59b5-7040-b5be-61d440034bfd
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a SmartThings and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SmartThingsHomeAutomationModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature : Real {
+        unit = "degC";
+    }
+
+    attribute def Humidity : Real {
+        unit = "%";
+    }
+
+    attribute def Illuminance : Real {
+        unit = "lx";
+    }
+
+    attribute def Power : Real {
+        unit = "W";
+    }
+
+    attribute def Energy : Real {
+        unit = "kWh";
+    }
+
+    attribute def Voltage : Real {
+        unit = "V";
+    }
+
+    attribute def TimeDuration : Real {
+        unit = "s";
+    }
+
+    attribute def Percentage : Real {
+        unit = "%";
+    }
+
+    attribute def NetworkLatency : Real {
+        unit = "ms";
+    }
+
+    enum def DeviceMode {
+        enum idle;
+        enum monitoring;
+        enum executingAutomation;
+        enum degraded;
+        enum offline;
+    }
+
+    enum def ConnectivityState {
+        enum connected;
+        enum disconnected;
+        enum reconnecting;
+    }
+
+    enum def OccupancyState {
+        enum occupied;
+        enum unoccupied;
+        enum unknown;
+    }
+
+    enum def CommandPriority {
+        enum routine;
+        enum userRequested;
+        enum safetyCritical;
+    }
+
+    item def TelemetryMessage {
+        attribute deviceId : String;
+        attribute timestamp : String;
+        attribute batteryLevel : Percentage;
+        attribute signalStrength : Percentage;
+    }
+
+    item def SensorReading :> TelemetryMessage {
+        attribute temperature : Temperature;
+        attribute humidity : Humidity;
+        attribute illuminance : Illuminance;
+        attribute motionDetected : Boolean;
+        attribute doorOpen : Boolean;
+    }
+
+    item def DeviceCommand {
+        attribute commandId : String;
+        attribute targetDeviceId : String;
+        attribute priority : CommandPriority;
+        attribute requestedState : String;
+        attribute timeout : TimeDuration;
+    }
+
+    item def AutomationRule {
+        attribute ruleId : String;
+        attribute enabled : Boolean;
+        attribute triggerExpression : String;
+        attribute actionExpression : String;
+    }
+
+    item def Notification {
+        attribute notificationId : String;
+        attribute message : String;
+        attribute severity : String;
+        attribute acknowledged : Boolean;
+    }
+
+    port def ZigbeeDevicePort {
+        in item command : DeviceCommand;
+        out item telemetry : TelemetryMessage;
+    }
+
+    port def WiFiDevicePort {
+        in item command : DeviceCommand;
+        out item telemetry : TelemetryMessage;
+    }
+
+    port def CloudServicePort {
+        in item telemetry : TelemetryMessage;
+        in item rule : AutomationRule;
+        out item command : DeviceCommand;
+        out item notification : Notification;
+    }
+
+    port def MobileAppPort {
+        in item notification : Notification;
+        out item command : DeviceCommand;
+        out item rule : AutomationRule;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        out attribute consumedPower : Power;
+    }
+
+    action def CollectDeviceTelemetry {
+        in item rawTelemetry : TelemetryMessage;
+        out item normalizedTelemetry : TelemetryMessage;
+    }
+
+    action def EvaluateAutomationRules {
+        in item sensorReading : SensorReading;
+        in item rule : AutomationRule;
+        out item command : DeviceCommand;
+    }
+
+    action def DispatchDeviceCommand {
+        in item command : DeviceCommand;
+        out attribute accepted : Boolean;
+    }
+
+    action def NotifyResident {
+        in item notification : Notification;
+        out attribute delivered : Boolean;
+    }
+
+    action def MonitorConnectivity {
+        in attribute latency : NetworkLatency;
+        out attribute connectivity : ConnectivityState;
+    }
+
+    state def HubOperatingState {
+        entry action initializeHub;
+        state starting;
+        state online;
+        state automating;
+        state degraded;
+        state offline;
+
+        transition first starting;
+        transition starting_to_online
+            first starting
+            then online;
+
+        transition online_to_automating
+            first online
+            accept DeviceCommand
+            then automating;
+
+        transition automating_to_online
+            first automating
+            then online;
+
+        transition online_to_degraded
+            first online
+            if connectivity == ConnectivityState::reconnecting
+            then degraded;
+
+        transition degraded_to_online
+            first degraded
+            if connectivity == ConnectivityState::connected
+            then online;
+
+        transition any_to_offline
+            first online
+            if connectivity == ConnectivityState::disconnected
+            then offline;
+    }
+
+    state def SensorOperatingState {
+        state sleeping;
+        state sensing;
+        state reporting;
+        state lowBattery;
+        state unreachable;
+
+        transition first sleeping;
+        transition wake_to_sense
+            first sleeping
+            then sensing;
+
+        transition sense_to_report
+            first sensing
+            then reporting;
+
+        transition report_to_sleep
+            first reporting
+            then sleeping;
+
+        transition battery_warning
+            first sensing
+            if batteryLevel < 15.0
+            then lowBattery;
+
+        transition lost_connection
+            first reporting
+            if connectivity == ConnectivityState::disconnected
+            then unreachable;
+    }
+
+    state def AutomationExecutionState {
+        state waitingForTrigger;
+        state evaluatingCondition;
+        state issuingCommand;
+        state verifyingOutcome;
+        state completed;
+        state failed;
+
+        transition first waitingForTrigger;
+        transition trigger_received
+            first waitingForTrigger
+            accept SensorReading
+            then evaluatingCondition;
+
+        transition condition_true
+            first evaluatingCondition
+            if ruleEnabled == true
+            then issuingCommand;
+
+        transition command_sent
+            first issuingCommand
+            then verifyingOutcome;
+
+        transition outcome_confirmed
+            first verifyingOutcome
+            then completed;
+
+        transition timeout
+            first verifyingOutcome
+            if elapsedTime > commandTimeout
+            then failed;
+    }
+
+    part def SmartSensor {
+        attribute deviceId : String;
+        attribute batteryLevel : Percentage;
+        attribute connectivity : ConnectivityState;
+        attribute temperature : Temperature;
+        attribute humidity : Humidity;
+        attribute illuminance : Illuminance;
+        attribute motionDetected : Boolean;
+        attribute doorOpen : Boolean;
+
+        port zigbeePort : ZigbeeDevicePort;
+        port powerPort : PowerPort;
+
+        perform action collectTelemetry : CollectDeviceTelemetry;
+        exhibit state sensorState : SensorOperatingState;
+    }
+
+    part def SmartLight {
+        attribute deviceId : String;
+        attribute isOn : Boolean;
+        attribute brightness : Percentage;
+        attribute consumedPower : Power;
+        attribute connectivity : ConnectivityState;
+
+        port wifiPort : WiFiDevicePort;
+        port powerPort : PowerPort;
+
+        perform action executeLightingCommand : DispatchDeviceCommand;
+    }
+
+    part def SmartLock {
+        attribute deviceId : String;
+        attribute locked : Boolean;
+        attribute batteryLevel : Percentage;
+        attribute tamperDetected : Boolean;
+        attribute connectivity : ConnectivityState;
+
+        port zigbeePort : ZigbeeDevicePort;
+        port powerPort : PowerPort;
+
+        perform action executeLockCommand : DispatchDeviceCommand;
+    }
+
+    part def SmartThermostat {
+        attribute deviceId : String;
+        attribute currentTemperature : Temperature;
+        attribute targetTemperature : Temperature;
+        attribute hvacActive : Boolean;
+        attribute consumedPower : Power;
+        attribute connectivity : ConnectivityState;
+
+        port wifiPort : WiFiDevicePort;
+        port powerPort : PowerPort;
+
+        perform action executeClimateCommand : DispatchDeviceCommand;
+    }
+
+    part def SmartThingsHub {
+        attribute hubId : String;
+        attribute mode : DeviceMode;
+        attribute connectivity : ConnectivityState;
+        attribute localAutomationEnabled : Boolean;
+        attribute averageLatency : NetworkLatency;
+        attribute consumedPower : Power;
+
+        port zigbeeNetwork : ZigbeeDevicePort;
+        port wifiNetwork : WiFiDevicePort;
+        port cloudPort : CloudServicePort;
+        port powerPort : PowerPort;
+
+        perform action monitorConnectivity : MonitorConnectivity;
+        perform action collectTelemetry : CollectDeviceTelemetry;
+        perform action evaluateRules : EvaluateAutomationRules;
+        perform action dispatchCommand : DispatchDeviceCommand;
+
+        exhibit state hubState : HubOperatingState;
+        exhibit state automationState : AutomationExecutionState;
+    }
+
+    part def SmartThingsCloud {
+        attribute serviceRegion : String;
+        attribute availability : Percentage;
+        attribute retainedEnergyHistory : Energy;
+        attribute averageCommandLatency : NetworkLatency;
+
+        port servicePort : CloudServicePort;
+
+        perform action evaluateCloudRules : EvaluateAutomationRules;
+        perform action notifyUser : NotifyResident;
+    }
+
+    part def ResidentMobileApplication {
+        attribute userId : String;
+        attribute authenticated : Boolean;
+        attribute pushNotificationsEnabled : Boolean;
+
+        port appPort : MobileAppPort;
+
+        perform action submitCommand : DispatchDeviceCommand;
+        perform action receiveNotification : NotifyResident;
+    }
+
+    part def SmartHomeEnvironment {
+        attribute occupancy : OccupancyState;
+        attribute indoorTemperature : Temperature;
+        attribute indoorHumidity : Humidity;
+        attribute ambientIlluminance : Illuminance;
+        attribute totalPowerConsumption : Power;
+    }
+
+    part def SmartThingsAutomationSystem {
+        attribute systemName : String = "SmartThings Connected Home Automation System";
+        attribute primaryFunction : String = "Coordinate connected household devices, sensor data, automation rules, and resident commands to monitor the home and automatically control lighting, access, climate, and safety notifications.";
+        attribute operatingMode : DeviceMode;
+        attribute maximumCommandLatency : NetworkLatency = 500.0;
+        attribute minimumCloudAvailability : Percentage = 99.5;
+
+        part environment : SmartHomeEnvironment;
+        part hub : SmartThingsHub;
+        part cloud : SmartThingsCloud;
+        part mobileApp : ResidentMobileApplication;
+
+        part motionSensor : SmartSensor {
+            attribute deviceId = "sensor-motion-entry";
+            attribute motionDetected = false;
+            attribute doorOpen = false;
+        }
+
+        part contactSensor : SmartSensor {
+            attribute deviceId = "sensor-front-door";
+            attribute motionDetected = false;
+            attribute doorOpen = false;
+        }
+
+        part livingRoomLight : SmartLight {
+            attribute deviceId = "light-living-room";
+            attribute isOn = false;
+            attribute brightness = 0.0;
+        }
+
+        part frontDoorLock : SmartLock {
+            attribute deviceId = "lock-front-door";
+            attribute locked = true;
+            attribute tamperDetected = false;
+        }
+
+        part thermostat : SmartThermostat {
+            attribute deviceId = "thermostat-main";
+            attribute targetTemperature = 22.0;
+            attribute hvacActive = false;
+        }
+
+        connect motionSensor.zigbeePort to hub.zigbeeNetwork;
+        connect contactSensor.zigbeePort to hub.zigbeeNetwork;
+        connect frontDoorLock.zigbeePort to hub.zigbeeNetwork;
+        connect livingRoomLight.wifiPort to hub.wifiNetwork;
+        connect thermostat.wifiPort to hub.wifiNetwork;
+        connect hub.cloudPort to cloud.servicePort;
+        connect cloud.servicePort to mobileApp.appPort;
+
+        perform action normalTelemetryFlow {
+            first collectTelemetry;
+            then evaluateRules;
+            then dispatchCommand;
+        }
+
+        action collectTelemetry : CollectDeviceTelemetry;
+        action evaluateRules : EvaluateAutomationRules;
+        action dispatchCommand : DispatchDeviceCommand;
+        action notifyResident : NotifyResident;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall provide high-level smart home automation by receiving resident commands and sensor telemetry, evaluating automation rules, and commanding connected devices to maintain comfort, security, energy awareness, and convenience. */
+    }
+
+    requirement def DeviceInteroperabilityRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall integrate Zigbee and Wi-Fi connected devices through a central hub and cloud service without requiring the resident to interact with each device protocol directly. */
+    }
+
+    requirement def AutomationLatencyRequirement {
+        subject system : SmartThingsAutomationSystem;
+        attribute maxAllowedLatency : NetworkLatency = 500.0;
+        doc /* The system shall dispatch routine automation commands to target devices within 500 ms after a valid local trigger is received by the hub. */
+    }
+
+    requirement def SecurityNotificationRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall notify the resident mobile application when a door sensor reports unexpected opening, a lock reports tampering, or a safety-critical automation fails. */
+    }
+
+    requirement def LocalFallbackRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The hub shall continue executing locally stored safety and access automations when cloud connectivity is unavailable. */
+    }
+
+    requirement def EnergyMonitoringRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall aggregate device power consumption and expose total home power consumption for resident review and automation decisions. */
+    }
+
+    satisfy PrimaryFunctionRequirement by SmartThingsAutomationSystem;
+    satisfy DeviceInteroperabilityRequirement by SmartThingsAutomationSystem.hub;
+    satisfy AutomationLatencyRequirement by SmartThingsAutomationSystem.hub;
+    satisfy SecurityNotificationRequirement by SmartThingsAutomationSystem.cloud;
+    satisfy LocalFallbackRequirement by SmartThingsAutomationSystem.hub;
+    satisfy EnergyMonitoringRequirement by SmartThingsAutomationSystem.environment;
+
+    constraint def LatencyConstraint {
+        in attribute actualLatency : NetworkLatency;
+        in attribute requiredLatency : NetworkLatency;
+        actualLatency <= requiredLatency;
+    }
+
+    constraint def CloudAvailabilityConstraint {
+        in attribute actualAvailability : Percentage;
+        in attribute requiredAvailability : Percentage;
+        actualAvailability >= requiredAvailability;
+    }
+
+    constraint def BatteryOperationalConstraint {
+        in attribute batteryLevel : Percentage;
+        batteryLevel >= 10.0;
+    }
+
+    assert constraint LatencyConstraint {
+        actualLatency = SmartThingsAutomationSystem.hub.averageLatency;
+        requiredLatency = SmartThingsAutomationSystem.maximumCommandLatency;
+    }
+
+    assert constraint CloudAvailabilityConstraint {
+        actualAvailability = SmartThingsAutomationSystem.cloud.availability;
+        requiredAvailability = SmartThingsAutomationSystem.minimumCloudAvailability;
+    }
+
+    assert constraint BatteryOperationalConstraint {
+        batteryLevel = SmartThingsAutomationSystem.frontDoorLock.batteryLevel;
+    }
+
+}
+tokens used
+3,330
+package SmartThingsHomeAutomationModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature : Real {
+        unit = "degC";
+    }
+
+    attribute def Humidity : Real {
+        unit = "%";
+    }
+
+    attribute def Illuminance : Real {
+        unit = "lx";
+    }
+
+    attribute def Power : Real {
+        unit = "W";
+    }
+
+    attribute def Energy : Real {
+        unit = "kWh";
+    }
+
+    attribute def Voltage : Real {
+        unit = "V";
+    }
+
+    attribute def TimeDuration : Real {
+        unit = "s";
+    }
+
+    attribute def Percentage : Real {
+        unit = "%";
+    }
+
+    attribute def NetworkLatency : Real {
+        unit = "ms";
+    }
+
+    enum def DeviceMode {
+        enum idle;
+        enum monitoring;
+        enum executingAutomation;
+        enum degraded;
+        enum offline;
+    }
+
+    enum def ConnectivityState {
+        enum connected;
+        enum disconnected;
+        enum reconnecting;
+    }
+
+    enum def OccupancyState {
+        enum occupied;
+        enum unoccupied;
+        enum unknown;
+    }
+
+    enum def CommandPriority {
+        enum routine;
+        enum userRequested;
+        enum safetyCritical;
+    }
+
+    item def TelemetryMessage {
+        attribute deviceId : String;
+        attribute timestamp : String;
+        attribute batteryLevel : Percentage;
+        attribute signalStrength : Percentage;
+    }
+
+    item def SensorReading :> TelemetryMessage {
+        attribute temperature : Temperature;
+        attribute humidity : Humidity;
+        attribute illuminance : Illuminance;
+        attribute motionDetected : Boolean;
+        attribute doorOpen : Boolean;
+    }
+
+    item def DeviceCommand {
+        attribute commandId : String;
+        attribute targetDeviceId : String;
+        attribute priority : CommandPriority;
+        attribute requestedState : String;
+        attribute timeout : TimeDuration;
+    }
+
+    item def AutomationRule {
+        attribute ruleId : String;
+        attribute enabled : Boolean;
+        attribute triggerExpression : String;
+        attribute actionExpression : String;
+    }
+
+    item def Notification {
+        attribute notificationId : String;
+        attribute message : String;
+        attribute severity : String;
+        attribute acknowledged : Boolean;
+    }
+
+    port def ZigbeeDevicePort {
+        in item command : DeviceCommand;
+        out item telemetry : TelemetryMessage;
+    }
+
+    port def WiFiDevicePort {
+        in item command : DeviceCommand;
+        out item telemetry : TelemetryMessage;
+    }
+
+    port def CloudServicePort {
+        in item telemetry : TelemetryMessage;
+        in item rule : AutomationRule;
+        out item command : DeviceCommand;
+        out item notification : Notification;
+    }
+
+    port def MobileAppPort {
+        in item notification : Notification;
+        out item command : DeviceCommand;
+        out item rule : AutomationRule;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        out attribute consumedPower : Power;
+    }
+
+    action def CollectDeviceTelemetry {
+        in item rawTelemetry : TelemetryMessage;
+        out item normalizedTelemetry : TelemetryMessage;
+    }
+
+    action def EvaluateAutomationRules {
+        in item sensorReading : SensorReading;
+        in item rule : AutomationRule;
+        out item command : DeviceCommand;
+    }
+
+    action def DispatchDeviceCommand {
+        in item command : DeviceCommand;
+        out attribute accepted : Boolean;
+    }
+
+    action def NotifyResident {
+        in item notification : Notification;
+        out attribute delivered : Boolean;
+    }
+
+    action def MonitorConnectivity {
+        in attribute latency : NetworkLatency;
+        out attribute connectivity : ConnectivityState;
+    }
+
+    state def HubOperatingState {
+        entry action initializeHub;
+        state starting;
+        state online;
+        state automating;
+        state degraded;
+        state offline;
+
+        transition first starting;
+        transition starting_to_online
+            first starting
+            then online;
+
+        transition online_to_automating
+            first online
+            accept DeviceCommand
+            then automating;
+
+        transition automating_to_online
+            first automating
+            then online;
+
+        transition online_to_degraded
+            first online
+            if connectivity == ConnectivityState::reconnecting
+            then degraded;
+
+        transition degraded_to_online
+            first degraded
+            if connectivity == ConnectivityState::connected
+            then online;
+
+        transition any_to_offline
+            first online
+            if connectivity == ConnectivityState::disconnected
+            then offline;
+    }
+
+    state def SensorOperatingState {
+        state sleeping;
+        state sensing;
+        state reporting;
+        state lowBattery;
+        state unreachable;
+
+        transition first sleeping;
+        transition wake_to_sense
+            first sleeping
+            then sensing;
+
+        transition sense_to_report
+            first sensing
+            then reporting;
+
+        transition report_to_sleep
+            first reporting
+            then sleeping;
+
+        transition battery_warning
+            first sensing
+            if batteryLevel < 15.0
+            then lowBattery;
+
+        transition lost_connection
+            first reporting
+            if connectivity == ConnectivityState::disconnected
+            then unreachable;
+    }
+
+    state def AutomationExecutionState {
+        state waitingForTrigger;
+        state evaluatingCondition;
+        state issuingCommand;
+        state verifyingOutcome;
+        state completed;
+        state failed;
+
+        transition first waitingForTrigger;
+        transition trigger_received
+            first waitingForTrigger
+            accept SensorReading
+            then evaluatingCondition;
+
+        transition condition_true
+            first evaluatingCondition
+            if ruleEnabled == true
+            then issuingCommand;
+
+        transition command_sent
+            first issuingCommand
+            then verifyingOutcome;
+
+        transition outcome_confirmed
+            first verifyingOutcome
+            then completed;
+
+        transition timeout
+            first verifyingOutcome
+            if elapsedTime > commandTimeout
+            then failed;
+    }
+
+    part def SmartSensor {
+        attribute deviceId : String;
+        attribute batteryLevel : Percentage;
+        attribute connectivity : ConnectivityState;
+        attribute temperature : Temperature;
+        attribute humidity : Humidity;
+        attribute illuminance : Illuminance;
+        attribute motionDetected : Boolean;
+        attribute doorOpen : Boolean;
+
+        port zigbeePort : ZigbeeDevicePort;
+        port powerPort : PowerPort;
+
+        perform action collectTelemetry : CollectDeviceTelemetry;
+        exhibit state sensorState : SensorOperatingState;
+    }
+
+    part def SmartLight {
+        attribute deviceId : String;
+        attribute isOn : Boolean;
+        attribute brightness : Percentage;
+        attribute consumedPower : Power;
+        attribute connectivity : ConnectivityState;
+
+        port wifiPort : WiFiDevicePort;
+        port powerPort : PowerPort;
+
+        perform action executeLightingCommand : DispatchDeviceCommand;
+    }
+
+    part def SmartLock {
+        attribute deviceId : String;
+        attribute locked : Boolean;
+        attribute batteryLevel : Percentage;
+        attribute tamperDetected : Boolean;
+        attribute connectivity : ConnectivityState;
+
+        port zigbeePort : ZigbeeDevicePort;
+        port powerPort : PowerPort;
+
+        perform action executeLockCommand : DispatchDeviceCommand;
+    }
+
+    part def SmartThermostat {
+        attribute deviceId : String;
+        attribute currentTemperature : Temperature;
+        attribute targetTemperature : Temperature;
+        attribute hvacActive : Boolean;
+        attribute consumedPower : Power;
+        attribute connectivity : ConnectivityState;
+
+        port wifiPort : WiFiDevicePort;
+        port powerPort : PowerPort;
+
+        perform action executeClimateCommand : DispatchDeviceCommand;
+    }
+
+    part def SmartThingsHub {
+        attribute hubId : String;
+        attribute mode : DeviceMode;
+        attribute connectivity : ConnectivityState;
+        attribute localAutomationEnabled : Boolean;
+        attribute averageLatency : NetworkLatency;
+        attribute consumedPower : Power;
+
+        port zigbeeNetwork : ZigbeeDevicePort;
+        port wifiNetwork : WiFiDevicePort;
+        port cloudPort : CloudServicePort;
+        port powerPort : PowerPort;
+
+        perform action monitorConnectivity : MonitorConnectivity;
+        perform action collectTelemetry : CollectDeviceTelemetry;
+        perform action evaluateRules : EvaluateAutomationRules;
+        perform action dispatchCommand : DispatchDeviceCommand;
+
+        exhibit state hubState : HubOperatingState;
+        exhibit state automationState : AutomationExecutionState;
+    }
+
+    part def SmartThingsCloud {
+        attribute serviceRegion : String;
+        attribute availability : Percentage;
+        attribute retainedEnergyHistory : Energy;
+        attribute averageCommandLatency : NetworkLatency;
+
+        port servicePort : CloudServicePort;
+
+        perform action evaluateCloudRules : EvaluateAutomationRules;
+        perform action notifyUser : NotifyResident;
+    }
+
+    part def ResidentMobileApplication {
+        attribute userId : String;
+        attribute authenticated : Boolean;
+        attribute pushNotificationsEnabled : Boolean;
+
+        port appPort : MobileAppPort;
+
+        perform action submitCommand : DispatchDeviceCommand;
+        perform action receiveNotification : NotifyResident;
+    }
+
+    part def SmartHomeEnvironment {
+        attribute occupancy : OccupancyState;
+        attribute indoorTemperature : Temperature;
+        attribute indoorHumidity : Humidity;
+        attribute ambientIlluminance : Illuminance;
+        attribute totalPowerConsumption : Power;
+    }
+
+    part def SmartThingsAutomationSystem {
+        attribute systemName : String = "SmartThings Connected Home Automation System";
+        attribute primaryFunction : String = "Coordinate connected household devices, sensor data, automation rules, and resident commands to monitor the home and automatically control lighting, access, climate, and safety notifications.";
+        attribute operatingMode : DeviceMode;
+        attribute maximumCommandLatency : NetworkLatency = 500.0;
+        attribute minimumCloudAvailability : Percentage = 99.5;
+
+        part environment : SmartHomeEnvironment;
+        part hub : SmartThingsHub;
+        part cloud : SmartThingsCloud;
+        part mobileApp : ResidentMobileApplication;
+
+        part motionSensor : SmartSensor {
+            attribute deviceId = "sensor-motion-entry";
+            attribute motionDetected = false;
+            attribute doorOpen = false;
+        }
+
+        part contactSensor : SmartSensor {
+            attribute deviceId = "sensor-front-door";
+            attribute motionDetected = false;
+            attribute doorOpen = false;
+        }
+
+        part livingRoomLight : SmartLight {
+            attribute deviceId = "light-living-room";
+            attribute isOn = false;
+            attribute brightness = 0.0;
+        }
+
+        part frontDoorLock : SmartLock {
+            attribute deviceId = "lock-front-door";
+            attribute locked = true;
+            attribute tamperDetected = false;
+        }
+
+        part thermostat : SmartThermostat {
+            attribute deviceId = "thermostat-main";
+            attribute targetTemperature = 22.0;
+            attribute hvacActive = false;
+        }
+
+        connect motionSensor.zigbeePort to hub.zigbeeNetwork;
+        connect contactSensor.zigbeePort to hub.zigbeeNetwork;
+        connect frontDoorLock.zigbeePort to hub.zigbeeNetwork;
+        connect livingRoomLight.wifiPort to hub.wifiNetwork;
+        connect thermostat.wifiPort to hub.wifiNetwork;
+        connect hub.cloudPort to cloud.servicePort;
+        connect cloud.servicePort to mobileApp.appPort;
+
+        perform action normalTelemetryFlow {
+            first collectTelemetry;
+            then evaluateRules;
+            then dispatchCommand;
+        }
+
+        action collectTelemetry : CollectDeviceTelemetry;
+        action evaluateRules : EvaluateAutomationRules;
+        action dispatchCommand : DispatchDeviceCommand;
+        action notifyResident : NotifyResident;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall provide high-level smart home automation by receiving resident commands and sensor telemetry, evaluating automation rules, and commanding connected devices to maintain comfort, security, energy awareness, and convenience. */
+    }
+
+    requirement def DeviceInteroperabilityRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall integrate Zigbee and Wi-Fi connected devices through a central hub and cloud service without requiring the resident to interact with each device protocol directly. */
+    }
+
+    requirement def AutomationLatencyRequirement {
+        subject system : SmartThingsAutomationSystem;
+        attribute maxAllowedLatency : NetworkLatency = 500.0;
+        doc /* The system shall dispatch routine automation commands to target devices within 500 ms after a valid local trigger is received by the hub. */
+    }
+
+    requirement def SecurityNotificationRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall notify the resident mobile application when a door sensor reports unexpected opening, a lock reports tampering, or a safety-critical automation fails. */
+    }
+
+    requirement def LocalFallbackRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The hub shall continue executing locally stored safety and access automations when cloud connectivity is unavailable. */
+    }
+
+    requirement def EnergyMonitoringRequirement {
+        subject system : SmartThingsAutomationSystem;
+        doc /* The system shall aggregate device power consumption and expose total home power consumption for resident review and automation decisions. */
+    }
+
+    satisfy PrimaryFunctionRequirement by SmartThingsAutomationSystem;
+    satisfy DeviceInteroperabilityRequirement by SmartThingsAutomationSystem.hub;
+    satisfy AutomationLatencyRequirement by SmartThingsAutomationSystem.hub;
+    satisfy SecurityNotificationRequirement by SmartThingsAutomationSystem.cloud;
+    satisfy LocalFallbackRequirement by SmartThingsAutomationSystem.hub;
+    satisfy EnergyMonitoringRequirement by SmartThingsAutomationSystem.environment;
+
+    constraint def LatencyConstraint {
+        in attribute actualLatency : NetworkLatency;
+        in attribute requiredLatency : NetworkLatency;
+        actualLatency <= requiredLatency;
+    }
+
+    constraint def CloudAvailabilityConstraint {
+        in attribute actualAvailability : Percentage;
+        in attribute requiredAvailability : Percentage;
+        actualAvailability >= requiredAvailability;
+    }
+
+    constraint def BatteryOperationalConstraint {
+        in attribute batteryLevel : Percentage;
+        batteryLevel >= 10.0;
+    }
+
+    assert constraint LatencyConstraint {
+        actualLatency = SmartThingsAutomationSystem.hub.averageLatency;
+        requiredLatency = SmartThingsAutomationSystem.maximumCommandLatency;
+    }
+
+    assert constraint CloudAvailabilityConstraint {
+        actualAvailability = SmartThingsAutomationSystem.cloud.availability;
+        requiredAvailability = SmartThingsAutomationSystem.minimumCloudAvailability;
+    }
+
+    assert constraint BatteryOperationalConstraint {
+        batteryLevel = SmartThingsAutomationSystem.frontDoorLock.batteryLevel;
+    }
+
+}

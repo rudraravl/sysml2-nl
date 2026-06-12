@@ -1,0 +1,777 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_geiyzzi
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7b7-a028-7a13-97f1-3630bc6b9a1f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Asterisk and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AsteriskBasedCommunicationSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    item def VoiceSample {
+        attribute payload : Binary;
+        attribute sampleRate : FrequencyValue;
+        attribute codecName : String;
+        attribute timestamp : TimeValue;
+    }
+
+    item def SignalingMessage {
+        attribute protocol : SignalingProtocol;
+        attribute method : String;
+        attribute sourceUri : String;
+        attribute destinationUri : String;
+        attribute transactionId : String;
+    }
+
+    item def CallDetailRecord {
+        attribute callId : String;
+        attribute caller : String;
+        attribute callee : String;
+        attribute startTime : TimeValue;
+        attribute endTime : TimeValue;
+        attribute duration : DurationValue;
+        attribute disposition : CallDisposition;
+    }
+
+    item def VoicemailMessage {
+        attribute mailboxId : String;
+        attribute callerId : String;
+        attribute recordingDuration : DurationValue;
+        attribute audioEncoding : String;
+        attribute receivedTime : TimeValue;
+    }
+
+    enum def SignalingProtocol {
+        enum SIP;
+        enum IAX2;
+        enum WebRTC;
+        enum AMI;
+        enum ARI;
+    }
+
+    enum def CallDisposition {
+        enum Answered;
+        enum Busy;
+        enum NoAnswer;
+        enum Failed;
+        enum VoicemailRecorded;
+        enum Forwarded;
+    }
+
+    enum def CallStateKind {
+        enum Idle;
+        enum ReceivingInvite;
+        enum Authenticating;
+        enum Routing;
+        enum Ringing;
+        enum Bridged;
+        enum RecordingVoicemail;
+        enum Terminating;
+        enum Failed;
+    }
+
+    value def ConcurrentCallCount :> ScalarValues::Integer;
+    value def Milliseconds :> DurationValue;
+    value def Erlang :> Real;
+    value def Binary;
+
+    port def SipTrunkPort {
+        in item inboundSignal : SignalingMessage;
+        out item outboundSignal : SignalingMessage;
+        in item inboundMedia : VoiceSample;
+        out item outboundMedia : VoiceSample;
+    }
+
+    port def EndpointPort {
+        in item endpointSignalIn : SignalingMessage;
+        out item endpointSignalOut : SignalingMessage;
+        in item audioIn : VoiceSample;
+        out item audioOut : VoiceSample;
+    }
+
+    port def ManagementPort {
+        in item command : SignalingMessage;
+        out item event : SignalingMessage;
+    }
+
+    port def RecordPort {
+        out item callRecord : CallDetailRecord;
+        out item voicemail : VoicemailMessage;
+    }
+
+    action def AuthenticateEndpoint {
+        in item registration : SignalingMessage;
+        out attribute authenticated : Boolean;
+    }
+
+    action def ResolveDialplanRoute {
+        in item invite : SignalingMessage;
+        out attribute destinationExtension : String;
+        out attribute routeFound : Boolean;
+    }
+
+    action def BridgeMediaStreams {
+        in item callerAudio : VoiceSample;
+        in item calleeAudio : VoiceSample;
+        out item mixedCallerAudio : VoiceSample;
+        out item mixedCalleeAudio : VoiceSample;
+    }
+
+    action def RecordCallDetail {
+        in item completedCall : CallDetailRecord;
+    }
+
+    action def StoreVoicemail {
+        in item message : VoicemailMessage;
+    }
+
+    state def CallSessionLifecycle {
+        attribute callState : CallStateKind = CallStateKind::Idle;
+
+        state idle;
+        state receivingInvite;
+        state authenticating;
+        state routing;
+        state ringing;
+        state bridged;
+        state recordingVoicemail;
+        state terminating;
+        state failed;
+
+        transition first idle;
+
+        transition acceptInvite
+            first idle
+            then receivingInvite;
+
+        transition beginAuthentication
+            first receivingInvite
+            then authenticating;
+
+        transition authenticationAccepted
+            first authenticating
+            then routing;
+
+        transition authenticationRejected
+            first authenticating
+            then failed;
+
+        transition routeResolved
+            first routing
+            then ringing;
+
+        transition routeUnavailable
+            first routing
+            then recordingVoicemail;
+
+        transition calleeAnswered
+            first ringing
+            then bridged;
+
+        transition calleeUnavailable
+            first ringing
+            then recordingVoicemail;
+
+        transition callerHangupFromBridge
+            first bridged
+            then terminating;
+
+        transition voicemailComplete
+            first recordingVoicemail
+            then terminating;
+
+        transition failureCleared
+            first failed
+            then terminating;
+
+        transition sessionClosed
+            first terminating
+            then idle;
+    }
+
+    part def SIPUserEndpoint {
+        attribute extension : String;
+        attribute displayName : String;
+        attribute registered : Boolean;
+        attribute maxBitRate : Real;
+        port mediaAndSignal : EndpointPort;
+    }
+
+    part def ExternalSipCarrier {
+        attribute carrierName : String;
+        attribute maximumChannels : ConcurrentCallCount;
+        attribute averageLatency : Milliseconds;
+        port trunk : SipTrunkPort;
+    }
+
+    part def AsteriskCore {
+        attribute softwareName : String = "Asterisk";
+        attribute primaryFunction : String =
+            "Provide software-based private branch exchange services by accepting voice signaling, routing calls through a dialplan, bridging media streams, and producing operational call records.";
+        attribute maximumConcurrentCalls : ConcurrentCallCount;
+        attribute targetAvailability : Real;
+        attribute activeCallCount : ConcurrentCallCount;
+        attribute nominalTrafficLoad : Erlang;
+
+        port officeEndpointAccess : EndpointPort;
+        port remoteEndpointAccess : EndpointPort;
+        port carrierAccess : SipTrunkPort;
+        port administration : ManagementPort;
+        port records : RecordPort;
+
+        perform action authenticateEndpoint : AuthenticateEndpoint;
+        perform action resolveDialplanRoute : ResolveDialplanRoute;
+        perform action bridgeMediaStreams : BridgeMediaStreams;
+        perform action recordCallDetail : RecordCallDetail;
+        perform action storeVoicemail : StoreVoicemail;
+
+        exhibit state callSessionLifecycle : CallSessionLifecycle;
+    }
+
+    part def DialplanService {
+        attribute internalExtensionLength : Integer;
+        attribute emergencyRouteEnabled : Boolean;
+        attribute voicemailFallbackEnabled : Boolean;
+        attribute outboundPrefix : String;
+    }
+
+    part def MediaBridgeService {
+        attribute supportedCodecCount : Integer;
+        attribute defaultCodec : String;
+        attribute packetizationInterval : Milliseconds;
+        attribute jitterBufferDepth : Milliseconds;
+    }
+
+    part def VoicemailService {
+        attribute mailboxCount : Integer;
+        attribute maxMessageDuration : DurationValue;
+        attribute storageQuotaBytes : Integer;
+        port voicemailRecords : RecordPort;
+    }
+
+    part def CallAccountingService {
+        attribute retainedRecordDays : Integer;
+        attribute recordFormat : String;
+        port cdrOutput : RecordPort;
+    }
+
+    part def AdministrationConsole {
+        attribute operatorRole : String;
+        attribute sessionTimeout : DurationValue;
+        port control : ManagementPort;
+    }
+
+    part def AsteriskPBXSystem {
+        attribute systemName : String = "Asterisk-Based Enterprise Voice Communication System";
+        attribute highLevelFunction : String =
+            "Route, connect, and manage real-time voice calls between internal extensions and external telephone networks using an Asterisk PBX core.";
+
+        part pbxCore : AsteriskCore {
+            attribute maximumConcurrentCalls = 250;
+            attribute targetAvailability = 0.999;
+            attribute activeCallCount = 0;
+            attribute nominalTrafficLoad = 80.0;
+        }
+
+        part dialplan : DialplanService {
+            attribute internalExtensionLength = 4;
+            attribute emergencyRouteEnabled = true;
+            attribute voicemailFallbackEnabled = true;
+            attribute outboundPrefix = "9";
+        }
+
+        part mediaBridge : MediaBridgeService {
+            attribute supportedCodecCount = 5;
+            attribute defaultCodec = "opus";
+            attribute packetizationInterval = 20 [ms];
+            attribute jitterBufferDepth = 60 [ms];
+        }
+
+        part voicemail : VoicemailService {
+            attribute mailboxCount = 500;
+            attribute maxMessageDuration = 300 [s];
+            attribute storageQuotaBytes = 10737418240;
+        }
+
+        part accounting : CallAccountingService {
+            attribute retainedRecordDays = 400;
+            attribute recordFormat = "CSV";
+        }
+
+        part adminConsole : AdministrationConsole {
+            attribute operatorRole = "Telephony Administrator";
+            attribute sessionTimeout = 900 [s];
+        }
+
+        part officePhone1 : SIPUserEndpoint {
+            attribute extension = "1001";
+            attribute displayName = "Reception";
+            attribute registered = true;
+            attribute maxBitRate = 64000.0;
+        }
+
+        part officePhone2 : SIPUserEndpoint {
+            attribute extension = "1002";
+            attribute displayName = "Operations";
+            attribute registered = true;
+            attribute maxBitRate = 64000.0;
+        }
+
+        part softphoneRemote : SIPUserEndpoint {
+            attribute extension = "2101";
+            attribute displayName = "Remote Support";
+            attribute registered = true;
+            attribute maxBitRate = 48000.0;
+        }
+
+        part sipCarrier : ExternalSipCarrier {
+            attribute carrierName = "Public SIP Trunk Provider";
+            attribute maximumChannels = 120;
+            attribute averageLatency = 35 [ms];
+        }
+
+        connect officePhone1.mediaAndSignal to pbxCore.officeEndpointAccess;
+        connect officePhone2.mediaAndSignal to pbxCore.officeEndpointAccess;
+        connect softphoneRemote.mediaAndSignal to pbxCore.remoteEndpointAccess;
+        connect sipCarrier.trunk to pbxCore.carrierAccess;
+        connect adminConsole.control to pbxCore.administration;
+        connect pbxCore.records to accounting.cdrOutput;
+        connect pbxCore.records to voicemail.voicemailRecords;
+    }
+
+    requirement def RouteVoiceCalls {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.pbxCore.maximumConcurrentCalls >= 200
+        }
+    }
+
+    requirement def ProvideHighAvailability {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.pbxCore.targetAvailability >= 0.999
+        }
+    }
+
+    requirement def SupportInternalAndExternalCalling {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.dialplan.internalExtensionLength == 4 and
+            system.sipCarrier.maximumChannels >= 100
+        }
+    }
+
+    requirement def ProduceCallRecords {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.accounting.retainedRecordDays >= 365
+        }
+    }
+
+    requirement def OfferVoicemailFallback {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.dialplan.voicemailFallbackEnabled == true and
+            system.voicemail.mailboxCount >= 500
+        }
+    }
+
+    satisfy RouteVoiceCalls by AsteriskPBXSystem::pbxCore;
+    satisfy ProvideHighAvailability by AsteriskPBXSystem::pbxCore;
+    satisfy SupportInternalAndExternalCalling by AsteriskPBXSystem::dialplan;
+    satisfy ProduceCallRecords by AsteriskPBXSystem::accounting;
+    satisfy OfferVoicemailFallback by AsteriskPBXSystem::voicemail;
+}
+tokens used
+3,816
+package AsteriskBasedCommunicationSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    item def VoiceSample {
+        attribute payload : Binary;
+        attribute sampleRate : FrequencyValue;
+        attribute codecName : String;
+        attribute timestamp : TimeValue;
+    }
+
+    item def SignalingMessage {
+        attribute protocol : SignalingProtocol;
+        attribute method : String;
+        attribute sourceUri : String;
+        attribute destinationUri : String;
+        attribute transactionId : String;
+    }
+
+    item def CallDetailRecord {
+        attribute callId : String;
+        attribute caller : String;
+        attribute callee : String;
+        attribute startTime : TimeValue;
+        attribute endTime : TimeValue;
+        attribute duration : DurationValue;
+        attribute disposition : CallDisposition;
+    }
+
+    item def VoicemailMessage {
+        attribute mailboxId : String;
+        attribute callerId : String;
+        attribute recordingDuration : DurationValue;
+        attribute audioEncoding : String;
+        attribute receivedTime : TimeValue;
+    }
+
+    enum def SignalingProtocol {
+        enum SIP;
+        enum IAX2;
+        enum WebRTC;
+        enum AMI;
+        enum ARI;
+    }
+
+    enum def CallDisposition {
+        enum Answered;
+        enum Busy;
+        enum NoAnswer;
+        enum Failed;
+        enum VoicemailRecorded;
+        enum Forwarded;
+    }
+
+    enum def CallStateKind {
+        enum Idle;
+        enum ReceivingInvite;
+        enum Authenticating;
+        enum Routing;
+        enum Ringing;
+        enum Bridged;
+        enum RecordingVoicemail;
+        enum Terminating;
+        enum Failed;
+    }
+
+    value def ConcurrentCallCount :> ScalarValues::Integer;
+    value def Milliseconds :> DurationValue;
+    value def Erlang :> Real;
+    value def Binary;
+
+    port def SipTrunkPort {
+        in item inboundSignal : SignalingMessage;
+        out item outboundSignal : SignalingMessage;
+        in item inboundMedia : VoiceSample;
+        out item outboundMedia : VoiceSample;
+    }
+
+    port def EndpointPort {
+        in item endpointSignalIn : SignalingMessage;
+        out item endpointSignalOut : SignalingMessage;
+        in item audioIn : VoiceSample;
+        out item audioOut : VoiceSample;
+    }
+
+    port def ManagementPort {
+        in item command : SignalingMessage;
+        out item event : SignalingMessage;
+    }
+
+    port def RecordPort {
+        out item callRecord : CallDetailRecord;
+        out item voicemail : VoicemailMessage;
+    }
+
+    action def AuthenticateEndpoint {
+        in item registration : SignalingMessage;
+        out attribute authenticated : Boolean;
+    }
+
+    action def ResolveDialplanRoute {
+        in item invite : SignalingMessage;
+        out attribute destinationExtension : String;
+        out attribute routeFound : Boolean;
+    }
+
+    action def BridgeMediaStreams {
+        in item callerAudio : VoiceSample;
+        in item calleeAudio : VoiceSample;
+        out item mixedCallerAudio : VoiceSample;
+        out item mixedCalleeAudio : VoiceSample;
+    }
+
+    action def RecordCallDetail {
+        in item completedCall : CallDetailRecord;
+    }
+
+    action def StoreVoicemail {
+        in item message : VoicemailMessage;
+    }
+
+    state def CallSessionLifecycle {
+        attribute callState : CallStateKind = CallStateKind::Idle;
+
+        state idle;
+        state receivingInvite;
+        state authenticating;
+        state routing;
+        state ringing;
+        state bridged;
+        state recordingVoicemail;
+        state terminating;
+        state failed;
+
+        transition first idle;
+
+        transition acceptInvite
+            first idle
+            then receivingInvite;
+
+        transition beginAuthentication
+            first receivingInvite
+            then authenticating;
+
+        transition authenticationAccepted
+            first authenticating
+            then routing;
+
+        transition authenticationRejected
+            first authenticating
+            then failed;
+
+        transition routeResolved
+            first routing
+            then ringing;
+
+        transition routeUnavailable
+            first routing
+            then recordingVoicemail;
+
+        transition calleeAnswered
+            first ringing
+            then bridged;
+
+        transition calleeUnavailable
+            first ringing
+            then recordingVoicemail;
+
+        transition callerHangupFromBridge
+            first bridged
+            then terminating;
+
+        transition voicemailComplete
+            first recordingVoicemail
+            then terminating;
+
+        transition failureCleared
+            first failed
+            then terminating;
+
+        transition sessionClosed
+            first terminating
+            then idle;
+    }
+
+    part def SIPUserEndpoint {
+        attribute extension : String;
+        attribute displayName : String;
+        attribute registered : Boolean;
+        attribute maxBitRate : Real;
+        port mediaAndSignal : EndpointPort;
+    }
+
+    part def ExternalSipCarrier {
+        attribute carrierName : String;
+        attribute maximumChannels : ConcurrentCallCount;
+        attribute averageLatency : Milliseconds;
+        port trunk : SipTrunkPort;
+    }
+
+    part def AsteriskCore {
+        attribute softwareName : String = "Asterisk";
+        attribute primaryFunction : String =
+            "Provide software-based private branch exchange services by accepting voice signaling, routing calls through a dialplan, bridging media streams, and producing operational call records.";
+        attribute maximumConcurrentCalls : ConcurrentCallCount;
+        attribute targetAvailability : Real;
+        attribute activeCallCount : ConcurrentCallCount;
+        attribute nominalTrafficLoad : Erlang;
+
+        port officeEndpointAccess : EndpointPort;
+        port remoteEndpointAccess : EndpointPort;
+        port carrierAccess : SipTrunkPort;
+        port administration : ManagementPort;
+        port records : RecordPort;
+
+        perform action authenticateEndpoint : AuthenticateEndpoint;
+        perform action resolveDialplanRoute : ResolveDialplanRoute;
+        perform action bridgeMediaStreams : BridgeMediaStreams;
+        perform action recordCallDetail : RecordCallDetail;
+        perform action storeVoicemail : StoreVoicemail;
+
+        exhibit state callSessionLifecycle : CallSessionLifecycle;
+    }
+
+    part def DialplanService {
+        attribute internalExtensionLength : Integer;
+        attribute emergencyRouteEnabled : Boolean;
+        attribute voicemailFallbackEnabled : Boolean;
+        attribute outboundPrefix : String;
+    }
+
+    part def MediaBridgeService {
+        attribute supportedCodecCount : Integer;
+        attribute defaultCodec : String;
+        attribute packetizationInterval : Milliseconds;
+        attribute jitterBufferDepth : Milliseconds;
+    }
+
+    part def VoicemailService {
+        attribute mailboxCount : Integer;
+        attribute maxMessageDuration : DurationValue;
+        attribute storageQuotaBytes : Integer;
+        port voicemailRecords : RecordPort;
+    }
+
+    part def CallAccountingService {
+        attribute retainedRecordDays : Integer;
+        attribute recordFormat : String;
+        port cdrOutput : RecordPort;
+    }
+
+    part def AdministrationConsole {
+        attribute operatorRole : String;
+        attribute sessionTimeout : DurationValue;
+        port control : ManagementPort;
+    }
+
+    part def AsteriskPBXSystem {
+        attribute systemName : String = "Asterisk-Based Enterprise Voice Communication System";
+        attribute highLevelFunction : String =
+            "Route, connect, and manage real-time voice calls between internal extensions and external telephone networks using an Asterisk PBX core.";
+
+        part pbxCore : AsteriskCore {
+            attribute maximumConcurrentCalls = 250;
+            attribute targetAvailability = 0.999;
+            attribute activeCallCount = 0;
+            attribute nominalTrafficLoad = 80.0;
+        }
+
+        part dialplan : DialplanService {
+            attribute internalExtensionLength = 4;
+            attribute emergencyRouteEnabled = true;
+            attribute voicemailFallbackEnabled = true;
+            attribute outboundPrefix = "9";
+        }
+
+        part mediaBridge : MediaBridgeService {
+            attribute supportedCodecCount = 5;
+            attribute defaultCodec = "opus";
+            attribute packetizationInterval = 20 [ms];
+            attribute jitterBufferDepth = 60 [ms];
+        }
+
+        part voicemail : VoicemailService {
+            attribute mailboxCount = 500;
+            attribute maxMessageDuration = 300 [s];
+            attribute storageQuotaBytes = 10737418240;
+        }
+
+        part accounting : CallAccountingService {
+            attribute retainedRecordDays = 400;
+            attribute recordFormat = "CSV";
+        }
+
+        part adminConsole : AdministrationConsole {
+            attribute operatorRole = "Telephony Administrator";
+            attribute sessionTimeout = 900 [s];
+        }
+
+        part officePhone1 : SIPUserEndpoint {
+            attribute extension = "1001";
+            attribute displayName = "Reception";
+            attribute registered = true;
+            attribute maxBitRate = 64000.0;
+        }
+
+        part officePhone2 : SIPUserEndpoint {
+            attribute extension = "1002";
+            attribute displayName = "Operations";
+            attribute registered = true;
+            attribute maxBitRate = 64000.0;
+        }
+
+        part softphoneRemote : SIPUserEndpoint {
+            attribute extension = "2101";
+            attribute displayName = "Remote Support";
+            attribute registered = true;
+            attribute maxBitRate = 48000.0;
+        }
+
+        part sipCarrier : ExternalSipCarrier {
+            attribute carrierName = "Public SIP Trunk Provider";
+            attribute maximumChannels = 120;
+            attribute averageLatency = 35 [ms];
+        }
+
+        connect officePhone1.mediaAndSignal to pbxCore.officeEndpointAccess;
+        connect officePhone2.mediaAndSignal to pbxCore.officeEndpointAccess;
+        connect softphoneRemote.mediaAndSignal to pbxCore.remoteEndpointAccess;
+        connect sipCarrier.trunk to pbxCore.carrierAccess;
+        connect adminConsole.control to pbxCore.administration;
+        connect pbxCore.records to accounting.cdrOutput;
+        connect pbxCore.records to voicemail.voicemailRecords;
+    }
+
+    requirement def RouteVoiceCalls {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.pbxCore.maximumConcurrentCalls >= 200
+        }
+    }
+
+    requirement def ProvideHighAvailability {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.pbxCore.targetAvailability >= 0.999
+        }
+    }
+
+    requirement def SupportInternalAndExternalCalling {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.dialplan.internalExtensionLength == 4 and
+            system.sipCarrier.maximumChannels >= 100
+        }
+    }
+
+    requirement def ProduceCallRecords {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.accounting.retainedRecordDays >= 365
+        }
+    }
+
+    requirement def OfferVoicemailFallback {
+        subject system : AsteriskPBXSystem;
+        require constraint {
+            system.dialplan.voicemailFallbackEnabled == true and
+            system.voicemail.mailboxCount >= 500
+        }
+    }
+
+    satisfy RouteVoiceCalls by AsteriskPBXSystem::pbxCore;
+    satisfy ProvideHighAvailability by AsteriskPBXSystem::pbxCore;
+    satisfy SupportInternalAndExternalCalling by AsteriskPBXSystem::dialplan;
+    satisfy ProduceCallRecords by AsteriskPBXSystem::accounting;
+    satisfy OfferVoicemailFallback by AsteriskPBXSystem::voicemail;
+}

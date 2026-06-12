@@ -1,0 +1,1133 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-krtyqux_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb53a-4f83-7670-b23a-a26bdd31f860
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a sensing unit that measures the relevant quantity using a Engine coolant temperature sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EngineCoolantTemperatureSensingUnit {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :>> scalar : Real;
+        unit = "V";
+    }
+
+    attribute def Resistance {
+        :>> scalar : Real;
+        unit = "ohm";
+    }
+
+    attribute def Current {
+        :>> scalar : Real;
+        unit = "mA";
+    }
+
+    attribute def TimeDuration {
+        :>> scalar : Real;
+        unit = "ms";
+    }
+
+    attribute def Frequency {
+        :>> scalar : Real;
+        unit = "Hz";
+    }
+
+    attribute def Percent {
+        :>> scalar : Real;
+        unit = "%";
+    }
+
+    attribute def DiagnosticCode {
+        :>> scalar : String;
+    }
+
+    item def Coolant {
+        attribute temperature : Temperature;
+        attribute pressure : Real;
+        attribute glycolConcentration : Percent;
+    }
+
+    item def ThermalContact {
+        attribute sensedTemperature : Temperature;
+        attribute thermalLag : TimeDuration;
+    }
+
+    item def AnalogTemperatureSignal {
+        attribute voltage : Voltage;
+        attribute equivalentTemperature : Temperature;
+        attribute valid : Boolean;
+    }
+
+    item def DigitalTemperatureSample {
+        attribute measuredTemperature : Temperature;
+        attribute sampleTime : TimeDuration;
+        attribute signalQuality : Percent;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortToGround : Boolean;
+        attribute sensorShortToSupply : Boolean;
+        attribute outOfRange : Boolean;
+        attribute code : DiagnosticCode;
+    }
+
+    port def CoolantInterface {
+        in item coolant : Coolant;
+        out item thermalContact : ThermalContact;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogTemperatureSignal;
+    }
+
+    port def DigitalDataPort {
+        out item sample : DigitalTemperatureSample;
+        out item diagnostic : DiagnosticStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrentLimit : Current;
+        out attribute consumedCurrent : Current;
+    }
+
+    port def GroundPort {
+        in attribute groundReference : Voltage;
+    }
+
+    part def EngineCoolantTemperatureSensor {
+        attribute sensorType : String = "NTC thermistor";
+        attribute nominalResistanceAt25C : Resistance = 2500.0;
+        attribute betaCoefficient : Real = 3977.0;
+        attribute minimumOperatingTemperature : Temperature = -40.0;
+        attribute maximumOperatingTemperature : Temperature = 150.0;
+        attribute responseTimeT63 : TimeDuration = 2500.0;
+        attribute accuracyAtOperatingRange : Temperature = 2.0;
+        attribute excitationCurrentMaximum : Current = 2.0;
+
+        port coolantPort : CoolantInterface;
+        port analogOut : AnalogSignalPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action senseCoolantTemperature {
+            in item coolantIn : Coolant;
+            in attribute excitationVoltage : Voltage;
+            out item analogSignalOut : AnalogTemperatureSignal;
+
+            attribute thermistorResistance : Resistance;
+            attribute sensedTemperature : Temperature;
+
+            first start;
+            then calculateResistance;
+            then convertResistanceToTemperature;
+            then generateVoltageSignal;
+            then done;
+
+            action calculateResistance {
+                in item coolantIn;
+                out attribute thermistorResistance;
+            }
+
+            action convertResistanceToTemperature {
+                in attribute thermistorResistance;
+                out attribute sensedTemperature;
+            }
+
+            action generateVoltageSignal {
+                in attribute sensedTemperature;
+                out item analogSignalOut;
+            }
+        }
+
+        state sensorHealth {
+            attribute latestTemperature : Temperature;
+            attribute latestVoltage : Voltage;
+
+            state initializing;
+            state measuring;
+            state faultOpenCircuit;
+            state faultShortToGround;
+            state faultShortToSupply;
+            state thermalRangeFault;
+
+            entry; then initializing;
+
+            transition initializing_to_measuring
+                first initializing
+                accept after 100.0 [ms]
+                then measuring;
+
+            transition measuring_to_open
+                first measuring
+                if latestVoltage >= 4.95
+                then faultOpenCircuit;
+
+            transition measuring_to_short_ground
+                first measuring
+                if latestVoltage <= 0.05
+                then faultShortToGround;
+
+            transition measuring_to_short_supply
+                first measuring
+                if latestVoltage > 5.10
+                then faultShortToSupply;
+
+            transition measuring_to_range_fault
+                first measuring
+                if latestTemperature < -40.0 or latestTemperature > 150.0
+                then thermalRangeFault;
+
+            transition fault_to_measuring
+                first faultOpenCircuit
+                accept after 500.0 [ms]
+                if latestVoltage > 0.05 and latestVoltage < 4.95
+                then measuring;
+
+            transition short_ground_to_measuring
+                first faultShortToGround
+                accept after 500.0 [ms]
+                if latestVoltage > 0.05 and latestVoltage < 4.95
+                then measuring;
+
+            transition short_supply_to_measuring
+                first faultShortToSupply
+                accept after 500.0 [ms]
+                if latestVoltage <= 5.10
+                then measuring;
+
+            transition range_fault_to_measuring
+                first thermalRangeFault
+                accept after 500.0 [ms]
+                if latestTemperature >= -40.0 and latestTemperature <= 150.0
+                then measuring;
+        }
+    }
+
+    part def SignalConditioningCircuit {
+        attribute pullupResistance : Resistance = 2490.0;
+        attribute referenceVoltage : Voltage = 5.0;
+        attribute lowPassCutoffFrequency : Frequency = 20.0;
+        attribute outputVoltageMinimum : Voltage = 0.0;
+        attribute outputVoltageMaximum : Voltage = 5.0;
+        attribute inputImpedance : Resistance = 100000.0;
+
+        port sensorAnalogIn : AnalogSignalPort;
+        port conditionedAnalogOut : AnalogSignalPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action filterAndScaleSignal {
+            in item rawSignal : AnalogTemperatureSignal;
+            out item conditionedSignal : AnalogTemperatureSignal;
+
+            first receiveRawSignal;
+            then applyLowPassFilter;
+            then limitVoltageRange;
+            then emitConditionedSignal;
+
+            action receiveRawSignal;
+            action applyLowPassFilter;
+            action limitVoltageRange;
+            action emitConditionedSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 12;
+        attribute referenceVoltage : Voltage = 5.0;
+        attribute sampleRate : Frequency = 100.0;
+        attribute conversionTime : TimeDuration = 1.0;
+        attribute quantizationStep : Voltage = 0.00122;
+
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalDataPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action convertAnalogToDigitalTemperature {
+            in item conditionedSignal : AnalogTemperatureSignal;
+            out item temperatureSample : DigitalTemperatureSample;
+
+            first sampleVoltage;
+            then convertCountsToVoltage;
+            then mapVoltageToTemperature;
+            then publishSample;
+
+            action sampleVoltage;
+            action convertCountsToVoltage;
+            action mapVoltageToTemperature;
+            action publishSample;
+        }
+    }
+
+    part def TemperatureLinearizationProcessor {
+        attribute calibrationTableSize : Integer = 32;
+        attribute minimumReportedTemperature : Temperature = -40.0;
+        attribute maximumReportedTemperature : Temperature = 150.0;
+        attribute filteringWindowSamples : Integer = 8;
+        attribute diagnosticEvaluationPeriod : TimeDuration = 10.0;
+
+        port rawDataIn : DigitalDataPort;
+        port processedDataOut : DigitalDataPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action linearizeAndValidate {
+            in item rawSample : DigitalTemperatureSample;
+            out item processedSample : DigitalTemperatureSample;
+            out item diagnosticOut : DiagnosticStatus;
+
+            first readRawSample;
+            then applyCalibrationCurve;
+            then applyMovingAverageFilter;
+            then checkRangeAndPlausibility;
+            then publishProcessedData;
+
+            action readRawSample;
+            action applyCalibrationCurve;
+            action applyMovingAverageFilter;
+            action checkRangeAndPlausibility;
+            action publishProcessedData;
+        }
+
+        state processingState {
+            state startup;
+            state normalOperation;
+            state degradedOperation;
+            state diagnosticFault;
+
+            entry; then startup;
+
+            transition startup_to_normal
+                first startup
+                accept after 50.0 [ms]
+                then normalOperation;
+
+            transition normal_to_degraded
+                first normalOperation
+                if processedDataOut::sample::signalQuality < 80.0
+                then degradedOperation;
+
+            transition degraded_to_normal
+                first degradedOperation
+                if processedDataOut::sample::signalQuality >= 90.0
+                then normalOperation;
+
+            transition normal_to_fault
+                first normalOperation
+                if processedDataOut::diagnostic::outOfRange
+                then diagnosticFault;
+
+            transition degraded_to_fault
+                first degradedOperation
+                if processedDataOut::diagnostic::sensorOpenCircuit or processedDataOut::diagnostic::sensorShortToGround or processedDataOut::diagnostic::sensorShortToSupply
+                then diagnosticFault;
+
+            transition fault_to_degraded
+                first diagnosticFault
+                accept after 1000.0 [ms]
+                if not processedDataOut::diagnostic::sensorOpenCircuit and not processedDataOut::diagnostic::sensorShortToGround and not processedDataOut::diagnostic::sensorShortToSupply
+                then degradedOperation;
+        }
+    }
+
+    part def EngineControlUnitInterface {
+        attribute communicationProtocol : String = "CAN";
+        attribute updatePeriod : TimeDuration = 10.0;
+        attribute timeoutThreshold : TimeDuration = 100.0;
+
+        port temperatureDataIn : DigitalDataPort;
+        port temperatureDataOut : DigitalDataPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action transmitTemperatureToController {
+            in item sampleIn : DigitalTemperatureSample;
+            in item diagnosticIn : DiagnosticStatus;
+            out item sampleOut : DigitalTemperatureSample;
+            out item diagnosticOut : DiagnosticStatus;
+
+            first receiveProcessedMeasurement;
+            then packageMeasurementFrame;
+            then packageDiagnosticFrame;
+            then transmitFrames;
+
+            action receiveProcessedMeasurement;
+            action packageMeasurementFrame;
+            action packageDiagnosticFrame;
+            action transmitFrames;
+        }
+    }
+
+    part def RegulatedPowerSupply {
+        attribute inputVoltageNominal : Voltage = 12.0;
+        attribute outputVoltageNominal : Voltage = 5.0;
+        attribute outputVoltageTolerance : Percent = 2.0;
+        attribute maximumOutputCurrent : Current = 100.0;
+
+        port inputPower : PowerPort;
+        port sensorPower : PowerPort;
+        port conditioningPower : PowerPort;
+        port adcPower : PowerPort;
+        port processorPower : PowerPort;
+        port interfacePower : PowerPort;
+        port ground : GroundPort;
+    }
+
+    part def EngineCoolantTemperatureSensingUnit {
+        attribute measuredQuantity : String = "engine coolant temperature";
+        attribute measurementRangeLow : Temperature = -40.0;
+        attribute measurementRangeHigh : Temperature = 150.0;
+        attribute totalAccuracy : Temperature = 3.0;
+        attribute outputUpdatePeriod : TimeDuration = 10.0;
+        attribute startupTimeMaximum : TimeDuration = 100.0;
+
+        port coolantInterface : CoolantInterface;
+        port vehiclePowerInput : PowerPort;
+        port chassisGround : GroundPort;
+        port ecuOutput : DigitalDataPort;
+
+        part ectSensor : EngineCoolantTemperatureSensor;
+        part conditioning : SignalConditioningCircuit;
+        part adc : AnalogToDigitalConverter;
+        part processor : TemperatureLinearizationProcessor;
+        part ecuInterface : EngineControlUnitInterface;
+        part powerSupply : RegulatedPowerSupply;
+
+        connect coolantInterface to ectSensor.coolantPort;
+        connect ectSensor.analogOut to conditioning.sensorAnalogIn;
+        connect conditioning.conditionedAnalogOut to adc.analogIn;
+        connect adc.digitalOut to processor.rawDataIn;
+        connect processor.processedDataOut to ecuInterface.temperatureDataIn;
+        connect ecuInterface.temperatureDataOut to ecuOutput;
+
+        connect vehiclePowerInput to powerSupply.inputPower;
+        connect chassisGround to powerSupply.ground;
+        connect powerSupply.sensorPower to ectSensor.power;
+        connect powerSupply.conditioningPower to conditioning.power;
+        connect powerSupply.adcPower to adc.power;
+        connect powerSupply.processorPower to processor.power;
+        connect powerSupply.interfacePower to ecuInterface.power;
+
+        connect chassisGround to ectSensor.ground;
+        connect chassisGround to conditioning.ground;
+        connect chassisGround to adc.ground;
+        connect chassisGround to processor.ground;
+        connect chassisGround to ecuInterface.ground;
+
+        action measureEngineCoolantTemperature {
+            in item coolantIn : Coolant;
+            out item temperatureOut : DigitalTemperatureSample;
+            out item diagnosticOut : DiagnosticStatus;
+
+            first powerStabilization;
+            then acquireThermalSignal;
+            then conditionAnalogSignal;
+            then convertToDigitalSample;
+            then linearizeTemperature;
+            then evaluateDiagnostics;
+            then transmitMeasurement;
+
+            action powerStabilization;
+            action acquireThermalSignal;
+            action conditionAnalogSignal;
+            action convertToDigitalSample;
+            action linearizeTemperature;
+            action evaluateDiagnostics;
+            action transmitMeasurement;
+        }
+
+        state sensingUnitOperationalState {
+            state unpowered;
+            state powerOnSelfTest;
+            state sensing;
+            state reportingFault;
+            state shutdown;
+
+            entry; then unpowered;
+
+            transition unpowered_to_self_test
+                first unpowered
+                if vehiclePowerInput::supplyVoltage >= 9.0 and vehiclePowerInput::supplyVoltage <= 16.0
+                then powerOnSelfTest;
+
+            transition self_test_to_sensing
+                first powerOnSelfTest
+                accept after 100.0 [ms]
+                if not ecuOutput::diagnostic::sensorOpenCircuit and not ecuOutput::diagnostic::sensorShortToGround
+                then sensing;
+
+            transition sensing_to_fault
+                first sensing
+                if ecuOutput::diagnostic::sensorOpenCircuit or ecuOutput::diagnostic::sensorShortToGround or ecuOutput::diagnostic::sensorShortToSupply or ecuOutput::diagnostic::outOfRange
+                then reportingFault;
+
+            transition fault_to_sensing
+                first reportingFault
+                accept after 1000.0 [ms]
+                if not ecuOutput::diagnostic::sensorOpenCircuit and not ecuOutput::diagnostic::sensorShortToGround and not ecuOutput::diagnostic::sensorShortToSupply and not ecuOutput::diagnostic::outOfRange
+                then sensing;
+
+            transition any_to_shutdown
+                first sensing
+                if vehiclePowerInput::supplyVoltage < 6.0
+                then shutdown;
+        }
+    }
+
+    requirement def MeasureCoolantTemperatureRequirement {
+        doc /* The sensing unit shall measure engine coolant temperature using an engine coolant temperature sensor. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantity == "engine coolant temperature"
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The sensing unit shall report coolant temperature over the range from -40 degC to 150 degC. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeLow <= -40.0 and sensingUnit.measurementRangeHigh >= 150.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The sensing unit shall provide coolant temperature measurement accuracy within +/-3 degC over the operating measurement range. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.totalAccuracy <= 3.0
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The sensing unit shall update the reported coolant temperature at least every 10 ms during normal operation. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.outputUpdatePeriod <= 10.0
+        }
+    }
+
+    requirement def StartupRequirement {
+        doc /* The sensing unit shall begin reporting valid coolant temperature samples within 100 ms after valid vehicle power is applied. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.startupTimeMaximum <= 100.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The sensing unit shall detect sensor open circuit, short to ground, short to supply, and out-of-range coolant temperature conditions. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.ecuOutput::diagnostic::sensorOpenCircuit == true or
+            sensingUnit.ecuOutput::diagnostic::sensorShortToGround == true or
+            sensingUnit.ecuOutput::diagnostic::sensorShortToSupply == true or
+            sensingUnit.ecuOutput::diagnostic::outOfRange == true or
+            sensingUnit.ecuOutput::sample::valid == true
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The sensing unit shall operate from a vehicle power input between 9 V and 16 V. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.vehiclePowerInput::supplyVoltage >= 9.0 and sensingUnit.vehiclePowerInput::supplyVoltage <= 16.0
+        }
+    }
+
+    satisfy MeasureCoolantTemperatureRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy MeasurementRangeRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy AccuracyRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy UpdateRateRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy StartupRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy DiagnosticRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy PowerRequirement by EngineCoolantTemperatureSensingUnit;
+}
+tokens used
+5,283
+package EngineCoolantTemperatureSensingUnit {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :>> scalar : Real;
+        unit = "V";
+    }
+
+    attribute def Resistance {
+        :>> scalar : Real;
+        unit = "ohm";
+    }
+
+    attribute def Current {
+        :>> scalar : Real;
+        unit = "mA";
+    }
+
+    attribute def TimeDuration {
+        :>> scalar : Real;
+        unit = "ms";
+    }
+
+    attribute def Frequency {
+        :>> scalar : Real;
+        unit = "Hz";
+    }
+
+    attribute def Percent {
+        :>> scalar : Real;
+        unit = "%";
+    }
+
+    attribute def DiagnosticCode {
+        :>> scalar : String;
+    }
+
+    item def Coolant {
+        attribute temperature : Temperature;
+        attribute pressure : Real;
+        attribute glycolConcentration : Percent;
+    }
+
+    item def ThermalContact {
+        attribute sensedTemperature : Temperature;
+        attribute thermalLag : TimeDuration;
+    }
+
+    item def AnalogTemperatureSignal {
+        attribute voltage : Voltage;
+        attribute equivalentTemperature : Temperature;
+        attribute valid : Boolean;
+    }
+
+    item def DigitalTemperatureSample {
+        attribute measuredTemperature : Temperature;
+        attribute sampleTime : TimeDuration;
+        attribute signalQuality : Percent;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortToGround : Boolean;
+        attribute sensorShortToSupply : Boolean;
+        attribute outOfRange : Boolean;
+        attribute code : DiagnosticCode;
+    }
+
+    port def CoolantInterface {
+        in item coolant : Coolant;
+        out item thermalContact : ThermalContact;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogTemperatureSignal;
+    }
+
+    port def DigitalDataPort {
+        out item sample : DigitalTemperatureSample;
+        out item diagnostic : DiagnosticStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrentLimit : Current;
+        out attribute consumedCurrent : Current;
+    }
+
+    port def GroundPort {
+        in attribute groundReference : Voltage;
+    }
+
+    part def EngineCoolantTemperatureSensor {
+        attribute sensorType : String = "NTC thermistor";
+        attribute nominalResistanceAt25C : Resistance = 2500.0;
+        attribute betaCoefficient : Real = 3977.0;
+        attribute minimumOperatingTemperature : Temperature = -40.0;
+        attribute maximumOperatingTemperature : Temperature = 150.0;
+        attribute responseTimeT63 : TimeDuration = 2500.0;
+        attribute accuracyAtOperatingRange : Temperature = 2.0;
+        attribute excitationCurrentMaximum : Current = 2.0;
+
+        port coolantPort : CoolantInterface;
+        port analogOut : AnalogSignalPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action senseCoolantTemperature {
+            in item coolantIn : Coolant;
+            in attribute excitationVoltage : Voltage;
+            out item analogSignalOut : AnalogTemperatureSignal;
+
+            attribute thermistorResistance : Resistance;
+            attribute sensedTemperature : Temperature;
+
+            first start;
+            then calculateResistance;
+            then convertResistanceToTemperature;
+            then generateVoltageSignal;
+            then done;
+
+            action calculateResistance {
+                in item coolantIn;
+                out attribute thermistorResistance;
+            }
+
+            action convertResistanceToTemperature {
+                in attribute thermistorResistance;
+                out attribute sensedTemperature;
+            }
+
+            action generateVoltageSignal {
+                in attribute sensedTemperature;
+                out item analogSignalOut;
+            }
+        }
+
+        state sensorHealth {
+            attribute latestTemperature : Temperature;
+            attribute latestVoltage : Voltage;
+
+            state initializing;
+            state measuring;
+            state faultOpenCircuit;
+            state faultShortToGround;
+            state faultShortToSupply;
+            state thermalRangeFault;
+
+            entry; then initializing;
+
+            transition initializing_to_measuring
+                first initializing
+                accept after 100.0 [ms]
+                then measuring;
+
+            transition measuring_to_open
+                first measuring
+                if latestVoltage >= 4.95
+                then faultOpenCircuit;
+
+            transition measuring_to_short_ground
+                first measuring
+                if latestVoltage <= 0.05
+                then faultShortToGround;
+
+            transition measuring_to_short_supply
+                first measuring
+                if latestVoltage > 5.10
+                then faultShortToSupply;
+
+            transition measuring_to_range_fault
+                first measuring
+                if latestTemperature < -40.0 or latestTemperature > 150.0
+                then thermalRangeFault;
+
+            transition fault_to_measuring
+                first faultOpenCircuit
+                accept after 500.0 [ms]
+                if latestVoltage > 0.05 and latestVoltage < 4.95
+                then measuring;
+
+            transition short_ground_to_measuring
+                first faultShortToGround
+                accept after 500.0 [ms]
+                if latestVoltage > 0.05 and latestVoltage < 4.95
+                then measuring;
+
+            transition short_supply_to_measuring
+                first faultShortToSupply
+                accept after 500.0 [ms]
+                if latestVoltage <= 5.10
+                then measuring;
+
+            transition range_fault_to_measuring
+                first thermalRangeFault
+                accept after 500.0 [ms]
+                if latestTemperature >= -40.0 and latestTemperature <= 150.0
+                then measuring;
+        }
+    }
+
+    part def SignalConditioningCircuit {
+        attribute pullupResistance : Resistance = 2490.0;
+        attribute referenceVoltage : Voltage = 5.0;
+        attribute lowPassCutoffFrequency : Frequency = 20.0;
+        attribute outputVoltageMinimum : Voltage = 0.0;
+        attribute outputVoltageMaximum : Voltage = 5.0;
+        attribute inputImpedance : Resistance = 100000.0;
+
+        port sensorAnalogIn : AnalogSignalPort;
+        port conditionedAnalogOut : AnalogSignalPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action filterAndScaleSignal {
+            in item rawSignal : AnalogTemperatureSignal;
+            out item conditionedSignal : AnalogTemperatureSignal;
+
+            first receiveRawSignal;
+            then applyLowPassFilter;
+            then limitVoltageRange;
+            then emitConditionedSignal;
+
+            action receiveRawSignal;
+            action applyLowPassFilter;
+            action limitVoltageRange;
+            action emitConditionedSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 12;
+        attribute referenceVoltage : Voltage = 5.0;
+        attribute sampleRate : Frequency = 100.0;
+        attribute conversionTime : TimeDuration = 1.0;
+        attribute quantizationStep : Voltage = 0.00122;
+
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalDataPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action convertAnalogToDigitalTemperature {
+            in item conditionedSignal : AnalogTemperatureSignal;
+            out item temperatureSample : DigitalTemperatureSample;
+
+            first sampleVoltage;
+            then convertCountsToVoltage;
+            then mapVoltageToTemperature;
+            then publishSample;
+
+            action sampleVoltage;
+            action convertCountsToVoltage;
+            action mapVoltageToTemperature;
+            action publishSample;
+        }
+    }
+
+    part def TemperatureLinearizationProcessor {
+        attribute calibrationTableSize : Integer = 32;
+        attribute minimumReportedTemperature : Temperature = -40.0;
+        attribute maximumReportedTemperature : Temperature = 150.0;
+        attribute filteringWindowSamples : Integer = 8;
+        attribute diagnosticEvaluationPeriod : TimeDuration = 10.0;
+
+        port rawDataIn : DigitalDataPort;
+        port processedDataOut : DigitalDataPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action linearizeAndValidate {
+            in item rawSample : DigitalTemperatureSample;
+            out item processedSample : DigitalTemperatureSample;
+            out item diagnosticOut : DiagnosticStatus;
+
+            first readRawSample;
+            then applyCalibrationCurve;
+            then applyMovingAverageFilter;
+            then checkRangeAndPlausibility;
+            then publishProcessedData;
+
+            action readRawSample;
+            action applyCalibrationCurve;
+            action applyMovingAverageFilter;
+            action checkRangeAndPlausibility;
+            action publishProcessedData;
+        }
+
+        state processingState {
+            state startup;
+            state normalOperation;
+            state degradedOperation;
+            state diagnosticFault;
+
+            entry; then startup;
+
+            transition startup_to_normal
+                first startup
+                accept after 50.0 [ms]
+                then normalOperation;
+
+            transition normal_to_degraded
+                first normalOperation
+                if processedDataOut::sample::signalQuality < 80.0
+                then degradedOperation;
+
+            transition degraded_to_normal
+                first degradedOperation
+                if processedDataOut::sample::signalQuality >= 90.0
+                then normalOperation;
+
+            transition normal_to_fault
+                first normalOperation
+                if processedDataOut::diagnostic::outOfRange
+                then diagnosticFault;
+
+            transition degraded_to_fault
+                first degradedOperation
+                if processedDataOut::diagnostic::sensorOpenCircuit or processedDataOut::diagnostic::sensorShortToGround or processedDataOut::diagnostic::sensorShortToSupply
+                then diagnosticFault;
+
+            transition fault_to_degraded
+                first diagnosticFault
+                accept after 1000.0 [ms]
+                if not processedDataOut::diagnostic::sensorOpenCircuit and not processedDataOut::diagnostic::sensorShortToGround and not processedDataOut::diagnostic::sensorShortToSupply
+                then degradedOperation;
+        }
+    }
+
+    part def EngineControlUnitInterface {
+        attribute communicationProtocol : String = "CAN";
+        attribute updatePeriod : TimeDuration = 10.0;
+        attribute timeoutThreshold : TimeDuration = 100.0;
+
+        port temperatureDataIn : DigitalDataPort;
+        port temperatureDataOut : DigitalDataPort;
+        port power : PowerPort;
+        port ground : GroundPort;
+
+        action transmitTemperatureToController {
+            in item sampleIn : DigitalTemperatureSample;
+            in item diagnosticIn : DiagnosticStatus;
+            out item sampleOut : DigitalTemperatureSample;
+            out item diagnosticOut : DiagnosticStatus;
+
+            first receiveProcessedMeasurement;
+            then packageMeasurementFrame;
+            then packageDiagnosticFrame;
+            then transmitFrames;
+
+            action receiveProcessedMeasurement;
+            action packageMeasurementFrame;
+            action packageDiagnosticFrame;
+            action transmitFrames;
+        }
+    }
+
+    part def RegulatedPowerSupply {
+        attribute inputVoltageNominal : Voltage = 12.0;
+        attribute outputVoltageNominal : Voltage = 5.0;
+        attribute outputVoltageTolerance : Percent = 2.0;
+        attribute maximumOutputCurrent : Current = 100.0;
+
+        port inputPower : PowerPort;
+        port sensorPower : PowerPort;
+        port conditioningPower : PowerPort;
+        port adcPower : PowerPort;
+        port processorPower : PowerPort;
+        port interfacePower : PowerPort;
+        port ground : GroundPort;
+    }
+
+    part def EngineCoolantTemperatureSensingUnit {
+        attribute measuredQuantity : String = "engine coolant temperature";
+        attribute measurementRangeLow : Temperature = -40.0;
+        attribute measurementRangeHigh : Temperature = 150.0;
+        attribute totalAccuracy : Temperature = 3.0;
+        attribute outputUpdatePeriod : TimeDuration = 10.0;
+        attribute startupTimeMaximum : TimeDuration = 100.0;
+
+        port coolantInterface : CoolantInterface;
+        port vehiclePowerInput : PowerPort;
+        port chassisGround : GroundPort;
+        port ecuOutput : DigitalDataPort;
+
+        part ectSensor : EngineCoolantTemperatureSensor;
+        part conditioning : SignalConditioningCircuit;
+        part adc : AnalogToDigitalConverter;
+        part processor : TemperatureLinearizationProcessor;
+        part ecuInterface : EngineControlUnitInterface;
+        part powerSupply : RegulatedPowerSupply;
+
+        connect coolantInterface to ectSensor.coolantPort;
+        connect ectSensor.analogOut to conditioning.sensorAnalogIn;
+        connect conditioning.conditionedAnalogOut to adc.analogIn;
+        connect adc.digitalOut to processor.rawDataIn;
+        connect processor.processedDataOut to ecuInterface.temperatureDataIn;
+        connect ecuInterface.temperatureDataOut to ecuOutput;
+
+        connect vehiclePowerInput to powerSupply.inputPower;
+        connect chassisGround to powerSupply.ground;
+        connect powerSupply.sensorPower to ectSensor.power;
+        connect powerSupply.conditioningPower to conditioning.power;
+        connect powerSupply.adcPower to adc.power;
+        connect powerSupply.processorPower to processor.power;
+        connect powerSupply.interfacePower to ecuInterface.power;
+
+        connect chassisGround to ectSensor.ground;
+        connect chassisGround to conditioning.ground;
+        connect chassisGround to adc.ground;
+        connect chassisGround to processor.ground;
+        connect chassisGround to ecuInterface.ground;
+
+        action measureEngineCoolantTemperature {
+            in item coolantIn : Coolant;
+            out item temperatureOut : DigitalTemperatureSample;
+            out item diagnosticOut : DiagnosticStatus;
+
+            first powerStabilization;
+            then acquireThermalSignal;
+            then conditionAnalogSignal;
+            then convertToDigitalSample;
+            then linearizeTemperature;
+            then evaluateDiagnostics;
+            then transmitMeasurement;
+
+            action powerStabilization;
+            action acquireThermalSignal;
+            action conditionAnalogSignal;
+            action convertToDigitalSample;
+            action linearizeTemperature;
+            action evaluateDiagnostics;
+            action transmitMeasurement;
+        }
+
+        state sensingUnitOperationalState {
+            state unpowered;
+            state powerOnSelfTest;
+            state sensing;
+            state reportingFault;
+            state shutdown;
+
+            entry; then unpowered;
+
+            transition unpowered_to_self_test
+                first unpowered
+                if vehiclePowerInput::supplyVoltage >= 9.0 and vehiclePowerInput::supplyVoltage <= 16.0
+                then powerOnSelfTest;
+
+            transition self_test_to_sensing
+                first powerOnSelfTest
+                accept after 100.0 [ms]
+                if not ecuOutput::diagnostic::sensorOpenCircuit and not ecuOutput::diagnostic::sensorShortToGround
+                then sensing;
+
+            transition sensing_to_fault
+                first sensing
+                if ecuOutput::diagnostic::sensorOpenCircuit or ecuOutput::diagnostic::sensorShortToGround or ecuOutput::diagnostic::sensorShortToSupply or ecuOutput::diagnostic::outOfRange
+                then reportingFault;
+
+            transition fault_to_sensing
+                first reportingFault
+                accept after 1000.0 [ms]
+                if not ecuOutput::diagnostic::sensorOpenCircuit and not ecuOutput::diagnostic::sensorShortToGround and not ecuOutput::diagnostic::sensorShortToSupply and not ecuOutput::diagnostic::outOfRange
+                then sensing;
+
+            transition any_to_shutdown
+                first sensing
+                if vehiclePowerInput::supplyVoltage < 6.0
+                then shutdown;
+        }
+    }
+
+    requirement def MeasureCoolantTemperatureRequirement {
+        doc /* The sensing unit shall measure engine coolant temperature using an engine coolant temperature sensor. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantity == "engine coolant temperature"
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The sensing unit shall report coolant temperature over the range from -40 degC to 150 degC. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeLow <= -40.0 and sensingUnit.measurementRangeHigh >= 150.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The sensing unit shall provide coolant temperature measurement accuracy within +/-3 degC over the operating measurement range. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.totalAccuracy <= 3.0
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc /* The sensing unit shall update the reported coolant temperature at least every 10 ms during normal operation. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.outputUpdatePeriod <= 10.0
+        }
+    }
+
+    requirement def StartupRequirement {
+        doc /* The sensing unit shall begin reporting valid coolant temperature samples within 100 ms after valid vehicle power is applied. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.startupTimeMaximum <= 100.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The sensing unit shall detect sensor open circuit, short to ground, short to supply, and out-of-range coolant temperature conditions. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.ecuOutput::diagnostic::sensorOpenCircuit == true or
+            sensingUnit.ecuOutput::diagnostic::sensorShortToGround == true or
+            sensingUnit.ecuOutput::diagnostic::sensorShortToSupply == true or
+            sensingUnit.ecuOutput::diagnostic::outOfRange == true or
+            sensingUnit.ecuOutput::sample::valid == true
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The sensing unit shall operate from a vehicle power input between 9 V and 16 V. */
+        subject sensingUnit : EngineCoolantTemperatureSensingUnit;
+
+        require constraint {
+            sensingUnit.vehiclePowerInput::supplyVoltage >= 9.0 and sensingUnit.vehiclePowerInput::supplyVoltage <= 16.0
+        }
+    }
+
+    satisfy MeasureCoolantTemperatureRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy MeasurementRangeRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy AccuracyRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy UpdateRateRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy StartupRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy DiagnosticRequirement by EngineCoolantTemperatureSensingUnit;
+    satisfy PowerRequirement by EngineCoolantTemperatureSensingUnit;
+}

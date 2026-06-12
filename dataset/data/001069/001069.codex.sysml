@@ -1,0 +1,400 @@
+package GeigerMuellerTubeRadiationMonitor {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    value def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    value def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    value def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    value def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    value def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    value def DoseEquivalentRate {
+        unit = "microsievertPerHour";
+    }
+
+    value def CountRate {
+        unit = "countsPerSecond";
+    }
+
+    value def Temperature {
+        unit = SI::degreeCelsius;
+    }
+
+    value def Pressure {
+        unit = SI::pascal;
+    }
+
+    value def Probability {
+        unit = "one";
+    }
+
+    item def IonizingRadiation {
+        attribute particleEnergy : Energy;
+        attribute arrivalRate : CountRate;
+    }
+
+    item def BetaParticle :> IonizingRadiation {
+        attribute charge : ElectricCharge;
+    }
+
+    item def GammaPhoton :> IonizingRadiation {
+        attribute wavelengthEnergy : Energy;
+    }
+
+    item def IonPair {
+        attribute electronCharge : ElectricCharge;
+        attribute ionCharge : ElectricCharge;
+    }
+
+    item def AvalancheDischarge {
+        attribute collectedCharge : ElectricCharge;
+        attribute pulseRiseTime : TimeDuration;
+    }
+
+    item def ElectricalPulse {
+        attribute amplitude : ElectricPotential;
+        attribute width : TimeDuration;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def PulseTrain {
+        item pulses : ElectricalPulse[0..*];
+        attribute pulseRate : CountRate;
+    }
+
+    item def DoseRateEstimate {
+        attribute equivalentDoseRate : DoseEquivalentRate;
+        attribute statisticalUncertainty : Probability;
+        attribute integrationTime : TimeDuration;
+    }
+
+    item def AlarmSignal {
+        attribute alarmActive : Boolean;
+        attribute alarmThreshold : DoseEquivalentRate;
+        attribute measuredDoseRate : DoseEquivalentRate;
+    }
+
+    item def DisplayMessage {
+        attribute numericDoseRate : DoseEquivalentRate;
+        attribute numericCountRate : CountRate;
+        attribute alarmText : String;
+    }
+
+    port def RadiationAperturePort {
+        in incidentRadiation : IonizingRadiation;
+    }
+
+    port def GasIonizationPort {
+        in incidentRadiation : IonizingRadiation;
+        out ionPairs : IonPair[0..*];
+    }
+
+    port def AvalanchePort {
+        in ionPairs : IonPair[0..*];
+        out avalanche : AvalancheDischarge;
+    }
+
+    port def PulsePort {
+        out pulseTrain : PulseTrain;
+    }
+
+    port def HighVoltagePowerPort {
+        out biasVoltage : ElectricPotential;
+        out availableCurrent : ElectricCurrent;
+    }
+
+    port def HighVoltageInputPort {
+        in biasVoltage : ElectricPotential;
+        in availableCurrent : ElectricCurrent;
+    }
+
+    port def LogicPulseInputPort {
+        in pulseTrain : PulseTrain;
+    }
+
+    port def DoseEstimatePort {
+        out estimate : DoseRateEstimate;
+    }
+
+    port def AlarmOutputPort {
+        out alarm : AlarmSignal;
+    }
+
+    port def DisplayOutputPort {
+        out message : DisplayMessage;
+    }
+
+    part def GeigerMuellerTube {
+        port window : RadiationAperturePort;
+        port gasVolume : GasIonizationPort;
+        port avalancheRegion : AvalanchePort;
+        port hvIn : HighVoltageInputPort;
+        port pulseOut : PulsePort;
+
+        attribute fillGasPressure : Pressure = 90000 [SI::pascal];
+        attribute operatingVoltage : ElectricPotential = 450 [SI::volt];
+        attribute plateauSlope : Real = 0.08;
+        attribute deadTime : TimeDuration = 0.000190 [SI::second];
+        attribute betaDetectionEfficiency : Probability = 0.35;
+        attribute gammaDetectionEfficiency : Probability = 0.012;
+
+        connection ionizationPath connect window.incidentRadiation to gasVolume.incidentRadiation;
+        connection avalanchePath connect gasVolume.ionPairs to avalancheRegion.ionPairs;
+        connection pulseFormationPath connect avalancheRegion.avalanche to pulseOut.pulseTrain;
+    }
+
+    part def QuenchGas {
+        attribute concentrationFraction : Probability = 0.10;
+        attribute recoveryTime : TimeDuration = 0.000120 [SI::second];
+    }
+
+    part def CathodeWall {
+        attribute collectionPotential : ElectricPotential = 0 [SI::volt];
+        attribute effectiveArea : Real = 0.0008;
+    }
+
+    part def AnodeWire {
+        attribute biasPotential : ElectricPotential = 450 [SI::volt];
+        attribute wireRadius : Real = 0.000025;
+    }
+
+    part def HighVoltageSupply {
+        port hvOut : HighVoltagePowerPort;
+
+        attribute nominalVoltage : ElectricPotential = 450 [SI::volt];
+        attribute maximumCurrent : ElectricCurrent = 0.000001 [SI::ampere];
+        attribute regulationTolerance : Real = 0.02;
+        attribute startupRampTime : TimeDuration = 2.0 [SI::second];
+    }
+
+    part def PulseConditioner {
+        port pulseIn : LogicPulseInputPort;
+        port pulseOut : PulsePort;
+
+        attribute discriminatorThreshold : ElectricPotential = 0.8 [SI::volt];
+        attribute minimumPulseWidth : TimeDuration = 0.000005 [SI::second];
+        attribute maximumPulseRate : CountRate = 50000 ["countsPerSecond"];
+    }
+
+    part def CounterTimer {
+        port pulseIn : LogicPulseInputPort;
+        port countRateOut : DoseEstimatePort;
+
+        attribute integrationWindow : TimeDuration = 10.0 [SI::second];
+        attribute backgroundCountRate : CountRate = 0.35 ["countsPerSecond"];
+        attribute currentCountRate : CountRate;
+    }
+
+    part def DoseRateCalculator {
+        port countRateIn : DoseEstimatePort;
+        port estimateOut : DoseEstimatePort;
+
+        attribute calibrationFactor : Real = 0.0057;
+        attribute minimumReportableDoseRate : DoseEquivalentRate = 0.01 ["microsievertPerHour"];
+    }
+
+    part def AlarmController {
+        port doseIn : DoseEstimatePort;
+        port alarmOut : AlarmOutputPort;
+
+        attribute warningThreshold : DoseEquivalentRate = 1.0 ["microsievertPerHour"];
+        attribute dangerThreshold : DoseEquivalentRate = 10.0 ["microsievertPerHour"];
+        attribute alarmLatched : Boolean = false;
+    }
+
+    part def UserDisplay {
+        port doseIn : DoseEstimatePort;
+        port alarmIn : AlarmOutputPort;
+        port displayOut : DisplayOutputPort;
+
+        attribute refreshPeriod : TimeDuration = 1.0 [SI::second];
+        attribute displayedDoseRate : DoseEquivalentRate;
+        attribute displayedCountRate : CountRate;
+    }
+
+    action def DetectIonizingRadiation {
+        in radiation : IonizingRadiation;
+        out pulses : PulseTrain;
+
+        first start;
+        then createIonPairs;
+        then multiplyAvalanche;
+        then quenchDischarge;
+        then emitElectricalPulse;
+        then done;
+
+        action createIonPairs {
+            in radiation : IonizingRadiation;
+            out ionPairs : IonPair[0..*];
+        }
+
+        action multiplyAvalanche {
+            in ionPairs : IonPair[0..*];
+            out avalanche : AvalancheDischarge;
+        }
+
+        action quenchDischarge {
+            in avalanche : AvalancheDischarge;
+            out stabilizedAvalanche : AvalancheDischarge;
+        }
+
+        action emitElectricalPulse {
+            in stabilizedAvalanche : AvalancheDischarge;
+            out pulses : PulseTrain;
+        }
+    }
+
+    action def EstimateRadiationDoseRate {
+        in pulses : PulseTrain;
+        out estimate : DoseRateEstimate;
+
+        first start;
+        then countPulses;
+        then subtractBackground;
+        then applyCalibration;
+        then computeUncertainty;
+        then done;
+
+        action countPulses {
+            in pulses : PulseTrain;
+            out rawCountRate : CountRate;
+        }
+
+        action subtractBackground {
+            in rawCountRate : CountRate;
+            out correctedCountRate : CountRate;
+        }
+
+        action applyCalibration {
+            in correctedCountRate : CountRate;
+            out doseRate : DoseEquivalentRate;
+        }
+
+        action computeUncertainty {
+            in correctedCountRate : CountRate;
+            out estimate : DoseRateEstimate;
+        }
+    }
+
+    state def MonitorOperatingState {
+        state Off;
+        state BiasRamp;
+        state Stabilizing;
+        state Monitoring;
+        state Alarm;
+        state Fault;
+
+        transition initial then Off;
+        transition Off then BiasRamp accept powerOn;
+        transition BiasRamp then Stabilizing accept highVoltageAtSetpoint;
+        transition Stabilizing then Monitoring accept tubeStable;
+        transition Monitoring then Alarm accept doseRateAboveThreshold;
+        transition Alarm then Monitoring accept doseRateBelowThreshold;
+        transition Monitoring then Fault accept highVoltageFault;
+        transition Monitoring then Fault accept pulseSaturation;
+        transition Fault then Off accept powerOff;
+        transition Alarm then Off accept powerOff;
+        transition Monitoring then Off accept powerOff;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject monitor : GeigerMuellerRadiationMonitor;
+        require constraint {
+            monitor shall convert incident ionizing radiation entering the GeigerMuellerTube into counted electrical pulses and report a high-level radiation dose-rate estimate.
+        }
+    }
+
+    requirement def DetectionRequirement {
+        subject tube : GeigerMuellerTube;
+        require constraint {
+            tube.operatingVoltage >= 400 [SI::volt] and tube.operatingVoltage <= 550 [SI::volt]
+        }
+    }
+
+    requirement def DeadTimeRequirement {
+        subject tube : GeigerMuellerTube;
+        require constraint {
+            tube.deadTime <= 0.000250 [SI::second]
+        }
+    }
+
+    requirement def AlarmRequirement {
+        subject alarmController : AlarmController;
+        require constraint {
+            alarmController.warningThreshold < alarmController.dangerThreshold
+        }
+    }
+
+    requirement def DisplayUpdateRequirement {
+        subject display : UserDisplay;
+        require constraint {
+            display.refreshPeriod <= 1.0 [SI::second]
+        }
+    }
+
+    part def GeigerMuellerRadiationMonitor {
+        port radiationIn : RadiationAperturePort;
+        port displayOut : DisplayOutputPort;
+        port alarmOut : AlarmOutputPort;
+
+        part tube : GeigerMuellerTube;
+        part quenchGas : QuenchGas;
+        part cathode : CathodeWall;
+        part anode : AnodeWire;
+        part highVoltageSupply : HighVoltageSupply;
+        part pulseConditioner : PulseConditioner;
+        part counterTimer : CounterTimer;
+        part doseRateCalculator : DoseRateCalculator;
+        part alarmController : AlarmController;
+        part userDisplay : UserDisplay;
+
+        attribute ambientTemperature : Temperature = 20 [SI::degreeCelsius];
+        attribute measurementRangeMinimum : DoseEquivalentRate = 0.01 ["microsievertPerHour"];
+        attribute measurementRangeMaximum : DoseEquivalentRate = 1000 ["microsievertPerHour"];
+        attribute primaryFunction : String = "Detect ionizing radiation with a Geiger-Mueller tube, transform each ionizing event into an electrical pulse, count pulses over time, estimate dose rate, and alert the user when radiation exceeds configured thresholds.";
+
+        perform detection : DetectIonizingRadiation;
+        perform estimation : EstimateRadiationDoseRate;
+        exhibit operatingState : MonitorOperatingState;
+
+        connection incomingRadiation connect radiationIn.incidentRadiation to tube.window.incidentRadiation;
+        connection hvBias connect highVoltageSupply.hvOut to tube.hvIn;
+        connection rawPulsePath connect tube.pulseOut to pulseConditioner.pulseIn;
+        connection conditionedPulsePath connect pulseConditioner.pulseOut to counterTimer.pulseIn;
+        connection countRatePath connect counterTimer.countRateOut to doseRateCalculator.countRateIn;
+        connection estimateToAlarm connect doseRateCalculator.estimateOut to alarmController.doseIn;
+        connection estimateToDisplay connect doseRateCalculator.estimateOut to userDisplay.doseIn;
+        connection alarmToDisplay connect alarmController.alarmOut to userDisplay.alarmIn;
+        connection systemAlarmOut connect alarmController.alarmOut to alarmOut;
+        connection systemDisplayOut connect userDisplay.displayOut to displayOut;
+
+        satisfy primaryFunction by PrimaryFunctionRequirement;
+        satisfy validTubeBias by DetectionRequirement;
+        satisfy boundedDeadTime by DeadTimeRequirement;
+        satisfy alarmOrdering by AlarmRequirement;
+        satisfy displayRefresh by DisplayUpdateRequirement;
+    }
+
+    part monitor : GeigerMuellerRadiationMonitor;
+
+}

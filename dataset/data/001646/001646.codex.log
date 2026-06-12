@@ -1,0 +1,887 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-cj8x3q7_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb785-7131-7f70-82ff-fa06602058d8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Control4 and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package Control4ResidenceAutomationModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value type Percent specializes Real {
+        unit = "%";
+    }
+
+    value type Lux specializes Real {
+        unit = "lx";
+    }
+
+    value type Celsius specializes Real {
+        unit = "degC";
+    }
+
+    value type Watt specializes Real {
+        unit = "W";
+    }
+
+    value type Volt specializes Real {
+        unit = "V";
+    }
+
+    value type AmpereValue specializes Real {
+        unit = "A";
+    }
+
+    value type SecondValue specializes Real {
+        unit = "s";
+    }
+
+    value type MeterPerSecond specializes Real {
+        unit = "m/s";
+    }
+
+    value type Decibel specializes Real {
+        unit = "dB";
+    }
+
+    enum def SecurityMode {
+        enum off;
+        enum stay;
+        enum away;
+        enum alarm;
+    }
+
+    enum def OccupancyState {
+        enum vacant;
+        enum occupied;
+    }
+
+    enum def MediaSource {
+        enum streaming;
+        enum television;
+        enum localAudio;
+        enum gameConsole;
+        enum none;
+    }
+
+    enum def NetworkState {
+        enum offline;
+        enum localOnly;
+        enum cloudConnected;
+    }
+
+    item def LightingCommand {
+        attribute targetLevel: Percent;
+        attribute fadeTime: SecondValue;
+        attribute zoneName: String;
+    }
+
+    item def ClimateCommand {
+        attribute coolingSetpoint: Celsius;
+        attribute heatingSetpoint: Celsius;
+        attribute fanEnabled: Boolean;
+    }
+
+    item def MediaCommand {
+        attribute source: MediaSource;
+        attribute targetVolume: Percent;
+        attribute roomName: String;
+    }
+
+    item def SecurityCommand {
+        attribute requestedMode: SecurityMode;
+        attribute userCredentialValid: Boolean;
+    }
+
+    item def SensorEvent {
+        attribute occupancy: OccupancyState;
+        attribute ambientLight: Lux;
+        attribute temperature: Celsius;
+        attribute doorOpen: Boolean;
+        attribute motionDetected: Boolean;
+    }
+
+    item def Notification {
+        attribute title: String;
+        attribute message: String;
+        attribute priority: Integer;
+    }
+
+    port def EthernetPort {
+        out item dataOut;
+        in item dataIn;
+    }
+
+    port def ZigbeePort {
+        out item wirelessCommand;
+        in item wirelessTelemetry;
+    }
+
+    port def RelayPort {
+        out item relaySignal;
+    }
+
+    port def AudioVideoPort {
+        out item avSignal;
+        in item avStatus;
+    }
+
+    port def UserInterfacePort {
+        in item userRequest;
+        out item systemFeedback;
+    }
+
+    port def SensorPort {
+        in item event: SensorEvent;
+    }
+
+    port def NotificationPort {
+        out item alert: Notification;
+    }
+
+    part def Control4CoreController {
+        attribute supplyVoltage: Volt = 24.0;
+        attribute nominalPower: Watt = 18.0;
+        attribute processorUtilization: Percent;
+        attribute networkState: NetworkState = NetworkState::offline;
+
+        port ethernet: EthernetPort;
+        port zigbee: ZigbeePort;
+        port ui: UserInterfacePort;
+        port notify: NotificationPort;
+
+        action def InterpretUserIntent {
+            in item request;
+            out item lightingCommand: LightingCommand;
+            out item climateCommand: ClimateCommand;
+            out item mediaCommand: MediaCommand;
+            out item securityCommand: SecurityCommand;
+        }
+
+        state def ControllerOperationalState {
+            state initializing;
+            state ready;
+            state degraded;
+            state offline;
+
+            initial then initializing;
+
+            transition initializing_to_ready
+                first initializing
+                then ready;
+
+            transition ready_to_degraded
+                first ready
+                then degraded;
+
+            transition degraded_to_ready
+                first degraded
+                then ready;
+
+            transition ready_to_offline
+                first ready
+                then offline;
+
+            transition offline_to_initializing
+                first offline
+                then initializing;
+        }
+    }
+
+    part def LightingSubsystem {
+        attribute maximumConnectedLoad: Watt = 1200.0;
+        attribute activeSceneName: String = "Morning";
+
+        port controlInput: ZigbeePort;
+        port sensorInput: SensorPort;
+
+        part kitchenDimmer {
+            attribute level: Percent = 75.0;
+            attribute load: Watt = 180.0;
+        }
+
+        part livingRoomDimmer {
+            attribute level: Percent = 55.0;
+            attribute load: Watt = 240.0;
+        }
+
+        part entryRelay {
+            attribute energized: Boolean = false;
+            attribute load: Watt = 90.0;
+        }
+
+        action def ApplyScene {
+            in item command: LightingCommand;
+            out attribute resultingLevel: Percent;
+        }
+    }
+
+    part def ClimateSubsystem {
+        attribute indoorTemperature: Celsius = 22.0;
+        attribute outdoorTemperature: Celsius = 8.0;
+        attribute heatingSetpoint: Celsius = 20.0;
+        attribute coolingSetpoint: Celsius = 24.0;
+        attribute hvacDemandPower: Watt = 3500.0;
+
+        port controlInput: EthernetPort;
+        port sensorInput: SensorPort;
+
+        action def RegulateTemperature {
+            in item command: ClimateCommand;
+            in attribute measuredTemperature: Celsius;
+            out attribute compressorEnabled: Boolean;
+            out attribute fanEnabled: Boolean;
+        }
+    }
+
+    part def MediaSubsystem {
+        attribute currentSource: MediaSource = MediaSource::none;
+        attribute livingRoomVolume: Percent = 35.0;
+        attribute bedroomVolume: Percent = 20.0;
+        attribute amplifierPower: Watt = 320.0;
+        attribute maxSoundPressure: Decibel = 92.0;
+
+        port controlInput: AudioVideoPort;
+
+        part matrixSwitch {
+            attribute inputCount: Integer = 8;
+            attribute outputCount: Integer = 8;
+        }
+
+        part livingRoomSpeakers {
+            attribute channelCount: Integer = 5;
+            attribute ratedPower: Watt = 250.0;
+        }
+
+        part bedroomSpeakers {
+            attribute channelCount: Integer = 2;
+            attribute ratedPower: Watt = 100.0;
+        }
+
+        action def RouteMedia {
+            in item command: MediaCommand;
+            out attribute selectedSource: MediaSource;
+            out attribute selectedVolume: Percent;
+        }
+    }
+
+    part def SecuritySubsystem {
+        attribute mode: SecurityMode = SecurityMode::off;
+        attribute sirenPower: Watt = 30.0;
+        attribute entryDelay: SecondValue = 30.0;
+        attribute alarmActive: Boolean = false;
+
+        port controlInput: EthernetPort;
+        port sensorInput: SensorPort;
+        port alertOutput: NotificationPort;
+
+        part frontDoorContact {
+            attribute open: Boolean = false;
+        }
+
+        part motionDetector {
+            attribute occupied: Boolean = false;
+            attribute detectionRange: MeterPerSecond = 0.2;
+        }
+
+        part glassBreakSensor {
+            attribute triggered: Boolean = false;
+        }
+
+        state def SecurityState {
+            state disarmed;
+            state armedStay;
+            state armedAway;
+            state entryDelayActive;
+            state alarm;
+
+            initial then disarmed;
+
+            transition armStay
+                first disarmed
+                then armedStay;
+
+            transition armAway
+                first disarmed
+                then armedAway;
+
+            transition detectedEntry
+                first armedAway
+                then entryDelayActive;
+
+            transition entryTimeout
+                first entryDelayActive
+                then alarm;
+
+            transition validDisarm
+                first entryDelayActive
+                then disarmed;
+
+            transition alarmDisarm
+                first alarm
+                then disarmed;
+        }
+    }
+
+    part def UserExperienceSubsystem {
+        port touchPanel: UserInterfacePort;
+        port mobileApp: UserInterfacePort;
+        port voiceAssistant: UserInterfacePort;
+
+        action def PresentUnifiedHomeStatus {
+            in attribute lightingLevel: Percent;
+            in attribute temperature: Celsius;
+            in attribute securityMode: SecurityMode;
+            in attribute mediaSource: MediaSource;
+            out item feedback;
+        }
+    }
+
+    part def Control4BasedSmartHomeSystem {
+        attribute primaryFunction: String =
+            "Provide centralized, scene-based control of residential lighting, climate, media, and security through Control4-style automation, user interfaces, and event-driven coordination.";
+
+        part controller: Control4CoreController;
+        part lighting: LightingSubsystem;
+        part climate: ClimateSubsystem;
+        part media: MediaSubsystem;
+        part security: SecuritySubsystem;
+        part userExperience: UserExperienceSubsystem;
+
+        connect controller.zigbee to lighting.controlInput;
+        connect controller.ethernet to climate.controlInput;
+        connect controller.ethernet to security.controlInput;
+        connect controller.ui to userExperience.touchPanel;
+        connect controller.ui to userExperience.mobileApp;
+        connect controller.ui to userExperience.voiceAssistant;
+        connect controller.notify to security.alertOutput;
+
+        action def ExecuteHomeScene {
+            in item lightingRequest: LightingCommand;
+            in item climateRequest: ClimateCommand;
+            in item mediaRequest: MediaCommand;
+            in item securityRequest: SecurityCommand;
+
+            perform controller.InterpretUserIntent;
+            perform lighting.ApplyScene;
+            perform climate.RegulateTemperature;
+            perform media.RouteMedia;
+        }
+
+        state def WholeHomeAutomationState {
+            state startup;
+            state normalAutomation;
+            state manualOverride;
+            state securityEvent;
+            state networkDegraded;
+
+            initial then startup;
+
+            transition startupComplete
+                first startup
+                then normalAutomation;
+
+            transition userOverride
+                first normalAutomation
+                then manualOverride;
+
+            transition overrideExpired
+                first manualOverride
+                then normalAutomation;
+
+            transition intrusionDetected
+                first normalAutomation
+                then securityEvent;
+
+            transition securityResolved
+                first securityEvent
+                then normalAutomation;
+
+            transition cloudLost
+                first normalAutomation
+                then networkDegraded;
+
+            transition cloudRestored
+                first networkDegraded
+                then normalAutomation;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The system shall provide centralized high-level control of lighting, climate, media, and security using a Control4-style controller and unified user interfaces.";
+    }
+
+    requirement def SceneExecutionRequirement {
+        doc "The system shall execute a whole-home scene affecting at least lighting, climate, and media within 2 seconds of a valid user request.";
+        attribute maximumSceneLatency: SecondValue = 2.0;
+    }
+
+    requirement def SecurityNotificationRequirement {
+        doc "The system shall generate a high-priority notification when an armed security sensor reports intrusion.";
+        attribute maximumNotificationLatency: SecondValue = 5.0;
+    }
+
+    requirement def LocalControlRequirement {
+        doc "The system shall continue local lighting, climate, and security control when cloud connectivity is unavailable.";
+    }
+
+    requirement def EnergyLimitRequirement {
+        doc "The controller and automation electronics shall remain below the defined nominal operating power during normal automation.";
+        attribute maximumControllerPower: Watt = 25.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by Control4BasedSmartHomeSystem;
+    satisfy SceneExecutionRequirement by Control4BasedSmartHomeSystem::ExecuteHomeScene;
+    satisfy SecurityNotificationRequirement by SecuritySubsystem;
+    satisfy LocalControlRequirement by Control4CoreController;
+    satisfy EnergyLimitRequirement by Control4CoreController;
+}
+tokens used
+2,943
+package Control4ResidenceAutomationModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value type Percent specializes Real {
+        unit = "%";
+    }
+
+    value type Lux specializes Real {
+        unit = "lx";
+    }
+
+    value type Celsius specializes Real {
+        unit = "degC";
+    }
+
+    value type Watt specializes Real {
+        unit = "W";
+    }
+
+    value type Volt specializes Real {
+        unit = "V";
+    }
+
+    value type AmpereValue specializes Real {
+        unit = "A";
+    }
+
+    value type SecondValue specializes Real {
+        unit = "s";
+    }
+
+    value type MeterPerSecond specializes Real {
+        unit = "m/s";
+    }
+
+    value type Decibel specializes Real {
+        unit = "dB";
+    }
+
+    enum def SecurityMode {
+        enum off;
+        enum stay;
+        enum away;
+        enum alarm;
+    }
+
+    enum def OccupancyState {
+        enum vacant;
+        enum occupied;
+    }
+
+    enum def MediaSource {
+        enum streaming;
+        enum television;
+        enum localAudio;
+        enum gameConsole;
+        enum none;
+    }
+
+    enum def NetworkState {
+        enum offline;
+        enum localOnly;
+        enum cloudConnected;
+    }
+
+    item def LightingCommand {
+        attribute targetLevel: Percent;
+        attribute fadeTime: SecondValue;
+        attribute zoneName: String;
+    }
+
+    item def ClimateCommand {
+        attribute coolingSetpoint: Celsius;
+        attribute heatingSetpoint: Celsius;
+        attribute fanEnabled: Boolean;
+    }
+
+    item def MediaCommand {
+        attribute source: MediaSource;
+        attribute targetVolume: Percent;
+        attribute roomName: String;
+    }
+
+    item def SecurityCommand {
+        attribute requestedMode: SecurityMode;
+        attribute userCredentialValid: Boolean;
+    }
+
+    item def SensorEvent {
+        attribute occupancy: OccupancyState;
+        attribute ambientLight: Lux;
+        attribute temperature: Celsius;
+        attribute doorOpen: Boolean;
+        attribute motionDetected: Boolean;
+    }
+
+    item def Notification {
+        attribute title: String;
+        attribute message: String;
+        attribute priority: Integer;
+    }
+
+    port def EthernetPort {
+        out item dataOut;
+        in item dataIn;
+    }
+
+    port def ZigbeePort {
+        out item wirelessCommand;
+        in item wirelessTelemetry;
+    }
+
+    port def RelayPort {
+        out item relaySignal;
+    }
+
+    port def AudioVideoPort {
+        out item avSignal;
+        in item avStatus;
+    }
+
+    port def UserInterfacePort {
+        in item userRequest;
+        out item systemFeedback;
+    }
+
+    port def SensorPort {
+        in item event: SensorEvent;
+    }
+
+    port def NotificationPort {
+        out item alert: Notification;
+    }
+
+    part def Control4CoreController {
+        attribute supplyVoltage: Volt = 24.0;
+        attribute nominalPower: Watt = 18.0;
+        attribute processorUtilization: Percent;
+        attribute networkState: NetworkState = NetworkState::offline;
+
+        port ethernet: EthernetPort;
+        port zigbee: ZigbeePort;
+        port ui: UserInterfacePort;
+        port notify: NotificationPort;
+
+        action def InterpretUserIntent {
+            in item request;
+            out item lightingCommand: LightingCommand;
+            out item climateCommand: ClimateCommand;
+            out item mediaCommand: MediaCommand;
+            out item securityCommand: SecurityCommand;
+        }
+
+        state def ControllerOperationalState {
+            state initializing;
+            state ready;
+            state degraded;
+            state offline;
+
+            initial then initializing;
+
+            transition initializing_to_ready
+                first initializing
+                then ready;
+
+            transition ready_to_degraded
+                first ready
+                then degraded;
+
+            transition degraded_to_ready
+                first degraded
+                then ready;
+
+            transition ready_to_offline
+                first ready
+                then offline;
+
+            transition offline_to_initializing
+                first offline
+                then initializing;
+        }
+    }
+
+    part def LightingSubsystem {
+        attribute maximumConnectedLoad: Watt = 1200.0;
+        attribute activeSceneName: String = "Morning";
+
+        port controlInput: ZigbeePort;
+        port sensorInput: SensorPort;
+
+        part kitchenDimmer {
+            attribute level: Percent = 75.0;
+            attribute load: Watt = 180.0;
+        }
+
+        part livingRoomDimmer {
+            attribute level: Percent = 55.0;
+            attribute load: Watt = 240.0;
+        }
+
+        part entryRelay {
+            attribute energized: Boolean = false;
+            attribute load: Watt = 90.0;
+        }
+
+        action def ApplyScene {
+            in item command: LightingCommand;
+            out attribute resultingLevel: Percent;
+        }
+    }
+
+    part def ClimateSubsystem {
+        attribute indoorTemperature: Celsius = 22.0;
+        attribute outdoorTemperature: Celsius = 8.0;
+        attribute heatingSetpoint: Celsius = 20.0;
+        attribute coolingSetpoint: Celsius = 24.0;
+        attribute hvacDemandPower: Watt = 3500.0;
+
+        port controlInput: EthernetPort;
+        port sensorInput: SensorPort;
+
+        action def RegulateTemperature {
+            in item command: ClimateCommand;
+            in attribute measuredTemperature: Celsius;
+            out attribute compressorEnabled: Boolean;
+            out attribute fanEnabled: Boolean;
+        }
+    }
+
+    part def MediaSubsystem {
+        attribute currentSource: MediaSource = MediaSource::none;
+        attribute livingRoomVolume: Percent = 35.0;
+        attribute bedroomVolume: Percent = 20.0;
+        attribute amplifierPower: Watt = 320.0;
+        attribute maxSoundPressure: Decibel = 92.0;
+
+        port controlInput: AudioVideoPort;
+
+        part matrixSwitch {
+            attribute inputCount: Integer = 8;
+            attribute outputCount: Integer = 8;
+        }
+
+        part livingRoomSpeakers {
+            attribute channelCount: Integer = 5;
+            attribute ratedPower: Watt = 250.0;
+        }
+
+        part bedroomSpeakers {
+            attribute channelCount: Integer = 2;
+            attribute ratedPower: Watt = 100.0;
+        }
+
+        action def RouteMedia {
+            in item command: MediaCommand;
+            out attribute selectedSource: MediaSource;
+            out attribute selectedVolume: Percent;
+        }
+    }
+
+    part def SecuritySubsystem {
+        attribute mode: SecurityMode = SecurityMode::off;
+        attribute sirenPower: Watt = 30.0;
+        attribute entryDelay: SecondValue = 30.0;
+        attribute alarmActive: Boolean = false;
+
+        port controlInput: EthernetPort;
+        port sensorInput: SensorPort;
+        port alertOutput: NotificationPort;
+
+        part frontDoorContact {
+            attribute open: Boolean = false;
+        }
+
+        part motionDetector {
+            attribute occupied: Boolean = false;
+            attribute detectionRange: MeterPerSecond = 0.2;
+        }
+
+        part glassBreakSensor {
+            attribute triggered: Boolean = false;
+        }
+
+        state def SecurityState {
+            state disarmed;
+            state armedStay;
+            state armedAway;
+            state entryDelayActive;
+            state alarm;
+
+            initial then disarmed;
+
+            transition armStay
+                first disarmed
+                then armedStay;
+
+            transition armAway
+                first disarmed
+                then armedAway;
+
+            transition detectedEntry
+                first armedAway
+                then entryDelayActive;
+
+            transition entryTimeout
+                first entryDelayActive
+                then alarm;
+
+            transition validDisarm
+                first entryDelayActive
+                then disarmed;
+
+            transition alarmDisarm
+                first alarm
+                then disarmed;
+        }
+    }
+
+    part def UserExperienceSubsystem {
+        port touchPanel: UserInterfacePort;
+        port mobileApp: UserInterfacePort;
+        port voiceAssistant: UserInterfacePort;
+
+        action def PresentUnifiedHomeStatus {
+            in attribute lightingLevel: Percent;
+            in attribute temperature: Celsius;
+            in attribute securityMode: SecurityMode;
+            in attribute mediaSource: MediaSource;
+            out item feedback;
+        }
+    }
+
+    part def Control4BasedSmartHomeSystem {
+        attribute primaryFunction: String =
+            "Provide centralized, scene-based control of residential lighting, climate, media, and security through Control4-style automation, user interfaces, and event-driven coordination.";
+
+        part controller: Control4CoreController;
+        part lighting: LightingSubsystem;
+        part climate: ClimateSubsystem;
+        part media: MediaSubsystem;
+        part security: SecuritySubsystem;
+        part userExperience: UserExperienceSubsystem;
+
+        connect controller.zigbee to lighting.controlInput;
+        connect controller.ethernet to climate.controlInput;
+        connect controller.ethernet to security.controlInput;
+        connect controller.ui to userExperience.touchPanel;
+        connect controller.ui to userExperience.mobileApp;
+        connect controller.ui to userExperience.voiceAssistant;
+        connect controller.notify to security.alertOutput;
+
+        action def ExecuteHomeScene {
+            in item lightingRequest: LightingCommand;
+            in item climateRequest: ClimateCommand;
+            in item mediaRequest: MediaCommand;
+            in item securityRequest: SecurityCommand;
+
+            perform controller.InterpretUserIntent;
+            perform lighting.ApplyScene;
+            perform climate.RegulateTemperature;
+            perform media.RouteMedia;
+        }
+
+        state def WholeHomeAutomationState {
+            state startup;
+            state normalAutomation;
+            state manualOverride;
+            state securityEvent;
+            state networkDegraded;
+
+            initial then startup;
+
+            transition startupComplete
+                first startup
+                then normalAutomation;
+
+            transition userOverride
+                first normalAutomation
+                then manualOverride;
+
+            transition overrideExpired
+                first manualOverride
+                then normalAutomation;
+
+            transition intrusionDetected
+                first normalAutomation
+                then securityEvent;
+
+            transition securityResolved
+                first securityEvent
+                then normalAutomation;
+
+            transition cloudLost
+                first normalAutomation
+                then networkDegraded;
+
+            transition cloudRestored
+                first networkDegraded
+                then normalAutomation;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The system shall provide centralized high-level control of lighting, climate, media, and security using a Control4-style controller and unified user interfaces.";
+    }
+
+    requirement def SceneExecutionRequirement {
+        doc "The system shall execute a whole-home scene affecting at least lighting, climate, and media within 2 seconds of a valid user request.";
+        attribute maximumSceneLatency: SecondValue = 2.0;
+    }
+
+    requirement def SecurityNotificationRequirement {
+        doc "The system shall generate a high-priority notification when an armed security sensor reports intrusion.";
+        attribute maximumNotificationLatency: SecondValue = 5.0;
+    }
+
+    requirement def LocalControlRequirement {
+        doc "The system shall continue local lighting, climate, and security control when cloud connectivity is unavailable.";
+    }
+
+    requirement def EnergyLimitRequirement {
+        doc "The controller and automation electronics shall remain below the defined nominal operating power during normal automation.";
+        attribute maximumControllerPower: Watt = 25.0;
+    }
+
+    satisfy PrimaryFunctionRequirement by Control4BasedSmartHomeSystem;
+    satisfy SceneExecutionRequirement by Control4BasedSmartHomeSystem::ExecuteHomeScene;
+    satisfy SecurityNotificationRequirement by SecuritySubsystem;
+    satisfy LocalControlRequirement by Control4CoreController;
+    satisfy EnergyLimitRequirement by Control4CoreController;
+}

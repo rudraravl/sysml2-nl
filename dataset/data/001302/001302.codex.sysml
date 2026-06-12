@@ -1,0 +1,435 @@
+package UltrasonicThicknessGaugeModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def TimeValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def FrequencyValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def VoltageValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def TemperatureValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def AcousticVelocityValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def GainValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def PercentValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    attribute def BooleanValue {
+        attribute value : Boolean;
+    }
+
+    item def ElectricalPulse {
+        attribute amplitude : VoltageValue;
+        attribute width : TimeValue;
+        attribute centerFrequency : FrequencyValue;
+    }
+
+    item def UltrasonicWave {
+        attribute frequency : FrequencyValue;
+        attribute propagationVelocity : AcousticVelocityValue;
+        attribute acousticImpedanceMatched : BooleanValue;
+    }
+
+    item def EchoSignal {
+        attribute amplitude : VoltageValue;
+        attribute timeOfFlight : TimeValue;
+        attribute signalToNoiseRatio : GainValue;
+        attribute validEcho : BooleanValue;
+    }
+
+    item def ThicknessMeasurement {
+        attribute measuredThickness : LengthValue;
+        attribute materialVelocity : AcousticVelocityValue;
+        attribute temperatureCompensated : BooleanValue;
+        attribute confidence : PercentValue;
+    }
+
+    item def CalibrationBlockReference {
+        attribute certifiedThickness : LengthValue;
+        attribute certifiedVelocity : AcousticVelocityValue;
+        attribute serialNumber : String;
+    }
+
+    item def OperatorCommand {
+        attribute commandName : String;
+    }
+
+    item def DisplayMessage {
+        attribute text : String;
+        attribute severity : String;
+    }
+
+    item def BatteryEnergy {
+        attribute remainingCapacity : PercentValue;
+        attribute voltage : VoltageValue;
+    }
+
+    port def ElectricalPulsePort {
+        out item pulse : ElectricalPulse;
+    }
+
+    port def EchoSignalPort {
+        in item echo : EchoSignal;
+    }
+
+    port def UltrasonicWavePort {
+        out item incidentWave : UltrasonicWave;
+        in item reflectedWave : UltrasonicWave;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : ThicknessMeasurement;
+    }
+
+    port def CommandInputPort {
+        in item command : OperatorCommand;
+    }
+
+    port def MessageOutputPort {
+        out item message : DisplayMessage;
+    }
+
+    port def BatteryPort {
+        out item energy : BatteryEnergy;
+    }
+
+    port def ReferenceInputPort {
+        in item reference : CalibrationBlockReference;
+    }
+
+    part def PulseGenerator {
+        attribute pulseVoltage : VoltageValue = (value = 180.0, unit = "V");
+        attribute pulseWidth : TimeValue = (value = 120.0, unit = "ns");
+        attribute repetitionRate : FrequencyValue = (value = 20.0, unit = "Hz");
+
+        port pulseOut : ElectricalPulsePort;
+    }
+
+    part def UltrasonicTransducer {
+        attribute nominalFrequency : FrequencyValue = (value = 5.0, unit = "MHz");
+        attribute elementDiameter : LengthValue = (value = 10.0, unit = "mm");
+        attribute couplantRequired : BooleanValue = (value = true);
+
+        port excitationIn : ElectricalPulsePort;
+        port acousticFace : UltrasonicWavePort;
+        port echoOut : EchoSignalPort;
+    }
+
+    part def EchoReceiver {
+        attribute inputImpedance : Real = 50.0;
+        attribute analogGain : GainValue = (value = 42.0, unit = "dB");
+        attribute minimumDetectableEcho : VoltageValue = (value = 0.005, unit = "V");
+
+        port echoIn : EchoSignalPort;
+        port processedEchoOut : EchoSignalPort;
+    }
+
+    part def SignalProcessor {
+        attribute sampleRate : FrequencyValue = (value = 100.0, unit = "MHz");
+        attribute gateStart : TimeValue = (value = 0.5, unit = "us");
+        attribute gateEnd : TimeValue = (value = 25.0, unit = "us");
+        attribute defaultMaterialVelocity : AcousticVelocityValue = (value = 5920.0, unit = "m/s");
+
+        port echoIn : EchoSignalPort;
+        port referenceIn : ReferenceInputPort;
+        port measurementOut : MeasurementOutputPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measuredTemperature : TemperatureValue = (value = 20.0, unit = "degC");
+        attribute compensationEnabled : BooleanValue = (value = true);
+    }
+
+    part def UserInterface {
+        attribute displayResolution : LengthValue = (value = 0.01, unit = "mm");
+        attribute alarmThreshold : LengthValue = (value = 2.00, unit = "mm");
+
+        port commandIn : CommandInputPort;
+        port measurementIn : MeasurementOutputPort;
+        port messageOut : MessageOutputPort;
+    }
+
+    part def BatterySubsystem {
+        attribute nominalVoltage : VoltageValue = (value = 7.4, unit = "V");
+        attribute lowBatteryThreshold : PercentValue = (value = 15.0, unit = "%");
+
+        port batteryOut : BatteryPort;
+    }
+
+    part def TestMaterial {
+        attribute actualThickness : LengthValue = (value = 8.25, unit = "mm");
+        attribute longitudinalVelocity : AcousticVelocityValue = (value = 5920.0, unit = "m/s");
+        attribute backWallReflective : BooleanValue = (value = true);
+
+        port inspectionSurface : UltrasonicWavePort;
+    }
+
+    action def GeneratePulse {
+        in pulseVoltage : VoltageValue;
+        in pulseWidth : TimeValue;
+        in centerFrequency : FrequencyValue;
+        out pulse : ElectricalPulse;
+    }
+
+    action def EmitUltrasound {
+        in pulse : ElectricalPulse;
+        in materialVelocity : AcousticVelocityValue;
+        out wave : UltrasonicWave;
+    }
+
+    action def ReceiveBackWallEcho {
+        in reflectedWave : UltrasonicWave;
+        in actualThickness : LengthValue;
+        in velocity : AcousticVelocityValue;
+        out echo : EchoSignal;
+    }
+
+    action def CalculateThickness {
+        in echo : EchoSignal;
+        in velocity : AcousticVelocityValue;
+        out measurement : ThicknessMeasurement;
+    }
+
+    action def DisplayThickness {
+        in measurement : ThicknessMeasurement;
+        out message : DisplayMessage;
+    }
+
+    action def CalibrateVelocity {
+        in referenceEcho : EchoSignal;
+        in referenceBlock : CalibrationBlockReference;
+        out calibratedVelocity : AcousticVelocityValue;
+    }
+
+    state def GaugeOperationalState {
+        state off;
+        state powerOnSelfTest;
+        state ready;
+        state couplingCheck;
+        state measuring;
+        state calculating;
+        state displaying;
+        state calibration;
+        state fault;
+        state lowBatteryShutdown;
+
+        transition first off then powerOnSelfTest
+            accept OperatorCommand
+            if commandName == "PowerOn";
+
+        transition powerOnSelfTest then ready;
+
+        transition ready then calibration
+            accept OperatorCommand
+            if commandName == "Calibrate";
+
+        transition calibration then ready;
+
+        transition ready then couplingCheck
+            accept OperatorCommand
+            if commandName == "Measure";
+
+        transition couplingCheck then measuring
+            if true;
+
+        transition measuring then calculating
+            if true;
+
+        transition calculating then displaying
+            if true;
+
+        transition displaying then ready;
+
+        transition ready then lowBatteryShutdown
+            if true;
+
+        transition measuring then fault
+            if true;
+
+        transition fault then ready
+            accept OperatorCommand
+            if commandName == "ClearFault";
+
+        transition ready then off
+            accept OperatorCommand
+            if commandName == "PowerOff";
+    }
+
+    part def UltrasonicThicknessGauge {
+        attribute measurementRangeMinimum : LengthValue = (value = 0.75, unit = "mm");
+        attribute measurementRangeMaximum : LengthValue = (value = 300.0, unit = "mm");
+        attribute statedAccuracy : LengthValue = (value = 0.05, unit = "mm");
+        attribute operatingTemperatureMinimum : TemperatureValue = (value = -10.0, unit = "degC");
+        attribute operatingTemperatureMaximum : TemperatureValue = (value = 50.0, unit = "degC");
+        attribute primaryFunction : String = "Measure wall thickness from one side of a material by transmitting an ultrasonic pulse, detecting the back-wall echo, computing time of flight, and converting it to thickness using the material acoustic velocity.";
+
+        part pulseGenerator : PulseGenerator;
+        part transducer : UltrasonicTransducer;
+        part receiver : EchoReceiver;
+        part processor : SignalProcessor;
+        part temperatureSensor : TemperatureSensor;
+        part ui : UserInterface;
+        part battery : BatterySubsystem;
+
+        port operatorCommands : CommandInputPort;
+        port inspectionAcousticPort : UltrasonicWavePort;
+        port measurementOutput : MeasurementOutputPort;
+        port operatorMessages : MessageOutputPort;
+        port calibrationReference : ReferenceInputPort;
+
+        perform action generatePulse : GeneratePulse;
+        perform action emitUltrasound : EmitUltrasound;
+        perform action receiveEcho : ReceiveBackWallEcho;
+        perform action calculateThickness : CalculateThickness;
+        perform action displayThickness : DisplayThickness;
+        perform action calibrateVelocity : CalibrateVelocity;
+
+        exhibit state operationalState : GaugeOperationalState;
+
+        connect pulseGenerator.pulseOut to transducer.excitationIn;
+        connect transducer.echoOut to receiver.echoIn;
+        connect receiver.processedEchoOut to processor.echoIn;
+        connect processor.measurementOut to ui.measurementIn;
+        connect processor.measurementOut to measurementOutput;
+        connect ui.messageOut to operatorMessages;
+        connect operatorCommands to ui.commandIn;
+        connect calibrationReference to processor.referenceIn;
+        connect transducer.acousticFace to inspectionAcousticPort;
+    }
+
+    part gaugeSystem : UltrasonicThicknessGauge {
+        part inspectedWall : TestMaterial;
+
+        connect inspectionAcousticPort to inspectedWall.inspectionSurface;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The ultrasonic thickness gauge shall determine material thickness from a single accessible surface by sending an ultrasonic pulse into the material, receiving the reflected back-wall echo, calculating time of flight, and reporting thickness to the operator.
+         */
+
+        subject gauge : UltrasonicThicknessGauge;
+
+        require constraint {
+            gauge.measurementRangeMinimum.value <= 0.75 and
+            gauge.measurementRangeMaximum.value >= 300.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc
+        /*
+         * The gauge shall report thickness with stated accuracy of 0.05 mm or better under calibrated conditions and valid acoustic coupling.
+         */
+
+        subject gauge : UltrasonicThicknessGauge;
+
+        require constraint {
+            gauge.statedAccuracy.value <= 0.05
+        }
+    }
+
+    requirement def EchoValidationRequirement {
+        doc
+        /*
+         * The signal processor shall reject invalid measurements when the detected echo is outside the configured acquisition gate or below the minimum signal quality threshold.
+         */
+
+        subject processor : SignalProcessor;
+
+        require constraint {
+            processor.gateStart.value < processor.gateEnd.value
+        }
+    }
+
+    requirement def OperatorDisplayRequirement {
+        doc
+        /*
+         * The user interface shall display a valid computed thickness, measurement confidence, and alarm indication when the measured thickness is below the configured threshold.
+         */
+
+        subject ui : UserInterface;
+
+        require constraint {
+            ui.displayResolution.value <= 0.01
+        }
+    }
+
+    requirement def BatteryRequirement {
+        doc
+        /*
+         * The battery subsystem shall provide low-battery indication before remaining capacity falls below the shutdown reserve.
+         */
+
+        subject battery : BatterySubsystem;
+
+        require constraint {
+            battery.lowBatteryThreshold.value >= 10.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by gaugeSystem;
+    satisfy AccuracyRequirement by gaugeSystem;
+    satisfy EchoValidationRequirement by gaugeSystem.processor;
+    satisfy OperatorDisplayRequirement by gaugeSystem.ui;
+    satisfy BatteryRequirement by gaugeSystem.battery;
+
+    analysis def ThicknessComputationAnalysis {
+        in timeOfFlight : TimeValue;
+        in velocity : AcousticVelocityValue;
+        out thickness : LengthValue;
+
+        objective {
+            doc
+            /*
+             * Thickness is computed as one half of acoustic velocity multiplied by pulse round-trip time of flight.
+             */
+        }
+    }
+
+    constraint def ThicknessEquation {
+        in tof_us : Real;
+        in velocity_m_per_s : Real;
+        in thickness_mm : Real;
+
+        thickness_mm == velocity_m_per_s * tof_us / 2000.0;
+    }
+
+    assert constraint ThicknessEquation {
+        tof_us = 2.787;
+        velocity_m_per_s = 5920.0;
+        thickness_mm = 8.24952;
+    }
+
+}

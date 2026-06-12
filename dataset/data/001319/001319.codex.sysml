@@ -1,0 +1,347 @@
+package WiredGloveSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Percentage {
+        :> ScalarQuantityValue;
+        unit = "%";
+    }
+
+    attribute def Degrees {
+        :> ScalarQuantityValue;
+        unit = "deg";
+    }
+
+    attribute def Newton {
+        :> ScalarQuantityValue;
+        unit = "N";
+    }
+
+    attribute def Millisecond {
+        :> ScalarQuantityValue;
+        unit = "ms";
+    }
+
+    attribute def Hertz {
+        :> ScalarQuantityValue;
+        unit = "Hz";
+    }
+
+    attribute def Volt {
+        :> ScalarQuantityValue;
+        unit = "V";
+    }
+
+    attribute def Meter {
+        :> ScalarQuantityValue;
+        unit = "m";
+    }
+
+    item def FingerFlexionSignal {
+        attribute thumbFlexion : Degrees;
+        attribute indexFlexion : Degrees;
+        attribute middleFlexion : Degrees;
+        attribute ringFlexion : Degrees;
+        attribute littleFlexion : Degrees;
+        attribute sampleTime : Millisecond;
+    }
+
+    item def HandPoseEstimate {
+        attribute thumbAngle : Degrees;
+        attribute indexAngle : Degrees;
+        attribute middleAngle : Degrees;
+        attribute ringAngle : Degrees;
+        attribute littleAngle : Degrees;
+        attribute wristRoll : Degrees;
+        attribute wristPitch : Degrees;
+        attribute confidence : Percentage;
+    }
+
+    item def GestureCommand {
+        attribute gestureId : String;
+        attribute confidence : Percentage;
+        attribute generatedAt : Millisecond;
+    }
+
+    item def HapticCue {
+        attribute intensity : Percentage;
+        attribute duration : Millisecond;
+        attribute patternId : String;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Volt;
+        attribute current : ScalarQuantityValue;
+    }
+
+    item def UsbDataFrame {
+        attribute payloadBytes : Integer;
+        attribute sequenceNumber : Integer;
+        attribute latency : Millisecond;
+    }
+
+    port def SensorDataPort {
+        out item rawFlexion : FingerFlexionSignal;
+    }
+
+    port def PoseDataPort {
+        out item pose : HandPoseEstimate;
+    }
+
+    port def GestureDataPort {
+        out item gesture : GestureCommand;
+    }
+
+    port def HapticPort {
+        in item cue : HapticCue;
+    }
+
+    port def UsbPort {
+        in item hostHapticCue : HapticCue;
+        out item gloveFrame : UsbDataFrame;
+        out item gloveGesture : GestureCommand;
+        out item glovePose : HandPoseEstimate;
+        in item busPower : PowerFlow;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : PowerFlow;
+    }
+
+    part def FlexSensor {
+        attribute measuredAngle : Degrees;
+        attribute minimumAngle : Degrees = 0 [deg];
+        attribute maximumAngle : Degrees = 120 [deg];
+        attribute measurementError : Degrees;
+        port data : SensorDataPort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute wristRoll : Degrees;
+        attribute wristPitch : Degrees;
+        attribute wristYaw : Degrees;
+        attribute updateRate : Hertz = 100 [Hz];
+        port poseContribution : PoseDataPort;
+    }
+
+    part def HapticActuator {
+        attribute maximumForce : Newton = 1.2 [N];
+        attribute commandedIntensity : Percentage;
+        port hapticInput : HapticPort;
+    }
+
+    part def EmbeddedController {
+        attribute processorLoad : Percentage;
+        attribute samplingRate : Hertz = 100 [Hz];
+        attribute poseLatency : Millisecond;
+        attribute gestureLatency : Millisecond;
+
+        port thumbSensorIn : SensorDataPort;
+        port indexSensorIn : SensorDataPort;
+        port middleSensorIn : SensorDataPort;
+        port ringSensorIn : SensorDataPort;
+        port littleSensorIn : SensorDataPort;
+        port imuIn : PoseDataPort;
+        port poseOut : PoseDataPort;
+        port gestureOut : GestureDataPort;
+        port hapticOut : HapticPort;
+        port usb : UsbPort;
+
+        action calibrateSensors {
+            in item rawFlexion : FingerFlexionSignal;
+            out item calibratedFlexion : FingerFlexionSignal;
+        }
+
+        action estimateHandPose {
+            in item calibratedFlexion : FingerFlexionSignal;
+            out item estimatedPose : HandPoseEstimate;
+        }
+
+        action classifyGesture {
+            in item estimatedPose : HandPoseEstimate;
+            out item command : GestureCommand;
+        }
+
+        action encodeUsbFrame {
+            in item estimatedPose : HandPoseEstimate;
+            in item command : GestureCommand;
+            out item frame : UsbDataFrame;
+        }
+
+        state def ControllerOperatingState {
+            entry action initializeSampling;
+            state off;
+            state booting;
+            state calibrating;
+            state streaming;
+            state hapticFeedback;
+            state fault;
+
+            transition first off;
+            transition off_to_booting
+                first off then booting
+                accept PowerApplied;
+
+            transition booting_to_calibrating
+                first booting then calibrating
+                accept FirmwareReady;
+
+            transition calibrating_to_streaming
+                first calibrating then streaming
+                accept CalibrationComplete;
+
+            transition streaming_to_hapticFeedback
+                first streaming then hapticFeedback
+                accept HapticCueReceived;
+
+            transition hapticFeedback_to_streaming
+                first hapticFeedback then streaming
+                accept CueComplete;
+
+            transition streaming_to_fault
+                first streaming then fault
+                accept SensorFailure;
+
+            transition fault_to_calibrating
+                first fault then calibrating
+                accept ResetCommand;
+        }
+    }
+
+    part def WiredCommunicationCable {
+        attribute length : Meter = 1.8 [m];
+        attribute shielded : Boolean = true;
+        port gloveSide : UsbPort;
+        port hostSide : UsbPort;
+    }
+
+    part def HostComputerInterface {
+        attribute acceptedSampleRate : Hertz = 100 [Hz];
+        attribute maximumAcceptedLatency : Millisecond = 20 [ms];
+
+        port wiredUsb : UsbPort;
+
+        action interpretGesture {
+            in item gesture : GestureCommand;
+        }
+
+        action updateVirtualHand {
+            in item pose : HandPoseEstimate;
+        }
+
+        action sendHapticCue {
+            out item cue : HapticCue;
+        }
+    }
+
+    part def WiredGlove {
+        attribute primaryFunction : String = "Capture human hand motion through finger and wrist sensors, convert the motion into digital hand-pose and gesture commands, and transmit them through a wired connection to a host system for real-time interaction.";
+        attribute gloveMass : ScalarQuantityValue;
+        attribute operatingVoltage : Volt = 5 [V];
+        attribute nominalUpdateRate : Hertz = 100 [Hz];
+        attribute maximumEndToEndLatency : Millisecond = 20 [ms];
+
+        part thumbFlexSensor : FlexSensor;
+        part indexFlexSensor : FlexSensor;
+        part middleFlexSensor : FlexSensor;
+        part ringFlexSensor : FlexSensor;
+        part littleFlexSensor : FlexSensor;
+        part wristImu : InertialMeasurementUnit;
+        part controller : EmbeddedController;
+        part palmHapticActuator : HapticActuator;
+        part usbCable : WiredCommunicationCable;
+
+        port hostConnection : UsbPort;
+        port powerInput : PowerInputPort;
+
+        connect thumbFlexSensor.data to controller.thumbSensorIn;
+        connect indexFlexSensor.data to controller.indexSensorIn;
+        connect middleFlexSensor.data to controller.middleSensorIn;
+        connect ringFlexSensor.data to controller.ringSensorIn;
+        connect littleFlexSensor.data to controller.littleSensorIn;
+        connect wristImu.poseContribution to controller.imuIn;
+        connect controller.hapticOut to palmHapticActuator.hapticInput;
+        connect controller.usb to usbCable.gloveSide;
+        connect usbCable.hostSide to hostConnection;
+        connect hostConnection.busPower to powerInput.suppliedPower;
+
+        action operateGlove {
+            action sampleFingerFlexion;
+            action sampleWristOrientation;
+            action computePose;
+            action detectGesture;
+            action transmitWiredOutput;
+            action applyHapticFeedback;
+
+            first start then sampleFingerFlexion;
+            then sampleWristOrientation;
+            then computePose;
+            then detectGesture;
+            then transmitWiredOutput;
+            then applyHapticFeedback;
+        }
+    }
+
+    part def WiredGloveInteractiveSystem {
+        part glove : WiredGlove;
+        part host : HostComputerInterface;
+
+        connect glove.hostConnection to host.wiredUsb;
+
+        perform glove.operateGlove;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject glove : WiredGlove;
+        require constraint {
+            glove.nominalUpdateRate >= 90 [Hz] and
+            glove.maximumEndToEndLatency <= 20 [ms]
+        }
+        doc /* The wired glove shall capture wearer hand motion and provide real-time digital pose and gesture output to a host computer over a wired interface. */
+    }
+
+    requirement def FingerMotionCaptureRequirement {
+        subject glove : WiredGlove;
+        require constraint {
+            glove.thumbFlexSensor.minimumAngle <= 0 [deg] and
+            glove.thumbFlexSensor.maximumAngle >= 90 [deg] and
+            glove.indexFlexSensor.maximumAngle >= 90 [deg] and
+            glove.middleFlexSensor.maximumAngle >= 90 [deg] and
+            glove.ringFlexSensor.maximumAngle >= 90 [deg] and
+            glove.littleFlexSensor.maximumAngle >= 90 [deg]
+        }
+        doc /* The glove shall measure flexion of all five fingers. */
+    }
+
+    requirement def WiredCommunicationRequirement {
+        subject glove : WiredGlove;
+        require constraint {
+            glove.usbCable.length >= 1.0 [m] and
+            glove.usbCable.shielded == true
+        }
+        doc /* The glove shall use a shielded wired data and power connection to the host interface. */
+    }
+
+    requirement def HapticFeedbackRequirement {
+        subject glove : WiredGlove;
+        require constraint {
+            glove.palmHapticActuator.maximumForce >= 1.0 [N]
+        }
+        doc /* The glove shall provide tactile feedback cues commanded by the host computer. */
+    }
+
+    requirement def PoseQualityRequirement {
+        subject controller : EmbeddedController;
+        require constraint {
+            controller.poseLatency <= 10 [ms] and
+            controller.gestureLatency <= 20 [ms]
+        }
+        doc /* The embedded controller shall estimate hand pose and classify gestures within real-time interaction limits. */
+    }
+
+    satisfy PrimaryFunctionRequirement by WiredGloveInteractiveSystem.glove;
+    satisfy FingerMotionCaptureRequirement by WiredGloveInteractiveSystem.glove;
+    satisfy WiredCommunicationRequirement by WiredGloveInteractiveSystem.glove;
+    satisfy HapticFeedbackRequirement by WiredGloveInteractiveSystem.glove;
+    satisfy PoseQualityRequirement by WiredGloveInteractiveSystem.glove.controller;
+}

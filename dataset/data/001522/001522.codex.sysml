@@ -1,0 +1,518 @@
+package OutOfTheLoopPerformanceMitigationSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Seconds :> Real {
+    unit = "s";
+  }
+
+  attribute def Milliseconds :> Real {
+    unit = "ms";
+  }
+
+  attribute def Hertz :> Real {
+    unit = "Hz";
+  }
+
+  attribute def BitPerSecond :> Real {
+    unit = "bit/s";
+  }
+
+  attribute def Confidence :> Real {
+    unit = "1";
+  }
+
+  enum def AutomationMode {
+    enum manual;
+    enum sharedControl;
+    enum supervisedAutomation;
+    enum fullAutomation;
+    enum degradedAutomation;
+    enum emergencyFallback;
+  }
+
+  enum def OperatorStateKind {
+    enum engaged;
+    enum underloaded;
+    enum overloaded;
+    enum distracted;
+    enum fatigued;
+    enum outOfTheLoop;
+    enum recovering;
+  }
+
+  enum def AlertPriority {
+    enum advisory;
+    enum caution;
+    enum warning;
+    enum critical;
+  }
+
+  item def MissionObjective {
+    attribute objectiveId : String;
+    attribute priority : Integer;
+    attribute requiredCompletionTime : Seconds;
+  }
+
+  item def EnvironmentObservation {
+    attribute timestamp : Seconds;
+    attribute hazardProbability : Percent;
+    attribute trafficDensity : Percent;
+    attribute uncertainty : Percent;
+  }
+
+  item def AutomationDecision {
+    attribute timestamp : Seconds;
+    attribute mode : AutomationMode;
+    attribute decisionConfidence : Confidence;
+    attribute explanationText : String;
+  }
+
+  item def OperatorInput {
+    attribute timestamp : Seconds;
+    attribute commandName : String;
+    attribute confirmationRequired : Boolean;
+    attribute inputLatency : Milliseconds;
+  }
+
+  item def EngagementAssessment {
+    attribute timestamp : Seconds;
+    attribute state : OperatorStateKind;
+    attribute engagementScore : Percent;
+    attribute situationAwarenessScore : Percent;
+    attribute workloadScore : Percent;
+    attribute confidence : Confidence;
+  }
+
+  item def AlertMessage {
+    attribute timestamp : Seconds;
+    attribute priority : AlertPriority;
+    attribute messageText : String;
+    attribute requestedResponseTime : Seconds;
+  }
+
+  item def ControlAuthorityTransfer {
+    attribute timestamp : Seconds;
+    attribute fromMode : AutomationMode;
+    attribute toMode : AutomationMode;
+    attribute reason : String;
+    attribute operatorAcknowledged : Boolean;
+  }
+
+  port def ObjectivePort {
+    in objective : MissionObjective;
+  }
+
+  port def ObservationPort {
+    out observation : EnvironmentObservation;
+  }
+
+  port def DecisionPort {
+    out decision : AutomationDecision;
+  }
+
+  port def OperatorCommandPort {
+    in command : OperatorInput;
+  }
+
+  port def AssessmentPort {
+    out assessment : EngagementAssessment;
+  }
+
+  port def AlertPort {
+    out alert : AlertMessage;
+  }
+
+  port def AuthorityPort {
+    inout transfer : ControlAuthorityTransfer;
+  }
+
+  part def SensorSuite {
+    attribute sampleRate : Hertz = 20.0 [Hz];
+    attribute observationLatency : Milliseconds = 75.0 [ms];
+    attribute minimumDetectionConfidence : Confidence = 0.92;
+
+    port observations : ObservationPort;
+  }
+
+  part def AutomationController {
+    attribute currentMode : AutomationMode = AutomationMode::supervisedAutomation;
+    attribute maximumAutonomousDuration : Seconds = 300.0 [s];
+    attribute minimumDecisionConfidence : Confidence = 0.85;
+
+    port objectives : ObjectivePort;
+    port observationsIn : ObservationPort;
+    port operatorCommands : OperatorCommandPort;
+    port decisions : DecisionPort;
+    port authority : AuthorityPort;
+
+    action decideControlMode {
+      in observation : EnvironmentObservation;
+      in operatorAssessment : EngagementAssessment;
+      out decision : AutomationDecision;
+
+      first start;
+      then evaluateMissionRisk;
+      then evaluateOperatorReadiness;
+      then selectMode;
+      then publishDecision;
+      then done;
+
+      action evaluateMissionRisk;
+      action evaluateOperatorReadiness;
+      action selectMode;
+      action publishDecision;
+    }
+  }
+
+  part def OperatorStateEstimator {
+    attribute assessmentPeriod : Seconds = 2.0 [s];
+    attribute outOfLoopThreshold : Percent = 45.0 [%];
+    attribute minimumSituationAwareness : Percent = 70.0 [%];
+    attribute maximumWorkload : Percent = 85.0 [%];
+
+    port operatorCommands : OperatorCommandPort;
+    port automationDecisions : DecisionPort;
+    port assessmentOut : AssessmentPort;
+
+    action estimateEngagement {
+      in command : OperatorInput;
+      in decision : AutomationDecision;
+      out assessment : EngagementAssessment;
+
+      first start;
+      then measureResponseLatency;
+      then computeWorkloadScore;
+      then computeSituationAwarenessScore;
+      then classifyOperatorState;
+      then publishAssessment;
+      then done;
+
+      action measureResponseLatency;
+      action computeWorkloadScore;
+      action computeSituationAwarenessScore;
+      action classifyOperatorState;
+      action publishAssessment;
+    }
+
+    state machine operatorStateMachine {
+      state engaged;
+      state underloaded;
+      state overloaded;
+      state outOfLoop;
+      state recovering;
+
+      entry; then engaged;
+
+      transition engaged_to_underloaded
+        first engaged
+        accept when assessmentOut.assessment.engagementScore < 60.0 [%]
+        then underloaded;
+
+      transition underloaded_to_outOfLoop
+        first underloaded
+        accept when assessmentOut.assessment.situationAwarenessScore < 45.0 [%]
+        then outOfLoop;
+
+      transition engaged_to_overloaded
+        first engaged
+        accept when assessmentOut.assessment.workloadScore > 85.0 [%]
+        then overloaded;
+
+      transition overloaded_to_outOfLoop
+        first overloaded
+        accept when assessmentOut.assessment.situationAwarenessScore < 50.0 [%]
+        then outOfLoop;
+
+      transition outOfLoop_to_recovering
+        first outOfLoop
+        accept when assessmentOut.assessment.engagementScore >= 55.0 [%]
+        then recovering;
+
+      transition recovering_to_engaged
+        first recovering
+        accept when assessmentOut.assessment.situationAwarenessScore >= 70.0 [%]
+        then engaged;
+    }
+  }
+
+  part def HumanMachineInterface {
+    attribute displayRefreshRate : Hertz = 60.0 [Hz];
+    attribute maximumAlertLatency : Milliseconds = 150.0 [ms];
+    attribute explanationDepthLevels : Integer = 3;
+
+    port decisionsIn : DecisionPort;
+    port assessmentsIn : AssessmentPort;
+    port alertsOut : AlertPort;
+    port operatorCommands : OperatorCommandPort;
+    port authority : AuthorityPort;
+
+    action presentAutomationRationale {
+      in decision : AutomationDecision;
+      out alert : AlertMessage;
+
+      first start;
+      then formatModeSummary;
+      then formatConfidenceAndRisk;
+      then requestOperatorConfirmation;
+      then done;
+
+      action formatModeSummary;
+      action formatConfidenceAndRisk;
+      action requestOperatorConfirmation;
+    }
+  }
+
+  part def EngagementManager {
+    attribute maximumOutOfLoopDuration : Seconds = 30.0 [s];
+    attribute challengeInterval : Seconds = 45.0 [s];
+    attribute minimumRequiredEngagement : Percent = 65.0 [%];
+
+    port assessmentIn : AssessmentPort;
+    port decisionIn : DecisionPort;
+    port alertOut : AlertPort;
+    port authority : AuthorityPort;
+
+    action mitigateOutOfLoopCondition {
+      in assessment : EngagementAssessment;
+      in decision : AutomationDecision;
+      out alert : AlertMessage;
+      out transfer : ControlAuthorityTransfer;
+
+      first start;
+      then detectPerformanceRisk;
+      then chooseIntervention;
+      then generateSituationUpdate;
+      then requestActiveCheck;
+      then adaptAutomationAuthority;
+      then done;
+
+      action detectPerformanceRisk;
+      action chooseIntervention;
+      action generateSituationUpdate;
+      action requestActiveCheck;
+      action adaptAutomationAuthority;
+    }
+
+    state machine mitigationStateMachine {
+      state monitoring;
+      state coaching;
+      state authoritySharing;
+      state fallback;
+
+      entry; then monitoring;
+
+      transition monitoring_to_coaching
+        first monitoring
+        accept when assessmentIn.assessment.state == OperatorStateKind::underloaded
+        then coaching;
+
+      transition coaching_to_authoritySharing
+        first coaching
+        accept when assessmentIn.assessment.state == OperatorStateKind::outOfTheLoop
+        then authoritySharing;
+
+      transition authoritySharing_to_fallback
+        first authoritySharing
+        accept when assessmentIn.assessment.confidence < 0.70
+        then fallback;
+
+      transition authoritySharing_to_monitoring
+        first authoritySharing
+        accept when assessmentIn.assessment.situationAwarenessScore >= 70.0 [%]
+        then monitoring;
+
+      transition coaching_to_monitoring
+        first coaching
+        accept when assessmentIn.assessment.engagementScore >= 65.0 [%]
+        then monitoring;
+    }
+  }
+
+  part def OperatorWorkstation {
+    attribute operatorId : String;
+    attribute acknowledgedAlertRate : Percent;
+    attribute averageResponseTime : Seconds;
+
+    port alertsIn : AlertPort;
+    port commandsOut : OperatorCommandPort;
+    port authority : AuthorityPort;
+  }
+
+  part def OOTLAdaptiveSupervisorySystem {
+    attribute primaryFunction : String =
+      "Maintain effective human supervisory control of an automated mission system by detecting out-of-the-loop performance risk, preserving operator situation awareness, and adapting automation authority before degraded human intervention occurs.";
+
+    attribute nominalMode : AutomationMode = AutomationMode::supervisedAutomation;
+    attribute minimumSituationAwareness : Percent = 70.0 [%];
+    attribute maximumPermittedResponseTime : Seconds = 5.0 [s];
+    attribute requiredDecisionExplanationLatency : Milliseconds = 250.0 [ms];
+
+    part sensors : SensorSuite;
+    part automation : AutomationController;
+    part estimator : OperatorStateEstimator;
+    part interface : HumanMachineInterface;
+    part engagement : EngagementManager;
+    part operatorStation : OperatorWorkstation;
+
+    port objectiveInput : ObjectivePort;
+
+    connect objectiveInput to automation.objectives;
+    connect sensors.observations to automation.observationsIn;
+    connect automation.decisions to estimator.automationDecisions;
+    connect automation.decisions to interface.decisionsIn;
+    connect automation.decisions to engagement.decisionIn;
+    connect estimator.assessmentOut to interface.assessmentsIn;
+    connect estimator.assessmentOut to engagement.assessmentIn;
+    connect engagement.alertOut to operatorStation.alertsIn;
+    connect interface.alertsOut to operatorStation.alertsIn;
+    connect operatorStation.commandsOut to automation.operatorCommands;
+    connect operatorStation.commandsOut to estimator.operatorCommands;
+    connect automation.authority to engagement.authority;
+    connect engagement.authority to interface.authority;
+    connect interface.authority to operatorStation.authority;
+
+    action performSupervisoryControl {
+      in objective : MissionObjective;
+      out finalDecision : AutomationDecision;
+
+      first receiveObjective;
+      then senseEnvironment;
+      then computeAutomationDecision;
+      then assessOperatorState;
+      then detectOutOfLoopRisk;
+      then provideExplanationAndPrompt;
+      then adaptAuthorityIfNeeded;
+      then executeApprovedControl;
+      then finalDecisionReady;
+      then done;
+
+      action receiveObjective;
+      action senseEnvironment;
+      action computeAutomationDecision;
+      action assessOperatorState;
+      action detectOutOfLoopRisk;
+      action provideExplanationAndPrompt;
+      action adaptAuthorityIfNeeded;
+      action executeApprovedControl;
+      action finalDecisionReady;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall maintain effective human supervisory control during automated operation by continuously assessing operator engagement and situation awareness, explaining automation intent, and adapting control authority when out-of-the-loop performance risk is detected. */
+
+    subject system : OOTLAdaptiveSupervisorySystem;
+
+    require constraint {
+      system.minimumSituationAwareness >= 70.0 [%]
+    }
+  }
+
+  requirement def OutOfLoopDetectionRequirement {
+    doc
+      /* The system shall classify an operator as out-of-the-loop when situation awareness is below 45 percent or when engagement remains below 55 percent for more than 30 seconds during supervised or full automation. */
+
+    subject estimator : OperatorStateEstimator;
+
+    require constraint {
+      estimator.outOfLoopThreshold <= 45.0 [%]
+    }
+  }
+
+  requirement def AutomationExplanationRequirement {
+    doc
+      /* The human-machine interface shall present the current automation mode, confidence, reason for action, and requested operator response within 250 milliseconds of each automation decision. */
+
+    subject interface : HumanMachineInterface;
+
+    require constraint {
+      interface.maximumAlertLatency <= 250.0 [ms]
+    }
+  }
+
+  requirement def AuthorityAdaptationRequirement {
+    doc
+      /* The engagement manager shall reduce automation autonomy or request shared control when the operator is classified as out-of-the-loop and the mission condition permits safe intervention. */
+
+    subject engagement : EngagementManager;
+
+    require constraint {
+      engagement.maximumOutOfLoopDuration <= 30.0 [s]
+    }
+  }
+
+  requirement def ResponseTimeRequirement {
+    doc
+      /* The system shall request operator confirmation for high-priority automation decisions and shall support operator response within 5 seconds under nominal workload. */
+
+    subject system : OOTLAdaptiveSupervisorySystem;
+
+    require constraint {
+      system.maximumPermittedResponseTime <= 5.0 [s]
+    }
+  }
+
+  requirement def SensorFreshnessRequirement {
+    doc
+      /* Environment observations used for automation decisions shall be sampled at no less than 10 hertz and delivered to the automation controller with latency no greater than 100 milliseconds. */
+
+    subject sensors : SensorSuite;
+
+    require constraint {
+      sensors.sampleRate >= 10.0 [Hz] and sensors.observationLatency <= 100.0 [ms]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by OOTLAdaptiveSupervisorySystem;
+  satisfy OutOfLoopDetectionRequirement by OperatorStateEstimator;
+  satisfy AutomationExplanationRequirement by HumanMachineInterface;
+  satisfy AuthorityAdaptationRequirement by EngagementManager;
+  satisfy ResponseTimeRequirement by OOTLAdaptiveSupervisorySystem;
+  satisfy SensorFreshnessRequirement by SensorSuite;
+
+  part ootlSupervisorySystem : OOTLAdaptiveSupervisorySystem {
+    attribute nominalMode = AutomationMode::supervisedAutomation;
+    attribute minimumSituationAwareness = 70.0 [%];
+    attribute maximumPermittedResponseTime = 5.0 [s];
+    attribute requiredDecisionExplanationLatency = 250.0 [ms];
+
+    part sensors {
+      attribute sampleRate = 20.0 [Hz];
+      attribute observationLatency = 75.0 [ms];
+      attribute minimumDetectionConfidence = 0.92;
+    }
+
+    part automation {
+      attribute currentMode = AutomationMode::supervisedAutomation;
+      attribute maximumAutonomousDuration = 300.0 [s];
+      attribute minimumDecisionConfidence = 0.85;
+    }
+
+    part estimator {
+      attribute assessmentPeriod = 2.0 [s];
+      attribute outOfLoopThreshold = 45.0 [%];
+      attribute minimumSituationAwareness = 70.0 [%];
+      attribute maximumWorkload = 85.0 [%];
+    }
+
+    part interface {
+      attribute displayRefreshRate = 60.0 [Hz];
+      attribute maximumAlertLatency = 150.0 [ms];
+      attribute explanationDepthLevels = 3;
+    }
+
+    part engagement {
+      attribute maximumOutOfLoopDuration = 30.0 [s];
+      attribute challengeInterval = 45.0 [s];
+      attribute minimumRequiredEngagement = 65.0 [%];
+    }
+  }
+}

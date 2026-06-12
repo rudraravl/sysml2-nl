@@ -1,0 +1,500 @@
+package SiphonSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length;
+    attribute def Area :> ISQ::area;
+    attribute def Volume :> ISQ::volume;
+    attribute def Time :> ISQ::time;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def MassFlowRate :> ISQ::massFlowRate;
+    attribute def VolumeFlowRate :> ISQ::volumeFlowRate;
+    attribute def Density :> ISQ::density;
+    attribute def Acceleration :> ISQ::acceleration;
+
+    enum def FluidKind {
+        enum water;
+        enum fuel;
+        enum processLiquid;
+    }
+
+    enum def SiphonOperatingStateKind {
+        enum idle;
+        enum priming;
+        enum transferring;
+        enum interrupted;
+        enum complete;
+        enum faulted;
+    }
+
+    item def Liquid {
+        attribute kind : FluidKind;
+        attribute density : Density;
+        attribute dynamicViscosity;
+        attribute vaporPressure : Pressure;
+    }
+
+    item def Air {
+        attribute absolutePressure : Pressure;
+        attribute temperature;
+    }
+
+    item def PrimingVolume {
+        attribute containedLiquidVolume : Volume;
+        attribute entrainedAirVolume : Volume;
+    }
+
+    port def LiquidInletPort {
+        in item liquid : Liquid;
+        attribute staticPressure : Pressure;
+        attribute elevation : Length;
+    }
+
+    port def LiquidOutletPort {
+        out item liquid : Liquid;
+        attribute staticPressure : Pressure;
+        attribute elevation : Length;
+    }
+
+    port def VentPort {
+        inout item air : Air;
+        attribute open : Boolean;
+    }
+
+    port def ManualControlPort {
+        in attribute startPrimeCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        out attribute status : SiphonOperatingStateKind;
+    }
+
+    port def LevelSensePort {
+        out attribute sourceLiquidHeight : Length;
+        out attribute destinationLiquidHeight : Length;
+    }
+
+    port def FlowSensePort {
+        out attribute measuredFlowRate : VolumeFlowRate;
+        out attribute measuredInletPressure : Pressure;
+        out attribute measuredOutletPressure : Pressure;
+    }
+
+    requirement def SiphonPrimaryFunctionRequirement {
+        doc
+        /* The siphon system shall transfer liquid from an elevated source reservoir to a lower destination reservoir by using gravity-driven pressure difference after the conduit is primed. */
+        subject siphonSystem : SiphonTransferSystem;
+        require constraint {
+            siphonSystem.sourceReservoir.freeSurfaceElevation > siphonSystem.destinationReservoir.freeSurfaceElevation
+            and siphonSystem.transferAssembly.primed == true
+            implies siphonSystem.transferAssembly.flowRate > 0 [m^3/s]
+        }
+    }
+
+    requirement def ElevationHeadRequirement {
+        doc
+        /* The source free surface elevation shall remain above the outlet discharge elevation during sustained transfer. */
+        subject siphonSystem : SiphonTransferSystem;
+        require constraint {
+            siphonSystem.sourceReservoir.freeSurfaceElevation >
+            siphonSystem.transferAssembly.outletTube.dischargeElevation
+        }
+    }
+
+    requirement def ContinuousLiquidColumnRequirement {
+        doc
+        /* The siphon conduit shall maintain a continuous liquid column during normal transfer. */
+        subject transferAssembly : SiphonTransferAssembly;
+        require constraint {
+            transferAssembly.primed == true
+            and transferAssembly.airPocketVolume <= transferAssembly.maximumAllowableAirPocketVolume
+        }
+    }
+
+    requirement def AntiBackflowRequirement {
+        doc
+        /* The siphon system shall prevent reverse flow from the destination reservoir to the source reservoir when transfer is stopped. */
+        subject transferAssembly : SiphonTransferAssembly;
+        require constraint {
+            transferAssembly.checkValve.reverseFlowAllowed == false
+        }
+    }
+
+    requirement def CavitationAvoidanceRequirement {
+        doc
+        /* The minimum internal pressure in the crest tube shall remain above the liquid vapor pressure during sustained transfer. */
+        subject transferAssembly : SiphonTransferAssembly;
+        require constraint {
+            transferAssembly.crestTube.minimumInternalPressure >
+            transferAssembly.currentLiquid.vaporPressure
+        }
+    }
+
+    constraint def HydrostaticPressureDifference {
+        in sourceElevation : Length;
+        in outletElevation : Length;
+        in liquidDensity : Density;
+        in gravity : Acceleration;
+        out drivingPressure : Pressure;
+        constraint {
+            drivingPressure == liquidDensity * gravity * (sourceElevation - outletElevation)
+        }
+    }
+
+    constraint def TubeFlowEstimate {
+        in drivingPressure : Pressure;
+        in hydraulicResistance;
+        out estimatedFlowRate : VolumeFlowRate;
+        constraint {
+            estimatedFlowRate == drivingPressure / hydraulicResistance
+        }
+    }
+
+    action def PrimeSiphon {
+        inout item primingVolume : PrimingVolume;
+        out attribute primed : Boolean;
+        action fillConduit;
+        action purgeAir;
+        flow fillConduit to purgeAir;
+        then decide;
+        if primingVolume.entrainedAirVolume <= 0.00001 [m^3] then {
+            primed = true;
+        } else {
+            primed = false;
+        }
+    }
+
+    action def StartTransfer {
+        in attribute sourceElevation : Length;
+        in attribute outletElevation : Length;
+        in attribute liquidDensity : Density;
+        out attribute flowEstablished : Boolean;
+        out attribute drivingPressure : Pressure;
+        calc headPressure : HydrostaticPressureDifference {
+            in sourceElevation = sourceElevation;
+            in outletElevation = outletElevation;
+            in liquidDensity = liquidDensity;
+            in gravity = 9.80665 [m/s^2];
+            out drivingPressure = drivingPressure;
+        }
+        then decide;
+        if drivingPressure > 0 [Pa] then {
+            flowEstablished = true;
+        } else {
+            flowEstablished = false;
+        }
+    }
+
+    action def StopTransfer {
+        out attribute isolated : Boolean;
+        action closeClamp;
+        action seatCheckValve;
+        flow closeClamp to seatCheckValve;
+        then {
+            isolated = true;
+        }
+    }
+
+    state def SiphonOperationStateMachine {
+        in attribute startPrimeCommand : Boolean;
+        in attribute stopCommand : Boolean;
+        in attribute primed : Boolean;
+        in attribute flowRate : VolumeFlowRate;
+        in attribute sourceLiquidHeight : Length;
+        in attribute minimumInternalPressure : Pressure;
+        in attribute vaporPressure : Pressure;
+
+        state idle;
+        state priming;
+        state transferring;
+        state interrupted;
+        state complete;
+        state faulted;
+
+        entry idle;
+
+        transition idle_to_priming
+            first idle
+            accept startPrimeCommand
+            then priming;
+
+        transition priming_to_transferring
+            first priming
+            if primed == true
+            then transferring;
+
+        transition priming_to_faulted
+            first priming
+            if primed == false and stopCommand == true
+            then faulted;
+
+        transition transferring_to_interrupted
+            first transferring
+            if flowRate <= 0.000001 [m^3/s] and sourceLiquidHeight > 0.02 [m]
+            then interrupted;
+
+        transition transferring_to_complete
+            first transferring
+            if sourceLiquidHeight <= 0.02 [m]
+            then complete;
+
+        transition transferring_to_faulted
+            first transferring
+            if minimumInternalPressure <= vaporPressure
+            then faulted;
+
+        transition interrupted_to_priming
+            first interrupted
+            accept startPrimeCommand
+            then priming;
+
+        transition interrupted_to_idle
+            first interrupted
+            accept stopCommand
+            then idle;
+
+        transition complete_to_idle
+            first complete
+            accept stopCommand
+            then idle;
+
+        transition faulted_to_idle
+            first faulted
+            accept stopCommand
+            then idle;
+    }
+
+    part def Reservoir {
+        attribute totalCapacity : Volume;
+        attribute liquidVolume : Volume;
+        attribute freeSurfaceElevation : Length;
+        attribute liquidHeight : Length;
+        attribute ventedToAtmosphere : Boolean;
+        port liquidPort : LiquidInletPort;
+        port levelPort : LevelSensePort;
+    }
+
+    part def FlexibleTube {
+        attribute innerDiameter : Length;
+        attribute wallThickness : Length;
+        attribute totalLength : Length;
+        attribute internalArea : Area;
+        attribute hydraulicResistance;
+        attribute maximumAllowablePressure : Pressure;
+        attribute minimumInternalPressure : Pressure;
+        attribute dischargeElevation : Length;
+        port inlet : LiquidInletPort;
+        port outlet : LiquidOutletPort;
+    }
+
+    part def CrestTube :> FlexibleTube {
+        attribute crestElevation : Length;
+        attribute maximumLiftHeight : Length;
+        attribute trappedAirVolume : Volume;
+    }
+
+    part def InletStrainer {
+        attribute screenOpenArea : Area;
+        attribute debrisBlockedFraction : Real;
+        port reservoirSide : LiquidInletPort;
+        port tubeSide : LiquidOutletPort;
+    }
+
+    part def OutletNozzle {
+        attribute outletDiameter : Length;
+        attribute dischargeElevation : Length;
+        port tubeSide : LiquidInletPort;
+        port dischargeSide : LiquidOutletPort;
+    }
+
+    part def ShutoffClamp {
+        attribute closed : Boolean;
+        attribute openingFraction : Real;
+        port upstream : LiquidInletPort;
+        port downstream : LiquidOutletPort;
+    }
+
+    part def CheckValve {
+        attribute crackingPressure : Pressure;
+        attribute reverseFlowAllowed : Boolean;
+        attribute open : Boolean;
+        port upstream : LiquidInletPort;
+        port downstream : LiquidOutletPort;
+    }
+
+    part def PrimingBulb {
+        attribute bulbVolume : Volume;
+        attribute compressed : Boolean;
+        attribute purgeEfficiency : Real;
+        port upstream : LiquidInletPort;
+        port downstream : LiquidOutletPort;
+        port vent : VentPort;
+    }
+
+    part def FlowSensor {
+        attribute measuredFlowRate : VolumeFlowRate;
+        attribute measuredInletPressure : Pressure;
+        attribute measuredOutletPressure : Pressure;
+        port processIn : LiquidInletPort;
+        port processOut : LiquidOutletPort;
+        port signal : FlowSensePort;
+    }
+
+    part def SiphonTransferAssembly {
+        attribute primed : Boolean;
+        attribute airPocketVolume : Volume;
+        attribute maximumAllowableAirPocketVolume : Volume = 0.00001 [m^3];
+        attribute flowRate : VolumeFlowRate;
+        attribute drivingPressure : Pressure;
+        attribute currentLiquid : Liquid;
+        attribute operatingState : SiphonOperatingStateKind;
+
+        port inletPort : LiquidInletPort;
+        port outletPort : LiquidOutletPort;
+        port controlPort : ManualControlPort;
+        port flowStatusPort : FlowSensePort;
+
+        part inletStrainer : InletStrainer {
+            attribute screenOpenArea = 0.0008 [m^2];
+            attribute debrisBlockedFraction = 0.0;
+        }
+
+        part inletTube : FlexibleTube {
+            attribute innerDiameter = 0.012 [m];
+            attribute wallThickness = 0.002 [m];
+            attribute totalLength = 0.6 [m];
+            attribute internalArea = 0.000113 [m^2];
+            attribute maximumAllowablePressure = 300000 [Pa];
+        }
+
+        part crestTube : CrestTube {
+            attribute innerDiameter = 0.012 [m];
+            attribute wallThickness = 0.002 [m];
+            attribute totalLength = 0.8 [m];
+            attribute internalArea = 0.000113 [m^2];
+            attribute crestElevation = 1.25 [m];
+            attribute maximumLiftHeight = 0.75 [m];
+            attribute trappedAirVolume = 0.0 [m^3];
+            attribute minimumInternalPressure = 45000 [Pa];
+            attribute maximumAllowablePressure = 300000 [Pa];
+        }
+
+        part primingBulb : PrimingBulb {
+            attribute bulbVolume = 0.00008 [m^3];
+            attribute compressed = false;
+            attribute purgeEfficiency = 0.92;
+        }
+
+        part checkValve : CheckValve {
+            attribute crackingPressure = 1500 [Pa];
+            attribute reverseFlowAllowed = false;
+            attribute open = false;
+        }
+
+        part shutoffClamp : ShutoffClamp {
+            attribute closed = true;
+            attribute openingFraction = 0.0;
+        }
+
+        part flowSensor : FlowSensor;
+
+        part outletTube : FlexibleTube {
+            attribute innerDiameter = 0.012 [m];
+            attribute wallThickness = 0.002 [m];
+            attribute totalLength = 1.4 [m];
+            attribute internalArea = 0.000113 [m^2];
+            attribute dischargeElevation = 0.35 [m];
+            attribute maximumAllowablePressure = 300000 [Pa];
+        }
+
+        part outletNozzle : OutletNozzle {
+            attribute outletDiameter = 0.010 [m];
+            attribute dischargeElevation = 0.35 [m];
+        }
+
+        connect inletPort to inletStrainer.reservoirSide;
+        connect inletStrainer.tubeSide to inletTube.inlet;
+        connect inletTube.outlet to crestTube.inlet;
+        connect crestTube.outlet to primingBulb.upstream;
+        connect primingBulb.downstream to checkValve.upstream;
+        connect checkValve.downstream to shutoffClamp.upstream;
+        connect shutoffClamp.downstream to flowSensor.processIn;
+        connect flowSensor.processOut to outletTube.inlet;
+        connect outletTube.outlet to outletNozzle.tubeSide;
+        connect outletNozzle.dischargeSide to outletPort;
+        connect flowSensor.signal to flowStatusPort;
+
+        perform action prime : PrimeSiphon;
+        perform action start : StartTransfer;
+        perform action stop : StopTransfer;
+
+        exhibit state behavior operation : SiphonOperationStateMachine;
+    }
+
+    part def SiphonTransferSystem {
+        attribute systemName : String = "Gravity Siphon Liquid Transfer System";
+        attribute primaryFunction : String =
+            "Transfer liquid from a higher reservoir to a lower reservoir through a primed conduit using gravity-induced pressure difference.";
+        attribute ambientPressure : Pressure = 101325 [Pa];
+        attribute nominalGravity : Acceleration = 9.80665 [m/s^2];
+
+        part sourceReservoir : Reservoir {
+            attribute totalCapacity = 0.020 [m^3];
+            attribute liquidVolume = 0.015 [m^3];
+            attribute freeSurfaceElevation = 1.10 [m];
+            attribute liquidHeight = 0.45 [m];
+            attribute ventedToAtmosphere = true;
+        }
+
+        part destinationReservoir : Reservoir {
+            attribute totalCapacity = 0.025 [m^3];
+            attribute liquidVolume = 0.002 [m^3];
+            attribute freeSurfaceElevation = 0.20 [m];
+            attribute liquidHeight = 0.08 [m];
+            attribute ventedToAtmosphere = true;
+        }
+
+        part transferAssembly : SiphonTransferAssembly {
+            attribute primed = false;
+            attribute airPocketVolume = 0.00004 [m^3];
+            attribute flowRate = 0.0 [m^3/s];
+            attribute drivingPressure = 0.0 [Pa];
+            attribute operatingState = SiphonOperatingStateKind::idle;
+        }
+
+        port operatorControl : ManualControlPort;
+        port sourceLevelSignal : LevelSensePort;
+        port destinationLevelSignal : LevelSensePort;
+        port flowSignal : FlowSensePort;
+
+        connect sourceReservoir.liquidPort to transferAssembly.inletPort;
+        connect transferAssembly.outletPort to destinationReservoir.liquidPort;
+        connect operatorControl to transferAssembly.controlPort;
+        connect transferAssembly.flowStatusPort to flowSignal;
+        connect sourceReservoir.levelPort to sourceLevelSignal;
+        connect destinationReservoir.levelPort to destinationLevelSignal;
+
+        assert requirement SiphonPrimaryFunctionRequirement {
+            subject siphonSystem = this;
+        }
+
+        assert requirement ElevationHeadRequirement {
+            subject siphonSystem = this;
+        }
+
+        assert requirement ContinuousLiquidColumnRequirement {
+            subject transferAssembly = transferAssembly;
+        }
+
+        assert requirement AntiBackflowRequirement {
+            subject transferAssembly = transferAssembly;
+        }
+
+        assert requirement CavitationAvoidanceRequirement {
+            subject transferAssembly = transferAssembly;
+        }
+    }
+
+    part siphonSystem : SiphonTransferSystem;
+
+}

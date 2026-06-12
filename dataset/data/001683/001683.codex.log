@@ -1,0 +1,923 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6rhhyat2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7ad-d70e-73d0-a657-e79344c41eb1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Smart environment and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SmartEnvironmentModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature :> temperature;
+    attribute def RelativeHumidity :> real;
+    attribute def Illuminance :> real;
+    attribute def Power :> power;
+    attribute def Energy :> energy;
+    attribute def CarbonDioxideConcentration :> real;
+    attribute def AirQualityIndex :> real;
+    attribute def OccupancyCount :> integer;
+    attribute def ComfortIndex :> real;
+    attribute def SecurityRiskLevel :> real;
+
+    item def SensorReading {
+        attribute sourceId : String;
+        attribute timestamp : String;
+        attribute confidence : Real;
+    }
+
+    item def EnvironmentReading :> SensorReading {
+        attribute indoorTemperature : Temperature;
+        attribute indoorHumidity : RelativeHumidity;
+        attribute illuminance : Illuminance;
+        attribute co2 : CarbonDioxideConcentration;
+        attribute airQuality : AirQualityIndex;
+        attribute occupancy : OccupancyCount;
+    }
+
+    item def EnergyReading :> SensorReading {
+        attribute currentPower : Power;
+        attribute dailyEnergy : Energy;
+        attribute peakDemand : Power;
+    }
+
+    item def SecurityReading :> SensorReading {
+        attribute motionDetected : Boolean;
+        attribute doorOpen : Boolean;
+        attribute windowOpen : Boolean;
+        attribute riskLevel : SecurityRiskLevel;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute issuedAt : String;
+    }
+
+    item def HVACCommand :> ControlCommand {
+        attribute targetTemperature : Temperature;
+        attribute targetHumidity : RelativeHumidity;
+        attribute ventilationRatePercent : Real;
+        attribute mode : HVACMode;
+    }
+
+    item def LightingCommand :> ControlCommand {
+        attribute targetIlluminance : Illuminance;
+        attribute dimmingPercent : Real;
+        attribute colorTemperatureKelvin : Real;
+    }
+
+    item def SecurityCommand :> ControlCommand {
+        attribute armSystem : Boolean;
+        attribute lockDoors : Boolean;
+        attribute notifyOccupants : Boolean;
+    }
+
+    enum def HVACMode {
+        enum off;
+        enum heating;
+        enum cooling;
+        enum ventilation;
+        enum dehumidification;
+        enum energySaving;
+    }
+
+    enum def EnvironmentMode {
+        enum unoccupied;
+        enum occupiedComfort;
+        enum occupiedEfficiency;
+        enum night;
+        enum emergency;
+        enum maintenance;
+    }
+
+    port def EnvironmentSensePort {
+        out item reading : EnvironmentReading;
+    }
+
+    port def EnergySensePort {
+        out item reading : EnergyReading;
+    }
+
+    port def SecuritySensePort {
+        out item reading : SecurityReading;
+    }
+
+    port def EnvironmentInputPort {
+        in item environmentReading : EnvironmentReading;
+        in item energyReading : EnergyReading;
+        in item securityReading : SecurityReading;
+    }
+
+    port def HVACControlPort {
+        out item command : HVACCommand;
+    }
+
+    port def LightingControlPort {
+        out item command : LightingCommand;
+    }
+
+    port def SecurityControlPort {
+        out item command : SecurityCommand;
+    }
+
+    port def OccupantInterfacePort {
+        in item preference : OccupantPreference;
+        out item status : EnvironmentStatus;
+    }
+
+    item def OccupantPreference {
+        attribute preferredTemperature : Temperature;
+        attribute preferredIlluminance : Illuminance;
+        attribute quietHoursEnabled : Boolean;
+        attribute energySavingPreference : Real;
+    }
+
+    item def EnvironmentStatus {
+        attribute activeMode : EnvironmentMode;
+        attribute comfortIndex : ComfortIndex;
+        attribute currentEnergyPower : Power;
+        attribute secured : Boolean;
+        attribute alertActive : Boolean;
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.2 [K];
+        port dataOut : EnvironmentSensePort;
+    }
+
+    part def HumidityAirQualitySensor {
+        attribute humidityAccuracy : RelativeHumidity = 2.0;
+        attribute co2Accuracy : CarbonDioxideConcentration = 50.0;
+        port dataOut : EnvironmentSensePort;
+    }
+
+    part def OccupancySensor {
+        attribute detectionRange : Length = 8 [m];
+        port dataOut : EnvironmentSensePort;
+    }
+
+    part def SmartMeter {
+        attribute samplePeriod : Time = 60 [s];
+        port dataOut : EnergySensePort;
+    }
+
+    part def SecuritySensorCluster {
+        attribute motionCoverage : Area = 120 [m^2];
+        port dataOut : SecuritySensePort;
+    }
+
+    part def HVACUnit {
+        attribute maxCoolingPower : Power = 6500 [W];
+        attribute maxHeatingPower : Power = 8000 [W];
+        attribute nominalAirflow : Real = 420.0;
+        port commandIn : HVACControlPort;
+    }
+
+    part def AdaptiveLightingSystem {
+        attribute maxLightingPower : Power = 900 [W];
+        attribute minIlluminance : Illuminance = 50.0;
+        attribute maxIlluminance : Illuminance = 750.0;
+        port commandIn : LightingControlPort;
+    }
+
+    part def SmartLockAndAlarmSystem {
+        attribute alarmSoundLevel : Real = 95.0;
+        attribute backupBatteryEnergy : Energy = 180000 [J];
+        port commandIn : SecurityControlPort;
+    }
+
+    part def SmartEnvironmentController {
+        attribute targetTemperature : Temperature = 295.15 [K];
+        attribute targetHumidity : RelativeHumidity = 45.0;
+        attribute targetIlluminance : Illuminance = 450.0;
+        attribute maxDemandLimit : Power = 9500 [W];
+        attribute minimumComfortIndex : ComfortIndex = 0.85;
+        attribute currentMode : EnvironmentMode = EnvironmentMode::unoccupied;
+
+        port sensorInput : EnvironmentInputPort;
+        port hvacOutput : HVACControlPort;
+        port lightingOutput : LightingControlPort;
+        port securityOutput : SecurityControlPort;
+        port occupantInterface : OccupantInterfacePort;
+
+        perform action maintainEnvironment : MaintainSmartEnvironment;
+        perform state behavior operationState : SmartEnvironmentOperatingStates;
+    }
+
+    part def SmartEnvironment {
+        attribute floorArea : Area = 185 [m^2];
+        attribute designOccupancy : OccupancyCount = 8;
+        attribute averageComfortIndex : ComfortIndex;
+        attribute currentPowerDemand : Power;
+        attribute secured : Boolean;
+
+        part controller : SmartEnvironmentController;
+        part temperatureSensors[4] : TemperatureSensor;
+        part airQualitySensors[2] : HumidityAirQualitySensor;
+        part occupancySensors[3] : OccupancySensor;
+        part smartMeter : SmartMeter;
+        part securitySensors : SecuritySensorCluster;
+        part hvac : HVACUnit;
+        part lighting : AdaptiveLightingSystem;
+        part locksAndAlarm : SmartLockAndAlarmSystem;
+
+        connect temperatureSensors.dataOut to controller.sensorInput;
+        connect airQualitySensors.dataOut to controller.sensorInput;
+        connect occupancySensors.dataOut to controller.sensorInput;
+        connect smartMeter.dataOut to controller.sensorInput;
+        connect securitySensors.dataOut to controller.sensorInput;
+
+        connect controller.hvacOutput to hvac.commandIn;
+        connect controller.lightingOutput to lighting.commandIn;
+        connect controller.securityOutput to locksAndAlarm.commandIn;
+    }
+
+    action def MaintainSmartEnvironment {
+        in item environment : EnvironmentReading;
+        in item energy : EnergyReading;
+        in item security : SecurityReading;
+        in item preference : OccupantPreference;
+
+        out item hvacCommand : HVACCommand;
+        out item lightingCommand : LightingCommand;
+        out item securityCommand : SecurityCommand;
+        out item status : EnvironmentStatus;
+
+        attribute calculatedComfort : ComfortIndex;
+        attribute effectiveTargetTemperature : Temperature;
+        attribute effectiveTargetIlluminance : Illuminance;
+        attribute selectedMode : EnvironmentMode;
+
+        first start;
+
+        action classifyMode {
+            in item envIn : EnvironmentReading = environment;
+            in item secIn : SecurityReading = security;
+            out mode : EnvironmentMode;
+
+            if secIn.riskLevel > 0.75 then {
+                mode = EnvironmentMode::emergency;
+            } else if envIn.occupancy == 0 then {
+                mode = EnvironmentMode::unoccupied;
+            } else if energy.currentPower > 9000 [W] then {
+                mode = EnvironmentMode::occupiedEfficiency;
+            } else {
+                mode = EnvironmentMode::occupiedComfort;
+            }
+        }
+
+        then action computeTargets {
+            in mode : EnvironmentMode = classifyMode.mode;
+            in item pref : OccupantPreference = preference;
+            out tempTarget : Temperature;
+            out lightTarget : Illuminance;
+
+            if mode == EnvironmentMode::unoccupied then {
+                tempTarget = 291.15 [K];
+                lightTarget = 75.0;
+            } else if mode == EnvironmentMode::occupiedEfficiency then {
+                tempTarget = pref.preferredTemperature + 1.5 [K];
+                lightTarget = pref.preferredIlluminance * 0.75;
+            } else if mode == EnvironmentMode::night then {
+                tempTarget = 292.15 [K];
+                lightTarget = 25.0;
+            } else {
+                tempTarget = pref.preferredTemperature;
+                lightTarget = pref.preferredIlluminance;
+            }
+        }
+
+        then action issueHVACCommand {
+            in tempTarget : Temperature = computeTargets.tempTarget;
+            in item envIn : EnvironmentReading = environment;
+            out item command : HVACCommand;
+
+            if envIn.indoorTemperature < tempTarget - 0.5 [K] then {
+                command.mode = HVACMode::heating;
+            } else if envIn.indoorTemperature > tempTarget + 0.5 [K] then {
+                command.mode = HVACMode::cooling;
+            } else if envIn.co2 > 900.0 then {
+                command.mode = HVACMode::ventilation;
+            } else {
+                command.mode = HVACMode::energySaving;
+            }
+
+            command.targetTemperature = tempTarget;
+            command.targetHumidity = 45.0;
+            command.ventilationRatePercent = 55.0;
+            command.priority = 5;
+        }
+
+        then action issueLightingCommand {
+            in lightTarget : Illuminance = computeTargets.lightTarget;
+            in item envIn : EnvironmentReading = environment;
+            out item command : LightingCommand;
+
+            command.targetIlluminance = lightTarget;
+            command.dimmingPercent = if envIn.occupancy == 0 then 0.0 else 65.0;
+            command.colorTemperatureKelvin = if lightTarget < 100.0 then 2700.0 else 4000.0;
+            command.priority = 4;
+        }
+
+        then action issueSecurityCommand {
+            in item secIn : SecurityReading = security;
+            in item envIn : EnvironmentReading = environment;
+            out item command : SecurityCommand;
+
+            command.armSystem = envIn.occupancy == 0;
+            command.lockDoors = envIn.occupancy == 0 or secIn.riskLevel > 0.5;
+            command.notifyOccupants = secIn.riskLevel > 0.75;
+            command.priority = if secIn.riskLevel > 0.75 then 10 else 3;
+        }
+
+        then action publishStatus {
+            out item environmentStatus : EnvironmentStatus;
+
+            environmentStatus.activeMode = classifyMode.mode;
+            environmentStatus.comfortIndex = calculatedComfort;
+            environmentStatus.currentEnergyPower = energy.currentPower;
+            environmentStatus.secured = issueSecurityCommand.command.lockDoors;
+            environmentStatus.alertActive = security.riskLevel > 0.75;
+        }
+
+        then done;
+    }
+
+    state def SmartEnvironmentOperatingStates {
+        entry action initializeController;
+
+        state Monitoring;
+        state ComfortOptimization;
+        state EnergyOptimization;
+        state SecurityProtection;
+        state EmergencyResponse;
+        state MaintenanceMode;
+
+        transition initialToMonitoring first Monitoring;
+
+        transition monitorToComfort
+            first Monitoring
+            accept when environment.occupancy > 0 and security.riskLevel <= 0.5
+            then ComfortOptimization;
+
+        transition comfortToEnergy
+            first ComfortOptimization
+            accept when energy.currentPower > 9000 [W]
+            then EnergyOptimization;
+
+        transition energyToComfort
+            first EnergyOptimization
+            accept when energy.currentPower <= 8000 [W] and environment.occupancy > 0
+            then ComfortOptimization;
+
+        transition anyToSecurity
+            first Monitoring
+            accept when security.riskLevel > 0.5 and security.riskLevel <= 0.75
+            then SecurityProtection;
+
+        transition anyToEmergency
+            first Monitoring
+            accept when security.riskLevel > 0.75 or environment.airQuality > 150.0
+            then EmergencyResponse;
+
+        transition emergencyToMonitoring
+            first EmergencyResponse
+            accept when security.riskLevel <= 0.25 and environment.airQuality <= 100.0
+            then Monitoring;
+
+        transition maintenanceRequested
+            first Monitoring
+            accept MaintenanceRequest
+            then MaintenanceMode;
+
+        transition maintenanceComplete
+            first MaintenanceMode
+            accept MaintenanceComplete
+            then Monitoring;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The smart environment shall sense occupancy, comfort, energy, and safety conditions, infer the current operating context, and automatically coordinate HVAC, lighting, and security assets to maintain occupant comfort, reduce energy demand, and protect the space. */
+        subject environment : SmartEnvironment;
+        require constraint {
+            environment.averageComfortIndex >= 0.85
+        }
+    }
+
+    requirement def EnergyDemandRequirement {
+        subject environment : SmartEnvironment;
+        require constraint {
+            environment.currentPowerDemand <= 9500 [W]
+        }
+    }
+
+    requirement def SecurityRequirement {
+        subject environment : SmartEnvironment;
+        require constraint {
+            environment.secured == true
+        }
+    }
+
+    requirement def OccupancyResponseRequirement {
+        subject controller : SmartEnvironmentController;
+        require constraint {
+            controller.currentMode != EnvironmentMode::occupiedComfort or controller.minimumComfortIndex >= 0.85
+        }
+    }
+
+    requirement def AirQualityRequirement {
+        subject reading : EnvironmentReading;
+        require constraint {
+            reading.co2 <= 1000.0 and reading.airQuality <= 100.0
+        }
+    }
+
+    part smartEnvironment : SmartEnvironment;
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject environment = smartEnvironment;
+    }
+
+    requirement energyDemand : EnergyDemandRequirement {
+        subject environment = smartEnvironment;
+    }
+
+    requirement securityProtection : SecurityRequirement {
+        subject environment = smartEnvironment;
+    }
+
+    requirement occupancyResponse : OccupancyResponseRequirement {
+        subject controller = smartEnvironment.controller;
+    }
+
+    satisfy primaryFunction by smartEnvironment.controller;
+    satisfy energyDemand by smartEnvironment.controller;
+    satisfy securityProtection by smartEnvironment.locksAndAlarm;
+    satisfy occupancyResponse by smartEnvironment.controller;
+}
+tokens used
+3,906
+package SmartEnvironmentModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature :> temperature;
+    attribute def RelativeHumidity :> real;
+    attribute def Illuminance :> real;
+    attribute def Power :> power;
+    attribute def Energy :> energy;
+    attribute def CarbonDioxideConcentration :> real;
+    attribute def AirQualityIndex :> real;
+    attribute def OccupancyCount :> integer;
+    attribute def ComfortIndex :> real;
+    attribute def SecurityRiskLevel :> real;
+
+    item def SensorReading {
+        attribute sourceId : String;
+        attribute timestamp : String;
+        attribute confidence : Real;
+    }
+
+    item def EnvironmentReading :> SensorReading {
+        attribute indoorTemperature : Temperature;
+        attribute indoorHumidity : RelativeHumidity;
+        attribute illuminance : Illuminance;
+        attribute co2 : CarbonDioxideConcentration;
+        attribute airQuality : AirQualityIndex;
+        attribute occupancy : OccupancyCount;
+    }
+
+    item def EnergyReading :> SensorReading {
+        attribute currentPower : Power;
+        attribute dailyEnergy : Energy;
+        attribute peakDemand : Power;
+    }
+
+    item def SecurityReading :> SensorReading {
+        attribute motionDetected : Boolean;
+        attribute doorOpen : Boolean;
+        attribute windowOpen : Boolean;
+        attribute riskLevel : SecurityRiskLevel;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute issuedAt : String;
+    }
+
+    item def HVACCommand :> ControlCommand {
+        attribute targetTemperature : Temperature;
+        attribute targetHumidity : RelativeHumidity;
+        attribute ventilationRatePercent : Real;
+        attribute mode : HVACMode;
+    }
+
+    item def LightingCommand :> ControlCommand {
+        attribute targetIlluminance : Illuminance;
+        attribute dimmingPercent : Real;
+        attribute colorTemperatureKelvin : Real;
+    }
+
+    item def SecurityCommand :> ControlCommand {
+        attribute armSystem : Boolean;
+        attribute lockDoors : Boolean;
+        attribute notifyOccupants : Boolean;
+    }
+
+    enum def HVACMode {
+        enum off;
+        enum heating;
+        enum cooling;
+        enum ventilation;
+        enum dehumidification;
+        enum energySaving;
+    }
+
+    enum def EnvironmentMode {
+        enum unoccupied;
+        enum occupiedComfort;
+        enum occupiedEfficiency;
+        enum night;
+        enum emergency;
+        enum maintenance;
+    }
+
+    port def EnvironmentSensePort {
+        out item reading : EnvironmentReading;
+    }
+
+    port def EnergySensePort {
+        out item reading : EnergyReading;
+    }
+
+    port def SecuritySensePort {
+        out item reading : SecurityReading;
+    }
+
+    port def EnvironmentInputPort {
+        in item environmentReading : EnvironmentReading;
+        in item energyReading : EnergyReading;
+        in item securityReading : SecurityReading;
+    }
+
+    port def HVACControlPort {
+        out item command : HVACCommand;
+    }
+
+    port def LightingControlPort {
+        out item command : LightingCommand;
+    }
+
+    port def SecurityControlPort {
+        out item command : SecurityCommand;
+    }
+
+    port def OccupantInterfacePort {
+        in item preference : OccupantPreference;
+        out item status : EnvironmentStatus;
+    }
+
+    item def OccupantPreference {
+        attribute preferredTemperature : Temperature;
+        attribute preferredIlluminance : Illuminance;
+        attribute quietHoursEnabled : Boolean;
+        attribute energySavingPreference : Real;
+    }
+
+    item def EnvironmentStatus {
+        attribute activeMode : EnvironmentMode;
+        attribute comfortIndex : ComfortIndex;
+        attribute currentEnergyPower : Power;
+        attribute secured : Boolean;
+        attribute alertActive : Boolean;
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.2 [K];
+        port dataOut : EnvironmentSensePort;
+    }
+
+    part def HumidityAirQualitySensor {
+        attribute humidityAccuracy : RelativeHumidity = 2.0;
+        attribute co2Accuracy : CarbonDioxideConcentration = 50.0;
+        port dataOut : EnvironmentSensePort;
+    }
+
+    part def OccupancySensor {
+        attribute detectionRange : Length = 8 [m];
+        port dataOut : EnvironmentSensePort;
+    }
+
+    part def SmartMeter {
+        attribute samplePeriod : Time = 60 [s];
+        port dataOut : EnergySensePort;
+    }
+
+    part def SecuritySensorCluster {
+        attribute motionCoverage : Area = 120 [m^2];
+        port dataOut : SecuritySensePort;
+    }
+
+    part def HVACUnit {
+        attribute maxCoolingPower : Power = 6500 [W];
+        attribute maxHeatingPower : Power = 8000 [W];
+        attribute nominalAirflow : Real = 420.0;
+        port commandIn : HVACControlPort;
+    }
+
+    part def AdaptiveLightingSystem {
+        attribute maxLightingPower : Power = 900 [W];
+        attribute minIlluminance : Illuminance = 50.0;
+        attribute maxIlluminance : Illuminance = 750.0;
+        port commandIn : LightingControlPort;
+    }
+
+    part def SmartLockAndAlarmSystem {
+        attribute alarmSoundLevel : Real = 95.0;
+        attribute backupBatteryEnergy : Energy = 180000 [J];
+        port commandIn : SecurityControlPort;
+    }
+
+    part def SmartEnvironmentController {
+        attribute targetTemperature : Temperature = 295.15 [K];
+        attribute targetHumidity : RelativeHumidity = 45.0;
+        attribute targetIlluminance : Illuminance = 450.0;
+        attribute maxDemandLimit : Power = 9500 [W];
+        attribute minimumComfortIndex : ComfortIndex = 0.85;
+        attribute currentMode : EnvironmentMode = EnvironmentMode::unoccupied;
+
+        port sensorInput : EnvironmentInputPort;
+        port hvacOutput : HVACControlPort;
+        port lightingOutput : LightingControlPort;
+        port securityOutput : SecurityControlPort;
+        port occupantInterface : OccupantInterfacePort;
+
+        perform action maintainEnvironment : MaintainSmartEnvironment;
+        perform state behavior operationState : SmartEnvironmentOperatingStates;
+    }
+
+    part def SmartEnvironment {
+        attribute floorArea : Area = 185 [m^2];
+        attribute designOccupancy : OccupancyCount = 8;
+        attribute averageComfortIndex : ComfortIndex;
+        attribute currentPowerDemand : Power;
+        attribute secured : Boolean;
+
+        part controller : SmartEnvironmentController;
+        part temperatureSensors[4] : TemperatureSensor;
+        part airQualitySensors[2] : HumidityAirQualitySensor;
+        part occupancySensors[3] : OccupancySensor;
+        part smartMeter : SmartMeter;
+        part securitySensors : SecuritySensorCluster;
+        part hvac : HVACUnit;
+        part lighting : AdaptiveLightingSystem;
+        part locksAndAlarm : SmartLockAndAlarmSystem;
+
+        connect temperatureSensors.dataOut to controller.sensorInput;
+        connect airQualitySensors.dataOut to controller.sensorInput;
+        connect occupancySensors.dataOut to controller.sensorInput;
+        connect smartMeter.dataOut to controller.sensorInput;
+        connect securitySensors.dataOut to controller.sensorInput;
+
+        connect controller.hvacOutput to hvac.commandIn;
+        connect controller.lightingOutput to lighting.commandIn;
+        connect controller.securityOutput to locksAndAlarm.commandIn;
+    }
+
+    action def MaintainSmartEnvironment {
+        in item environment : EnvironmentReading;
+        in item energy : EnergyReading;
+        in item security : SecurityReading;
+        in item preference : OccupantPreference;
+
+        out item hvacCommand : HVACCommand;
+        out item lightingCommand : LightingCommand;
+        out item securityCommand : SecurityCommand;
+        out item status : EnvironmentStatus;
+
+        attribute calculatedComfort : ComfortIndex;
+        attribute effectiveTargetTemperature : Temperature;
+        attribute effectiveTargetIlluminance : Illuminance;
+        attribute selectedMode : EnvironmentMode;
+
+        first start;
+
+        action classifyMode {
+            in item envIn : EnvironmentReading = environment;
+            in item secIn : SecurityReading = security;
+            out mode : EnvironmentMode;
+
+            if secIn.riskLevel > 0.75 then {
+                mode = EnvironmentMode::emergency;
+            } else if envIn.occupancy == 0 then {
+                mode = EnvironmentMode::unoccupied;
+            } else if energy.currentPower > 9000 [W] then {
+                mode = EnvironmentMode::occupiedEfficiency;
+            } else {
+                mode = EnvironmentMode::occupiedComfort;
+            }
+        }
+
+        then action computeTargets {
+            in mode : EnvironmentMode = classifyMode.mode;
+            in item pref : OccupantPreference = preference;
+            out tempTarget : Temperature;
+            out lightTarget : Illuminance;
+
+            if mode == EnvironmentMode::unoccupied then {
+                tempTarget = 291.15 [K];
+                lightTarget = 75.0;
+            } else if mode == EnvironmentMode::occupiedEfficiency then {
+                tempTarget = pref.preferredTemperature + 1.5 [K];
+                lightTarget = pref.preferredIlluminance * 0.75;
+            } else if mode == EnvironmentMode::night then {
+                tempTarget = 292.15 [K];
+                lightTarget = 25.0;
+            } else {
+                tempTarget = pref.preferredTemperature;
+                lightTarget = pref.preferredIlluminance;
+            }
+        }
+
+        then action issueHVACCommand {
+            in tempTarget : Temperature = computeTargets.tempTarget;
+            in item envIn : EnvironmentReading = environment;
+            out item command : HVACCommand;
+
+            if envIn.indoorTemperature < tempTarget - 0.5 [K] then {
+                command.mode = HVACMode::heating;
+            } else if envIn.indoorTemperature > tempTarget + 0.5 [K] then {
+                command.mode = HVACMode::cooling;
+            } else if envIn.co2 > 900.0 then {
+                command.mode = HVACMode::ventilation;
+            } else {
+                command.mode = HVACMode::energySaving;
+            }
+
+            command.targetTemperature = tempTarget;
+            command.targetHumidity = 45.0;
+            command.ventilationRatePercent = 55.0;
+            command.priority = 5;
+        }
+
+        then action issueLightingCommand {
+            in lightTarget : Illuminance = computeTargets.lightTarget;
+            in item envIn : EnvironmentReading = environment;
+            out item command : LightingCommand;
+
+            command.targetIlluminance = lightTarget;
+            command.dimmingPercent = if envIn.occupancy == 0 then 0.0 else 65.0;
+            command.colorTemperatureKelvin = if lightTarget < 100.0 then 2700.0 else 4000.0;
+            command.priority = 4;
+        }
+
+        then action issueSecurityCommand {
+            in item secIn : SecurityReading = security;
+            in item envIn : EnvironmentReading = environment;
+            out item command : SecurityCommand;
+
+            command.armSystem = envIn.occupancy == 0;
+            command.lockDoors = envIn.occupancy == 0 or secIn.riskLevel > 0.5;
+            command.notifyOccupants = secIn.riskLevel > 0.75;
+            command.priority = if secIn.riskLevel > 0.75 then 10 else 3;
+        }
+
+        then action publishStatus {
+            out item environmentStatus : EnvironmentStatus;
+
+            environmentStatus.activeMode = classifyMode.mode;
+            environmentStatus.comfortIndex = calculatedComfort;
+            environmentStatus.currentEnergyPower = energy.currentPower;
+            environmentStatus.secured = issueSecurityCommand.command.lockDoors;
+            environmentStatus.alertActive = security.riskLevel > 0.75;
+        }
+
+        then done;
+    }
+
+    state def SmartEnvironmentOperatingStates {
+        entry action initializeController;
+
+        state Monitoring;
+        state ComfortOptimization;
+        state EnergyOptimization;
+        state SecurityProtection;
+        state EmergencyResponse;
+        state MaintenanceMode;
+
+        transition initialToMonitoring first Monitoring;
+
+        transition monitorToComfort
+            first Monitoring
+            accept when environment.occupancy > 0 and security.riskLevel <= 0.5
+            then ComfortOptimization;
+
+        transition comfortToEnergy
+            first ComfortOptimization
+            accept when energy.currentPower > 9000 [W]
+            then EnergyOptimization;
+
+        transition energyToComfort
+            first EnergyOptimization
+            accept when energy.currentPower <= 8000 [W] and environment.occupancy > 0
+            then ComfortOptimization;
+
+        transition anyToSecurity
+            first Monitoring
+            accept when security.riskLevel > 0.5 and security.riskLevel <= 0.75
+            then SecurityProtection;
+
+        transition anyToEmergency
+            first Monitoring
+            accept when security.riskLevel > 0.75 or environment.airQuality > 150.0
+            then EmergencyResponse;
+
+        transition emergencyToMonitoring
+            first EmergencyResponse
+            accept when security.riskLevel <= 0.25 and environment.airQuality <= 100.0
+            then Monitoring;
+
+        transition maintenanceRequested
+            first Monitoring
+            accept MaintenanceRequest
+            then MaintenanceMode;
+
+        transition maintenanceComplete
+            first MaintenanceMode
+            accept MaintenanceComplete
+            then Monitoring;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The smart environment shall sense occupancy, comfort, energy, and safety conditions, infer the current operating context, and automatically coordinate HVAC, lighting, and security assets to maintain occupant comfort, reduce energy demand, and protect the space. */
+        subject environment : SmartEnvironment;
+        require constraint {
+            environment.averageComfortIndex >= 0.85
+        }
+    }
+
+    requirement def EnergyDemandRequirement {
+        subject environment : SmartEnvironment;
+        require constraint {
+            environment.currentPowerDemand <= 9500 [W]
+        }
+    }
+
+    requirement def SecurityRequirement {
+        subject environment : SmartEnvironment;
+        require constraint {
+            environment.secured == true
+        }
+    }
+
+    requirement def OccupancyResponseRequirement {
+        subject controller : SmartEnvironmentController;
+        require constraint {
+            controller.currentMode != EnvironmentMode::occupiedComfort or controller.minimumComfortIndex >= 0.85
+        }
+    }
+
+    requirement def AirQualityRequirement {
+        subject reading : EnvironmentReading;
+        require constraint {
+            reading.co2 <= 1000.0 and reading.airQuality <= 100.0
+        }
+    }
+
+    part smartEnvironment : SmartEnvironment;
+
+    requirement primaryFunction : PrimaryFunctionRequirement {
+        subject environment = smartEnvironment;
+    }
+
+    requirement energyDemand : EnergyDemandRequirement {
+        subject environment = smartEnvironment;
+    }
+
+    requirement securityProtection : SecurityRequirement {
+        subject environment = smartEnvironment;
+    }
+
+    requirement occupancyResponse : OccupancyResponseRequirement {
+        subject controller = smartEnvironment.controller;
+    }
+
+    satisfy primaryFunction by smartEnvironment.controller;
+    satisfy energyDemand by smartEnvironment.controller;
+    satisfy securityProtection by smartEnvironment.locksAndAlarm;
+    satisfy occupancyResponse by smartEnvironment.controller;
+}

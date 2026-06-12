@@ -1,0 +1,803 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-lryz8oyg
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5a8-270e-7810-8677-94fa663dd123
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Nuclear density gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NuclearDensityGaugeSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Activity {
+    :> scalarValue;
+    unit = "MBq";
+  }
+
+  attribute def DoseRate {
+    :> scalarValue;
+    unit = "uSv/h";
+  }
+
+  attribute def Density {
+    :> scalarValue;
+    unit = "kg/m^3";
+  }
+
+  attribute def MoistureContent {
+    :> scalarValue;
+    unit = "%";
+  }
+
+  attribute def CountRate {
+    :> scalarValue;
+    unit = "counts/s";
+  }
+
+  attribute def Depth {
+    :> scalarValue;
+    unit = "mm";
+  }
+
+  attribute def Temperature {
+    :> scalarValue;
+    unit = "degC";
+  }
+
+  attribute def Voltage {
+    :> scalarValue;
+    unit = "V";
+  }
+
+  item def GammaPhotonFlux;
+  item def NeutronFlux;
+  item def BackscatterRadiation;
+  item def SoilCompactionReading;
+  item def OperatorCommand;
+  item def SafetyInterlockSignal;
+  item def CalibrationProfile;
+  item def MeasurementReport;
+
+  port def RadiationEmissionPort {
+    out gammaFlux : GammaPhotonFlux;
+    out neutronFlux : NeutronFlux;
+  }
+
+  port def RadiationDetectionPort {
+    in backscatter : BackscatterRadiation;
+  }
+
+  port def CommandPort {
+    in command : OperatorCommand;
+  }
+
+  port def ReportPort {
+    out report : MeasurementReport;
+  }
+
+  port def SafetyPort {
+    in interlock : SafetyInterlockSignal;
+    out status : SafetyInterlockSignal;
+  }
+
+  part def NuclearDensityGauge {
+    attribute mass : Mass;
+    attribute operatingTemperature : Temperature;
+    attribute batteryVoltage : Voltage;
+    attribute selectedDepth : Depth;
+    attribute computedWetDensity : Density;
+    attribute computedDryDensity : Density;
+    attribute computedMoisture : MoistureContent;
+    attribute externalDoseRate : DoseRate;
+
+    port operatorInput : CommandPort;
+    port measurementOutput : ReportPort;
+    port safetyInterface : SafetyPort;
+
+    part sourceAssembly : SealedSourceAssembly;
+    part detectorAssembly : DetectorAssembly;
+    part sourceRod : SourceRod;
+    part shielding : ShieldingBody;
+    part shutter : TungstenShutter;
+    part controlUnit : ControlElectronics;
+    part userInterface : OperatorInterface;
+    part battery : BatteryPack;
+    part temperatureSensor : TemperatureSensor;
+    part calibrationMemory : CalibrationMemory;
+
+    connect sourceAssembly.emissionPort to sourceRod.emissionPort;
+    connect sourceRod.emissionPort to detectorAssembly.detectionPort;
+    connect detectorAssembly.countDataPort to controlUnit.detectorInput;
+    connect operatorInput to userInterface.commandInput;
+    connect userInterface.commandOutput to controlUnit.commandInput;
+    connect controlUnit.reportOutput to measurementOutput;
+    connect safetyInterface to controlUnit.safetyInput;
+    connect controlUnit.shutterControl to shutter.controlPort;
+    connect controlUnit.rodControl to sourceRod.positionControl;
+    connect battery.powerOutput to controlUnit.powerInput;
+    connect temperatureSensor.temperatureOutput to controlUnit.temperatureInput;
+    connect calibrationMemory.profileOutput to controlUnit.calibrationInput;
+
+    perform action measureCompactedMaterial : MeasurementCycle;
+    exhibit state operationalState : GaugeOperationalStates;
+  }
+
+  part def SealedSourceAssembly {
+    attribute gammaSourceActivity : Activity = 370;
+    attribute neutronSourceActivity : Activity = 185;
+    attribute sourceEncapsulationIntegrity : Boolean = true;
+
+    port emissionPort : RadiationEmissionPort;
+
+    part gammaSource : Cesium137Source;
+    part neutronSource : AmericiumBerylliumSource;
+
+    connect gammaSource.gammaOutput to emissionPort.gammaFlux;
+    connect neutronSource.neutronOutput to emissionPort.neutronFlux;
+  }
+
+  part def Cesium137Source {
+    attribute activity : Activity = 370;
+    attribute photonEnergy : Energy = 0.662;
+    port gammaOutput : RadiationEmissionPort;
+  }
+
+  part def AmericiumBerylliumSource {
+    attribute activity : Activity = 185;
+    attribute averageNeutronEnergy : Energy = 4.5;
+    port neutronOutput : RadiationEmissionPort;
+  }
+
+  part def SourceRod {
+    attribute insertionDepth : Depth;
+    attribute lockedRetracted : Boolean;
+    attribute directTransmissionEnabled : Boolean;
+
+    port emissionPort : RadiationEmissionPort;
+    port positionControl : CommandPort;
+  }
+
+  part def ShieldingBody {
+    attribute material : String = "lead and tungsten composite";
+    attribute closedShutterDoseRate : DoseRate;
+    attribute transportIndex : Real;
+  }
+
+  part def TungstenShutter {
+    attribute closed : Boolean = true;
+    attribute mechanicallyLatched : Boolean = true;
+
+    port controlPort : CommandPort;
+  }
+
+  part def DetectorAssembly {
+    attribute gammaCountRate : CountRate;
+    attribute neutronCountRate : CountRate;
+    attribute detectorHighVoltage : Voltage;
+
+    port detectionPort : RadiationDetectionPort;
+    port countDataPort : ReportPort;
+
+    part gammaDetector : GeigerMuellerDetector;
+    part neutronDetector : Helium3Detector;
+  }
+
+  part def GeigerMuellerDetector {
+    attribute countRate : CountRate;
+    port detectionInput : RadiationDetectionPort;
+  }
+
+  part def Helium3Detector {
+    attribute countRate : CountRate;
+    port detectionInput : RadiationDetectionPort;
+  }
+
+  part def ControlElectronics {
+    attribute wetDensityResult : Density;
+    attribute dryDensityResult : Density;
+    attribute moistureResult : MoistureContent;
+    attribute measurementDuration : Time;
+    attribute qualityIndex : Real;
+
+    port detectorInput : ReportPort;
+    port commandInput : CommandPort;
+    port safetyInput : SafetyPort;
+    port reportOutput : ReportPort;
+    port shutterControl : CommandPort;
+    port rodControl : CommandPort;
+    port powerInput : PowerPort;
+    port temperatureInput : ReportPort;
+    port calibrationInput : ReportPort;
+
+    perform action processCounts : ComputeDensityAndMoisture;
+  }
+
+  port def PowerPort {
+    out voltage : Voltage;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : Voltage = 7.2;
+    attribute remainingCapacity : Real;
+    port powerOutput : PowerPort;
+  }
+
+  part def OperatorInterface {
+    port commandInput : CommandPort;
+    port commandOutput : CommandPort;
+    port reportInput : ReportPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measuredTemperature : Temperature;
+    port temperatureOutput : ReportPort;
+  }
+
+  part def CalibrationMemory {
+    attribute activeProfileId : String;
+    attribute densitySlope : Real;
+    attribute densityOffset : Real;
+    attribute moistureSlope : Real;
+    attribute moistureOffset : Real;
+    port profileOutput : ReportPort;
+  }
+
+  action def MeasurementCycle {
+    in command : OperatorCommand;
+    in calibration : CalibrationProfile;
+    out report : MeasurementReport;
+
+    first startSafetyCheck;
+    then verifySourceRetracted;
+    then selectMeasurementDepth;
+    then openShutter;
+    then acquireRadiationCounts;
+    then closeShutter;
+    then computeMaterialProperties;
+    then publishReport;
+
+    action startSafetyCheck;
+    action verifySourceRetracted;
+    action selectMeasurementDepth;
+    action openShutter;
+    action acquireRadiationCounts;
+    action closeShutter;
+    action computeMaterialProperties;
+    action publishReport;
+  }
+
+  action def ComputeDensityAndMoisture {
+    in gammaCountRate : CountRate;
+    in neutronCountRate : CountRate;
+    in calibration : CalibrationProfile;
+    in temperature : Temperature;
+    out wetDensity : Density;
+    out dryDensity : Density;
+    out moisture : MoistureContent;
+    out qualityIndex : Real;
+  }
+
+  state def GaugeOperationalStates {
+    entry; then Idle;
+
+    state Idle;
+    state SelfTest;
+    state Ready;
+    state Measuring;
+    state Computing;
+    state Reporting;
+    state SafeLocked;
+    state Faulted;
+
+    transition Idle_to_SelfTest
+      first Idle
+      accept OperatorCommand
+      then SelfTest;
+
+    transition SelfTest_to_Ready
+      first SelfTest
+      if sourceIntegrityOk and batteryVoltageOk and shutterClosed
+      then Ready;
+
+    transition SelfTest_to_Faulted
+      first SelfTest
+      if not sourceIntegrityOk or not shutterClosed
+      then Faulted;
+
+    transition Ready_to_Measuring
+      first Ready
+      accept OperatorCommand
+      if authorizedOperatorPresent and interlockSatisfied
+      then Measuring;
+
+    transition Measuring_to_Computing
+      first Measuring
+      after 60 [s]
+      then Computing;
+
+    transition Computing_to_Reporting
+      first Computing
+      then Reporting;
+
+    transition Reporting_to_SafeLocked
+      first Reporting
+      then SafeLocked;
+
+    transition SafeLocked_to_Ready
+      first SafeLocked
+      if shutterClosed and sourceRodRetracted
+      then Ready;
+
+    transition Any_to_Faulted
+      first Ready
+      accept SafetyInterlockSignal
+      if emergencyStopRequested
+      then Faulted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    doc /* The system shall provide a high-level primary function of measuring in-place material density and moisture content by emitting controlled gamma and neutron radiation into a compacted material volume, detecting returned radiation, and converting count rates into calibrated wet density, dry density, and moisture readings. */
+
+    require constraint {
+      gauge.computedWetDensity > 0 [kg/m^3] and
+      gauge.computedDryDensity > 0 [kg/m^3] and
+      gauge.computedMoisture >= 0 [%]
+    }
+  }
+
+  requirement def RadiationContainmentRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.shutter.closed implies
+      gauge.externalDoseRate <= 25 [uSv/h]
+    }
+  }
+
+  requirement def SafeMeasurementRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.sourceRod.lockedRetracted or
+      gauge.shutter.closed = false
+    }
+  }
+
+  requirement def CalibrationRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.calibrationMemory.activeProfileId != ""
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.battery.nominalVoltage >= 7.0 [V]
+    }
+  }
+
+  requirement def MeasurementReportingRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.controlUnit.qualityIndex >= 0.95
+    }
+  }
+
+  part nuclearDensityGaugeSystem : NuclearDensityGauge {
+    attribute mass = 14.0 [kg];
+    attribute selectedDepth = 150 [mm];
+    attribute externalDoseRate = 10 [uSv/h];
+  }
+
+}
+tokens used
+2,913
+package NuclearDensityGaugeSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Activity {
+    :> scalarValue;
+    unit = "MBq";
+  }
+
+  attribute def DoseRate {
+    :> scalarValue;
+    unit = "uSv/h";
+  }
+
+  attribute def Density {
+    :> scalarValue;
+    unit = "kg/m^3";
+  }
+
+  attribute def MoistureContent {
+    :> scalarValue;
+    unit = "%";
+  }
+
+  attribute def CountRate {
+    :> scalarValue;
+    unit = "counts/s";
+  }
+
+  attribute def Depth {
+    :> scalarValue;
+    unit = "mm";
+  }
+
+  attribute def Temperature {
+    :> scalarValue;
+    unit = "degC";
+  }
+
+  attribute def Voltage {
+    :> scalarValue;
+    unit = "V";
+  }
+
+  item def GammaPhotonFlux;
+  item def NeutronFlux;
+  item def BackscatterRadiation;
+  item def SoilCompactionReading;
+  item def OperatorCommand;
+  item def SafetyInterlockSignal;
+  item def CalibrationProfile;
+  item def MeasurementReport;
+
+  port def RadiationEmissionPort {
+    out gammaFlux : GammaPhotonFlux;
+    out neutronFlux : NeutronFlux;
+  }
+
+  port def RadiationDetectionPort {
+    in backscatter : BackscatterRadiation;
+  }
+
+  port def CommandPort {
+    in command : OperatorCommand;
+  }
+
+  port def ReportPort {
+    out report : MeasurementReport;
+  }
+
+  port def SafetyPort {
+    in interlock : SafetyInterlockSignal;
+    out status : SafetyInterlockSignal;
+  }
+
+  part def NuclearDensityGauge {
+    attribute mass : Mass;
+    attribute operatingTemperature : Temperature;
+    attribute batteryVoltage : Voltage;
+    attribute selectedDepth : Depth;
+    attribute computedWetDensity : Density;
+    attribute computedDryDensity : Density;
+    attribute computedMoisture : MoistureContent;
+    attribute externalDoseRate : DoseRate;
+
+    port operatorInput : CommandPort;
+    port measurementOutput : ReportPort;
+    port safetyInterface : SafetyPort;
+
+    part sourceAssembly : SealedSourceAssembly;
+    part detectorAssembly : DetectorAssembly;
+    part sourceRod : SourceRod;
+    part shielding : ShieldingBody;
+    part shutter : TungstenShutter;
+    part controlUnit : ControlElectronics;
+    part userInterface : OperatorInterface;
+    part battery : BatteryPack;
+    part temperatureSensor : TemperatureSensor;
+    part calibrationMemory : CalibrationMemory;
+
+    connect sourceAssembly.emissionPort to sourceRod.emissionPort;
+    connect sourceRod.emissionPort to detectorAssembly.detectionPort;
+    connect detectorAssembly.countDataPort to controlUnit.detectorInput;
+    connect operatorInput to userInterface.commandInput;
+    connect userInterface.commandOutput to controlUnit.commandInput;
+    connect controlUnit.reportOutput to measurementOutput;
+    connect safetyInterface to controlUnit.safetyInput;
+    connect controlUnit.shutterControl to shutter.controlPort;
+    connect controlUnit.rodControl to sourceRod.positionControl;
+    connect battery.powerOutput to controlUnit.powerInput;
+    connect temperatureSensor.temperatureOutput to controlUnit.temperatureInput;
+    connect calibrationMemory.profileOutput to controlUnit.calibrationInput;
+
+    perform action measureCompactedMaterial : MeasurementCycle;
+    exhibit state operationalState : GaugeOperationalStates;
+  }
+
+  part def SealedSourceAssembly {
+    attribute gammaSourceActivity : Activity = 370;
+    attribute neutronSourceActivity : Activity = 185;
+    attribute sourceEncapsulationIntegrity : Boolean = true;
+
+    port emissionPort : RadiationEmissionPort;
+
+    part gammaSource : Cesium137Source;
+    part neutronSource : AmericiumBerylliumSource;
+
+    connect gammaSource.gammaOutput to emissionPort.gammaFlux;
+    connect neutronSource.neutronOutput to emissionPort.neutronFlux;
+  }
+
+  part def Cesium137Source {
+    attribute activity : Activity = 370;
+    attribute photonEnergy : Energy = 0.662;
+    port gammaOutput : RadiationEmissionPort;
+  }
+
+  part def AmericiumBerylliumSource {
+    attribute activity : Activity = 185;
+    attribute averageNeutronEnergy : Energy = 4.5;
+    port neutronOutput : RadiationEmissionPort;
+  }
+
+  part def SourceRod {
+    attribute insertionDepth : Depth;
+    attribute lockedRetracted : Boolean;
+    attribute directTransmissionEnabled : Boolean;
+
+    port emissionPort : RadiationEmissionPort;
+    port positionControl : CommandPort;
+  }
+
+  part def ShieldingBody {
+    attribute material : String = "lead and tungsten composite";
+    attribute closedShutterDoseRate : DoseRate;
+    attribute transportIndex : Real;
+  }
+
+  part def TungstenShutter {
+    attribute closed : Boolean = true;
+    attribute mechanicallyLatched : Boolean = true;
+
+    port controlPort : CommandPort;
+  }
+
+  part def DetectorAssembly {
+    attribute gammaCountRate : CountRate;
+    attribute neutronCountRate : CountRate;
+    attribute detectorHighVoltage : Voltage;
+
+    port detectionPort : RadiationDetectionPort;
+    port countDataPort : ReportPort;
+
+    part gammaDetector : GeigerMuellerDetector;
+    part neutronDetector : Helium3Detector;
+  }
+
+  part def GeigerMuellerDetector {
+    attribute countRate : CountRate;
+    port detectionInput : RadiationDetectionPort;
+  }
+
+  part def Helium3Detector {
+    attribute countRate : CountRate;
+    port detectionInput : RadiationDetectionPort;
+  }
+
+  part def ControlElectronics {
+    attribute wetDensityResult : Density;
+    attribute dryDensityResult : Density;
+    attribute moistureResult : MoistureContent;
+    attribute measurementDuration : Time;
+    attribute qualityIndex : Real;
+
+    port detectorInput : ReportPort;
+    port commandInput : CommandPort;
+    port safetyInput : SafetyPort;
+    port reportOutput : ReportPort;
+    port shutterControl : CommandPort;
+    port rodControl : CommandPort;
+    port powerInput : PowerPort;
+    port temperatureInput : ReportPort;
+    port calibrationInput : ReportPort;
+
+    perform action processCounts : ComputeDensityAndMoisture;
+  }
+
+  port def PowerPort {
+    out voltage : Voltage;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : Voltage = 7.2;
+    attribute remainingCapacity : Real;
+    port powerOutput : PowerPort;
+  }
+
+  part def OperatorInterface {
+    port commandInput : CommandPort;
+    port commandOutput : CommandPort;
+    port reportInput : ReportPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measuredTemperature : Temperature;
+    port temperatureOutput : ReportPort;
+  }
+
+  part def CalibrationMemory {
+    attribute activeProfileId : String;
+    attribute densitySlope : Real;
+    attribute densityOffset : Real;
+    attribute moistureSlope : Real;
+    attribute moistureOffset : Real;
+    port profileOutput : ReportPort;
+  }
+
+  action def MeasurementCycle {
+    in command : OperatorCommand;
+    in calibration : CalibrationProfile;
+    out report : MeasurementReport;
+
+    first startSafetyCheck;
+    then verifySourceRetracted;
+    then selectMeasurementDepth;
+    then openShutter;
+    then acquireRadiationCounts;
+    then closeShutter;
+    then computeMaterialProperties;
+    then publishReport;
+
+    action startSafetyCheck;
+    action verifySourceRetracted;
+    action selectMeasurementDepth;
+    action openShutter;
+    action acquireRadiationCounts;
+    action closeShutter;
+    action computeMaterialProperties;
+    action publishReport;
+  }
+
+  action def ComputeDensityAndMoisture {
+    in gammaCountRate : CountRate;
+    in neutronCountRate : CountRate;
+    in calibration : CalibrationProfile;
+    in temperature : Temperature;
+    out wetDensity : Density;
+    out dryDensity : Density;
+    out moisture : MoistureContent;
+    out qualityIndex : Real;
+  }
+
+  state def GaugeOperationalStates {
+    entry; then Idle;
+
+    state Idle;
+    state SelfTest;
+    state Ready;
+    state Measuring;
+    state Computing;
+    state Reporting;
+    state SafeLocked;
+    state Faulted;
+
+    transition Idle_to_SelfTest
+      first Idle
+      accept OperatorCommand
+      then SelfTest;
+
+    transition SelfTest_to_Ready
+      first SelfTest
+      if sourceIntegrityOk and batteryVoltageOk and shutterClosed
+      then Ready;
+
+    transition SelfTest_to_Faulted
+      first SelfTest
+      if not sourceIntegrityOk or not shutterClosed
+      then Faulted;
+
+    transition Ready_to_Measuring
+      first Ready
+      accept OperatorCommand
+      if authorizedOperatorPresent and interlockSatisfied
+      then Measuring;
+
+    transition Measuring_to_Computing
+      first Measuring
+      after 60 [s]
+      then Computing;
+
+    transition Computing_to_Reporting
+      first Computing
+      then Reporting;
+
+    transition Reporting_to_SafeLocked
+      first Reporting
+      then SafeLocked;
+
+    transition SafeLocked_to_Ready
+      first SafeLocked
+      if shutterClosed and sourceRodRetracted
+      then Ready;
+
+    transition Any_to_Faulted
+      first Ready
+      accept SafetyInterlockSignal
+      if emergencyStopRequested
+      then Faulted;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    doc /* The system shall provide a high-level primary function of measuring in-place material density and moisture content by emitting controlled gamma and neutron radiation into a compacted material volume, detecting returned radiation, and converting count rates into calibrated wet density, dry density, and moisture readings. */
+
+    require constraint {
+      gauge.computedWetDensity > 0 [kg/m^3] and
+      gauge.computedDryDensity > 0 [kg/m^3] and
+      gauge.computedMoisture >= 0 [%]
+    }
+  }
+
+  requirement def RadiationContainmentRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.shutter.closed implies
+      gauge.externalDoseRate <= 25 [uSv/h]
+    }
+  }
+
+  requirement def SafeMeasurementRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.sourceRod.lockedRetracted or
+      gauge.shutter.closed = false
+    }
+  }
+
+  requirement def CalibrationRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.calibrationMemory.activeProfileId != ""
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.battery.nominalVoltage >= 7.0 [V]
+    }
+  }
+
+  requirement def MeasurementReportingRequirement {
+    subject gauge : NuclearDensityGauge;
+
+    require constraint {
+      gauge.controlUnit.qualityIndex >= 0.95
+    }
+  }
+
+  part nuclearDensityGaugeSystem : NuclearDensityGauge {
+    attribute mass = 14.0 [kg];
+    attribute selectedDepth = 150 [mm];
+    attribute externalDoseRate = 10 [uSv/h];
+  }
+
+}

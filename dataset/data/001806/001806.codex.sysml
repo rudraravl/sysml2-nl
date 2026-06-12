@@ -1,0 +1,407 @@
+package LiquidBasedCoolingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature {
+        :> scalarQuantity;
+        unit = K;
+    }
+
+    attribute def Pressure {
+        :> scalarQuantity;
+        unit = Pa;
+    }
+
+    attribute def VolumeFlowRate {
+        :> scalarQuantity;
+        unit = m^3 / s;
+    }
+
+    attribute def ThermalPower {
+        :> scalarQuantity;
+        unit = W;
+    }
+
+    attribute def Volume {
+        :> scalarQuantity;
+        unit = m^3;
+    }
+
+    attribute def Mass {
+        :> scalarQuantity;
+        unit = kg;
+    }
+
+    attribute def Power {
+        :> scalarQuantity;
+        unit = W;
+    }
+
+    attribute def Efficiency {
+        :> scalarQuantity;
+        unit = one;
+    }
+
+    attribute def Time {
+        :> scalarQuantity;
+        unit = s;
+    }
+
+    item def Coolant {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+        attribute specificHeatCapacity : Real = 4180.0;
+        attribute density : Real = 997.0;
+        attribute glycolFraction : Real;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Power;
+    }
+
+    item def Heat {
+        attribute heatRate : ThermalPower;
+        attribute sourceTemperature : Temperature;
+    }
+
+    item def ControlSignal {
+        attribute command : String;
+        attribute setpointTemperature : Temperature;
+        attribute pumpSpeedCommand : Real;
+        attribute fanSpeedCommand : Real;
+    }
+
+    port def CoolantPort {
+        inout coolant : Coolant;
+    }
+
+    port def HeatPort {
+        in heat : Heat;
+    }
+
+    port def ElectricalPort {
+        in electricalEnergy : ElectricalEnergy;
+    }
+
+    port def ControlPort {
+        in controlSignal : ControlSignal;
+    }
+
+    port def StatusPort {
+        out coolantTemperature : Temperature;
+        out coolantPressure : Pressure;
+        out flowRate : VolumeFlowRate;
+        out faultCode : String;
+    }
+
+    action def CirculateCoolant {
+        in coolantIn : Coolant;
+        in pumpSpeed : Real;
+        out coolantOut : Coolant;
+
+        objective {
+            doc /* Move liquid coolant through the closed loop to collect and reject heat. */
+        }
+    }
+
+    action def AbsorbHeat {
+        in coolantIn : Coolant;
+        in heatInput : Heat;
+        out coolantOut : Coolant;
+
+        objective {
+            doc /* Transfer thermal energy from the protected load into the liquid coolant. */
+        }
+    }
+
+    action def RejectHeat {
+        in coolantIn : Coolant;
+        in fanSpeed : Real;
+        out coolantOut : Coolant;
+
+        objective {
+            doc /* Release stored thermal energy from the liquid coolant to ambient air. */
+        }
+    }
+
+    action def RegulateCooling {
+        in measuredTemperature : Temperature;
+        in targetTemperature : Temperature;
+        out pumpSpeedCommand : Real;
+        out fanSpeedCommand : Real;
+
+        objective {
+            doc /* Adjust pump and fan effort to maintain the liquid temperature near the target. */
+        }
+    }
+
+    part def Pump {
+        attribute ratedFlowRate : VolumeFlowRate = 0.00035 [m^3 / s];
+        attribute ratedPressureRise : Pressure = 85000 [Pa];
+        attribute electricalPower : Power = 90 [W];
+        attribute speedCommand : Real;
+        attribute actualSpeed : Real;
+
+        port inlet : CoolantPort;
+        port outlet : CoolantPort;
+        port powerInput : ElectricalPort;
+        port commandInput : ControlPort;
+
+        perform action circulate : CirculateCoolant;
+    }
+
+    part def LiquidReservoir {
+        attribute usableVolume : Volume = 0.003 [m^3];
+        attribute minimumVolume : Volume = 0.0015 [m^3];
+        attribute coolantMass : Mass = 3.0 [kg];
+        attribute fillLevel : Real;
+
+        port returnPort : CoolantPort;
+        port supplyPort : CoolantPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def ColdPlate {
+        attribute thermalResistance : Real = 0.08;
+        attribute maximumHeatInput : ThermalPower = 2500 [W];
+
+        port coolantIn : CoolantPort;
+        port coolantOut : CoolantPort;
+        port heatInput : HeatPort;
+
+        perform action absorbHeat : AbsorbHeat;
+    }
+
+    part def Radiator {
+        attribute nominalRejectionCapacity : ThermalPower = 3000 [W];
+        attribute airSideEfficiency : Efficiency = 0.72 [one];
+
+        port coolantIn : CoolantPort;
+        port coolantOut : CoolantPort;
+
+        perform action rejectHeat : RejectHeat;
+    }
+
+    part def FanAssembly {
+        attribute ratedAirflow : Real = 0.22;
+        attribute electricalPower : Power = 65 [W];
+        attribute speedCommand : Real;
+        attribute actualSpeed : Real;
+
+        port powerInput : ElectricalPort;
+        port commandInput : ControlPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measuredTemperature : Temperature;
+        attribute accuracy : Temperature = 0.5 [K];
+        attribute samplePeriod : Time = 0.1 [s];
+
+        port coolantSensePort : CoolantPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        attribute accuracy : Pressure = 1000 [Pa];
+        attribute samplePeriod : Time = 0.1 [s];
+
+        port coolantSensePort : CoolantPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def Controller {
+        attribute targetTemperature : Temperature = 313.15 [K];
+        attribute highTemperatureLimit : Temperature = 333.15 [K];
+        attribute lowFlowLimit : VolumeFlowRate = 0.00008 [m^3 / s];
+
+        port temperatureStatus : StatusPort;
+        port pressureStatus : StatusPort;
+        port pumpCommand : ControlPort;
+        port fanCommand : ControlPort;
+        port systemStatus : StatusPort;
+
+        perform action regulate : RegulateCooling;
+
+        state def CoolingControlStateMachine {
+            entry action initialize {
+                send ControlSignal {
+                    command = "initialize";
+                    setpointTemperature = targetTemperature;
+                    pumpSpeedCommand = 0.25;
+                    fanSpeedCommand = 0.20;
+                } via pumpCommand;
+            }
+
+            state Off;
+            state Priming;
+            state NormalCooling;
+            state HighCooling;
+            state Fault;
+            state Shutdown;
+
+            transition first Off;
+
+            transition Off_to_Priming
+                first Off
+                then Priming
+                accept ControlSignal
+                if controlSignal.command == "start";
+
+            transition Priming_to_NormalCooling
+                first Priming
+                then NormalCooling
+                if temperatureStatus.flowRate >= lowFlowLimit;
+
+            transition NormalCooling_to_HighCooling
+                first NormalCooling
+                then HighCooling
+                if temperatureStatus.coolantTemperature > targetTemperature + 5 [K];
+
+            transition HighCooling_to_NormalCooling
+                first HighCooling
+                then NormalCooling
+                if temperatureStatus.coolantTemperature <= targetTemperature + 2 [K];
+
+            transition Any_to_Fault
+                first NormalCooling
+                then Fault
+                if temperatureStatus.coolantTemperature >= highTemperatureLimit or temperatureStatus.flowRate < lowFlowLimit;
+
+            transition Fault_to_Shutdown
+                first Fault
+                then Shutdown
+                accept ControlSignal
+                if controlSignal.command == "acknowledgeFault";
+
+            transition Shutdown_to_Off
+                first Shutdown
+                then Off
+                accept ControlSignal
+                if controlSignal.command == "stop";
+        }
+    }
+
+    part def PowerSupply {
+        attribute outputVoltage : Real = 24.0;
+        attribute maximumPower : Power = 250 [W];
+
+        port pumpPower : ElectricalPort;
+        port fanPower : ElectricalPort;
+        port controllerPower : ElectricalPort;
+    }
+
+    part def LiquidCoolingLoop {
+        doc /* Primary function: use a circulating liquid coolant to absorb heat from a protected load, transport that heat to a radiator, and reject it to ambient air while maintaining the load temperature within safe operating limits. */
+
+        attribute nominalCoolantTemperature : Temperature = 313.15 [K];
+        attribute maximumCoolantTemperature : Temperature = 333.15 [K];
+        attribute nominalFlowRate : VolumeFlowRate = 0.00025 [m^3 / s];
+        attribute coolantInventory : Volume = 0.003 [m^3];
+
+        part reservoir : LiquidReservoir;
+        part pump : Pump;
+        part coldPlate : ColdPlate;
+        part radiator : Radiator;
+        part fanAssembly : FanAssembly;
+        part temperatureSensor : TemperatureSensor;
+        part pressureSensor : PressureSensor;
+        part controller : Controller;
+        part powerSupply : PowerSupply;
+
+        port heatFromLoad : HeatPort;
+        port systemPower : ElectricalPort;
+        port externalCommand : ControlPort;
+        port externalStatus : StatusPort;
+
+        connect reservoir.supplyPort to pump.inlet;
+        connect pump.outlet to coldPlate.coolantIn;
+        connect coldPlate.coolantOut to radiator.coolantIn;
+        connect radiator.coolantOut to reservoir.returnPort;
+
+        connect heatFromLoad to coldPlate.heatInput;
+
+        connect powerSupply.pumpPower to pump.powerInput;
+        connect powerSupply.fanPower to fanAssembly.powerInput;
+        connect systemPower to powerSupply.controllerPower;
+
+        connect controller.pumpCommand to pump.commandInput;
+        connect controller.fanCommand to fanAssembly.commandInput;
+        connect externalCommand to controller.pumpCommand;
+
+        connect temperatureSensor.coolantSensePort to coldPlate.coolantOut;
+        connect pressureSensor.coolantSensePort to pump.outlet;
+
+        connect temperatureSensor.statusOutput to controller.temperatureStatus;
+        connect pressureSensor.statusOutput to controller.pressureStatus;
+        connect controller.systemStatus to externalStatus;
+    }
+
+    requirement def MaintainThermalLimit {
+        subject system : LiquidCoolingLoop;
+
+        require constraint {
+            system.nominalCoolantTemperature <= system.maximumCoolantTemperature
+        }
+
+        doc /* The liquid cooling loop shall maintain coolant temperature below the maximum safe operating limit during continuous heat rejection. */
+    }
+
+    requirement def ProvideContinuousCirculation {
+        subject system : LiquidCoolingLoop;
+
+        require constraint {
+            system.nominalFlowRate >= 0.00020 [m^3 / s]
+        }
+
+        doc /* The system shall provide continuous liquid circulation sufficient to transport heat from the cold plate to the radiator. */
+    }
+
+    requirement def StoreAdequateCoolant {
+        subject system : LiquidCoolingLoop;
+
+        require constraint {
+            system.coolantInventory >= 0.0025 [m^3]
+        }
+
+        doc /* The reservoir shall contain enough liquid coolant to prevent pump starvation during normal operation. */
+    }
+
+    requirement def RejectDesignHeatLoad {
+        subject system : LiquidCoolingLoop;
+
+        require constraint {
+            system.radiator.nominalRejectionCapacity >= system.coldPlate.maximumHeatInput
+        }
+
+        doc /* The radiator shall reject at least the maximum thermal load absorbed by the cold plate. */
+    }
+
+    requirement def FailSafeShutdown {
+        subject system : LiquidCoolingLoop;
+
+        require constraint {
+            system.controller.highTemperatureLimit <= 333.15 [K]
+        }
+
+        doc /* The controller shall enter a fault response when liquid temperature exceeds the configured high-temperature limit or liquid flow falls below the minimum allowed value. */
+    }
+
+    satisfy MaintainThermalLimit by LiquidCoolingLoop;
+    satisfy ProvideContinuousCirculation by LiquidCoolingLoop;
+    satisfy StoreAdequateCoolant by LiquidCoolingLoop;
+    satisfy RejectDesignHeatLoad by LiquidCoolingLoop;
+    satisfy FailSafeShutdown by LiquidCoolingLoop;
+
+    part liquidBasedCoolingSystem : LiquidCoolingLoop {
+        attribute nominalCoolantTemperature = 313.15 [K];
+        attribute maximumCoolantTemperature = 333.15 [K];
+        attribute nominalFlowRate = 0.00025 [m^3 / s];
+        attribute coolantInventory = 0.003 [m^3];
+    }
+}

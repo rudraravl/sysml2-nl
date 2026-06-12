@@ -1,0 +1,331 @@
+package AhmadYAlHassanBasedSystem {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real;
+    attribute def ConfidenceScore :> Real;
+    attribute def RecordCount :> Integer;
+    attribute def QueryText :> String;
+    attribute def CitationText :> String;
+    attribute def PersonName :> String;
+    attribute def TopicName :> String;
+    attribute def EraName :> String;
+
+    item def ManuscriptRecord {
+        attribute title : String;
+        attribute author : String;
+        attribute language : String;
+        attribute century : Integer;
+        attribute sourceArchive : String;
+        attribute folioReference : String;
+        attribute digitizationQuality : Percent;
+    }
+
+    item def ArtifactRecord {
+        attribute artifactName : String;
+        attribute material : String;
+        attribute estimatedCentury : Integer;
+        attribute currentRepository : String;
+        attribute culturalContext : String;
+        attribute functionalCategory : String;
+    }
+
+    item def TechnologyTopic {
+        attribute name : TopicName;
+        attribute era : EraName;
+        attribute domain : String;
+        attribute primaryFunction : String;
+    }
+
+    item def HistoricalClaim {
+        attribute statement : String;
+        attribute confidence : ConfidenceScore;
+        attribute evidenceCount : RecordCount;
+        attribute citation : CitationText;
+    }
+
+    item def ResearchQuery {
+        attribute text : QueryText;
+        attribute requestedDomain : String;
+        attribute requestedEra : EraName;
+    }
+
+    item def CuratedResponse {
+        attribute summary : String;
+        attribute primaryFunctionStatement : String;
+        attribute confidence : ConfidenceScore;
+        attribute citationCount : RecordCount;
+    }
+
+    port def QueryPort {
+        in item query : ResearchQuery;
+        out item response : CuratedResponse;
+    }
+
+    port def EvidenceInputPort {
+        in item manuscript : ManuscriptRecord;
+        in item artifact : ArtifactRecord;
+    }
+
+    port def ClaimPort {
+        out item claim : HistoricalClaim;
+    }
+
+    port def TopicPort {
+        out item topic : TechnologyTopic;
+    }
+
+    part def EvidenceRepository {
+        port evidenceIn : EvidenceInputPort;
+        port claimOut : ClaimPort;
+
+        attribute manuscriptRecords : RecordCount;
+        attribute artifactRecords : RecordCount;
+        attribute indexedCoverage : Percent;
+
+        action ingestManuscript {
+            in item m : ManuscriptRecord;
+            out item claim : HistoricalClaim;
+        }
+
+        action ingestArtifact {
+            in item a : ArtifactRecord;
+            out item claim : HistoricalClaim;
+        }
+    }
+
+    part def AlHassanMethodProfile {
+        attribute scholar : PersonName = "Ahmad Y. al-Hassan";
+        attribute focusArea : String = "History of science and technology in Islamic civilization";
+        attribute interpretivePrinciple : String = "Correlate textual sources, material artifacts, terminology, and transmission paths before forming a historical technology claim.";
+        attribute primaryFunctionHighLevel : String = "Organize evidence about historical technologies and explain how a selected system worked, why it mattered, and how strongly the evidence supports the explanation.";
+
+        action classifyTopic {
+            in item query : ResearchQuery;
+            out item topic : TechnologyTopic;
+        }
+
+        action assessEvidence {
+            in item claim : HistoricalClaim;
+            out attribute confidence : ConfidenceScore;
+        }
+    }
+
+    part def SourceCriticismEngine {
+        port claimsIn : ClaimPort;
+        port verifiedClaimsOut : ClaimPort;
+
+        attribute minimumIndependentSources : Integer = 2;
+        attribute minimumConfidence : ConfidenceScore = 0.70;
+
+        action verifyClaim {
+            in item candidate : HistoricalClaim;
+            out item verified : HistoricalClaim;
+        }
+
+        state def VerificationState {
+            entry; then AwaitingEvidence;
+
+            state AwaitingEvidence;
+            state CrossCheckingTexts;
+            state ComparingArtifacts;
+            state Rated;
+            state Rejected;
+
+            transition first AwaitingEvidence;
+            transition AwaitingEvidence_to_CrossCheckingTexts
+                first AwaitingEvidence
+                then CrossCheckingTexts;
+
+            transition CrossCheckingTexts_to_ComparingArtifacts
+                first CrossCheckingTexts
+                then ComparingArtifacts;
+
+            transition ComparingArtifacts_to_Rated
+                first ComparingArtifacts
+                then Rated;
+
+            transition ComparingArtifacts_to_Rejected
+                first ComparingArtifacts
+                then Rejected;
+        }
+
+        exhibit state verification : VerificationState;
+    }
+
+    part def TechnologyFunctionModeler {
+        port topicOut : TopicPort;
+        port claimIn : ClaimPort;
+
+        attribute modeledMechanisms : RecordCount;
+        attribute supportedDomains : String = "mechanics, hydraulics, chemistry, metallurgy, agriculture, instrumentation";
+
+        action deriveFunction {
+            in item topic : TechnologyTopic;
+            in item claim : HistoricalClaim;
+            out attribute primaryFunction : String;
+        }
+
+        action mapMechanism {
+            in item topic : TechnologyTopic;
+            out item claim : HistoricalClaim;
+        }
+    }
+
+    part def ResponseComposer {
+        port queryInterface : QueryPort;
+        port claimIn : ClaimPort;
+        port topicIn : TopicPort;
+
+        attribute targetReadingLevel : String = "high-level technical";
+        attribute citationPolicy : String = "cite only verified manuscript, artifact, or scholarly evidence records";
+
+        action composeHighLevelDescription {
+            in item query : ResearchQuery;
+            in item topic : TechnologyTopic;
+            in item claim : HistoricalClaim;
+            out item response : CuratedResponse;
+        }
+    }
+
+    part def AhmadYAlHassanHistoricalTechnologySystem {
+        port userAccess : QueryPort;
+        port evidenceAcquisition : EvidenceInputPort;
+
+        part repository : EvidenceRepository;
+        part methodProfile : AlHassanMethodProfile;
+        part sourceCriticism : SourceCriticismEngine;
+        part functionModeler : TechnologyFunctionModeler;
+        part composer : ResponseComposer;
+
+        attribute systemName : String = "Ahmad Y. al-Hassan Historical Technology Interpretation System";
+        attribute primaryFunction : String = "Provide a high-level, evidence-grounded explanation of historical scientific or technological systems associated with Ahmad Y. al-Hassan's scholarship.";
+        attribute minimumResponseConfidence : ConfidenceScore = 0.75;
+        attribute expectedQueryLatency : Time = 2 [s];
+        attribute evidenceCoverageGoal : Percent = 90.0;
+
+        connect evidenceAcquisition to repository.evidenceIn;
+        connect repository.claimOut to sourceCriticism.claimsIn;
+        connect sourceCriticism.verifiedClaimsOut to functionModeler.claimIn;
+        connect sourceCriticism.verifiedClaimsOut to composer.claimIn;
+        connect functionModeler.topicOut to composer.topicIn;
+        connect userAccess to composer.queryInterface;
+
+        action answerHistoricalTechnologyQuery {
+            in item query : ResearchQuery;
+            out item response : CuratedResponse;
+
+            first methodProfile.classifyTopic(query);
+            then functionModeler.mapMechanism;
+            then sourceCriticism.verifyClaim;
+            then composer.composeHighLevelDescription;
+        }
+
+        state def OperationalState {
+            entry; then Initializing;
+
+            state Initializing;
+            state Ready;
+            state ProcessingQuery;
+            state CuratingEvidence;
+            state GeneratingResponse;
+            state ResponseDelivered;
+            state EvidenceInsufficient;
+
+            transition first Initializing;
+            transition Initializing_to_Ready
+                first Initializing
+                then Ready;
+
+            transition Ready_to_ProcessingQuery
+                first Ready
+                then ProcessingQuery;
+
+            transition ProcessingQuery_to_CuratingEvidence
+                first ProcessingQuery
+                then CuratingEvidence;
+
+            transition CuratingEvidence_to_GeneratingResponse
+                first CuratingEvidence
+                then GeneratingResponse;
+
+            transition CuratingEvidence_to_EvidenceInsufficient
+                first CuratingEvidence
+                then EvidenceInsufficient;
+
+            transition GeneratingResponse_to_ResponseDelivered
+                first GeneratingResponse
+                then ResponseDelivered;
+
+            transition ResponseDelivered_to_Ready
+                first ResponseDelivered
+                then Ready;
+
+            transition EvidenceInsufficient_to_Ready
+                first EvidenceInsufficient
+                then Ready;
+        }
+
+        exhibit state operation : OperationalState;
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        subject system : AhmadYAlHassanHistoricalTechnologySystem;
+        attribute requiredFunction : String;
+
+        require constraint {
+            system.primaryFunction == requiredFunction
+        }
+    }
+
+    requirement def EvidenceGroundingRequirement {
+        subject system : AhmadYAlHassanHistoricalTechnologySystem;
+
+        require constraint {
+            system.minimumResponseConfidence >= 0.75
+        }
+    }
+
+    requirement def CoverageRequirement {
+        subject system : AhmadYAlHassanHistoricalTechnologySystem;
+
+        require constraint {
+            system.evidenceCoverageGoal >= 90.0
+        }
+    }
+
+    requirement def ResponsivenessRequirement {
+        subject system : AhmadYAlHassanHistoricalTechnologySystem;
+
+        require constraint {
+            system.expectedQueryLatency <= 2 [s]
+        }
+    }
+
+    part alHassanSystem : AhmadYAlHassanHistoricalTechnologySystem;
+
+    requirement primaryFunctionReq : HighLevelFunctionRequirement {
+        subject system = alHassanSystem;
+        attribute requiredFunction =
+            "Provide a high-level, evidence-grounded explanation of historical scientific or technological systems associated with Ahmad Y. al-Hassan's scholarship.";
+    }
+
+    requirement evidenceReq : EvidenceGroundingRequirement {
+        subject system = alHassanSystem;
+    }
+
+    requirement coverageReq : CoverageRequirement {
+        subject system = alHassanSystem;
+    }
+
+    requirement latencyReq : ResponsivenessRequirement {
+        subject system = alHassanSystem;
+    }
+
+    satisfy primaryFunctionReq by alHassanSystem;
+    satisfy evidenceReq by alHassanSystem;
+    satisfy coverageReq by alHassanSystem;
+    satisfy latencyReq by alHassanSystem;
+}

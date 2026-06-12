@@ -1,0 +1,399 @@
+package RefrigerationSystemModel {
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ScalarQuantityValue {
+        unit = "K";
+    }
+
+    attribute def Pressure :> ScalarQuantityValue {
+        unit = "Pa";
+    }
+
+    attribute def Power :> ScalarQuantityValue {
+        unit = "W";
+    }
+
+    attribute def HeatFlowRate :> ScalarQuantityValue {
+        unit = "W";
+    }
+
+    attribute def MassFlowRate :> ScalarQuantityValue {
+        unit = "kg/s";
+    }
+
+    attribute def Volume :> ScalarQuantityValue {
+        unit = "m^3";
+    }
+
+    attribute def Energy :> ScalarQuantityValue {
+        unit = "J";
+    }
+
+    attribute def Percentage :> ScalarQuantityValue {
+        unit = "%";
+    }
+
+    item def Refrigerant {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute massFlow : MassFlowRate;
+        attribute phase : RefrigerantPhase;
+    }
+
+    enum def RefrigerantPhase {
+        enum liquid;
+        enum vapor;
+        enum twoPhase;
+        enum superheatedVapor;
+        enum subcooledLiquid;
+    }
+
+    item def Air {
+        attribute temperature : Temperature;
+        attribute relativeHumidity : Percentage;
+        attribute heatLoad : HeatFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage;
+        attribute current;
+        attribute power : Power;
+    }
+
+    item def ThermalEnergy {
+        attribute heatRate : HeatFlowRate;
+        attribute sourceTemperature : Temperature;
+        attribute sinkTemperature : Temperature;
+    }
+
+    port def RefrigerantPort {
+        inout refrigerant : Refrigerant;
+    }
+
+    port def AirPort {
+        inout air : Air;
+    }
+
+    port def ElectricalPowerPort {
+        in powerInput : ElectricalEnergy;
+    }
+
+    port def HeatTransferPort {
+        inout heat : ThermalEnergy;
+    }
+
+    part def Compressor {
+        port suction : RefrigerantPort;
+        port discharge : RefrigerantPort;
+        port electricalSupply : ElectricalPowerPort;
+
+        attribute inputPower : Power;
+        attribute suctionPressure : Pressure;
+        attribute dischargePressure : Pressure;
+        attribute isRunning : Boolean;
+
+        action compressRefrigerant {
+            in lowPressureVapor : Refrigerant;
+            in electricalPower : ElectricalEnergy;
+            out highPressureVapor : Refrigerant;
+
+            first startCompression;
+            then raisePressure;
+            then raiseTemperature;
+            then dischargeVapor;
+        }
+
+        state compressorStates {
+            state off;
+            state starting;
+            state running;
+            state faulted;
+
+            transition initial then off;
+            transition off_to_starting first off accept StartCommand then starting;
+            transition starting_to_running first starting accept SpeedReached then running;
+            transition running_to_off first running accept StopCommand then off;
+            transition running_to_faulted first running accept OverPressureDetected then faulted;
+            transition faulted_to_off first faulted accept ResetCommand then off;
+        }
+    }
+
+    part def Condenser {
+        port refrigerantIn : RefrigerantPort;
+        port refrigerantOut : RefrigerantPort;
+        port ambientAirIn : AirPort;
+        port ambientAirOut : AirPort;
+        port rejectedHeat : HeatTransferPort;
+
+        attribute heatRejected : HeatFlowRate;
+        attribute condensingPressure : Pressure;
+        attribute outletSubcooling : Temperature;
+
+        action rejectHeatToAmbient {
+            in hotVapor : Refrigerant;
+            in ambientAir : Air;
+            out liquidRefrigerant : Refrigerant;
+            out warmedAir : Air;
+            out heatRejectedToAmbient : ThermalEnergy;
+
+            first desuperheatVapor;
+            then condenseVapor;
+            then subcoolLiquid;
+            then dischargeLiquid;
+        }
+    }
+
+    part def ExpansionDevice {
+        port liquidIn : RefrigerantPort;
+        port mixtureOut : RefrigerantPort;
+
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute openingCommand : Percentage;
+
+        action meterRefrigerant {
+            in highPressureLiquid : Refrigerant;
+            out lowPressureTwoPhaseMixture : Refrigerant;
+
+            first restrictFlow;
+            then reducePressure;
+            then createTwoPhaseMixture;
+        }
+    }
+
+    part def Evaporator {
+        port refrigerantIn : RefrigerantPort;
+        port refrigerantOut : RefrigerantPort;
+        port returnAirIn : AirPort;
+        port supplyAirOut : AirPort;
+        port absorbedHeat : HeatTransferPort;
+
+        attribute heatAbsorbed : HeatFlowRate;
+        attribute evaporatingPressure : Pressure;
+        attribute outletSuperheat : Temperature;
+
+        action absorbHeatFromCabinet {
+            in lowPressureMixture : Refrigerant;
+            in warmReturnAir : Air;
+            out lowPressureVapor : Refrigerant;
+            out cooledSupplyAir : Air;
+            out heatRemovedFromCabinet : ThermalEnergy;
+
+            first evaporateRefrigerant;
+            then coolAir;
+            then superheatVapor;
+            then dischargeVapor;
+        }
+    }
+
+    part def RefrigeratedCabinet {
+        port returnAir : AirPort;
+        port supplyAir : AirPort;
+        port internalHeatLoad : HeatTransferPort;
+
+        attribute storageVolume : Volume;
+        attribute setpointTemperature : Temperature;
+        attribute measuredTemperature : Temperature;
+        attribute maximumAllowedTemperature : Temperature;
+        attribute minimumAllowedTemperature : Temperature;
+        attribute doorOpen : Boolean;
+
+        action preserveContents {
+            in heatEnteringCabinet : ThermalEnergy;
+            in cooledAir : Air;
+            out warmedReturnAir : Air;
+
+            first mixCabinetAir;
+            then absorbProductAndWallHeat;
+            then returnAirToEvaporator;
+        }
+    }
+
+    part def TemperatureSensor {
+        port sensedAir : AirPort;
+
+        attribute measuredTemperature : Temperature;
+        attribute samplePeriod;
+        attribute sensorFault : Boolean;
+
+        action measureCabinetTemperature {
+            in cabinetAir : Air;
+            out reportedTemperature : Temperature;
+
+            first sampleAirTemperature;
+            then filterMeasurement;
+            then publishMeasurement;
+        }
+    }
+
+    part def Controller {
+        port sensorInput : AirPort;
+        port compressorPowerCommand : ElectricalPowerPort;
+
+        attribute setpoint : Temperature;
+        attribute deadband : Temperature;
+        attribute coolingDemand : Boolean;
+        attribute alarmActive : Boolean;
+
+        action regulateTemperature {
+            in measuredTemperature : Temperature;
+            out compressorCommand : Boolean;
+            out expansionOpening : Percentage;
+
+            first compareToSetpoint;
+            then determineCoolingDemand;
+            then commandCompressor;
+            then modulateExpansionDevice;
+        }
+
+        state controlStates {
+            state idle;
+            state cooling;
+            state defrost;
+            state alarm;
+
+            transition initial then idle;
+            transition idle_to_cooling first idle accept TemperatureAboveUpperLimit then cooling;
+            transition cooling_to_idle first cooling accept TemperatureBelowLowerLimit then idle;
+            transition cooling_to_defrost first cooling accept DefrostTimerExpired then defrost;
+            transition defrost_to_cooling first defrost accept DefrostComplete then cooling;
+            transition idle_to_alarm first idle accept SensorFaultDetected then alarm;
+            transition cooling_to_alarm first cooling accept HighTemperatureTimeout then alarm;
+            transition alarm_to_idle first alarm accept AlarmReset then idle;
+        }
+    }
+
+    part def RefrigerationSystem {
+        port electricalInput : ElectricalPowerPort;
+        port ambientAirIn : AirPort;
+        port ambientAirOut : AirPort;
+
+        part compressor : Compressor;
+        part condenser : Condenser;
+        part expansionDevice : ExpansionDevice;
+        part evaporator : Evaporator;
+        part cabinet : RefrigeratedCabinet;
+        part temperatureSensor : TemperatureSensor;
+        part controller : Controller;
+
+        attribute nominalCoolingCapacity : HeatFlowRate = 5000 [W];
+        attribute nominalElectricalPower : Power = 1500 [W];
+        attribute cabinetSetpoint : Temperature = 277.15 [K];
+        attribute allowableCabinetTemperatureHigh : Temperature = 281.15 [K];
+        attribute allowableCabinetTemperatureLow : Temperature = 273.15 [K];
+        attribute coefficientOfPerformance;
+        attribute systemRunning : Boolean;
+
+        connect electricalInput to compressor.electricalSupply;
+        connect compressor.discharge to condenser.refrigerantIn;
+        connect condenser.refrigerantOut to expansionDevice.liquidIn;
+        connect expansionDevice.mixtureOut to evaporator.refrigerantIn;
+        connect evaporator.refrigerantOut to compressor.suction;
+
+        connect ambientAirIn to condenser.ambientAirIn;
+        connect condenser.ambientAirOut to ambientAirOut;
+
+        connect cabinet.returnAir to evaporator.returnAirIn;
+        connect evaporator.supplyAirOut to cabinet.supplyAir;
+        connect cabinet.returnAir to temperatureSensor.sensedAir;
+        connect temperatureSensor.sensedAir to controller.sensorInput;
+        connect controller.compressorPowerCommand to compressor.electricalSupply;
+
+        action performPrimaryFunction {
+            objective {
+                doc "Maintain a controlled low-temperature storage volume by removing thermal energy from the refrigerated cabinet and rejecting that energy to the surrounding environment using a vapor-compression refrigeration cycle."
+            }
+
+            in electricalEnergy : ElectricalEnergy;
+            in warmCabinetAir : Air;
+            in ambientAir : Air;
+            out cooledCabinetAir : Air;
+            out rejectedThermalEnergy : ThermalEnergy;
+
+            first senseCabinetTemperature;
+            then determineCoolingNeed;
+            then compressLowPressureRefrigerantVapor;
+            then rejectHeatAtCondenser;
+            then expandLiquidRefrigerant;
+            then absorbCabinetHeatAtEvaporator;
+            then circulateCooledAirToCabinet;
+        }
+
+        state systemStates {
+            state unpowered;
+            state standby;
+            state cooling;
+            state defrost;
+            state fault;
+
+            transition initial then unpowered;
+            transition unpowered_to_standby first unpowered accept PowerAvailable then standby;
+            transition standby_to_cooling first standby accept CoolingDemandTrue then cooling;
+            transition cooling_to_standby first cooling accept CoolingDemandFalse then standby;
+            transition cooling_to_defrost first cooling accept DefrostRequested then defrost;
+            transition defrost_to_standby first defrost accept DefrostComplete then standby;
+            transition standby_to_fault first standby accept CriticalFaultDetected then fault;
+            transition cooling_to_fault first cooling accept CriticalFaultDetected then fault;
+            transition fault_to_standby first fault accept FaultCleared then standby;
+            transition standby_to_unpowered first standby accept PowerRemoved then unpowered;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The refrigeration system shall remove heat from a refrigerated cabinet to maintain stored contents within a specified temperature range and reject the removed heat to ambient air."
+        subject system : RefrigerationSystem;
+
+        require constraint {
+            system.cabinet.measuredTemperature <= system.allowableCabinetTemperatureHigh
+        }
+
+        require constraint {
+            system.cabinet.measuredTemperature >= system.allowableCabinetTemperatureLow
+        }
+    }
+
+    requirement def CoolingCapacityRequirement {
+        doc "The refrigeration system shall provide sufficient cooling capacity to remove the rated cabinet heat load under nominal ambient conditions."
+        subject system : RefrigerationSystem;
+
+        require constraint {
+            system.nominalCoolingCapacity >= 5000 [W]
+        }
+    }
+
+    requirement def EnergyEfficiencyRequirement {
+        doc "The refrigeration system shall achieve a coefficient of performance greater than or equal to 2.5 at nominal operating conditions."
+        subject system : RefrigerationSystem;
+
+        require constraint {
+            system.coefficientOfPerformance >= 2.5
+        }
+    }
+
+    requirement def TemperatureControlRequirement {
+        doc "The controller shall start cooling when cabinet temperature exceeds the upper allowable limit and stop cooling when cabinet temperature falls below the lower control threshold."
+        subject system : RefrigerationSystem;
+
+        require constraint {
+            system.controller.setpoint == system.cabinetSetpoint
+        }
+    }
+
+    requirement def FaultProtectionRequirement {
+        doc "The refrigeration system shall enter a fault state when unsafe pressure, sensor failure, or high-temperature timeout is detected."
+        subject system : RefrigerationSystem;
+
+        require constraint {
+            system.systemRunning == false implies system.compressor.isRunning == false
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RefrigerationSystem;
+    satisfy CoolingCapacityRequirement by RefrigerationSystem;
+    satisfy EnergyEfficiencyRequirement by RefrigerationSystem;
+    satisfy TemperatureControlRequirement by Controller;
+    satisfy FaultProtectionRequirement by RefrigerationSystem;
+}

@@ -1,0 +1,781 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-xcseb_q4
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb58f-0832-7433-b58f-17fe31edd7f4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Magnetic level gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MagneticLevelGaugeModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> Real {
+        unit = m;
+    }
+
+    attribute def PressureValue :> Real {
+        unit = Pa;
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = K;
+    }
+
+    attribute def DensityValue :> Real {
+        unit = kg / m^3;
+    }
+
+    attribute def MagneticFluxDensityValue :> Real {
+        unit = T;
+    }
+
+    attribute def PercentValue :> Real {
+        unit = one;
+    }
+
+    attribute def BooleanSignal :> Boolean;
+
+    item def ProcessLiquid {
+        attribute density : DensityValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def MagneticField {
+        attribute fluxDensity : MagneticFluxDensityValue;
+    }
+
+    item def LevelIndication {
+        attribute levelHeight : LengthValue;
+        attribute levelPercent : PercentValue;
+        attribute valid : BooleanSignal;
+    }
+
+    item def AlarmSignal {
+        attribute alarmActive : BooleanSignal;
+        attribute setpoint : LengthValue;
+        attribute measuredLevel : LengthValue;
+    }
+
+    port def LiquidProcessPort {
+        in item liquidIn : ProcessLiquid;
+        out item liquidOut : ProcessLiquid;
+    }
+
+    port def MagneticCouplingPort {
+        out item field : MagneticField;
+    }
+
+    port def IndicatorPort {
+        in item indication : LevelIndication;
+    }
+
+    port def SignalOutputPort {
+        out item levelSignal : LevelIndication;
+        out item highAlarm : AlarmSignal;
+        out item lowAlarm : AlarmSignal;
+    }
+
+    port def VentDrainPort {
+        inout item serviceFluid : ProcessLiquid;
+    }
+
+    action def EqualizeChamberLevel {
+        in item vesselLiquid : ProcessLiquid;
+        in attribute vesselLevel : LengthValue;
+        out attribute chamberLevel : LengthValue;
+    }
+
+    action def MoveFloat {
+        in attribute chamberLevel : LengthValue;
+        out attribute floatElevation : LengthValue;
+    }
+
+    action def CoupleMagnetically {
+        in attribute floatElevation : LengthValue;
+        in attribute magnetStrength : MagneticFluxDensityValue;
+        out item transmittedField : MagneticField;
+    }
+
+    action def UpdateVisualIndicator {
+        in item transmittedField : MagneticField;
+        in attribute floatElevation : LengthValue;
+        out item displayedLevel : LevelIndication;
+    }
+
+    action def EvaluateAlarms {
+        in item displayedLevel : LevelIndication;
+        in attribute highSetpoint : LengthValue;
+        in attribute lowSetpoint : LengthValue;
+        out item highAlarm : AlarmSignal;
+        out item lowAlarm : AlarmSignal;
+    }
+
+    state def GaugeOperatingState {
+        entry action InitializeIndicator;
+
+        state Offline;
+        state Filling;
+        state NormalIndicating;
+        state HighLevelAlarm;
+        state LowLevelAlarm;
+        state FaultDetected;
+        state MaintenanceBypass;
+
+        transition first Offline;
+
+        transition Offline_to_Filling
+            first Offline
+            then Filling
+            accept StartService;
+
+        transition Filling_to_Normal
+            first Filling
+            then NormalIndicating
+            guard chamberFilled == true;
+
+        transition Normal_to_HighAlarm
+            first NormalIndicating
+            then HighLevelAlarm
+            guard measuredLevel >= highAlarmSetpoint;
+
+        transition Normal_to_LowAlarm
+            first NormalIndicating
+            then LowLevelAlarm
+            guard measuredLevel <= lowAlarmSetpoint;
+
+        transition HighAlarm_to_Normal
+            first HighLevelAlarm
+            then NormalIndicating
+            guard measuredLevel < highAlarmReset;
+
+        transition LowAlarm_to_Normal
+            first LowLevelAlarm
+            then NormalIndicating
+            guard measuredLevel > lowAlarmReset;
+
+        transition Any_to_Fault
+            first NormalIndicating
+            then FaultDetected
+            guard floatMotionValid == false;
+
+        transition Fault_to_Maintenance
+            first FaultDetected
+            then MaintenanceBypass
+            accept MaintenanceOverride;
+
+        transition Maintenance_to_Offline
+            first MaintenanceBypass
+            then Offline
+            accept RemoveFromService;
+    }
+
+    part def Chamber {
+        attribute internalDiameter : LengthValue;
+        attribute visibleRange : LengthValue;
+        attribute designPressure : PressureValue;
+        attribute designTemperature : TemperatureValue;
+
+        port upperProcessConnection : LiquidProcessPort;
+        port lowerProcessConnection : LiquidProcessPort;
+        port vent : VentDrainPort;
+        port drain : VentDrainPort;
+    }
+
+    part def Float {
+        attribute outerDiameter : LengthValue;
+        attribute length : LengthValue;
+        attribute buoyantDensityLimit : DensityValue;
+        attribute elevation : LengthValue;
+        attribute travelLowerLimit : LengthValue;
+        attribute travelUpperLimit : LengthValue;
+
+        port magneticOutput : MagneticCouplingPort;
+    }
+
+    part def PermanentMagnetAssembly {
+        attribute nominalFluxDensity : MagneticFluxDensityValue;
+        attribute couplingGap : LengthValue;
+
+        port fieldOutput : MagneticCouplingPort;
+    }
+
+    part def FollowerIndicator {
+        attribute indicatedHeight : LengthValue;
+        attribute indicatedPercent : PercentValue;
+        attribute scaleLength : LengthValue;
+        attribute readableDistance : LengthValue;
+
+        port indicationInput : IndicatorPort;
+        port localDisplayOutput : SignalOutputPort;
+    }
+
+    part def LevelTransmitter {
+        attribute measuredLevel : LengthValue;
+        attribute measurementSpan : LengthValue;
+        attribute outputPercent : PercentValue;
+        attribute updatePeriod : TimeValue;
+
+        port magneticInput : IndicatorPort;
+        port signalOutput : SignalOutputPort;
+    }
+
+    part def AlarmSwitch {
+        attribute highSetpoint : LengthValue;
+        attribute lowSetpoint : LengthValue;
+        attribute highReset : LengthValue;
+        attribute lowReset : LengthValue;
+
+        port levelInput : IndicatorPort;
+        port alarmOutput : SignalOutputPort;
+    }
+
+    part def ProcessVessel {
+        attribute liquidLevel : LengthValue;
+        attribute liquidDensity : DensityValue;
+        attribute operatingPressure : PressureValue;
+        attribute operatingTemperature : TemperatureValue;
+
+        port upperNozzle : LiquidProcessPort;
+        port lowerNozzle : LiquidProcessPort;
+    }
+
+    part def MagneticLevelGauge {
+        attribute primaryFunction : String = "Provide continuous, local, non-powered visual indication of process liquid level by magnetically coupling a buoyant float inside a sealed chamber to an external indicator.";
+        attribute measuringRange : LengthValue = 3.0 [m];
+        attribute maximumAllowablePressure : PressureValue = 4000000.0 [Pa];
+        attribute maximumAllowableTemperature : TemperatureValue = 473.15 [K];
+        attribute minimumLiquidDensity : DensityValue = 550.0 [kg / m^3];
+        attribute indicationAccuracy : LengthValue = 0.01 [m];
+
+        port upperProcessPort : LiquidProcessPort;
+        port lowerProcessPort : LiquidProcessPort;
+        port ventPort : VentDrainPort;
+        port drainPort : VentDrainPort;
+        port outputPort : SignalOutputPort;
+
+        part chamber : Chamber {
+            attribute internalDiameter = 0.06 [m];
+            attribute visibleRange = 3.0 [m];
+            attribute designPressure = 4000000.0 [Pa];
+            attribute designTemperature = 473.15 [K];
+        }
+
+        part float : Float {
+            attribute outerDiameter = 0.045 [m];
+            attribute length = 0.25 [m];
+            attribute buoyantDensityLimit = 550.0 [kg / m^3];
+            attribute travelLowerLimit = 0.0 [m];
+            attribute travelUpperLimit = 3.0 [m];
+        }
+
+        part magnetAssembly : PermanentMagnetAssembly {
+            attribute nominalFluxDensity = 0.08 [T];
+            attribute couplingGap = 0.015 [m];
+        }
+
+        part indicator : FollowerIndicator {
+            attribute scaleLength = 3.0 [m];
+            attribute readableDistance = 5.0 [m];
+        }
+
+        part transmitter : LevelTransmitter {
+            attribute measurementSpan = 3.0 [m];
+            attribute updatePeriod = 1.0 [s];
+        }
+
+        part alarmSwitches : AlarmSwitch {
+            attribute highSetpoint = 2.75 [m];
+            attribute lowSetpoint = 0.25 [m];
+            attribute highReset = 2.65 [m];
+            attribute lowReset = 0.35 [m];
+        }
+
+        connection upperConnection connect upperProcessPort to chamber.upperProcessConnection;
+        connection lowerConnection connect lowerProcessPort to chamber.lowerProcessConnection;
+        connection ventConnection connect ventPort to chamber.vent;
+        connection drainConnection connect drainPort to chamber.drain;
+        connection floatToMagnet connect float.magneticOutput to magnetAssembly.fieldOutput;
+        connection indicatorToTransmitter connect indicator.localDisplayOutput to transmitter.signalOutput;
+        connection transmitterToSystem connect transmitter.signalOutput to outputPort;
+        connection alarmsToSystem connect alarmSwitches.alarmOutput to outputPort;
+
+        perform action equalize : EqualizeChamberLevel;
+        perform action moveFloat : MoveFloat;
+        perform action magneticCoupling : CoupleMagnetically;
+        perform action updateIndicator : UpdateVisualIndicator;
+        perform action alarmEvaluation : EvaluateAlarms;
+
+        exhibit state operatingState : GaugeOperatingState;
+    }
+
+    part levelMeasurementInstallation {
+        part vessel : ProcessVessel {
+            attribute liquidLevel = 1.85 [m];
+            attribute liquidDensity = 820.0 [kg / m^3];
+            attribute operatingPressure = 650000.0 [Pa];
+            attribute operatingTemperature = 333.15 [K];
+        }
+
+        part gauge : MagneticLevelGauge;
+
+        connection vesselUpperToGauge connect vessel.upperNozzle to gauge.upperProcessPort;
+        connection vesselLowerToGauge connect vessel.lowerNozzle to gauge.lowerProcessPort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The magnetic level gauge shall indicate the liquid level in a connected process vessel by equalizing liquid height in a sealed side chamber and magnetically coupling an internal float position to an external visual indicator.";
+        subject gauge : MagneticLevelGauge;
+
+        require constraint {
+            gauge.measuringRange >= 3.0 [m]
+        }
+
+        require constraint {
+            gauge.minimumLiquidDensity <= 550.0 [kg / m^3]
+        }
+    }
+
+    requirement def PressureBoundaryRequirement {
+        doc "The chamber and process connections shall retain process fluid under specified design pressure and temperature while allowing the float to move freely over the visible measuring range.";
+        subject gauge : MagneticLevelGauge;
+
+        require constraint {
+            gauge.maximumAllowablePressure >= 4000000.0 [Pa]
+        }
+
+        require constraint {
+            gauge.maximumAllowableTemperature >= 473.15 [K]
+        }
+    }
+
+    requirement def LocalIndicationRequirement {
+        doc "The gauge shall provide a readable local level indication without requiring electrical power for the primary visual indication.";
+        subject indicator : FollowerIndicator;
+
+        require constraint {
+            indicator.readableDistance >= 5.0 [m]
+        }
+
+        require constraint {
+            indicator.scaleLength >= 3.0 [m]
+        }
+    }
+
+    requirement def AlarmOutputRequirement {
+        doc "The gauge shall provide independent high-level and low-level alarm signals when measured level crosses configured alarm setpoints.";
+        subject alarmSwitches : AlarmSwitch;
+
+        require constraint {
+            alarmSwitches.highSetpoint > alarmSwitches.lowSetpoint
+        }
+
+        require constraint {
+            alarmSwitches.highReset < alarmSwitches.highSetpoint
+        }
+
+        require constraint {
+            alarmSwitches.lowReset > alarmSwitches.lowSetpoint
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by levelMeasurementInstallation.gauge;
+    satisfy PressureBoundaryRequirement by levelMeasurementInstallation.gauge;
+    satisfy LocalIndicationRequirement by levelMeasurementInstallation.gauge.indicator;
+    satisfy AlarmOutputRequirement by levelMeasurementInstallation.gauge.alarmSwitches;
+}
+tokens used
+2,944
+package MagneticLevelGaugeModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> Real {
+        unit = m;
+    }
+
+    attribute def PressureValue :> Real {
+        unit = Pa;
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = K;
+    }
+
+    attribute def DensityValue :> Real {
+        unit = kg / m^3;
+    }
+
+    attribute def MagneticFluxDensityValue :> Real {
+        unit = T;
+    }
+
+    attribute def PercentValue :> Real {
+        unit = one;
+    }
+
+    attribute def BooleanSignal :> Boolean;
+
+    item def ProcessLiquid {
+        attribute density : DensityValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def MagneticField {
+        attribute fluxDensity : MagneticFluxDensityValue;
+    }
+
+    item def LevelIndication {
+        attribute levelHeight : LengthValue;
+        attribute levelPercent : PercentValue;
+        attribute valid : BooleanSignal;
+    }
+
+    item def AlarmSignal {
+        attribute alarmActive : BooleanSignal;
+        attribute setpoint : LengthValue;
+        attribute measuredLevel : LengthValue;
+    }
+
+    port def LiquidProcessPort {
+        in item liquidIn : ProcessLiquid;
+        out item liquidOut : ProcessLiquid;
+    }
+
+    port def MagneticCouplingPort {
+        out item field : MagneticField;
+    }
+
+    port def IndicatorPort {
+        in item indication : LevelIndication;
+    }
+
+    port def SignalOutputPort {
+        out item levelSignal : LevelIndication;
+        out item highAlarm : AlarmSignal;
+        out item lowAlarm : AlarmSignal;
+    }
+
+    port def VentDrainPort {
+        inout item serviceFluid : ProcessLiquid;
+    }
+
+    action def EqualizeChamberLevel {
+        in item vesselLiquid : ProcessLiquid;
+        in attribute vesselLevel : LengthValue;
+        out attribute chamberLevel : LengthValue;
+    }
+
+    action def MoveFloat {
+        in attribute chamberLevel : LengthValue;
+        out attribute floatElevation : LengthValue;
+    }
+
+    action def CoupleMagnetically {
+        in attribute floatElevation : LengthValue;
+        in attribute magnetStrength : MagneticFluxDensityValue;
+        out item transmittedField : MagneticField;
+    }
+
+    action def UpdateVisualIndicator {
+        in item transmittedField : MagneticField;
+        in attribute floatElevation : LengthValue;
+        out item displayedLevel : LevelIndication;
+    }
+
+    action def EvaluateAlarms {
+        in item displayedLevel : LevelIndication;
+        in attribute highSetpoint : LengthValue;
+        in attribute lowSetpoint : LengthValue;
+        out item highAlarm : AlarmSignal;
+        out item lowAlarm : AlarmSignal;
+    }
+
+    state def GaugeOperatingState {
+        entry action InitializeIndicator;
+
+        state Offline;
+        state Filling;
+        state NormalIndicating;
+        state HighLevelAlarm;
+        state LowLevelAlarm;
+        state FaultDetected;
+        state MaintenanceBypass;
+
+        transition first Offline;
+
+        transition Offline_to_Filling
+            first Offline
+            then Filling
+            accept StartService;
+
+        transition Filling_to_Normal
+            first Filling
+            then NormalIndicating
+            guard chamberFilled == true;
+
+        transition Normal_to_HighAlarm
+            first NormalIndicating
+            then HighLevelAlarm
+            guard measuredLevel >= highAlarmSetpoint;
+
+        transition Normal_to_LowAlarm
+            first NormalIndicating
+            then LowLevelAlarm
+            guard measuredLevel <= lowAlarmSetpoint;
+
+        transition HighAlarm_to_Normal
+            first HighLevelAlarm
+            then NormalIndicating
+            guard measuredLevel < highAlarmReset;
+
+        transition LowAlarm_to_Normal
+            first LowLevelAlarm
+            then NormalIndicating
+            guard measuredLevel > lowAlarmReset;
+
+        transition Any_to_Fault
+            first NormalIndicating
+            then FaultDetected
+            guard floatMotionValid == false;
+
+        transition Fault_to_Maintenance
+            first FaultDetected
+            then MaintenanceBypass
+            accept MaintenanceOverride;
+
+        transition Maintenance_to_Offline
+            first MaintenanceBypass
+            then Offline
+            accept RemoveFromService;
+    }
+
+    part def Chamber {
+        attribute internalDiameter : LengthValue;
+        attribute visibleRange : LengthValue;
+        attribute designPressure : PressureValue;
+        attribute designTemperature : TemperatureValue;
+
+        port upperProcessConnection : LiquidProcessPort;
+        port lowerProcessConnection : LiquidProcessPort;
+        port vent : VentDrainPort;
+        port drain : VentDrainPort;
+    }
+
+    part def Float {
+        attribute outerDiameter : LengthValue;
+        attribute length : LengthValue;
+        attribute buoyantDensityLimit : DensityValue;
+        attribute elevation : LengthValue;
+        attribute travelLowerLimit : LengthValue;
+        attribute travelUpperLimit : LengthValue;
+
+        port magneticOutput : MagneticCouplingPort;
+    }
+
+    part def PermanentMagnetAssembly {
+        attribute nominalFluxDensity : MagneticFluxDensityValue;
+        attribute couplingGap : LengthValue;
+
+        port fieldOutput : MagneticCouplingPort;
+    }
+
+    part def FollowerIndicator {
+        attribute indicatedHeight : LengthValue;
+        attribute indicatedPercent : PercentValue;
+        attribute scaleLength : LengthValue;
+        attribute readableDistance : LengthValue;
+
+        port indicationInput : IndicatorPort;
+        port localDisplayOutput : SignalOutputPort;
+    }
+
+    part def LevelTransmitter {
+        attribute measuredLevel : LengthValue;
+        attribute measurementSpan : LengthValue;
+        attribute outputPercent : PercentValue;
+        attribute updatePeriod : TimeValue;
+
+        port magneticInput : IndicatorPort;
+        port signalOutput : SignalOutputPort;
+    }
+
+    part def AlarmSwitch {
+        attribute highSetpoint : LengthValue;
+        attribute lowSetpoint : LengthValue;
+        attribute highReset : LengthValue;
+        attribute lowReset : LengthValue;
+
+        port levelInput : IndicatorPort;
+        port alarmOutput : SignalOutputPort;
+    }
+
+    part def ProcessVessel {
+        attribute liquidLevel : LengthValue;
+        attribute liquidDensity : DensityValue;
+        attribute operatingPressure : PressureValue;
+        attribute operatingTemperature : TemperatureValue;
+
+        port upperNozzle : LiquidProcessPort;
+        port lowerNozzle : LiquidProcessPort;
+    }
+
+    part def MagneticLevelGauge {
+        attribute primaryFunction : String = "Provide continuous, local, non-powered visual indication of process liquid level by magnetically coupling a buoyant float inside a sealed chamber to an external indicator.";
+        attribute measuringRange : LengthValue = 3.0 [m];
+        attribute maximumAllowablePressure : PressureValue = 4000000.0 [Pa];
+        attribute maximumAllowableTemperature : TemperatureValue = 473.15 [K];
+        attribute minimumLiquidDensity : DensityValue = 550.0 [kg / m^3];
+        attribute indicationAccuracy : LengthValue = 0.01 [m];
+
+        port upperProcessPort : LiquidProcessPort;
+        port lowerProcessPort : LiquidProcessPort;
+        port ventPort : VentDrainPort;
+        port drainPort : VentDrainPort;
+        port outputPort : SignalOutputPort;
+
+        part chamber : Chamber {
+            attribute internalDiameter = 0.06 [m];
+            attribute visibleRange = 3.0 [m];
+            attribute designPressure = 4000000.0 [Pa];
+            attribute designTemperature = 473.15 [K];
+        }
+
+        part float : Float {
+            attribute outerDiameter = 0.045 [m];
+            attribute length = 0.25 [m];
+            attribute buoyantDensityLimit = 550.0 [kg / m^3];
+            attribute travelLowerLimit = 0.0 [m];
+            attribute travelUpperLimit = 3.0 [m];
+        }
+
+        part magnetAssembly : PermanentMagnetAssembly {
+            attribute nominalFluxDensity = 0.08 [T];
+            attribute couplingGap = 0.015 [m];
+        }
+
+        part indicator : FollowerIndicator {
+            attribute scaleLength = 3.0 [m];
+            attribute readableDistance = 5.0 [m];
+        }
+
+        part transmitter : LevelTransmitter {
+            attribute measurementSpan = 3.0 [m];
+            attribute updatePeriod = 1.0 [s];
+        }
+
+        part alarmSwitches : AlarmSwitch {
+            attribute highSetpoint = 2.75 [m];
+            attribute lowSetpoint = 0.25 [m];
+            attribute highReset = 2.65 [m];
+            attribute lowReset = 0.35 [m];
+        }
+
+        connection upperConnection connect upperProcessPort to chamber.upperProcessConnection;
+        connection lowerConnection connect lowerProcessPort to chamber.lowerProcessConnection;
+        connection ventConnection connect ventPort to chamber.vent;
+        connection drainConnection connect drainPort to chamber.drain;
+        connection floatToMagnet connect float.magneticOutput to magnetAssembly.fieldOutput;
+        connection indicatorToTransmitter connect indicator.localDisplayOutput to transmitter.signalOutput;
+        connection transmitterToSystem connect transmitter.signalOutput to outputPort;
+        connection alarmsToSystem connect alarmSwitches.alarmOutput to outputPort;
+
+        perform action equalize : EqualizeChamberLevel;
+        perform action moveFloat : MoveFloat;
+        perform action magneticCoupling : CoupleMagnetically;
+        perform action updateIndicator : UpdateVisualIndicator;
+        perform action alarmEvaluation : EvaluateAlarms;
+
+        exhibit state operatingState : GaugeOperatingState;
+    }
+
+    part levelMeasurementInstallation {
+        part vessel : ProcessVessel {
+            attribute liquidLevel = 1.85 [m];
+            attribute liquidDensity = 820.0 [kg / m^3];
+            attribute operatingPressure = 650000.0 [Pa];
+            attribute operatingTemperature = 333.15 [K];
+        }
+
+        part gauge : MagneticLevelGauge;
+
+        connection vesselUpperToGauge connect vessel.upperNozzle to gauge.upperProcessPort;
+        connection vesselLowerToGauge connect vessel.lowerNozzle to gauge.lowerProcessPort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The magnetic level gauge shall indicate the liquid level in a connected process vessel by equalizing liquid height in a sealed side chamber and magnetically coupling an internal float position to an external visual indicator.";
+        subject gauge : MagneticLevelGauge;
+
+        require constraint {
+            gauge.measuringRange >= 3.0 [m]
+        }
+
+        require constraint {
+            gauge.minimumLiquidDensity <= 550.0 [kg / m^3]
+        }
+    }
+
+    requirement def PressureBoundaryRequirement {
+        doc "The chamber and process connections shall retain process fluid under specified design pressure and temperature while allowing the float to move freely over the visible measuring range.";
+        subject gauge : MagneticLevelGauge;
+
+        require constraint {
+            gauge.maximumAllowablePressure >= 4000000.0 [Pa]
+        }
+
+        require constraint {
+            gauge.maximumAllowableTemperature >= 473.15 [K]
+        }
+    }
+
+    requirement def LocalIndicationRequirement {
+        doc "The gauge shall provide a readable local level indication without requiring electrical power for the primary visual indication.";
+        subject indicator : FollowerIndicator;
+
+        require constraint {
+            indicator.readableDistance >= 5.0 [m]
+        }
+
+        require constraint {
+            indicator.scaleLength >= 3.0 [m]
+        }
+    }
+
+    requirement def AlarmOutputRequirement {
+        doc "The gauge shall provide independent high-level and low-level alarm signals when measured level crosses configured alarm setpoints.";
+        subject alarmSwitches : AlarmSwitch;
+
+        require constraint {
+            alarmSwitches.highSetpoint > alarmSwitches.lowSetpoint
+        }
+
+        require constraint {
+            alarmSwitches.highReset < alarmSwitches.highSetpoint
+        }
+
+        require constraint {
+            alarmSwitches.lowReset > alarmSwitches.lowSetpoint
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by levelMeasurementInstallation.gauge;
+    satisfy PressureBoundaryRequirement by levelMeasurementInstallation.gauge;
+    satisfy LocalIndicationRequirement by levelMeasurementInstallation.gauge.indicator;
+    satisfy AlarmOutputRequirement by levelMeasurementInstallation.gauge.alarmSwitches;
+}

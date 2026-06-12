@@ -1,0 +1,550 @@
+package RoboticTechVestModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Acceleration :> ISQ::acceleration {
+        unit = SI::meterPerSecondSquared;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    enum def VestOperatingMode {
+        enum idle;
+        enum assist;
+        enum stabilize;
+        enum alert;
+        enum emergencyShutdown;
+        enum charging;
+    }
+
+    enum def AlertSeverity {
+        enum advisory;
+        enum caution;
+        enum warning;
+        enum critical;
+    }
+
+    enum def PostureClass {
+        enum upright;
+        enum leaningForward;
+        enum leaningBackward;
+        enum lateralLean;
+        enum fallDetected;
+        enum unknown;
+    }
+
+    item def BiometricData {
+        attribute heartRate : Frequency;
+        attribute bodyTemperature : Temperature;
+        attribute respirationRate : Frequency;
+        attribute fatigueIndex : Real;
+    }
+
+    item def MotionData {
+        attribute torsoPitch : Angle;
+        attribute torsoRoll : Angle;
+        attribute torsoYaw : Angle;
+        attribute verticalAcceleration : Acceleration;
+        attribute posture : PostureClass;
+    }
+
+    item def LoadData {
+        attribute shoulderLoadLeft : Force;
+        attribute shoulderLoadRight : Force;
+        attribute spineCompressionEstimate : Force;
+        attribute vestFitPressure : Pressure;
+    }
+
+    item def AssistanceCommand {
+        attribute requestedTorqueLeft : Force;
+        attribute requestedTorqueRight : Force;
+        attribute requestedStiffness : Real;
+        attribute commandDuration : Duration;
+    }
+
+    item def HapticAlert {
+        attribute severity : AlertSeverity;
+        attribute pulseFrequency : Frequency;
+        attribute pulseDuration : Duration;
+    }
+
+    item def VoiceMessage {
+        attribute messageId : String;
+        attribute priority : AlertSeverity;
+        attribute duration : Duration;
+    }
+
+    item def PowerStatus {
+        attribute batteryVoltage : Voltage;
+        attribute batteryCurrent : Current;
+        attribute remainingEnergy : Energy;
+        attribute availablePower : Power;
+        attribute stateOfCharge : Real;
+    }
+
+    port def PowerPort {
+        out item powerStatus : PowerStatus;
+        in item powerDemand : Power;
+    }
+
+    port def SensorDataPort {
+        out item biometricData : BiometricData;
+        out item motionData : MotionData;
+        out item loadData : LoadData;
+    }
+
+    port def ControlPort {
+        in item assistanceCommand : AssistanceCommand;
+        in item hapticAlert : HapticAlert;
+        in item voiceMessage : VoiceMessage;
+    }
+
+    port def UserInterfacePort {
+        out item userModeSelection : VestOperatingMode;
+        out item userAcknowledgement : Boolean;
+        in item displayedMode : VestOperatingMode;
+        in item displayedBatteryStatus : PowerStatus;
+        in item displayedAlert : HapticAlert;
+    }
+
+    port def MaintenancePort {
+        out item diagnosticReport : String;
+        in item firmwareUpdatePackage : String;
+        in item calibrationRequest : Boolean;
+    }
+
+    part def RoboticTechVest {
+        attribute primaryFunction : String = "The robotic tech vest senses user posture, physiological condition, and carried load, then provides powered torso support, stabilization, alerts, and safety intervention to reduce fatigue and improve situational awareness.";
+        attribute operatingMode : VestOperatingMode;
+        attribute massLimit : Real = 8.5;
+        attribute maximumAssistForce : Force = 180 [SI::newton];
+        attribute continuousOperatingTime : Duration = 28800 [SI::second];
+
+        port powerPort : PowerPort;
+        port sensorPort : SensorDataPort;
+        port userInterfacePort : UserInterfacePort;
+        port maintenancePort : MaintenancePort;
+
+        part powerSubsystem : PowerSubsystem;
+        part sensingSubsystem : SensingSubsystem;
+        part controlComputer : ControlComputer;
+        part actuationSubsystem : ActuationSubsystem;
+        part userFeedbackSubsystem : UserFeedbackSubsystem;
+        part safetySubsystem : SafetySubsystem;
+        part garmentStructure : GarmentStructure;
+        part communicationsModule : CommunicationsModule;
+
+        connect powerSubsystem.powerPort to powerPort;
+        connect powerSubsystem.internalPowerPort to controlComputer.powerPort;
+        connect powerSubsystem.internalPowerPort to sensingSubsystem.powerPort;
+        connect powerSubsystem.internalPowerPort to actuationSubsystem.powerPort;
+        connect powerSubsystem.internalPowerPort to userFeedbackSubsystem.powerPort;
+        connect sensingSubsystem.sensorPort to sensorPort;
+        connect sensingSubsystem.sensorPort to controlComputer.sensorInputPort;
+        connect controlComputer.actuatorCommandPort to actuationSubsystem.controlPort;
+        connect controlComputer.feedbackCommandPort to userFeedbackSubsystem.controlPort;
+        connect userInterfacePort to controlComputer.userInterfacePort;
+        connect controlComputer.safetyCommandPort to safetySubsystem.controlPort;
+        connect safetySubsystem.shutdownPort to actuationSubsystem.controlPort;
+        connect communicationsModule.maintenancePort to maintenancePort;
+        connect controlComputer.diagnosticPort to communicationsModule.diagnosticPort;
+
+        perform action monitorAndAssist : MonitorAndAssist;
+        exhibit state vestLifecycle : VestLifecycle;
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : Voltage = 24 [SI::volt];
+        attribute maximumOutputPower : Power = 420 [SI::watt];
+        attribute batteryCapacity : Energy = 720000 [SI::joule];
+        attribute minimumSafeVoltage : Voltage = 18 [SI::volt];
+
+        port powerPort : PowerPort;
+        port internalPowerPort : PowerPort;
+
+        part batteryPack : BatteryPack;
+        part powerDistributionUnit : PowerDistributionUnit;
+        part chargeController : ChargeController;
+
+        connect batteryPack.powerPort to powerDistributionUnit.sourcePort;
+        connect chargeController.chargePowerPort to batteryPack.chargePort;
+        connect powerDistributionUnit.loadPort to internalPowerPort;
+        connect powerPort to powerDistributionUnit.externalStatusPort;
+    }
+
+    part def BatteryPack {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute storedEnergy : Energy;
+        attribute stateOfCharge : Real;
+        port powerPort : PowerPort;
+        port chargePort : PowerPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute busVoltage : Voltage;
+        attribute totalLoadPower : Power;
+        port sourcePort : PowerPort;
+        port loadPort : PowerPort;
+        port externalStatusPort : PowerPort;
+    }
+
+    part def ChargeController {
+        attribute chargePowerLimit : Power = 150 [SI::watt];
+        attribute chargingTemperatureLimit : Temperature = 45 [SI::degreeCelsius];
+        port chargePowerPort : PowerPort;
+    }
+
+    part def SensingSubsystem {
+        attribute sampleRate : Frequency = 100 [SI::hertz];
+
+        port powerPort : PowerPort;
+        port sensorPort : SensorDataPort;
+
+        part imu : InertialMeasurementUnit;
+        part loadSensors : LoadSensorArray;
+        part biometricSensors : BiometricSensorSet;
+        part fitPressureSensors : FitPressureSensorArray;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute pitch : Angle;
+        attribute roll : Angle;
+        attribute yaw : Angle;
+        attribute accelerationX : Acceleration;
+        attribute accelerationY : Acceleration;
+        attribute accelerationZ : Acceleration;
+    }
+
+    part def LoadSensorArray {
+        attribute leftShoulderForce : Force;
+        attribute rightShoulderForce : Force;
+        attribute lowerBackForce : Force;
+    }
+
+    part def BiometricSensorSet {
+        attribute heartRate : Frequency;
+        attribute skinTemperature : Temperature;
+        attribute respirationRate : Frequency;
+    }
+
+    part def FitPressureSensorArray {
+        attribute chestPressure : Pressure;
+        attribute shoulderPressure : Pressure;
+        attribute waistPressure : Pressure;
+    }
+
+    part def ControlComputer {
+        attribute processorTemperature : Temperature;
+        attribute currentMode : VestOperatingMode;
+        attribute postureEstimate : PostureClass;
+        attribute assistEnabled : Boolean;
+
+        port powerPort : PowerPort;
+        port sensorInputPort : SensorDataPort;
+        port actuatorCommandPort : ControlPort;
+        port feedbackCommandPort : ControlPort;
+        port safetyCommandPort : ControlPort;
+        port userInterfacePort : UserInterfacePort;
+        port diagnosticPort : MaintenancePort;
+
+        perform action computeAssistance : ComputeAssistance;
+        perform action classifyPosture : ClassifyPosture;
+        perform action evaluateFatigue : EvaluateFatigue;
+    }
+
+    part def ActuationSubsystem {
+        attribute maximumDeliveredForce : Force = 180 [SI::newton];
+        attribute responseTime : Duration = 0.08 [SI::second];
+
+        port powerPort : PowerPort;
+        port controlPort : ControlPort;
+
+        part leftShoulderActuator : SoftRoboticActuator;
+        part rightShoulderActuator : SoftRoboticActuator;
+        part lumbarAssistActuator : SoftRoboticActuator;
+        part tensioningSystem : AdaptiveTensioningSystem;
+    }
+
+    part def SoftRoboticActuator {
+        attribute deliveredForce : Force;
+        attribute temperature : Temperature;
+        attribute dutyCycle : Real;
+    }
+
+    part def AdaptiveTensioningSystem {
+        attribute strapTensionLeft : Force;
+        attribute strapTensionRight : Force;
+        attribute lumbarTension : Force;
+    }
+
+    part def UserFeedbackSubsystem {
+        port powerPort : PowerPort;
+        port controlPort : ControlPort;
+
+        part hapticMotorLeft : HapticActuator;
+        part hapticMotorRight : HapticActuator;
+        part speaker : AudioAnnunciator;
+        part statusDisplay : StatusDisplay;
+    }
+
+    part def HapticActuator {
+        attribute vibrationFrequency : Frequency;
+        attribute vibrationAmplitude : Real;
+    }
+
+    part def AudioAnnunciator {
+        attribute soundPressureLevel : Real;
+        attribute activeMessage : String;
+    }
+
+    part def StatusDisplay {
+        attribute displayedMode : VestOperatingMode;
+        attribute displayedBatteryPercent : Real;
+        attribute displayedAlertSeverity : AlertSeverity;
+    }
+
+    part def SafetySubsystem {
+        attribute emergencyStopLatched : Boolean;
+        attribute overTemperatureLimit : Temperature = 60 [SI::degreeCelsius];
+        attribute overForceLimit : Force = 220 [SI::newton];
+
+        port controlPort : ControlPort;
+        port shutdownPort : ControlPort;
+
+        perform action enforceSafetyLimits : EnforceSafetyLimits;
+    }
+
+    part def GarmentStructure {
+        attribute torsoCircumferenceMinimum : Real = 0.75;
+        attribute torsoCircumferenceMaximum : Real = 1.25;
+        attribute supportedPayloadMass : Real = 25.0;
+
+        part shoulderHarness : StructuralPanel;
+        part chestPanel : StructuralPanel;
+        part lumbarPanel : StructuralPanel;
+        part adjustmentStraps : StrapSet;
+    }
+
+    part def StructuralPanel {
+        attribute stiffnessIndex : Real;
+        attribute contactPressureLimit : Pressure = 12000 [SI::pascal];
+    }
+
+    part def StrapSet {
+        attribute leftStrapTension : Force;
+        attribute rightStrapTension : Force;
+        attribute waistStrapTension : Force;
+    }
+
+    part def CommunicationsModule {
+        attribute wirelessEnabled : Boolean;
+        attribute linkQuality : Real;
+
+        port maintenancePort : MaintenancePort;
+        port diagnosticPort : MaintenancePort;
+    }
+
+    action def MonitorAndAssist {
+        in item sensedMotion : MotionData;
+        in item sensedLoad : LoadData;
+        in item sensedBiometrics : BiometricData;
+        out item assistCommand : AssistanceCommand;
+        out item userAlert : HapticAlert;
+
+        first start;
+        then collectSensorData;
+        then assessUserState;
+        then determineAssistLevel;
+        then commandActuators;
+        then updateFeedback;
+        then start;
+    }
+
+    action def ClassifyPosture {
+        in item motion : MotionData;
+        out item posture : PostureClass;
+
+        first receiveMotion;
+        then compareAnglesToThresholds;
+        then estimatePostureClass;
+    }
+
+    action def EvaluateFatigue {
+        in item biometrics : BiometricData;
+        in item load : LoadData;
+        out item fatigueIndex : Real;
+
+        first receiveBiometricData;
+        then combineHeartRateRespirationAndLoad;
+        then outputFatigueIndex;
+    }
+
+    action def ComputeAssistance {
+        in item posture : PostureClass;
+        in item load : LoadData;
+        in item fatigueIndex : Real;
+        out item command : AssistanceCommand;
+
+        first determineSupportNeed;
+        then limitCommandToSafeForce;
+        then publishAssistanceCommand;
+    }
+
+    action def EnforceSafetyLimits {
+        in item command : AssistanceCommand;
+        in item powerStatus : PowerStatus;
+        out item safeCommand : AssistanceCommand;
+        out item alert : HapticAlert;
+
+        first checkBatteryVoltage;
+        then checkRequestedForce;
+        then checkThermalLimits;
+        then issueSafeCommand;
+    }
+
+    state def VestLifecycle {
+        entry action initializeElectronics;
+        state off;
+        state selfTest;
+        state idle;
+        state assist;
+        state stabilize;
+        state alert;
+        state emergencyShutdown;
+        state charging;
+
+        transition first off;
+        transition off_to_selfTest
+            first off
+            accept powerButtonPressed
+            then selfTest;
+
+        transition selfTest_to_idle
+            first selfTest
+            accept selfTestPassed
+            then idle;
+
+        transition selfTest_to_emergencyShutdown
+            first selfTest
+            accept selfTestFailed
+            then emergencyShutdown;
+
+        transition idle_to_assist
+            first idle
+            accept userSelectedAssist
+            then assist;
+
+        transition assist_to_stabilize
+            first assist
+            accept unstablePostureDetected
+            then stabilize;
+
+        transition stabilize_to_assist
+            first stabilize
+            accept postureRecovered
+            then assist;
+
+        transition assist_to_alert
+            first assist
+            accept fatigueOrOverloadDetected
+            then alert;
+
+        transition alert_to_assist
+            first alert
+            accept userAcknowledged
+            then assist;
+
+        transition assist_to_emergencyShutdown
+            first assist
+            accept emergencyStopPressed
+            then emergencyShutdown;
+
+        transition stabilize_to_emergencyShutdown
+            first stabilize
+            accept fallDetected
+            then emergencyShutdown;
+
+        transition idle_to_charging
+            first idle
+            accept chargerConnected
+            then charging;
+
+        transition charging_to_idle
+            first charging
+            accept chargerDisconnected
+            then idle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The robotic tech vest shall provide wearable robotic assistance by sensing user motion, physiological state, and load, then applying controlled support and feedback to improve posture, reduce fatigue, and increase safety during physical tasks. */
+    }
+
+    requirement def SensingRequirement {
+        doc /* The vest shall measure torso orientation, acceleration, user load distribution, fit pressure, heart rate, respiration rate, and body temperature during operation. */
+    }
+
+    requirement def AssistanceRequirement {
+        doc /* The vest shall generate assistance commands that reduce torso and shoulder strain while limiting delivered support force to a safe configurable maximum. */
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The vest shall enter emergency shutdown when a fall, emergency stop, actuator over-force, unsafe battery condition, or critical internal fault is detected. */
+    }
+
+    requirement def FeedbackRequirement {
+        doc /* The vest shall provide haptic, audio, and visual feedback for operating mode, battery status, overload warnings, posture warnings, and emergency conditions. */
+    }
+
+    requirement def PowerRequirement {
+        doc /* The vest shall provide at least eight hours of operation under nominal assist duty cycles and shall report remaining battery state to the user interface. */
+    }
+
+    satisfy PrimaryFunctionRequirement by RoboticTechVest;
+    satisfy SensingRequirement by SensingSubsystem;
+    satisfy AssistanceRequirement by ControlComputer;
+    satisfy AssistanceRequirement by ActuationSubsystem;
+    satisfy SafetyRequirement by SafetySubsystem;
+    satisfy FeedbackRequirement by UserFeedbackSubsystem;
+    satisfy PowerRequirement by PowerSubsystem;
+}

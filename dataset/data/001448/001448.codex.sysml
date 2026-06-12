@@ -1,0 +1,700 @@
+package ElderCareHomeAutomation {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+  import USCustomaryUnits::*;
+
+  attribute def Percent :> ScalarValues::Real {
+    doc /* Percentage value from 0 to 100. */
+  }
+
+  attribute def Lux :> ScalarValues::Real;
+  attribute def Celsius :> ScalarValues::Real;
+  attribute def Seconds :> ScalarValues::Real;
+  attribute def Minutes :> ScalarValues::Real;
+  attribute def KilowattHour :> ScalarValues::Real;
+  attribute def Decibel :> ScalarValues::Real;
+  attribute def BooleanStatus :> ScalarValues::Boolean;
+
+  enum def AlertPriority {
+    enum low;
+    enum medium;
+    enum high;
+    enum critical;
+  }
+
+  enum def OccupantMobilityMode {
+    enum independent;
+    enum cane;
+    enum walker;
+    enum wheelchair;
+    enum bedBound;
+  }
+
+  enum def EmergencyType {
+    enum fallDetected;
+    enum fireDetected;
+    enum gasDetected;
+    enum medicalButtonPressed;
+    enum prolongedInactivity;
+    enum doorLeftOpen;
+    enum waterLeak;
+  }
+
+  item def VoiceCommand {
+    attribute phrase : String;
+    attribute confidence : Percent;
+    attribute receivedTime_s : Seconds;
+  }
+
+  item def EnvironmentalReading {
+    attribute roomId : String;
+    attribute temperature_C : Celsius;
+    attribute illumination_lux : Lux;
+    attribute smokeDetected : Boolean;
+    attribute gasDetected : Boolean;
+    attribute waterLeakDetected : Boolean;
+    attribute timestamp_s : Seconds;
+  }
+
+  item def MotionEvent {
+    attribute roomId : String;
+    attribute motionDetected : Boolean;
+    attribute occupancyConfidence : Percent;
+    attribute timestamp_s : Seconds;
+  }
+
+  item def FallEvent {
+    attribute occupantId : String;
+    attribute roomId : String;
+    attribute fallProbability : Percent;
+    attribute impactMagnitude_g : Real;
+    attribute noMovementDuration_s : Seconds;
+    attribute timestamp_s : Seconds;
+  }
+
+  item def MedicationReminder {
+    attribute occupantId : String;
+    attribute medicationName : String;
+    attribute doseDescription : String;
+    attribute scheduledTime_s : Seconds;
+    attribute acknowledged : Boolean;
+  }
+
+  item def AssistanceRequest {
+    attribute occupantId : String;
+    attribute location : String;
+    attribute emergencyType : EmergencyType;
+    attribute priority : AlertPriority;
+    attribute message : String;
+    attribute timestamp_s : Seconds;
+  }
+
+  item def CaregiverNotification {
+    attribute recipientId : String;
+    attribute priority : AlertPriority;
+    attribute message : String;
+    attribute requiresAcknowledgement : Boolean;
+    attribute timestamp_s : Seconds;
+  }
+
+  item def ActuatorCommand {
+    attribute targetId : String;
+    attribute commandName : String;
+    attribute commandValue : String;
+    attribute priority : AlertPriority;
+  }
+
+  item def HealthStatus {
+    attribute componentId : String;
+    attribute online : Boolean;
+    attribute batteryLevel : Percent;
+    attribute lastHeartbeatAge_s : Seconds;
+  }
+
+  port def SensorDataPort {
+    out item environmentalReading : EnvironmentalReading;
+    out item motionEvent : MotionEvent;
+    out item fallEvent : FallEvent;
+    out item healthStatus : HealthStatus;
+  }
+
+  port def CommandPort {
+    in item actuatorCommand : ActuatorCommand;
+  }
+
+  port def VoiceInputPort {
+    out item voiceCommand : VoiceCommand;
+  }
+
+  port def NotificationPort {
+    out item caregiverNotification : CaregiverNotification;
+    out item assistanceRequest : AssistanceRequest;
+  }
+
+  port def UserInteractionPort {
+    in item reminder : MedicationReminder;
+    out item voiceCommand : VoiceCommand;
+    out item assistanceRequest : AssistanceRequest;
+  }
+
+  port def NetworkPort {
+    in item inboundCommand : ActuatorCommand;
+    out item outboundNotification : CaregiverNotification;
+    out item outboundHealthStatus : HealthStatus;
+  }
+
+  part def ElderCareHomeAutomationSystem {
+    doc /*
+      Primary high-level function:
+      Continuously monitor an elderly or disabled occupant's home environment,
+      activity, safety, medication schedule, and accessibility needs; assist with
+      daily living through voice and automated controls; and notify caregivers or
+      emergency services when risk conditions are detected.
+    */
+
+    attribute systemAvailabilityTarget : Percent = 99.5;
+    attribute maxCriticalAlertLatency_s : Seconds = 10.0;
+    attribute maxRoutineCommandLatency_s : Seconds = 2.0;
+    attribute nominalBackupPowerDuration_min : Minutes = 120.0;
+    attribute privacyLocalProcessingEnabled : Boolean = true;
+
+    port sensorBus : SensorDataPort;
+    port actuatorBus : CommandPort;
+    port userInterface : UserInteractionPort;
+    port caregiverLink : NotificationPort;
+    port cloudLink : NetworkPort;
+
+    part occupantProfile : OccupantProfile;
+    part sensingSubsystem : SensingSubsystem;
+    part controlHub : ControlHub;
+    part accessibilitySubsystem : AccessibilitySubsystem;
+    part safetySubsystem : SafetySubsystem;
+    part medicationSubsystem : MedicationSubsystem;
+    part caregiverCommunicationSubsystem : CaregiverCommunicationSubsystem;
+    part homeActuationSubsystem : HomeActuationSubsystem;
+    part powerSubsystem : PowerSubsystem;
+
+    connect sensingSubsystem.sensorOutput to controlHub.sensorInput;
+    connect controlHub.actuatorOutput to homeActuationSubsystem.commandInput;
+    connect controlHub.accessibilityOutput to accessibilitySubsystem.commandInput;
+    connect accessibilitySubsystem.userOutput to controlHub.userInput;
+    connect medicationSubsystem.reminderOutput to accessibilitySubsystem.reminderInput;
+    connect controlHub.alertOutput to caregiverCommunicationSubsystem.notificationInput;
+    connect caregiverCommunicationSubsystem.networkOutput to cloudLink;
+    connect powerSubsystem.healthOutput to controlHub.powerHealthInput;
+
+    perform action provideAssistedIndependentLiving;
+  }
+
+  part def OccupantProfile {
+    attribute occupantId : String;
+    attribute preferredName : String;
+    attribute mobilityMode : OccupantMobilityMode;
+    attribute hearingAssistanceRequired : Boolean;
+    attribute visualAssistanceRequired : Boolean;
+    attribute fallRiskScore : Percent;
+    attribute medicationAdherenceTarget : Percent = 95.0;
+    attribute preferredRoomTemperature_C : Celsius = 22.0;
+    attribute nightPathIllumination_lux : Lux = 80.0;
+  }
+
+  part def SensingSubsystem {
+    port sensorOutput : SensorDataPort;
+
+    part bedroomMotionSensor : MotionSensor {
+      attribute roomId = "bedroom";
+    }
+
+    part bathroomMotionSensor : MotionSensor {
+      attribute roomId = "bathroom";
+    }
+
+    part kitchenMotionSensor : MotionSensor {
+      attribute roomId = "kitchen";
+    }
+
+    part hallwayMotionSensor : MotionSensor {
+      attribute roomId = "hallway";
+    }
+
+    part wearableFallDetector : FallDetector {
+      attribute occupantId = "primaryOccupant";
+    }
+
+    part smokeGasDetector : EnvironmentalHazardSensor {
+      attribute roomId = "kitchen";
+    }
+
+    part waterLeakSensor : EnvironmentalHazardSensor {
+      attribute roomId = "bathroom";
+    }
+
+    part smartDoorSensor : DoorSensor {
+      attribute doorId = "frontDoor";
+    }
+  }
+
+  part def MotionSensor {
+    attribute sensorId : String;
+    attribute roomId : String;
+    attribute detectionRange_m : Real = 7.0;
+    attribute occupancyConfidence : Percent;
+    attribute batteryLevel : Percent;
+    port output : SensorDataPort;
+  }
+
+  part def FallDetector {
+    attribute sensorId : String;
+    attribute occupantId : String;
+    attribute impactThreshold_g : Real = 2.5;
+    attribute immobilityConfirmation_s : Seconds = 20.0;
+    attribute batteryLevel : Percent;
+    port output : SensorDataPort;
+  }
+
+  part def EnvironmentalHazardSensor {
+    attribute sensorId : String;
+    attribute roomId : String;
+    attribute smokeDetected : Boolean;
+    attribute gasDetected : Boolean;
+    attribute waterLeakDetected : Boolean;
+    attribute batteryLevel : Percent;
+    port output : SensorDataPort;
+  }
+
+  part def DoorSensor {
+    attribute doorId : String;
+    attribute open : Boolean;
+    attribute openDuration_s : Seconds;
+    attribute batteryLevel : Percent;
+    port output : SensorDataPort;
+  }
+
+  part def ControlHub {
+    attribute processorLoad : Percent;
+    attribute localStorageRemaining_GB : Real;
+    attribute internetConnected : Boolean;
+    attribute degradedModeActive : Boolean;
+
+    port sensorInput : SensorDataPort;
+    port userInput : UserInteractionPort;
+    port powerHealthInput : SensorDataPort;
+    port actuatorOutput : CommandPort;
+    port accessibilityOutput : CommandPort;
+    port alertOutput : NotificationPort;
+
+    part activityAnalyzer : ActivityAnalyzer;
+    part safetyDecisionEngine : SafetyDecisionEngine;
+    part automationPolicyEngine : AutomationPolicyEngine;
+    part privacyManager : PrivacyManager;
+
+    perform action monitorAndCoordinate;
+  }
+
+  part def ActivityAnalyzer {
+    attribute lastKnownRoom : String;
+    attribute inactivityDuration_s : Seconds;
+    attribute bathroomOccupancyDuration_s : Seconds;
+    attribute nightWanderingDetected : Boolean;
+  }
+
+  part def SafetyDecisionEngine {
+    attribute activeEmergency : Boolean;
+    attribute currentEmergencyType : EmergencyType;
+    attribute alertEscalationDelay_s : Seconds = 30.0;
+    attribute caregiverAcknowledged : Boolean;
+  }
+
+  part def AutomationPolicyEngine {
+    attribute energySavingEnabled : Boolean = true;
+    attribute accessibilityPriorityEnabled : Boolean = true;
+    attribute nightModeEnabled : Boolean;
+    attribute safePathLightingEnabled : Boolean;
+  }
+
+  part def PrivacyManager {
+    attribute videoStoredLocallyOnly : Boolean = true;
+    attribute microphoneWakeWordOnly : Boolean = true;
+    attribute caregiverAccessAuditEnabled : Boolean = true;
+  }
+
+  part def AccessibilitySubsystem {
+    port commandInput : CommandPort;
+    port reminderInput : UserInteractionPort;
+    port userOutput : UserInteractionPort;
+
+    part voiceAssistant : VoiceAssistant;
+    part wallPanicButton : PanicButton;
+    part bedsidePanicButton : PanicButton;
+    part visualAlertDisplay : VisualAlertDisplay;
+    part hapticWearable : HapticWearable;
+  }
+
+  part def VoiceAssistant {
+    attribute wakeWord : String = "Home Helper";
+    attribute speechRecognitionConfidence : Percent;
+    attribute maxResponseVolume_dB : Decibel = 75.0;
+    port voiceOutput : VoiceInputPort;
+  }
+
+  part def PanicButton {
+    attribute buttonId : String;
+    attribute location : String;
+    attribute pressed : Boolean;
+    attribute batteryLevel : Percent;
+    port requestOutput : UserInteractionPort;
+  }
+
+  part def VisualAlertDisplay {
+    attribute displayId : String;
+    attribute highContrastMode : Boolean = true;
+    attribute fontScale : Real = 1.5;
+    port commandInput : CommandPort;
+  }
+
+  part def HapticWearable {
+    attribute wearableId : String;
+    attribute vibrationEnabled : Boolean = true;
+    attribute batteryLevel : Percent;
+    port commandInput : CommandPort;
+  }
+
+  part def SafetySubsystem {
+    attribute fireAlarmArmed : Boolean = true;
+    attribute gasShutoffArmed : Boolean = true;
+    attribute fallMonitoringArmed : Boolean = true;
+    attribute doorMonitoringArmed : Boolean = true;
+
+    part automaticGasValve : SmartValve;
+    part stoveCutoffRelay : SmartRelay;
+    part emergencySiren : Siren;
+    part pathwayLightingScene : LightingScene;
+  }
+
+  part def MedicationSubsystem {
+    attribute dailyScheduleLoaded : Boolean;
+    attribute missedDoseEscalationDelay_min : Minutes = 15.0;
+
+    port reminderOutput : UserInteractionPort;
+
+    part medicationDispenser : MedicationDispenser;
+    part adherenceTracker : MedicationAdherenceTracker;
+  }
+
+  part def MedicationDispenser {
+    attribute locked : Boolean = true;
+    attribute nextDoseTime_s : Seconds;
+    attribute compartmentsAvailable : Integer = 28;
+    attribute jamDetected : Boolean;
+  }
+
+  part def MedicationAdherenceTracker {
+    attribute dosesScheduledToday : Integer;
+    attribute dosesTakenToday : Integer;
+    attribute adherenceRate : Percent;
+  }
+
+  part def CaregiverCommunicationSubsystem {
+    attribute primaryCaregiverId : String;
+    attribute secondaryCaregiverId : String;
+    attribute emergencyServiceNumber : String = "911";
+    attribute cellularBackupEnabled : Boolean = true;
+    attribute lastNotificationLatency_s : Seconds;
+
+    port notificationInput : NotificationPort;
+    port networkOutput : NetworkPort;
+  }
+
+  part def HomeActuationSubsystem {
+    port commandInput : CommandPort;
+
+    part frontDoorLock : SmartLock;
+    part bedroomLight : SmartLight {
+      attribute roomId = "bedroom";
+    }
+
+    part hallwayLight : SmartLight {
+      attribute roomId = "hallway";
+    }
+
+    part bathroomLight : SmartLight {
+      attribute roomId = "bathroom";
+    }
+
+    part thermostat : SmartThermostat;
+    part motorizedBlinds : SmartBlinds;
+    part smartBed : AdjustableBed;
+  }
+
+  part def SmartLock {
+    attribute lockId : String;
+    attribute locked : Boolean;
+    attribute autoLockDelay_s : Seconds = 60.0;
+    port commandInput : CommandPort;
+  }
+
+  part def SmartLight {
+    attribute lightId : String;
+    attribute roomId : String;
+    attribute brightness : Percent;
+    attribute colorTemperature_K : Real = 3000.0;
+    attribute on : Boolean;
+    port commandInput : CommandPort;
+  }
+
+  part def SmartThermostat {
+    attribute thermostatId : String;
+    attribute setPoint_C : Celsius;
+    attribute currentTemperature_C : Celsius;
+    attribute heatingEnabled : Boolean;
+    attribute coolingEnabled : Boolean;
+    port commandInput : CommandPort;
+  }
+
+  part def SmartBlinds {
+    attribute blindsId : String;
+    attribute openPercent : Percent;
+    port commandInput : CommandPort;
+  }
+
+  part def AdjustableBed {
+    attribute bedId : String;
+    attribute headElevation_deg : Real;
+    attribute footElevation_deg : Real;
+    attribute exitAssistEnabled : Boolean;
+    port commandInput : CommandPort;
+  }
+
+  part def SmartValve {
+    attribute valveId : String;
+    attribute open : Boolean;
+    port commandInput : CommandPort;
+  }
+
+  part def SmartRelay {
+    attribute relayId : String;
+    attribute energized : Boolean;
+    port commandInput : CommandPort;
+  }
+
+  part def Siren {
+    attribute sirenId : String;
+    attribute active : Boolean;
+    attribute volume_dB : Decibel;
+    port commandInput : CommandPort;
+  }
+
+  part def LightingScene {
+    attribute sceneId : String;
+    attribute targetBrightness : Percent;
+    attribute targetIllumination_lux : Lux;
+    attribute active : Boolean;
+  }
+
+  part def PowerSubsystem {
+    attribute mainsAvailable : Boolean;
+    attribute batteryStateOfCharge : Percent;
+    attribute estimatedBackupDuration_min : Minutes;
+    port healthOutput : SensorDataPort;
+
+    part backupBattery : BackupBattery;
+    part powerMonitor : PowerMonitor;
+  }
+
+  part def BackupBattery {
+    attribute capacity_kWh : KilowattHour = 2.0;
+    attribute stateOfCharge : Percent;
+    attribute supplyingLoad : Boolean;
+  }
+
+  part def PowerMonitor {
+    attribute mainsVoltage_V : Real;
+    attribute outageDetected : Boolean;
+    attribute loadPower_W : Real;
+  }
+
+  action def provideAssistedIndependentLiving {
+    in item environmentalReading : EnvironmentalReading;
+    in item motionEvent : MotionEvent;
+    in item fallEvent : FallEvent;
+    in item voiceCommand : VoiceCommand;
+    out item actuatorCommand : ActuatorCommand;
+    out item caregiverNotification : CaregiverNotification;
+
+    first start;
+    then collectHomeAndOccupantStatus;
+    then evaluateSafetyAndAccessibilityNeeds;
+    then issueRoutineAutomationCommands;
+    then sendAlertsWhenRequired;
+    then logPrivacyPreservingEventHistory;
+    then done;
+  }
+
+  action def monitorAndCoordinate {
+    in item sensorEvents : EnvironmentalReading;
+    in item userRequests : AssistanceRequest;
+    out item controlCommands : ActuatorCommand;
+    out item alerts : CaregiverNotification;
+
+    first receiveEvents;
+    then classifyEvent;
+    then decideResponse;
+    then dispatchResponse;
+    then updateSystemState;
+    then done;
+  }
+
+  state def HomeAutomationOperatingState {
+    entry action initializeLocalRules;
+    do action monitorAndCoordinate;
+
+    state Initializing;
+    state NormalMonitoring;
+    state AssistingOccupant;
+    state EmergencyResponse;
+    state DegradedConnectivity;
+    state BackupPowerMode;
+    state MaintenanceRequired;
+
+    transition first Initializing;
+    transition Initializing to NormalMonitoring
+      accept after 5 [systemSelfTestPassed];
+
+    transition NormalMonitoring to AssistingOccupant
+      accept VoiceCommand [confidence >= 80.0];
+
+    transition AssistingOccupant to NormalMonitoring
+      accept after 2 [requestedCommandCompleted];
+
+    transition NormalMonitoring to EmergencyResponse
+      accept FallEvent [fallProbability >= 85.0];
+
+    transition NormalMonitoring to EmergencyResponse
+      accept EnvironmentalReading [smokeDetected or gasDetected or waterLeakDetected];
+
+    transition NormalMonitoring to EmergencyResponse
+      accept AssistanceRequest [priority == AlertPriority::critical];
+
+    transition EmergencyResponse to NormalMonitoring
+      accept CaregiverNotification [requiresAcknowledgement == false and emergencyCleared];
+
+    transition NormalMonitoring to DegradedConnectivity
+      accept HealthStatus [componentId == "network" and online == false];
+
+    transition DegradedConnectivity to NormalMonitoring
+      accept HealthStatus [componentId == "network" and online == true];
+
+    transition NormalMonitoring to BackupPowerMode
+      accept HealthStatus [componentId == "mainsPower" and online == false];
+
+    transition BackupPowerMode to NormalMonitoring
+      accept HealthStatus [componentId == "mainsPower" and online == true];
+
+    transition NormalMonitoring to MaintenanceRequired
+      accept HealthStatus [batteryLevel < 15.0];
+
+    transition MaintenanceRequired to NormalMonitoring
+      accept HealthStatus [batteryLevel >= 80.0 and online == true];
+  }
+
+  state def MedicationReminderState {
+    state WaitingForDoseTime;
+    state AnnouncingReminder;
+    state AwaitingAcknowledgement;
+    state DispensingMedication;
+    state EscalatingMissedDose;
+    state Completed;
+
+    transition first WaitingForDoseTime;
+    transition WaitingForDoseTime to AnnouncingReminder
+      accept after 1 [doseDue];
+
+    transition AnnouncingReminder to AwaitingAcknowledgement
+      accept after 10;
+
+    transition AwaitingAcknowledgement to DispensingMedication
+      accept VoiceCommand [phrase == "confirm medication"];
+
+    transition AwaitingAcknowledgement to EscalatingMissedDose
+      accept after 900;
+
+    transition DispensingMedication to Completed
+      accept after 5 [doseRemoved];
+
+    transition EscalatingMissedDose to Completed
+      accept CaregiverNotification [requiresAcknowledgement == false];
+
+    transition Completed to WaitingForDoseTime
+      accept after 60;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    id = "REQ-ELDER-HOME-001";
+    text = "The system shall support independent living for elderly and disabled occupants by monitoring safety, environment, activity, medication adherence, and accessibility requests, and by automatically controlling home devices or notifying caregivers when assistance is required.";
+  }
+
+  requirement def FallDetectionRequirement {
+    id = "REQ-ELDER-HOME-002";
+    text = "The system shall detect probable falls with at least 85 percent confidence and issue a critical caregiver notification within 10 seconds when the occupant does not cancel the alert.";
+  }
+
+  requirement def AccessibilityControlRequirement {
+    id = "REQ-ELDER-HOME-003";
+    text = "The system shall allow the occupant to control lighting, locks, thermostat, blinds, emergency calls, and bed position using voice commands, accessible buttons, and visual or haptic feedback.";
+  }
+
+  requirement def EmergencyHazardRequirement {
+    id = "REQ-ELDER-HOME-004";
+    text = "The system shall respond to smoke, gas, water leak, or fire hazards by activating local alarms, shutting off applicable utilities, illuminating safe exit paths, and notifying caregivers or emergency services.";
+  }
+
+  requirement def MedicationRequirement {
+    id = "REQ-ELDER-HOME-005";
+    text = "The system shall provide medication reminders, dispense scheduled medication only when due, track acknowledgement, and escalate missed doses to caregivers after 15 minutes.";
+  }
+
+  requirement def PrivacyRequirement {
+    id = "REQ-ELDER-HOME-006";
+    text = "The system shall process routine activity recognition locally and share only alerts, health status, and caregiver-authorized summaries outside the home network.";
+  }
+
+  requirement def BackupPowerRequirement {
+    id = "REQ-ELDER-HOME-007";
+    text = "The system shall maintain safety monitoring, emergency notification, panic buttons, and pathway lighting for at least 120 minutes during mains power loss.";
+  }
+
+  satisfy HighLevelFunctionRequirement by ElderCareHomeAutomationSystem;
+  satisfy FallDetectionRequirement by ControlHub::safetyDecisionEngine;
+  satisfy AccessibilityControlRequirement by AccessibilitySubsystem;
+  satisfy EmergencyHazardRequirement by SafetySubsystem;
+  satisfy MedicationRequirement by MedicationSubsystem;
+  satisfy PrivacyRequirement by ControlHub::privacyManager;
+  satisfy BackupPowerRequirement by PowerSubsystem;
+
+  concern def ElderIndependence {
+    doc /* Preserve autonomy while reducing preventable injury and response delay. */
+  }
+
+  concern def CaregiverAwareness {
+    doc /* Provide timely, actionable information without intrusive continuous surveillance. */
+  }
+
+  viewpoint def HomeCareOperationalViewpoint {
+    concern ElderIndependence;
+    concern CaregiverAwareness;
+  }
+
+  view def HomeCareOperationalView {
+    viewpoint HomeCareOperationalViewpoint;
+    expose ElderCareHomeAutomationSystem;
+    expose SensingSubsystem;
+    expose ControlHub;
+    expose AccessibilitySubsystem;
+    expose SafetySubsystem;
+    expose MedicationSubsystem;
+    expose CaregiverCommunicationSubsystem;
+    expose HomeActuationSubsystem;
+  }
+}

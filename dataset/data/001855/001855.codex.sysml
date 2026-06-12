@@ -1,0 +1,487 @@
+package ScientificAmericanPublicationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    doc /* 
+     * High-level primary function:
+     * The Scientific American Publication System acquires science journalism content,
+     * validates it through editorial and fact-checking workflows, packages it into
+     * print and digital issues, distributes it to readers, and captures reader
+     * engagement to improve future publication planning.
+     */
+
+    attribute def WordCount :> ScalarValues::Integer;
+    attribute def ArticleCount :> ScalarValues::Integer;
+    attribute def SubscriberCount :> ScalarValues::Integer;
+    attribute def EngagementScore :> ScalarValues::Real;
+    attribute def CurrencyUSD :> ScalarValues::Real;
+    attribute def Percentage :> ScalarValues::Real;
+    attribute def TimeHours :> ScalarValues::Real;
+    attribute def PageCount :> ScalarValues::Integer;
+    attribute def Megabyte :> ScalarValues::Real;
+
+    item def StoryPitch {
+        attribute title : String;
+        attribute topic : ScienceTopic;
+        attribute abstract : String;
+        attribute estimatedWords : WordCount;
+        attribute sourceCount : ScalarValues::Integer;
+        attribute noveltyScore : EngagementScore;
+    }
+
+    enum def ScienceTopic {
+        enum climateScience;
+        enum astronomy;
+        enum neuroscience;
+        enum publicHealth;
+        enum physics;
+        enum artificialIntelligence;
+        enum biodiversity;
+        enum technologyPolicy;
+        enum archaeology;
+        enum spaceExploration;
+    }
+
+    item def Manuscript {
+        attribute title : String;
+        attribute topic : ScienceTopic;
+        attribute bodyWordCount : WordCount;
+        attribute figureCount : ScalarValues::Integer;
+        attribute citationCount : ScalarValues::Integer;
+        attribute revisionNumber : ScalarValues::Integer;
+    }
+
+    item def ReviewedManuscript {
+        attribute factualAccuracy : Percentage;
+        attribute readabilityScore : EngagementScore;
+        attribute editorialApproval : Boolean;
+        attribute legalRiskScore : EngagementScore;
+        attribute requiredCorrections : ScalarValues::Integer;
+    }
+
+    item def ArticlePackage {
+        attribute headline : String;
+        attribute deck : String;
+        attribute finalWordCount : WordCount;
+        attribute digitalAssetSize : Megabyte;
+        attribute printPages : PageCount;
+        attribute accessibilityAltTextComplete : Boolean;
+    }
+
+    item def PrintIssue {
+        attribute issueMonth : String;
+        attribute issueYear : ScalarValues::Integer;
+        attribute totalPages : PageCount;
+        attribute articleTotal : ArticleCount;
+        attribute printRunCopies : SubscriberCount;
+        attribute unitProductionCost : CurrencyUSD;
+    }
+
+    item def DigitalIssue {
+        attribute issueMonth : String;
+        attribute issueYear : ScalarValues::Integer;
+        attribute articleTotal : ArticleCount;
+        attribute downloadSize : Megabyte;
+        attribute subscriberAccessible : Boolean;
+        attribute publicArticleCount : ArticleCount;
+    }
+
+    item def ReaderFeedback {
+        attribute articleId : String;
+        attribute averageReadTime : TimeHours;
+        attribute completionRate : Percentage;
+        attribute shareCount : ScalarValues::Integer;
+        attribute correctionReports : ScalarValues::Integer;
+        attribute satisfactionScore : EngagementScore;
+    }
+
+    item def SubscriptionOrder {
+        attribute subscriberId : String;
+        attribute planName : String;
+        attribute monthlyPrice : CurrencyUSD;
+        attribute digitalAccess : Boolean;
+        attribute printDelivery : Boolean;
+    }
+
+    port def PitchIntakePort {
+        in item pitch : StoryPitch;
+    }
+
+    port def ManuscriptPort {
+        inout item manuscript : Manuscript;
+    }
+
+    port def ReviewPort {
+        in item manuscript : Manuscript;
+        out item reviewed : ReviewedManuscript;
+    }
+
+    port def PackagePort {
+        in item reviewed : ReviewedManuscript;
+        out item article : ArticlePackage;
+    }
+
+    port def PrintDistributionPort {
+        out item issue : PrintIssue;
+    }
+
+    port def DigitalDistributionPort {
+        out item issue : DigitalIssue;
+    }
+
+    port def FeedbackPort {
+        in item feedback : ReaderFeedback;
+    }
+
+    port def SubscriptionPort {
+        in item order : SubscriptionOrder;
+    }
+
+    part def EditorialDesk {
+        port pitchIn : PitchIntakePort;
+        port manuscriptFlow : ManuscriptPort;
+        attribute activeEditors : ScalarValues::Integer;
+        attribute averageAssignmentTime : TimeHours;
+
+        action assignPitch {
+            in item pitch : StoryPitch;
+            out item manuscript : Manuscript;
+        }
+
+        action editManuscript {
+            inout item manuscript : Manuscript;
+            out attribute editorialReady : Boolean;
+        }
+    }
+
+    part def FactCheckingDesk {
+        port reviewFlow : ReviewPort;
+        attribute activeFactCheckers : ScalarValues::Integer;
+        attribute minimumSourceCount : ScalarValues::Integer = 3;
+        attribute targetAccuracy : Percentage = 99.0;
+
+        action verifyClaims {
+            in item manuscript : Manuscript;
+            out item reviewed : ReviewedManuscript;
+        }
+    }
+
+    part def ArtAndDesignStudio {
+        port packageFlow : PackagePort;
+        attribute activeDesigners : ScalarValues::Integer;
+        attribute targetImageResolutionDpi : ScalarValues::Integer = 300;
+
+        action composeLayout {
+            in item reviewed : ReviewedManuscript;
+            out item article : ArticlePackage;
+        }
+    }
+
+    part def PrintProductionFacility {
+        port printOut : PrintDistributionPort;
+        attribute pressCapacityPerHour : SubscriberCount;
+        attribute paperInventoryPages : PageCount;
+        attribute inkInventoryLiters : ScalarValues::Real;
+
+        action printMonthlyIssue {
+            in item articles : ArticlePackage[1..*];
+            out item issue : PrintIssue;
+        }
+    }
+
+    part def DigitalPublishingPlatform {
+        port digitalOut : DigitalDistributionPort;
+        port feedbackIn : FeedbackPort;
+        attribute maxConcurrentReaders : SubscriberCount;
+        attribute uptimeTarget : Percentage = 99.9;
+        attribute averagePageLoadSeconds : ScalarValues::Real;
+
+        action publishDigitalIssue {
+            in item articles : ArticlePackage[1..*];
+            out item issue : DigitalIssue;
+        }
+
+        action collectReaderMetrics {
+            out item feedback : ReaderFeedback;
+        }
+    }
+
+    part def SubscriptionService {
+        port subscriptionIn : SubscriptionPort;
+        attribute activeSubscribers : SubscriberCount;
+        attribute monthlyRecurringRevenue : CurrencyUSD;
+        attribute churnRate : Percentage;
+
+        action processOrder {
+            in item order : SubscriptionOrder;
+            out attribute accessGranted : Boolean;
+        }
+    }
+
+    part def AnalyticsEngine {
+        port feedbackIn : FeedbackPort;
+        attribute monthlyReaders : SubscriberCount;
+        attribute averageCompletionRate : Percentage;
+        attribute topicDemandScore : EngagementScore;
+
+        action analyzeEngagement {
+            in item feedback : ReaderFeedback[1..*];
+            out attribute recommendedTopic : ScienceTopic;
+        }
+    }
+
+    part def ScientificAmericanSystem {
+        part editorialDesk : EditorialDesk {
+            attribute activeEditors = 18;
+            attribute averageAssignmentTime = 6.0;
+        }
+
+        part factCheckingDesk : FactCheckingDesk {
+            attribute activeFactCheckers = 12;
+        }
+
+        part artAndDesignStudio : ArtAndDesignStudio {
+            attribute activeDesigners = 8;
+        }
+
+        part printProductionFacility : PrintProductionFacility {
+            attribute pressCapacityPerHour = 12000;
+            attribute paperInventoryPages = 22000000;
+            attribute inkInventoryLiters = 1800.0;
+        }
+
+        part digitalPublishingPlatform : DigitalPublishingPlatform {
+            attribute maxConcurrentReaders = 250000;
+            attribute averagePageLoadSeconds = 1.8;
+        }
+
+        part subscriptionService : SubscriptionService {
+            attribute activeSubscribers = 780000;
+            attribute monthlyRecurringRevenue = 6200000.0;
+            attribute churnRate = 2.1;
+        }
+
+        part analyticsEngine : AnalyticsEngine {
+            attribute monthlyReaders = 4200000;
+            attribute averageCompletionRate = 74.5;
+            attribute topicDemandScore = 8.2;
+        }
+
+        port pitchIn : PitchIntakePort;
+        port subscriptionIn : SubscriptionPort;
+        port printIssueOut : PrintDistributionPort;
+        port digitalIssueOut : DigitalDistributionPort;
+        port readerFeedbackIn : FeedbackPort;
+
+        connect pitchIn to editorialDesk.pitchIn;
+        connect editorialDesk.manuscriptFlow to factCheckingDesk.reviewFlow;
+        connect factCheckingDesk.reviewFlow to artAndDesignStudio.packageFlow;
+        connect artAndDesignStudio.packageFlow to printProductionFacility.printOut;
+        connect artAndDesignStudio.packageFlow to digitalPublishingPlatform.digitalOut;
+        connect printProductionFacility.printOut to printIssueOut;
+        connect digitalPublishingPlatform.digitalOut to digitalIssueOut;
+        connect subscriptionIn to subscriptionService.subscriptionIn;
+        connect readerFeedbackIn to digitalPublishingPlatform.feedbackIn;
+        connect digitalPublishingPlatform.feedbackIn to analyticsEngine.feedbackIn;
+    }
+
+    action def PublishScientificAmericanIssue {
+        in item pitchSet : StoryPitch[8..24];
+        in item subscriptionOrders : SubscriptionOrder[0..*];
+        out item printIssue : PrintIssue;
+        out item digitalIssue : DigitalIssue;
+        out attribute publicationComplete : Boolean;
+
+        first start;
+        then evaluatePitches;
+        then developManuscripts;
+        then verifyFacts;
+        then packageArticles;
+        then releasePrintIssue;
+        then releaseDigitalIssue;
+        then collectFeedback;
+        then done;
+
+        action evaluatePitches {
+            in item pitchSet : StoryPitch[8..24];
+            out item acceptedPitches : StoryPitch[6..16];
+        }
+
+        action developManuscripts {
+            in item acceptedPitches : StoryPitch[6..16];
+            out item manuscripts : Manuscript[6..16];
+        }
+
+        action verifyFacts {
+            in item manuscripts : Manuscript[6..16];
+            out item reviewedArticles : ReviewedManuscript[6..16];
+        }
+
+        action packageArticles {
+            in item reviewedArticles : ReviewedManuscript[6..16];
+            out item packages : ArticlePackage[6..16];
+        }
+
+        action releasePrintIssue {
+            in item packages : ArticlePackage[6..16];
+            out item printIssue : PrintIssue;
+        }
+
+        action releaseDigitalIssue {
+            in item packages : ArticlePackage[6..16];
+            out item digitalIssue : DigitalIssue;
+        }
+
+        action collectFeedback {
+            out item feedback : ReaderFeedback[0..*];
+        }
+
+        action done {
+            out attribute publicationComplete : Boolean = true;
+        }
+    }
+
+    state def ArticleLifecycle {
+        state pitched;
+        state assigned;
+        state drafted;
+        state edited;
+        state factChecked;
+        state corrected;
+        state designed;
+        state scheduled;
+        state published;
+        state archived;
+
+        transition initial then pitched;
+        transition pitched then assigned
+            accept StoryPitch
+            if pitch.estimatedWords <= 5000 and pitch.sourceCount >= 2;
+
+        transition assigned then drafted
+            accept Manuscript
+            if manuscript.bodyWordCount >= 800;
+
+        transition drafted then edited;
+        transition edited then factChecked;
+
+        transition factChecked then corrected
+            accept ReviewedManuscript
+            if reviewed.requiredCorrections > 0 or reviewed.factualAccuracy < 99.0;
+
+        transition corrected then factChecked;
+        transition factChecked then designed
+            accept ReviewedManuscript
+            if reviewed.editorialApproval == true and reviewed.factualAccuracy >= 99.0;
+
+        transition designed then scheduled
+            accept ArticlePackage
+            if article.accessibilityAltTextComplete == true;
+
+        transition scheduled then published;
+        transition published then archived;
+    }
+
+    state def IssuePublicationLifecycle {
+        state planning;
+        state contentDevelopment;
+        state production;
+        state distribution;
+        state engagementAnalysis;
+        state closed;
+
+        transition initial then planning;
+        transition planning then contentDevelopment;
+        transition contentDevelopment then production;
+        transition production then distribution;
+        transition distribution then engagementAnalysis;
+        transition engagementAnalysis then closed;
+    }
+
+    requirement def AccurateScienceCommunication {
+        subject system : ScientificAmericanSystem;
+        require constraint {
+            system.factCheckingDesk.targetAccuracy >= 99.0
+        }
+    }
+
+    requirement def AccessibleDigitalPublishing {
+        subject article : ArticlePackage;
+        require constraint {
+            article.accessibilityAltTextComplete == true
+        }
+    }
+
+    requirement def MonthlyIssueCompleteness {
+        subject printIssue : PrintIssue;
+        require constraint {
+            printIssue.articleTotal >= 6 and printIssue.totalPages >= 48
+        }
+    }
+
+    requirement def DigitalAvailability {
+        subject platform : DigitalPublishingPlatform;
+        require constraint {
+            platform.uptimeTarget >= 99.5 and platform.averagePageLoadSeconds <= 3.0
+        }
+    }
+
+    requirement def SustainableReaderEngagement {
+        subject analytics : AnalyticsEngine;
+        require constraint {
+            analytics.averageCompletionRate >= 65.0
+        }
+    }
+
+    requirement def SubscriptionAccessControl {
+        subject order : SubscriptionOrder;
+        require constraint {
+            order.monthlyPrice >= 0.0 and (order.digitalAccess == true or order.printDelivery == true)
+        }
+    }
+
+    satisfy AccurateScienceCommunication by ScientificAmericanSystem.factCheckingDesk;
+    satisfy DigitalAvailability by ScientificAmericanSystem.digitalPublishingPlatform;
+    satisfy SustainableReaderEngagement by ScientificAmericanSystem.analyticsEngine;
+    satisfy SubscriptionAccessControl by ScientificAmericanSystem.subscriptionService;
+
+    use case def CommunicateScienceToPublic {
+        subject publisher : ScientificAmericanSystem;
+        actor reader;
+        actor journalist;
+        actor editor;
+        actor subscriber;
+
+        objective {
+            Publish accurate, accessible, and timely science journalism through coordinated
+            editorial review, design, print production, digital distribution, and feedback analysis.
+        }
+
+        include use case SubmitStoryPitch;
+        include use case ReviewAndVerifyArticle;
+        include use case PublishMonthlyIssue;
+        include use case ReadAndEngageWithArticle;
+    }
+
+    use case def SubmitStoryPitch {
+        subject publisher : ScientificAmericanSystem;
+        actor journalist;
+    }
+
+    use case def ReviewAndVerifyArticle {
+        subject publisher : ScientificAmericanSystem;
+        actor editor;
+    }
+
+    use case def PublishMonthlyIssue {
+        subject publisher : ScientificAmericanSystem;
+        actor subscriber;
+    }
+
+    use case def ReadAndEngageWithArticle {
+        subject publisher : ScientificAmericanSystem;
+        actor reader;
+    }
+}

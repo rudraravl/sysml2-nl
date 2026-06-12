@@ -1,0 +1,600 @@
+package WakeOnLanSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def MACAddress {
+        attribute octet1 : Integer;
+        attribute octet2 : Integer;
+        attribute octet3 : Integer;
+        attribute octet4 : Integer;
+        attribute octet5 : Integer;
+        attribute octet6 : Integer;
+    }
+
+    attribute def IPv4Address {
+        attribute octet1 : Integer;
+        attribute octet2 : Integer;
+        attribute octet3 : Integer;
+        attribute octet4 : Integer;
+    }
+
+    attribute def UDPPortNumber {
+        attribute value : Integer;
+    }
+
+    attribute def ElectricalPower {
+        attribute watts : Real;
+    }
+
+    attribute def NetworkLatency {
+        attribute milliseconds : Real;
+    }
+
+    attribute def PacketCount {
+        attribute value : Integer;
+    }
+
+    attribute def BooleanStatus {
+        attribute value : Boolean;
+    }
+
+    item def EthernetFrame {
+        attribute destinationMac : MACAddress;
+        attribute sourceMac : MACAddress;
+        attribute etherType : Integer;
+        attribute payloadLengthBytes : Integer;
+    }
+
+    item def MagicPacket specializes EthernetFrame {
+        attribute targetMac : MACAddress;
+        attribute synchronizationStreamBytes : Integer = 6;
+        attribute repeatedMacCount : Integer = 16;
+        attribute udpDestinationPort : UDPPortNumber;
+        attribute validPattern : Boolean;
+    }
+
+    item def PowerStateCommand {
+        attribute authorized : Boolean;
+        attribute targetMac : MACAddress;
+        attribute requestedState : String;
+    }
+
+    item def WakeConfirmation {
+        attribute targetMac : MACAddress;
+        attribute awake : Boolean;
+        attribute bootLatency : NetworkLatency;
+    }
+
+    item def LinkPulse {
+        attribute linkActive : Boolean;
+        attribute speedMbps : Integer;
+    }
+
+    port def EthernetPort {
+        in item receivedFrame : EthernetFrame;
+        out item transmittedFrame : EthernetFrame;
+        in item receivedMagicPacket : MagicPacket;
+        out item transmittedMagicPacket : MagicPacket;
+        in item linkPulseIn : LinkPulse;
+        out item linkPulseOut : LinkPulse;
+    }
+
+    port def ManagementPort {
+        in item wakeRequest : PowerStateCommand;
+        out item wakeStatus : WakeConfirmation;
+    }
+
+    port def PowerControlPort {
+        in item wakeSignal : PowerStateCommand;
+        out item powerStatus : WakeConfirmation;
+    }
+
+    part def WakeOnLanController {
+        attribute controllerIp : IPv4Address;
+        attribute broadcastIp : IPv4Address;
+        attribute defaultUdpPort : UDPPortNumber;
+        attribute maxRetries : PacketCount;
+        attribute retryInterval : NetworkLatency;
+
+        port management : ManagementPort;
+        port network : EthernetPort;
+
+        action buildMagicPacket {
+            in targetMac : MACAddress;
+            in udpPort : UDPPortNumber;
+            out packet : MagicPacket;
+
+            first start;
+            then assignSyncStream;
+            then repeatTargetMac;
+            then setUdpDestination;
+            then validatePacket;
+            then done;
+
+            action assignSyncStream {
+                out syncBytes : Integer = 6;
+            }
+
+            action repeatTargetMac {
+                in targetMac : MACAddress;
+                out repeatedMacCount : Integer = 16;
+            }
+
+            action setUdpDestination {
+                in udpPort : UDPPortNumber;
+                out selectedPort : UDPPortNumber;
+            }
+
+            action validatePacket {
+                in syncBytes : Integer;
+                in repeatedMacCount : Integer;
+                out valid : Boolean;
+            }
+        }
+
+        action transmitWakeSequence {
+            in command : PowerStateCommand;
+            out packet : MagicPacket;
+            out transmissionAccepted : Boolean;
+
+            first receiveCommand;
+            then verifyAuthorization;
+            then constructPacket;
+            then sendBroadcast;
+            then awaitConfirmation;
+            then finish;
+
+            action receiveCommand {
+                in command : PowerStateCommand;
+            }
+
+            action verifyAuthorization {
+                in command : PowerStateCommand;
+                out authorized : Boolean;
+            }
+
+            action constructPacket {
+                in command : PowerStateCommand;
+                out packet : MagicPacket;
+            }
+
+            action sendBroadcast {
+                in packet : MagicPacket;
+                out sentCount : PacketCount;
+            }
+
+            action awaitConfirmation {
+                in targetMac : MACAddress;
+                out confirmation : WakeConfirmation;
+            }
+        }
+
+        state controllerState {
+            entry; then Idle;
+
+            state Idle;
+            state WakeRequested;
+            state PacketPrepared;
+            state PacketTransmitting;
+            state ConfirmationPending;
+            state Completed;
+            state Faulted;
+
+            transition Idle_to_WakeRequested
+                first Idle
+                accept PowerStateCommand
+                then WakeRequested;
+
+            transition WakeRequested_to_PacketPrepared
+                first WakeRequested
+                if management::wakeRequest.authorized
+                do buildMagicPacket
+                then PacketPrepared;
+
+            transition WakeRequested_to_Faulted
+                first WakeRequested
+                if not management::wakeRequest.authorized
+                then Faulted;
+
+            transition PacketPrepared_to_PacketTransmitting
+                first PacketPrepared
+                if network::transmittedMagicPacket.validPattern
+                then PacketTransmitting;
+
+            transition PacketTransmitting_to_ConfirmationPending
+                first PacketTransmitting
+                then ConfirmationPending;
+
+            transition ConfirmationPending_to_Completed
+                first ConfirmationPending
+                if management::wakeStatus.awake
+                then Completed;
+
+            transition ConfirmationPending_to_Faulted
+                first ConfirmationPending
+                if not management::wakeStatus.awake
+                then Faulted;
+
+            transition Completed_to_Idle
+                first Completed
+                then Idle;
+
+            transition Faulted_to_Idle
+                first Faulted
+                then Idle;
+        }
+    }
+
+    part def EthernetSwitch {
+        attribute supportedSpeedMbps : Integer;
+        attribute forwardingLatency : NetworkLatency;
+        attribute broadcastForwardingEnabled : Boolean;
+
+        port uplink : EthernetPort;
+        port hostLink : EthernetPort;
+
+        action forwardBroadcastMagicPacket {
+            in packet : MagicPacket;
+            out forwardedPacket : MagicPacket;
+            out forwarded : Boolean;
+        }
+
+        state switchState {
+            entry; then Operational;
+
+            state Operational;
+            state BroadcastForwarding;
+            state DroppingFrame;
+
+            transition Operational_to_BroadcastForwarding
+                first Operational
+                if uplink::receivedMagicPacket.validPattern and broadcastForwardingEnabled
+                then BroadcastForwarding;
+
+            transition Operational_to_DroppingFrame
+                first Operational
+                if uplink::receivedMagicPacket.validPattern and not broadcastForwardingEnabled
+                then DroppingFrame;
+
+            transition BroadcastForwarding_to_Operational
+                first BroadcastForwarding
+                then Operational;
+
+            transition DroppingFrame_to_Operational
+                first DroppingFrame
+                then Operational;
+        }
+    }
+
+    part def TargetComputer {
+        attribute hostMac : MACAddress;
+        attribute standbyPower : ElectricalPower;
+        attribute activePower : ElectricalPower;
+        attribute wakeArmed : BooleanStatus;
+        attribute lastWakeLatency : NetworkLatency;
+
+        port networkAdapter : EthernetPort;
+        port powerControl : PowerControlPort;
+
+        part networkInterface : NetworkInterfaceCard;
+        part powerManagementUnit : PowerManagementUnit;
+        part processor : HostProcessor;
+
+        connect networkAdapter to networkInterface.externalNetwork;
+        connect networkInterface.wakeOutput to powerManagementUnit.wakeInput;
+        connect powerManagementUnit.cpuPowerOutput to processor.powerInput;
+        connect powerControl to powerManagementUnit.externalControl;
+
+        action receiveAndValidateMagicPacket {
+            in packet : MagicPacket;
+            out command : PowerStateCommand;
+
+            first frameReceived;
+            then compareTargetMac;
+            then verifyMagicPattern;
+            then issueWakeSignal;
+            then done;
+        }
+
+        state computerPowerState {
+            entry; then SoftOff;
+
+            state SoftOff;
+            state Standby;
+            state WakeSignalDetected;
+            state Booting;
+            state Awake;
+            state RejectingPacket;
+
+            transition SoftOff_to_WakeSignalDetected
+                first SoftOff
+                if networkAdapter::receivedMagicPacket.validPattern
+                then WakeSignalDetected;
+
+            transition Standby_to_WakeSignalDetected
+                first Standby
+                if networkAdapter::receivedMagicPacket.validPattern
+                then WakeSignalDetected;
+
+            transition WakeSignalDetected_to_Booting
+                first WakeSignalDetected
+                do receiveAndValidateMagicPacket
+                then Booting;
+
+            transition WakeSignalDetected_to_RejectingPacket
+                first WakeSignalDetected
+                if networkAdapter::receivedMagicPacket.targetMac != hostMac
+                then RejectingPacket;
+
+            transition Booting_to_Awake
+                first Booting
+                then Awake;
+
+            transition RejectingPacket_to_Standby
+                first RejectingPacket
+                then Standby;
+
+            transition Awake_to_Standby
+                first Awake
+                accept PowerStateCommand
+                if powerControl::wakeSignal.requestedState == "Standby"
+                then Standby;
+        }
+    }
+
+    part def NetworkInterfaceCard {
+        attribute nicMac : MACAddress;
+        attribute standbyListeningPower : ElectricalPower;
+        attribute magicPacketFilterEnabled : Boolean;
+        attribute linkSpeedMbps : Integer;
+
+        port externalNetwork : EthernetPort;
+        port wakeOutput : PowerControlPort;
+
+        action filterIncomingFrame {
+            in frame : EthernetFrame;
+            out packet : MagicPacket;
+            out isMagicPacket : Boolean;
+        }
+
+        action assertWake {
+            in packet : MagicPacket;
+            out command : PowerStateCommand;
+        }
+    }
+
+    part def PowerManagementUnit {
+        attribute standbyRailPower : ElectricalPower;
+        attribute wakeSignalHoldTimeMs : Real;
+        attribute wakeEnabled : Boolean;
+
+        port wakeInput : PowerControlPort;
+        port externalControl : PowerControlPort;
+        port cpuPowerOutput : PowerControlPort;
+
+        action transitionToActivePower {
+            in wakeCommand : PowerStateCommand;
+            out confirmation : WakeConfirmation;
+        }
+    }
+
+    part def HostProcessor {
+        attribute bootTimeMs : Real;
+        attribute operatingSystemReady : Boolean;
+
+        port powerInput : PowerControlPort;
+
+        action bootOperatingSystem {
+            in command : PowerStateCommand;
+            out confirmation : WakeConfirmation;
+        }
+    }
+
+    part def AdministrativeClient {
+        attribute operatorAuthenticated : Boolean;
+        attribute targetHostMac : MACAddress;
+
+        port wakeConsole : ManagementPort;
+
+        action requestRemoteWake {
+            in target : MACAddress;
+            out command : PowerStateCommand;
+        }
+    }
+
+    part wolSystem : WakeOnLanSystem {
+        part client : AdministrativeClient;
+        part controller : WakeOnLanController;
+        part lanSwitch : EthernetSwitch;
+        part host : TargetComputer;
+
+        connect client.wakeConsole to controller.management;
+        connect controller.network to lanSwitch.uplink;
+        connect lanSwitch.hostLink to host.networkAdapter;
+
+        requirement primaryFunction {
+            doc
+            /*
+             * The Wake on LAN system shall remotely transition a target computer
+             * from a low-power state to an awake state by generating, broadcasting,
+             * forwarding, detecting, and acting upon a valid Magic Packet addressed
+             * to the target computer network adapter.
+             */
+        }
+
+        requirement magicPacketFormat {
+            subject packet : MagicPacket;
+
+            require constraint {
+                packet.synchronizationStreamBytes == 6 and
+                packet.repeatedMacCount == 16 and
+                packet.validPattern == true
+            }
+        }
+
+        requirement targetAddressMatch {
+            subject packet : MagicPacket;
+            subject host : TargetComputer;
+
+            require constraint {
+                packet.targetMac == host.hostMac
+            }
+        }
+
+        requirement standbyListening {
+            subject host : TargetComputer;
+
+            require constraint {
+                host.wakeArmed.value == true and
+                host.standbyPower.watts <= 5.0
+            }
+        }
+
+        requirement wakeLatency {
+            subject confirmation : WakeConfirmation;
+
+            require constraint {
+                confirmation.awake == true and
+                confirmation.bootLatency.milliseconds <= 120000.0
+            }
+        }
+
+        requirement authorizedWakeOnly {
+            subject command : PowerStateCommand;
+
+            require constraint {
+                command.authorized == true
+            }
+        }
+
+        requirement broadcastForwarding {
+            subject lanSwitch : EthernetSwitch;
+
+            require constraint {
+                lanSwitch.broadcastForwardingEnabled == true and
+                lanSwitch.forwardingLatency.milliseconds <= 10.0
+            }
+        }
+
+        requirement retryLimit {
+            subject controller : WakeOnLanController;
+
+            require constraint {
+                controller.maxRetries.value >= 1 and
+                controller.maxRetries.value <= 5
+            }
+        }
+    }
+
+    part def WakeOnLanSystem {
+        part client : AdministrativeClient;
+        part controller : WakeOnLanController;
+        part lanSwitch : EthernetSwitch;
+        part host : TargetComputer;
+
+        action performRemoteWake {
+            in targetMac : MACAddress;
+            out confirmation : WakeConfirmation;
+
+            first operatorRequestsWake;
+            then controllerCreatesMagicPacket;
+            then controllerBroadcastsPacket;
+            then switchForwardsPacket;
+            then nicDetectsPacket;
+            then powerUnitStartsHost;
+            then hostReportsAwake;
+
+            action operatorRequestsWake {
+                out command : PowerStateCommand;
+            }
+
+            action controllerCreatesMagicPacket {
+                in command : PowerStateCommand;
+                out packet : MagicPacket;
+            }
+
+            action controllerBroadcastsPacket {
+                in packet : MagicPacket;
+                out sent : Boolean;
+            }
+
+            action switchForwardsPacket {
+                in packet : MagicPacket;
+                out forwardedPacket : MagicPacket;
+            }
+
+            action nicDetectsPacket {
+                in forwardedPacket : MagicPacket;
+                out wakeCommand : PowerStateCommand;
+            }
+
+            action powerUnitStartsHost {
+                in wakeCommand : PowerStateCommand;
+                out powered : Boolean;
+            }
+
+            action hostReportsAwake {
+                in powered : Boolean;
+                out confirmation : WakeConfirmation;
+            }
+        }
+
+        state systemState {
+            entry; then Ready;
+
+            state Ready;
+            state WakeCommandAccepted;
+            state MagicPacketBroadcast;
+            state PacketDelivered;
+            state HostWaking;
+            state HostAwake;
+            state WakeFailed;
+
+            transition Ready_to_WakeCommandAccepted
+                first Ready
+                accept PowerStateCommand
+                if client.operatorAuthenticated
+                then WakeCommandAccepted;
+
+            transition WakeCommandAccepted_to_MagicPacketBroadcast
+                first WakeCommandAccepted
+                do controller.buildMagicPacket
+                then MagicPacketBroadcast;
+
+            transition MagicPacketBroadcast_to_PacketDelivered
+                first MagicPacketBroadcast
+                if lanSwitch.broadcastForwardingEnabled
+                then PacketDelivered;
+
+            transition PacketDelivered_to_HostWaking
+                first PacketDelivered
+                if host.networkAdapter::receivedMagicPacket.targetMac == host.hostMac
+                then HostWaking;
+
+            transition HostWaking_to_HostAwake
+                first HostWaking
+                if host.powerControl::powerStatus.awake
+                then HostAwake;
+
+            transition MagicPacketBroadcast_to_WakeFailed
+                first MagicPacketBroadcast
+                if not lanSwitch.broadcastForwardingEnabled
+                then WakeFailed;
+
+            transition PacketDelivered_to_WakeFailed
+                first PacketDelivered
+                if host.networkAdapter::receivedMagicPacket.targetMac != host.hostMac
+                then WakeFailed;
+
+            transition HostAwake_to_Ready
+                first HostAwake
+                then Ready;
+
+            transition WakeFailed_to_Ready
+                first WakeFailed
+                then Ready;
+        }
+    }
+}

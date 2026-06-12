@@ -1,0 +1,347 @@
+package HumistorSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def RelativeHumidity : Real {
+    :>> unit = "%";
+    :>> quantityKind = "relative humidity";
+  }
+
+  attribute def TemperatureCelsius : Real {
+    :>> unit = "degC";
+    :>> quantityKind = "thermodynamic temperature";
+  }
+
+  attribute def ElectricalResistance : Real {
+    :>> unit = "Ohm";
+    :>> quantityKind = "electrical resistance";
+  }
+
+  attribute def ElectricalVoltage : Real {
+    :>> unit = "V";
+    :>> quantityKind = "electric potential";
+  }
+
+  attribute def ElectricalCurrent : Real {
+    :>> unit = "A";
+    :>> quantityKind = "electric current";
+  }
+
+  attribute def ResponseTime : Real {
+    :>> unit = "s";
+    :>> quantityKind = "time";
+  }
+
+  attribute def PercentError : Real {
+    :>> unit = "%";
+    :>> quantityKind = "measurement error";
+  }
+
+  item def AmbientAir {
+    attribute humidity : RelativeHumidity;
+    attribute temperature : TemperatureCelsius;
+    attribute contaminationIndex : Real;
+  }
+
+  item def MoistureContent {
+    attribute absorbedWaterFraction : Real;
+  }
+
+  item def ResistanceSignal {
+    attribute resistance : ElectricalResistance;
+    attribute temperature : TemperatureCelsius;
+  }
+
+  item def AnalogVoltageSignal {
+    attribute voltage : ElectricalVoltage;
+    attribute sourceImpedance : ElectricalResistance;
+  }
+
+  item def DigitalHumidityReport {
+    attribute humidity : RelativeHumidity;
+    attribute temperature : TemperatureCelsius;
+    attribute valid : Boolean;
+    attribute diagnosticCode : String;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ElectricalVoltage;
+    attribute current : ElectricalCurrent;
+  }
+
+  port def AirExposurePort {
+    in item air : AmbientAir;
+  }
+
+  port def MoistureTransferPort {
+    out item moisture : MoistureContent;
+  }
+
+  port def ResistiveSensePort {
+    out item signal : ResistanceSignal;
+  }
+
+  port def AnalogPort {
+    inout item signal : AnalogVoltageSignal;
+  }
+
+  port def DigitalPort {
+    out item report : DigitalHumidityReport;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  action def AbsorbMoisture {
+    in item ambient : AmbientAir;
+    out item moisture : MoistureContent;
+
+    attribute absorptionGain : Real = 0.012;
+    attribute equilibriumFraction : Real;
+
+    action computeEquilibrium {
+      in item ambientIn : AmbientAir = ambient;
+      out item moistureOut : MoistureContent = moisture;
+    }
+  }
+
+  action def ConvertMoistureToResistance {
+    in item moisture : MoistureContent;
+    in attribute temperature : TemperatureCelsius;
+    out item resistanceSignal : ResistanceSignal;
+
+    attribute dryResistance : ElectricalResistance = 10000000.0;
+    attribute humidityCoefficient : Real = -0.038;
+    attribute temperatureCoefficient : Real = 0.004;
+  }
+
+  action def ConditionResistanceSignal {
+    in item resistanceSignal : ResistanceSignal;
+    out item analogSignal : AnalogVoltageSignal;
+
+    attribute excitationVoltage : ElectricalVoltage = 3.3;
+    attribute bridgeReferenceResistance : ElectricalResistance = 100000.0;
+    attribute filterCutoffFrequencyHz : Real = 5.0;
+  }
+
+  action def EstimateRelativeHumidity {
+    in item analogSignal : AnalogVoltageSignal;
+    in attribute temperature : TemperatureCelsius;
+    out item report : DigitalHumidityReport;
+
+    attribute calibrationOffset : RelativeHumidity = 0.0;
+    attribute calibrationSlope : Real = 1.0;
+    attribute minimumValidHumidity : RelativeHumidity = 0.0;
+    attribute maximumValidHumidity : RelativeHumidity = 100.0;
+  }
+
+  state def HumistorOperatingState {
+    entry action initializeMeasurement;
+
+    state Off;
+    state Stabilizing;
+    state Measuring;
+    state Reporting;
+    state Fault;
+
+    transition first Off;
+
+    transition powerApplied
+      first Off
+      then Stabilizing;
+
+    transition stable
+      first Stabilizing
+      then Measuring;
+
+    transition sampleComplete
+      first Measuring
+      then Reporting;
+
+    transition reportSent
+      first Reporting
+      then Measuring;
+
+    transition invalidSignal
+      first Measuring
+      then Fault;
+
+    transition reset
+      first Fault
+      then Stabilizing;
+  }
+
+  part def HumistorElement {
+    doc /* Primary sensing element whose electrical resistance changes as water vapor is absorbed by its humidity-sensitive film. */
+
+    port airPort : AirExposurePort;
+    port moisturePort : MoistureTransferPort;
+    port sensePort : ResistiveSensePort;
+
+    attribute nominalResistanceAt50RH : ElectricalResistance = 100000.0;
+    attribute minimumResistance : ElectricalResistance = 10000.0;
+    attribute maximumResistance : ElectricalResistance = 10000000.0;
+    attribute operatingHumidityMin : RelativeHumidity = 5.0;
+    attribute operatingHumidityMax : RelativeHumidity = 95.0;
+    attribute responseTime90 : ResponseTime = 15.0;
+
+    perform action absorb : AbsorbMoisture {
+      in ambient = airPort.air;
+      out moisture = moisturePort.moisture;
+    }
+
+    perform action transduce : ConvertMoistureToResistance {
+      in moisture = moisturePort.moisture;
+      in temperature = airPort.air.temperature;
+      out resistanceSignal = sensePort.signal;
+    }
+  }
+
+  part def ProtectiveHousing {
+    doc /* Porous enclosure that exposes the sensing film to ambient air while limiting liquid water, dust, and handling damage. */
+
+    port externalAir : AirExposurePort;
+    port internalAir : AirExposurePort;
+
+    attribute poreSizeMicrometer : Real = 25.0;
+    attribute airflowRestrictionFactor : Real = 0.18;
+    attribute liquidWaterIngressAllowed : Boolean = false;
+  }
+
+  part def ExcitationAndReadoutCircuit {
+    doc /* Converts the variable humistor resistance into a stable analog voltage suitable for digitization. */
+
+    port powerIn : PowerPort;
+    port senseIn : ResistiveSensePort;
+    port analogOut : AnalogPort;
+
+    attribute excitationVoltage : ElectricalVoltage = 3.3;
+    attribute maximumSenseCurrent : ElectricalCurrent = 0.00005;
+    attribute referenceResistance : ElectricalResistance = 100000.0;
+    attribute bridgeTolerancePercent : PercentError = 0.5;
+
+    perform action condition : ConditionResistanceSignal {
+      in resistanceSignal = senseIn.signal;
+      out analogSignal = analogOut.signal;
+    }
+  }
+
+  part def Microcontroller {
+    doc /* Samples the conditioned signal, applies calibration and compensation, and reports relative humidity. */
+
+    port analogIn : AnalogPort;
+    port digitalOut : DigitalPort;
+    port powerIn : PowerPort;
+
+    attribute adcResolutionBits : Integer = 12;
+    attribute samplePeriod : ResponseTime = 1.0;
+    attribute humidityAccuracy : PercentError = 3.0;
+    attribute operatingState : HumistorOperatingState;
+
+    perform action estimate : EstimateRelativeHumidity {
+      in analogSignal = analogIn.signal;
+      in temperature = analogIn.signal.voltage;
+      out report = digitalOut.report;
+    }
+  }
+
+  part def PowerRegulator {
+    port systemPowerIn : PowerPort;
+    port regulatedPowerOut : PowerPort;
+
+    attribute inputVoltageNominal : ElectricalVoltage = 5.0;
+    attribute outputVoltageNominal : ElectricalVoltage = 3.3;
+    attribute outputCurrentMax : ElectricalCurrent = 0.05;
+  }
+
+  part def HumistorBasedHumiditySensorSystem {
+    doc /* High-level primary function: sense ambient humidity by exposing a humistor to air, converting humidity-dependent resistance into an electrical signal, and reporting compensated relative humidity. */
+
+    port ambientAirIn : AirExposurePort;
+    port powerIn : PowerPort;
+    port humidityReportOut : DigitalPort;
+
+    part housing : ProtectiveHousing;
+    part sensingElement : HumistorElement;
+    part readout : ExcitationAndReadoutCircuit;
+    part controller : Microcontroller;
+    part regulator : PowerRegulator;
+
+    connect ambientAirIn to housing.externalAir;
+    connect housing.internalAir to sensingElement.airPort;
+    connect sensingElement.sensePort to readout.senseIn;
+    connect readout.analogOut to controller.analogIn;
+    connect powerIn to regulator.systemPowerIn;
+    connect regulator.regulatedPowerOut to readout.powerIn;
+    connect regulator.regulatedPowerOut to controller.powerIn;
+    connect controller.digitalOut to humidityReportOut;
+
+    attribute measurementRangeLow : RelativeHumidity = 5.0;
+    attribute measurementRangeHigh : RelativeHumidity = 95.0;
+    attribute statedAccuracy : PercentError = 3.0;
+    attribute maximumWarmupTime : ResponseTime = 5.0;
+    attribute nominalUpdatePeriod : ResponseTime = 1.0;
+  }
+
+  requirement def SenseHumidityRequirement {
+    doc /* The system shall measure ambient relative humidity using a humistor sensing element and provide a valid humidity report. */
+
+    subject system : HumistorBasedHumiditySensorSystem;
+
+    require constraint {
+      system.measurementRangeLow <= 5.0 and
+      system.measurementRangeHigh >= 95.0
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    doc /* The system shall report relative humidity with no more than plus or minus 3 percent error over its stated operating range. */
+
+    subject system : HumistorBasedHumiditySensorSystem;
+
+    require constraint {
+      system.statedAccuracy <= 3.0
+    }
+  }
+
+  requirement def ResponseRequirement {
+    doc /* The system shall reach 90 percent of a humidity step response within 15 seconds at nominal airflow. */
+
+    subject system : HumistorBasedHumiditySensorSystem;
+
+    require constraint {
+      system.sensingElement.responseTime90 <= 15.0
+    }
+  }
+
+  requirement def LowPowerRequirement {
+    doc /* The humistor readout circuit shall limit sensing current to reduce self-heating and measurement bias. */
+
+    subject circuit : ExcitationAndReadoutCircuit;
+
+    require constraint {
+      circuit.maximumSenseCurrent <= 0.00005
+    }
+  }
+
+  requirement def ProtectedExposureRequirement {
+    doc /* The housing shall permit vapor exchange with ambient air while blocking direct liquid water ingress. */
+
+    subject housing : ProtectiveHousing;
+
+    require constraint {
+      housing.liquidWaterIngressAllowed == false
+    }
+  }
+
+  part humistorHumiditySensor : HumistorBasedHumiditySensorSystem;
+
+  satisfy SenseHumidityRequirement by humistorHumiditySensor;
+  satisfy AccuracyRequirement by humistorHumiditySensor;
+  satisfy ResponseRequirement by humistorHumiditySensor;
+  satisfy LowPowerRequirement by humistorHumiditySensor.readout;
+  satisfy ProtectedExposureRequirement by humistorHumiditySensor.housing;
+}

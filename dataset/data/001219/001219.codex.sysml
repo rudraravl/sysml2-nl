@@ -1,0 +1,317 @@
+package RadioDirectionFinderModel {
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def FrequencyMHz :> Real {
+    doc "Radio frequency in megahertz.";
+  }
+
+  attribute def PowerdBm :> Real {
+    doc "RF signal power in dBm.";
+  }
+
+  attribute def BearingDeg :> Real {
+    doc "Bearing angle in degrees clockwise from true north.";
+  }
+
+  attribute def TimeSecond :> Real {
+    doc "Elapsed time in seconds.";
+  }
+
+  attribute def DistanceMeter :> Real {
+    doc "Distance in meters.";
+  }
+
+  attribute def ConfidencePercent :> Real {
+    doc "Confidence from 0 to 100 percent.";
+  }
+
+  attribute def SampleRateHz :> Real {
+    doc "Digital sample rate in samples per second.";
+  }
+
+  item def RadioWave {
+    attribute frequency: FrequencyMHz;
+    attribute receivedPower: PowerdBm;
+    attribute modulation: String;
+    attribute polarization: String;
+  }
+
+  item def TimingReference {
+    attribute timeOfValidity: TimeSecond;
+    attribute clockAccuracy: TimeSecond;
+  }
+
+  item def IqSampleStream {
+    attribute centerFrequency: FrequencyMHz;
+    attribute sampleRate: SampleRateHz;
+    attribute channelCount: Integer;
+    attribute quantizationBits: Integer;
+  }
+
+  item def BearingEstimate {
+    attribute azimuth: BearingDeg;
+    attribute confidence: ConfidencePercent;
+    attribute timeOfValidity: TimeSecond;
+    attribute signalFrequency: FrequencyMHz;
+  }
+
+  item def OperatorCommand {
+    attribute commandName: String;
+    attribute requestedFrequency: FrequencyMHz;
+  }
+
+  item def DirectionFindingReport {
+    attribute bearing: BearingDeg;
+    attribute confidence: ConfidencePercent;
+    attribute frequency: FrequencyMHz;
+    attribute reportTime: TimeSecond;
+    attribute stationLatitude: Real;
+    attribute stationLongitude: Real;
+  }
+
+  port def RfReceivePort {
+    in item incomingWave: RadioWave;
+  }
+
+  port def RfChannelPort {
+    out item antennaSignal: RadioWave;
+  }
+
+  port def MultiChannelRfInputPort {
+    in item antennaSignal: RadioWave;
+  }
+
+  port def SampleOutputPort {
+    out item samples: IqSampleStream;
+  }
+
+  port def SampleInputPort {
+    in item samples: IqSampleStream;
+  }
+
+  port def BearingOutputPort {
+    out item estimate: BearingEstimate;
+  }
+
+  port def BearingInputPort {
+    in item estimate: BearingEstimate;
+  }
+
+  port def CommandInputPort {
+    in item command: OperatorCommand;
+  }
+
+  port def ReportOutputPort {
+    out item report: DirectionFindingReport;
+  }
+
+  port def TimingPort {
+    in item timing: TimingReference;
+  }
+
+  part def AntennaElement {
+    attribute elementId: Integer;
+    attribute elementSpacing: DistanceMeter;
+    attribute gainDb: Real;
+    port aperture: RfReceivePort;
+    port rfOut: RfChannelPort;
+  }
+
+  part def AntennaArray {
+    attribute elementCount: Integer = 4;
+    attribute baselineDiameter: DistanceMeter = 1.2;
+    part elementA: AntennaElement {
+      attribute elementId = 1;
+      attribute elementSpacing = 0.0;
+      attribute gainDb = 3.0;
+    }
+    part elementB: AntennaElement {
+      attribute elementId = 2;
+      attribute elementSpacing = 0.4;
+      attribute gainDb = 3.0;
+    }
+    part elementC: AntennaElement {
+      attribute elementId = 3;
+      attribute elementSpacing = 0.8;
+      attribute gainDb = 3.0;
+    }
+    part elementD: AntennaElement {
+      attribute elementId = 4;
+      attribute elementSpacing = 1.2;
+      attribute gainDb = 3.0;
+    }
+    port waveIn: RfReceivePort;
+    port ch1: RfChannelPort;
+    port ch2: RfChannelPort;
+    port ch3: RfChannelPort;
+    port ch4: RfChannelPort;
+  }
+
+  part def CoherentReceiver {
+    attribute tunedFrequency: FrequencyMHz = 121.5;
+    attribute instantaneousBandwidth: FrequencyMHz = 2.0;
+    attribute noiseFigureDb: Real = 5.0;
+    attribute dynamicRangeDb: Real = 80.0;
+    port rf1: MultiChannelRfInputPort;
+    port rf2: MultiChannelRfInputPort;
+    port rf3: MultiChannelRfInputPort;
+    port rf4: MultiChannelRfInputPort;
+    port timingIn: TimingPort;
+    port samplesOut: SampleOutputPort;
+  }
+
+  part def BearingProcessor {
+    attribute minimumConfidence: ConfidencePercent = 70.0;
+    attribute bearingAccuracyRms: BearingDeg = 3.0;
+    attribute updatePeriod: TimeSecond = 0.5;
+    port samplesIn: SampleInputPort;
+    port estimateOut: BearingOutputPort;
+  }
+
+  part def OperatorInterface {
+    attribute displayRefreshPeriod: TimeSecond = 0.25;
+    port commandIn: CommandInputPort;
+    port bearingIn: BearingInputPort;
+    port reportOut: ReportOutputPort;
+  }
+
+  part def TimeAndPositionReference {
+    attribute latitude: Real = 38.8895;
+    attribute longitude: Real = -77.0353;
+    attribute timeAccuracy: TimeSecond = 0.000001;
+    port timingOut: TimingPort;
+  }
+
+  action def TuneReceiver {
+    in item command: OperatorCommand;
+    out attribute tunedFrequency: FrequencyMHz;
+  }
+
+  action def AcquireCoherentSamples {
+    in item rfSignal: RadioWave;
+    in item timing: TimingReference;
+    out item samples: IqSampleStream;
+  }
+
+  action def EstimateDirectionOfArrival {
+    in item samples: IqSampleStream;
+    out item estimate: BearingEstimate;
+    attribute algorithm: String = "phase interferometry with amplitude validation";
+  }
+
+  action def PublishDirectionFindingReport {
+    in item estimate: BearingEstimate;
+    out item report: DirectionFindingReport;
+  }
+
+  action def RadioDirectionFindingFunction {
+    in item receivedWave: RadioWave;
+    in item operatorCommand: OperatorCommand;
+    out item report: DirectionFindingReport;
+
+    action tune: TuneReceiver;
+    action sample: AcquireCoherentSamples;
+    action estimate: EstimateDirectionOfArrival;
+    action publish: PublishDirectionFindingReport;
+
+    flow operatorCommand to tune.command;
+    flow tune.tunedFrequency to sample.rfSignal.frequency;
+    flow receivedWave to sample.rfSignal;
+    flow sample.samples to estimate.samples;
+    flow estimate.estimate to publish.estimate;
+    flow publish.report to report;
+  }
+
+  state def RadioDirectionFinderStateMachine {
+    state Off;
+    state PowerUpSelfTest;
+    state Standby;
+    state Tune;
+    state AcquireSignal;
+    state EstimateBearing;
+    state ReportBearing;
+    state Fault;
+
+    transition initial then Off;
+    transition PowerApplied first Off then PowerUpSelfTest;
+    transition SelfTestPassed first PowerUpSelfTest then Standby;
+    transition SelfTestFailed first PowerUpSelfTest then Fault;
+    transition CommandReceived first Standby then Tune;
+    transition FrequencyTuned first Tune then AcquireSignal;
+    transition SignalDetected first AcquireSignal then EstimateBearing;
+    transition BearingValid first EstimateBearing then ReportBearing;
+    transition ReportComplete first ReportBearing then AcquireSignal;
+    transition SignalLost first AcquireSignal then Standby;
+    transition ProcessingFault first EstimateBearing then Fault;
+    transition ResetCommanded first Fault then PowerUpSelfTest;
+    transition PowerRemoved first Standby then Off;
+  }
+
+  part def RadioDirectionFinder {
+    doc "A radio direction finder receives a radio emission through a spatially separated antenna array, coherently samples the antenna channels, estimates the direction of arrival, and reports the bearing to the emitting source.";
+
+    attribute operatingFrequency: FrequencyMHz = 121.5;
+    attribute bearingUpdatePeriod: TimeSecond = 0.5;
+    attribute nominalBearingAccuracy: BearingDeg = 3.0;
+    attribute minimumDetectablePower: PowerdBm = -105.0;
+
+    port externalRf: RfReceivePort;
+    port operatorCommand: CommandInputPort;
+    port directionReport: ReportOutputPort;
+
+    part antennaArray: AntennaArray;
+    part receiver: CoherentReceiver;
+    part processor: BearingProcessor;
+    part interfacePanel: OperatorInterface;
+    part timeReference: TimeAndPositionReference;
+
+    perform behavior: RadioDirectionFindingFunction;
+    exhibit stateMachine: RadioDirectionFinderStateMachine;
+
+    connect externalRf to antennaArray.waveIn;
+    connect antennaArray.ch1 to receiver.rf1;
+    connect antennaArray.ch2 to receiver.rf2;
+    connect antennaArray.ch3 to receiver.rf3;
+    connect antennaArray.ch4 to receiver.rf4;
+    connect timeReference.timingOut to receiver.timingIn;
+    connect receiver.samplesOut to processor.samplesIn;
+    connect processor.estimateOut to interfacePanel.bearingIn;
+    connect operatorCommand to interfacePanel.commandIn;
+    connect interfacePanel.reportOut to directionReport;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The radio direction finder shall determine and report the azimuth bearing of a received radio-frequency emitter relative to true north.";
+    subject rdf: RadioDirectionFinder;
+    require constraint {
+      rdf.nominalBearingAccuracy <= 5.0
+    }
+  }
+
+  requirement def FrequencyCoverageRequirement {
+    doc "The radio direction finder shall support tuning across emergency and tactical VHF bands from 30 MHz through 300 MHz.";
+    subject rdf: RadioDirectionFinder;
+    require constraint {
+      rdf.operatingFrequency >= 30.0 and rdf.operatingFrequency <= 300.0
+    }
+  }
+
+  requirement def UpdateRateRequirement {
+    doc "The radio direction finder shall publish a valid direction-finding report at least once every second while a detectable signal is present.";
+    subject rdf: RadioDirectionFinder;
+    require constraint {
+      rdf.bearingUpdatePeriod <= 1.0
+    }
+  }
+
+  requirement def SensitivityRequirement {
+    doc "The radio direction finder shall estimate bearing for signals at or above -100 dBm at the antenna input.";
+    subject rdf: RadioDirectionFinder;
+    require constraint {
+      rdf.minimumDetectablePower <= -100.0
+    }
+  }
+
+  part rdfSystem: RadioDirectionFinder;
+}

@@ -1,0 +1,827 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-tisp_2dw
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7f2-167f-7813-9a0f-815ce7aaab92
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a pumping subsystem that moves fluid using a Bicycle pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package BicyclePumpSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::cubicMetre;
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Area :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Efficiency {
+        :>> scalar : Real;
+    }
+
+    item def Gas {
+        attribute absolutePressure : Pressure;
+        attribute temperature : ISQ::thermodynamicTemperature;
+        attribute volume : Volume;
+    }
+
+    item def AmbientAir :> Gas;
+
+    item def CompressedAir :> Gas {
+        attribute gaugePressure : Pressure;
+    }
+
+    item def HumanMechanicalWork {
+        attribute inputForce : Force;
+        attribute strokeDisplacement : Length;
+        attribute strokeFrequency : Frequency;
+    }
+
+    item def PumpedFluid {
+        attribute deliveredPressure : Pressure;
+        attribute deliveredFlowRate : FlowRate;
+    }
+
+    port def AirIntakePort {
+        in item airIn : AmbientAir;
+    }
+
+    port def AirDischargePort {
+        out item airOut : CompressedAir;
+    }
+
+    port def MechanicalInputPort {
+        in item workIn : HumanMechanicalWork;
+    }
+
+    port def FluidReceiverPort {
+        in item receivedAir : CompressedAir;
+    }
+
+    port def LeakagePort {
+        out item leakedAir : CompressedAir;
+    }
+
+    part def BicyclePump {
+        attribute boreArea : Area = 5.0e-4 [SI::squareMetre];
+        attribute maximumStrokeLength : Length = 0.45 [SI::metre];
+        attribute clearanceVolume : Volume = 2.0e-5 [SI::cubicMetre];
+        attribute nominalVolumetricEfficiency : Efficiency = 0.72;
+        attribute maximumSafeGaugePressure : Pressure = 8.0e5 [SI::pascal];
+        attribute ratedStrokeFrequency : Frequency = 1.2 [SI::hertz];
+
+        port intake : AirIntakePort;
+        port discharge : AirDischargePort;
+        port mechanicalInput : MechanicalInputPort;
+        port leakage : LeakagePort;
+
+        part handle {
+            attribute gripWidth : Length = 0.12 [SI::metre];
+            port operatorInput : MechanicalInputPort;
+        }
+
+        part pistonRod {
+            attribute length : Length = 0.50 [SI::metre];
+            attribute axialForce : Force;
+        }
+
+        part piston {
+            attribute effectiveArea : Area = boreArea;
+            attribute position : Length;
+            attribute velocity : ISQ::speed;
+        }
+
+        part cylinder {
+            attribute internalBoreArea : Area = boreArea;
+            attribute usableStrokeLength : Length = maximumStrokeLength;
+            attribute workingVolume : Volume = boreArea * maximumStrokeLength;
+        }
+
+        part inletCheckValve {
+            attribute crackingPressureDifference : Pressure = 500.0 [SI::pascal];
+            attribute isOpen : Boolean;
+            port upstream : AirIntakePort;
+            port downstream : AirDischargePort;
+        }
+
+        part outletCheckValve {
+            attribute crackingPressureDifference : Pressure = 800.0 [SI::pascal];
+            attribute isOpen : Boolean;
+            port upstream : AirIntakePort;
+            port downstream : AirDischargePort;
+        }
+
+        part hose {
+            attribute internalVolume : Volume = 4.0e-5 [SI::cubicMetre];
+            attribute burstGaugePressure : Pressure = 1.2e6 [SI::pascal];
+            port inlet : FluidReceiverPort;
+            port outlet : AirDischargePort;
+        }
+
+        part connectorHead {
+            attribute sealLeakageRateLimit : FlowRate = 1.0e-7 [SI::cubicMetrePerSecond];
+            port inlet : FluidReceiverPort;
+            port outlet : AirDischargePort;
+        }
+
+        connect handle.operatorInput to mechanicalInput;
+        connect inletCheckValve.upstream to intake;
+        connect outletCheckValve.downstream to hose.inlet;
+        connect hose.outlet to connectorHead.inlet;
+        connect connectorHead.outlet to discharge;
+
+        action def IntakeStroke {
+            in item ambient : AmbientAir;
+            out item chamberCharge : AmbientAir;
+            attribute pistonRetraction : Length;
+            attribute chamberPressure : Pressure;
+
+            constraint {
+                pistonRetraction <= maximumStrokeLength
+            }
+        }
+
+        action def CompressionStroke {
+            in item chamberCharge : AmbientAir;
+            in item work : HumanMechanicalWork;
+            out item compressedCharge : CompressedAir;
+            attribute pistonAdvance : Length;
+            attribute peakCylinderPressure : Pressure;
+
+            constraint {
+                pistonAdvance <= maximumStrokeLength
+                peakCylinderPressure <= maximumSafeGaugePressure + 101325.0 [SI::pascal]
+            }
+        }
+
+        action def DischargeStroke {
+            in item compressedCharge : CompressedAir;
+            out item deliveredCharge : CompressedAir;
+            attribute deliveredVolume : Volume;
+            attribute outletPressure : Pressure;
+
+            constraint {
+                outletPressure <= maximumSafeGaugePressure + 101325.0 [SI::pascal]
+                deliveredVolume <= boreArea * maximumStrokeLength * nominalVolumetricEfficiency
+            }
+        }
+
+        action def LeakRelief {
+            in item pressurizedAir : CompressedAir;
+            out item ventedAir : CompressedAir;
+            attribute leakageFlow : FlowRate;
+
+            constraint {
+                leakageFlow <= 1.0e-7 [SI::cubicMetrePerSecond]
+            }
+        }
+
+        state def PumpOperatingState {
+            entry action initialize {
+                then piston.position = 0.0 [SI::metre];
+            }
+
+            state Idle;
+            state Intake;
+            state Compressing;
+            state Delivering;
+            state OverPressureRelief;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_Intake
+                first Idle
+                then Intake
+                accept operatorPull;
+
+            transition Intake_to_Compressing
+                first Intake
+                then Compressing
+                accept handleFullyRetracted
+                do IntakeStroke;
+
+            transition Compressing_to_Delivering
+                first Compressing
+                then Delivering
+                accept outletValveCracked
+                do CompressionStroke;
+
+            transition Delivering_to_Intake
+                first Delivering
+                then Intake
+                accept handleFullyPressed
+                do DischargeStroke;
+
+            transition Delivering_to_Idle
+                first Delivering
+                then Idle
+                accept pumpingStopped;
+
+            transition Any_to_OverPressureRelief
+                first Compressing
+                then OverPressureRelief
+                if piston.axialForce / boreArea > maximumSafeGaugePressure
+                do LeakRelief;
+
+            transition Relief_to_Fault
+                first OverPressureRelief
+                then Fault
+                if piston.axialForce / boreArea > maximumSafeGaugePressure and leakage.leakedAir.gaugePressure > maximumSafeGaugePressure;
+
+            transition Relief_to_Idle
+                first OverPressureRelief
+                then Idle
+                if piston.axialForce / boreArea <= maximumSafeGaugePressure;
+        }
+
+        perform stateMachine : PumpOperatingState;
+    }
+
+    part def BicycleTire {
+        attribute internalVolume : Volume = 7.5e-3 [SI::cubicMetre];
+        attribute targetGaugePressure : Pressure = 4.5e5 [SI::pascal];
+        attribute maximumGaugePressure : Pressure = 7.0e5 [SI::pascal];
+        attribute currentGaugePressure : Pressure;
+        port valveStem : FluidReceiverPort;
+    }
+
+    part def HumanOperator {
+        attribute maximumComfortableForce : Force = 250.0 [SI::newton];
+        attribute nominalStrokeFrequency : Frequency = 1.0 [SI::hertz];
+        port handForceOutput : MechanicalInputPort;
+
+        action def ApplyPumpStroke {
+            out item work : HumanMechanicalWork;
+            attribute appliedForce : Force = 180.0 [SI::newton];
+            attribute strokeLength : Length = 0.42 [SI::metre];
+            attribute strokeRate : Frequency = nominalStrokeFrequency;
+
+            constraint {
+                appliedForce <= maximumComfortableForce
+            }
+        }
+    }
+
+    part def PumpingSubsystem {
+        attribute ambientPressure : Pressure = 101325.0 [SI::pascal];
+        attribute requiredDeliveredGaugePressure : Pressure = 4.5e5 [SI::pascal];
+        attribute minimumAverageFlowRate : FlowRate = 1.5e-5 [SI::cubicMetrePerSecond];
+        attribute maximumPermittedLeakageRate : FlowRate = 1.0e-7 [SI::cubicMetrePerSecond];
+
+        part operator : HumanOperator;
+        part pump : BicyclePump;
+        part receiver : BicycleTire;
+
+        port ambientSource : AirIntakePort;
+        port deliveredFluidInterface : AirDischargePort;
+
+        connect ambientSource to pump.intake;
+        connect operator.handForceOutput to pump.mechanicalInput;
+        connect pump.discharge to receiver.valveStem;
+        connect pump.discharge to deliveredFluidInterface;
+
+        action def PumpTireToTarget {
+            in item ambientAir : AmbientAir;
+            in item operatorWork : HumanMechanicalWork;
+            out item inflatedTireAir : PumpedFluid;
+
+            attribute averageFlowRate : FlowRate;
+            attribute finalGaugePressure : Pressure;
+            attribute cycleCount : Integer;
+            attribute elapsedTime : ISQ::time;
+
+            constraint {
+                averageFlowRate >= minimumAverageFlowRate
+                finalGaugePressure >= receiver.targetGaugePressure
+                finalGaugePressure <= receiver.maximumGaugePressure
+                cycleCount >= 1
+                elapsedTime > 0.0 [SI::second]
+            }
+
+            first start;
+            then repeat PumpCycle until finalGaugePressure >= receiver.targetGaugePressure;
+            then stop;
+
+            action PumpCycle {
+                in item strokeWork : HumanMechanicalWork;
+                out item deliveredAir : CompressedAir;
+                perform pump.IntakeStroke;
+                perform pump.CompressionStroke;
+                perform pump.DischargeStroke;
+            }
+        }
+
+        perform inflationMission : PumpTireToTarget;
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.maximumSafeGaugePressure >= subsystem.receiver.targetGaugePressure
+        }
+
+        require constraint {
+            subsystem.minimumAverageFlowRate >= 1.5e-5 [SI::cubicMetrePerSecond]
+        }
+
+        require constraint {
+            subsystem.maximumPermittedLeakageRate <= 1.0e-7 [SI::cubicMetrePerSecond]
+        }
+    }
+
+    requirement def MechanicalCompatibilityRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.operator.maximumComfortableForce >=
+                subsystem.receiver.targetGaugePressure * subsystem.pump.boreArea
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        subject pump : BicyclePump;
+        subject tire : BicycleTire;
+
+        require constraint {
+            pump.maximumSafeGaugePressure <= tire.maximumGaugePressure + 1.0e5 [SI::pascal]
+        }
+
+        require constraint {
+            pump.hose.burstGaugePressure >= 1.5 * pump.maximumSafeGaugePressure
+        }
+    }
+
+    requirement def CheckValveFunctionRequirement {
+        subject pump : BicyclePump;
+
+        require constraint {
+            pump.inletCheckValve.crackingPressureDifference < 1000.0 [SI::pascal]
+        }
+
+        require constraint {
+            pump.outletCheckValve.crackingPressureDifference < 1500.0 [SI::pascal]
+        }
+    }
+
+    requirement def DeliveredFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.deliveredFluidInterface.airOut.gaugePressure >= subsystem.requiredDeliveredGaugePressure
+        }
+
+        require constraint {
+            subsystem.deliveredFluidInterface.airOut.deliveredFlowRate >= subsystem.minimumAverageFlowRate
+        }
+    }
+
+    satisfy PumpingSubsystemRequirement by PumpingSubsystem;
+    satisfy MechanicalCompatibilityRequirement by PumpingSubsystem;
+    satisfy PressureSafetyRequirement by BicyclePump;
+    satisfy CheckValveFunctionRequirement by BicyclePump;
+    satisfy DeliveredFluidRequirement by PumpingSubsystem;
+
+    part bicyclePumpInflationSystem : PumpingSubsystem;
+}
+tokens used
+3,091
+package BicyclePumpSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::cubicMetre;
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Area :> ISQ::area {
+        unit = SI::squareMetre;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Efficiency {
+        :>> scalar : Real;
+    }
+
+    item def Gas {
+        attribute absolutePressure : Pressure;
+        attribute temperature : ISQ::thermodynamicTemperature;
+        attribute volume : Volume;
+    }
+
+    item def AmbientAir :> Gas;
+
+    item def CompressedAir :> Gas {
+        attribute gaugePressure : Pressure;
+    }
+
+    item def HumanMechanicalWork {
+        attribute inputForce : Force;
+        attribute strokeDisplacement : Length;
+        attribute strokeFrequency : Frequency;
+    }
+
+    item def PumpedFluid {
+        attribute deliveredPressure : Pressure;
+        attribute deliveredFlowRate : FlowRate;
+    }
+
+    port def AirIntakePort {
+        in item airIn : AmbientAir;
+    }
+
+    port def AirDischargePort {
+        out item airOut : CompressedAir;
+    }
+
+    port def MechanicalInputPort {
+        in item workIn : HumanMechanicalWork;
+    }
+
+    port def FluidReceiverPort {
+        in item receivedAir : CompressedAir;
+    }
+
+    port def LeakagePort {
+        out item leakedAir : CompressedAir;
+    }
+
+    part def BicyclePump {
+        attribute boreArea : Area = 5.0e-4 [SI::squareMetre];
+        attribute maximumStrokeLength : Length = 0.45 [SI::metre];
+        attribute clearanceVolume : Volume = 2.0e-5 [SI::cubicMetre];
+        attribute nominalVolumetricEfficiency : Efficiency = 0.72;
+        attribute maximumSafeGaugePressure : Pressure = 8.0e5 [SI::pascal];
+        attribute ratedStrokeFrequency : Frequency = 1.2 [SI::hertz];
+
+        port intake : AirIntakePort;
+        port discharge : AirDischargePort;
+        port mechanicalInput : MechanicalInputPort;
+        port leakage : LeakagePort;
+
+        part handle {
+            attribute gripWidth : Length = 0.12 [SI::metre];
+            port operatorInput : MechanicalInputPort;
+        }
+
+        part pistonRod {
+            attribute length : Length = 0.50 [SI::metre];
+            attribute axialForce : Force;
+        }
+
+        part piston {
+            attribute effectiveArea : Area = boreArea;
+            attribute position : Length;
+            attribute velocity : ISQ::speed;
+        }
+
+        part cylinder {
+            attribute internalBoreArea : Area = boreArea;
+            attribute usableStrokeLength : Length = maximumStrokeLength;
+            attribute workingVolume : Volume = boreArea * maximumStrokeLength;
+        }
+
+        part inletCheckValve {
+            attribute crackingPressureDifference : Pressure = 500.0 [SI::pascal];
+            attribute isOpen : Boolean;
+            port upstream : AirIntakePort;
+            port downstream : AirDischargePort;
+        }
+
+        part outletCheckValve {
+            attribute crackingPressureDifference : Pressure = 800.0 [SI::pascal];
+            attribute isOpen : Boolean;
+            port upstream : AirIntakePort;
+            port downstream : AirDischargePort;
+        }
+
+        part hose {
+            attribute internalVolume : Volume = 4.0e-5 [SI::cubicMetre];
+            attribute burstGaugePressure : Pressure = 1.2e6 [SI::pascal];
+            port inlet : FluidReceiverPort;
+            port outlet : AirDischargePort;
+        }
+
+        part connectorHead {
+            attribute sealLeakageRateLimit : FlowRate = 1.0e-7 [SI::cubicMetrePerSecond];
+            port inlet : FluidReceiverPort;
+            port outlet : AirDischargePort;
+        }
+
+        connect handle.operatorInput to mechanicalInput;
+        connect inletCheckValve.upstream to intake;
+        connect outletCheckValve.downstream to hose.inlet;
+        connect hose.outlet to connectorHead.inlet;
+        connect connectorHead.outlet to discharge;
+
+        action def IntakeStroke {
+            in item ambient : AmbientAir;
+            out item chamberCharge : AmbientAir;
+            attribute pistonRetraction : Length;
+            attribute chamberPressure : Pressure;
+
+            constraint {
+                pistonRetraction <= maximumStrokeLength
+            }
+        }
+
+        action def CompressionStroke {
+            in item chamberCharge : AmbientAir;
+            in item work : HumanMechanicalWork;
+            out item compressedCharge : CompressedAir;
+            attribute pistonAdvance : Length;
+            attribute peakCylinderPressure : Pressure;
+
+            constraint {
+                pistonAdvance <= maximumStrokeLength
+                peakCylinderPressure <= maximumSafeGaugePressure + 101325.0 [SI::pascal]
+            }
+        }
+
+        action def DischargeStroke {
+            in item compressedCharge : CompressedAir;
+            out item deliveredCharge : CompressedAir;
+            attribute deliveredVolume : Volume;
+            attribute outletPressure : Pressure;
+
+            constraint {
+                outletPressure <= maximumSafeGaugePressure + 101325.0 [SI::pascal]
+                deliveredVolume <= boreArea * maximumStrokeLength * nominalVolumetricEfficiency
+            }
+        }
+
+        action def LeakRelief {
+            in item pressurizedAir : CompressedAir;
+            out item ventedAir : CompressedAir;
+            attribute leakageFlow : FlowRate;
+
+            constraint {
+                leakageFlow <= 1.0e-7 [SI::cubicMetrePerSecond]
+            }
+        }
+
+        state def PumpOperatingState {
+            entry action initialize {
+                then piston.position = 0.0 [SI::metre];
+            }
+
+            state Idle;
+            state Intake;
+            state Compressing;
+            state Delivering;
+            state OverPressureRelief;
+            state Fault;
+
+            transition first Idle;
+
+            transition Idle_to_Intake
+                first Idle
+                then Intake
+                accept operatorPull;
+
+            transition Intake_to_Compressing
+                first Intake
+                then Compressing
+                accept handleFullyRetracted
+                do IntakeStroke;
+
+            transition Compressing_to_Delivering
+                first Compressing
+                then Delivering
+                accept outletValveCracked
+                do CompressionStroke;
+
+            transition Delivering_to_Intake
+                first Delivering
+                then Intake
+                accept handleFullyPressed
+                do DischargeStroke;
+
+            transition Delivering_to_Idle
+                first Delivering
+                then Idle
+                accept pumpingStopped;
+
+            transition Any_to_OverPressureRelief
+                first Compressing
+                then OverPressureRelief
+                if piston.axialForce / boreArea > maximumSafeGaugePressure
+                do LeakRelief;
+
+            transition Relief_to_Fault
+                first OverPressureRelief
+                then Fault
+                if piston.axialForce / boreArea > maximumSafeGaugePressure and leakage.leakedAir.gaugePressure > maximumSafeGaugePressure;
+
+            transition Relief_to_Idle
+                first OverPressureRelief
+                then Idle
+                if piston.axialForce / boreArea <= maximumSafeGaugePressure;
+        }
+
+        perform stateMachine : PumpOperatingState;
+    }
+
+    part def BicycleTire {
+        attribute internalVolume : Volume = 7.5e-3 [SI::cubicMetre];
+        attribute targetGaugePressure : Pressure = 4.5e5 [SI::pascal];
+        attribute maximumGaugePressure : Pressure = 7.0e5 [SI::pascal];
+        attribute currentGaugePressure : Pressure;
+        port valveStem : FluidReceiverPort;
+    }
+
+    part def HumanOperator {
+        attribute maximumComfortableForce : Force = 250.0 [SI::newton];
+        attribute nominalStrokeFrequency : Frequency = 1.0 [SI::hertz];
+        port handForceOutput : MechanicalInputPort;
+
+        action def ApplyPumpStroke {
+            out item work : HumanMechanicalWork;
+            attribute appliedForce : Force = 180.0 [SI::newton];
+            attribute strokeLength : Length = 0.42 [SI::metre];
+            attribute strokeRate : Frequency = nominalStrokeFrequency;
+
+            constraint {
+                appliedForce <= maximumComfortableForce
+            }
+        }
+    }
+
+    part def PumpingSubsystem {
+        attribute ambientPressure : Pressure = 101325.0 [SI::pascal];
+        attribute requiredDeliveredGaugePressure : Pressure = 4.5e5 [SI::pascal];
+        attribute minimumAverageFlowRate : FlowRate = 1.5e-5 [SI::cubicMetrePerSecond];
+        attribute maximumPermittedLeakageRate : FlowRate = 1.0e-7 [SI::cubicMetrePerSecond];
+
+        part operator : HumanOperator;
+        part pump : BicyclePump;
+        part receiver : BicycleTire;
+
+        port ambientSource : AirIntakePort;
+        port deliveredFluidInterface : AirDischargePort;
+
+        connect ambientSource to pump.intake;
+        connect operator.handForceOutput to pump.mechanicalInput;
+        connect pump.discharge to receiver.valveStem;
+        connect pump.discharge to deliveredFluidInterface;
+
+        action def PumpTireToTarget {
+            in item ambientAir : AmbientAir;
+            in item operatorWork : HumanMechanicalWork;
+            out item inflatedTireAir : PumpedFluid;
+
+            attribute averageFlowRate : FlowRate;
+            attribute finalGaugePressure : Pressure;
+            attribute cycleCount : Integer;
+            attribute elapsedTime : ISQ::time;
+
+            constraint {
+                averageFlowRate >= minimumAverageFlowRate
+                finalGaugePressure >= receiver.targetGaugePressure
+                finalGaugePressure <= receiver.maximumGaugePressure
+                cycleCount >= 1
+                elapsedTime > 0.0 [SI::second]
+            }
+
+            first start;
+            then repeat PumpCycle until finalGaugePressure >= receiver.targetGaugePressure;
+            then stop;
+
+            action PumpCycle {
+                in item strokeWork : HumanMechanicalWork;
+                out item deliveredAir : CompressedAir;
+                perform pump.IntakeStroke;
+                perform pump.CompressionStroke;
+                perform pump.DischargeStroke;
+            }
+        }
+
+        perform inflationMission : PumpTireToTarget;
+    }
+
+    requirement def PumpingSubsystemRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.pump.maximumSafeGaugePressure >= subsystem.receiver.targetGaugePressure
+        }
+
+        require constraint {
+            subsystem.minimumAverageFlowRate >= 1.5e-5 [SI::cubicMetrePerSecond]
+        }
+
+        require constraint {
+            subsystem.maximumPermittedLeakageRate <= 1.0e-7 [SI::cubicMetrePerSecond]
+        }
+    }
+
+    requirement def MechanicalCompatibilityRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.operator.maximumComfortableForce >=
+                subsystem.receiver.targetGaugePressure * subsystem.pump.boreArea
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        subject pump : BicyclePump;
+        subject tire : BicycleTire;
+
+        require constraint {
+            pump.maximumSafeGaugePressure <= tire.maximumGaugePressure + 1.0e5 [SI::pascal]
+        }
+
+        require constraint {
+            pump.hose.burstGaugePressure >= 1.5 * pump.maximumSafeGaugePressure
+        }
+    }
+
+    requirement def CheckValveFunctionRequirement {
+        subject pump : BicyclePump;
+
+        require constraint {
+            pump.inletCheckValve.crackingPressureDifference < 1000.0 [SI::pascal]
+        }
+
+        require constraint {
+            pump.outletCheckValve.crackingPressureDifference < 1500.0 [SI::pascal]
+        }
+    }
+
+    requirement def DeliveredFluidRequirement {
+        subject subsystem : PumpingSubsystem;
+
+        require constraint {
+            subsystem.deliveredFluidInterface.airOut.gaugePressure >= subsystem.requiredDeliveredGaugePressure
+        }
+
+        require constraint {
+            subsystem.deliveredFluidInterface.airOut.deliveredFlowRate >= subsystem.minimumAverageFlowRate
+        }
+    }
+
+    satisfy PumpingSubsystemRequirement by PumpingSubsystem;
+    satisfy MechanicalCompatibilityRequirement by PumpingSubsystem;
+    satisfy PressureSafetyRequirement by BicyclePump;
+    satisfy CheckValveFunctionRequirement by BicyclePump;
+    satisfy DeliveredFluidRequirement by PumpingSubsystem;
+
+    part bicyclePumpInflationSystem : PumpingSubsystem;
+}

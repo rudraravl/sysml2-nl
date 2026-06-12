@@ -1,0 +1,731 @@
+package HumanoidRoboticSystemModel {
+    import ScalarValues::*;
+    import Quantities::*;
+    import SI::*;
+
+    value type MassValue = Real [kg];
+    value type LengthValue = Real [m];
+    value type AngleValue = Real [rad];
+    value type AngularVelocityValue = Real [rad/s];
+    value type LinearVelocityValue = Real [m/s];
+    value type ForceValue = Real [N];
+    value type TorqueValue = Real [N*m];
+    value type PowerValue = Real [W];
+    value type EnergyValue = Real [J];
+    value type VoltageValue = Real [V];
+    value type CurrentValue = Real [A];
+    value type TimeValue = Real [s];
+    value type TemperatureValue = Real [K];
+    value type DataRateValue = Real [bit/s];
+    value type ProbabilityValue = Real;
+    value type PercentValue = Real;
+    value type PixelCount = Integer;
+    value type Identifier = String;
+
+    enum SafetyMode {
+        normal;
+        reducedSpeed;
+        protectiveStop;
+        emergencyStop;
+        manualRecovery;
+    }
+
+    enum TaskPhase {
+        idle;
+        perceiveWorkspace;
+        planTask;
+        navigateToWorkArea;
+        manipulateObject;
+        verifyResult;
+        returnToStandby;
+        faultHandling;
+    }
+
+    enum ObjectClass {
+        unknown;
+        tool;
+        package;
+        doorHandle;
+        controlPanel;
+        fragileItem;
+        human;
+        obstacle;
+    }
+
+    enum GraspMode {
+        openPalm;
+        pinch;
+        powerGrip;
+        precisionGrip;
+        twoHandSupport;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Identifier;
+        attribute timestamp : TimeValue;
+        attribute targetPhase : TaskPhase;
+        attribute priority : Integer;
+    }
+
+    item def JointCommand :> ControlCommand {
+        attribute targetPosition : AngleValue;
+        attribute targetVelocity : AngularVelocityValue;
+        attribute targetTorque : TorqueValue;
+    }
+
+    item def LocomotionCommand :> ControlCommand {
+        attribute forwardVelocity : LinearVelocityValue;
+        attribute lateralVelocity : LinearVelocityValue;
+        attribute yawRate : AngularVelocityValue;
+        attribute desiredStepHeight : LengthValue;
+    }
+
+    item def ManipulationCommand :> ControlCommand {
+        attribute selectedHand : Identifier;
+        attribute graspMode : GraspMode;
+        attribute targetGripForce : ForceValue;
+        attribute desiredPoseX : LengthValue;
+        attribute desiredPoseY : LengthValue;
+        attribute desiredPoseZ : LengthValue;
+    }
+
+    item def SensorFrame {
+        attribute frameId : Identifier;
+        attribute timestamp : TimeValue;
+        attribute confidence : ProbabilityValue;
+    }
+
+    item def ImageFrame :> SensorFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute exposureTime : TimeValue;
+    }
+
+    item def DepthCloud :> SensorFrame {
+        attribute pointCount : Integer;
+        attribute maxRange : LengthValue;
+        attribute rangeResolution : LengthValue;
+    }
+
+    item def ForceTorqueSample :> SensorFrame {
+        attribute forceX : ForceValue;
+        attribute forceY : ForceValue;
+        attribute forceZ : ForceValue;
+        attribute torqueX : TorqueValue;
+        attribute torqueY : TorqueValue;
+        attribute torqueZ : TorqueValue;
+    }
+
+    item def HumanPresenceReport :> SensorFrame {
+        attribute nearestHumanDistance : LengthValue;
+        attribute relativeBearing : AngleValue;
+        attribute motionTowardRobot : Boolean;
+    }
+
+    item def ObjectEstimate :> SensorFrame {
+        attribute objectId : Identifier;
+        attribute classification : ObjectClass;
+        attribute poseX : LengthValue;
+        attribute poseY : LengthValue;
+        attribute poseZ : LengthValue;
+        attribute massEstimate : MassValue;
+        attribute graspConfidence : ProbabilityValue;
+    }
+
+    item def SystemStatus {
+        attribute timestamp : TimeValue;
+        attribute activePhase : TaskPhase;
+        attribute safetyMode : SafetyMode;
+        attribute batteryStateOfCharge : PercentValue;
+        attribute faultCode : Identifier;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def PowerOutputPort {
+        out item powerOut : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item commandIn : ControlCommand;
+    }
+
+    port def CommandOutputPort {
+        out item commandOut : ControlCommand;
+    }
+
+    port def JointCommandPort {
+        in item jointCommand : JointCommand;
+    }
+
+    port def LocomotionCommandPort {
+        in item locomotionCommand : LocomotionCommand;
+    }
+
+    port def ManipulationCommandPort {
+        in item manipulationCommand : ManipulationCommand;
+    }
+
+    port def ImagePort {
+        out item image : ImageFrame;
+    }
+
+    port def DepthPort {
+        out item depth : DepthCloud;
+    }
+
+    port def ForceTorquePort {
+        out item wrench : ForceTorqueSample;
+    }
+
+    port def HumanPresencePort {
+        out item humanPresence : HumanPresenceReport;
+    }
+
+    port def ObjectEstimatePort {
+        out item objectEstimate : ObjectEstimate;
+    }
+
+    port def StatusPort {
+        out item status : SystemStatus;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : VoltageValue = 48 [V];
+        attribute capacityEnergy : EnergyValue = 1800000 [J];
+        attribute stateOfCharge : PercentValue;
+        attribute maxContinuousPower : PowerValue = 1200 [W];
+        attribute minSafeStateOfCharge : PercentValue = 15;
+
+        port powerOut : PowerOutputPort;
+
+        state def BatteryStateMachine {
+            state charged;
+            state discharging;
+            state lowPower;
+            state isolated;
+
+            transition first charged;
+            transition charged to discharging accept ControlCommand;
+            transition discharging to lowPower if stateOfCharge <= minSafeStateOfCharge;
+            transition lowPower to isolated accept ControlCommand;
+        }
+
+        perform batteryState : BatteryStateMachine;
+    }
+
+    part def PowerDistributionUnit {
+        attribute conversionEfficiency : PercentValue = 92;
+        attribute maxOutputPower : PowerValue = 1000 [W];
+
+        port mainPowerIn : PowerInputPort;
+        port computePowerOut : PowerOutputPort;
+        port actuatorPowerOut : PowerOutputPort;
+        port sensorPowerOut : PowerOutputPort;
+    }
+
+    part def VisionHead {
+        attribute stereoBaseline : LengthValue = 0.08 [m];
+        attribute cameraHorizontalFov : AngleValue = 1.57 [rad];
+        attribute cameraFrameRate : Real = 60;
+        attribute lidarRange : LengthValue = 15 [m];
+
+        port powerIn : PowerInputPort;
+        port rgbOut : ImagePort;
+        port depthOut : DepthPort;
+        port humanPresenceOut : HumanPresencePort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute gyroNoiseDensity : Real = 0.005;
+        attribute accelerometerNoiseDensity : Real = 0.02;
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusPort;
+    }
+
+    part def JointActuator {
+        attribute jointName : Identifier;
+        attribute maxTorque : TorqueValue;
+        attribute maxSpeed : AngularVelocityValue;
+        attribute positionLimitLower : AngleValue;
+        attribute positionLimitUpper : AngleValue;
+        attribute temperatureLimit : TemperatureValue = 358 [K];
+
+        port powerIn : PowerInputPort;
+        port commandIn : JointCommandPort;
+        port statusOut : StatusPort;
+
+        action def ExecuteJointCommand {
+            in item command : JointCommand;
+            out item status : SystemStatus;
+        }
+    }
+
+    part def DexterousHand {
+        attribute handName : Identifier;
+        attribute fingerCount : Integer = 5;
+        attribute maxGripForce : ForceValue = 120 [N];
+        attribute tactileTaxels : Integer = 480;
+
+        port powerIn : PowerInputPort;
+        port manipulationIn : ManipulationCommandPort;
+        port wrenchOut : ForceTorquePort;
+        port statusOut : StatusPort;
+
+        part thumbActuator : JointActuator {
+            attribute jointName = "thumbOpposition";
+            attribute maxTorque = 8 [N*m];
+            attribute maxSpeed = 4 [rad/s];
+            attribute positionLimitLower = -0.7 [rad];
+            attribute positionLimitUpper = 1.2 [rad];
+        }
+
+        part indexActuator : JointActuator {
+            attribute jointName = "indexFlexion";
+            attribute maxTorque = 6 [N*m];
+            attribute maxSpeed = 5 [rad/s];
+            attribute positionLimitLower = 0 [rad];
+            attribute positionLimitUpper = 1.5 [rad];
+        }
+
+        part middleActuator : JointActuator {
+            attribute jointName = "middleFlexion";
+            attribute maxTorque = 6 [N*m];
+            attribute maxSpeed = 5 [rad/s];
+            attribute positionLimitLower = 0 [rad];
+            attribute positionLimitUpper = 1.5 [rad];
+        }
+
+        action def GraspObject {
+            in item command : ManipulationCommand;
+            out item wrench : ForceTorqueSample;
+        }
+    }
+
+    part def HumanoidArm {
+        attribute side : Identifier;
+        attribute reach : LengthValue = 0.75 [m];
+        attribute payloadLimit : MassValue = 5 [kg];
+
+        port powerIn : PowerInputPort;
+        port commandIn : ManipulationCommandPort;
+        port wrenchOut : ForceTorquePort;
+        port statusOut : StatusPort;
+
+        part shoulderPitch : JointActuator {
+            attribute jointName = "shoulderPitch";
+            attribute maxTorque = 95 [N*m];
+            attribute maxSpeed = 3.5 [rad/s];
+            attribute positionLimitLower = -2.6 [rad];
+            attribute positionLimitUpper = 2.1 [rad];
+        }
+
+        part shoulderRoll : JointActuator {
+            attribute jointName = "shoulderRoll";
+            attribute maxTorque = 80 [N*m];
+            attribute maxSpeed = 3.5 [rad/s];
+            attribute positionLimitLower = -1.8 [rad];
+            attribute positionLimitUpper = 1.8 [rad];
+        }
+
+        part elbowPitch : JointActuator {
+            attribute jointName = "elbowPitch";
+            attribute maxTorque = 70 [N*m];
+            attribute maxSpeed = 4 [rad/s];
+            attribute positionLimitLower = 0 [rad];
+            attribute positionLimitUpper = 2.5 [rad];
+        }
+
+        part wristYaw : JointActuator {
+            attribute jointName = "wristYaw";
+            attribute maxTorque = 25 [N*m];
+            attribute maxSpeed = 5 [rad/s];
+            attribute positionLimitLower = -2.5 [rad];
+            attribute positionLimitUpper = 2.5 [rad];
+        }
+
+        part hand : DexterousHand;
+
+        action def ReachAndManipulate {
+            in item command : ManipulationCommand;
+            out item status : SystemStatus;
+        }
+    }
+
+    part def HumanoidLeg {
+        attribute side : Identifier;
+        attribute maximumStepLength : LengthValue = 0.45 [m];
+        attribute kneeClearance : LengthValue = 0.12 [m];
+
+        port powerIn : PowerInputPort;
+        port locomotionIn : LocomotionCommandPort;
+        port statusOut : StatusPort;
+
+        part hipYaw : JointActuator {
+            attribute jointName = "hipYaw";
+            attribute maxTorque = 120 [N*m];
+            attribute maxSpeed = 3 [rad/s];
+            attribute positionLimitLower = -0.9 [rad];
+            attribute positionLimitUpper = 0.9 [rad];
+        }
+
+        part hipPitch : JointActuator {
+            attribute jointName = "hipPitch";
+            attribute maxTorque = 160 [N*m];
+            attribute maxSpeed = 3.5 [rad/s];
+            attribute positionLimitLower = -1.6 [rad];
+            attribute positionLimitUpper = 1.2 [rad];
+        }
+
+        part kneePitch : JointActuator {
+            attribute jointName = "kneePitch";
+            attribute maxTorque = 180 [N*m];
+            attribute maxSpeed = 4 [rad/s];
+            attribute positionLimitLower = 0 [rad];
+            attribute positionLimitUpper = 2.3 [rad];
+        }
+
+        part anklePitch : JointActuator {
+            attribute jointName = "anklePitch";
+            attribute maxTorque = 110 [N*m];
+            attribute maxSpeed = 4 [rad/s];
+            attribute positionLimitLower = -0.8 [rad];
+            attribute positionLimitUpper = 0.8 [rad];
+        }
+
+        action def ExecuteStep {
+            in item command : LocomotionCommand;
+            out item status : SystemStatus;
+        }
+    }
+
+    part def Torso {
+        attribute height : LengthValue = 0.72 [m];
+        attribute mass : MassValue = 24 [kg];
+        attribute maxTwistAngle : AngleValue = 1.0 [rad];
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusPort;
+
+        part waistYaw : JointActuator {
+            attribute jointName = "waistYaw";
+            attribute maxTorque = 130 [N*m];
+            attribute maxSpeed = 2.5 [rad/s];
+            attribute positionLimitLower = -1.0 [rad];
+            attribute positionLimitUpper = 1.0 [rad];
+        }
+    }
+
+    part def PerceptionComputer {
+        attribute processorPower : PowerValue = 120 [W];
+        attribute neuralInferenceRate : Real = 45;
+        attribute objectDetectionLatency : TimeValue = 0.08 [s];
+
+        port powerIn : PowerInputPort;
+        port rgbIn : ImagePort;
+        port depthIn : DepthPort;
+        port humanPresenceIn : HumanPresencePort;
+        port objectEstimateOut : ObjectEstimatePort;
+        port statusOut : StatusPort;
+
+        action def DetectTaskObject {
+            in item image : ImageFrame;
+            in item depth : DepthCloud;
+            out item estimate : ObjectEstimate;
+        }
+
+        action def DetectHumans {
+            in item image : ImageFrame;
+            in item depth : DepthCloud;
+            out item report : HumanPresenceReport;
+        }
+    }
+
+    part def TaskPlanner {
+        attribute replanningPeriod : TimeValue = 0.2 [s];
+        attribute minimumObjectConfidence : ProbabilityValue = 0.85;
+        attribute maximumAllowedObjectMass : MassValue = 5 [kg];
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port objectEstimateIn : ObjectEstimatePort;
+        port statusOut : StatusPort;
+        port locomotionOut : LocomotionCommandPort;
+        port manipulationOut : ManipulationCommandPort;
+
+        action def GenerateTaskPlan {
+            in item operatorCommand : ControlCommand;
+            in item objectEstimate : ObjectEstimate;
+            out item locomotionCommand : LocomotionCommand;
+            out item manipulationCommand : ManipulationCommand;
+        }
+    }
+
+    part def WholeBodyController {
+        attribute controlFrequency : Real = 1000;
+        attribute balanceMargin : LengthValue = 0.04 [m];
+        attribute maxCenterOfMassVelocity : LinearVelocityValue = 0.8 [m/s];
+
+        port powerIn : PowerInputPort;
+        port locomotionIn : LocomotionCommandPort;
+        port manipulationIn : ManipulationCommandPort;
+        port jointCommandOut : JointCommandPort;
+        port statusOut : StatusPort;
+
+        action def MaintainBalance {
+            in item locomotionCommand : LocomotionCommand;
+            out item status : SystemStatus;
+        }
+
+        action def CoordinateReachAndStep {
+            in item locomotionCommand : LocomotionCommand;
+            in item manipulationCommand : ManipulationCommand;
+            out item jointCommand : JointCommand;
+        }
+    }
+
+    part def SafetySupervisor {
+        attribute protectiveSeparationDistance : LengthValue = 1.2 [m];
+        attribute reducedSpeedLimit : LinearVelocityValue = 0.25 [m/s];
+        attribute nominalSpeedLimit : LinearVelocityValue = 0.75 [m/s];
+        attribute maximumContactForce : ForceValue = 140 [N];
+        attribute faultReactionTime : TimeValue = 0.05 [s];
+
+        port powerIn : PowerInputPort;
+        port humanPresenceIn : HumanPresencePort;
+        port wrenchIn : ForceTorquePort;
+        port commandOut : CommandOutputPort;
+        port statusOut : StatusPort;
+
+        state def SafetySupervisorStateMachine {
+            state normalOperation;
+            state reducedSpeedOperation;
+            state protectiveStopActive;
+            state emergencyStopActive;
+            state recoveryEnabled;
+
+            transition first normalOperation;
+            transition normalOperation to reducedSpeedOperation
+                if humanPresence.nearestHumanDistance <= protectiveSeparationDistance;
+            transition reducedSpeedOperation to normalOperation
+                if humanPresence.nearestHumanDistance > protectiveSeparationDistance;
+            transition normalOperation to protectiveStopActive
+                if wrench.forceZ > maximumContactForce;
+            transition reducedSpeedOperation to protectiveStopActive
+                if wrench.forceZ > maximumContactForce;
+            transition protectiveStopActive to recoveryEnabled accept ControlCommand;
+            transition recoveryEnabled to normalOperation accept ControlCommand;
+            transition normalOperation to emergencyStopActive accept ControlCommand;
+            transition reducedSpeedOperation to emergencyStopActive accept ControlCommand;
+            transition protectiveStopActive to emergencyStopActive accept ControlCommand;
+        }
+
+        perform safetyLogic : SafetySupervisorStateMachine;
+    }
+
+    part def HumanoidRobot {
+        attribute robotName : Identifier = "HumanoidPrimaryTaskRobot";
+        attribute totalMass : MassValue = 78 [kg];
+        attribute standingHeight : LengthValue = 1.72 [m];
+        attribute shoulderWidth : LengthValue = 0.46 [m];
+        attribute nominalWalkingSpeed : LinearVelocityValue = 0.6 [m/s];
+        attribute maximumPayloadTwoHanded : MassValue = 8 [kg];
+        attribute operationalEndurance : TimeValue = 7200 [s];
+
+        port externalCommandIn : CommandInputPort;
+        port statusOut : StatusPort;
+
+        part battery : BatteryPack;
+        part powerDistribution : PowerDistributionUnit;
+        part headSensors : VisionHead;
+        part imu : InertialMeasurementUnit;
+        part torso : Torso;
+        part leftArm : HumanoidArm {
+            attribute side = "left";
+        }
+        part rightArm : HumanoidArm {
+            attribute side = "right";
+        }
+        part leftLeg : HumanoidLeg {
+            attribute side = "left";
+        }
+        part rightLeg : HumanoidLeg {
+            attribute side = "right";
+        }
+        part perception : PerceptionComputer;
+        part planner : TaskPlanner;
+        part controller : WholeBodyController;
+        part safetySupervisor : SafetySupervisor;
+
+        connect battery.powerOut to powerDistribution.mainPowerIn;
+        connect powerDistribution.computePowerOut to perception.powerIn;
+        connect powerDistribution.computePowerOut to planner.powerIn;
+        connect powerDistribution.computePowerOut to controller.powerIn;
+        connect powerDistribution.computePowerOut to safetySupervisor.powerIn;
+        connect powerDistribution.sensorPowerOut to headSensors.powerIn;
+        connect powerDistribution.sensorPowerOut to imu.powerIn;
+        connect powerDistribution.actuatorPowerOut to torso.powerIn;
+        connect powerDistribution.actuatorPowerOut to leftArm.powerIn;
+        connect powerDistribution.actuatorPowerOut to rightArm.powerIn;
+        connect powerDistribution.actuatorPowerOut to leftLeg.powerIn;
+        connect powerDistribution.actuatorPowerOut to rightLeg.powerIn;
+
+        connect headSensors.rgbOut to perception.rgbIn;
+        connect headSensors.depthOut to perception.depthIn;
+        connect headSensors.humanPresenceOut to perception.humanPresenceIn;
+        connect headSensors.humanPresenceOut to safetySupervisor.humanPresenceIn;
+        connect perception.objectEstimateOut to planner.objectEstimateIn;
+
+        connect externalCommandIn to planner.commandIn;
+        connect planner.locomotionOut to controller.locomotionIn;
+        connect planner.manipulationOut to controller.manipulationIn;
+        connect planner.manipulationOut to leftArm.commandIn;
+        connect planner.manipulationOut to rightArm.commandIn;
+        connect controller.locomotionIn to leftLeg.locomotionIn;
+        connect controller.locomotionIn to rightLeg.locomotionIn;
+
+        connect leftArm.wrenchOut to safetySupervisor.wrenchIn;
+        connect rightArm.wrenchOut to safetySupervisor.wrenchIn;
+
+        state def PrimaryTaskStateMachine {
+            state standby;
+            state sensingWorkspace;
+            state buildingPlan;
+            state approachingTarget;
+            state graspingTarget;
+            state transportingTarget;
+            state placingTarget;
+            state validatingCompletion;
+            state returningHome;
+            state safeStop;
+            state faultRecovery;
+
+            transition first standby;
+            transition standby to sensingWorkspace accept ControlCommand;
+            transition sensingWorkspace to buildingPlan if objectEstimate.graspConfidence >= planner.minimumObjectConfidence;
+            transition buildingPlan to approachingTarget;
+            transition approachingTarget to graspingTarget;
+            transition graspingTarget to transportingTarget if wrench.forceZ >= 5 [N];
+            transition transportingTarget to placingTarget;
+            transition placingTarget to validatingCompletion;
+            transition validatingCompletion to returningHome;
+            transition returningHome to standby;
+            transition sensingWorkspace to safeStop if safetySupervisor.status.safetyMode == SafetyMode::protectiveStop;
+            transition buildingPlan to safeStop if safetySupervisor.status.safetyMode == SafetyMode::protectiveStop;
+            transition approachingTarget to safeStop if safetySupervisor.status.safetyMode == SafetyMode::protectiveStop;
+            transition graspingTarget to safeStop if safetySupervisor.status.safetyMode == SafetyMode::protectiveStop;
+            transition transportingTarget to safeStop if safetySupervisor.status.safetyMode == SafetyMode::protectiveStop;
+            transition placingTarget to safeStop if safetySupervisor.status.safetyMode == SafetyMode::protectiveStop;
+            transition safeStop to faultRecovery accept ControlCommand;
+            transition faultRecovery to standby accept ControlCommand;
+        }
+
+        action def PerformPrimaryHumanoidTask {
+            in item operatorCommand : ControlCommand;
+            out item finalStatus : SystemStatus;
+
+            first start;
+            then senseWorkspace;
+            action senseWorkspace : perception.DetectTaskObject;
+            then planTask;
+            action planTask : planner.GenerateTaskPlan;
+            then coordinateWholeBody;
+            action coordinateWholeBody : controller.CoordinateReachAndStep;
+            then maintainBalance;
+            action maintainBalance : controller.MaintainBalance;
+            then manipulate;
+            action manipulate : rightArm.ReachAndManipulate;
+            then verify;
+            then done;
+        }
+
+        perform primaryTaskBehavior : PrimaryTaskStateMachine;
+    }
+
+    part def OperatorInterface {
+        attribute wirelessDataRate : DataRateValue = 54000000 [bit/s];
+        attribute commandTimeout : TimeValue = 2 [s];
+
+        port commandOut : CommandOutputPort;
+        port statusIn : StatusPort;
+    }
+
+    part def Workcell {
+        attribute floorFlatnessTolerance : LengthValue = 0.01 [m];
+        attribute minimumAisleWidth : LengthValue = 1.1 [m];
+        attribute nominalIllumination : Real = 500;
+
+        part operatorConsole : OperatorInterface;
+        part humanoidRobot : HumanoidRobot;
+
+        connect operatorConsole.commandOut to humanoidRobot.externalCommandIn;
+        connect humanoidRobot.statusOut to operatorConsole.statusIn;
+    }
+
+    requirement def PrimaryTaskUsesHumanoidRobot {
+        doc /* The robotic system shall perform its primary operational task using a humanoid robot as the principal mobile manipulation platform. */
+        subject robot : HumanoidRobot;
+        require constraint {
+            robot.standingHeight >= 1.4 [m] and
+            robot.leftArm.payloadLimit >= 3 [kg] and
+            robot.rightArm.payloadLimit >= 3 [kg] and
+            robot.leftLeg.maximumStepLength >= 0.3 [m] and
+            robot.rightLeg.maximumStepLength >= 0.3 [m]
+        }
+    }
+
+    requirement def TwoArmManipulationCapability {
+        doc /* The humanoid robot shall be able to grasp and transport a task object using dexterous hands and coordinated whole-body balance. */
+        subject robot : HumanoidRobot;
+        require constraint {
+            robot.maximumPayloadTwoHanded >= 5 [kg] and
+            robot.controller.balanceMargin >= 0.03 [m] and
+            robot.leftArm.hand.fingerCount == 5 and
+            robot.rightArm.hand.fingerCount == 5
+        }
+    }
+
+    requirement def HumanAwareSafety {
+        doc /* The robotic system shall reduce speed or stop when a human enters the protective separation distance. */
+        subject robot : HumanoidRobot;
+        require constraint {
+            robot.safetySupervisor.protectiveSeparationDistance >= 1.0 [m] and
+            robot.safetySupervisor.reducedSpeedLimit <= 0.3 [m/s] and
+            robot.safetySupervisor.faultReactionTime <= 0.1 [s]
+        }
+    }
+
+    requirement def EnduranceRequirement {
+        doc /* The humanoid robot shall support at least one hour of primary-task operation without battery replacement. */
+        subject robot : HumanoidRobot;
+        require constraint {
+            robot.operationalEndurance >= 3600 [s] and
+            robot.battery.capacityEnergy >= 1000000 [J]
+        }
+    }
+
+    requirement def PerceptionRequirement {
+        doc /* The humanoid robot shall detect task objects and humans before planning motion in the workcell. */
+        subject robot : HumanoidRobot;
+        require constraint {
+            robot.perception.objectDetectionLatency <= 0.15 [s] and
+            robot.planner.minimumObjectConfidence >= 0.8 and
+            robot.headSensors.lidarRange >= 10 [m]
+        }
+    }
+
+    satisfy PrimaryTaskUsesHumanoidRobot by Workcell::humanoidRobot;
+    satisfy TwoArmManipulationCapability by Workcell::humanoidRobot;
+    satisfy HumanAwareSafety by Workcell::humanoidRobot;
+    satisfy EnduranceRequirement by Workcell::humanoidRobot;
+    satisfy PerceptionRequirement by Workcell::humanoidRobot;
+}

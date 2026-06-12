@@ -1,0 +1,546 @@
+package WiFiNetworkSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def dBm :> Real;
+    attribute def Percent :> Real;
+    attribute def Mbps :> Real;
+    attribute def GHz :> Real;
+    attribute def ms :> Real;
+    attribute def byte :> Integer;
+
+    item def EthernetFrame {
+        attribute destinationMac : String;
+        attribute sourceMac : String;
+        attribute etherType : Integer;
+        attribute payloadSize : byte;
+    }
+
+    item def WiFiFrame {
+        attribute receiverAddress : String;
+        attribute transmitterAddress : String;
+        attribute bssid : String;
+        attribute sequenceNumber : Integer;
+        attribute channelNumber : Integer;
+        attribute encrypted : Boolean;
+        attribute payloadSize : byte;
+    }
+
+    item def IPPacket {
+        attribute sourceIp : String;
+        attribute destinationIp : String;
+        attribute protocol : String;
+        attribute payloadSize : byte;
+    }
+
+    item def RadioSignal {
+        attribute centerFrequency : GHz;
+        attribute channelNumber : Integer;
+        attribute bandwidthMHz : Integer;
+        attribute signalStrength : dBm;
+        attribute modulation : String;
+    }
+
+    item def Credential {
+        attribute ssid : String;
+        attribute passphraseHash : String;
+        attribute securityMode : String;
+    }
+
+    item def DHCPLease {
+        attribute clientMac : String;
+        attribute assignedIp : String;
+        attribute gatewayIp : String;
+        attribute leaseSeconds : Integer;
+    }
+
+    item def NetworkStatus {
+        attribute connectedClients : Integer;
+        attribute backhaulAvailable : Boolean;
+        attribute channelUtilization : Percent;
+        attribute averageLatency : ms;
+        attribute aggregateThroughput : Mbps;
+    }
+
+    port def RadioPort {
+        out item beacon : WiFiFrame;
+        in item associationRequest : WiFiFrame;
+        out item associationResponse : WiFiFrame;
+        in item uplinkFrame : WiFiFrame;
+        out item downlinkFrame : WiFiFrame;
+        inout item rfSignal : RadioSignal;
+    }
+
+    port def ClientRadioPort {
+        in item beacon : WiFiFrame;
+        out item associationRequest : WiFiFrame;
+        in item associationResponse : WiFiFrame;
+        out item uplinkFrame : WiFiFrame;
+        in item downlinkFrame : WiFiFrame;
+        inout item rfSignal : RadioSignal;
+    }
+
+    port def WiredNetworkPort {
+        inout item ethernetFrame : EthernetFrame;
+        inout item ipPacket : IPPacket;
+    }
+
+    port def ManagementPort {
+        in item credentialUpdate : Credential;
+        out item status : NetworkStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Volt;
+        in attribute supplyCurrent : Ampere;
+    }
+
+    part def WiFiAccessPoint {
+        attribute ssid : String = "Managed-WiFi";
+        attribute bssid : String = "02:11:22:33:44:55";
+        attribute channelNumber : Integer = 6;
+        attribute centerFrequency : GHz = 2.437;
+        attribute maxClients : Integer = 64;
+        attribute transmitPower : dBm = 20.0;
+        attribute securityMode : String = "WPA3-Personal";
+        attribute averageLatencyTarget : ms = 20.0;
+
+        port radio : RadioPort;
+        port wan : WiredNetworkPort;
+        port admin : ManagementPort;
+        port power : PowerPort;
+
+        part radioSubsystem : RadioTransceiver;
+        part securityManager : SecurityController;
+        part dhcpServer : DHCPServer;
+        part bridge : PacketBridge;
+        part controller : AccessPointController;
+
+        connect radio to radioSubsystem.antenna;
+        connect wan to bridge.wiredSide;
+        connect radioSubsystem.framePort to bridge.wirelessSide;
+        connect securityManager.authPort to controller.authControl;
+        connect dhcpServer.leasePort to controller.addressControl;
+        connect admin to controller.management;
+    }
+
+    part def RadioTransceiver {
+        attribute receiverSensitivity : dBm = -92.0;
+        attribute maxDataRate : Mbps = 1200.0;
+        attribute activeBandwidthMHz : Integer = 80;
+
+        port antenna : RadioPort;
+        port framePort : RadioPort;
+    }
+
+    part def SecurityController {
+        attribute allowedSecurityMode : String = "WPA3-Personal";
+        attribute failedAttemptLimit : Integer = 5;
+
+        port authPort {
+            in item presentedCredential : Credential;
+            out attribute authenticationAccepted : Boolean;
+        }
+    }
+
+    part def DHCPServer {
+        attribute addressPoolStart : String = "192.168.10.100";
+        attribute addressPoolEnd : String = "192.168.10.199";
+        attribute gatewayIp : String = "192.168.10.1";
+        attribute leaseSecondsDefault : Integer = 86400;
+
+        port leasePort {
+            in attribute clientMac : String;
+            out item lease : DHCPLease;
+        }
+    }
+
+    part def PacketBridge {
+        attribute bridgeMode : String = "Layer2WithNATGateway";
+        attribute maxForwardingRate : Mbps = 1000.0;
+
+        port wirelessSide : RadioPort;
+        port wiredSide : WiredNetworkPort;
+    }
+
+    part def AccessPointController {
+        attribute operational : Boolean = false;
+        attribute connectedClientCount : Integer = 0;
+        attribute channelUtilization : Percent = 0.0;
+
+        port authControl {
+            out item presentedCredential : Credential;
+            in attribute authenticationAccepted : Boolean;
+        }
+
+        port addressControl {
+            out attribute clientMac : String;
+            in item lease : DHCPLease;
+        }
+
+        port management : ManagementPort;
+    }
+
+    part def WiFiClientDevice {
+        attribute deviceName : String;
+        attribute macAddress : String;
+        attribute assignedIp : String;
+        attribute roamingEnabled : Boolean = true;
+        attribute minimumUsableSignal : dBm = -75.0;
+
+        port wlan : ClientRadioPort;
+        port applicationInterface {
+            inout item ipPacket : IPPacket;
+        }
+
+        part clientRadio : ClientRadio;
+        part supplicant : ClientSupplicant;
+        part networkStack : ClientNetworkStack;
+
+        connect wlan to clientRadio.antenna;
+        connect clientRadio.framePort to supplicant.radioControl;
+        connect supplicant.networkPort to networkStack.wirelessNetwork;
+        connect applicationInterface to networkStack.applicationPort;
+    }
+
+    part def ClientRadio {
+        attribute supportedBands : String = "2.4GHz,5GHz";
+        attribute maxClientRate : Mbps = 866.7;
+
+        port antenna : ClientRadioPort;
+        port framePort : ClientRadioPort;
+    }
+
+    part def ClientSupplicant {
+        attribute rememberedSsid : String = "Managed-WiFi";
+        attribute securityMode : String = "WPA3-Personal";
+
+        port radioControl : ClientRadioPort;
+        port networkPort {
+            inout item ipPacket : IPPacket;
+            in item lease : DHCPLease;
+        }
+    }
+
+    part def ClientNetworkStack {
+        attribute ipAddress : String;
+        attribute gatewayIp : String;
+        attribute dnsServerIp : String;
+
+        port wirelessNetwork {
+            inout item ipPacket : IPPacket;
+            in item lease : DHCPLease;
+        }
+
+        port applicationPort {
+            inout item ipPacket : IPPacket;
+        }
+    }
+
+    part def InternetGateway {
+        attribute publicIp : String = "203.0.113.20";
+        attribute lanGatewayIp : String = "192.168.10.1";
+        attribute uplinkRate : Mbps = 500.0;
+        attribute downlinkRate : Mbps = 500.0;
+
+        port lan : WiredNetworkPort;
+        port isp : WiredNetworkPort;
+        port power : PowerPort;
+    }
+
+    part def WiFiNetworkSystem {
+        attribute primaryFunction : String =
+            "Provide authenticated wireless local area networking by converting radio-based Wi-Fi frames from client devices into routed IP traffic over a wired internet backhaul, while maintaining secure association, address assignment, and service availability.";
+
+        part accessPoint : WiFiAccessPoint;
+        part gateway : InternetGateway;
+        part laptop : WiFiClientDevice {
+            attribute deviceName = "EngineeringLaptop";
+            attribute macAddress = "7A:10:11:12:13:14";
+        }
+        part phone : WiFiClientDevice {
+            attribute deviceName = "UserPhone";
+            attribute macAddress = "7A:20:21:22:23:24";
+        }
+
+        connect accessPoint.wan to gateway.lan;
+        connect accessPoint.radio to laptop.wlan;
+        connect accessPoint.radio to phone.wlan;
+    }
+
+    action def BroadcastBeacon {
+        in attribute ssid : String;
+        in attribute bssid : String;
+        in attribute channelNumber : Integer;
+        out item beaconFrame : WiFiFrame;
+
+        first start;
+        then createBeacon;
+        then transmitBeacon;
+        then done;
+
+        action createBeacon {
+            out item beaconFrame : WiFiFrame {
+                attribute receiverAddress = "FF:FF:FF:FF:FF:FF";
+                attribute transmitterAddress = bssid;
+                attribute bssid = bssid;
+                attribute sequenceNumber = 0;
+                attribute channelNumber = channelNumber;
+                attribute encrypted = false;
+                attribute payloadSize = 128;
+            }
+        }
+
+        action transmitBeacon;
+    }
+
+    action def AuthenticateClient {
+        in item credential : Credential;
+        in attribute configuredSsid : String;
+        in attribute securityMode : String;
+        out attribute accepted : Boolean;
+
+        first receiveCredential;
+        then validateSsid;
+        then validateSecurity;
+        then decideAccess;
+        then done;
+
+        action receiveCredential;
+        action validateSsid;
+        action validateSecurity;
+        action decideAccess;
+    }
+
+    action def AssignNetworkAddress {
+        in attribute clientMac : String;
+        out item lease : DHCPLease;
+
+        first receiveDiscover;
+        then selectAddress;
+        then issueLease;
+        then done;
+
+        action receiveDiscover;
+        action selectAddress;
+        action issueLease;
+    }
+
+    action def ForwardTraffic {
+        in item inboundPacket : IPPacket;
+        out item outboundPacket : IPPacket;
+
+        first classifyPacket;
+        then applyBridgePolicy;
+        then transmitPacket;
+        then done;
+
+        action classifyPacket;
+        action applyBridgePolicy;
+        action transmitPacket;
+    }
+
+    state def AccessPointOperationalState {
+        entry action initializeHardware;
+        exit action persistStatus;
+
+        state Off;
+        state Booting;
+        state ConfiguringRadio;
+        state Broadcasting;
+        state AssociatingClient;
+        state AuthenticatingClient;
+        state ServingTraffic;
+        state Degraded;
+        state Faulted;
+
+        transition first Off;
+        transition Off_to_Booting
+            first Off
+            then Booting
+            accept powerApplied;
+
+        transition Booting_to_ConfiguringRadio
+            first Booting
+            then ConfiguringRadio
+            accept firmwareReady;
+
+        transition ConfiguringRadio_to_Broadcasting
+            first ConfiguringRadio
+            then Broadcasting
+            accept channelSelected;
+
+        transition Broadcasting_to_AssociatingClient
+            first Broadcasting
+            then AssociatingClient
+            accept associationRequestReceived;
+
+        transition AssociatingClient_to_AuthenticatingClient
+            first AssociatingClient
+            then AuthenticatingClient
+            accept credentialReceived;
+
+        transition AuthenticatingClient_to_ServingTraffic
+            first AuthenticatingClient
+            then ServingTraffic
+            accept authenticationAccepted;
+
+        transition ServingTraffic_to_AssociatingClient
+            first ServingTraffic
+            then AssociatingClient
+            accept newAssociationRequestReceived;
+
+        transition ServingTraffic_to_Degraded
+            first ServingTraffic
+            then Degraded
+            accept backhaulLost;
+
+        transition Degraded_to_ServingTraffic
+            first Degraded
+            then ServingTraffic
+            accept backhaulRestored;
+
+        transition Broadcasting_to_Faulted
+            first Broadcasting
+            then Faulted
+            accept radioFailureDetected;
+
+        transition ServingTraffic_to_Faulted
+            first ServingTraffic
+            then Faulted
+            accept controllerFailureDetected;
+    }
+
+    state def ClientConnectionState {
+        state Disconnected;
+        state Scanning;
+        state Associating;
+        state Authenticating;
+        state Addressing;
+        state Connected;
+        state Roaming;
+        state LinkLost;
+
+        transition first Disconnected;
+
+        transition Disconnected_to_Scanning
+            first Disconnected
+            then Scanning
+            accept wlanEnabled;
+
+        transition Scanning_to_Associating
+            first Scanning
+            then Associating
+            accept matchingBeaconDetected;
+
+        transition Associating_to_Authenticating
+            first Associating
+            then Authenticating
+            accept associationAccepted;
+
+        transition Authenticating_to_Addressing
+            first Authenticating
+            then Addressing
+            accept authenticationAccepted;
+
+        transition Addressing_to_Connected
+            first Addressing
+            then Connected
+            accept dhcpLeaseReceived;
+
+        transition Connected_to_Roaming
+            first Connected
+            then Roaming
+            accept signalBelowThreshold;
+
+        transition Roaming_to_Connected
+            first Roaming
+            then Connected
+            accept strongerAccessPointSelected;
+
+        transition Connected_to_LinkLost
+            first Connected
+            then LinkLost
+            accept beaconTimeout;
+
+        transition LinkLost_to_Scanning
+            first LinkLost
+            then Scanning
+            accept retryConnection;
+    }
+
+    requirement def ProvideWirelessConnectivity {
+        doc
+            /* The system shall provide secure Wi-Fi connectivity between authorized client devices and an IP network. */
+
+        subject system : WiFiNetworkSystem;
+
+        require constraint {
+            system.accessPoint.maxClients >= 32
+        }
+    }
+
+    requirement def SecureAssociation {
+        doc
+            /* The access point shall authenticate clients before forwarding client IP traffic. */
+
+        subject ap : WiFiAccessPoint;
+
+        require constraint {
+            ap.securityMode == "WPA3-Personal"
+        }
+    }
+
+    requirement def RadioCoverage {
+        doc
+            /* The Wi-Fi radio link shall remain usable for associated clients while received signal strength is at or above the minimum usable level. */
+
+        subject client : WiFiClientDevice;
+
+        require constraint {
+            client.minimumUsableSignal <= -70.0
+        }
+    }
+
+    requirement def ThroughputCapability {
+        doc
+            /* The access point shall support aggregate wireless forwarding throughput suitable for multiple concurrent client devices. */
+
+        subject ap : WiFiAccessPoint;
+
+        require constraint {
+            ap.radioSubsystem.maxDataRate >= 866.7
+        }
+    }
+
+    requirement def AddressAssignment {
+        doc
+            /* The system shall assign an IP address lease to each authenticated client before normal packet forwarding. */
+
+        subject ap : WiFiAccessPoint;
+
+        require constraint {
+            ap.dhcpServer.leaseSecondsDefault >= 3600
+        }
+    }
+
+    requirement def AvailabilityMonitoring {
+        doc
+            /* The system shall report operational status including client count, backhaul availability, channel utilization, latency, and throughput. */
+
+        subject ap : WiFiAccessPoint;
+
+        require constraint {
+            ap.averageLatencyTarget <= 25.0
+        }
+    }
+
+    satisfy ProvideWirelessConnectivity by WiFiNetworkSystem;
+    satisfy SecureAssociation by WiFiAccessPoint;
+    satisfy RadioCoverage by WiFiClientDevice;
+    satisfy ThroughputCapability by WiFiAccessPoint;
+    satisfy AddressAssignment by DHCPServer;
+    satisfy AvailabilityMonitoring by AccessPointController;
+}

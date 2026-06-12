@@ -1,0 +1,707 @@
+package AugustHomeSmartAccessModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def Volt {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def AmpereHour {
+        :> ScalarValues::Real;
+        unit = "Ah";
+    }
+
+    attribute def Second {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Millisecond {
+        :> ScalarValues::Real;
+        unit = "ms";
+    }
+
+    attribute def DegreeCelsius {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Meter {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def NewtonMeter {
+        :> ScalarValues::Real;
+        unit = "N*m";
+    }
+
+    enum def LockState {
+        enum locked;
+        enum unlocked;
+        enum locking;
+        enum unlocking;
+        enum jammed;
+        enum unknown;
+    }
+
+    enum def DoorState {
+        enum open;
+        enum closed;
+        enum ajar;
+        enum unknown;
+    }
+
+    enum def CredentialType {
+        enum ownerAccount;
+        enum guestAccount;
+        enum keypadPin;
+        enum autoUnlockToken;
+        enum manualThumbTurn;
+        enum voiceAssistantToken;
+    }
+
+    enum def AccessDecision {
+        enum granted;
+        enum denied;
+        enum expired;
+        enum revoked;
+        enum networkUnavailable;
+    }
+
+    enum def ConnectivityState {
+        enum offline;
+        enum bluetoothOnly;
+        enum wifiViaBridge;
+        enum cloudConnected;
+    }
+
+    item def LockCommand {
+        attribute commandId : String;
+        attribute requestedState : LockState;
+        attribute sourceCredential : CredentialType;
+        attribute issuedAtEpoch : Integer;
+    }
+
+    item def AccessCredential {
+        attribute credentialId : String;
+        attribute credentialType : CredentialType;
+        attribute subjectId : String;
+        attribute validFromEpoch : Integer;
+        attribute validUntilEpoch : Integer;
+        attribute revoked : Boolean;
+    }
+
+    item def AccessDecisionReport {
+        attribute decision : AccessDecision;
+        attribute reason : String;
+        attribute evaluatedAtEpoch : Integer;
+    }
+
+    item def LockStatus {
+        attribute lockState : LockState;
+        attribute doorState : DoorState;
+        attribute batteryLevel : Percent;
+        attribute connectivityState : ConnectivityState;
+        attribute lastUpdatedEpoch : Integer;
+    }
+
+    item def EventRecord {
+        attribute eventId : String;
+        attribute eventType : String;
+        attribute actorId : String;
+        attribute occurredAtEpoch : Integer;
+        attribute result : String;
+    }
+
+    item def MobileNotification {
+        attribute notificationId : String;
+        attribute recipientAccountId : String;
+        attribute title : String;
+        attribute body : String;
+        attribute createdAtEpoch : Integer;
+    }
+
+    port def CommandPort {
+        in item command : LockCommand;
+        out item decision : AccessDecisionReport;
+    }
+
+    port def StatusPort {
+        out item status : LockStatus;
+        out item event : EventRecord;
+    }
+
+    port def CredentialPort {
+        in item credential : AccessCredential;
+        out item decision : AccessDecisionReport;
+    }
+
+    port def NotificationPort {
+        out item notification : MobileNotification;
+    }
+
+    port def MotorPowerPort {
+        out attribute voltage : Volt;
+        out attribute current : Real;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredState : String;
+        out attribute confidence : Percent;
+    }
+
+    part def AugustHomeAccessSystem {
+        doc /* Primary function: provide secure, remote, and automated residential door access by authenticating users, commanding a retrofit smart lock, monitoring door and lock state, and reporting access events to occupants. */
+
+        attribute nominalBatteryVoltage : Volt = 6.0 [V];
+        attribute minimumOperatingBatteryLevel : Percent = 10.0 [%];
+        attribute localBluetoothRange : Meter = 10.0 [m];
+        attribute remoteCommandTimeout : Second = 8.0 [s];
+        attribute autoLockDelay : Second = 30.0 [s];
+
+        port mobileAppPort : CommandPort;
+        port cloudPort : CommandPort;
+        port statusPort : StatusPort;
+        port notificationPort : NotificationPort;
+
+        part smartLock : RetrofitSmartLock;
+        part doorSense : DoorSenseModule;
+        part connectBridge : WiFiConnectBridge;
+        part cloudService : AugustCloudService;
+        part mobileApp : AugustMobileApp;
+        part keypad : OptionalKeypad;
+        part accountDirectory : AccessAccountDirectory;
+        part eventLog : AccessEventLog;
+
+        connect mobileApp.commandOut to smartLock.commandIn;
+        connect cloudService.remoteCommandOut to connectBridge.cloudCommandIn;
+        connect connectBridge.lockCommandOut to smartLock.commandIn;
+        connect keypad.pinCredentialOut to smartLock.credentialIn;
+        connect mobileApp.credentialOut to accountDirectory.credentialIn;
+        connect accountDirectory.decisionOut to smartLock.accessDecisionIn;
+        connect doorSense.sensorOut to smartLock.doorSensorIn;
+        connect smartLock.statusOut to eventLog.statusIn;
+        connect smartLock.eventOut to eventLog.eventIn;
+        connect eventLog.notificationOut to cloudService.notificationIn;
+        connect cloudService.mobileNotificationOut to mobileApp.notificationIn;
+        connect smartLock.statusOut to statusPort.status;
+    }
+
+    part def RetrofitSmartLock {
+        attribute lockState : LockState = LockState::unknown;
+        attribute doorState : DoorState = DoorState::unknown;
+        attribute batteryLevel : Percent = 100.0 [%];
+        attribute motorPeakTorque : NewtonMeter = 1.8 [N*m];
+        attribute boltTravelTimeout : Second = 3.0 [s];
+        attribute jamDetectionCurrentThreshold : Real = 1.2;
+        attribute localCredentialCacheSize : Integer = 128;
+
+        port commandIn : CommandPort;
+        port credentialIn : CredentialPort;
+        port accessDecisionIn : CredentialPort;
+        port doorSensorIn : SensorSignalPort;
+        port motorPower : MotorPowerPort;
+        port statusOut : StatusPort;
+        port eventOut : StatusPort;
+
+        part controller : LockController;
+        part motorDrive : DeadboltMotorDrive;
+        part batteryPack : BatteryPack;
+        part thumbTurnEncoder : ThumbTurnPositionSensor;
+        part bluetoothRadio : BluetoothLowEnergyRadio;
+        part tamperSensor : TamperSensor;
+
+        connect commandIn.command to controller.commandInput;
+        connect credentialIn.credential to controller.credentialInput;
+        connect doorSensorIn.measuredState to controller.doorSignalInput;
+        connect controller.motorRequest to motorDrive.motorCommand;
+        connect batteryPack.powerOut to motorPower.voltage;
+        connect motorDrive.positionSignal to controller.boltPositionInput;
+        connect thumbTurnEncoder.positionSignal to controller.thumbTurnInput;
+        connect tamperSensor.tamperSignal to controller.tamperInput;
+        connect controller.statusOutput to statusOut.status;
+        connect controller.eventOutput to eventOut.event;
+    }
+
+    part def LockController {
+        attribute commandInput : LockCommand;
+        attribute credentialInput : AccessCredential;
+        attribute doorSignalInput : String;
+        attribute boltPositionInput : String;
+        attribute thumbTurnInput : String;
+        attribute tamperInput : Boolean;
+        attribute motorRequest : String;
+        attribute statusOutput : LockStatus;
+        attribute eventOutput : EventRecord;
+        attribute processingLatency : Millisecond = 80.0 [ms];
+
+        perform action validateCredential;
+        perform action executeLockCommand;
+        perform action publishStatus;
+        perform action recordAccessEvent;
+
+        state def LockControlStateMachine {
+            state initializing;
+            state secured;
+            state unsecured;
+            state locking;
+            state unlocking;
+            state jammed;
+            state lowBattery;
+            state offlineSafeMode;
+
+            transition first initial then initialingTransition to initializing;
+
+            transition initializationComplete
+                first initialingTransition
+                then secured;
+
+            transition unlockRequested
+                first secured
+                accept LockCommand
+                if commandInput.requestedState == LockState::unlocked
+                then unlocking
+                do validateCredential;
+
+            transition unlockGranted
+                first unlocking
+                if statusOutput.lockState == LockState::unlocked
+                then unsecured
+                do publishStatus;
+
+            transition lockRequested
+                first unsecured
+                accept LockCommand
+                if commandInput.requestedState == LockState::locked
+                then locking
+                do executeLockCommand;
+
+            transition lockComplete
+                first locking
+                if statusOutput.lockState == LockState::locked
+                then secured
+                do publishStatus;
+
+            transition boltJamDetected
+                first locking
+                if motorRequest == "stop_jam_detected"
+                then jammed
+                do recordAccessEvent;
+
+            transition unlockJamDetected
+                first unlocking
+                if motorRequest == "stop_jam_detected"
+                then jammed
+                do recordAccessEvent;
+
+            transition batteryCritical
+                first secured
+                if statusOutput.batteryLevel < 10.0 [%]
+                then lowBattery
+                do publishStatus;
+
+            transition networkLost
+                first secured
+                if statusOutput.connectivityState == ConnectivityState::offline
+                then offlineSafeMode
+                do publishStatus;
+
+            transition manualThumbTurnUnlock
+                first secured
+                if thumbTurnInput == "manual_unlocked"
+                then unsecured
+                do recordAccessEvent;
+
+            transition manualThumbTurnLock
+                first unsecured
+                if thumbTurnInput == "manual_locked"
+                then secured
+                do recordAccessEvent;
+        }
+    }
+
+    action def ValidateCredential {
+        in item credential : AccessCredential;
+        in attribute currentEpoch : Integer;
+        out item decisionReport : AccessDecisionReport;
+
+        first start;
+        then checkRevocation;
+        then checkValidityWindow;
+        then produceDecision;
+        then done;
+
+        action checkRevocation {
+            if credential.revoked {
+                decisionReport.decision = AccessDecision::revoked;
+                decisionReport.reason = "Credential has been revoked";
+            }
+        }
+
+        action checkValidityWindow {
+            if currentEpoch < credential.validFromEpoch {
+                decisionReport.decision = AccessDecision::denied;
+                decisionReport.reason = "Credential is not active yet";
+            }
+            if currentEpoch > credential.validUntilEpoch {
+                decisionReport.decision = AccessDecision::expired;
+                decisionReport.reason = "Credential has expired";
+            }
+        }
+
+        action produceDecision {
+            if not credential.revoked and currentEpoch >= credential.validFromEpoch and currentEpoch <= credential.validUntilEpoch {
+                decisionReport.decision = AccessDecision::granted;
+                decisionReport.reason = "Credential is valid for requested access";
+            }
+        }
+    }
+
+    action def ExecuteLockCommand {
+        in item command : LockCommand;
+        in item decisionReport : AccessDecisionReport;
+        out attribute motorRequest : String;
+        out item resultingStatus : LockStatus;
+
+        first start;
+        then evaluateDecision;
+        then driveMotor;
+        then verifyBoltPosition;
+        then done;
+
+        action evaluateDecision {
+            if decisionReport.decision == AccessDecision::granted {
+                motorRequest = "drive_to_requested_state";
+            } else {
+                motorRequest = "deny_no_motion";
+            }
+        }
+
+        action driveMotor {
+            if command.requestedState == LockState::locked {
+                resultingStatus.lockState = LockState::locking;
+            }
+            if command.requestedState == LockState::unlocked {
+                resultingStatus.lockState = LockState::unlocking;
+            }
+        }
+
+        action verifyBoltPosition {
+            resultingStatus.lockState = command.requestedState;
+        }
+    }
+
+    action def PublishStatus {
+        in item lockStatus : LockStatus;
+        out item event : EventRecord;
+
+        first start;
+        then createStatusEvent;
+        then done;
+
+        action createStatusEvent {
+            event.eventType = "status_changed";
+            event.result = "published";
+            event.occurredAtEpoch = lockStatus.lastUpdatedEpoch;
+        }
+    }
+
+    action def RecordAccessEvent {
+        in item command : LockCommand;
+        in item decisionReport : AccessDecisionReport;
+        out item event : EventRecord;
+
+        first start;
+        then createAuditRecord;
+        then done;
+
+        action createAuditRecord {
+            event.eventType = "access_attempt";
+            event.actorId = command.commandId;
+            event.result = decisionReport.reason;
+            event.occurredAtEpoch = decisionReport.evaluatedAtEpoch;
+        }
+    }
+
+    part def DeadboltMotorDrive {
+        attribute ratedVoltage : Volt = 6.0 [V];
+        attribute stallCurrent : Real = 1.5;
+        attribute peakTorque : NewtonMeter = 1.8 [N*m];
+        attribute nominalActuationTime : Second = 1.6 [s];
+        attribute motorCommand : String;
+        attribute positionSignal : String;
+
+        port powerIn : MotorPowerPort;
+    }
+
+    part def BatteryPack {
+        attribute cellCount : Integer = 4;
+        attribute chemistry : String = "AA alkaline";
+        attribute nominalVoltage : Volt = 6.0 [V];
+        attribute usableCapacity : AmpereHour = 2.4 [Ah];
+        attribute remainingLevel : Percent = 100.0 [%];
+        attribute lowBatteryThreshold : Percent = 20.0 [%];
+        attribute criticalBatteryThreshold : Percent = 10.0 [%];
+
+        port powerOut : MotorPowerPort;
+    }
+
+    part def ThumbTurnPositionSensor {
+        attribute angularPosition : Real;
+        attribute positionSignal : String;
+        attribute samplingPeriod : Millisecond = 50.0 [ms];
+
+        port sensorOut : SensorSignalPort;
+    }
+
+    part def TamperSensor {
+        attribute coverRemoved : Boolean = false;
+        attribute excessiveMotionDetected : Boolean = false;
+        attribute tamperSignal : Boolean = false;
+
+        port sensorOut : SensorSignalPort;
+    }
+
+    part def DoorSenseModule {
+        attribute doorState : DoorState = DoorState::unknown;
+        attribute magnetSeparation : Meter = 0.02 [m];
+        attribute closedThreshold : Meter = 0.03 [m];
+        attribute samplingPeriod : Millisecond = 100.0 [ms];
+
+        port sensorOut : SensorSignalPort;
+
+        state def DoorSenseStateMachine {
+            state unknown;
+            state closed;
+            state open;
+            state ajar;
+
+            transition initialize first initial then unknown;
+
+            transition detectClosed
+                first unknown
+                if magnetSeparation <= closedThreshold
+                then closed;
+
+            transition detectOpen
+                first closed
+                if magnetSeparation > closedThreshold
+                then open;
+
+            transition detectAjar
+                first open
+                if magnetSeparation <= 0.08 [m] and magnetSeparation > closedThreshold
+                then ajar;
+
+            transition closeFromAjar
+                first ajar
+                if magnetSeparation <= closedThreshold
+                then closed;
+        }
+    }
+
+    part def BluetoothLowEnergyRadio {
+        attribute protocolVersion : String = "BLE 5";
+        attribute nominalRange : Meter = 10.0 [m];
+        attribute encryptedPairingEnabled : Boolean = true;
+        attribute connectionState : ConnectivityState = ConnectivityState::bluetoothOnly;
+
+        port commandPort : CommandPort;
+        port statusPort : StatusPort;
+    }
+
+    part def WiFiConnectBridge {
+        attribute wifiBand : String = "2.4 GHz";
+        attribute cloudHeartbeatPeriod : Second = 30.0 [s];
+        attribute commandRelayTimeout : Second = 5.0 [s];
+        attribute connectionState : ConnectivityState = ConnectivityState::wifiViaBridge;
+
+        port cloudCommandIn : CommandPort;
+        port lockCommandOut : CommandPort;
+        port lockStatusIn : StatusPort;
+        port cloudStatusOut : StatusPort;
+    }
+
+    part def AugustCloudService {
+        attribute serviceRegion : String = "United States";
+        attribute commandRetentionWindow : Second = 60.0 [s];
+        attribute eventRetentionDays : Integer = 365;
+        attribute multiFactorRequiredForOwner : Boolean = true;
+
+        port remoteCommandOut : CommandPort;
+        port statusIn : StatusPort;
+        port notificationIn : NotificationPort;
+        port mobileNotificationOut : NotificationPort;
+
+        perform action authorizeRemoteCommand;
+        perform action sendMobileNotification;
+    }
+
+    part def AugustMobileApp {
+        attribute platform : String;
+        attribute accountId : String;
+        attribute autoUnlockEnabled : Boolean = true;
+        attribute geofenceRadius : Meter = 200.0 [m];
+        attribute appCommandTimeout : Second = 8.0 [s];
+
+        port commandOut : CommandPort;
+        port credentialOut : CredentialPort;
+        port statusIn : StatusPort;
+        port notificationIn : NotificationPort;
+    }
+
+    part def OptionalKeypad {
+        attribute keypadBatteryLevel : Percent = 100.0 [%];
+        attribute pinLength : Integer = 6;
+        attribute maxFailedAttempts : Integer = 5;
+        attribute lockoutDuration : Second = 300.0 [s];
+
+        port pinCredentialOut : CredentialPort;
+        port statusOut : StatusPort;
+    }
+
+    part def AccessAccountDirectory {
+        attribute ownerAccountCount : Integer;
+        attribute guestAccountCount : Integer;
+        attribute maxGuestCredentials : Integer = 250;
+        attribute credentialSyncPeriod : Second = 60.0 [s];
+
+        port credentialIn : CredentialPort;
+        port decisionOut : CredentialPort;
+
+        perform action validateCredential;
+    }
+
+    part def AccessEventLog {
+        attribute retainedEventCount : Integer;
+        attribute retentionPeriodDays : Integer = 365;
+        attribute notificationOnUnlock : Boolean = true;
+        attribute notificationOnJam : Boolean = true;
+        attribute notificationOnLowBattery : Boolean = true;
+
+        port statusIn : StatusPort;
+        port eventIn : StatusPort;
+        port notificationOut : NotificationPort;
+    }
+
+    action def AuthorizeRemoteCommand {
+        in item command : LockCommand;
+        in item credential : AccessCredential;
+        out item decisionReport : AccessDecisionReport;
+
+        first start;
+        then verifyAccountBinding;
+        then validateCredential;
+        then done;
+
+        action verifyAccountBinding {
+            if credential.subjectId == "" {
+                decisionReport.decision = AccessDecision::denied;
+                decisionReport.reason = "No account subject bound to credential";
+            }
+        }
+    }
+
+    action def SendMobileNotification {
+        in item event : EventRecord;
+        out item notification : MobileNotification;
+
+        first start;
+        then composeNotification;
+        then done;
+
+        action composeNotification {
+            notification.title = "August Home access event";
+            notification.body = event.eventType;
+            notification.createdAtEpoch = event.occurredAtEpoch;
+        }
+    }
+
+    requirement def SecureResidentialAccessRequirement {
+        doc /* The system shall authenticate authorized residents and guests before electrically locking or unlocking the residential deadbolt. */
+    }
+
+    requirement def RemoteOperationRequirement {
+        doc /* The system shall support remote lock and unlock commands through a cloud-connected bridge when internet connectivity is available. */
+    }
+
+    requirement def LocalOperationRequirement {
+        doc /* The system shall support local Bluetooth lock and unlock commands when the mobile device is within local radio range. */
+    }
+
+    requirement def ManualOverrideRequirement {
+        doc /* The system shall preserve normal mechanical thumb-turn operation from inside the residence without requiring cloud connectivity or battery power. */
+    }
+
+    requirement def DoorStateAwarenessRequirement {
+        doc /* The system shall distinguish whether the door is open, closed, or ajar before reporting a secure locked condition. */
+    }
+
+    requirement def AuditTrailRequirement {
+        doc /* The system shall record access attempts, successful lock state changes, manual operations, low-battery events, and jam events with timestamps. */
+    }
+
+    requirement def BatteryMonitoringRequirement {
+        doc /* The system shall report low-battery status before battery level falls below the minimum operating level. */
+    }
+
+    requirement def JamDetectionRequirement {
+        doc /* The system shall detect probable deadbolt obstruction when motor current or travel time exceeds expected limits and shall stop motor actuation. */
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The August Home smart access system shall secure a residential entry door while enabling authorized local, remote, scheduled, and guest access with status visibility. */
+    }
+
+    satisfy PrimaryFunctionRequirement by AugustHomeAccessSystem;
+    satisfy SecureResidentialAccessRequirement by RetrofitSmartLock;
+    satisfy RemoteOperationRequirement by WiFiConnectBridge;
+    satisfy LocalOperationRequirement by BluetoothLowEnergyRadio;
+    satisfy ManualOverrideRequirement by ThumbTurnPositionSensor;
+    satisfy DoorStateAwarenessRequirement by DoorSenseModule;
+    satisfy AuditTrailRequirement by AccessEventLog;
+    satisfy BatteryMonitoringRequirement by BatteryPack;
+    satisfy JamDetectionRequirement by DeadboltMotorDrive;
+
+    constraint def BatteryOperatingConstraint {
+        in attribute batteryLevel : Percent;
+        in attribute minimumOperatingBatteryLevel : Percent;
+        batteryLevel >= minimumOperatingBatteryLevel;
+    }
+
+    constraint def AutoLockSafetyConstraint {
+        in attribute requestedState : LockState;
+        in attribute doorState : DoorState;
+        requestedState == LockState::locked implies doorState == DoorState::closed;
+    }
+
+    constraint def RemoteCommandLatencyConstraint {
+        in attribute elapsedTime : Second;
+        in attribute remoteCommandTimeout : Second;
+        elapsedTime <= remoteCommandTimeout;
+    }
+
+    assert constraint BatteryOperatingConstraint {
+        batteryLevel = AugustHomeAccessSystem::smartLock::batteryPack::remainingLevel;
+        minimumOperatingBatteryLevel = AugustHomeAccessSystem::minimumOperatingBatteryLevel;
+    }
+
+    assert constraint AutoLockSafetyConstraint {
+        requestedState = LockState::locked;
+        doorState = AugustHomeAccessSystem::doorSense::doorState;
+    }
+
+    assert constraint RemoteCommandLatencyConstraint {
+        elapsedTime = 5.0 [s];
+        remoteCommandTimeout = AugustHomeAccessSystem::remoteCommandTimeout;
+    }
+}

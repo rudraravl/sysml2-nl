@@ -1,0 +1,837 @@
+package LeggedRoboticTaskSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def MassValue {
+        :> ScalarValues::Real;
+        unit = "kg";
+    }
+
+    attribute def LengthValue {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def VelocityValue {
+        :> ScalarValues::Real;
+        unit = "m/s";
+    }
+
+    attribute def AccelerationValue {
+        :> ScalarValues::Real;
+        unit = "m/s^2";
+    }
+
+    attribute def AngleValue {
+        :> ScalarValues::Real;
+        unit = "rad";
+    }
+
+    attribute def AngularVelocityValue {
+        :> ScalarValues::Real;
+        unit = "rad/s";
+    }
+
+    attribute def ForceValue {
+        :> ScalarValues::Real;
+        unit = "N";
+    }
+
+    attribute def TorqueValue {
+        :> ScalarValues::Real;
+        unit = "N*m";
+    }
+
+    attribute def PowerValue {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def EnergyValue {
+        :> ScalarValues::Real;
+        unit = "Wh";
+    }
+
+    attribute def VoltageValue {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def CurrentValue {
+        :> ScalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def TimeValue {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def PercentValue {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def DataRateValue {
+        :> ScalarValues::Real;
+        unit = "Mb/s";
+    }
+
+    enum def MissionMode {
+        enum idle;
+        enum selfCheck;
+        enum navigateToWorksite;
+        enum inspect;
+        enum manipulateObject;
+        enum returnToBase;
+        enum faultSafe;
+        enum recharge;
+    }
+
+    enum def TerrainClass {
+        enum flatFloor;
+        enum gravel;
+        enum stairs;
+        enum slope;
+        enum debris;
+        enum unknown;
+    }
+
+    enum def HealthState {
+        enum nominal;
+        enum degraded;
+        enum critical;
+    }
+
+    enum def GaitType {
+        enum stand;
+        enum walk;
+        enum trot;
+        enum crawl;
+        enum stairClimb;
+        enum recovery;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def BatteryEnergy {
+        attribute stateOfCharge : PercentValue;
+        attribute remainingEnergy : EnergyValue;
+        attribute packVoltage : VoltageValue;
+        attribute packCurrent : CurrentValue;
+        attribute temperature : ScalarValues::Real;
+    }
+
+    item def MotionCommand {
+        attribute targetLinearVelocity : VelocityValue;
+        attribute targetYawRate : AngularVelocityValue;
+        attribute targetBodyHeight : LengthValue;
+        attribute gait : GaitType;
+    }
+
+    item def FootContactData {
+        attribute normalForce : ForceValue;
+        attribute slipRatio : PercentValue;
+        attribute contactConfirmed : Boolean;
+    }
+
+    item def PoseEstimate {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : AngleValue;
+        attribute pitch : AngleValue;
+        attribute yaw : AngleValue;
+        attribute covarianceTrace : ScalarValues::Real;
+    }
+
+    item def TerrainMap {
+        attribute localGridResolution : LengthValue;
+        attribute traversabilityScore : PercentValue;
+        attribute dominantTerrain : TerrainClass;
+        attribute obstacleClearance : LengthValue;
+    }
+
+    item def InspectionFinding {
+        attribute defectProbability : PercentValue;
+        attribute targetRange : LengthValue;
+        attribute targetBearing : AngleValue;
+        attribute imageReferenceId : String;
+        attribute thermalAnomaly : Boolean;
+    }
+
+    item def ManipulationCommand {
+        attribute graspForce : ForceValue;
+        attribute wristPitch : AngleValue;
+        attribute targetObjectMass : MassValue;
+        attribute placeHeight : LengthValue;
+    }
+
+    item def DiagnosticReport {
+        attribute health : HealthState;
+        attribute faultCode : String;
+        attribute recommendedMode : MissionMode;
+        attribute safeToContinue : Boolean;
+    }
+
+    port def PowerPort {
+        out item power : ElectricalPower;
+    }
+
+    port def PowerLoadPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def PosePort {
+        out item pose : PoseEstimate;
+    }
+
+    port def MapPort {
+        out item map : TerrainMap;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def FindingPort {
+        out item finding : InspectionFinding;
+    }
+
+    port def ManipulatorCommandPort {
+        in item command : ManipulationCommand;
+    }
+
+    port def NetworkPort {
+        in item uplinkCommand : String;
+        out item downlinkTelemetry : String;
+        attribute dataRate : DataRateValue;
+    }
+
+    port def MechanicalMountPort {
+        inout item loadMass : MassValue;
+        inout item reactionTorque : TorqueValue;
+    }
+
+    part def BatteryPack {
+        attribute capacity : EnergyValue = 1400;
+        attribute nominalVoltage : VoltageValue = 52;
+        attribute maxContinuousCurrent : CurrentValue = 45;
+        attribute mass : MassValue = 8.2;
+        attribute stateOfCharge : PercentValue = 100;
+        attribute minOperationalSoc : PercentValue = 15;
+        attribute maxPackTemperature : ScalarValues::Real = 60;
+
+        port powerOut : PowerPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action providePower {
+            in requestedPower : PowerValue;
+            out deliveredPower : ElectricalPower;
+            out batteryStatus : BatteryEnergy;
+        }
+
+        state batteryState {
+            entry; then charged;
+
+            state charged;
+            state discharging;
+            state lowEnergy;
+            state overTemperature;
+            state isolated;
+
+            transition charged_to_discharging
+                first charged
+                accept requestedPower
+                then discharging;
+
+            transition discharging_to_lowEnergy
+                first discharging
+                if stateOfCharge <= minOperationalSoc
+                then lowEnergy;
+
+            transition any_to_overTemperature
+                first discharging
+                if maxPackTemperature < 60
+                then overTemperature;
+
+            transition lowEnergy_to_isolated
+                first lowEnergy
+                accept shutdownCommand
+                then isolated;
+        }
+    }
+
+    part def PowerDistributionUnit {
+        attribute conversionEfficiency : PercentValue = 94;
+        attribute regulatedBusVoltage : VoltageValue = 48;
+        attribute peakOutputPower : PowerValue = 2500;
+
+        port inputPower : PowerLoadPort;
+        port locomotionPower : PowerPort;
+        port computePower : PowerPort;
+        port payloadPower : PowerPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action regulateAndDistribute {
+            in sourcePower : ElectricalPower;
+            out actuatorPower : ElectricalPower;
+            out computerPower : ElectricalPower;
+            out missionPower : ElectricalPower;
+        }
+    }
+
+    part def JointActuator {
+        attribute continuousTorque : TorqueValue = 38;
+        attribute peakTorque : TorqueValue = 82;
+        attribute maxAngularVelocity : AngularVelocityValue = 22;
+        attribute positionLimitMin : AngleValue = -2.4;
+        attribute positionLimitMax : AngleValue = 2.4;
+        attribute mass : MassValue = 0.72;
+
+        port powerIn : PowerLoadPort;
+        port commandIn : CommandPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action servoControl {
+            in desiredAngle : AngleValue;
+            in desiredTorque : TorqueValue;
+            out actualAngle : AngleValue;
+            out actualTorque : TorqueValue;
+        }
+    }
+
+    part def Leg {
+        attribute legMass : MassValue = 2.8;
+        attribute maxStepHeight : LengthValue = 0.32;
+        attribute maxGroundForce : ForceValue = 650;
+
+        part hipAbduction : JointActuator;
+        part hipFlexion : JointActuator;
+        part kneeFlexion : JointActuator;
+        part compliantFoot {
+            attribute soleFrictionCoefficient : ScalarValues::Real = 0.85;
+            attribute contactPatchLength : LengthValue = 0.12;
+            attribute contactPatchWidth : LengthValue = 0.07;
+            attribute allowableImpactForce : ForceValue = 900;
+            port contactOut : port {
+                out item contact : FootContactData;
+            }
+        }
+
+        port powerIn : PowerLoadPort;
+        port commandIn : CommandPort;
+        port mount : MechanicalMountPort;
+
+        action executeStep {
+            in footholdX : LengthValue;
+            in footholdY : LengthValue;
+            in clearance : LengthValue;
+            out contact : FootContactData;
+        }
+    }
+
+    part def LeggedMobilityBase {
+        attribute bodyMass : MassValue = 34;
+        attribute payloadCapacity : MassValue = 12;
+        attribute nominalWalkingSpeed : VelocityValue = 1.2;
+        attribute maximumSpeed : VelocityValue = 2.4;
+        attribute minimumGroundClearance : LengthValue = 0.18;
+        attribute maximumSlope : AngleValue = 0.61;
+        attribute stepObstacleCapability : LengthValue = 0.28;
+
+        part frontLeftLeg : Leg;
+        part frontRightLeg : Leg;
+        part rearLeftLeg : Leg;
+        part rearRightLeg : Leg;
+        part inertialBody {
+            attribute length : LengthValue = 0.92;
+            attribute width : LengthValue = 0.48;
+            attribute height : LengthValue = 0.28;
+            port payloadMount : MechanicalMountPort;
+        }
+
+        port powerIn : PowerLoadPort;
+        port commandIn : CommandPort;
+        port poseOut : PosePort;
+        port diagnosticOut : DiagnosticPort;
+
+        action locomote {
+            in command : MotionCommand;
+            in terrain : TerrainMap;
+            out pose : PoseEstimate;
+            out health : DiagnosticReport;
+        }
+
+        state gaitController {
+            entry; then standing;
+
+            state standing;
+            state walking;
+            state trotting;
+            state crawling;
+            state stairClimbing;
+            state slipRecovery;
+            state fallRecovery;
+            state stopped;
+
+            transition stand_to_walk
+                first standing
+                accept walkCommand
+                then walking;
+
+            transition walk_to_trot
+                first walking
+                if targetLinearVelocity > 1.4
+                then trotting;
+
+            transition any_to_crawl
+                first walking
+                if dominantTerrain == TerrainClass::debris
+                then crawling;
+
+            transition any_to_stairClimb
+                first walking
+                if dominantTerrain == TerrainClass::stairs
+                then stairClimbing;
+
+            transition any_to_slipRecovery
+                first walking
+                if slipRatio > 18
+                then slipRecovery;
+
+            transition recovery_to_standing
+                first slipRecovery
+                accept stableContact
+                then standing;
+
+            transition any_to_stopped
+                first standing
+                accept emergencyStop
+                then stopped;
+        }
+    }
+
+    part def PerceptionSuite {
+        attribute lidarRange : LengthValue = 35;
+        attribute stereoRange : LengthValue = 18;
+        attribute thermalResolutionX : ScalarValues::Integer = 640;
+        attribute thermalResolutionY : ScalarValues::Integer = 480;
+        attribute imuRate : ScalarValues::Real = 400;
+
+        part lidar {
+            attribute scanRate : ScalarValues::Real = 20;
+            attribute angularResolution : AngleValue = 0.006;
+            port powerIn : PowerLoadPort;
+        }
+
+        part stereoCamera {
+            attribute baseline : LengthValue = 0.12;
+            attribute frameRate : ScalarValues::Real = 30;
+            port powerIn : PowerLoadPort;
+        }
+
+        part thermalCamera {
+            attribute frameRate : ScalarValues::Real = 15;
+            attribute temperatureSensitivity : ScalarValues::Real = 0.05;
+            port powerIn : PowerLoadPort;
+        }
+
+        part imu {
+            attribute gyroRange : AngularVelocityValue = 34.9;
+            attribute accelRange : AccelerationValue = 156.9;
+            port powerIn : PowerLoadPort;
+        }
+
+        port powerIn : PowerLoadPort;
+        port poseOut : PosePort;
+        port mapOut : MapPort;
+        port findingOut : FindingPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action perceiveEnvironment {
+            out pose : PoseEstimate;
+            out map : TerrainMap;
+            out finding : InspectionFinding;
+        }
+    }
+
+    part def MissionComputer {
+        attribute processorPowerLimit : PowerValue = 85;
+        attribute localizationUpdateRate : ScalarValues::Real = 100;
+        attribute planningHorizon : TimeValue = 8;
+        attribute minimumConfidenceForAutonomy : PercentValue = 85;
+
+        port powerIn : PowerLoadPort;
+        port commandOut : port {
+            out item command : MotionCommand;
+        }
+        port mapIn : port {
+            in item map : TerrainMap;
+        }
+        port poseIn : port {
+            in item pose : PoseEstimate;
+        }
+        port findingIn : port {
+            in item finding : InspectionFinding;
+        }
+        port diagnosticOut : DiagnosticPort;
+        port network : NetworkPort;
+
+        action planMission {
+            in currentPose : PoseEstimate;
+            in terrain : TerrainMap;
+            in operatorCommand : String;
+            out motionCommand : MotionCommand;
+            out mode : MissionMode;
+        }
+
+        action localizeAndMap {
+            in poseInput : PoseEstimate;
+            in terrainInput : TerrainMap;
+            out fusedPose : PoseEstimate;
+            out fusedMap : TerrainMap;
+        }
+
+        state missionSupervisor {
+            entry; then idle;
+
+            state idle;
+            state selfCheck;
+            state navigateToWorksite;
+            state inspect;
+            state manipulateObject;
+            state returnToBase;
+            state recharge;
+            state faultSafe;
+
+            transition idle_to_selfCheck
+                first idle
+                accept startMission
+                then selfCheck;
+
+            transition selfCheck_to_navigate
+                first selfCheck
+                if safeToContinue == true
+                then navigateToWorksite;
+
+            transition navigate_to_inspect
+                first navigateToWorksite
+                if targetRange <= 1.5
+                then inspect;
+
+            transition inspect_to_manipulate
+                first inspect
+                if defectProbability >= 80
+                then manipulateObject;
+
+            transition inspect_to_return
+                first inspect
+                accept inspectionComplete
+                then returnToBase;
+
+            transition manipulate_to_return
+                first manipulateObject
+                accept objectPlaced
+                then returnToBase;
+
+            transition any_to_recharge
+                first navigateToWorksite
+                if stateOfCharge <= 20
+                then recharge;
+
+            transition any_to_faultSafe
+                first navigateToWorksite
+                if health == HealthState::critical
+                then faultSafe;
+
+            transition return_to_idle
+                first returnToBase
+                accept dockedAtBase
+                then idle;
+        }
+    }
+
+    part def ManipulatorArm {
+        attribute armMass : MassValue = 5.4;
+        attribute reach : LengthValue = 0.72;
+        attribute payloadLimit : MassValue = 3.5;
+        attribute repeatability : LengthValue = 0.006;
+
+        part shoulderYaw : JointActuator;
+        part shoulderPitch : JointActuator;
+        part elbowPitch : JointActuator;
+        part wristPitch : JointActuator;
+        part gripper {
+            attribute maxGripForce : ForceValue = 180;
+            attribute jawOpening : LengthValue = 0.095;
+            attribute fingerPadFriction : ScalarValues::Real = 0.9;
+            port powerIn : PowerLoadPort;
+            port commandIn : ManipulatorCommandPort;
+        }
+
+        port powerIn : PowerLoadPort;
+        port commandIn : ManipulatorCommandPort;
+        port mount : MechanicalMountPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action graspAndPlace {
+            in command : ManipulationCommand;
+            out success : Boolean;
+            out appliedGripForce : ForceValue;
+        }
+    }
+
+    part def CommunicationSystem {
+        attribute nominalDataRate : DataRateValue = 20;
+        attribute minimumCommandRate : DataRateValue = 0.2;
+        attribute maxLatency : TimeValue = 0.25;
+
+        port powerIn : PowerLoadPort;
+        port network : NetworkPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action transmitTelemetry {
+            in robotPose : PoseEstimate;
+            in battery : BatteryEnergy;
+            in mode : MissionMode;
+            out telemetryPacket : String;
+        }
+    }
+
+    part def SafetySystem {
+        attribute emergencyStopReactionTime : TimeValue = 0.15;
+        attribute maxAllowablePitch : AngleValue = 0.78;
+        attribute maxAllowableRoll : AngleValue = 0.70;
+        attribute obstacleStopDistance : LengthValue = 0.35;
+
+        port powerIn : PowerLoadPort;
+        port poseIn : port {
+            in item pose : PoseEstimate;
+        }
+        port mapIn : port {
+            in item map : TerrainMap;
+        }
+        port diagnosticOut : DiagnosticPort;
+
+        action evaluateSafety {
+            in pose : PoseEstimate;
+            in map : TerrainMap;
+            in battery : BatteryEnergy;
+            out report : DiagnosticReport;
+            out stopRequired : Boolean;
+        }
+    }
+
+    part def DockingStation {
+        attribute chargePower : PowerValue = 950;
+        attribute dockingTolerance : LengthValue = 0.04;
+        attribute alignmentTolerance : AngleValue = 0.08;
+
+        port powerOut : PowerPort;
+        port network : NetworkPort;
+
+        action rechargeRobot {
+            in currentSoc : PercentValue;
+            out finalSoc : PercentValue;
+            out chargeTime : TimeValue;
+        }
+    }
+
+    part def LeggedInspectionRobot {
+        attribute totalMass : MassValue = 52;
+        attribute operationalEndurance : TimeValue = 7200;
+        attribute environmentalIngressRating : String = "IP54";
+        attribute operatingTemperatureMin : ScalarValues::Real = -10;
+        attribute operatingTemperatureMax : ScalarValues::Real = 45;
+
+        part battery : BatteryPack;
+        part pdu : PowerDistributionUnit;
+        part mobility : LeggedMobilityBase;
+        part perception : PerceptionSuite;
+        part computer : MissionComputer;
+        part arm : ManipulatorArm;
+        part comms : CommunicationSystem;
+        part safety : SafetySystem;
+
+        port operatorNetwork : NetworkPort;
+        port externalDockPower : PowerLoadPort;
+        port missionFindingOut : FindingPort;
+        port systemDiagnosticOut : DiagnosticPort;
+
+        connect battery.powerOut to pdu.inputPower;
+        connect pdu.locomotionPower to mobility.powerIn;
+        connect pdu.computePower to computer.powerIn;
+        connect pdu.computePower to perception.powerIn;
+        connect pdu.computePower to safety.powerIn;
+        connect pdu.payloadPower to arm.powerIn;
+        connect pdu.computePower to comms.powerIn;
+
+        connect computer.commandOut to mobility.commandIn;
+        connect perception.poseOut to computer.poseIn;
+        connect perception.mapOut to computer.mapIn;
+        connect perception.findingOut to computer.findingIn;
+        connect perception.poseOut to safety.poseIn;
+        connect perception.mapOut to safety.mapIn;
+        connect perception.findingOut to missionFindingOut;
+
+        connect mobility.inertialBody.payloadMount to arm.mount;
+        connect comms.network to operatorNetwork;
+        connect computer.network to operatorNetwork;
+
+        action performPrimaryTask {
+            in operatorTaskRequest : String;
+            out finalFinding : InspectionFinding;
+            out missionReport : DiagnosticReport;
+
+            first startSelfCheck;
+            then generateRoute;
+            then traverseLeggedTerrain;
+            then stabilizeInspectionPose;
+            then inspectTarget;
+            then manipulateIfRequired;
+            then returnAndDock;
+        }
+
+        action startSelfCheck {
+            out report : DiagnosticReport;
+        }
+
+        action generateRoute {
+            in terrain : TerrainMap;
+            out command : MotionCommand;
+        }
+
+        action traverseLeggedTerrain {
+            in command : MotionCommand;
+            out pose : PoseEstimate;
+        }
+
+        action stabilizeInspectionPose {
+            in pose : PoseEstimate;
+            out stable : Boolean;
+        }
+
+        action inspectTarget {
+            out finding : InspectionFinding;
+        }
+
+        action manipulateIfRequired {
+            in finding : InspectionFinding;
+            out success : Boolean;
+        }
+
+        action returnAndDock {
+            out docked : Boolean;
+        }
+    }
+
+    part roboticSystem {
+        : LeggedInspectionRobot;
+
+        part baseStation : DockingStation;
+
+        connect baseStation.powerOut to externalDockPower;
+        connect baseStation.network to operatorNetwork;
+    }
+
+    requirement def PrimaryTaskByLeggedRobotRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.mobility.nominalWalkingSpeed >= 1.0 and
+            robot.mobility.stepObstacleCapability >= 0.25 and
+            robot.mobility.maximumSlope >= 0.52
+        }
+
+        doc /* The robotic system shall perform its primary inspection and intervention task using a legged mobility base capable of traversing uneven terrain, stairs, slopes, and debris. */
+    }
+
+    requirement def EnduranceRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.operationalEndurance >= 5400 and
+            robot.battery.capacity >= 1200 and
+            robot.battery.minOperationalSoc <= 20
+        }
+
+        doc /* The robot shall sustain at least 90 minutes of autonomous mission operation before mandatory recharge or return-to-base behavior. */
+    }
+
+    requirement def PayloadRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.mobility.payloadCapacity >= 10 and
+            robot.arm.payloadLimit >= 3.0 and
+            robot.arm.reach >= 0.65
+        }
+
+        doc /* The robot shall carry perception, computation, communication, and manipulation payloads while retaining sufficient margin for field tools. */
+    }
+
+    requirement def SafetyRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.safety.emergencyStopReactionTime <= 0.2 and
+            robot.safety.obstacleStopDistance <= 0.4 and
+            robot.safety.maxAllowablePitch >= 0.70
+        }
+
+        doc /* The robot shall detect unsafe attitude, obstacle proximity, and critical diagnostics and enter a controlled fault-safe state. */
+    }
+
+    requirement def PerceptionRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.perception.lidarRange >= 30 and
+            robot.perception.stereoRange >= 15 and
+            robot.computer.localizationUpdateRate >= 50
+        }
+
+        doc /* The robot shall perceive terrain, localize its body pose, classify traversability, and produce inspection findings during the primary task. */
+    }
+
+    requirement def CommunicationRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.comms.nominalDataRate >= 10 and
+            robot.comms.maxLatency <= 0.5
+        }
+
+        doc /* The robot shall exchange operator commands, mission status, diagnostics, and inspection telemetry with the base station. */
+    }
+
+    requirement def PowerDistributionRequirement {
+        subject robot : LeggedInspectionRobot;
+
+        require constraint {
+            robot.pdu.peakOutputPower >= 2200 and
+            robot.pdu.conversionEfficiency >= 90 and
+            robot.pdu.regulatedBusVoltage == 48
+        }
+
+        doc /* The power subsystem shall provide regulated electrical power to locomotion, computation, perception, communication, safety, and payload subsystems. */
+    }
+
+    satisfy PrimaryTaskByLeggedRobotRequirement by roboticSystem;
+    satisfy EnduranceRequirement by roboticSystem;
+    satisfy PayloadRequirement by roboticSystem;
+    satisfy SafetyRequirement by roboticSystem;
+    satisfy PerceptionRequirement by roboticSystem;
+    satisfy CommunicationRequirement by roboticSystem;
+    satisfy PowerDistributionRequirement by roboticSystem;
+}

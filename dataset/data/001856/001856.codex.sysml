@@ -1,0 +1,400 @@
+package ScrewSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Length :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Diameter :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Pitch :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def Torque :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = SI::radianPerSecond;
+    }
+
+    attribute def Efficiency :> Real {
+        range = "0..1";
+    }
+
+    attribute def ThreadDirectionKind :> String;
+    attribute def MaterialName :> String;
+
+    item def RotationalEnergy;
+    item def AxialClampingForce;
+    item def DriverTorque;
+    item def ThreadReactionForce;
+    item def FastenedLoad;
+
+    port def TorqueInputPort {
+        in item appliedTorque : DriverTorque;
+        in attribute inputTorque : Torque;
+        in attribute inputSpeed : RotationalSpeed;
+    }
+
+    port def AxialForcePort {
+        out item generatedForce : AxialClampingForce;
+        out attribute axialForce : Force;
+    }
+
+    port def ThreadInterfacePort {
+        out item threadLoad : ThreadReactionForce;
+        out attribute normalForce : Force;
+        out attribute frictionTorque : Torque;
+    }
+
+    port def BearingSurfacePort {
+        out item clampLoad : AxialClampingForce;
+        out attribute preload : Force;
+    }
+
+    part def Screw {
+        attribute nominalDiameter : Diameter;
+        attribute shankLength : Length;
+        attribute threadedLength : Length;
+        attribute threadPitch : Pitch;
+        attribute leadAngle : Angle;
+        attribute threadDirection : ThreadDirectionKind;
+        attribute material : MaterialName;
+        attribute coefficientOfFriction : Real;
+        attribute mechanicalEfficiency : Efficiency;
+        attribute maximumRecommendedTorque : Torque;
+        attribute proofLoad : Force;
+
+        port drive : TorqueInputPort;
+        port thread : ThreadInterfacePort;
+        port headBearing : BearingSurfacePort;
+        port axialOutput : AxialForcePort;
+
+        part head {
+            attribute headDiameter : Diameter;
+            attribute headHeight : Length;
+            attribute driveSocketDepth : Length;
+            port bearing : BearingSurfacePort;
+        }
+
+        part threadedBody {
+            attribute majorDiameter : Diameter;
+            attribute minorDiameter : Diameter;
+            attribute pitchDiameter : Diameter;
+            attribute engagedLength : Length;
+            port threadContact : ThreadInterfacePort;
+        }
+
+        part tip {
+            attribute chamferLength : Length;
+            attribute includedAngle : Angle;
+        }
+
+        connection headBearingConnection connect head.bearing to headBearing;
+        connection threadLoadConnection connect threadedBody.threadContact to thread;
+        connection clampForceConnection connect headBearing to axialOutput;
+
+        action convertRotationToLinearClamp {
+            in item torqueIn : DriverTorque;
+            in attribute torqueMagnitude : Torque;
+            in attribute pitch : Pitch;
+            in attribute friction : Real;
+            out item forceOut : AxialClampingForce;
+            out attribute clampForce : Force;
+
+            objective {
+                doc "Transform applied rotational torque into axial clamping force through the helical thread interface.";
+            }
+        }
+
+        state def ScrewOperatingState {
+            state idle;
+            state engagingThread;
+            state tightening;
+            state seated;
+            state preloaded;
+            state overloaded;
+            state loosening;
+            state removed;
+
+            transition initial then idle;
+
+            transition idle_to_engaging
+                first idle
+                then engagingThread
+                accept DriverTorque;
+
+            transition engaging_to_tightening
+                first engagingThread
+                then tightening
+                if threadedBody.engagedLength > 0 [SI::metre];
+
+            transition tightening_to_seated
+                first tightening
+                then seated
+                if headBearing.preload > 0 [SI::newton];
+
+            transition seated_to_preloaded
+                first seated
+                then preloaded
+                if headBearing.preload <= proofLoad;
+
+            transition preloaded_to_overloaded
+                first preloaded
+                then overloaded
+                if drive.inputTorque > maximumRecommendedTorque;
+
+            transition preloaded_to_loosening
+                first preloaded
+                then loosening
+                accept DriverTorque;
+
+            transition loosening_to_removed
+                first loosening
+                then removed
+                if threadedBody.engagedLength == 0 [SI::metre];
+        }
+    }
+
+    part def ThreadedHole {
+        attribute internalThreadDiameter : Diameter;
+        attribute internalThreadPitch : Pitch;
+        attribute threadDepth : Length;
+        attribute parentMaterial : MaterialName;
+        attribute allowableThreadShearForce : Force;
+
+        port internalThread : ThreadInterfacePort;
+    }
+
+    part def ClampedJoint {
+        attribute totalGripLength : Length;
+        attribute requiredClampForce : Force;
+        attribute serviceSeparationForce : Force;
+        attribute jointStiffness : Force;
+        attribute allowableBearingForce : Force;
+
+        port clampInput : AxialForcePort;
+        port bearingReaction : BearingSurfacePort;
+
+        item clampedLoad : FastenedLoad;
+    }
+
+    part def ScrewFasteningSystem {
+        doc "A screw-based fastening system whose primary function is to convert applied rotational torque into axial clamping force, joining components by engaging external screw threads with a mating internal thread.";
+
+        attribute installationTorque : Torque = 4.5 [SI::newtonMetre];
+        attribute targetPreload : Force = 3200 [SI::newton];
+
+        part screw : Screw {
+            attribute nominalDiameter = 0.006 [SI::metre];
+            attribute shankLength = 0.018 [SI::metre];
+            attribute threadedLength = 0.020 [SI::metre];
+            attribute threadPitch = 0.001 [SI::metre];
+            attribute leadAngle = 0.052 [SI::radian];
+            attribute threadDirection = "right-hand";
+            attribute material = "hardened alloy steel";
+            attribute coefficientOfFriction = 0.16;
+            attribute mechanicalEfficiency = 0.32;
+            attribute maximumRecommendedTorque = 6.0 [SI::newtonMetre];
+            attribute proofLoad = 5800 [SI::newton];
+
+            part head {
+                attribute headDiameter = 0.010 [SI::metre];
+                attribute headHeight = 0.004 [SI::metre];
+                attribute driveSocketDepth = 0.003 [SI::metre];
+            }
+
+            part threadedBody {
+                attribute majorDiameter = 0.006 [SI::metre];
+                attribute minorDiameter = 0.0048 [SI::metre];
+                attribute pitchDiameter = 0.00535 [SI::metre];
+                attribute engagedLength = 0.012 [SI::metre];
+            }
+
+            part tip {
+                attribute chamferLength = 0.001 [SI::metre];
+                attribute includedAngle = 1.047 [SI::radian];
+            }
+        }
+
+        part matingThread : ThreadedHole {
+            attribute internalThreadDiameter = 0.006 [SI::metre];
+            attribute internalThreadPitch = 0.001 [SI::metre];
+            attribute threadDepth = 0.014 [SI::metre];
+            attribute parentMaterial = "steel insert";
+            attribute allowableThreadShearForce = 7200 [SI::newton];
+        }
+
+        part joint : ClampedJoint {
+            attribute totalGripLength = 0.016 [SI::metre];
+            attribute requiredClampForce = 3000 [SI::newton];
+            attribute serviceSeparationForce = 1800 [SI::newton];
+            attribute allowableBearingForce = 6500 [SI::newton];
+        }
+
+        connection threadEngagement connect screw.thread to matingThread.internalThread;
+        connection clampTransfer connect screw.axialOutput to joint.clampInput;
+        connection bearingContact connect screw.headBearing to joint.bearingReaction;
+
+        action installScrew {
+            in item torque : DriverTorque;
+            out item clamp : AxialClampingForce;
+
+            first start;
+            then alignScrew;
+            then rotateClockwise;
+            then engageThreads;
+            then seatHead;
+            then applyFinalTorque;
+            then verifyClamp;
+            then done;
+
+            action alignScrew {
+                objective {
+                    doc "Align screw axis with mating thread axis to prevent cross-threading.";
+                }
+            }
+
+            action rotateClockwise {
+                objective {
+                    doc "Apply right-hand rotational motion through the screw drive interface.";
+                }
+            }
+
+            action engageThreads {
+                objective {
+                    doc "Advance the external thread into the internal thread and create helical contact reaction forces.";
+                }
+            }
+
+            action seatHead {
+                objective {
+                    doc "Bring the screw head bearing surface into contact with the clamped joint.";
+                }
+            }
+
+            action applyFinalTorque {
+                objective {
+                    doc "Increase applied torque until the target preload is reached without exceeding proof load.";
+                }
+            }
+
+            action verifyClamp {
+                objective {
+                    doc "Confirm that generated clamp force is greater than the required clamp force and less than allowable limits.";
+                }
+            }
+        }
+
+        action removeScrew {
+            in item reverseTorque : DriverTorque;
+
+            first start;
+            then breakStaticFriction;
+            then rotateCounterClockwise;
+            then reduceClampForce;
+            then disengageThreads;
+            then done;
+
+            action breakStaticFriction {
+                objective {
+                    doc "Apply reverse torque sufficient to overcome thread and bearing friction.";
+                }
+            }
+
+            action rotateCounterClockwise {
+                objective {
+                    doc "Turn the right-hand screw opposite the tightening direction.";
+                }
+            }
+
+            action reduceClampForce {
+                objective {
+                    doc "Unload the joint as axial displacement reverses along the thread helix.";
+                }
+            }
+
+            action disengageThreads {
+                objective {
+                    doc "Separate external screw threads from the mating internal thread.";
+                }
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The screw system shall convert externally applied rotational torque into axial clamping force through threaded engagement with a mating component.";
+        subject system : ScrewFasteningSystem;
+        require constraint {
+            system.targetPreload >= system.joint.requiredClampForce
+        }
+    }
+
+    requirement def ThreadCompatibilityRequirement {
+        doc "The screw external thread pitch shall match the mating internal thread pitch.";
+        subject system : ScrewFasteningSystem;
+        require constraint {
+            system.screw.threadPitch == system.matingThread.internalThreadPitch
+        }
+    }
+
+    requirement def StrengthRequirement {
+        doc "The generated preload shall remain below the screw proof load and below the mating thread shear capacity.";
+        subject system : ScrewFasteningSystem;
+        require constraint {
+            system.targetPreload < system.screw.proofLoad and
+            system.targetPreload < system.matingThread.allowableThreadShearForce
+        }
+    }
+
+    requirement def JointRetentionRequirement {
+        doc "The clamped joint shall maintain sufficient compression under service separation loading.";
+        subject system : ScrewFasteningSystem;
+        require constraint {
+            system.targetPreload > system.joint.serviceSeparationForce
+        }
+    }
+
+    requirement def TorqueLimitRequirement {
+        doc "The installation torque shall not exceed the maximum recommended torque for the screw.";
+        subject system : ScrewFasteningSystem;
+        require constraint {
+            system.installationTorque <= system.screw.maximumRecommendedTorque
+        }
+    }
+
+    satisfy PrimaryFunctionSatisfaction
+        by ScrewFasteningSystem
+        satisfy PrimaryFunctionRequirement;
+
+    satisfy ThreadCompatibilitySatisfaction
+        by ScrewFasteningSystem
+        satisfy ThreadCompatibilityRequirement;
+
+    satisfy StrengthSatisfaction
+        by ScrewFasteningSystem
+        satisfy StrengthRequirement;
+
+    satisfy JointRetentionSatisfaction
+        by ScrewFasteningSystem
+        satisfy JointRetentionRequirement;
+
+    satisfy TorqueLimitSatisfaction
+        by ScrewFasteningSystem
+        satisfy TorqueLimitRequirement;
+}

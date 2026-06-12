@@ -1,0 +1,554 @@
+package MagneticAnomalyDetectorSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def MagneticFluxDensity :> scalarQuantity {
+    unit = "T";
+  }
+
+  attribute def MagneticGradient :> scalarQuantity {
+    unit = "nT/m";
+  }
+
+  attribute def Frequency :> scalarQuantity {
+    unit = "Hz";
+  }
+
+  attribute def Distance :> scalarQuantity {
+    unit = "m";
+  }
+
+  attribute def Speed :> scalarQuantity {
+    unit = "m/s";
+  }
+
+  attribute def TimeDuration :> scalarQuantity {
+    unit = "s";
+  }
+
+  attribute def ElectricPower :> scalarQuantity {
+    unit = "W";
+  }
+
+  attribute def Voltage :> scalarQuantity {
+    unit = "V";
+  }
+
+  attribute def Probability :> scalarQuantity {
+    unit = "1";
+  }
+
+  item def RawMagneticSample {
+    attribute timestamp : TimeDuration;
+    attribute xField : MagneticFluxDensity;
+    attribute yField : MagneticFluxDensity;
+    attribute zField : MagneticFluxDensity;
+    attribute totalField : MagneticFluxDensity;
+    attribute sensorTemperature : Temperature;
+  }
+
+  item def CompensatedMagneticSample {
+    attribute timestamp : TimeDuration;
+    attribute totalField : MagneticFluxDensity;
+    attribute gradientEstimate : MagneticGradient;
+    attribute platformNoiseEstimate : MagneticFluxDensity;
+    attribute valid : Boolean;
+  }
+
+  item def AnomalyTrack {
+    attribute trackId : Integer;
+    attribute firstDetectionTime : TimeDuration;
+    attribute latestDetectionTime : TimeDuration;
+    attribute estimatedRange : Distance;
+    attribute estimatedBearing : PlaneAngle;
+    attribute confidence : Probability;
+    attribute peakMagnitude : MagneticFluxDensity;
+  }
+
+  item def AlertMessage {
+    attribute alertId : Integer;
+    attribute severity : Integer;
+    attribute anomalyConfidence : Probability;
+    attribute estimatedRange : Distance;
+    attribute estimatedBearing : PlaneAngle;
+    attribute summary : String;
+  }
+
+  item def NavigationState {
+    attribute timestamp : TimeDuration;
+    attribute latitude : Real;
+    attribute longitude : Real;
+    attribute altitude : Distance;
+    attribute heading : PlaneAngle;
+    attribute groundSpeed : Speed;
+  }
+
+  item def HealthStatus {
+    attribute timestamp : TimeDuration;
+    attribute sensorReady : Boolean;
+    attribute processorReady : Boolean;
+    attribute powerNominal : Boolean;
+    attribute storageAvailable : Boolean;
+    attribute degradedMode : Boolean;
+  }
+
+  port def MagneticFieldInputPort {
+    in item fieldSample : RawMagneticSample;
+  }
+
+  port def MagneticDataPort {
+    out item sampleOut : RawMagneticSample;
+  }
+
+  port def CompensatedDataPort {
+    in item sampleIn : RawMagneticSample;
+    out item compensatedOut : CompensatedMagneticSample;
+  }
+
+  port def DetectionPort {
+    in item compensatedIn : CompensatedMagneticSample;
+    out item trackOut : AnomalyTrack;
+  }
+
+  port def AlertPort {
+    in item trackIn : AnomalyTrack;
+    out item alertOut : AlertMessage;
+  }
+
+  port def NavigationPort {
+    in item navigationIn : NavigationState;
+    out item navigationOut : NavigationState;
+  }
+
+  port def HealthPort {
+    out item healthOut : HealthStatus;
+  }
+
+  port def PowerPort {
+    in attribute supplyVoltage : Voltage;
+    in attribute availablePower : ElectricPower;
+  }
+
+  part def TriaxialMagnetometer {
+    attribute noiseFloor : MagneticFluxDensity = 0.02 [nT];
+    attribute dynamicRange : MagneticFluxDensity = 100000 [nT];
+    attribute sampleRate : Frequency = 200 [Hz];
+    attribute calibrationInterval : TimeDuration = 300 [s];
+
+    port magneticEnvironment : MagneticFieldInputPort;
+    port rawOutput : MagneticDataPort;
+    port powerInput : PowerPort;
+    port healthOutput : HealthPort;
+
+    action acquireMagneticField {
+      in item environmentalField : RawMagneticSample;
+      out item measuredField : RawMagneticSample;
+    }
+
+    action selfCalibrate {
+      out attribute calibrationComplete : Boolean;
+    }
+
+    state def SensorOperatingState {
+      state off;
+      state warmingUp;
+      state calibrating;
+      state measuring;
+      state faulted;
+
+      initial then off;
+
+      transition off_to_warmingUp
+        first off
+        then warmingUp;
+
+      transition warmingUp_to_calibrating
+        first warmingUp
+        then calibrating;
+
+      transition calibrating_to_measuring
+        first calibrating
+        then measuring;
+
+      transition measuring_to_faulted
+        first measuring
+        then faulted;
+
+      transition faulted_to_calibrating
+        first faulted
+        then calibrating;
+    }
+  }
+
+  part def NavigationReceiver {
+    attribute updateRate : Frequency = 10 [Hz];
+    attribute positionAccuracy : Distance = 5 [m];
+
+    port navigationInput : NavigationPort;
+    port navigationOutput : NavigationPort;
+    port powerInput : PowerPort;
+
+    action estimatePlatformState {
+      in item externalNavigation : NavigationState;
+      out item platformNavigation : NavigationState;
+    }
+  }
+
+  part def MagneticCompensationProcessor {
+    attribute highPassCutoff : Frequency = 0.05 [Hz];
+    attribute lowPassCutoff : Frequency = 20 [Hz];
+    attribute platformNoiseLimit : MagneticFluxDensity = 1.5 [nT];
+
+    port rawInput : CompensatedDataPort;
+    port navigationInput : NavigationPort;
+    port compensatedOutput : CompensatedDataPort;
+    port healthOutput : HealthPort;
+    port powerInput : PowerPort;
+
+    action removeEarthField {
+      in item rawSample : RawMagneticSample;
+      in item navState : NavigationState;
+      out item residualSample : CompensatedMagneticSample;
+    }
+
+    action suppressPlatformMagnetics {
+      in item residualSample : CompensatedMagneticSample;
+      out item cleanSample : CompensatedMagneticSample;
+    }
+
+    action estimateGradient {
+      in item cleanSample : CompensatedMagneticSample;
+      out item gradientSample : CompensatedMagneticSample;
+    }
+  }
+
+  part def AnomalyDetector {
+    attribute detectionThreshold : MagneticFluxDensity = 0.8 [nT];
+    attribute gradientThreshold : MagneticGradient = 0.15 [nT/m];
+    attribute minimumConfidence : Probability = 0.75;
+    attribute trackHoldTime : TimeDuration = 20 [s];
+
+    port compensatedInput : DetectionPort;
+    port trackOutput : DetectionPort;
+    port healthOutput : HealthPort;
+    port powerInput : PowerPort;
+
+    action detectCandidate {
+      in item sample : CompensatedMagneticSample;
+      out attribute candidateDetected : Boolean;
+      out attribute confidence : Probability;
+    }
+
+    action correlateCandidate {
+      in item sample : CompensatedMagneticSample;
+      out item track : AnomalyTrack;
+    }
+
+    action rejectTransientNoise {
+      in item sample : CompensatedMagneticSample;
+      out attribute rejected : Boolean;
+    }
+
+    state def DetectionState {
+      state standby;
+      state monitoring;
+      state candidateObserved;
+      state trackingAnomaly;
+      state reporting;
+      state degraded;
+
+      initial then standby;
+
+      transition standby_to_monitoring
+        first standby
+        then monitoring;
+
+      transition monitoring_to_candidateObserved
+        first monitoring
+        then candidateObserved;
+
+      transition candidateObserved_to_trackingAnomaly
+        first candidateObserved
+        then trackingAnomaly;
+
+      transition candidateObserved_to_monitoring
+        first candidateObserved
+        then monitoring;
+
+      transition trackingAnomaly_to_reporting
+        first trackingAnomaly
+        then reporting;
+
+      transition reporting_to_monitoring
+        first reporting
+        then monitoring;
+
+      transition monitoring_to_degraded
+        first monitoring
+        then degraded;
+
+      transition degraded_to_monitoring
+        first degraded
+        then monitoring;
+    }
+  }
+
+  part def AlertManager {
+    attribute lowSeverityConfidence : Probability = 0.75;
+    attribute highSeverityConfidence : Probability = 0.9;
+    attribute operatorDisplayLatencyLimit : TimeDuration = 1 [s];
+
+    port trackInput : AlertPort;
+    port alertOutput : AlertPort;
+    port healthOutput : HealthPort;
+    port powerInput : PowerPort;
+
+    action classifyAlert {
+      in item track : AnomalyTrack;
+      out item alert : AlertMessage;
+    }
+
+    action publishAlert {
+      in item alert : AlertMessage;
+      out attribute delivered : Boolean;
+    }
+  }
+
+  part def MissionDataRecorder {
+    attribute storageCapacity : Real = 256;
+    attribute retentionDuration : TimeDuration = 2592000 [s];
+
+    port rawDataInput : MagneticDataPort;
+    port compensatedDataInput : CompensatedDataPort;
+    port trackInput : DetectionPort;
+    port alertInput : AlertPort;
+    port healthOutput : HealthPort;
+    port powerInput : PowerPort;
+
+    action recordRawSample {
+      in item sample : RawMagneticSample;
+    }
+
+    action recordCompensatedSample {
+      in item sample : CompensatedMagneticSample;
+    }
+
+    action recordTrack {
+      in item track : AnomalyTrack;
+    }
+
+    action recordAlert {
+      in item alert : AlertMessage;
+    }
+  }
+
+  part def PowerConditioner {
+    attribute nominalInputVoltage : Voltage = 28 [V];
+    attribute regulatedOutputVoltage : Voltage = 12 [V];
+    attribute maximumOutputPower : ElectricPower = 150 [W];
+    attribute efficiency : Real = 0.92;
+
+    port vehiclePowerInput : PowerPort;
+    port sensorPowerOutput : PowerPort;
+    port processorPowerOutput : PowerPort;
+    port recorderPowerOutput : PowerPort;
+    port alertPowerOutput : PowerPort;
+    port healthOutput : HealthPort;
+
+    action regulatePower {
+      in attribute inputVoltage : Voltage;
+      in attribute inputPower : ElectricPower;
+      out attribute outputVoltage : Voltage;
+      out attribute outputPower : ElectricPower;
+    }
+  }
+
+  part def MagneticAnomalyDetector {
+    attribute primaryFunction : String =
+      "Detect localized deviations in the ambient magnetic field, compensate for platform and Earth-field effects, estimate whether the deviation is consistent with a ferromagnetic object, and report an operator alert with confidence and approximate bearing.";
+    attribute maximumDetectionLatency : TimeDuration = 2 [s];
+    attribute minimumDetectableAnomaly : MagneticFluxDensity = 0.8 [nT];
+    attribute operationalAltitudeLimit : Distance = 500 [m];
+    attribute operatingSpeedRangeMinimum : Speed = 20 [m/s];
+    attribute operatingSpeedRangeMaximum : Speed = 170 [m/s];
+
+    part magnetometer : TriaxialMagnetometer;
+    part navigationReceiver : NavigationReceiver;
+    part compensationProcessor : MagneticCompensationProcessor;
+    part anomalyDetector : AnomalyDetector;
+    part alertManager : AlertManager;
+    part recorder : MissionDataRecorder;
+    part powerConditioner : PowerConditioner;
+
+    port magneticFieldInput : MagneticFieldInputPort;
+    port navigationInput : NavigationPort;
+    port alertOutput : AlertPort;
+    port vehiclePowerInput : PowerPort;
+    port systemHealthOutput : HealthPort;
+
+    connect magneticFieldInput to magnetometer.magneticEnvironment;
+    connect magnetometer.rawOutput to compensationProcessor.rawInput;
+    connect magnetometer.rawOutput to recorder.rawDataInput;
+
+    connect navigationInput to navigationReceiver.navigationInput;
+    connect navigationReceiver.navigationOutput to compensationProcessor.navigationInput;
+
+    connect compensationProcessor.compensatedOutput to anomalyDetector.compensatedInput;
+    connect compensationProcessor.compensatedOutput to recorder.compensatedDataInput;
+
+    connect anomalyDetector.trackOutput to alertManager.trackInput;
+    connect anomalyDetector.trackOutput to recorder.trackInput;
+
+    connect alertManager.alertOutput to alertOutput;
+    connect alertManager.alertOutput to recorder.alertInput;
+
+    connect vehiclePowerInput to powerConditioner.vehiclePowerInput;
+    connect powerConditioner.sensorPowerOutput to magnetometer.powerInput;
+    connect powerConditioner.processorPowerOutput to navigationReceiver.powerInput;
+    connect powerConditioner.processorPowerOutput to compensationProcessor.powerInput;
+    connect powerConditioner.processorPowerOutput to anomalyDetector.powerInput;
+    connect powerConditioner.alertPowerOutput to alertManager.powerInput;
+    connect powerConditioner.recorderPowerOutput to recorder.powerInput;
+
+    action performMagneticAnomalyDetection {
+      in item ambientMagneticField : RawMagneticSample;
+      in item platformNavigation : NavigationState;
+      out item operatorAlert : AlertMessage;
+
+      first start;
+      then acquire via magnetometer.acquireMagneticField;
+      then compensate via compensationProcessor.removeEarthField;
+      then suppressNoise via compensationProcessor.suppressPlatformMagnetics;
+      then detect via anomalyDetector.detectCandidate;
+      then correlate via anomalyDetector.correlateCandidate;
+      then classify via alertManager.classifyAlert;
+      then publish via alertManager.publishAlert;
+      then done;
+    }
+
+    state def SystemOperatingState {
+      state poweredOff;
+      state initializing;
+      state calibratingSensors;
+      state monitoringMagneticField;
+      state anomalyEvaluation;
+      state alerting;
+      state degradedMonitoring;
+      state maintenanceRequired;
+
+      initial then poweredOff;
+
+      transition powerApplied
+        first poweredOff
+        then initializing;
+
+      transition initializationComplete
+        first initializing
+        then calibratingSensors;
+
+      transition calibrationComplete
+        first calibratingSensors
+        then monitoringMagneticField;
+
+      transition anomalyCandidateDetected
+        first monitoringMagneticField
+        then anomalyEvaluation;
+
+      transition anomalyConfirmed
+        first anomalyEvaluation
+        then alerting;
+
+      transition anomalyRejected
+        first anomalyEvaluation
+        then monitoringMagneticField;
+
+      transition alertPublished
+        first alerting
+        then monitoringMagneticField;
+
+      transition subsystemDegraded
+        first monitoringMagneticField
+        then degradedMonitoring;
+
+      transition degradedRecovery
+        first degradedMonitoring
+        then monitoringMagneticField;
+
+      transition unrecoverableFault
+        first degradedMonitoring
+        then maintenanceRequired;
+    }
+  }
+
+  requirement def DetectMagneticAnomalyRequirement {
+    subject mad : MagneticAnomalyDetector;
+
+    require constraint {
+      mad.minimumDetectableAnomaly <= 1.0 [nT]
+    }
+
+    doc /* The system shall detect localized magnetic field anomalies of at least 1.0 nT after compensation for Earth-field and platform magnetic effects. */
+  }
+
+  requirement def DetectionLatencyRequirement {
+    subject mad : MagneticAnomalyDetector;
+
+    require constraint {
+      mad.maximumDetectionLatency <= 2 [s]
+    }
+
+    doc /* The system shall generate an anomaly alert within 2 seconds after a confirmed magnetic anomaly is observed. */
+  }
+
+  requirement def ConfidenceRequirement {
+    subject detector : AnomalyDetector;
+
+    require constraint {
+      detector.minimumConfidence >= 0.75
+    }
+
+    doc /* The detector shall report anomaly tracks only when confidence is at least 0.75 unless operating in a diagnostic mode. */
+  }
+
+  requirement def ContinuousMonitoringRequirement {
+    subject mad : MagneticAnomalyDetector;
+
+    doc /* The system shall continuously sample the magnetic environment, compensate measurements, evaluate anomaly candidates, and preserve mission data while powered and healthy. */
+  }
+
+  requirement def HighLevelPrimaryFunctionRequirement {
+    subject mad : MagneticAnomalyDetector;
+
+    doc /* The primary function of the Magnetic Anomaly Detector is to sense weak perturbations in the local magnetic field and transform them into actionable anomaly alerts for an operator or host mission system. */
+  }
+
+  satisfy DetectMagneticAnomalyRequirement by MagneticAnomalyDetector::anomalyDetector;
+  satisfy DetectionLatencyRequirement by MagneticAnomalyDetector::alertManager;
+  satisfy ConfidenceRequirement by MagneticAnomalyDetector::anomalyDetector;
+  satisfy ContinuousMonitoringRequirement by MagneticAnomalyDetector;
+  satisfy HighLevelPrimaryFunctionRequirement by MagneticAnomalyDetector;
+
+  part madSystem : MagneticAnomalyDetector {
+    attribute maximumDetectionLatency = 2 [s];
+    attribute minimumDetectableAnomaly = 0.8 [nT];
+    attribute operationalAltitudeLimit = 500 [m];
+
+    part magnetometer {
+      attribute sampleRate = 200 [Hz];
+      attribute noiseFloor = 0.02 [nT];
+    }
+
+    part anomalyDetector {
+      attribute detectionThreshold = 0.8 [nT];
+      attribute gradientThreshold = 0.15 [nT/m];
+      attribute minimumConfidence = 0.75;
+    }
+
+    part powerConditioner {
+      attribute nominalInputVoltage = 28 [V];
+      attribute maximumOutputPower = 150 [W];
+    }
+  }
+}

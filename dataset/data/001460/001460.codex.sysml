@@ -1,0 +1,361 @@
+package IntegerMillenniumHouseModel {
+
+  value type Celsius;
+  value type Percent;
+  value type Kilowatt;
+  value type KilowattHour;
+  value type LiterPerMinute;
+  value type Lux;
+  value type Pascal;
+  value type CubicMeterPerHour;
+  value type MeterPerSecond;
+  value type Decibel;
+  value type PartsPerMillion;
+  value type Boolean;
+  value type IntegerCount;
+  value type Hour;
+
+  item def Electricity {
+    attribute voltage;
+    attribute power : Kilowatt;
+  }
+
+  item def PotableWater {
+    attribute flowRate : LiterPerMinute;
+  }
+
+  item def GreyWater {
+    attribute flowRate : LiterPerMinute;
+  }
+
+  item def Air {
+    attribute temperature : Celsius;
+    attribute humidity : Percent;
+    attribute co2 : PartsPerMillion;
+  }
+
+  item def OccupancySignal {
+    attribute occupants : IntegerCount;
+  }
+
+  item def SecurityEvent {
+    attribute intrusionDetected : Boolean;
+    attribute smokeDetected : Boolean;
+    attribute waterLeakDetected : Boolean;
+  }
+
+  item def ControlCommand {
+    attribute targetTemperature : Celsius;
+    attribute lightingLevel : Percent;
+    attribute ventilationRate : CubicMeterPerHour;
+    attribute secureMode : Boolean;
+  }
+
+  port def ElectricPowerPort {
+    inout item electricity : Electricity;
+  }
+
+  port def WaterPort {
+    inout item water : PotableWater;
+  }
+
+  port def GreyWaterPort {
+    out item greyWater : GreyWater;
+  }
+
+  port def AirPort {
+    inout item air : Air;
+  }
+
+  port def DataPort {
+    in item occupancy : OccupancySignal;
+    in item event : SecurityEvent;
+    out item command : ControlCommand;
+  }
+
+  part def SolarArray {
+    attribute ratedOutput : Kilowatt = 12;
+    port dcPower : ElectricPowerPort;
+  }
+
+  part def BatteryBank {
+    attribute capacity : KilowattHour = 80;
+    attribute stateOfCharge : Percent;
+    port powerBus : ElectricPowerPort;
+  }
+
+  part def GridInterface {
+    attribute importLimit : Kilowatt = 15;
+    attribute exportLimit : Kilowatt = 8;
+    port gridPower : ElectricPowerPort;
+  }
+
+  part def EnergyManager {
+    attribute reserveThreshold : Percent = 25;
+    port solarInput : ElectricPowerPort;
+    port batteryConnection : ElectricPowerPort;
+    port gridConnection : ElectricPowerPort;
+    port houseLoad : ElectricPowerPort;
+    port controls : DataPort;
+  }
+
+  part def HVACSystem {
+    attribute heatingCapacity : Kilowatt = 10;
+    attribute coolingCapacity : Kilowatt = 9;
+    attribute airflowCapacity : CubicMeterPerHour = 700;
+    port power : ElectricPowerPort;
+    port supplyAir : AirPort;
+    port returnAir : AirPort;
+    port controls : DataPort;
+  }
+
+  part def WaterSystem {
+    attribute storageVolume;
+    attribute maxFlow : LiterPerMinute = 35;
+    port inlet : WaterPort;
+    port fixtureSupply : WaterPort;
+    port greyWaterOutlet : GreyWaterPort;
+    port power : ElectricPowerPort;
+  }
+
+  part def LightingSystem {
+    attribute maxIlluminance : Lux = 800;
+    attribute standbyPower : Kilowatt = 0.05;
+    port power : ElectricPowerPort;
+    port controls : DataPort;
+  }
+
+  part def SecuritySystem {
+    attribute sirenLevel : Decibel = 95;
+    attribute cameraCount : IntegerCount = 12;
+    port power : ElectricPowerPort;
+    port securityData : DataPort;
+  }
+
+  part def Envelope {
+    attribute wallInsulationRating;
+    attribute windowSolarGainCoefficient;
+    attribute airLeakageRate : CubicMeterPerHour = 120;
+    port indoorAir : AirPort;
+    port outdoorAir : AirPort;
+  }
+
+  part def OccupancySensorNetwork {
+    attribute sensorCount : IntegerCount = 24;
+    attribute detectionLatency;
+    port power : ElectricPowerPort;
+    port occupancyData : DataPort;
+  }
+
+  part def HomeController {
+    attribute normalSetpoint : Celsius = 21;
+    attribute sleepSetpoint : Celsius = 18;
+    attribute awaySetpoint : Celsius = 15;
+    attribute maximumOccupants : IntegerCount = 8;
+    port energyControl : DataPort;
+    port hvacControl : DataPort;
+    port lightControl : DataPort;
+    port securityControl : DataPort;
+    port occupancyInput : DataPort;
+  }
+
+  part def IntegerMillenniumHouse {
+    attribute designLife : Hour = 438000;
+    attribute nominalOccupancy : IntegerCount = 4;
+    attribute floorArea;
+    attribute primaryFunction = "Provide safe, comfortable, resource-efficient habitation by integrating shelter, energy, water, environmental control, security, and automation services.";
+
+    part solarArray : SolarArray;
+    part batteryBank : BatteryBank;
+    part gridInterface : GridInterface;
+    part energyManager : EnergyManager;
+    part hvac : HVACSystem;
+    part waterSystem : WaterSystem;
+    part lighting : LightingSystem;
+    part security : SecuritySystem;
+    part envelope : Envelope;
+    part occupancySensors : OccupancySensorNetwork;
+    part controller : HomeController;
+
+    port utilityPower : ElectricPowerPort;
+    port municipalWater : WaterPort;
+    port outdoorAir : AirPort;
+    port greyWaterDischarge : GreyWaterPort;
+
+    connect utilityPower to gridInterface.gridPower;
+    connect gridInterface.gridPower to energyManager.gridConnection;
+    connect solarArray.dcPower to energyManager.solarInput;
+    connect batteryBank.powerBus to energyManager.batteryConnection;
+    connect energyManager.houseLoad to hvac.power;
+    connect energyManager.houseLoad to waterSystem.power;
+    connect energyManager.houseLoad to lighting.power;
+    connect energyManager.houseLoad to security.power;
+    connect energyManager.houseLoad to occupancySensors.power;
+
+    connect municipalWater to waterSystem.inlet;
+    connect waterSystem.greyWaterOutlet to greyWaterDischarge;
+
+    connect outdoorAir to envelope.outdoorAir;
+    connect envelope.indoorAir to hvac.returnAir;
+    connect hvac.supplyAir to envelope.indoorAir;
+
+    connect occupancySensors.occupancyData to controller.occupancyInput;
+    connect controller.energyControl to energyManager.controls;
+    connect controller.hvacControl to hvac.controls;
+    connect controller.lightControl to lighting.controls;
+    connect controller.securityControl to security.securityData;
+  }
+
+  action def ProvideHabitation {
+    in item requestedOccupancy : OccupancySignal;
+    in item outsideAir : Air;
+    out item conditionedAir : Air;
+    out item allocatedPower : Electricity;
+    out item suppliedWater : PotableWater;
+
+    first start;
+    then assessOccupancy;
+    then allocateEnergy;
+    then regulateIndoorEnvironment;
+    then supplyWater;
+    then secureResidence;
+    then reportHouseReady;
+
+    action start;
+    action assessOccupancy;
+    action allocateEnergy;
+    action regulateIndoorEnvironment;
+    action supplyWater;
+    action secureResidence;
+    action reportHouseReady;
+  }
+
+  action def ManageEnergy {
+    in item solarPower : Electricity;
+    in item gridPower : Electricity;
+    in item batteryPower : Electricity;
+    out item loadPower : Electricity;
+
+    first estimateDemand;
+    then useSolarFirst;
+    then chargeOrDischargeBattery;
+    then importOrExportGridPower;
+
+    action estimateDemand;
+    action useSolarFirst;
+    action chargeOrDischargeBattery;
+    action importOrExportGridPower;
+  }
+
+  state def HouseOperationalState {
+    entry action initializeController;
+    state Unoccupied;
+    state Occupied;
+    state Sleep;
+    state Away;
+    state Emergency;
+    state Maintenance;
+
+    transition initial then Unoccupied;
+
+    transition Unoccupied_to_Occupied
+      first Unoccupied
+      accept OccupancyDetected
+      then Occupied;
+
+    transition Occupied_to_Sleep
+      first Occupied
+      accept NightSchedule
+      then Sleep;
+
+    transition Sleep_to_Occupied
+      first Sleep
+      accept MorningSchedule
+      then Occupied;
+
+    transition Occupied_to_Away
+      first Occupied
+      accept NoOccupancyTimeout
+      then Away;
+
+    transition Away_to_Occupied
+      first Away
+      accept OccupancyDetected
+      then Occupied;
+
+    transition Any_to_Emergency
+      first Occupied
+      accept SecurityOrSafetyEvent
+      then Emergency;
+
+    transition Emergency_to_Maintenance
+      first Emergency
+      accept FaultAcknowledged
+      then Maintenance;
+
+    transition Maintenance_to_Unoccupied
+      first Maintenance
+      accept ServiceComplete
+      then Unoccupied;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject house : IntegerMillenniumHouse;
+    require constraint {
+      house.nominalOccupancy >= 1
+    }
+    doc /* The INTEGER Millennium House shall provide integrated residential shelter, comfort, utilities, safety, and automation for its occupants. */
+  }
+
+  requirement def EnergyAutonomyRequirement {
+    subject house : IntegerMillenniumHouse;
+    require constraint {
+      house.batteryBank.capacity >= 60
+    }
+    doc /* The house shall maintain essential loads during grid interruption using local generation and storage. */
+  }
+
+  requirement def ComfortRequirement {
+    subject house : IntegerMillenniumHouse;
+    require constraint {
+      house.controller.normalSetpoint >= 20 and house.controller.normalSetpoint <= 23
+    }
+    doc /* The house shall maintain normal occupied thermal comfort between 20 and 23 degrees Celsius. */
+  }
+
+  requirement def SecurityRequirement {
+    subject house : IntegerMillenniumHouse;
+    require constraint {
+      house.security.cameraCount >= 8
+    }
+    doc /* The house shall monitor access points, detect intrusion or safety events, and command secure mode when required. */
+  }
+
+  requirement def WaterServiceRequirement {
+    subject house : IntegerMillenniumHouse;
+    require constraint {
+      house.waterSystem.maxFlow >= 25
+    }
+    doc /* The house shall provide potable water service for simultaneous domestic fixtures and route grey water to discharge or reuse. */
+  }
+
+  requirement def AutomationRequirement {
+    subject house : IntegerMillenniumHouse;
+    require constraint {
+      house.occupancySensors.sensorCount >= 12
+    }
+    doc /* The house shall adapt energy, lighting, ventilation, and security behavior based on occupancy and schedule. */
+  }
+
+  part integerMillenniumHouse : IntegerMillenniumHouse;
+
+  perform ProvideHabitation by integerMillenniumHouse.controller;
+  perform ManageEnergy by integerMillenniumHouse.energyManager;
+
+  satisfy PrimaryFunctionRequirement by integerMillenniumHouse;
+  satisfy EnergyAutonomyRequirement by integerMillenniumHouse.batteryBank;
+  satisfy ComfortRequirement by integerMillenniumHouse.hvac;
+  satisfy SecurityRequirement by integerMillenniumHouse.security;
+  satisfy WaterServiceRequirement by integerMillenniumHouse.waterSystem;
+  satisfy AutomationRequirement by integerMillenniumHouse.controller;
+}

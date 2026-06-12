@@ -1,0 +1,746 @@
+package YaskawaIndustrialAutomationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real;
+    attribute def CurrencyUSD :> Real;
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute frequency : Frequency;
+        attribute phaseCount : Integer;
+    }
+
+    item def MotionCommand {
+        attribute targetPositionX : Length;
+        attribute targetPositionY : Length;
+        attribute targetPositionZ : Length;
+        attribute targetOrientationRx : PlaneAngle;
+        attribute targetOrientationRy : PlaneAngle;
+        attribute targetOrientationRz : PlaneAngle;
+        attribute maximumVelocity : Speed;
+        attribute maximumAcceleration : Acceleration;
+        attribute blendRadius : Length;
+    }
+
+    item def JointCommand {
+        attribute joint1Angle : PlaneAngle;
+        attribute joint2Angle : PlaneAngle;
+        attribute joint3Angle : PlaneAngle;
+        attribute joint4Angle : PlaneAngle;
+        attribute joint5Angle : PlaneAngle;
+        attribute joint6Angle : PlaneAngle;
+        attribute velocityLimit : AngularVelocity;
+        attribute torqueLimit : Torque;
+    }
+
+    item def ServoFeedback {
+        attribute jointPosition : PlaneAngle;
+        attribute jointVelocity : AngularVelocity;
+        attribute motorTorque : Torque;
+        attribute motorTemperature : TemperatureValue;
+        attribute encoderHealth : Percent;
+    }
+
+    item def SafetySignal {
+        attribute emergencyStopActive : Boolean;
+        attribute guardDoorClosed : Boolean;
+        attribute teachModeActive : Boolean;
+        attribute protectiveStopRequested : Boolean;
+    }
+
+    item def ProductionPart {
+        attribute mass : Mass;
+        attribute width : Length;
+        attribute height : Length;
+        attribute depth : Length;
+        attribute materialName : String;
+    }
+
+    item def WeldSchedule {
+        attribute currentSetpoint : ElectricCurrent;
+        attribute voltageSetpoint : ElectricPotential;
+        attribute wireFeedSpeed : Speed;
+        attribute gasFlowRate : Real;
+        attribute travelSpeed : Speed;
+        attribute preflowTime : Time;
+        attribute postflowTime : Time;
+    }
+
+    item def WeldStatus {
+        attribute arcEstablished : Boolean;
+        attribute measuredCurrent : ElectricCurrent;
+        attribute measuredVoltage : ElectricPotential;
+        attribute heatInput : Real;
+        attribute faultCode : Integer;
+    }
+
+    item def DiagnosticEvent {
+        attribute eventCode : Integer;
+        attribute severity : Integer;
+        attribute eventText : String;
+        attribute timeSincePowerOn : Time;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PowerOutputPort {
+        out item power : ElectricalPower;
+    }
+
+    port def MotionCommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def JointCommandPort {
+        in item command : JointCommand;
+    }
+
+    port def ServoFeedbackPort {
+        out item feedback : ServoFeedback;
+    }
+
+    port def SafetyInputPort {
+        in item signal : SafetySignal;
+    }
+
+    port def SafetyOutputPort {
+        out item signal : SafetySignal;
+    }
+
+    port def WeldSchedulePort {
+        in item schedule : WeldSchedule;
+    }
+
+    port def WeldStatusPort {
+        out item status : WeldStatus;
+    }
+
+    port def DiagnosticPort {
+        out item event : DiagnosticEvent;
+    }
+
+    port def WorkpiecePort {
+        inout item workpiece : ProductionPart;
+    }
+
+    part def YaskawaServoMotor {
+        attribute ratedPower : Power;
+        attribute ratedTorque : Torque;
+        attribute peakTorque : Torque;
+        attribute ratedSpeed : AngularVelocity;
+        attribute encoderResolution : Integer;
+        attribute rotorInertia : MomentOfInertia;
+        attribute thermalLimit : TemperatureValue;
+
+        port commandIn : JointCommandPort;
+        port feedbackOut : ServoFeedbackPort;
+        port powerIn : PowerInputPort;
+
+        state def ServoMotorStateMachine {
+            state off;
+            state energizing;
+            state ready;
+            state tracking;
+            state torqueLimited;
+            state thermalProtection;
+            state faulted;
+
+            transition first off;
+            transition off_to_energizing from off to energizing
+                accept ElectricalPower;
+            transition energizing_to_ready from energizing to ready
+                if powerIn.power.voltage >= 200[V];
+            transition ready_to_tracking from ready to tracking
+                accept JointCommand;
+            transition tracking_to_torqueLimited from tracking to torqueLimited
+                if commandIn.command.torqueLimit < feedbackOut.feedback.motorTorque;
+            transition torqueLimited_to_tracking from torqueLimited to tracking
+                if feedbackOut.feedback.motorTorque <= commandIn.command.torqueLimit;
+            transition tracking_to_thermalProtection from tracking to thermalProtection
+                if feedbackOut.feedback.motorTemperature > thermalLimit;
+            transition thermalProtection_to_ready from thermalProtection to ready
+                if feedbackOut.feedback.motorTemperature < 0.85 * thermalLimit;
+            transition any_to_faulted from off to faulted
+                if feedbackOut.feedback.encoderHealth < 80.0;
+        }
+
+        action def ApplyServoControl {
+            in command : JointCommand;
+            in power : ElectricalPower;
+            out feedback : ServoFeedback;
+
+            objective {
+                doc
+                /* Convert commanded joint trajectory into closed-loop torque, velocity,
+                   and position control using encoder feedback. */
+            }
+        }
+    }
+
+    part def YaskawaServoAmplifier {
+        attribute dcBusVoltage : ElectricPotential;
+        attribute continuousCurrent : ElectricCurrent;
+        attribute peakCurrent : ElectricCurrent;
+        attribute switchingFrequency : Frequency;
+        attribute regenerationCapacity : Power;
+
+        port acPowerIn : PowerInputPort;
+        port motorPowerOut : PowerOutputPort;
+        port commandIn : JointCommandPort;
+        port feedbackIn : ServoFeedbackPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action def RegulateMotorPower {
+            in command : JointCommand;
+            in feedback : ServoFeedback;
+            out motorPower : ElectricalPower;
+            out event : DiagnosticEvent;
+        }
+    }
+
+    part def RobotJointAxis {
+        attribute axisIndex : Integer;
+        attribute travelMinimum : PlaneAngle;
+        attribute travelMaximum : PlaneAngle;
+        attribute repeatability : Length;
+        attribute gearRatio : Real;
+        attribute maximumPayloadTorque : Torque;
+
+        part motor : YaskawaServoMotor;
+        part amplifier : YaskawaServoAmplifier;
+
+        port commandIn : JointCommandPort;
+        port feedbackOut : ServoFeedbackPort;
+        port powerIn : PowerInputPort;
+
+        connect powerIn to amplifier.acPowerIn;
+        connect amplifier.motorPowerOut to motor.powerIn;
+        connect commandIn to amplifier.commandIn;
+        connect commandIn to motor.commandIn;
+        connect motor.feedbackOut to amplifier.feedbackIn;
+        connect motor.feedbackOut to feedbackOut;
+    }
+
+    part def RobotArmManipulator {
+        attribute ratedPayload : Mass;
+        attribute maximumReach : Length;
+        attribute poseRepeatability : Length;
+        attribute degreesOfFreedom : Integer = 6;
+        attribute baseMass : Mass;
+
+        part axis1 : RobotJointAxis {
+            attribute axisIndex = 1;
+            attribute travelMinimum = -170[deg];
+            attribute travelMaximum = 170[deg];
+        }
+
+        part axis2 : RobotJointAxis {
+            attribute axisIndex = 2;
+            attribute travelMinimum = -90[deg];
+            attribute travelMaximum = 155[deg];
+        }
+
+        part axis3 : RobotJointAxis {
+            attribute axisIndex = 3;
+            attribute travelMinimum = -175[deg];
+            attribute travelMaximum = 240[deg];
+        }
+
+        part axis4 : RobotJointAxis {
+            attribute axisIndex = 4;
+            attribute travelMinimum = -180[deg];
+            attribute travelMaximum = 180[deg];
+        }
+
+        part axis5 : RobotJointAxis {
+            attribute axisIndex = 5;
+            attribute travelMinimum = -125[deg];
+            attribute travelMaximum = 125[deg];
+        }
+
+        part axis6 : RobotJointAxis {
+            attribute axisIndex = 6;
+            attribute travelMinimum = -360[deg];
+            attribute travelMaximum = 360[deg];
+        }
+
+        port motionCommandIn : MotionCommandPort;
+        port jointCommandIn : JointCommandPort;
+        port feedbackOut : ServoFeedbackPort;
+        port toolWorkpiecePort : WorkpiecePort;
+        port powerIn : PowerInputPort;
+
+        connect powerIn to axis1.powerIn;
+        connect powerIn to axis2.powerIn;
+        connect powerIn to axis3.powerIn;
+        connect powerIn to axis4.powerIn;
+        connect powerIn to axis5.powerIn;
+        connect powerIn to axis6.powerIn;
+
+        connect jointCommandIn to axis1.commandIn;
+        connect jointCommandIn to axis2.commandIn;
+        connect jointCommandIn to axis3.commandIn;
+        connect jointCommandIn to axis4.commandIn;
+        connect jointCommandIn to axis5.commandIn;
+        connect jointCommandIn to axis6.commandIn;
+
+        action def ExecuteCoordinatedMotion {
+            in command : MotionCommand;
+            out jointCommand : JointCommand;
+            out actualFeedback : ServoFeedback;
+
+            objective {
+                doc
+                /* Transform Cartesian target poses into synchronized six-axis joint
+                   trajectories that move the end effector accurately and repeatably. */
+            }
+        }
+    }
+
+    part def TeachPendant {
+        attribute displaySize : Length;
+        attribute enableSwitchChannels : Integer = 3;
+        attribute supportedLanguages : Integer;
+        attribute programStorageCapacity : Integer;
+
+        port motionCommandOut : MotionCommandPort;
+        port safetyOut : SafetyOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action def JogRobot {
+            out command : MotionCommand;
+            out safety : SafetySignal;
+        }
+
+        state def PendantStateMachine {
+            state disconnected;
+            state teachLocked;
+            state teachEnabled;
+            state programEditing;
+            state jogging;
+            state emergencyStop;
+
+            transition first disconnected;
+            transition disconnected_to_teachLocked from disconnected to teachLocked
+                accept ElectricalPower;
+            transition teachLocked_to_teachEnabled from teachLocked to teachEnabled
+                if safetyOut.signal.teachModeActive and safetyOut.signal.guardDoorClosed;
+            transition teachEnabled_to_programEditing from teachEnabled to programEditing;
+            transition teachEnabled_to_jogging from teachEnabled to jogging
+                accept MotionCommand;
+            transition jogging_to_emergencyStop from jogging to emergencyStop
+                if safetyOut.signal.emergencyStopActive;
+            transition emergencyStop_to_teachLocked from emergencyStop to teachLocked
+                if not safetyOut.signal.emergencyStopActive;
+        }
+    }
+
+    part def RobotController {
+        attribute processorCycleTime : Time;
+        attribute pathInterpolationPeriod : Time;
+        attribute maximumStoredJobs : Integer;
+        attribute networkLatencyLimit : Time;
+        attribute controllerName : String = "Yaskawa YRC-style Robot Controller";
+
+        port operatorCommandIn : MotionCommandPort;
+        port pendantSafetyIn : SafetyInputPort;
+        port cellSafetyIn : SafetyInputPort;
+        port jointCommandOut : JointCommandPort;
+        port diagnosticOut : DiagnosticPort;
+        port powerIn : PowerInputPort;
+        port servoPowerOut : PowerOutputPort;
+
+        action def PlanRobotPath {
+            in command : MotionCommand;
+            in safety : SafetySignal;
+            out jointCommand : JointCommand;
+            out diagnostic : DiagnosticEvent;
+
+            objective {
+                doc
+                /* Validate safety conditions, calculate a collision-aware trajectory,
+                   and issue coordinated joint commands to the servo axes. */
+            }
+        }
+
+        action def StopMotionSafely {
+            in safety : SafetySignal;
+            out jointCommand : JointCommand;
+            out diagnostic : DiagnosticEvent;
+        }
+
+        state def ControllerStateMachine {
+            state poweredOff;
+            state booting;
+            state standby;
+            state servoReady;
+            state automaticProduction;
+            state manualTeach;
+            state protectiveStop;
+            state emergencyStop;
+            state faultRecovery;
+
+            transition first poweredOff;
+            transition poweredOff_to_booting from poweredOff to booting
+                accept ElectricalPower;
+            transition booting_to_standby from booting to standby
+                if powerIn.power.voltage >= 200[V];
+            transition standby_to_servoReady from standby to servoReady
+                if not pendantSafetyIn.signal.emergencyStopActive and cellSafetyIn.signal.guardDoorClosed;
+            transition servoReady_to_automaticProduction from servoReady to automaticProduction
+                if not pendantSafetyIn.signal.teachModeActive;
+            transition servoReady_to_manualTeach from servoReady to manualTeach
+                if pendantSafetyIn.signal.teachModeActive;
+            transition automaticProduction_to_protectiveStop from automaticProduction to protectiveStop
+                if cellSafetyIn.signal.protectiveStopRequested;
+            transition manualTeach_to_protectiveStop from manualTeach to protectiveStop
+                if cellSafetyIn.signal.protectiveStopRequested;
+            transition protectiveStop_to_servoReady from protectiveStop to servoReady
+                if cellSafetyIn.signal.guardDoorClosed and not cellSafetyIn.signal.protectiveStopRequested;
+            transition automaticProduction_to_emergencyStop from automaticProduction to emergencyStop
+                if pendantSafetyIn.signal.emergencyStopActive;
+            transition manualTeach_to_emergencyStop from manualTeach to emergencyStop
+                if pendantSafetyIn.signal.emergencyStopActive;
+            transition emergencyStop_to_faultRecovery from emergencyStop to faultRecovery
+                if not pendantSafetyIn.signal.emergencyStopActive;
+            transition faultRecovery_to_standby from faultRecovery to standby;
+        }
+    }
+
+    part def WeldingPowerSource {
+        attribute ratedWeldCurrent : ElectricCurrent;
+        attribute ratedWeldVoltage : ElectricPotential;
+        attribute dutyCycle : Percent;
+        attribute coolingMethod : String;
+
+        port weldScheduleIn : WeldSchedulePort;
+        port weldStatusOut : WeldStatusPort;
+        port powerIn : PowerInputPort;
+        port workpiecePort : WorkpiecePort;
+
+        action def ControlArcWeld {
+            in schedule : WeldSchedule;
+            in workpiece : ProductionPart;
+            out status : WeldStatus;
+        }
+
+        state def WeldStateMachine {
+            state idle;
+            state gasPreflow;
+            state arcStart;
+            state welding;
+            state craterFill;
+            state gasPostflow;
+            state weldFault;
+
+            transition first idle;
+            transition idle_to_gasPreflow from idle to gasPreflow
+                accept WeldSchedule;
+            transition gasPreflow_to_arcStart from gasPreflow to arcStart
+                if weldScheduleIn.schedule.preflowTime >= 0.2[s];
+            transition arcStart_to_welding from arcStart to welding
+                if weldStatusOut.status.arcEstablished;
+            transition welding_to_craterFill from welding to craterFill
+                accept MotionCommand;
+            transition craterFill_to_gasPostflow from craterFill to gasPostflow;
+            transition gasPostflow_to_idle from gasPostflow to idle
+                if weldScheduleIn.schedule.postflowTime >= 0.5[s];
+            transition welding_to_weldFault from welding to weldFault
+                if weldStatusOut.status.faultCode != 0;
+        }
+    }
+
+    part def WireFeeder {
+        attribute wireDiameter : Length;
+        attribute maximumFeedSpeed : Speed;
+        attribute spoolCapacity : Mass;
+        attribute feedMotorPower : Power;
+
+        port weldScheduleIn : WeldSchedulePort;
+        port diagnosticOut : DiagnosticPort;
+
+        action def FeedWire {
+            in schedule : WeldSchedule;
+            out diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def EndEffectorWeldingTorch {
+        attribute torchMass : Mass;
+        attribute cableBendRadiusMinimum : Length;
+        attribute nozzleDiameter : Length;
+        attribute contactTipDiameter : Length;
+        attribute gasNozzleOffset : Length;
+
+        port weldScheduleIn : WeldSchedulePort;
+        port weldStatusOut : WeldStatusPort;
+        port workpiecePort : WorkpiecePort;
+
+        part powerSource : WeldingPowerSource;
+        part wireFeeder : WireFeeder;
+
+        connect weldScheduleIn to powerSource.weldScheduleIn;
+        connect weldScheduleIn to wireFeeder.weldScheduleIn;
+        connect powerSource.weldStatusOut to weldStatusOut;
+        connect workpiecePort to powerSource.workpiecePort;
+    }
+
+    part def SafetyController {
+        attribute safetyIntegrityLevel : Integer = 3;
+        attribute stopCategory : Integer = 1;
+        attribute reactionTime : Time;
+        attribute safetyRelayChannels : Integer;
+
+        port pendantSafetyIn : SafetyInputPort;
+        port cellSafetyIn : SafetyInputPort;
+        port controllerSafetyOut : SafetyOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action def EvaluateSafety {
+            in pendantSignal : SafetySignal;
+            in cellSignal : SafetySignal;
+            out permittedSignal : SafetySignal;
+            out diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def WorkcellFixture {
+        attribute tableWidth : Length;
+        attribute tableDepth : Length;
+        attribute clampingForce : Force;
+        attribute datumRepeatability : Length;
+
+        port workpiecePort : WorkpiecePort;
+        port safetyOut : SafetyOutputPort;
+
+        action def ClampWorkpiece {
+            in workpiece : ProductionPart;
+            out safety : SafetySignal;
+        }
+    }
+
+    part def PlantPowerDistribution {
+        attribute nominalVoltage : ElectricPotential = 480[V];
+        attribute nominalFrequency : Frequency = 60[Hz];
+        attribute availableCurrent : ElectricCurrent;
+        attribute groundingResistance : Resistance;
+
+        port utilityPowerIn : PowerInputPort;
+        port controllerPowerOut : PowerOutputPort;
+        port weldPowerOut : PowerOutputPort;
+        port auxiliaryPowerOut : PowerOutputPort;
+    }
+
+    part def YaskawaRoboticWeldingCell {
+        attribute primaryFunction : String =
+            "Automatically position and coordinate a Yaskawa-style six-axis industrial robot, servo drive system, and welding process equipment to perform repeatable arc welding on production parts with monitored safety and diagnostics.";
+
+        attribute cellFootprintWidth : Length = 6.0[m];
+        attribute cellFootprintDepth : Length = 5.0[m];
+        attribute maximumPartMass : Mass = 50[kg];
+        attribute targetWeldPathRepeatability : Length = 0.1[mm];
+        attribute nominalThroughput : Real = 24.0;
+        attribute expectedAvailability : Percent = 92.0;
+
+        part powerDistribution : PlantPowerDistribution {
+            attribute availableCurrent = 80[A];
+            attribute groundingResistance = 0.1[Ohm];
+        }
+
+        part controller : RobotController {
+            attribute processorCycleTime = 1[ms];
+            attribute pathInterpolationPeriod = 4[ms];
+            attribute maximumStoredJobs = 10000;
+            attribute networkLatencyLimit = 8[ms];
+        }
+
+        part manipulator : RobotArmManipulator {
+            attribute ratedPayload = 12[kg];
+            attribute maximumReach = 1440[mm];
+            attribute poseRepeatability = 0.08[mm];
+            attribute baseMass = 150[kg];
+        }
+
+        part pendant : TeachPendant {
+            attribute displaySize = 254[mm];
+            attribute supportedLanguages = 8;
+            attribute programStorageCapacity = 10000;
+        }
+
+        part weldingTorch : EndEffectorWeldingTorch {
+            attribute torchMass = 3.2[kg];
+            attribute cableBendRadiusMinimum = 150[mm];
+            attribute nozzleDiameter = 16[mm];
+            attribute contactTipDiameter = 1.2[mm];
+            attribute gasNozzleOffset = 18[mm];
+        }
+
+        part safetyController : SafetyController {
+            attribute reactionTime = 20[ms];
+            attribute safetyRelayChannels = 2;
+        }
+
+        part fixture : WorkcellFixture {
+            attribute tableWidth = 1600[mm];
+            attribute tableDepth = 1000[mm];
+            attribute clampingForce = 1200[N];
+            attribute datumRepeatability = 0.05[mm];
+        }
+
+        port plantPowerIn : PowerInputPort;
+        port productionWorkpiecePort : WorkpiecePort;
+        port cellDiagnosticOut : DiagnosticPort;
+
+        connect plantPowerIn to powerDistribution.utilityPowerIn;
+        connect powerDistribution.controllerPowerOut to controller.powerIn;
+        connect powerDistribution.controllerPowerOut to manipulator.powerIn;
+        connect powerDistribution.weldPowerOut to weldingTorch.powerSource.powerIn;
+
+        connect pendant.motionCommandOut to controller.operatorCommandIn;
+        connect pendant.safetyOut to safetyController.pendantSafetyIn;
+        connect fixture.safetyOut to safetyController.cellSafetyIn;
+        connect safetyController.controllerSafetyOut to controller.cellSafetyIn;
+        connect safetyController.controllerSafetyOut to controller.pendantSafetyIn;
+
+        connect controller.jointCommandOut to manipulator.jointCommandIn;
+        connect manipulator.toolWorkpiecePort to weldingTorch.workpiecePort;
+        connect productionWorkpiecePort to fixture.workpiecePort;
+        connect fixture.workpiecePort to manipulator.toolWorkpiecePort;
+
+        connect controller.diagnosticOut to cellDiagnosticOut;
+        connect safetyController.diagnosticOut to cellDiagnosticOut;
+        connect weldingTorch.weldStatusOut to cellDiagnosticOut;
+
+        action def ProduceWeldedAssembly {
+            in rawPart : ProductionPart;
+            in pathCommand : MotionCommand;
+            in weldSchedule : WeldSchedule;
+            out finishedPart : ProductionPart;
+            out weldStatus : WeldStatus;
+            out diagnostic : DiagnosticEvent;
+
+            first start;
+            then clampWorkpiece : fixture.ClampWorkpiece;
+            then evaluateSafety : safetyController.EvaluateSafety;
+            then planPath : controller.PlanRobotPath;
+            then executeMotion : manipulator.ExecuteCoordinatedMotion;
+            then feedWire : weldingTorch.wireFeeder.FeedWire;
+            then controlArc : weldingTorch.powerSource.ControlArcWeld;
+            then done;
+
+            objective {
+                doc
+                /* The cell receives a raw production part, secures it in a repeatable
+                   fixture, validates safety permissives, computes robot motion,
+                   synchronizes servo-axis movement with the welding process, and
+                   returns a welded assembly with diagnostic traceability. */
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall provide automated robotic welding by integrating
+           Yaskawa-style motion control, servo drive actuation, teach pendant
+           operation, process welding equipment, workholding, diagnostics, and
+           safety control into a single production workcell. */
+    }
+
+    requirement def MotionAccuracyRequirement {
+        attribute requiredRepeatability : Length = 0.1[mm];
+
+        require constraint {
+            YaskawaRoboticWeldingCell::targetWeldPathRepeatability <= requiredRepeatability
+        }
+
+        doc
+        /* The robotic welding cell shall maintain weld path repeatability of
+           0.1 mm or better at the tool center point during automatic operation. */
+    }
+
+    requirement def PayloadRequirement {
+        attribute requiredPayload : Mass = 10[kg];
+
+        require constraint {
+            YaskawaRoboticWeldingCell::manipulator::ratedPayload >= requiredPayload
+        }
+
+        doc
+        /* The manipulator shall carry the welding torch, dress package, and
+           process loads with at least 10 kg payload capacity. */
+    }
+
+    requirement def SafetyStopRequirement {
+        attribute maximumReactionTime : Time = 30[ms];
+
+        require constraint {
+            YaskawaRoboticWeldingCell::safetyController::reactionTime <= maximumReactionTime
+        }
+
+        doc
+        /* The safety controller shall remove motion permission within 30 ms
+           after emergency stop or protective stop activation. */
+    }
+
+    requirement def ThroughputRequirement {
+        attribute minimumAssembliesPerHour : Real = 20.0;
+
+        require constraint {
+            YaskawaRoboticWeldingCell::nominalThroughput >= minimumAssembliesPerHour
+        }
+
+        doc
+        /* The cell shall produce at least 20 welded assemblies per hour under
+           nominal part loading and weld schedule conditions. */
+    }
+
+    requirement def AvailabilityRequirement {
+        attribute minimumAvailability : Percent = 90.0;
+
+        require constraint {
+            YaskawaRoboticWeldingCell::expectedAvailability >= minimumAvailability
+        }
+
+        doc
+        /* The robotic welding system shall achieve at least 90 percent planned
+           production availability with normal preventive maintenance. */
+    }
+
+    requirement def ElectricalPowerRequirement {
+        attribute requiredVoltage : ElectricPotential = 480[V];
+        attribute requiredFrequency : Frequency = 60[Hz];
+
+        require constraint {
+            YaskawaRoboticWeldingCell::powerDistribution::nominalVoltage == requiredVoltage and
+            YaskawaRoboticWeldingCell::powerDistribution::nominalFrequency == requiredFrequency
+        }
+
+        doc
+        /* The system shall operate from a 480 V, 60 Hz industrial power source. */
+    }
+
+    satisfy PrimaryFunctionRequirement by YaskawaRoboticWeldingCell;
+    satisfy MotionAccuracyRequirement by YaskawaRoboticWeldingCell::manipulator;
+    satisfy PayloadRequirement by YaskawaRoboticWeldingCell::manipulator;
+    satisfy SafetyStopRequirement by YaskawaRoboticWeldingCell::safetyController;
+    satisfy ThroughputRequirement by YaskawaRoboticWeldingCell;
+    satisfy AvailabilityRequirement by YaskawaRoboticWeldingCell;
+    satisfy ElectricalPowerRequirement by YaskawaRoboticWeldingCell::powerDistribution;
+
+    view def HighLevelSystemView {
+        expose YaskawaRoboticWeldingCell;
+        expose YaskawaRoboticWeldingCell::controller;
+        expose YaskawaRoboticWeldingCell::manipulator;
+        expose YaskawaRoboticWeldingCell::weldingTorch;
+        expose YaskawaRoboticWeldingCell::safetyController;
+        expose YaskawaRoboticWeldingCell::fixture;
+        expose PrimaryFunctionRequirement;
+    }
+
+}

@@ -1,0 +1,405 @@
+package InfraredThermometerModel {
+    import ScalarValues::*;
+
+    attribute def Temperature_degC :> Real {
+        attribute unitSymbol : String = "degC";
+    }
+
+    attribute def Time_s :> Real {
+        attribute unitSymbol : String = "s";
+    }
+
+    attribute def Voltage_V :> Real {
+        attribute unitSymbol : String = "V";
+    }
+
+    attribute def Current_mA :> Real {
+        attribute unitSymbol : String = "mA";
+    }
+
+    attribute def Distance_cm :> Real {
+        attribute unitSymbol : String = "cm";
+    }
+
+    attribute def Wavelength_um :> Real {
+        attribute unitSymbol : String = "um";
+    }
+
+    attribute def Radiance_W_per_m2_sr :> Real {
+        attribute unitSymbol : String = "W/(m^2*sr)";
+    }
+
+    attribute def Percent :> Real {
+        attribute unitSymbol : String = "%";
+    }
+
+    enum def MeasurementStatus {
+        enum ok;
+        enum targetTooFar;
+        enum sensorSaturated;
+        enum ambientOutOfRange;
+        enum lowBattery;
+        enum internalFault;
+    }
+
+    item def InfraredRadiance {
+        attribute spectralBandMin : Wavelength_um = 8.0;
+        attribute spectralBandMax : Wavelength_um = 14.0;
+        attribute radiance : Radiance_W_per_m2_sr;
+        attribute sourceDistance : Distance_cm;
+        attribute emissivity : Percent;
+    }
+
+    item def ThermopileSignal {
+        attribute sensorVoltage : Voltage_V;
+        attribute ambientTemperature : Temperature_degC;
+        attribute signalValid : Boolean;
+    }
+
+    item def DigitalSample {
+        attribute rawThermopileCount : Integer;
+        attribute rawAmbientCount : Integer;
+        attribute sampledAt : Time_s;
+    }
+
+    item def TemperatureReading {
+        attribute objectTemperature : Temperature_degC;
+        attribute ambientTemperature : Temperature_degC;
+        attribute status : MeasurementStatus;
+        attribute confidence : Percent;
+        attribute measuredAt : Time_s;
+    }
+
+    item def UserCommand {
+        attribute triggerPressed : Boolean;
+        attribute unitsRequestedCelsius : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage_V;
+        attribute current : Current_mA;
+    }
+
+    port def InfraredInputPort {
+        in item incidentRadiance : InfraredRadiance;
+    }
+
+    port def AnalogSignalPort {
+        out item analogSignal : ThermopileSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalSample;
+    }
+
+    port def ReadingOutputPort {
+        out item reading : TemperatureReading;
+    }
+
+    port def UserInputPort {
+        in item command : UserCommand;
+    }
+
+    port def PowerPort {
+        inout item power : ElectricalPower;
+    }
+
+    part def InfraredThermometer {
+        attribute primaryFunction : String =
+            "Estimate a target surface temperature without contact by sensing infrared radiation, compensating for ambient conditions, and presenting a validated temperature reading to the user.";
+
+        attribute measurementRangeMin : Temperature_degC = -20.0;
+        attribute measurementRangeMax : Temperature_degC = 550.0;
+        attribute statedAccuracyAtRoomAmbient : Temperature_degC = 0.2;
+        attribute responseTime : Time_s = 0.5;
+        attribute defaultEmissivity : Percent = 95.0;
+        attribute maximumRecommendedDistance : Distance_cm = 15.0;
+        attribute lowBatteryThreshold : Voltage_V = 2.7;
+
+        port opticalInput : InfraredInputPort;
+        port userInput : UserInputPort;
+        port readingOutput : ReadingOutputPort;
+        port supply : PowerPort;
+
+        part opticalFrontEnd : OpticalFrontEnd;
+        part thermopileSensor : ThermopileSensor;
+        part ambientSensor : AmbientTemperatureSensor;
+        part analogFrontEnd : AnalogFrontEnd;
+        part converter : AnalogToDigitalConverter;
+        part processor : TemperatureProcessor;
+        part display : DisplayModule;
+        part alert : AlertModule;
+        part battery : BatteryModule;
+
+        connection opticalPath connect opticalInput to opticalFrontEnd.aperture;
+        connection filteredRadiancePath connect opticalFrontEnd.filteredOutput to thermopileSensor.irInput;
+        connection thermopileAnalogPath connect thermopileSensor.signalOutput to analogFrontEnd.sensorInput;
+        connection conditionedSignalPath connect analogFrontEnd.conditionedOutput to converter.analogInput;
+        connection digitalSamplePath connect converter.digitalOutput to processor.sampleInput;
+        connection ambientPath connect ambientSensor.ambientOutput to processor.ambientInput;
+        connection readingPath connect processor.readingOutput to display.readingInput;
+        connection externalReadingPath connect processor.readingOutput to readingOutput;
+        connection alertPath connect processor.readingOutput to alert.readingInput;
+        connection userCommandPath connect userInput to processor.userInput;
+        connection batteryPowerPath connect battery.powerOutput to supply;
+
+        perform action MeasureObjectTemperature;
+    }
+
+    part def OpticalFrontEnd {
+        attribute fieldOfViewRatio : Real = 12.0;
+        attribute transmissionEfficiency : Percent = 88.0;
+
+        port aperture : InfraredInputPort;
+        port filteredOutput : InfraredInputPort;
+    }
+
+    part def ThermopileSensor {
+        attribute spectralBandMin : Wavelength_um = 8.0;
+        attribute spectralBandMax : Wavelength_um = 14.0;
+        attribute noiseEquivalentTemperatureDifference : Temperature_degC = 0.05;
+
+        port irInput : InfraredInputPort;
+        port signalOutput : AnalogSignalPort;
+    }
+
+    part def AmbientTemperatureSensor {
+        attribute operatingMin : Temperature_degC = 0.0;
+        attribute operatingMax : Temperature_degC = 50.0;
+        attribute accuracy : Temperature_degC = 0.1;
+
+        port ambientOutput : AnalogSignalPort;
+    }
+
+    part def AnalogFrontEnd {
+        attribute gain : Real = 128.0;
+        attribute lowPassCutoffFrequency_Hz : Real = 20.0;
+        attribute inputOffset : Voltage_V = 0.0;
+
+        port sensorInput : AnalogSignalPort;
+        port conditionedOutput : AnalogSignalPort;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolution_bits : Integer = 16;
+        attribute referenceVoltage : Voltage_V = 3.3;
+        attribute samplePeriod : Time_s = 0.05;
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalSamplePort;
+    }
+
+    part def TemperatureProcessor {
+        attribute emissivitySetting : Percent = 95.0;
+        attribute lastReading : TemperatureReading;
+        attribute faultLatched : Boolean = false;
+
+        port sampleInput : DigitalSamplePort;
+        port ambientInput : AnalogSignalPort;
+        port userInput : UserInputPort;
+        port readingOutput : ReadingOutputPort;
+
+        perform action ComputeTemperature;
+        exhibit state MeasurementController;
+    }
+
+    part def DisplayModule {
+        attribute refreshPeriod : Time_s = 0.1;
+        attribute visibleDigits : Integer = 4;
+
+        port readingInput : ReadingOutputPort;
+    }
+
+    part def AlertModule {
+        attribute feverThreshold : Temperature_degC = 38.0;
+        attribute alarmDuration : Time_s = 1.0;
+
+        port readingInput : ReadingOutputPort;
+    }
+
+    part def BatteryModule {
+        attribute nominalVoltage : Voltage_V = 3.0;
+        attribute minimumOperatingVoltage : Voltage_V = 2.7;
+        attribute standbyCurrent : Current_mA = 0.02;
+        attribute measuringCurrent : Current_mA = 18.0;
+
+        port powerOutput : PowerPort;
+    }
+
+    action def MeasureObjectTemperature {
+        in item radiance : InfraredRadiance;
+        in item command : UserCommand;
+        out item result : TemperatureReading;
+
+        first start;
+        then acquireRadiance;
+        then convertToSignal;
+        then sampleSignal;
+        then compensateAmbient;
+        then calculateObjectTemperature;
+        then validateReading;
+        then presentReading;
+        then done;
+
+        action acquireRadiance {
+            in item radiance : InfraredRadiance;
+        }
+
+        action convertToSignal {
+            in item radiance : InfraredRadiance;
+            out item signal : ThermopileSignal;
+        }
+
+        action sampleSignal {
+            in item signal : ThermopileSignal;
+            out item sample : DigitalSample;
+        }
+
+        action compensateAmbient {
+            in item sample : DigitalSample;
+            out item compensatedSample : DigitalSample;
+        }
+
+        action calculateObjectTemperature {
+            in item compensatedSample : DigitalSample;
+            out item computedReading : TemperatureReading;
+        }
+
+        action validateReading {
+            in item computedReading : TemperatureReading;
+            out item result : TemperatureReading;
+        }
+
+        action presentReading {
+            in item result : TemperatureReading;
+        }
+    }
+
+    action def ComputeTemperature {
+        in item sample : DigitalSample;
+        in item ambientSignal : ThermopileSignal;
+        out item reading : TemperatureReading;
+
+        first receiveSample;
+        then linearizeSensorSignal;
+        then applyAmbientCompensation;
+        then applyEmissivityCorrection;
+        then checkRangeAndBattery;
+        then publishReading;
+
+        action receiveSample;
+        action linearizeSensorSignal;
+        action applyAmbientCompensation;
+        action applyEmissivityCorrection;
+        action checkRangeAndBattery;
+        action publishReading;
+    }
+
+    state def MeasurementController {
+        entry action initializeElectronics;
+
+        state Off;
+        state Standby;
+        state Aiming;
+        state Measuring;
+        state Processing;
+        state Displaying;
+        state Fault;
+
+        initial then Off;
+
+        transition powerApplied
+            first Off
+            then Standby;
+
+        transition triggerHalfPressed
+            first Standby
+            accept UserCommand
+            if command.triggerPressed
+            then Aiming;
+
+        transition triggerFullyPressed
+            first Aiming
+            then Measuring;
+
+        transition sampleComplete
+            first Measuring
+            then Processing;
+
+        transition readingValid
+            first Processing
+            if lastReading.status == MeasurementStatus::ok
+            then Displaying;
+
+        transition readingInvalid
+            first Processing
+            if lastReading.status != MeasurementStatus::ok
+            then Fault;
+
+        transition timeout
+            first Displaying
+            after 10.0
+            then Standby;
+
+        transition faultCleared
+            first Fault
+            then Standby;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject thermometer : InfraredThermometer;
+
+        require constraint {
+            thermometer.primaryFunction ==
+            "Estimate a target surface temperature without contact by sensing infrared radiation, compensating for ambient conditions, and presenting a validated temperature reading to the user."
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject thermometer : InfraredThermometer;
+
+        require constraint {
+            thermometer.measurementRangeMin <= -20.0 and
+            thermometer.measurementRangeMax >= 550.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject thermometer : InfraredThermometer;
+
+        require constraint {
+            thermometer.statedAccuracyAtRoomAmbient <= 0.2
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject thermometer : InfraredThermometer;
+
+        require constraint {
+            thermometer.responseTime <= 0.5
+        }
+    }
+
+    requirement def NonContactDistanceRequirement {
+        subject thermometer : InfraredThermometer;
+
+        require constraint {
+            thermometer.maximumRecommendedDistance >= 15.0
+        }
+    }
+
+    requirement def LowBatteryDetectionRequirement {
+        subject thermometer : InfraredThermometer;
+
+        require constraint {
+            thermometer.lowBatteryThreshold >= thermometer.battery.minimumOperatingVoltage
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by InfraredThermometer;
+    satisfy MeasurementRangeRequirement by InfraredThermometer;
+    satisfy AccuracyRequirement by InfraredThermometer;
+    satisfy ResponseTimeRequirement by InfraredThermometer;
+    satisfy NonContactDistanceRequirement by InfraredThermometer;
+    satisfy LowBatteryDetectionRequirement by InfraredThermometer;
+}

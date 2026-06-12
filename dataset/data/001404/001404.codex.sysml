@@ -1,0 +1,467 @@
+package DisruptiveInnovationModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Currency_USD :> Real;
+  attribute def Energy_kWh :> Real;
+  attribute def Distance_km :> Real;
+  attribute def Duration_min :> Real;
+  attribute def Power_kW :> Real;
+  attribute def Speed_km_per_h :> Real;
+  attribute def Percent :> Real;
+  attribute def PassengerCount :> Integer;
+
+  item def RideRequest {
+    attribute originLatitude : Real;
+    attribute originLongitude : Real;
+    attribute destinationLatitude : Real;
+    attribute destinationLongitude : Real;
+    attribute requestedSeats : PassengerCount;
+    attribute maxWaitTime : Duration_min;
+  }
+
+  item def TripAssignment {
+    attribute vehicleId : String;
+    attribute pickupEta : Duration_min;
+    attribute pooledTrip : Boolean;
+    attribute estimatedFare : Currency_USD;
+    attribute estimatedDistance : Distance_km;
+  }
+
+  item def PassengerManifest {
+    attribute activePassengerCount : PassengerCount;
+    attribute reservedSeatCount : PassengerCount;
+  }
+
+  item def BatteryEnergy {
+    attribute storedEnergy : Energy_kWh;
+    attribute stateOfCharge : Percent;
+  }
+
+  item def VehicleTelemetry {
+    attribute vehicleId : String;
+    attribute speed : Speed_km_per_h;
+    attribute positionLatitude : Real;
+    attribute positionLongitude : Real;
+    attribute remainingRange : Distance_km;
+    attribute cabinOccupied : Boolean;
+  }
+
+  item def RoutePlan {
+    attribute routeDistance : Distance_km;
+    attribute expectedDuration : Duration_min;
+    attribute includesChargingStop : Boolean;
+  }
+
+  item def PaymentAuthorization {
+    attribute customerId : String;
+    attribute authorizedAmount : Currency_USD;
+    attribute authorizationApproved : Boolean;
+  }
+
+  port def RequestPort {
+    in item rideRequest : RideRequest;
+    out item tripAssignment : TripAssignment;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : VehicleTelemetry;
+  }
+
+  port def FleetCommandPort {
+    in item routePlan : RoutePlan;
+    in item tripAssignment : TripAssignment;
+  }
+
+  port def EnergyPort {
+    inout item energy : BatteryEnergy;
+  }
+
+  port def PassengerPort {
+    in item manifest : PassengerManifest;
+  }
+
+  port def PaymentPort {
+    in item paymentAuthorization : PaymentAuthorization;
+  }
+
+  part def MobileCustomerApp {
+    port requestPort : RequestPort;
+    port paymentPort : PaymentPort;
+
+    attribute activeUsers : Integer;
+    attribute averageBookingTime : Duration_min;
+  }
+
+  part def CloudMobilityPlatform {
+    port customerRequestPort : RequestPort;
+    port vehicleCommandPort : FleetCommandPort;
+    port vehicleTelemetryPort : TelemetryPort;
+    port paymentPort : PaymentPort;
+
+    attribute averageDispatchLatency : Duration_min;
+    attribute poolingUtilization : Percent;
+    attribute platformAvailability : Percent;
+  }
+
+  part def AutonomousElectricVehicle {
+    port commandPort : FleetCommandPort;
+    port telemetryPort : TelemetryPort;
+    port batteryPort : EnergyPort;
+    port passengerPort : PassengerPort;
+
+    attribute capacity : PassengerCount;
+    attribute batteryCapacity : Energy_kWh;
+    attribute currentStateOfCharge : Percent;
+    attribute maximumRange : Distance_km;
+    attribute autonomousModeEnabled : Boolean;
+  }
+
+  part def ChargingHub {
+    port energyPort : EnergyPort;
+
+    attribute chargerPower : Power_kW;
+    attribute availableChargers : Integer;
+    attribute renewableEnergyShare : Percent;
+  }
+
+  part def PaymentService {
+    port paymentPort : PaymentPort;
+
+    attribute transactionApprovalRate : Percent;
+    attribute averageAuthorizationTime : Duration_min;
+  }
+
+  part def DisruptiveSharedAutonomousMobilitySystem {
+    part customerApp : MobileCustomerApp;
+    part platform : CloudMobilityPlatform;
+    part vehicle[1..500] : AutonomousElectricVehicle;
+    part chargingHub[1..25] : ChargingHub;
+    part paymentService : PaymentService;
+
+    attribute serviceRegionRadius : Distance_km;
+    attribute averageFarePerKm : Currency_USD;
+    attribute privateCarReplacementRate : Percent;
+    attribute averagePassengerWaitTime : Duration_min;
+
+    connection appToPlatform {
+      connect customerApp.requestPort to platform.customerRequestPort;
+    }
+
+    connection platformToVehicles {
+      connect platform.vehicleCommandPort to vehicle.commandPort;
+    }
+
+    connection vehicleTelemetryToPlatform {
+      connect vehicle.telemetryPort to platform.vehicleTelemetryPort;
+    }
+
+    connection vehicleCharging {
+      connect vehicle.batteryPort to chargingHub.energyPort;
+    }
+
+    connection appPayment {
+      connect customerApp.paymentPort to paymentService.paymentPort;
+    }
+
+    connection paymentToPlatform {
+      connect paymentService.paymentPort to platform.paymentPort;
+    }
+  }
+
+  action def RequestSharedAutonomousRide {
+    in item request : RideRequest;
+    out item assignment : TripAssignment;
+
+    action validateRequest;
+    action authorizePayment;
+    action matchVehicle;
+    action optimizePooledRoute;
+    action sendAssignment;
+
+    flow validateRequest then authorizePayment;
+    flow authorizePayment then matchVehicle;
+    flow matchVehicle then optimizePooledRoute;
+    flow optimizePooledRoute then sendAssignment;
+  }
+
+  action def OperateAutonomousTrip {
+    in item assignment : TripAssignment;
+    in item manifest : PassengerManifest;
+    out item telemetry : VehicleTelemetry;
+
+    action navigateToPickup;
+    action verifyPassengerBoarding;
+    action navigateToDestination;
+    action completeDropOff;
+    action reportTripMetrics;
+
+    flow navigateToPickup then verifyPassengerBoarding;
+    flow verifyPassengerBoarding then navigateToDestination;
+    flow navigateToDestination then completeDropOff;
+    flow completeDropOff then reportTripMetrics;
+  }
+
+  action def RebalanceAndRechargeFleet {
+    in item telemetry : VehicleTelemetry;
+    out item routePlan : RoutePlan;
+
+    action identifyDemandHotspots;
+    action selectIdleVehicles;
+    action routeLowChargeVehiclesToHub;
+    action dispatchVehiclesToDemand;
+    action updateFleetAvailability;
+
+    flow identifyDemandHotspots then selectIdleVehicles;
+    flow selectIdleVehicles then routeLowChargeVehiclesToHub;
+    flow routeLowChargeVehiclesToHub then dispatchVehiclesToDemand;
+    flow dispatchVehiclesToDemand then updateFleetAvailability;
+  }
+
+  state def VehicleOperationalState {
+    entry action initializeVehicleSystems;
+
+    state Available;
+    state Assigned;
+    state DrivingToPickup;
+    state BoardingPassenger;
+    state InService;
+    state DroppingOffPassenger;
+    state Rebalancing;
+    state Charging;
+    state MaintenanceHold;
+
+    transition first Available;
+
+    transition assignRide
+      first Available
+      then Assigned;
+
+    transition beginPickupRoute
+      first Assigned
+      then DrivingToPickup;
+
+    transition arrivePickup
+      first DrivingToPickup
+      then BoardingPassenger;
+
+    transition passengerVerified
+      first BoardingPassenger
+      then InService;
+
+    transition arriveDestination
+      first InService
+      then DroppingOffPassenger;
+
+    transition tripCompleted
+      first DroppingOffPassenger
+      then Available;
+
+    transition demandRebalance
+      first Available
+      then Rebalancing;
+
+    transition rebalanceCompleted
+      first Rebalancing
+      then Available;
+
+    transition lowBattery
+      first Available
+      then Charging;
+
+    transition chargeCompleted
+      first Charging
+      then Available;
+
+    transition faultDetected
+      first Available
+      then MaintenanceHold;
+
+    transition maintenanceReleased
+      first MaintenanceHold
+      then Available;
+  }
+
+  state def PlatformDispatchState {
+    state MonitoringDemand;
+    state ReceivingRequest;
+    state AuthorizingFare;
+    state OptimizingAssignment;
+    state DispatchingVehicle;
+    state SupervisingTrip;
+    state ClosingTrip;
+
+    transition first MonitoringDemand;
+
+    transition requestReceived
+      first MonitoringDemand
+      then ReceivingRequest;
+
+    transition requestValid
+      first ReceivingRequest
+      then AuthorizingFare;
+
+    transition paymentApproved
+      first AuthorizingFare
+      then OptimizingAssignment;
+
+    transition assignmentSelected
+      first OptimizingAssignment
+      then DispatchingVehicle;
+
+    transition vehicleAcknowledged
+      first DispatchingVehicle
+      then SupervisingTrip;
+
+    transition destinationReached
+      first SupervisingTrip
+      then ClosingTrip;
+
+    transition tripClosed
+      first ClosingTrip
+      then MonitoringDemand;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : DisruptiveSharedAutonomousMobilitySystem;
+
+    doc
+    /*
+     The system shall provide on-demand autonomous electric ride service that replaces routine private car ownership trips with pooled, lower-cost, software-dispatched mobility.
+    */
+
+    require constraint {
+      system.averagePassengerWaitTime <= 8.0
+    }
+  }
+
+  requirement def DisruptiveInnovationRequirement {
+    subject system : DisruptiveSharedAutonomousMobilitySystem;
+
+    doc
+    /*
+     The system shall disrupt traditional individually owned vehicles and human-driven taxi services by combining autonomous driving, shared fleet utilization, electric propulsion, and dynamic route optimization.
+    */
+
+    require constraint {
+      system.privateCarReplacementRate >= 35.0
+    }
+  }
+
+  requirement def CostRequirement {
+    subject system : DisruptiveSharedAutonomousMobilitySystem;
+
+    doc
+    /*
+     The average fare shall remain low enough to make frequent shared autonomous rides economically attractive compared with private car ownership in dense service regions.
+    */
+
+    require constraint {
+      system.averageFarePerKm <= 0.75
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject platform : CloudMobilityPlatform;
+
+    doc
+    /*
+     The cloud mobility platform shall remain continuously available for request intake, dispatch, telemetry processing, and trip closure.
+    */
+
+    require constraint {
+      platform.platformAvailability >= 99.9
+    }
+  }
+
+  requirement def ElectricFleetRequirement {
+    subject vehicle : AutonomousElectricVehicle;
+
+    doc
+    /*
+     Each autonomous vehicle shall operate as an electric vehicle with sufficient range for continuous urban mobility service between charging cycles.
+    */
+
+    require constraint {
+      vehicle.maximumRange >= 320.0 and vehicle.batteryCapacity >= 70.0
+    }
+  }
+
+  requirement def PoolingRequirement {
+    subject platform : CloudMobilityPlatform;
+
+    doc
+    /*
+     The platform shall increase vehicle utilization by pooling compatible ride requests when passenger delay remains within accepted wait and route limits.
+    */
+
+    require constraint {
+      platform.poolingUtilization >= 45.0
+    }
+  }
+
+  requirement def ChargingSustainabilityRequirement {
+    subject chargingHub : ChargingHub;
+
+    doc
+    /*
+     Charging hubs shall preferentially use renewable electricity to reduce lifecycle emissions relative to combustion-based mobility.
+    */
+
+    require constraint {
+      chargingHub.renewableEnergyShare >= 80.0
+    }
+  }
+
+  part system : DisruptiveSharedAutonomousMobilitySystem {
+    attribute serviceRegionRadius = 35.0;
+    attribute averageFarePerKm = 0.52;
+    attribute privateCarReplacementRate = 42.0;
+    attribute averagePassengerWaitTime = 5.5;
+
+    part customerApp {
+      attribute activeUsers = 250000;
+      attribute averageBookingTime = 1.2;
+    }
+
+    part platform {
+      attribute averageDispatchLatency = 0.4;
+      attribute poolingUtilization = 58.0;
+      attribute platformAvailability = 99.95;
+    }
+
+    part vehicle {
+      attribute capacity = 4;
+      attribute batteryCapacity = 82.0;
+      attribute currentStateOfCharge = 76.0;
+      attribute maximumRange = 410.0;
+      attribute autonomousModeEnabled = true;
+    }
+
+    part chargingHub {
+      attribute chargerPower = 350.0;
+      attribute availableChargers = 40;
+      attribute renewableEnergyShare = 88.0;
+    }
+
+    part paymentService {
+      attribute transactionApprovalRate = 98.7;
+      attribute averageAuthorizationTime = 0.08;
+    }
+
+    perform RequestSharedAutonomousRide;
+    perform OperateAutonomousTrip;
+    perform RebalanceAndRechargeFleet;
+
+    exhibit state VehicleOperationalState;
+    exhibit state PlatformDispatchState;
+
+    satisfy PrimaryFunctionRequirement;
+    satisfy DisruptiveInnovationRequirement;
+    satisfy CostRequirement;
+    satisfy ElectricFleetRequirement;
+    satisfy PoolingRequirement;
+  }
+
+}

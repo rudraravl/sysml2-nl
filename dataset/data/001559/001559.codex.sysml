@@ -1,0 +1,538 @@
+package RoboticSpacecraftModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Mass :> ISQ::mass;
+    attribute def Length :> ISQ::length;
+    attribute def Time :> ISQ::time;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def ElectricPotential :> ISQ::electricPotential;
+    attribute def ElectricCurrent :> ISQ::electricCurrent;
+    attribute def Power :> ISQ::power;
+    attribute def Energy :> ISQ::energy;
+    attribute def Frequency :> ISQ::frequency;
+    attribute def DataRate :> ISQ::dataRate;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def Force :> ISQ::force;
+    attribute def Torque :> ISQ::torque;
+    attribute def Velocity :> ISQ::speed;
+    attribute def Acceleration :> ISQ::acceleration;
+    attribute def Distance :> ISQ::length;
+    attribute def Duration :> ISQ::duration;
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : Power;
+    }
+
+    item def CommandMessage {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute issueTime : Time;
+        attribute executionDeadline : Time;
+    }
+
+    item def TelemetryFrame {
+        attribute frameId : String;
+        attribute generationTime : Time;
+        attribute dataRate : DataRate;
+        attribute healthSummary : String;
+    }
+
+    item def ScienceObservation {
+        attribute targetName : String;
+        attribute acquisitionTime : Time;
+        attribute instrumentMode : String;
+        attribute rawDataVolume : Real;
+    }
+
+    item def Propellant {
+        attribute massRemaining : Mass;
+        attribute tankPressure : ISQ::pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def AttitudeState {
+        attribute roll : Angle;
+        attribute pitch : Angle;
+        attribute yaw : Angle;
+        attribute rollRate : ISQ::angularVelocity;
+        attribute pitchRate : ISQ::angularVelocity;
+        attribute yawRate : ISQ::angularVelocity;
+    }
+
+    item def OrbitState {
+        attribute positionX : Distance;
+        attribute positionY : Distance;
+        attribute positionZ : Distance;
+        attribute velocityX : Velocity;
+        attribute velocityY : Velocity;
+        attribute velocityZ : Velocity;
+    }
+
+    item def ThermalLoad {
+        attribute heatFlow : Power;
+        attribute sourceName : String;
+    }
+
+    port def PowerPort {
+        out item powerOut : ElectricalPower;
+        in item powerIn : ElectricalPower;
+    }
+
+    port def DataPort {
+        in item commandIn : CommandMessage;
+        out item telemetryOut : TelemetryFrame;
+        out item scienceOut : ScienceObservation;
+    }
+
+    port def PropellantPort {
+        inout item propellantFlow : Propellant;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalLoad;
+    }
+
+    port def AttitudeControlPort {
+        in item desiredAttitude : AttitudeState;
+        out item actualAttitude : AttitudeState;
+        out item controlTorque : Torque;
+    }
+
+    port def NavigationPort {
+        out item orbitEstimate : OrbitState;
+        out item attitudeEstimate : AttitudeState;
+    }
+
+    port def RFPort {
+        in item uplink : CommandMessage;
+        out item downlinkTelemetry : TelemetryFrame;
+        out item downlinkScience : ScienceObservation;
+    }
+
+    action def GenerateElectricalPower {
+        out item generatedPower : ElectricalPower;
+    }
+
+    action def StoreElectricalEnergy {
+        in item generatedPower : ElectricalPower;
+        out item regulatedPower : ElectricalPower;
+    }
+
+    action def ReceiveGroundCommand {
+        in item uplink : CommandMessage;
+        out item validatedCommand : CommandMessage;
+    }
+
+    action def ExecuteAutonomousMissionPlan {
+        in item command : CommandMessage;
+        in item orbit : OrbitState;
+        in item attitude : AttitudeState;
+        out item observationTask : CommandMessage;
+    }
+
+    action def AcquireScienceData {
+        in item task : CommandMessage;
+        out item observation : ScienceObservation;
+    }
+
+    action def EstimateNavigationState {
+        out item orbit : OrbitState;
+        out item attitude : AttitudeState;
+    }
+
+    action def ControlAttitude {
+        in item desiredAttitude : AttitudeState;
+        in item measuredAttitude : AttitudeState;
+        out item torqueRequest : Torque;
+    }
+
+    action def PerformTrajectoryCorrection {
+        in item orbit : OrbitState;
+        in item maneuverCommand : CommandMessage;
+        inout item propellant : Propellant;
+        out item correctedOrbit : OrbitState;
+    }
+
+    action def RegulateThermalState {
+        inout item heat : ThermalLoad;
+    }
+
+    action def PackageAndTransmitData {
+        in item telemetry : TelemetryFrame;
+        in item science : ScienceObservation;
+        out item downlinkTelemetry : TelemetryFrame;
+        out item downlinkScience : ScienceObservation;
+    }
+
+    part def SolarArray {
+        attribute deployedArea : ISQ::area = 24 [SI::m^2];
+        attribute beginningOfLifePower : Power = 4200 [SI::W];
+        attribute endOfLifePower : Power = 3400 [SI::W];
+        attribute sunTrackingRange : Angle = 170 [SI::deg];
+
+        port powerInterface : PowerPort;
+
+        perform action generatePower : GenerateElectricalPower;
+    }
+
+    part def BatteryAssembly {
+        attribute capacity : Energy = 12000 [SI::W * SI::h];
+        attribute nominalBusVoltage : ElectricPotential = 50 [SI::V];
+        attribute maximumDischargeDepth : Real = 0.65;
+        attribute minimumOperationalTemperature : Temperature = 263 [SI::K];
+        attribute maximumOperationalTemperature : Temperature = 313 [SI::K];
+
+        port powerInterface : PowerPort;
+        port thermalInterface : ThermalPort;
+
+        perform action storeEnergy : StoreElectricalEnergy;
+    }
+
+    part def PowerDistributionUnit {
+        attribute regulatedBusVoltage : ElectricPotential = 50 [SI::V];
+        attribute peakLoadPower : Power = 3100 [SI::W];
+        attribute essentialLoadPower : Power = 650 [SI::W];
+
+        port solarInput : PowerPort;
+        port batteryInput : PowerPort;
+        port avionicsOutput : PowerPort;
+        port payloadOutput : PowerPort;
+        port propulsionOutput : PowerPort;
+        port communicationsOutput : PowerPort;
+        port thermalOutput : PowerPort;
+    }
+
+    part def CommandAndDataHandlingComputer {
+        attribute processorClockFrequency : Frequency = 200 [SI::MHz];
+        attribute solidStateRecorderCapacity : Real = 4096;
+        attribute autonomousSafingLatency : Duration = 5 [SI::s];
+        attribute nominalTelemetryRate : DataRate = 2048 [SI::bit / SI::s];
+
+        port powerInterface : PowerPort;
+        port spacecraftDataBus : DataPort;
+        port navigationInterface : NavigationPort;
+        port rfInterface : RFPort;
+
+        perform action receiveCommand : ReceiveGroundCommand;
+        perform action executeMissionPlan : ExecuteAutonomousMissionPlan;
+    }
+
+    part def GuidanceNavigationAndControl {
+        attribute attitudeKnowledgeAccuracy : Angle = 0.005 [SI::deg];
+        attribute attitudeControlAccuracy : Angle = 0.02 [SI::deg];
+        attribute orbitDeterminationAccuracy : Distance = 50 [SI::m];
+
+        port powerInterface : PowerPort;
+        port dataInterface : DataPort;
+        port navigationOutput : NavigationPort;
+        port attitudeControlInterface : AttitudeControlPort;
+
+        perform action estimateState : EstimateNavigationState;
+        perform action controlAttitude : ControlAttitude;
+    }
+
+    part def ReactionWheelAssembly {
+        attribute wheelCount : Integer = 4;
+        attribute maximumStoredMomentum : ISQ::angularMomentum = 80 [SI::N * SI::m * SI::s];
+        attribute maximumTorque : Torque = 0.18 [SI::N * SI::m];
+
+        port powerInterface : PowerPort;
+        port controlInterface : AttitudeControlPort;
+        port thermalInterface : ThermalPort;
+    }
+
+    part def StarTracker {
+        attribute fieldOfView : Angle = 20 [SI::deg];
+        attribute updateRate : Frequency = 4 [SI::Hz];
+        attribute lostInSpaceAcquisitionTime : Duration = 30 [SI::s];
+
+        port powerInterface : PowerPort;
+        port navigationInterface : NavigationPort;
+        port dataInterface : DataPort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute gyroBiasStability : ISQ::angularVelocity = 0.01 [SI::deg / SI::h];
+        attribute accelerometerRange : Acceleration = 16 [SI::m / SI::s^2];
+        attribute updateRate : Frequency = 100 [SI::Hz];
+
+        port powerInterface : PowerPort;
+        port navigationInterface : NavigationPort;
+    }
+
+    part def PropulsionSubsystem {
+        attribute thrusterCount : Integer = 8;
+        attribute totalImpulseCapability : ISQ::impulse = 42000 [SI::N * SI::s];
+        attribute nominalThrustPerThruster : Force = 0.9 [SI::N];
+        attribute minimumImpulseBit : ISQ::impulse = 0.04 [SI::N * SI::s];
+
+        port powerInterface : PowerPort;
+        port dataInterface : DataPort;
+        port propellantInterface : PropellantPort;
+        port thermalInterface : ThermalPort;
+
+        perform action trajectoryCorrection : PerformTrajectoryCorrection;
+    }
+
+    part def PropellantTank {
+        attribute initialPropellantMass : Mass = 48 [SI::kg];
+        attribute usablePropellantMass : Mass = 44 [SI::kg];
+        attribute maximumExpectedOperatingPressure : ISQ::pressure = 2200000 [SI::Pa];
+
+        port propellantInterface : PropellantPort;
+        port thermalInterface : ThermalPort;
+    }
+
+    part def SciencePayload {
+        attribute apertureDiameter : Length = 0.35 [SI::m];
+        attribute instrumentMass : Mass = 38 [SI::kg];
+        attribute peakPayloadPower : Power = 520 [SI::W];
+        attribute rawScienceDataRate : DataRate = 12000000 [SI::bit / SI::s];
+        attribute pointingStabilityRequirement : Angle = 0.01 [SI::deg];
+
+        port powerInterface : PowerPort;
+        port dataInterface : DataPort;
+        port thermalInterface : ThermalPort;
+
+        perform action acquireScience : AcquireScienceData;
+    }
+
+    part def CommunicationsSubsystem {
+        attribute xBandDownlinkFrequency : Frequency = 8400 [SI::MHz];
+        attribute sBandUplinkFrequency : Frequency = 2100 [SI::MHz];
+        attribute highGainAntennaDiameter : Length = 1.2 [SI::m];
+        attribute maximumDownlinkRate : DataRate = 5000000 [SI::bit / SI::s];
+        attribute commandUplinkRate : DataRate = 2000 [SI::bit / SI::s];
+
+        port powerInterface : PowerPort;
+        port dataInterface : DataPort;
+        port rfInterface : RFPort;
+        port thermalInterface : ThermalPort;
+
+        perform action transmitData : PackageAndTransmitData;
+    }
+
+    part def ThermalControlSubsystem {
+        attribute heaterCapacity : Power = 850 [SI::W];
+        attribute radiatorArea : ISQ::area = 5.5 [SI::m^2];
+        attribute survivalTemperatureLowerLimit : Temperature = 243 [SI::K];
+        attribute survivalTemperatureUpperLimit : Temperature = 323 [SI::K];
+        attribute operationalTemperatureLowerLimit : Temperature = 263 [SI::K];
+        attribute operationalTemperatureUpperLimit : Temperature = 303 [SI::K];
+
+        port powerInterface : PowerPort;
+        port avionicsThermalPort : ThermalPort;
+        port payloadThermalPort : ThermalPort;
+        port batteryThermalPort : ThermalPort;
+        port propulsionThermalPort : ThermalPort;
+        port communicationsThermalPort : ThermalPort;
+
+        perform action regulateThermalState : RegulateThermalState;
+    }
+
+    part def SpacecraftStructure {
+        attribute dryMassCapacity : Mass = 720 [SI::kg];
+        attribute launchLoadLimit : Acceleration = 60 [SI::m / SI::s^2];
+        attribute firstModeFrequency : Frequency = 35 [SI::Hz];
+        attribute payloadDeckDiameter : Length = 1.8 [SI::m];
+    }
+
+    part def GroundStationInterface {
+        port rfLink : RFPort;
+    }
+
+    part def RoboticSpacecraft {
+        doc /* A robotic spacecraft is an autonomous uncrewed space system whose primary function is to navigate through space, maintain its own health, execute stored or uplinked mission plans, collect scientific or operational observations, and transmit mission data to ground operators. */
+
+        attribute launchMass : Mass = 860 [SI::kg];
+        attribute dryMass : Mass = 612 [SI::kg];
+        attribute designLife : Duration = 7 [SI::a];
+        attribute nominalOrbitAltitude : Distance = 700000 [SI::m];
+        attribute safeModePowerLimit : Power = 500 [SI::W];
+        attribute maximumScienceDataPerDay : Real = 320;
+
+        port externalRfLink : RFPort;
+
+        part structure : SpacecraftStructure;
+        part solarArray : SolarArray;
+        part battery : BatteryAssembly;
+        part pdu : PowerDistributionUnit;
+        part cdh : CommandAndDataHandlingComputer;
+        part gnc : GuidanceNavigationAndControl;
+        part reactionWheels : ReactionWheelAssembly;
+        part starTracker : StarTracker;
+        part imu : InertialMeasurementUnit;
+        part propulsion : PropulsionSubsystem;
+        part propellantTank : PropellantTank;
+        part payload : SciencePayload;
+        part communications : CommunicationsSubsystem;
+        part thermal : ThermalControlSubsystem;
+
+        connect solarArray.powerInterface to pdu.solarInput;
+        connect battery.powerInterface to pdu.batteryInput;
+        connect pdu.avionicsOutput to cdh.powerInterface;
+        connect pdu.avionicsOutput to gnc.powerInterface;
+        connect pdu.avionicsOutput to starTracker.powerInterface;
+        connect pdu.avionicsOutput to imu.powerInterface;
+        connect pdu.avionicsOutput to reactionWheels.powerInterface;
+        connect pdu.payloadOutput to payload.powerInterface;
+        connect pdu.propulsionOutput to propulsion.powerInterface;
+        connect pdu.communicationsOutput to communications.powerInterface;
+        connect pdu.thermalOutput to thermal.powerInterface;
+
+        connect cdh.spacecraftDataBus to gnc.dataInterface;
+        connect cdh.spacecraftDataBus to payload.dataInterface;
+        connect cdh.spacecraftDataBus to propulsion.dataInterface;
+        connect cdh.spacecraftDataBus to communications.dataInterface;
+        connect cdh.navigationInterface to gnc.navigationOutput;
+        connect gnc.navigationOutput to starTracker.navigationInterface;
+        connect gnc.navigationOutput to imu.navigationInterface;
+        connect gnc.attitudeControlInterface to reactionWheels.controlInterface;
+
+        connect propellantTank.propellantInterface to propulsion.propellantInterface;
+
+        connect thermal.batteryThermalPort to battery.thermalInterface;
+        connect thermal.payloadThermalPort to payload.thermalInterface;
+        connect thermal.propulsionThermalPort to propulsion.thermalInterface;
+        connect thermal.communicationsThermalPort to communications.thermalInterface;
+        connect thermal.avionicsThermalPort to reactionWheels.thermalInterface;
+
+        connect communications.rfInterface to externalRfLink;
+        connect cdh.rfInterface to externalRfLink;
+
+        state def SpacecraftOperationalStates {
+            state initial Boot;
+            state Commissioning;
+            state NominalMission;
+            state ScienceObservationMode;
+            state CommunicationsMode;
+            state ManeuverMode;
+            state SafeMode;
+            state EndOfMission;
+
+            transition first Boot then Commissioning;
+            transition Commissioning then NominalMission
+                accept after 30 [SI::d];
+
+            transition NominalMission then ScienceObservationMode
+                accept CommandMessage
+                if commandId == "START_SCIENCE";
+
+            transition ScienceObservationMode then CommunicationsMode
+                accept after 4 [SI::h];
+
+            transition CommunicationsMode then NominalMission
+                accept after 45 [SI::min];
+
+            transition NominalMission then ManeuverMode
+                accept CommandMessage
+                if commandId == "TRAJECTORY_CORRECTION";
+
+            transition ManeuverMode then NominalMission
+                accept after 20 [SI::min];
+
+            transition NominalMission then SafeMode
+                if battery.capacity < 3000 [SI::W * SI::h];
+
+            transition ScienceObservationMode then SafeMode
+                if payload.peakPayloadPower > 600 [SI::W];
+
+            transition CommunicationsMode then SafeMode
+                if communications.maximumDownlinkRate < 1000 [SI::bit / SI::s];
+
+            transition SafeMode then NominalMission
+                accept CommandMessage
+                if commandId == "RESUME_NOMINAL";
+
+            transition NominalMission then EndOfMission
+                accept CommandMessage
+                if commandId == "DECOMMISSION";
+        }
+
+        exhibit stateMachine : SpacecraftOperationalStates;
+
+        perform action primaryMission {
+            first start;
+            then generatePower : GenerateElectricalPower;
+            then estimateState : EstimateNavigationState;
+            then executePlan : ExecuteAutonomousMissionPlan;
+            then pointSpacecraft : ControlAttitude;
+            then observeTarget : AcquireScienceData;
+            then maintainThermalBalance : RegulateThermalState;
+            then downlinkResults : PackageAndTransmitData;
+            then done;
+        }
+    }
+
+    part roboticSpacecraft : RoboticSpacecraft;
+    part groundStation : GroundStationInterface;
+
+    connect roboticSpacecraft.externalRfLink to groundStation.rfLink;
+
+    requirement def AutonomousRoboticSpacecraftRequirement {
+        subject spacecraft : RoboticSpacecraft;
+
+        requirement primaryFunction {
+            doc /* The spacecraft shall autonomously execute uncrewed mission operations by receiving commands, maintaining power and thermal balance, navigating, pointing, collecting observation data, and transmitting telemetry and mission data to the ground. */
+        }
+
+        requirement powerContinuity {
+            doc /* The spacecraft shall provide regulated electrical power to all essential avionics during eclipse and safe-mode operations. */
+            require constraint {
+                spacecraft.battery.capacity >= 12000 [SI::W * SI::h]
+            }
+        }
+
+        requirement attitudePointing {
+            doc /* The spacecraft shall point the science payload at commanded targets with sufficient stability for robotic observation. */
+            require constraint {
+                spacecraft.gnc.attitudeControlAccuracy <= 0.02 [SI::deg]
+            }
+        }
+
+        requirement communications {
+            doc /* The spacecraft shall receive ground commands and return health telemetry and stored mission data through an RF communications link. */
+            require constraint {
+                spacecraft.communications.maximumDownlinkRate >= 5000000 [SI::bit / SI::s]
+            }
+        }
+
+        requirement propulsionCapability {
+            doc /* The spacecraft shall perform trajectory correction and momentum management maneuvers using onboard propellant and thrusters. */
+            require constraint {
+                spacecraft.propulsion.totalImpulseCapability >= 42000 [SI::N * SI::s]
+            }
+        }
+
+        requirement thermalSurvivability {
+            doc /* The spacecraft shall keep flight hardware within allowable survival temperature limits throughout mission operations. */
+            require constraint {
+                spacecraft.thermal.survivalTemperatureLowerLimit <= 243 [SI::K] and
+                spacecraft.thermal.survivalTemperatureUpperLimit >= 323 [SI::K]
+            }
+        }
+
+        requirement autonomousSafing {
+            doc /* The spacecraft shall enter a safe state without ground intervention when critical power, attitude, thermal, or communications faults are detected. */
+            require constraint {
+                spacecraft.cdh.autonomousSafingLatency <= 5 [SI::s]
+            }
+        }
+
+        requirement designLife {
+            doc /* The spacecraft shall remain capable of nominal robotic mission operations for the specified design life. */
+            require constraint {
+                spacecraft.designLife >= 7 [SI::a]
+            }
+        }
+    }
+
+    requirement spacecraftMissionRequirements : AutonomousRoboticSpacecraftRequirement {
+        subject spacecraft = roboticSpacecraft;
+    }
+
+}

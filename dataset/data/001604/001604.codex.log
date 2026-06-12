@@ -1,0 +1,1247 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-czhnurhj
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb75b-ff23-7861-aa80-87e2e8467cc3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Telerobotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TeleroboticsSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> ScalarValues::Real {
+        doc /* Percentage value in the range 0..100. */
+    }
+
+    attribute def Millisecond :> ScalarValues::Real {
+        doc /* Time duration measured in milliseconds. */
+    }
+
+    attribute def MegabitPerSecond :> ScalarValues::Real {
+        doc /* Data throughput measured in megabits per second. */
+    }
+
+    attribute def MeterPerSecond :> ScalarValues::Real {
+        doc /* Linear velocity measured in meters per second. */
+    }
+
+    attribute def Degree :> ScalarValues::Real {
+        doc /* Angular position measured in degrees. */
+    }
+
+    attribute def NewtonMeter :> ScalarValues::Real {
+        doc /* Torque measured in newton meters. */
+    }
+
+    attribute def Volt :> ScalarValues::Real {
+        doc /* Electrical potential measured in volts. */
+    }
+
+    attribute def AmpereHour :> ScalarValues::Real {
+        doc /* Battery capacity measured in ampere hours. */
+    }
+
+    attribute def Celsius :> ScalarValues::Real {
+        doc /* Temperature measured in degrees Celsius. */
+    }
+
+    item def CommandPacket {
+        attribute sequenceId : Integer;
+        attribute issuedTime : Millisecond;
+        attribute targetLinearVelocity : MeterPerSecond;
+        attribute targetAngularVelocity : Degree;
+        attribute manipulatorJointTargets : Degree[6];
+        attribute gripperOpening : Percent;
+        attribute emergencyStop : Boolean;
+        attribute autonomyMode : AutonomyModeKind;
+    }
+
+    item def TelemetryPacket {
+        attribute sequenceId : Integer;
+        attribute measuredLinearVelocity : MeterPerSecond;
+        attribute measuredAngularVelocity : Degree;
+        attribute batteryStateOfCharge : Percent;
+        attribute linkLatency : Millisecond;
+        attribute jointPositions : Degree[6];
+        attribute jointTorques : NewtonMeter[6];
+        attribute internalTemperature : Celsius;
+        attribute faultActive : Boolean;
+    }
+
+    item def VideoFrame {
+        attribute frameId : Integer;
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Real;
+        attribute captureTime : Millisecond;
+        attribute compressedSizeMb : Real;
+    }
+
+    item def HapticFeedback {
+        attribute forceX : NewtonMeter;
+        attribute forceY : NewtonMeter;
+        attribute forceZ : NewtonMeter;
+        attribute vibrationIntensity : Percent;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Volt;
+        attribute current : Real;
+        attribute availableCapacity : AmpereHour;
+    }
+
+    item def DiagnosticEvent {
+        attribute code : Integer;
+        attribute severity : FaultSeverityKind;
+        attribute message : String;
+        attribute eventTime : Millisecond;
+    }
+
+    enum def AutonomyModeKind {
+        enum manual;
+        enum sharedControl;
+        enum guardedMotion;
+        enum returnToBase;
+        enum safeStop;
+    }
+
+    enum def FaultSeverityKind {
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    enum def LinkStateKind {
+        enum disconnected;
+        enum degraded;
+        enum nominal;
+        enum lost;
+    }
+
+    enum def RobotMissionStateKind {
+        enum poweredOff;
+        enum booting;
+        enum idle;
+        enum teleoperated;
+        enum autonomousAssist;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    port def CommandOutPort {
+        out command : CommandPacket;
+    }
+
+    port def CommandInPort {
+        in command : CommandPacket;
+    }
+
+    port def TelemetryOutPort {
+        out telemetry : TelemetryPacket;
+    }
+
+    port def TelemetryInPort {
+        in telemetry : TelemetryPacket;
+    }
+
+    port def VideoOutPort {
+        out video : VideoFrame;
+    }
+
+    port def VideoInPort {
+        in video : VideoFrame;
+    }
+
+    port def HapticOutPort {
+        out haptic : HapticFeedback;
+    }
+
+    port def HapticInPort {
+        in haptic : HapticFeedback;
+    }
+
+    port def PowerSourcePort {
+        out power : PowerFlow;
+    }
+
+    port def PowerLoadPort {
+        in power : PowerFlow;
+    }
+
+    port def DiagnosticOutPort {
+        out event : DiagnosticEvent;
+    }
+
+    port def DiagnosticInPort {
+        in event : DiagnosticEvent;
+    }
+
+    part def OperatorConsole {
+        attribute operatorAuthenticated : Boolean;
+        attribute commandedVelocityLimit : MeterPerSecond = 1.5;
+        attribute commandedJointRateLimit : Degree = 45.0;
+        attribute hapticEnabled : Boolean = true;
+
+        port commandOut : CommandOutPort;
+        port telemetryIn : TelemetryInPort;
+        port videoIn : VideoInPort;
+        port hapticIn : HapticInPort;
+        port diagnosticIn : DiagnosticInPort;
+
+        part handController {
+            attribute xAxis : Percent;
+            attribute yAxis : Percent;
+            attribute rotationAxis : Percent;
+            attribute deadmanPressed : Boolean;
+        }
+
+        part manipulatorController {
+            attribute jointCommand : Degree[6];
+            attribute gripperCommand : Percent;
+        }
+
+        part displaySystem {
+            attribute primaryVideoLatency : Millisecond;
+            attribute telemetryRefreshRateHz : Real = 20.0;
+            attribute alarmVisible : Boolean;
+        }
+
+        action composeOperatorCommand {
+            in joystickX : Percent;
+            in joystickY : Percent;
+            in joystickRotation : Percent;
+            in desiredJointAngles : Degree[6];
+            in desiredGripperOpening : Percent;
+            out command : CommandPacket;
+        }
+
+        action displayRemoteSituation {
+            in frame : VideoFrame;
+            in telemetry : TelemetryPacket;
+            in diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def CommunicationsLink {
+        attribute state : LinkStateKind = LinkStateKind::disconnected;
+        attribute uplinkBandwidth : MegabitPerSecond = 8.0;
+        attribute downlinkBandwidth : MegabitPerSecond = 20.0;
+        attribute roundTripLatency : Millisecond;
+        attribute packetLossRate : Percent;
+        attribute encryptionEnabled : Boolean = true;
+
+        port commandFromConsole : CommandInPort;
+        port commandToRobot : CommandOutPort;
+        port telemetryFromRobot : TelemetryInPort;
+        port telemetryToConsole : TelemetryOutPort;
+        port videoFromRobot : VideoInPort;
+        port videoToConsole : VideoOutPort;
+        port hapticFromRobot : HapticInPort;
+        port hapticToConsole : HapticOutPort;
+        port diagnosticFromRobot : DiagnosticInPort;
+        port diagnosticToConsole : DiagnosticOutPort;
+
+        action routeCommand {
+            in operatorCommand : CommandPacket;
+            out robotCommand : CommandPacket;
+        }
+
+        action routeFeedback {
+            in robotTelemetry : TelemetryPacket;
+            in robotVideo : VideoFrame;
+            in robotHaptic : HapticFeedback;
+            out consoleTelemetry : TelemetryPacket;
+            out consoleVideo : VideoFrame;
+            out consoleHaptic : HapticFeedback;
+        }
+
+        state def LinkManagement {
+            state disconnected;
+            state acquiring;
+            state nominal;
+            state degraded;
+            state lost;
+
+            transition first disconnected;
+            transition disconnected_to_acquiring
+                first disconnected then acquiring;
+
+            transition acquiring_to_nominal
+                first acquiring then nominal
+                if roundTripLatency <= 150.0 and packetLossRate <= 2.0;
+
+            transition nominal_to_degraded
+                first nominal then degraded
+                if roundTripLatency > 150.0 or packetLossRate > 2.0;
+
+            transition degraded_to_nominal
+                first degraded then nominal
+                if roundTripLatency <= 150.0 and packetLossRate <= 2.0;
+
+            transition degraded_to_lost
+                first degraded then lost
+                if packetLossRate >= 25.0;
+
+            transition nominal_to_lost
+                first nominal then lost
+                if packetLossRate >= 25.0;
+
+            transition lost_to_acquiring
+                first lost then acquiring;
+        }
+    }
+
+    part def MobileManipulatorRobot {
+        attribute missionState : RobotMissionStateKind = RobotMissionStateKind::poweredOff;
+        attribute maximumLinearVelocity : MeterPerSecond = 2.0;
+        attribute safeLinearVelocity : MeterPerSecond = 0.4;
+        attribute maximumPayloadMassKg : Real = 8.0;
+
+        port commandIn : CommandInPort;
+        port telemetryOut : TelemetryOutPort;
+        port videoOut : VideoOutPort;
+        port hapticOut : HapticOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+        port powerIn : PowerLoadPort;
+
+        part mobilityBase : MobilityBase;
+        part manipulator : RoboticManipulator;
+        part perception : PerceptionSuite;
+        part onboardComputer : OnboardControlComputer;
+        part safetyController : SafetyController;
+        part powerSystem : RobotPowerSystem;
+
+        bind powerSystem.powerOut = powerIn;
+
+        action executeRemoteOperation {
+            in command : CommandPacket;
+            out telemetry : TelemetryPacket;
+            out video : VideoFrame;
+            out haptic : HapticFeedback;
+        }
+
+        state def RobotOperationalStates {
+            state poweredOff;
+            state booting;
+            state idle;
+            state teleoperated;
+            state autonomousAssist;
+            state faulted;
+            state emergencyStopped;
+
+            transition initial_to_poweredOff first poweredOff;
+
+            transition powerOn
+                first poweredOff then booting;
+
+            transition bootComplete
+                first booting then idle;
+
+            transition beginTeleoperation
+                first idle then teleoperated
+                if missionState == RobotMissionStateKind::idle;
+
+            transition enableAssist
+                first teleoperated then autonomousAssist;
+
+            transition disableAssist
+                first autonomousAssist then teleoperated;
+
+            transition faultDetectedFromIdle
+                first idle then faulted;
+
+            transition faultDetectedFromTeleoperation
+                first teleoperated then faulted;
+
+            transition faultDetectedFromAssist
+                first autonomousAssist then faulted;
+
+            transition emergencyStopFromAnyOperation
+                first teleoperated then emergencyStopped
+                if safetyController.emergencyStopLatched;
+
+            transition emergencyStopFromAssist
+                first autonomousAssist then emergencyStopped
+                if safetyController.emergencyStopLatched;
+
+            transition resetAfterFault
+                first faulted then idle
+                if not safetyController.faultLatched;
+
+            transition resetAfterEmergencyStop
+                first emergencyStopped then idle
+                if not safetyController.emergencyStopLatched;
+        }
+    }
+
+    part def MobilityBase {
+        attribute leftWheelVelocity : MeterPerSecond;
+        attribute rightWheelVelocity : MeterPerSecond;
+        attribute odometryLinearVelocity : MeterPerSecond;
+        attribute odometryAngularVelocity : Degree;
+        attribute obstacleClearanceM : Real;
+        attribute tractionLimitPercent : Percent = 85.0;
+
+        port commandIn : CommandInPort;
+        port telemetryOut : TelemetryOutPort;
+        port powerIn : PowerLoadPort;
+
+        action drive {
+            in velocityCommand : CommandPacket;
+            out measuredMotion : TelemetryPacket;
+        }
+    }
+
+    part def RoboticManipulator {
+        attribute jointPosition : Degree[6];
+        attribute jointTorque : NewtonMeter[6];
+        attribute gripperOpening : Percent;
+        attribute endEffectorLoadKg : Real;
+        attribute workspaceLimitRadiusM : Real = 1.2;
+
+        port commandIn : CommandInPort;
+        port telemetryOut : TelemetryOutPort;
+        port hapticOut : HapticOutPort;
+        port powerIn : PowerLoadPort;
+
+        action moveJoints {
+            in jointTargets : Degree[6];
+            in gripperTarget : Percent;
+            out measuredJointPositions : Degree[6];
+            out contactFeedback : HapticFeedback;
+        }
+    }
+
+    part def PerceptionSuite {
+        attribute frontCameraHealthy : Boolean = true;
+        attribute depthCameraHealthy : Boolean = true;
+        attribute lidarHealthy : Boolean = true;
+        attribute measuredObstacleDistanceM : Real;
+        attribute illuminationLevelLux : Real;
+
+        port videoOut : VideoOutPort;
+        port telemetryOut : TelemetryOutPort;
+        port powerIn : PowerLoadPort;
+
+        part frontCamera {
+            attribute horizontalFieldOfViewDeg : Degree = 90.0;
+            attribute verticalFieldOfViewDeg : Degree = 60.0;
+            attribute frameRateHz : Real = 30.0;
+            attribute resolutionWidth : Integer = 1920;
+            attribute resolutionHeight : Integer = 1080;
+        }
+
+        part depthSensor {
+            attribute rangeM : Real = 8.0;
+            attribute depthAccuracyM : Real = 0.03;
+        }
+
+        part lidar {
+            attribute scanRateHz : Real = 10.0;
+            attribute rangeM : Real = 30.0;
+        }
+
+        action acquireSceneData {
+            out frame : VideoFrame;
+            out obstacleDistanceM : Real;
+        }
+    }
+
+    part def OnboardControlComputer {
+        attribute processorLoad : Percent;
+        attribute commandAge : Millisecond;
+        attribute autonomyMode : AutonomyModeKind = AutonomyModeKind::manual;
+        attribute watchdogTimeout : Millisecond = 500.0;
+
+        port commandIn : CommandInPort;
+        port telemetryIn : TelemetryInPort;
+        port commandToMobility : CommandOutPort;
+        port commandToManipulator : CommandOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        action validateAndDistributeCommand {
+            in command : CommandPacket;
+            in obstacleDistanceM : Real;
+            out mobilityCommand : CommandPacket;
+            out manipulatorCommand : CommandPacket;
+            out diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def SafetyController {
+        attribute emergencyStopLatched : Boolean = false;
+        attribute faultLatched : Boolean = false;
+        attribute minimumObstacleClearanceM : Real = 0.5;
+        attribute maximumAllowedLatency : Millisecond = 300.0;
+        attribute maximumInternalTemperature : Celsius = 70.0;
+
+        port commandIn : CommandInPort;
+        port telemetryIn : TelemetryInPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        action evaluateSafety {
+            in command : CommandPacket;
+            in telemetry : TelemetryPacket;
+            out safeCommand : CommandPacket;
+            out event : DiagnosticEvent;
+        }
+    }
+
+    part def RobotPowerSystem {
+        attribute nominalVoltage : Volt = 48.0;
+        attribute batteryCapacity : AmpereHour = 60.0;
+        attribute stateOfCharge : Percent;
+        attribute powerBusHealthy : Boolean = true;
+
+        port powerOut : PowerSourcePort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        action managePower {
+            out power : PowerFlow;
+            out diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def TeleroboticsSystem {
+        doc /* Primary function: enable a human operator to perceive, command, and safely control a remote mobile manipulator through a communication link while receiving real-time video, telemetry, haptic feedback, and diagnostic status. */
+
+        attribute operatingRangeKm : Real = 5.0;
+        attribute requiredAvailability : Percent = 99.0;
+        attribute maximumPermittedRoundTripLatency : Millisecond = 300.0;
+        attribute minimumVideoFrameRateHz : Real = 15.0;
+
+        part operatorConsole : OperatorConsole;
+        part communicationsLink : CommunicationsLink;
+        part robot : MobileManipulatorRobot;
+
+        connect operatorConsole.commandOut to communicationsLink.commandFromConsole;
+        connect communicationsLink.commandToRobot to robot.commandIn;
+
+        connect robot.telemetryOut to communicationsLink.telemetryFromRobot;
+        connect communicationsLink.telemetryToConsole to operatorConsole.telemetryIn;
+
+        connect robot.videoOut to communicationsLink.videoFromRobot;
+        connect communicationsLink.videoToConsole to operatorConsole.videoIn;
+
+        connect robot.hapticOut to communicationsLink.hapticFromRobot;
+        connect communicationsLink.hapticToConsole to operatorConsole.hapticIn;
+
+        connect robot.diagnosticOut to communicationsLink.diagnosticFromRobot;
+        connect communicationsLink.diagnosticToConsole to operatorConsole.diagnosticIn;
+
+        perform action remoteManipulationMission {
+            in operatorIntent : CommandPacket;
+            out situationalAwareness : VideoFrame;
+            out robotStatus : TelemetryPacket;
+            out contactCue : HapticFeedback;
+
+            first start;
+            then sendCommand;
+            then transmitCommand;
+            then validateCommand;
+            then actuateRobot;
+            then senseEnvironment;
+            then returnFeedback;
+            then updateOperatorAwareness;
+            then done;
+
+            action sendCommand : operatorConsole.composeOperatorCommand;
+            action transmitCommand : communicationsLink.routeCommand;
+            action validateCommand : robot.onboardComputer.validateAndDistributeCommand;
+            action actuateRobot : robot.executeRemoteOperation;
+            action senseEnvironment : robot.perception.acquireSceneData;
+            action returnFeedback : communicationsLink.routeFeedback;
+            action updateOperatorAwareness : operatorConsole.displayRemoteSituation;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The telerobotics system shall allow a remote human operator to command robot mobility and manipulation while receiving sufficient real-time feedback to maintain situational awareness and safe control. */
+        subject system : TeleroboticsSystem;
+
+        require constraint {
+            system.maximumPermittedRoundTripLatency <= 300.0
+        }
+
+        require constraint {
+            system.minimumVideoFrameRateHz >= 15.0
+        }
+    }
+
+    requirement def SafeStopRequirement {
+        doc /* The robot shall enter a safe stopped condition when an emergency stop command is received, when communication is lost, or when critical safety limits are exceeded. */
+        subject robot : MobileManipulatorRobot;
+
+        require constraint {
+            robot.safetyController.maximumAllowedLatency <= 300.0
+        }
+
+        require constraint {
+            robot.safetyController.minimumObstacleClearanceM >= 0.5
+        }
+    }
+
+    requirement def FeedbackRequirement {
+        doc /* The system shall provide visual, telemetry, diagnostic, and haptic feedback to the operator during remote manipulation. */
+        subject system : TeleroboticsSystem;
+
+        require constraint {
+            system.communicationsLink.downlinkBandwidth >= 20.0
+        }
+    }
+
+    requirement def CommandIntegrityRequirement {
+        doc /* Operator commands shall be validated before actuation to enforce velocity limits, workspace limits, obstacle clearance, and emergency stop priority. */
+        subject computer : OnboardControlComputer;
+
+        require constraint {
+            computer.watchdogTimeout <= 500.0
+        }
+    }
+
+    requirement def PowerEnduranceRequirement {
+        doc /* The robot power system shall support sustained remote operation with monitored state of charge and diagnostic reporting. */
+        subject power : RobotPowerSystem;
+
+        require constraint {
+            power.nominalVoltage == 48.0
+        }
+
+        require constraint {
+            power.batteryCapacity >= 60.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TeleroboticsSystem;
+    satisfy SafeStopRequirement by MobileManipulatorRobot;
+    satisfy FeedbackRequirement by TeleroboticsSystem;
+    satisfy CommandIntegrityRequirement by OnboardControlComputer;
+    satisfy PowerEnduranceRequirement by RobotPowerSystem;
+}
+tokens used
+5,460
+package TeleroboticsSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> ScalarValues::Real {
+        doc /* Percentage value in the range 0..100. */
+    }
+
+    attribute def Millisecond :> ScalarValues::Real {
+        doc /* Time duration measured in milliseconds. */
+    }
+
+    attribute def MegabitPerSecond :> ScalarValues::Real {
+        doc /* Data throughput measured in megabits per second. */
+    }
+
+    attribute def MeterPerSecond :> ScalarValues::Real {
+        doc /* Linear velocity measured in meters per second. */
+    }
+
+    attribute def Degree :> ScalarValues::Real {
+        doc /* Angular position measured in degrees. */
+    }
+
+    attribute def NewtonMeter :> ScalarValues::Real {
+        doc /* Torque measured in newton meters. */
+    }
+
+    attribute def Volt :> ScalarValues::Real {
+        doc /* Electrical potential measured in volts. */
+    }
+
+    attribute def AmpereHour :> ScalarValues::Real {
+        doc /* Battery capacity measured in ampere hours. */
+    }
+
+    attribute def Celsius :> ScalarValues::Real {
+        doc /* Temperature measured in degrees Celsius. */
+    }
+
+    item def CommandPacket {
+        attribute sequenceId : Integer;
+        attribute issuedTime : Millisecond;
+        attribute targetLinearVelocity : MeterPerSecond;
+        attribute targetAngularVelocity : Degree;
+        attribute manipulatorJointTargets : Degree[6];
+        attribute gripperOpening : Percent;
+        attribute emergencyStop : Boolean;
+        attribute autonomyMode : AutonomyModeKind;
+    }
+
+    item def TelemetryPacket {
+        attribute sequenceId : Integer;
+        attribute measuredLinearVelocity : MeterPerSecond;
+        attribute measuredAngularVelocity : Degree;
+        attribute batteryStateOfCharge : Percent;
+        attribute linkLatency : Millisecond;
+        attribute jointPositions : Degree[6];
+        attribute jointTorques : NewtonMeter[6];
+        attribute internalTemperature : Celsius;
+        attribute faultActive : Boolean;
+    }
+
+    item def VideoFrame {
+        attribute frameId : Integer;
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute frameRate : Real;
+        attribute captureTime : Millisecond;
+        attribute compressedSizeMb : Real;
+    }
+
+    item def HapticFeedback {
+        attribute forceX : NewtonMeter;
+        attribute forceY : NewtonMeter;
+        attribute forceZ : NewtonMeter;
+        attribute vibrationIntensity : Percent;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Volt;
+        attribute current : Real;
+        attribute availableCapacity : AmpereHour;
+    }
+
+    item def DiagnosticEvent {
+        attribute code : Integer;
+        attribute severity : FaultSeverityKind;
+        attribute message : String;
+        attribute eventTime : Millisecond;
+    }
+
+    enum def AutonomyModeKind {
+        enum manual;
+        enum sharedControl;
+        enum guardedMotion;
+        enum returnToBase;
+        enum safeStop;
+    }
+
+    enum def FaultSeverityKind {
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    enum def LinkStateKind {
+        enum disconnected;
+        enum degraded;
+        enum nominal;
+        enum lost;
+    }
+
+    enum def RobotMissionStateKind {
+        enum poweredOff;
+        enum booting;
+        enum idle;
+        enum teleoperated;
+        enum autonomousAssist;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    port def CommandOutPort {
+        out command : CommandPacket;
+    }
+
+    port def CommandInPort {
+        in command : CommandPacket;
+    }
+
+    port def TelemetryOutPort {
+        out telemetry : TelemetryPacket;
+    }
+
+    port def TelemetryInPort {
+        in telemetry : TelemetryPacket;
+    }
+
+    port def VideoOutPort {
+        out video : VideoFrame;
+    }
+
+    port def VideoInPort {
+        in video : VideoFrame;
+    }
+
+    port def HapticOutPort {
+        out haptic : HapticFeedback;
+    }
+
+    port def HapticInPort {
+        in haptic : HapticFeedback;
+    }
+
+    port def PowerSourcePort {
+        out power : PowerFlow;
+    }
+
+    port def PowerLoadPort {
+        in power : PowerFlow;
+    }
+
+    port def DiagnosticOutPort {
+        out event : DiagnosticEvent;
+    }
+
+    port def DiagnosticInPort {
+        in event : DiagnosticEvent;
+    }
+
+    part def OperatorConsole {
+        attribute operatorAuthenticated : Boolean;
+        attribute commandedVelocityLimit : MeterPerSecond = 1.5;
+        attribute commandedJointRateLimit : Degree = 45.0;
+        attribute hapticEnabled : Boolean = true;
+
+        port commandOut : CommandOutPort;
+        port telemetryIn : TelemetryInPort;
+        port videoIn : VideoInPort;
+        port hapticIn : HapticInPort;
+        port diagnosticIn : DiagnosticInPort;
+
+        part handController {
+            attribute xAxis : Percent;
+            attribute yAxis : Percent;
+            attribute rotationAxis : Percent;
+            attribute deadmanPressed : Boolean;
+        }
+
+        part manipulatorController {
+            attribute jointCommand : Degree[6];
+            attribute gripperCommand : Percent;
+        }
+
+        part displaySystem {
+            attribute primaryVideoLatency : Millisecond;
+            attribute telemetryRefreshRateHz : Real = 20.0;
+            attribute alarmVisible : Boolean;
+        }
+
+        action composeOperatorCommand {
+            in joystickX : Percent;
+            in joystickY : Percent;
+            in joystickRotation : Percent;
+            in desiredJointAngles : Degree[6];
+            in desiredGripperOpening : Percent;
+            out command : CommandPacket;
+        }
+
+        action displayRemoteSituation {
+            in frame : VideoFrame;
+            in telemetry : TelemetryPacket;
+            in diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def CommunicationsLink {
+        attribute state : LinkStateKind = LinkStateKind::disconnected;
+        attribute uplinkBandwidth : MegabitPerSecond = 8.0;
+        attribute downlinkBandwidth : MegabitPerSecond = 20.0;
+        attribute roundTripLatency : Millisecond;
+        attribute packetLossRate : Percent;
+        attribute encryptionEnabled : Boolean = true;
+
+        port commandFromConsole : CommandInPort;
+        port commandToRobot : CommandOutPort;
+        port telemetryFromRobot : TelemetryInPort;
+        port telemetryToConsole : TelemetryOutPort;
+        port videoFromRobot : VideoInPort;
+        port videoToConsole : VideoOutPort;
+        port hapticFromRobot : HapticInPort;
+        port hapticToConsole : HapticOutPort;
+        port diagnosticFromRobot : DiagnosticInPort;
+        port diagnosticToConsole : DiagnosticOutPort;
+
+        action routeCommand {
+            in operatorCommand : CommandPacket;
+            out robotCommand : CommandPacket;
+        }
+
+        action routeFeedback {
+            in robotTelemetry : TelemetryPacket;
+            in robotVideo : VideoFrame;
+            in robotHaptic : HapticFeedback;
+            out consoleTelemetry : TelemetryPacket;
+            out consoleVideo : VideoFrame;
+            out consoleHaptic : HapticFeedback;
+        }
+
+        state def LinkManagement {
+            state disconnected;
+            state acquiring;
+            state nominal;
+            state degraded;
+            state lost;
+
+            transition first disconnected;
+            transition disconnected_to_acquiring
+                first disconnected then acquiring;
+
+            transition acquiring_to_nominal
+                first acquiring then nominal
+                if roundTripLatency <= 150.0 and packetLossRate <= 2.0;
+
+            transition nominal_to_degraded
+                first nominal then degraded
+                if roundTripLatency > 150.0 or packetLossRate > 2.0;
+
+            transition degraded_to_nominal
+                first degraded then nominal
+                if roundTripLatency <= 150.0 and packetLossRate <= 2.0;
+
+            transition degraded_to_lost
+                first degraded then lost
+                if packetLossRate >= 25.0;
+
+            transition nominal_to_lost
+                first nominal then lost
+                if packetLossRate >= 25.0;
+
+            transition lost_to_acquiring
+                first lost then acquiring;
+        }
+    }
+
+    part def MobileManipulatorRobot {
+        attribute missionState : RobotMissionStateKind = RobotMissionStateKind::poweredOff;
+        attribute maximumLinearVelocity : MeterPerSecond = 2.0;
+        attribute safeLinearVelocity : MeterPerSecond = 0.4;
+        attribute maximumPayloadMassKg : Real = 8.0;
+
+        port commandIn : CommandInPort;
+        port telemetryOut : TelemetryOutPort;
+        port videoOut : VideoOutPort;
+        port hapticOut : HapticOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+        port powerIn : PowerLoadPort;
+
+        part mobilityBase : MobilityBase;
+        part manipulator : RoboticManipulator;
+        part perception : PerceptionSuite;
+        part onboardComputer : OnboardControlComputer;
+        part safetyController : SafetyController;
+        part powerSystem : RobotPowerSystem;
+
+        bind powerSystem.powerOut = powerIn;
+
+        action executeRemoteOperation {
+            in command : CommandPacket;
+            out telemetry : TelemetryPacket;
+            out video : VideoFrame;
+            out haptic : HapticFeedback;
+        }
+
+        state def RobotOperationalStates {
+            state poweredOff;
+            state booting;
+            state idle;
+            state teleoperated;
+            state autonomousAssist;
+            state faulted;
+            state emergencyStopped;
+
+            transition initial_to_poweredOff first poweredOff;
+
+            transition powerOn
+                first poweredOff then booting;
+
+            transition bootComplete
+                first booting then idle;
+
+            transition beginTeleoperation
+                first idle then teleoperated
+                if missionState == RobotMissionStateKind::idle;
+
+            transition enableAssist
+                first teleoperated then autonomousAssist;
+
+            transition disableAssist
+                first autonomousAssist then teleoperated;
+
+            transition faultDetectedFromIdle
+                first idle then faulted;
+
+            transition faultDetectedFromTeleoperation
+                first teleoperated then faulted;
+
+            transition faultDetectedFromAssist
+                first autonomousAssist then faulted;
+
+            transition emergencyStopFromAnyOperation
+                first teleoperated then emergencyStopped
+                if safetyController.emergencyStopLatched;
+
+            transition emergencyStopFromAssist
+                first autonomousAssist then emergencyStopped
+                if safetyController.emergencyStopLatched;
+
+            transition resetAfterFault
+                first faulted then idle
+                if not safetyController.faultLatched;
+
+            transition resetAfterEmergencyStop
+                first emergencyStopped then idle
+                if not safetyController.emergencyStopLatched;
+        }
+    }
+
+    part def MobilityBase {
+        attribute leftWheelVelocity : MeterPerSecond;
+        attribute rightWheelVelocity : MeterPerSecond;
+        attribute odometryLinearVelocity : MeterPerSecond;
+        attribute odometryAngularVelocity : Degree;
+        attribute obstacleClearanceM : Real;
+        attribute tractionLimitPercent : Percent = 85.0;
+
+        port commandIn : CommandInPort;
+        port telemetryOut : TelemetryOutPort;
+        port powerIn : PowerLoadPort;
+
+        action drive {
+            in velocityCommand : CommandPacket;
+            out measuredMotion : TelemetryPacket;
+        }
+    }
+
+    part def RoboticManipulator {
+        attribute jointPosition : Degree[6];
+        attribute jointTorque : NewtonMeter[6];
+        attribute gripperOpening : Percent;
+        attribute endEffectorLoadKg : Real;
+        attribute workspaceLimitRadiusM : Real = 1.2;
+
+        port commandIn : CommandInPort;
+        port telemetryOut : TelemetryOutPort;
+        port hapticOut : HapticOutPort;
+        port powerIn : PowerLoadPort;
+
+        action moveJoints {
+            in jointTargets : Degree[6];
+            in gripperTarget : Percent;
+            out measuredJointPositions : Degree[6];
+            out contactFeedback : HapticFeedback;
+        }
+    }
+
+    part def PerceptionSuite {
+        attribute frontCameraHealthy : Boolean = true;
+        attribute depthCameraHealthy : Boolean = true;
+        attribute lidarHealthy : Boolean = true;
+        attribute measuredObstacleDistanceM : Real;
+        attribute illuminationLevelLux : Real;
+
+        port videoOut : VideoOutPort;
+        port telemetryOut : TelemetryOutPort;
+        port powerIn : PowerLoadPort;
+
+        part frontCamera {
+            attribute horizontalFieldOfViewDeg : Degree = 90.0;
+            attribute verticalFieldOfViewDeg : Degree = 60.0;
+            attribute frameRateHz : Real = 30.0;
+            attribute resolutionWidth : Integer = 1920;
+            attribute resolutionHeight : Integer = 1080;
+        }
+
+        part depthSensor {
+            attribute rangeM : Real = 8.0;
+            attribute depthAccuracyM : Real = 0.03;
+        }
+
+        part lidar {
+            attribute scanRateHz : Real = 10.0;
+            attribute rangeM : Real = 30.0;
+        }
+
+        action acquireSceneData {
+            out frame : VideoFrame;
+            out obstacleDistanceM : Real;
+        }
+    }
+
+    part def OnboardControlComputer {
+        attribute processorLoad : Percent;
+        attribute commandAge : Millisecond;
+        attribute autonomyMode : AutonomyModeKind = AutonomyModeKind::manual;
+        attribute watchdogTimeout : Millisecond = 500.0;
+
+        port commandIn : CommandInPort;
+        port telemetryIn : TelemetryInPort;
+        port commandToMobility : CommandOutPort;
+        port commandToManipulator : CommandOutPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        action validateAndDistributeCommand {
+            in command : CommandPacket;
+            in obstacleDistanceM : Real;
+            out mobilityCommand : CommandPacket;
+            out manipulatorCommand : CommandPacket;
+            out diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def SafetyController {
+        attribute emergencyStopLatched : Boolean = false;
+        attribute faultLatched : Boolean = false;
+        attribute minimumObstacleClearanceM : Real = 0.5;
+        attribute maximumAllowedLatency : Millisecond = 300.0;
+        attribute maximumInternalTemperature : Celsius = 70.0;
+
+        port commandIn : CommandInPort;
+        port telemetryIn : TelemetryInPort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        action evaluateSafety {
+            in command : CommandPacket;
+            in telemetry : TelemetryPacket;
+            out safeCommand : CommandPacket;
+            out event : DiagnosticEvent;
+        }
+    }
+
+    part def RobotPowerSystem {
+        attribute nominalVoltage : Volt = 48.0;
+        attribute batteryCapacity : AmpereHour = 60.0;
+        attribute stateOfCharge : Percent;
+        attribute powerBusHealthy : Boolean = true;
+
+        port powerOut : PowerSourcePort;
+        port diagnosticOut : DiagnosticOutPort;
+
+        action managePower {
+            out power : PowerFlow;
+            out diagnostic : DiagnosticEvent;
+        }
+    }
+
+    part def TeleroboticsSystem {
+        doc /* Primary function: enable a human operator to perceive, command, and safely control a remote mobile manipulator through a communication link while receiving real-time video, telemetry, haptic feedback, and diagnostic status. */
+
+        attribute operatingRangeKm : Real = 5.0;
+        attribute requiredAvailability : Percent = 99.0;
+        attribute maximumPermittedRoundTripLatency : Millisecond = 300.0;
+        attribute minimumVideoFrameRateHz : Real = 15.0;
+
+        part operatorConsole : OperatorConsole;
+        part communicationsLink : CommunicationsLink;
+        part robot : MobileManipulatorRobot;
+
+        connect operatorConsole.commandOut to communicationsLink.commandFromConsole;
+        connect communicationsLink.commandToRobot to robot.commandIn;
+
+        connect robot.telemetryOut to communicationsLink.telemetryFromRobot;
+        connect communicationsLink.telemetryToConsole to operatorConsole.telemetryIn;
+
+        connect robot.videoOut to communicationsLink.videoFromRobot;
+        connect communicationsLink.videoToConsole to operatorConsole.videoIn;
+
+        connect robot.hapticOut to communicationsLink.hapticFromRobot;
+        connect communicationsLink.hapticToConsole to operatorConsole.hapticIn;
+
+        connect robot.diagnosticOut to communicationsLink.diagnosticFromRobot;
+        connect communicationsLink.diagnosticToConsole to operatorConsole.diagnosticIn;
+
+        perform action remoteManipulationMission {
+            in operatorIntent : CommandPacket;
+            out situationalAwareness : VideoFrame;
+            out robotStatus : TelemetryPacket;
+            out contactCue : HapticFeedback;
+
+            first start;
+            then sendCommand;
+            then transmitCommand;
+            then validateCommand;
+            then actuateRobot;
+            then senseEnvironment;
+            then returnFeedback;
+            then updateOperatorAwareness;
+            then done;
+
+            action sendCommand : operatorConsole.composeOperatorCommand;
+            action transmitCommand : communicationsLink.routeCommand;
+            action validateCommand : robot.onboardComputer.validateAndDistributeCommand;
+            action actuateRobot : robot.executeRemoteOperation;
+            action senseEnvironment : robot.perception.acquireSceneData;
+            action returnFeedback : communicationsLink.routeFeedback;
+            action updateOperatorAwareness : operatorConsole.displayRemoteSituation;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The telerobotics system shall allow a remote human operator to command robot mobility and manipulation while receiving sufficient real-time feedback to maintain situational awareness and safe control. */
+        subject system : TeleroboticsSystem;
+
+        require constraint {
+            system.maximumPermittedRoundTripLatency <= 300.0
+        }
+
+        require constraint {
+            system.minimumVideoFrameRateHz >= 15.0
+        }
+    }
+
+    requirement def SafeStopRequirement {
+        doc /* The robot shall enter a safe stopped condition when an emergency stop command is received, when communication is lost, or when critical safety limits are exceeded. */
+        subject robot : MobileManipulatorRobot;
+
+        require constraint {
+            robot.safetyController.maximumAllowedLatency <= 300.0
+        }
+
+        require constraint {
+            robot.safetyController.minimumObstacleClearanceM >= 0.5
+        }
+    }
+
+    requirement def FeedbackRequirement {
+        doc /* The system shall provide visual, telemetry, diagnostic, and haptic feedback to the operator during remote manipulation. */
+        subject system : TeleroboticsSystem;
+
+        require constraint {
+            system.communicationsLink.downlinkBandwidth >= 20.0
+        }
+    }
+
+    requirement def CommandIntegrityRequirement {
+        doc /* Operator commands shall be validated before actuation to enforce velocity limits, workspace limits, obstacle clearance, and emergency stop priority. */
+        subject computer : OnboardControlComputer;
+
+        require constraint {
+            computer.watchdogTimeout <= 500.0
+        }
+    }
+
+    requirement def PowerEnduranceRequirement {
+        doc /* The robot power system shall support sustained remote operation with monitored state of charge and diagnostic reporting. */
+        subject power : RobotPowerSystem;
+
+        require constraint {
+            power.nominalVoltage == 48.0
+        }
+
+        require constraint {
+            power.batteryCapacity >= 60.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TeleroboticsSystem;
+    satisfy SafeStopRequirement by MobileManipulatorRobot;
+    satisfy FeedbackRequirement by TeleroboticsSystem;
+    satisfy CommandIntegrityRequirement by OnboardControlComputer;
+    satisfy PowerEnduranceRequirement by RobotPowerSystem;
+}

@@ -1,0 +1,417 @@
+package AsiaSouthPacificDesignAutomationConferenceModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  enum def ConferencePhase {
+    enum preparation;
+    enum submissionOpen;
+    enum review;
+    enum programAssembly;
+    enum registrationOpen;
+    enum liveConference;
+    enum proceedingsRelease;
+    enum closed;
+  }
+
+  enum def PaperDecision {
+    enum pending;
+    enum acceptOral;
+    enum acceptPoster;
+    enum reject;
+    enum withdrawn;
+  }
+
+  enum def SessionMode {
+    enum inPerson;
+    enum hybrid;
+    enum virtual;
+  }
+
+  value type Yen specializes Real;
+  value type Count specializes Integer;
+  value type Score specializes Real;
+  value type MegabitPerSecond specializes Real;
+  value type SquareMeter specializes Real;
+
+  item def PaperSubmission {
+    attribute submissionId : String;
+    attribute title : String;
+    attribute abstractText : String;
+    attribute pageCount : Count;
+    attribute topicArea : String;
+    attribute anonymized : Boolean;
+    attribute receivedTime : DateTime;
+  }
+
+  item def ReviewAssignment {
+    attribute assignmentId : String;
+    attribute submissionId : String;
+    attribute reviewerId : String;
+    attribute conflictChecked : Boolean;
+    attribute dueTime : DateTime;
+  }
+
+  item def ReviewReport {
+    attribute submissionId : String;
+    attribute reviewerId : String;
+    attribute technicalMerit : Score;
+    attribute originality : Score;
+    attribute clarity : Score;
+    attribute relevanceToDesignAutomation : Score;
+    attribute confidence : Score;
+    attribute recommendation : PaperDecision;
+  }
+
+  item def ProgramEntry {
+    attribute sessionId : String;
+    attribute paperId : String;
+    attribute roomName : String;
+    attribute startTime : DateTime;
+    attribute duration : Time;
+    attribute mode : SessionMode;
+  }
+
+  item def RegistrationRecord {
+    attribute attendeeId : String;
+    attribute name : String;
+    attribute affiliation : String;
+    attribute countryOrRegion : String;
+    attribute paidFee : Yen;
+    attribute studentRate : Boolean;
+  }
+
+  item def BadgeCredential {
+    attribute attendeeId : String;
+    attribute accessLevel : String;
+    attribute qrToken : String;
+  }
+
+  item def ProceedingsPackage {
+    attribute doiPrefix : String;
+    attribute paperCount : Count;
+    attribute publicationTime : DateTime;
+    attribute archiveUrl : String;
+  }
+
+  item def PaymentAuthorization {
+    attribute transactionId : String;
+    attribute amount : Yen;
+    attribute approved : Boolean;
+    attribute authorizationTime : DateTime;
+  }
+
+  port def SubmissionServicePort {
+    in item submittedPaper : PaperSubmission;
+    out item submissionReceipt : PaperSubmission;
+  }
+
+  port def ReviewServicePort {
+    out item assignment : ReviewAssignment;
+    in item report : ReviewReport;
+  }
+
+  port def ProgramServicePort {
+    out item programEntry : ProgramEntry;
+  }
+
+  port def RegistrationServicePort {
+    in item registration : RegistrationRecord;
+    out item badge : BadgeCredential;
+  }
+
+  port def PaymentPort {
+    out item paymentRequest : PaymentAuthorization;
+    in item paymentResponse : PaymentAuthorization;
+  }
+
+  port def ProceedingsPort {
+    out item proceedings : ProceedingsPackage;
+  }
+
+  port def AVControlPort {
+    out item scheduledSession : ProgramEntry;
+    in item roomStatus : String;
+  }
+
+  part def ConferenceAutomationSystem {
+    attribute conferenceName : String = "Asia and South Pacific Design Automation Conference";
+    attribute primaryFunction : String =
+      "Coordinate the technical conference lifecycle for design automation research: collect submissions, manage peer review, assemble the program, register attendees, operate sessions, and release proceedings.";
+    attribute phase : ConferencePhase;
+    attribute maxSubmissions : Count = 1200;
+    attribute targetAcceptanceRate : Real = 0.28;
+    attribute reviewScoreThreshold : Score = 3.5;
+    attribute networkBandwidthRequired : MegabitPerSecond = 500.0;
+    attribute mainHallAreaRequired : SquareMeter = 900.0;
+
+    port submissions : SubmissionServicePort;
+    port reviews : ReviewServicePort;
+    port programOut : ProgramServicePort;
+    port registration : RegistrationServicePort;
+    port payments : PaymentPort;
+    port proceedingsOut : ProceedingsPort;
+    port avControl : AVControlPort;
+
+    part submissionManager : SubmissionManagementSubsystem;
+    part reviewManager : PeerReviewSubsystem;
+    part programManager : ProgramSchedulingSubsystem;
+    part registrationManager : RegistrationSubsystem;
+    part financeGateway : FinanceInterface;
+    part venueOperations : VenueAndAVSubsystem;
+    part publicationManager : ProceedingsPublicationSubsystem;
+
+    connection submitFlow connect submissions to submissionManager.externalSubmissionPort;
+    connection assignmentFlow connect reviewManager.reviewerPort to reviews;
+    connection programFlow connect programManager.programPort to programOut;
+    connection registrationFlow connect registration to registrationManager.publicRegistrationPort;
+    connection paymentFlow connect registrationManager.paymentPort to financeGateway.paymentPort;
+    connection externalPaymentFlow connect financeGateway.externalPaymentPort to payments;
+    connection avFlow connect programManager.avSchedulePort to venueOperations.schedulePort;
+    connection avExternalFlow connect venueOperations.controlPort to avControl;
+    connection proceedingsFlow connect publicationManager.proceedingsPort to proceedingsOut;
+
+    action coordinateConferenceLifecycle {
+      first startPreparation;
+      then openSubmissions;
+      then collectAndValidateSubmissions;
+      then assignReviewers;
+      then collectReviews;
+      then decidePapers;
+      then buildTechnicalProgram;
+      then registerParticipants;
+      then operateConferenceSessions;
+      then publishProceedings;
+
+      action startPreparation;
+      action openSubmissions;
+      action collectAndValidateSubmissions;
+      action assignReviewers;
+      action collectReviews;
+      action decidePapers;
+      action buildTechnicalProgram;
+      action registerParticipants;
+      action operateConferenceSessions;
+      action publishProceedings;
+    }
+
+    state conferenceLifecycle {
+      state Preparing;
+      state SubmissionOpen;
+      state Reviewing;
+      state ProgramAssembly;
+      state RegistrationOpen;
+      state LiveConference;
+      state ProceedingsPublished;
+      state Closed;
+
+      transition initial then Preparing;
+      transition Preparing_to_SubmissionOpen first Preparing then SubmissionOpen;
+      transition SubmissionOpen_to_Reviewing first SubmissionOpen then Reviewing;
+      transition Reviewing_to_ProgramAssembly first Reviewing then ProgramAssembly;
+      transition ProgramAssembly_to_RegistrationOpen first ProgramAssembly then RegistrationOpen;
+      transition RegistrationOpen_to_LiveConference first RegistrationOpen then LiveConference;
+      transition LiveConference_to_ProceedingsPublished first LiveConference then ProceedingsPublished;
+      transition ProceedingsPublished_to_Closed first ProceedingsPublished then Closed;
+    }
+  }
+
+  part def SubmissionManagementSubsystem {
+    attribute receivedSubmissionCount : Count;
+    attribute validSubmissionCount : Count;
+    attribute plagiarismCheckEnabled : Boolean = true;
+    attribute minimumPageCount : Count = 4;
+    attribute maximumPageCount : Count = 8;
+
+    port externalSubmissionPort : SubmissionServicePort;
+    port validatedSubmissionPort : SubmissionServicePort;
+
+    action validateSubmission {
+      in item candidate : PaperSubmission;
+      out item acceptedForReview : PaperSubmission;
+      constraint pageLimit {
+        candidate.pageCount >= minimumPageCount and candidate.pageCount <= maximumPageCount
+      }
+      constraint anonymity {
+        candidate.anonymized == true
+      }
+    }
+  }
+
+  part def PeerReviewSubsystem {
+    attribute reviewerCount : Count;
+    attribute reviewsPerPaper : Count = 3;
+    attribute conflictDetectionRequired : Boolean = true;
+    attribute averageReviewConfidence : Score;
+
+    port reviewerPort : ReviewServicePort;
+    port acceptedPaperPort : ProgramServicePort;
+
+    action assignReviewers {
+      in item paper : PaperSubmission;
+      out item assignment1 : ReviewAssignment;
+      out item assignment2 : ReviewAssignment;
+      out item assignment3 : ReviewAssignment;
+    }
+
+    action computeDecision {
+      in item reportA : ReviewReport;
+      in item reportB : ReviewReport;
+      in item reportC : ReviewReport;
+      out attribute decision : PaperDecision;
+      out attribute aggregateScore : Score;
+    }
+
+    state reviewState {
+      state WaitingForAssignments;
+      state AssignmentsIssued;
+      state ReportsIncoming;
+      state Discussion;
+      state DecisionsRecorded;
+
+      transition initial then WaitingForAssignments;
+      transition issue first WaitingForAssignments then AssignmentsIssued;
+      transition receive first AssignmentsIssued then ReportsIncoming;
+      transition discuss first ReportsIncoming then Discussion;
+      transition finalize first Discussion then DecisionsRecorded;
+    }
+  }
+
+  part def ProgramSchedulingSubsystem {
+    attribute sessionCount : Count;
+    attribute keynoteCount : Count = 4;
+    attribute parallelTrackCount : Count = 6;
+    attribute sessionDuration : Time;
+    attribute coffeeBreakDuration : Time;
+
+    port programPort : ProgramServicePort;
+    port avSchedulePort : AVControlPort;
+
+    action assembleProgram {
+      in item acceptedPaper : ProgramEntry;
+      out item scheduledEntry : ProgramEntry;
+    }
+
+    constraint noRoomTimeCollision {
+      sessionCount <= parallelTrackCount * 12
+    }
+  }
+
+  part def RegistrationSubsystem {
+    attribute registeredAttendeeCount : Count;
+    attribute studentAttendeeCount : Count;
+    attribute standardFee : Yen = 85000.0;
+    attribute studentFee : Yen = 35000.0;
+    attribute badgePrintRatePerHour : Count = 300;
+
+    port publicRegistrationPort : RegistrationServicePort;
+    port paymentPort : PaymentPort;
+
+    action registerAttendee {
+      in item attendee : RegistrationRecord;
+      out item payment : PaymentAuthorization;
+      out item credential : BadgeCredential;
+    }
+
+    state registrationState {
+      state Closed;
+      state Open;
+      state PaymentPending;
+      state Confirmed;
+      state BadgeIssued;
+
+      transition initial then Closed;
+      transition open first Closed then Open;
+      transition submit first Open then PaymentPending;
+      transition approve first PaymentPending then Confirmed;
+      transition issueBadge first Confirmed then BadgeIssued;
+    }
+  }
+
+  part def FinanceInterface {
+    attribute currency : String = "JPY";
+    attribute maximumSinglePayment : Yen = 250000.0;
+
+    port paymentPort : PaymentPort;
+    port externalPaymentPort : PaymentPort;
+  }
+
+  part def VenueAndAVSubsystem {
+    attribute roomCount : Count = 12;
+    attribute mainHallCapacity : Count = 1500;
+    attribute backupStreamingLinks : Count = 2;
+    attribute minimumRoomBandwidth : MegabitPerSecond = 100.0;
+
+    port schedulePort : AVControlPort;
+    port controlPort : AVControlPort;
+
+    action prepareRoom {
+      in item session : ProgramEntry;
+      out attribute roomReady : Boolean;
+    }
+  }
+
+  part def ProceedingsPublicationSubsystem {
+    attribute publicationFormat : String = "archival digital proceedings";
+    attribute doiRequired : Boolean = true;
+    attribute openAccessWindowDays : Count = 30;
+
+    port proceedingsPort : ProceedingsPort;
+
+    action releaseProceedings {
+      in item finalProgram : ProgramEntry;
+      out item package : ProceedingsPackage;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ConferenceAutomationSystem;
+    doc "The system shall provide the high-level primary function of coordinating the complete Asia and South Pacific Design Automation Conference lifecycle from paper submission through proceedings publication.";
+  }
+
+  requirement def PeerReviewRequirement {
+    subject system : ConferenceAutomationSystem;
+    require constraint {
+      system.reviewManager.reviewsPerPaper >= 3
+    }
+  }
+
+  requirement def ProgramScaleRequirement {
+    subject system : ConferenceAutomationSystem;
+    require constraint {
+      system.programManager.parallelTrackCount >= 4 and
+      system.maxSubmissions >= 1000
+    }
+  }
+
+  requirement def HybridOperationRequirement {
+    subject system : ConferenceAutomationSystem;
+    require constraint {
+      system.networkBandwidthRequired >= 500.0
+    }
+  }
+
+  requirement def RegistrationThroughputRequirement {
+    subject system : ConferenceAutomationSystem;
+    require constraint {
+      system.registrationManager.badgePrintRatePerHour >= 250
+    }
+  }
+
+  requirement def ProceedingsRequirement {
+    subject system : ConferenceAutomationSystem;
+    require constraint {
+      system.publicationManager.doiRequired == true
+    }
+  }
+
+  part aspdacSystem : ConferenceAutomationSystem;
+
+  satisfy PrimaryFunctionRequirement by aspdacSystem;
+  satisfy PeerReviewRequirement by aspdacSystem;
+  satisfy ProgramScaleRequirement by aspdacSystem;
+  satisfy HybridOperationRequirement by aspdacSystem;
+  satisfy RegistrationThroughputRequirement by aspdacSystem;
+  satisfy ProceedingsRequirement by aspdacSystem;
+}

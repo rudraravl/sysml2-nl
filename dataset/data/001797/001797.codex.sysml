@@ -1,0 +1,417 @@
+package InflatableSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = "kPa";
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = "L";
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = "kg";
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = "L/min";
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = "s";
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = "N";
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = "degC";
+    }
+
+    attribute def Percent {
+        :>> scalarType = Real;
+        unit = "%";
+    }
+
+    item def Air {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute humidity : Percent;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Real;
+    }
+
+    item def UserCommand {
+        attribute commandKind : CommandKind;
+    }
+
+    enum def CommandKind {
+        enum inflate;
+        enum deflate;
+        enum hold;
+        enum stop;
+    }
+
+    item def StatusMessage {
+        attribute state : OperatingStateKind;
+        attribute chamberPressure : Pressure;
+        attribute batteryCharge : Percent;
+        attribute faultCode : FaultKind;
+    }
+
+    enum def OperatingStateKind {
+        enum stowed;
+        enum inflating;
+        enum deployed;
+        enum pressureHolding;
+        enum deflating;
+        enum faulted;
+    }
+
+    enum def FaultKind {
+        enum none;
+        enum overPressure;
+        enum leakDetected;
+        enum pumpOverTemperature;
+        enum lowBattery;
+        enum valveFailure;
+    }
+
+    port def AirPort {
+        inout air : Air;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in command : UserCommand;
+        out status : StatusMessage;
+    }
+
+    port def ReliefPort {
+        out ventedAir : Air;
+    }
+
+    part def FlexibleEnvelope {
+        attribute materialTearStrength : Force = 850 [N];
+        attribute emptyVolume : Volume = 18 [L];
+        attribute ratedVolume : Volume = 420 [L];
+        attribute ratedPressure : Pressure = 32 [kPa];
+        attribute burstPressure : Pressure = 55 [kPa];
+        attribute leakRateAtRatedPressure : FlowRate = 1.2 [L/min];
+
+        port chamber : AirPort;
+        port relief : ReliefPort;
+    }
+
+    part def AirPump {
+        attribute nominalFlowRate : FlowRate = 95 [L/min];
+        attribute maximumPressure : Pressure = 38 [kPa];
+        attribute maximumTemperature : Temperature = 70 [degC];
+        attribute pumpMass : Mass = 1.8 [kg];
+
+        port intake : AirPort;
+        port outlet : AirPort;
+        port electricalInput : PowerPort;
+
+        action inflateFlow {
+            in ambientAir : Air;
+            out compressedAir : Air;
+            attribute deliveredFlow : FlowRate = 95 [L/min];
+            attribute outletPressure : Pressure;
+        }
+    }
+
+    part def FillValve {
+        attribute openResponseTime : TimeDuration = 0.4 [s];
+        attribute closedLeakRate : FlowRate = 0.05 [L/min];
+
+        port inlet : AirPort;
+        port outlet : AirPort;
+
+        action openValve;
+        action closeValve;
+    }
+
+    part def ExhaustValve {
+        attribute nominalExhaustRate : FlowRate = 180 [L/min];
+        attribute openResponseTime : TimeDuration = 0.3 [s];
+
+        port inlet : AirPort;
+        port outlet : ReliefPort;
+
+        action openValve;
+        action closeValve;
+    }
+
+    part def PressureReliefValve {
+        attribute crackingPressure : Pressure = 34 [kPa];
+        attribute reseatPressure : Pressure = 30 [kPa];
+        attribute reliefFlowRate : FlowRate = 130 [L/min];
+
+        port inlet : AirPort;
+        port outlet : ReliefPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRange : Pressure = 60 [kPa];
+        attribute accuracy : Pressure = 0.5 [kPa];
+        attribute samplePeriod : TimeDuration = 0.1 [s];
+
+        port sensedAir : AirPort;
+
+        action measurePressure {
+            in sensed : Air;
+            out measuredPressure : Pressure;
+        }
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : Real = 14.8;
+        attribute capacity : Real = 5.0;
+        attribute chargeRemaining : Percent = 100 [%];
+        attribute packMass : Mass = 0.75 [kg];
+
+        port output : PowerPort;
+    }
+
+    part def Controller {
+        attribute targetPressure : Pressure = 28 [kPa];
+        attribute minimumHoldPressure : Pressure = 25 [kPa];
+        attribute maximumSafePressure : Pressure = 34 [kPa];
+        attribute deploymentTimeout : TimeDuration = 75 [s];
+
+        port userInterface : CommandPort;
+        port sensorAirReference : AirPort;
+
+        action evaluateCommand {
+            in userCommand : UserCommand;
+            out requestedState : OperatingStateKind;
+        }
+
+        action regulatePressure {
+            in measuredPressure : Pressure;
+            out pumpEnable : Boolean;
+            out fillValveOpen : Boolean;
+            out exhaustValveOpen : Boolean;
+        }
+
+        action detectFault {
+            in measuredPressure : Pressure;
+            in batteryCharge : Percent;
+            out fault : FaultKind;
+        }
+    }
+
+    part def Inflatable {
+        attribute systemMass : Mass = 8.6 [kg];
+        attribute deployedVolume : Volume = 420 [L];
+        attribute targetSupportPressure : Pressure = 28 [kPa];
+        attribute maximumOccupantLoad : Force = 1800 [N];
+        attribute nominalInflationTime : TimeDuration = 45 [s];
+        attribute storageVolume : Volume = 38 [L];
+
+        port ambientAir : AirPort;
+        port commandInterface : CommandPort;
+        port externalPower : PowerPort;
+        port vent : ReliefPort;
+
+        part envelope : FlexibleEnvelope;
+        part pump : AirPump;
+        part fillValve : FillValve;
+        part exhaustValve : ExhaustValve;
+        part reliefValve : PressureReliefValve;
+        part pressureSensor : PressureSensor;
+        part battery : BatteryPack;
+        part controller : Controller;
+
+        connect ambientAir to pump.intake;
+        connect pump.outlet to fillValve.inlet;
+        connect fillValve.outlet to envelope.chamber;
+        connect envelope.chamber to pressureSensor.sensedAir;
+        connect envelope.chamber to exhaustValve.inlet;
+        connect envelope.chamber to reliefValve.inlet;
+        connect exhaustValve.outlet to vent;
+        connect reliefValve.outlet to vent;
+        connect battery.output to pump.electricalInput;
+        connect externalPower to pump.electricalInput;
+        connect commandInterface to controller.userInterface;
+        connect envelope.chamber to controller.sensorAirReference;
+
+        state def InflatableOperatingStateMachine {
+            state stowed;
+            state inflating;
+            state deployed;
+            state pressureHolding;
+            state deflating;
+            state faulted;
+
+            entry action initialize {
+                then controller.regulatePressure;
+            }
+
+            transition first stowed;
+
+            transition stowed_to_inflating
+                first stowed
+                accept UserCommand
+                if commandInterface.command.commandKind == CommandKind::inflate
+                then inflating;
+
+            transition inflating_to_deployed
+                first inflating
+                if pressureSensor.measurePressure.measuredPressure >= controller.targetPressure
+                then deployed;
+
+            transition inflating_to_faulted
+                first inflating
+                if pressureSensor.measurePressure.measuredPressure > controller.maximumSafePressure
+                then faulted;
+
+            transition deployed_to_holding
+                first deployed
+                if pressureSensor.measurePressure.measuredPressure < controller.minimumHoldPressure
+                then pressureHolding;
+
+            transition holding_to_deployed
+                first pressureHolding
+                if pressureSensor.measurePressure.measuredPressure >= controller.targetPressure
+                then deployed;
+
+            transition deployed_to_deflating
+                first deployed
+                accept UserCommand
+                if commandInterface.command.commandKind == CommandKind::deflate
+                then deflating;
+
+            transition pressureHolding_to_deflating
+                first pressureHolding
+                accept UserCommand
+                if commandInterface.command.commandKind == CommandKind::deflate
+                then deflating;
+
+            transition deflating_to_stowed
+                first deflating
+                if pressureSensor.measurePressure.measuredPressure <= 2 [kPa]
+                then stowed;
+
+            transition any_to_faulted
+                first deployed
+                if controller.detectFault.fault != FaultKind::none
+                then faulted;
+
+            transition faulted_to_deflating
+                first faulted
+                accept UserCommand
+                if commandInterface.command.commandKind == CommandKind::deflate
+                then deflating;
+        }
+
+        action performPrimaryFunction {
+            in command : UserCommand;
+            in ambient : Air;
+            out status : StatusMessage;
+
+            first start;
+
+            action receiveCommand : controller.evaluateCommand;
+            flow command to receiveCommand.userCommand;
+
+            then when receiveCommand.requestedState == OperatingStateKind::inflating {
+                action energizePump : pump.inflateFlow;
+                flow ambient to energizePump.ambientAir;
+
+                action openFillValve : fillValve.openValve;
+                then action monitorPressure : pressureSensor.measurePressure;
+                flow envelope.chamber.air to monitorPressure.sensed;
+
+                then action regulate : controller.regulatePressure;
+                flow monitorPressure.measuredPressure to regulate.measuredPressure;
+            }
+
+            then action publishStatus {
+                out statusOut : StatusMessage;
+            }
+
+            flow publishStatus.statusOut to status;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Inflatable shall transform from a compact stowed configuration into a pressurized deployed structure that provides stable support, cushioning, or buoyant volume for a user or payload. */
+    }
+
+    requirement def InflationTimeRequirement {
+        attribute maxInflationTime : TimeDuration = 60 [s];
+        require constraint { Inflatable::nominalInflationTime <= maxInflationTime; }
+    }
+
+    requirement def OperatingPressureRequirement {
+        attribute minimumPressure : Pressure = 25 [kPa];
+        attribute targetPressure : Pressure = 28 [kPa];
+        attribute maximumPressure : Pressure = 34 [kPa];
+
+        require constraint {
+            minimumPressure <= Inflatable::targetSupportPressure and
+            Inflatable::targetSupportPressure <= maximumPressure;
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        attribute reliefSetPoint : Pressure = 34 [kPa];
+        attribute burstMargin : Pressure = 55 [kPa];
+
+        require constraint {
+            Inflatable::reliefValve.crackingPressure <= reliefSetPoint and
+            Inflatable::envelope.burstPressure >= burstMargin;
+        }
+    }
+
+    requirement def LoadSupportRequirement {
+        attribute requiredLoad : Force = 1500 [N];
+        require constraint { Inflatable::maximumOccupantLoad >= requiredLoad; }
+    }
+
+    requirement def StowageRequirement {
+        attribute maximumStoredVolume : Volume = 45 [L];
+        require constraint { Inflatable::storageVolume <= maximumStoredVolume; }
+    }
+
+    requirement def LeakToleranceRequirement {
+        attribute maximumPermittedLeakRate : FlowRate = 2.0 [L/min];
+        require constraint {
+            Inflatable::envelope.leakRateAtRatedPressure <= maximumPermittedLeakRate;
+        }
+    }
+
+    requirement def DeflationRequirement {
+        attribute maximumDeflationTime : TimeDuration = 90 [s];
+        doc /* The Inflatable shall vent internal air through the exhaust valve to return to stowed pressure within the maximum deflation time. */
+    }
+
+    satisfy PrimaryFunctionRequirement by Inflatable;
+    satisfy InflationTimeRequirement by Inflatable;
+    satisfy OperatingPressureRequirement by Inflatable;
+    satisfy OverPressureProtectionRequirement by Inflatable;
+    satisfy LoadSupportRequirement by Inflatable;
+    satisfy StowageRequirement by Inflatable;
+    satisfy LeakToleranceRequirement by Inflatable;
+    satisfy DeflationRequirement by Inflatable;
+
+    part inflatableSystem : Inflatable {
+        :>> targetSupportPressure = 28 [kPa];
+        :>> deployedVolume = 420 [L];
+        :>> nominalInflationTime = 45 [s];
+        :>> maximumOccupantLoad = 1800 [N];
+    }
+}

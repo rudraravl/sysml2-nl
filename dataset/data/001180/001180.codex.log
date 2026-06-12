@@ -1,0 +1,841 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_ys6mf_p
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5be-57fa-79f2-9a80-1bca27ccb340
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Photodiode and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PhotodiodeBasedLightSensingSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength {
+        :> Real;
+        unit = "nm";
+    }
+
+    attribute def OpticalPower {
+        :> Real;
+        unit = "uW";
+    }
+
+    attribute def Irradiance {
+        :> Real;
+        unit = "uW_per_cm2";
+    }
+
+    attribute def Responsivity {
+        :> Real;
+        unit = "A_per_W";
+    }
+
+    attribute def Current {
+        :> Real;
+        unit = "uA";
+    }
+
+    attribute def Voltage {
+        :> Real;
+        unit = "V";
+    }
+
+    attribute def Resistance {
+        :> Real;
+        unit = "kohm";
+    }
+
+    attribute def Capacitance {
+        :> Real;
+        unit = "pF";
+    }
+
+    attribute def Frequency {
+        :> Real;
+        unit = "Hz";
+    }
+
+    attribute def Time {
+        :> Real;
+        unit = "ms";
+    }
+
+    attribute def Temperature {
+        :> Real;
+        unit = "degC";
+    }
+
+    attribute def DigitalCount {
+        :> Integer;
+        unit = "count";
+    }
+
+    item def OpticalRadiation {
+        attribute opticalPower : OpticalPower;
+        attribute wavelength : Wavelength;
+        attribute irradiance : Irradiance;
+    }
+
+    item def PhotocurrentSignal {
+        attribute current : Current;
+        attribute darkCurrent : Current;
+        attribute responsivity : Responsivity;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Voltage;
+        attribute noiseVoltage : Voltage;
+        attribute bandwidth : Frequency;
+    }
+
+    item def DigitalLightSample {
+        attribute rawCount : DigitalCount;
+        attribute sampledVoltage : Voltage;
+        attribute estimatedOpticalPower : OpticalPower;
+        attribute sampleAge : Time;
+    }
+
+    item def RegulatedPower {
+        attribute supplyVoltage : Voltage;
+        attribute maxCurrent : Current;
+    }
+
+    port def OpticalInputPort {
+        in item light : OpticalRadiation;
+    }
+
+    port def CurrentSignalPort {
+        out item photocurrent : PhotocurrentSignal;
+    }
+
+    port def AnalogInputPort {
+        in item analogInput : AnalogVoltageSignal;
+    }
+
+    port def AnalogOutputPort {
+        out item analogOutput : AnalogVoltageSignal;
+    }
+
+    port def DigitalOutputPort {
+        out item sample : DigitalLightSample;
+    }
+
+    port def PowerInputPort {
+        in item power : RegulatedPower;
+    }
+
+    port def GroundPort {
+    }
+
+    part def Photodiode {
+        attribute activeArea : Real = 7.5;
+        attribute nominalResponsivity : Responsivity = 0.42;
+        attribute peakWavelength : Wavelength = 940.0;
+        attribute reverseBiasVoltage : Voltage = 3.3;
+        attribute junctionCapacitance : Capacitance = 12.0;
+        attribute maxDarkCurrent : Current = 0.02;
+
+        port opticalInput : OpticalInputPort;
+        port currentOutput : CurrentSignalPort;
+        port biasPower : PowerInputPort;
+        port ground : GroundPort;
+
+        action convertPhotonsToCurrent {
+            in item incidentLight : OpticalRadiation;
+            out item generatedCurrent : PhotocurrentSignal;
+
+            assert constraint {
+                generatedCurrent.current ==
+                    incidentLight.opticalPower * nominalResponsivity;
+            }
+        }
+    }
+
+    part def TransimpedanceAmplifier {
+        attribute feedbackResistance : Resistance = 220.0;
+        attribute feedbackCapacitance : Capacitance = 4.7;
+        attribute inputBiasCurrent : Current = 0.001;
+        attribute outputOffsetVoltage : Voltage = 0.005;
+        attribute closedLoopBandwidth : Frequency = 12000.0;
+
+        port currentInput : CurrentSignalPort;
+        port voltageOutput : AnalogOutputPort;
+        port positiveSupply : PowerInputPort;
+        port ground : GroundPort;
+
+        action convertCurrentToVoltage {
+            in item sensorCurrent : PhotocurrentSignal;
+            out item analogVoltage : AnalogVoltageSignal;
+
+            assert constraint {
+                analogVoltage.voltage ==
+                    sensorCurrent.current * feedbackResistance / 1000.0 + outputOffsetVoltage;
+            }
+        }
+    }
+
+    part def LowPassFilter {
+        attribute cutoffFrequency : Frequency = 500.0;
+        attribute settlingTime : Time = 3.0;
+
+        port unfilteredInput : AnalogInputPort;
+        port filteredOutput : AnalogOutputPort;
+        port ground : GroundPort;
+
+        action attenuateHighFrequencyNoise {
+            in item rawVoltage : AnalogVoltageSignal;
+            out item filteredVoltage : AnalogVoltageSignal;
+
+            assert constraint {
+                filteredVoltage.bandwidth <= cutoffFrequency;
+            }
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute referenceVoltage : Voltage = 3.3;
+        attribute resolutionBits : Integer = 12;
+        attribute sampleRate : Frequency = 1000.0;
+        attribute conversionTime : Time = 0.05;
+
+        port analogInput : AnalogInputPort;
+        port digitalOutput : DigitalOutputPort;
+        port supply : PowerInputPort;
+        port ground : GroundPort;
+
+        action sampleVoltage {
+            in item filteredVoltage : AnalogVoltageSignal;
+            out item digitalSample : DigitalLightSample;
+
+            assert constraint {
+                digitalSample.rawCount >= 0 and digitalSample.rawCount <= 4095;
+            }
+        }
+    }
+
+    part def Microcontroller {
+        attribute operatingVoltage : Voltage = 3.3;
+        attribute averagingWindowSamples : Integer = 16;
+        attribute lowLightThreshold : OpticalPower = 0.5;
+        attribute saturationThreshold : Voltage = 3.1;
+
+        port lightSampleInput : DigitalOutputPort;
+        port processedOutput : DigitalOutputPort;
+        port supply : PowerInputPort;
+        port ground : GroundPort;
+
+        action estimateOpticalPower {
+            in item sample : DigitalLightSample;
+            out item processedSample : DigitalLightSample;
+
+            assert constraint {
+                processedSample.estimatedOpticalPower >= 0.0;
+            }
+        }
+    }
+
+    part def VoltageRegulator {
+        attribute inputVoltage : Voltage = 5.0;
+        attribute outputVoltage : Voltage = 3.3;
+        attribute outputCurrentLimit : Current = 100.0;
+        attribute rippleVoltage : Voltage = 0.01;
+
+        port regulatedOutput : PowerInputPort;
+        port ground : GroundPort;
+    }
+
+    state def LightSensorOperatingStateMachine {
+        entry action initializeElectronics;
+        exit action storeLastMeasurement;
+
+        state off;
+        state initializing;
+        state idle;
+        state sampling;
+        state processing;
+        state reporting;
+        state fault;
+
+        transition first off then initializing;
+        transition initializing then idle
+            accept after 10.0 ms;
+
+        transition idle then sampling
+            accept sampleRequest;
+
+        transition sampling then processing
+            accept conversionComplete;
+
+        transition processing then reporting
+            accept estimateComplete;
+
+        transition reporting then idle
+            accept reportComplete;
+
+        transition idle then fault
+            accept supplyOutOfRange;
+
+        transition sampling then fault
+            accept saturatedInput;
+
+        transition fault then initializing
+            accept resetCommand;
+    }
+
+    action def HighLevelLightDetectionFunction {
+        in item incomingRadiation : OpticalRadiation;
+        out item reportedLightSample : DigitalLightSample;
+
+        first start;
+        then convertOpticalEnergyToPhotocurrent;
+        then amplifyPhotocurrentToVoltage;
+        then filterAnalogVoltage;
+        then digitizeVoltage;
+        then computeOpticalPowerEstimate;
+        then publishMeasuredLightLevel;
+    }
+
+    part def PhotodiodeLightSensorSystem {
+        attribute operatingTemperatureMin : Temperature = -20.0;
+        attribute operatingTemperatureMax : Temperature = 70.0;
+        attribute detectableOpticalPowerMin : OpticalPower = 0.1;
+        attribute detectableOpticalPowerMax : OpticalPower = 1000.0;
+        attribute nominalSupplyVoltage : Voltage = 3.3;
+        attribute endToEndLatency : Time = 5.0;
+
+        port opticalInput : OpticalInputPort;
+        port digitalLightOutput : DigitalOutputPort;
+        port powerInput : PowerInputPort;
+        port ground : GroundPort;
+
+        part photodiode : Photodiode;
+        part amplifier : TransimpedanceAmplifier;
+        part filter : LowPassFilter;
+        part adc : AnalogToDigitalConverter;
+        part controller : Microcontroller;
+        part regulator : VoltageRegulator;
+
+        connect opticalInput to photodiode.opticalInput;
+        connect photodiode.currentOutput to amplifier.currentInput;
+        connect amplifier.voltageOutput to filter.unfilteredInput;
+        connect filter.filteredOutput to adc.analogInput;
+        connect adc.digitalOutput to controller.lightSampleInput;
+        connect controller.processedOutput to digitalLightOutput;
+
+        connect powerInput to regulator.regulatedOutput;
+        connect regulator.regulatedOutput to photodiode.biasPower;
+        connect regulator.regulatedOutput to amplifier.positiveSupply;
+        connect regulator.regulatedOutput to adc.supply;
+        connect regulator.regulatedOutput to controller.supply;
+
+        connect ground to photodiode.ground;
+        connect ground to amplifier.ground;
+        connect ground to filter.ground;
+        connect ground to adc.ground;
+        connect ground to controller.ground;
+        connect ground to regulator.ground;
+
+        perform HighLevelLightDetectionFunction;
+        exhibit stateMachine : LightSensorOperatingStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : PhotodiodeLightSensorSystem;
+
+        require constraint {
+            system.detectableOpticalPowerMin <= 0.1 and
+            system.detectableOpticalPowerMax >= 1000.0
+        }
+
+        doc
+        /*
+         The system shall use a photodiode as its primary sensing element to convert incident optical radiation into electrical current, condition that current into a measurable voltage, digitize the voltage, and report a calibrated digital estimate of received light intensity.
+        */
+    }
+
+    requirement def OpticalConversionRequirement {
+        subject diode : Photodiode;
+
+        require constraint {
+            diode.nominalResponsivity >= 0.35 and
+            diode.nominalResponsivity <= 0.50 and
+            diode.maxDarkCurrent <= 0.05
+        }
+    }
+
+    requirement def SignalConditioningRequirement {
+        subject amplifier : TransimpedanceAmplifier;
+
+        require constraint {
+            amplifier.feedbackResistance >= 100.0 and
+            amplifier.closedLoopBandwidth >= 1000.0
+        }
+    }
+
+    requirement def NoiseFilteringRequirement {
+        subject filter : LowPassFilter;
+
+        require constraint {
+            filter.cutoffFrequency <= 500.0 and
+            filter.settlingTime <= 5.0
+        }
+    }
+
+    requirement def DigitalMeasurementRequirement {
+        subject adc : AnalogToDigitalConverter;
+
+        require constraint {
+            adc.resolutionBits >= 12 and
+            adc.sampleRate >= 100.0 and
+            adc.referenceVoltage == 3.3
+        }
+    }
+
+    requirement def SystemLatencyRequirement {
+        subject system : PhotodiodeLightSensorSystem;
+
+        require constraint {
+            system.endToEndLatency <= 10.0
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject system : PhotodiodeLightSensorSystem;
+
+        require constraint {
+            system.operatingTemperatureMin <= -20.0 and
+            system.operatingTemperatureMax >= 70.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhotodiodeLightSensorSystem;
+    satisfy OpticalConversionRequirement by Photodiode;
+    satisfy SignalConditioningRequirement by TransimpedanceAmplifier;
+    satisfy NoiseFilteringRequirement by LowPassFilter;
+    satisfy DigitalMeasurementRequirement by AnalogToDigitalConverter;
+    satisfy SystemLatencyRequirement by PhotodiodeLightSensorSystem;
+    satisfy EnvironmentalRequirement by PhotodiodeLightSensorSystem;
+}
+tokens used
+4,182
+package PhotodiodeBasedLightSensingSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength {
+        :> Real;
+        unit = "nm";
+    }
+
+    attribute def OpticalPower {
+        :> Real;
+        unit = "uW";
+    }
+
+    attribute def Irradiance {
+        :> Real;
+        unit = "uW_per_cm2";
+    }
+
+    attribute def Responsivity {
+        :> Real;
+        unit = "A_per_W";
+    }
+
+    attribute def Current {
+        :> Real;
+        unit = "uA";
+    }
+
+    attribute def Voltage {
+        :> Real;
+        unit = "V";
+    }
+
+    attribute def Resistance {
+        :> Real;
+        unit = "kohm";
+    }
+
+    attribute def Capacitance {
+        :> Real;
+        unit = "pF";
+    }
+
+    attribute def Frequency {
+        :> Real;
+        unit = "Hz";
+    }
+
+    attribute def Time {
+        :> Real;
+        unit = "ms";
+    }
+
+    attribute def Temperature {
+        :> Real;
+        unit = "degC";
+    }
+
+    attribute def DigitalCount {
+        :> Integer;
+        unit = "count";
+    }
+
+    item def OpticalRadiation {
+        attribute opticalPower : OpticalPower;
+        attribute wavelength : Wavelength;
+        attribute irradiance : Irradiance;
+    }
+
+    item def PhotocurrentSignal {
+        attribute current : Current;
+        attribute darkCurrent : Current;
+        attribute responsivity : Responsivity;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Voltage;
+        attribute noiseVoltage : Voltage;
+        attribute bandwidth : Frequency;
+    }
+
+    item def DigitalLightSample {
+        attribute rawCount : DigitalCount;
+        attribute sampledVoltage : Voltage;
+        attribute estimatedOpticalPower : OpticalPower;
+        attribute sampleAge : Time;
+    }
+
+    item def RegulatedPower {
+        attribute supplyVoltage : Voltage;
+        attribute maxCurrent : Current;
+    }
+
+    port def OpticalInputPort {
+        in item light : OpticalRadiation;
+    }
+
+    port def CurrentSignalPort {
+        out item photocurrent : PhotocurrentSignal;
+    }
+
+    port def AnalogInputPort {
+        in item analogInput : AnalogVoltageSignal;
+    }
+
+    port def AnalogOutputPort {
+        out item analogOutput : AnalogVoltageSignal;
+    }
+
+    port def DigitalOutputPort {
+        out item sample : DigitalLightSample;
+    }
+
+    port def PowerInputPort {
+        in item power : RegulatedPower;
+    }
+
+    port def GroundPort {
+    }
+
+    part def Photodiode {
+        attribute activeArea : Real = 7.5;
+        attribute nominalResponsivity : Responsivity = 0.42;
+        attribute peakWavelength : Wavelength = 940.0;
+        attribute reverseBiasVoltage : Voltage = 3.3;
+        attribute junctionCapacitance : Capacitance = 12.0;
+        attribute maxDarkCurrent : Current = 0.02;
+
+        port opticalInput : OpticalInputPort;
+        port currentOutput : CurrentSignalPort;
+        port biasPower : PowerInputPort;
+        port ground : GroundPort;
+
+        action convertPhotonsToCurrent {
+            in item incidentLight : OpticalRadiation;
+            out item generatedCurrent : PhotocurrentSignal;
+
+            assert constraint {
+                generatedCurrent.current ==
+                    incidentLight.opticalPower * nominalResponsivity;
+            }
+        }
+    }
+
+    part def TransimpedanceAmplifier {
+        attribute feedbackResistance : Resistance = 220.0;
+        attribute feedbackCapacitance : Capacitance = 4.7;
+        attribute inputBiasCurrent : Current = 0.001;
+        attribute outputOffsetVoltage : Voltage = 0.005;
+        attribute closedLoopBandwidth : Frequency = 12000.0;
+
+        port currentInput : CurrentSignalPort;
+        port voltageOutput : AnalogOutputPort;
+        port positiveSupply : PowerInputPort;
+        port ground : GroundPort;
+
+        action convertCurrentToVoltage {
+            in item sensorCurrent : PhotocurrentSignal;
+            out item analogVoltage : AnalogVoltageSignal;
+
+            assert constraint {
+                analogVoltage.voltage ==
+                    sensorCurrent.current * feedbackResistance / 1000.0 + outputOffsetVoltage;
+            }
+        }
+    }
+
+    part def LowPassFilter {
+        attribute cutoffFrequency : Frequency = 500.0;
+        attribute settlingTime : Time = 3.0;
+
+        port unfilteredInput : AnalogInputPort;
+        port filteredOutput : AnalogOutputPort;
+        port ground : GroundPort;
+
+        action attenuateHighFrequencyNoise {
+            in item rawVoltage : AnalogVoltageSignal;
+            out item filteredVoltage : AnalogVoltageSignal;
+
+            assert constraint {
+                filteredVoltage.bandwidth <= cutoffFrequency;
+            }
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute referenceVoltage : Voltage = 3.3;
+        attribute resolutionBits : Integer = 12;
+        attribute sampleRate : Frequency = 1000.0;
+        attribute conversionTime : Time = 0.05;
+
+        port analogInput : AnalogInputPort;
+        port digitalOutput : DigitalOutputPort;
+        port supply : PowerInputPort;
+        port ground : GroundPort;
+
+        action sampleVoltage {
+            in item filteredVoltage : AnalogVoltageSignal;
+            out item digitalSample : DigitalLightSample;
+
+            assert constraint {
+                digitalSample.rawCount >= 0 and digitalSample.rawCount <= 4095;
+            }
+        }
+    }
+
+    part def Microcontroller {
+        attribute operatingVoltage : Voltage = 3.3;
+        attribute averagingWindowSamples : Integer = 16;
+        attribute lowLightThreshold : OpticalPower = 0.5;
+        attribute saturationThreshold : Voltage = 3.1;
+
+        port lightSampleInput : DigitalOutputPort;
+        port processedOutput : DigitalOutputPort;
+        port supply : PowerInputPort;
+        port ground : GroundPort;
+
+        action estimateOpticalPower {
+            in item sample : DigitalLightSample;
+            out item processedSample : DigitalLightSample;
+
+            assert constraint {
+                processedSample.estimatedOpticalPower >= 0.0;
+            }
+        }
+    }
+
+    part def VoltageRegulator {
+        attribute inputVoltage : Voltage = 5.0;
+        attribute outputVoltage : Voltage = 3.3;
+        attribute outputCurrentLimit : Current = 100.0;
+        attribute rippleVoltage : Voltage = 0.01;
+
+        port regulatedOutput : PowerInputPort;
+        port ground : GroundPort;
+    }
+
+    state def LightSensorOperatingStateMachine {
+        entry action initializeElectronics;
+        exit action storeLastMeasurement;
+
+        state off;
+        state initializing;
+        state idle;
+        state sampling;
+        state processing;
+        state reporting;
+        state fault;
+
+        transition first off then initializing;
+        transition initializing then idle
+            accept after 10.0 ms;
+
+        transition idle then sampling
+            accept sampleRequest;
+
+        transition sampling then processing
+            accept conversionComplete;
+
+        transition processing then reporting
+            accept estimateComplete;
+
+        transition reporting then idle
+            accept reportComplete;
+
+        transition idle then fault
+            accept supplyOutOfRange;
+
+        transition sampling then fault
+            accept saturatedInput;
+
+        transition fault then initializing
+            accept resetCommand;
+    }
+
+    action def HighLevelLightDetectionFunction {
+        in item incomingRadiation : OpticalRadiation;
+        out item reportedLightSample : DigitalLightSample;
+
+        first start;
+        then convertOpticalEnergyToPhotocurrent;
+        then amplifyPhotocurrentToVoltage;
+        then filterAnalogVoltage;
+        then digitizeVoltage;
+        then computeOpticalPowerEstimate;
+        then publishMeasuredLightLevel;
+    }
+
+    part def PhotodiodeLightSensorSystem {
+        attribute operatingTemperatureMin : Temperature = -20.0;
+        attribute operatingTemperatureMax : Temperature = 70.0;
+        attribute detectableOpticalPowerMin : OpticalPower = 0.1;
+        attribute detectableOpticalPowerMax : OpticalPower = 1000.0;
+        attribute nominalSupplyVoltage : Voltage = 3.3;
+        attribute endToEndLatency : Time = 5.0;
+
+        port opticalInput : OpticalInputPort;
+        port digitalLightOutput : DigitalOutputPort;
+        port powerInput : PowerInputPort;
+        port ground : GroundPort;
+
+        part photodiode : Photodiode;
+        part amplifier : TransimpedanceAmplifier;
+        part filter : LowPassFilter;
+        part adc : AnalogToDigitalConverter;
+        part controller : Microcontroller;
+        part regulator : VoltageRegulator;
+
+        connect opticalInput to photodiode.opticalInput;
+        connect photodiode.currentOutput to amplifier.currentInput;
+        connect amplifier.voltageOutput to filter.unfilteredInput;
+        connect filter.filteredOutput to adc.analogInput;
+        connect adc.digitalOutput to controller.lightSampleInput;
+        connect controller.processedOutput to digitalLightOutput;
+
+        connect powerInput to regulator.regulatedOutput;
+        connect regulator.regulatedOutput to photodiode.biasPower;
+        connect regulator.regulatedOutput to amplifier.positiveSupply;
+        connect regulator.regulatedOutput to adc.supply;
+        connect regulator.regulatedOutput to controller.supply;
+
+        connect ground to photodiode.ground;
+        connect ground to amplifier.ground;
+        connect ground to filter.ground;
+        connect ground to adc.ground;
+        connect ground to controller.ground;
+        connect ground to regulator.ground;
+
+        perform HighLevelLightDetectionFunction;
+        exhibit stateMachine : LightSensorOperatingStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : PhotodiodeLightSensorSystem;
+
+        require constraint {
+            system.detectableOpticalPowerMin <= 0.1 and
+            system.detectableOpticalPowerMax >= 1000.0
+        }
+
+        doc
+        /*
+         The system shall use a photodiode as its primary sensing element to convert incident optical radiation into electrical current, condition that current into a measurable voltage, digitize the voltage, and report a calibrated digital estimate of received light intensity.
+        */
+    }
+
+    requirement def OpticalConversionRequirement {
+        subject diode : Photodiode;
+
+        require constraint {
+            diode.nominalResponsivity >= 0.35 and
+            diode.nominalResponsivity <= 0.50 and
+            diode.maxDarkCurrent <= 0.05
+        }
+    }
+
+    requirement def SignalConditioningRequirement {
+        subject amplifier : TransimpedanceAmplifier;
+
+        require constraint {
+            amplifier.feedbackResistance >= 100.0 and
+            amplifier.closedLoopBandwidth >= 1000.0
+        }
+    }
+
+    requirement def NoiseFilteringRequirement {
+        subject filter : LowPassFilter;
+
+        require constraint {
+            filter.cutoffFrequency <= 500.0 and
+            filter.settlingTime <= 5.0
+        }
+    }
+
+    requirement def DigitalMeasurementRequirement {
+        subject adc : AnalogToDigitalConverter;
+
+        require constraint {
+            adc.resolutionBits >= 12 and
+            adc.sampleRate >= 100.0 and
+            adc.referenceVoltage == 3.3
+        }
+    }
+
+    requirement def SystemLatencyRequirement {
+        subject system : PhotodiodeLightSensorSystem;
+
+        require constraint {
+            system.endToEndLatency <= 10.0
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject system : PhotodiodeLightSensorSystem;
+
+        require constraint {
+            system.operatingTemperatureMin <= -20.0 and
+            system.operatingTemperatureMax >= 70.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhotodiodeLightSensorSystem;
+    satisfy OpticalConversionRequirement by Photodiode;
+    satisfy SignalConditioningRequirement by TransimpedanceAmplifier;
+    satisfy NoiseFilteringRequirement by LowPassFilter;
+    satisfy DigitalMeasurementRequirement by AnalogToDigitalConverter;
+    satisfy SystemLatencyRequirement by PhotodiodeLightSensorSystem;
+    satisfy EnvironmentalRequirement by PhotodiodeLightSensorSystem;
+}

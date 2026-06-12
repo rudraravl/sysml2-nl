@@ -1,0 +1,423 @@
+package ChromecastStreamingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Bitrate :> ScalarValues::Real {
+        unit = "Mb/s";
+    }
+
+    attribute def Latency :> ScalarValues::Real {
+        unit = "ms";
+    }
+
+    attribute def Power :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Temperature :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def Frequency :> ScalarValues::Real {
+        unit = "GHz";
+    }
+
+    item def MediaStream {
+        attribute codec : String;
+        attribute resolution : String;
+        attribute frameRate : ScalarValues::Real;
+        attribute averageBitrate : Bitrate;
+        attribute encrypted : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute commandKind : CommandKind;
+        attribute targetApplication : String;
+        attribute issuedBy : String;
+    }
+
+    enum def CommandKind {
+        enum play;
+        enum pause;
+        enum stop;
+        enum seek;
+        enum volumeUp;
+        enum volumeDown;
+        enum launchApp;
+        enum castSessionStart;
+        enum castSessionEnd;
+    }
+
+    item def VideoFrame {
+        attribute resolution : String;
+        attribute colorFormat : String;
+        attribute timestamp : ScalarValues::Real;
+    }
+
+    item def AudioFrame {
+        attribute channels : ScalarValues::Integer;
+        attribute sampleRateHz : ScalarValues::Integer;
+        attribute timestamp : ScalarValues::Real;
+    }
+
+    item def NetworkPacket {
+        attribute protocol : String;
+        attribute payloadSizeBytes : ScalarValues::Integer;
+        attribute encrypted : Boolean;
+    }
+
+    port def HdmiSourcePort {
+        out item video : VideoFrame;
+        out item audio : AudioFrame;
+    }
+
+    port def HdmiSinkPort {
+        in item video : VideoFrame;
+        in item audio : AudioFrame;
+    }
+
+    port def WirelessNetworkPort {
+        in item inboundPacket : NetworkPacket;
+        out item outboundPacket : NetworkPacket;
+        in item streamIn : MediaStream;
+        in item commandIn : ControlCommand;
+    }
+
+    port def ControlPort {
+        in item command : ControlCommand;
+        out item statusPacket : NetworkPacket;
+    }
+
+    port def PowerInputPort {
+        in attribute voltage : ScalarValues::Real;
+        in attribute availablePower : Power;
+    }
+
+    port def PowerOutputPort {
+        out attribute voltage : ScalarValues::Real;
+        out attribute deliveredPower : Power;
+    }
+
+    port def ThermalPort {
+        out attribute deviceTemperature : Temperature;
+    }
+
+    part def MobileCastingDevice {
+        port wifi : WirelessNetworkPort;
+        port userControl : ControlPort;
+
+        attribute connectedToSameNetwork : Boolean;
+        attribute selectedContentTitle : String;
+        attribute castApplicationName : String;
+
+        action sendCastCommand {
+            in item command : ControlCommand;
+            out item packet : NetworkPacket;
+        }
+
+        action discoverReceiver {
+            out attribute receiverFound : Boolean;
+        }
+    }
+
+    part def HomeWifiRouter {
+        port clientSide : WirelessNetworkPort[2..*];
+
+        attribute wifiFrequency : Frequency = 5.0;
+        attribute maxThroughput : Bitrate = 600.0;
+        attribute internetReachable : Boolean;
+
+        action routePackets {
+            in item inbound : NetworkPacket;
+            out item outbound : NetworkPacket;
+        }
+    }
+
+    part def CloudStreamingService {
+        port internetEndpoint : WirelessNetworkPort;
+
+        attribute serviceName : String;
+        attribute contentCatalogAvailable : Boolean;
+        attribute adaptiveBitrateEnabled : Boolean;
+
+        action provideMediaStream {
+            in item command : ControlCommand;
+            out item stream : MediaStream;
+        }
+    }
+
+    part def Television {
+        port hdmiInput : HdmiSinkPort;
+        port powerOutput : PowerOutputPort;
+
+        attribute displayResolution : String = "3840x2160";
+        attribute hdrSupported : Boolean = true;
+        attribute speakersEnabled : Boolean = true;
+
+        action presentMedia {
+            in item video : VideoFrame;
+            in item audio : AudioFrame;
+        }
+    }
+
+    part def ChromecastDevice {
+        port wifi : WirelessNetworkPort;
+        port hdmiOutput : HdmiSourcePort;
+        port usbPowerInput : PowerInputPort;
+        port thermalMonitor : ThermalPort;
+
+        attribute deviceName : String = "Living Room Chromecast";
+        attribute supportedMaxResolution : String = "3840x2160";
+        attribute supportedCodecs : String = "H.264,H.265,VP9,AV1,AAC,Opus";
+        attribute operatingPower : Power = 4.5;
+        attribute standbyPower : Power = 0.7;
+        attribute currentTemperature : Temperature;
+        attribute activeSession : Boolean;
+        attribute networkLatency : Latency;
+        attribute receivedBitrate : Bitrate;
+
+        part networkInterface {
+            port radio : WirelessNetworkPort;
+            attribute connected : Boolean;
+            attribute signalStrengthDbm : ScalarValues::Real;
+            attribute negotiatedFrequency : Frequency;
+        }
+
+        part castSessionManager {
+            port commands : ControlPort;
+            attribute pairedController : String;
+            attribute launchedApplication : String;
+            attribute sessionId : String;
+            attribute sessionActive : Boolean;
+        }
+
+        part mediaReceiver {
+            port streamPort : WirelessNetworkPort;
+            attribute bufferLevelSeconds : ScalarValues::Real;
+            attribute drmLicenseValid : Boolean;
+            attribute selectedBitrate : Bitrate;
+
+            action bufferStream {
+                in item stream : MediaStream;
+                out attribute bufferReady : Boolean;
+            }
+        }
+
+        part decoder {
+            attribute videoCodecActive : String;
+            attribute audioCodecActive : String;
+            attribute decodeLatency : Latency;
+
+            action decodeMedia {
+                in item stream : MediaStream;
+                out item video : VideoFrame;
+                out item audio : AudioFrame;
+            }
+        }
+
+        part hdmiTransmitter {
+            port output : HdmiSourcePort;
+            attribute hdcpEnabled : Boolean;
+            attribute outputResolution : String;
+            attribute audioFormat : String;
+        }
+
+        part powerManager {
+            port input : PowerInputPort;
+            attribute measuredPower : Power;
+            attribute lowPowerMode : Boolean;
+        }
+
+        bind wifi = networkInterface.radio;
+        bind hdmiOutput = hdmiTransmitter.output;
+        bind usbPowerInput = powerManager.input;
+
+        action receiveCommand {
+            in item command : ControlCommand;
+            out attribute accepted : Boolean;
+        }
+
+        action streamToDisplay {
+            in item stream : MediaStream;
+            out item videoOut : VideoFrame;
+            out item audioOut : AudioFrame;
+        }
+
+        state def ChromecastOperationalStates {
+            entry action initializeHardware;
+
+            state Off;
+            state Booting;
+            state Standby;
+            state Discoverable;
+            state SessionStarting;
+            state Streaming;
+            state Paused;
+            state ErrorRecovery;
+
+            transition first Off then Booting
+                accept ControlCommand
+                if commandKind == CommandKind::castSessionStart;
+
+            transition Booting then Standby;
+
+            transition Standby then Discoverable
+                if networkInterface.connected == true;
+
+            transition Discoverable then SessionStarting
+                accept ControlCommand
+                if commandKind == CommandKind::launchApp;
+
+            transition SessionStarting then Streaming
+                if mediaReceiver.drmLicenseValid == true and mediaReceiver.bufferLevelSeconds >= 2.0;
+
+            transition Streaming then Paused
+                accept ControlCommand
+                if commandKind == CommandKind::pause;
+
+            transition Paused then Streaming
+                accept ControlCommand
+                if commandKind == CommandKind::play;
+
+            transition Streaming then Discoverable
+                accept ControlCommand
+                if commandKind == CommandKind::castSessionEnd;
+
+            transition Streaming then ErrorRecovery
+                if networkLatency > 250.0 or mediaReceiver.bufferLevelSeconds < 0.5;
+
+            transition ErrorRecovery then Streaming
+                if mediaReceiver.bufferLevelSeconds >= 2.0;
+
+            transition ErrorRecovery then Discoverable
+                if networkInterface.connected == false;
+        }
+    }
+
+    part def ChromecastBasedMediaSystem {
+        part controller : MobileCastingDevice {
+            attribute connectedToSameNetwork = true;
+            attribute castApplicationName = "YouTube";
+        }
+
+        part router : HomeWifiRouter {
+            attribute internetReachable = true;
+        }
+
+        part streamingService : CloudStreamingService {
+            attribute serviceName = "Cloud Video Provider";
+            attribute contentCatalogAvailable = true;
+            attribute adaptiveBitrateEnabled = true;
+        }
+
+        part receiver : ChromecastDevice {
+            attribute networkLatency = 45.0;
+            attribute receivedBitrate = 18.0;
+            attribute currentTemperature = 43.0;
+            attribute activeSession = false;
+        }
+
+        part display : Television;
+
+        connection controller.wifi to router.clientSide;
+        connection router.clientSide to receiver.wifi;
+        connection router.clientSide to streamingService.internetEndpoint;
+        connection receiver.hdmiOutput to display.hdmiInput;
+        connection display.powerOutput to receiver.usbPowerInput;
+
+        action performPrimaryFunction {
+            in item selectedCommand : ControlCommand;
+            out item deliveredVideo : VideoFrame;
+            out item deliveredAudio : AudioFrame;
+
+            first startCasting;
+            then requestMedia;
+            then receiveMedia;
+            then decode;
+            then outputToTelevision;
+
+            action startCasting {
+                in item selectedCommand;
+                out item castCommand : ControlCommand;
+            }
+
+            action requestMedia {
+                in item castCommand;
+                out item requestedStream : MediaStream;
+            }
+
+            action receiveMedia {
+                in item requestedStream;
+                out item bufferedStream : MediaStream;
+            }
+
+            action decode {
+                in item bufferedStream;
+                out item deliveredVideo;
+                out item deliveredAudio;
+            }
+
+            action outputToTelevision {
+                in item deliveredVideo;
+                in item deliveredAudio;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall allow a user to select media on a mobile device and cast it through a Chromecast receiver so that the Chromecast retrieves, decodes, and outputs synchronized audio and video to a television over HDMI. */
+    }
+
+    requirement def NetworkRequirement {
+        doc /* The Chromecast receiver shall maintain Wi-Fi connectivity with sufficient throughput to receive an adaptive media stream of at least 15 Mb/s during 4K playback. */
+        require constraint { receiver.receivedBitrate >= 15.0 }
+    }
+
+    requirement def LatencyRequirement {
+        doc /* The Chromecast receiver shall respond to user playback commands within 150 ms under nominal network conditions. */
+        require constraint { receiver.networkLatency <= 150.0 }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The Chromecast receiver shall operate from television-provided USB power or an external adapter with no more than 7 W during normal streaming. */
+        require constraint { receiver.operatingPower <= 7.0 }
+    }
+
+    requirement def ThermalRequirement {
+        doc /* The Chromecast receiver shall remain below 70 degC during continuous streaming operation. */
+        require constraint { receiver.currentTemperature < 70.0 }
+    }
+
+    requirement def HdmiOutputRequirement {
+        doc /* The Chromecast receiver shall output decoded video and audio through HDMI to the connected television. */
+    }
+
+    satisfy PrimaryFunctionRequirement by ChromecastBasedMediaSystem;
+    satisfy NetworkRequirement by ChromecastBasedMediaSystem::receiver;
+    satisfy LatencyRequirement by ChromecastBasedMediaSystem::receiver;
+    satisfy PowerRequirement by ChromecastBasedMediaSystem::receiver;
+    satisfy ThermalRequirement by ChromecastBasedMediaSystem::receiver;
+    satisfy HdmiOutputRequirement by ChromecastBasedMediaSystem::receiver::hdmiTransmitter;
+
+    view def HighLevelFunctionView {
+        expose ChromecastBasedMediaSystem;
+        expose PrimaryFunctionRequirement;
+        expose ChromecastBasedMediaSystem::controller;
+        expose ChromecastBasedMediaSystem::router;
+        expose ChromecastBasedMediaSystem::streamingService;
+        expose ChromecastBasedMediaSystem::receiver;
+        expose ChromecastBasedMediaSystem::display;
+    }
+
+    view def ChromecastInternalArchitectureView {
+        expose ChromecastDevice;
+        expose ChromecastDevice::networkInterface;
+        expose ChromecastDevice::castSessionManager;
+        expose ChromecastDevice::mediaReceiver;
+        expose ChromecastDevice::decoder;
+        expose ChromecastDevice::hdmiTransmitter;
+        expose ChromecastDevice::powerManager;
+    }
+}

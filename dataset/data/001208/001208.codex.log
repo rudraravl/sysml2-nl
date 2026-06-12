@@ -1,0 +1,1249 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-qrjdrurd
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5d8-7457-7323-92b2-4065928e86ab
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Push broom scanner and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PushBroomScannerSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength {
+        :> ScalarValues::Real;
+        unit = "nm";
+    }
+
+    attribute def Radiance {
+        :> ScalarValues::Real;
+        unit = "W/(m^2*sr*nm)";
+    }
+
+    attribute def Irradiance {
+        :> ScalarValues::Real;
+        unit = "W/m^2";
+    }
+
+    attribute def PixelCount {
+        :> ScalarValues::Integer;
+        unit = "1";
+    }
+
+    attribute def LineRate {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def GroundSampleDistance {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def SignalToNoiseRatio {
+        :> ScalarValues::Real;
+        unit = "dB";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def DataRate {
+        :> ScalarValues::Real;
+        unit = "Mb/s";
+    }
+
+    attribute def StorageCapacity {
+        :> ScalarValues::Real;
+        unit = "GB";
+    }
+
+    attribute def Position {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def AttitudeAngle {
+        :> ScalarValues::Real;
+        unit = "deg";
+    }
+
+    item def SceneRadiance {
+        attribute wavelength : Wavelength;
+        attribute spectralRadiance : Radiance;
+        attribute crossTrackSample : PixelCount;
+    }
+
+    item def PhotonFlux {
+        attribute wavelength : Wavelength;
+        attribute irradiance : Irradiance;
+    }
+
+    item def AnalogVideoLine {
+        attribute detectorSamples : PixelCount;
+        attribute linePeriod : ScalarValues::Real;
+        attribute signalLevel : Voltage;
+    }
+
+    item def DigitalImageLine {
+        attribute lineNumber : ScalarValues::Integer;
+        attribute samples : PixelCount;
+        attribute bands : PixelCount;
+        attribute bitsPerSample : ScalarValues::Integer;
+    }
+
+    item def CalibratedImageLine {
+        attribute lineNumber : ScalarValues::Integer;
+        attribute radiometricUnits : Radiance;
+        attribute georeferenced : ScalarValues::Boolean;
+    }
+
+    item def NavigationState {
+        attribute alongTrackPosition : Position;
+        attribute crossTrackPosition : Position;
+        attribute altitude : Position;
+        attribute roll : AttitudeAngle;
+        attribute pitch : AttitudeAngle;
+        attribute yaw : AttitudeAngle;
+        attribute timeTag : ScalarValues::Real;
+    }
+
+    item def ScannerCommand {
+        attribute requestedMode : ScannerModeKind;
+        attribute requestedLineRate : LineRate;
+    }
+
+    item def HealthStatus {
+        attribute detectorTemperature : Temperature;
+        attribute electronicsTemperature : Temperature;
+        attribute inputVoltage : Voltage;
+        attribute dataBufferUsed : ScalarValues::Real;
+        attribute faultPresent : ScalarValues::Boolean;
+    }
+
+    enum def ScannerModeKind {
+        enum idle;
+        enum standby;
+        enum imaging;
+        enum calibrating;
+        enum safe;
+    }
+
+    port def OpticalInputPort {
+        in item incidentRadiance : SceneRadiance;
+    }
+
+    port def PhotonPort {
+        out item focusedPhotons : PhotonFlux;
+    }
+
+    port def AnalogSignalPort {
+        out item analogLine : AnalogVideoLine;
+    }
+
+    port def DigitalLinePort {
+        out item imageLine : DigitalImageLine;
+    }
+
+    port def CalibratedLinePort {
+        out item calibratedLine : CalibratedImageLine;
+    }
+
+    port def CommandPort {
+        in item command : ScannerCommand;
+    }
+
+    port def NavigationPort {
+        in item navState : NavigationState;
+    }
+
+    port def TelemetryPort {
+        out item status : HealthStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+    }
+
+    part def ForeOptics {
+        attribute apertureDiameter : ScalarValues::Real = 0.12 { unit = "m"; }
+        attribute focalLength : ScalarValues::Real = 0.48 { unit = "m"; }
+        attribute crossTrackFieldOfView : AttitudeAngle = 24.0;
+        attribute opticalTransmission : ScalarValues::Real = 0.82;
+        attribute spectralRangeMin : Wavelength = 400.0;
+        attribute spectralRangeMax : Wavelength = 1000.0;
+
+        port sceneIn : OpticalInputPort;
+        port photonsOut : PhotonPort;
+
+        action focusSceneRadiance {
+            in item scene : SceneRadiance;
+            out item photons : PhotonFlux;
+        }
+    }
+
+    part def SlitAssembly {
+        attribute slitWidth : ScalarValues::Real = 25.0 { unit = "um"; }
+        attribute slitLength : ScalarValues::Real = 14.0 { unit = "mm"; }
+        attribute alignmentTolerance : ScalarValues::Real = 5.0 { unit = "um"; }
+
+        port photonsIn : PhotonPort;
+        port photonsOut : PhotonPort;
+
+        action formNarrowCrossTrackImage {
+            in item inputFlux : PhotonFlux;
+            out item lineFlux : PhotonFlux;
+        }
+    }
+
+    part def SpectralDisperser {
+        attribute gratingDensity : ScalarValues::Real = 300.0 { unit = "lines/mm"; }
+        attribute spectralBands : PixelCount = 128;
+        attribute spectralSampling : Wavelength = 5.0;
+        attribute dispersionEfficiency : ScalarValues::Real = 0.74;
+
+        port photonsIn : PhotonPort;
+        port photonsOut : PhotonPort;
+
+        action separateWavelengths {
+            in item lineFlux : PhotonFlux;
+            out item dispersedFlux : PhotonFlux;
+        }
+    }
+
+    part def LinearDetectorArray {
+        attribute crossTrackPixels : PixelCount = 2048;
+        attribute spectralPixels : PixelCount = 128;
+        attribute quantumEfficiency : ScalarValues::Real = 0.68;
+        attribute darkCurrent : ScalarValues::Real = 40.0 { unit = "e-/s/pixel"; }
+        attribute operatingTemperature : Temperature = -20.0;
+
+        port photonsIn : PhotonPort;
+        port analogOut : AnalogSignalPort;
+
+        action integratePhotons {
+            in item dispersedFlux : PhotonFlux;
+            out item analogLine : AnalogVideoLine;
+        }
+    }
+
+    part def ReadoutElectronics {
+        attribute analogGain : ScalarValues::Real = 8.0;
+        attribute adcResolution : ScalarValues::Integer = 14;
+        attribute maxLineRate : LineRate = 500.0;
+        attribute readNoise : ScalarValues::Real = 25.0 { unit = "e- rms"; }
+
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalLinePort;
+
+        action digitizeLine {
+            in item analogLine : AnalogVideoLine;
+            out item digitalLine : DigitalImageLine;
+        }
+    }
+
+    part def ImageProcessor {
+        attribute nonUniformityCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute darkFrameCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute radiometricCalibrationEnabled : ScalarValues::Boolean = true;
+        attribute georeferencingEnabled : ScalarValues::Boolean = true;
+        attribute outputDataRate : DataRate = 280.0;
+
+        port rawLineIn : DigitalLinePort;
+        port navigationIn : NavigationPort;
+        port calibratedOut : CalibratedLinePort;
+
+        action correctAndCalibrate {
+            in item rawLine : DigitalImageLine;
+            in item navState : NavigationState;
+            out item calibratedLine : CalibratedImageLine;
+        }
+    }
+
+    part def DataRecorder {
+        attribute capacity : StorageCapacity = 1024.0;
+        attribute sustainedWriteRate : DataRate = 500.0;
+        attribute storedLines : ScalarValues::Integer = 0;
+
+        port lineIn : CalibratedLinePort;
+
+        action storeLine {
+            in item calibratedLine : CalibratedImageLine;
+        }
+    }
+
+    part def MotionCompensator {
+        attribute nominalGroundSpeed : ScalarValues::Real = 120.0 { unit = "m/s"; }
+        attribute commandedLineRate : LineRate = 240.0;
+        attribute targetAlongTrackGsd : GroundSampleDistance = 0.50;
+
+        port navigationIn : NavigationPort;
+        port commandOut : CommandPort;
+
+        action computeLineRate {
+            in item navState : NavigationState;
+            out item command : ScannerCommand;
+        }
+    }
+
+    part def ThermalControl {
+        attribute detectorSetPoint : Temperature = -20.0;
+        attribute electronicsMaxTemperature : Temperature = 55.0;
+        attribute coolerPower : ScalarValues::Real = 35.0 { unit = "W"; }
+
+        action regulateTemperature {
+            in attribute measuredDetectorTemperature : Temperature;
+            out attribute coolerCommand : ScalarValues::Real;
+        }
+    }
+
+    part def PowerConditioning {
+        attribute inputVoltageNominal : Voltage = 28.0;
+        attribute detectorRail : Voltage = 5.0;
+        attribute logicRail : Voltage = 3.3;
+        attribute totalPower : ScalarValues::Real = 95.0 { unit = "W"; }
+
+        port powerIn : PowerPort;
+    }
+
+    part def ScannerController {
+        attribute currentMode : ScannerModeKind = ScannerModeKind::idle;
+        attribute requestedLineRate : LineRate = 240.0;
+        attribute healthFault : ScalarValues::Boolean = false;
+
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        state def OperatingStateMachine {
+            state idle;
+            state standby;
+            state calibrating;
+            state imaging;
+            state safe;
+
+            transition idle_to_standby
+                first idle
+                then standby
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::standby;
+
+            transition standby_to_calibrating
+                first standby
+                then calibrating
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::calibrating;
+
+            transition calibrating_to_imaging
+                first calibrating
+                then imaging
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::imaging;
+
+            transition standby_to_imaging
+                first standby
+                then imaging
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::imaging;
+
+            transition imaging_to_standby
+                first imaging
+                then standby
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::standby;
+
+            transition any_to_safe
+                first idle, standby, calibrating, imaging
+                then safe
+                if healthFault == true;
+        }
+
+        action monitorHealth {
+            out item status : HealthStatus;
+        }
+    }
+
+    part def PushBroomScanner {
+        attribute primaryFunction : ScalarValues::String =
+            "Acquire a continuous two-dimensional image strip by imaging one cross-track line of the scene at a time while platform motion supplies the along-track dimension.";
+        attribute swathWidth : ScalarValues::Real = 1024.0 { unit = "m"; }
+        attribute groundSampleDistance : GroundSampleDistance = 0.50;
+        attribute nominalLineRate : LineRate = 240.0;
+        attribute minimumSnr : SignalToNoiseRatio = 45.0;
+
+        port opticalSceneIn : OpticalInputPort;
+        port navigationIn : NavigationPort;
+        port commandIn : CommandPort;
+        port powerIn : PowerPort;
+        port imageProductOut : CalibratedLinePort;
+        port telemetryOut : TelemetryPort;
+
+        part optics : ForeOptics;
+        part slit : SlitAssembly;
+        part disperser : SpectralDisperser;
+        part detector : LinearDetectorArray;
+        part readout : ReadoutElectronics;
+        part processor : ImageProcessor;
+        part recorder : DataRecorder;
+        part motionCompensator : MotionCompensator;
+        part thermalControl : ThermalControl;
+        part powerConditioning : PowerConditioning;
+        part controller : ScannerController;
+
+        connect opticalSceneIn to optics.sceneIn;
+        connect optics.photonsOut to slit.photonsIn;
+        connect slit.photonsOut to disperser.photonsIn;
+        connect disperser.photonsOut to detector.photonsIn;
+        connect detector.analogOut to readout.analogIn;
+        connect readout.digitalOut to processor.rawLineIn;
+        connect navigationIn to processor.navigationIn;
+        connect processor.calibratedOut to recorder.lineIn;
+        connect processor.calibratedOut to imageProductOut;
+        connect navigationIn to motionCompensator.navigationIn;
+        connect motionCompensator.commandOut to controller.commandIn;
+        connect commandIn to controller.commandIn;
+        connect controller.telemetryOut to telemetryOut;
+        connect powerIn to powerConditioning.powerIn;
+
+        action acquireImageStrip {
+            in item sceneLineRadiance : SceneRadiance;
+            in item platformState : NavigationState;
+            out item calibratedImageLine : CalibratedImageLine;
+
+            first startExposure;
+            then collectPhotons;
+            then restrictToSlitLine;
+            then disperseSpectrum;
+            then convertPhotonsToCharge;
+            then digitizeDetectorLine;
+            then calibrateAndGeoreference;
+            then recordAndTransmitLine;
+
+            action startExposure {
+                in item platformState : NavigationState;
+            }
+
+            action collectPhotons {
+                in item sceneLineRadiance : SceneRadiance;
+                out item focusedFlux : PhotonFlux;
+            }
+
+            action restrictToSlitLine {
+                in item focusedFlux : PhotonFlux;
+                out item slitFlux : PhotonFlux;
+            }
+
+            action disperseSpectrum {
+                in item slitFlux : PhotonFlux;
+                out item spectralFlux : PhotonFlux;
+            }
+
+            action convertPhotonsToCharge {
+                in item spectralFlux : PhotonFlux;
+                out item analogLine : AnalogVideoLine;
+            }
+
+            action digitizeDetectorLine {
+                in item analogLine : AnalogVideoLine;
+                out item rawLine : DigitalImageLine;
+            }
+
+            action calibrateAndGeoreference {
+                in item rawLine : DigitalImageLine;
+                in item platformState : NavigationState;
+                out item calibratedImageLine : CalibratedImageLine;
+            }
+
+            action recordAndTransmitLine {
+                in item calibratedImageLine : CalibratedImageLine;
+            }
+        }
+    }
+
+    part def HostPlatform {
+        attribute groundSpeed : ScalarValues::Real = 120.0 { unit = "m/s"; }
+        attribute altitude : Position = 6000.0;
+        attribute attitudeKnowledge : AttitudeAngle = 0.02;
+
+        port navigationOut : NavigationPort;
+        port payloadPowerOut : PowerPort;
+    }
+
+    part def GroundSystem {
+        attribute ingestRate : DataRate = 300.0;
+        attribute archiveCapacity : StorageCapacity = 20000.0;
+
+        port imageLineIn : CalibratedLinePort;
+        port telemetryIn : TelemetryPort;
+
+        action assembleImageStrip {
+            in item calibratedLine : CalibratedImageLine;
+        }
+    }
+
+    part pushBroomMission {
+        part platform : HostPlatform;
+        part scanner : PushBroomScanner;
+        part groundSystem : GroundSystem;
+
+        connect platform.navigationOut to scanner.navigationIn;
+        connect platform.payloadPowerOut to scanner.powerIn;
+        connect scanner.imageProductOut to groundSystem.imageLineIn;
+        connect scanner.telemetryOut to groundSystem.telemetryIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The scanner shall form an image strip by observing a narrow cross-track line of the scene,
+         converting the line radiance into detector samples, and using forward platform motion to
+         build the along-track dimension without mechanical cross-track scanning.
+        */
+
+        require constraint {
+            scanner.nominalLineRate > 0.0
+        }
+    }
+
+    requirement def CrossTrackSamplingRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The detector shall provide at least 2048 cross-track spatial samples per acquired image line.
+        */
+
+        require constraint {
+            scanner.detector.crossTrackPixels >= 2048
+        }
+    }
+
+    requirement def SpectralCoverageRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The optical path shall collect and process scene radiance from 400 nm through 1000 nm.
+        */
+
+        require constraint {
+            scanner.optics.spectralRangeMin <= 400.0 and
+            scanner.optics.spectralRangeMax >= 1000.0
+        }
+    }
+
+    requirement def LineRateRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The scanner shall support a line rate sufficient to maintain the target along-track
+         ground sample distance for the nominal platform ground speed.
+        */
+
+        require constraint {
+            scanner.nominalLineRate >=
+                scanner.motionCompensator.nominalGroundSpeed /
+                scanner.motionCompensator.targetAlongTrackGsd
+        }
+    }
+
+    requirement def RadiometricQualityRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The scanner shall provide calibrated image lines with signal-to-noise ratio of at least
+         45 dB under nominal illumination and exposure conditions.
+        */
+
+        require constraint {
+            scanner.minimumSnr >= 45.0
+        }
+    }
+
+    requirement def StorageThroughputRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The data recorder shall sustain a write rate greater than the calibrated image output rate.
+        */
+
+        require constraint {
+            scanner.recorder.sustainedWriteRate >= scanner.processor.outputDataRate
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The thermal controller shall maintain the detector at or below minus 20 degrees Celsius
+         during imaging to limit dark current and preserve radiometric accuracy.
+        */
+
+        require constraint {
+            scanner.detector.operatingTemperature <= scanner.thermalControl.detectorSetPoint
+        }
+    }
+
+    requirement def SafeModeRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The controller shall transition the scanner to safe mode when a health fault is detected.
+        */
+
+        require constraint {
+            scanner.controller.healthFault implies
+            scanner.controller.currentMode == ScannerModeKind::safe
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by pushBroomMission.scanner;
+    satisfy CrossTrackSamplingRequirement by pushBroomMission.scanner.detector;
+    satisfy SpectralCoverageRequirement by pushBroomMission.scanner.optics;
+    satisfy LineRateRequirement by pushBroomMission.scanner.motionCompensator;
+    satisfy RadiometricQualityRequirement by pushBroomMission.scanner.processor;
+    satisfy StorageThroughputRequirement by pushBroomMission.scanner.recorder;
+    satisfy ThermalStabilityRequirement by pushBroomMission.scanner.thermalControl;
+    satisfy SafeModeRequirement by pushBroomMission.scanner.controller;
+}
+tokens used
+5,516
+package PushBroomScannerSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength {
+        :> ScalarValues::Real;
+        unit = "nm";
+    }
+
+    attribute def Radiance {
+        :> ScalarValues::Real;
+        unit = "W/(m^2*sr*nm)";
+    }
+
+    attribute def Irradiance {
+        :> ScalarValues::Real;
+        unit = "W/m^2";
+    }
+
+    attribute def PixelCount {
+        :> ScalarValues::Integer;
+        unit = "1";
+    }
+
+    attribute def LineRate {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def GroundSampleDistance {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def SignalToNoiseRatio {
+        :> ScalarValues::Real;
+        unit = "dB";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def DataRate {
+        :> ScalarValues::Real;
+        unit = "Mb/s";
+    }
+
+    attribute def StorageCapacity {
+        :> ScalarValues::Real;
+        unit = "GB";
+    }
+
+    attribute def Position {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def AttitudeAngle {
+        :> ScalarValues::Real;
+        unit = "deg";
+    }
+
+    item def SceneRadiance {
+        attribute wavelength : Wavelength;
+        attribute spectralRadiance : Radiance;
+        attribute crossTrackSample : PixelCount;
+    }
+
+    item def PhotonFlux {
+        attribute wavelength : Wavelength;
+        attribute irradiance : Irradiance;
+    }
+
+    item def AnalogVideoLine {
+        attribute detectorSamples : PixelCount;
+        attribute linePeriod : ScalarValues::Real;
+        attribute signalLevel : Voltage;
+    }
+
+    item def DigitalImageLine {
+        attribute lineNumber : ScalarValues::Integer;
+        attribute samples : PixelCount;
+        attribute bands : PixelCount;
+        attribute bitsPerSample : ScalarValues::Integer;
+    }
+
+    item def CalibratedImageLine {
+        attribute lineNumber : ScalarValues::Integer;
+        attribute radiometricUnits : Radiance;
+        attribute georeferenced : ScalarValues::Boolean;
+    }
+
+    item def NavigationState {
+        attribute alongTrackPosition : Position;
+        attribute crossTrackPosition : Position;
+        attribute altitude : Position;
+        attribute roll : AttitudeAngle;
+        attribute pitch : AttitudeAngle;
+        attribute yaw : AttitudeAngle;
+        attribute timeTag : ScalarValues::Real;
+    }
+
+    item def ScannerCommand {
+        attribute requestedMode : ScannerModeKind;
+        attribute requestedLineRate : LineRate;
+    }
+
+    item def HealthStatus {
+        attribute detectorTemperature : Temperature;
+        attribute electronicsTemperature : Temperature;
+        attribute inputVoltage : Voltage;
+        attribute dataBufferUsed : ScalarValues::Real;
+        attribute faultPresent : ScalarValues::Boolean;
+    }
+
+    enum def ScannerModeKind {
+        enum idle;
+        enum standby;
+        enum imaging;
+        enum calibrating;
+        enum safe;
+    }
+
+    port def OpticalInputPort {
+        in item incidentRadiance : SceneRadiance;
+    }
+
+    port def PhotonPort {
+        out item focusedPhotons : PhotonFlux;
+    }
+
+    port def AnalogSignalPort {
+        out item analogLine : AnalogVideoLine;
+    }
+
+    port def DigitalLinePort {
+        out item imageLine : DigitalImageLine;
+    }
+
+    port def CalibratedLinePort {
+        out item calibratedLine : CalibratedImageLine;
+    }
+
+    port def CommandPort {
+        in item command : ScannerCommand;
+    }
+
+    port def NavigationPort {
+        in item navState : NavigationState;
+    }
+
+    port def TelemetryPort {
+        out item status : HealthStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+    }
+
+    part def ForeOptics {
+        attribute apertureDiameter : ScalarValues::Real = 0.12 { unit = "m"; }
+        attribute focalLength : ScalarValues::Real = 0.48 { unit = "m"; }
+        attribute crossTrackFieldOfView : AttitudeAngle = 24.0;
+        attribute opticalTransmission : ScalarValues::Real = 0.82;
+        attribute spectralRangeMin : Wavelength = 400.0;
+        attribute spectralRangeMax : Wavelength = 1000.0;
+
+        port sceneIn : OpticalInputPort;
+        port photonsOut : PhotonPort;
+
+        action focusSceneRadiance {
+            in item scene : SceneRadiance;
+            out item photons : PhotonFlux;
+        }
+    }
+
+    part def SlitAssembly {
+        attribute slitWidth : ScalarValues::Real = 25.0 { unit = "um"; }
+        attribute slitLength : ScalarValues::Real = 14.0 { unit = "mm"; }
+        attribute alignmentTolerance : ScalarValues::Real = 5.0 { unit = "um"; }
+
+        port photonsIn : PhotonPort;
+        port photonsOut : PhotonPort;
+
+        action formNarrowCrossTrackImage {
+            in item inputFlux : PhotonFlux;
+            out item lineFlux : PhotonFlux;
+        }
+    }
+
+    part def SpectralDisperser {
+        attribute gratingDensity : ScalarValues::Real = 300.0 { unit = "lines/mm"; }
+        attribute spectralBands : PixelCount = 128;
+        attribute spectralSampling : Wavelength = 5.0;
+        attribute dispersionEfficiency : ScalarValues::Real = 0.74;
+
+        port photonsIn : PhotonPort;
+        port photonsOut : PhotonPort;
+
+        action separateWavelengths {
+            in item lineFlux : PhotonFlux;
+            out item dispersedFlux : PhotonFlux;
+        }
+    }
+
+    part def LinearDetectorArray {
+        attribute crossTrackPixels : PixelCount = 2048;
+        attribute spectralPixels : PixelCount = 128;
+        attribute quantumEfficiency : ScalarValues::Real = 0.68;
+        attribute darkCurrent : ScalarValues::Real = 40.0 { unit = "e-/s/pixel"; }
+        attribute operatingTemperature : Temperature = -20.0;
+
+        port photonsIn : PhotonPort;
+        port analogOut : AnalogSignalPort;
+
+        action integratePhotons {
+            in item dispersedFlux : PhotonFlux;
+            out item analogLine : AnalogVideoLine;
+        }
+    }
+
+    part def ReadoutElectronics {
+        attribute analogGain : ScalarValues::Real = 8.0;
+        attribute adcResolution : ScalarValues::Integer = 14;
+        attribute maxLineRate : LineRate = 500.0;
+        attribute readNoise : ScalarValues::Real = 25.0 { unit = "e- rms"; }
+
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalLinePort;
+
+        action digitizeLine {
+            in item analogLine : AnalogVideoLine;
+            out item digitalLine : DigitalImageLine;
+        }
+    }
+
+    part def ImageProcessor {
+        attribute nonUniformityCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute darkFrameCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute radiometricCalibrationEnabled : ScalarValues::Boolean = true;
+        attribute georeferencingEnabled : ScalarValues::Boolean = true;
+        attribute outputDataRate : DataRate = 280.0;
+
+        port rawLineIn : DigitalLinePort;
+        port navigationIn : NavigationPort;
+        port calibratedOut : CalibratedLinePort;
+
+        action correctAndCalibrate {
+            in item rawLine : DigitalImageLine;
+            in item navState : NavigationState;
+            out item calibratedLine : CalibratedImageLine;
+        }
+    }
+
+    part def DataRecorder {
+        attribute capacity : StorageCapacity = 1024.0;
+        attribute sustainedWriteRate : DataRate = 500.0;
+        attribute storedLines : ScalarValues::Integer = 0;
+
+        port lineIn : CalibratedLinePort;
+
+        action storeLine {
+            in item calibratedLine : CalibratedImageLine;
+        }
+    }
+
+    part def MotionCompensator {
+        attribute nominalGroundSpeed : ScalarValues::Real = 120.0 { unit = "m/s"; }
+        attribute commandedLineRate : LineRate = 240.0;
+        attribute targetAlongTrackGsd : GroundSampleDistance = 0.50;
+
+        port navigationIn : NavigationPort;
+        port commandOut : CommandPort;
+
+        action computeLineRate {
+            in item navState : NavigationState;
+            out item command : ScannerCommand;
+        }
+    }
+
+    part def ThermalControl {
+        attribute detectorSetPoint : Temperature = -20.0;
+        attribute electronicsMaxTemperature : Temperature = 55.0;
+        attribute coolerPower : ScalarValues::Real = 35.0 { unit = "W"; }
+
+        action regulateTemperature {
+            in attribute measuredDetectorTemperature : Temperature;
+            out attribute coolerCommand : ScalarValues::Real;
+        }
+    }
+
+    part def PowerConditioning {
+        attribute inputVoltageNominal : Voltage = 28.0;
+        attribute detectorRail : Voltage = 5.0;
+        attribute logicRail : Voltage = 3.3;
+        attribute totalPower : ScalarValues::Real = 95.0 { unit = "W"; }
+
+        port powerIn : PowerPort;
+    }
+
+    part def ScannerController {
+        attribute currentMode : ScannerModeKind = ScannerModeKind::idle;
+        attribute requestedLineRate : LineRate = 240.0;
+        attribute healthFault : ScalarValues::Boolean = false;
+
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        state def OperatingStateMachine {
+            state idle;
+            state standby;
+            state calibrating;
+            state imaging;
+            state safe;
+
+            transition idle_to_standby
+                first idle
+                then standby
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::standby;
+
+            transition standby_to_calibrating
+                first standby
+                then calibrating
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::calibrating;
+
+            transition calibrating_to_imaging
+                first calibrating
+                then imaging
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::imaging;
+
+            transition standby_to_imaging
+                first standby
+                then imaging
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::imaging;
+
+            transition imaging_to_standby
+                first imaging
+                then standby
+                accept ScannerCommand
+                if command.requestedMode == ScannerModeKind::standby;
+
+            transition any_to_safe
+                first idle, standby, calibrating, imaging
+                then safe
+                if healthFault == true;
+        }
+
+        action monitorHealth {
+            out item status : HealthStatus;
+        }
+    }
+
+    part def PushBroomScanner {
+        attribute primaryFunction : ScalarValues::String =
+            "Acquire a continuous two-dimensional image strip by imaging one cross-track line of the scene at a time while platform motion supplies the along-track dimension.";
+        attribute swathWidth : ScalarValues::Real = 1024.0 { unit = "m"; }
+        attribute groundSampleDistance : GroundSampleDistance = 0.50;
+        attribute nominalLineRate : LineRate = 240.0;
+        attribute minimumSnr : SignalToNoiseRatio = 45.0;
+
+        port opticalSceneIn : OpticalInputPort;
+        port navigationIn : NavigationPort;
+        port commandIn : CommandPort;
+        port powerIn : PowerPort;
+        port imageProductOut : CalibratedLinePort;
+        port telemetryOut : TelemetryPort;
+
+        part optics : ForeOptics;
+        part slit : SlitAssembly;
+        part disperser : SpectralDisperser;
+        part detector : LinearDetectorArray;
+        part readout : ReadoutElectronics;
+        part processor : ImageProcessor;
+        part recorder : DataRecorder;
+        part motionCompensator : MotionCompensator;
+        part thermalControl : ThermalControl;
+        part powerConditioning : PowerConditioning;
+        part controller : ScannerController;
+
+        connect opticalSceneIn to optics.sceneIn;
+        connect optics.photonsOut to slit.photonsIn;
+        connect slit.photonsOut to disperser.photonsIn;
+        connect disperser.photonsOut to detector.photonsIn;
+        connect detector.analogOut to readout.analogIn;
+        connect readout.digitalOut to processor.rawLineIn;
+        connect navigationIn to processor.navigationIn;
+        connect processor.calibratedOut to recorder.lineIn;
+        connect processor.calibratedOut to imageProductOut;
+        connect navigationIn to motionCompensator.navigationIn;
+        connect motionCompensator.commandOut to controller.commandIn;
+        connect commandIn to controller.commandIn;
+        connect controller.telemetryOut to telemetryOut;
+        connect powerIn to powerConditioning.powerIn;
+
+        action acquireImageStrip {
+            in item sceneLineRadiance : SceneRadiance;
+            in item platformState : NavigationState;
+            out item calibratedImageLine : CalibratedImageLine;
+
+            first startExposure;
+            then collectPhotons;
+            then restrictToSlitLine;
+            then disperseSpectrum;
+            then convertPhotonsToCharge;
+            then digitizeDetectorLine;
+            then calibrateAndGeoreference;
+            then recordAndTransmitLine;
+
+            action startExposure {
+                in item platformState : NavigationState;
+            }
+
+            action collectPhotons {
+                in item sceneLineRadiance : SceneRadiance;
+                out item focusedFlux : PhotonFlux;
+            }
+
+            action restrictToSlitLine {
+                in item focusedFlux : PhotonFlux;
+                out item slitFlux : PhotonFlux;
+            }
+
+            action disperseSpectrum {
+                in item slitFlux : PhotonFlux;
+                out item spectralFlux : PhotonFlux;
+            }
+
+            action convertPhotonsToCharge {
+                in item spectralFlux : PhotonFlux;
+                out item analogLine : AnalogVideoLine;
+            }
+
+            action digitizeDetectorLine {
+                in item analogLine : AnalogVideoLine;
+                out item rawLine : DigitalImageLine;
+            }
+
+            action calibrateAndGeoreference {
+                in item rawLine : DigitalImageLine;
+                in item platformState : NavigationState;
+                out item calibratedImageLine : CalibratedImageLine;
+            }
+
+            action recordAndTransmitLine {
+                in item calibratedImageLine : CalibratedImageLine;
+            }
+        }
+    }
+
+    part def HostPlatform {
+        attribute groundSpeed : ScalarValues::Real = 120.0 { unit = "m/s"; }
+        attribute altitude : Position = 6000.0;
+        attribute attitudeKnowledge : AttitudeAngle = 0.02;
+
+        port navigationOut : NavigationPort;
+        port payloadPowerOut : PowerPort;
+    }
+
+    part def GroundSystem {
+        attribute ingestRate : DataRate = 300.0;
+        attribute archiveCapacity : StorageCapacity = 20000.0;
+
+        port imageLineIn : CalibratedLinePort;
+        port telemetryIn : TelemetryPort;
+
+        action assembleImageStrip {
+            in item calibratedLine : CalibratedImageLine;
+        }
+    }
+
+    part pushBroomMission {
+        part platform : HostPlatform;
+        part scanner : PushBroomScanner;
+        part groundSystem : GroundSystem;
+
+        connect platform.navigationOut to scanner.navigationIn;
+        connect platform.payloadPowerOut to scanner.powerIn;
+        connect scanner.imageProductOut to groundSystem.imageLineIn;
+        connect scanner.telemetryOut to groundSystem.telemetryIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The scanner shall form an image strip by observing a narrow cross-track line of the scene,
+         converting the line radiance into detector samples, and using forward platform motion to
+         build the along-track dimension without mechanical cross-track scanning.
+        */
+
+        require constraint {
+            scanner.nominalLineRate > 0.0
+        }
+    }
+
+    requirement def CrossTrackSamplingRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The detector shall provide at least 2048 cross-track spatial samples per acquired image line.
+        */
+
+        require constraint {
+            scanner.detector.crossTrackPixels >= 2048
+        }
+    }
+
+    requirement def SpectralCoverageRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The optical path shall collect and process scene radiance from 400 nm through 1000 nm.
+        */
+
+        require constraint {
+            scanner.optics.spectralRangeMin <= 400.0 and
+            scanner.optics.spectralRangeMax >= 1000.0
+        }
+    }
+
+    requirement def LineRateRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The scanner shall support a line rate sufficient to maintain the target along-track
+         ground sample distance for the nominal platform ground speed.
+        */
+
+        require constraint {
+            scanner.nominalLineRate >=
+                scanner.motionCompensator.nominalGroundSpeed /
+                scanner.motionCompensator.targetAlongTrackGsd
+        }
+    }
+
+    requirement def RadiometricQualityRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The scanner shall provide calibrated image lines with signal-to-noise ratio of at least
+         45 dB under nominal illumination and exposure conditions.
+        */
+
+        require constraint {
+            scanner.minimumSnr >= 45.0
+        }
+    }
+
+    requirement def StorageThroughputRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The data recorder shall sustain a write rate greater than the calibrated image output rate.
+        */
+
+        require constraint {
+            scanner.recorder.sustainedWriteRate >= scanner.processor.outputDataRate
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The thermal controller shall maintain the detector at or below minus 20 degrees Celsius
+         during imaging to limit dark current and preserve radiometric accuracy.
+        */
+
+        require constraint {
+            scanner.detector.operatingTemperature <= scanner.thermalControl.detectorSetPoint
+        }
+    }
+
+    requirement def SafeModeRequirement {
+        subject scanner : PushBroomScanner;
+
+        doc
+        /*
+         The controller shall transition the scanner to safe mode when a health fault is detected.
+        */
+
+        require constraint {
+            scanner.controller.healthFault implies
+            scanner.controller.currentMode == ScannerModeKind::safe
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by pushBroomMission.scanner;
+    satisfy CrossTrackSamplingRequirement by pushBroomMission.scanner.detector;
+    satisfy SpectralCoverageRequirement by pushBroomMission.scanner.optics;
+    satisfy LineRateRequirement by pushBroomMission.scanner.motionCompensator;
+    satisfy RadiometricQualityRequirement by pushBroomMission.scanner.processor;
+    satisfy StorageThroughputRequirement by pushBroomMission.scanner.recorder;
+    satisfy ThermalStabilityRequirement by pushBroomMission.scanner.thermalControl;
+    satisfy SafeModeRequirement by pushBroomMission.scanner.controller;
+}

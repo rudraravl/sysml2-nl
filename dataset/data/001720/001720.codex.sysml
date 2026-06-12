@@ -1,0 +1,551 @@
+package OpenHABHomeAutomationSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Temperature {
+    :> real;
+    unit = "degC";
+  }
+
+  attribute def RelativeHumidity {
+    :> real;
+    unit = "%";
+  }
+
+  attribute def Illuminance {
+    :> real;
+    unit = "lx";
+  }
+
+  attribute def Power {
+    :> real;
+    unit = "W";
+  }
+
+  attribute def Energy {
+    :> real;
+    unit = "kWh";
+  }
+
+  attribute def Duration {
+    :> real;
+    unit = "s";
+  }
+
+  attribute def Percent {
+    :> real;
+    unit = "%";
+  }
+
+  enum def DeviceHealth {
+    enum ok;
+    enum degraded;
+    enum offline;
+    enum faulted;
+  }
+
+  enum def OccupancyState {
+    enum occupied;
+    enum unoccupied;
+    enum unknown;
+  }
+
+  enum def SecurityMode {
+    enum disarmed;
+    enum homeArmed;
+    enum awayArmed;
+    enum alarm;
+  }
+
+  enum def CommandPriority {
+    enum manual;
+    enum schedule;
+    enum automation;
+    enum safety;
+  }
+
+  item def SensorEvent {
+    attribute sourceId : String;
+    attribute timestamp : DateTime;
+    attribute health : DeviceHealth;
+  }
+
+  item def TemperatureSample :> SensorEvent {
+    attribute value : Temperature;
+  }
+
+  item def HumiditySample :> SensorEvent {
+    attribute value : RelativeHumidity;
+  }
+
+  item def MotionSample :> SensorEvent {
+    attribute occupied : Boolean;
+  }
+
+  item def LightSample :> SensorEvent {
+    attribute value : Illuminance;
+  }
+
+  item def DoorContactSample :> SensorEvent {
+    attribute open : Boolean;
+  }
+
+  item def EnergySample :> SensorEvent {
+    attribute instantaneousPower : Power;
+    attribute accumulatedEnergy : Energy;
+  }
+
+  item def ActuatorCommand {
+    attribute targetId : String;
+    attribute timestamp : DateTime;
+    attribute priority : CommandPriority;
+  }
+
+  item def SwitchCommand :> ActuatorCommand {
+    attribute on : Boolean;
+  }
+
+  item def DimmerCommand :> ActuatorCommand {
+    attribute level : Percent;
+  }
+
+  item def ThermostatCommand :> ActuatorCommand {
+    attribute heatingSetpoint : Temperature;
+    attribute coolingSetpoint : Temperature;
+  }
+
+  item def NotificationMessage {
+    attribute recipient : String;
+    attribute subject : String;
+    attribute body : String;
+    attribute severity : String;
+    attribute timestamp : DateTime;
+  }
+
+  port def SensorDataPort {
+    out item event : SensorEvent;
+  }
+
+  port def ActuatorControlPort {
+    in item command : ActuatorCommand;
+  }
+
+  port def AutomationEventPort {
+    in item sensorEvent : SensorEvent;
+    out item command : ActuatorCommand;
+    out item notification : NotificationMessage;
+  }
+
+  port def UserInterfacePort {
+    in item statusEvent : SensorEvent;
+    out item userCommand : ActuatorCommand;
+  }
+
+  port def NetworkPort {
+    in item inboundMessage;
+    out item outboundMessage;
+  }
+
+  port def NotificationPort {
+    in item message : NotificationMessage;
+  }
+
+  part def TemperatureSensor {
+    attribute sensorId : String;
+    attribute samplePeriod : Duration = 30.0;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port data : SensorDataPort;
+  }
+
+  part def HumiditySensor {
+    attribute sensorId : String;
+    attribute samplePeriod : Duration = 60.0;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port data : SensorDataPort;
+  }
+
+  part def MotionSensor {
+    attribute sensorId : String;
+    attribute timeout : Duration = 300.0;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port data : SensorDataPort;
+  }
+
+  part def IlluminanceSensor {
+    attribute sensorId : String;
+    attribute samplePeriod : Duration = 45.0;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port data : SensorDataPort;
+  }
+
+  part def DoorContactSensor {
+    attribute sensorId : String;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port data : SensorDataPort;
+  }
+
+  part def SmartPlug {
+    attribute deviceId : String;
+    attribute ratedPower : Power = 1800.0;
+    attribute currentPower : Power;
+    attribute accumulatedEnergy : Energy;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port telemetry : SensorDataPort;
+    port control : ActuatorControlPort;
+  }
+
+  part def SmartLight {
+    attribute deviceId : String;
+    attribute maxPower : Power = 12.0;
+    attribute dimLevel : Percent = 0.0;
+    attribute switchedOn : Boolean = false;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port control : ActuatorControlPort;
+  }
+
+  part def Thermostat {
+    attribute deviceId : String;
+    attribute currentTemperature : Temperature;
+    attribute heatingSetpoint : Temperature = 20.0;
+    attribute coolingSetpoint : Temperature = 25.0;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+    port telemetry : SensorDataPort;
+    port control : ActuatorControlPort;
+  }
+
+  part def Siren {
+    attribute deviceId : String;
+    attribute active : Boolean = false;
+    attribute maxDuration : Duration = 300.0;
+    port control : ActuatorControlPort;
+  }
+
+  part def OpenHABCore {
+    attribute systemId : String = "openhab-home-controller";
+    attribute ruleEvaluationPeriod : Duration = 1.0;
+    attribute retainedEvents : Integer = 10000;
+    attribute health : DeviceHealth = DeviceHealth::ok;
+
+    port automation : AutomationEventPort;
+    port ui : UserInterfacePort;
+    port network : NetworkPort;
+    port notification : NotificationPort;
+
+    perform action ProcessSensorEvent {
+      in item event : SensorEvent;
+      out item command : ActuatorCommand;
+      out item notification : NotificationMessage;
+    }
+
+    perform action ApplyUserCommand {
+      in item command : ActuatorCommand;
+      out item validatedCommand : ActuatorCommand;
+    }
+
+    perform action EvaluateRules {
+      in item event : SensorEvent;
+      out item command : ActuatorCommand;
+      out item notification : NotificationMessage;
+    }
+
+    state machine ControllerLifecycle {
+      state starting;
+      state operational;
+      state degraded;
+      state safeMode;
+      state stopped;
+
+      initial then starting;
+
+      transition starting_to_operational
+        first starting
+        then operational;
+
+      transition operational_to_degraded
+        first operational
+        then degraded;
+
+      transition degraded_to_operational
+        first degraded
+        then operational;
+
+      transition degraded_to_safeMode
+        first degraded
+        then safeMode;
+
+      transition safeMode_to_operational
+        first safeMode
+        then operational;
+
+      transition operational_to_stopped
+        first operational
+        then stopped;
+    }
+  }
+
+  part def MobileApplication {
+    attribute userId : String;
+    attribute authenticated : Boolean = false;
+    port ui : UserInterfacePort;
+    port notification : NotificationPort;
+  }
+
+  part def LocalNetwork {
+    attribute networkName : String = "home-lan";
+    attribute availability : Percent = 99.0;
+    port openhab : NetworkPort;
+    port deviceBus : NetworkPort;
+    port internet : NetworkPort;
+  }
+
+  part def CloudNotificationService {
+    attribute providerName : String = "OpenHAB notification bridge";
+    attribute deliveryLatencyTarget : Duration = 5.0;
+    port notification : NotificationPort;
+    port network : NetworkPort;
+  }
+
+  part def LivingRoomZone {
+    part motion : MotionSensor {
+      attribute sensorId = "living-motion-01";
+    }
+    part lightSensor : IlluminanceSensor {
+      attribute sensorId = "living-lux-01";
+    }
+    part ceilingLight : SmartLight {
+      attribute deviceId = "living-light-01";
+      attribute maxPower = 18.0;
+    }
+    part mediaPlug : SmartPlug {
+      attribute deviceId = "living-plug-media";
+      attribute ratedPower = 1200.0;
+    }
+  }
+
+  part def EntryZone {
+    part door : DoorContactSensor {
+      attribute sensorId = "entry-door-01";
+    }
+    part motion : MotionSensor {
+      attribute sensorId = "entry-motion-01";
+    }
+    part entryLight : SmartLight {
+      attribute deviceId = "entry-light-01";
+      attribute maxPower = 10.0;
+    }
+  }
+
+  part def ClimateZone {
+    part temperature : TemperatureSensor {
+      attribute sensorId = "climate-temp-01";
+      attribute samplePeriod = 20.0;
+    }
+    part humidity : HumiditySensor {
+      attribute sensorId = "climate-humidity-01";
+    }
+    part thermostat : Thermostat {
+      attribute deviceId = "main-thermostat-01";
+    }
+  }
+
+  part def OpenHABBasedSmartHomeSystem {
+    attribute primaryFunction : String =
+      "Coordinate sensors, actuators, user commands, rules, and notifications to automate home comfort, lighting, energy use, and security through an OpenHAB controller.";
+    attribute occupancy : OccupancyState = OccupancyState::unknown;
+    attribute securityMode : SecurityMode = SecurityMode::disarmed;
+    attribute targetEveningLightLevel : Percent = 65.0;
+    attribute darkThreshold : Illuminance = 80.0;
+    attribute comfortHeatSetpoint : Temperature = 20.5;
+    attribute comfortCoolSetpoint : Temperature = 24.5;
+    attribute awayHeatSetpoint : Temperature = 16.0;
+    attribute awayCoolSetpoint : Temperature = 29.0;
+    attribute maxStandbyPower : Power = 20.0;
+
+    part controller : OpenHABCore;
+    part network : LocalNetwork;
+    part mobileApp : MobileApplication;
+    part notificationService : CloudNotificationService;
+    part livingRoom : LivingRoomZone;
+    part entry : EntryZone;
+    part climate : ClimateZone;
+    part siren : Siren {
+      attribute deviceId = "security-siren-01";
+    }
+
+    connect livingRoom.motion.data to controller.automation;
+    connect livingRoom.lightSensor.data to controller.automation;
+    connect livingRoom.mediaPlug.telemetry to controller.automation;
+    connect livingRoom.ceilingLight.control to controller.automation;
+    connect livingRoom.mediaPlug.control to controller.automation;
+
+    connect entry.door.data to controller.automation;
+    connect entry.motion.data to controller.automation;
+    connect entry.entryLight.control to controller.automation;
+
+    connect climate.temperature.data to controller.automation;
+    connect climate.humidity.data to controller.automation;
+    connect climate.thermostat.telemetry to controller.automation;
+    connect climate.thermostat.control to controller.automation;
+
+    connect siren.control to controller.automation;
+
+    connect mobileApp.ui to controller.ui;
+    connect mobileApp.notification to controller.notification;
+    connect notificationService.notification to controller.notification;
+    connect notificationService.network to network.internet;
+    connect controller.network to network.openhab;
+
+    perform action AutomateLighting {
+      in item motion : MotionSample;
+      in item illuminance : LightSample;
+      out item lightCommand : DimmerCommand;
+    }
+
+    perform action ManageClimate {
+      in item temperature : TemperatureSample;
+      in item humidity : HumiditySample;
+      out item thermostatCommand : ThermostatCommand;
+    }
+
+    perform action MonitorSecurity {
+      in item door : DoorContactSample;
+      in item motion : MotionSample;
+      out item sirenCommand : SwitchCommand;
+      out item alert : NotificationMessage;
+    }
+
+    perform action ReduceStandbyEnergy {
+      in item energy : EnergySample;
+      out item plugCommand : SwitchCommand;
+    }
+
+    state machine HomeAutomationOperatingMode {
+      state initializing;
+      state normalAutomation;
+      state occupiedComfort;
+      state awayEnergySaving;
+      state securityArmed;
+      state alarmActive;
+      state maintenance;
+
+      initial then initializing;
+
+      transition initialized
+        first initializing
+        then normalAutomation;
+
+      transition occupancy_detected
+        first normalAutomation
+        then occupiedComfort;
+
+      transition vacancy_timeout
+        first occupiedComfort
+        then awayEnergySaving;
+
+      transition arm_security
+        first normalAutomation
+        then securityArmed;
+
+      transition arm_security_from_away
+        first awayEnergySaving
+        then securityArmed;
+
+      transition intrusion_detected
+        first securityArmed
+        then alarmActive;
+
+      transition alarm_cleared
+        first alarmActive
+        then normalAutomation;
+
+      transition device_fault
+        first normalAutomation
+        then maintenance;
+
+      transition maintenance_complete
+        first maintenance
+        then normalAutomation;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.primaryFunction ==
+      "Coordinate sensors, actuators, user commands, rules, and notifications to automate home comfort, lighting, energy use, and security through an OpenHAB controller."
+    }
+  }
+
+  requirement def SensorIntegrationRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.controller.retainedEvents >= 1000
+    }
+  }
+
+  requirement def LightingAutomationRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.darkThreshold <= 100.0
+    }
+  }
+
+  requirement def ClimateComfortRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.comfortHeatSetpoint >= 18.0 and
+      system.comfortHeatSetpoint <= 22.0 and
+      system.comfortCoolSetpoint >= 23.0 and
+      system.comfortCoolSetpoint <= 26.0
+    }
+  }
+
+  requirement def AwayEnergyRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.awayHeatSetpoint <= system.comfortHeatSetpoint and
+      system.awayCoolSetpoint >= system.comfortCoolSetpoint
+    }
+  }
+
+  requirement def SecurityNotificationRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.notificationService.deliveryLatencyTarget <= 10.0
+    }
+  }
+
+  requirement def StandbyPowerRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.maxStandbyPower <= 25.0
+    }
+  }
+
+  requirement def NetworkAvailabilityRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.network.availability >= 95.0
+    }
+  }
+
+  requirement def ManualOverrideRequirement {
+    subject system : OpenHABBasedSmartHomeSystem;
+    require constraint {
+      system.controller.ruleEvaluationPeriod <= 2.0
+    }
+  }
+
+  part openHABSmartHome : OpenHABBasedSmartHomeSystem;
+
+  satisfy PrimaryFunctionRequirement by openHABSmartHome;
+  satisfy SensorIntegrationRequirement by openHABSmartHome;
+  satisfy LightingAutomationRequirement by openHABSmartHome;
+  satisfy ClimateComfortRequirement by openHABSmartHome;
+  satisfy AwayEnergyRequirement by openHABSmartHome;
+  satisfy SecurityNotificationRequirement by openHABSmartHome;
+  satisfy StandbyPowerRequirement by openHABSmartHome;
+  satisfy NetworkAvailabilityRequirement by openHABSmartHome;
+  satisfy ManualOverrideRequirement by openHABSmartHome;
+}

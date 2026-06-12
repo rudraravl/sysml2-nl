@@ -1,0 +1,614 @@
+package NeuroethicsSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Probability : Real {
+        doc /* Unitless probability in the closed interval [0, 1]. */
+    }
+
+    attribute def ConfidenceScore : Real {
+        doc /* Unitless confidence score in the closed interval [0, 1]. */
+    }
+
+    attribute def RiskScore : Real {
+        doc /* Unitless ethical risk score in the closed interval [0, 100]. */
+    }
+
+    attribute def ConsentValidity : Boolean;
+
+    attribute def TimeStamp : String;
+
+    attribute def PersonIdentifier : String;
+
+    attribute def PolicyIdentifier : String;
+
+    attribute def AuditIdentifier : String;
+
+    enum def ConsentState {
+        enum none;
+        enum requested;
+        enum granted;
+        enum limited;
+        enum withdrawn;
+        enum expired;
+    }
+
+    enum def EthicalDecisionKind {
+        enum permit;
+        enum permitWithMitigation;
+        enum deferForHumanReview;
+        enum deny;
+        enum emergencyOverride;
+    }
+
+    enum def NeuroDataCategory {
+        enum eegSignal;
+        enum fmriFeature;
+        enum neuralImplantTelemetry;
+        enum cognitiveAssessment;
+        enum affectiveInference;
+        enum clinicalNote;
+    }
+
+    enum def NeuroethicalPrinciple {
+        enum autonomy;
+        enum privacy;
+        enum mentalIntegrity;
+        enum beneficence;
+        enum nonMaleficence;
+        enum justice;
+        enum explainability;
+        enum accountability;
+    }
+
+    item def NeuroSignal {
+        attribute subjectId : PersonIdentifier;
+        attribute category : NeuroDataCategory;
+        attribute sampleRate : FrequencyValue;
+        attribute acquisitionTime : TimeStamp;
+        attribute channelCount : Integer;
+        attribute rawSensitivity_uV : Real;
+    }
+
+    item def DeidentifiedNeuroData {
+        attribute datasetId : String;
+        attribute sourceSubjectHash : String;
+        attribute category : NeuroDataCategory;
+        attribute residualReidentificationRisk : Probability;
+        attribute retentionPeriod_days : Integer;
+    }
+
+    item def ConsentRecord {
+        attribute subjectId : PersonIdentifier;
+        attribute state : ConsentState;
+        attribute allowedPurpose : String;
+        attribute validFrom : TimeStamp;
+        attribute validUntil : TimeStamp;
+        attribute withdrawalEndpoint : String;
+        attribute legallyEffective : ConsentValidity;
+    }
+
+    item def EthicsPolicy {
+        attribute policyId : PolicyIdentifier;
+        attribute version : String;
+        attribute principle : NeuroethicalPrinciple;
+        attribute ruleText : String;
+        attribute maximumAllowedRisk : RiskScore;
+        attribute requiresHumanReview : Boolean;
+    }
+
+    item def RiskAssessment {
+        attribute assessmentId : String;
+        attribute privacyRisk : RiskScore;
+        attribute autonomyRisk : RiskScore;
+        attribute biasRisk : RiskScore;
+        attribute mentalIntegrityRisk : RiskScore;
+        attribute aggregateRisk : RiskScore;
+        attribute confidence : ConfidenceScore;
+    }
+
+    item def EthicalDecision {
+        attribute decisionId : String;
+        attribute subjectId : PersonIdentifier;
+        attribute kind : EthicalDecisionKind;
+        attribute rationale : String;
+        attribute applicablePolicyId : PolicyIdentifier;
+        attribute aggregateRisk : RiskScore;
+        attribute issuedAt : TimeStamp;
+        attribute expiresAt : TimeStamp;
+    }
+
+    item def MitigationPlan {
+        attribute planId : String;
+        attribute requiredDataMinimization : Boolean;
+        attribute requiredHumanOversight : Boolean;
+        attribute requiredBiasAudit : Boolean;
+        attribute requiredSubjectNotification : Boolean;
+        attribute maximumRetention_days : Integer;
+    }
+
+    item def AuditEvent {
+        attribute auditId : AuditIdentifier;
+        attribute actorId : String;
+        attribute actionName : String;
+        attribute subjectId : PersonIdentifier;
+        attribute decisionId : String;
+        attribute occurredAt : TimeStamp;
+        attribute immutableHash : String;
+    }
+
+    port def NeuroDataInPort {
+        in item signal : NeuroSignal;
+    }
+
+    port def ConsentInPort {
+        in item consent : ConsentRecord;
+    }
+
+    port def PolicyInPort {
+        in item policy : EthicsPolicy;
+    }
+
+    port def DecisionOutPort {
+        out item decision : EthicalDecision;
+    }
+
+    port def AuditOutPort {
+        out item event : AuditEvent;
+    }
+
+    port def MitigationOutPort {
+        out item plan : MitigationPlan;
+    }
+
+    port def ReviewPort {
+        out item caseDecision : EthicalDecision;
+        in item reviewedDecision : EthicalDecision;
+    }
+
+    part def ConsentManager {
+        port consentInput : ConsentInPort;
+        port decisionOutput : DecisionOutPort;
+
+        attribute currentConsentState : ConsentState;
+        attribute consentIsEffective : ConsentValidity;
+
+        action validateConsent {
+            in item consent : ConsentRecord;
+            out attribute valid : ConsentValidity;
+
+            first start;
+            then checkLegalEffectiveness;
+            then checkPurposeLimitation;
+            then checkExpiration;
+            then produceConsentValidity;
+            then done;
+
+            action checkLegalEffectiveness;
+            action checkPurposeLimitation;
+            action checkExpiration;
+            action produceConsentValidity;
+        }
+
+        state consentLifecycle {
+            state NoConsent;
+            state ConsentRequested;
+            state ConsentGranted;
+            state ConsentLimited;
+            state ConsentWithdrawn;
+            state ConsentExpired;
+
+            initial then NoConsent;
+
+            transition NoConsent_to_ConsentRequested
+                first NoConsent
+                accept ConsentRequest
+                then ConsentRequested;
+
+            transition ConsentRequested_to_ConsentGranted
+                first ConsentRequested
+                accept ConsentGrant
+                then ConsentGranted;
+
+            transition ConsentRequested_to_ConsentLimited
+                first ConsentRequested
+                accept LimitedConsentGrant
+                then ConsentLimited;
+
+            transition ConsentGranted_to_ConsentWithdrawn
+                first ConsentGranted
+                accept ConsentWithdrawal
+                then ConsentWithdrawn;
+
+            transition ConsentLimited_to_ConsentWithdrawn
+                first ConsentLimited
+                accept ConsentWithdrawal
+                then ConsentWithdrawn;
+
+            transition ConsentGranted_to_ConsentExpired
+                first ConsentGranted
+                accept ConsentExpiration
+                then ConsentExpired;
+
+            transition ConsentLimited_to_ConsentExpired
+                first ConsentLimited
+                accept ConsentExpiration
+                then ConsentExpired;
+        }
+    }
+
+    part def NeuroDataSteward {
+        port neuroDataInput : NeuroDataInPort;
+
+        attribute minimumNecessaryChannels : Integer;
+        attribute maximumRetention_days : Integer;
+        attribute allowedSampleRate : FrequencyValue;
+
+        action deidentifyAndMinimize {
+            in item signal : NeuroSignal;
+            out item deidentifiedData : DeidentifiedNeuroData;
+
+            first start;
+            then verifyCategory;
+            then removeDirectIdentifiers;
+            then reduceResolution;
+            then suppressRareFeatureCombinations;
+            then assignRetentionLimit;
+            then outputData;
+            then done;
+
+            action verifyCategory;
+            action removeDirectIdentifiers;
+            action reduceResolution;
+            action suppressRareFeatureCombinations;
+            action assignRetentionLimit;
+            action outputData;
+        }
+    }
+
+    part def EthicsPolicyEngine {
+        port policyInput : PolicyInPort;
+
+        attribute activePolicyCount : Integer;
+        attribute strictestAllowedRisk : RiskScore;
+
+        action evaluatePolicyCompliance {
+            in item data : DeidentifiedNeuroData;
+            in item consent : ConsentRecord;
+            in item assessment : RiskAssessment;
+            out item decision : EthicalDecision;
+            out item mitigation : MitigationPlan;
+
+            first start;
+            then mapUsePurposeToPolicy;
+            then compareConsentScope;
+            then compareAggregateRisk;
+            then evaluateMentalIntegrityConstraint;
+            then evaluateJusticeConstraint;
+            then formulateDecision;
+            then done;
+
+            action mapUsePurposeToPolicy;
+            action compareConsentScope;
+            action compareAggregateRisk;
+            action evaluateMentalIntegrityConstraint;
+            action evaluateJusticeConstraint;
+            action formulateDecision;
+        }
+    }
+
+    part def RiskAssessor {
+        attribute privacyWeight : Real = 0.30;
+        attribute autonomyWeight : Real = 0.25;
+        attribute biasWeight : Real = 0.20;
+        attribute mentalIntegrityWeight : Real = 0.25;
+
+        action assessEthicalRisk {
+            in item data : DeidentifiedNeuroData;
+            out item assessment : RiskAssessment;
+
+            first start;
+            then estimateReidentificationRisk;
+            then estimateAutonomyImpact;
+            then estimateGroupBiasImpact;
+            then estimateMentalIntegrityImpact;
+            then computeAggregateRisk;
+            then assignConfidence;
+            then done;
+
+            action estimateReidentificationRisk;
+            action estimateAutonomyImpact;
+            action estimateGroupBiasImpact;
+            action estimateMentalIntegrityImpact;
+            action computeAggregateRisk;
+            action assignConfidence;
+        }
+    }
+
+    part def HumanReviewBoard {
+        port reviewInterface : ReviewPort;
+
+        attribute quorumRequired : Integer = 3;
+        attribute maximumReviewLatency_hours : Integer = 72;
+
+        action conductReview {
+            in item caseDecision : EthicalDecision;
+            out item reviewedDecision : EthicalDecision;
+
+            first start;
+            then notifyReviewers;
+            then inspectConsentAndRisk;
+            then deliberate;
+            then recordHumanRationale;
+            then issueReviewedDecision;
+            then done;
+
+            action notifyReviewers;
+            action inspectConsentAndRisk;
+            action deliberate;
+            action recordHumanRationale;
+            action issueReviewedDecision;
+        }
+    }
+
+    part def TransparencyAndAuditService {
+        port auditOutput : AuditOutPort;
+
+        attribute auditRetention_years : Integer = 10;
+        attribute tamperEvidentLedgerEnabled : Boolean = true;
+
+        action recordDecisionAudit {
+            in item decision : EthicalDecision;
+            in item assessment : RiskAssessment;
+            out item auditEvent : AuditEvent;
+
+            first start;
+            then createCanonicalRecord;
+            then hashRecord;
+            then appendToLedger;
+            then publishSubjectNoticeIfRequired;
+            then done;
+
+            action createCanonicalRecord;
+            action hashRecord;
+            action appendToLedger;
+            action publishSubjectNoticeIfRequired;
+        }
+    }
+
+    part def NeuroethicsGovernanceSystem {
+        doc /* Primary high-level function: govern neurotechnology data use by enforcing consent, privacy, mental integrity, fairness, transparency, and accountable review before neural data is processed or acted upon. */
+
+        port neuroDataIn : NeuroDataInPort;
+        port consentIn : ConsentInPort;
+        port policyIn : PolicyInPort;
+        port ethicalDecisionOut : DecisionOutPort;
+        port mitigationOut : MitigationOutPort;
+        port auditOut : AuditOutPort;
+        port humanReview : ReviewPort;
+
+        part consentManager : ConsentManager;
+        part dataSteward : NeuroDataSteward;
+        part riskAssessor : RiskAssessor;
+        part policyEngine : EthicsPolicyEngine;
+        part reviewBoard : HumanReviewBoard;
+        part auditService : TransparencyAndAuditService;
+
+        attribute maximumAggregateRiskWithoutReview : RiskScore = 35.0;
+        attribute maximumResidualReidentificationRisk : Probability = 0.05;
+        attribute defaultRetention_days : Integer = 365;
+        attribute requiredDecisionConfidence : ConfidenceScore = 0.80;
+
+        connect neuroDataIn to dataSteward.neuroDataInput;
+        connect consentIn to consentManager.consentInput;
+        connect policyIn to policyEngine.policyInput;
+        connect ethicalDecisionOut to consentManager.decisionOutput;
+        connect humanReview to reviewBoard.reviewInterface;
+        connect auditOut to auditService.auditOutput;
+
+        action governNeuroDataUse {
+            in item incomingSignal : NeuroSignal;
+            in item submittedConsent : ConsentRecord;
+            out item finalDecision : EthicalDecision;
+            out item mitigationPlan : MitigationPlan;
+            out item auditEvent : AuditEvent;
+
+            first start;
+            then validateConsent;
+            then minimizeData;
+            then assessRisk;
+            then evaluateEthics;
+            then routeDecision;
+            then recordAudit;
+            then publishDecision;
+            then done;
+
+            action validateConsent {
+                in item submittedConsent : ConsentRecord;
+                out attribute consentValid : ConsentValidity;
+            }
+
+            action minimizeData {
+                in item incomingSignal : NeuroSignal;
+                out item minimizedData : DeidentifiedNeuroData;
+            }
+
+            action assessRisk {
+                in item minimizedData : DeidentifiedNeuroData;
+                out item ethicalRisk : RiskAssessment;
+            }
+
+            action evaluateEthics {
+                in item minimizedData : DeidentifiedNeuroData;
+                in item submittedConsent : ConsentRecord;
+                in item ethicalRisk : RiskAssessment;
+                out item preliminaryDecision : EthicalDecision;
+                out item preliminaryMitigation : MitigationPlan;
+            }
+
+            action routeDecision {
+                in item preliminaryDecision : EthicalDecision;
+                out item finalDecision : EthicalDecision;
+            }
+
+            action recordAudit {
+                in item finalDecision : EthicalDecision;
+                in item ethicalRisk : RiskAssessment;
+                out item auditEvent : AuditEvent;
+            }
+
+            action publishDecision {
+                in item finalDecision : EthicalDecision;
+                in item preliminaryMitigation : MitigationPlan;
+            }
+        }
+
+        state governanceLifecycle {
+            state Idle;
+            state Intake;
+            state ConsentValidation;
+            state DataMinimization;
+            state EthicalRiskAssessment;
+            state PolicyEvaluation;
+            state HumanReviewRequired;
+            state DecisionIssued;
+            state AuditRecorded;
+            state UseDenied;
+            state EmergencyOverride;
+
+            initial then Idle;
+
+            transition Idle_to_Intake
+                first Idle
+                accept NeuroDataSubmitted
+                then Intake;
+
+            transition Intake_to_ConsentValidation
+                first Intake
+                then ConsentValidation;
+
+            transition ConsentValidation_to_UseDenied
+                first ConsentValidation
+                accept InvalidOrWithdrawnConsent
+                then UseDenied;
+
+            transition ConsentValidation_to_DataMinimization
+                first ConsentValidation
+                accept ValidConsent
+                then DataMinimization;
+
+            transition DataMinimization_to_EthicalRiskAssessment
+                first DataMinimization
+                then EthicalRiskAssessment;
+
+            transition EthicalRiskAssessment_to_PolicyEvaluation
+                first EthicalRiskAssessment
+                then PolicyEvaluation;
+
+            transition PolicyEvaluation_to_HumanReviewRequired
+                first PolicyEvaluation
+                accept HighRiskOrLowConfidence
+                then HumanReviewRequired;
+
+            transition PolicyEvaluation_to_DecisionIssued
+                first PolicyEvaluation
+                accept LowRiskPolicyCompliant
+                then DecisionIssued;
+
+            transition PolicyEvaluation_to_UseDenied
+                first PolicyEvaluation
+                accept PolicyViolation
+                then UseDenied;
+
+            transition HumanReviewRequired_to_DecisionIssued
+                first HumanReviewRequired
+                accept HumanApproval
+                then DecisionIssued;
+
+            transition HumanReviewRequired_to_UseDenied
+                first HumanReviewRequired
+                accept HumanRejection
+                then UseDenied;
+
+            transition ConsentValidation_to_EmergencyOverride
+                first ConsentValidation
+                accept ImminentSeriousClinicalHarm
+                then EmergencyOverride;
+
+            transition EmergencyOverride_to_AuditRecorded
+                first EmergencyOverride
+                then AuditRecorded;
+
+            transition DecisionIssued_to_AuditRecorded
+                first DecisionIssued
+                then AuditRecorded;
+
+            transition UseDenied_to_AuditRecorded
+                first UseDenied
+                then AuditRecorded;
+
+            transition AuditRecorded_to_Idle
+                first AuditRecorded
+                then Idle;
+        }
+    }
+
+    requirement def ConsentRequirement {
+        doc /* The system shall process identifiable or deidentified neurodata only when consent is valid, limited emergency override applies, or a legally authorized substitute basis is recorded. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute consentValid : ConsentValidity;
+        require constraint { consentValid == true }
+    }
+
+    requirement def MentalPrivacyRequirement {
+        doc /* The system shall prevent unauthorized inference, disclosure, or secondary use of neural features that reveal mental states, cognitive traits, affective states, or clinical vulnerability. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute residualReidentificationRisk : Probability;
+        require constraint { residualReidentificationRisk <= 0.05 }
+    }
+
+    requirement def RiskThresholdRequirement {
+        doc /* The system shall require human review when aggregate ethical risk exceeds the automatic decision threshold or when decision confidence is insufficient. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute aggregateRisk : RiskScore;
+        attribute confidence : ConfidenceScore;
+        require constraint { aggregateRisk <= 35.0 and confidence >= 0.80 }
+    }
+
+    requirement def FairnessRequirement {
+        doc /* The system shall evaluate group bias risk before permitting neurodata use for clinical, employment, educational, insurance, or law-enforcement decisions. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute biasRisk : RiskScore;
+        require constraint { biasRisk <= 25.0 }
+    }
+
+    requirement def TransparencyRequirement {
+        doc /* The system shall produce an auditable ethical decision containing rationale, applicable policy, risk score, mitigation obligations, and subject notification status. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute auditRetention_years : Integer;
+        require constraint { auditRetention_years >= 10 }
+    }
+
+    requirement def DataMinimizationRequirement {
+        doc /* The system shall reduce neural data to the minimum necessary resolution, channels, duration, and retention period for the approved purpose. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute retention_days : Integer;
+        require constraint { retention_days <= 365 }
+    }
+
+    requirement def AccountabilityRequirement {
+        doc /* The system shall record every consent validation, risk assessment, policy evaluation, human review, emergency override, and final decision in a tamper-evident audit trail. */
+        subject governedSystem : NeuroethicsGovernanceSystem;
+        attribute ledgerEnabled : Boolean;
+        require constraint { ledgerEnabled == true }
+    }
+
+    satisfy ConsentRequirement by NeuroethicsGovernanceSystem;
+    satisfy MentalPrivacyRequirement by NeuroethicsGovernanceSystem;
+    satisfy RiskThresholdRequirement by NeuroethicsGovernanceSystem;
+    satisfy FairnessRequirement by NeuroethicsGovernanceSystem;
+    satisfy TransparencyRequirement by NeuroethicsGovernanceSystem;
+    satisfy DataMinimizationRequirement by NeuroethicsGovernanceSystem;
+    satisfy AccountabilityRequirement by NeuroethicsGovernanceSystem;
+}

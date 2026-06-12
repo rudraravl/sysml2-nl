@@ -1,0 +1,356 @@
+package ExploratoryEngineeringModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def ConfidenceScore {
+        :> ScalarValues::Real;
+        range = "0..1";
+    }
+
+    attribute def RiskIndex {
+        :> ScalarValues::Real;
+        range = "0..10";
+    }
+
+    attribute def PriorityLevel {
+        :> ScalarValues::Integer;
+        range = "1..5";
+    }
+
+    item def EngineeringQuestion {
+        attribute identifier : String;
+        attribute description : String;
+        attribute priority : PriorityLevel;
+        attribute targetConfidence : ConfidenceScore;
+    }
+
+    item def Hypothesis {
+        attribute statement : String;
+        attribute confidence : ConfidenceScore;
+        attribute assumedRisk : RiskIndex;
+    }
+
+    item def ExperimentPlan {
+        attribute planId : String;
+        attribute objective : String;
+        attribute estimatedDuration : TimeValue;
+        attribute estimatedCost : MonetaryValue;
+    }
+
+    item def ObservationData {
+        attribute sampleCount : ScalarValues::Integer;
+        attribute measurementUncertainty : Real;
+        attribute collectionDuration : TimeValue;
+        attribute sourceName : String;
+    }
+
+    item def FeasibilityAssessment {
+        attribute technicalFeasibility : ConfidenceScore;
+        attribute costFeasibility : ConfidenceScore;
+        attribute scheduleFeasibility : ConfidenceScore;
+        attribute residualRisk : RiskIndex;
+        attribute recommendation : String;
+    }
+
+    item def EngineeringDecision {
+        attribute decisionId : String;
+        attribute selectedOption : String;
+        attribute rationale : String;
+        attribute approvalConfidence : ConfidenceScore;
+    }
+
+    value def TimeValue {
+        :> ISQ::time;
+        unit = SI::second;
+    }
+
+    value def MonetaryValue {
+        :> ScalarValues::Real;
+        unit = "USD";
+    }
+
+    value def DataRate {
+        :> ScalarValues::Real;
+        unit = "MB/s";
+    }
+
+    value def EnergyValue {
+        :> ISQ::energy;
+        unit = SI::joule;
+    }
+
+    value def PowerValue {
+        :> ISQ::power;
+        unit = SI::watt;
+    }
+
+    port def QuestionInputPort {
+        in item question : EngineeringQuestion;
+    }
+
+    port def HypothesisPort {
+        out item hypothesis : Hypothesis;
+    }
+
+    port def ExperimentPlanPort {
+        inout item plan : ExperimentPlan;
+    }
+
+    port def ObservationPort {
+        inout item data : ObservationData;
+    }
+
+    port def AssessmentPort {
+        out item assessment : FeasibilityAssessment;
+    }
+
+    port def DecisionPort {
+        out item decision : EngineeringDecision;
+    }
+
+    port def PowerPort {
+        in attribute suppliedPower : PowerValue;
+    }
+
+    port def DataServicePort {
+        inout attribute transferRate : DataRate;
+        inout item observation : ObservationData;
+    }
+
+    action def FrameExploration {
+        in item question : EngineeringQuestion;
+        out item framedHypothesis : Hypothesis;
+    }
+
+    action def DesignExperiment {
+        in item hypothesis : Hypothesis;
+        out item plan : ExperimentPlan;
+    }
+
+    action def ExecuteExperiment {
+        in item plan : ExperimentPlan;
+        out item observations : ObservationData;
+    }
+
+    action def AnalyzeEvidence {
+        in item observations : ObservationData;
+        in item hypothesis : Hypothesis;
+        out item assessment : FeasibilityAssessment;
+    }
+
+    action def DecideNextStep {
+        in item assessment : FeasibilityAssessment;
+        out item decision : EngineeringDecision;
+    }
+
+    state def ExplorationLifecycle {
+        state Idle;
+        state FramingQuestion;
+        state GeneratingHypothesis;
+        state PlanningExperiment;
+        state RunningExperiment;
+        state AnalyzingEvidence;
+        state ReviewingDecision;
+        state Completed;
+        state ReworkRequired;
+
+        transition first Idle;
+        transition Idle_to_Framing
+            first Idle
+            then FramingQuestion;
+
+        transition Framing_to_Hypothesis
+            first FramingQuestion
+            then GeneratingHypothesis;
+
+        transition Hypothesis_to_Planning
+            first GeneratingHypothesis
+            then PlanningExperiment;
+
+        transition Planning_to_Running
+            first PlanningExperiment
+            then RunningExperiment;
+
+        transition Running_to_Analysis
+            first RunningExperiment
+            then AnalyzingEvidence;
+
+        transition Analysis_to_Review
+            first AnalyzingEvidence
+            then ReviewingDecision;
+
+        transition Review_to_Completed
+            first ReviewingDecision
+            then Completed;
+
+        transition Review_to_Rework
+            first ReviewingDecision
+            then ReworkRequired;
+
+        transition Rework_to_Planning
+            first ReworkRequired
+            then PlanningExperiment;
+    }
+
+    part def ExplorationBacklog {
+        port questionInput : QuestionInputPort;
+        port questionOutput : QuestionInputPort;
+        attribute openQuestionCount : ScalarValues::Integer;
+        attribute averagePriority : PriorityLevel;
+    }
+
+    part def HypothesisEngine {
+        port questionIn : QuestionInputPort;
+        port hypothesisOut : HypothesisPort;
+        attribute activeHypothesisCount : ScalarValues::Integer;
+        attribute minimumConfidenceThreshold : ConfidenceScore = 0.45;
+
+        action frame : FrameExploration;
+    }
+
+    part def ExperimentDesigner {
+        port hypothesisIn : HypothesisPort;
+        port planOut : ExperimentPlanPort;
+        attribute maximumExperimentCost : MonetaryValue = 25000.0;
+        attribute maximumExperimentDuration : TimeValue = 1209600.0;
+
+        action design : DesignExperiment;
+    }
+
+    part def TestEnvironment {
+        port planIn : ExperimentPlanPort;
+        port observationsOut : ObservationPort;
+        port powerIn : PowerPort;
+        attribute availablePower : PowerValue = 5000.0;
+        attribute storedEnergyCapacity : EnergyValue = 72000000.0;
+        attribute maximumDataRate : DataRate = 250.0;
+
+        action execute : ExecuteExperiment;
+    }
+
+    part def EvidenceRepository {
+        port observationsIn : ObservationPort;
+        port observationsOut : ObservationPort;
+        port dataService : DataServicePort;
+        attribute retainedExperimentCount : ScalarValues::Integer;
+        attribute validatedDataFraction : ConfidenceScore;
+    }
+
+    part def FeasibilityAnalyzer {
+        port observationsIn : ObservationPort;
+        port hypothesisIn : HypothesisPort;
+        port assessmentOut : AssessmentPort;
+        attribute minimumFeasibilityForRecommendation : ConfidenceScore = 0.70;
+        attribute maximumResidualRisk : RiskIndex = 4.0;
+
+        action analyze : AnalyzeEvidence;
+    }
+
+    part def DecisionBoard {
+        port assessmentIn : AssessmentPort;
+        port decisionOut : DecisionPort;
+        attribute requiredApprovalConfidence : ConfidenceScore = 0.80;
+
+        action decide : DecideNextStep;
+    }
+
+    part def ExploratoryEngineeringSystem {
+        doc /* Primary function: transform uncertain engineering questions into evidence-based feasibility decisions by generating hypotheses, planning experiments, collecting observations, analyzing evidence, and recommending whether to proceed, revise, or stop. */
+
+        port externalQuestions : QuestionInputPort;
+        port finalDecision : DecisionPort;
+        port facilityPower : PowerPort;
+        port engineeringData : DataServicePort;
+
+        attribute missionName : String = "Exploratory Engineering Evidence Loop";
+        attribute cycleTimeTarget : TimeValue = 1814400.0;
+        attribute annualOperatingBudget : MonetaryValue = 1500000.0;
+        attribute decisionConfidenceTarget : ConfidenceScore = 0.80;
+        attribute acceptableResidualRisk : RiskIndex = 4.0;
+
+        part backlog : ExplorationBacklog;
+        part hypothesisEngine : HypothesisEngine;
+        part experimentDesigner : ExperimentDesigner;
+        part testEnvironment : TestEnvironment;
+        part evidenceRepository : EvidenceRepository;
+        part feasibilityAnalyzer : FeasibilityAnalyzer;
+        part decisionBoard : DecisionBoard;
+
+        state lifecycle : ExplorationLifecycle;
+
+        connect externalQuestions to backlog.questionInput;
+        connect backlog.questionOutput to hypothesisEngine.questionIn;
+        connect hypothesisEngine.hypothesisOut to experimentDesigner.hypothesisIn;
+        connect hypothesisEngine.hypothesisOut to feasibilityAnalyzer.hypothesisIn;
+        connect experimentDesigner.planOut to testEnvironment.planIn;
+        connect testEnvironment.observationsOut to evidenceRepository.observationsIn;
+        connect evidenceRepository.observationsOut to feasibilityAnalyzer.observationsIn;
+        connect feasibilityAnalyzer.assessmentOut to decisionBoard.assessmentIn;
+        connect decisionBoard.decisionOut to finalDecision;
+        connect facilityPower to testEnvironment.powerIn;
+        connect engineeringData to evidenceRepository.dataService;
+
+        perform action explorationCycle {
+            action frame : FrameExploration;
+            action design : DesignExperiment;
+            action execute : ExecuteExperiment;
+            action analyze : AnalyzeEvidence;
+            action decide : DecideNextStep;
+
+            flow frame.framedHypothesis to design.hypothesis;
+            flow design.plan to execute.plan;
+            flow execute.observations to analyze.observations;
+            flow frame.framedHypothesis to analyze.hypothesis;
+            flow analyze.assessment to decide.assessment;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : ExploratoryEngineeringSystem;
+        require constraint {
+            system.decisionConfidenceTarget >= 0.80
+        }
+        doc /* The system shall provide high-level exploratory engineering capability by converting uncertain engineering questions into evidence-based feasibility decisions with at least 0.80 target confidence. */
+    }
+
+    requirement def ExperimentTraceabilityRequirement {
+        subject repository : EvidenceRepository;
+        require constraint {
+            repository.validatedDataFraction >= 0.95
+        }
+        doc /* The evidence repository shall retain validated observation data sufficient to trace feasibility assessments back to experiment plans and collected measurements. */
+    }
+
+    requirement def ResidualRiskRequirement {
+        subject analyzer : FeasibilityAnalyzer;
+        require constraint {
+            analyzer.maximumResidualRisk <= 4.0
+        }
+        doc /* The feasibility analyzer shall flag recommendations for rework when residual technical, cost, or schedule risk exceeds 4.0 on a ten-point scale. */
+    }
+
+    requirement def ExperimentBoundRequirement {
+        subject designer : ExperimentDesigner;
+        require constraint {
+            designer.maximumExperimentCost <= 25000.0 and
+            designer.maximumExperimentDuration <= 1209600.0
+        }
+        doc /* Individual exploratory experiments shall be bounded to maintain rapid learning cycles and limit sunk cost before feasibility is established. */
+    }
+
+    requirement def PowerAvailabilityRequirement {
+        subject environment : TestEnvironment;
+        require constraint {
+            environment.availablePower >= 5000.0
+        }
+        doc /* The test environment shall provide enough power capacity to support instrumented exploratory experiments without interrupting observation collection. */
+    }
+
+    satisfy PrimaryFunctionRequirement by ExploratoryEngineeringSystem;
+    satisfy ExperimentTraceabilityRequirement by ExploratoryEngineeringSystem::evidenceRepository;
+    satisfy ResidualRiskRequirement by ExploratoryEngineeringSystem::feasibilityAnalyzer;
+    satisfy ExperimentBoundRequirement by ExploratoryEngineeringSystem::experimentDesigner;
+    satisfy PowerAvailabilityRequirement by ExploratoryEngineeringSystem::testEnvironment;
+}

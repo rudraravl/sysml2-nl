@@ -1,0 +1,716 @@
+package PickupVehicleSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value def MassValue :> Real {
+        unit = "kg";
+    }
+
+    value def LengthValue :> Real {
+        unit = "m";
+    }
+
+    value def SpeedValue :> Real {
+        unit = "km/h";
+    }
+
+    value def PowerValue :> Real {
+        unit = "kW";
+    }
+
+    value def TorqueValue :> Real {
+        unit = "N*m";
+    }
+
+    value def EnergyValue :> Real {
+        unit = "MJ";
+    }
+
+    value def VolumeValue :> Real {
+        unit = "L";
+    }
+
+    value def ForceValue :> Real {
+        unit = "N";
+    }
+
+    value def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    value def PressureValue :> Real {
+        unit = "kPa";
+    }
+
+    value def TimeValue :> Real {
+        unit = "s";
+    }
+
+    enum def GearPosition {
+        enum park;
+        enum reverse;
+        enum neutral;
+        enum drive;
+        enum low;
+    }
+
+    enum def DriveMode {
+        enum normal;
+        enum towHaul;
+        enum offRoad;
+        enum eco;
+    }
+
+    enum def BrakeCommandKind {
+        enum none;
+        enum serviceBrake;
+        enum parkingBrake;
+        enum emergencyBrake;
+    }
+
+    item def Fuel {
+        attribute volume : VolumeValue;
+        attribute energyContent : EnergyValue;
+    }
+
+    item def Air {
+        attribute massFlowRate : MassValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def ExhaustGas {
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute availableEnergy : EnergyValue;
+    }
+
+    item def MechanicalTorque {
+        attribute torque : TorqueValue;
+        attribute rotationalSpeed : Real;
+    }
+
+    item def HydraulicPressure {
+        attribute pressure : PressureValue;
+    }
+
+    item def DriverCommand {
+        attribute acceleratorPedalPosition : Real;
+        attribute brakePedalPosition : Real;
+        attribute steeringWheelAngle : Real;
+        attribute selectedGear : GearPosition;
+        attribute selectedDriveMode : DriveMode;
+    }
+
+    item def VehicleMotion {
+        attribute longitudinalSpeed : SpeedValue;
+        attribute lateralSpeed : SpeedValue;
+        attribute yawRate : Real;
+        attribute gradeAngle : Real;
+    }
+
+    item def Cargo {
+        attribute cargoMass : MassValue;
+        attribute cargoLength : LengthValue;
+        attribute cargoWidth : LengthValue;
+        attribute cargoHeight : LengthValue;
+        attribute secured : Boolean;
+    }
+
+    item def TrailerLoad {
+        attribute trailerMass : MassValue;
+        attribute tongueWeight : MassValue;
+        attribute connected : Boolean;
+    }
+
+    item def DiagnosticMessage {
+        attribute faultCode : String;
+        attribute severity : Integer;
+        attribute active : Boolean;
+    }
+
+    port def FuelPort {
+        out fuel : Fuel;
+    }
+
+    port def AirIntakePort {
+        out air : Air;
+    }
+
+    port def ExhaustPort {
+        in exhaust : ExhaustGas;
+    }
+
+    port def ElectricalPowerPort {
+        inout energy : ElectricalEnergy;
+    }
+
+    port def TorquePort {
+        inout torque : MechanicalTorque;
+    }
+
+    port def HydraulicPort {
+        inout pressure : HydraulicPressure;
+    }
+
+    port def DriverCommandPort {
+        in command : DriverCommand;
+    }
+
+    port def MotionPort {
+        out motion : VehicleMotion;
+    }
+
+    port def CargoInterfacePort {
+        in cargo : Cargo;
+    }
+
+    port def TrailerInterfacePort {
+        in trailer : TrailerLoad;
+    }
+
+    port def DiagnosticPort {
+        out message : DiagnosticMessage;
+    }
+
+    part def Engine {
+        attribute ratedPower : PowerValue = 300;
+        attribute peakTorque : TorqueValue = 570;
+        attribute displacement : VolumeValue = 5000;
+        attribute operatingTemperature : TemperatureValue;
+        attribute running : Boolean;
+
+        port fuelIn : FuelPort;
+        port airIn : AirIntakePort;
+        port exhaustOut : ExhaustPort;
+        port crankshaftOut : TorquePort;
+        port electricalIn : ElectricalPowerPort;
+        port diagnostics : DiagnosticPort;
+
+        action start {
+            in electricalEnergy : ElectricalEnergy;
+            out engineRunning : Boolean;
+        }
+
+        action generateTorque {
+            in fuel : Fuel;
+            in air : Air;
+            in throttleRequest : Real;
+            out torqueOut : MechanicalTorque;
+            out exhaust : ExhaustGas;
+        }
+
+        state def EngineOperatingState {
+            entry; then off;
+
+            state off;
+            state cranking;
+            state idle;
+            state producingTorque;
+            state faulted;
+
+            transition off_to_cranking
+                first off
+                accept startRequest
+                then cranking;
+
+            transition cranking_to_idle
+                first cranking
+                if electricalIn.energy.voltage >= 12.0
+                then idle;
+
+            transition idle_to_torque
+                first idle
+                if running
+                then producingTorque;
+
+            transition torque_to_idle
+                first producingTorque
+                if fuelIn.fuel.volume <= 0.5
+                then idle;
+
+            transition any_to_faulted
+                first off
+                accept severeFault
+                then faulted;
+        }
+    }
+
+    part def Transmission {
+        attribute gearPosition : GearPosition = GearPosition::park;
+        attribute mode : DriveMode = DriveMode::normal;
+        attribute ratio : Real;
+
+        port engineTorqueIn : TorquePort;
+        port drivelineTorqueOut : TorquePort;
+        port electricalIn : ElectricalPowerPort;
+        port commandIn : DriverCommandPort;
+        port diagnostics : DiagnosticPort;
+
+        action selectGear {
+            in requestedGear : GearPosition;
+            out appliedGear : GearPosition;
+        }
+
+        action multiplyTorque {
+            in inputTorque : MechanicalTorque;
+            in gearRatio : Real;
+            out outputTorque : MechanicalTorque;
+        }
+    }
+
+    part def Driveline {
+        attribute fourWheelDriveAvailable : Boolean = true;
+        attribute frontAxleEngaged : Boolean;
+        attribute rearAxleRatio : Real = 3.73;
+
+        port torqueIn : TorquePort;
+        port frontWheelTorqueOut : TorquePort;
+        port rearWheelTorqueOut : TorquePort;
+        port electricalIn : ElectricalPowerPort;
+
+        action distributeTorque {
+            in drivelineTorque : MechanicalTorque;
+            in driveMode : DriveMode;
+            out frontTorque : MechanicalTorque;
+            out rearTorque : MechanicalTorque;
+        }
+    }
+
+    part def BrakeSystem {
+        attribute maxBrakeForce : ForceValue = 42000;
+        attribute parkingBrakeApplied : Boolean;
+
+        port hydraulicCommandIn : HydraulicPort;
+        port electricalIn : ElectricalPowerPort;
+        port diagnostics : DiagnosticPort;
+
+        action applyBrakes {
+            in requestedBrakeForce : ForceValue;
+            out actualBrakeForce : ForceValue;
+        }
+
+        action holdVehicle {
+            in gradeAngle : Real;
+            out held : Boolean;
+        }
+    }
+
+    part def SteeringSystem {
+        attribute maxSteeringAngle : Real = 36.0;
+        attribute assistAvailable : Boolean = true;
+
+        port electricalIn : ElectricalPowerPort;
+        port commandIn : DriverCommandPort;
+
+        action steer {
+            in requestedAngle : Real;
+            out roadWheelAngle : Real;
+        }
+    }
+
+    part def Chassis {
+        attribute curbMass : MassValue = 2350;
+        attribute grossVehicleWeightRating : MassValue = 3300;
+        attribute wheelbase : LengthValue = 3.65;
+        attribute groundClearance : LengthValue = 0.24;
+        attribute maxPayload : MassValue = 950;
+        attribute maxTowRating : MassValue = 5400;
+
+        port frontTorqueIn : TorquePort;
+        port rearTorqueIn : TorquePort;
+        port brakeHydraulicIn : HydraulicPort;
+        port motionOut : MotionPort;
+        port cargoIn : CargoInterfacePort;
+        port trailerIn : TrailerInterfacePort;
+
+        part frame;
+        part frontSuspension;
+        part rearSuspension;
+        part wheels[4];
+
+        action supportLoad {
+            in cargo : Cargo;
+            in trailer : TrailerLoad;
+            out withinRating : Boolean;
+        }
+
+        action convertWheelTorqueToMotion {
+            in frontTorque : MechanicalTorque;
+            in rearTorque : MechanicalTorque;
+            in brakeForce : ForceValue;
+            out vehicleMotion : VehicleMotion;
+        }
+    }
+
+    part def CargoBed {
+        attribute bedLength : LengthValue = 1.70;
+        attribute bedWidth : LengthValue = 1.58;
+        attribute bedDepth : LengthValue = 0.53;
+        attribute payloadCapacity : MassValue = 950;
+        attribute tailgateClosed : Boolean;
+
+        port cargoIn : CargoInterfacePort;
+
+        action retainCargo {
+            in cargo : Cargo;
+            out cargoRetained : Boolean;
+        }
+
+        action openTailgate {
+            out tailgateOpen : Boolean;
+        }
+
+        action closeTailgate {
+            out tailgateClosedResult : Boolean;
+        }
+    }
+
+    part def Cab {
+        attribute seatingCapacity : Integer = 5;
+        attribute occupantMassAllowance : MassValue = 400;
+
+        port driverCommandOut : DriverCommandPort;
+        port electricalIn : ElectricalPowerPort;
+
+        part driverSeat;
+        part passengerSeats[4];
+        part instrumentCluster;
+        part climateControl;
+
+        action collectDriverInputs {
+            out command : DriverCommand;
+        }
+
+        action displayStatus {
+            in motion : VehicleMotion;
+            in diagnostics : DiagnosticMessage;
+        }
+    }
+
+    part def ElectricalSystem {
+        attribute nominalVoltage : Real = 12.0;
+        attribute batteryCapacity : EnergyValue = 2.6;
+        attribute alternatorPower : PowerValue = 2.0;
+
+        port enginePower : ElectricalPowerPort;
+        port transmissionPower : ElectricalPowerPort;
+        port steeringPower : ElectricalPowerPort;
+        port brakePower : ElectricalPowerPort;
+        port cabPower : ElectricalPowerPort;
+        port diagnostics : DiagnosticPort;
+
+        action supplyPower {
+            out electricalEnergy : ElectricalEnergy;
+        }
+
+        action rechargeBattery {
+            in mechanicalTorque : MechanicalTorque;
+            out storedEnergy : ElectricalEnergy;
+        }
+    }
+
+    part def FuelSystem {
+        attribute tankCapacity : VolumeValue = 90;
+        attribute usableFuel : VolumeValue = 88;
+        attribute fuelLevel : VolumeValue;
+
+        port fuelOut : FuelPort;
+        port electricalIn : ElectricalPowerPort;
+        port diagnostics : DiagnosticPort;
+
+        action deliverFuel {
+            in demandedFuelFlow : VolumeValue;
+            out deliveredFuel : Fuel;
+        }
+    }
+
+    part def HitchSystem {
+        attribute receiverClass : Integer = 4;
+        attribute maxTongueWeight : MassValue = 540;
+        attribute maxTrailerMass : MassValue = 5400;
+
+        port trailerIn : TrailerInterfacePort;
+        port electricalIn : ElectricalPowerPort;
+
+        action attachTrailer {
+            in trailer : TrailerLoad;
+            out attached : Boolean;
+        }
+
+        action validateTrailerLoad {
+            in trailer : TrailerLoad;
+            out withinTowRating : Boolean;
+        }
+    }
+
+    part def VehicleController {
+        attribute currentDriveMode : DriveMode = DriveMode::normal;
+        attribute requestedGear : GearPosition = GearPosition::park;
+        attribute brakeCommand : BrakeCommandKind = BrakeCommandKind::none;
+        attribute vehicleEnabled : Boolean;
+
+        port driverCommandIn : DriverCommandPort;
+        port electricalIn : ElectricalPowerPort;
+        port diagnostics : DiagnosticPort;
+
+        action coordinatePropulsion {
+            in command : DriverCommand;
+            in motion : VehicleMotion;
+            out throttleRequest : Real;
+            out gearRequest : GearPosition;
+            out brakeRequest : ForceValue;
+        }
+
+        action enforceRatings {
+            in cargo : Cargo;
+            in trailer : TrailerLoad;
+            out operationAllowed : Boolean;
+        }
+
+        state def VehicleMissionState {
+            entry; then parked;
+
+            state parked;
+            state ready;
+            state driving;
+            state hauling;
+            state towing;
+            state braking;
+            state shutdown;
+            state faulted;
+
+            transition parked_to_ready
+                first parked
+                accept ignitionOn
+                then ready;
+
+            transition ready_to_driving
+                first ready
+                if driverCommandIn.command.selectedGear == GearPosition::drive
+                then driving;
+
+            transition driving_to_hauling
+                first driving
+                if driverCommandIn.command.selectedDriveMode == DriveMode::towHaul
+                then hauling;
+
+            transition driving_to_towing
+                first driving
+                accept trailerDetected
+                then towing;
+
+            transition driving_to_braking
+                first driving
+                if driverCommandIn.command.brakePedalPosition > 0.05
+                then braking;
+
+            transition braking_to_driving
+                first braking
+                if driverCommandIn.command.brakePedalPosition <= 0.05
+                then driving;
+
+            transition ready_to_shutdown
+                first ready
+                accept ignitionOff
+                then shutdown;
+
+            transition any_to_faulted
+                first driving
+                accept criticalFault
+                then faulted;
+        }
+    }
+
+    part def Pickup {
+        attribute primaryFunction : String =
+            "Transport occupants and cargo over roads and light off-road terrain while providing controlled propulsion, braking, steering, cargo hauling, and trailer towing within rated limits.";
+
+        attribute overallLength : LengthValue = 5.85;
+        attribute overallWidth : LengthValue = 2.03;
+        attribute overallHeight : LengthValue = 1.95;
+        attribute maximumSpeed : SpeedValue = 175;
+        attribute payloadRating : MassValue = 950;
+        attribute towingRating : MassValue = 5400;
+
+        port driverCommand : DriverCommandPort;
+        port cargoInterface : CargoInterfacePort;
+        port trailerInterface : TrailerInterfacePort;
+        port vehicleMotion : MotionPort;
+        port diagnostics : DiagnosticPort;
+
+        part engine : Engine;
+        part transmission : Transmission;
+        part driveline : Driveline;
+        part brakeSystem : BrakeSystem;
+        part steeringSystem : SteeringSystem;
+        part chassis : Chassis;
+        part cargoBed : CargoBed;
+        part cab : Cab;
+        part electricalSystem : ElectricalSystem;
+        part fuelSystem : FuelSystem;
+        part hitchSystem : HitchSystem;
+        part controller : VehicleController;
+
+        connect fuelSystem.fuelOut to engine.fuelIn;
+        connect engine.crankshaftOut to transmission.engineTorqueIn;
+        connect transmission.drivelineTorqueOut to driveline.torqueIn;
+        connect driveline.frontWheelTorqueOut to chassis.frontTorqueIn;
+        connect driveline.rearWheelTorqueOut to chassis.rearTorqueIn;
+
+        connect electricalSystem.enginePower to engine.electricalIn;
+        connect electricalSystem.transmissionPower to transmission.electricalIn;
+        connect electricalSystem.steeringPower to steeringSystem.electricalIn;
+        connect electricalSystem.brakePower to brakeSystem.electricalIn;
+        connect electricalSystem.cabPower to cab.electricalIn;
+
+        connect cab.driverCommandOut to controller.driverCommandIn;
+        connect driverCommand to cab.driverCommandOut;
+        connect cargoInterface to cargoBed.cargoIn;
+        connect cargoInterface to chassis.cargoIn;
+        connect trailerInterface to hitchSystem.trailerIn;
+        connect trailerInterface to chassis.trailerIn;
+        connect chassis.motionOut to vehicleMotion;
+
+        connect engine.diagnostics to diagnostics;
+        connect transmission.diagnostics to diagnostics;
+        connect brakeSystem.diagnostics to diagnostics;
+        connect fuelSystem.diagnostics to diagnostics;
+        connect electricalSystem.diagnostics to diagnostics;
+        connect controller.diagnostics to diagnostics;
+
+        action performPrimaryTransportFunction {
+            in driverInput : DriverCommand;
+            in loadedCargo : Cargo;
+            in trailerLoad : TrailerLoad;
+            out motion : VehicleMotion;
+            out operationPermitted : Boolean;
+
+            first startVehicle;
+            then validateLoads;
+            then generatePropulsion;
+            then controlDirectionAndSpeed;
+            then transportOccupantsCargoAndTrailer;
+
+            action startVehicle {
+                out enabled : Boolean;
+            }
+
+            action validateLoads {
+                in cargo : Cargo = loadedCargo;
+                in trailer : TrailerLoad = trailerLoad;
+                out allowed : Boolean = operationPermitted;
+            }
+
+            action generatePropulsion {
+                in command : DriverCommand = driverInput;
+                out wheelTorque : MechanicalTorque;
+            }
+
+            action controlDirectionAndSpeed {
+                in command : DriverCommand = driverInput;
+                out controlledMotion : VehicleMotion = motion;
+            }
+
+            action transportOccupantsCargoAndTrailer {
+                in controlledMotion : VehicleMotion = motion;
+                in cargo : Cargo = loadedCargo;
+                in trailer : TrailerLoad = trailerLoad;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject pickup : Pickup;
+
+        doc
+            /* The pickup shall provide transportation for occupants and cargo by converting stored fuel energy into controlled vehicle motion while supporting payload and trailer loads within rated limits. */
+
+        require constraint {
+            pickup.payloadRating >= 900 and
+            pickup.towingRating >= 5000 and
+            pickup.maximumSpeed >= 160
+        }
+    }
+
+    requirement def PayloadRequirement {
+        subject pickup : Pickup;
+        attribute requiredPayload : MassValue = 900;
+
+        doc
+            /* The pickup shall carry cargo in the cargo bed without exceeding chassis gross vehicle weight rating. */
+
+        require constraint {
+            pickup.cargoBed.payloadCapacity >= requiredPayload and
+            pickup.chassis.maxPayload >= requiredPayload
+        }
+    }
+
+    requirement def TowingRequirement {
+        subject pickup : Pickup;
+        attribute requiredTowRating : MassValue = 5000;
+        attribute requiredTongueWeight : MassValue = 500;
+
+        doc
+            /* The pickup shall tow a trailer through a rear hitch interface while maintaining load ratings and vehicle control. */
+
+        require constraint {
+            pickup.hitchSystem.maxTrailerMass >= requiredTowRating and
+            pickup.hitchSystem.maxTongueWeight >= requiredTongueWeight
+        }
+    }
+
+    requirement def PropulsionRequirement {
+        subject pickup : Pickup;
+        attribute minimumPower : PowerValue = 250;
+        attribute minimumTorque : TorqueValue = 500;
+
+        doc
+            /* The pickup propulsion system shall generate sufficient torque and power for normal driving, hauling, and towing modes. */
+
+        require constraint {
+            pickup.engine.ratedPower >= minimumPower and
+            pickup.engine.peakTorque >= minimumTorque
+        }
+    }
+
+    requirement def ControlRequirement {
+        subject pickup : Pickup;
+
+        doc
+            /* The pickup shall accept driver steering, braking, acceleration, gear, and drive mode commands and coordinate propulsion, braking, and steering responses. */
+
+        require constraint {
+            pickup.controller.vehicleEnabled implies
+            pickup.steeringSystem.assistAvailable
+        }
+    }
+
+    requirement def ElectricalPowerRequirement {
+        subject pickup : Pickup;
+        attribute requiredVoltage : Real = 12.0;
+
+        doc
+            /* The pickup shall provide low-voltage electrical energy to starting, control, braking, steering assist, cab, and diagnostic functions. */
+
+        require constraint {
+            pickup.electricalSystem.nominalVoltage == requiredVoltage
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Pickup::performPrimaryTransportFunction;
+    satisfy PayloadRequirement by Pickup::cargoBed;
+    satisfy PayloadRequirement by Pickup::chassis;
+    satisfy TowingRequirement by Pickup::hitchSystem;
+    satisfy PropulsionRequirement by Pickup::engine;
+    satisfy ControlRequirement by Pickup::controller;
+    satisfy ElectricalPowerRequirement by Pickup::electricalSystem;
+
+    part pickupSystem : Pickup;
+}

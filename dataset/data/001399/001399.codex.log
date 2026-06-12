@@ -1,0 +1,839 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-28spqc2o
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb68e-7fd1-7212-b9cb-3c87630a4f65
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Digital Enhanced Cordless Telecommunications and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DigitalEnhancedCordlessTelecommunicationsSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def FrequencyMHz :> Real {
+        unit = "MHz";
+    }
+
+    attribute def PowerdBm :> Real {
+        unit = "dBm";
+    }
+
+    attribute def DataRateKbps :> Real {
+        unit = "kbps";
+    }
+
+    attribute def TimeMs :> Real {
+        unit = "ms";
+    }
+
+    attribute def DistanceM :> Real {
+        unit = "m";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def Count :> Integer;
+
+    item def VoiceFrame {
+        attribute payloadSizeBytes : Count = 40;
+        attribute frameDuration : TimeMs = 10.0;
+        attribute codecRate : DataRateKbps = 32.0;
+    }
+
+    item def SignalingMessage {
+        attribute messageId : Count;
+        attribute sequenceNumber : Count;
+        attribute integrityProtected : Boolean = true;
+    }
+
+    item def RadioBurst {
+        attribute carrierFrequency : FrequencyMHz;
+        attribute transmitPower : PowerdBm;
+        attribute slotDuration : TimeMs = 0.4167;
+    }
+
+    item def AudioSignal {
+        attribute sampleRateKHz : Real = 8.0;
+        attribute nominalLevelDb : Real = -10.0;
+    }
+
+    item def PowerEnergy {
+        attribute batteryPercent : Percentage;
+        attribute supplyVoltageV : Real;
+    }
+
+    port def AudioInPort {
+        in item audio : AudioSignal;
+    }
+
+    port def AudioOutPort {
+        out item audio : AudioSignal;
+    }
+
+    port def RadioTxPort {
+        out item burst : RadioBurst;
+        out item signaling : SignalingMessage;
+        out item voice : VoiceFrame;
+    }
+
+    port def RadioRxPort {
+        in item burst : RadioBurst;
+        in item signaling : SignalingMessage;
+        in item voice : VoiceFrame;
+    }
+
+    port def NetworkPort {
+        inout item voice : VoiceFrame;
+        inout item signaling : SignalingMessage;
+    }
+
+    port def ChargingPort {
+        in item energy : PowerEnergy;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The Digital Enhanced Cordless Telecommunications system shall provide
+           short-range digital cordless voice communication between a portable
+           handset and a fixed base station, while maintaining registration,
+           call setup, secure radio transport, audio conversion, and connection
+           to an external telephone or voice network. */
+    }
+
+    requirement def RadioCoverageRequirement {
+        attribute minimumIndoorRange : DistanceM = 50.0;
+        attribute minimumOutdoorRange : DistanceM = 300.0;
+        doc
+        /* The system shall maintain usable cordless communication within
+           specified indoor and outdoor operating ranges under nominal radio
+           conditions. */
+    }
+
+    requirement def VoiceQualityRequirement {
+        attribute maximumOneWayLatency : TimeMs = 40.0;
+        attribute nominalCodecRate : DataRateKbps = 32.0;
+        doc
+        /* The system shall transport encoded voice frames with low latency
+           suitable for conversational speech. */
+    }
+
+    requirement def SecureAccessRequirement {
+        doc
+        /* The system shall authenticate handsets before service access and
+           shall encrypt protected cordless radio traffic after successful
+           registration. */
+    }
+
+    requirement def PowerRequirement {
+        attribute minimumStandbyBatteryPercent : Percentage = 10.0;
+        doc
+        /* The handset shall monitor battery state and support charging through
+           its cradle interface. */
+    }
+
+    action def CaptureSpeech {
+        in item microphoneAudio : AudioSignal;
+        out item encodedVoice : VoiceFrame;
+    }
+
+    action def RenderSpeech {
+        in item decodedVoice : VoiceFrame;
+        out item speakerAudio : AudioSignal;
+    }
+
+    action def RegisterHandset {
+        in item request : SignalingMessage;
+        out item response : SignalingMessage;
+    }
+
+    action def EstablishCall {
+        in item setupRequest : SignalingMessage;
+        out item setupResponse : SignalingMessage;
+    }
+
+    action def TransferVoiceFrame {
+        in item uplinkVoice : VoiceFrame;
+        out item downlinkVoice : VoiceFrame;
+    }
+
+    action def ReleaseCall {
+        in item releaseRequest : SignalingMessage;
+        out item releaseComplete : SignalingMessage;
+    }
+
+    state def HandsetOperationalState {
+        entry action initializeRadio;
+        state poweredOff;
+        state idle;
+        state registering;
+        state registered;
+        state callSetup;
+        state activeCall;
+        state lowBattery;
+        state charging;
+
+        transition first poweredOff;
+        transition powerOn from poweredOff to idle;
+        transition startRegistration from idle to registering;
+        transition registrationAccepted from registering to registered;
+        transition originateOrAnswerCall from registered to callSetup;
+        transition callConnected from callSetup to activeCall;
+        transition callReleased from activeCall to registered;
+        transition batteryLow from idle to lowBattery;
+        transition batteryLowDuringService from registered to lowBattery;
+        transition placeOnCradle from lowBattery to charging;
+        transition chargeSufficient from charging to idle;
+        transition powerOff from idle to poweredOff;
+    }
+
+    state def BaseStationOperationalState {
+        state unavailable;
+        state scanning;
+        state serviceReady;
+        state authenticatingHandset;
+        state routingCall;
+        state bridgingVoice;
+        state faulted;
+
+        transition first unavailable;
+        transition bootComplete from unavailable to scanning;
+        transition carrierAndNetworkReady from scanning to serviceReady;
+        transition registrationRequestReceived from serviceReady to authenticatingHandset;
+        transition handsetAuthenticated from authenticatingHandset to serviceReady;
+        transition callRequestReceived from serviceReady to routingCall;
+        transition networkCallEstablished from routingCall to bridgingVoice;
+        transition callCleared from bridgingVoice to serviceReady;
+        transition unrecoverableError from serviceReady to faulted;
+        transition reset from faulted to unavailable;
+    }
+
+    part def Microphone {
+        port audioOut : AudioOutPort;
+        attribute sensitivityDbVPerPa : Real = -42.0;
+    }
+
+    part def Speaker {
+        port audioIn : AudioInPort;
+        attribute acousticOutputDbSpl : Real = 85.0;
+    }
+
+    part def AudioCodec {
+        port analogIn : AudioInPort;
+        port analogOut : AudioOutPort;
+        attribute encodeRate : DataRateKbps = 32.0;
+        attribute framePeriod : TimeMs = 10.0;
+
+        perform action capture : CaptureSpeech;
+        perform action render : RenderSpeech;
+    }
+
+    part def HandsetRadio {
+        port tx : RadioTxPort;
+        port rx : RadioRxPort;
+        attribute lowerCarrierFrequency : FrequencyMHz = 1880.0;
+        attribute upperCarrierFrequency : FrequencyMHz = 1900.0;
+        attribute peakTransmitPower : PowerdBm = 24.0;
+        attribute timeSlotsPerFrame : Count = 24;
+    }
+
+    part def BatteryPack {
+        port chargeInput : ChargingPort;
+        attribute nominalVoltageV : Real = 2.4;
+        attribute capacitymAh : Real = 750.0;
+        attribute stateOfCharge : Percentage = 100.0;
+    }
+
+    part def KeypadAndDisplay {
+        out item userDialingMessage : SignalingMessage;
+        in item callStatusMessage : SignalingMessage;
+        attribute displayCharacters : Count = 32;
+    }
+
+    part def PortableHandset {
+        part microphone : Microphone;
+        part speaker : Speaker;
+        part codec : AudioCodec;
+        part radio : HandsetRadio;
+        part battery : BatteryPack;
+        part userInterface : KeypadAndDisplay;
+
+        port radioTx : RadioTxPort;
+        port radioRx : RadioRxPort;
+        port charger : ChargingPort;
+
+        attribute registered : Boolean = false;
+        attribute activeCall : Boolean = false;
+        attribute selectedSlot : Count;
+        attribute receivedSignalStrengthDbm : PowerdBm;
+
+        exhibit state handsetState : HandsetOperationalState;
+
+        connect microphone.audioOut to codec.analogIn;
+        connect codec.analogOut to speaker.audioIn;
+        connect radio.tx to radioTx;
+        connect radioRx to radio.rx;
+        connect charger to battery.chargeInput;
+    }
+
+    part def BaseRadioTransceiver {
+        port tx : RadioTxPort;
+        port rx : RadioRxPort;
+        attribute lowerCarrierFrequency : FrequencyMHz = 1880.0;
+        attribute upperCarrierFrequency : FrequencyMHz = 1900.0;
+        attribute peakTransmitPower : PowerdBm = 24.0;
+        attribute supportedHandsets : Count = 6;
+    }
+
+    part def AuthenticationController {
+        in item registrationRequest : SignalingMessage;
+        out item registrationResponse : SignalingMessage;
+        attribute encryptionEnabled : Boolean = true;
+        attribute authenticationKeyLengthBits : Count = 128;
+
+        perform action registration : RegisterHandset;
+    }
+
+    part def CallController {
+        inout item callSignaling : SignalingMessage;
+        attribute simultaneousCallsSupported : Count = 2;
+
+        perform action setup : EstablishCall;
+        perform action release : ReleaseCall;
+    }
+
+    part def VoiceBridge {
+        inout item handsetVoice : VoiceFrame;
+        inout item networkVoice : VoiceFrame;
+        attribute jitterBufferDepth : Count = 4;
+
+        perform action voiceTransfer : TransferVoiceFrame;
+    }
+
+    part def NetworkInterface {
+        port network : NetworkPort;
+        attribute lineImpedanceOhm : Real = 600.0;
+        attribute supportsPstn : Boolean = true;
+        attribute supportsVoipGateway : Boolean = true;
+    }
+
+    part def ChargingCradle {
+        port energyOut : ChargingPort;
+        attribute chargeVoltageV : Real = 5.0;
+        attribute maximumChargeCurrentmA : Real = 300.0;
+    }
+
+    part def FixedBaseStation {
+        part radio : BaseRadioTransceiver;
+        part authentication : AuthenticationController;
+        part callControl : CallController;
+        part bridge : VoiceBridge;
+        part networkInterface : NetworkInterface;
+        part cradle : ChargingCradle;
+
+        port radioTx : RadioTxPort;
+        port radioRx : RadioRxPort;
+        port externalNetwork : NetworkPort;
+        port chargeSupply : ChargingPort;
+
+        attribute networkAvailable : Boolean = true;
+        attribute registeredHandsetCount : Count = 0;
+        attribute activeCallCount : Count = 0;
+
+        exhibit state baseState : BaseStationOperationalState;
+
+        connect radio.tx to radioTx;
+        connect radioRx to radio.rx;
+        connect networkInterface.network to externalNetwork;
+        connect cradle.energyOut to chargeSupply;
+    }
+
+    part def DectRadioLink {
+        port handsetTransmit : RadioRxPort;
+        port handsetReceive : RadioTxPort;
+        port baseTransmit : RadioRxPort;
+        port baseReceive : RadioTxPort;
+
+        attribute duplexMethod : String = "Time Division Duplex";
+        attribute multipleAccessMethod : String = "Time Division Multiple Access";
+        attribute framePeriod : TimeMs = 10.0;
+        attribute channelsPerCarrier : Count = 12;
+        attribute nominalRangeIndoor : DistanceM = 50.0;
+        attribute nominalRangeOutdoor : DistanceM = 300.0;
+    }
+
+    part def DigitalEnhancedCordlessTelecommunicationsSystem {
+        part handset : PortableHandset;
+        part baseStation : FixedBaseStation;
+        part radioLink : DectRadioLink;
+
+        port externalNetwork : NetworkPort;
+
+        attribute primaryFunction : String =
+            "Provide digital cordless voice communication between a portable handset and a fixed base station connected to a telephone or voice network.";
+
+        connect handset.radioTx to radioLink.handsetTransmit;
+        connect radioLink.handsetReceive to handset.radioRx;
+        connect baseStation.radioTx to radioLink.baseTransmit;
+        connect radioLink.baseReceive to baseStation.radioRx;
+        connect baseStation.externalNetwork to externalNetwork;
+        connect baseStation.chargeSupply to handset.charger;
+
+        satisfy PrimaryFunctionRequirement by DigitalEnhancedCordlessTelecommunicationsSystem;
+        satisfy RadioCoverageRequirement by radioLink;
+        satisfy VoiceQualityRequirement by handset.codec;
+        satisfy VoiceQualityRequirement by baseStation.bridge;
+        satisfy SecureAccessRequirement by baseStation.authentication;
+        satisfy PowerRequirement by handset.battery;
+    }
+
+    action def ProvideCordlessTelecommunicationService {
+        in item callerSpeech : AudioSignal;
+        in item callSetupCommand : SignalingMessage;
+        out item remoteSpeech : AudioSignal;
+        out item callStatus : SignalingMessage;
+
+        first start;
+        then registerHandset : RegisterHandset;
+        then setupCall : EstablishCall;
+        then encodeSpeech : CaptureSpeech;
+        then transferVoice : TransferVoiceFrame;
+        then decodeSpeech : RenderSpeech;
+        then releaseWhenComplete : ReleaseCall;
+        then done;
+    }
+
+    requirement systemRequirement : PrimaryFunctionRequirement;
+    requirement coverageRequirement : RadioCoverageRequirement;
+    requirement voiceRequirement : VoiceQualityRequirement;
+    requirement securityRequirement : SecureAccessRequirement;
+    requirement powerManagementRequirement : PowerRequirement;
+
+    part dectSystem : DigitalEnhancedCordlessTelecommunicationsSystem;
+
+    perform action serviceFunction : ProvideCordlessTelecommunicationService;
+
+}
+tokens used
+3,220
+package DigitalEnhancedCordlessTelecommunicationsSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def FrequencyMHz :> Real {
+        unit = "MHz";
+    }
+
+    attribute def PowerdBm :> Real {
+        unit = "dBm";
+    }
+
+    attribute def DataRateKbps :> Real {
+        unit = "kbps";
+    }
+
+    attribute def TimeMs :> Real {
+        unit = "ms";
+    }
+
+    attribute def DistanceM :> Real {
+        unit = "m";
+    }
+
+    attribute def Percentage :> Real {
+        unit = "%";
+    }
+
+    attribute def Count :> Integer;
+
+    item def VoiceFrame {
+        attribute payloadSizeBytes : Count = 40;
+        attribute frameDuration : TimeMs = 10.0;
+        attribute codecRate : DataRateKbps = 32.0;
+    }
+
+    item def SignalingMessage {
+        attribute messageId : Count;
+        attribute sequenceNumber : Count;
+        attribute integrityProtected : Boolean = true;
+    }
+
+    item def RadioBurst {
+        attribute carrierFrequency : FrequencyMHz;
+        attribute transmitPower : PowerdBm;
+        attribute slotDuration : TimeMs = 0.4167;
+    }
+
+    item def AudioSignal {
+        attribute sampleRateKHz : Real = 8.0;
+        attribute nominalLevelDb : Real = -10.0;
+    }
+
+    item def PowerEnergy {
+        attribute batteryPercent : Percentage;
+        attribute supplyVoltageV : Real;
+    }
+
+    port def AudioInPort {
+        in item audio : AudioSignal;
+    }
+
+    port def AudioOutPort {
+        out item audio : AudioSignal;
+    }
+
+    port def RadioTxPort {
+        out item burst : RadioBurst;
+        out item signaling : SignalingMessage;
+        out item voice : VoiceFrame;
+    }
+
+    port def RadioRxPort {
+        in item burst : RadioBurst;
+        in item signaling : SignalingMessage;
+        in item voice : VoiceFrame;
+    }
+
+    port def NetworkPort {
+        inout item voice : VoiceFrame;
+        inout item signaling : SignalingMessage;
+    }
+
+    port def ChargingPort {
+        in item energy : PowerEnergy;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The Digital Enhanced Cordless Telecommunications system shall provide
+           short-range digital cordless voice communication between a portable
+           handset and a fixed base station, while maintaining registration,
+           call setup, secure radio transport, audio conversion, and connection
+           to an external telephone or voice network. */
+    }
+
+    requirement def RadioCoverageRequirement {
+        attribute minimumIndoorRange : DistanceM = 50.0;
+        attribute minimumOutdoorRange : DistanceM = 300.0;
+        doc
+        /* The system shall maintain usable cordless communication within
+           specified indoor and outdoor operating ranges under nominal radio
+           conditions. */
+    }
+
+    requirement def VoiceQualityRequirement {
+        attribute maximumOneWayLatency : TimeMs = 40.0;
+        attribute nominalCodecRate : DataRateKbps = 32.0;
+        doc
+        /* The system shall transport encoded voice frames with low latency
+           suitable for conversational speech. */
+    }
+
+    requirement def SecureAccessRequirement {
+        doc
+        /* The system shall authenticate handsets before service access and
+           shall encrypt protected cordless radio traffic after successful
+           registration. */
+    }
+
+    requirement def PowerRequirement {
+        attribute minimumStandbyBatteryPercent : Percentage = 10.0;
+        doc
+        /* The handset shall monitor battery state and support charging through
+           its cradle interface. */
+    }
+
+    action def CaptureSpeech {
+        in item microphoneAudio : AudioSignal;
+        out item encodedVoice : VoiceFrame;
+    }
+
+    action def RenderSpeech {
+        in item decodedVoice : VoiceFrame;
+        out item speakerAudio : AudioSignal;
+    }
+
+    action def RegisterHandset {
+        in item request : SignalingMessage;
+        out item response : SignalingMessage;
+    }
+
+    action def EstablishCall {
+        in item setupRequest : SignalingMessage;
+        out item setupResponse : SignalingMessage;
+    }
+
+    action def TransferVoiceFrame {
+        in item uplinkVoice : VoiceFrame;
+        out item downlinkVoice : VoiceFrame;
+    }
+
+    action def ReleaseCall {
+        in item releaseRequest : SignalingMessage;
+        out item releaseComplete : SignalingMessage;
+    }
+
+    state def HandsetOperationalState {
+        entry action initializeRadio;
+        state poweredOff;
+        state idle;
+        state registering;
+        state registered;
+        state callSetup;
+        state activeCall;
+        state lowBattery;
+        state charging;
+
+        transition first poweredOff;
+        transition powerOn from poweredOff to idle;
+        transition startRegistration from idle to registering;
+        transition registrationAccepted from registering to registered;
+        transition originateOrAnswerCall from registered to callSetup;
+        transition callConnected from callSetup to activeCall;
+        transition callReleased from activeCall to registered;
+        transition batteryLow from idle to lowBattery;
+        transition batteryLowDuringService from registered to lowBattery;
+        transition placeOnCradle from lowBattery to charging;
+        transition chargeSufficient from charging to idle;
+        transition powerOff from idle to poweredOff;
+    }
+
+    state def BaseStationOperationalState {
+        state unavailable;
+        state scanning;
+        state serviceReady;
+        state authenticatingHandset;
+        state routingCall;
+        state bridgingVoice;
+        state faulted;
+
+        transition first unavailable;
+        transition bootComplete from unavailable to scanning;
+        transition carrierAndNetworkReady from scanning to serviceReady;
+        transition registrationRequestReceived from serviceReady to authenticatingHandset;
+        transition handsetAuthenticated from authenticatingHandset to serviceReady;
+        transition callRequestReceived from serviceReady to routingCall;
+        transition networkCallEstablished from routingCall to bridgingVoice;
+        transition callCleared from bridgingVoice to serviceReady;
+        transition unrecoverableError from serviceReady to faulted;
+        transition reset from faulted to unavailable;
+    }
+
+    part def Microphone {
+        port audioOut : AudioOutPort;
+        attribute sensitivityDbVPerPa : Real = -42.0;
+    }
+
+    part def Speaker {
+        port audioIn : AudioInPort;
+        attribute acousticOutputDbSpl : Real = 85.0;
+    }
+
+    part def AudioCodec {
+        port analogIn : AudioInPort;
+        port analogOut : AudioOutPort;
+        attribute encodeRate : DataRateKbps = 32.0;
+        attribute framePeriod : TimeMs = 10.0;
+
+        perform action capture : CaptureSpeech;
+        perform action render : RenderSpeech;
+    }
+
+    part def HandsetRadio {
+        port tx : RadioTxPort;
+        port rx : RadioRxPort;
+        attribute lowerCarrierFrequency : FrequencyMHz = 1880.0;
+        attribute upperCarrierFrequency : FrequencyMHz = 1900.0;
+        attribute peakTransmitPower : PowerdBm = 24.0;
+        attribute timeSlotsPerFrame : Count = 24;
+    }
+
+    part def BatteryPack {
+        port chargeInput : ChargingPort;
+        attribute nominalVoltageV : Real = 2.4;
+        attribute capacitymAh : Real = 750.0;
+        attribute stateOfCharge : Percentage = 100.0;
+    }
+
+    part def KeypadAndDisplay {
+        out item userDialingMessage : SignalingMessage;
+        in item callStatusMessage : SignalingMessage;
+        attribute displayCharacters : Count = 32;
+    }
+
+    part def PortableHandset {
+        part microphone : Microphone;
+        part speaker : Speaker;
+        part codec : AudioCodec;
+        part radio : HandsetRadio;
+        part battery : BatteryPack;
+        part userInterface : KeypadAndDisplay;
+
+        port radioTx : RadioTxPort;
+        port radioRx : RadioRxPort;
+        port charger : ChargingPort;
+
+        attribute registered : Boolean = false;
+        attribute activeCall : Boolean = false;
+        attribute selectedSlot : Count;
+        attribute receivedSignalStrengthDbm : PowerdBm;
+
+        exhibit state handsetState : HandsetOperationalState;
+
+        connect microphone.audioOut to codec.analogIn;
+        connect codec.analogOut to speaker.audioIn;
+        connect radio.tx to radioTx;
+        connect radioRx to radio.rx;
+        connect charger to battery.chargeInput;
+    }
+
+    part def BaseRadioTransceiver {
+        port tx : RadioTxPort;
+        port rx : RadioRxPort;
+        attribute lowerCarrierFrequency : FrequencyMHz = 1880.0;
+        attribute upperCarrierFrequency : FrequencyMHz = 1900.0;
+        attribute peakTransmitPower : PowerdBm = 24.0;
+        attribute supportedHandsets : Count = 6;
+    }
+
+    part def AuthenticationController {
+        in item registrationRequest : SignalingMessage;
+        out item registrationResponse : SignalingMessage;
+        attribute encryptionEnabled : Boolean = true;
+        attribute authenticationKeyLengthBits : Count = 128;
+
+        perform action registration : RegisterHandset;
+    }
+
+    part def CallController {
+        inout item callSignaling : SignalingMessage;
+        attribute simultaneousCallsSupported : Count = 2;
+
+        perform action setup : EstablishCall;
+        perform action release : ReleaseCall;
+    }
+
+    part def VoiceBridge {
+        inout item handsetVoice : VoiceFrame;
+        inout item networkVoice : VoiceFrame;
+        attribute jitterBufferDepth : Count = 4;
+
+        perform action voiceTransfer : TransferVoiceFrame;
+    }
+
+    part def NetworkInterface {
+        port network : NetworkPort;
+        attribute lineImpedanceOhm : Real = 600.0;
+        attribute supportsPstn : Boolean = true;
+        attribute supportsVoipGateway : Boolean = true;
+    }
+
+    part def ChargingCradle {
+        port energyOut : ChargingPort;
+        attribute chargeVoltageV : Real = 5.0;
+        attribute maximumChargeCurrentmA : Real = 300.0;
+    }
+
+    part def FixedBaseStation {
+        part radio : BaseRadioTransceiver;
+        part authentication : AuthenticationController;
+        part callControl : CallController;
+        part bridge : VoiceBridge;
+        part networkInterface : NetworkInterface;
+        part cradle : ChargingCradle;
+
+        port radioTx : RadioTxPort;
+        port radioRx : RadioRxPort;
+        port externalNetwork : NetworkPort;
+        port chargeSupply : ChargingPort;
+
+        attribute networkAvailable : Boolean = true;
+        attribute registeredHandsetCount : Count = 0;
+        attribute activeCallCount : Count = 0;
+
+        exhibit state baseState : BaseStationOperationalState;
+
+        connect radio.tx to radioTx;
+        connect radioRx to radio.rx;
+        connect networkInterface.network to externalNetwork;
+        connect cradle.energyOut to chargeSupply;
+    }
+
+    part def DectRadioLink {
+        port handsetTransmit : RadioRxPort;
+        port handsetReceive : RadioTxPort;
+        port baseTransmit : RadioRxPort;
+        port baseReceive : RadioTxPort;
+
+        attribute duplexMethod : String = "Time Division Duplex";
+        attribute multipleAccessMethod : String = "Time Division Multiple Access";
+        attribute framePeriod : TimeMs = 10.0;
+        attribute channelsPerCarrier : Count = 12;
+        attribute nominalRangeIndoor : DistanceM = 50.0;
+        attribute nominalRangeOutdoor : DistanceM = 300.0;
+    }
+
+    part def DigitalEnhancedCordlessTelecommunicationsSystem {
+        part handset : PortableHandset;
+        part baseStation : FixedBaseStation;
+        part radioLink : DectRadioLink;
+
+        port externalNetwork : NetworkPort;
+
+        attribute primaryFunction : String =
+            "Provide digital cordless voice communication between a portable handset and a fixed base station connected to a telephone or voice network.";
+
+        connect handset.radioTx to radioLink.handsetTransmit;
+        connect radioLink.handsetReceive to handset.radioRx;
+        connect baseStation.radioTx to radioLink.baseTransmit;
+        connect radioLink.baseReceive to baseStation.radioRx;
+        connect baseStation.externalNetwork to externalNetwork;
+        connect baseStation.chargeSupply to handset.charger;
+
+        satisfy PrimaryFunctionRequirement by DigitalEnhancedCordlessTelecommunicationsSystem;
+        satisfy RadioCoverageRequirement by radioLink;
+        satisfy VoiceQualityRequirement by handset.codec;
+        satisfy VoiceQualityRequirement by baseStation.bridge;
+        satisfy SecureAccessRequirement by baseStation.authentication;
+        satisfy PowerRequirement by handset.battery;
+    }
+
+    action def ProvideCordlessTelecommunicationService {
+        in item callerSpeech : AudioSignal;
+        in item callSetupCommand : SignalingMessage;
+        out item remoteSpeech : AudioSignal;
+        out item callStatus : SignalingMessage;
+
+        first start;
+        then registerHandset : RegisterHandset;
+        then setupCall : EstablishCall;
+        then encodeSpeech : CaptureSpeech;
+        then transferVoice : TransferVoiceFrame;
+        then decodeSpeech : RenderSpeech;
+        then releaseWhenComplete : ReleaseCall;
+        then done;
+    }
+
+    requirement systemRequirement : PrimaryFunctionRequirement;
+    requirement coverageRequirement : RadioCoverageRequirement;
+    requirement voiceRequirement : VoiceQualityRequirement;
+    requirement securityRequirement : SecureAccessRequirement;
+    requirement powerManagementRequirement : PowerRequirement;
+
+    part dectSystem : DigitalEnhancedCordlessTelecommunicationsSystem;
+
+    perform action serviceFunction : ProvideCordlessTelecommunicationService;
+
+}

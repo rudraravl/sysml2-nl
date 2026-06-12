@@ -1,0 +1,981 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-i8mw573y
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb71b-4037-7ab3-9c42-f7b147dcbfd2
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Radio frequency and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RadioFrequencyCommunicationSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> real {
+        unit = "Hz";
+    }
+
+    attribute def Power :> real {
+        unit = "W";
+    }
+
+    attribute def Gain :> real {
+        unit = "dB";
+    }
+
+    attribute def Voltage :> real {
+        unit = "V";
+    }
+
+    attribute def BitRate :> real {
+        unit = "bit/s";
+    }
+
+    attribute def Distance :> real {
+        unit = "m";
+    }
+
+    attribute def Temperature :> real {
+        unit = "degC";
+    }
+
+    attribute def Percent :> real {
+        unit = "%";
+    }
+
+    item def BasebandData {
+        attribute payloadSize : Integer;
+        attribute bitRate : BitRate;
+        attribute encoding : String;
+    }
+
+    item def ModulatedRFSignal {
+        attribute carrierFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute transmitPower : Power;
+        attribute modulationScheme : String;
+        attribute signalToNoiseRatio : Gain;
+    }
+
+    item def DemodulatedData {
+        attribute payloadSize : Integer;
+        attribute bitRate : BitRate;
+        attribute errorRate : Percent;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute requestedFrequency : Frequency;
+        attribute requestedPower : Power;
+        attribute requestedMode : String;
+    }
+
+    item def StatusReport {
+        attribute lockedFrequency : Frequency;
+        attribute outputPower : Power;
+        attribute receiverSignalStrength : Power;
+        attribute temperature : Temperature;
+        attribute linkAvailable : Boolean;
+    }
+
+    port def DataInputPort {
+        in item dataIn : BasebandData;
+    }
+
+    port def DataOutputPort {
+        out item dataOut : DemodulatedData;
+    }
+
+    port def RFTransmitPort {
+        out item rfOut : ModulatedRFSignal;
+    }
+
+    port def RFReceivePort {
+        in item rfIn : ModulatedRFSignal;
+    }
+
+    port def ControlPort {
+        in item command : ControlCommand;
+        out item status : StatusReport;
+    }
+
+    part def FrequencySynthesizer {
+        attribute referenceFrequency : Frequency = 10000000.0;
+        attribute selectedCarrierFrequency : Frequency = 915000000.0;
+        attribute tuningStep : Frequency = 1000.0;
+        attribute lockTime : real unit "ms" = 3.0;
+        attribute phaseNoise : Gain = -95.0;
+
+        port control : ControlPort;
+
+        action tuneCarrier {
+            in item command : ControlCommand;
+            out attribute carrier : Frequency;
+
+            first start;
+            then validateFrequency;
+            then adjustPhaseLockedLoop;
+            then verifyLock;
+            then done;
+
+            action validateFrequency;
+            action adjustPhaseLockedLoop;
+            action verifyLock;
+        }
+
+        state def SynthesizerState {
+            entry; then unlocked;
+
+            state unlocked;
+            state tuning;
+            state locked;
+
+            transition unlocked_to_tuning
+                first unlocked
+                accept ControlCommand
+                then tuning;
+
+            transition tuning_to_locked
+                first tuning
+                if selectedCarrierFrequency >= 300000000.0 and selectedCarrierFrequency <= 3000000000.0
+                then locked;
+
+            transition locked_to_tuning
+                first locked
+                accept ControlCommand
+                then tuning;
+        }
+    }
+
+    part def Modulator {
+        attribute modulationScheme : String = "GFSK";
+        attribute occupiedBandwidth : Frequency = 200000.0;
+        attribute symbolRate : BitRate = 100000.0;
+
+        port dataInput : DataInputPort;
+        port rfOutput : RFTransmitPort;
+
+        action modulateBaseband {
+            in item inputData : BasebandData;
+            in attribute carrier : Frequency;
+            out item rfSignal : ModulatedRFSignal;
+
+            first start;
+            then encodeBits;
+            then shapePulse;
+            then mixWithCarrier;
+            then emitRFSignal;
+
+            action encodeBits;
+            action shapePulse;
+            action mixWithCarrier;
+            action emitRFSignal;
+        }
+    }
+
+    part def PowerAmplifier {
+        attribute smallSignalGain : Gain = 28.0;
+        attribute maximumOutputPower : Power = 5.0;
+        attribute efficiency : Percent = 42.0;
+        attribute supplyVoltage : Voltage = 12.0;
+
+        port rfInput : RFReceivePort;
+        port rfOutput : RFTransmitPort;
+
+        action amplifySignal {
+            in item lowPowerSignal : ModulatedRFSignal;
+            out item amplifiedSignal : ModulatedRFSignal;
+
+            first start;
+            then biasAmplifier;
+            then applyGain;
+            then limitOutputPower;
+            then outputAmplifiedRF;
+
+            action biasAmplifier;
+            action applyGain;
+            action limitOutputPower;
+            action outputAmplifiedRF;
+        }
+    }
+
+    part def Antenna {
+        attribute centerFrequency : Frequency = 915000000.0;
+        attribute impedance : real unit "ohm" = 50.0;
+        attribute antennaGain : Gain = 3.0;
+        attribute voltageStandingWaveRatio : real = 1.5;
+        attribute polarization : String = "Vertical";
+
+        port transmitPort : RFReceivePort;
+        port receivePort : RFTransmitPort;
+
+        action radiateRF {
+            in item conductedSignal : ModulatedRFSignal;
+            out item radiatedSignal : ModulatedRFSignal;
+
+            first start;
+            then matchImpedance;
+            then convertCurrentToField;
+            then radiate;
+
+            action matchImpedance;
+            action convertCurrentToField;
+            action radiate;
+        }
+
+        action captureRF {
+            in item incidentSignal : ModulatedRFSignal;
+            out item conductedSignal : ModulatedRFSignal;
+
+            first start;
+            then interceptField;
+            then convertFieldToCurrent;
+            then deliverSignal;
+
+            action interceptField;
+            action convertFieldToCurrent;
+            action deliverSignal;
+        }
+    }
+
+    part def RFChannel {
+        attribute propagationDistance : Distance = 1000.0;
+        attribute pathLoss : Gain = 91.7;
+        attribute noiseFloor : Power = 0.000000000001;
+        attribute fadingMargin : Gain = 12.0;
+
+        port channelInput : RFReceivePort;
+        port channelOutput : RFTransmitPort;
+
+        action propagate {
+            in item transmittedSignal : ModulatedRFSignal;
+            out item receivedSignal : ModulatedRFSignal;
+
+            first start;
+            then attenuateByDistance;
+            then addThermalNoise;
+            then applyMultipathFading;
+            then deliverReceivedSignal;
+
+            action attenuateByDistance;
+            action addThermalNoise;
+            action applyMultipathFading;
+            action deliverReceivedSignal;
+        }
+    }
+
+    part def LowNoiseAmplifier {
+        attribute gain : Gain = 18.0;
+        attribute noiseFigure : Gain = 1.2;
+        attribute inputImpedance : real unit "ohm" = 50.0;
+
+        port rfInput : RFReceivePort;
+        port rfOutput : RFTransmitPort;
+
+        action boostWeakSignal {
+            in item weakSignal : ModulatedRFSignal;
+            out item boostedSignal : ModulatedRFSignal;
+
+            first start;
+            then matchInput;
+            then amplifyLowNoise;
+            then outputToMixer;
+
+            action matchInput;
+            action amplifyLowNoise;
+            action outputToMixer;
+        }
+    }
+
+    part def Demodulator {
+        attribute supportedModulation : String = "GFSK";
+        attribute receiverBandwidth : Frequency = 250000.0;
+        attribute minimumSignalToNoiseRatio : Gain = 10.0;
+
+        port rfInput : RFReceivePort;
+        port dataOutput : DataOutputPort;
+
+        action demodulateRF {
+            in item rfSignal : ModulatedRFSignal;
+            out item recoveredData : DemodulatedData;
+
+            first start;
+            then downconvert;
+            then filterBaseband;
+            then recoverClock;
+            then decideSymbols;
+            then emitRecoveredData;
+
+            action downconvert;
+            action filterBaseband;
+            action recoverClock;
+            action decideSymbols;
+            action emitRecoveredData;
+        }
+    }
+
+    part def LinkController {
+        attribute desiredCarrierFrequency : Frequency = 915000000.0;
+        attribute desiredTransmitPower : Power = 1.0;
+        attribute requiredBitRate : BitRate = 100000.0;
+        attribute linkMargin : Gain = 8.0;
+
+        port controlInterface : ControlPort;
+
+        action manageRadioLink {
+            in item command : ControlCommand;
+            out item status : StatusReport;
+
+            first start;
+            then configureFrequency;
+            then configureOutputPower;
+            then monitorSignalQuality;
+            then reportStatus;
+
+            action configureFrequency;
+            action configureOutputPower;
+            action monitorSignalQuality;
+            action reportStatus;
+        }
+
+        state def RadioLinkState {
+            entry; then idle;
+
+            state idle;
+            state configuring;
+            state transmitting;
+            state receiving;
+            state fault;
+
+            transition idle_to_configuring
+                first idle
+                accept ControlCommand
+                then configuring;
+
+            transition configuring_to_transmitting
+                first configuring
+                if desiredTransmitPower <= 5.0
+                then transmitting;
+
+            transition configuring_to_fault
+                first configuring
+                if desiredCarrierFrequency < 300000000.0 or desiredCarrierFrequency > 3000000000.0
+                then fault;
+
+            transition transmitting_to_receiving
+                first transmitting
+                accept ModulatedRFSignal
+                then receiving;
+
+            transition receiving_to_idle
+                first receiving
+                then idle;
+        }
+    }
+
+    part def RFTransceiverSystem {
+        attribute nominalCarrierFrequency : Frequency = 915000000.0;
+        attribute operatingBandwidth : Frequency = 200000.0;
+        attribute nominalTransmitPower : Power = 1.0;
+        attribute maximumTransmitPower : Power = 5.0;
+        attribute receiverSensitivity : Power = 0.0000000000001;
+        attribute primaryFunction : String = "Transmit and receive information by modulating baseband data onto a radio-frequency carrier and recovering data from received RF energy.";
+
+        port userDataInput : DataInputPort;
+        port userDataOutput : DataOutputPort;
+        port userControl : ControlPort;
+        port airInterfaceOut : RFTransmitPort;
+        port airInterfaceIn : RFReceivePort;
+
+        part synthesizer : FrequencySynthesizer;
+        part modulator : Modulator;
+        part amplifier : PowerAmplifier;
+        part antenna : Antenna;
+        part channel : RFChannel;
+        part lowNoiseAmplifier : LowNoiseAmplifier;
+        part demodulator : Demodulator;
+        part controller : LinkController;
+
+        connect userDataInput to modulator.dataInput;
+        connect modulator.rfOutput to amplifier.rfInput;
+        connect amplifier.rfOutput to antenna.transmitPort;
+        connect antenna.receivePort to airInterfaceOut;
+        connect airInterfaceIn to lowNoiseAmplifier.rfInput;
+        connect lowNoiseAmplifier.rfOutput to demodulator.rfInput;
+        connect demodulator.dataOutput to userDataOutput;
+        connect userControl to controller.controlInterface;
+        connect controller.controlInterface to synthesizer.control;
+
+        action performPrimaryFunction {
+            in item inputData : BasebandData;
+            in item command : ControlCommand;
+            out item recoveredData : DemodulatedData;
+            out item status : StatusReport;
+
+            first start;
+            then controller.manageRadioLink;
+            then synthesizer.tuneCarrier;
+            then modulator.modulateBaseband;
+            then amplifier.amplifySignal;
+            then antenna.radiateRF;
+            then channel.propagate;
+            then antenna.captureRF;
+            then lowNoiseAmplifier.boostWeakSignal;
+            then demodulator.demodulateRF;
+            then complete;
+
+            action complete;
+        }
+    }
+
+    requirement def OperateInRadioFrequencyBand {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall operate with a carrier frequency between 300 MHz and 3 GHz. */
+
+        require constraint {
+            system.nominalCarrierFrequency >= 300000000.0 and
+            system.nominalCarrierFrequency <= 3000000000.0
+        }
+    }
+
+    requirement def ProvideWirelessInformationTransfer {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall convert baseband data into a modulated RF signal for wireless propagation and shall recover demodulated data from received RF signals. */
+
+        require constraint {
+            system.operatingBandwidth > 0.0 and
+            system.nominalTransmitPower > 0.0
+        }
+    }
+
+    requirement def LimitTransmitPower {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall limit conducted RF transmit power to no more than 5 W. */
+
+        require constraint {
+            system.nominalTransmitPower <= system.maximumTransmitPower
+        }
+    }
+
+    requirement def MaintainReceiverSensitivity {
+        subject system : RFTransceiverSystem;
+
+        doc /* The receiver chain shall support detection of RF signals at or above -100 dBm equivalent received power. */
+
+        require constraint {
+            system.receiverSensitivity <= 0.0000000000001
+        }
+    }
+
+    requirement def SupportCommandAndStatus {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall accept frequency and power control commands and provide operating status reports. */
+
+        require constraint {
+            system.controller.desiredCarrierFrequency == system.nominalCarrierFrequency and
+            system.controller.desiredTransmitPower <= system.maximumTransmitPower
+        }
+    }
+
+    satisfy OperateInRadioFrequencyBand by RFTransceiverSystem;
+    satisfy ProvideWirelessInformationTransfer by RFTransceiverSystem.performPrimaryFunction;
+    satisfy LimitTransmitPower by RFTransceiverSystem.amplifier;
+    satisfy MaintainReceiverSensitivity by RFTransceiverSystem.lowNoiseAmplifier;
+    satisfy SupportCommandAndStatus by RFTransceiverSystem.controller;
+}
+tokens used
+3,380
+package RadioFrequencyCommunicationSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> real {
+        unit = "Hz";
+    }
+
+    attribute def Power :> real {
+        unit = "W";
+    }
+
+    attribute def Gain :> real {
+        unit = "dB";
+    }
+
+    attribute def Voltage :> real {
+        unit = "V";
+    }
+
+    attribute def BitRate :> real {
+        unit = "bit/s";
+    }
+
+    attribute def Distance :> real {
+        unit = "m";
+    }
+
+    attribute def Temperature :> real {
+        unit = "degC";
+    }
+
+    attribute def Percent :> real {
+        unit = "%";
+    }
+
+    item def BasebandData {
+        attribute payloadSize : Integer;
+        attribute bitRate : BitRate;
+        attribute encoding : String;
+    }
+
+    item def ModulatedRFSignal {
+        attribute carrierFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute transmitPower : Power;
+        attribute modulationScheme : String;
+        attribute signalToNoiseRatio : Gain;
+    }
+
+    item def DemodulatedData {
+        attribute payloadSize : Integer;
+        attribute bitRate : BitRate;
+        attribute errorRate : Percent;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute requestedFrequency : Frequency;
+        attribute requestedPower : Power;
+        attribute requestedMode : String;
+    }
+
+    item def StatusReport {
+        attribute lockedFrequency : Frequency;
+        attribute outputPower : Power;
+        attribute receiverSignalStrength : Power;
+        attribute temperature : Temperature;
+        attribute linkAvailable : Boolean;
+    }
+
+    port def DataInputPort {
+        in item dataIn : BasebandData;
+    }
+
+    port def DataOutputPort {
+        out item dataOut : DemodulatedData;
+    }
+
+    port def RFTransmitPort {
+        out item rfOut : ModulatedRFSignal;
+    }
+
+    port def RFReceivePort {
+        in item rfIn : ModulatedRFSignal;
+    }
+
+    port def ControlPort {
+        in item command : ControlCommand;
+        out item status : StatusReport;
+    }
+
+    part def FrequencySynthesizer {
+        attribute referenceFrequency : Frequency = 10000000.0;
+        attribute selectedCarrierFrequency : Frequency = 915000000.0;
+        attribute tuningStep : Frequency = 1000.0;
+        attribute lockTime : real unit "ms" = 3.0;
+        attribute phaseNoise : Gain = -95.0;
+
+        port control : ControlPort;
+
+        action tuneCarrier {
+            in item command : ControlCommand;
+            out attribute carrier : Frequency;
+
+            first start;
+            then validateFrequency;
+            then adjustPhaseLockedLoop;
+            then verifyLock;
+            then done;
+
+            action validateFrequency;
+            action adjustPhaseLockedLoop;
+            action verifyLock;
+        }
+
+        state def SynthesizerState {
+            entry; then unlocked;
+
+            state unlocked;
+            state tuning;
+            state locked;
+
+            transition unlocked_to_tuning
+                first unlocked
+                accept ControlCommand
+                then tuning;
+
+            transition tuning_to_locked
+                first tuning
+                if selectedCarrierFrequency >= 300000000.0 and selectedCarrierFrequency <= 3000000000.0
+                then locked;
+
+            transition locked_to_tuning
+                first locked
+                accept ControlCommand
+                then tuning;
+        }
+    }
+
+    part def Modulator {
+        attribute modulationScheme : String = "GFSK";
+        attribute occupiedBandwidth : Frequency = 200000.0;
+        attribute symbolRate : BitRate = 100000.0;
+
+        port dataInput : DataInputPort;
+        port rfOutput : RFTransmitPort;
+
+        action modulateBaseband {
+            in item inputData : BasebandData;
+            in attribute carrier : Frequency;
+            out item rfSignal : ModulatedRFSignal;
+
+            first start;
+            then encodeBits;
+            then shapePulse;
+            then mixWithCarrier;
+            then emitRFSignal;
+
+            action encodeBits;
+            action shapePulse;
+            action mixWithCarrier;
+            action emitRFSignal;
+        }
+    }
+
+    part def PowerAmplifier {
+        attribute smallSignalGain : Gain = 28.0;
+        attribute maximumOutputPower : Power = 5.0;
+        attribute efficiency : Percent = 42.0;
+        attribute supplyVoltage : Voltage = 12.0;
+
+        port rfInput : RFReceivePort;
+        port rfOutput : RFTransmitPort;
+
+        action amplifySignal {
+            in item lowPowerSignal : ModulatedRFSignal;
+            out item amplifiedSignal : ModulatedRFSignal;
+
+            first start;
+            then biasAmplifier;
+            then applyGain;
+            then limitOutputPower;
+            then outputAmplifiedRF;
+
+            action biasAmplifier;
+            action applyGain;
+            action limitOutputPower;
+            action outputAmplifiedRF;
+        }
+    }
+
+    part def Antenna {
+        attribute centerFrequency : Frequency = 915000000.0;
+        attribute impedance : real unit "ohm" = 50.0;
+        attribute antennaGain : Gain = 3.0;
+        attribute voltageStandingWaveRatio : real = 1.5;
+        attribute polarization : String = "Vertical";
+
+        port transmitPort : RFReceivePort;
+        port receivePort : RFTransmitPort;
+
+        action radiateRF {
+            in item conductedSignal : ModulatedRFSignal;
+            out item radiatedSignal : ModulatedRFSignal;
+
+            first start;
+            then matchImpedance;
+            then convertCurrentToField;
+            then radiate;
+
+            action matchImpedance;
+            action convertCurrentToField;
+            action radiate;
+        }
+
+        action captureRF {
+            in item incidentSignal : ModulatedRFSignal;
+            out item conductedSignal : ModulatedRFSignal;
+
+            first start;
+            then interceptField;
+            then convertFieldToCurrent;
+            then deliverSignal;
+
+            action interceptField;
+            action convertFieldToCurrent;
+            action deliverSignal;
+        }
+    }
+
+    part def RFChannel {
+        attribute propagationDistance : Distance = 1000.0;
+        attribute pathLoss : Gain = 91.7;
+        attribute noiseFloor : Power = 0.000000000001;
+        attribute fadingMargin : Gain = 12.0;
+
+        port channelInput : RFReceivePort;
+        port channelOutput : RFTransmitPort;
+
+        action propagate {
+            in item transmittedSignal : ModulatedRFSignal;
+            out item receivedSignal : ModulatedRFSignal;
+
+            first start;
+            then attenuateByDistance;
+            then addThermalNoise;
+            then applyMultipathFading;
+            then deliverReceivedSignal;
+
+            action attenuateByDistance;
+            action addThermalNoise;
+            action applyMultipathFading;
+            action deliverReceivedSignal;
+        }
+    }
+
+    part def LowNoiseAmplifier {
+        attribute gain : Gain = 18.0;
+        attribute noiseFigure : Gain = 1.2;
+        attribute inputImpedance : real unit "ohm" = 50.0;
+
+        port rfInput : RFReceivePort;
+        port rfOutput : RFTransmitPort;
+
+        action boostWeakSignal {
+            in item weakSignal : ModulatedRFSignal;
+            out item boostedSignal : ModulatedRFSignal;
+
+            first start;
+            then matchInput;
+            then amplifyLowNoise;
+            then outputToMixer;
+
+            action matchInput;
+            action amplifyLowNoise;
+            action outputToMixer;
+        }
+    }
+
+    part def Demodulator {
+        attribute supportedModulation : String = "GFSK";
+        attribute receiverBandwidth : Frequency = 250000.0;
+        attribute minimumSignalToNoiseRatio : Gain = 10.0;
+
+        port rfInput : RFReceivePort;
+        port dataOutput : DataOutputPort;
+
+        action demodulateRF {
+            in item rfSignal : ModulatedRFSignal;
+            out item recoveredData : DemodulatedData;
+
+            first start;
+            then downconvert;
+            then filterBaseband;
+            then recoverClock;
+            then decideSymbols;
+            then emitRecoveredData;
+
+            action downconvert;
+            action filterBaseband;
+            action recoverClock;
+            action decideSymbols;
+            action emitRecoveredData;
+        }
+    }
+
+    part def LinkController {
+        attribute desiredCarrierFrequency : Frequency = 915000000.0;
+        attribute desiredTransmitPower : Power = 1.0;
+        attribute requiredBitRate : BitRate = 100000.0;
+        attribute linkMargin : Gain = 8.0;
+
+        port controlInterface : ControlPort;
+
+        action manageRadioLink {
+            in item command : ControlCommand;
+            out item status : StatusReport;
+
+            first start;
+            then configureFrequency;
+            then configureOutputPower;
+            then monitorSignalQuality;
+            then reportStatus;
+
+            action configureFrequency;
+            action configureOutputPower;
+            action monitorSignalQuality;
+            action reportStatus;
+        }
+
+        state def RadioLinkState {
+            entry; then idle;
+
+            state idle;
+            state configuring;
+            state transmitting;
+            state receiving;
+            state fault;
+
+            transition idle_to_configuring
+                first idle
+                accept ControlCommand
+                then configuring;
+
+            transition configuring_to_transmitting
+                first configuring
+                if desiredTransmitPower <= 5.0
+                then transmitting;
+
+            transition configuring_to_fault
+                first configuring
+                if desiredCarrierFrequency < 300000000.0 or desiredCarrierFrequency > 3000000000.0
+                then fault;
+
+            transition transmitting_to_receiving
+                first transmitting
+                accept ModulatedRFSignal
+                then receiving;
+
+            transition receiving_to_idle
+                first receiving
+                then idle;
+        }
+    }
+
+    part def RFTransceiverSystem {
+        attribute nominalCarrierFrequency : Frequency = 915000000.0;
+        attribute operatingBandwidth : Frequency = 200000.0;
+        attribute nominalTransmitPower : Power = 1.0;
+        attribute maximumTransmitPower : Power = 5.0;
+        attribute receiverSensitivity : Power = 0.0000000000001;
+        attribute primaryFunction : String = "Transmit and receive information by modulating baseband data onto a radio-frequency carrier and recovering data from received RF energy.";
+
+        port userDataInput : DataInputPort;
+        port userDataOutput : DataOutputPort;
+        port userControl : ControlPort;
+        port airInterfaceOut : RFTransmitPort;
+        port airInterfaceIn : RFReceivePort;
+
+        part synthesizer : FrequencySynthesizer;
+        part modulator : Modulator;
+        part amplifier : PowerAmplifier;
+        part antenna : Antenna;
+        part channel : RFChannel;
+        part lowNoiseAmplifier : LowNoiseAmplifier;
+        part demodulator : Demodulator;
+        part controller : LinkController;
+
+        connect userDataInput to modulator.dataInput;
+        connect modulator.rfOutput to amplifier.rfInput;
+        connect amplifier.rfOutput to antenna.transmitPort;
+        connect antenna.receivePort to airInterfaceOut;
+        connect airInterfaceIn to lowNoiseAmplifier.rfInput;
+        connect lowNoiseAmplifier.rfOutput to demodulator.rfInput;
+        connect demodulator.dataOutput to userDataOutput;
+        connect userControl to controller.controlInterface;
+        connect controller.controlInterface to synthesizer.control;
+
+        action performPrimaryFunction {
+            in item inputData : BasebandData;
+            in item command : ControlCommand;
+            out item recoveredData : DemodulatedData;
+            out item status : StatusReport;
+
+            first start;
+            then controller.manageRadioLink;
+            then synthesizer.tuneCarrier;
+            then modulator.modulateBaseband;
+            then amplifier.amplifySignal;
+            then antenna.radiateRF;
+            then channel.propagate;
+            then antenna.captureRF;
+            then lowNoiseAmplifier.boostWeakSignal;
+            then demodulator.demodulateRF;
+            then complete;
+
+            action complete;
+        }
+    }
+
+    requirement def OperateInRadioFrequencyBand {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall operate with a carrier frequency between 300 MHz and 3 GHz. */
+
+        require constraint {
+            system.nominalCarrierFrequency >= 300000000.0 and
+            system.nominalCarrierFrequency <= 3000000000.0
+        }
+    }
+
+    requirement def ProvideWirelessInformationTransfer {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall convert baseband data into a modulated RF signal for wireless propagation and shall recover demodulated data from received RF signals. */
+
+        require constraint {
+            system.operatingBandwidth > 0.0 and
+            system.nominalTransmitPower > 0.0
+        }
+    }
+
+    requirement def LimitTransmitPower {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall limit conducted RF transmit power to no more than 5 W. */
+
+        require constraint {
+            system.nominalTransmitPower <= system.maximumTransmitPower
+        }
+    }
+
+    requirement def MaintainReceiverSensitivity {
+        subject system : RFTransceiverSystem;
+
+        doc /* The receiver chain shall support detection of RF signals at or above -100 dBm equivalent received power. */
+
+        require constraint {
+            system.receiverSensitivity <= 0.0000000000001
+        }
+    }
+
+    requirement def SupportCommandAndStatus {
+        subject system : RFTransceiverSystem;
+
+        doc /* The system shall accept frequency and power control commands and provide operating status reports. */
+
+        require constraint {
+            system.controller.desiredCarrierFrequency == system.nominalCarrierFrequency and
+            system.controller.desiredTransmitPower <= system.maximumTransmitPower
+        }
+    }
+
+    satisfy OperateInRadioFrequencyBand by RFTransceiverSystem;
+    satisfy ProvideWirelessInformationTransfer by RFTransceiverSystem.performPrimaryFunction;
+    satisfy LimitTransmitPower by RFTransceiverSystem.amplifier;
+    satisfy MaintainReceiverSensitivity by RFTransceiverSystem.lowNoiseAmplifier;
+    satisfy SupportCommandAndStatus by RFTransceiverSystem.controller;
+}

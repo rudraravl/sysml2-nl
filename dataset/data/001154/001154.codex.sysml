@@ -1,0 +1,582 @@
+package NetRadiometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Irradiance {
+        :> scalarValue;
+        unit = W_per_m2;
+    }
+
+    attribute def TemperatureValue {
+        :> scalarValue;
+        unit = K;
+    }
+
+    attribute def VoltageValue {
+        :> scalarValue;
+        unit = V;
+    }
+
+    attribute def AngleValue {
+        :> scalarValue;
+        unit = deg;
+    }
+
+    attribute def TimeValue {
+        :> scalarValue;
+        unit = s;
+    }
+
+    attribute def PowerValue {
+        :> scalarValue;
+        unit = W;
+    }
+
+    attribute def FractionValue {
+        :> scalarValue;
+    }
+
+    attribute def LengthValue {
+        :> scalarValue;
+        unit = m;
+    }
+
+    item def ShortwaveRadiation {
+        attribute irradiance : Irradiance;
+        attribute wavelengthLower : LengthValue = 0.305 [um];
+        attribute wavelengthUpper : LengthValue = 2.8 [um];
+        attribute incidenceAngle : AngleValue;
+    }
+
+    item def LongwaveRadiation {
+        attribute irradiance : Irradiance;
+        attribute wavelengthLower : LengthValue = 4.5 [um];
+        attribute wavelengthUpper : LengthValue = 42.0 [um];
+        attribute incidenceAngle : AngleValue;
+    }
+
+    item def NetRadiationEstimate {
+        attribute netIrradiance : Irradiance;
+        attribute upwardShortwave : Irradiance;
+        attribute downwardShortwave : Irradiance;
+        attribute upwardLongwave : Irradiance;
+        attribute downwardLongwave : Irradiance;
+        attribute sensorBodyTemperature : TemperatureValue;
+        attribute measurementTime : TimeValue;
+        attribute qualityIndex : FractionValue;
+    }
+
+    item def AnalogSignal {
+        attribute voltage : VoltageValue;
+        attribute sourceImpedance : ResistanceValue;
+    }
+
+    item def DigitalSample {
+        attribute rawCount : Integer;
+        attribute convertedVoltage : VoltageValue;
+        attribute sampleTime : TimeValue;
+    }
+
+    item def RadiometerCommand {
+        attribute commandCode : Integer;
+        attribute requestedSamplePeriod : TimeValue;
+    }
+
+    item def HealthStatus {
+        attribute supplyVoltage : VoltageValue;
+        attribute internalTemperature : TemperatureValue;
+        attribute domeContaminationIndex : FractionValue;
+        attribute heaterPower : PowerValue;
+        attribute faultCode : Integer;
+    }
+
+    port def RadiationAperturePort {
+        in item shortwaveIn : ShortwaveRadiation;
+        in item longwaveIn : LongwaveRadiation;
+    }
+
+    port def RadiationEmissionPort {
+        out item reflectedShortwave : ShortwaveRadiation;
+        out item emittedLongwave : LongwaveRadiation;
+    }
+
+    port def AnalogMeasurementPort {
+        out item signal : AnalogSignal;
+    }
+
+    port def DigitalDataPort {
+        out item estimate : NetRadiationEstimate;
+        out item health : HealthStatus;
+        in item command : RadiometerCommand;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute supplyPower : PowerValue;
+    }
+
+    port def ThermalPort {
+        inout attribute temperature : TemperatureValue;
+        inout attribute heatFlow : PowerValue;
+    }
+
+    part def PyranometerElement {
+        attribute spectralLowerLimit : LengthValue = 0.305 [um];
+        attribute spectralUpperLimit : LengthValue = 2.8 [um];
+        attribute sensitivity : VoltageValue = 10.0 [uV];
+        attribute calibrationFactor : Real = 100.0;
+        attribute cosineResponseError : FractionValue = 0.03;
+        port aperture : RadiationAperturePort;
+        port analogOut : AnalogMeasurementPort;
+
+        action measureShortwave {
+            in item received : ShortwaveRadiation;
+            out item signal : AnalogSignal;
+            attribute correctedIrradiance : Irradiance;
+            correctedIrradiance = received.irradiance * (1.0 - cosineResponseError);
+            signal.voltage = correctedIrradiance / calibrationFactor;
+        }
+    }
+
+    part def PyrgeometerElement {
+        attribute spectralLowerLimit : LengthValue = 4.5 [um];
+        attribute spectralUpperLimit : LengthValue = 42.0 [um];
+        attribute thermopileSensitivity : VoltageValue = 8.0 [uV];
+        attribute calibrationFactor : Real = 125.0;
+        attribute domeTemperature : TemperatureValue;
+        attribute bodyTemperature : TemperatureValue;
+        port aperture : RadiationAperturePort;
+        port thermal : ThermalPort;
+        port analogOut : AnalogMeasurementPort;
+
+        action measureLongwave {
+            in item received : LongwaveRadiation;
+            out item signal : AnalogSignal;
+            attribute thermalCorrection : Irradiance;
+            thermalCorrection = 5.670374419e-8 [W_per_m2_per_K4] * bodyTemperature^4;
+            signal.voltage = (received.irradiance - thermalCorrection) / calibrationFactor;
+        }
+    }
+
+    part def NetRadiometerHead {
+        attribute bodyTemperature : TemperatureValue;
+        attribute levelTilt : AngleValue;
+        attribute domeTransmittance : FractionValue = 0.98;
+        attribute albedoEstimate : FractionValue;
+        port upwardAperture : RadiationAperturePort;
+        port downwardAperture : RadiationAperturePort;
+        port emission : RadiationEmissionPort;
+        port upperShortwaveAnalog : AnalogMeasurementPort;
+        port lowerShortwaveAnalog : AnalogMeasurementPort;
+        port upperLongwaveAnalog : AnalogMeasurementPort;
+        port lowerLongwaveAnalog : AnalogMeasurementPort;
+        port thermal : ThermalPort;
+
+        part upwardShortwaveSensor : PyranometerElement;
+        part downwardShortwaveSensor : PyranometerElement;
+        part upwardLongwaveSensor : PyrgeometerElement;
+        part downwardLongwaveSensor : PyrgeometerElement;
+
+        connect upwardAperture.shortwaveIn to upwardShortwaveSensor.aperture.shortwaveIn;
+        connect downwardAperture.shortwaveIn to downwardShortwaveSensor.aperture.shortwaveIn;
+        connect upwardAperture.longwaveIn to upwardLongwaveSensor.aperture.longwaveIn;
+        connect downwardAperture.longwaveIn to downwardLongwaveSensor.aperture.longwaveIn;
+
+        connect upwardShortwaveSensor.analogOut.signal to upperShortwaveAnalog.signal;
+        connect downwardShortwaveSensor.analogOut.signal to lowerShortwaveAnalog.signal;
+        connect upwardLongwaveSensor.analogOut.signal to upperLongwaveAnalog.signal;
+        connect downwardLongwaveSensor.analogOut.signal to lowerLongwaveAnalog.signal;
+
+        connect thermal.temperature to upwardLongwaveSensor.thermal.temperature;
+        connect thermal.temperature to downwardLongwaveSensor.thermal.temperature;
+    }
+
+    part def SignalConditioner {
+        attribute gain : Real = 1000.0;
+        attribute lowPassCutoffFrequency : FrequencyValue = 10.0 [Hz];
+        attribute inputNoise : VoltageValue = 1.0 [uV];
+        port upperShortwaveIn : AnalogMeasurementPort;
+        port lowerShortwaveIn : AnalogMeasurementPort;
+        port upperLongwaveIn : AnalogMeasurementPort;
+        port lowerLongwaveIn : AnalogMeasurementPort;
+        port conditionedUpperShortwave : AnalogMeasurementPort;
+        port conditionedLowerShortwave : AnalogMeasurementPort;
+        port conditionedUpperLongwave : AnalogMeasurementPort;
+        port conditionedLowerLongwave : AnalogMeasurementPort;
+
+        action amplifyAndFilter {
+            in item raw : AnalogSignal;
+            out item conditioned : AnalogSignal;
+            conditioned.voltage = (raw.voltage + inputNoise) * gain;
+            conditioned.sourceImpedance = 100.0 [ohm];
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute referenceVoltage : VoltageValue = 2.5 [V];
+        attribute samplePeriod : TimeValue = 1.0 [s];
+        port analogIn : AnalogMeasurementPort;
+        out item sample : DigitalSample;
+
+        action convert {
+            in item signal : AnalogSignal;
+            out item digital : DigitalSample;
+            digital.convertedVoltage = signal.voltage;
+            digital.rawCount = Integer(signal.voltage / referenceVoltage * 16777215.0);
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : TemperatureValue = 0.2 [K];
+        port thermal : ThermalPort;
+        out attribute measuredTemperature : TemperatureValue;
+
+        action senseTemperature {
+            in attribute actualTemperature : TemperatureValue;
+            out attribute reportedTemperature : TemperatureValue;
+            reportedTemperature = actualTemperature;
+        }
+    }
+
+    part def DomeHeater {
+        attribute maximumPower : PowerValue = 1.5 [W];
+        attribute activePower : PowerValue;
+        attribute dewPreventionSetpointMargin : TemperatureValue = 2.0 [K];
+        port power : PowerPort;
+        port thermal : ThermalPort;
+
+        state def HeaterOperatingState {
+            state off;
+            state warming;
+            state regulating;
+            state fault;
+
+            initial then off;
+
+            transition off_to_warming
+                first off
+                then warming
+                accept RadiometerCommand
+                if power.supplyVoltage >= 10.0 [V];
+
+            transition warming_to_regulating
+                first warming
+                then regulating
+                if thermal.temperature >= 273.15 [K];
+
+            transition regulating_to_off
+                first regulating
+                then off
+                accept RadiometerCommand;
+
+            transition any_to_fault
+                first off
+                then fault
+                if power.supplyVoltage < 9.0 [V];
+        }
+
+        action regulateDomeTemperature {
+            in attribute ambientTemperature : TemperatureValue;
+            out attribute heaterCommandPower : PowerValue;
+            heaterCommandPower =
+                if thermal.temperature < ambientTemperature + dewPreventionSetpointMargin
+                then maximumPower
+                else 0.0 [W];
+        }
+    }
+
+    part def ProcessingUnit {
+        attribute shortwaveCalibrationUpper : Real = 0.001;
+        attribute shortwaveCalibrationLower : Real = 0.001;
+        attribute longwaveCalibrationUpper : Real = 0.00125;
+        attribute longwaveCalibrationLower : Real = 0.00125;
+        attribute currentSamplePeriod : TimeValue = 1.0 [s];
+        attribute qualityThreshold : FractionValue = 0.9;
+        in item upperShortwaveSample : DigitalSample;
+        in item lowerShortwaveSample : DigitalSample;
+        in item upperLongwaveSample : DigitalSample;
+        in item lowerLongwaveSample : DigitalSample;
+        in attribute bodyTemperature : TemperatureValue;
+        in item command : RadiometerCommand;
+        out item estimate : NetRadiationEstimate;
+        out item health : HealthStatus;
+
+        action computeNetRadiation {
+            in item us : DigitalSample;
+            in item ls : DigitalSample;
+            in item ul : DigitalSample;
+            in item ll : DigitalSample;
+            in attribute temp : TemperatureValue;
+            out item result : NetRadiationEstimate;
+
+            result.downwardShortwave = us.convertedVoltage / shortwaveCalibrationUpper;
+            result.upwardShortwave = ls.convertedVoltage / shortwaveCalibrationLower;
+            result.downwardLongwave = ul.convertedVoltage / longwaveCalibrationUpper;
+            result.upwardLongwave = ll.convertedVoltage / longwaveCalibrationLower;
+            result.sensorBodyTemperature = temp;
+            result.netIrradiance =
+                result.downwardShortwave - result.upwardShortwave
+                + result.downwardLongwave - result.upwardLongwave;
+            result.measurementTime = us.sampleTime;
+            result.qualityIndex = 1.0;
+        }
+
+        action evaluateHealth {
+            in attribute supply : VoltageValue;
+            in attribute internalTemp : TemperatureValue;
+            in attribute contamination : FractionValue;
+            out item status : HealthStatus;
+
+            status.supplyVoltage = supply;
+            status.internalTemperature = internalTemp;
+            status.domeContaminationIndex = contamination;
+            status.faultCode =
+                if supply < 9.0 [V] then 1
+                else if contamination > 0.2 then 2
+                else if internalTemp < 233.15 [K] or internalTemp > 333.15 [K] then 3
+                else 0;
+        }
+
+        state def AcquisitionState {
+            state initializing;
+            state idle;
+            state sampling;
+            state computing;
+            state publishing;
+            state degraded;
+            state failed;
+
+            initial then initializing;
+
+            transition initialized
+                first initializing
+                then idle
+                if currentSamplePeriod > 0.0 [s];
+
+            transition startSampling
+                first idle
+                then sampling
+                accept RadiometerCommand;
+
+            transition samplesReady
+                first sampling
+                then computing;
+
+            transition computationComplete
+                first computing
+                then publishing;
+
+            transition published
+                first publishing
+                then sampling
+                after currentSamplePeriod;
+
+            transition qualityLow
+                first publishing
+                then degraded
+                if estimate.qualityIndex < qualityThreshold;
+
+            transition recovered
+                first degraded
+                then sampling
+                if estimate.qualityIndex >= qualityThreshold;
+
+            transition fatalFault
+                first sampling
+                then failed
+                if health.faultCode == 1;
+        }
+    }
+
+    part def DataInterface {
+        attribute baudRate : Real = 115200.0;
+        attribute protocolIdentifier : String = "SDI-12/RS-485 compatible radiometer telemetry";
+        port data : DigitalDataPort;
+        in item estimateIn : NetRadiationEstimate;
+        in item healthIn : HealthStatus;
+        out item commandOut : RadiometerCommand;
+
+        action publishTelemetry {
+            in item estimate : NetRadiationEstimate;
+            in item health : HealthStatus;
+            out item dataEstimate : NetRadiationEstimate;
+            out item dataHealth : HealthStatus;
+            dataEstimate = estimate;
+            dataHealth = health;
+        }
+    }
+
+    part def MountingAssembly {
+        attribute mastHeight : LengthValue = 2.0 [m];
+        attribute levelingTolerance : AngleValue = 0.5 [deg];
+        attribute azimuthOrientation : AngleValue;
+        attribute tiltAngle : AngleValue;
+        port thermal : ThermalPort;
+    }
+
+    part def NetRadiometer {
+        attribute manufacturerCalibrationDate : String;
+        attribute operatingVoltageMin : VoltageValue = 10.0 [V];
+        attribute operatingVoltageMax : VoltageValue = 30.0 [V];
+        attribute operatingTemperatureMin : TemperatureValue = 233.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 333.15 [K];
+        attribute measurementRangeMin : Irradiance = -2000.0 [W_per_m2];
+        attribute measurementRangeMax : Irradiance = 2000.0 [W_per_m2];
+        attribute expectedAccuracy : Irradiance = 10.0 [W_per_m2];
+
+        port skyRadiation : RadiationAperturePort;
+        port surfaceRadiation : RadiationAperturePort;
+        port power : PowerPort;
+        port data : DigitalDataPort;
+        port thermalEnvironment : ThermalPort;
+
+        part head : NetRadiometerHead;
+        part conditioner : SignalConditioner;
+        part adcUpperShortwave : AnalogToDigitalConverter;
+        part adcLowerShortwave : AnalogToDigitalConverter;
+        part adcUpperLongwave : AnalogToDigitalConverter;
+        part adcLowerLongwave : AnalogToDigitalConverter;
+        part bodyTemperatureSensor : TemperatureSensor;
+        part heater : DomeHeater;
+        part processor : ProcessingUnit;
+        part interface : DataInterface;
+        part mount : MountingAssembly;
+
+        connect skyRadiation.shortwaveIn to head.upwardAperture.shortwaveIn;
+        connect skyRadiation.longwaveIn to head.upwardAperture.longwaveIn;
+        connect surfaceRadiation.shortwaveIn to head.downwardAperture.shortwaveIn;
+        connect surfaceRadiation.longwaveIn to head.downwardAperture.longwaveIn;
+
+        connect head.upperShortwaveAnalog.signal to conditioner.upperShortwaveIn.signal;
+        connect head.lowerShortwaveAnalog.signal to conditioner.lowerShortwaveIn.signal;
+        connect head.upperLongwaveAnalog.signal to conditioner.upperLongwaveIn.signal;
+        connect head.lowerLongwaveAnalog.signal to conditioner.lowerLongwaveIn.signal;
+
+        connect conditioner.conditionedUpperShortwave.signal to adcUpperShortwave.analogIn.signal;
+        connect conditioner.conditionedLowerShortwave.signal to adcLowerShortwave.analogIn.signal;
+        connect conditioner.conditionedUpperLongwave.signal to adcUpperLongwave.analogIn.signal;
+        connect conditioner.conditionedLowerLongwave.signal to adcLowerLongwave.analogIn.signal;
+
+        connect adcUpperShortwave.sample to processor.upperShortwaveSample;
+        connect adcLowerShortwave.sample to processor.lowerShortwaveSample;
+        connect adcUpperLongwave.sample to processor.upperLongwaveSample;
+        connect adcLowerLongwave.sample to processor.lowerLongwaveSample;
+
+        connect thermalEnvironment.temperature to head.thermal.temperature;
+        connect thermalEnvironment.temperature to bodyTemperatureSensor.thermal.temperature;
+        connect thermalEnvironment.temperature to heater.thermal.temperature;
+        connect thermalEnvironment.temperature to mount.thermal.temperature;
+
+        connect power.supplyVoltage to heater.power.supplyVoltage;
+        connect power.supplyPower to heater.power.supplyPower;
+
+        connect bodyTemperatureSensor.measuredTemperature to processor.bodyTemperature;
+        connect processor.estimate to interface.estimateIn;
+        connect processor.health to interface.healthIn;
+        connect interface.data.estimate to data.estimate;
+        connect interface.data.health to data.health;
+        connect data.command to interface.data.command;
+        connect interface.commandOut to processor.command;
+
+        action performPrimaryFunction {
+            in item skyShortwave : ShortwaveRadiation;
+            in item skyLongwave : LongwaveRadiation;
+            in item surfaceShortwave : ShortwaveRadiation;
+            in item surfaceLongwave : LongwaveRadiation;
+            out item netRadiation : NetRadiationEstimate;
+
+            netRadiation.downwardShortwave = skyShortwave.irradiance;
+            netRadiation.downwardLongwave = skyLongwave.irradiance;
+            netRadiation.upwardShortwave = surfaceShortwave.irradiance;
+            netRadiation.upwardLongwave = surfaceLongwave.irradiance;
+            netRadiation.netIrradiance =
+                skyShortwave.irradiance + skyLongwave.irradiance
+                - surfaceShortwave.irradiance - surfaceLongwave.irradiance;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The net radiometer shall measure incoming and outgoing shortwave and longwave radiation and compute the net all-wave radiation exchange at the measurement plane as a calibrated irradiance value. */
+
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.data.estimate.netIrradiance ==
+            radiometer.data.estimate.downwardShortwave
+            - radiometer.data.estimate.upwardShortwave
+            + radiometer.data.estimate.downwardLongwave
+            - radiometer.data.estimate.upwardLongwave
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.data.estimate.netIrradiance >= radiometer.measurementRangeMin and
+            radiometer.data.estimate.netIrradiance <= radiometer.measurementRangeMax
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.processor.currentSamplePeriod <= 10.0 [s]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.expectedAccuracy <= 10.0 [W_per_m2]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.power.supplyVoltage >= radiometer.operatingVoltageMin and
+            radiometer.power.supplyVoltage <= radiometer.operatingVoltageMax
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.thermalEnvironment.temperature >= radiometer.operatingTemperatureMin and
+            radiometer.thermalEnvironment.temperature <= radiometer.operatingTemperatureMax
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        subject radiometer : NetRadiometer;
+
+        require constraint {
+            radiometer.data.estimate.qualityIndex >= 0.0 and
+            radiometer.data.estimate.qualityIndex <= 1.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NetRadiometer::performPrimaryFunction;
+    satisfy MeasurementRangeRequirement by NetRadiometer::processor;
+    satisfy SamplingRequirement by NetRadiometer::processor;
+    satisfy AccuracyRequirement by NetRadiometer::head;
+    satisfy PowerRequirement by NetRadiometer::power;
+    satisfy EnvironmentalRequirement by NetRadiometer::thermalEnvironment;
+    satisfy TelemetryRequirement by NetRadiometer::interface;
+
+    part fieldNetRadiometer : NetRadiometer {
+        manufacturerCalibrationDate = "2026-01-15";
+        mount.mastHeight = 2.0 [m];
+        mount.levelingTolerance = 0.5 [deg];
+        processor.currentSamplePeriod = 1.0 [s];
+    }
+}

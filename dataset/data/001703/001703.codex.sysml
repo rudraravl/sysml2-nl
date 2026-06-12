@@ -1,0 +1,560 @@
+package GoogleAssistantHighLevelModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  /* Value and Item Types */
+
+  attribute def ConfidenceScore : Real {
+    constraint range { 0.0 <= self <= 1.0 }
+  }
+
+  attribute def Latency_ms : Real {
+    unit = "ms";
+    constraint nonNegative { self >= 0.0 }
+  }
+
+  attribute def AudioSampleRate_Hz : Real {
+    unit = "Hz";
+    constraint validVoiceRange { self >= 8000.0 and self <= 48000.0 }
+  }
+
+  attribute def SignalLevel_dB : Real {
+    unit = "dB";
+  }
+
+  attribute def TextString : String;
+
+  attribute def LocaleCode : String;
+
+  attribute def DeviceIdentifier : String;
+
+  attribute def PrivacyMode : Enumeration {
+    enum normal;
+    enum restricted;
+    enum guest;
+    enum disabled;
+  }
+
+  attribute def AssistantIntentKind : Enumeration {
+    enum answerQuestion;
+    enum controlDevice;
+    enum createReminder;
+    enum playMedia;
+    enum sendMessage;
+    enum navigate;
+    enum smallTalk;
+    enum unknown;
+  }
+
+  item def AudioStream {
+    attribute sampleRate : AudioSampleRate_Hz = 16000.0;
+    attribute channelCount : Integer = 1;
+    attribute level : SignalLevel_dB;
+    attribute encodedFrames : String;
+  }
+
+  item def WakePhraseDetection {
+    attribute phrase : TextString;
+    attribute confidence : ConfidenceScore;
+    attribute timestamp_ms : Latency_ms;
+  }
+
+  item def SpeechTranscript {
+    attribute text : TextString;
+    attribute locale : LocaleCode;
+    attribute confidence : ConfidenceScore;
+    attribute final : Boolean;
+  }
+
+  item def UserIntent {
+    attribute kind : AssistantIntentKind;
+    attribute utterance : TextString;
+    attribute normalizedCommand : TextString;
+    attribute confidence : ConfidenceScore;
+  }
+
+  item def ContextSnapshot {
+    attribute userId : DeviceIdentifier;
+    attribute locale : LocaleCode;
+    attribute privacyMode : PrivacyMode;
+    attribute locationAvailable : Boolean;
+    attribute activeMediaSession : Boolean;
+    attribute homeGraphAvailable : Boolean;
+  }
+
+  item def ServiceRequest {
+    attribute targetService : TextString;
+    attribute operation : TextString;
+    attribute payload : TextString;
+    attribute requiresUserConsent : Boolean;
+  }
+
+  item def ServiceResponse {
+    attribute success : Boolean;
+    attribute payload : TextString;
+    attribute errorMessage : TextString;
+    attribute latency : Latency_ms;
+  }
+
+  item def AssistantResponse {
+    attribute spokenText : TextString;
+    attribute displayText : TextString;
+    attribute requiresFollowUp : Boolean;
+    attribute confidence : ConfidenceScore;
+  }
+
+  item def ControlCommand {
+    attribute deviceId : DeviceIdentifier;
+    attribute commandName : TextString;
+    attribute commandPayload : TextString;
+  }
+
+  item def RenderedAudio {
+    attribute sampleRate : AudioSampleRate_Hz = 24000.0;
+    attribute encodedSpeech : String;
+    attribute duration_ms : Latency_ms;
+  }
+
+  /* Ports */
+
+  port def MicrophonePort {
+    out audio : AudioStream;
+  }
+
+  port def SpeakerPort {
+    in speechAudio : RenderedAudio;
+  }
+
+  port def DisplayPort {
+    in visualResponse : AssistantResponse;
+  }
+
+  port def AssistantCloudPort {
+    out request : ServiceRequest;
+    in response : ServiceResponse;
+  }
+
+  port def SmartHomePort {
+    out command : ControlCommand;
+    in result : ServiceResponse;
+  }
+
+  port def UserInteractionPort {
+    in userAudio : AudioStream;
+    out assistantSpeech : RenderedAudio;
+    out assistantVisual : AssistantResponse;
+  }
+
+  /* Behavior */
+
+  action def CaptureAudio {
+    in rawAudio : AudioStream;
+    out capturedAudio : AudioStream;
+  }
+
+  action def DetectWakePhrase {
+    in audio : AudioStream;
+    out detection : WakePhraseDetection;
+  }
+
+  action def TranscribeSpeech {
+    in audio : AudioStream;
+    in context : ContextSnapshot;
+    out transcript : SpeechTranscript;
+  }
+
+  action def InterpretIntent {
+    in transcript : SpeechTranscript;
+    in context : ContextSnapshot;
+    out intent : UserIntent;
+  }
+
+  action def SelectService {
+    in intent : UserIntent;
+    in context : ContextSnapshot;
+    out request : ServiceRequest;
+  }
+
+  action def ExecuteServiceRequest {
+    in request : ServiceRequest;
+    out response : ServiceResponse;
+  }
+
+  action def GenerateAssistantResponse {
+    in intent : UserIntent;
+    in serviceResponse : ServiceResponse;
+    in context : ContextSnapshot;
+    out response : AssistantResponse;
+  }
+
+  action def SynthesizeSpeech {
+    in response : AssistantResponse;
+    in locale : LocaleCode;
+    out speech : RenderedAudio;
+  }
+
+  action def DispatchSmartHomeCommand {
+    in intent : UserIntent;
+    out command : ControlCommand;
+  }
+
+  action def PrimaryAssistantConversation {
+    in audioInput : AudioStream;
+    in context : ContextSnapshot;
+    out speechOutput : RenderedAudio;
+    out visualOutput : AssistantResponse;
+
+    action capture : CaptureAudio {
+      in rawAudio = audioInput;
+    }
+
+    action wake : DetectWakePhrase {
+      in audio = capture.capturedAudio;
+    }
+
+    action transcribe : TranscribeSpeech {
+      in audio = capture.capturedAudio;
+      in context = context;
+    }
+
+    action interpret : InterpretIntent {
+      in transcript = transcribe.transcript;
+      in context = context;
+    }
+
+    action select : SelectService {
+      in intent = interpret.intent;
+      in context = context;
+    }
+
+    action execute : ExecuteServiceRequest {
+      in request = select.request;
+    }
+
+    action respond : GenerateAssistantResponse {
+      in intent = interpret.intent;
+      in serviceResponse = execute.response;
+      in context = context;
+    }
+
+    action speak : SynthesizeSpeech {
+      in response = respond.response;
+      in locale = context.locale;
+    }
+
+    bind speechOutput = speak.speech;
+    bind visualOutput = respond.response;
+  }
+
+  state def AssistantOperationalState {
+    attribute wakeConfidenceThreshold : ConfidenceScore = 0.82;
+    attribute intentConfidenceThreshold : ConfidenceScore = 0.60;
+
+    state idle;
+    state listening;
+    state processing;
+    state fulfilling;
+    state responding;
+    state followUp;
+    state privacyLocked;
+    state errorRecovery;
+
+    entry action initializeSession;
+    exit action closeSession;
+
+    transition idle_to_listening
+      first idle
+      then listening
+      accept WakePhraseDetection
+      if WakePhraseDetection::confidence >= wakeConfidenceThreshold;
+
+    transition listening_to_processing
+      first listening
+      then processing
+      accept SpeechTranscript
+      if SpeechTranscript::final == true;
+
+    transition processing_to_fulfilling
+      first processing
+      then fulfilling
+      accept UserIntent
+      if UserIntent::confidence >= intentConfidenceThreshold;
+
+    transition processing_to_error
+      first processing
+      then errorRecovery
+      accept UserIntent
+      if UserIntent::confidence < intentConfidenceThreshold;
+
+    transition fulfilling_to_responding
+      first fulfilling
+      then responding
+      accept ServiceResponse;
+
+    transition responding_to_followUp
+      first responding
+      then followUp
+      accept AssistantResponse
+      if AssistantResponse::requiresFollowUp == true;
+
+    transition responding_to_idle
+      first responding
+      then idle
+      accept AssistantResponse
+      if AssistantResponse::requiresFollowUp == false;
+
+    transition any_to_privacyLocked
+      first idle
+      then privacyLocked
+      accept ContextSnapshot
+      if ContextSnapshot::privacyMode == PrivacyMode::disabled;
+
+    transition privacyLocked_to_idle
+      first privacyLocked
+      then idle
+      accept ContextSnapshot
+      if ContextSnapshot::privacyMode != PrivacyMode::disabled;
+
+    transition error_to_idle
+      first errorRecovery
+      then idle
+      after 2000 [ms];
+  }
+
+  /* Structure */
+
+  part def MicrophoneArray {
+    port microphone : MicrophonePort;
+    attribute elementCount : Integer = 3;
+    attribute sampleRate : AudioSampleRate_Hz = 16000.0;
+    attribute noiseSuppressionEnabled : Boolean = true;
+  }
+
+  part def WakeWordEngine {
+    port audioIn {
+      in audio : AudioStream;
+    }
+    port detectionOut {
+      out detection : WakePhraseDetection;
+    }
+    attribute supportedPhrase : TextString = "Hey Google";
+    attribute minimumConfidence : ConfidenceScore = 0.82;
+    perform action DetectWakePhrase;
+  }
+
+  part def SpeechRecognitionEngine {
+    port audioIn {
+      in audio : AudioStream;
+    }
+    port transcriptOut {
+      out transcript : SpeechTranscript;
+    }
+    attribute streamingEnabled : Boolean = true;
+    attribute defaultLocale : LocaleCode = "en-US";
+    perform action TranscribeSpeech;
+  }
+
+  part def NaturalLanguageUnderstanding {
+    port transcriptIn {
+      in transcript : SpeechTranscript;
+    }
+    port intentOut {
+      out intent : UserIntent;
+    }
+    attribute minimumIntentConfidence : ConfidenceScore = 0.60;
+    perform action InterpretIntent;
+  }
+
+  part def ContextManager {
+    port contextOut {
+      out context : ContextSnapshot;
+    }
+    attribute currentUserId : DeviceIdentifier;
+    attribute locale : LocaleCode = "en-US";
+    attribute privacyMode : PrivacyMode = PrivacyMode::normal;
+    attribute locationEnabled : Boolean = true;
+    attribute smartHomeLinked : Boolean = true;
+  }
+
+  part def ConversationOrchestrator {
+    port intentIn {
+      in intent : UserIntent;
+    }
+    port contextIn {
+      in context : ContextSnapshot;
+    }
+    port serviceRequestOut {
+      out request : ServiceRequest;
+    }
+    port serviceResponseIn {
+      in response : ServiceResponse;
+    }
+    port assistantResponseOut {
+      out response : AssistantResponse;
+    }
+    perform action SelectService;
+    perform action GenerateAssistantResponse;
+  }
+
+  part def CloudServiceAdapter {
+    port cloud : AssistantCloudPort;
+    attribute maxRoundTripLatency : Latency_ms = 1500.0;
+    attribute encryptedTransportRequired : Boolean = true;
+    perform action ExecuteServiceRequest;
+  }
+
+  part def SmartHomeAdapter {
+    port smartHome : SmartHomePort;
+    attribute supportedDeviceClasses : String = "lights, thermostats, locks, cameras, speakers";
+    attribute localExecutionPreferred : Boolean = true;
+    perform action DispatchSmartHomeCommand;
+  }
+
+  part def SpeechSynthesisEngine {
+    port responseIn {
+      in response : AssistantResponse;
+    }
+    port speechOut {
+      out speech : RenderedAudio;
+    }
+    attribute defaultVoice : TextString = "assistant-neutral";
+    attribute targetSampleRate : AudioSampleRate_Hz = 24000.0;
+    perform action SynthesizeSpeech;
+  }
+
+  part def SpeakerSystem {
+    port speaker : SpeakerPort;
+    attribute channelCount : Integer = 1;
+    attribute maxSoundPressureLevel_dB : SignalLevel_dB = 85.0;
+  }
+
+  part def VisualSurface {
+    port display : DisplayPort;
+    attribute available : Boolean = true;
+    attribute width_px : Integer = 1080;
+    attribute height_px : Integer = 1920;
+  }
+
+  part def GoogleAssistantBasedSystem {
+    port userInterface : UserInteractionPort;
+    port cloudEndpoint : AssistantCloudPort;
+    port smartHomeEndpoint : SmartHomePort;
+
+    part microphones : MicrophoneArray;
+    part wakeWord : WakeWordEngine;
+    part speechRecognition : SpeechRecognitionEngine;
+    part nlu : NaturalLanguageUnderstanding;
+    part context : ContextManager;
+    part orchestrator : ConversationOrchestrator;
+    part cloudAdapter : CloudServiceAdapter;
+    part smartHomeAdapter : SmartHomeAdapter;
+    part speechSynthesis : SpeechSynthesisEngine;
+    part speakers : SpeakerSystem;
+    part visualSurface : VisualSurface;
+
+    attribute primaryFunction : TextString =
+      "Provide a voice-first conversational assistant that listens for a wake phrase, understands natural-language requests, coordinates cloud and local services, and returns spoken or visual responses.";
+    attribute endToEndLatencyBudget : Latency_ms = 2500.0;
+    attribute wakePhraseFalseAcceptRateTarget : Real = 0.001;
+    attribute supportedLocale : LocaleCode = "en-US";
+    attribute privacyMode : PrivacyMode = PrivacyMode::normal;
+
+    exhibit state AssistantOperationalState;
+
+    connect userInterface.userAudio to microphones.microphone.audio;
+    connect microphones.microphone.audio to wakeWord.audioIn.audio;
+    connect microphones.microphone.audio to speechRecognition.audioIn.audio;
+    connect wakeWord.detectionOut.detection to userInterface;
+    connect speechRecognition.transcriptOut.transcript to nlu.transcriptIn.transcript;
+    connect nlu.intentOut.intent to orchestrator.intentIn.intent;
+    connect context.contextOut.context to orchestrator.contextIn.context;
+    connect orchestrator.serviceRequestOut.request to cloudAdapter.cloud.request;
+    connect cloudAdapter.cloud.response to orchestrator.serviceResponseIn.response;
+    connect cloudEndpoint.request to cloudAdapter.cloud.request;
+    connect cloudEndpoint.response to cloudAdapter.cloud.response;
+    connect smartHomeEndpoint.command to smartHomeAdapter.smartHome.command;
+    connect smartHomeEndpoint.result to smartHomeAdapter.smartHome.result;
+    connect orchestrator.assistantResponseOut.response to speechSynthesis.responseIn.response;
+    connect orchestrator.assistantResponseOut.response to visualSurface.display.visualResponse;
+    connect speechSynthesis.speechOut.speech to speakers.speaker.speechAudio;
+    connect speakers.speaker.speechAudio to userInterface.assistantSpeech;
+    connect visualSurface.display.visualResponse to userInterface.assistantVisual;
+  }
+
+  /* Requirements */
+
+  requirement def WakePhraseRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall remain idle until a supported wake phrase is detected with sufficient confidence. */
+    require constraint {
+      assistant.wakeWord.minimumConfidence >= 0.82
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall provide high-level conversational assistance by accepting spoken user requests and producing relevant spoken or visual responses. */
+    require constraint {
+      assistant.primaryFunction != ""
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall complete a typical assistant interaction within the end-to-end latency budget. */
+    require constraint {
+      assistant.endToEndLatencyBudget <= 2500.0 [ms]
+    }
+  }
+
+  requirement def PrivacyRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall prevent assistant request fulfillment when privacy mode is disabled. */
+    require constraint {
+      assistant.privacyMode != PrivacyMode::disabled
+    }
+  }
+
+  requirement def SecureCloudCommunicationRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall use encrypted transport for cloud service requests and responses. */
+    require constraint {
+      assistant.cloudAdapter.encryptedTransportRequired == true
+    }
+  }
+
+  requirement def SmartHomeControlRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall translate supported home-control intents into device control commands when a linked smart-home graph is available. */
+    require constraint {
+      assistant.smartHomeAdapter.localExecutionPreferred == true
+    }
+  }
+
+  requirement def SpeechRecognitionRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall support streaming speech recognition for responsive natural-language interaction. */
+    require constraint {
+      assistant.speechRecognition.streamingEnabled == true
+    }
+  }
+
+  requirement def ResponseRenderingRequirement {
+    subject assistant : GoogleAssistantBasedSystem;
+    doc
+      /* The system shall render assistant responses as synthesized speech and, when available, visual content. */
+    require constraint {
+      assistant.visualSurface.available == true and assistant.speechSynthesis.targetSampleRate >= 16000.0 [Hz]
+    }
+  }
+
+}

@@ -1,0 +1,873 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p1tkk68_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb534-d886-7292-aa06-a2b6f7cd0e0e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Electron multiplier and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ElectronMultiplierSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def ElectronCount {
+    unit = count;
+  }
+
+  value def GainRatio {
+    unit = one;
+  }
+
+  value def Voltage {
+    unit = volt;
+  }
+
+  value def ElectricCurrent {
+    unit = ampere;
+  }
+
+  value def TimeDuration {
+    unit = second;
+  }
+
+  value def Pressure {
+    unit = pascal;
+  }
+
+  value def Temperature {
+    unit = kelvin;
+  }
+
+  value def Energy {
+    unit = electronVolt;
+  }
+
+  value def DarkCountRate {
+    unit = hertz;
+  }
+
+  item def IncidentElectron {
+    attribute kineticEnergy : Energy;
+    attribute arrivalTime : TimeDuration;
+    attribute charge : ElectricCharge = -1.602176634e-19 [coulomb];
+  }
+
+  item def SecondaryElectron {
+    attribute kineticEnergy : Energy;
+    attribute generationStage : Integer;
+    attribute charge : ElectricCharge = -1.602176634e-19 [coulomb];
+  }
+
+  item def ElectronAvalanche {
+    attribute electronCount : ElectronCount;
+    attribute meanEnergy : Energy;
+    attribute gain : GainRatio;
+  }
+
+  item def OutputPulse {
+    attribute peakCurrent : ElectricCurrent;
+    attribute pulseWidth : TimeDuration;
+    attribute collectedCharge : ElectricCharge;
+    attribute gain : GainRatio;
+    attribute timestamp : TimeDuration;
+  }
+
+  item def BiasSupply {
+    attribute appliedVoltage : Voltage;
+    attribute rippleVoltage : Voltage;
+    attribute maxCurrent : ElectricCurrent;
+  }
+
+  port def ElectronInputPort {
+    in item incidentElectron : IncidentElectron;
+  }
+
+  port def ElectronTransferPort {
+    in item incomingAvalanche : ElectronAvalanche;
+    out item outgoingAvalanche : ElectronAvalanche;
+  }
+
+  port def ElectronOutputPort {
+    out item amplifiedAvalanche : ElectronAvalanche;
+  }
+
+  port def PulseOutputPort {
+    out item pulse : OutputPulse;
+  }
+
+  port def BiasPort {
+    in item bias : BiasSupply;
+  }
+
+  port def VacuumPort {
+    in attribute chamberPressure : Pressure;
+  }
+
+  port def ThermalPort {
+    in attribute housingTemperature : Temperature;
+  }
+
+  action def ConvertIncidentElectronToSecondaryEmission {
+    in item primary : IncidentElectron;
+    in attribute conversionVoltage : Voltage;
+    out item initialAvalanche : ElectronAvalanche;
+
+    attribute nominalSecondaryYield : GainRatio = 3.5;
+    attribute minimumPrimaryEnergy : Energy = 50 [electronVolt];
+
+    assert primary.kineticEnergy >= minimumPrimaryEnergy;
+
+    initialAvalanche.electronCount := 3.5 [count];
+    initialAvalanche.meanEnergy := 12 [electronVolt];
+    initialAvalanche.gain := nominalSecondaryYield;
+  }
+
+  action def MultiplyElectronAvalanche {
+    in item inputAvalanche : ElectronAvalanche;
+    in attribute stageIndex : Integer;
+    in attribute dynodeVoltage : Voltage;
+    out item outputAvalanche : ElectronAvalanche;
+
+    attribute stageYield : GainRatio;
+    attribute lowVoltageYield : GainRatio = 2.0;
+    attribute nominalYield : GainRatio = 4.0;
+    attribute highVoltageYield : GainRatio = 5.5;
+
+    if dynodeVoltage < 70 [volt] {
+      stageYield := lowVoltageYield;
+    } else if dynodeVoltage <= 130 [volt] {
+      stageYield := nominalYield;
+    } else {
+      stageYield := highVoltageYield;
+    }
+
+    outputAvalanche.electronCount := inputAvalanche.electronCount * stageYield;
+    outputAvalanche.meanEnergy := 10 [electronVolt];
+    outputAvalanche.gain := inputAvalanche.gain * stageYield;
+  }
+
+  action def CollectAvalancheAsPulse {
+    in item avalanche : ElectronAvalanche;
+    in attribute collectionEfficiency : GainRatio;
+    out item pulse : OutputPulse;
+
+    pulse.collectedCharge := avalanche.electronCount * collectionEfficiency * 1.602176634e-19 [coulomb];
+    pulse.pulseWidth := 8 [nanosecond];
+    pulse.peakCurrent := pulse.collectedCharge / pulse.pulseWidth;
+    pulse.gain := avalanche.gain * collectionEfficiency;
+  }
+
+  state def MultiplierOperatingState {
+    entry action initializeElectrodes;
+
+    state Off;
+    state Standby;
+    state BiasRamp;
+    state Ready;
+    state Multiplying;
+    state Saturated;
+    state Fault;
+
+    transition first Off;
+
+    transition Off_to_Standby
+      first Off
+      then Standby
+      accept powerEnabled;
+
+    transition Standby_to_BiasRamp
+      first Standby
+      then BiasRamp
+      accept enableHighVoltage;
+
+    transition BiasRamp_to_Ready
+      first BiasRamp
+      then Ready
+      accept biasStable;
+
+    transition Ready_to_Multiplying
+      first Ready
+      then Multiplying
+      accept incidentElectronDetected;
+
+    transition Multiplying_to_Ready
+      first Multiplying
+      then Ready
+      accept pulseDelivered;
+
+    transition Multiplying_to_Saturated
+      first Multiplying
+      then Saturated
+      accept outputCurrentLimitExceeded;
+
+    transition Saturated_to_Ready
+      first Saturated
+      then Ready
+      accept recoveryDelayElapsed;
+
+    transition Ready_to_Fault
+      first Ready
+      then Fault
+      accept vacuumPressureTooHigh;
+
+    transition Fault_to_Standby
+      first Fault
+      then Standby
+      accept faultCleared;
+  }
+
+  part def Photocathode {
+    port electronIn : ElectronInputPort;
+    port secondaryOut : ElectronTransferPort;
+    port biasIn : BiasPort;
+
+    attribute conversionVoltage : Voltage = 100 [volt];
+    attribute nominalSecondaryYield : GainRatio = 3.5;
+    attribute activeAreaDiameter : Length = 8 [millimeter];
+
+    perform action convert : ConvertIncidentElectronToSecondaryEmission {
+      in primary = electronIn.incidentElectron;
+      in conversionVoltage = conversionVoltage;
+      out initialAvalanche = secondaryOut.outgoingAvalanche;
+    }
+  }
+
+  part def DynodeStage {
+    port electronTransfer : ElectronTransferPort;
+    port biasIn : BiasPort;
+
+    attribute stageNumber : Integer;
+    attribute dynodeVoltage : Voltage = 110 [volt];
+    attribute secondaryYield : GainRatio = 4.0;
+    attribute transitTime : TimeDuration = 1.2 [nanosecond];
+
+    perform action multiply : MultiplyElectronAvalanche {
+      in inputAvalanche = electronTransfer.incomingAvalanche;
+      in stageIndex = stageNumber;
+      in dynodeVoltage = dynodeVoltage;
+      out outputAvalanche = electronTransfer.outgoingAvalanche;
+    }
+  }
+
+  part def AnodeCollector {
+    port avalancheIn : ElectronTransferPort;
+    port pulseOut : PulseOutputPort;
+    port biasIn : BiasPort;
+
+    attribute collectionVoltage : Voltage = 180 [volt];
+    attribute collectionEfficiency : GainRatio = 0.92;
+    attribute outputImpedance : Resistance = 50 [ohm];
+
+    perform action collect : CollectAvalancheAsPulse {
+      in avalanche = avalancheIn.incomingAvalanche;
+      in collectionEfficiency = collectionEfficiency;
+      out pulse = pulseOut.pulse;
+    }
+  }
+
+  part def HighVoltageDivider {
+    port supplyIn : BiasPort;
+    port cathodeBiasOut : BiasPort;
+    port dynodeBiasOut[10] : BiasPort;
+    port anodeBiasOut : BiasPort;
+
+    attribute totalBiasVoltage : Voltage = 1200 [volt];
+    attribute dividerCurrent : ElectricCurrent = 100 [microampere];
+    attribute rippleVoltage : Voltage = 2 [millivolt];
+
+    item nominalBias : BiasSupply {
+      attribute appliedVoltage = totalBiasVoltage;
+      attribute rippleVoltage = rippleVoltage;
+      attribute maxCurrent = dividerCurrent;
+    }
+  }
+
+  part def VacuumEnvelope {
+    port vacuumInterface : VacuumPort;
+    port thermalInterface : ThermalPort;
+
+    attribute operatingPressure : Pressure = 1.0e-4 [pascal];
+    attribute maximumSafePressure : Pressure = 1.0e-2 [pascal];
+    attribute minimumTemperature : Temperature = 253 [kelvin];
+    attribute maximumTemperature : Temperature = 333 [kelvin];
+
+    assert operatingPressure <= maximumSafePressure;
+  }
+
+  part def ElectronMultiplier {
+    port electronInput : ElectronInputPort;
+    port signalOutput : PulseOutputPort;
+    port biasInput : BiasPort;
+    port vacuumInput : VacuumPort;
+    port thermalInput : ThermalPort;
+
+    attribute primaryFunction : String =
+      "Amplify a single or small number of incident electrons into a measurable electrical pulse by repeated secondary electron emission across biased dynode stages.";
+
+    attribute nominalGain : GainRatio = 1000000;
+    attribute minimumGain : GainRatio = 100000;
+    attribute maximumGain : GainRatio = 10000000;
+    attribute maximumOutputCurrent : ElectricCurrent = 10 [milliampere];
+    attribute darkCountRate : DarkCountRate = 10 [hertz];
+    attribute totalTransitTime : TimeDuration = 15 [nanosecond];
+
+    part envelope : VacuumEnvelope;
+    part divider : HighVoltageDivider;
+    part cathode : Photocathode;
+    part dynode[10] : DynodeStage;
+    part anode : AnodeCollector;
+
+    state operatingState : MultiplierOperatingState;
+
+    connect electronInput to cathode.electronIn;
+    connect biasInput to divider.supplyIn;
+    connect vacuumInput to envelope.vacuumInterface;
+    connect thermalInput to envelope.thermalInterface;
+
+    connect divider.cathodeBiasOut to cathode.biasIn;
+    connect divider.dynodeBiasOut[1] to dynode[1].biasIn;
+    connect divider.dynodeBiasOut[2] to dynode[2].biasIn;
+    connect divider.dynodeBiasOut[3] to dynode[3].biasIn;
+    connect divider.dynodeBiasOut[4] to dynode[4].biasIn;
+    connect divider.dynodeBiasOut[5] to dynode[5].biasIn;
+    connect divider.dynodeBiasOut[6] to dynode[6].biasIn;
+    connect divider.dynodeBiasOut[7] to dynode[7].biasIn;
+    connect divider.dynodeBiasOut[8] to dynode[8].biasIn;
+    connect divider.dynodeBiasOut[9] to dynode[9].biasIn;
+    connect divider.dynodeBiasOut[10] to dynode[10].biasIn;
+    connect divider.anodeBiasOut to anode.biasIn;
+
+    connect cathode.secondaryOut to dynode[1].electronTransfer;
+    connect dynode[1].electronTransfer to dynode[2].electronTransfer;
+    connect dynode[2].electronTransfer to dynode[3].electronTransfer;
+    connect dynode[3].electronTransfer to dynode[4].electronTransfer;
+    connect dynode[4].electronTransfer to dynode[5].electronTransfer;
+    connect dynode[5].electronTransfer to dynode[6].electronTransfer;
+    connect dynode[6].electronTransfer to dynode[7].electronTransfer;
+    connect dynode[7].electronTransfer to dynode[8].electronTransfer;
+    connect dynode[8].electronTransfer to dynode[9].electronTransfer;
+    connect dynode[9].electronTransfer to dynode[10].electronTransfer;
+    connect dynode[10].electronTransfer to anode.avalancheIn;
+    connect anode.pulseOut to signalOutput;
+
+    assert nominalGain >= minimumGain;
+    assert nominalGain <= maximumGain;
+    assert envelope.operatingPressure <= envelope.maximumSafePressure;
+    assert anode.collect.pulse.peakCurrent <= maximumOutputCurrent;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The electron multiplier shall convert incident electrons into amplified output current pulses suitable for detection by downstream electronics.";
+
+    require constraint {
+      multiplier.nominalGain >= 1000000 [one]
+    }
+
+    require constraint {
+      multiplier.totalTransitTime <= 20 [nanosecond]
+    }
+  }
+
+  requirement def VacuumOperationRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The electron multiplier shall operate only when the internal vacuum pressure is low enough to prevent gas discharge and ion feedback.";
+
+    require constraint {
+      multiplier.envelope.operatingPressure <= 1.0e-2 [pascal]
+    }
+  }
+
+  requirement def PulseOutputRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The electron multiplier shall produce a bounded, measurable pulse at the anode for each accepted incident electron event.";
+
+    require constraint {
+      multiplier.anode.collect.pulse.collectedCharge >= 1.0e-14 [coulomb]
+    }
+
+    require constraint {
+      multiplier.anode.collect.pulse.pulseWidth <= 10 [nanosecond]
+    }
+  }
+
+  requirement def BiasStabilityRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The bias divider shall provide stable electrode potentials so that gain variation from supply ripple remains limited.";
+
+    require constraint {
+      multiplier.divider.rippleVoltage <= 5 [millivolt]
+    }
+
+    require constraint {
+      multiplier.divider.dividerCurrent >= 50 [microampere]
+    }
+  }
+
+  requirement def DarkNoiseRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The multiplier shall limit spontaneous output pulses when no incident electron is present.";
+
+    require constraint {
+      multiplier.darkCountRate <= 25 [hertz]
+    }
+  }
+
+  part electronMultiplierAssembly : ElectronMultiplier;
+
+  satisfy PrimaryFunctionRequirement by electronMultiplierAssembly;
+  satisfy VacuumOperationRequirement by electronMultiplierAssembly;
+  satisfy PulseOutputRequirement by electronMultiplierAssembly;
+  satisfy BiasStabilityRequirement by electronMultiplierAssembly;
+  satisfy DarkNoiseRequirement by electronMultiplierAssembly;
+}
+tokens used
+4,575
+package ElectronMultiplierSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def ElectronCount {
+    unit = count;
+  }
+
+  value def GainRatio {
+    unit = one;
+  }
+
+  value def Voltage {
+    unit = volt;
+  }
+
+  value def ElectricCurrent {
+    unit = ampere;
+  }
+
+  value def TimeDuration {
+    unit = second;
+  }
+
+  value def Pressure {
+    unit = pascal;
+  }
+
+  value def Temperature {
+    unit = kelvin;
+  }
+
+  value def Energy {
+    unit = electronVolt;
+  }
+
+  value def DarkCountRate {
+    unit = hertz;
+  }
+
+  item def IncidentElectron {
+    attribute kineticEnergy : Energy;
+    attribute arrivalTime : TimeDuration;
+    attribute charge : ElectricCharge = -1.602176634e-19 [coulomb];
+  }
+
+  item def SecondaryElectron {
+    attribute kineticEnergy : Energy;
+    attribute generationStage : Integer;
+    attribute charge : ElectricCharge = -1.602176634e-19 [coulomb];
+  }
+
+  item def ElectronAvalanche {
+    attribute electronCount : ElectronCount;
+    attribute meanEnergy : Energy;
+    attribute gain : GainRatio;
+  }
+
+  item def OutputPulse {
+    attribute peakCurrent : ElectricCurrent;
+    attribute pulseWidth : TimeDuration;
+    attribute collectedCharge : ElectricCharge;
+    attribute gain : GainRatio;
+    attribute timestamp : TimeDuration;
+  }
+
+  item def BiasSupply {
+    attribute appliedVoltage : Voltage;
+    attribute rippleVoltage : Voltage;
+    attribute maxCurrent : ElectricCurrent;
+  }
+
+  port def ElectronInputPort {
+    in item incidentElectron : IncidentElectron;
+  }
+
+  port def ElectronTransferPort {
+    in item incomingAvalanche : ElectronAvalanche;
+    out item outgoingAvalanche : ElectronAvalanche;
+  }
+
+  port def ElectronOutputPort {
+    out item amplifiedAvalanche : ElectronAvalanche;
+  }
+
+  port def PulseOutputPort {
+    out item pulse : OutputPulse;
+  }
+
+  port def BiasPort {
+    in item bias : BiasSupply;
+  }
+
+  port def VacuumPort {
+    in attribute chamberPressure : Pressure;
+  }
+
+  port def ThermalPort {
+    in attribute housingTemperature : Temperature;
+  }
+
+  action def ConvertIncidentElectronToSecondaryEmission {
+    in item primary : IncidentElectron;
+    in attribute conversionVoltage : Voltage;
+    out item initialAvalanche : ElectronAvalanche;
+
+    attribute nominalSecondaryYield : GainRatio = 3.5;
+    attribute minimumPrimaryEnergy : Energy = 50 [electronVolt];
+
+    assert primary.kineticEnergy >= minimumPrimaryEnergy;
+
+    initialAvalanche.electronCount := 3.5 [count];
+    initialAvalanche.meanEnergy := 12 [electronVolt];
+    initialAvalanche.gain := nominalSecondaryYield;
+  }
+
+  action def MultiplyElectronAvalanche {
+    in item inputAvalanche : ElectronAvalanche;
+    in attribute stageIndex : Integer;
+    in attribute dynodeVoltage : Voltage;
+    out item outputAvalanche : ElectronAvalanche;
+
+    attribute stageYield : GainRatio;
+    attribute lowVoltageYield : GainRatio = 2.0;
+    attribute nominalYield : GainRatio = 4.0;
+    attribute highVoltageYield : GainRatio = 5.5;
+
+    if dynodeVoltage < 70 [volt] {
+      stageYield := lowVoltageYield;
+    } else if dynodeVoltage <= 130 [volt] {
+      stageYield := nominalYield;
+    } else {
+      stageYield := highVoltageYield;
+    }
+
+    outputAvalanche.electronCount := inputAvalanche.electronCount * stageYield;
+    outputAvalanche.meanEnergy := 10 [electronVolt];
+    outputAvalanche.gain := inputAvalanche.gain * stageYield;
+  }
+
+  action def CollectAvalancheAsPulse {
+    in item avalanche : ElectronAvalanche;
+    in attribute collectionEfficiency : GainRatio;
+    out item pulse : OutputPulse;
+
+    pulse.collectedCharge := avalanche.electronCount * collectionEfficiency * 1.602176634e-19 [coulomb];
+    pulse.pulseWidth := 8 [nanosecond];
+    pulse.peakCurrent := pulse.collectedCharge / pulse.pulseWidth;
+    pulse.gain := avalanche.gain * collectionEfficiency;
+  }
+
+  state def MultiplierOperatingState {
+    entry action initializeElectrodes;
+
+    state Off;
+    state Standby;
+    state BiasRamp;
+    state Ready;
+    state Multiplying;
+    state Saturated;
+    state Fault;
+
+    transition first Off;
+
+    transition Off_to_Standby
+      first Off
+      then Standby
+      accept powerEnabled;
+
+    transition Standby_to_BiasRamp
+      first Standby
+      then BiasRamp
+      accept enableHighVoltage;
+
+    transition BiasRamp_to_Ready
+      first BiasRamp
+      then Ready
+      accept biasStable;
+
+    transition Ready_to_Multiplying
+      first Ready
+      then Multiplying
+      accept incidentElectronDetected;
+
+    transition Multiplying_to_Ready
+      first Multiplying
+      then Ready
+      accept pulseDelivered;
+
+    transition Multiplying_to_Saturated
+      first Multiplying
+      then Saturated
+      accept outputCurrentLimitExceeded;
+
+    transition Saturated_to_Ready
+      first Saturated
+      then Ready
+      accept recoveryDelayElapsed;
+
+    transition Ready_to_Fault
+      first Ready
+      then Fault
+      accept vacuumPressureTooHigh;
+
+    transition Fault_to_Standby
+      first Fault
+      then Standby
+      accept faultCleared;
+  }
+
+  part def Photocathode {
+    port electronIn : ElectronInputPort;
+    port secondaryOut : ElectronTransferPort;
+    port biasIn : BiasPort;
+
+    attribute conversionVoltage : Voltage = 100 [volt];
+    attribute nominalSecondaryYield : GainRatio = 3.5;
+    attribute activeAreaDiameter : Length = 8 [millimeter];
+
+    perform action convert : ConvertIncidentElectronToSecondaryEmission {
+      in primary = electronIn.incidentElectron;
+      in conversionVoltage = conversionVoltage;
+      out initialAvalanche = secondaryOut.outgoingAvalanche;
+    }
+  }
+
+  part def DynodeStage {
+    port electronTransfer : ElectronTransferPort;
+    port biasIn : BiasPort;
+
+    attribute stageNumber : Integer;
+    attribute dynodeVoltage : Voltage = 110 [volt];
+    attribute secondaryYield : GainRatio = 4.0;
+    attribute transitTime : TimeDuration = 1.2 [nanosecond];
+
+    perform action multiply : MultiplyElectronAvalanche {
+      in inputAvalanche = electronTransfer.incomingAvalanche;
+      in stageIndex = stageNumber;
+      in dynodeVoltage = dynodeVoltage;
+      out outputAvalanche = electronTransfer.outgoingAvalanche;
+    }
+  }
+
+  part def AnodeCollector {
+    port avalancheIn : ElectronTransferPort;
+    port pulseOut : PulseOutputPort;
+    port biasIn : BiasPort;
+
+    attribute collectionVoltage : Voltage = 180 [volt];
+    attribute collectionEfficiency : GainRatio = 0.92;
+    attribute outputImpedance : Resistance = 50 [ohm];
+
+    perform action collect : CollectAvalancheAsPulse {
+      in avalanche = avalancheIn.incomingAvalanche;
+      in collectionEfficiency = collectionEfficiency;
+      out pulse = pulseOut.pulse;
+    }
+  }
+
+  part def HighVoltageDivider {
+    port supplyIn : BiasPort;
+    port cathodeBiasOut : BiasPort;
+    port dynodeBiasOut[10] : BiasPort;
+    port anodeBiasOut : BiasPort;
+
+    attribute totalBiasVoltage : Voltage = 1200 [volt];
+    attribute dividerCurrent : ElectricCurrent = 100 [microampere];
+    attribute rippleVoltage : Voltage = 2 [millivolt];
+
+    item nominalBias : BiasSupply {
+      attribute appliedVoltage = totalBiasVoltage;
+      attribute rippleVoltage = rippleVoltage;
+      attribute maxCurrent = dividerCurrent;
+    }
+  }
+
+  part def VacuumEnvelope {
+    port vacuumInterface : VacuumPort;
+    port thermalInterface : ThermalPort;
+
+    attribute operatingPressure : Pressure = 1.0e-4 [pascal];
+    attribute maximumSafePressure : Pressure = 1.0e-2 [pascal];
+    attribute minimumTemperature : Temperature = 253 [kelvin];
+    attribute maximumTemperature : Temperature = 333 [kelvin];
+
+    assert operatingPressure <= maximumSafePressure;
+  }
+
+  part def ElectronMultiplier {
+    port electronInput : ElectronInputPort;
+    port signalOutput : PulseOutputPort;
+    port biasInput : BiasPort;
+    port vacuumInput : VacuumPort;
+    port thermalInput : ThermalPort;
+
+    attribute primaryFunction : String =
+      "Amplify a single or small number of incident electrons into a measurable electrical pulse by repeated secondary electron emission across biased dynode stages.";
+
+    attribute nominalGain : GainRatio = 1000000;
+    attribute minimumGain : GainRatio = 100000;
+    attribute maximumGain : GainRatio = 10000000;
+    attribute maximumOutputCurrent : ElectricCurrent = 10 [milliampere];
+    attribute darkCountRate : DarkCountRate = 10 [hertz];
+    attribute totalTransitTime : TimeDuration = 15 [nanosecond];
+
+    part envelope : VacuumEnvelope;
+    part divider : HighVoltageDivider;
+    part cathode : Photocathode;
+    part dynode[10] : DynodeStage;
+    part anode : AnodeCollector;
+
+    state operatingState : MultiplierOperatingState;
+
+    connect electronInput to cathode.electronIn;
+    connect biasInput to divider.supplyIn;
+    connect vacuumInput to envelope.vacuumInterface;
+    connect thermalInput to envelope.thermalInterface;
+
+    connect divider.cathodeBiasOut to cathode.biasIn;
+    connect divider.dynodeBiasOut[1] to dynode[1].biasIn;
+    connect divider.dynodeBiasOut[2] to dynode[2].biasIn;
+    connect divider.dynodeBiasOut[3] to dynode[3].biasIn;
+    connect divider.dynodeBiasOut[4] to dynode[4].biasIn;
+    connect divider.dynodeBiasOut[5] to dynode[5].biasIn;
+    connect divider.dynodeBiasOut[6] to dynode[6].biasIn;
+    connect divider.dynodeBiasOut[7] to dynode[7].biasIn;
+    connect divider.dynodeBiasOut[8] to dynode[8].biasIn;
+    connect divider.dynodeBiasOut[9] to dynode[9].biasIn;
+    connect divider.dynodeBiasOut[10] to dynode[10].biasIn;
+    connect divider.anodeBiasOut to anode.biasIn;
+
+    connect cathode.secondaryOut to dynode[1].electronTransfer;
+    connect dynode[1].electronTransfer to dynode[2].electronTransfer;
+    connect dynode[2].electronTransfer to dynode[3].electronTransfer;
+    connect dynode[3].electronTransfer to dynode[4].electronTransfer;
+    connect dynode[4].electronTransfer to dynode[5].electronTransfer;
+    connect dynode[5].electronTransfer to dynode[6].electronTransfer;
+    connect dynode[6].electronTransfer to dynode[7].electronTransfer;
+    connect dynode[7].electronTransfer to dynode[8].electronTransfer;
+    connect dynode[8].electronTransfer to dynode[9].electronTransfer;
+    connect dynode[9].electronTransfer to dynode[10].electronTransfer;
+    connect dynode[10].electronTransfer to anode.avalancheIn;
+    connect anode.pulseOut to signalOutput;
+
+    assert nominalGain >= minimumGain;
+    assert nominalGain <= maximumGain;
+    assert envelope.operatingPressure <= envelope.maximumSafePressure;
+    assert anode.collect.pulse.peakCurrent <= maximumOutputCurrent;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The electron multiplier shall convert incident electrons into amplified output current pulses suitable for detection by downstream electronics.";
+
+    require constraint {
+      multiplier.nominalGain >= 1000000 [one]
+    }
+
+    require constraint {
+      multiplier.totalTransitTime <= 20 [nanosecond]
+    }
+  }
+
+  requirement def VacuumOperationRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The electron multiplier shall operate only when the internal vacuum pressure is low enough to prevent gas discharge and ion feedback.";
+
+    require constraint {
+      multiplier.envelope.operatingPressure <= 1.0e-2 [pascal]
+    }
+  }
+
+  requirement def PulseOutputRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The electron multiplier shall produce a bounded, measurable pulse at the anode for each accepted incident electron event.";
+
+    require constraint {
+      multiplier.anode.collect.pulse.collectedCharge >= 1.0e-14 [coulomb]
+    }
+
+    require constraint {
+      multiplier.anode.collect.pulse.pulseWidth <= 10 [nanosecond]
+    }
+  }
+
+  requirement def BiasStabilityRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The bias divider shall provide stable electrode potentials so that gain variation from supply ripple remains limited.";
+
+    require constraint {
+      multiplier.divider.rippleVoltage <= 5 [millivolt]
+    }
+
+    require constraint {
+      multiplier.divider.dividerCurrent >= 50 [microampere]
+    }
+  }
+
+  requirement def DarkNoiseRequirement {
+    subject multiplier : ElectronMultiplier;
+
+    doc
+      "The multiplier shall limit spontaneous output pulses when no incident electron is present.";
+
+    require constraint {
+      multiplier.darkCountRate <= 25 [hertz]
+    }
+  }
+
+  part electronMultiplierAssembly : ElectronMultiplier;
+
+  satisfy PrimaryFunctionRequirement by electronMultiplierAssembly;
+  satisfy VacuumOperationRequirement by electronMultiplierAssembly;
+  satisfy PulseOutputRequirement by electronMultiplierAssembly;
+  satisfy BiasStabilityRequirement by electronMultiplierAssembly;
+  satisfy DarkNoiseRequirement by electronMultiplierAssembly;
+}

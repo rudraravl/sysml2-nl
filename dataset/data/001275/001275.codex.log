@@ -1,0 +1,971 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-qz6fp8cl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb616-4e6e-7b52-930d-3cb95ed818d9
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a sensing unit that measures the relevant quantity using a Tactile sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TactileSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def VoltageValue :> ISQ::voltage {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentValue :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    item def ContactStimulus {
+        attribute normalForce : ForceValue;
+        attribute contactPressure : PressureValue;
+        attribute contactDuration : TimeValue;
+        attribute contactTemperature : TemperatureValue;
+    }
+
+    item def AnalogTactileSignal {
+        attribute bridgeVoltage : VoltageValue;
+        attribute excitationCurrent : CurrentValue;
+        attribute sensorTemperature : TemperatureValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def FilteredTactileSample {
+        attribute force : ForceValue;
+        attribute pressure : PressureValue;
+        attribute confidence : Real;
+        attribute timestamp : TimeValue;
+    }
+
+    item def TactileMeasurement {
+        attribute measuredForce : ForceValue;
+        attribute measuredPressure : PressureValue;
+        attribute sampleTime : TimeValue;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorConnected : Boolean;
+        attribute adcHealthy : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute overRangeDetected : Boolean;
+        attribute statusCode : DigitalCount;
+    }
+
+    port def ContactSurfacePort {
+        in item contact : ContactStimulus;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogTactileSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogTactileSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : FilteredTactileSample;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : TactileMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute supplyCurrent : CurrentValue;
+    }
+
+    port def PowerOutputPort {
+        out attribute regulatedVoltage : VoltageValue;
+        out attribute availableCurrent : CurrentValue;
+    }
+
+    part def TactileSensor {
+        attribute sensingArea = 0.0004 [SI::squareMetre];
+        attribute forceRangeMin = 0.0 [SI::newton];
+        attribute forceRangeMax = 50.0 [SI::newton];
+        attribute pressureRangeMax = 125000.0 [SI::pascal];
+        attribute sensitivity = 0.08 [SI::volt / SI::newton];
+        attribute responseTime = 0.008 [SI::second];
+        attribute operatingTemperatureMin = 253.15 [SI::kelvin];
+        attribute operatingTemperatureMax = 358.15 [SI::kelvin];
+
+        port contactPort : ContactSurfacePort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        action transduceContact {
+            in item stimulus : ContactStimulus;
+            out item analog : AnalogTactileSignal;
+
+            constraint forceWithinSensorRange {
+                stimulus.normalForce >= forceRangeMin and stimulus.normalForce <= forceRangeMax
+            }
+
+            constraint pressureWithinSensorRange {
+                stimulus.contactPressure >= 0.0 [SI::pascal] and stimulus.contactPressure <= pressureRangeMax
+            }
+        }
+    }
+
+    part def SignalConditioner {
+        attribute gain : Real = 12.5;
+        attribute lowPassCutoff = 120.0 [SI::hertz];
+        attribute noiseFloor = 0.015 [SI::volt];
+        attribute outputVoltageMin = 0.0 [SI::volt];
+        attribute outputVoltageMax = 3.3 [SI::volt];
+
+        port analogIn : AnalogInputPort;
+        port conditionedOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        action amplifyAndFilter {
+            in item rawSignal : AnalogTactileSignal;
+            out item conditionedSignal : AnalogTactileSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : DigitalCount = 16;
+        attribute referenceVoltage = 3.3 [SI::volt];
+        attribute sampleRate = 1000.0 [SI::hertz];
+        attribute conversionLatency = 0.00025 [SI::second];
+
+        port analogIn : AnalogInputPort;
+        port sampleOut : DigitalSamplePort;
+        port powerIn : PowerInputPort;
+
+        action convert {
+            in item conditionedSignal : AnalogTactileSignal;
+            out item digitalSample : FilteredTactileSample;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute calibrationOffsetForce = 0.0 [SI::newton];
+        attribute calibrationScaleForce : Real = 1.0;
+        attribute calibrationOffsetPressure = 0.0 [SI::pascal];
+        attribute calibrationScalePressure : Real = 1.0;
+        attribute minimumConfidence : Real = 0.95;
+        attribute measurementPeriod = 0.001 [SI::second];
+
+        port sampleIn {
+            in item sample : FilteredTactileSample;
+        }
+
+        port measurementOut : MeasurementOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action compensateAndValidate {
+            in item sample : FilteredTactileSample;
+            out item measurement : TactileMeasurement;
+            out item status : DiagnosticStatus;
+
+            constraint confidenceAccepted {
+                sample.confidence >= minimumConfidence
+            }
+        }
+
+        state def ProcessorStateMachine {
+            state initial Off;
+
+            state Idle;
+            state Calibrating;
+            state Measuring;
+            state Fault;
+
+            transition first Off then Idle;
+
+            transition idleToCalibrating
+                first Idle
+                accept CalibrateCommand
+                then Calibrating;
+
+            transition calibrationComplete
+                first Calibrating
+                accept CalibrationValid
+                then Idle;
+
+            transition idleToMeasuring
+                first Idle
+                accept ContactDetected
+                then Measuring;
+
+            transition measuringToIdle
+                first Measuring
+                accept ContactReleased
+                then Idle;
+
+            transition measuringFault
+                first Measuring
+                accept InvalidMeasurement
+                then Fault;
+
+            transition calibrationFault
+                first Calibrating
+                accept CalibrationInvalid
+                then Fault;
+
+            transition resetFault
+                first Fault
+                accept ResetCommand
+                then Idle;
+        }
+
+        exhibit stateMachine : ProcessorStateMachine;
+    }
+
+    part def RegulatedPowerSupply {
+        attribute inputVoltageNominal = 5.0 [SI::volt];
+        attribute sensorRailVoltage = 3.3 [SI::volt];
+        attribute maxOutputCurrent = 0.2 [SI::ampere];
+        attribute rippleVoltageMax = 0.01 [SI::volt];
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerOutputPort;
+        port electronicsPower : PowerOutputPort;
+
+        action regulatePower {
+            in attribute supplyVoltage : VoltageValue;
+            out attribute regulatedVoltage : VoltageValue;
+        }
+    }
+
+    part def TactileSensingUnit {
+        attribute measurementRangeForceMin = 0.0 [SI::newton];
+        attribute measurementRangeForceMax = 50.0 [SI::newton];
+        attribute measurementRangePressureMax = 125000.0 [SI::pascal];
+        attribute accuracyForce = 0.5 [SI::newton];
+        attribute accuracyPressure = 1500.0 [SI::pascal];
+        attribute outputUpdateRate = 500.0 [SI::hertz];
+        attribute startupTimeMax = 0.5 [SI::second];
+
+        port contactInterface : ContactSurfacePort;
+        port powerInput : PowerInputPort;
+        port measurementOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part tactileSensor : TactileSensor;
+        part signalConditioner : SignalConditioner;
+        part adc : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part powerSupply : RegulatedPowerSupply;
+
+        connect contactInterface to tactileSensor.contactPort;
+        connect tactileSensor.analogOut to signalConditioner.analogIn;
+        connect signalConditioner.conditionedOut to adc.analogIn;
+        connect adc.sampleOut to processor.sampleIn;
+        connect processor.measurementOut to measurementOutput;
+        connect processor.diagnosticOut to diagnosticOutput;
+
+        connect powerInput to powerSupply.externalPower;
+        connect powerSupply.sensorPower to tactileSensor.powerIn;
+        connect powerSupply.electronicsPower to signalConditioner.powerIn;
+        connect powerSupply.electronicsPower to adc.powerIn;
+
+        action performMeasurementCycle {
+            in item contact : ContactStimulus;
+            out item measurement : TactileMeasurement;
+            out item status : DiagnosticStatus;
+
+            first tactileSensor.transduceContact(contact, rawSignal);
+            then signalConditioner.amplifyAndFilter(rawSignal, conditionedSignal);
+            then adc.convert(conditionedSignal, digitalSample);
+            then processor.compensateAndValidate(digitalSample, measurement, status);
+        }
+
+        state def UnitOperatingStateMachine {
+            state initial Unpowered;
+
+            state PoweringUp;
+            state SelfTest;
+            state Ready;
+            state Sensing;
+            state Degraded;
+            state Failed;
+
+            transition powerApplied
+                first Unpowered
+                accept PowerApplied
+                then PoweringUp;
+
+            transition startupComplete
+                first PoweringUp
+                accept StartupTimerExpired
+                then SelfTest;
+
+            transition selfTestPassed
+                first SelfTest
+                accept DiagnosticsPass
+                then Ready;
+
+            transition selfTestWarning
+                first SelfTest
+                accept DiagnosticsWarning
+                then Degraded;
+
+            transition selfTestFailed
+                first SelfTest
+                accept DiagnosticsFail
+                then Failed;
+
+            transition contactBegins
+                first Ready
+                accept ContactDetected
+                then Sensing;
+
+            transition contactEnds
+                first Sensing
+                accept ContactReleased
+                then Ready;
+
+            transition sensingWarning
+                first Sensing
+                accept MeasurementConfidenceLow
+                then Degraded;
+
+            transition degradedRecovered
+                first Degraded
+                accept DiagnosticsPass
+                then Ready;
+
+            transition hardFault
+                first Ready
+                accept CriticalFault
+                then Failed;
+
+            transition sensingFault
+                first Sensing
+                accept CriticalFault
+                then Failed;
+
+            transition powerRemoved
+                first Ready
+                accept PowerRemoved
+                then Unpowered;
+        }
+
+        exhibit stateMachine : UnitOperatingStateMachine;
+    }
+
+    requirement def MeasureContactForceRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeForceMin <= 0.0 [SI::newton] and
+            sensingUnit.measurementRangeForceMax >= 50.0 [SI::newton]
+        }
+
+        require constraint {
+            sensingUnit.accuracyForce <= 0.5 [SI::newton]
+        }
+
+        doc /* The sensing unit shall measure normal contact force using its tactile sensor over the specified force range. */
+    }
+
+    requirement def MeasureContactPressureRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangePressureMax >= 125000.0 [SI::pascal]
+        }
+
+        require constraint {
+            sensingUnit.accuracyPressure <= 1500.0 [SI::pascal]
+        }
+
+        doc /* The sensing unit shall derive contact pressure from the tactile sensor output and calibrated sensing area. */
+    }
+
+    requirement def UpdateRateRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.outputUpdateRate >= 500.0 [SI::hertz]
+        }
+
+        doc /* The sensing unit shall publish validated tactile measurements at no less than 500 Hz while sensing contact. */
+    }
+
+    requirement def TactileSensorUsageRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.tactileSensor.forceRangeMax >= sensingUnit.measurementRangeForceMax
+        }
+
+        doc /* The sensing unit shall use a tactile sensor as the primary transducer for the measured contact quantity. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.minimumConfidence >= 0.95
+        }
+
+        doc /* The sensing unit shall report diagnostic status including sensor connectivity, ADC health, calibration validity, and over-range detection. */
+    }
+
+    requirement def StartupRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.startupTimeMax <= 0.5 [SI::second]
+        }
+
+        doc /* The sensing unit shall complete startup and self-test within 0.5 seconds after power is applied. */
+    }
+
+    part tactileSensingUnit : TactileSensingUnit;
+
+    requirement measureContactForce : MeasureContactForceRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement measureContactPressure : MeasureContactPressureRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement updateRate : UpdateRateRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement tactileSensorUsage : TactileSensorUsageRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement diagnostics : DiagnosticRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement startup : StartupRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    satisfy measureContactForce by tactileSensingUnit;
+    satisfy measureContactPressure by tactileSensingUnit;
+    satisfy updateRate by tactileSensingUnit;
+    satisfy tactileSensorUsage by tactileSensingUnit;
+    satisfy diagnostics by tactileSensingUnit;
+    satisfy startup by tactileSensingUnit;
+}
+tokens used
+3,487
+package TactileSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def PressureValue :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def VoltageValue :> ISQ::voltage {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentValue :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    item def ContactStimulus {
+        attribute normalForce : ForceValue;
+        attribute contactPressure : PressureValue;
+        attribute contactDuration : TimeValue;
+        attribute contactTemperature : TemperatureValue;
+    }
+
+    item def AnalogTactileSignal {
+        attribute bridgeVoltage : VoltageValue;
+        attribute excitationCurrent : CurrentValue;
+        attribute sensorTemperature : TemperatureValue;
+        attribute timestamp : TimeValue;
+    }
+
+    item def FilteredTactileSample {
+        attribute force : ForceValue;
+        attribute pressure : PressureValue;
+        attribute confidence : Real;
+        attribute timestamp : TimeValue;
+    }
+
+    item def TactileMeasurement {
+        attribute measuredForce : ForceValue;
+        attribute measuredPressure : PressureValue;
+        attribute sampleTime : TimeValue;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorConnected : Boolean;
+        attribute adcHealthy : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute overRangeDetected : Boolean;
+        attribute statusCode : DigitalCount;
+    }
+
+    port def ContactSurfacePort {
+        in item contact : ContactStimulus;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogTactileSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogTactileSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : FilteredTactileSample;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : TactileMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute supplyCurrent : CurrentValue;
+    }
+
+    port def PowerOutputPort {
+        out attribute regulatedVoltage : VoltageValue;
+        out attribute availableCurrent : CurrentValue;
+    }
+
+    part def TactileSensor {
+        attribute sensingArea = 0.0004 [SI::squareMetre];
+        attribute forceRangeMin = 0.0 [SI::newton];
+        attribute forceRangeMax = 50.0 [SI::newton];
+        attribute pressureRangeMax = 125000.0 [SI::pascal];
+        attribute sensitivity = 0.08 [SI::volt / SI::newton];
+        attribute responseTime = 0.008 [SI::second];
+        attribute operatingTemperatureMin = 253.15 [SI::kelvin];
+        attribute operatingTemperatureMax = 358.15 [SI::kelvin];
+
+        port contactPort : ContactSurfacePort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        action transduceContact {
+            in item stimulus : ContactStimulus;
+            out item analog : AnalogTactileSignal;
+
+            constraint forceWithinSensorRange {
+                stimulus.normalForce >= forceRangeMin and stimulus.normalForce <= forceRangeMax
+            }
+
+            constraint pressureWithinSensorRange {
+                stimulus.contactPressure >= 0.0 [SI::pascal] and stimulus.contactPressure <= pressureRangeMax
+            }
+        }
+    }
+
+    part def SignalConditioner {
+        attribute gain : Real = 12.5;
+        attribute lowPassCutoff = 120.0 [SI::hertz];
+        attribute noiseFloor = 0.015 [SI::volt];
+        attribute outputVoltageMin = 0.0 [SI::volt];
+        attribute outputVoltageMax = 3.3 [SI::volt];
+
+        port analogIn : AnalogInputPort;
+        port conditionedOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        action amplifyAndFilter {
+            in item rawSignal : AnalogTactileSignal;
+            out item conditionedSignal : AnalogTactileSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : DigitalCount = 16;
+        attribute referenceVoltage = 3.3 [SI::volt];
+        attribute sampleRate = 1000.0 [SI::hertz];
+        attribute conversionLatency = 0.00025 [SI::second];
+
+        port analogIn : AnalogInputPort;
+        port sampleOut : DigitalSamplePort;
+        port powerIn : PowerInputPort;
+
+        action convert {
+            in item conditionedSignal : AnalogTactileSignal;
+            out item digitalSample : FilteredTactileSample;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute calibrationOffsetForce = 0.0 [SI::newton];
+        attribute calibrationScaleForce : Real = 1.0;
+        attribute calibrationOffsetPressure = 0.0 [SI::pascal];
+        attribute calibrationScalePressure : Real = 1.0;
+        attribute minimumConfidence : Real = 0.95;
+        attribute measurementPeriod = 0.001 [SI::second];
+
+        port sampleIn {
+            in item sample : FilteredTactileSample;
+        }
+
+        port measurementOut : MeasurementOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action compensateAndValidate {
+            in item sample : FilteredTactileSample;
+            out item measurement : TactileMeasurement;
+            out item status : DiagnosticStatus;
+
+            constraint confidenceAccepted {
+                sample.confidence >= minimumConfidence
+            }
+        }
+
+        state def ProcessorStateMachine {
+            state initial Off;
+
+            state Idle;
+            state Calibrating;
+            state Measuring;
+            state Fault;
+
+            transition first Off then Idle;
+
+            transition idleToCalibrating
+                first Idle
+                accept CalibrateCommand
+                then Calibrating;
+
+            transition calibrationComplete
+                first Calibrating
+                accept CalibrationValid
+                then Idle;
+
+            transition idleToMeasuring
+                first Idle
+                accept ContactDetected
+                then Measuring;
+
+            transition measuringToIdle
+                first Measuring
+                accept ContactReleased
+                then Idle;
+
+            transition measuringFault
+                first Measuring
+                accept InvalidMeasurement
+                then Fault;
+
+            transition calibrationFault
+                first Calibrating
+                accept CalibrationInvalid
+                then Fault;
+
+            transition resetFault
+                first Fault
+                accept ResetCommand
+                then Idle;
+        }
+
+        exhibit stateMachine : ProcessorStateMachine;
+    }
+
+    part def RegulatedPowerSupply {
+        attribute inputVoltageNominal = 5.0 [SI::volt];
+        attribute sensorRailVoltage = 3.3 [SI::volt];
+        attribute maxOutputCurrent = 0.2 [SI::ampere];
+        attribute rippleVoltageMax = 0.01 [SI::volt];
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerOutputPort;
+        port electronicsPower : PowerOutputPort;
+
+        action regulatePower {
+            in attribute supplyVoltage : VoltageValue;
+            out attribute regulatedVoltage : VoltageValue;
+        }
+    }
+
+    part def TactileSensingUnit {
+        attribute measurementRangeForceMin = 0.0 [SI::newton];
+        attribute measurementRangeForceMax = 50.0 [SI::newton];
+        attribute measurementRangePressureMax = 125000.0 [SI::pascal];
+        attribute accuracyForce = 0.5 [SI::newton];
+        attribute accuracyPressure = 1500.0 [SI::pascal];
+        attribute outputUpdateRate = 500.0 [SI::hertz];
+        attribute startupTimeMax = 0.5 [SI::second];
+
+        port contactInterface : ContactSurfacePort;
+        port powerInput : PowerInputPort;
+        port measurementOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part tactileSensor : TactileSensor;
+        part signalConditioner : SignalConditioner;
+        part adc : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part powerSupply : RegulatedPowerSupply;
+
+        connect contactInterface to tactileSensor.contactPort;
+        connect tactileSensor.analogOut to signalConditioner.analogIn;
+        connect signalConditioner.conditionedOut to adc.analogIn;
+        connect adc.sampleOut to processor.sampleIn;
+        connect processor.measurementOut to measurementOutput;
+        connect processor.diagnosticOut to diagnosticOutput;
+
+        connect powerInput to powerSupply.externalPower;
+        connect powerSupply.sensorPower to tactileSensor.powerIn;
+        connect powerSupply.electronicsPower to signalConditioner.powerIn;
+        connect powerSupply.electronicsPower to adc.powerIn;
+
+        action performMeasurementCycle {
+            in item contact : ContactStimulus;
+            out item measurement : TactileMeasurement;
+            out item status : DiagnosticStatus;
+
+            first tactileSensor.transduceContact(contact, rawSignal);
+            then signalConditioner.amplifyAndFilter(rawSignal, conditionedSignal);
+            then adc.convert(conditionedSignal, digitalSample);
+            then processor.compensateAndValidate(digitalSample, measurement, status);
+        }
+
+        state def UnitOperatingStateMachine {
+            state initial Unpowered;
+
+            state PoweringUp;
+            state SelfTest;
+            state Ready;
+            state Sensing;
+            state Degraded;
+            state Failed;
+
+            transition powerApplied
+                first Unpowered
+                accept PowerApplied
+                then PoweringUp;
+
+            transition startupComplete
+                first PoweringUp
+                accept StartupTimerExpired
+                then SelfTest;
+
+            transition selfTestPassed
+                first SelfTest
+                accept DiagnosticsPass
+                then Ready;
+
+            transition selfTestWarning
+                first SelfTest
+                accept DiagnosticsWarning
+                then Degraded;
+
+            transition selfTestFailed
+                first SelfTest
+                accept DiagnosticsFail
+                then Failed;
+
+            transition contactBegins
+                first Ready
+                accept ContactDetected
+                then Sensing;
+
+            transition contactEnds
+                first Sensing
+                accept ContactReleased
+                then Ready;
+
+            transition sensingWarning
+                first Sensing
+                accept MeasurementConfidenceLow
+                then Degraded;
+
+            transition degradedRecovered
+                first Degraded
+                accept DiagnosticsPass
+                then Ready;
+
+            transition hardFault
+                first Ready
+                accept CriticalFault
+                then Failed;
+
+            transition sensingFault
+                first Sensing
+                accept CriticalFault
+                then Failed;
+
+            transition powerRemoved
+                first Ready
+                accept PowerRemoved
+                then Unpowered;
+        }
+
+        exhibit stateMachine : UnitOperatingStateMachine;
+    }
+
+    requirement def MeasureContactForceRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeForceMin <= 0.0 [SI::newton] and
+            sensingUnit.measurementRangeForceMax >= 50.0 [SI::newton]
+        }
+
+        require constraint {
+            sensingUnit.accuracyForce <= 0.5 [SI::newton]
+        }
+
+        doc /* The sensing unit shall measure normal contact force using its tactile sensor over the specified force range. */
+    }
+
+    requirement def MeasureContactPressureRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangePressureMax >= 125000.0 [SI::pascal]
+        }
+
+        require constraint {
+            sensingUnit.accuracyPressure <= 1500.0 [SI::pascal]
+        }
+
+        doc /* The sensing unit shall derive contact pressure from the tactile sensor output and calibrated sensing area. */
+    }
+
+    requirement def UpdateRateRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.outputUpdateRate >= 500.0 [SI::hertz]
+        }
+
+        doc /* The sensing unit shall publish validated tactile measurements at no less than 500 Hz while sensing contact. */
+    }
+
+    requirement def TactileSensorUsageRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.tactileSensor.forceRangeMax >= sensingUnit.measurementRangeForceMax
+        }
+
+        doc /* The sensing unit shall use a tactile sensor as the primary transducer for the measured contact quantity. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.minimumConfidence >= 0.95
+        }
+
+        doc /* The sensing unit shall report diagnostic status including sensor connectivity, ADC health, calibration validity, and over-range detection. */
+    }
+
+    requirement def StartupRequirement {
+        subject sensingUnit : TactileSensingUnit;
+
+        require constraint {
+            sensingUnit.startupTimeMax <= 0.5 [SI::second]
+        }
+
+        doc /* The sensing unit shall complete startup and self-test within 0.5 seconds after power is applied. */
+    }
+
+    part tactileSensingUnit : TactileSensingUnit;
+
+    requirement measureContactForce : MeasureContactForceRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement measureContactPressure : MeasureContactPressureRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement updateRate : UpdateRateRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement tactileSensorUsage : TactileSensorUsageRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement diagnostics : DiagnosticRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    requirement startup : StartupRequirement {
+        subject sensingUnit = tactileSensingUnit;
+    }
+
+    satisfy measureContactForce by tactileSensingUnit;
+    satisfy measureContactPressure by tactileSensingUnit;
+    satisfy updateRate by tactileSensingUnit;
+    satisfy tactileSensorUsage by tactileSensingUnit;
+    satisfy diagnostics by tactileSensingUnit;
+    satisfy startup by tactileSensingUnit;
+}

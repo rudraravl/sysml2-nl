@@ -1,0 +1,541 @@
+package SelfMakingBedSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue {
+        :>> scalarType = Real;
+        unit = "kg";
+    }
+
+    attribute def LengthValue {
+        :>> scalarType = Real;
+        unit = "m";
+    }
+
+    attribute def ForceValue {
+        :>> scalarType = Real;
+        unit = "N";
+    }
+
+    attribute def TimeValue {
+        :>> scalarType = Real;
+        unit = "s";
+    }
+
+    attribute def PowerValue {
+        :>> scalarType = Real;
+        unit = "W";
+    }
+
+    attribute def VoltageValue {
+        :>> scalarType = Real;
+        unit = "V";
+    }
+
+    attribute def PercentageValue {
+        :>> scalarType = Real;
+        unit = "%";
+    }
+
+    enum def BedMakingMode {
+        enum idle;
+        enum quickTidy;
+        enum fullMake;
+        enum sanitizeAndMake;
+        enum manualAssist;
+        enum faultSafe;
+    }
+
+    enum def OccupancyState {
+        enum unoccupied;
+        enum occupied;
+        enum petDetected;
+        enum unknown;
+    }
+
+    enum def LinenCondition {
+        enum smooth;
+        enum wrinkled;
+        enum displaced;
+        enum obstructed;
+        enum missing;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlCommand {
+        attribute selectedMode : BedMakingMode;
+        attribute startDelay : TimeValue;
+        attribute targetTightness : PercentageValue;
+    }
+
+    item def BedStatus {
+        attribute currentMode : BedMakingMode;
+        attribute occupancy : OccupancyState;
+        attribute sheetCondition : LinenCondition;
+        attribute blanketCondition : LinenCondition;
+        attribute completion : PercentageValue;
+        attribute faultCode : String;
+    }
+
+    item def SensorReading {
+        attribute occupancy : OccupancyState;
+        attribute leftSheetOffset : LengthValue;
+        attribute rightSheetOffset : LengthValue;
+        attribute wrinkleIndex : PercentageValue;
+        attribute obstructionForce : ForceValue;
+    }
+
+    item def AirFlow {
+        attribute flowRate : Real;
+        attribute pressure : Real;
+        attribute temperature : Real;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : BedStatus;
+    }
+
+    port def SensorPort {
+        out item reading : SensorReading;
+    }
+
+    port def AirPort {
+        out item air : AirFlow;
+    }
+
+    port def ActuationPort {
+        in item command : ControlCommand;
+        out item status : BedStatus;
+    }
+
+    part def SelfMakingBed {
+        attribute bedLength : LengthValue = 2.03;
+        attribute bedWidth : LengthValue = 1.52;
+        attribute maximumOccupantMass : MassValue = 180.0;
+        attribute nominalPowerDraw : PowerValue = 450.0;
+        attribute maximumTuckForce : ForceValue = 35.0;
+        attribute maximumMakingDuration : TimeValue = 180.0;
+
+        port powerInput : PowerInPort;
+        port userCommand : CommandPort;
+        port systemStatus : StatusPort;
+
+        part frame : SmartBedFrame;
+        part linenHandling : LinenHandlingSubsystem;
+        part sensing : SensingSubsystem;
+        part controller : BedController;
+        part safety : SafetySubsystem;
+        part power : PowerSubsystem;
+        part userInterface : UserInterface;
+
+        connect powerInput.power to power.externalPower.power;
+        connect power.conditionedPower.power to controller.powerInput.power;
+        connect power.conditionedPower.power to linenHandling.powerInput.power;
+        connect power.conditionedPower.power to sensing.powerInput.power;
+        connect userCommand.command to controller.commandInput.command;
+        connect userInterface.commandOutput.command to controller.commandInput.command;
+        connect sensing.sensorOutput.reading to controller.sensorInput.reading;
+        connect controller.actuationOutput.command to linenHandling.actuationInput.command;
+        connect linenHandling.actuationInput.status to controller.linenStatus.status;
+        connect controller.statusOutput.status to systemStatus.status;
+        connect controller.statusOutput.status to userInterface.statusInput.status;
+        connect safety.safeStop.status to controller.safetyInput.status;
+    }
+
+    part def SmartBedFrame {
+        attribute structuralMass : MassValue = 42.0;
+        attribute sideRailHeight : LengthValue = 0.18;
+
+        part leftRail : TuckRail {
+            attribute side = "left";
+        }
+
+        part rightRail : TuckRail {
+            attribute side = "right";
+        }
+
+        part footRail : TuckRail {
+            attribute side = "foot";
+        }
+
+        part headboard : FixedSupport;
+        part mattressPlatform : MattressPlatform;
+    }
+
+    part def FixedSupport {
+        attribute mass : MassValue = 8.0;
+        attribute height : LengthValue = 1.10;
+    }
+
+    part def MattressPlatform {
+        attribute length : LengthValue = 2.03;
+        attribute width : LengthValue = 1.52;
+        attribute loadLimit : MassValue = 250.0;
+    }
+
+    part def TuckRail {
+        attribute side : String;
+        attribute travelRange : LengthValue = 0.16;
+        attribute peakForce : ForceValue = 35.0;
+
+        port actuationInput : ActuationPort;
+    }
+
+    part def LinenHandlingSubsystem {
+        attribute sheetTensionTarget : PercentageValue = 82.0;
+        attribute blanketAlignmentTolerance : LengthValue = 0.025;
+        attribute pillowPositionTolerance : LengthValue = 0.040;
+
+        port powerInput : PowerInPort;
+        port actuationInput : ActuationPort;
+
+        part fittedSheetTensioner : SheetTensioner;
+        part blanketSpreader : BlanketSpreader;
+        part pillowAligner : PillowAligner;
+        part airSmoothingManifold : AirSmoothingManifold;
+        part sideTuckActuators : SideTuckActuator[2];
+        part footTuckActuator : FootTuckActuator;
+
+        connect powerInput.power to fittedSheetTensioner.powerInput.power;
+        connect powerInput.power to blanketSpreader.powerInput.power;
+        connect powerInput.power to pillowAligner.powerInput.power;
+        connect powerInput.power to airSmoothingManifold.powerInput.power;
+        connect actuationInput.command to fittedSheetTensioner.control.command;
+        connect actuationInput.command to blanketSpreader.control.command;
+        connect actuationInput.command to pillowAligner.control.command;
+        connect actuationInput.command to airSmoothingManifold.control.command;
+    }
+
+    part def SheetTensioner {
+        attribute maximumTravel : LengthValue = 0.12;
+        attribute nominalTensionForce : ForceValue = 22.0;
+
+        port powerInput : PowerInPort;
+        port control : CommandPort;
+    }
+
+    part def BlanketSpreader {
+        attribute rollerSpan : LengthValue = 1.50;
+        attribute smoothingPassDuration : TimeValue = 28.0;
+
+        port powerInput : PowerInPort;
+        port control : CommandPort;
+    }
+
+    part def PillowAligner {
+        attribute lateralTravel : LengthValue = 0.40;
+        attribute liftHeight : LengthValue = 0.08;
+
+        port powerInput : PowerInPort;
+        port control : CommandPort;
+    }
+
+    part def AirSmoothingManifold {
+        attribute nozzleCount : Integer = 24;
+        attribute maximumPower : PowerValue = 300.0;
+
+        port powerInput : PowerInPort;
+        port control : CommandPort;
+        port airOutput : AirPort;
+    }
+
+    part def SideTuckActuator {
+        attribute insertionDepth : LengthValue = 0.10;
+        attribute maximumForce : ForceValue = 30.0;
+    }
+
+    part def FootTuckActuator {
+        attribute insertionDepth : LengthValue = 0.14;
+        attribute maximumForce : ForceValue = 35.0;
+    }
+
+    part def SensingSubsystem {
+        port powerInput : PowerInPort;
+        port sensorOutput : SensorPort;
+
+        part occupancyMat : OccupancySensor;
+        part visionSensor : LinenVisionSensor;
+        part forceSensors : ForceSensor[6];
+        part edgePositionSensors : EdgePositionSensor[4];
+    }
+
+    part def OccupancySensor {
+        attribute minimumDetectableMass : MassValue = 3.0;
+        attribute updatePeriod : TimeValue = 0.20;
+    }
+
+    part def LinenVisionSensor {
+        attribute fieldOfViewWidth : LengthValue = 1.70;
+        attribute fieldOfViewLength : LengthValue = 2.10;
+        attribute wrinkleDetectionAccuracy : PercentageValue = 92.0;
+    }
+
+    part def ForceSensor {
+        attribute maximumMeasuredForce : ForceValue = 80.0;
+        attribute samplePeriod : TimeValue = 0.02;
+    }
+
+    part def EdgePositionSensor {
+        attribute resolution : LengthValue = 0.003;
+    }
+
+    part def BedController {
+        attribute softwareVersion : String = "1.0.0";
+        attribute decisionPeriod : TimeValue = 0.10;
+        attribute targetCompletion : PercentageValue = 100.0;
+
+        port powerInput : PowerInPort;
+        port commandInput : CommandPort;
+        port sensorInput : SensorPort;
+        port linenStatus : StatusPort;
+        port safetyInput : StatusPort;
+        port actuationOutput : CommandPort;
+        port statusOutput : StatusPort;
+
+        perform action makeBed;
+        exhibit state controllerStates;
+    }
+
+    part def SafetySubsystem {
+        attribute stopForceThreshold : ForceValue = 40.0;
+        attribute occupancyLockoutMass : MassValue = 3.0;
+        attribute maximumRetryCount : Integer = 2;
+
+        port safeStop : StatusPort;
+
+        part obstructionMonitor : ObstructionMonitor;
+        part emergencyStopButton : EmergencyStopButton;
+        part childLock : ChildLock;
+    }
+
+    part def ObstructionMonitor {
+        attribute responseTime : TimeValue = 0.05;
+    }
+
+    part def EmergencyStopButton {
+        attribute latchResetRequired : Boolean = true;
+    }
+
+    part def ChildLock {
+        attribute enabledByDefault : Boolean = true;
+    }
+
+    part def PowerSubsystem {
+        attribute inputVoltage : VoltageValue = 120.0;
+        attribute standbyPower : PowerValue = 3.0;
+        attribute peakPower : PowerValue = 650.0;
+
+        port externalPower : PowerInPort;
+        port conditionedPower : PowerInPort;
+    }
+
+    part def UserInterface {
+        port commandOutput : CommandPort;
+        port statusInput : StatusPort;
+
+        part bedsideButtonPanel : ButtonPanel;
+        part mobileAppGateway : WirelessGateway;
+        part indicatorLight : StatusIndicator;
+    }
+
+    part def ButtonPanel {
+        attribute buttonCount : Integer = 4;
+    }
+
+    part def WirelessGateway {
+        attribute supportedProtocol : String = "Wi-Fi";
+    }
+
+    part def StatusIndicator {
+        attribute colorCount : Integer = 5;
+    }
+
+    action def MakeBedAction {
+        in item command : ControlCommand;
+        in item sensorReading : SensorReading;
+        out item status : BedStatus;
+
+        action verifyEmptyBed;
+        action alignFittedSheet;
+        action smoothTopSheet;
+        action spreadBlanket;
+        action tuckEdges;
+        action alignPillows;
+        action finalInspect;
+
+        first start;
+        then verifyEmptyBed;
+        then alignFittedSheet;
+        then smoothTopSheet;
+        then spreadBlanket;
+        then tuckEdges;
+        then alignPillows;
+        then finalInspect;
+        then done;
+    }
+
+    action def StopForSafetyAction {
+        in item sensorReading : SensorReading;
+        out item status : BedStatus;
+
+        action removeActuatorPower;
+        action retractTuckRails;
+        action publishFaultStatus;
+
+        first start;
+        then removeActuatorPower;
+        then retractTuckRails;
+        then publishFaultStatus;
+        then done;
+    }
+
+    state def BedControllerStates {
+        entry action initializeStatus;
+
+        state idle;
+        state validatingStart;
+        state checkingOccupancy;
+        state makingBed;
+        state smoothingLinens;
+        state tuckingEdges;
+        state aligningPillows;
+        state inspectingResult;
+        state complete;
+        state pausedForObstruction;
+        state fault;
+
+        transition initial then idle;
+
+        transition idle_to_validating
+            first idle
+            accept ControlCommand
+            if command.selectedMode != BedMakingMode::idle
+            then validatingStart;
+
+        transition validating_to_occupancy
+            first validatingStart
+            then checkingOccupancy;
+
+        transition occupancy_to_make
+            first checkingOccupancy
+            if sensorReading.occupancy == OccupancyState::unoccupied
+            then makingBed;
+
+        transition occupancy_to_fault
+            first checkingOccupancy
+            if sensorReading.occupancy == OccupancyState::occupied or sensorReading.occupancy == OccupancyState::petDetected
+            then fault;
+
+        transition make_to_smooth
+            first makingBed
+            then smoothingLinens;
+
+        transition smooth_to_tuck
+            first smoothingLinens
+            then tuckingEdges;
+
+        transition tuck_to_pillow
+            first tuckingEdges
+            then aligningPillows;
+
+        transition pillow_to_inspect
+            first aligningPillows
+            then inspectingResult;
+
+        transition inspect_to_complete
+            first inspectingResult
+            if status.completion >= 98.0
+            then complete;
+
+        transition inspect_to_make
+            first inspectingResult
+            if status.completion < 98.0
+            then makingBed;
+
+        transition any_to_obstruction
+            first makingBed
+            accept SensorReading
+            if sensorReading.obstructionForce > 40.0
+            then pausedForObstruction;
+
+        transition obstruction_to_idle
+            first pausedForObstruction
+            accept ControlCommand
+            if command.selectedMode == BedMakingMode::idle
+            then idle;
+
+        transition complete_to_idle
+            first complete
+            after 10.0
+            then idle;
+
+        transition fault_to_idle
+            first fault
+            accept ControlCommand
+            if command.selectedMode == BedMakingMode::idle
+            then idle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        id = "SMB-REQ-001";
+        text = "The Self-Making Bed shall restore an unoccupied bed to a made condition by aligning, smoothing, tensioning, and tucking bed linens and positioning pillows without manual linen handling by the user.";
+    }
+
+    requirement def OccupancySafetyRequirement {
+        id = "SMB-REQ-002";
+        text = "The Self-Making Bed shall not actuate linen handling mechanisms when an occupant, pet, or unknown load above 3 kg is detected on the mattress platform.";
+    }
+
+    requirement def CompletionTimeRequirement {
+        id = "SMB-REQ-003";
+        text = "The Self-Making Bed shall complete a full bed-making cycle within 180 seconds under nominal linen placement conditions.";
+    }
+
+    requirement def ObstructionRequirement {
+        id = "SMB-REQ-004";
+        text = "The Self-Making Bed shall stop powered motion and retract tuck actuators within 0.5 seconds when an obstruction force greater than 40 N is detected.";
+    }
+
+    requirement def LinenQualityRequirement {
+        id = "SMB-REQ-005";
+        text = "The Self-Making Bed shall achieve final sheet and blanket edge alignment within 25 mm of the configured target position after a full make cycle.";
+    }
+
+    requirement def PowerRequirement {
+        id = "SMB-REQ-006";
+        text = "The Self-Making Bed shall operate from a 120 V AC household supply and shall not exceed 650 W peak electrical power during normal operation.";
+    }
+
+    requirement def UserStatusRequirement {
+        id = "SMB-REQ-007";
+        text = "The Self-Making Bed shall provide user-visible status for idle, active, complete, paused, and fault conditions.";
+    }
+
+    satisfy PrimaryFunctionRequirement by SelfMakingBed;
+    satisfy OccupancySafetyRequirement by SafetySubsystem;
+    satisfy CompletionTimeRequirement by BedController;
+    satisfy ObstructionRequirement by SafetySubsystem;
+    satisfy LinenQualityRequirement by LinenHandlingSubsystem;
+    satisfy PowerRequirement by PowerSubsystem;
+    satisfy UserStatusRequirement by UserInterface;
+
+    part selfMakingBed : SelfMakingBed {
+        :>> controller.makeBed : MakeBedAction;
+        :>> controller.controllerStates : BedControllerStates;
+    }
+
+}

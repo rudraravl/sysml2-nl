@@ -1,0 +1,358 @@
+package ElectromagnetismSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Voltage :> Real {
+    unit = "V";
+  }
+
+  attribute def Current :> Real {
+    unit = "A";
+  }
+
+  attribute def Resistance :> Real {
+    unit = "ohm";
+  }
+
+  attribute def Power :> Real {
+    unit = "W";
+  }
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def MagneticFluxDensity :> Real {
+    unit = "T";
+  }
+
+  attribute def MagneticFlux :> Real {
+    unit = "Wb";
+  }
+
+  attribute def MagneticFieldStrength :> Real {
+    unit = "A/m";
+  }
+
+  attribute def Force :> Real {
+    unit = "N";
+  }
+
+  attribute def Distance :> Real {
+    unit = "mm";
+  }
+
+  attribute def Time :> Real {
+    unit = "s";
+  }
+
+  attribute def Turns :> Integer;
+
+  item def ElectricalEnergy {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def ControlCommand {
+    attribute enable : Boolean;
+    attribute targetForce : Force;
+    attribute targetFluxDensity : MagneticFluxDensity;
+  }
+
+  item def MagneticField {
+    attribute fluxDensity : MagneticFluxDensity;
+    attribute fieldStrength : MagneticFieldStrength;
+    attribute magneticFlux : MagneticFlux;
+  }
+
+  item def MechanicalForce {
+    attribute magnitude : Force;
+    attribute stroke : Distance;
+  }
+
+  item def HeatFlow {
+    attribute thermalPower : Power;
+    attribute coilTemperature : Temperature;
+  }
+
+  port def ElectricalPowerPort {
+    in item powerIn : ElectricalEnergy;
+  }
+
+  port def ControlPort {
+    in item commandIn : ControlCommand;
+  }
+
+  port def MagneticFieldPort {
+    out item fieldOut : MagneticField;
+  }
+
+  port def ForcePort {
+    out item forceOut : MechanicalForce;
+  }
+
+  port def ThermalPort {
+    out item heatOut : HeatFlow;
+  }
+
+  port def SensorPort {
+    out attribute measuredCurrent : Current;
+    out attribute measuredTemperature : Temperature;
+    out attribute measuredFluxDensity : MagneticFluxDensity;
+    out attribute measuredGap : Distance;
+  }
+
+  part def CoilWinding {
+    attribute turns : Turns = 850;
+    attribute resistance : Resistance = 12.0;
+    attribute ratedVoltage : Voltage = 24.0;
+    attribute ratedCurrent : Current = 2.0;
+    attribute copperTemperature : Temperature;
+
+    port electrical : ElectricalPowerPort;
+    port thermal : ThermalPort;
+  }
+
+  part def FerromagneticCore {
+    attribute relativePermeability : Real = 4200.0;
+    attribute saturationFluxDensity : MagneticFluxDensity = 1.6;
+    attribute effectiveArea : Real = 0.00045;
+    attribute pathLength : Distance = 75.0;
+
+    port magnetic : MagneticFieldPort;
+  }
+
+  part def Armature {
+    attribute airGap : Distance = 4.0;
+    attribute travelLimit : Distance = 8.0;
+    attribute returnSpringForce : Force = 12.0;
+
+    port forceInput : ForcePort;
+  }
+
+  part def PowerDriver {
+    attribute supplyVoltage : Voltage = 24.0;
+    attribute pwmDutyCycle : Real;
+    attribute maxCurrent : Current = 2.5;
+
+    port control : ControlPort;
+    port electricalOut : ElectricalPowerPort;
+  }
+
+  part def FieldSensor {
+    attribute fluxDensityRange : MagneticFluxDensity = 2.0;
+    attribute currentRange : Current = 3.0;
+    attribute temperatureRange : Temperature = 140.0;
+
+    port sensed : SensorPort;
+  }
+
+  part def ThermalPath {
+    attribute ambientTemperature : Temperature = 25.0;
+    attribute maxCoilTemperature : Temperature = 105.0;
+    attribute thermalResistance : Real = 8.5;
+
+    port heatInput : ThermalPort;
+  }
+
+  action def RegulateCurrent {
+    in item command : ControlCommand;
+    in attribute measuredCurrent : Current;
+    out attribute dutyCycle : Real;
+
+    objective {
+      maintain measuredCurrent between 0.0 and 2.5;
+      increase dutyCycle when command.enable == true and measuredCurrent < command.targetForce / 20.0;
+      set dutyCycle = 0.0 when command.enable == false;
+    }
+  }
+
+  action def GenerateMagneticField {
+    in item electricalEnergy : ElectricalEnergy;
+    in attribute coilTurns : Turns;
+    out item field : MagneticField;
+
+    objective {
+      convert electrical current through coil turns into concentrated magnetic flux in the ferromagnetic core;
+      limit field.fluxDensity to core saturation behavior;
+    }
+  }
+
+  action def ProduceMechanicalForce {
+    in item field : MagneticField;
+    in attribute airGap : Distance;
+    out item force : MechanicalForce;
+
+    objective {
+      attract the armature toward the core across the air gap using magnetic pressure;
+      increase force as flux density rises and air gap decreases;
+    }
+  }
+
+  action def RemoveHeat {
+    in item heat : HeatFlow;
+
+    objective {
+      conduct resistive coil heat to the surrounding structure and maintain coil temperature below limit;
+    }
+  }
+
+  state def ElectromagnetOperatingState {
+    entry action Initialize {
+      objective {
+        set driver duty cycle to zero;
+        verify sensor values are within measurement range;
+      }
+    }
+
+    state idle;
+    state energizing;
+    state fieldEstablished;
+    state actuating;
+    state holding;
+    state deenergizing;
+    state fault;
+
+    transition idle_to_energizing
+      first idle
+      then energizing
+      accept ControlCommand
+      if commandIn.enable == true;
+
+    transition energizing_to_fieldEstablished
+      first energizing
+      then fieldEstablished
+      if measuredFluxDensity >= commandIn.targetFluxDensity;
+
+    transition fieldEstablished_to_actuating
+      first fieldEstablished
+      then actuating
+      if forceOut.magnitude >= commandIn.targetForce;
+
+    transition actuating_to_holding
+      first actuating
+      then holding
+      if measuredGap <= 0.5;
+
+    transition holding_to_deenergizing
+      first holding
+      then deenergizing
+      accept ControlCommand
+      if commandIn.enable == false;
+
+    transition deenergizing_to_idle
+      first deenergizing
+      then idle
+      if measuredCurrent <= 0.05;
+
+    transition any_to_fault
+      first idle, energizing, fieldEstablished, actuating, holding, deenergizing
+      then fault
+      if measuredTemperature > 105.0 or measuredCurrent > 2.5;
+  }
+
+  part def ControlledElectromagnet {
+    attribute nominalVoltage : Voltage = 24.0;
+    attribute nominalForce : Force = 40.0;
+    attribute nominalStroke : Distance = 6.0;
+    attribute nominalFluxDensity : MagneticFluxDensity = 1.1;
+    attribute responseTime : Time = 0.035;
+
+    port powerInput : ElectricalPowerPort;
+    port commandInput : ControlPort;
+    port magneticOutput : MagneticFieldPort;
+    port mechanicalOutput : ForcePort;
+    port thermalOutput : ThermalPort;
+    port telemetry : SensorPort;
+
+    part driver : PowerDriver;
+    part coil : CoilWinding;
+    part core : FerromagneticCore;
+    part armature : Armature;
+    part sensor : FieldSensor;
+    part thermalPath : ThermalPath;
+
+    connect powerInput to driver.electricalOut;
+    connect commandInput to driver.control;
+    connect driver.electricalOut to coil.electrical;
+    connect coil.thermal to thermalPath.heatInput;
+    connect core.magnetic to magneticOutput;
+    connect armature.forceInput to mechanicalOutput;
+    connect sensor.sensed to telemetry;
+
+    perform action regulateCurrent : RegulateCurrent;
+    perform action generateField : GenerateMagneticField;
+    perform action produceForce : ProduceMechanicalForce;
+    perform action rejectHeat : RemoveHeat;
+
+    exhibit state operatingState : ElectromagnetOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject electromagnet : ControlledElectromagnet;
+
+    doc /* The electromagnet shall convert commanded electrical energy into a controlled magnetic field that produces useful mechanical attraction force at the armature. */
+
+    require constraint {
+      electromagnet.mechanicalOutput.forceOut.magnitude >= 40.0
+    }
+
+    require constraint {
+      electromagnet.magneticOutput.fieldOut.fluxDensity >= 1.1
+    }
+
+    require constraint {
+      electromagnet.responseTime <= 0.050
+    }
+  }
+
+  requirement def ElectricalSafetyRequirement {
+    subject electromagnet : ControlledElectromagnet;
+
+    doc /* The electromagnet shall limit steady-state current to protect the coil winding and power driver. */
+
+    require constraint {
+      electromagnet.telemetry.measuredCurrent <= 2.5
+    }
+  }
+
+  requirement def ThermalRequirement {
+    subject electromagnet : ControlledElectromagnet;
+
+    doc /* The electromagnet shall dissipate resistive heat so the coil remains within its rated operating temperature. */
+
+    require constraint {
+      electromagnet.telemetry.measuredTemperature <= 105.0
+    }
+  }
+
+  requirement def MagneticSaturationRequirement {
+    subject electromagnet : ControlledElectromagnet;
+
+    doc /* The magnetic core shall operate below saturation during nominal commanded force production. */
+
+    require constraint {
+      electromagnet.magneticOutput.fieldOut.fluxDensity <= 1.6
+    }
+  }
+
+  requirement def DeenergizedSafeStateRequirement {
+    subject electromagnet : ControlledElectromagnet;
+
+    doc /* When the enable command is false, the electromagnet shall remove coil current and release magnetic holding force. */
+
+    require constraint {
+      electromagnet.commandInput.commandIn.enable == false implies electromagnet.telemetry.measuredCurrent <= 0.05
+    }
+  }
+
+  part electromagnetSystem : ControlledElectromagnet {
+    satisfy PrimaryFunctionRequirement;
+    satisfy ElectricalSafetyRequirement;
+    satisfy ThermalRequirement;
+    satisfy MagneticSaturationRequirement;
+    satisfy DeenergizedSafeStateRequirement;
+  }
+}

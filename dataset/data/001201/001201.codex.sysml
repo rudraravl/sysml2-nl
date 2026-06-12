@@ -1,0 +1,472 @@
+package PositronEmissionTomographyModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Activity :> ISQ::activity {
+        unit = SI::becquerel;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::electronvolt;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::meter;
+    }
+
+    attribute def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Dose :> ISQ::absorbedDose {
+        unit = SI::gray;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def DataRate :> ISQ::dataRate {
+        unit = SI::bit / SI::second;
+    }
+
+    item def RadiotracerDose {
+        attribute injectedActivity : Activity;
+        attribute radionuclideHalfLife : Time;
+        attribute tracerName : String;
+    }
+
+    item def AnnihilationPhoton {
+        attribute photonEnergy : Energy = 511 [SI::kilo * SI::electronvolt];
+        attribute timestamp : Time;
+        attribute incidencePosition : Length[3];
+    }
+
+    item def CoincidenceEvent {
+        attribute firstPhoton : AnnihilationPhoton;
+        attribute secondPhoton : AnnihilationPhoton;
+        attribute timeDifference : Time;
+        attribute lineOfResponseId : String;
+        attribute accepted : Boolean;
+    }
+
+    item def RawDetectorSignal {
+        attribute channelId : String;
+        attribute pulseHeight : Voltage;
+        attribute arrivalTime : Time;
+    }
+
+    item def SinogramData {
+        attribute projectionBinCount : Integer;
+        attribute acquisitionDuration : Time;
+        attribute correctedForRandoms : Boolean;
+        attribute correctedForAttenuation : Boolean;
+    }
+
+    item def ReconstructedPETImage {
+        attribute voxelSize : Length[3];
+        attribute matrixSize : Integer[3];
+        attribute standardizedUptakeValueComputed : Boolean;
+        attribute diagnosticReady : Boolean;
+    }
+
+    item def PatientInformation {
+        attribute patientId : String;
+        attribute bodyMass : ISQ::mass;
+        attribute scanRegion : String;
+    }
+
+    port def PhotonInputPort {
+        in item photon : AnnihilationPhoton;
+    }
+
+    port def SignalOutputPort {
+        out item signal : RawDetectorSignal;
+    }
+
+    port def SignalInputPort {
+        in item signal : RawDetectorSignal;
+    }
+
+    port def EventOutputPort {
+        out item event : CoincidenceEvent;
+    }
+
+    port def EventInputPort {
+        in item event : CoincidenceEvent;
+    }
+
+    port def ImageOutputPort {
+        out item image : ReconstructedPETImage;
+    }
+
+    port def PowerPort {
+        in item suppliedVoltage : Voltage;
+    }
+
+    port def ControlPort {
+        in item command : String;
+        out item status : String;
+    }
+
+    part def Patient {
+        attribute currentDose : RadiotracerDose;
+        attribute information : PatientInformation;
+        attribute residualActivity : Activity;
+
+        port emittedPhotonPort : PhotonInputPort;
+    }
+
+    part def PatientTable {
+        attribute longitudinalPosition : Length;
+        attribute maximumSupportedMass : ISQ::mass = 227 [SI::kilogram];
+        attribute positioningAccuracy : Length = 1 [SI::milli * SI::meter];
+
+        port control : ControlPort;
+        port power : PowerPort;
+
+        action positionPatient {
+            in attribute targetPosition : Length;
+            out attribute achievedPosition : Length;
+        }
+    }
+
+    part def DetectorCrystal {
+        attribute material : String = "lutetium yttrium oxyorthosilicate";
+        attribute crystalLength : Length = 20 [SI::milli * SI::meter];
+        attribute photonDetectionEfficiency : Real;
+        attribute energyResolutionAt511keV : Real;
+
+        port photonIn : PhotonInputPort;
+        port signalOut : SignalOutputPort;
+
+        action convertPhotonToScintillationSignal {
+            in item detectedPhoton : AnnihilationPhoton;
+            out item detectorSignal : RawDetectorSignal;
+        }
+    }
+
+    part def Photodetector {
+        attribute biasVoltage : Voltage;
+        attribute gain : Real;
+        attribute darkCountRate : ISQ::frequency;
+
+        port signalIn : SignalInputPort;
+        port signalOut : SignalOutputPort;
+        port power : PowerPort;
+
+        action amplifyScintillationSignal {
+            in item scintillationSignal : RawDetectorSignal;
+            out item electronicSignal : RawDetectorSignal;
+        }
+    }
+
+    part def DetectorModule {
+        attribute moduleId : String;
+        attribute channelCount : Integer;
+        attribute energyWindowLow : Energy = 425 [SI::kilo * SI::electronvolt];
+        attribute energyWindowHigh : Energy = 650 [SI::kilo * SI::electronvolt];
+
+        part crystals[64] : DetectorCrystal;
+        part photodetectors[64] : Photodetector;
+
+        port photonIn : PhotonInputPort;
+        port signalOut : SignalOutputPort;
+        port power : PowerPort;
+
+        connection photonDistribution connect photonIn to crystals.photonIn;
+        connection scintillationCoupling connect crystals.signalOut to photodetectors.signalIn;
+        connection moduleSignalOutput connect photodetectors.signalOut to signalOut;
+    }
+
+    part def DetectorRing {
+        attribute ringDiameter : Length = 820 [SI::milli * SI::meter];
+        attribute axialFieldOfView : Length = 250 [SI::milli * SI::meter];
+        attribute moduleCount : Integer = 48;
+
+        part modules[48] : DetectorModule;
+
+        port photonIn : PhotonInputPort;
+        port signalOut : SignalOutputPort;
+        port power : PowerPort;
+
+        connection patientPhotonsToModules connect photonIn to modules.photonIn;
+        connection moduleSignalsToRingOutput connect modules.signalOut to signalOut;
+    }
+
+    part def CoincidenceProcessor {
+        attribute coincidenceTimingWindow : Time = 4 [SI::nano * SI::second];
+        attribute minimumAcceptedEnergy : Energy = 425 [SI::kilo * SI::electronvolt];
+        attribute maximumAcceptedEnergy : Energy = 650 [SI::kilo * SI::electronvolt];
+        attribute maximumEventRate : ISQ::frequency;
+
+        port signalIn : SignalInputPort;
+        port eventOut : EventOutputPort;
+        port control : ControlPort;
+        port power : PowerPort;
+
+        action identifyCoincidenceEvents {
+            in item detectorSignals : RawDetectorSignal[2..*];
+            out item coincidenceEvents : CoincidenceEvent[*];
+        }
+    }
+
+    part def CorrectionsEngine {
+        attribute randomCorrectionEnabled : Boolean = true;
+        attribute scatterCorrectionEnabled : Boolean = true;
+        attribute attenuationCorrectionEnabled : Boolean = true;
+        attribute normalizationCorrectionEnabled : Boolean = true;
+
+        port eventIn : EventInputPort;
+        port eventOut : EventOutputPort;
+        port control : ControlPort;
+
+        action correctCoincidenceEvent {
+            in item uncorrectedEvent : CoincidenceEvent;
+            out item correctedEvent : CoincidenceEvent;
+        }
+    }
+
+    part def ImageReconstructionComputer {
+        attribute reconstructionMethod : String = "ordered subset expectation maximization";
+        attribute subsetCount : Integer = 21;
+        attribute iterationCount : Integer = 3;
+        attribute imageMatrixSize : Integer[3] = (256, 256, 127);
+        attribute outputVoxelSize : Length[3] = (2 [SI::milli * SI::meter], 2 [SI::milli * SI::meter], 2 [SI::milli * SI::meter]);
+
+        port eventIn : EventInputPort;
+        port imageOut : ImageOutputPort;
+        port control : ControlPort;
+        port power : PowerPort;
+
+        action reconstructActivityDistribution {
+            in item correctedEvents : CoincidenceEvent[*];
+            out item petImage : ReconstructedPETImage;
+        }
+    }
+
+    part def OperatorConsole {
+        attribute operatorId : String;
+        attribute scanProtocolName : String;
+        attribute displayedImageCount : Integer;
+
+        port imageIn : ImageOutputPort;
+        port tableControl : ControlPort;
+        port acquisitionControl : ControlPort;
+        port reconstructionControl : ControlPort;
+
+        action prescribeScan {
+            in item patient : PatientInformation;
+            out attribute protocolName : String;
+        }
+
+        action displayDiagnosticImage {
+            in item image : ReconstructedPETImage;
+            out attribute displayStatus : String;
+        }
+    }
+
+    part def RadiationSafetyMonitor {
+        attribute maximumInjectedActivity : Activity = 555 [SI::mega * SI::becquerel];
+        attribute maximumPatientDose : Dose = 25 [SI::milli * SI::gray];
+        attribute alarmActive : Boolean;
+
+        port control : ControlPort;
+
+        action verifyDoseAndExposureLimits {
+            in item dose : RadiotracerDose;
+            out attribute permitted : Boolean;
+        }
+    }
+
+    part def PowerDistributionUnit {
+        attribute inputVoltage : Voltage = 240 [SI::volt];
+        attribute detectorSupplyVoltage : Voltage;
+        attribute computingSupplyVoltage : Voltage;
+        attribute tableSupplyVoltage : Voltage;
+
+        port facilityPower : PowerPort;
+        port detectorPower : PowerPort;
+        port processorPower : PowerPort;
+        port computerPower : PowerPort;
+        port tablePower : PowerPort;
+    }
+
+    part def PETScannerSystem {
+        attribute primaryFunction : String = "Detect coincident 511 keV photon pairs emitted after positron annihilation in a radiotracer-injected patient and reconstruct a three-dimensional image of tracer activity distribution for clinical assessment.";
+        attribute spatialResolution : Length = 4.5 [SI::milli * SI::meter];
+        attribute coincidenceTimingResolution : Time = 400 [SI::pico * SI::second];
+        attribute peakDataRate : DataRate = 5 [SI::giga * SI::bit / SI::second];
+
+        part patient : Patient;
+        part table : PatientTable;
+        part detectorRing : DetectorRing;
+        part coincidenceProcessor : CoincidenceProcessor;
+        part correctionsEngine : CorrectionsEngine;
+        part reconstructionComputer : ImageReconstructionComputer;
+        part console : OperatorConsole;
+        part safetyMonitor : RadiationSafetyMonitor;
+        part powerDistribution : PowerDistributionUnit;
+
+        port facilityPower : PowerPort;
+
+        connection facilityPowerInput connect facilityPower to powerDistribution.facilityPower;
+        connection tablePowerConnection connect powerDistribution.tablePower to table.power;
+        connection detectorPowerConnection connect powerDistribution.detectorPower to detectorRing.power;
+        connection processorPowerConnection connect powerDistribution.processorPower to coincidenceProcessor.power;
+        connection computerPowerConnection connect powerDistribution.computerPower to reconstructionComputer.power;
+
+        connection emittedPhotonsToDetector connect patient.emittedPhotonPort to detectorRing.photonIn;
+        connection detectorSignalsToProcessor connect detectorRing.signalOut to coincidenceProcessor.signalIn;
+        connection coincidenceEventsToCorrections connect coincidenceProcessor.eventOut to correctionsEngine.eventIn;
+        connection correctedEventsToReconstruction connect correctionsEngine.eventOut to reconstructionComputer.eventIn;
+        connection reconstructedImageToConsole connect reconstructionComputer.imageOut to console.imageIn;
+
+        connection consoleToTable connect console.tableControl to table.control;
+        connection consoleToAcquisition connect console.acquisitionControl to coincidenceProcessor.control;
+        connection consoleToReconstruction connect console.reconstructionControl to reconstructionComputer.control;
+        connection consoleToSafetyMonitor connect console.acquisitionControl to safetyMonitor.control;
+
+        action performPETStudy {
+            in item patientInfo : PatientInformation;
+            in item prescribedDose : RadiotracerDose;
+            out item diagnosticImage : ReconstructedPETImage;
+
+            first start;
+            then verifyDose;
+            then positionPatient;
+            then acquireCoincidenceData;
+            then correctEvents;
+            then reconstructImage;
+            then publishImage;
+            then done;
+
+            action verifyDose {
+                in item dose = prescribedDose;
+                out attribute permitted : Boolean;
+            }
+
+            action positionPatient {
+                in item patient = patientInfo;
+                out attribute positioned : Boolean;
+            }
+
+            action acquireCoincidenceData {
+                out item events : CoincidenceEvent[*];
+            }
+
+            action correctEvents {
+                in item rawEvents : CoincidenceEvent[*];
+                out item correctedEvents : CoincidenceEvent[*];
+            }
+
+            action reconstructImage {
+                in item acceptedEvents : CoincidenceEvent[*];
+                out item image : ReconstructedPETImage;
+            }
+
+            action publishImage {
+                in item image : ReconstructedPETImage;
+                out item diagnosticImage = image;
+            }
+        }
+
+        state def PETScannerOperationalStates {
+            state Off;
+            state Standby;
+            state PatientSetup;
+            state DoseVerification;
+            state Acquisition;
+            state Reconstruction;
+            state ImageReview;
+            state Fault;
+
+            initial then Off;
+
+            transition powerOn first Off then Standby;
+            transition beginSetup first Standby then PatientSetup;
+            transition verifyRadiotracerDose first PatientSetup then DoseVerification;
+            transition doseAccepted first DoseVerification then Acquisition;
+            transition acquisitionComplete first Acquisition then Reconstruction;
+            transition reconstructionComplete first Reconstruction then ImageReview;
+            transition studyClosed first ImageReview then Standby;
+            transition faultDetected first Standby then Fault;
+            transition acquisitionFault first Acquisition then Fault;
+            transition resetFault first Fault then Standby;
+            transition powerOff first Standby then Off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject scanner : PETScannerSystem;
+
+        require constraint {
+            scanner.primaryFunction == "Detect coincident 511 keV photon pairs emitted after positron annihilation in a radiotracer-injected patient and reconstruct a three-dimensional image of tracer activity distribution for clinical assessment."
+        }
+    }
+
+    requirement def PhotonEnergyAcceptanceRequirement {
+        subject processor : CoincidenceProcessor;
+
+        require constraint {
+            processor.minimumAcceptedEnergy <= 511 [SI::kilo * SI::electronvolt] and
+            processor.maximumAcceptedEnergy >= 511 [SI::kilo * SI::electronvolt]
+        }
+    }
+
+    requirement def CoincidenceTimingRequirement {
+        subject scanner : PETScannerSystem;
+
+        require constraint {
+            scanner.coincidenceTimingResolution <= 500 [SI::pico * SI::second]
+        }
+    }
+
+    requirement def SpatialResolutionRequirement {
+        subject scanner : PETScannerSystem;
+
+        require constraint {
+            scanner.spatialResolution <= 5 [SI::milli * SI::meter]
+        }
+    }
+
+    requirement def DoseSafetyRequirement {
+        subject monitor : RadiationSafetyMonitor;
+
+        require constraint {
+            monitor.maximumInjectedActivity <= 555 [SI::mega * SI::becquerel] and
+            monitor.maximumPatientDose <= 25 [SI::milli * SI::gray]
+        }
+    }
+
+    requirement def ReconstructionOutputRequirement {
+        subject computer : ImageReconstructionComputer;
+
+        require constraint {
+            computer.imageMatrixSize[1] >= 128 and
+            computer.imageMatrixSize[2] >= 128 and
+            computer.outputVoxelSize[1] <= 4 [SI::milli * SI::meter]
+        }
+    }
+
+    requirement def PatientSupportRequirement {
+        subject table : PatientTable;
+
+        require constraint {
+            table.maximumSupportedMass >= 200 [SI::kilogram] and
+            table.positioningAccuracy <= 2 [SI::milli * SI::meter]
+        }
+    }
+
+    part petScanner : PETScannerSystem;
+
+    satisfy PrimaryFunctionRequirement by petScanner;
+    satisfy CoincidenceTimingRequirement by petScanner;
+    satisfy SpatialResolutionRequirement by petScanner;
+    satisfy PhotonEnergyAcceptanceRequirement by petScanner.coincidenceProcessor;
+    satisfy DoseSafetyRequirement by petScanner.safetyMonitor;
+    satisfy ReconstructionOutputRequirement by petScanner.reconstructionComputer;
+    satisfy PatientSupportRequirement by petScanner.table;
+}

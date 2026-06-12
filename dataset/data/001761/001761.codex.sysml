@@ -1,0 +1,267 @@
+package ClockSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def TimeValue {
+        attribute hour : Integer;
+        attribute minute : Integer;
+        attribute second : Integer;
+    }
+
+    attribute def ClockAccuracy {
+        attribute driftPerDay : Real = 1.0 [s];
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real [V];
+        attribute current : Real [A];
+    }
+
+    item def TimeSignal {
+        attribute instant : TimeValue;
+        attribute valid : Boolean;
+    }
+
+    item def UserCommand {
+        attribute commandKind : CommandKind;
+        attribute requestedTime : TimeValue;
+    }
+
+    enum def CommandKind {
+        enum setTime;
+        enum start;
+        enum stop;
+        enum reset;
+        enum synchronize;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalEnergy;
+    }
+
+    port def TimeOutputPort {
+        out item timeSignal : TimeSignal;
+    }
+
+    port def CommandInputPort {
+        in item command : UserCommand;
+    }
+
+    port def TickPort {
+        out item tick : TimeSignal;
+    }
+
+    port def TickInputPort {
+        in item tick : TimeSignal;
+    }
+
+    action def GenerateTick {
+        in attribute currentTime : TimeValue;
+        out item tickSignal : TimeSignal;
+    }
+
+    action def IncrementTime {
+        in attribute previousTime : TimeValue;
+        out attribute nextTime : TimeValue;
+    }
+
+    action def DisplayTime {
+        in item displayedSignal : TimeSignal;
+    }
+
+    action def ProcessCommand {
+        in item receivedCommand : UserCommand;
+        inout attribute controlledTime : TimeValue;
+    }
+
+    state def ClockOperatingState {
+        entry action initializeClock;
+        state Off;
+        state Starting;
+        state Running;
+        state SettingTime;
+        state Synchronizing;
+        state Fault;
+
+        transition first Off;
+        transition Off_to_Starting
+            first Off
+            then Starting
+            accept UserCommand
+            if commandKind == CommandKind::start;
+
+        transition Starting_to_Running
+            first Starting
+            then Running;
+
+        transition Running_to_SettingTime
+            first Running
+            then SettingTime
+            accept UserCommand
+            if commandKind == CommandKind::setTime;
+
+        transition SettingTime_to_Running
+            first SettingTime
+            then Running;
+
+        transition Running_to_Synchronizing
+            first Running
+            then Synchronizing
+            accept UserCommand
+            if commandKind == CommandKind::synchronize;
+
+        transition Synchronizing_to_Running
+            first Synchronizing
+            then Running;
+
+        transition Running_to_Off
+            first Running
+            then Off
+            accept UserCommand
+            if commandKind == CommandKind::stop;
+
+        transition any_to_Fault
+            first Running
+            then Fault
+            if powerLost;
+
+        transition Fault_to_Starting
+            first Fault
+            then Starting
+            if powerRestored;
+    }
+
+    part def Oscillator {
+        attribute nominalFrequency : Real = 32768.0 [Hz];
+        attribute accuracy : ClockAccuracy;
+        port powerIn : PowerInputPort;
+        port tickOut : TickPort;
+
+        perform action generateTick : GenerateTick;
+    }
+
+    part def Timekeeper {
+        attribute currentTime : TimeValue;
+        attribute dayRolloverEnabled : Boolean = true;
+        port tickIn : TickInputPort;
+        port commandIn : CommandInputPort;
+        port timeOut : TimeOutputPort;
+
+        perform action increment : IncrementTime;
+        perform action commandProcessing : ProcessCommand;
+    }
+
+    part def Display {
+        attribute brightness : Real = 0.75;
+        attribute refreshRate : Real = 60.0 [Hz];
+        port displayedTimeIn : TickInputPort;
+
+        perform action showTime : DisplayTime;
+    }
+
+    part def PowerSupply {
+        attribute nominalVoltage : Real = 5.0 [V];
+        attribute maximumCurrent : Real = 0.5 [A];
+        port powerOut : PowerInputPort;
+    }
+
+    part def Clock {
+        attribute systemTime : TimeValue;
+        attribute operatingState : ClockOperatingState;
+        attribute primaryFunctionDescription : String =
+            "Maintain an internal representation of time and provide a continuously updated human-readable time indication.";
+
+        port externalPower : PowerInputPort;
+        port userCommands : CommandInputPort;
+        port currentTimeOutput : TimeOutputPort;
+
+        part powerSupply : PowerSupply;
+        part oscillator : Oscillator;
+        part timekeeper : Timekeeper;
+        part display : Display;
+
+        connect externalPower.power to oscillator.powerIn.power;
+        connect userCommands.command to timekeeper.commandIn.command;
+        connect oscillator.tickOut.tick to timekeeper.tickIn.tick;
+        connect timekeeper.timeOut.timeSignal to display.displayedTimeIn.tick;
+        connect timekeeper.timeOut.timeSignal to currentTimeOutput.timeSignal;
+
+        perform action maintainTime {
+            first oscillator.generateTick;
+            then timekeeper.increment;
+            then display.showTime;
+        }
+    }
+
+    requirement def ClockPrimaryFunctionRequirement {
+        subject clock : Clock;
+
+        doc /* The Clock shall maintain time by generating periodic ticks, updating an internal time value, and presenting the current time to users through an output interface. */
+
+        require constraint {
+            clock.primaryFunctionDescription ==
+            "Maintain an internal representation of time and provide a continuously updated human-readable time indication."
+        }
+    }
+
+    requirement def ClockTickRequirement {
+        subject oscillator : Oscillator;
+
+        doc /* The oscillator shall provide a stable periodic tick used by the timekeeper to advance the clock time. */
+
+        require constraint {
+            oscillator.nominalFrequency == 32768.0 [Hz]
+        }
+    }
+
+    requirement def ClockDisplayRequirement {
+        subject display : Display;
+
+        doc /* The display shall present the current time value received from the timekeeper at a refresh rate sufficient for continuous observation. */
+
+        require constraint {
+            display.refreshRate >= 30.0 [Hz]
+        }
+    }
+
+    requirement def ClockAccuracyRequirement {
+        subject oscillator : Oscillator;
+
+        doc /* The clock shall limit accumulated timing drift to no more than one second per day under nominal operating conditions. */
+
+        require constraint {
+            oscillator.accuracy.driftPerDay <= 1.0 [s]
+        }
+    }
+
+    part clockSystem : Clock {
+        attribute systemTime : TimeValue {
+            hour = 12;
+            minute = 0;
+            second = 0;
+        }
+
+        part oscillator {
+            attribute nominalFrequency = 32768.0 [Hz];
+            attribute accuracy : ClockAccuracy {
+                driftPerDay = 1.0 [s];
+            }
+        }
+
+        part display {
+            attribute brightness = 0.75;
+            attribute refreshRate = 60.0 [Hz];
+        }
+
+        part powerSupply {
+            attribute nominalVoltage = 5.0 [V];
+            attribute maximumCurrent = 0.5 [A];
+        }
+    }
+
+    satisfy ClockPrimaryFunctionRequirement by clockSystem;
+    satisfy ClockTickRequirement by clockSystem.oscillator;
+    satisfy ClockDisplayRequirement by clockSystem.display;
+    satisfy ClockAccuracyRequirement by clockSystem.oscillator;
+}

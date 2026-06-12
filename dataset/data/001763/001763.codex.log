@@ -1,0 +1,1123 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-vxxrz6ui
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7fc-831d-7402-ad83-8ad7a180e2e3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a pumping subsystem that moves fluid using a Concrete pump.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ConcretePumpPumpingSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = "m^3/s";
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = "m^3";
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = "K";
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = "rad/s";
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = "W";
+    }
+
+    attribute def Torque :> ISQ::torque {
+        unit = "N*m";
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = "m";
+    }
+
+    attribute def TimeDuration :> ISQ::duration {
+        unit = "s";
+    }
+
+    attribute def Ratio {
+        attribute value : Real;
+    }
+
+    item def ConcreteSlurry {
+        attribute aggregateSize : Length;
+        attribute slump : Length;
+        attribute density : Real;
+        attribute temperature : Temperature;
+        attribute entrainedAirRatio : Ratio;
+    }
+
+    item def HydraulicFluid {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute contaminationIndex : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+    }
+
+    item def ControlCommand {
+        attribute requestedFlowRate : FlowRate;
+        attribute enablePump : Boolean;
+        attribute emergencyStop : Boolean;
+        attribute reverseStroke : Boolean;
+    }
+
+    item def PumpStatus {
+        attribute actualFlowRate : FlowRate;
+        attribute dischargePressure : Pressure;
+        attribute hopperLevel : Ratio;
+        attribute motorSpeed : RotationalSpeed;
+        attribute ready : Boolean;
+        attribute faultActive : Boolean;
+        attribute faultCode : String;
+    }
+
+    port def ConcreteInletPort {
+        in item slurry : ConcreteSlurry;
+        attribute inletPressure : Pressure;
+    }
+
+    port def ConcreteOutletPort {
+        out item slurry : ConcreteSlurry;
+        attribute outletPressure : Pressure;
+        attribute deliveredFlowRate : FlowRate;
+    }
+
+    port def HydraulicSupplyPort {
+        in item fluidIn : HydraulicFluid;
+        out item fluidReturn : HydraulicFluid;
+        attribute supplyPressure : Pressure;
+        attribute returnPressure : Pressure;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : PumpStatus;
+    }
+
+    port def SensorSignalPort {
+        out attribute value : Real;
+        out attribute valid : Boolean;
+    }
+
+    port def ActuatorCommandPort {
+        in attribute commandValue : Real;
+        in attribute enabled : Boolean;
+    }
+
+    part def Hopper {
+        attribute capacity : Volume = 0.35 [m^3];
+        attribute minimumOperatingLevel : Ratio = 0.15;
+        attribute currentLevel : Ratio;
+        attribute screenOpening : Length = 0.05 [m];
+
+        port concreteInput : ConcreteInletPort;
+        port concreteToValve : ConcreteOutletPort;
+
+        requirement hopperCapacityRequirement {
+            doc /* The hopper shall hold at least 0.30 m^3 of concrete slurry to buffer mixer discharge variation. */
+            require constraint { capacity >= 0.30 [m^3] }
+        }
+
+        requirement minimumLevelRequirement {
+            doc /* The hopper shall inhibit pumping when the measured level is below 15 percent of capacity. */
+            require constraint { currentLevel >= minimumOperatingLevel }
+        }
+    }
+
+    part def SValve {
+        attribute valvePosition : String;
+        attribute switchingTime : TimeDuration = 0.35 [s];
+        attribute wearPlateClearance : Length = 0.0015 [m];
+
+        port fromHopper : ConcreteInletPort;
+        port toCylinderA : ConcreteOutletPort;
+        port toCylinderB : ConcreteOutletPort;
+        port toDischargeLine : ConcreteOutletPort;
+        port actuatorCommand : ActuatorCommandPort;
+
+        requirement switchingRequirement {
+            doc /* The S-valve shall switch between cylinder ports in no more than 0.5 s. */
+            require constraint { switchingTime <= 0.5 [s] }
+        }
+    }
+
+    part def PumpCylinder {
+        attribute bore : Length = 0.18 [m];
+        attribute strokeLength : Length = 1.00 [m];
+        attribute strokePosition : Length;
+        attribute chamberPressure : Pressure;
+        attribute strokeVolume : Volume = 0.0254 [m^3];
+
+        port concretePort : ConcreteInletPort;
+        port hydraulicPort : HydraulicSupplyPort;
+        port pistonCommand : ActuatorCommandPort;
+        port positionSignal : SensorSignalPort;
+
+        action strokeForward {
+            in item concreteIn : ConcreteSlurry;
+            out item concreteOut : ConcreteSlurry;
+            first startStroke;
+            then pressurizeChamber;
+            then displaceConcrete;
+            then reachEndOfStroke;
+        }
+
+        action strokeReverse {
+            in item concreteIn : ConcreteSlurry;
+            out item concreteOut : ConcreteSlurry;
+            first retractPiston;
+            then refillChamber;
+            then reachHomePosition;
+        }
+    }
+
+    part def HydraulicPowerUnit {
+        attribute reservoirVolume : Volume = 0.12 [m^3];
+        attribute nominalPressure : Pressure = 25000000 [Pa];
+        attribute reliefPressure : Pressure = 30000000 [Pa];
+        attribute ratedFlow : FlowRate = 0.0045 [m^3/s];
+        attribute fluidTemperature : Temperature;
+
+        port electricInput : ElectricalPowerPort;
+        port hydraulicOutput : HydraulicSupplyPort;
+        port controllerCommand : ActuatorCommandPort;
+
+        requirement pressureLimitRequirement {
+            doc /* The hydraulic power unit shall limit supply pressure to no more than 30 MPa. */
+            require constraint { reliefPressure <= 30000000 [Pa] }
+        }
+
+        requirement hydraulicFlowRequirement {
+            doc /* The hydraulic power unit shall provide at least 0.004 m^3/s of hydraulic fluid at nominal pressure. */
+            require constraint { ratedFlow >= 0.004 [m^3/s] }
+        }
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 45000 [W];
+        attribute ratedSpeed : RotationalSpeed = 188.5 [rad/s];
+        attribute ratedTorque : Torque = 240 [N*m];
+        attribute running : Boolean;
+
+        port electricInput : ElectricalPowerPort;
+        port speedCommand : ActuatorCommandPort;
+        port speedSignal : SensorSignalPort;
+
+        requirement motorPowerRequirement {
+            doc /* The drive motor shall provide at least 40 kW continuous shaft power to the hydraulic pump. */
+            require constraint { ratedPower >= 40000 [W] }
+        }
+    }
+
+    part def DischargeLine {
+        attribute innerDiameter : Length = 0.125 [m];
+        attribute maximumLength : Length = 60 [m];
+        attribute workingPressureRating : Pressure = 8500000 [Pa];
+        attribute actualPressure : Pressure;
+
+        port inlet : ConcreteInletPort;
+        port outlet : ConcreteOutletPort;
+        port pressureSignal : SensorSignalPort;
+
+        requirement linePressureRequirement {
+            doc /* The discharge line shall be rated above the maximum concrete discharge pressure. */
+            require constraint { workingPressureRating >= 8000000 [Pa] }
+        }
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        attribute range : Pressure = 10000000 [Pa];
+        attribute accuracyRatio : Ratio = 0.01;
+
+        port sensingPort : SensorSignalPort;
+
+        requirement sensorRangeRequirement {
+            doc /* The discharge pressure sensor shall measure pressures up to at least 10 MPa. */
+            require constraint { range >= 10000000 [Pa] }
+        }
+    }
+
+    part def LevelSensor {
+        attribute measuredLevel : Ratio;
+        attribute lowLevelThreshold : Ratio = 0.15;
+
+        port sensingPort : SensorSignalPort;
+    }
+
+    part def PumpController {
+        attribute targetFlowRate : FlowRate;
+        attribute maximumFlowRate : FlowRate = 0.0018 [m^3/s];
+        attribute minimumFlowRate : FlowRate = 0.0002 [m^3/s];
+        attribute maximumDischargePressure : Pressure = 8000000 [Pa];
+        attribute faultActive : Boolean;
+        attribute currentState : String;
+
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port motorCommand : ActuatorCommandPort;
+        port valveCommand : ActuatorCommandPort;
+        port cylinderACommand : ActuatorCommandPort;
+        port cylinderBCommand : ActuatorCommandPort;
+        port pressureFeedback : SensorSignalPort;
+        port levelFeedback : SensorSignalPort;
+        port motorSpeedFeedback : SensorSignalPort;
+
+        state def PumpControlStates {
+            entry action initializeDiagnostics;
+            state Off;
+            state Priming;
+            state Ready;
+            state Pumping {
+                state CylinderADischarge;
+                state CylinderBDischarge;
+                transition first CylinderADischarge then CylinderBDischarge
+                    accept after 1.8 [s]
+                    do switchValveToCylinderB;
+                transition first CylinderBDischarge then CylinderADischarge
+                    accept after 1.8 [s]
+                    do switchValveToCylinderA;
+            }
+            state Reverse;
+            state Fault;
+            state EmergencyStopped;
+
+            transition first Off then Priming
+                accept ControlCommand
+                if commandInput.command.enablePump and not commandInput.command.emergencyStop
+                do enableMotor;
+
+            transition first Priming then Ready
+                accept after 3 [s]
+                if levelFeedback.valid and levelFeedback.value >= 0.15
+                do setReadyStatus;
+
+            transition first Ready then Pumping
+                accept ControlCommand
+                if commandInput.command.enablePump and commandInput.command.requestedFlowRate >= minimumFlowRate
+                do regulateMotorSpeed;
+
+            transition first Pumping then Reverse
+                accept ControlCommand
+                if commandInput.command.reverseStroke
+                do reverseHydraulicStroke;
+
+            transition first Reverse then Ready
+                accept after 2 [s]
+                do stopReverseStroke;
+
+            transition first Pumping then Fault
+                if pressureFeedback.value > 8000000
+                do openPressureRelief;
+
+            transition first Pumping then Fault
+                if levelFeedback.value < 0.15
+                do stopPumpForLowLevel;
+
+            transition first Off then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Priming then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Ready then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Pumping then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Fault then Off
+                accept ControlCommand
+                if not commandInput.command.enablePump
+                do resetFaultLatch;
+        }
+
+        action regulateMotorSpeed {
+            in attribute requested : FlowRate;
+            out attribute motorCommandValue : Real;
+            first boundFlowRequest;
+            then computeHydraulicDemand;
+            then commandMotorSpeed;
+        }
+
+        action coordinateCylinderStroke {
+            first selectDischargeCylinder;
+            then commandOppositeCylinderFill;
+            then switchSValveAtStrokeEnd;
+            then updateDeliveredFlowEstimate;
+        }
+    }
+
+    part def ConcretePumpSubsystem {
+        attribute commandedFlowRate : FlowRate;
+        attribute deliveredFlowRate : FlowRate;
+        attribute maximumDischargePressure : Pressure = 8000000 [Pa];
+        attribute nominalDischargePressure : Pressure = 5000000 [Pa];
+        attribute maximumAggregateSize : Length = 0.032 [m];
+        attribute nominalStrokeRate : Real = 28.0;
+        attribute readyToPump : Boolean;
+
+        port concreteSupply : ConcreteInletPort;
+        port concreteDelivery : ConcreteOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : CommandPort;
+        port subsystemStatus : StatusPort;
+
+        part hopper : Hopper;
+        part valve : SValve;
+        part cylinderA : PumpCylinder;
+        part cylinderB : PumpCylinder;
+        part hydraulicUnit : HydraulicPowerUnit;
+        part motor : DriveMotor;
+        part dischargeLine : DischargeLine;
+        part pressureSensor : PressureSensor;
+        part levelSensor : LevelSensor;
+        part controller : PumpController;
+
+        connect concreteSupply to hopper.concreteInput;
+        connect hopper.concreteToValve to valve.fromHopper;
+        connect valve.toCylinderA to cylinderA.concretePort;
+        connect valve.toCylinderB to cylinderB.concretePort;
+        connect valve.toDischargeLine to dischargeLine.inlet;
+        connect dischargeLine.outlet to concreteDelivery;
+
+        connect electricalSupply to motor.electricInput;
+        connect electricalSupply to hydraulicUnit.electricInput;
+        connect hydraulicUnit.hydraulicOutput to cylinderA.hydraulicPort;
+        connect hydraulicUnit.hydraulicOutput to cylinderB.hydraulicPort;
+
+        connect operatorCommand to controller.commandInput;
+        connect controller.statusOutput to subsystemStatus;
+        connect controller.motorCommand to motor.speedCommand;
+        connect controller.valveCommand to valve.actuatorCommand;
+        connect controller.cylinderACommand to cylinderA.pistonCommand;
+        connect controller.cylinderBCommand to cylinderB.pistonCommand;
+
+        connect dischargeLine.pressureSignal to controller.pressureFeedback;
+        connect pressureSensor.sensingPort to controller.pressureFeedback;
+        connect levelSensor.sensingPort to controller.levelFeedback;
+        connect motor.speedSignal to controller.motorSpeedFeedback;
+
+        requirement concretePumpFunctionRequirement {
+            doc /* The subsystem shall move concrete slurry from the hopper inlet to the discharge outlet using a concrete piston pump. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint { deliveredFlowRate >= commandedFlowRate * 0.90 }
+        }
+
+        requirement flowCapacityRequirement {
+            doc /* The subsystem shall deliver concrete slurry at an adjustable flow rate from 0.0002 m^3/s to 0.0018 m^3/s. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint {
+                deliveredFlowRate >= 0.0002 [m^3/s] and deliveredFlowRate <= 0.0018 [m^3/s]
+            }
+        }
+
+        requirement pressureCapabilityRequirement {
+            doc /* The subsystem shall maintain pumping operation at discharge pressures up to 8 MPa. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint { maximumDischargePressure >= 8000000 [Pa] }
+        }
+
+        requirement aggregateCompatibilityRequirement {
+            doc /* The subsystem shall pump concrete slurry containing aggregate up to 32 mm nominal size. */
+            subject slurry : ConcreteSlurry;
+            require constraint { slurry.aggregateSize <= 0.032 [m] }
+        }
+
+        requirement noDryRunRequirement {
+            doc /* The subsystem shall prevent piston stroking when the hopper level is below the minimum operating level. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint { hopper.currentLevel >= hopper.minimumOperatingLevel implies readyToPump == true }
+        }
+
+        requirement emergencyStopRequirement {
+            doc /* The subsystem shall remove motor, valve, and cylinder actuator commands within 1 s of emergency stop command receipt. */
+            subject controller : PumpController;
+            require constraint { true }
+        }
+
+        requirement overPressureProtectionRequirement {
+            doc /* The subsystem shall transition to Fault and stop concrete displacement when discharge pressure exceeds 8 MPa. */
+            subject controller : PumpController;
+            require constraint { controller.maximumDischargePressure <= 8000000 [Pa] }
+        }
+
+        requirement statusReportingRequirement {
+            doc /* The subsystem shall report actual flow rate, discharge pressure, hopper level, motor speed, readiness, and active fault status. */
+            subject status : PumpStatus;
+            require constraint { true }
+        }
+
+        action pumpConcrete {
+            in item incomingConcrete : ConcreteSlurry;
+            in item command : ControlCommand;
+            out item deliveredConcrete : ConcreteSlurry;
+            out item status : PumpStatus;
+
+            first receiveConcreteInHopper;
+            then verifyHopperLevel;
+            then startHydraulicPowerUnit;
+            then alternateCylinderStrokes;
+            then routeConcreteThroughSValve;
+            then dischargeConcreteToLine;
+            then monitorPressureAndFlow;
+            then publishSubsystemStatus;
+        }
+
+        action alternateCylinderStrokes {
+            first fillCylinderAWhileDischargingCylinderB;
+            then switchSValveToCylinderA;
+            then dischargeCylinderAWhileFillingCylinderB;
+            then switchSValveToCylinderB;
+        }
+
+        state def SubsystemOperatingStates {
+            state Deenergized;
+            state Standby;
+            state PumpingConcrete;
+            state ReverseClearing;
+            state PressureFault;
+            state LowHopperFault;
+            state EmergencyStop;
+
+            transition first Deenergized then Standby
+                accept ControlCommand
+                if operatorCommand.command.enablePump and not operatorCommand.command.emergencyStop;
+
+            transition first Standby then PumpingConcrete
+                accept ControlCommand
+                if operatorCommand.command.requestedFlowRate > 0.0 [m^3/s];
+
+            transition first PumpingConcrete then ReverseClearing
+                accept ControlCommand
+                if operatorCommand.command.reverseStroke;
+
+            transition first ReverseClearing then Standby
+                accept after 2 [s];
+
+            transition first PumpingConcrete then PressureFault
+                if dischargeLine.actualPressure > maximumDischargePressure;
+
+            transition first PumpingConcrete then LowHopperFault
+                if hopper.currentLevel < hopper.minimumOperatingLevel;
+
+            transition first Standby then EmergencyStop
+                accept ControlCommand
+                if operatorCommand.command.emergencyStop;
+
+            transition first PumpingConcrete then EmergencyStop
+                accept ControlCommand
+                if operatorCommand.command.emergencyStop;
+
+            transition first PressureFault then Deenergized
+                accept ControlCommand
+                if not operatorCommand.command.enablePump;
+
+            transition first LowHopperFault then Standby
+                accept ControlCommand
+                if hopper.currentLevel >= hopper.minimumOperatingLevel;
+        }
+    }
+
+    part concretePumpSubsystem : ConcretePumpSubsystem {
+        attribute commandedFlowRate = 0.0012 [m^3/s];
+        attribute deliveredFlowRate = 0.00115 [m^3/s];
+        attribute readyToPump = true;
+    }
+}
+tokens used
+5,376
+package ConcretePumpPumpingSubsystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = "Pa";
+    }
+
+    attribute def FlowRate :> ISQ::volumeFlowRate {
+        unit = "m^3/s";
+    }
+
+    attribute def Volume :> ISQ::volume {
+        unit = "m^3";
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = "K";
+    }
+
+    attribute def RotationalSpeed :> ISQ::angularVelocity {
+        unit = "rad/s";
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = "W";
+    }
+
+    attribute def Torque :> ISQ::torque {
+        unit = "N*m";
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = "m";
+    }
+
+    attribute def TimeDuration :> ISQ::duration {
+        unit = "s";
+    }
+
+    attribute def Ratio {
+        attribute value : Real;
+    }
+
+    item def ConcreteSlurry {
+        attribute aggregateSize : Length;
+        attribute slump : Length;
+        attribute density : Real;
+        attribute temperature : Temperature;
+        attribute entrainedAirRatio : Ratio;
+    }
+
+    item def HydraulicFluid {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute contaminationIndex : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute frequency : Real;
+    }
+
+    item def ControlCommand {
+        attribute requestedFlowRate : FlowRate;
+        attribute enablePump : Boolean;
+        attribute emergencyStop : Boolean;
+        attribute reverseStroke : Boolean;
+    }
+
+    item def PumpStatus {
+        attribute actualFlowRate : FlowRate;
+        attribute dischargePressure : Pressure;
+        attribute hopperLevel : Ratio;
+        attribute motorSpeed : RotationalSpeed;
+        attribute ready : Boolean;
+        attribute faultActive : Boolean;
+        attribute faultCode : String;
+    }
+
+    port def ConcreteInletPort {
+        in item slurry : ConcreteSlurry;
+        attribute inletPressure : Pressure;
+    }
+
+    port def ConcreteOutletPort {
+        out item slurry : ConcreteSlurry;
+        attribute outletPressure : Pressure;
+        attribute deliveredFlowRate : FlowRate;
+    }
+
+    port def HydraulicSupplyPort {
+        in item fluidIn : HydraulicFluid;
+        out item fluidReturn : HydraulicFluid;
+        attribute supplyPressure : Pressure;
+        attribute returnPressure : Pressure;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusPort {
+        out item status : PumpStatus;
+    }
+
+    port def SensorSignalPort {
+        out attribute value : Real;
+        out attribute valid : Boolean;
+    }
+
+    port def ActuatorCommandPort {
+        in attribute commandValue : Real;
+        in attribute enabled : Boolean;
+    }
+
+    part def Hopper {
+        attribute capacity : Volume = 0.35 [m^3];
+        attribute minimumOperatingLevel : Ratio = 0.15;
+        attribute currentLevel : Ratio;
+        attribute screenOpening : Length = 0.05 [m];
+
+        port concreteInput : ConcreteInletPort;
+        port concreteToValve : ConcreteOutletPort;
+
+        requirement hopperCapacityRequirement {
+            doc /* The hopper shall hold at least 0.30 m^3 of concrete slurry to buffer mixer discharge variation. */
+            require constraint { capacity >= 0.30 [m^3] }
+        }
+
+        requirement minimumLevelRequirement {
+            doc /* The hopper shall inhibit pumping when the measured level is below 15 percent of capacity. */
+            require constraint { currentLevel >= minimumOperatingLevel }
+        }
+    }
+
+    part def SValve {
+        attribute valvePosition : String;
+        attribute switchingTime : TimeDuration = 0.35 [s];
+        attribute wearPlateClearance : Length = 0.0015 [m];
+
+        port fromHopper : ConcreteInletPort;
+        port toCylinderA : ConcreteOutletPort;
+        port toCylinderB : ConcreteOutletPort;
+        port toDischargeLine : ConcreteOutletPort;
+        port actuatorCommand : ActuatorCommandPort;
+
+        requirement switchingRequirement {
+            doc /* The S-valve shall switch between cylinder ports in no more than 0.5 s. */
+            require constraint { switchingTime <= 0.5 [s] }
+        }
+    }
+
+    part def PumpCylinder {
+        attribute bore : Length = 0.18 [m];
+        attribute strokeLength : Length = 1.00 [m];
+        attribute strokePosition : Length;
+        attribute chamberPressure : Pressure;
+        attribute strokeVolume : Volume = 0.0254 [m^3];
+
+        port concretePort : ConcreteInletPort;
+        port hydraulicPort : HydraulicSupplyPort;
+        port pistonCommand : ActuatorCommandPort;
+        port positionSignal : SensorSignalPort;
+
+        action strokeForward {
+            in item concreteIn : ConcreteSlurry;
+            out item concreteOut : ConcreteSlurry;
+            first startStroke;
+            then pressurizeChamber;
+            then displaceConcrete;
+            then reachEndOfStroke;
+        }
+
+        action strokeReverse {
+            in item concreteIn : ConcreteSlurry;
+            out item concreteOut : ConcreteSlurry;
+            first retractPiston;
+            then refillChamber;
+            then reachHomePosition;
+        }
+    }
+
+    part def HydraulicPowerUnit {
+        attribute reservoirVolume : Volume = 0.12 [m^3];
+        attribute nominalPressure : Pressure = 25000000 [Pa];
+        attribute reliefPressure : Pressure = 30000000 [Pa];
+        attribute ratedFlow : FlowRate = 0.0045 [m^3/s];
+        attribute fluidTemperature : Temperature;
+
+        port electricInput : ElectricalPowerPort;
+        port hydraulicOutput : HydraulicSupplyPort;
+        port controllerCommand : ActuatorCommandPort;
+
+        requirement pressureLimitRequirement {
+            doc /* The hydraulic power unit shall limit supply pressure to no more than 30 MPa. */
+            require constraint { reliefPressure <= 30000000 [Pa] }
+        }
+
+        requirement hydraulicFlowRequirement {
+            doc /* The hydraulic power unit shall provide at least 0.004 m^3/s of hydraulic fluid at nominal pressure. */
+            require constraint { ratedFlow >= 0.004 [m^3/s] }
+        }
+    }
+
+    part def DriveMotor {
+        attribute ratedPower : Power = 45000 [W];
+        attribute ratedSpeed : RotationalSpeed = 188.5 [rad/s];
+        attribute ratedTorque : Torque = 240 [N*m];
+        attribute running : Boolean;
+
+        port electricInput : ElectricalPowerPort;
+        port speedCommand : ActuatorCommandPort;
+        port speedSignal : SensorSignalPort;
+
+        requirement motorPowerRequirement {
+            doc /* The drive motor shall provide at least 40 kW continuous shaft power to the hydraulic pump. */
+            require constraint { ratedPower >= 40000 [W] }
+        }
+    }
+
+    part def DischargeLine {
+        attribute innerDiameter : Length = 0.125 [m];
+        attribute maximumLength : Length = 60 [m];
+        attribute workingPressureRating : Pressure = 8500000 [Pa];
+        attribute actualPressure : Pressure;
+
+        port inlet : ConcreteInletPort;
+        port outlet : ConcreteOutletPort;
+        port pressureSignal : SensorSignalPort;
+
+        requirement linePressureRequirement {
+            doc /* The discharge line shall be rated above the maximum concrete discharge pressure. */
+            require constraint { workingPressureRating >= 8000000 [Pa] }
+        }
+    }
+
+    part def PressureSensor {
+        attribute measuredPressure : Pressure;
+        attribute range : Pressure = 10000000 [Pa];
+        attribute accuracyRatio : Ratio = 0.01;
+
+        port sensingPort : SensorSignalPort;
+
+        requirement sensorRangeRequirement {
+            doc /* The discharge pressure sensor shall measure pressures up to at least 10 MPa. */
+            require constraint { range >= 10000000 [Pa] }
+        }
+    }
+
+    part def LevelSensor {
+        attribute measuredLevel : Ratio;
+        attribute lowLevelThreshold : Ratio = 0.15;
+
+        port sensingPort : SensorSignalPort;
+    }
+
+    part def PumpController {
+        attribute targetFlowRate : FlowRate;
+        attribute maximumFlowRate : FlowRate = 0.0018 [m^3/s];
+        attribute minimumFlowRate : FlowRate = 0.0002 [m^3/s];
+        attribute maximumDischargePressure : Pressure = 8000000 [Pa];
+        attribute faultActive : Boolean;
+        attribute currentState : String;
+
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port motorCommand : ActuatorCommandPort;
+        port valveCommand : ActuatorCommandPort;
+        port cylinderACommand : ActuatorCommandPort;
+        port cylinderBCommand : ActuatorCommandPort;
+        port pressureFeedback : SensorSignalPort;
+        port levelFeedback : SensorSignalPort;
+        port motorSpeedFeedback : SensorSignalPort;
+
+        state def PumpControlStates {
+            entry action initializeDiagnostics;
+            state Off;
+            state Priming;
+            state Ready;
+            state Pumping {
+                state CylinderADischarge;
+                state CylinderBDischarge;
+                transition first CylinderADischarge then CylinderBDischarge
+                    accept after 1.8 [s]
+                    do switchValveToCylinderB;
+                transition first CylinderBDischarge then CylinderADischarge
+                    accept after 1.8 [s]
+                    do switchValveToCylinderA;
+            }
+            state Reverse;
+            state Fault;
+            state EmergencyStopped;
+
+            transition first Off then Priming
+                accept ControlCommand
+                if commandInput.command.enablePump and not commandInput.command.emergencyStop
+                do enableMotor;
+
+            transition first Priming then Ready
+                accept after 3 [s]
+                if levelFeedback.valid and levelFeedback.value >= 0.15
+                do setReadyStatus;
+
+            transition first Ready then Pumping
+                accept ControlCommand
+                if commandInput.command.enablePump and commandInput.command.requestedFlowRate >= minimumFlowRate
+                do regulateMotorSpeed;
+
+            transition first Pumping then Reverse
+                accept ControlCommand
+                if commandInput.command.reverseStroke
+                do reverseHydraulicStroke;
+
+            transition first Reverse then Ready
+                accept after 2 [s]
+                do stopReverseStroke;
+
+            transition first Pumping then Fault
+                if pressureFeedback.value > 8000000
+                do openPressureRelief;
+
+            transition first Pumping then Fault
+                if levelFeedback.value < 0.15
+                do stopPumpForLowLevel;
+
+            transition first Off then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Priming then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Ready then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Pumping then EmergencyStopped
+                accept ControlCommand
+                if commandInput.command.emergencyStop
+                do deenergizeAllActuators;
+
+            transition first Fault then Off
+                accept ControlCommand
+                if not commandInput.command.enablePump
+                do resetFaultLatch;
+        }
+
+        action regulateMotorSpeed {
+            in attribute requested : FlowRate;
+            out attribute motorCommandValue : Real;
+            first boundFlowRequest;
+            then computeHydraulicDemand;
+            then commandMotorSpeed;
+        }
+
+        action coordinateCylinderStroke {
+            first selectDischargeCylinder;
+            then commandOppositeCylinderFill;
+            then switchSValveAtStrokeEnd;
+            then updateDeliveredFlowEstimate;
+        }
+    }
+
+    part def ConcretePumpSubsystem {
+        attribute commandedFlowRate : FlowRate;
+        attribute deliveredFlowRate : FlowRate;
+        attribute maximumDischargePressure : Pressure = 8000000 [Pa];
+        attribute nominalDischargePressure : Pressure = 5000000 [Pa];
+        attribute maximumAggregateSize : Length = 0.032 [m];
+        attribute nominalStrokeRate : Real = 28.0;
+        attribute readyToPump : Boolean;
+
+        port concreteSupply : ConcreteInletPort;
+        port concreteDelivery : ConcreteOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port operatorCommand : CommandPort;
+        port subsystemStatus : StatusPort;
+
+        part hopper : Hopper;
+        part valve : SValve;
+        part cylinderA : PumpCylinder;
+        part cylinderB : PumpCylinder;
+        part hydraulicUnit : HydraulicPowerUnit;
+        part motor : DriveMotor;
+        part dischargeLine : DischargeLine;
+        part pressureSensor : PressureSensor;
+        part levelSensor : LevelSensor;
+        part controller : PumpController;
+
+        connect concreteSupply to hopper.concreteInput;
+        connect hopper.concreteToValve to valve.fromHopper;
+        connect valve.toCylinderA to cylinderA.concretePort;
+        connect valve.toCylinderB to cylinderB.concretePort;
+        connect valve.toDischargeLine to dischargeLine.inlet;
+        connect dischargeLine.outlet to concreteDelivery;
+
+        connect electricalSupply to motor.electricInput;
+        connect electricalSupply to hydraulicUnit.electricInput;
+        connect hydraulicUnit.hydraulicOutput to cylinderA.hydraulicPort;
+        connect hydraulicUnit.hydraulicOutput to cylinderB.hydraulicPort;
+
+        connect operatorCommand to controller.commandInput;
+        connect controller.statusOutput to subsystemStatus;
+        connect controller.motorCommand to motor.speedCommand;
+        connect controller.valveCommand to valve.actuatorCommand;
+        connect controller.cylinderACommand to cylinderA.pistonCommand;
+        connect controller.cylinderBCommand to cylinderB.pistonCommand;
+
+        connect dischargeLine.pressureSignal to controller.pressureFeedback;
+        connect pressureSensor.sensingPort to controller.pressureFeedback;
+        connect levelSensor.sensingPort to controller.levelFeedback;
+        connect motor.speedSignal to controller.motorSpeedFeedback;
+
+        requirement concretePumpFunctionRequirement {
+            doc /* The subsystem shall move concrete slurry from the hopper inlet to the discharge outlet using a concrete piston pump. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint { deliveredFlowRate >= commandedFlowRate * 0.90 }
+        }
+
+        requirement flowCapacityRequirement {
+            doc /* The subsystem shall deliver concrete slurry at an adjustable flow rate from 0.0002 m^3/s to 0.0018 m^3/s. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint {
+                deliveredFlowRate >= 0.0002 [m^3/s] and deliveredFlowRate <= 0.0018 [m^3/s]
+            }
+        }
+
+        requirement pressureCapabilityRequirement {
+            doc /* The subsystem shall maintain pumping operation at discharge pressures up to 8 MPa. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint { maximumDischargePressure >= 8000000 [Pa] }
+        }
+
+        requirement aggregateCompatibilityRequirement {
+            doc /* The subsystem shall pump concrete slurry containing aggregate up to 32 mm nominal size. */
+            subject slurry : ConcreteSlurry;
+            require constraint { slurry.aggregateSize <= 0.032 [m] }
+        }
+
+        requirement noDryRunRequirement {
+            doc /* The subsystem shall prevent piston stroking when the hopper level is below the minimum operating level. */
+            subject subsystem : ConcretePumpSubsystem;
+            require constraint { hopper.currentLevel >= hopper.minimumOperatingLevel implies readyToPump == true }
+        }
+
+        requirement emergencyStopRequirement {
+            doc /* The subsystem shall remove motor, valve, and cylinder actuator commands within 1 s of emergency stop command receipt. */
+            subject controller : PumpController;
+            require constraint { true }
+        }
+
+        requirement overPressureProtectionRequirement {
+            doc /* The subsystem shall transition to Fault and stop concrete displacement when discharge pressure exceeds 8 MPa. */
+            subject controller : PumpController;
+            require constraint { controller.maximumDischargePressure <= 8000000 [Pa] }
+        }
+
+        requirement statusReportingRequirement {
+            doc /* The subsystem shall report actual flow rate, discharge pressure, hopper level, motor speed, readiness, and active fault status. */
+            subject status : PumpStatus;
+            require constraint { true }
+        }
+
+        action pumpConcrete {
+            in item incomingConcrete : ConcreteSlurry;
+            in item command : ControlCommand;
+            out item deliveredConcrete : ConcreteSlurry;
+            out item status : PumpStatus;
+
+            first receiveConcreteInHopper;
+            then verifyHopperLevel;
+            then startHydraulicPowerUnit;
+            then alternateCylinderStrokes;
+            then routeConcreteThroughSValve;
+            then dischargeConcreteToLine;
+            then monitorPressureAndFlow;
+            then publishSubsystemStatus;
+        }
+
+        action alternateCylinderStrokes {
+            first fillCylinderAWhileDischargingCylinderB;
+            then switchSValveToCylinderA;
+            then dischargeCylinderAWhileFillingCylinderB;
+            then switchSValveToCylinderB;
+        }
+
+        state def SubsystemOperatingStates {
+            state Deenergized;
+            state Standby;
+            state PumpingConcrete;
+            state ReverseClearing;
+            state PressureFault;
+            state LowHopperFault;
+            state EmergencyStop;
+
+            transition first Deenergized then Standby
+                accept ControlCommand
+                if operatorCommand.command.enablePump and not operatorCommand.command.emergencyStop;
+
+            transition first Standby then PumpingConcrete
+                accept ControlCommand
+                if operatorCommand.command.requestedFlowRate > 0.0 [m^3/s];
+
+            transition first PumpingConcrete then ReverseClearing
+                accept ControlCommand
+                if operatorCommand.command.reverseStroke;
+
+            transition first ReverseClearing then Standby
+                accept after 2 [s];
+
+            transition first PumpingConcrete then PressureFault
+                if dischargeLine.actualPressure > maximumDischargePressure;
+
+            transition first PumpingConcrete then LowHopperFault
+                if hopper.currentLevel < hopper.minimumOperatingLevel;
+
+            transition first Standby then EmergencyStop
+                accept ControlCommand
+                if operatorCommand.command.emergencyStop;
+
+            transition first PumpingConcrete then EmergencyStop
+                accept ControlCommand
+                if operatorCommand.command.emergencyStop;
+
+            transition first PressureFault then Deenergized
+                accept ControlCommand
+                if not operatorCommand.command.enablePump;
+
+            transition first LowHopperFault then Standby
+                accept ControlCommand
+                if hopper.currentLevel >= hopper.minimumOperatingLevel;
+        }
+    }
+
+    part concretePumpSubsystem : ConcretePumpSubsystem {
+        attribute commandedFlowRate = 0.0012 [m^3/s];
+        attribute deliveredFlowRate = 0.00115 [m^3/s];
+        attribute readyToPump = true;
+    }
+}

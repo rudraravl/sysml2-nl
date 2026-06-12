@@ -1,0 +1,789 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-w3l74rsl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb76e-af22-7210-b6b6-bac808e2e2eb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Visual odometry and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VisualOdometrySpecification {
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Confidence {
+    value : Real;
+    constraint validRange { value >= 0.0 and value <= 1.0 }
+  }
+
+  attribute def PixelCount {
+    value : Integer;
+    constraint nonNegative { value >= 0 }
+  }
+
+  attribute def CameraFrameRate {
+    value : Real;
+    unit : String = "Hz";
+    constraint positive { value > 0.0 }
+  }
+
+  attribute def Distance {
+    value : Real;
+    unit : String = "m";
+  }
+
+  attribute def Angle {
+    value : Real;
+    unit : String = "rad";
+  }
+
+  attribute def TimeStamp {
+    value : Real;
+    unit : String = "s";
+  }
+
+  attribute def Velocity {
+    value : Real;
+    unit : String = "m/s";
+  }
+
+  attribute def AngularVelocity {
+    value : Real;
+    unit : String = "rad/s";
+  }
+
+  attribute def ProcessingLatency {
+    value : Real;
+    unit : String = "ms";
+  }
+
+  item def ImageFrame {
+    attribute timestamp : TimeStamp;
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute exposureTime : Real;
+    attribute exposureUnit : String = "ms";
+    attribute cameraId : String;
+  }
+
+  item def StereoImagePair {
+    item left : ImageFrame;
+    item right : ImageFrame;
+    attribute pairTimestamp : TimeStamp;
+  }
+
+  item def FeatureSet {
+    attribute featureCount : PixelCount;
+    attribute averageTrackAge : Real;
+    attribute trackAgeUnit : String = "frames";
+    attribute distributionQuality : Confidence;
+  }
+
+  item def InertialMeasurement {
+    attribute timestamp : TimeStamp;
+    attribute angularRateX : AngularVelocity;
+    attribute angularRateY : AngularVelocity;
+    attribute angularRateZ : AngularVelocity;
+    attribute linearAccelerationX : Real;
+    attribute linearAccelerationY : Real;
+    attribute linearAccelerationZ : Real;
+    attribute accelerationUnit : String = "m/s^2";
+  }
+
+  item def Pose3D {
+    attribute timestamp : TimeStamp;
+    attribute x : Distance;
+    attribute y : Distance;
+    attribute z : Distance;
+    attribute roll : Angle;
+    attribute pitch : Angle;
+    attribute yaw : Angle;
+  }
+
+  item def Twist3D {
+    attribute timestamp : TimeStamp;
+    attribute vx : Velocity;
+    attribute vy : Velocity;
+    attribute vz : Velocity;
+    attribute wx : AngularVelocity;
+    attribute wy : AngularVelocity;
+    attribute wz : AngularVelocity;
+  }
+
+  item def PoseEstimate {
+    item pose : Pose3D;
+    item twist : Twist3D;
+    attribute covarianceTrace : Real;
+    attribute confidence : Confidence;
+    attribute trackingStatus : String;
+  }
+
+  item def CameraCalibration {
+    attribute focalLengthX : Real;
+    attribute focalLengthY : Real;
+    attribute principalPointX : Real;
+    attribute principalPointY : Real;
+    attribute baseline : Distance;
+    attribute distortionModel : String;
+  }
+
+  port def ImageOutputPort {
+    out item frame : ImageFrame;
+  }
+
+  port def StereoImageOutputPort {
+    out item pair : StereoImagePair;
+  }
+
+  port def StereoImageInputPort {
+    in item pair : StereoImagePair;
+  }
+
+  port def CalibrationOutputPort {
+    out item calibration : CameraCalibration;
+  }
+
+  port def CalibrationInputPort {
+    in item calibration : CameraCalibration;
+  }
+
+  port def FeatureOutputPort {
+    out item features : FeatureSet;
+  }
+
+  port def FeatureInputPort {
+    in item features : FeatureSet;
+  }
+
+  port def ImuInputPort {
+    in item imu : InertialMeasurement;
+  }
+
+  port def PoseEstimateOutputPort {
+    out item estimate : PoseEstimate;
+  }
+
+  port def PoseEstimateInputPort {
+    in item estimate : PoseEstimate;
+  }
+
+  port def HealthOutputPort {
+    out item status : SystemHealth;
+  }
+
+  item def SystemHealth {
+    attribute timestamp : TimeStamp;
+    attribute nominal : Boolean;
+    attribute message : String;
+    attribute processingLatency : ProcessingLatency;
+    attribute droppedFrameCount : PixelCount;
+  }
+
+  part def StereoCamera {
+    attribute frameRate : CameraFrameRate;
+    attribute horizontalFieldOfView : Angle;
+    attribute verticalFieldOfView : Angle;
+    attribute baseline : Distance;
+
+    port stereoOut : StereoImageOutputPort;
+    port calibrationOut : CalibrationOutputPort;
+  }
+
+  part def VisualFrontend {
+    port imageIn : StereoImageInputPort;
+    port calibrationIn : CalibrationInputPort;
+    port featuresOut : FeatureOutputPort;
+
+    action detectAndTrackFeatures {
+      in item stereoPair : StereoImagePair;
+      in item calibration : CameraCalibration;
+      out item trackedFeatures : FeatureSet;
+    }
+  }
+
+  part def MotionEstimator {
+    port imageIn : StereoImageInputPort;
+    port featureIn : FeatureInputPort;
+    port calibrationIn : CalibrationInputPort;
+    port imuIn : ImuInputPort;
+    port poseOut : PoseEstimateOutputPort;
+
+    action estimateIncrementalMotion {
+      in item stereoPair : StereoImagePair;
+      in item trackedFeatures : FeatureSet;
+      in item calibration : CameraCalibration;
+      in item imuSample : InertialMeasurement;
+      out item poseEstimate : PoseEstimate;
+    }
+  }
+
+  part def PoseFilter {
+    port rawPoseIn : PoseEstimateInputPort;
+    port filteredPoseOut : PoseEstimateOutputPort;
+
+    action smoothTrajectory {
+      in item rawEstimate : PoseEstimate;
+      out item filteredEstimate : PoseEstimate;
+    }
+  }
+
+  part def HealthMonitor {
+    port poseIn : PoseEstimateInputPort;
+    port healthOut : HealthOutputPort;
+
+    action assessHealth {
+      in item estimate : PoseEstimate;
+      out item status : SystemHealth;
+    }
+  }
+
+  part def VisualOdometrySystem {
+    attribute primaryFunction : String =
+      "Estimate the host platform's incremental six-degree-of-freedom motion and continuously publish a locally consistent pose trajectory from visual image sequences.";
+
+    port imuIn : ImuInputPort;
+    port poseOut : PoseEstimateOutputPort;
+    port healthOut : HealthOutputPort;
+
+    part camera : StereoCamera {
+      attribute frameRate.value = 30.0;
+      attribute horizontalFieldOfView.value = 1.57;
+      attribute verticalFieldOfView.value = 1.05;
+      attribute baseline.value = 0.12;
+    }
+
+    part frontend : VisualFrontend;
+    part estimator : MotionEstimator;
+    part filter : PoseFilter;
+    part monitor : HealthMonitor;
+
+    connect camera.stereoOut to frontend.imageIn;
+    connect camera.stereoOut to estimator.imageIn;
+    connect camera.calibrationOut to frontend.calibrationIn;
+    connect camera.calibrationOut to estimator.calibrationIn;
+    connect frontend.featuresOut to estimator.featureIn;
+    connect imuIn to estimator.imuIn;
+    connect estimator.poseOut to filter.rawPoseIn;
+    connect filter.filteredPoseOut to monitor.poseIn;
+    connect filter.filteredPoseOut to poseOut;
+    connect monitor.healthOut to healthOut;
+
+    state trackingLifecycle {
+      state Off;
+      state Initializing;
+      state Tracking;
+      state Degraded;
+      state Relocalizing;
+      state Faulted;
+
+      entry; then Off;
+
+      transition start
+        first Off
+        then Initializing;
+
+      transition initializationComplete
+        first Initializing
+        then Tracking
+        guard featureCountSufficient;
+
+      transition lowFeatureQuality
+        first Tracking
+        then Degraded
+        guard featureDistributionWeak;
+
+      transition trackingRecovered
+        first Degraded
+        then Tracking
+        guard confidenceRestored;
+
+      transition trackingLost
+        first Degraded
+        then Relocalizing;
+
+      transition relocalized
+        first Relocalizing
+        then Tracking;
+
+      transition unrecoverableSensorFault
+        first Tracking
+        then Faulted;
+
+      transition resetFault
+        first Faulted
+        then Initializing;
+    }
+  }
+
+  action def PerformVisualOdometry {
+    in item images : StereoImagePair;
+    in item calibration : CameraCalibration;
+    in item imu : InertialMeasurement;
+    out item pose : PoseEstimate;
+
+    action extractFeatures : VisualFrontend::detectAndTrackFeatures;
+    action solveMotion : MotionEstimator::estimateIncrementalMotion;
+    action filterPose : PoseFilter::smoothTrajectory;
+
+    flow images to extractFeatures.stereoPair;
+    flow calibration to extractFeatures.calibration;
+    flow images to solveMotion.stereoPair;
+    flow calibration to solveMotion.calibration;
+    flow imu to solveMotion.imuSample;
+    flow extractFeatures.trackedFeatures to solveMotion.trackedFeatures;
+    flow solveMotion.poseEstimate to filterPose.rawEstimate;
+    flow filterPose.filteredEstimate to pose;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject vo : VisualOdometrySystem;
+
+    require constraint {
+      vo.primaryFunction ==
+      "Estimate the host platform's incremental six-degree-of-freedom motion and continuously publish a locally consistent pose trajectory from visual image sequences."
+    }
+  }
+
+  requirement def FrameRateRequirement {
+    subject camera : StereoCamera;
+
+    require constraint {
+      camera.frameRate.value >= 20.0
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject health : SystemHealth;
+
+    require constraint {
+      health.processingLatency.value <= 50.0
+    }
+  }
+
+  requirement def TrackingConfidenceRequirement {
+    subject estimate : PoseEstimate;
+
+    require constraint {
+      estimate.confidence.value >= 0.70
+    }
+  }
+
+  requirement def FeatureAvailabilityRequirement {
+    subject features : FeatureSet;
+
+    require constraint {
+      features.featureCount.value >= 120
+    }
+  }
+
+  requirement def PoseOutputRequirement {
+    subject vo : VisualOdometrySystem;
+
+    require constraint {
+      exists vo.poseOut
+    }
+  }
+
+  requirement def FaultReportingRequirement {
+    subject vo : VisualOdometrySystem;
+
+    require constraint {
+      exists vo.healthOut
+    }
+  }
+}
+tokens used
+4,068
+package VisualOdometrySpecification {
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Confidence {
+    value : Real;
+    constraint validRange { value >= 0.0 and value <= 1.0 }
+  }
+
+  attribute def PixelCount {
+    value : Integer;
+    constraint nonNegative { value >= 0 }
+  }
+
+  attribute def CameraFrameRate {
+    value : Real;
+    unit : String = "Hz";
+    constraint positive { value > 0.0 }
+  }
+
+  attribute def Distance {
+    value : Real;
+    unit : String = "m";
+  }
+
+  attribute def Angle {
+    value : Real;
+    unit : String = "rad";
+  }
+
+  attribute def TimeStamp {
+    value : Real;
+    unit : String = "s";
+  }
+
+  attribute def Velocity {
+    value : Real;
+    unit : String = "m/s";
+  }
+
+  attribute def AngularVelocity {
+    value : Real;
+    unit : String = "rad/s";
+  }
+
+  attribute def ProcessingLatency {
+    value : Real;
+    unit : String = "ms";
+  }
+
+  item def ImageFrame {
+    attribute timestamp : TimeStamp;
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute exposureTime : Real;
+    attribute exposureUnit : String = "ms";
+    attribute cameraId : String;
+  }
+
+  item def StereoImagePair {
+    item left : ImageFrame;
+    item right : ImageFrame;
+    attribute pairTimestamp : TimeStamp;
+  }
+
+  item def FeatureSet {
+    attribute featureCount : PixelCount;
+    attribute averageTrackAge : Real;
+    attribute trackAgeUnit : String = "frames";
+    attribute distributionQuality : Confidence;
+  }
+
+  item def InertialMeasurement {
+    attribute timestamp : TimeStamp;
+    attribute angularRateX : AngularVelocity;
+    attribute angularRateY : AngularVelocity;
+    attribute angularRateZ : AngularVelocity;
+    attribute linearAccelerationX : Real;
+    attribute linearAccelerationY : Real;
+    attribute linearAccelerationZ : Real;
+    attribute accelerationUnit : String = "m/s^2";
+  }
+
+  item def Pose3D {
+    attribute timestamp : TimeStamp;
+    attribute x : Distance;
+    attribute y : Distance;
+    attribute z : Distance;
+    attribute roll : Angle;
+    attribute pitch : Angle;
+    attribute yaw : Angle;
+  }
+
+  item def Twist3D {
+    attribute timestamp : TimeStamp;
+    attribute vx : Velocity;
+    attribute vy : Velocity;
+    attribute vz : Velocity;
+    attribute wx : AngularVelocity;
+    attribute wy : AngularVelocity;
+    attribute wz : AngularVelocity;
+  }
+
+  item def PoseEstimate {
+    item pose : Pose3D;
+    item twist : Twist3D;
+    attribute covarianceTrace : Real;
+    attribute confidence : Confidence;
+    attribute trackingStatus : String;
+  }
+
+  item def CameraCalibration {
+    attribute focalLengthX : Real;
+    attribute focalLengthY : Real;
+    attribute principalPointX : Real;
+    attribute principalPointY : Real;
+    attribute baseline : Distance;
+    attribute distortionModel : String;
+  }
+
+  port def ImageOutputPort {
+    out item frame : ImageFrame;
+  }
+
+  port def StereoImageOutputPort {
+    out item pair : StereoImagePair;
+  }
+
+  port def StereoImageInputPort {
+    in item pair : StereoImagePair;
+  }
+
+  port def CalibrationOutputPort {
+    out item calibration : CameraCalibration;
+  }
+
+  port def CalibrationInputPort {
+    in item calibration : CameraCalibration;
+  }
+
+  port def FeatureOutputPort {
+    out item features : FeatureSet;
+  }
+
+  port def FeatureInputPort {
+    in item features : FeatureSet;
+  }
+
+  port def ImuInputPort {
+    in item imu : InertialMeasurement;
+  }
+
+  port def PoseEstimateOutputPort {
+    out item estimate : PoseEstimate;
+  }
+
+  port def PoseEstimateInputPort {
+    in item estimate : PoseEstimate;
+  }
+
+  port def HealthOutputPort {
+    out item status : SystemHealth;
+  }
+
+  item def SystemHealth {
+    attribute timestamp : TimeStamp;
+    attribute nominal : Boolean;
+    attribute message : String;
+    attribute processingLatency : ProcessingLatency;
+    attribute droppedFrameCount : PixelCount;
+  }
+
+  part def StereoCamera {
+    attribute frameRate : CameraFrameRate;
+    attribute horizontalFieldOfView : Angle;
+    attribute verticalFieldOfView : Angle;
+    attribute baseline : Distance;
+
+    port stereoOut : StereoImageOutputPort;
+    port calibrationOut : CalibrationOutputPort;
+  }
+
+  part def VisualFrontend {
+    port imageIn : StereoImageInputPort;
+    port calibrationIn : CalibrationInputPort;
+    port featuresOut : FeatureOutputPort;
+
+    action detectAndTrackFeatures {
+      in item stereoPair : StereoImagePair;
+      in item calibration : CameraCalibration;
+      out item trackedFeatures : FeatureSet;
+    }
+  }
+
+  part def MotionEstimator {
+    port imageIn : StereoImageInputPort;
+    port featureIn : FeatureInputPort;
+    port calibrationIn : CalibrationInputPort;
+    port imuIn : ImuInputPort;
+    port poseOut : PoseEstimateOutputPort;
+
+    action estimateIncrementalMotion {
+      in item stereoPair : StereoImagePair;
+      in item trackedFeatures : FeatureSet;
+      in item calibration : CameraCalibration;
+      in item imuSample : InertialMeasurement;
+      out item poseEstimate : PoseEstimate;
+    }
+  }
+
+  part def PoseFilter {
+    port rawPoseIn : PoseEstimateInputPort;
+    port filteredPoseOut : PoseEstimateOutputPort;
+
+    action smoothTrajectory {
+      in item rawEstimate : PoseEstimate;
+      out item filteredEstimate : PoseEstimate;
+    }
+  }
+
+  part def HealthMonitor {
+    port poseIn : PoseEstimateInputPort;
+    port healthOut : HealthOutputPort;
+
+    action assessHealth {
+      in item estimate : PoseEstimate;
+      out item status : SystemHealth;
+    }
+  }
+
+  part def VisualOdometrySystem {
+    attribute primaryFunction : String =
+      "Estimate the host platform's incremental six-degree-of-freedom motion and continuously publish a locally consistent pose trajectory from visual image sequences.";
+
+    port imuIn : ImuInputPort;
+    port poseOut : PoseEstimateOutputPort;
+    port healthOut : HealthOutputPort;
+
+    part camera : StereoCamera {
+      attribute frameRate.value = 30.0;
+      attribute horizontalFieldOfView.value = 1.57;
+      attribute verticalFieldOfView.value = 1.05;
+      attribute baseline.value = 0.12;
+    }
+
+    part frontend : VisualFrontend;
+    part estimator : MotionEstimator;
+    part filter : PoseFilter;
+    part monitor : HealthMonitor;
+
+    connect camera.stereoOut to frontend.imageIn;
+    connect camera.stereoOut to estimator.imageIn;
+    connect camera.calibrationOut to frontend.calibrationIn;
+    connect camera.calibrationOut to estimator.calibrationIn;
+    connect frontend.featuresOut to estimator.featureIn;
+    connect imuIn to estimator.imuIn;
+    connect estimator.poseOut to filter.rawPoseIn;
+    connect filter.filteredPoseOut to monitor.poseIn;
+    connect filter.filteredPoseOut to poseOut;
+    connect monitor.healthOut to healthOut;
+
+    state trackingLifecycle {
+      state Off;
+      state Initializing;
+      state Tracking;
+      state Degraded;
+      state Relocalizing;
+      state Faulted;
+
+      entry; then Off;
+
+      transition start
+        first Off
+        then Initializing;
+
+      transition initializationComplete
+        first Initializing
+        then Tracking
+        guard featureCountSufficient;
+
+      transition lowFeatureQuality
+        first Tracking
+        then Degraded
+        guard featureDistributionWeak;
+
+      transition trackingRecovered
+        first Degraded
+        then Tracking
+        guard confidenceRestored;
+
+      transition trackingLost
+        first Degraded
+        then Relocalizing;
+
+      transition relocalized
+        first Relocalizing
+        then Tracking;
+
+      transition unrecoverableSensorFault
+        first Tracking
+        then Faulted;
+
+      transition resetFault
+        first Faulted
+        then Initializing;
+    }
+  }
+
+  action def PerformVisualOdometry {
+    in item images : StereoImagePair;
+    in item calibration : CameraCalibration;
+    in item imu : InertialMeasurement;
+    out item pose : PoseEstimate;
+
+    action extractFeatures : VisualFrontend::detectAndTrackFeatures;
+    action solveMotion : MotionEstimator::estimateIncrementalMotion;
+    action filterPose : PoseFilter::smoothTrajectory;
+
+    flow images to extractFeatures.stereoPair;
+    flow calibration to extractFeatures.calibration;
+    flow images to solveMotion.stereoPair;
+    flow calibration to solveMotion.calibration;
+    flow imu to solveMotion.imuSample;
+    flow extractFeatures.trackedFeatures to solveMotion.trackedFeatures;
+    flow solveMotion.poseEstimate to filterPose.rawEstimate;
+    flow filterPose.filteredEstimate to pose;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject vo : VisualOdometrySystem;
+
+    require constraint {
+      vo.primaryFunction ==
+      "Estimate the host platform's incremental six-degree-of-freedom motion and continuously publish a locally consistent pose trajectory from visual image sequences."
+    }
+  }
+
+  requirement def FrameRateRequirement {
+    subject camera : StereoCamera;
+
+    require constraint {
+      camera.frameRate.value >= 20.0
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject health : SystemHealth;
+
+    require constraint {
+      health.processingLatency.value <= 50.0
+    }
+  }
+
+  requirement def TrackingConfidenceRequirement {
+    subject estimate : PoseEstimate;
+
+    require constraint {
+      estimate.confidence.value >= 0.70
+    }
+  }
+
+  requirement def FeatureAvailabilityRequirement {
+    subject features : FeatureSet;
+
+    require constraint {
+      features.featureCount.value >= 120
+    }
+  }
+
+  requirement def PoseOutputRequirement {
+    subject vo : VisualOdometrySystem;
+
+    require constraint {
+      exists vo.poseOut
+    }
+  }
+
+  requirement def FaultReportingRequirement {
+    subject vo : VisualOdometrySystem;
+
+    require constraint {
+      exists vo.healthOut
+    }
+  }
+}

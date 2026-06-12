@@ -1,0 +1,510 @@
+package SelfDrivingCarImpactModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def KilometersPerHour {
+        :> ScalarValues::Real;
+        unit = "km/h";
+    }
+
+    attribute def Seconds {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Kilometers {
+        :> ScalarValues::Real;
+        unit = "km";
+    }
+
+    attribute def KilowattHour {
+        :> ScalarValues::Real;
+        unit = "kW*h";
+    }
+
+    attribute def GramsCO2PerKm {
+        :> ScalarValues::Real;
+        unit = "gCO2/km";
+    }
+
+    attribute def IncidentsPerMillionKm {
+        :> ScalarValues::Real;
+        unit = "incidents/10^6 km";
+    }
+
+    attribute def Persons {
+        :> ScalarValues::Integer;
+        unit = "person";
+    }
+
+    attribute def CurrencyPerKm {
+        :> ScalarValues::Real;
+        unit = "USD/km";
+    }
+
+    item def Passenger {
+        attribute count : Persons;
+        attribute accessibilityNeed : Boolean;
+    }
+
+    item def RouteRequest {
+        attribute originLatitude : Real;
+        attribute originLongitude : Real;
+        attribute destinationLatitude : Real;
+        attribute destinationLongitude : Real;
+        attribute requestedPickupTime : Seconds;
+        attribute passengerCount : Persons;
+    }
+
+    item def PlannedRoute {
+        attribute distance : Kilometers;
+        attribute expectedTravelTime : Seconds;
+        attribute expectedEnergyUse : KilowattHour;
+        attribute expectedCost : CurrencyPerKm;
+        attribute safetyRiskScore : Percent;
+    }
+
+    item def VehicleTelemetry {
+        attribute speed : KilometersPerHour;
+        attribute batteryStateOfCharge : Percent;
+        attribute localizationConfidence : Percent;
+        attribute obstacleDetectionConfidence : Percent;
+        attribute humanOverrideRequested : Boolean;
+    }
+
+    item def MobilityImpactReport {
+        attribute safetyIncidentRate : IncidentsPerMillionKm;
+        attribute averageTripCost : CurrencyPerKm;
+        attribute averageEmissions : GramsCO2PerKm;
+        attribute congestionReduction : Percent;
+        attribute mobilityAccessIncrease : Percent;
+        attribute parkingDemandReduction : Percent;
+    }
+
+    item def ControlCommand {
+        attribute targetSpeed : KilometersPerHour;
+        attribute steeringAngle : Real;
+        attribute brakeDemand : Percent;
+        attribute accelerationDemand : Percent;
+    }
+
+    port def PassengerServicePort {
+        in request : RouteRequest;
+        out confirmation : PlannedRoute;
+        in passengerBoarded : Passenger;
+        out tripComplete : MobilityImpactReport;
+    }
+
+    port def EnvironmentSensingPort {
+        out telemetry : VehicleTelemetry;
+    }
+
+    port def MotionCommandPort {
+        in command : ControlCommand;
+    }
+
+    port def FleetCoordinationPort {
+        in routeRequest : RouteRequest;
+        out assignedRoute : PlannedRoute;
+        in impactReport : MobilityImpactReport;
+    }
+
+    part def AutonomousMobilityImpactSystem {
+        attribute primaryFunction : String = "Provide autonomous passenger mobility while improving safety, accessibility, cost efficiency, emissions, congestion, and urban land-use outcomes.";
+        attribute targetSafetyIncidentRate : IncidentsPerMillionKm = 0.20;
+        attribute targetCongestionReduction : Percent = 15.0;
+        attribute targetEmissionsReduction : Percent = 35.0;
+        attribute targetMobilityAccessIncrease : Percent = 25.0;
+
+        port passengerInterface : PassengerServicePort;
+        port cityMobilityInterface : FleetCoordinationPort;
+
+        part autonomousVehicleFleet : AutonomousVehicleFleet;
+        part mobilityDemandManager : MobilityDemandManager;
+        part urbanImpactAnalyzer : UrbanImpactAnalyzer;
+        part safetyGovernanceService : SafetyGovernanceService;
+        part energyOptimizationService : EnergyOptimizationService;
+
+        connect passengerInterface.request to mobilityDemandManager.passengerPort.request;
+        connect mobilityDemandManager.fleetPort.assignedRoute to autonomousVehicleFleet.dispatchPort.assignedRoute;
+        connect autonomousVehicleFleet.dispatchPort.impactReport to urbanImpactAnalyzer.fleetPort.impactReport;
+        connect urbanImpactAnalyzer.cityPort.impactReport to cityMobilityInterface.impactReport;
+        connect safetyGovernanceService.safetyPolicyPort.assignedRoute to autonomousVehicleFleet.dispatchPort.assignedRoute;
+        connect energyOptimizationService.energyRoutePort.assignedRoute to mobilityDemandManager.fleetPort.assignedRoute;
+    }
+
+    part def AutonomousVehicleFleet {
+        attribute activeVehicleCount : Integer;
+        attribute averageUtilization : Percent;
+        attribute emptyVehicleKilometers : Kilometers;
+
+        port dispatchPort : FleetCoordinationPort;
+
+        part vehicle[1..*] : SelfDrivingVehicle;
+        part fleetScheduler : FleetScheduler;
+        part remoteOperationsCenter : RemoteOperationsCenter;
+
+        connect dispatchPort.routeRequest to fleetScheduler.requestPort.routeRequest;
+        connect fleetScheduler.assignmentPort.assignedRoute to vehicle.dispatchPort.assignedRoute;
+        connect vehicle.impactPort.impactReport to dispatchPort.impactReport;
+        connect remoteOperationsCenter.overridePort.command to vehicle.motionPort.command;
+    }
+
+    part def SelfDrivingVehicle {
+        attribute vehicleId : String;
+        attribute maximumSpeed : KilometersPerHour = 110.0;
+        attribute nominalPassengerCapacity : Persons = 4;
+        attribute energyCapacity : KilowattHour = 75.0;
+        attribute operationalDesignDomainActive : Boolean;
+
+        port passengerPort : PassengerServicePort;
+        port sensingPort : EnvironmentSensingPort;
+        port motionPort : MotionCommandPort;
+        port dispatchPort : FleetCoordinationPort;
+        port impactPort : FleetCoordinationPort;
+
+        part perceptionSubsystem : PerceptionSubsystem;
+        part localizationSubsystem : LocalizationSubsystem;
+        part planningSubsystem : DecisionPlanningSubsystem;
+        part motionControlSubsystem : MotionControlSubsystem;
+        part passengerCabin : PassengerCabin;
+        part electricPowertrain : ElectricPowertrain;
+        part safetyMonitor : VehicleSafetyMonitor;
+
+        connect sensingPort.telemetry to perceptionSubsystem.sensorPort.telemetry;
+        connect perceptionSubsystem.objectModelPort.telemetry to planningSubsystem.environmentPort.telemetry;
+        connect localizationSubsystem.positionPort.telemetry to planningSubsystem.localizationPort.telemetry;
+        connect dispatchPort.assignedRoute to planningSubsystem.routePort.assignedRoute;
+        connect planningSubsystem.commandPort.command to motionControlSubsystem.motionPort.command;
+        connect motionControlSubsystem.powertrainPort.command to electricPowertrain.drivePort.command;
+        connect passengerPort.passengerBoarded to passengerCabin.servicePort.passengerBoarded;
+        connect safetyMonitor.overridePort.command to motionControlSubsystem.motionPort.command;
+
+        state def VehicleOperationalState {
+            entry action initializeAutonomy;
+            state Offline;
+            state AwaitingAssignment;
+            state NavigatingToPickup;
+            state BoardingPassenger;
+            state AutonomousTrip;
+            state MinimalRiskManeuver;
+            state RemoteAssistedOperation;
+            state Charging;
+            state TripCompleted;
+
+            transition first Offline then AwaitingAssignment;
+            transition AwaitingAssignment then NavigatingToPickup
+                accept routeAssigned;
+            transition NavigatingToPickup then BoardingPassenger
+                accept pickupLocationReached;
+            transition BoardingPassenger then AutonomousTrip
+                accept passengerSecured;
+            transition AutonomousTrip then MinimalRiskManeuver
+                accept safetyConfidenceLow;
+            transition MinimalRiskManeuver then RemoteAssistedOperation
+                accept remoteAssistanceRequested;
+            transition RemoteAssistedOperation then AutonomousTrip
+                accept remoteAssistanceResolved;
+            transition AutonomousTrip then TripCompleted
+                accept destinationReached;
+            transition TripCompleted then AwaitingAssignment
+                accept passengerExited;
+            transition AwaitingAssignment then Charging
+                accept batteryBelowThreshold;
+            transition Charging then AwaitingAssignment
+                accept chargeSufficient;
+        }
+
+        perform action operateAutonomously;
+    }
+
+    part def PerceptionSubsystem {
+        attribute objectDetectionConfidence : Percent;
+        attribute vulnerableRoadUserDetectionRange : Kilometers;
+
+        port sensorPort : EnvironmentSensingPort;
+        port objectModelPort : EnvironmentSensingPort;
+
+        part lidarArray : LidarSensor;
+        part cameraArray : CameraSensor;
+        part radarArray : RadarSensor;
+        part sensorFusionComputer : SensorFusionComputer;
+    }
+
+    part def LocalizationSubsystem {
+        attribute positionAccuracy : Kilometers;
+        attribute mapFreshnessAge : Seconds;
+
+        port positionPort : EnvironmentSensingPort;
+
+        part gnssReceiver : PositioningSensor;
+        part inertialMeasurementUnit : PositioningSensor;
+        part highDefinitionMapStore : MapDataStore;
+    }
+
+    part def DecisionPlanningSubsystem {
+        attribute plannedFollowingTimeGap : Seconds = 2.5;
+        attribute maximumAllowedRiskScore : Percent = 5.0;
+
+        port environmentPort : EnvironmentSensingPort;
+        port localizationPort : EnvironmentSensingPort;
+        port routePort : FleetCoordinationPort;
+        port commandPort : MotionCommandPort;
+
+        action planSafeRoute {
+            in route : PlannedRoute;
+            in telemetry : VehicleTelemetry;
+            out command : ControlCommand;
+        }
+
+        action avoidCollision {
+            in telemetry : VehicleTelemetry;
+            out emergencyCommand : ControlCommand;
+        }
+    }
+
+    part def MotionControlSubsystem {
+        attribute lateralControlError : Real;
+        attribute longitudinalControlError : KilometersPerHour;
+
+        port motionPort : MotionCommandPort;
+        port powertrainPort : MotionCommandPort;
+    }
+
+    part def ElectricPowertrain {
+        attribute currentEnergyUse : KilowattHour;
+        attribute regenerativeBrakingEfficiency : Percent = 68.0;
+
+        port drivePort : MotionCommandPort;
+    }
+
+    part def PassengerCabin {
+        attribute availableSeats : Persons;
+        attribute wheelchairAccessible : Boolean;
+        attribute cabinAirQualityIndex : Real;
+
+        port servicePort : PassengerServicePort;
+    }
+
+    part def VehicleSafetyMonitor {
+        attribute minimumLocalizationConfidence : Percent = 95.0;
+        attribute minimumObstacleDetectionConfidence : Percent = 98.0;
+
+        port overridePort : MotionCommandPort;
+
+        action evaluateSafetyEnvelope {
+            in telemetry : VehicleTelemetry;
+            out safeToProceed : Boolean;
+        }
+    }
+
+    part def FleetScheduler {
+        attribute meanWaitTime : Seconds;
+        attribute sharedRideOccupancy : Persons;
+
+        port requestPort : FleetCoordinationPort;
+        port assignmentPort : FleetCoordinationPort;
+
+        action assignVehicle {
+            in request : RouteRequest;
+            out route : PlannedRoute;
+        }
+    }
+
+    part def RemoteOperationsCenter {
+        attribute operatorToVehicleRatio : Real;
+        attribute interventionRate : IncidentsPerMillionKm;
+
+        port overridePort : MotionCommandPort;
+    }
+
+    part def MobilityDemandManager {
+        attribute averagePassengerWaitTime : Seconds;
+        attribute servedTripShare : Percent;
+
+        port passengerPort : PassengerServicePort;
+        port fleetPort : FleetCoordinationPort;
+
+        action aggregateDemand {
+            in request : RouteRequest;
+            out optimizedRequest : RouteRequest;
+        }
+    }
+
+    part def UrbanImpactAnalyzer {
+        attribute baselineIncidentRate : IncidentsPerMillionKm = 3.5;
+        attribute baselineEmissions : GramsCO2PerKm = 180.0;
+        attribute baselineParkingDemandIndex : Real = 1.0;
+
+        port fleetPort : FleetCoordinationPort;
+        port cityPort : FleetCoordinationPort;
+
+        action computeMobilityImpact {
+            in report : MobilityImpactReport;
+            out safetyImprovement : Percent;
+            out emissionsImprovement : Percent;
+            out accessibilityImprovement : Percent;
+        }
+    }
+
+    part def SafetyGovernanceService {
+        attribute permittedOperationalDesignDomain : String;
+        attribute maximumFleetIncidentRate : IncidentsPerMillionKm = 0.5;
+
+        port safetyPolicyPort : FleetCoordinationPort;
+
+        action restrictOperation {
+            in telemetry : VehicleTelemetry;
+            out allowed : Boolean;
+        }
+    }
+
+    part def EnergyOptimizationService {
+        attribute targetEnergyPerKm : KilowattHour = 0.18;
+        attribute renewableChargingShare : Percent = 80.0;
+
+        port energyRoutePort : FleetCoordinationPort;
+
+        action optimizeChargingAndRouting {
+            in request : RouteRequest;
+            out energyEfficientRoute : PlannedRoute;
+        }
+    }
+
+    part def LidarSensor {
+        attribute range : Kilometers = 0.25;
+        attribute updatePeriod : Seconds = 0.05;
+    }
+
+    part def CameraSensor {
+        attribute fieldOfView : Real = 120.0;
+        attribute framePeriod : Seconds = 0.033;
+    }
+
+    part def RadarSensor {
+        attribute range : Kilometers = 0.30;
+        attribute updatePeriod : Seconds = 0.02;
+    }
+
+    part def SensorFusionComputer {
+        attribute processingLatency : Seconds;
+        attribute fusedObjectConfidence : Percent;
+    }
+
+    part def PositioningSensor {
+        attribute accuracy : Kilometers;
+        attribute updatePeriod : Seconds;
+    }
+
+    part def MapDataStore {
+        attribute mapCoverage : Kilometers;
+        attribute updateAge : Seconds;
+    }
+
+    action def operateAutonomously {
+        in request : RouteRequest;
+        out report : MobilityImpactReport;
+
+        first startAutonomousService;
+        then receiveTripRequest;
+        then planPassengerRoute;
+        then navigateWithoutHumanDriver;
+        then monitorSafetyEnvelope;
+        then deliverPassenger;
+        then publishImpactReport;
+    }
+
+    action def startAutonomousService;
+    action def receiveTripRequest;
+    action def planPassengerRoute;
+    action def navigateWithoutHumanDriver;
+    action def monitorSafetyEnvelope;
+    action def deliverPassenger;
+    action def publishImpactReport;
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide safe, driverless passenger transportation from requested origin to destination while continuously measuring societal impact. */
+        subject system : AutonomousMobilityImpactSystem;
+        require constraint {
+            system.targetSafetyIncidentRate <= 0.20
+        }
+    }
+
+    requirement def SafetyImpactRequirement {
+        doc /* The system shall reduce safety incidents relative to human-driven urban mobility baselines. */
+        subject impact : MobilityImpactReport;
+        require constraint {
+            impact.safetyIncidentRate <= 0.5
+        }
+    }
+
+    requirement def AccessibilityImpactRequirement {
+        doc /* The system shall increase mobility access for passengers unable or unwilling to drive. */
+        subject impact : MobilityImpactReport;
+        require constraint {
+            impact.mobilityAccessIncrease >= 25.0
+        }
+    }
+
+    requirement def EnvironmentalImpactRequirement {
+        doc /* The system shall reduce direct operating emissions through electric propulsion, efficient routing, shared occupancy, and optimized charging. */
+        subject impact : MobilityImpactReport;
+        require constraint {
+            impact.averageEmissions <= 90.0
+        }
+    }
+
+    requirement def CongestionImpactRequirement {
+        doc /* The system shall reduce congestion through coordinated dispatch, shared rides, smoother driving behavior, and reduced cruising for parking. */
+        subject impact : MobilityImpactReport;
+        require constraint {
+            impact.congestionReduction >= 15.0
+        }
+    }
+
+    requirement def AffordabilityRequirement {
+        doc /* The system shall provide passenger mobility at a lower average operating cost than individually owned human-driven vehicles in dense urban operation. */
+        subject impact : MobilityImpactReport;
+        require constraint {
+            impact.averageTripCost <= 0.75
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by AutonomousMobilityImpactSystem;
+    satisfy SafetyImpactRequirement by UrbanImpactAnalyzer;
+    satisfy AccessibilityImpactRequirement by MobilityDemandManager;
+    satisfy EnvironmentalImpactRequirement by EnergyOptimizationService;
+    satisfy CongestionImpactRequirement by AutonomousVehicleFleet;
+    satisfy AffordabilityRequirement by FleetScheduler;
+
+    part selfDrivingCarImpactSystem : AutonomousMobilityImpactSystem {
+        attribute targetSafetyIncidentRate = 0.20;
+        attribute targetCongestionReduction = 15.0;
+        attribute targetEmissionsReduction = 35.0;
+        attribute targetMobilityAccessIncrease = 25.0;
+
+        part autonomousVehicleFleet {
+            attribute activeVehicleCount = 250;
+            attribute averageUtilization = 72.0;
+            attribute emptyVehicleKilometers = 12000.0;
+        }
+
+        part urbanImpactAnalyzer {
+            attribute baselineIncidentRate = 3.5;
+            attribute baselineEmissions = 180.0;
+            attribute baselineParkingDemandIndex = 1.0;
+        }
+
+        part energyOptimizationService {
+            attribute targetEnergyPerKm = 0.18;
+            attribute renewableChargingShare = 80.0;
+        }
+    }
+}

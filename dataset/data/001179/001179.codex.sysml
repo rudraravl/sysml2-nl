@@ -1,0 +1,394 @@
+package PhotodetectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Wavelength :> Real {
+        unit = "nm";
+    }
+
+    attribute def OpticalPower :> Real {
+        unit = "W";
+    }
+
+    attribute def Irradiance :> Real {
+        unit = "W/m^2";
+    }
+
+    attribute def Responsivity :> Real {
+        unit = "A/W";
+    }
+
+    attribute def ElectricCurrent :> Real {
+        unit = "A";
+    }
+
+    attribute def ElectricVoltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Resistance :> Real {
+        unit = "ohm";
+    }
+
+    attribute def Capacitance :> Real {
+        unit = "F";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def SignalToNoiseRatio :> Real {
+        unit = "dB";
+    }
+
+    attribute def QuantumEfficiency :> Real {
+        unit = "1";
+    }
+
+    item def IncidentPhotonFlux {
+        attribute wavelength : Wavelength;
+        attribute opticalPower : OpticalPower;
+        attribute irradiance : Irradiance;
+        attribute modulationFrequency : Frequency;
+    }
+
+    item def PhotocurrentSignal {
+        attribute current : ElectricCurrent;
+        attribute darkCurrentOffset : ElectricCurrent;
+        attribute noiseCurrentRms : ElectricCurrent;
+        attribute bandwidth : Frequency;
+    }
+
+    item def VoltageSignal {
+        attribute voltage : ElectricVoltage;
+        attribute noiseVoltageRms : ElectricVoltage;
+        attribute snr : SignalToNoiseRatio;
+        attribute bandwidth : Frequency;
+    }
+
+    item def DigitalDetectionResult {
+        attribute detected : Boolean;
+        attribute estimatedOpticalPower : OpticalPower;
+        attribute timestamp : TimeDuration;
+        attribute confidence : Real;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature : Temperature;
+    }
+
+    port def OpticalInputPort {
+        in item light : IncidentPhotonFlux;
+    }
+
+    port def CurrentSignalPort {
+        out item photocurrent : PhotocurrentSignal;
+    }
+
+    port def VoltageSignalPort {
+        out item voltageSignal : VoltageSignal;
+    }
+
+    port def DigitalOutputPort {
+        out item result : DigitalDetectionResult;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    part def Photodiode {
+        attribute activeArea : Real {
+            unit = "mm^2";
+            default = 1.2;
+        }
+        attribute spectralRangeMin : Wavelength = 350.0;
+        attribute spectralRangeMax : Wavelength = 1100.0;
+        attribute peakResponsivity : Responsivity = 0.62;
+        attribute quantumEfficiencyAtPeak : QuantumEfficiency = 0.82;
+        attribute junctionCapacitance : Capacitance = 8.0e-12;
+        attribute darkCurrentAt25C : ElectricCurrent = 2.0e-9;
+        attribute reverseBiasVoltage : ElectricVoltage = 5.0;
+
+        port opticalIn : OpticalInputPort;
+        port currentOut : CurrentSignalPort;
+        port thermal : ThermalPort;
+
+        action convertPhotonsToCurrent {
+            in item receivedLight : IncidentPhotonFlux;
+            out item generatedCurrent : PhotocurrentSignal;
+
+            first start;
+            then validateSpectralRange;
+            then generateElectronHolePairs;
+            then producePhotocurrent;
+            then finish;
+
+            action validateSpectralRange;
+            action generateElectronHolePairs;
+            action producePhotocurrent;
+        }
+
+        state def PhotodiodeOperatingState {
+            state Off;
+            state Biased;
+            state Saturated;
+            state Fault;
+
+            transition first Off then Biased;
+            transition Biased then Saturated
+                if opticalIn.light.opticalPower > 0.012;
+            transition Saturated then Biased
+                if opticalIn.light.opticalPower <= 0.010;
+            transition Biased then Fault
+                if thermal.heat.temperature > 85.0;
+            transition Saturated then Fault
+                if thermal.heat.temperature > 85.0;
+        }
+    }
+
+    part def TransimpedanceAmplifier {
+        attribute feedbackResistance : Resistance = 100000.0;
+        attribute feedbackCapacitance : Capacitance = 1.5e-12;
+        attribute inputCurrentNoiseDensity : Real {
+            unit = "A/sqrt(Hz)";
+            default = 2.0e-15;
+        }
+        attribute outputVoltageRangeMin : ElectricVoltage = 0.0;
+        attribute outputVoltageRangeMax : ElectricVoltage = 3.3;
+        attribute smallSignalBandwidth : Frequency = 2000000.0;
+
+        port currentIn : CurrentSignalPort;
+        port voltageOut : VoltageSignalPort;
+        port thermal : ThermalPort;
+
+        action convertCurrentToVoltage {
+            in item inputCurrent : PhotocurrentSignal;
+            out item amplifiedVoltage : VoltageSignal;
+
+            first receivePhotocurrent;
+            then applyTransimpedanceGain;
+            then limitOutputVoltage;
+            then estimateNoise;
+            then outputVoltage;
+            then done;
+
+            action receivePhotocurrent;
+            action applyTransimpedanceGain;
+            action limitOutputVoltage;
+            action estimateNoise;
+            action outputVoltage;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute detectionThreshold : ElectricVoltage = 0.050;
+        attribute sampleRate : Frequency = 100000.0;
+        attribute averagingWindow : TimeDuration = 0.005;
+        attribute minimumConfidence : Real = 0.95;
+
+        port voltageIn : VoltageSignalPort;
+        port digitalOut : DigitalOutputPort;
+
+        action detectLightLevel {
+            in item analogSignal : VoltageSignal;
+            out item detectionResult : DigitalDetectionResult;
+
+            first sampleSignal;
+            then subtractBaseline;
+            then filterNoise;
+            then compareWithThreshold;
+            then estimateOpticalPower;
+            then publishResult;
+            then complete;
+
+            action sampleSignal;
+            action subtractBaseline;
+            action filterNoise;
+            action compareWithThreshold;
+            action estimateOpticalPower;
+            action publishResult;
+        }
+
+        state def DetectionState {
+            state Idle;
+            state Measuring;
+            state LightDetected;
+            state NoLight;
+            state SignalInvalid;
+
+            transition first Idle then Measuring;
+            transition Measuring then LightDetected
+                if voltageIn.voltageSignal.voltage >= detectionThreshold and voltageIn.voltageSignal.snr >= 10.0;
+            transition Measuring then NoLight
+                if voltageIn.voltageSignal.voltage < detectionThreshold and voltageIn.voltageSignal.snr >= 10.0;
+            transition Measuring then SignalInvalid
+                if voltageIn.voltageSignal.snr < 10.0;
+            transition LightDetected then Measuring;
+            transition NoLight then Measuring;
+            transition SignalInvalid then Measuring;
+        }
+    }
+
+    part def TemperatureCompensationUnit {
+        attribute referenceTemperature : Temperature = 25.0;
+        attribute responsivityTemperatureCoefficient : Real {
+            unit = "1/degC";
+            default = -0.0018;
+        }
+        attribute darkCurrentDoublingTemperature : Temperature = 10.0;
+
+        port thermalSense : ThermalPort;
+
+        action compensateMeasurements {
+            in item measuredTemperature : ThermalEnergy;
+            out attribute responsivityCorrection : Real;
+            out attribute darkCurrentCorrection : ElectricCurrent;
+
+            first readTemperature;
+            then computeResponsivityCorrection;
+            then computeDarkCurrentCorrection;
+            then provideCorrection;
+
+            action readTemperature;
+            action computeResponsivityCorrection;
+            action computeDarkCurrentCorrection;
+            action provideCorrection;
+        }
+    }
+
+    part def PhotodetectorSystem {
+        attribute primaryFunction : String =
+            "Convert incident optical radiation into an electrical signal and report a high-level detection result representing the presence and estimated intensity of light.";
+        attribute nominalSupplyVoltage : ElectricVoltage = 3.3;
+        attribute operatingTemperatureMin : Temperature = -20.0;
+        attribute operatingTemperatureMax : Temperature = 70.0;
+        attribute detectablePowerMin : OpticalPower = 1.0e-9;
+        attribute detectablePowerMax : OpticalPower = 1.0e-2;
+        attribute responseTime : TimeDuration = 2.0e-6;
+        attribute systemBandwidth : Frequency = 1000000.0;
+
+        port opticalInput : OpticalInputPort;
+        port detectionOutput : DigitalOutputPort;
+        port thermalInterface : ThermalPort;
+
+        part photodiode : Photodiode;
+        part amplifier : TransimpedanceAmplifier;
+        part processor : SignalProcessor;
+        part compensation : TemperatureCompensationUnit;
+
+        connect opticalInput to photodiode.opticalIn;
+        connect photodiode.currentOut to amplifier.currentIn;
+        connect amplifier.voltageOut to processor.voltageIn;
+        connect processor.digitalOut to detectionOutput;
+        connect thermalInterface to photodiode.thermal;
+        connect thermalInterface to amplifier.thermal;
+        connect thermalInterface to compensation.thermalSense;
+
+        action performPrimaryDetectionFunction {
+            in item incomingLight : IncidentPhotonFlux;
+            out item detection : DigitalDetectionResult;
+
+            first receiveIncidentLight;
+            then convertOpticalPowerToPhotocurrent;
+            then amplifyPhotocurrentToVoltage;
+            then compensateForTemperature;
+            then determineDetectionState;
+            then reportDetectionResult;
+            then end;
+
+            action receiveIncidentLight;
+            action convertOpticalPowerToPhotocurrent;
+            action amplifyPhotocurrentToVoltage;
+            action compensateForTemperature;
+            action determineDetectionState;
+            action reportDetectionResult;
+        }
+
+        state def SystemOperationalState {
+            state PoweredOff;
+            state Initializing;
+            state Ready;
+            state Detecting;
+            state Reporting;
+            state Degraded;
+            state Faulted;
+
+            transition first PoweredOff then Initializing;
+            transition Initializing then Ready;
+            transition Ready then Detecting
+                if opticalInput.light.opticalPower >= detectablePowerMin;
+            transition Detecting then Reporting;
+            transition Reporting then Ready;
+            transition Ready then Degraded
+                if thermalInterface.heat.temperature > operatingTemperatureMax;
+            transition Detecting then Degraded
+                if thermalInterface.heat.temperature > operatingTemperatureMax;
+            transition Degraded then Ready
+                if thermalInterface.heat.temperature <= operatingTemperatureMax;
+            transition Ready then Faulted
+                if thermalInterface.heat.temperature > 85.0;
+            transition Detecting then Faulted
+                if thermalInterface.heat.temperature > 85.0;
+            transition Degraded then Faulted
+                if thermalInterface.heat.temperature > 85.0;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The photodetector system shall convert incident optical radiation within its specified spectral range into an electrical representation and provide a digital detection result indicating light presence and estimated optical power. */
+    }
+
+    requirement def SpectralRangeRequirement {
+        doc
+        /* The photodetector system shall detect incident light with wavelength from 350 nm to 1100 nm. */
+    }
+
+    requirement def SensitivityRequirement {
+        doc
+        /* The photodetector system shall detect optical input power at or above 1 nW when the signal-to-noise ratio is at least 10 dB. */
+    }
+
+    requirement def DynamicRangeRequirement {
+        doc
+        /* The photodetector system shall measure optical input power from 1 nW to 10 mW without saturating the reported digital result. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        doc
+        /* The photodetector system shall produce a valid detection result within 2 microseconds after receiving a step change in incident optical power. */
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        doc
+        /* The photodetector system shall perform its primary detection function from -20 degC to 70 degC. */
+    }
+
+    requirement def OutputRequirement {
+        doc
+        /* The photodetector system shall output a digital result containing detected state, estimated optical power, timestamp, and confidence. */
+    }
+
+    satisfy PrimaryFunctionRequirement by PhotodetectorSystem::performPrimaryDetectionFunction;
+    satisfy SpectralRangeRequirement by PhotodetectorSystem::photodiode;
+    satisfy SensitivityRequirement by PhotodetectorSystem::processor;
+    satisfy DynamicRangeRequirement by PhotodetectorSystem;
+    satisfy ResponseTimeRequirement by PhotodetectorSystem::performPrimaryDetectionFunction;
+    satisfy OperatingTemperatureRequirement by PhotodetectorSystem::compensation;
+    satisfy OutputRequirement by PhotodetectorSystem::processor;
+
+    part photodetectorSystem : PhotodetectorSystem;
+
+}

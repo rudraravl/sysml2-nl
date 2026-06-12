@@ -1,0 +1,709 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-arnv2ojm
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb802-0bb3-7791-b76e-7461c30577c8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Electrical resistivity and conductivity and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ElectricalResistivityConductivitySystem {
+
+  attribute def length;
+  attribute def area;
+  attribute def temperature;
+  attribute def voltage;
+  attribute def current;
+  attribute def resistance;
+  attribute def conductance;
+  attribute def resistivity;
+  attribute def conductivity;
+  attribute def power;
+  attribute def frequency;
+  attribute def sampleId;
+
+  item def ElectricalSignal {
+    attribute v : voltage;
+    attribute i : current;
+    attribute f : frequency;
+  }
+
+  item def ThermalState {
+    attribute t : temperature;
+  }
+
+  item def MeasurementRecord {
+    attribute id : sampleId;
+    attribute measuredVoltage : voltage;
+    attribute measuredCurrent : current;
+    attribute measuredResistance : resistance;
+    attribute calculatedResistivity : resistivity;
+    attribute calculatedConductivity : conductivity;
+    attribute sampleTemperature : temperature;
+  }
+
+  port def ElectricalForcePort {
+    out signal : ElectricalSignal;
+  }
+
+  port def ElectricalSensePort {
+    in signal : ElectricalSignal;
+  }
+
+  port def ThermalPort {
+    in thermal : ThermalState;
+  }
+
+  port def DataOutPort {
+    out record : MeasurementRecord;
+  }
+
+  port def ControlPort {
+    in command : ControlCommand;
+  }
+
+  item def ControlCommand {
+    attribute requestedCurrent : current;
+    attribute requestedFrequency : frequency;
+    attribute targetTemperature : temperature;
+  }
+
+  part def FourTerminalConductivityAnalyzer {
+    attribute excitationCurrent : current = 0.010;
+    attribute excitationFrequency : frequency = 0.0;
+    attribute maxExcitationVoltage : voltage = 10.0;
+    attribute sampleLength : length = 0.050;
+    attribute sampleCrossSectionArea : area = 0.000001;
+    attribute referenceTemperature : temperature = 293.15;
+    attribute resistanceValue : resistance;
+    attribute conductanceValue : conductance;
+    attribute resistivityValue : resistivity;
+    attribute conductivityValue : conductivity;
+    attribute dissipatedPower : power;
+
+    port control : ControlPort;
+    port forceHigh : ElectricalForcePort;
+    port forceLow : ElectricalForcePort;
+    port senseHigh : ElectricalSensePort;
+    port senseLow : ElectricalSensePort;
+    port thermalInput : ThermalPort;
+    port dataOutput : DataOutPort;
+
+    part currentSource : PrecisionCurrentSource;
+    part voltageMeter : DifferentialVoltageMeter;
+    part sampleFixture : FourPointProbeFixture;
+    part sample : ConductiveMaterialSample;
+    part temperatureSensor : ContactTemperatureSensor;
+    part computationUnit : ResistivityConductivityCalculator;
+    part safetyLimiter : ElectricalSafetyLimiter;
+    part recorder : MeasurementRecorder;
+
+    connect currentSource.positiveOutput to safetyLimiter.sourceInput;
+    connect safetyLimiter.limitedOutput to sampleFixture.forceHigh;
+    connect sampleFixture.forceLow to currentSource.negativeOutput;
+    connect sampleFixture.senseHigh to voltageMeter.positiveInput;
+    connect sampleFixture.senseLow to voltageMeter.negativeInput;
+    connect sampleFixture.sampleInterface to sample.electricalBody;
+    connect temperatureSensor.thermalContact to sample.thermalBody;
+    connect voltageMeter.voltageOutput to computationUnit.voltageInput;
+    connect currentSource.currentMonitor to computationUnit.currentInput;
+    connect temperatureSensor.temperatureOutput to computationUnit.temperatureInput;
+    connect computationUnit.recordOutput to recorder.recordInput;
+    connect recorder.externalOutput to dataOutput;
+
+    action measureResistivityAndConductivity {
+      first startCurrentExcitation;
+      then acquireVoltageDrop;
+      then acquireSampleTemperature;
+      then computeElectricalProperties;
+      then publishMeasurementRecord;
+    }
+
+    action startCurrentExcitation {
+      out appliedSignal : ElectricalSignal;
+    }
+
+    action acquireVoltageDrop {
+      in sensedSignal : ElectricalSignal;
+    }
+
+    action acquireSampleTemperature {
+      in measuredThermalState : ThermalState;
+    }
+
+    action computeElectricalProperties {
+      in v : voltage;
+      in i : current;
+      in l : length;
+      in a : area;
+      out r : resistance;
+      out rho : resistivity;
+      out sigma : conductivity;
+      assert r == v / i;
+      assert rho == r * a / l;
+      assert sigma == 1.0 / rho;
+    }
+
+    action publishMeasurementRecord {
+      out record : MeasurementRecord;
+    }
+
+    state measurementLifecycle {
+      state Off;
+      state Initialized;
+      state FixtureReady;
+      state ExcitingSample;
+      state MeasuringVoltage;
+      state CalculatingProperties;
+      state Reporting;
+      state Fault;
+
+      transition initial then Off;
+      transition Off to Initialized
+        accept ControlCommand;
+      transition Initialized to FixtureReady
+        if sampleFixture.contactResistanceStable;
+      transition FixtureReady to ExcitingSample
+        do currentSource.applyCurrent;
+      transition ExcitingSample to MeasuringVoltage
+        if safetyLimiter.outputWithinLimit;
+      transition MeasuringVoltage to CalculatingProperties
+        do voltageMeter.sampleDifferentialVoltage;
+      transition CalculatingProperties to Reporting
+        do computationUnit.calculate;
+      transition Reporting to FixtureReady
+        do recorder.storeRecord;
+      transition ExcitingSample to Fault
+        if not safetyLimiter.outputWithinLimit;
+      transition MeasuringVoltage to Fault
+        if voltageMeter.inputSaturated;
+      transition Fault to Off
+        do currentSource.disableOutput;
+    }
+  }
+
+  part def PrecisionCurrentSource {
+    attribute commandedCurrent : current;
+    attribute actualCurrent : current;
+    attribute complianceVoltage : voltage = 10.0;
+
+    port positiveOutput : ElectricalForcePort;
+    port negativeOutput : ElectricalForcePort;
+    port currentMonitor : ElectricalForcePort;
+
+    action applyCurrent {
+      in command : ControlCommand;
+      out signal : ElectricalSignal;
+    }
+
+    action disableOutput;
+  }
+
+  part def ElectricalSafetyLimiter {
+    attribute voltageLimit : voltage = 10.0;
+    attribute currentLimit : current = 0.050;
+    attribute outputWithinLimit : Boolean;
+
+    port sourceInput : ElectricalSensePort;
+    port limitedOutput : ElectricalForcePort;
+
+    action clampExcitation {
+      in requested : ElectricalSignal;
+      out limited : ElectricalSignal;
+    }
+  }
+
+  part def DifferentialVoltageMeter {
+    attribute measuredVoltage : voltage;
+    attribute inputImpedance : resistance = 10000000.0;
+    attribute inputSaturated : Boolean;
+
+    port positiveInput : ElectricalSensePort;
+    port negativeInput : ElectricalSensePort;
+    port voltageOutput : ElectricalForcePort;
+
+    action sampleDifferentialVoltage {
+      out signal : ElectricalSignal;
+    }
+  }
+
+  part def FourPointProbeFixture {
+    attribute probeSpacing : length = 0.010;
+    attribute contactResistanceStable : Boolean;
+
+    port forceHigh : ElectricalSensePort;
+    port forceLow : ElectricalSensePort;
+    port senseHigh : ElectricalForcePort;
+    port senseLow : ElectricalForcePort;
+    port sampleInterface : ElectricalForcePort;
+
+    action seatSample;
+    action verifyContactStability;
+  }
+
+  part def ConductiveMaterialSample {
+    attribute identifier : sampleId;
+    attribute lengthBetweenSenseContacts : length = 0.050;
+    attribute crossSectionArea : area = 0.000001;
+    attribute bulkResistivity : resistivity;
+    attribute bulkConductivity : conductivity;
+    attribute temperatureCoefficient : Real = 0.0039;
+
+    port electricalBody : ElectricalSensePort;
+    port thermalBody : ThermalPort;
+
+    constraint electricalMaterialRelation {
+      bulkConductivity == 1.0 / bulkResistivity;
+    }
+  }
+
+  part def ContactTemperatureSensor {
+    attribute measuredTemperature : temperature;
+    attribute accuracy : temperature = 0.5;
+
+    port thermalContact : ThermalPort;
+    port temperatureOutput : ThermalPort;
+
+    action readTemperature {
+      out thermal : ThermalState;
+    }
+  }
+
+  part def ResistivityConductivityCalculator {
+    attribute voltageDrop : voltage;
+    attribute currentThroughSample : current;
+    attribute sampleTemperature : temperature;
+    attribute sampleLength : length;
+    attribute sampleArea : area;
+    attribute calculatedResistance : resistance;
+    attribute calculatedConductance : conductance;
+    attribute calculatedResistivity : resistivity;
+    attribute calculatedConductivity : conductivity;
+
+    port voltageInput : ElectricalSensePort;
+    port currentInput : ElectricalSensePort;
+    port temperatureInput : ThermalPort;
+    port recordOutput : DataOutPort;
+
+    action calculate {
+      in voltageDrop : voltage;
+      in currentThroughSample : current;
+      in sampleLength : length;
+      in sampleArea : area;
+      in sampleTemperature : temperature;
+      out record : MeasurementRecord;
+
+      assert calculatedResistance == voltageDrop / currentThroughSample;
+      assert calculatedConductance == 1.0 / calculatedResistance;
+      assert calculatedResistivity == calculatedResistance * sampleArea / sampleLength;
+      assert calculatedConductivity == sampleLength / (calculatedResistance * sampleArea);
+    }
+  }
+
+  part def MeasurementRecorder {
+    attribute retainedRecordCount : Integer;
+    port recordInput : DataOutPort;
+    port externalOutput : DataOutPort;
+
+    action storeRecord {
+      in record : MeasurementRecord;
+    }
+
+    action publishLatest {
+      out record : MeasurementRecord;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject analyzer : FourTerminalConductivityAnalyzer;
+    doc /* The system shall determine the electrical resistivity and conductivity of a material sample by applying a controlled electrical excitation, measuring the resulting voltage and current, compensating with sample geometry and temperature, and producing a measurement record. */
+  }
+
+  requirement def FourTerminalMeasurementRequirement {
+    subject fixture : FourPointProbeFixture;
+    doc /* The sample fixture shall support separated force and sense contacts so that lead and contact resistance do not dominate the calculated bulk resistance. */
+  }
+
+  requirement def ConductivityComputationRequirement {
+    subject calculator : ResistivityConductivityCalculator;
+    doc /* The calculator shall compute conductivity as the reciprocal of resistivity, where resistivity equals measured resistance multiplied by sample cross-sectional area and divided by sample length. */
+  }
+
+  requirement def SafetyRequirement {
+    subject limiter : ElectricalSafetyLimiter;
+    doc /* The limiter shall prevent excitation voltage and current from exceeding configured limits during sample characterization. */
+  }
+
+  requirement def MeasurementRecordRequirement {
+    subject recorder : MeasurementRecorder;
+    doc /* The recorder shall publish voltage, current, resistance, resistivity, conductivity, and sample temperature for each completed measurement. */
+  }
+
+  satisfy PrimaryFunctionRequirement by FourTerminalConductivityAnalyzer;
+  satisfy FourTerminalMeasurementRequirement by FourPointProbeFixture;
+  satisfy ConductivityComputationRequirement by ResistivityConductivityCalculator;
+  satisfy SafetyRequirement by ElectricalSafetyLimiter;
+  satisfy MeasurementRecordRequirement by MeasurementRecorder;
+
+  part resistivityConductivityMeasurementSystem : FourTerminalConductivityAnalyzer {
+    attribute sampleLength = 0.050;
+    attribute sampleCrossSectionArea = 0.000001;
+    attribute excitationCurrent = 0.010;
+    attribute maxExcitationVoltage = 10.0;
+  }
+}
+tokens used
+2,769
+package ElectricalResistivityConductivitySystem {
+
+  attribute def length;
+  attribute def area;
+  attribute def temperature;
+  attribute def voltage;
+  attribute def current;
+  attribute def resistance;
+  attribute def conductance;
+  attribute def resistivity;
+  attribute def conductivity;
+  attribute def power;
+  attribute def frequency;
+  attribute def sampleId;
+
+  item def ElectricalSignal {
+    attribute v : voltage;
+    attribute i : current;
+    attribute f : frequency;
+  }
+
+  item def ThermalState {
+    attribute t : temperature;
+  }
+
+  item def MeasurementRecord {
+    attribute id : sampleId;
+    attribute measuredVoltage : voltage;
+    attribute measuredCurrent : current;
+    attribute measuredResistance : resistance;
+    attribute calculatedResistivity : resistivity;
+    attribute calculatedConductivity : conductivity;
+    attribute sampleTemperature : temperature;
+  }
+
+  port def ElectricalForcePort {
+    out signal : ElectricalSignal;
+  }
+
+  port def ElectricalSensePort {
+    in signal : ElectricalSignal;
+  }
+
+  port def ThermalPort {
+    in thermal : ThermalState;
+  }
+
+  port def DataOutPort {
+    out record : MeasurementRecord;
+  }
+
+  port def ControlPort {
+    in command : ControlCommand;
+  }
+
+  item def ControlCommand {
+    attribute requestedCurrent : current;
+    attribute requestedFrequency : frequency;
+    attribute targetTemperature : temperature;
+  }
+
+  part def FourTerminalConductivityAnalyzer {
+    attribute excitationCurrent : current = 0.010;
+    attribute excitationFrequency : frequency = 0.0;
+    attribute maxExcitationVoltage : voltage = 10.0;
+    attribute sampleLength : length = 0.050;
+    attribute sampleCrossSectionArea : area = 0.000001;
+    attribute referenceTemperature : temperature = 293.15;
+    attribute resistanceValue : resistance;
+    attribute conductanceValue : conductance;
+    attribute resistivityValue : resistivity;
+    attribute conductivityValue : conductivity;
+    attribute dissipatedPower : power;
+
+    port control : ControlPort;
+    port forceHigh : ElectricalForcePort;
+    port forceLow : ElectricalForcePort;
+    port senseHigh : ElectricalSensePort;
+    port senseLow : ElectricalSensePort;
+    port thermalInput : ThermalPort;
+    port dataOutput : DataOutPort;
+
+    part currentSource : PrecisionCurrentSource;
+    part voltageMeter : DifferentialVoltageMeter;
+    part sampleFixture : FourPointProbeFixture;
+    part sample : ConductiveMaterialSample;
+    part temperatureSensor : ContactTemperatureSensor;
+    part computationUnit : ResistivityConductivityCalculator;
+    part safetyLimiter : ElectricalSafetyLimiter;
+    part recorder : MeasurementRecorder;
+
+    connect currentSource.positiveOutput to safetyLimiter.sourceInput;
+    connect safetyLimiter.limitedOutput to sampleFixture.forceHigh;
+    connect sampleFixture.forceLow to currentSource.negativeOutput;
+    connect sampleFixture.senseHigh to voltageMeter.positiveInput;
+    connect sampleFixture.senseLow to voltageMeter.negativeInput;
+    connect sampleFixture.sampleInterface to sample.electricalBody;
+    connect temperatureSensor.thermalContact to sample.thermalBody;
+    connect voltageMeter.voltageOutput to computationUnit.voltageInput;
+    connect currentSource.currentMonitor to computationUnit.currentInput;
+    connect temperatureSensor.temperatureOutput to computationUnit.temperatureInput;
+    connect computationUnit.recordOutput to recorder.recordInput;
+    connect recorder.externalOutput to dataOutput;
+
+    action measureResistivityAndConductivity {
+      first startCurrentExcitation;
+      then acquireVoltageDrop;
+      then acquireSampleTemperature;
+      then computeElectricalProperties;
+      then publishMeasurementRecord;
+    }
+
+    action startCurrentExcitation {
+      out appliedSignal : ElectricalSignal;
+    }
+
+    action acquireVoltageDrop {
+      in sensedSignal : ElectricalSignal;
+    }
+
+    action acquireSampleTemperature {
+      in measuredThermalState : ThermalState;
+    }
+
+    action computeElectricalProperties {
+      in v : voltage;
+      in i : current;
+      in l : length;
+      in a : area;
+      out r : resistance;
+      out rho : resistivity;
+      out sigma : conductivity;
+      assert r == v / i;
+      assert rho == r * a / l;
+      assert sigma == 1.0 / rho;
+    }
+
+    action publishMeasurementRecord {
+      out record : MeasurementRecord;
+    }
+
+    state measurementLifecycle {
+      state Off;
+      state Initialized;
+      state FixtureReady;
+      state ExcitingSample;
+      state MeasuringVoltage;
+      state CalculatingProperties;
+      state Reporting;
+      state Fault;
+
+      transition initial then Off;
+      transition Off to Initialized
+        accept ControlCommand;
+      transition Initialized to FixtureReady
+        if sampleFixture.contactResistanceStable;
+      transition FixtureReady to ExcitingSample
+        do currentSource.applyCurrent;
+      transition ExcitingSample to MeasuringVoltage
+        if safetyLimiter.outputWithinLimit;
+      transition MeasuringVoltage to CalculatingProperties
+        do voltageMeter.sampleDifferentialVoltage;
+      transition CalculatingProperties to Reporting
+        do computationUnit.calculate;
+      transition Reporting to FixtureReady
+        do recorder.storeRecord;
+      transition ExcitingSample to Fault
+        if not safetyLimiter.outputWithinLimit;
+      transition MeasuringVoltage to Fault
+        if voltageMeter.inputSaturated;
+      transition Fault to Off
+        do currentSource.disableOutput;
+    }
+  }
+
+  part def PrecisionCurrentSource {
+    attribute commandedCurrent : current;
+    attribute actualCurrent : current;
+    attribute complianceVoltage : voltage = 10.0;
+
+    port positiveOutput : ElectricalForcePort;
+    port negativeOutput : ElectricalForcePort;
+    port currentMonitor : ElectricalForcePort;
+
+    action applyCurrent {
+      in command : ControlCommand;
+      out signal : ElectricalSignal;
+    }
+
+    action disableOutput;
+  }
+
+  part def ElectricalSafetyLimiter {
+    attribute voltageLimit : voltage = 10.0;
+    attribute currentLimit : current = 0.050;
+    attribute outputWithinLimit : Boolean;
+
+    port sourceInput : ElectricalSensePort;
+    port limitedOutput : ElectricalForcePort;
+
+    action clampExcitation {
+      in requested : ElectricalSignal;
+      out limited : ElectricalSignal;
+    }
+  }
+
+  part def DifferentialVoltageMeter {
+    attribute measuredVoltage : voltage;
+    attribute inputImpedance : resistance = 10000000.0;
+    attribute inputSaturated : Boolean;
+
+    port positiveInput : ElectricalSensePort;
+    port negativeInput : ElectricalSensePort;
+    port voltageOutput : ElectricalForcePort;
+
+    action sampleDifferentialVoltage {
+      out signal : ElectricalSignal;
+    }
+  }
+
+  part def FourPointProbeFixture {
+    attribute probeSpacing : length = 0.010;
+    attribute contactResistanceStable : Boolean;
+
+    port forceHigh : ElectricalSensePort;
+    port forceLow : ElectricalSensePort;
+    port senseHigh : ElectricalForcePort;
+    port senseLow : ElectricalForcePort;
+    port sampleInterface : ElectricalForcePort;
+
+    action seatSample;
+    action verifyContactStability;
+  }
+
+  part def ConductiveMaterialSample {
+    attribute identifier : sampleId;
+    attribute lengthBetweenSenseContacts : length = 0.050;
+    attribute crossSectionArea : area = 0.000001;
+    attribute bulkResistivity : resistivity;
+    attribute bulkConductivity : conductivity;
+    attribute temperatureCoefficient : Real = 0.0039;
+
+    port electricalBody : ElectricalSensePort;
+    port thermalBody : ThermalPort;
+
+    constraint electricalMaterialRelation {
+      bulkConductivity == 1.0 / bulkResistivity;
+    }
+  }
+
+  part def ContactTemperatureSensor {
+    attribute measuredTemperature : temperature;
+    attribute accuracy : temperature = 0.5;
+
+    port thermalContact : ThermalPort;
+    port temperatureOutput : ThermalPort;
+
+    action readTemperature {
+      out thermal : ThermalState;
+    }
+  }
+
+  part def ResistivityConductivityCalculator {
+    attribute voltageDrop : voltage;
+    attribute currentThroughSample : current;
+    attribute sampleTemperature : temperature;
+    attribute sampleLength : length;
+    attribute sampleArea : area;
+    attribute calculatedResistance : resistance;
+    attribute calculatedConductance : conductance;
+    attribute calculatedResistivity : resistivity;
+    attribute calculatedConductivity : conductivity;
+
+    port voltageInput : ElectricalSensePort;
+    port currentInput : ElectricalSensePort;
+    port temperatureInput : ThermalPort;
+    port recordOutput : DataOutPort;
+
+    action calculate {
+      in voltageDrop : voltage;
+      in currentThroughSample : current;
+      in sampleLength : length;
+      in sampleArea : area;
+      in sampleTemperature : temperature;
+      out record : MeasurementRecord;
+
+      assert calculatedResistance == voltageDrop / currentThroughSample;
+      assert calculatedConductance == 1.0 / calculatedResistance;
+      assert calculatedResistivity == calculatedResistance * sampleArea / sampleLength;
+      assert calculatedConductivity == sampleLength / (calculatedResistance * sampleArea);
+    }
+  }
+
+  part def MeasurementRecorder {
+    attribute retainedRecordCount : Integer;
+    port recordInput : DataOutPort;
+    port externalOutput : DataOutPort;
+
+    action storeRecord {
+      in record : MeasurementRecord;
+    }
+
+    action publishLatest {
+      out record : MeasurementRecord;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject analyzer : FourTerminalConductivityAnalyzer;
+    doc /* The system shall determine the electrical resistivity and conductivity of a material sample by applying a controlled electrical excitation, measuring the resulting voltage and current, compensating with sample geometry and temperature, and producing a measurement record. */
+  }
+
+  requirement def FourTerminalMeasurementRequirement {
+    subject fixture : FourPointProbeFixture;
+    doc /* The sample fixture shall support separated force and sense contacts so that lead and contact resistance do not dominate the calculated bulk resistance. */
+  }
+
+  requirement def ConductivityComputationRequirement {
+    subject calculator : ResistivityConductivityCalculator;
+    doc /* The calculator shall compute conductivity as the reciprocal of resistivity, where resistivity equals measured resistance multiplied by sample cross-sectional area and divided by sample length. */
+  }
+
+  requirement def SafetyRequirement {
+    subject limiter : ElectricalSafetyLimiter;
+    doc /* The limiter shall prevent excitation voltage and current from exceeding configured limits during sample characterization. */
+  }
+
+  requirement def MeasurementRecordRequirement {
+    subject recorder : MeasurementRecorder;
+    doc /* The recorder shall publish voltage, current, resistance, resistivity, conductivity, and sample temperature for each completed measurement. */
+  }
+
+  satisfy PrimaryFunctionRequirement by FourTerminalConductivityAnalyzer;
+  satisfy FourTerminalMeasurementRequirement by FourPointProbeFixture;
+  satisfy ConductivityComputationRequirement by ResistivityConductivityCalculator;
+  satisfy SafetyRequirement by ElectricalSafetyLimiter;
+  satisfy MeasurementRecordRequirement by MeasurementRecorder;
+
+  part resistivityConductivityMeasurementSystem : FourTerminalConductivityAnalyzer {
+    attribute sampleLength = 0.050;
+    attribute sampleCrossSectionArea = 0.000001;
+    attribute excitationCurrent = 0.010;
+    attribute maxExcitationVoltage = 10.0;
+  }
+}

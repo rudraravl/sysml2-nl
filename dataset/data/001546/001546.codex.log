@@ -1,0 +1,715 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-k34lel6t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb71f-fd5d-74d2-828e-6825a3356643
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Ring and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RingSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    item def Finger;
+    item def Light;
+    item def BiometricSignal;
+    item def VibrationSignal;
+    item def ElectricalEnergy;
+    item def ThermalEnergy;
+    item def UserIntent;
+    item def RingStatus;
+
+    attribute def LengthValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def MassValue :> Real {
+        unit = "g";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def BatteryChargeValue :> Real {
+        unit = "percent";
+    }
+
+    attribute def ForceValue :> Real {
+        unit = "N";
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = "V";
+    }
+
+    attribute def CurrentValue :> Real {
+        unit = "mA";
+    }
+
+    port def FingerInterfacePort {
+        in finger : Finger;
+        out biometricSignal : BiometricSignal;
+        out contactForce : ForceValue;
+        out thermalEnergy : ThermalEnergy;
+    }
+
+    port def UserNotificationPort {
+        in notificationCommand : RingStatus;
+        out vibration : VibrationSignal;
+        out light : Light;
+    }
+
+    port def ChargingPort {
+        in electricalEnergy : ElectricalEnergy;
+        in supplyVoltage : VoltageValue;
+        in supplyCurrent : CurrentValue;
+    }
+
+    port def WirelessDataPort {
+        in userIntent : UserIntent;
+        out ringStatus : RingStatus;
+        out biometricSignal : BiometricSignal;
+    }
+
+    part def CircularBand {
+        attribute innerDiameter : LengthValue = 19.0;
+        attribute outerDiameter : LengthValue = 22.0;
+        attribute width : LengthValue = 7.8;
+        attribute wallThickness : LengthValue = 1.5;
+        attribute mass : MassValue = 4.2;
+        attribute maximumContactForce : ForceValue = 8.0;
+
+        port innerSurface : FingerInterfacePort;
+        port outerSurface : UserNotificationPort;
+    }
+
+    part def ComfortLiner {
+        attribute thickness : LengthValue = 0.35;
+        attribute hardnessShoreA : Real = 72.0;
+        attribute maximumSkinTemperature : TemperatureValue = 41.0;
+
+        port skinSide : FingerInterfacePort;
+        port bandSide : FingerInterfacePort;
+    }
+
+    part def OpticalSensorModule {
+        attribute samplePeriod : TimeValue = 1.0;
+        attribute emitterCurrent : CurrentValue = 4.5;
+        attribute sensorWindowWidth : LengthValue = 2.0;
+
+        port skinOpticalInterface : FingerInterfacePort;
+        port dataOut : WirelessDataPort;
+    }
+
+    part def MotionSensorModule {
+        attribute samplePeriod : TimeValue = 0.02;
+        attribute mass : MassValue = 0.15;
+
+        port dataOut : WirelessDataPort;
+    }
+
+    part def HapticNotifier {
+        attribute pulseDuration : TimeValue = 0.25;
+        attribute ratedCurrent : CurrentValue = 35.0;
+
+        port notify : UserNotificationPort;
+    }
+
+    part def IndicatorLight {
+        attribute opticalWindowDiameter : LengthValue = 0.8;
+        attribute ratedCurrent : CurrentValue = 2.0;
+
+        port notify : UserNotificationPort;
+    }
+
+    part def Battery {
+        attribute chargeLevel : BatteryChargeValue = 85.0;
+        attribute nominalVoltage : VoltageValue = 3.8;
+        attribute mass : MassValue = 0.9;
+
+        port charging : ChargingPort;
+    }
+
+    part def PowerController {
+        attribute minimumOperatingCharge : BatteryChargeValue = 10.0;
+        attribute chargingTerminationCharge : BatteryChargeValue = 100.0;
+
+        port chargerInput : ChargingPort;
+    }
+
+    part def WirelessController {
+        attribute advertisingPeriod : TimeValue = 2.0;
+        attribute connectionTimeout : TimeValue = 30.0;
+
+        port radio : WirelessDataPort;
+    }
+
+    action def EncircleFinger {
+        in finger : Finger;
+        out stableFit : Boolean;
+
+        first start;
+        then alignRing;
+        then slideOntoFinger;
+        then distributeContactForce;
+        then verifyStableFit;
+        then done;
+
+        action alignRing;
+        action slideOntoFinger;
+        action distributeContactForce;
+        action verifyStableFit;
+    }
+
+    action def SenseWearerCondition {
+        in finger : Finger;
+        out biometricSignal : BiometricSignal;
+
+        first start;
+        then illuminateSkin;
+        then measureReflectedLight;
+        then filterMotionArtifact;
+        then publishSignal;
+        then done;
+
+        action illuminateSkin;
+        action measureReflectedLight;
+        action filterMotionArtifact;
+        action publishSignal;
+    }
+
+    action def NotifyWearer {
+        in status : RingStatus;
+        out vibration : VibrationSignal;
+        out light : Light;
+
+        first start;
+        then classifyStatus;
+        then emitHapticPulse;
+        then emitLightPattern;
+        then done;
+
+        action classifyStatus;
+        action emitHapticPulse;
+        action emitLightPattern;
+    }
+
+    state def RingOperatingStateMachine {
+        state Unworn;
+        state WornIdle;
+        state Monitoring;
+        state Alerting;
+        state Charging;
+        state LowPower;
+
+        transition initial then Unworn;
+
+        transition Unworn_to_WornIdle
+            first Unworn
+            accept fingerInserted
+            then WornIdle;
+
+        transition WornIdle_to_Monitoring
+            first WornIdle
+            accept monitoringRequested
+            then Monitoring;
+
+        transition Monitoring_to_Alerting
+            first Monitoring
+            accept notificationRequested
+            then Alerting;
+
+        transition Alerting_to_Monitoring
+            first Alerting
+            accept notificationCompleted
+            then Monitoring;
+
+        transition Monitoring_to_LowPower
+            first Monitoring
+            accept batteryLow
+            then LowPower;
+
+        transition LowPower_to_Charging
+            first LowPower
+            accept chargerAttached
+            then Charging;
+
+        transition Charging_to_WornIdle
+            first Charging
+            accept chargeComplete
+            then WornIdle;
+
+        transition WornIdle_to_Unworn
+            first WornIdle
+            accept fingerRemoved
+            then Unworn;
+    }
+
+    part def SmartRing {
+        attribute primaryFunction : String =
+            "Encircle the wearer's finger comfortably while providing a compact wearable interface for biometric sensing, status communication, and personal adornment.";
+
+        attribute totalMass : MassValue = 7.1;
+        attribute innerDiameter : LengthValue = 19.0;
+        attribute width : LengthValue = 7.8;
+        attribute nominalBatteryLife : TimeValue = 604800.0;
+        attribute maximumOuterSurfaceTemperature : TemperatureValue = 41.0;
+
+        part band : CircularBand;
+        part liner : ComfortLiner;
+        part opticalSensor : OpticalSensorModule;
+        part motionSensor : MotionSensorModule;
+        part hapticNotifier : HapticNotifier;
+        part indicator : IndicatorLight;
+        part battery : Battery;
+        part powerController : PowerController;
+        part wirelessController : WirelessController;
+
+        port fingerInterface : FingerInterfacePort;
+        port notificationInterface : UserNotificationPort;
+        port chargingInterface : ChargingPort;
+        port wirelessInterface : WirelessDataPort;
+
+        connection fingerToLiner connect fingerInterface to liner.skinSide;
+        connection linerToBand connect liner.bandSide to band.innerSurface;
+        connection sensorToFinger connect opticalSensor.skinOpticalInterface to fingerInterface;
+        connection bandToNotifier connect band.outerSurface to notificationInterface;
+        connection hapticToNotification connect hapticNotifier.notify to notificationInterface;
+        connection lightToNotification connect indicator.notify to notificationInterface;
+        connection chargeToPower connect chargingInterface to powerController.chargerInput;
+        connection chargeToBattery connect powerController.chargerInput to battery.charging;
+        connection radioToExternal connect wirelessController.radio to wirelessInterface;
+        connection sensorDataToRadio connect opticalSensor.dataOut to wirelessController.radio;
+        connection motionDataToRadio connect motionSensor.dataOut to wirelessController.radio;
+
+        perform action encircleFinger : EncircleFinger;
+        perform action senseWearerCondition : SenseWearerCondition;
+        perform action notifyWearer : NotifyWearer;
+
+        exhibit state RingOperatingStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall provide the high-level primary function of comfortably encircling a human finger while acting as a compact wearable interface.";
+
+        require constraint {
+            ring.innerDiameter >= 14.0 and ring.innerDiameter <= 24.0
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall remain comfortable during normal wear.";
+
+        require constraint {
+            ring.totalMass <= 10.0 and
+            ring.maximumOuterSurfaceTemperature <= 41.0
+        }
+    }
+
+    requirement def WearableSensingRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall sense biometric signals from the finger while worn.";
+
+        require constraint {
+            ring.opticalSensor.samplePeriod <= 2.0
+        }
+    }
+
+    requirement def NotificationRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall notify the wearer using local tactile or optical output.";
+
+        require constraint {
+            ring.hapticNotifier.pulseDuration <= 1.0 and
+            ring.indicator.ratedCurrent <= 5.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall support multi-day operation between charging events.";
+
+        require constraint {
+            ring.nominalBatteryLife >= 259200.0 and
+            ring.battery.nominalVoltage >= 3.0
+        }
+    }
+
+    part ringSystem : SmartRing;
+}
+tokens used
+3,014
+package RingSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    item def Finger;
+    item def Light;
+    item def BiometricSignal;
+    item def VibrationSignal;
+    item def ElectricalEnergy;
+    item def ThermalEnergy;
+    item def UserIntent;
+    item def RingStatus;
+
+    attribute def LengthValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def MassValue :> Real {
+        unit = "g";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def BatteryChargeValue :> Real {
+        unit = "percent";
+    }
+
+    attribute def ForceValue :> Real {
+        unit = "N";
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = "V";
+    }
+
+    attribute def CurrentValue :> Real {
+        unit = "mA";
+    }
+
+    port def FingerInterfacePort {
+        in finger : Finger;
+        out biometricSignal : BiometricSignal;
+        out contactForce : ForceValue;
+        out thermalEnergy : ThermalEnergy;
+    }
+
+    port def UserNotificationPort {
+        in notificationCommand : RingStatus;
+        out vibration : VibrationSignal;
+        out light : Light;
+    }
+
+    port def ChargingPort {
+        in electricalEnergy : ElectricalEnergy;
+        in supplyVoltage : VoltageValue;
+        in supplyCurrent : CurrentValue;
+    }
+
+    port def WirelessDataPort {
+        in userIntent : UserIntent;
+        out ringStatus : RingStatus;
+        out biometricSignal : BiometricSignal;
+    }
+
+    part def CircularBand {
+        attribute innerDiameter : LengthValue = 19.0;
+        attribute outerDiameter : LengthValue = 22.0;
+        attribute width : LengthValue = 7.8;
+        attribute wallThickness : LengthValue = 1.5;
+        attribute mass : MassValue = 4.2;
+        attribute maximumContactForce : ForceValue = 8.0;
+
+        port innerSurface : FingerInterfacePort;
+        port outerSurface : UserNotificationPort;
+    }
+
+    part def ComfortLiner {
+        attribute thickness : LengthValue = 0.35;
+        attribute hardnessShoreA : Real = 72.0;
+        attribute maximumSkinTemperature : TemperatureValue = 41.0;
+
+        port skinSide : FingerInterfacePort;
+        port bandSide : FingerInterfacePort;
+    }
+
+    part def OpticalSensorModule {
+        attribute samplePeriod : TimeValue = 1.0;
+        attribute emitterCurrent : CurrentValue = 4.5;
+        attribute sensorWindowWidth : LengthValue = 2.0;
+
+        port skinOpticalInterface : FingerInterfacePort;
+        port dataOut : WirelessDataPort;
+    }
+
+    part def MotionSensorModule {
+        attribute samplePeriod : TimeValue = 0.02;
+        attribute mass : MassValue = 0.15;
+
+        port dataOut : WirelessDataPort;
+    }
+
+    part def HapticNotifier {
+        attribute pulseDuration : TimeValue = 0.25;
+        attribute ratedCurrent : CurrentValue = 35.0;
+
+        port notify : UserNotificationPort;
+    }
+
+    part def IndicatorLight {
+        attribute opticalWindowDiameter : LengthValue = 0.8;
+        attribute ratedCurrent : CurrentValue = 2.0;
+
+        port notify : UserNotificationPort;
+    }
+
+    part def Battery {
+        attribute chargeLevel : BatteryChargeValue = 85.0;
+        attribute nominalVoltage : VoltageValue = 3.8;
+        attribute mass : MassValue = 0.9;
+
+        port charging : ChargingPort;
+    }
+
+    part def PowerController {
+        attribute minimumOperatingCharge : BatteryChargeValue = 10.0;
+        attribute chargingTerminationCharge : BatteryChargeValue = 100.0;
+
+        port chargerInput : ChargingPort;
+    }
+
+    part def WirelessController {
+        attribute advertisingPeriod : TimeValue = 2.0;
+        attribute connectionTimeout : TimeValue = 30.0;
+
+        port radio : WirelessDataPort;
+    }
+
+    action def EncircleFinger {
+        in finger : Finger;
+        out stableFit : Boolean;
+
+        first start;
+        then alignRing;
+        then slideOntoFinger;
+        then distributeContactForce;
+        then verifyStableFit;
+        then done;
+
+        action alignRing;
+        action slideOntoFinger;
+        action distributeContactForce;
+        action verifyStableFit;
+    }
+
+    action def SenseWearerCondition {
+        in finger : Finger;
+        out biometricSignal : BiometricSignal;
+
+        first start;
+        then illuminateSkin;
+        then measureReflectedLight;
+        then filterMotionArtifact;
+        then publishSignal;
+        then done;
+
+        action illuminateSkin;
+        action measureReflectedLight;
+        action filterMotionArtifact;
+        action publishSignal;
+    }
+
+    action def NotifyWearer {
+        in status : RingStatus;
+        out vibration : VibrationSignal;
+        out light : Light;
+
+        first start;
+        then classifyStatus;
+        then emitHapticPulse;
+        then emitLightPattern;
+        then done;
+
+        action classifyStatus;
+        action emitHapticPulse;
+        action emitLightPattern;
+    }
+
+    state def RingOperatingStateMachine {
+        state Unworn;
+        state WornIdle;
+        state Monitoring;
+        state Alerting;
+        state Charging;
+        state LowPower;
+
+        transition initial then Unworn;
+
+        transition Unworn_to_WornIdle
+            first Unworn
+            accept fingerInserted
+            then WornIdle;
+
+        transition WornIdle_to_Monitoring
+            first WornIdle
+            accept monitoringRequested
+            then Monitoring;
+
+        transition Monitoring_to_Alerting
+            first Monitoring
+            accept notificationRequested
+            then Alerting;
+
+        transition Alerting_to_Monitoring
+            first Alerting
+            accept notificationCompleted
+            then Monitoring;
+
+        transition Monitoring_to_LowPower
+            first Monitoring
+            accept batteryLow
+            then LowPower;
+
+        transition LowPower_to_Charging
+            first LowPower
+            accept chargerAttached
+            then Charging;
+
+        transition Charging_to_WornIdle
+            first Charging
+            accept chargeComplete
+            then WornIdle;
+
+        transition WornIdle_to_Unworn
+            first WornIdle
+            accept fingerRemoved
+            then Unworn;
+    }
+
+    part def SmartRing {
+        attribute primaryFunction : String =
+            "Encircle the wearer's finger comfortably while providing a compact wearable interface for biometric sensing, status communication, and personal adornment.";
+
+        attribute totalMass : MassValue = 7.1;
+        attribute innerDiameter : LengthValue = 19.0;
+        attribute width : LengthValue = 7.8;
+        attribute nominalBatteryLife : TimeValue = 604800.0;
+        attribute maximumOuterSurfaceTemperature : TemperatureValue = 41.0;
+
+        part band : CircularBand;
+        part liner : ComfortLiner;
+        part opticalSensor : OpticalSensorModule;
+        part motionSensor : MotionSensorModule;
+        part hapticNotifier : HapticNotifier;
+        part indicator : IndicatorLight;
+        part battery : Battery;
+        part powerController : PowerController;
+        part wirelessController : WirelessController;
+
+        port fingerInterface : FingerInterfacePort;
+        port notificationInterface : UserNotificationPort;
+        port chargingInterface : ChargingPort;
+        port wirelessInterface : WirelessDataPort;
+
+        connection fingerToLiner connect fingerInterface to liner.skinSide;
+        connection linerToBand connect liner.bandSide to band.innerSurface;
+        connection sensorToFinger connect opticalSensor.skinOpticalInterface to fingerInterface;
+        connection bandToNotifier connect band.outerSurface to notificationInterface;
+        connection hapticToNotification connect hapticNotifier.notify to notificationInterface;
+        connection lightToNotification connect indicator.notify to notificationInterface;
+        connection chargeToPower connect chargingInterface to powerController.chargerInput;
+        connection chargeToBattery connect powerController.chargerInput to battery.charging;
+        connection radioToExternal connect wirelessController.radio to wirelessInterface;
+        connection sensorDataToRadio connect opticalSensor.dataOut to wirelessController.radio;
+        connection motionDataToRadio connect motionSensor.dataOut to wirelessController.radio;
+
+        perform action encircleFinger : EncircleFinger;
+        perform action senseWearerCondition : SenseWearerCondition;
+        perform action notifyWearer : NotifyWearer;
+
+        exhibit state RingOperatingStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall provide the high-level primary function of comfortably encircling a human finger while acting as a compact wearable interface.";
+
+        require constraint {
+            ring.innerDiameter >= 14.0 and ring.innerDiameter <= 24.0
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall remain comfortable during normal wear.";
+
+        require constraint {
+            ring.totalMass <= 10.0 and
+            ring.maximumOuterSurfaceTemperature <= 41.0
+        }
+    }
+
+    requirement def WearableSensingRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall sense biometric signals from the finger while worn.";
+
+        require constraint {
+            ring.opticalSensor.samplePeriod <= 2.0
+        }
+    }
+
+    requirement def NotificationRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall notify the wearer using local tactile or optical output.";
+
+        require constraint {
+            ring.hapticNotifier.pulseDuration <= 1.0 and
+            ring.indicator.ratedCurrent <= 5.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        subject ring : SmartRing;
+
+        doc
+            "The ring shall support multi-day operation between charging events.";
+
+        require constraint {
+            ring.nominalBatteryLife >= 259200.0 and
+            ring.battery.nominalVoltage >= 3.0
+        }
+    }
+
+    part ringSystem : SmartRing;
+}

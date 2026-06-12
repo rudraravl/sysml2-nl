@@ -1,0 +1,299 @@
+package ChemoreceptorSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Concentration {
+    :> scalarValue;
+    unit = "mol/m^3";
+  }
+
+  attribute def pHValue {
+    :> scalarValue;
+    unit = "1";
+  }
+
+  attribute def MembranePotential {
+    :> scalarValue;
+    unit = "mV";
+  }
+
+  attribute def SignalRate {
+    :> scalarValue;
+    unit = "Hz";
+  }
+
+  attribute def BindingAffinity {
+    :> scalarValue;
+    unit = "mol/m^3";
+  }
+
+  item def ChemicalStimulus {
+    attribute concentration : Concentration;
+    attribute pH : pHValue;
+    attribute temperature : TemperatureValue;
+    attribute ligandClass : String;
+  }
+
+  item def OdorantMolecule :> ChemicalStimulus {
+    attribute volatility : Real;
+  }
+
+  item def TasteMolecule :> ChemicalStimulus {
+    attribute solubility : Real;
+  }
+
+  item def NeuralSignal {
+    attribute firingRate : SignalRate;
+    attribute amplitude : MembranePotential;
+    attribute encodedStimulusClass : String;
+    attribute confidence : Real;
+  }
+
+  item def IntracellularMessenger {
+    attribute concentration : Concentration;
+    attribute messengerType : String;
+  }
+
+  port def ChemicalInputPort {
+    in item stimulus : ChemicalStimulus;
+  }
+
+  port def SignalOutputPort {
+    out item signal : NeuralSignal;
+  }
+
+  port def MessengerPort {
+    out item messenger : IntracellularMessenger;
+  }
+
+  part def LigandBindingDomain {
+    attribute bindingAffinity : BindingAffinity = 2.5e-6 [mol/m^3];
+    attribute selectivityIndex : Real = 0.92;
+
+    port chemicalIn : ChemicalInputPort;
+
+    action bindLigand {
+      in item incomingStimulus : ChemicalStimulus;
+      out item boundStimulus : ChemicalStimulus;
+    }
+  }
+
+  part def TransductionCascade {
+    attribute amplificationGain : Real = 350.0;
+    attribute activationThreshold : Concentration = 1.0e-7 [mol/m^3];
+
+    port messengerOut : MessengerPort;
+
+    action convertBindingToMessenger {
+      in item boundStimulus : ChemicalStimulus;
+      out item messenger : IntracellularMessenger;
+    }
+  }
+
+  part def IonChannelGate {
+    attribute restingPotential : MembranePotential = -70 [mV];
+    attribute activationPotential : MembranePotential = -55 [mV];
+    attribute openProbability : Real = 0.0;
+
+    action modulateConductance {
+      in item messenger : IntracellularMessenger;
+      out attribute membranePotential : MembranePotential;
+    }
+  }
+
+  part def NeuralEncoder {
+    attribute baselineRate : SignalRate = 2 [Hz];
+    attribute maximumRate : SignalRate = 120 [Hz];
+
+    port signalOut : SignalOutputPort;
+
+    action encodeStimulus {
+      in attribute membranePotential : MembranePotential;
+      in item detectedStimulus : ChemicalStimulus;
+      out item neuralSignal : NeuralSignal;
+    }
+  }
+
+  part def Chemoreceptor {
+    doc /* Primary function: detect chemical stimuli in the surrounding environment or internal fluid, bind relevant molecules selectively, transduce the binding event into an electrical response, and output an encoded neural signal representing chemical identity and intensity. */
+
+    attribute sensitivityLimit : Concentration = 5.0e-9 [mol/m^3];
+    attribute responseLatency : TimeValue = 0.025 [s];
+    attribute adaptationTime : TimeValue = 2.0 [s];
+
+    port chemicalInput : ChemicalInputPort;
+    port neuralOutput : SignalOutputPort;
+
+    part bindingDomain : LigandBindingDomain;
+    part cascade : TransductionCascade;
+    part ionGate : IonChannelGate;
+    part encoder : NeuralEncoder;
+
+    connect chemicalInput to bindingDomain.chemicalIn;
+    connect encoder.signalOut to neuralOutput;
+
+    action detectChemicalStimulus {
+      in item stimulus : ChemicalStimulus;
+      out item signal : NeuralSignal;
+
+      first start;
+      then bind via bindingDomain.bindLigand;
+      then transduce via cascade.convertBindingToMessenger;
+      then gate via ionGate.modulateConductance;
+      then encode via encoder.encodeStimulus;
+      then done;
+
+      flow stimulus to bind.incomingStimulus;
+      flow bind.boundStimulus to transduce.boundStimulus;
+      flow transduce.messenger to gate.messenger;
+      flow gate.membranePotential to encode.membranePotential;
+      flow bind.boundStimulus to encode.detectedStimulus;
+      flow encode.neuralSignal to signal;
+    }
+
+    state chemoreceptorState {
+      entry action initialize {
+        ionGate.openProbability = 0.0;
+      }
+
+      state Quiescent;
+      state LigandSampling;
+      state Bound;
+      state SignalTransducing;
+      state Adapted;
+      state Recovering;
+
+      initial then Quiescent;
+
+      transition Quiescent_to_LigandSampling
+        first Quiescent
+        accept item stimulus : ChemicalStimulus
+        if stimulus.concentration >= sensitivityLimit
+        then LigandSampling;
+
+      transition LigandSampling_to_Bound
+        first LigandSampling
+        if bindingDomain.selectivityIndex >= 0.75
+        then Bound;
+
+      transition Bound_to_SignalTransducing
+        first Bound
+        then SignalTransducing
+        effect action {
+          ionGate.openProbability = 0.85;
+        }
+
+      transition SignalTransducing_to_Adapted
+        first SignalTransducing
+        if adaptationTime <= 2.0 [s]
+        then Adapted
+        effect action {
+          ionGate.openProbability = 0.35;
+        }
+
+      transition Adapted_to_Recovering
+        first Adapted
+        then Recovering
+        effect action {
+          ionGate.openProbability = 0.10;
+        }
+
+      transition Recovering_to_Quiescent
+        first Recovering
+        then Quiescent
+        effect action {
+          ionGate.openProbability = 0.0;
+        }
+    }
+  }
+
+  part def SensoryNeuron {
+    attribute restingFiringRate : SignalRate = 1.5 [Hz];
+
+    port receptorSignalIn {
+      in item signal : NeuralSignal;
+    }
+
+    action relayToCentralProcessing {
+      in item receptorSignal : NeuralSignal;
+      out item forwardedSignal : NeuralSignal;
+    }
+  }
+
+  part def ChemicalEnvironment {
+    attribute backgroundConcentration : Concentration = 1.0e-10 [mol/m^3];
+    attribute ambientTemperature : TemperatureValue = 310.15 [K];
+
+    port chemicalOut {
+      out item stimulus : ChemicalStimulus;
+    }
+
+    part representativeOdorant : OdorantMolecule {
+      attribute concentration = 4.0e-6 [mol/m^3];
+      attribute pH = 7.2;
+      attribute temperature = 310.15 [K];
+      attribute ligandClass = "volatile organic compound";
+      attribute volatility = 0.78;
+    }
+  }
+
+  part ChemoreceptorBasedDetectionSystem {
+    part environment : ChemicalEnvironment;
+    part receptor : Chemoreceptor;
+    part neuron : SensoryNeuron;
+
+    connect environment.chemicalOut to receptor.chemicalInput;
+    connect receptor.neuralOutput to neuron.receptorSignalIn;
+
+    action performHighLevelDetection {
+      in item environmentalStimulus : ChemicalStimulus;
+      out item interpretedSignal : NeuralSignal;
+
+      first receiveStimulus;
+      then receptorDetection via receptor.detectChemicalStimulus;
+      then neuralRelay via neuron.relayToCentralProcessing;
+      then complete;
+
+      flow environmentalStimulus to receptorDetection.stimulus;
+      flow receptorDetection.signal to neuralRelay.receptorSignal;
+      flow neuralRelay.forwardedSignal to interpretedSignal;
+    }
+  }
+
+  requirement def DetectChemicalStimulusRequirement {
+    doc /* The system shall detect a chemical stimulus whose concentration is at or above the receptor sensitivity limit. */
+    subject receptor : Chemoreceptor;
+    require constraint {
+      receptor.sensitivityLimit <= 5.0e-9 [mol/m^3]
+    }
+  }
+
+  requirement def TransduceChemicalBindingRequirement {
+    doc /* The system shall convert selective ligand binding into an intracellular messenger response and ion-channel modulation. */
+    subject receptor : Chemoreceptor;
+    require constraint {
+      receptor.cascade.amplificationGain >= 100.0
+    }
+  }
+
+  requirement def EncodeNeuralSignalRequirement {
+    doc /* The system shall encode chemical stimulus identity and intensity as a neural signal with bounded firing rate. */
+    subject receptor : Chemoreceptor;
+    require constraint {
+      receptor.encoder.maximumRate <= 150 [Hz]
+    }
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    doc /* The chemoreceptor-based system shall provide high-level chemical sensing by transforming molecular concentration and chemical class into a neural representation usable by downstream biological processing. */
+    subject system : ChemoreceptorBasedDetectionSystem;
+  }
+
+  satisfy DetectChemicalStimulusRequirement by ChemoreceptorBasedDetectionSystem.receptor;
+  satisfy TransduceChemicalBindingRequirement by ChemoreceptorBasedDetectionSystem.receptor;
+  satisfy EncodeNeuralSignalRequirement by ChemoreceptorBasedDetectionSystem.receptor;
+  satisfy HighLevelFunctionRequirement by ChemoreceptorBasedDetectionSystem;
+
+}

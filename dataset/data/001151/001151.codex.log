@@ -1,0 +1,889 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-au2pfp1v
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5a0-a7bc-7011-80bc-1711691ecddf
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Motion detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MotionDetectorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Boolean;
+    attribute def Real;
+    attribute def Integer;
+    attribute def String;
+
+    item def InfraredRadiation {
+        attribute wavelength : Real [1] = 10.0 {
+            unit = "um";
+        }
+        attribute intensity : Real {
+            unit = "W/m^2";
+        }
+    }
+
+    item def MotionEvent {
+        attribute detected : Boolean;
+        attribute confidence : Real {
+            unit = "percent";
+        }
+        attribute radialVelocity : Real {
+            unit = "m/s";
+        }
+        attribute detectionRange : Real {
+            unit = "m";
+        }
+        attribute timestamp : Real {
+            unit = "s";
+        }
+    }
+
+    item def AmbientCondition {
+        attribute ambientTemperature : Real {
+            unit = "degC";
+        }
+        attribute lightLevel : Real {
+            unit = "lux";
+        }
+        attribute humidity : Real {
+            unit = "percent";
+        }
+    }
+
+    item def AlarmCommand {
+        attribute active : Boolean;
+        attribute priority : Integer;
+        attribute reason : String;
+    }
+
+    item def Power {
+        attribute voltage : Real {
+            unit = "V";
+        }
+        attribute current : Real {
+            unit = "A";
+        }
+        attribute powerDraw : Real {
+            unit = "W";
+        }
+    }
+
+    item def ConfigurationData {
+        attribute sensitivity : Real {
+            unit = "percent";
+        }
+        attribute holdTime : Real {
+            unit = "s";
+        }
+        attribute detectionThreshold : Real {
+            unit = "percent";
+        }
+        attribute selfTestInterval : Real {
+            unit = "s";
+        }
+    }
+
+    port def InfraredInputPort {
+        in item radiation : InfraredRadiation;
+    }
+
+    port def EnvironmentInputPort {
+        in item environment : AmbientCondition;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : Power;
+    }
+
+    port def ConfigurationPort {
+        in item configuration : ConfigurationData;
+    }
+
+    port def MotionEventPort {
+        out item event : MotionEvent;
+    }
+
+    port def AlarmOutputPort {
+        out item command : AlarmCommand;
+    }
+
+    port def StatusPort {
+        out item operationalStatus : String;
+    }
+
+    action def SenseInfraredChange {
+        in item radiation : InfraredRadiation;
+        in item environment : AmbientCondition;
+        out attribute deltaSignature : Real {
+            unit = "percent";
+        }
+    }
+
+    action def FilterEnvironmentalNoise {
+        in attribute rawSignature : Real {
+            unit = "percent";
+        }
+        in item environment : AmbientCondition;
+        out attribute filteredSignature : Real {
+            unit = "percent";
+        }
+    }
+
+    action def ClassifyMotion {
+        in attribute filteredSignature : Real {
+            unit = "percent";
+        }
+        in item configuration : ConfigurationData;
+        out item event : MotionEvent;
+    }
+
+    action def PublishMotionEvent {
+        in item event : MotionEvent;
+        out item command : AlarmCommand;
+    }
+
+    action def RunSelfTest {
+        in item suppliedPower : Power;
+        out attribute passed : Boolean;
+        out item diagnosticEvent : MotionEvent;
+    }
+
+    state def DetectorOperatingState {
+        entry action initialize;
+        state Off;
+        state Booting;
+        state Monitoring;
+        state MotionDetected;
+        state AlarmHold;
+        state Fault;
+
+        transition first Off;
+
+        transition powerApplied
+            first Off
+            then Booting;
+
+        transition bootComplete
+            first Booting
+            then Monitoring;
+
+        transition motionQualified
+            first Monitoring
+            then MotionDetected;
+
+        transition alarmIssued
+            first MotionDetected
+            then AlarmHold;
+
+        transition holdExpired
+            first AlarmHold
+            then Monitoring;
+
+        transition selfTestFailed
+            first Booting
+            then Fault;
+
+        transition monitoringFault
+            first Monitoring
+            then Fault;
+
+        transition powerRemoved
+            first Monitoring
+            then Off;
+
+        transition reset
+            first Fault
+            then Booting;
+    }
+
+    part def PassiveInfraredSensor {
+        attribute fieldOfViewAngle : Real = 110.0 {
+            unit = "deg";
+        }
+        attribute maximumRange : Real = 12.0 {
+            unit = "m";
+        }
+        attribute responseTime : Real = 0.15 {
+            unit = "s";
+        }
+        attribute spectralBandLower : Real = 8.0 {
+            unit = "um";
+        }
+        attribute spectralBandUpper : Real = 14.0 {
+            unit = "um";
+        }
+
+        port infraredInput : InfraredInputPort;
+        port environmentInput : EnvironmentInputPort;
+        port signalOutput : MotionEventPort;
+
+        action sense : SenseInfraredChange;
+    }
+
+    part def SignalProcessor {
+        attribute sampleRate : Real = 50.0 {
+            unit = "Hz";
+        }
+        attribute minimumConfidence : Real = 80.0 {
+            unit = "percent";
+        }
+        attribute falseAlarmRejectionWindow : Real = 0.8 {
+            unit = "s";
+        }
+        attribute temperatureCompensationEnabled : Boolean = true;
+
+        port rawEventInput : MotionEventPort;
+        port environmentInput : EnvironmentInputPort;
+        port configurationInput : ConfigurationPort;
+        port qualifiedEventOutput : MotionEventPort;
+
+        action filterNoise : FilterEnvironmentalNoise;
+        action classify : ClassifyMotion;
+    }
+
+    part def Controller {
+        attribute firmwareVersion : String = "MD-CTRL-2.1";
+        attribute bootTime : Real = 2.0 {
+            unit = "s";
+        }
+        attribute alarmHoldTime : Real = 30.0 {
+            unit = "s";
+        }
+        attribute selfTestPeriod : Real = 86400.0 {
+            unit = "s";
+        }
+
+        port motionInput : MotionEventPort;
+        port alarmOutput : AlarmOutputPort;
+        port statusOutput : StatusPort;
+        port powerInput : PowerInputPort;
+
+        perform action selfTest : RunSelfTest;
+        exhibit state operatingState : DetectorOperatingState;
+    }
+
+    part def AlarmInterface {
+        attribute outputVoltage : Real = 12.0 {
+            unit = "V";
+        }
+        attribute maximumLoadCurrent : Real = 0.5 {
+            unit = "A";
+        }
+        attribute normallyClosedSupported : Boolean = true;
+        attribute wirelessNotificationSupported : Boolean = true;
+
+        port commandInput : AlarmOutputPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PowerSupplyRegulator {
+        attribute nominalInputVoltage : Real = 12.0 {
+            unit = "V";
+        }
+        attribute regulatedVoltage : Real = 3.3 {
+            unit = "V";
+        }
+        attribute maximumPowerDraw : Real = 1.8 {
+            unit = "W";
+        }
+        attribute backupBatteryRuntime : Real = 24.0 {
+            unit = "h";
+        }
+
+        port externalPowerInput : PowerInputPort;
+        port regulatedPowerOutput : PowerInputPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def ConfigurationStore {
+        attribute defaultSensitivity : Real = 75.0 {
+            unit = "percent";
+        }
+        attribute defaultHoldTime : Real = 30.0 {
+            unit = "s";
+        }
+        attribute defaultThreshold : Real = 65.0 {
+            unit = "percent";
+        }
+        attribute defaultSelfTestInterval : Real = 86400.0 {
+            unit = "s";
+        }
+
+        port configurationOutput : ConfigurationPort;
+    }
+
+    part def MotionDetectorSystem {
+        attribute primaryFunction : String =
+            "Detect motion within a monitored area by sensing changes in infrared radiation, filtering environmental noise, classifying qualified movement, and issuing a motion event or alarm command.";
+
+        attribute monitoredAreaRange : Real = 12.0 {
+            unit = "m";
+        }
+        attribute monitoredAreaAngle : Real = 110.0 {
+            unit = "deg";
+        }
+        attribute detectionLatencyLimit : Real = 1.0 {
+            unit = "s";
+        }
+        attribute standbyPowerLimit : Real = 1.8 {
+            unit = "W";
+        }
+
+        port infraredBoundary : InfraredInputPort;
+        port environmentBoundary : EnvironmentInputPort;
+        port powerBoundary : PowerInputPort;
+        port alarmBoundary : AlarmOutputPort;
+        port statusBoundary : StatusPort;
+
+        part pirSensor : PassiveInfraredSensor;
+        part processor : SignalProcessor;
+        part controller : Controller;
+        part alarmInterface : AlarmInterface;
+        part powerRegulator : PowerSupplyRegulator;
+        part configurationStore : ConfigurationStore;
+
+        connect infraredBoundary to pirSensor.infraredInput;
+        connect environmentBoundary to pirSensor.environmentInput;
+        connect environmentBoundary to processor.environmentInput;
+        connect powerBoundary to powerRegulator.externalPowerInput;
+        connect powerRegulator.regulatedPowerOutput to controller.powerInput;
+        connect configurationStore.configurationOutput to processor.configurationInput;
+        connect pirSensor.signalOutput to processor.rawEventInput;
+        connect processor.qualifiedEventOutput to controller.motionInput;
+        connect controller.alarmOutput to alarmInterface.commandInput;
+        connect alarmInterface.commandInput to alarmBoundary;
+        connect controller.statusOutput to statusBoundary;
+        connect powerRegulator.statusOutput to statusBoundary;
+        connect alarmInterface.statusOutput to statusBoundary;
+
+        perform action detectMotion {
+            first start;
+            then senseInfrared : SenseInfraredChange;
+            then filterNoise : FilterEnvironmentalNoise;
+            then classifyMotion : ClassifyMotion;
+            then publishEvent : PublishMotionEvent;
+            then done;
+        }
+    }
+
+    requirement def PrimaryMotionDetectionRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.primaryFunction ==
+            "Detect motion within a monitored area by sensing changes in infrared radiation, filtering environmental noise, classifying qualified movement, and issuing a motion event or alarm command."
+        }
+
+        doc /* The system shall provide a high-level primary function of detecting motion in a monitored area and producing an actionable motion event or alarm output. */
+    }
+
+    requirement def DetectionCoverageRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.monitoredAreaRange >= 10.0 and
+            detector.monitoredAreaAngle >= 100.0
+        }
+
+        doc /* The motion detector shall monitor a coverage zone of at least 10 meters range and 100 degrees horizontal field of view. */
+    }
+
+    requirement def DetectionLatencyRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.detectionLatencyLimit <= 1.0
+        }
+
+        doc /* The motion detector shall report qualified motion no later than 1 second after the motion signature exceeds the configured threshold. */
+    }
+
+    requirement def FalseAlarmReductionRequirement {
+        subject processor : SignalProcessor;
+
+        require constraint {
+            processor.minimumConfidence >= 80.0 and
+            processor.falseAlarmRejectionWindow >= 0.5
+        }
+
+        doc /* The signal processor shall reject transient environmental disturbances and only qualify events meeting the minimum confidence threshold. */
+    }
+
+    requirement def PowerRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.standbyPowerLimit <= 2.0
+        }
+
+        doc /* The motion detector shall consume no more than 2 watts during standby monitoring. */
+    }
+
+    requirement def SelfTestRequirement {
+        subject controller : Controller;
+
+        require constraint {
+            controller.selfTestPeriod <= 86400.0
+        }
+
+        doc /* The controller shall perform a self-test at least once every 24 hours and report a fault state if the test fails. */
+    }
+
+    satisfy PrimaryMotionDetectionRequirement by MotionDetectorSystem;
+    satisfy DetectionCoverageRequirement by MotionDetectorSystem;
+    satisfy DetectionLatencyRequirement by MotionDetectorSystem;
+    satisfy FalseAlarmReductionRequirement by SignalProcessor;
+    satisfy PowerRequirement by MotionDetectorSystem;
+    satisfy SelfTestRequirement by Controller;
+
+}
+tokens used
+3,973
+package MotionDetectorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Boolean;
+    attribute def Real;
+    attribute def Integer;
+    attribute def String;
+
+    item def InfraredRadiation {
+        attribute wavelength : Real [1] = 10.0 {
+            unit = "um";
+        }
+        attribute intensity : Real {
+            unit = "W/m^2";
+        }
+    }
+
+    item def MotionEvent {
+        attribute detected : Boolean;
+        attribute confidence : Real {
+            unit = "percent";
+        }
+        attribute radialVelocity : Real {
+            unit = "m/s";
+        }
+        attribute detectionRange : Real {
+            unit = "m";
+        }
+        attribute timestamp : Real {
+            unit = "s";
+        }
+    }
+
+    item def AmbientCondition {
+        attribute ambientTemperature : Real {
+            unit = "degC";
+        }
+        attribute lightLevel : Real {
+            unit = "lux";
+        }
+        attribute humidity : Real {
+            unit = "percent";
+        }
+    }
+
+    item def AlarmCommand {
+        attribute active : Boolean;
+        attribute priority : Integer;
+        attribute reason : String;
+    }
+
+    item def Power {
+        attribute voltage : Real {
+            unit = "V";
+        }
+        attribute current : Real {
+            unit = "A";
+        }
+        attribute powerDraw : Real {
+            unit = "W";
+        }
+    }
+
+    item def ConfigurationData {
+        attribute sensitivity : Real {
+            unit = "percent";
+        }
+        attribute holdTime : Real {
+            unit = "s";
+        }
+        attribute detectionThreshold : Real {
+            unit = "percent";
+        }
+        attribute selfTestInterval : Real {
+            unit = "s";
+        }
+    }
+
+    port def InfraredInputPort {
+        in item radiation : InfraredRadiation;
+    }
+
+    port def EnvironmentInputPort {
+        in item environment : AmbientCondition;
+    }
+
+    port def PowerInputPort {
+        in item suppliedPower : Power;
+    }
+
+    port def ConfigurationPort {
+        in item configuration : ConfigurationData;
+    }
+
+    port def MotionEventPort {
+        out item event : MotionEvent;
+    }
+
+    port def AlarmOutputPort {
+        out item command : AlarmCommand;
+    }
+
+    port def StatusPort {
+        out item operationalStatus : String;
+    }
+
+    action def SenseInfraredChange {
+        in item radiation : InfraredRadiation;
+        in item environment : AmbientCondition;
+        out attribute deltaSignature : Real {
+            unit = "percent";
+        }
+    }
+
+    action def FilterEnvironmentalNoise {
+        in attribute rawSignature : Real {
+            unit = "percent";
+        }
+        in item environment : AmbientCondition;
+        out attribute filteredSignature : Real {
+            unit = "percent";
+        }
+    }
+
+    action def ClassifyMotion {
+        in attribute filteredSignature : Real {
+            unit = "percent";
+        }
+        in item configuration : ConfigurationData;
+        out item event : MotionEvent;
+    }
+
+    action def PublishMotionEvent {
+        in item event : MotionEvent;
+        out item command : AlarmCommand;
+    }
+
+    action def RunSelfTest {
+        in item suppliedPower : Power;
+        out attribute passed : Boolean;
+        out item diagnosticEvent : MotionEvent;
+    }
+
+    state def DetectorOperatingState {
+        entry action initialize;
+        state Off;
+        state Booting;
+        state Monitoring;
+        state MotionDetected;
+        state AlarmHold;
+        state Fault;
+
+        transition first Off;
+
+        transition powerApplied
+            first Off
+            then Booting;
+
+        transition bootComplete
+            first Booting
+            then Monitoring;
+
+        transition motionQualified
+            first Monitoring
+            then MotionDetected;
+
+        transition alarmIssued
+            first MotionDetected
+            then AlarmHold;
+
+        transition holdExpired
+            first AlarmHold
+            then Monitoring;
+
+        transition selfTestFailed
+            first Booting
+            then Fault;
+
+        transition monitoringFault
+            first Monitoring
+            then Fault;
+
+        transition powerRemoved
+            first Monitoring
+            then Off;
+
+        transition reset
+            first Fault
+            then Booting;
+    }
+
+    part def PassiveInfraredSensor {
+        attribute fieldOfViewAngle : Real = 110.0 {
+            unit = "deg";
+        }
+        attribute maximumRange : Real = 12.0 {
+            unit = "m";
+        }
+        attribute responseTime : Real = 0.15 {
+            unit = "s";
+        }
+        attribute spectralBandLower : Real = 8.0 {
+            unit = "um";
+        }
+        attribute spectralBandUpper : Real = 14.0 {
+            unit = "um";
+        }
+
+        port infraredInput : InfraredInputPort;
+        port environmentInput : EnvironmentInputPort;
+        port signalOutput : MotionEventPort;
+
+        action sense : SenseInfraredChange;
+    }
+
+    part def SignalProcessor {
+        attribute sampleRate : Real = 50.0 {
+            unit = "Hz";
+        }
+        attribute minimumConfidence : Real = 80.0 {
+            unit = "percent";
+        }
+        attribute falseAlarmRejectionWindow : Real = 0.8 {
+            unit = "s";
+        }
+        attribute temperatureCompensationEnabled : Boolean = true;
+
+        port rawEventInput : MotionEventPort;
+        port environmentInput : EnvironmentInputPort;
+        port configurationInput : ConfigurationPort;
+        port qualifiedEventOutput : MotionEventPort;
+
+        action filterNoise : FilterEnvironmentalNoise;
+        action classify : ClassifyMotion;
+    }
+
+    part def Controller {
+        attribute firmwareVersion : String = "MD-CTRL-2.1";
+        attribute bootTime : Real = 2.0 {
+            unit = "s";
+        }
+        attribute alarmHoldTime : Real = 30.0 {
+            unit = "s";
+        }
+        attribute selfTestPeriod : Real = 86400.0 {
+            unit = "s";
+        }
+
+        port motionInput : MotionEventPort;
+        port alarmOutput : AlarmOutputPort;
+        port statusOutput : StatusPort;
+        port powerInput : PowerInputPort;
+
+        perform action selfTest : RunSelfTest;
+        exhibit state operatingState : DetectorOperatingState;
+    }
+
+    part def AlarmInterface {
+        attribute outputVoltage : Real = 12.0 {
+            unit = "V";
+        }
+        attribute maximumLoadCurrent : Real = 0.5 {
+            unit = "A";
+        }
+        attribute normallyClosedSupported : Boolean = true;
+        attribute wirelessNotificationSupported : Boolean = true;
+
+        port commandInput : AlarmOutputPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def PowerSupplyRegulator {
+        attribute nominalInputVoltage : Real = 12.0 {
+            unit = "V";
+        }
+        attribute regulatedVoltage : Real = 3.3 {
+            unit = "V";
+        }
+        attribute maximumPowerDraw : Real = 1.8 {
+            unit = "W";
+        }
+        attribute backupBatteryRuntime : Real = 24.0 {
+            unit = "h";
+        }
+
+        port externalPowerInput : PowerInputPort;
+        port regulatedPowerOutput : PowerInputPort;
+        port statusOutput : StatusPort;
+    }
+
+    part def ConfigurationStore {
+        attribute defaultSensitivity : Real = 75.0 {
+            unit = "percent";
+        }
+        attribute defaultHoldTime : Real = 30.0 {
+            unit = "s";
+        }
+        attribute defaultThreshold : Real = 65.0 {
+            unit = "percent";
+        }
+        attribute defaultSelfTestInterval : Real = 86400.0 {
+            unit = "s";
+        }
+
+        port configurationOutput : ConfigurationPort;
+    }
+
+    part def MotionDetectorSystem {
+        attribute primaryFunction : String =
+            "Detect motion within a monitored area by sensing changes in infrared radiation, filtering environmental noise, classifying qualified movement, and issuing a motion event or alarm command.";
+
+        attribute monitoredAreaRange : Real = 12.0 {
+            unit = "m";
+        }
+        attribute monitoredAreaAngle : Real = 110.0 {
+            unit = "deg";
+        }
+        attribute detectionLatencyLimit : Real = 1.0 {
+            unit = "s";
+        }
+        attribute standbyPowerLimit : Real = 1.8 {
+            unit = "W";
+        }
+
+        port infraredBoundary : InfraredInputPort;
+        port environmentBoundary : EnvironmentInputPort;
+        port powerBoundary : PowerInputPort;
+        port alarmBoundary : AlarmOutputPort;
+        port statusBoundary : StatusPort;
+
+        part pirSensor : PassiveInfraredSensor;
+        part processor : SignalProcessor;
+        part controller : Controller;
+        part alarmInterface : AlarmInterface;
+        part powerRegulator : PowerSupplyRegulator;
+        part configurationStore : ConfigurationStore;
+
+        connect infraredBoundary to pirSensor.infraredInput;
+        connect environmentBoundary to pirSensor.environmentInput;
+        connect environmentBoundary to processor.environmentInput;
+        connect powerBoundary to powerRegulator.externalPowerInput;
+        connect powerRegulator.regulatedPowerOutput to controller.powerInput;
+        connect configurationStore.configurationOutput to processor.configurationInput;
+        connect pirSensor.signalOutput to processor.rawEventInput;
+        connect processor.qualifiedEventOutput to controller.motionInput;
+        connect controller.alarmOutput to alarmInterface.commandInput;
+        connect alarmInterface.commandInput to alarmBoundary;
+        connect controller.statusOutput to statusBoundary;
+        connect powerRegulator.statusOutput to statusBoundary;
+        connect alarmInterface.statusOutput to statusBoundary;
+
+        perform action detectMotion {
+            first start;
+            then senseInfrared : SenseInfraredChange;
+            then filterNoise : FilterEnvironmentalNoise;
+            then classifyMotion : ClassifyMotion;
+            then publishEvent : PublishMotionEvent;
+            then done;
+        }
+    }
+
+    requirement def PrimaryMotionDetectionRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.primaryFunction ==
+            "Detect motion within a monitored area by sensing changes in infrared radiation, filtering environmental noise, classifying qualified movement, and issuing a motion event or alarm command."
+        }
+
+        doc /* The system shall provide a high-level primary function of detecting motion in a monitored area and producing an actionable motion event or alarm output. */
+    }
+
+    requirement def DetectionCoverageRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.monitoredAreaRange >= 10.0 and
+            detector.monitoredAreaAngle >= 100.0
+        }
+
+        doc /* The motion detector shall monitor a coverage zone of at least 10 meters range and 100 degrees horizontal field of view. */
+    }
+
+    requirement def DetectionLatencyRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.detectionLatencyLimit <= 1.0
+        }
+
+        doc /* The motion detector shall report qualified motion no later than 1 second after the motion signature exceeds the configured threshold. */
+    }
+
+    requirement def FalseAlarmReductionRequirement {
+        subject processor : SignalProcessor;
+
+        require constraint {
+            processor.minimumConfidence >= 80.0 and
+            processor.falseAlarmRejectionWindow >= 0.5
+        }
+
+        doc /* The signal processor shall reject transient environmental disturbances and only qualify events meeting the minimum confidence threshold. */
+    }
+
+    requirement def PowerRequirement {
+        subject detector : MotionDetectorSystem;
+
+        require constraint {
+            detector.standbyPowerLimit <= 2.0
+        }
+
+        doc /* The motion detector shall consume no more than 2 watts during standby monitoring. */
+    }
+
+    requirement def SelfTestRequirement {
+        subject controller : Controller;
+
+        require constraint {
+            controller.selfTestPeriod <= 86400.0
+        }
+
+        doc /* The controller shall perform a self-test at least once every 24 hours and report a fault state if the test fails. */
+    }
+
+    satisfy PrimaryMotionDetectionRequirement by MotionDetectorSystem;
+    satisfy DetectionCoverageRequirement by MotionDetectorSystem;
+    satisfy DetectionLatencyRequirement by MotionDetectorSystem;
+    satisfy FalseAlarmReductionRequirement by SignalProcessor;
+    satisfy PowerRequirement by MotionDetectorSystem;
+    satisfy SelfTestRequirement by Controller;
+
+}

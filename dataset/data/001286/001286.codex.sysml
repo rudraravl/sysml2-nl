@@ -1,0 +1,340 @@
+package TideGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Meter :> ISQ::length;
+    attribute def Millimeter :> ISQ::length;
+    attribute def Second :> ISQ::time;
+    attribute def Minute :> ISQ::time;
+    attribute def Hour :> ISQ::time;
+    attribute def DegreeCelsius :> ISQ::thermodynamicTemperature;
+    attribute def HectoPascal :> ISQ::pressure;
+    attribute def Volt :> ISQ::electricPotential;
+    attribute def Watt :> ISQ::power;
+    attribute def Percent;
+    attribute def Timestamp;
+
+    item def WaterLevelSample {
+        attribute observedTime : Timestamp;
+        attribute waterLevel : Meter;
+        attribute sensorTemperature : DegreeCelsius;
+        attribute signalQuality : Percent;
+    }
+
+    item def PressureSample {
+        attribute observedTime : Timestamp;
+        attribute absolutePressure : HectoPascal;
+        attribute temperature : DegreeCelsius;
+        attribute signalQuality : Percent;
+    }
+
+    item def TideObservation {
+        attribute observedTime : Timestamp;
+        attribute tideHeight : Meter;
+        attribute referenceDatum : String;
+        attribute uncertainty : Millimeter;
+        attribute qualityFlag : String;
+    }
+
+    item def HealthStatus {
+        attribute observedTime : Timestamp;
+        attribute batteryVoltage : Volt;
+        attribute enclosureHumidity : Percent;
+        attribute internalTemperature : DegreeCelsius;
+        attribute operatingMode : String;
+        attribute faultCode : String;
+    }
+
+    item def ConfigurationCommand {
+        attribute commandTime : Timestamp;
+        attribute sampleInterval : Second;
+        attribute averagingWindow : Second;
+        attribute datumOffset : Meter;
+        attribute alarmThresholdHigh : Meter;
+        attribute alarmThresholdLow : Meter;
+    }
+
+    item def TideDataPacket {
+        attribute transmittedTime : Timestamp;
+        attribute stationIdentifier : String;
+        attribute observation : TideObservation;
+        attribute health : HealthStatus;
+    }
+
+    port def WaterInterface {
+        out item pressure : PressureSample;
+        out item surfaceLevel : WaterLevelSample;
+    }
+
+    port def SensorDataPort {
+        out item sample : WaterLevelSample;
+        out item pressureSample : PressureSample;
+    }
+
+    port def ProcessedObservationPort {
+        out item observation : TideObservation;
+    }
+
+    port def CommandPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def DataNetworkPort {
+        out item packet : TideDataPacket;
+        in item command : ConfigurationCommand;
+    }
+
+    port def PowerPort {
+        in attribute inputVoltage : Volt;
+        out attribute consumedPower : Watt;
+    }
+
+    port def LocalDisplayPort {
+        out item displayedObservation : TideObservation;
+        out item displayedHealth : HealthStatus;
+    }
+
+    action def AcquireWaterLevel {
+        in item rawPressure : PressureSample;
+        in attribute datumOffset : Meter;
+        out item measuredLevel : WaterLevelSample;
+    }
+
+    action def FilterAndValidateSample {
+        in item measuredLevel : WaterLevelSample;
+        in attribute averagingWindow : Second;
+        out item validatedObservation : TideObservation;
+    }
+
+    action def PackageObservation {
+        in item observation : TideObservation;
+        in item health : HealthStatus;
+        out item packet : TideDataPacket;
+    }
+
+    action def TransmitTideData {
+        in item packet : TideDataPacket;
+        out attribute transmissionComplete : Boolean;
+    }
+
+    action def EvaluateHealth {
+        in attribute batteryVoltage : Volt;
+        in attribute enclosureHumidity : Percent;
+        in attribute internalTemperature : DegreeCelsius;
+        out item health : HealthStatus;
+    }
+
+    action def ApplyConfiguration {
+        in item command : ConfigurationCommand;
+        out attribute configuredSampleInterval : Second;
+        out attribute configuredAveragingWindow : Second;
+        out attribute configuredDatumOffset : Meter;
+    }
+
+    state def TideGaugeOperatingState {
+        entry action EvaluateHealth;
+
+        state Initializing;
+        state Measuring;
+        state Processing;
+        state Reporting;
+        state LowPowerStandby;
+        state Faulted;
+
+        transition first Initializing;
+
+        transition Initializing_to_Measuring
+            first Initializing
+            then Measuring;
+
+        transition Measuring_to_Processing
+            first Measuring
+            then Processing;
+
+        transition Processing_to_Reporting
+            first Processing
+            then Reporting;
+
+        transition Reporting_to_Measuring
+            first Reporting
+            then Measuring;
+
+        transition Measuring_to_LowPowerStandby
+            first Measuring
+            then LowPowerStandby;
+
+        transition LowPowerStandby_to_Measuring
+            first LowPowerStandby
+            then Measuring;
+
+        transition Any_to_Faulted
+            first Measuring
+            then Faulted;
+
+        transition Faulted_to_Initializing
+            first Faulted
+            then Initializing;
+    }
+
+    part def PressureWaterLevelSensor {
+        port waterPort : WaterInterface;
+        port dataPort : SensorDataPort;
+        port powerPort : PowerPort;
+
+        attribute measurementRangeMin : Meter = -5 [m];
+        attribute measurementRangeMax : Meter = 15 [m];
+        attribute resolution : Millimeter = 1 [mm];
+        attribute accuracy : Millimeter = 5 [mm];
+        attribute samplePeriod : Second = 1 [s];
+
+        perform action acquire : AcquireWaterLevel;
+    }
+
+    part def TideProcessor {
+        port sensorInput : SensorDataPort;
+        port observationOutput : ProcessedObservationPort;
+        port commandInput : CommandPort;
+        port powerPort : PowerPort;
+
+        attribute datumName : String = "Local Chart Datum";
+        attribute datumOffset : Meter = 0.000 [m];
+        attribute averagingWindow : Second = 60 [s];
+        attribute validQualityMinimum : Percent = 85;
+
+        perform action filter : FilterAndValidateSample;
+        perform action configure : ApplyConfiguration;
+    }
+
+    part def HealthMonitor {
+        port powerPort : PowerPort;
+
+        attribute minimumBatteryVoltage : Volt = 11.5 [V];
+        attribute maximumInternalTemperature : DegreeCelsius = 60;
+        attribute maximumHumidity : Percent = 80;
+
+        perform action healthEvaluation : EvaluateHealth;
+    }
+
+    part def TelemetryUnit {
+        port observationInput : ProcessedObservationPort;
+        port networkPort : DataNetworkPort;
+        port commandPort : CommandPort;
+        port powerPort : PowerPort;
+
+        attribute stationIdentifier : String = "TG-ESTUARY-001";
+        attribute reportingInterval : Minute = 6;
+        attribute retryLimit : Integer = 3;
+
+        perform action package : PackageObservation;
+        perform action transmit : TransmitTideData;
+    }
+
+    part def LocalDisplay {
+        port displayPort : LocalDisplayPort;
+        port observationInput : ProcessedObservationPort;
+        port powerPort : PowerPort;
+
+        attribute refreshInterval : Second = 10 [s];
+    }
+
+    part def SolarPowerSubsystem {
+        port loadPowerPort : PowerPort;
+
+        attribute panelRatedPower : Watt = 80 [W];
+        attribute batteryCapacityWattHours : Real = 480;
+        attribute nominalOutputVoltage : Volt = 12 [V];
+        attribute minimumStateOfCharge : Percent = 25;
+    }
+
+    part def TideGaugeStation {
+        port waterInterface : WaterInterface;
+        port networkInterface : DataNetworkPort;
+
+        part sensor : PressureWaterLevelSensor;
+        part processor : TideProcessor;
+        part telemetry : TelemetryUnit;
+        part healthMonitor : HealthMonitor;
+        part display : LocalDisplay;
+        part powerSubsystem : SolarPowerSubsystem;
+
+        attribute stationIdentifier : String = "TG-ESTUARY-001";
+        attribute installationDatum : String = "Local Chart Datum";
+        attribute nominalSampleInterval : Second = 1 [s];
+        attribute nominalReportInterval : Minute = 6;
+
+        state operatingState : TideGaugeOperatingState;
+
+        connect waterInterface to sensor.waterPort;
+        connect sensor.dataPort to processor.sensorInput;
+        connect processor.observationOutput to telemetry.observationInput;
+        connect processor.observationOutput to display.observationInput;
+        connect telemetry.networkPort to networkInterface;
+        connect telemetry.commandPort to processor.commandInput;
+        connect powerSubsystem.loadPowerPort to sensor.powerPort;
+        connect powerSubsystem.loadPowerPort to processor.powerPort;
+        connect powerSubsystem.loadPowerPort to telemetry.powerPort;
+        connect powerSubsystem.loadPowerPort to healthMonitor.powerPort;
+        connect powerSubsystem.loadPowerPort to display.powerPort;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The tide gauge station shall continuously measure the height of the water surface relative to a defined local datum and provide time-stamped tide observations for coastal monitoring, navigation support, and flood awareness. */
+
+        subject station : TideGaugeStation;
+
+        require constraint {
+            station.nominalSampleInterval <= 1 [s]
+        }
+
+        require constraint {
+            station.nominalReportInterval <= 6 [min]
+        }
+    }
+
+    requirement def MeasurementAccuracyRequirement {
+        doc /* The tide gauge shall produce validated tide height observations with uncertainty no greater than 10 millimeters during normal operation. */
+
+        subject observation : TideObservation;
+
+        require constraint {
+            observation.uncertainty <= 10 [mm]
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The tide gauge shall remain operational using its autonomous power subsystem during normal day and night cycles. */
+
+        subject station : TideGaugeStation;
+
+        require constraint {
+            station.powerSubsystem.minimumStateOfCharge >= 25
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The tide gauge shall transmit each validated tide observation with station identifier, timestamp, tide height, uncertainty, quality flag, and equipment health status. */
+
+        subject packet : TideDataPacket;
+
+        require constraint {
+            packet.stationIdentifier != ""
+        }
+    }
+
+    requirement def EnvironmentalMonitoringRequirement {
+        doc /* The tide gauge shall monitor internal temperature, enclosure humidity, and battery voltage to support maintenance and fault detection. */
+
+        subject health : HealthStatus;
+
+        require constraint {
+            health.batteryVoltage >= 11.5 [V]
+        }
+    }
+
+    part tideGaugeSystem : TideGaugeStation;
+
+    satisfy PrimaryFunctionRequirement by tideGaugeSystem;
+    satisfy AvailabilityRequirement by tideGaugeSystem;
+}

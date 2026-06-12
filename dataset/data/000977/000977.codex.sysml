@@ -1,0 +1,615 @@
+package AtomicGravitationalWaveInterferometricSensorModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Frequency :> real {
+        unit = "Hz";
+    }
+
+    attribute def AngularFrequency :> real {
+        unit = "rad/s";
+    }
+
+    attribute def Length :> real {
+        unit = "m";
+    }
+
+    attribute def TimeDuration :> real {
+        unit = "s";
+    }
+
+    attribute def Velocity :> real {
+        unit = "m/s";
+    }
+
+    attribute def Acceleration :> real {
+        unit = "m/s^2";
+    }
+
+    attribute def Temperature :> real {
+        unit = "K";
+    }
+
+    attribute def Power :> real {
+        unit = "W";
+    }
+
+    attribute def Voltage :> real {
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent :> real {
+        unit = "A";
+    }
+
+    attribute def Pressure :> real {
+        unit = "Pa";
+    }
+
+    attribute def MagneticFluxDensity :> real {
+        unit = "T";
+    }
+
+    attribute def PhaseAngle :> real {
+        unit = "rad";
+    }
+
+    attribute def Strain :> real {
+        unit = "1";
+    }
+
+    attribute def SpectralDensity :> real {
+        unit = "1/sqrt(Hz)";
+    }
+
+    item def LaserBeam {
+        attribute wavelength : Length;
+        attribute opticalPower : Power;
+        attribute linewidth : Frequency;
+        attribute phaseNoise : SpectralDensity;
+        attribute polarizationExtinctionRatio : real;
+    }
+
+    item def AtomCloud {
+        attribute atomSpecies : String;
+        attribute atomCount : real;
+        attribute temperature : Temperature;
+        attribute launchVelocity : Velocity;
+        attribute spatialRadius : Length;
+        attribute coherenceTime : TimeDuration;
+        attribute internalStateLabel : String;
+    }
+
+    item def RamanPulse {
+        attribute pulseDuration : TimeDuration;
+        attribute effectiveWaveVector : real;
+        attribute rabiFrequency : AngularFrequency;
+        attribute phase : PhaseAngle;
+        attribute detuning : Frequency;
+    }
+
+    item def InterferometerPhaseMeasurement {
+        attribute rawPhase : PhaseAngle;
+        attribute correctedPhase : PhaseAngle;
+        attribute contrast : real;
+        attribute timestamp : TimeDuration;
+        attribute qualityFactor : real;
+    }
+
+    item def GravitationalWaveStrainEstimate {
+        attribute strainAmplitude : Strain;
+        attribute strainSpectralDensity : SpectralDensity;
+        attribute centerFrequency : Frequency;
+        attribute bandwidth : Frequency;
+        attribute confidence : real;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def TimingReference {
+        attribute epoch : TimeDuration;
+        attribute jitter : TimeDuration;
+        attribute stability : real;
+    }
+
+    item def MagneticFieldVector {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+    }
+
+    item def ThermalStatus {
+        attribute opticalBenchTemperature : Temperature;
+        attribute vacuumChamberTemperature : Temperature;
+        attribute laserHeadTemperature : Temperature;
+        attribute controllerTemperature : Temperature;
+    }
+
+    item def HealthStatus {
+        attribute isOperational : Boolean;
+        attribute vacuumReady : Boolean;
+        attribute laserLocked : Boolean;
+        attribute atomsAvailable : Boolean;
+        attribute timingLocked : Boolean;
+        attribute faultCode : String;
+    }
+
+    port def OpticalInputPort {
+        in item beam : LaserBeam;
+    }
+
+    port def OpticalOutputPort {
+        out item beam : LaserBeam;
+    }
+
+    port def AtomSourcePort {
+        out item atoms : AtomCloud;
+    }
+
+    port def AtomInputPort {
+        in item atoms : AtomCloud;
+    }
+
+    port def PulseOutputPort {
+        out item pulse : RamanPulse;
+    }
+
+    port def PulseInputPort {
+        in item pulse : RamanPulse;
+    }
+
+    port def PhaseMeasurementPort {
+        out item phaseMeasurement : InterferometerPhaseMeasurement;
+    }
+
+    port def StrainEstimatePort {
+        out item strainEstimate : GravitationalWaveStrainEstimate;
+    }
+
+    port def TimingPort {
+        inout item timing : TimingReference;
+    }
+
+    port def MagneticFieldPort {
+        out item field : MagneticFieldVector;
+    }
+
+    port def ThermalStatusPort {
+        out item status : ThermalStatus;
+    }
+
+    port def HealthStatusPort {
+        out item status : HealthStatus;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : ElectricCurrent;
+        out attribute consumedPower : Power;
+    }
+
+    port def CommandPort {
+        in attribute commandId : String;
+        in attribute commandArgument : String;
+    }
+
+    port def TelemetryPort {
+        out item health : HealthStatus;
+        out item thermal : ThermalStatus;
+        out item strain : GravitationalWaveStrainEstimate;
+    }
+
+    action def StabilizeLaser {
+        in attribute targetWavelength : Length;
+        in attribute targetPower : Power;
+        out item stabilizedBeam : LaserBeam;
+    }
+
+    action def PrepareUltracoldAtoms {
+        in attribute species : String;
+        in attribute targetTemperature : Temperature;
+        in attribute targetAtomCount : real;
+        out item preparedCloud : AtomCloud;
+    }
+
+    action def ExecutePulseSequence {
+        in item atomCloud : AtomCloud;
+        in item piOverTwoPulseA : RamanPulse;
+        in item piPulse : RamanPulse;
+        in item piOverTwoPulseB : RamanPulse;
+        out item phaseMeasurement : InterferometerPhaseMeasurement;
+    }
+
+    action def EstimateGravitationalWaveStrain {
+        in item nearPhase : InterferometerPhaseMeasurement;
+        in item farPhase : InterferometerPhaseMeasurement;
+        in attribute baselineLength : Length;
+        in attribute effectiveWaveVector : real;
+        out item estimate : GravitationalWaveStrainEstimate;
+    }
+
+    action def RejectEnvironmentalNoise {
+        in item rawEstimate : GravitationalWaveStrainEstimate;
+        in item magneticField : MagneticFieldVector;
+        in item thermalStatus : ThermalStatus;
+        out item correctedEstimate : GravitationalWaveStrainEstimate;
+    }
+
+    state def SensorOperatingState {
+        entry action initialize;
+        state Off;
+        state Standby;
+        state PumpDown;
+        state LaserLocking;
+        state AtomCooling;
+        state Interrogating;
+        state Processing;
+        state Calibrating;
+        state Fault;
+        state SafeShutdown;
+
+        transition first Off;
+
+        transition Off_to_Standby
+            first Off
+            then Standby;
+
+        transition Standby_to_PumpDown
+            first Standby
+            then PumpDown;
+
+        transition PumpDown_to_LaserLocking
+            first PumpDown
+            then LaserLocking;
+
+        transition LaserLocking_to_AtomCooling
+            first LaserLocking
+            then AtomCooling;
+
+        transition AtomCooling_to_Interrogating
+            first AtomCooling
+            then Interrogating;
+
+        transition Interrogating_to_Processing
+            first Interrogating
+            then Processing;
+
+        transition Processing_to_AtomCooling
+            first Processing
+            then AtomCooling;
+
+        transition Processing_to_Calibrating
+            first Processing
+            then Calibrating;
+
+        transition Calibrating_to_AtomCooling
+            first Calibrating
+            then AtomCooling;
+
+        transition Any_to_Fault
+            first Standby
+            then Fault;
+
+        transition Fault_to_SafeShutdown
+            first Fault
+            then SafeShutdown;
+
+        transition SafeShutdown_to_Off
+            first SafeShutdown
+            then Off;
+    }
+
+    part def UltraStableLaserSubsystem {
+        port powerPort : ElectricalPowerPort;
+        port timingPort : TimingPort;
+        port opticalOutput : OpticalOutputPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute nominalWavelength : Length = 780.241e-9;
+        attribute nominalPower : Power = 2.0;
+        attribute linewidth : Frequency = 1.0;
+        attribute frequencyStability : real = 1.0e-15;
+        attribute warmupTime : TimeDuration = 300.0;
+
+        perform action lockLaser : StabilizeLaser {
+            in targetWavelength = nominalWavelength;
+            in targetPower = nominalPower;
+        }
+    }
+
+    part def BeamSplitterAndPulseFormer {
+        port opticalInput : OpticalInputPort;
+        port nearPulseOutput : PulseOutputPort;
+        port farPulseOutput : PulseOutputPort;
+        port timingPort : TimingPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute piOverTwoPulseDuration : TimeDuration = 10.0e-6;
+        attribute piPulseDuration : TimeDuration = 20.0e-6;
+        attribute effectiveWaveVector : real = 1.61e7;
+        attribute pulsePhaseErrorRms : PhaseAngle = 1.0e-4;
+        attribute opticalPathImbalance : Length = 1.0e-6;
+    }
+
+    part def VacuumAndMagneticShieldAssembly {
+        port powerPort : ElectricalPowerPort;
+        port magneticFieldOutput : MagneticFieldPort;
+        port thermalOutput : ThermalStatusPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute chamberPressure : Pressure = 1.0e-9;
+        attribute residualAccelerationNoise : Acceleration = 1.0e-9;
+        attribute magneticShieldingFactor : real = 1.0e5;
+        attribute residualMagneticField : MagneticFluxDensity = 1.0e-9;
+        attribute opticalBenchTemperatureSetpoint : Temperature = 293.15;
+        attribute temperatureStability : Temperature = 1.0e-3;
+    }
+
+    part def AtomPreparationSubsystem {
+        port powerPort : ElectricalPowerPort;
+        port timingPort : TimingPort;
+        port atomsOutput : AtomSourcePort;
+        port opticalInput : OpticalInputPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute atomSpecies : String = "Rubidium-87";
+        attribute targetAtomCount : real = 1.0e8;
+        attribute targetTemperature : Temperature = 1.0e-6;
+        attribute launchVelocity : Velocity = 5.0;
+        attribute preparationCycleTime : TimeDuration = 1.0;
+
+        perform action prepareAtoms : PrepareUltracoldAtoms {
+            in species = atomSpecies;
+            in targetTemperature = targetTemperature;
+            in targetAtomCount = targetAtomCount;
+        }
+    }
+
+    part def AtomInterferometerHead {
+        port atomsInput : AtomInputPort;
+        port pulseInput : PulseInputPort;
+        port timingPort : TimingPort;
+        port phaseOutput : PhaseMeasurementPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute interrogationTime : TimeDuration = 1.0;
+        attribute freeEvolutionTime : TimeDuration = 0.5;
+        attribute interferometerContrast : real = 0.55;
+        attribute atomShotNoisePhase : PhaseAngle = 1.0e-4;
+        attribute localAccelerationSensitivity : Acceleration = 1.0e-12;
+
+        perform action executeInterferometer : ExecutePulseSequence;
+    }
+
+    part def NearInterferometer : AtomInterferometerHead {
+        attribute longitudinalPosition : Length = 0.0;
+    }
+
+    part def FarInterferometer : AtomInterferometerHead {
+        attribute longitudinalPosition : Length = 1000.0;
+    }
+
+    part def TimingAndSynchronizationUnit {
+        port powerPort : ElectricalPowerPort;
+        port timingPort : TimingPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute oscillatorFrequency : Frequency = 10.0e6;
+        attribute timingJitter : TimeDuration = 1.0e-12;
+        attribute pulseSequenceSkew : TimeDuration = 5.0e-12;
+        attribute holdoverStability : real = 1.0e-12;
+    }
+
+    part def DigitalSignalProcessor {
+        port powerPort : ElectricalPowerPort;
+        port nearPhaseInput : PhaseMeasurementPort;
+        port farPhaseInput : PhaseMeasurementPort;
+        port magneticFieldInput : MagneticFieldPort;
+        port thermalInput : ThermalStatusPort;
+        port strainOutput : StrainEstimatePort;
+        port healthOutput : HealthStatusPort;
+
+        attribute samplingRate : Frequency = 100.0;
+        attribute detectionBandLower : Frequency = 0.1;
+        attribute detectionBandUpper : Frequency = 10.0;
+        attribute baselineLength : Length = 1000.0;
+        attribute strainNoiseFloor : SpectralDensity = 1.0e-19;
+        attribute calibrationInterval : TimeDuration = 3600.0;
+
+        perform action estimateStrain : EstimateGravitationalWaveStrain;
+        perform action environmentalCorrection : RejectEnvironmentalNoise;
+    }
+
+    part def CommandAndTelemetryComputer {
+        port powerPort : ElectricalPowerPort;
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port sensorHealthInput : HealthStatusPort;
+        port strainInput : StrainEstimatePort;
+
+        attribute processorClock : Frequency = 200.0e6;
+        attribute telemetryRate : Frequency = 10.0;
+        attribute commandLatency : TimeDuration = 0.05;
+        attribute dataRetentionDuration : TimeDuration = 86400.0;
+    }
+
+    part def ThermalControlSubsystem {
+        port powerPort : ElectricalPowerPort;
+        port thermalOutput : ThermalStatusPort;
+        port healthOutput : HealthStatusPort;
+
+        attribute heaterPowerCapacity : Power = 200.0;
+        attribute coolerPowerCapacity : Power = 150.0;
+        attribute controlBandwidth : Frequency = 0.1;
+        attribute temperatureSetpoint : Temperature = 293.15;
+        attribute maximumGradient : Temperature = 0.02;
+    }
+
+    part def AtomicGravitationalWaveInterferometricSensingUnit {
+        port powerInput : ElectricalPowerPort;
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port strainOutput : StrainEstimatePort;
+
+        attribute measuredQuantity : String = "dimensionless gravitational wave strain";
+        attribute baselineLength : Length = 1000.0;
+        attribute operationalBandLower : Frequency = 0.1;
+        attribute operationalBandUpper : Frequency = 10.0;
+        attribute targetStrainSensitivity : SpectralDensity = 1.0e-19;
+        attribute availability : real = 0.98;
+        attribute cycleTime : TimeDuration = 1.0;
+        attribute mass : real = 2500.0;
+        attribute averagePower : Power = 5000.0;
+
+        part laser : UltraStableLaserSubsystem;
+        part pulseFormer : BeamSplitterAndPulseFormer;
+        part vacuumShield : VacuumAndMagneticShieldAssembly;
+        part atomPrep : AtomPreparationSubsystem;
+        part nearInterferometer : NearInterferometer;
+        part farInterferometer : FarInterferometer;
+        part timingUnit : TimingAndSynchronizationUnit;
+        part signalProcessor : DigitalSignalProcessor;
+        part telemetryComputer : CommandAndTelemetryComputer;
+        part thermalControl : ThermalControlSubsystem;
+
+        state operatingState : SensorOperatingState;
+
+        connect powerInput to laser.powerPort;
+        connect powerInput to atomPrep.powerPort;
+        connect powerInput to vacuumShield.powerPort;
+        connect powerInput to timingUnit.powerPort;
+        connect powerInput to signalProcessor.powerPort;
+        connect powerInput to telemetryComputer.powerPort;
+        connect powerInput to thermalControl.powerPort;
+
+        connect timingUnit.timingPort to laser.timingPort;
+        connect timingUnit.timingPort to pulseFormer.timingPort;
+        connect timingUnit.timingPort to atomPrep.timingPort;
+        connect timingUnit.timingPort to nearInterferometer.timingPort;
+        connect timingUnit.timingPort to farInterferometer.timingPort;
+
+        connect laser.opticalOutput to pulseFormer.opticalInput;
+        connect laser.opticalOutput to atomPrep.opticalInput;
+
+        connect atomPrep.atomsOutput to nearInterferometer.atomsInput;
+        connect atomPrep.atomsOutput to farInterferometer.atomsInput;
+
+        connect pulseFormer.nearPulseOutput to nearInterferometer.pulseInput;
+        connect pulseFormer.farPulseOutput to farInterferometer.pulseInput;
+
+        connect nearInterferometer.phaseOutput to signalProcessor.nearPhaseInput;
+        connect farInterferometer.phaseOutput to signalProcessor.farPhaseInput;
+        connect vacuumShield.magneticFieldOutput to signalProcessor.magneticFieldInput;
+        connect vacuumShield.thermalOutput to signalProcessor.thermalInput;
+        connect thermalControl.thermalOutput to signalProcessor.thermalInput;
+
+        connect signalProcessor.strainOutput to strainOutput;
+        connect signalProcessor.strainOutput to telemetryComputer.strainInput;
+
+        connect commandInput to telemetryComputer.commandInput;
+        connect telemetryComputer.telemetryOutput to telemetryOutput;
+
+        connect laser.healthOutput to telemetryComputer.sensorHealthInput;
+        connect atomPrep.healthOutput to telemetryComputer.sensorHealthInput;
+        connect vacuumShield.healthOutput to telemetryComputer.sensorHealthInput;
+        connect timingUnit.healthOutput to telemetryComputer.sensorHealthInput;
+        connect signalProcessor.healthOutput to telemetryComputer.sensorHealthInput;
+        connect thermalControl.healthOutput to telemetryComputer.sensorHealthInput;
+    }
+
+    requirement def MeasureGravitationalWaveStrain {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute requiredMeasuredQuantity : String = "dimensionless gravitational wave strain";
+        require constraint {
+            sensingUnit.measuredQuantity == requiredMeasuredQuantity
+        }
+    }
+
+    requirement def StrainSensitivityRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute maximumNoiseFloor : SpectralDensity = 1.0e-19;
+        require constraint {
+            sensingUnit.signalProcessor.strainNoiseFloor <= maximumNoiseFloor
+        }
+    }
+
+    requirement def DetectionBandRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute minimumLowerFrequency : Frequency = 0.1;
+        attribute maximumUpperFrequency : Frequency = 10.0;
+        require constraint {
+            sensingUnit.operationalBandLower <= minimumLowerFrequency and
+            sensingUnit.operationalBandUpper >= maximumUpperFrequency
+        }
+    }
+
+    requirement def BaselineRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute minimumBaseline : Length = 1000.0;
+        require constraint {
+            sensingUnit.baselineLength >= minimumBaseline
+        }
+    }
+
+    requirement def VacuumRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute maximumChamberPressure : Pressure = 1.0e-8;
+        require constraint {
+            sensingUnit.vacuumShield.chamberPressure <= maximumChamberPressure
+        }
+    }
+
+    requirement def AtomTemperatureRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute maximumAtomTemperature : Temperature = 2.0e-6;
+        require constraint {
+            sensingUnit.atomPrep.targetTemperature <= maximumAtomTemperature
+        }
+    }
+
+    requirement def TimingJitterRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute maximumTimingJitter : TimeDuration = 2.0e-12;
+        require constraint {
+            sensingUnit.timingUnit.timingJitter <= maximumTimingJitter
+        }
+    }
+
+    requirement def LaserLinewidthRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute maximumLinewidth : Frequency = 10.0;
+        require constraint {
+            sensingUnit.laser.linewidth <= maximumLinewidth
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute maximumTemperatureInstability : Temperature = 1.0e-3;
+        require constraint {
+            sensingUnit.vacuumShield.temperatureStability <= maximumTemperatureInstability
+        }
+    }
+
+    requirement def OperationalAvailabilityRequirement {
+        subject sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+        attribute minimumAvailability : real = 0.95;
+        require constraint {
+            sensingUnit.availability >= minimumAvailability
+        }
+    }
+
+    satisfy MeasureGravitationalWaveStrain by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy StrainSensitivityRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy DetectionBandRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy BaselineRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy VacuumRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy AtomTemperatureRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy TimingJitterRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy LaserLinewidthRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy ThermalStabilityRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+    satisfy OperationalAvailabilityRequirement by AtomicGravitationalWaveInterferometricSensingUnit;
+
+    part sensingUnit : AtomicGravitationalWaveInterferometricSensingUnit;
+
+}

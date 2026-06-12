@@ -1,0 +1,549 @@
+package ElectricPowerTransmissionSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = "kV";
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = "A";
+    }
+
+    attribute def ActivePower {
+        unit = "MW";
+    }
+
+    attribute def ReactivePower {
+        unit = "MVAr";
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = "Hz";
+    }
+
+    attribute def Length {
+        unit = "km";
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = "degC";
+    }
+
+    attribute def Efficiency {
+        unit = "percent";
+    }
+
+    attribute def Impedance {
+        unit = "ohm";
+    }
+
+    attribute def TimeDuration {
+        unit = "s";
+    }
+
+    item def ElectricEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute activePower : ActivePower;
+        attribute reactivePower : ReactivePower;
+        attribute frequency : Frequency;
+    }
+
+    item def ProtectionSignal {
+        attribute tripCommand : Boolean;
+        attribute faultDetected : Boolean;
+        attribute faultLocation : Length;
+        attribute clearingTime : TimeDuration;
+    }
+
+    item def TelemetryData {
+        attribute measuredVoltage : Voltage;
+        attribute measuredCurrent : Current;
+        attribute measuredPower : ActivePower;
+        attribute measuredFrequency : Frequency;
+        attribute conductorTemperature : Temperature;
+        attribute breakerClosed : Boolean;
+    }
+
+    port def ElectricPowerPort {
+        inout energy : ElectricEnergy;
+    }
+
+    port def SignalPort {
+        inout signal : ProtectionSignal;
+    }
+
+    port def TelemetryPort {
+        out telemetry : TelemetryData;
+    }
+
+    part def GenerationPlant {
+        attribute ratedOutput : ActivePower = 1200 [MW];
+        attribute generatorVoltage : Voltage = 24 [kV];
+        attribute nominalFrequency : Frequency = 60 [Hz];
+
+        port generatedPower : ElectricPowerPort;
+        port plantTelemetry : TelemetryPort;
+
+        action generateElectricPower {
+            in fuelEnergyAvailable : Boolean;
+            out generatedEnergy : ElectricEnergy;
+
+            first start;
+            then regulateVoltage;
+            then synchronizeFrequency;
+            then deliverPower;
+            then done;
+
+            action start;
+            action regulateVoltage;
+            action synchronizeFrequency;
+            action deliverPower;
+        }
+    }
+
+    part def StepUpTransformer {
+        attribute lowSideVoltage : Voltage = 24 [kV];
+        attribute highSideVoltage : Voltage = 500 [kV];
+        attribute ratedPower : ActivePower = 1300 [MW];
+        attribute efficiency : Efficiency = 99.4 [percent];
+        attribute leakageImpedance : Impedance = 0.12 [ohm];
+
+        port lowVoltageSide : ElectricPowerPort;
+        port highVoltageSide : ElectricPowerPort;
+        port transformerTelemetry : TelemetryPort;
+
+        action increaseTransmissionVoltage {
+            in inputEnergy : ElectricEnergy;
+            out outputEnergy : ElectricEnergy;
+        }
+    }
+
+    part def TransmissionLineSegment {
+        attribute lineLength : Length = 240 [km];
+        attribute nominalVoltage : Voltage = 500 [kV];
+        attribute thermalCurrentLimit : Current = 2400 [A];
+        attribute seriesImpedance : Impedance = 18.6 [ohm];
+        attribute maximumConductorTemperature : Temperature = 85 [degC];
+
+        port sendingEnd : ElectricPowerPort;
+        port receivingEnd : ElectricPowerPort;
+        port lineProtectionPort : SignalPort;
+        port lineTelemetry : TelemetryPort;
+
+        state def LineOperatingState {
+            state deEnergized;
+            state energized;
+            state overloaded;
+            state faulted;
+            state isolated;
+
+            entry; then deEnergized;
+
+            transition energize
+                first deEnergized
+                accept energizationCommand
+                then energized;
+
+            transition detectOverload
+                first energized
+                accept currentAboveThermalLimit
+                then overloaded;
+
+            transition restoreNormalLoad
+                first overloaded
+                accept currentWithinThermalLimit
+                then energized;
+
+            transition detectFault
+                first energized
+                accept shortCircuitDetected
+                then faulted;
+
+            transition tripBreakers
+                first faulted
+                accept protectionTripIssued
+                then isolated;
+
+            transition resetLine
+                first isolated
+                accept faultClearedAndInspected
+                then deEnergized;
+        }
+
+        action transmitPower {
+            in sendingEnergy : ElectricEnergy;
+            out receivedEnergy : ElectricEnergy;
+
+            first calculateLineCurrent;
+            then calculateVoltageDrop;
+            then calculateLosses;
+            then monitorThermalLimit;
+            then deliverReceivedEnergy;
+            then done;
+
+            action calculateLineCurrent;
+            action calculateVoltageDrop;
+            action calculateLosses;
+            action monitorThermalLimit;
+            action deliverReceivedEnergy;
+        }
+    }
+
+    part def SwitchingSubstation {
+        attribute busVoltage : Voltage = 500 [kV];
+        attribute breakerInterruptingCurrent : Current = 63000 [A];
+        attribute busbarRatedCurrent : Current = 4000 [A];
+
+        port incomingLine : ElectricPowerPort;
+        port outgoingLine : ElectricPowerPort;
+        port protectionInput : SignalPort;
+        port substationTelemetry : TelemetryPort;
+
+        part circuitBreaker {
+            attribute closed : Boolean = true;
+            attribute openingTime : TimeDuration = 0.05 [s];
+
+            port breakerPowerIn : ElectricPowerPort;
+            port breakerPowerOut : ElectricPowerPort;
+            port breakerSignal : SignalPort;
+
+            state def BreakerState {
+                state open;
+                state closed;
+                state tripping;
+                state lockedOut;
+
+                entry; then closed;
+
+                transition openOnCommand
+                    first closed
+                    accept openCommand
+                    then open;
+
+                transition closeOnCommand
+                    first open
+                    accept closeCommand
+                    then closed;
+
+                transition tripOnFault
+                    first closed
+                    accept tripCommand
+                    then tripping;
+
+                transition completeTrip
+                    first tripping
+                    after 0.05 [s]
+                    then lockedOut;
+
+                transition resetAfterInspection
+                    first lockedOut
+                    accept resetCommand
+                    then open;
+            }
+        }
+
+        part disconnectSwitch {
+            attribute openVisibleGap : Boolean = false;
+            port switchPowerIn : ElectricPowerPort;
+            port switchPowerOut : ElectricPowerPort;
+        }
+
+        action routePower {
+            in incomingEnergy : ElectricEnergy;
+            out outgoingEnergy : ElectricEnergy;
+        }
+
+        action isolateFaultedSection {
+            in protectionSignal : ProtectionSignal;
+            out isolated : Boolean;
+        }
+    }
+
+    part def StepDownTransformer {
+        attribute highSideVoltage : Voltage = 500 [kV];
+        attribute lowSideVoltage : Voltage = 138 [kV];
+        attribute ratedPower : ActivePower = 900 [MW];
+        attribute efficiency : Efficiency = 99.2 [percent];
+
+        port highVoltageSide : ElectricPowerPort;
+        port lowVoltageSide : ElectricPowerPort;
+        port transformerTelemetry : TelemetryPort;
+
+        action reduceVoltageForRegionalGrid {
+            in transmissionEnergy : ElectricEnergy;
+            out regionalGridEnergy : ElectricEnergy;
+        }
+    }
+
+    part def RegionalLoadCenter {
+        attribute peakDemand : ActivePower = 850 [MW];
+        attribute nominalReceivingVoltage : Voltage = 138 [kV];
+        attribute minimumAcceptableVoltage : Voltage = 124 [kV];
+        attribute maximumAcceptableVoltage : Voltage = 145 [kV];
+        attribute requiredFrequency : Frequency = 60 [Hz];
+
+        port loadInput : ElectricPowerPort;
+        port loadTelemetry : TelemetryPort;
+
+        action consumeDeliveredPower {
+            in deliveredEnergy : ElectricEnergy;
+            out demandServed : Boolean;
+        }
+    }
+
+    part def ProtectionAndControlSystem {
+        attribute maximumFaultClearingTime : TimeDuration = 0.10 [s];
+        attribute undervoltageTripThreshold : Voltage = 420 [kV];
+        attribute overcurrentTripThreshold : Current = 3000 [A];
+
+        port lineSignal : SignalPort;
+        port substationSignal : SignalPort;
+        port telemetryInput : TelemetryPort;
+
+        action monitorSystem {
+            in telemetry : TelemetryData;
+            out protectionDecision : ProtectionSignal;
+
+            first sampleTelemetry;
+            then compareAgainstLimits;
+            then identifyFaultLocation;
+            then issueTripWhenRequired;
+            then done;
+
+            action sampleTelemetry;
+            action compareAgainstLimits;
+            action identifyFaultLocation;
+            action issueTripWhenRequired;
+        }
+
+        state def ProtectionMode {
+            state armed;
+            state alarming;
+            state tripIssued;
+            state blockedForMaintenance;
+
+            entry; then armed;
+
+            transition alarmOnAbnormalCondition
+                first armed
+                accept abnormalTelemetry
+                then alarming;
+
+            transition tripOnConfirmedFault
+                first alarming
+                accept confirmedFault
+                then tripIssued;
+
+            transition returnToArmed
+                first alarming
+                accept conditionNormalized
+                then armed;
+
+            transition maintenanceBlock
+                first armed
+                accept maintenanceRequest
+                then blockedForMaintenance;
+
+            transition unblock
+                first blockedForMaintenance
+                accept maintenanceComplete
+                then armed;
+        }
+    }
+
+    part def SupervisoryControlCenter {
+        attribute operatorCommandLatency : TimeDuration = 2 [s];
+        attribute telemetryRefreshPeriod : TimeDuration = 1 [s];
+
+        port telemetryReceiver : TelemetryPort;
+        port controlSignal : SignalPort;
+
+        action superviseTransmission {
+            in telemetry : TelemetryData;
+            out operatorSignal : ProtectionSignal;
+        }
+    }
+
+    part def ElectricPowerTransmissionSystem {
+        attribute systemNominalVoltage : Voltage = 500 [kV];
+        attribute systemNominalFrequency : Frequency = 60 [Hz];
+        attribute transferCapacity : ActivePower = 1000 [MW];
+        attribute targetAvailability : Efficiency = 99.95 [percent];
+
+        port gridSupplyInterface : ElectricPowerPort;
+        port gridDeliveryInterface : ElectricPowerPort;
+        port controlInterface : SignalPort;
+        port telemetryInterface : TelemetryPort;
+
+        part generationPlant : GenerationPlant;
+        part stepUpTransformer : StepUpTransformer;
+        part sendingSubstation : SwitchingSubstation;
+        part transmissionLine : TransmissionLineSegment;
+        part receivingSubstation : SwitchingSubstation;
+        part stepDownTransformer : StepDownTransformer;
+        part regionalLoadCenter : RegionalLoadCenter;
+        part protectionAndControl : ProtectionAndControlSystem;
+        part controlCenter : SupervisoryControlCenter;
+
+        connect generationPlant.generatedPower to stepUpTransformer.lowVoltageSide;
+        connect stepUpTransformer.highVoltageSide to sendingSubstation.incomingLine;
+        connect sendingSubstation.outgoingLine to transmissionLine.sendingEnd;
+        connect transmissionLine.receivingEnd to receivingSubstation.incomingLine;
+        connect receivingSubstation.outgoingLine to stepDownTransformer.highVoltageSide;
+        connect stepDownTransformer.lowVoltageSide to regionalLoadCenter.loadInput;
+
+        connect transmissionLine.lineProtectionPort to protectionAndControl.lineSignal;
+        connect protectionAndControl.substationSignal to sendingSubstation.protectionInput;
+        connect protectionAndControl.substationSignal to receivingSubstation.protectionInput;
+        connect controlCenter.controlSignal to controlInterface;
+
+        connect gridSupplyInterface to generationPlant.generatedPower;
+        connect regionalLoadCenter.loadInput to gridDeliveryInterface;
+        connect protectionAndControl.lineSignal to controlInterface;
+        connect controlCenter.telemetryReceiver to telemetryInterface;
+
+        action transmitBulkElectricPower {
+            in sourceEnergy : ElectricEnergy;
+            out deliveredEnergy : ElectricEnergy;
+
+            first generateAtPlant;
+            then stepUpVoltage;
+            then routeThroughSendingSubstation;
+            then transferAcrossHighVoltageLine;
+            then routeThroughReceivingSubstation;
+            then stepDownVoltage;
+            then serveRegionalLoad;
+            then done;
+
+            action generateAtPlant;
+            action stepUpVoltage;
+            action routeThroughSendingSubstation;
+            action transferAcrossHighVoltageLine;
+            action routeThroughReceivingSubstation;
+            action stepDownVoltage;
+            action serveRegionalLoad;
+        }
+
+        state def SystemOperatingState {
+            state offline;
+            state energizing;
+            state normalTransmission;
+            state constrainedTransmission;
+            state faultIsolation;
+            state restoration;
+            state maintenance;
+
+            entry; then offline;
+
+            transition startEnergization
+                first offline
+                accept operatorEnergizeCommand
+                then energizing;
+
+            transition synchronizedAndStable
+                first energizing
+                accept voltageAndFrequencyStable
+                then normalTransmission;
+
+            transition reduceTransfer
+                first normalTransmission
+                accept thermalOrVoltageConstraint
+                then constrainedTransmission;
+
+            transition returnToNormal
+                first constrainedTransmission
+                accept constraintResolved
+                then normalTransmission;
+
+            transition isolateFault
+                first normalTransmission
+                accept protectionTrip
+                then faultIsolation;
+
+            transition restoreService
+                first faultIsolation
+                accept faultCleared
+                then restoration;
+
+            transition restorationComplete
+                first restoration
+                accept loadRestored
+                then normalTransmission;
+
+            transition enterMaintenance
+                first offline
+                accept maintenanceScheduled
+                then maintenance;
+
+            transition exitMaintenance
+                first maintenance
+                accept maintenanceReleased
+                then offline;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject transmissionSystem : ElectricPowerTransmissionSystem;
+
+        doc /* The electric power transmission system shall transfer bulk electric power from a generation source to a regional load center by increasing voltage for efficient long-distance transmission, routing power through substations, monitoring operating limits, isolating faults, reducing voltage for downstream use, and delivering power at acceptable voltage and frequency. */
+
+        require constraint {
+            transmissionSystem.transferCapacity >= 850 [MW]
+        }
+
+        require constraint {
+            transmissionSystem.systemNominalVoltage == 500 [kV]
+        }
+
+        require constraint {
+            transmissionSystem.systemNominalFrequency == 60 [Hz]
+        }
+    }
+
+    requirement def VoltageDeliveryRequirement {
+        subject loadCenter : RegionalLoadCenter;
+
+        doc /* Delivered voltage at the regional load center shall remain within the specified acceptable voltage band during normal transmission operation. */
+
+        require constraint {
+            loadCenter.nominalReceivingVoltage >= loadCenter.minimumAcceptableVoltage and
+            loadCenter.nominalReceivingVoltage <= loadCenter.maximumAcceptableVoltage
+        }
+    }
+
+    requirement def FaultIsolationRequirement {
+        subject protectionSystem : ProtectionAndControlSystem;
+
+        doc /* The protection and control system shall detect abnormal electrical conditions and issue isolation commands quickly enough to protect equipment and preserve grid stability. */
+
+        require constraint {
+            protectionSystem.maximumFaultClearingTime <= 0.10 [s]
+        }
+    }
+
+    requirement def TransmissionThermalLimitRequirement {
+        subject line : TransmissionLineSegment;
+
+        doc /* Transmission line current shall remain at or below the conductor thermal current limit during sustained normal operation. */
+
+        require constraint {
+            line.thermalCurrentLimit <= 2400 [A]
+        }
+
+        require constraint {
+            line.maximumConductorTemperature <= 85 [degC]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ElectricPowerTransmissionSystem::transmitBulkElectricPower;
+    satisfy VoltageDeliveryRequirement by StepDownTransformer::reduceVoltageForRegionalGrid;
+    satisfy FaultIsolationRequirement by ProtectionAndControlSystem::monitorSystem;
+    satisfy TransmissionThermalLimitRequirement by TransmissionLineSegment::transmitPower;
+
+    part transmissionSystem : ElectricPowerTransmissionSystem;
+
+}

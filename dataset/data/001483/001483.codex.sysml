@@ -1,0 +1,370 @@
+package KUKA_Workcell_Model {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent;
+  attribute def Millimeter;
+  attribute def Degree;
+  attribute def Kilogram;
+  attribute def Newton;
+  attribute def MeterPerSecond;
+  attribute def Second;
+  attribute def Volt;
+  attribute def Ampere;
+  attribute def Celsius;
+
+  item def MotionCommand {
+    attribute targetPose : RobotPose;
+    attribute speedOverride : Percent;
+    attribute blendRadius : Millimeter;
+    attribute toolSelection : ToolId;
+  }
+
+  item def RobotPose {
+    attribute x : Millimeter;
+    attribute y : Millimeter;
+    attribute z : Millimeter;
+    attribute a : Degree;
+    attribute b : Degree;
+    attribute c : Degree;
+  }
+
+  item def JointPosition {
+    attribute axis1 : Degree;
+    attribute axis2 : Degree;
+    attribute axis3 : Degree;
+    attribute axis4 : Degree;
+    attribute axis5 : Degree;
+    attribute axis6 : Degree;
+  }
+
+  item def ToolId {
+    attribute id : Integer;
+  }
+
+  item def GripperCommand {
+    attribute open : Boolean;
+    attribute gripForce : Newton;
+  }
+
+  item def PartBlank {
+    attribute mass : Kilogram;
+    attribute length : Millimeter;
+    attribute width : Millimeter;
+    attribute height : Millimeter;
+  }
+
+  item def FinishedPart {
+    attribute inspected : Boolean;
+    attribute accepted : Boolean;
+  }
+
+  item def SafetySignal {
+    attribute emergencyStopActive : Boolean;
+    attribute guardDoorClosed : Boolean;
+    attribute lightCurtainClear : Boolean;
+  }
+
+  item def RobotStatus {
+    attribute enabled : Boolean;
+    attribute faulted : Boolean;
+    attribute inAutomaticMode : Boolean;
+    attribute currentPose : RobotPose;
+    attribute currentJointPosition : JointPosition;
+    attribute payloadMass : Kilogram;
+  }
+
+  item def ProcessRequest {
+    attribute orderId : String;
+    attribute partType : String;
+    attribute quantity : Integer;
+  }
+
+  item def ProcessResult {
+    attribute orderId : String;
+    attribute completedQuantity : Integer;
+    attribute rejectedQuantity : Integer;
+    attribute cycleTime : Second;
+  }
+
+  port def CommandPort {
+    out item motionCommand : MotionCommand;
+    out item gripperCommand : GripperCommand;
+    in item robotStatus : RobotStatus;
+  }
+
+  port def SafetyPort {
+    in item safetySignal : SafetySignal;
+  }
+
+  port def MaterialInputPort {
+    in item blank : PartBlank;
+  }
+
+  port def MaterialOutputPort {
+    out item finishedPart : FinishedPart;
+  }
+
+  port def PowerPort {
+    in attribute voltage : Volt;
+    in attribute current : Ampere;
+  }
+
+  port def NetworkPort {
+    in item request : ProcessRequest;
+    out item result : ProcessResult;
+  }
+
+  part def KR6_RobotArm {
+    attribute manufacturer : String = "KUKA";
+    attribute model : String = "KR 6 R900-2";
+    attribute ratedPayload : Kilogram = 6;
+    attribute reach : Millimeter = 901;
+    attribute repeatability : Millimeter = 0.03;
+    attribute maxTcpSpeed : MeterPerSecond = 5.0;
+
+    port command : CommandPort;
+    port safety : SafetyPort;
+    port power : PowerPort;
+
+    part base;
+    part axis1;
+    part axis2;
+    part axis3;
+    part axis4;
+    part axis5;
+    part axis6;
+    part flange;
+
+    state def RobotArmStateMachine {
+      state poweredOff;
+      state booting;
+      state idle;
+      state homing;
+      state ready;
+      state executingMotion;
+      state holdingPart;
+      state faulted;
+      state safeStop;
+
+      transition first poweredOff;
+      transition poweredOff_to_booting first poweredOff then booting;
+      transition booting_to_idle first booting then idle;
+      transition idle_to_homing first idle then homing;
+      transition homing_to_ready first homing then ready;
+      transition ready_to_executing first ready then executingMotion;
+      transition executing_to_ready first executingMotion then ready;
+      transition executing_to_holding first executingMotion then holdingPart;
+      transition holding_to_executing first holdingPart then executingMotion;
+      transition any_to_safeStop first ready then safeStop;
+      transition executing_to_safeStop first executingMotion then safeStop;
+      transition safeStop_to_idle first safeStop then idle;
+      transition any_to_faulted first executingMotion then faulted;
+      transition faulted_to_idle first faulted then idle;
+    }
+
+    action moveToPose {
+      in item command : MotionCommand;
+      out item status : RobotStatus;
+    }
+
+    action stopMotion {
+      in item safety : SafetySignal;
+      out item status : RobotStatus;
+    }
+  }
+
+  part def KRC_Controller {
+    attribute manufacturer : String = "KUKA";
+    attribute controllerFamily : String = "KRC";
+    attribute controlCycleTime : Second = 0.012;
+    attribute cabinetTemperatureLimit : Celsius = 45;
+
+    port robotCommand : CommandPort;
+    port safety : SafetyPort;
+    port power : PowerPort;
+    port cellNetwork : NetworkPort;
+
+    action planPickPlaceCycle {
+      in item request : ProcessRequest;
+      out item pickCommand : MotionCommand;
+      out item placeCommand : MotionCommand;
+    }
+
+    action monitorRobot {
+      in item status : RobotStatus;
+      in item safety : SafetySignal;
+      out attribute productionPermitted : Boolean;
+    }
+  }
+
+  part def ServoGripper {
+    attribute jawStroke : Millimeter = 80;
+    attribute maximumGripForce : Newton = 180;
+    attribute toolMass : Kilogram = 2.4;
+
+    port command : CommandPort;
+    port safety : SafetyPort;
+    port power : PowerPort;
+
+    action gripPart {
+      in item blank : PartBlank;
+      in item command : GripperCommand;
+      out item heldBlank : PartBlank;
+    }
+
+    action releasePart {
+      in item heldBlank : PartBlank;
+      out item finishedPart : FinishedPart;
+    }
+  }
+
+  part def InfeedConveyor {
+    attribute beltSpeed : MeterPerSecond = 0.35;
+    attribute usableWidth : Millimeter = 420;
+    port materialOut : MaterialInputPort;
+    port safety : SafetyPort;
+    port power : PowerPort;
+  }
+
+  part def OutfeedConveyor {
+    attribute beltSpeed : MeterPerSecond = 0.35;
+    attribute usableWidth : Millimeter = 420;
+    port materialIn : MaterialOutputPort;
+    port safety : SafetyPort;
+    port power : PowerPort;
+  }
+
+  part def SafetySystem {
+    attribute safetyCategory : String = "ISO 13849-1 Category 3 PL d";
+
+    port robotSafety : SafetyPort;
+    port controllerSafety : SafetyPort;
+    port gripperSafety : SafetyPort;
+    port infeedSafety : SafetyPort;
+    port outfeedSafety : SafetyPort;
+
+    action evaluateCellSafety {
+      out item signal : SafetySignal;
+    }
+  }
+
+  part def HumanMachineInterface {
+    port network : NetworkPort;
+
+    action submitProductionOrder {
+      out item request : ProcessRequest;
+    }
+
+    action displayProductionResult {
+      in item result : ProcessResult;
+    }
+  }
+
+  part def KUKA_PickAndPlaceCell {
+    attribute primaryFunction : String =
+      "Use a KUKA industrial robot to automatically pick incoming parts, move them through a controlled trajectory, and place completed parts onto an outfeed station.";
+
+    part robot : KR6_RobotArm;
+    part controller : KRC_Controller;
+    part gripper : ServoGripper;
+    part infeed : InfeedConveyor;
+    part outfeed : OutfeedConveyor;
+    part safetySystem : SafetySystem;
+    part hmi : HumanMachineInterface;
+
+    connect controller.robotCommand to robot.command;
+    connect controller.robotCommand to gripper.command;
+    connect safetySystem.robotSafety to robot.safety;
+    connect safetySystem.controllerSafety to controller.safety;
+    connect safetySystem.gripperSafety to gripper.safety;
+    connect safetySystem.infeedSafety to infeed.safety;
+    connect safetySystem.outfeedSafety to outfeed.safety;
+    connect hmi.network to controller.cellNetwork;
+
+    flow infeed.materialOut.blank to gripper.gripPart.blank;
+    flow gripper.releasePart.finishedPart to outfeed.materialIn.finishedPart;
+
+    action performAutomaticCycle {
+      in item request : ProcessRequest;
+      in item blank : PartBlank;
+      out item result : ProcessResult;
+
+      first start;
+      then checkSafety;
+      then moveToPick;
+      then closeGripper;
+      then moveToPlace;
+      then openGripper;
+      then reportComplete;
+
+      action checkSafety {
+        out item signal : SafetySignal;
+      }
+
+      action moveToPick {
+        in item command : MotionCommand;
+        out item status : RobotStatus;
+      }
+
+      action closeGripper {
+        in item command : GripperCommand;
+        in item blank : PartBlank;
+        out item heldBlank : PartBlank;
+      }
+
+      action moveToPlace {
+        in item command : MotionCommand;
+        out item status : RobotStatus;
+      }
+
+      action openGripper {
+        in item heldBlank : PartBlank;
+        out item finishedPart : FinishedPart;
+      }
+
+      action reportComplete {
+        in item finishedPart : FinishedPart;
+        out item result : ProcessResult;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The system shall use a KUKA industrial robot as the central actuator to transfer parts from an input location to an output location under automatic controller supervision. */
+  }
+
+  requirement def PayloadRequirement {
+    doc /* The robot shall handle a nominal workpiece and end effector combined payload not exceeding 6 kg. */
+    require constraint { payloadMass <= 6 [Kilogram] }
+  }
+
+  requirement def ReachRequirement {
+    doc /* The robot shall reach both the infeed pick location and the outfeed place location within a 901 mm working envelope. */
+    require constraint { requiredReach <= 901 [Millimeter] }
+  }
+
+  requirement def RepeatabilityRequirement {
+    doc /* The robot shall place accepted parts with repeatability of 0.03 mm or better. */
+    require constraint { placementRepeatability <= 0.03 [Millimeter] }
+  }
+
+  requirement def SafetyRequirement {
+    doc /* The workcell shall remove motion power when an emergency stop is active, a guard door is open, or the light curtain is interrupted. */
+  }
+
+  requirement def CycleTimeRequirement {
+    doc /* The automatic pick-and-place cycle shall complete one part transfer in 12 seconds or less under nominal operating conditions. */
+    require constraint { cycleTime <= 12 [Second] }
+  }
+
+  satisfy PrimaryFunctionRequirement by KUKA_PickAndPlaceCell;
+  satisfy PayloadRequirement by KR6_RobotArm;
+  satisfy ReachRequirement by KR6_RobotArm;
+  satisfy RepeatabilityRequirement by KR6_RobotArm;
+  satisfy SafetyRequirement by SafetySystem;
+  satisfy CycleTimeRequirement by KUKA_PickAndPlaceCell;
+
+}

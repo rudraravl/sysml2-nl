@@ -1,0 +1,325 @@
+package DisabilityRobotSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  attribute def Newton : Real {
+    unit = "N";
+  }
+
+  attribute def MeterPerSecond : Real {
+    unit = "m/s";
+  }
+
+  attribute def Kilogram : Real {
+    unit = "kg";
+  }
+
+  item def VoiceCommand {
+    attribute phrase : String;
+    attribute confidence : Percent;
+  }
+
+  item def MobilityIntent {
+    attribute targetLocation : String;
+    attribute requestedSpeed : MeterPerSecond;
+    attribute assistanceMode : AssistanceModeKind;
+  }
+
+  item def ManipulationIntent {
+    attribute objectName : String;
+    attribute targetPoseDescription : String;
+    attribute maximumGripForce : Newton;
+  }
+
+  item def VitalStatus {
+    attribute heartRate_bpm : Integer;
+    attribute fallDetected : Boolean;
+    attribute distressDetected : Boolean;
+  }
+
+  item def NavigationMap {
+    attribute mapId : String;
+    attribute resolution_m : Real;
+    attribute lastUpdated_s : Real;
+  }
+
+  enum def AssistanceModeKind {
+    enum manualGuidance;
+    enum autonomousEscort;
+    enum objectRetrieval;
+    enum emergencySupport;
+  }
+
+  enum def RobotHealthKind {
+    enum nominal;
+    enum degraded;
+    enum unsafe;
+    enum emergencyStop;
+  }
+
+  port def CommandPort {
+    in item command : VoiceCommand;
+  }
+
+  port def IntentPort {
+    in item mobilityIntent : MobilityIntent;
+    in item manipulationIntent : ManipulationIntent;
+  }
+
+  port def StatusPort {
+    out item vitalStatus : VitalStatus;
+    out attribute health : RobotHealthKind;
+  }
+
+  port def PowerPort {
+    in attribute voltage_V : Real;
+    out attribute current_A : Real;
+  }
+
+  port def DataPort {
+    inout item map : NavigationMap;
+  }
+
+  port def DrivePort {
+    out attribute leftWheelTorque_Nm : Real;
+    out attribute rightWheelTorque_Nm : Real;
+  }
+
+  port def ArmPort {
+    out attribute jointTorque_Nm : Real[6];
+    in attribute contactForce_N : Newton;
+  }
+
+  port def SafetyPort {
+    in attribute obstacleDistance_m : Real;
+    in attribute emergencyStopPressed : Boolean;
+    out attribute safeToMove : Boolean;
+  }
+
+  part def User {
+    attribute bodyMass : Kilogram = 72.0;
+    attribute preferredWalkingSpeed : MeterPerSecond = 0.7;
+    port commandPort : CommandPort;
+    port intentPort : IntentPort;
+    port statusInput : StatusPort;
+  }
+
+  part def DisabilityRobot {
+    attribute mass : Kilogram = 48.0;
+    attribute maximumSpeed : MeterPerSecond = 1.2;
+    attribute payloadCapacity : Kilogram = 8.0;
+    attribute batteryStateOfCharge : Percent = 100.0;
+    attribute operatingHealth : RobotHealthKind = RobotHealthKind::nominal;
+
+    port commandInput : CommandPort;
+    port intentInput : IntentPort;
+    port statusOutput : StatusPort;
+    port powerInput : PowerPort;
+    port mapPort : DataPort;
+    port driveOutput : DrivePort;
+    port armOutput : ArmPort;
+    port safetyInput : SafetyPort;
+
+    part perceptionSubsystem : PerceptionSubsystem;
+    part navigationSubsystem : NavigationSubsystem;
+    part manipulationSubsystem : ManipulationSubsystem;
+    part mobilityBase : MobilityBase;
+    part safetyController : SafetyController;
+    part humanInterface : HumanInterface;
+    part batterySystem : BatterySystem;
+
+    connect commandInput to humanInterface.voiceInput;
+    connect intentInput to humanInterface.intentInput;
+    connect humanInterface.intentOutput to navigationSubsystem.intentInput;
+    connect humanInterface.intentOutput to manipulationSubsystem.intentInput;
+    connect perceptionSubsystem.mapOutput to navigationSubsystem.mapInput;
+    connect perceptionSubsystem.safetyOutput to safetyController.safetyInput;
+    connect safetyController.drivePermission to navigationSubsystem.safetyInput;
+    connect navigationSubsystem.driveCommand to mobilityBase.driveInput;
+    connect manipulationSubsystem.armCommand to armOutput;
+    connect mobilityBase.driveOutput to driveOutput;
+    connect batterySystem.powerOutput to powerInput;
+  }
+
+  part def PerceptionSubsystem {
+    attribute lidarRange_m : Real = 8.0;
+    attribute cameraFieldOfView_deg : Real = 120.0;
+    port mapOutput : DataPort;
+    port safetyOutput : SafetyPort;
+  }
+
+  part def NavigationSubsystem {
+    attribute plannedPathLength_m : Real;
+    attribute activeGoal : String;
+    port intentInput : IntentPort;
+    port mapInput : DataPort;
+    port safetyInput : SafetyPort;
+    port driveCommand : DrivePort;
+  }
+
+  part def ManipulationSubsystem {
+    attribute gripperOpening_m : Real = 0.08;
+    attribute gripForceLimit : Newton = 35.0;
+    port intentInput : IntentPort;
+    port armCommand : ArmPort;
+  }
+
+  part def MobilityBase {
+    attribute wheelRadius_m : Real = 0.12;
+    attribute trackWidth_m : Real = 0.54;
+    port driveInput : DrivePort;
+    port driveOutput : DrivePort;
+  }
+
+  part def SafetyController {
+    attribute minimumObstacleClearance_m : Real = 0.45;
+    attribute maximumAssistForce : Newton = 120.0;
+    port safetyInput : SafetyPort;
+    port drivePermission : SafetyPort;
+  }
+
+  part def HumanInterface {
+    attribute speechRecognitionThreshold : Percent = 82.0;
+    attribute hapticAlertEnabled : Boolean = true;
+    port voiceInput : CommandPort;
+    port intentInput : IntentPort;
+    port intentOutput : IntentPort;
+  }
+
+  part def BatterySystem {
+    attribute capacity_Wh : Real = 960.0;
+    attribute nominalVoltage_V : Real = 48.0;
+    attribute minimumSafeCharge : Percent = 15.0;
+    port powerOutput : PowerPort;
+  }
+
+  action def InterpretUserCommand {
+    in item voice : VoiceCommand;
+    out item mobilityIntent : MobilityIntent;
+    out item manipulationIntent : ManipulationIntent;
+  }
+
+  action def BuildAccessibleRoute {
+    in item map : NavigationMap;
+    in item intent : MobilityIntent;
+    out attribute pathLength_m : Real;
+    out attribute routeIsAccessible : Boolean;
+  }
+
+  action def EscortUser {
+    in item intent : MobilityIntent;
+    in attribute safeToMove : Boolean;
+    out attribute commandedSpeed : MeterPerSecond;
+  }
+
+  action def RetrieveObject {
+    in item intent : ManipulationIntent;
+    in attribute contactForce : Newton;
+    out attribute objectSecured : Boolean;
+  }
+
+  action def MonitorSafety {
+    in attribute obstacleDistance_m : Real;
+    in item vitalStatus : VitalStatus;
+    out attribute emergencyStopRequired : Boolean;
+    out attribute safeToMove : Boolean;
+  }
+
+  state def DisabilityRobotOperatingState {
+    attribute health : RobotHealthKind;
+
+    state Initializing;
+    state Idle;
+    state Listening;
+    state PlanningAssistance;
+    state EscortingUser;
+    state RetrievingObject;
+    state Charging;
+    state EmergencyStop;
+
+    transition first Initializing;
+    transition Initializing then Idle;
+    transition Idle then Listening
+      if batteryStateOfCharge > 15.0;
+    transition Listening then PlanningAssistance
+      if operatingHealth == RobotHealthKind::nominal;
+    transition PlanningAssistance then EscortingUser
+      if activeGoal != "";
+    transition PlanningAssistance then RetrievingObject
+      if payloadCapacity >= 1.0;
+    transition EscortingUser then Idle
+      if plannedPathLength_m <= 0.1;
+    transition RetrievingObject then Idle
+      if gripForceLimit <= 35.0;
+    transition Idle then Charging
+      if batteryStateOfCharge <= 15.0;
+    transition Charging then Idle
+      if batteryStateOfCharge >= 90.0;
+    transition Initializing then EmergencyStop
+      if operatingHealth == RobotHealthKind::unsafe;
+    transition Listening then EmergencyStop
+      if operatingHealth == RobotHealthKind::emergencyStop;
+    transition EscortingUser then EmergencyStop
+      if operatingHealth == RobotHealthKind::emergencyStop;
+    transition RetrievingObject then EmergencyStop
+      if operatingHealth == RobotHealthKind::emergencyStop;
+  }
+
+  requirement def PrimaryAssistiveTaskRequirement {
+    doc /* The robotic system shall use the DisabilityRobot to assist a disabled user by interpreting commands, navigating accessible indoor routes, escorting the user, retrieving lightweight objects, and maintaining continuous safety monitoring. */
+  }
+
+  requirement def SafeMobilityRequirement {
+    doc /* The DisabilityRobot shall stop commanded base motion when an obstacle is detected within 0.45 m or when an emergency stop input is active. */
+    attribute requiredClearance_m : Real = 0.45;
+  }
+
+  requirement def ObjectRetrievalRequirement {
+    doc /* The DisabilityRobot shall retrieve objects up to 8 kg while limiting gripper force to 35 N unless explicitly overridden by a clinical configuration. */
+    attribute maximumObjectMass_kg : Real = 8.0;
+    attribute maximumGripForce_N : Real = 35.0;
+  }
+
+  requirement def BatteryEnduranceRequirement {
+    doc /* The DisabilityRobot shall reserve at least 15 percent battery state of charge before accepting a new autonomous escort or retrieval task. */
+    attribute reserveCharge : Percent = 15.0;
+  }
+
+  requirement def HumanCommandRequirement {
+    doc /* The HumanInterface shall accept voice commands only when speech recognition confidence is at least 82 percent, and shall request clarification below that threshold. */
+    attribute minimumConfidence : Percent = 82.0;
+  }
+
+  requirement def VitalMonitoringRequirement {
+    doc /* The DisabilityRobot shall monitor fall and distress indicators during all active assistance states and shall enter emergency support behavior when distress is detected. */
+  }
+
+  part system : AssistiveRoboticSystem;
+
+  part def AssistiveRoboticSystem {
+    part assistedUser : User;
+    part disabilityRobot : DisabilityRobot;
+
+    connect assistedUser.commandPort to disabilityRobot.commandInput;
+    connect assistedUser.intentPort to disabilityRobot.intentInput;
+    connect disabilityRobot.statusOutput to assistedUser.statusInput;
+
+    perform action InterpretUserCommand;
+    perform action BuildAccessibleRoute;
+    perform action EscortUser;
+    perform action RetrieveObject;
+    perform action MonitorSafety;
+
+    satisfy PrimaryAssistiveTaskRequirement by disabilityRobot;
+    satisfy SafeMobilityRequirement by disabilityRobot.safetyController;
+    satisfy ObjectRetrievalRequirement by disabilityRobot.manipulationSubsystem;
+    satisfy BatteryEnduranceRequirement by disabilityRobot.batterySystem;
+    satisfy HumanCommandRequirement by disabilityRobot.humanInterface;
+    satisfy VitalMonitoringRequirement by disabilityRobot;
+  }
+}

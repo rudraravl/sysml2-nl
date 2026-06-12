@@ -1,0 +1,1195 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2wnnjl5q
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6b3-c1a0-7983-a33e-f6d5ec00d773
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Graphene and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package GrapheneBasedSystemSpecification {
+
+  import ScalarValues::*;
+
+  value def Length {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  value def Area {
+    attribute value : Real;
+    attribute unit : String = "m^2";
+  }
+
+  value def Thickness {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  value def Temperature {
+    attribute value : Real;
+    attribute unit : String = "K";
+  }
+
+  value def TemperatureDifference {
+    attribute value : Real;
+    attribute unit : String = "K";
+  }
+
+  value def HeatFlowRate {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  value def ThermalConductivity {
+    attribute value : Real;
+    attribute unit : String = "W/(m*K)";
+  }
+
+  value def ThermalResistance {
+    attribute value : Real;
+    attribute unit : String = "K/W";
+  }
+
+  value def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  value def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  value def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  value def Mass {
+    attribute value : Real;
+    attribute unit : String = "kg";
+  }
+
+  value def Time {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  value def Percent {
+    attribute value : Real;
+    attribute unit : "%";
+  }
+
+  enum def OperatingMode {
+    enum off;
+    enum standby;
+    enum heatSpreading;
+    enum boostedCooling;
+    enum degraded;
+    enum fault;
+  }
+
+  enum def FaultKind {
+    enum none;
+    enum overTemperature;
+    enum sensorFailure;
+    enum fanFailure;
+    enum powerLoss;
+    enum interfaceDelamination;
+  }
+
+  item def ThermalEnergyFlow {
+    attribute heatRate : HeatFlowRate;
+    attribute sourceTemperature : Temperature;
+    attribute destinationTemperature : Temperature;
+  }
+
+  item def ElectricalPowerFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def TemperatureSample {
+    attribute measuredTemperature : Temperature;
+    attribute sampleAge : Time;
+    attribute valid : Boolean;
+  }
+
+  item def ControlCommand {
+    attribute requestedMode : OperatingMode;
+    attribute fanDutyCycle : Percent;
+    attribute alarmEnabled : Boolean;
+  }
+
+  item def FaultReport {
+    attribute kind : FaultKind;
+    attribute active : Boolean;
+    attribute detectedAt : Time;
+  }
+
+  port def HeatPort {
+    in item incomingHeat : ThermalEnergyFlow;
+    out item outgoingHeat : ThermalEnergyFlow;
+    attribute interfaceTemperature : Temperature;
+  }
+
+  port def CoolingPort {
+    in item absorbedHeat : ThermalEnergyFlow;
+    out item rejectedHeat : ThermalEnergyFlow;
+    attribute coolantOrAirTemperature : Temperature;
+  }
+
+  port def PowerPort {
+    in item suppliedPower : ElectricalPowerFlow;
+  }
+
+  port def SensorPort {
+    out item sample : TemperatureSample;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+    out item fault : FaultReport;
+  }
+
+  part def GrapheneLayer {
+    attribute layerLength : Length;
+    attribute layerWidth : Length;
+    attribute layerArea : Area;
+    attribute layerThickness : Thickness;
+    attribute mass : Mass;
+    attribute inPlaneThermalConductivity : ThermalConductivity;
+    attribute crossPlaneThermalConductivity : ThermalConductivity;
+    attribute maximumServiceTemperature : Temperature;
+    attribute sheetIntegrity : Percent;
+
+    port hotSide : HeatPort;
+    port spreadSide : HeatPort;
+  }
+
+  part def HeatSourceInterface {
+    attribute contactArea : Area;
+    attribute contactResistance : ThermalResistance;
+    attribute maximumAllowedTemperature : Temperature;
+
+    port heatInput : HeatPort;
+    port heatOutput : HeatPort;
+  }
+
+  part def ThermalInterfaceMaterial {
+    attribute bondLineThickness : Thickness;
+    attribute thermalConductivity : ThermalConductivity;
+    attribute voidFraction : Percent;
+    attribute thermalResistance : ThermalResistance;
+
+    port sourceSide : HeatPort;
+    port grapheneSide : HeatPort;
+  }
+
+  part def HeatSink {
+    attribute finArea : Area;
+    attribute baseThickness : Thickness;
+    attribute thermalResistanceToAmbient : ThermalResistance;
+    attribute ambientTemperature : Temperature;
+
+    port base : HeatPort;
+    port airSide : CoolingPort;
+  }
+
+  part def Fan {
+    attribute ratedPower : Power;
+    attribute dutyCycle : Percent;
+    attribute available : Boolean;
+
+    port power : PowerPort;
+    port command : CommandPort;
+    port coolingFlow : CoolingPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow : Temperature;
+    attribute measurementRangeHigh : Temperature;
+    attribute accuracy : TemperatureDifference;
+    attribute healthy : Boolean;
+
+    port senseInterface : HeatPort;
+    port telemetry : SensorPort;
+  }
+
+  part def ThermalController {
+    attribute mode : OperatingMode;
+    attribute lastFault : FaultKind;
+    attribute controlPeriod : Time;
+    attribute highTemperatureThreshold : Temperature;
+    attribute criticalTemperatureThreshold : Temperature;
+    attribute recoveryTemperatureThreshold : Temperature;
+
+    port power : PowerPort;
+    port sensorInput : SensorPort;
+    port fanControl : CommandPort;
+    port systemCommand : CommandPort;
+  }
+
+  part def GrapheneThermalSpreaderSystem {
+    attribute primaryFunction : String =
+      "Use a high-conductivity graphene layer to spread concentrated heat from an electronic heat source across a larger heat rejection surface, reducing local hot spots and maintaining the protected device below its allowable operating temperature.";
+
+    attribute ratedHeatLoad : HeatFlowRate;
+    attribute maximumHeatLoad : HeatFlowRate;
+    attribute targetJunctionTemperature : Temperature;
+    attribute ambientDesignTemperature : Temperature;
+    attribute totalMass : Mass;
+
+    port heatSourcePort : HeatPort;
+    port ambientCoolingPort : CoolingPort;
+    port electricalPowerPort : PowerPort;
+    port supervisoryPort : CommandPort;
+
+    part sourceInterface : HeatSourceInterface {
+      attribute contactArea = Area { value = 0.0004; unit = "m^2"; }
+      attribute contactResistance = ThermalResistance { value = 0.08; unit = "K/W"; }
+      attribute maximumAllowedTemperature = Temperature { value = 358.15; unit = "K"; }
+    }
+
+    part interfaceMaterial : ThermalInterfaceMaterial {
+      attribute bondLineThickness = Thickness { value = 0.00005; unit = "m"; }
+      attribute thermalConductivity = ThermalConductivity { value = 8.0; unit = "W/(m*K)"; }
+      attribute voidFraction = Percent { value = 2.0; unit = "%"; }
+      attribute thermalResistance = ThermalResistance { value = 0.12; unit = "K/W"; }
+    }
+
+    part grapheneSheet : GrapheneLayer {
+      attribute layerLength = Length { value = 0.080; unit = "m"; }
+      attribute layerWidth = Length { value = 0.060; unit = "m"; }
+      attribute layerArea = Area { value = 0.0048; unit = "m^2"; }
+      attribute layerThickness = Thickness { value = 0.000025; unit = "m"; }
+      attribute mass = Mass { value = 0.00018; unit = "kg"; }
+      attribute inPlaneThermalConductivity = ThermalConductivity { value = 1500.0; unit = "W/(m*K)"; }
+      attribute crossPlaneThermalConductivity = ThermalConductivity { value = 12.0; unit = "W/(m*K)"; }
+      attribute maximumServiceTemperature = Temperature { value = 423.15; unit = "K"; }
+      attribute sheetIntegrity = Percent { value = 100.0; unit = "%"; }
+    }
+
+    part heatSink : HeatSink {
+      attribute finArea = Area { value = 0.045; unit = "m^2"; }
+      attribute baseThickness = Thickness { value = 0.004; unit = "m"; }
+      attribute thermalResistanceToAmbient = ThermalResistance { value = 0.65; unit = "K/W"; }
+      attribute ambientTemperature = Temperature { value = 313.15; unit = "K"; }
+    }
+
+    part fan : Fan {
+      attribute ratedPower = Power { value = 1.8; unit = "W"; }
+      attribute dutyCycle = Percent { value = 0.0; unit = "%"; }
+      attribute available = true;
+    }
+
+    part hotSpotSensor : TemperatureSensor {
+      attribute measurementRangeLow = Temperature { value = 233.15; unit = "K"; }
+      attribute measurementRangeHigh = Temperature { value = 423.15; unit = "K"; }
+      attribute accuracy = TemperatureDifference { value = 1.0; unit = "K"; }
+      attribute healthy = true;
+    }
+
+    part edgeSensor : TemperatureSensor {
+      attribute measurementRangeLow = Temperature { value = 233.15; unit = "K"; }
+      attribute measurementRangeHigh = Temperature { value = 423.15; unit = "K"; }
+      attribute accuracy = TemperatureDifference { value = 1.5; unit = "K"; }
+      attribute healthy = true;
+    }
+
+    part controller : ThermalController {
+      attribute mode = OperatingMode::standby;
+      attribute lastFault = FaultKind::none;
+      attribute controlPeriod = Time { value = 0.25; unit = "s"; }
+      attribute highTemperatureThreshold = Temperature { value = 343.15; unit = "K"; }
+      attribute criticalTemperatureThreshold = Temperature { value = 358.15; unit = "K"; }
+      attribute recoveryTemperatureThreshold = Temperature { value = 333.15; unit = "K"; }
+    }
+
+    connect heatSourcePort to sourceInterface.heatInput;
+    connect sourceInterface.heatOutput to interfaceMaterial.sourceSide;
+    connect interfaceMaterial.grapheneSide to grapheneSheet.hotSide;
+    connect grapheneSheet.spreadSide to heatSink.base;
+    connect heatSink.airSide to fan.coolingFlow;
+    connect fan.coolingFlow to ambientCoolingPort;
+    connect electricalPowerPort to fan.power;
+    connect electricalPowerPort to controller.power;
+    connect grapheneSheet.hotSide to hotSpotSensor.senseInterface;
+    connect grapheneSheet.spreadSide to edgeSensor.senseInterface;
+    connect hotSpotSensor.telemetry to controller.sensorInput;
+    connect edgeSensor.telemetry to controller.sensorInput;
+    connect controller.fanControl to fan.command;
+    connect supervisoryPort to controller.systemCommand;
+  }
+
+  action def AcquireTemperature {
+    in port sensor : SensorPort;
+    out item sample : TemperatureSample;
+  }
+
+  action def EstimateThermalGradient {
+    in item hotSpot : TemperatureSample;
+    in item spreadEdge : TemperatureSample;
+    out attribute gradient : TemperatureDifference;
+  }
+
+  action def SpreadHeatWithGraphene {
+    in item localizedHeat : ThermalEnergyFlow;
+    in part graphene : GrapheneLayer;
+    out item distributedHeat : ThermalEnergyFlow;
+
+    assert constraint {
+      graphene.sheetIntegrity.value >= 95.0
+    }
+  }
+
+  action def RejectHeatToAmbient {
+    in item distributedHeat : ThermalEnergyFlow;
+    in part sink : HeatSink;
+    in part fanUnit : Fan;
+    out item rejectedHeat : ThermalEnergyFlow;
+  }
+
+  action def RegulateCooling {
+    in item hotSpotSample : TemperatureSample;
+    in item edgeSample : TemperatureSample;
+    inout part controller : ThermalController;
+    out item command : ControlCommand;
+
+    if hotSpotSample.valid == false then {
+      controller.lastFault = FaultKind::sensorFailure;
+      controller.mode = OperatingMode::fault;
+      command.alarmEnabled = true;
+      command.fanDutyCycle = Percent { value = 100.0; unit = "%"; }
+      command.requestedMode = OperatingMode::fault;
+    } else if hotSpotSample.measuredTemperature.value >= controller.criticalTemperatureThreshold.value then {
+      controller.lastFault = FaultKind::overTemperature;
+      controller.mode = OperatingMode::fault;
+      command.alarmEnabled = true;
+      command.fanDutyCycle = Percent { value = 100.0; unit = "%"; }
+      command.requestedMode = OperatingMode::fault;
+    } else if hotSpotSample.measuredTemperature.value >= controller.highTemperatureThreshold.value then {
+      controller.mode = OperatingMode::boostedCooling;
+      command.alarmEnabled = false;
+      command.fanDutyCycle = Percent { value = 85.0; unit = "%"; }
+      command.requestedMode = OperatingMode::boostedCooling;
+    } else if hotSpotSample.measuredTemperature.value <= controller.recoveryTemperatureThreshold.value then {
+      controller.mode = OperatingMode::heatSpreading;
+      command.alarmEnabled = false;
+      command.fanDutyCycle = Percent { value = 35.0; unit = "%"; }
+      command.requestedMode = OperatingMode::heatSpreading;
+    } else {
+      controller.mode = OperatingMode::heatSpreading;
+      command.alarmEnabled = false;
+      command.fanDutyCycle = Percent { value = 55.0; unit = "%"; }
+      command.requestedMode = OperatingMode::heatSpreading;
+    }
+  }
+
+  state def GrapheneThermalSystemStateMachine {
+    attribute currentMode : OperatingMode;
+    attribute activeFault : FaultKind;
+
+    state off;
+    state standby;
+    state heatSpreading;
+    state boostedCooling;
+    state degraded;
+    state fault;
+
+    transition initial then off;
+
+    transition powerApplied
+      first off
+      then standby
+      effect {
+        currentMode = OperatingMode::standby;
+        activeFault = FaultKind::none;
+      }
+
+    transition heatLoadDetected
+      first standby
+      then heatSpreading
+      effect {
+        currentMode = OperatingMode::heatSpreading;
+      }
+
+    transition temperatureHigh
+      first heatSpreading
+      then boostedCooling
+      guard currentMode == OperatingMode::heatSpreading
+      effect {
+        currentMode = OperatingMode::boostedCooling;
+      }
+
+    transition temperatureRecovered
+      first boostedCooling
+      then heatSpreading
+      guard activeFault == FaultKind::none
+      effect {
+        currentMode = OperatingMode::heatSpreading;
+      }
+
+    transition coolingCapacityReduced
+      first heatSpreading
+      then degraded
+      effect {
+        currentMode = OperatingMode::degraded;
+        activeFault = FaultKind::fanFailure;
+      }
+
+    transition criticalFaultDetected
+      first heatSpreading
+      then fault
+      effect {
+        currentMode = OperatingMode::fault;
+      }
+
+    transition boostedCriticalFaultDetected
+      first boostedCooling
+      then fault
+      effect {
+        currentMode = OperatingMode::fault;
+      }
+
+    transition degradedCriticalFaultDetected
+      first degraded
+      then fault
+      effect {
+        currentMode = OperatingMode::fault;
+      }
+
+    transition resetAfterFault
+      first fault
+      then standby
+      guard activeFault == FaultKind::none
+      effect {
+        currentMode = OperatingMode::standby;
+      }
+
+    transition powerRemovedFromStandby
+      first standby
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+
+    transition powerRemovedFromOperating
+      first heatSpreading
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+
+    transition powerRemovedFromBoosted
+      first boostedCooling
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+
+    transition powerRemovedFromFault
+      first fault
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Use a high-conductivity graphene layer to spread concentrated heat from an electronic heat source across a larger heat rejection surface, reducing local hot spots and maintaining the protected device below its allowable operating temperature."
+    }
+  }
+
+  requirement def HeatLoadRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.ratedHeatLoad.value >= 35.0 and
+      system.maximumHeatLoad.value >= 55.0
+    }
+  }
+
+  requirement def JunctionTemperatureRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.sourceInterface.maximumAllowedTemperature.value <= 358.15
+    }
+  }
+
+  requirement def GrapheneConductivityRequirement {
+    subject graphene : GrapheneLayer;
+
+    require constraint {
+      graphene.inPlaneThermalConductivity.value >= 1000.0 and
+      graphene.crossPlaneThermalConductivity.value >= 8.0
+    }
+  }
+
+  requirement def ThermalInterfaceRequirement {
+    subject interfaceMaterial : ThermalInterfaceMaterial;
+
+    require constraint {
+      interfaceMaterial.thermalResistance.value <= 0.15 and
+      interfaceMaterial.voidFraction.value <= 5.0
+    }
+  }
+
+  requirement def CoolingControlRequirement {
+    subject controller : ThermalController;
+
+    require constraint {
+      controller.highTemperatureThreshold.value < controller.criticalTemperatureThreshold.value and
+      controller.recoveryTemperatureThreshold.value < controller.highTemperatureThreshold.value
+    }
+  }
+
+  requirement def SensorCoverageRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.hotSpotSensor.healthy == true and
+      system.edgeSensor.healthy == true
+    }
+  }
+
+  requirement def FailSafeCoolingRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.controller.lastFault == FaultKind::none or
+      system.fan.dutyCycle.value == 100.0
+    }
+  }
+
+  requirement def MassLimitRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.totalMass.value <= 0.250
+    }
+  }
+
+  part systemUnderSpecification : GrapheneThermalSpreaderSystem {
+    attribute ratedHeatLoad = HeatFlowRate { value = 35.0; unit = "W"; }
+    attribute maximumHeatLoad = HeatFlowRate { value = 55.0; unit = "W"; }
+    attribute targetJunctionTemperature = Temperature { value = 343.15; unit = "K"; }
+    attribute ambientDesignTemperature = Temperature { value = 313.15; unit = "K"; }
+    attribute totalMass = Mass { value = 0.185; unit = "kg"; }
+  }
+
+  satisfy PrimaryFunctionRequirement by systemUnderSpecification;
+  satisfy HeatLoadRequirement by systemUnderSpecification;
+  satisfy JunctionTemperatureRequirement by systemUnderSpecification.sourceInterface;
+  satisfy GrapheneConductivityRequirement by systemUnderSpecification.grapheneSheet;
+  satisfy ThermalInterfaceRequirement by systemUnderSpecification.interfaceMaterial;
+  satisfy CoolingControlRequirement by systemUnderSpecification.controller;
+  satisfy SensorCoverageRequirement by systemUnderSpecification;
+  satisfy FailSafeCoolingRequirement by systemUnderSpecification;
+  satisfy MassLimitRequirement by systemUnderSpecification;
+}
+tokens used
+5,958
+package GrapheneBasedSystemSpecification {
+
+  import ScalarValues::*;
+
+  value def Length {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  value def Area {
+    attribute value : Real;
+    attribute unit : String = "m^2";
+  }
+
+  value def Thickness {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  value def Temperature {
+    attribute value : Real;
+    attribute unit : String = "K";
+  }
+
+  value def TemperatureDifference {
+    attribute value : Real;
+    attribute unit : String = "K";
+  }
+
+  value def HeatFlowRate {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  value def ThermalConductivity {
+    attribute value : Real;
+    attribute unit : String = "W/(m*K)";
+  }
+
+  value def ThermalResistance {
+    attribute value : Real;
+    attribute unit : String = "K/W";
+  }
+
+  value def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  value def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  value def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  value def Mass {
+    attribute value : Real;
+    attribute unit : String = "kg";
+  }
+
+  value def Time {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  value def Percent {
+    attribute value : Real;
+    attribute unit : "%";
+  }
+
+  enum def OperatingMode {
+    enum off;
+    enum standby;
+    enum heatSpreading;
+    enum boostedCooling;
+    enum degraded;
+    enum fault;
+  }
+
+  enum def FaultKind {
+    enum none;
+    enum overTemperature;
+    enum sensorFailure;
+    enum fanFailure;
+    enum powerLoss;
+    enum interfaceDelamination;
+  }
+
+  item def ThermalEnergyFlow {
+    attribute heatRate : HeatFlowRate;
+    attribute sourceTemperature : Temperature;
+    attribute destinationTemperature : Temperature;
+  }
+
+  item def ElectricalPowerFlow {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute power : Power;
+  }
+
+  item def TemperatureSample {
+    attribute measuredTemperature : Temperature;
+    attribute sampleAge : Time;
+    attribute valid : Boolean;
+  }
+
+  item def ControlCommand {
+    attribute requestedMode : OperatingMode;
+    attribute fanDutyCycle : Percent;
+    attribute alarmEnabled : Boolean;
+  }
+
+  item def FaultReport {
+    attribute kind : FaultKind;
+    attribute active : Boolean;
+    attribute detectedAt : Time;
+  }
+
+  port def HeatPort {
+    in item incomingHeat : ThermalEnergyFlow;
+    out item outgoingHeat : ThermalEnergyFlow;
+    attribute interfaceTemperature : Temperature;
+  }
+
+  port def CoolingPort {
+    in item absorbedHeat : ThermalEnergyFlow;
+    out item rejectedHeat : ThermalEnergyFlow;
+    attribute coolantOrAirTemperature : Temperature;
+  }
+
+  port def PowerPort {
+    in item suppliedPower : ElectricalPowerFlow;
+  }
+
+  port def SensorPort {
+    out item sample : TemperatureSample;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+    out item fault : FaultReport;
+  }
+
+  part def GrapheneLayer {
+    attribute layerLength : Length;
+    attribute layerWidth : Length;
+    attribute layerArea : Area;
+    attribute layerThickness : Thickness;
+    attribute mass : Mass;
+    attribute inPlaneThermalConductivity : ThermalConductivity;
+    attribute crossPlaneThermalConductivity : ThermalConductivity;
+    attribute maximumServiceTemperature : Temperature;
+    attribute sheetIntegrity : Percent;
+
+    port hotSide : HeatPort;
+    port spreadSide : HeatPort;
+  }
+
+  part def HeatSourceInterface {
+    attribute contactArea : Area;
+    attribute contactResistance : ThermalResistance;
+    attribute maximumAllowedTemperature : Temperature;
+
+    port heatInput : HeatPort;
+    port heatOutput : HeatPort;
+  }
+
+  part def ThermalInterfaceMaterial {
+    attribute bondLineThickness : Thickness;
+    attribute thermalConductivity : ThermalConductivity;
+    attribute voidFraction : Percent;
+    attribute thermalResistance : ThermalResistance;
+
+    port sourceSide : HeatPort;
+    port grapheneSide : HeatPort;
+  }
+
+  part def HeatSink {
+    attribute finArea : Area;
+    attribute baseThickness : Thickness;
+    attribute thermalResistanceToAmbient : ThermalResistance;
+    attribute ambientTemperature : Temperature;
+
+    port base : HeatPort;
+    port airSide : CoolingPort;
+  }
+
+  part def Fan {
+    attribute ratedPower : Power;
+    attribute dutyCycle : Percent;
+    attribute available : Boolean;
+
+    port power : PowerPort;
+    port command : CommandPort;
+    port coolingFlow : CoolingPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow : Temperature;
+    attribute measurementRangeHigh : Temperature;
+    attribute accuracy : TemperatureDifference;
+    attribute healthy : Boolean;
+
+    port senseInterface : HeatPort;
+    port telemetry : SensorPort;
+  }
+
+  part def ThermalController {
+    attribute mode : OperatingMode;
+    attribute lastFault : FaultKind;
+    attribute controlPeriod : Time;
+    attribute highTemperatureThreshold : Temperature;
+    attribute criticalTemperatureThreshold : Temperature;
+    attribute recoveryTemperatureThreshold : Temperature;
+
+    port power : PowerPort;
+    port sensorInput : SensorPort;
+    port fanControl : CommandPort;
+    port systemCommand : CommandPort;
+  }
+
+  part def GrapheneThermalSpreaderSystem {
+    attribute primaryFunction : String =
+      "Use a high-conductivity graphene layer to spread concentrated heat from an electronic heat source across a larger heat rejection surface, reducing local hot spots and maintaining the protected device below its allowable operating temperature.";
+
+    attribute ratedHeatLoad : HeatFlowRate;
+    attribute maximumHeatLoad : HeatFlowRate;
+    attribute targetJunctionTemperature : Temperature;
+    attribute ambientDesignTemperature : Temperature;
+    attribute totalMass : Mass;
+
+    port heatSourcePort : HeatPort;
+    port ambientCoolingPort : CoolingPort;
+    port electricalPowerPort : PowerPort;
+    port supervisoryPort : CommandPort;
+
+    part sourceInterface : HeatSourceInterface {
+      attribute contactArea = Area { value = 0.0004; unit = "m^2"; }
+      attribute contactResistance = ThermalResistance { value = 0.08; unit = "K/W"; }
+      attribute maximumAllowedTemperature = Temperature { value = 358.15; unit = "K"; }
+    }
+
+    part interfaceMaterial : ThermalInterfaceMaterial {
+      attribute bondLineThickness = Thickness { value = 0.00005; unit = "m"; }
+      attribute thermalConductivity = ThermalConductivity { value = 8.0; unit = "W/(m*K)"; }
+      attribute voidFraction = Percent { value = 2.0; unit = "%"; }
+      attribute thermalResistance = ThermalResistance { value = 0.12; unit = "K/W"; }
+    }
+
+    part grapheneSheet : GrapheneLayer {
+      attribute layerLength = Length { value = 0.080; unit = "m"; }
+      attribute layerWidth = Length { value = 0.060; unit = "m"; }
+      attribute layerArea = Area { value = 0.0048; unit = "m^2"; }
+      attribute layerThickness = Thickness { value = 0.000025; unit = "m"; }
+      attribute mass = Mass { value = 0.00018; unit = "kg"; }
+      attribute inPlaneThermalConductivity = ThermalConductivity { value = 1500.0; unit = "W/(m*K)"; }
+      attribute crossPlaneThermalConductivity = ThermalConductivity { value = 12.0; unit = "W/(m*K)"; }
+      attribute maximumServiceTemperature = Temperature { value = 423.15; unit = "K"; }
+      attribute sheetIntegrity = Percent { value = 100.0; unit = "%"; }
+    }
+
+    part heatSink : HeatSink {
+      attribute finArea = Area { value = 0.045; unit = "m^2"; }
+      attribute baseThickness = Thickness { value = 0.004; unit = "m"; }
+      attribute thermalResistanceToAmbient = ThermalResistance { value = 0.65; unit = "K/W"; }
+      attribute ambientTemperature = Temperature { value = 313.15; unit = "K"; }
+    }
+
+    part fan : Fan {
+      attribute ratedPower = Power { value = 1.8; unit = "W"; }
+      attribute dutyCycle = Percent { value = 0.0; unit = "%"; }
+      attribute available = true;
+    }
+
+    part hotSpotSensor : TemperatureSensor {
+      attribute measurementRangeLow = Temperature { value = 233.15; unit = "K"; }
+      attribute measurementRangeHigh = Temperature { value = 423.15; unit = "K"; }
+      attribute accuracy = TemperatureDifference { value = 1.0; unit = "K"; }
+      attribute healthy = true;
+    }
+
+    part edgeSensor : TemperatureSensor {
+      attribute measurementRangeLow = Temperature { value = 233.15; unit = "K"; }
+      attribute measurementRangeHigh = Temperature { value = 423.15; unit = "K"; }
+      attribute accuracy = TemperatureDifference { value = 1.5; unit = "K"; }
+      attribute healthy = true;
+    }
+
+    part controller : ThermalController {
+      attribute mode = OperatingMode::standby;
+      attribute lastFault = FaultKind::none;
+      attribute controlPeriod = Time { value = 0.25; unit = "s"; }
+      attribute highTemperatureThreshold = Temperature { value = 343.15; unit = "K"; }
+      attribute criticalTemperatureThreshold = Temperature { value = 358.15; unit = "K"; }
+      attribute recoveryTemperatureThreshold = Temperature { value = 333.15; unit = "K"; }
+    }
+
+    connect heatSourcePort to sourceInterface.heatInput;
+    connect sourceInterface.heatOutput to interfaceMaterial.sourceSide;
+    connect interfaceMaterial.grapheneSide to grapheneSheet.hotSide;
+    connect grapheneSheet.spreadSide to heatSink.base;
+    connect heatSink.airSide to fan.coolingFlow;
+    connect fan.coolingFlow to ambientCoolingPort;
+    connect electricalPowerPort to fan.power;
+    connect electricalPowerPort to controller.power;
+    connect grapheneSheet.hotSide to hotSpotSensor.senseInterface;
+    connect grapheneSheet.spreadSide to edgeSensor.senseInterface;
+    connect hotSpotSensor.telemetry to controller.sensorInput;
+    connect edgeSensor.telemetry to controller.sensorInput;
+    connect controller.fanControl to fan.command;
+    connect supervisoryPort to controller.systemCommand;
+  }
+
+  action def AcquireTemperature {
+    in port sensor : SensorPort;
+    out item sample : TemperatureSample;
+  }
+
+  action def EstimateThermalGradient {
+    in item hotSpot : TemperatureSample;
+    in item spreadEdge : TemperatureSample;
+    out attribute gradient : TemperatureDifference;
+  }
+
+  action def SpreadHeatWithGraphene {
+    in item localizedHeat : ThermalEnergyFlow;
+    in part graphene : GrapheneLayer;
+    out item distributedHeat : ThermalEnergyFlow;
+
+    assert constraint {
+      graphene.sheetIntegrity.value >= 95.0
+    }
+  }
+
+  action def RejectHeatToAmbient {
+    in item distributedHeat : ThermalEnergyFlow;
+    in part sink : HeatSink;
+    in part fanUnit : Fan;
+    out item rejectedHeat : ThermalEnergyFlow;
+  }
+
+  action def RegulateCooling {
+    in item hotSpotSample : TemperatureSample;
+    in item edgeSample : TemperatureSample;
+    inout part controller : ThermalController;
+    out item command : ControlCommand;
+
+    if hotSpotSample.valid == false then {
+      controller.lastFault = FaultKind::sensorFailure;
+      controller.mode = OperatingMode::fault;
+      command.alarmEnabled = true;
+      command.fanDutyCycle = Percent { value = 100.0; unit = "%"; }
+      command.requestedMode = OperatingMode::fault;
+    } else if hotSpotSample.measuredTemperature.value >= controller.criticalTemperatureThreshold.value then {
+      controller.lastFault = FaultKind::overTemperature;
+      controller.mode = OperatingMode::fault;
+      command.alarmEnabled = true;
+      command.fanDutyCycle = Percent { value = 100.0; unit = "%"; }
+      command.requestedMode = OperatingMode::fault;
+    } else if hotSpotSample.measuredTemperature.value >= controller.highTemperatureThreshold.value then {
+      controller.mode = OperatingMode::boostedCooling;
+      command.alarmEnabled = false;
+      command.fanDutyCycle = Percent { value = 85.0; unit = "%"; }
+      command.requestedMode = OperatingMode::boostedCooling;
+    } else if hotSpotSample.measuredTemperature.value <= controller.recoveryTemperatureThreshold.value then {
+      controller.mode = OperatingMode::heatSpreading;
+      command.alarmEnabled = false;
+      command.fanDutyCycle = Percent { value = 35.0; unit = "%"; }
+      command.requestedMode = OperatingMode::heatSpreading;
+    } else {
+      controller.mode = OperatingMode::heatSpreading;
+      command.alarmEnabled = false;
+      command.fanDutyCycle = Percent { value = 55.0; unit = "%"; }
+      command.requestedMode = OperatingMode::heatSpreading;
+    }
+  }
+
+  state def GrapheneThermalSystemStateMachine {
+    attribute currentMode : OperatingMode;
+    attribute activeFault : FaultKind;
+
+    state off;
+    state standby;
+    state heatSpreading;
+    state boostedCooling;
+    state degraded;
+    state fault;
+
+    transition initial then off;
+
+    transition powerApplied
+      first off
+      then standby
+      effect {
+        currentMode = OperatingMode::standby;
+        activeFault = FaultKind::none;
+      }
+
+    transition heatLoadDetected
+      first standby
+      then heatSpreading
+      effect {
+        currentMode = OperatingMode::heatSpreading;
+      }
+
+    transition temperatureHigh
+      first heatSpreading
+      then boostedCooling
+      guard currentMode == OperatingMode::heatSpreading
+      effect {
+        currentMode = OperatingMode::boostedCooling;
+      }
+
+    transition temperatureRecovered
+      first boostedCooling
+      then heatSpreading
+      guard activeFault == FaultKind::none
+      effect {
+        currentMode = OperatingMode::heatSpreading;
+      }
+
+    transition coolingCapacityReduced
+      first heatSpreading
+      then degraded
+      effect {
+        currentMode = OperatingMode::degraded;
+        activeFault = FaultKind::fanFailure;
+      }
+
+    transition criticalFaultDetected
+      first heatSpreading
+      then fault
+      effect {
+        currentMode = OperatingMode::fault;
+      }
+
+    transition boostedCriticalFaultDetected
+      first boostedCooling
+      then fault
+      effect {
+        currentMode = OperatingMode::fault;
+      }
+
+    transition degradedCriticalFaultDetected
+      first degraded
+      then fault
+      effect {
+        currentMode = OperatingMode::fault;
+      }
+
+    transition resetAfterFault
+      first fault
+      then standby
+      guard activeFault == FaultKind::none
+      effect {
+        currentMode = OperatingMode::standby;
+      }
+
+    transition powerRemovedFromStandby
+      first standby
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+
+    transition powerRemovedFromOperating
+      first heatSpreading
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+
+    transition powerRemovedFromBoosted
+      first boostedCooling
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+
+    transition powerRemovedFromFault
+      first fault
+      then off
+      effect {
+        currentMode = OperatingMode::off;
+      }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.primaryFunction ==
+      "Use a high-conductivity graphene layer to spread concentrated heat from an electronic heat source across a larger heat rejection surface, reducing local hot spots and maintaining the protected device below its allowable operating temperature."
+    }
+  }
+
+  requirement def HeatLoadRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.ratedHeatLoad.value >= 35.0 and
+      system.maximumHeatLoad.value >= 55.0
+    }
+  }
+
+  requirement def JunctionTemperatureRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.sourceInterface.maximumAllowedTemperature.value <= 358.15
+    }
+  }
+
+  requirement def GrapheneConductivityRequirement {
+    subject graphene : GrapheneLayer;
+
+    require constraint {
+      graphene.inPlaneThermalConductivity.value >= 1000.0 and
+      graphene.crossPlaneThermalConductivity.value >= 8.0
+    }
+  }
+
+  requirement def ThermalInterfaceRequirement {
+    subject interfaceMaterial : ThermalInterfaceMaterial;
+
+    require constraint {
+      interfaceMaterial.thermalResistance.value <= 0.15 and
+      interfaceMaterial.voidFraction.value <= 5.0
+    }
+  }
+
+  requirement def CoolingControlRequirement {
+    subject controller : ThermalController;
+
+    require constraint {
+      controller.highTemperatureThreshold.value < controller.criticalTemperatureThreshold.value and
+      controller.recoveryTemperatureThreshold.value < controller.highTemperatureThreshold.value
+    }
+  }
+
+  requirement def SensorCoverageRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.hotSpotSensor.healthy == true and
+      system.edgeSensor.healthy == true
+    }
+  }
+
+  requirement def FailSafeCoolingRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.controller.lastFault == FaultKind::none or
+      system.fan.dutyCycle.value == 100.0
+    }
+  }
+
+  requirement def MassLimitRequirement {
+    subject system : GrapheneThermalSpreaderSystem;
+
+    require constraint {
+      system.totalMass.value <= 0.250
+    }
+  }
+
+  part systemUnderSpecification : GrapheneThermalSpreaderSystem {
+    attribute ratedHeatLoad = HeatFlowRate { value = 35.0; unit = "W"; }
+    attribute maximumHeatLoad = HeatFlowRate { value = 55.0; unit = "W"; }
+    attribute targetJunctionTemperature = Temperature { value = 343.15; unit = "K"; }
+    attribute ambientDesignTemperature = Temperature { value = 313.15; unit = "K"; }
+    attribute totalMass = Mass { value = 0.185; unit = "kg"; }
+  }
+
+  satisfy PrimaryFunctionRequirement by systemUnderSpecification;
+  satisfy HeatLoadRequirement by systemUnderSpecification;
+  satisfy JunctionTemperatureRequirement by systemUnderSpecification.sourceInterface;
+  satisfy GrapheneConductivityRequirement by systemUnderSpecification.grapheneSheet;
+  satisfy ThermalInterfaceRequirement by systemUnderSpecification.interfaceMaterial;
+  satisfy CoolingControlRequirement by systemUnderSpecification.controller;
+  satisfy SensorCoverageRequirement by systemUnderSpecification;
+  satisfy FailSafeCoolingRequirement by systemUnderSpecification;
+  satisfy MassLimitRequirement by systemUnderSpecification;
+}

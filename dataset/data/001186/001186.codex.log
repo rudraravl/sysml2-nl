@@ -1,0 +1,825 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-rwdm_s1j
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5c4-33ac-7252-bed3-cff8fd0a4db8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Photoresistor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PhotoresistorBasedLightSensingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Illuminance :> ISQ::illuminance {
+        unit = lx;
+    }
+
+    value def Resistance :> ISQ::resistance {
+        unit = ohm;
+    }
+
+    value def Voltage :> ISQ::electricPotential {
+        unit = V;
+    }
+
+    value def Current :> ISQ::electricCurrent {
+        unit = A;
+    }
+
+    value def TimeDuration :> ISQ::time {
+        unit = s;
+    }
+
+    value def Temperature :> ISQ::thermodynamicTemperature {
+        unit = K;
+    }
+
+    value def Percent {
+        unit = one;
+    }
+
+    value def DigitalCount {
+        unit = one;
+    }
+
+    item def IncidentLight {
+        attribute illuminance : Illuminance;
+        attribute spectralPeakWavelength : ISQ::length;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Voltage;
+        attribute sourceImpedance : Resistance;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def DigitalLightSample {
+        attribute adcCount : DigitalCount;
+        attribute measuredIlluminance : Illuminance;
+        attribute sampleTime : TimeDuration;
+        attribute valid : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute enableIndicator : Boolean;
+        attribute brightnessPercent : Percent;
+        attribute reasonCode : String;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticReport {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute saturationDetected : Boolean;
+        attribute ambientTemperature : Temperature;
+        attribute message : String;
+    }
+
+    port def OpticalInputPort {
+        in item light : IncidentLight;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogVoltageSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalLightSample;
+    }
+
+    port def ControlOutputPort {
+        out item command : ControlCommand;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    part def PhotoresistorElement {
+        attribute darkResistance : Resistance = 1000000 [ohm];
+        attribute brightResistance : Resistance = 1000 [ohm];
+        attribute nominalResponseTime : TimeDuration = 0.05 [s];
+        attribute resistanceAtCurrentLight : Resistance;
+
+        port opticalIn : OpticalInputPort;
+        port resistiveOutput : AnalogSignalPort;
+
+        action convertLightToResistance {
+            in item lightIn : IncidentLight;
+            out resistanceOut : Resistance;
+
+            first start;
+            then computeResistance;
+
+            action computeResistance {
+                resistanceOut =
+                    if lightIn.illuminance < 1 [lx]
+                    then darkResistance
+                    else brightResistance + (darkResistance - brightResistance) / (lightIn.illuminance + 1 [lx]);
+            }
+
+            then done;
+        }
+    }
+
+    part def BiasDividerCircuit {
+        attribute fixedResistor : Resistance = 10000 [ohm];
+        attribute pullupVoltage : Voltage = 3.3 [V];
+        attribute dividerOutputVoltage : Voltage;
+
+        port powerIn : PowerInputPort;
+        port photoresistorInput : AnalogSignalPort;
+        port analogOut : AnalogSignalPort;
+
+        action generateAnalogVoltage {
+            in sensorResistance : Resistance;
+            out dividerVoltage : Voltage;
+
+            first start;
+            then calculateDivider;
+
+            action calculateDivider {
+                dividerVoltage = pullupVoltage * fixedResistor / (fixedResistor + sensorResistance);
+            }
+
+            then done;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute referenceVoltage : Voltage = 3.3 [V];
+        attribute resolutionBits : Integer = 12;
+        attribute maximumCount : DigitalCount = 4095;
+        attribute samplingPeriod : TimeDuration = 0.02 [s];
+
+        port analogIn : AnalogSignalPort;
+        port sampleOut : DigitalSamplePort;
+
+        action sampleVoltage {
+            in item analogSignal : AnalogVoltageSignal;
+            out item digitalSample : DigitalLightSample;
+
+            first waitForSamplePeriod;
+            then quantize;
+
+            action quantize {
+                digitalSample.adcCount = maximumCount * analogSignal.voltage / referenceVoltage;
+                digitalSample.sampleTime = analogSignal.timestamp;
+                digitalSample.valid = analogSignal.voltage >= 0 [V] and analogSignal.voltage <= referenceVoltage;
+            }
+
+            then done;
+        }
+    }
+
+    part def LightEstimationProcessor {
+        attribute lowLightThreshold : Illuminance = 40 [lx];
+        attribute highLightThreshold : Illuminance = 250 [lx];
+        attribute hysteresisBand : Illuminance = 10 [lx];
+        attribute filteredIlluminance : Illuminance;
+        attribute filterCoefficient : Real = 0.2;
+
+        port sampleIn : DigitalSamplePort;
+        port commandOut : ControlOutputPort;
+        port diagnosticsOut : DiagnosticPort;
+
+        action estimateIlluminance {
+            in item sample : DigitalLightSample;
+            out item command : ControlCommand;
+            out item diagnostic : DiagnosticReport;
+
+            first validate;
+            then calculateLightLevel;
+            then decideCommand;
+            then publishDiagnostics;
+
+            action validate {
+                diagnostic.sensorOpenCircuit = sample.adcCount >= 4095;
+                diagnostic.sensorShortCircuit = sample.adcCount <= 0;
+                diagnostic.saturationDetected = sample.adcCount <= 5 or sample.adcCount >= 4090;
+            }
+
+            action calculateLightLevel {
+                sample.measuredIlluminance = sample.adcCount * 500 [lx] / 4095;
+                filteredIlluminance =
+                    filterCoefficient * sample.measuredIlluminance
+                    + (1.0 - filterCoefficient) * filteredIlluminance;
+            }
+
+            action decideCommand {
+                command.enableIndicator = filteredIlluminance < lowLightThreshold;
+                command.brightnessPercent =
+                    if filteredIlluminance < lowLightThreshold
+                    then 100
+                    else if filteredIlluminance > highLightThreshold
+                    then 0
+                    else 50;
+                command.reasonCode =
+                    if command.enableIndicator
+                    then "Ambient light below configured threshold"
+                    else "Ambient light sufficient";
+            }
+
+            action publishDiagnostics {
+                diagnostic.message =
+                    if diagnostic.sensorOpenCircuit
+                    then "Photoresistor circuit open or disconnected"
+                    else if diagnostic.sensorShortCircuit
+                    then "Photoresistor circuit shorted"
+                    else "Photoresistor channel operating normally";
+            }
+
+            then done;
+        }
+
+        state def LightControllerStates {
+            entry; then Monitoring;
+
+            state Monitoring;
+            state LowLightDetected;
+            state SufficientLightDetected;
+            state FaultDetected;
+
+            transition Monitoring_to_LowLight
+                first Monitoring
+                accept when filteredIlluminance < lowLightThreshold
+                then LowLightDetected;
+
+            transition Monitoring_to_SufficientLight
+                first Monitoring
+                accept when filteredIlluminance >= lowLightThreshold + hysteresisBand
+                then SufficientLightDetected;
+
+            transition Any_to_Fault
+                first Monitoring
+                accept when diagnosticsOut.report.sensorOpenCircuit or diagnosticsOut.report.sensorShortCircuit
+                then FaultDetected;
+
+            transition LowLight_to_SufficientLight
+                first LowLightDetected
+                accept when filteredIlluminance > lowLightThreshold + hysteresisBand
+                then SufficientLightDetected;
+
+            transition SufficientLight_to_LowLight
+                first SufficientLightDetected
+                accept when filteredIlluminance < lowLightThreshold
+                then LowLightDetected;
+
+            transition Fault_to_Monitoring
+                first FaultDetected
+                accept when not diagnosticsOut.report.sensorOpenCircuit and not diagnosticsOut.report.sensorShortCircuit
+                then Monitoring;
+        }
+    }
+
+    part def IndicatorLoad {
+        attribute commandedBrightness : Percent;
+        attribute active : Boolean;
+
+        port commandIn : ControlOutputPort;
+        port powerIn : PowerInputPort;
+
+        action applyLightCommand {
+            in item command : ControlCommand;
+
+            first receiveCommand;
+            then setOutput;
+
+            action setOutput {
+                active = command.enableIndicator;
+                commandedBrightness = command.brightnessPercent;
+            }
+
+            then done;
+        }
+    }
+
+    part def RegulatedPowerSupply {
+        attribute nominalInputVoltage : Voltage = 5.0 [V];
+        attribute regulatedOutputVoltage : Voltage = 3.3 [V];
+        attribute maximumOutputCurrent : Current = 0.2 [A];
+
+        port powerOut : PowerInputPort;
+    }
+
+    part def PhotoresistorLightSensingSystem {
+        attribute primaryFunction : String =
+            "Detect ambient light using a photoresistor and convert the sensed light level into a digital estimate used to control an indicator output.";
+
+        attribute operatingIlluminanceMinimum : Illuminance = 0 [lx];
+        attribute operatingIlluminanceMaximum : Illuminance = 500 [lx];
+        attribute responseTimeRequirement : TimeDuration = 0.2 [s];
+
+        part supply : RegulatedPowerSupply;
+        part sensor : PhotoresistorElement;
+        part divider : BiasDividerCircuit;
+        part adc : AnalogToDigitalConverter;
+        part processor : LightEstimationProcessor;
+        part indicator : IndicatorLoad;
+
+        port ambientLightIn : OpticalInputPort;
+        port systemCommandOut : ControlOutputPort;
+        port systemDiagnosticsOut : DiagnosticPort;
+
+        connect ambientLightIn.light to sensor.opticalIn.light;
+        connect supply.powerOut.power to divider.powerIn.power;
+        connect supply.powerOut.power to indicator.powerIn.power;
+        connect sensor.resistiveOutput.signal to divider.photoresistorInput.signal;
+        connect divider.analogOut.signal to adc.analogIn.signal;
+        connect adc.sampleOut.sample to processor.sampleIn.sample;
+        connect processor.commandOut.command to indicator.commandIn.command;
+        connect processor.commandOut.command to systemCommandOut.command;
+        connect processor.diagnosticsOut.report to systemDiagnosticsOut.report;
+
+        perform sensor.convertLightToResistance;
+        perform divider.generateAnalogVoltage;
+        perform adc.sampleVoltage;
+        perform processor.estimateIlluminance;
+        perform indicator.applyLightCommand;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall use a photoresistor as the primary sensing element to detect ambient light level and provide a control output representing whether illumination is below a configured threshold. */
+
+        require constraint {
+            sensingSystem.processor.lowLightThreshold == 40 [lx]
+        }
+    }
+
+    requirement def LightMeasurementRangeRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall estimate ambient illuminance over the range from 0 lx to at least 500 lx. */
+
+        require constraint {
+            sensingSystem.operatingIlluminanceMinimum <= 0 [lx] and
+            sensingSystem.operatingIlluminanceMaximum >= 500 [lx]
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall update its light-based control output within 0.2 seconds after a step change in incident light. */
+
+        require constraint {
+            sensingSystem.sensor.nominalResponseTime
+            + sensingSystem.adc.samplingPeriod
+            <= sensingSystem.responseTimeRequirement
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall report open-circuit, short-circuit, and saturation diagnostic conditions for the photoresistor sensing channel. */
+
+        require constraint {
+            sensingSystem.processor.diagnosticsOut.report.message != ""
+        }
+    }
+
+    requirement def SafeIndicatorBehaviorRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The indicator output shall be enabled only when the filtered ambient light estimate is below the low-light threshold. */
+
+        require constraint {
+            sensingSystem.processor.commandOut.command.enableIndicator ==
+            (sensingSystem.processor.filteredIlluminance < sensingSystem.processor.lowLightThreshold)
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhotoresistorLightSensingSystem;
+    satisfy LightMeasurementRangeRequirement by PhotoresistorLightSensingSystem;
+    satisfy ResponseTimeRequirement by PhotoresistorLightSensingSystem;
+    satisfy DiagnosticRequirement by PhotoresistorLightSensingSystem;
+    satisfy SafeIndicatorBehaviorRequirement by PhotoresistorLightSensingSystem;
+
+}
+tokens used
+4,074
+package PhotoresistorBasedLightSensingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Illuminance :> ISQ::illuminance {
+        unit = lx;
+    }
+
+    value def Resistance :> ISQ::resistance {
+        unit = ohm;
+    }
+
+    value def Voltage :> ISQ::electricPotential {
+        unit = V;
+    }
+
+    value def Current :> ISQ::electricCurrent {
+        unit = A;
+    }
+
+    value def TimeDuration :> ISQ::time {
+        unit = s;
+    }
+
+    value def Temperature :> ISQ::thermodynamicTemperature {
+        unit = K;
+    }
+
+    value def Percent {
+        unit = one;
+    }
+
+    value def DigitalCount {
+        unit = one;
+    }
+
+    item def IncidentLight {
+        attribute illuminance : Illuminance;
+        attribute spectralPeakWavelength : ISQ::length;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Voltage;
+        attribute sourceImpedance : Resistance;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def DigitalLightSample {
+        attribute adcCount : DigitalCount;
+        attribute measuredIlluminance : Illuminance;
+        attribute sampleTime : TimeDuration;
+        attribute valid : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute enableIndicator : Boolean;
+        attribute brightnessPercent : Percent;
+        attribute reasonCode : String;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticReport {
+        attribute sensorOpenCircuit : Boolean;
+        attribute sensorShortCircuit : Boolean;
+        attribute saturationDetected : Boolean;
+        attribute ambientTemperature : Temperature;
+        attribute message : String;
+    }
+
+    port def OpticalInputPort {
+        in item light : IncidentLight;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogVoltageSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalLightSample;
+    }
+
+    port def ControlOutputPort {
+        out item command : ControlCommand;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DiagnosticPort {
+        out item report : DiagnosticReport;
+    }
+
+    part def PhotoresistorElement {
+        attribute darkResistance : Resistance = 1000000 [ohm];
+        attribute brightResistance : Resistance = 1000 [ohm];
+        attribute nominalResponseTime : TimeDuration = 0.05 [s];
+        attribute resistanceAtCurrentLight : Resistance;
+
+        port opticalIn : OpticalInputPort;
+        port resistiveOutput : AnalogSignalPort;
+
+        action convertLightToResistance {
+            in item lightIn : IncidentLight;
+            out resistanceOut : Resistance;
+
+            first start;
+            then computeResistance;
+
+            action computeResistance {
+                resistanceOut =
+                    if lightIn.illuminance < 1 [lx]
+                    then darkResistance
+                    else brightResistance + (darkResistance - brightResistance) / (lightIn.illuminance + 1 [lx]);
+            }
+
+            then done;
+        }
+    }
+
+    part def BiasDividerCircuit {
+        attribute fixedResistor : Resistance = 10000 [ohm];
+        attribute pullupVoltage : Voltage = 3.3 [V];
+        attribute dividerOutputVoltage : Voltage;
+
+        port powerIn : PowerInputPort;
+        port photoresistorInput : AnalogSignalPort;
+        port analogOut : AnalogSignalPort;
+
+        action generateAnalogVoltage {
+            in sensorResistance : Resistance;
+            out dividerVoltage : Voltage;
+
+            first start;
+            then calculateDivider;
+
+            action calculateDivider {
+                dividerVoltage = pullupVoltage * fixedResistor / (fixedResistor + sensorResistance);
+            }
+
+            then done;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute referenceVoltage : Voltage = 3.3 [V];
+        attribute resolutionBits : Integer = 12;
+        attribute maximumCount : DigitalCount = 4095;
+        attribute samplingPeriod : TimeDuration = 0.02 [s];
+
+        port analogIn : AnalogSignalPort;
+        port sampleOut : DigitalSamplePort;
+
+        action sampleVoltage {
+            in item analogSignal : AnalogVoltageSignal;
+            out item digitalSample : DigitalLightSample;
+
+            first waitForSamplePeriod;
+            then quantize;
+
+            action quantize {
+                digitalSample.adcCount = maximumCount * analogSignal.voltage / referenceVoltage;
+                digitalSample.sampleTime = analogSignal.timestamp;
+                digitalSample.valid = analogSignal.voltage >= 0 [V] and analogSignal.voltage <= referenceVoltage;
+            }
+
+            then done;
+        }
+    }
+
+    part def LightEstimationProcessor {
+        attribute lowLightThreshold : Illuminance = 40 [lx];
+        attribute highLightThreshold : Illuminance = 250 [lx];
+        attribute hysteresisBand : Illuminance = 10 [lx];
+        attribute filteredIlluminance : Illuminance;
+        attribute filterCoefficient : Real = 0.2;
+
+        port sampleIn : DigitalSamplePort;
+        port commandOut : ControlOutputPort;
+        port diagnosticsOut : DiagnosticPort;
+
+        action estimateIlluminance {
+            in item sample : DigitalLightSample;
+            out item command : ControlCommand;
+            out item diagnostic : DiagnosticReport;
+
+            first validate;
+            then calculateLightLevel;
+            then decideCommand;
+            then publishDiagnostics;
+
+            action validate {
+                diagnostic.sensorOpenCircuit = sample.adcCount >= 4095;
+                diagnostic.sensorShortCircuit = sample.adcCount <= 0;
+                diagnostic.saturationDetected = sample.adcCount <= 5 or sample.adcCount >= 4090;
+            }
+
+            action calculateLightLevel {
+                sample.measuredIlluminance = sample.adcCount * 500 [lx] / 4095;
+                filteredIlluminance =
+                    filterCoefficient * sample.measuredIlluminance
+                    + (1.0 - filterCoefficient) * filteredIlluminance;
+            }
+
+            action decideCommand {
+                command.enableIndicator = filteredIlluminance < lowLightThreshold;
+                command.brightnessPercent =
+                    if filteredIlluminance < lowLightThreshold
+                    then 100
+                    else if filteredIlluminance > highLightThreshold
+                    then 0
+                    else 50;
+                command.reasonCode =
+                    if command.enableIndicator
+                    then "Ambient light below configured threshold"
+                    else "Ambient light sufficient";
+            }
+
+            action publishDiagnostics {
+                diagnostic.message =
+                    if diagnostic.sensorOpenCircuit
+                    then "Photoresistor circuit open or disconnected"
+                    else if diagnostic.sensorShortCircuit
+                    then "Photoresistor circuit shorted"
+                    else "Photoresistor channel operating normally";
+            }
+
+            then done;
+        }
+
+        state def LightControllerStates {
+            entry; then Monitoring;
+
+            state Monitoring;
+            state LowLightDetected;
+            state SufficientLightDetected;
+            state FaultDetected;
+
+            transition Monitoring_to_LowLight
+                first Monitoring
+                accept when filteredIlluminance < lowLightThreshold
+                then LowLightDetected;
+
+            transition Monitoring_to_SufficientLight
+                first Monitoring
+                accept when filteredIlluminance >= lowLightThreshold + hysteresisBand
+                then SufficientLightDetected;
+
+            transition Any_to_Fault
+                first Monitoring
+                accept when diagnosticsOut.report.sensorOpenCircuit or diagnosticsOut.report.sensorShortCircuit
+                then FaultDetected;
+
+            transition LowLight_to_SufficientLight
+                first LowLightDetected
+                accept when filteredIlluminance > lowLightThreshold + hysteresisBand
+                then SufficientLightDetected;
+
+            transition SufficientLight_to_LowLight
+                first SufficientLightDetected
+                accept when filteredIlluminance < lowLightThreshold
+                then LowLightDetected;
+
+            transition Fault_to_Monitoring
+                first FaultDetected
+                accept when not diagnosticsOut.report.sensorOpenCircuit and not diagnosticsOut.report.sensorShortCircuit
+                then Monitoring;
+        }
+    }
+
+    part def IndicatorLoad {
+        attribute commandedBrightness : Percent;
+        attribute active : Boolean;
+
+        port commandIn : ControlOutputPort;
+        port powerIn : PowerInputPort;
+
+        action applyLightCommand {
+            in item command : ControlCommand;
+
+            first receiveCommand;
+            then setOutput;
+
+            action setOutput {
+                active = command.enableIndicator;
+                commandedBrightness = command.brightnessPercent;
+            }
+
+            then done;
+        }
+    }
+
+    part def RegulatedPowerSupply {
+        attribute nominalInputVoltage : Voltage = 5.0 [V];
+        attribute regulatedOutputVoltage : Voltage = 3.3 [V];
+        attribute maximumOutputCurrent : Current = 0.2 [A];
+
+        port powerOut : PowerInputPort;
+    }
+
+    part def PhotoresistorLightSensingSystem {
+        attribute primaryFunction : String =
+            "Detect ambient light using a photoresistor and convert the sensed light level into a digital estimate used to control an indicator output.";
+
+        attribute operatingIlluminanceMinimum : Illuminance = 0 [lx];
+        attribute operatingIlluminanceMaximum : Illuminance = 500 [lx];
+        attribute responseTimeRequirement : TimeDuration = 0.2 [s];
+
+        part supply : RegulatedPowerSupply;
+        part sensor : PhotoresistorElement;
+        part divider : BiasDividerCircuit;
+        part adc : AnalogToDigitalConverter;
+        part processor : LightEstimationProcessor;
+        part indicator : IndicatorLoad;
+
+        port ambientLightIn : OpticalInputPort;
+        port systemCommandOut : ControlOutputPort;
+        port systemDiagnosticsOut : DiagnosticPort;
+
+        connect ambientLightIn.light to sensor.opticalIn.light;
+        connect supply.powerOut.power to divider.powerIn.power;
+        connect supply.powerOut.power to indicator.powerIn.power;
+        connect sensor.resistiveOutput.signal to divider.photoresistorInput.signal;
+        connect divider.analogOut.signal to adc.analogIn.signal;
+        connect adc.sampleOut.sample to processor.sampleIn.sample;
+        connect processor.commandOut.command to indicator.commandIn.command;
+        connect processor.commandOut.command to systemCommandOut.command;
+        connect processor.diagnosticsOut.report to systemDiagnosticsOut.report;
+
+        perform sensor.convertLightToResistance;
+        perform divider.generateAnalogVoltage;
+        perform adc.sampleVoltage;
+        perform processor.estimateIlluminance;
+        perform indicator.applyLightCommand;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall use a photoresistor as the primary sensing element to detect ambient light level and provide a control output representing whether illumination is below a configured threshold. */
+
+        require constraint {
+            sensingSystem.processor.lowLightThreshold == 40 [lx]
+        }
+    }
+
+    requirement def LightMeasurementRangeRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall estimate ambient illuminance over the range from 0 lx to at least 500 lx. */
+
+        require constraint {
+            sensingSystem.operatingIlluminanceMinimum <= 0 [lx] and
+            sensingSystem.operatingIlluminanceMaximum >= 500 [lx]
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall update its light-based control output within 0.2 seconds after a step change in incident light. */
+
+        require constraint {
+            sensingSystem.sensor.nominalResponseTime
+            + sensingSystem.adc.samplingPeriod
+            <= sensingSystem.responseTimeRequirement
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The system shall report open-circuit, short-circuit, and saturation diagnostic conditions for the photoresistor sensing channel. */
+
+        require constraint {
+            sensingSystem.processor.diagnosticsOut.report.message != ""
+        }
+    }
+
+    requirement def SafeIndicatorBehaviorRequirement {
+        subject sensingSystem : PhotoresistorLightSensingSystem;
+
+        doc /* The indicator output shall be enabled only when the filtered ambient light estimate is below the low-light threshold. */
+
+        require constraint {
+            sensingSystem.processor.commandOut.command.enableIndicator ==
+            (sensingSystem.processor.filteredIlluminance < sensingSystem.processor.lowLightThreshold)
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhotoresistorLightSensingSystem;
+    satisfy LightMeasurementRangeRequirement by PhotoresistorLightSensingSystem;
+    satisfy ResponseTimeRequirement by PhotoresistorLightSensingSystem;
+    satisfy DiagnosticRequirement by PhotoresistorLightSensingSystem;
+    satisfy SafeIndicatorBehaviorRequirement by PhotoresistorLightSensingSystem;
+
+}

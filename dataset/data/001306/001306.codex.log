@@ -1,0 +1,841 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-25q36u6u
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb633-17e1-71c1-9808-bfadf66e5d75
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Velocity receiver and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VelocityReceiverModel;
+
+import ScalarValues::*;
+
+attribute def Velocity_mps {
+    attribute value : Real;
+    attribute unit : String = "m/s";
+}
+
+attribute def Acceleration_mps2 {
+    attribute value : Real;
+    attribute unit : String = "m/s^2";
+}
+
+attribute def Frequency_Hz {
+    attribute value : Real;
+    attribute unit : String = "Hz";
+}
+
+attribute def Voltage_V {
+    attribute value : Real;
+    attribute unit : String = "V";
+}
+
+attribute def Current_A {
+    attribute value : Real;
+    attribute unit : String = "A";
+}
+
+attribute def Time_s {
+    attribute value : Real;
+    attribute unit : String = "s";
+}
+
+attribute def Temperature_C {
+    attribute value : Real;
+    attribute unit : String = "degC";
+}
+
+attribute def DataRate_bps {
+    attribute value : Real;
+    attribute unit : "bit/s";
+}
+
+enum def AxisKind {
+    enum x;
+    enum y;
+    enum z;
+}
+
+enum def ReceiverHealthKind {
+    enum nominal;
+    enum degraded;
+    enum failed;
+}
+
+enum def ReceiverModeKind {
+    enum off;
+    enum standby;
+    enum calibration;
+    enum acquisition;
+    enum processing;
+    enum transmitting;
+    enum fault;
+}
+
+item def MechanicalVelocity {
+    attribute axis : AxisKind;
+    attribute velocity : Velocity_mps;
+    attribute acceleration : Acceleration_mps2;
+    attribute dominantFrequency : Frequency_Hz;
+    attribute sampleTime : Time_s;
+}
+
+item def AnalogVelocitySignal {
+    attribute signalVoltage : Voltage_V;
+    attribute noiseVoltageRms : Voltage_V;
+    attribute bandwidth : Frequency_Hz;
+    attribute sampleTime : Time_s;
+}
+
+item def DigitalVelocitySample {
+    attribute axis : AxisKind;
+    attribute velocity : Velocity_mps;
+    attribute quality : Real;
+    attribute sequenceNumber : Integer;
+    attribute sampleTime : Time_s;
+}
+
+item def VelocityFrame {
+    attribute frameId : Integer;
+    attribute xVelocity : Velocity_mps;
+    attribute yVelocity : Velocity_mps;
+    attribute zVelocity : Velocity_mps;
+    attribute frameQuality : Real;
+    attribute frameTime : Time_s;
+}
+
+item def ReceiverStatus {
+    attribute mode : ReceiverModeKind;
+    attribute health : ReceiverHealthKind;
+    attribute temperature : Temperature_C;
+    attribute supplyVoltage : Voltage_V;
+    attribute dataRate : DataRate_bps;
+}
+
+item def PowerInput {
+    attribute voltage : Voltage_V;
+    attribute currentLimit : Current_A;
+}
+
+item def CommandMessage {
+    attribute commandId : Integer;
+    attribute requestedMode : ReceiverModeKind;
+    attribute parameterValue : Real;
+}
+
+port def VelocityInputPort {
+    in item receivedMotion : MechanicalVelocity;
+}
+
+port def AnalogSignalPort {
+    out item analogSignal : AnalogVelocitySignal;
+}
+
+port def DigitalSamplePort {
+    out item digitalSample : DigitalVelocitySample;
+}
+
+port def VelocityFramePort {
+    out item velocityFrame : VelocityFrame;
+}
+
+port def StatusPort {
+    out item status : ReceiverStatus;
+}
+
+port def CommandPort {
+    in item command : CommandMessage;
+}
+
+port def PowerPort {
+    in item power : PowerInput;
+}
+
+part def VelocitySensingElement {
+    port motionIn : VelocityInputPort;
+    port analogOut : AnalogSignalPort;
+
+    attribute sensitivity : Real = 28.8;
+    attribute sensitivityUnit : String = "V/(m/s)";
+    attribute measurementRange : Velocity_mps = (value = 5.0, unit = "m/s");
+    attribute naturalFrequency : Frequency_Hz = (value = 15.0, unit = "Hz");
+    attribute operationalTemperatureMin : Temperature_C = (value = -40.0, unit = "degC");
+    attribute operationalTemperatureMax : Temperature_C = (value = 85.0, unit = "degC");
+}
+
+part def AnalogFrontEnd {
+    port analogIn : AnalogSignalPort;
+    port analogOut : AnalogSignalPort;
+
+    attribute inputImpedanceOhm : Real = 1000000.0;
+    attribute gain : Real = 8.0;
+    attribute highPassCutoff : Frequency_Hz = (value = 0.5, unit = "Hz");
+    attribute lowPassCutoff : Frequency_Hz = (value = 1000.0, unit = "Hz");
+    attribute maxOutputVoltage : Voltage_V = (value = 3.3, unit = "V");
+}
+
+part def AnalogToDigitalConverter {
+    port analogIn : AnalogSignalPort;
+    port sampleOut : DigitalSamplePort;
+
+    attribute resolutionBits : Integer = 24;
+    attribute sampleRate : Frequency_Hz = (value = 4000.0, unit = "Hz");
+    attribute referenceVoltage : Voltage_V = (value = 2.5, unit = "V");
+    attribute conversionLatency : Time_s = (value = 0.00025, unit = "s");
+}
+
+part def VelocityProcessor {
+    port sampleIn : DigitalSamplePort;
+    port frameOut : VelocityFramePort;
+    port statusOut : StatusPort;
+    port commandIn : CommandPort;
+
+    attribute calibrationScaleX : Real = 1.000;
+    attribute calibrationScaleY : Real = 1.000;
+    attribute calibrationScaleZ : Real = 1.000;
+    attribute biasVelocityX : Velocity_mps = (value = 0.0, unit = "m/s");
+    attribute biasVelocityY : Velocity_mps = (value = 0.0, unit = "m/s");
+    attribute biasVelocityZ : Velocity_mps = (value = 0.0, unit = "m/s");
+    attribute frameRate : Frequency_Hz = (value = 100.0, unit = "Hz");
+}
+
+part def CommunicationInterface {
+    port frameIn : VelocityFramePort;
+    port statusIn : StatusPort;
+    port commandOut : CommandPort;
+
+    attribute linkRate : DataRate_bps = (value = 1000000.0, unit = "bit/s");
+    attribute maxFrameLatency : Time_s = (value = 0.010, unit = "s");
+    attribute protocolName : String = "DeterministicVelocityTelemetry";
+}
+
+part def PowerConditioner {
+    port powerIn : PowerPort;
+    port statusOut : StatusPort;
+
+    attribute inputVoltageMin : Voltage_V = (value = 9.0, unit = "V");
+    attribute inputVoltageMax : Voltage_V = (value = 36.0, unit = "V");
+    attribute regulatedVoltage : Voltage_V = (value = 3.3, unit = "V");
+    attribute maxLoadCurrent : Current_A = (value = 0.45, unit = "A");
+}
+
+part def ThermalMonitor {
+    port statusOut : StatusPort;
+
+    attribute warningTemperature : Temperature_C = (value = 75.0, unit = "degC");
+    attribute shutdownTemperature : Temperature_C = (value = 90.0, unit = "degC");
+}
+
+action def ReceiveVelocityAction {
+    in item inputMotion : MechanicalVelocity;
+    out item outputFrame : VelocityFrame;
+
+    action senseVelocity;
+    action conditionSignal;
+    action digitizeSignal;
+    action compensateBias;
+    action assembleFrame;
+
+    first start then senseVelocity;
+    then conditionSignal;
+    then digitizeSignal;
+    then compensateBias;
+    then assembleFrame;
+    then done;
+}
+
+action def SelfCalibrationAction {
+    in item command : CommandMessage;
+    out item status : ReceiverStatus;
+
+    action isolateInput;
+    action measureZeroBias;
+    action updateCalibrationCoefficients;
+    action reportCalibrationStatus;
+
+    first start then isolateInput;
+    then measureZeroBias;
+    then updateCalibrationCoefficients;
+    then reportCalibrationStatus;
+    then done;
+}
+
+state def VelocityReceiverStateMachine {
+    state off;
+    state standby;
+    state calibrating;
+    state acquiring;
+    state processing;
+    state transmitting;
+    state fault;
+
+    transition initial then off;
+
+    transition powerApplied
+        first off
+        then standby;
+
+    transition calibrationRequested
+        first standby
+        then calibrating;
+
+    transition calibrationComplete
+        first calibrating
+        then standby;
+
+    transition acquisitionRequested
+        first standby
+        then acquiring;
+
+    transition sampleAvailable
+        first acquiring
+        then processing;
+
+    transition frameReady
+        first processing
+        then transmitting;
+
+    transition transmissionComplete
+        first transmitting
+        then acquiring;
+
+    transition stopRequested
+        first acquiring
+        then standby;
+
+    transition processorFault
+        first standby
+        then fault;
+
+    transition sensorFault
+        first acquiring
+        then fault;
+
+    transition powerRemoved
+        first standby
+        then off;
+
+    transition resetComplete
+        first fault
+        then standby;
+}
+
+part def VelocityReceiver {
+    port motionInput : VelocityInputPort;
+    port powerInput : PowerPort;
+    port commandInput : CommandPort;
+    port velocityOutput : VelocityFramePort;
+    port statusOutput : StatusPort;
+
+    part sensingElement : VelocitySensingElement;
+    part analogFrontEnd : AnalogFrontEnd;
+    part adc : AnalogToDigitalConverter;
+    part processor : VelocityProcessor;
+    part communicationInterface : CommunicationInterface;
+    part powerConditioner : PowerConditioner;
+    part thermalMonitor : ThermalMonitor;
+
+    attribute primaryFunction : String =
+        "Receive mechanical velocity along one or more axes, convert the motion into calibrated digital velocity frames, and report receiver health to an external host.";
+
+    attribute minimumDetectableVelocity : Velocity_mps = (value = 0.000001, unit = "m/s");
+    attribute maximumMeasuredVelocity : Velocity_mps = (value = 5.0, unit = "m/s");
+    attribute operatingBandwidthLow : Frequency_Hz = (value = 0.5, unit = "Hz");
+    attribute operatingBandwidthHigh : Frequency_Hz = (value = 1000.0, unit = "Hz");
+    attribute nominalFrameRate : Frequency_Hz = (value = 100.0, unit = "Hz");
+    attribute receiverMode : ReceiverModeKind = ReceiverModeKind::off;
+    attribute receiverHealth : ReceiverHealthKind = ReceiverHealthKind::nominal;
+
+    connection motionPath connect motionInput to sensingElement.motionIn;
+    connection sensorToAnalogFrontEnd connect sensingElement.analogOut to analogFrontEnd.analogIn;
+    connection conditionedSignalPath connect analogFrontEnd.analogOut to adc.analogIn;
+    connection samplePath connect adc.sampleOut to processor.sampleIn;
+    connection framePath connect processor.frameOut to communicationInterface.frameIn;
+    connection externalFrameOutput connect processor.frameOut to velocityOutput;
+    connection externalCommandInput connect commandInput to processor.commandIn;
+    connection powerPath connect powerInput to powerConditioner.powerIn;
+    connection processorStatusPath connect processor.statusOut to statusOutput;
+    connection powerStatusPath connect powerConditioner.statusOut to statusOutput;
+    connection thermalStatusPath connect thermalMonitor.statusOut to statusOutput;
+
+    perform action receiveVelocity : ReceiveVelocityAction;
+    perform action selfCalibration : SelfCalibrationAction;
+    exhibit state receiverStates : VelocityReceiverStateMachine;
+}
+
+requirement def VelocityReceiverPrimaryFunctionRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.primaryFunction ==
+        "Receive mechanical velocity along one or more axes, convert the motion into calibrated digital velocity frames, and report receiver health to an external host."
+    }
+}
+
+requirement def VelocityMeasurementRangeRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.minimumDetectableVelocity.value <= 0.000001 and
+        receiver.maximumMeasuredVelocity.value >= 5.0
+    }
+}
+
+requirement def VelocityBandwidthRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.operatingBandwidthLow.value <= 0.5 and
+        receiver.operatingBandwidthHigh.value >= 1000.0
+    }
+}
+
+requirement def VelocityFrameRateRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.nominalFrameRate.value >= 100.0
+    }
+}
+
+requirement def ReceiverHealthReportingRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.statusOutput.status.health == ReceiverHealthKind::nominal or
+        receiver.statusOutput.status.health == ReceiverHealthKind::degraded or
+        receiver.statusOutput.status.health == ReceiverHealthKind::failed
+    }
+}
+
+part velocityReceiverSystem {
+    part receiver : VelocityReceiver;
+
+    satisfy VelocityReceiverPrimaryFunctionRequirement by receiver;
+    satisfy VelocityMeasurementRangeRequirement by receiver;
+    satisfy VelocityBandwidthRequirement by receiver;
+    satisfy VelocityFrameRateRequirement by receiver;
+    satisfy ReceiverHealthReportingRequirement by receiver;
+}
+tokens used
+3,575
+package VelocityReceiverModel;
+
+import ScalarValues::*;
+
+attribute def Velocity_mps {
+    attribute value : Real;
+    attribute unit : String = "m/s";
+}
+
+attribute def Acceleration_mps2 {
+    attribute value : Real;
+    attribute unit : String = "m/s^2";
+}
+
+attribute def Frequency_Hz {
+    attribute value : Real;
+    attribute unit : String = "Hz";
+}
+
+attribute def Voltage_V {
+    attribute value : Real;
+    attribute unit : String = "V";
+}
+
+attribute def Current_A {
+    attribute value : Real;
+    attribute unit : String = "A";
+}
+
+attribute def Time_s {
+    attribute value : Real;
+    attribute unit : String = "s";
+}
+
+attribute def Temperature_C {
+    attribute value : Real;
+    attribute unit : String = "degC";
+}
+
+attribute def DataRate_bps {
+    attribute value : Real;
+    attribute unit : "bit/s";
+}
+
+enum def AxisKind {
+    enum x;
+    enum y;
+    enum z;
+}
+
+enum def ReceiverHealthKind {
+    enum nominal;
+    enum degraded;
+    enum failed;
+}
+
+enum def ReceiverModeKind {
+    enum off;
+    enum standby;
+    enum calibration;
+    enum acquisition;
+    enum processing;
+    enum transmitting;
+    enum fault;
+}
+
+item def MechanicalVelocity {
+    attribute axis : AxisKind;
+    attribute velocity : Velocity_mps;
+    attribute acceleration : Acceleration_mps2;
+    attribute dominantFrequency : Frequency_Hz;
+    attribute sampleTime : Time_s;
+}
+
+item def AnalogVelocitySignal {
+    attribute signalVoltage : Voltage_V;
+    attribute noiseVoltageRms : Voltage_V;
+    attribute bandwidth : Frequency_Hz;
+    attribute sampleTime : Time_s;
+}
+
+item def DigitalVelocitySample {
+    attribute axis : AxisKind;
+    attribute velocity : Velocity_mps;
+    attribute quality : Real;
+    attribute sequenceNumber : Integer;
+    attribute sampleTime : Time_s;
+}
+
+item def VelocityFrame {
+    attribute frameId : Integer;
+    attribute xVelocity : Velocity_mps;
+    attribute yVelocity : Velocity_mps;
+    attribute zVelocity : Velocity_mps;
+    attribute frameQuality : Real;
+    attribute frameTime : Time_s;
+}
+
+item def ReceiverStatus {
+    attribute mode : ReceiverModeKind;
+    attribute health : ReceiverHealthKind;
+    attribute temperature : Temperature_C;
+    attribute supplyVoltage : Voltage_V;
+    attribute dataRate : DataRate_bps;
+}
+
+item def PowerInput {
+    attribute voltage : Voltage_V;
+    attribute currentLimit : Current_A;
+}
+
+item def CommandMessage {
+    attribute commandId : Integer;
+    attribute requestedMode : ReceiverModeKind;
+    attribute parameterValue : Real;
+}
+
+port def VelocityInputPort {
+    in item receivedMotion : MechanicalVelocity;
+}
+
+port def AnalogSignalPort {
+    out item analogSignal : AnalogVelocitySignal;
+}
+
+port def DigitalSamplePort {
+    out item digitalSample : DigitalVelocitySample;
+}
+
+port def VelocityFramePort {
+    out item velocityFrame : VelocityFrame;
+}
+
+port def StatusPort {
+    out item status : ReceiverStatus;
+}
+
+port def CommandPort {
+    in item command : CommandMessage;
+}
+
+port def PowerPort {
+    in item power : PowerInput;
+}
+
+part def VelocitySensingElement {
+    port motionIn : VelocityInputPort;
+    port analogOut : AnalogSignalPort;
+
+    attribute sensitivity : Real = 28.8;
+    attribute sensitivityUnit : String = "V/(m/s)";
+    attribute measurementRange : Velocity_mps = (value = 5.0, unit = "m/s");
+    attribute naturalFrequency : Frequency_Hz = (value = 15.0, unit = "Hz");
+    attribute operationalTemperatureMin : Temperature_C = (value = -40.0, unit = "degC");
+    attribute operationalTemperatureMax : Temperature_C = (value = 85.0, unit = "degC");
+}
+
+part def AnalogFrontEnd {
+    port analogIn : AnalogSignalPort;
+    port analogOut : AnalogSignalPort;
+
+    attribute inputImpedanceOhm : Real = 1000000.0;
+    attribute gain : Real = 8.0;
+    attribute highPassCutoff : Frequency_Hz = (value = 0.5, unit = "Hz");
+    attribute lowPassCutoff : Frequency_Hz = (value = 1000.0, unit = "Hz");
+    attribute maxOutputVoltage : Voltage_V = (value = 3.3, unit = "V");
+}
+
+part def AnalogToDigitalConverter {
+    port analogIn : AnalogSignalPort;
+    port sampleOut : DigitalSamplePort;
+
+    attribute resolutionBits : Integer = 24;
+    attribute sampleRate : Frequency_Hz = (value = 4000.0, unit = "Hz");
+    attribute referenceVoltage : Voltage_V = (value = 2.5, unit = "V");
+    attribute conversionLatency : Time_s = (value = 0.00025, unit = "s");
+}
+
+part def VelocityProcessor {
+    port sampleIn : DigitalSamplePort;
+    port frameOut : VelocityFramePort;
+    port statusOut : StatusPort;
+    port commandIn : CommandPort;
+
+    attribute calibrationScaleX : Real = 1.000;
+    attribute calibrationScaleY : Real = 1.000;
+    attribute calibrationScaleZ : Real = 1.000;
+    attribute biasVelocityX : Velocity_mps = (value = 0.0, unit = "m/s");
+    attribute biasVelocityY : Velocity_mps = (value = 0.0, unit = "m/s");
+    attribute biasVelocityZ : Velocity_mps = (value = 0.0, unit = "m/s");
+    attribute frameRate : Frequency_Hz = (value = 100.0, unit = "Hz");
+}
+
+part def CommunicationInterface {
+    port frameIn : VelocityFramePort;
+    port statusIn : StatusPort;
+    port commandOut : CommandPort;
+
+    attribute linkRate : DataRate_bps = (value = 1000000.0, unit = "bit/s");
+    attribute maxFrameLatency : Time_s = (value = 0.010, unit = "s");
+    attribute protocolName : String = "DeterministicVelocityTelemetry";
+}
+
+part def PowerConditioner {
+    port powerIn : PowerPort;
+    port statusOut : StatusPort;
+
+    attribute inputVoltageMin : Voltage_V = (value = 9.0, unit = "V");
+    attribute inputVoltageMax : Voltage_V = (value = 36.0, unit = "V");
+    attribute regulatedVoltage : Voltage_V = (value = 3.3, unit = "V");
+    attribute maxLoadCurrent : Current_A = (value = 0.45, unit = "A");
+}
+
+part def ThermalMonitor {
+    port statusOut : StatusPort;
+
+    attribute warningTemperature : Temperature_C = (value = 75.0, unit = "degC");
+    attribute shutdownTemperature : Temperature_C = (value = 90.0, unit = "degC");
+}
+
+action def ReceiveVelocityAction {
+    in item inputMotion : MechanicalVelocity;
+    out item outputFrame : VelocityFrame;
+
+    action senseVelocity;
+    action conditionSignal;
+    action digitizeSignal;
+    action compensateBias;
+    action assembleFrame;
+
+    first start then senseVelocity;
+    then conditionSignal;
+    then digitizeSignal;
+    then compensateBias;
+    then assembleFrame;
+    then done;
+}
+
+action def SelfCalibrationAction {
+    in item command : CommandMessage;
+    out item status : ReceiverStatus;
+
+    action isolateInput;
+    action measureZeroBias;
+    action updateCalibrationCoefficients;
+    action reportCalibrationStatus;
+
+    first start then isolateInput;
+    then measureZeroBias;
+    then updateCalibrationCoefficients;
+    then reportCalibrationStatus;
+    then done;
+}
+
+state def VelocityReceiverStateMachine {
+    state off;
+    state standby;
+    state calibrating;
+    state acquiring;
+    state processing;
+    state transmitting;
+    state fault;
+
+    transition initial then off;
+
+    transition powerApplied
+        first off
+        then standby;
+
+    transition calibrationRequested
+        first standby
+        then calibrating;
+
+    transition calibrationComplete
+        first calibrating
+        then standby;
+
+    transition acquisitionRequested
+        first standby
+        then acquiring;
+
+    transition sampleAvailable
+        first acquiring
+        then processing;
+
+    transition frameReady
+        first processing
+        then transmitting;
+
+    transition transmissionComplete
+        first transmitting
+        then acquiring;
+
+    transition stopRequested
+        first acquiring
+        then standby;
+
+    transition processorFault
+        first standby
+        then fault;
+
+    transition sensorFault
+        first acquiring
+        then fault;
+
+    transition powerRemoved
+        first standby
+        then off;
+
+    transition resetComplete
+        first fault
+        then standby;
+}
+
+part def VelocityReceiver {
+    port motionInput : VelocityInputPort;
+    port powerInput : PowerPort;
+    port commandInput : CommandPort;
+    port velocityOutput : VelocityFramePort;
+    port statusOutput : StatusPort;
+
+    part sensingElement : VelocitySensingElement;
+    part analogFrontEnd : AnalogFrontEnd;
+    part adc : AnalogToDigitalConverter;
+    part processor : VelocityProcessor;
+    part communicationInterface : CommunicationInterface;
+    part powerConditioner : PowerConditioner;
+    part thermalMonitor : ThermalMonitor;
+
+    attribute primaryFunction : String =
+        "Receive mechanical velocity along one or more axes, convert the motion into calibrated digital velocity frames, and report receiver health to an external host.";
+
+    attribute minimumDetectableVelocity : Velocity_mps = (value = 0.000001, unit = "m/s");
+    attribute maximumMeasuredVelocity : Velocity_mps = (value = 5.0, unit = "m/s");
+    attribute operatingBandwidthLow : Frequency_Hz = (value = 0.5, unit = "Hz");
+    attribute operatingBandwidthHigh : Frequency_Hz = (value = 1000.0, unit = "Hz");
+    attribute nominalFrameRate : Frequency_Hz = (value = 100.0, unit = "Hz");
+    attribute receiverMode : ReceiverModeKind = ReceiverModeKind::off;
+    attribute receiverHealth : ReceiverHealthKind = ReceiverHealthKind::nominal;
+
+    connection motionPath connect motionInput to sensingElement.motionIn;
+    connection sensorToAnalogFrontEnd connect sensingElement.analogOut to analogFrontEnd.analogIn;
+    connection conditionedSignalPath connect analogFrontEnd.analogOut to adc.analogIn;
+    connection samplePath connect adc.sampleOut to processor.sampleIn;
+    connection framePath connect processor.frameOut to communicationInterface.frameIn;
+    connection externalFrameOutput connect processor.frameOut to velocityOutput;
+    connection externalCommandInput connect commandInput to processor.commandIn;
+    connection powerPath connect powerInput to powerConditioner.powerIn;
+    connection processorStatusPath connect processor.statusOut to statusOutput;
+    connection powerStatusPath connect powerConditioner.statusOut to statusOutput;
+    connection thermalStatusPath connect thermalMonitor.statusOut to statusOutput;
+
+    perform action receiveVelocity : ReceiveVelocityAction;
+    perform action selfCalibration : SelfCalibrationAction;
+    exhibit state receiverStates : VelocityReceiverStateMachine;
+}
+
+requirement def VelocityReceiverPrimaryFunctionRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.primaryFunction ==
+        "Receive mechanical velocity along one or more axes, convert the motion into calibrated digital velocity frames, and report receiver health to an external host."
+    }
+}
+
+requirement def VelocityMeasurementRangeRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.minimumDetectableVelocity.value <= 0.000001 and
+        receiver.maximumMeasuredVelocity.value >= 5.0
+    }
+}
+
+requirement def VelocityBandwidthRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.operatingBandwidthLow.value <= 0.5 and
+        receiver.operatingBandwidthHigh.value >= 1000.0
+    }
+}
+
+requirement def VelocityFrameRateRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.nominalFrameRate.value >= 100.0
+    }
+}
+
+requirement def ReceiverHealthReportingRequirement {
+    subject receiver : VelocityReceiver;
+
+    require constraint {
+        receiver.statusOutput.status.health == ReceiverHealthKind::nominal or
+        receiver.statusOutput.status.health == ReceiverHealthKind::degraded or
+        receiver.statusOutput.status.health == ReceiverHealthKind::failed
+    }
+}
+
+part velocityReceiverSystem {
+    part receiver : VelocityReceiver;
+
+    satisfy VelocityReceiverPrimaryFunctionRequirement by receiver;
+    satisfy VelocityMeasurementRangeRequirement by receiver;
+    satisfy VelocityBandwidthRequirement by receiver;
+    satisfy VelocityFrameRateRequirement by receiver;
+    satisfy ReceiverHealthReportingRequirement by receiver;
+}

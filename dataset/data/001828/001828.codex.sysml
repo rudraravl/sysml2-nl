@@ -1,0 +1,706 @@
+package PendulumClockSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::s;
+    }
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::m;
+    }
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kg;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::rad;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::Hz;
+    }
+
+    attribute def TorqueValue :> ISQ::torque {
+        unit = SI::N * SI::m;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::J;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::W;
+    }
+
+    item def MechanicalImpulse {
+        attribute angularImpulse : TorqueValue;
+        attribute duration : TimeValue;
+    }
+
+    item def TickEvent {
+        attribute tickIndex : Integer;
+        attribute tickTime : TimeValue;
+    }
+
+    item def TimeIndication {
+        attribute hours : Integer;
+        attribute minutes : Integer;
+        attribute seconds : Integer;
+        attribute indicatedTime : TimeValue;
+    }
+
+    item def WindingInput {
+        attribute addedEnergy : EnergyValue;
+        attribute windingDuration : TimeValue;
+    }
+
+    item def AudibleSound {
+        attribute pulseCount : Integer;
+        attribute soundDuration : TimeValue;
+    }
+
+    port def MechanicalEnergyPort {
+        out item energyFlow : EnergyValue;
+    }
+
+    port def ImpulsePort {
+        out item impulse : MechanicalImpulse;
+    }
+
+    port def TickPort {
+        out item tick : TickEvent;
+    }
+
+    port def IndicationPort {
+        out item indication : TimeIndication;
+    }
+
+    port def WindingPort {
+        in item winding : WindingInput;
+    }
+
+    port def SoundPort {
+        out item sound : AudibleSound;
+    }
+
+    part def PendulumClock {
+        attribute nominalRunDuration : TimeValue = 604800 [SI::s];
+        attribute nominalTickPeriod : TimeValue = 1 [SI::s];
+        attribute clockAccuracyPerDay : TimeValue = 5 [SI::s];
+        attribute storedEnergy : EnergyValue;
+        attribute elapsedTime : TimeValue;
+        attribute displayedTime : TimeValue;
+
+        port windingPort : WindingPort;
+        port dialPort : IndicationPort;
+        port soundPort : SoundPort;
+
+        part frame : ClockFrame;
+        part powerSource : WeightDrivenPowerSource;
+        part gearTrain : GearTrain;
+        part escapement : AnchorEscapement;
+        part pendulum : Pendulum;
+        part dialAssembly : DialAndHands;
+        part strikeAssembly : HourStrikeAssembly;
+
+        connect powerSource.energyPort to gearTrain.energyIn;
+        connect gearTrain.energyOut to escapement.energyIn;
+        connect escapement.impulseOut to pendulum.impulseIn;
+        connect pendulum.tickOut to escapement.tickIn;
+        connect escapement.tickOut to gearTrain.tickIn;
+        connect gearTrain.indicationOut to dialAssembly.indicationIn;
+        connect dialAssembly.indicationOut to dialPort;
+        connect gearTrain.hourEventOut to strikeAssembly.hourEventIn;
+        connect strikeAssembly.soundOut to soundPort;
+        connect windingPort to powerSource.windingPort;
+
+        action def OperateClock {
+            in item winding : WindingInput;
+            out item publicIndication : TimeIndication;
+            out item audibleHourStrike : AudibleSound;
+
+            first start;
+            then maintainPendulumOscillation;
+            then regulateGearRelease;
+            then advanceHands;
+            then optionallyStrikeHour;
+            then provideTimeIndication;
+            then done;
+
+            action maintainPendulumOscillation {
+                out item tick : TickEvent;
+            }
+
+            action regulateGearRelease {
+                in item tick : TickEvent;
+                out item regulatedTick : TickEvent;
+            }
+
+            action advanceHands {
+                in item regulatedTick : TickEvent;
+                out item indication : TimeIndication;
+            }
+
+            action optionallyStrikeHour {
+                in item indication : TimeIndication;
+                out item sound : AudibleSound;
+            }
+
+            action provideTimeIndication {
+                in item indication : TimeIndication;
+                out item publicIndication : TimeIndication;
+            }
+        }
+
+        state def ClockOperatingState {
+            entry action initializeDisplayedTime;
+            state Stopped;
+            state Wound;
+            state Running;
+            state Striking;
+            state NeedsWinding;
+
+            transition initial then Stopped;
+
+            transition windClock
+                first Stopped
+                accept WindingInput
+                then Wound;
+
+            transition startOscillation
+                first Wound
+                then Running;
+
+            transition tickAdvance
+                first Running
+                accept TickEvent
+                then Running;
+
+            transition hourBoundary
+                first Running
+                accept TimeIndication
+                if indicatedTime.seconds == 0 and indicatedTime.minutes == 0
+                then Striking;
+
+            transition finishStrike
+                first Striking
+                then Running;
+
+            transition lowEnergy
+                first Running
+                if storedEnergy < 50 [SI::J]
+                then NeedsWinding;
+
+            transition stopOnDepletion
+                first NeedsWinding
+                if storedEnergy <= 0 [SI::J]
+                then Stopped;
+
+            transition rewindFromNeedsWinding
+                first NeedsWinding
+                accept WindingInput
+                then Running;
+        }
+    }
+
+    part def ClockFrame {
+        attribute height : LengthValue = 2.0 [SI::m];
+        attribute width : LengthValue = 0.45 [SI::m];
+        attribute depth : LengthValue = 0.25 [SI::m];
+        attribute structuralMass : MassValue = 12 [SI::kg];
+
+        part backPlate : FramePlate;
+        part pendulumSuspension : SuspensionSupport;
+        part dialMount : DialMount;
+    }
+
+    part def FramePlate {
+        attribute thickness : LengthValue = 0.006 [SI::m];
+        attribute mass : MassValue = 3.0 [SI::kg];
+    }
+
+    part def SuspensionSupport {
+        attribute maximumSupportedMass : MassValue = 2.5 [SI::kg];
+        attribute pivotFrictionTorque : TorqueValue = 0.00004 [SI::N * SI::m];
+    }
+
+    part def DialMount {
+        attribute dialOffsetFromFrame : LengthValue = 0.03 [SI::m];
+    }
+
+    part def WeightDrivenPowerSource {
+        attribute weightMass : MassValue = 4.5 [SI::kg];
+        attribute dropHeight : LengthValue = 1.4 [SI::m];
+        attribute availableEnergy : EnergyValue = 61.8 [SI::J];
+        attribute remainingDrop : LengthValue;
+        attribute outputPower : PowerValue = 0.00008 [SI::W];
+
+        port windingPort : WindingPort;
+        port energyPort : MechanicalEnergyPort;
+
+        part drivingWeight : DrivingWeight;
+        part cableDrum : CableDrum;
+        part ratchet : WindingRatchet;
+
+        action def Wind {
+            in item winding : WindingInput;
+            out item restoredEnergy : EnergyValue;
+        }
+
+        state def PowerSourceState {
+            state FullyWound;
+            state DeliveringEnergy;
+            state LowEnergy;
+            state Depleted;
+
+            transition initial then FullyWound;
+
+            transition releaseEnergy
+                first FullyWound
+                then DeliveringEnergy;
+
+            transition continueDelivery
+                first DeliveringEnergy
+                if availableEnergy > 10 [SI::J]
+                then DeliveringEnergy;
+
+            transition becomeLow
+                first DeliveringEnergy
+                if availableEnergy <= 10 [SI::J]
+                then LowEnergy;
+
+            transition becomeDepleted
+                first LowEnergy
+                if availableEnergy <= 0 [SI::J]
+                then Depleted;
+
+            transition rewind
+                first Depleted
+                accept WindingInput
+                then FullyWound;
+        }
+    }
+
+    part def DrivingWeight {
+        attribute mass : MassValue = 4.5 [SI::kg];
+        attribute verticalTravel : LengthValue = 1.4 [SI::m];
+    }
+
+    part def CableDrum {
+        attribute drumRadius : LengthValue = 0.025 [SI::m];
+        attribute drumTorque : TorqueValue = 1.10 [SI::N * SI::m];
+    }
+
+    part def WindingRatchet {
+        attribute toothCount : Integer = 48;
+        attribute backDrivePrevention : Boolean = true;
+    }
+
+    part def GearTrain {
+        attribute totalReductionRatio : Real = 43200.0;
+        attribute centerWheelPeriod : TimeValue = 3600 [SI::s];
+        attribute minuteWheelPeriod : TimeValue = 3600 [SI::s];
+        attribute hourWheelPeriod : TimeValue = 43200 [SI::s];
+        attribute efficiency : Real = 0.78;
+
+        port energyIn : MechanicalEnergyPort;
+        port energyOut : MechanicalEnergyPort;
+        port tickIn : TickPort;
+        port indicationOut : IndicationPort;
+        port hourEventOut : IndicationPort;
+
+        part greatWheel : GearWheel {
+            attribute toothCount = 96;
+            attribute rotationPeriod = 21600 [SI::s];
+        }
+
+        part centerWheel : GearWheel {
+            attribute toothCount = 80;
+            attribute rotationPeriod = 3600 [SI::s];
+        }
+
+        part thirdWheel : GearWheel {
+            attribute toothCount = 75;
+            attribute rotationPeriod = 450 [SI::s];
+        }
+
+        part escapeWheel : EscapeWheel {
+            attribute toothCount = 30;
+            attribute toothAdvancePerTick = 1;
+        }
+
+        part motionWorks : MotionWorks;
+
+        action def AdvanceOneTick {
+            in item tick : TickEvent;
+            out item indication : TimeIndication;
+        }
+    }
+
+    part def GearWheel {
+        attribute toothCount : Integer;
+        attribute rotationPeriod : TimeValue;
+        attribute shaftFrictionTorque : TorqueValue = 0.0002 [SI::N * SI::m];
+    }
+
+    part def EscapeWheel :> GearWheel {
+        attribute toothAdvancePerTick : Integer = 1;
+        attribute lockedBetweenTicks : Boolean = true;
+    }
+
+    part def MotionWorks {
+        attribute minuteHandRatio : Real = 1.0;
+        attribute hourHandRatio : Real = 0.0833333333;
+
+        part cannonPinion : GearWheel {
+            attribute toothCount = 12;
+            attribute rotationPeriod = 3600 [SI::s];
+        }
+
+        part minuteWheel : GearWheel {
+            attribute toothCount = 36;
+            attribute rotationPeriod = 3600 [SI::s];
+        }
+
+        part hourWheel : GearWheel {
+            attribute toothCount = 48;
+            attribute rotationPeriod = 43200 [SI::s];
+        }
+    }
+
+    part def AnchorEscapement {
+        attribute lockAngle : AngleValue = 0.035 [SI::rad];
+        attribute impulseAngle : AngleValue = 0.020 [SI::rad];
+        attribute tickRate : FrequencyValue = 1 [SI::Hz];
+        attribute impulseTorque : TorqueValue = 0.0007 [SI::N * SI::m];
+
+        port energyIn : MechanicalEnergyPort;
+        port impulseOut : ImpulsePort;
+        port tickIn : TickPort;
+        port tickOut : TickPort;
+
+        part anchor : PalletAnchor;
+        part pallets : PalletPair;
+
+        action def ReleaseAndImpulse {
+            in item pendulumTick : TickEvent;
+            out item impulse : MechanicalImpulse;
+            out item regulatedTick : TickEvent;
+        }
+
+        state def EscapementState {
+            state LockedLeft;
+            state ImpulsingRight;
+            state LockedRight;
+            state ImpulsingLeft;
+
+            transition initial then LockedLeft;
+
+            transition leftRelease
+                first LockedLeft
+                accept TickEvent
+                then ImpulsingRight;
+
+            transition rightLock
+                first ImpulsingRight
+                then LockedRight;
+
+            transition rightRelease
+                first LockedRight
+                accept TickEvent
+                then ImpulsingLeft;
+
+            transition leftLock
+                first ImpulsingLeft
+                then LockedLeft;
+        }
+    }
+
+    part def PalletAnchor {
+        attribute mass : MassValue = 0.08 [SI::kg];
+        attribute swingAngle : AngleValue = 0.07 [SI::rad];
+    }
+
+    part def PalletPair {
+        attribute entryPalletLiftAngle : AngleValue = 0.020 [SI::rad];
+        attribute exitPalletLiftAngle : AngleValue = 0.020 [SI::rad];
+    }
+
+    part def Pendulum {
+        attribute rodLength : LengthValue = 0.994 [SI::m];
+        attribute bobMass : MassValue = 1.2 [SI::kg];
+        attribute amplitude : AngleValue = 0.052 [SI::rad];
+        attribute naturalPeriod : TimeValue = 2 [SI::s];
+        attribute tickPeriod : TimeValue = 1 [SI::s];
+        attribute qualityFactor : Real = 800.0;
+
+        port impulseIn : ImpulsePort;
+        port tickOut : TickPort;
+
+        part rod : PendulumRod;
+        part bob : PendulumBob;
+        part suspensionSpring : SuspensionSpring;
+
+        action def Oscillate {
+            in item impulse : MechanicalImpulse;
+            out item tick : TickEvent;
+        }
+
+        state def PendulumMotionState {
+            state AtLeftExtreme;
+            state MovingRight;
+            state AtRightExtreme;
+            state MovingLeft;
+
+            transition initial then AtLeftExtreme;
+
+            transition departLeft
+                first AtLeftExtreme
+                then MovingRight;
+
+            transition centerCrossingRight
+                first MovingRight
+                send TickEvent
+                then AtRightExtreme;
+
+            transition departRight
+                first AtRightExtreme
+                then MovingLeft;
+
+            transition centerCrossingLeft
+                first MovingLeft
+                send TickEvent
+                then AtLeftExtreme;
+        }
+    }
+
+    part def PendulumRod {
+        attribute length : LengthValue = 0.994 [SI::m];
+        attribute mass : MassValue = 0.12 [SI::kg];
+        attribute thermalExpansionCoefficient : Real = 0.0000012;
+    }
+
+    part def PendulumBob {
+        attribute mass : MassValue = 1.2 [SI::kg];
+        attribute diameter : LengthValue = 0.08 [SI::m];
+        attribute adjustableHeightRange : LengthValue = 0.015 [SI::m];
+    }
+
+    part def SuspensionSpring {
+        attribute effectiveLength : LengthValue = 0.012 [SI::m];
+        attribute stiffness : Real = 120.0;
+    }
+
+    part def DialAndHands {
+        attribute dialDiameter : LengthValue = 0.28 [SI::m];
+        attribute hourHandAngle : AngleValue;
+        attribute minuteHandAngle : AngleValue;
+        attribute secondHandAngle : AngleValue;
+
+        port indicationIn : IndicationPort;
+        port indicationOut : IndicationPort;
+
+        part dial : ClockDial;
+        part hourHand : ClockHand {
+            attribute length = 0.075 [SI::m];
+            attribute rotationPeriod = 43200 [SI::s];
+        }
+
+        part minuteHand : ClockHand {
+            attribute length = 0.115 [SI::m];
+            attribute rotationPeriod = 3600 [SI::s];
+        }
+
+        part secondHand : ClockHand {
+            attribute length = 0.125 [SI::m];
+            attribute rotationPeriod = 60 [SI::s];
+        }
+
+        action def DisplayTime {
+            in item gearIndication : TimeIndication;
+            out item visibleIndication : TimeIndication;
+        }
+    }
+
+    part def ClockDial {
+        attribute numeralCount : Integer = 12;
+        attribute minuteMarkCount : Integer = 60;
+        attribute diameter : LengthValue = 0.28 [SI::m];
+    }
+
+    part def ClockHand {
+        attribute length : LengthValue;
+        attribute mass : MassValue = 0.006 [SI::kg];
+        attribute rotationPeriod : TimeValue;
+    }
+
+    part def HourStrikeAssembly {
+        attribute enabled : Boolean = true;
+        attribute hammerMass : MassValue = 0.05 [SI::kg];
+        attribute strikeInterval : TimeValue = 1.5 [SI::s];
+
+        port hourEventIn : IndicationPort;
+        port soundOut : SoundPort;
+
+        part countWheel : CountWheel;
+        part hammer : StrikeHammer;
+        part bell : Bell;
+
+        action def StrikeHour {
+            in item indication : TimeIndication;
+            out item sound : AudibleSound;
+        }
+
+        state def StrikeState {
+            state Idle;
+            state Counting;
+            state HammerLifted;
+            state BellStruck;
+
+            transition initial then Idle;
+
+            transition beginStrike
+                first Idle
+                accept TimeIndication
+                if indicatedTime.minutes == 0 and indicatedTime.seconds == 0
+                then Counting;
+
+            transition liftHammer
+                first Counting
+                then HammerLifted;
+
+            transition releaseHammer
+                first HammerLifted
+                then BellStruck;
+
+            transition continueOrFinish
+                first BellStruck
+                then Counting;
+
+            transition finish
+                first Counting
+                if pulseCountComplete
+                then Idle;
+        }
+    }
+
+    part def CountWheel {
+        attribute slotCount : Integer = 12;
+        attribute currentHourCount : Integer;
+    }
+
+    part def StrikeHammer {
+        attribute mass : MassValue = 0.05 [SI::kg];
+        attribute liftHeight : LengthValue = 0.025 [SI::m];
+    }
+
+    part def Bell {
+        attribute diameter : LengthValue = 0.11 [SI::m];
+        attribute nominalToneFrequency : FrequencyValue = 880 [SI::Hz];
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The pendulum clock shall maintain a stable pendulum-regulated oscillation, convert stored mechanical energy into discrete gear advances, and present human-readable time through its dial and hands. */
+        subject clock : PendulumClock;
+        require constraint {
+            clock.nominalTickPeriod == 1 [SI::s]
+        }
+    }
+
+    requirement def RunDurationRequirement {
+        doc /* The pendulum clock shall operate for at least seven days after being fully wound under nominal conditions. */
+        subject clock : PendulumClock;
+        require constraint {
+            clock.nominalRunDuration >= 604800 [SI::s]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The pendulum clock shall limit accumulated time indication error to no more than five seconds per day under nominal indoor conditions. */
+        subject clock : PendulumClock;
+        require constraint {
+            clock.clockAccuracyPerDay <= 5 [SI::s]
+        }
+    }
+
+    requirement def DisplayRequirement {
+        doc /* The pendulum clock shall display hours, minutes, and seconds using mechanically driven hands on a circular dial. */
+        subject display : DialAndHands;
+        require constraint {
+            display.dial.minuteMarkCount == 60 and display.dial.numeralCount == 12
+        }
+    }
+
+    requirement def EnergyStorageRequirement {
+        doc /* The power source shall store sufficient gravitational potential energy to drive the gear train, escapement, pendulum, and indication mechanism through the nominal run duration. */
+        subject source : WeightDrivenPowerSource;
+        require constraint {
+            source.availableEnergy >= 50 [SI::J]
+        }
+    }
+
+    requirement def EscapementRegulationRequirement {
+        doc /* The escapement shall release the gear train once per pendulum half-period and return an impulse to sustain pendulum motion. */
+        subject escapement : AnchorEscapement;
+        require constraint {
+            escapement.tickRate == 1 [SI::Hz]
+        }
+    }
+
+    requirement def PendulumPeriodRequirement {
+        doc /* The pendulum shall have a two-second full oscillation period to produce one tick per second. */
+        subject pendulum : Pendulum;
+        require constraint {
+            pendulum.naturalPeriod == 2 [SI::s] and pendulum.tickPeriod == 1 [SI::s]
+        }
+    }
+
+    requirement def WindingSafetyRequirement {
+        doc /* The winding ratchet shall prevent reverse rotation of the cable drum during winding and normal operation. */
+        subject ratchet : WindingRatchet;
+        require constraint {
+            ratchet.backDrivePrevention == true
+        }
+    }
+
+    requirement def HourStrikeRequirement {
+        doc /* When enabled, the strike assembly shall emit an audible count corresponding to the indicated hour at each hour boundary. */
+        subject strike : HourStrikeAssembly;
+        require constraint {
+            strike.enabled == true and strike.strikeInterval >= 1 [SI::s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PendulumClock;
+    satisfy RunDurationRequirement by PendulumClock;
+    satisfy AccuracyRequirement by PendulumClock;
+    satisfy DisplayRequirement by DialAndHands;
+    satisfy EnergyStorageRequirement by WeightDrivenPowerSource;
+    satisfy EscapementRegulationRequirement by AnchorEscapement;
+    satisfy PendulumPeriodRequirement by Pendulum;
+    satisfy WindingSafetyRequirement by WindingRatchet;
+    satisfy HourStrikeRequirement by HourStrikeAssembly;
+
+    part clockSystem : PendulumClock {
+        attribute nominalRunDuration = 604800 [SI::s];
+        attribute nominalTickPeriod = 1 [SI::s];
+        attribute clockAccuracyPerDay = 5 [SI::s];
+        attribute storedEnergy = 61.8 [SI::J];
+        attribute elapsedTime = 0 [SI::s];
+        attribute displayedTime = 0 [SI::s];
+    }
+
+    view def HighLevelFunctionView {
+        expose clockSystem;
+        expose clockSystem.powerSource;
+        expose clockSystem.pendulum;
+        expose clockSystem.escapement;
+        expose clockSystem.gearTrain;
+        expose clockSystem.dialAssembly;
+        expose PrimaryFunctionRequirement;
+    }
+}

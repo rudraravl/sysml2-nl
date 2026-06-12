@@ -1,0 +1,781 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_swsajtc
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5db-54bf-7482-a0f6-edb317f1bcd1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Pyrometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PyrometerSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = "K";
+  }
+
+  attribute def CelsiusTemperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def SpectralRadiance :> Real {
+    unit = "W/(m^2*sr*um)";
+  }
+
+  attribute def Wavelength :> Real {
+    unit = "um";
+  }
+
+  attribute def Emissivity :> Real {
+    unit = "1";
+  }
+
+  attribute def Distance :> Real {
+    unit = "m";
+  }
+
+  attribute def Voltage :> Real {
+    unit = "V";
+  }
+
+  attribute def Current :> Real {
+    unit = "A";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  item def InfraredRadiation {
+    attribute radiance : SpectralRadiance;
+    attribute centerWavelength : Wavelength;
+    attribute bandwidth : Wavelength;
+    attribute sourceTemperature : CelsiusTemperature;
+    attribute sourceEmissivity : Emissivity;
+  }
+
+  item def TemperatureReading {
+    attribute measuredTemperature : CelsiusTemperature;
+    attribute uncertainty : CelsiusTemperature;
+    attribute timestamp : TimeDuration;
+    attribute valid : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : Current;
+  }
+
+  item def DisplayData {
+    attribute shownTemperature : CelsiusTemperature;
+    attribute statusText : String;
+    attribute alarmActive : Boolean;
+  }
+
+  item def ConfigurationData {
+    attribute emissivitySetting : Emissivity;
+    attribute alarmLimit : CelsiusTemperature;
+    attribute responseTime : TimeDuration;
+  }
+
+  port def OpticalInputPort {
+    in item radiation : InfraredRadiation;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def TemperatureOutputPort {
+    out item reading : TemperatureReading;
+  }
+
+  port def UserConfigPort {
+    in item configuration : ConfigurationData;
+  }
+
+  port def DisplayPort {
+    out item displayData : DisplayData;
+  }
+
+  port def DigitalTelemetryPort {
+    out item reading : TemperatureReading;
+  }
+
+  part def TargetSurface {
+    attribute actualTemperature : CelsiusTemperature;
+    attribute emissivity : Emissivity;
+    attribute distanceToInstrument : Distance;
+
+    port emittedInfrared : OpticalInputPort;
+  }
+
+  part def OpticalAssembly {
+    attribute apertureDiameter : Distance = 0.025;
+    attribute focalLength : Distance = 0.060;
+    attribute transmissionEfficiency : Percent = 92.0;
+    attribute minimumFocusDistance : Distance = 0.30;
+
+    port incomingRadiation : OpticalInputPort;
+    port focusedRadiation : OpticalInputPort;
+  }
+
+  part def SpectralFilter {
+    attribute lowerWavelength : Wavelength = 8.0;
+    attribute upperWavelength : Wavelength = 14.0;
+    attribute passbandTransmission : Percent = 88.0;
+
+    port unfilteredRadiation : OpticalInputPort;
+    port filteredRadiation : OpticalInputPort;
+  }
+
+  part def InfraredDetector {
+    attribute detectorResponsivity : Real = 8500.0;
+    attribute noiseEquivalentTemperatureDifference : CelsiusTemperature = 0.10;
+    attribute detectorTemperature : CelsiusTemperature;
+
+    port incidentRadiation : OpticalInputPort;
+    port detectorSignal : TemperatureOutputPort;
+  }
+
+  part def SignalConditioner {
+    attribute gain : Real = 125.0;
+    attribute offsetVoltage : Voltage = 0.002;
+    attribute samplePeriod : TimeDuration = 0.050;
+
+    port rawSignal : TemperatureOutputPort;
+    port conditionedSignal : TemperatureOutputPort;
+  }
+
+  part def TemperatureProcessor {
+    attribute emissivityCompensation : Emissivity = 0.95;
+    attribute ambientCompensationEnabled : Boolean = true;
+    attribute alarmThreshold : CelsiusTemperature = 500.0;
+    attribute calculatedTemperature : CelsiusTemperature;
+
+    port conditionedInput : TemperatureOutputPort;
+    port configurationInput : UserConfigPort;
+    port temperatureOutput : TemperatureOutputPort;
+    port displayOutput : DisplayPort;
+    port telemetryOutput : DigitalTelemetryPort;
+  }
+
+  part def UserInterface {
+    attribute displayRefreshPeriod : TimeDuration = 0.250;
+    attribute configuredEmissivity : Emissivity = 0.95;
+    attribute configuredAlarmLimit : CelsiusTemperature = 500.0;
+
+    port configurationOutput : UserConfigPort;
+    port displayInput : DisplayPort;
+  }
+
+  part def PowerSubsystem {
+    attribute inputVoltage : Voltage = 24.0;
+    attribute regulatedVoltage : Voltage = 5.0;
+    attribute maximumCurrent : Current = 0.50;
+
+    port externalPower : PowerInputPort;
+    port regulatedPower : PowerInputPort;
+  }
+
+  action def CollectInfraredEnergy {
+    in item sourceRadiation : InfraredRadiation;
+    out item focusedRadiation : InfraredRadiation;
+  }
+
+  action def FilterInfraredBand {
+    in item broadbandRadiation : InfraredRadiation;
+    out item passbandRadiation : InfraredRadiation;
+  }
+
+  action def ConvertRadianceToSignal {
+    in item passbandRadiation : InfraredRadiation;
+    out item preliminaryReading : TemperatureReading;
+  }
+
+  action def CompensateAndCalculateTemperature {
+    in item preliminaryReading : TemperatureReading;
+    in item configuration : ConfigurationData;
+    out item compensatedReading : TemperatureReading;
+  }
+
+  action def PresentTemperature {
+    in item compensatedReading : TemperatureReading;
+    out item displayData : DisplayData;
+  }
+
+  state def PyrometerOperatingState {
+    entry action InitializeElectronics;
+    state Off;
+    state Startup;
+    state SelfTest;
+    state Measuring;
+    state Alarm;
+    state Fault;
+
+    transition first Off;
+    transition OffToStartup
+      first Off then Startup
+      accept ElectricalPower;
+
+    transition StartupToSelfTest
+      first Startup then SelfTest
+      after 2.0 [s];
+
+    transition SelfTestToMeasuring
+      first SelfTest then Measuring
+      if diagnosticsPassed;
+
+    transition SelfTestToFault
+      first SelfTest then Fault
+      if not diagnosticsPassed;
+
+    transition MeasuringToAlarm
+      first Measuring then Alarm
+      if measuredTemperatureExceedsAlarmLimit;
+
+    transition AlarmToMeasuring
+      first Alarm then Measuring
+      if measuredTemperatureBelowResetLimit;
+
+    transition MeasuringToFault
+      first Measuring then Fault
+      if detectorSignalInvalid;
+
+    transition FaultToStartup
+      first Fault then Startup
+      accept resetCommand;
+  }
+
+  part def Pyrometer {
+    doc /* Primary function: The pyrometer remotely determines the temperature of a target surface by collecting emitted infrared radiation, filtering the useful spectral band, converting detected radiance into an electrical measurement, compensating for emissivity and ambient effects, and outputting a calibrated temperature reading. */
+
+    attribute measurementRangeLow : CelsiusTemperature = -40.0;
+    attribute measurementRangeHigh : CelsiusTemperature = 1200.0;
+    attribute accuracy : CelsiusTemperature = 2.0;
+    attribute responseTime : TimeDuration = 0.250;
+    attribute configuredEmissivity : Emissivity = 0.95;
+
+    port opticalInput : OpticalInputPort;
+    port powerInput : PowerInputPort;
+    port temperatureOutput : TemperatureOutputPort;
+    port telemetryOutput : DigitalTelemetryPort;
+    port configurationInput : UserConfigPort;
+    port displayOutput : DisplayPort;
+
+    part optics : OpticalAssembly;
+    part filter : SpectralFilter;
+    part detector : InfraredDetector;
+    part conditioner : SignalConditioner;
+    part processor : TemperatureProcessor;
+    part interface : UserInterface;
+    part power : PowerSubsystem;
+
+    connection opticalPath1 connect opticalInput to optics.incomingRadiation;
+    connection opticalPath2 connect optics.focusedRadiation to filter.unfilteredRadiation;
+    connection opticalPath3 connect filter.filteredRadiation to detector.incidentRadiation;
+    connection signalPath1 connect detector.detectorSignal to conditioner.rawSignal;
+    connection signalPath2 connect conditioner.conditionedSignal to processor.conditionedInput;
+    connection configPath1 connect configurationInput to processor.configurationInput;
+    connection configPath2 connect interface.configurationOutput to processor.configurationInput;
+    connection displayPath connect processor.displayOutput to displayOutput;
+    connection telemetryPath connect processor.telemetryOutput to telemetryOutput;
+    connection readingPath connect processor.temperatureOutput to temperatureOutput;
+    connection powerPath1 connect powerInput to power.externalPower;
+    connection powerPath2 connect power.regulatedPower to power.regulatedPower;
+
+    perform collect : CollectInfraredEnergy;
+    perform filterBand : FilterInfraredBand;
+    perform convert : ConvertRadianceToSignal;
+    perform compensate : CompensateAndCalculateTemperature;
+    perform present : PresentTemperature;
+
+    exhibit stateMachine : PyrometerOperatingState;
+  }
+
+  part def MeasurementEnvironment {
+    part target : TargetSurface {
+      attribute actualTemperature = 350.0;
+      attribute emissivity = 0.90;
+      attribute distanceToInstrument = 1.50;
+    }
+
+    part instrument : Pyrometer;
+
+    item externalSupply : ElectricalPower {
+      attribute supplyVoltage = 24.0;
+      attribute supplyCurrent = 0.20;
+    }
+
+    item defaultConfiguration : ConfigurationData {
+      attribute emissivitySetting = 0.90;
+      attribute alarmLimit = 400.0;
+      attribute responseTime = 0.250;
+    }
+
+    connection targetToPyrometer connect target.emittedInfrared to instrument.opticalInput;
+  }
+
+  requirement def RemoteTemperatureMeasurementRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.measurementRangeLow <= -40.0 and
+      pyrometer.measurementRangeHigh >= 1200.0
+    }
+
+    doc /* The pyrometer shall remotely measure target surface temperature without physical contact over its specified measurement range. */
+  }
+
+  requirement def AccuracyRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.accuracy <= 2.0
+    }
+
+    doc /* The pyrometer shall report temperature with uncertainty no greater than plus or minus 2 degC under calibrated operating conditions. */
+  }
+
+  requirement def ResponseRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.responseTime <= 0.250
+    }
+
+    doc /* The pyrometer shall update the measured temperature output within 250 ms of a change in incident infrared radiation. */
+  }
+
+  requirement def EmissivityCompensationRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.configuredEmissivity >= 0.10 and
+      pyrometer.configuredEmissivity <= 1.00
+    }
+
+    doc /* The pyrometer shall support emissivity compensation over the range 0.10 to 1.00. */
+  }
+
+  requirement def AlarmRequirement {
+    subject processor : TemperatureProcessor;
+
+    require constraint {
+      processor.alarmThreshold >= -40.0 and
+      processor.alarmThreshold <= 1200.0
+    }
+
+    doc /* The pyrometer shall indicate an alarm when the compensated temperature exceeds the configured alarm threshold. */
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject pyrometer : Pyrometer;
+
+    doc /* The pyrometer shall perform the primary high-level function of converting infrared radiation emitted by a target into a calibrated non-contact temperature reading for display and digital output. */
+  }
+
+  satisfy RemoteTemperatureMeasurementRequirement by Pyrometer;
+  satisfy AccuracyRequirement by Pyrometer;
+  satisfy ResponseRequirement by Pyrometer;
+  satisfy EmissivityCompensationRequirement by Pyrometer;
+  satisfy AlarmRequirement by TemperatureProcessor;
+  satisfy PrimaryFunctionRequirement by Pyrometer;
+}
+tokens used
+3,989
+package PyrometerSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Temperature :> Real {
+    unit = "K";
+  }
+
+  attribute def CelsiusTemperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def SpectralRadiance :> Real {
+    unit = "W/(m^2*sr*um)";
+  }
+
+  attribute def Wavelength :> Real {
+    unit = "um";
+  }
+
+  attribute def Emissivity :> Real {
+    unit = "1";
+  }
+
+  attribute def Distance :> Real {
+    unit = "m";
+  }
+
+  attribute def Voltage :> Real {
+    unit = "V";
+  }
+
+  attribute def Current :> Real {
+    unit = "A";
+  }
+
+  attribute def TimeDuration :> Real {
+    unit = "s";
+  }
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  item def InfraredRadiation {
+    attribute radiance : SpectralRadiance;
+    attribute centerWavelength : Wavelength;
+    attribute bandwidth : Wavelength;
+    attribute sourceTemperature : CelsiusTemperature;
+    attribute sourceEmissivity : Emissivity;
+  }
+
+  item def TemperatureReading {
+    attribute measuredTemperature : CelsiusTemperature;
+    attribute uncertainty : CelsiusTemperature;
+    attribute timestamp : TimeDuration;
+    attribute valid : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : Current;
+  }
+
+  item def DisplayData {
+    attribute shownTemperature : CelsiusTemperature;
+    attribute statusText : String;
+    attribute alarmActive : Boolean;
+  }
+
+  item def ConfigurationData {
+    attribute emissivitySetting : Emissivity;
+    attribute alarmLimit : CelsiusTemperature;
+    attribute responseTime : TimeDuration;
+  }
+
+  port def OpticalInputPort {
+    in item radiation : InfraredRadiation;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def TemperatureOutputPort {
+    out item reading : TemperatureReading;
+  }
+
+  port def UserConfigPort {
+    in item configuration : ConfigurationData;
+  }
+
+  port def DisplayPort {
+    out item displayData : DisplayData;
+  }
+
+  port def DigitalTelemetryPort {
+    out item reading : TemperatureReading;
+  }
+
+  part def TargetSurface {
+    attribute actualTemperature : CelsiusTemperature;
+    attribute emissivity : Emissivity;
+    attribute distanceToInstrument : Distance;
+
+    port emittedInfrared : OpticalInputPort;
+  }
+
+  part def OpticalAssembly {
+    attribute apertureDiameter : Distance = 0.025;
+    attribute focalLength : Distance = 0.060;
+    attribute transmissionEfficiency : Percent = 92.0;
+    attribute minimumFocusDistance : Distance = 0.30;
+
+    port incomingRadiation : OpticalInputPort;
+    port focusedRadiation : OpticalInputPort;
+  }
+
+  part def SpectralFilter {
+    attribute lowerWavelength : Wavelength = 8.0;
+    attribute upperWavelength : Wavelength = 14.0;
+    attribute passbandTransmission : Percent = 88.0;
+
+    port unfilteredRadiation : OpticalInputPort;
+    port filteredRadiation : OpticalInputPort;
+  }
+
+  part def InfraredDetector {
+    attribute detectorResponsivity : Real = 8500.0;
+    attribute noiseEquivalentTemperatureDifference : CelsiusTemperature = 0.10;
+    attribute detectorTemperature : CelsiusTemperature;
+
+    port incidentRadiation : OpticalInputPort;
+    port detectorSignal : TemperatureOutputPort;
+  }
+
+  part def SignalConditioner {
+    attribute gain : Real = 125.0;
+    attribute offsetVoltage : Voltage = 0.002;
+    attribute samplePeriod : TimeDuration = 0.050;
+
+    port rawSignal : TemperatureOutputPort;
+    port conditionedSignal : TemperatureOutputPort;
+  }
+
+  part def TemperatureProcessor {
+    attribute emissivityCompensation : Emissivity = 0.95;
+    attribute ambientCompensationEnabled : Boolean = true;
+    attribute alarmThreshold : CelsiusTemperature = 500.0;
+    attribute calculatedTemperature : CelsiusTemperature;
+
+    port conditionedInput : TemperatureOutputPort;
+    port configurationInput : UserConfigPort;
+    port temperatureOutput : TemperatureOutputPort;
+    port displayOutput : DisplayPort;
+    port telemetryOutput : DigitalTelemetryPort;
+  }
+
+  part def UserInterface {
+    attribute displayRefreshPeriod : TimeDuration = 0.250;
+    attribute configuredEmissivity : Emissivity = 0.95;
+    attribute configuredAlarmLimit : CelsiusTemperature = 500.0;
+
+    port configurationOutput : UserConfigPort;
+    port displayInput : DisplayPort;
+  }
+
+  part def PowerSubsystem {
+    attribute inputVoltage : Voltage = 24.0;
+    attribute regulatedVoltage : Voltage = 5.0;
+    attribute maximumCurrent : Current = 0.50;
+
+    port externalPower : PowerInputPort;
+    port regulatedPower : PowerInputPort;
+  }
+
+  action def CollectInfraredEnergy {
+    in item sourceRadiation : InfraredRadiation;
+    out item focusedRadiation : InfraredRadiation;
+  }
+
+  action def FilterInfraredBand {
+    in item broadbandRadiation : InfraredRadiation;
+    out item passbandRadiation : InfraredRadiation;
+  }
+
+  action def ConvertRadianceToSignal {
+    in item passbandRadiation : InfraredRadiation;
+    out item preliminaryReading : TemperatureReading;
+  }
+
+  action def CompensateAndCalculateTemperature {
+    in item preliminaryReading : TemperatureReading;
+    in item configuration : ConfigurationData;
+    out item compensatedReading : TemperatureReading;
+  }
+
+  action def PresentTemperature {
+    in item compensatedReading : TemperatureReading;
+    out item displayData : DisplayData;
+  }
+
+  state def PyrometerOperatingState {
+    entry action InitializeElectronics;
+    state Off;
+    state Startup;
+    state SelfTest;
+    state Measuring;
+    state Alarm;
+    state Fault;
+
+    transition first Off;
+    transition OffToStartup
+      first Off then Startup
+      accept ElectricalPower;
+
+    transition StartupToSelfTest
+      first Startup then SelfTest
+      after 2.0 [s];
+
+    transition SelfTestToMeasuring
+      first SelfTest then Measuring
+      if diagnosticsPassed;
+
+    transition SelfTestToFault
+      first SelfTest then Fault
+      if not diagnosticsPassed;
+
+    transition MeasuringToAlarm
+      first Measuring then Alarm
+      if measuredTemperatureExceedsAlarmLimit;
+
+    transition AlarmToMeasuring
+      first Alarm then Measuring
+      if measuredTemperatureBelowResetLimit;
+
+    transition MeasuringToFault
+      first Measuring then Fault
+      if detectorSignalInvalid;
+
+    transition FaultToStartup
+      first Fault then Startup
+      accept resetCommand;
+  }
+
+  part def Pyrometer {
+    doc /* Primary function: The pyrometer remotely determines the temperature of a target surface by collecting emitted infrared radiation, filtering the useful spectral band, converting detected radiance into an electrical measurement, compensating for emissivity and ambient effects, and outputting a calibrated temperature reading. */
+
+    attribute measurementRangeLow : CelsiusTemperature = -40.0;
+    attribute measurementRangeHigh : CelsiusTemperature = 1200.0;
+    attribute accuracy : CelsiusTemperature = 2.0;
+    attribute responseTime : TimeDuration = 0.250;
+    attribute configuredEmissivity : Emissivity = 0.95;
+
+    port opticalInput : OpticalInputPort;
+    port powerInput : PowerInputPort;
+    port temperatureOutput : TemperatureOutputPort;
+    port telemetryOutput : DigitalTelemetryPort;
+    port configurationInput : UserConfigPort;
+    port displayOutput : DisplayPort;
+
+    part optics : OpticalAssembly;
+    part filter : SpectralFilter;
+    part detector : InfraredDetector;
+    part conditioner : SignalConditioner;
+    part processor : TemperatureProcessor;
+    part interface : UserInterface;
+    part power : PowerSubsystem;
+
+    connection opticalPath1 connect opticalInput to optics.incomingRadiation;
+    connection opticalPath2 connect optics.focusedRadiation to filter.unfilteredRadiation;
+    connection opticalPath3 connect filter.filteredRadiation to detector.incidentRadiation;
+    connection signalPath1 connect detector.detectorSignal to conditioner.rawSignal;
+    connection signalPath2 connect conditioner.conditionedSignal to processor.conditionedInput;
+    connection configPath1 connect configurationInput to processor.configurationInput;
+    connection configPath2 connect interface.configurationOutput to processor.configurationInput;
+    connection displayPath connect processor.displayOutput to displayOutput;
+    connection telemetryPath connect processor.telemetryOutput to telemetryOutput;
+    connection readingPath connect processor.temperatureOutput to temperatureOutput;
+    connection powerPath1 connect powerInput to power.externalPower;
+    connection powerPath2 connect power.regulatedPower to power.regulatedPower;
+
+    perform collect : CollectInfraredEnergy;
+    perform filterBand : FilterInfraredBand;
+    perform convert : ConvertRadianceToSignal;
+    perform compensate : CompensateAndCalculateTemperature;
+    perform present : PresentTemperature;
+
+    exhibit stateMachine : PyrometerOperatingState;
+  }
+
+  part def MeasurementEnvironment {
+    part target : TargetSurface {
+      attribute actualTemperature = 350.0;
+      attribute emissivity = 0.90;
+      attribute distanceToInstrument = 1.50;
+    }
+
+    part instrument : Pyrometer;
+
+    item externalSupply : ElectricalPower {
+      attribute supplyVoltage = 24.0;
+      attribute supplyCurrent = 0.20;
+    }
+
+    item defaultConfiguration : ConfigurationData {
+      attribute emissivitySetting = 0.90;
+      attribute alarmLimit = 400.0;
+      attribute responseTime = 0.250;
+    }
+
+    connection targetToPyrometer connect target.emittedInfrared to instrument.opticalInput;
+  }
+
+  requirement def RemoteTemperatureMeasurementRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.measurementRangeLow <= -40.0 and
+      pyrometer.measurementRangeHigh >= 1200.0
+    }
+
+    doc /* The pyrometer shall remotely measure target surface temperature without physical contact over its specified measurement range. */
+  }
+
+  requirement def AccuracyRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.accuracy <= 2.0
+    }
+
+    doc /* The pyrometer shall report temperature with uncertainty no greater than plus or minus 2 degC under calibrated operating conditions. */
+  }
+
+  requirement def ResponseRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.responseTime <= 0.250
+    }
+
+    doc /* The pyrometer shall update the measured temperature output within 250 ms of a change in incident infrared radiation. */
+  }
+
+  requirement def EmissivityCompensationRequirement {
+    subject pyrometer : Pyrometer;
+
+    require constraint {
+      pyrometer.configuredEmissivity >= 0.10 and
+      pyrometer.configuredEmissivity <= 1.00
+    }
+
+    doc /* The pyrometer shall support emissivity compensation over the range 0.10 to 1.00. */
+  }
+
+  requirement def AlarmRequirement {
+    subject processor : TemperatureProcessor;
+
+    require constraint {
+      processor.alarmThreshold >= -40.0 and
+      processor.alarmThreshold <= 1200.0
+    }
+
+    doc /* The pyrometer shall indicate an alarm when the compensated temperature exceeds the configured alarm threshold. */
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject pyrometer : Pyrometer;
+
+    doc /* The pyrometer shall perform the primary high-level function of converting infrared radiation emitted by a target into a calibrated non-contact temperature reading for display and digital output. */
+  }
+
+  satisfy RemoteTemperatureMeasurementRequirement by Pyrometer;
+  satisfy AccuracyRequirement by Pyrometer;
+  satisfy ResponseRequirement by Pyrometer;
+  satisfy EmissivityCompensationRequirement by Pyrometer;
+  satisfy AlarmRequirement by TemperatureProcessor;
+  satisfy PrimaryFunctionRequirement by Pyrometer;
+}

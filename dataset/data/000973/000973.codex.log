@@ -1,0 +1,869 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0veg0hrt
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb4fb-3984-7cb1-80d9-6a3e00f90d07
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Analyser and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AnalyserSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    value def SampleRate :> ScalarValues::Real {
+        unit = "sample/s";
+    }
+
+    value def DataRate :> ScalarValues::Real {
+        unit = "Mbit/s";
+    }
+
+    value def Latency :> ScalarValues::Real {
+        unit = "ms";
+    }
+
+    value def Confidence :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    value def MemorySize :> ScalarValues::Real {
+        unit = "GB";
+    }
+
+    value def Power :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    value def Temperature :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    item def RawSample {
+        attribute timestamp : Time;
+        attribute channelId : String;
+        attribute magnitude : ScalarValues::Real;
+        attribute quality : Percent;
+    }
+
+    item def SampleBatch {
+        attribute batchId : String;
+        attribute sourceId : String;
+        attribute sampleCount : ScalarValues::Integer;
+        attribute receivedAt : Time;
+        attribute nominalRate : SampleRate;
+        item samples : RawSample[1..*];
+    }
+
+    item def NormalizedBatch {
+        attribute batchId : String;
+        attribute sourceId : String;
+        attribute sampleCount : ScalarValues::Integer;
+        attribute normalizedAt : Time;
+        attribute missingSampleRatio : Percent;
+    }
+
+    item def AnalysisResult {
+        attribute resultId : String;
+        attribute batchId : String;
+        attribute producedAt : Time;
+        attribute classification : String;
+        attribute confidence : Confidence;
+        attribute anomalyScore : Percent;
+        attribute summary : String;
+    }
+
+    item def HealthReport {
+        attribute reportTime : Time;
+        attribute operatingMode : String;
+        attribute cpuLoad : Percent;
+        attribute memoryUsed : MemorySize;
+        attribute internalTemperature : Temperature;
+        attribute faultCode : String;
+    }
+
+    item def CommandMessage {
+        attribute commandId : String;
+        attribute commandType : String;
+        attribute issuedAt : Time;
+        attribute parameterName : String;
+        attribute parameterValue : String;
+    }
+
+    port def SampleInputPort {
+        in item rawBatch : SampleBatch;
+    }
+
+    port def ResultOutputPort {
+        out item result : AnalysisResult;
+    }
+
+    port def CommandPort {
+        in item command : CommandMessage;
+    }
+
+    port def HealthPort {
+        out item health : HealthReport;
+    }
+
+    port def InternalBatchPort {
+        out item normalizedBatch : NormalizedBatch;
+    }
+
+    port def InternalResultPort {
+        out item result : AnalysisResult;
+    }
+
+    part def Analyser {
+        attribute maxInputRate : SampleRate = 50000 [sample/s];
+        attribute nominalProcessingLatency : Latency = 75 [ms];
+        attribute minimumConfidence : Confidence = 85 [%];
+        attribute maximumPowerDraw : Power = 45 [W];
+
+        port sampleIn : SampleInputPort;
+        port resultOut : ResultOutputPort;
+        port commandIn : CommandPort;
+        port healthOut : HealthPort;
+
+        part acquisition : DataAcquisitionUnit;
+        part validation : ValidationUnit;
+        part normalization : NormalizationUnit;
+        part inference : AnalysisEngine;
+        part reporting : ReportingUnit;
+        part monitor : HealthMonitor;
+
+        connect sampleIn.rawBatch to acquisition.rawIn.rawBatch;
+        connect acquisition.batchOut.rawBatch to validation.rawIn.rawBatch;
+        connect validation.validBatchOut.rawBatch to normalization.rawIn.rawBatch;
+        connect normalization.normalizedOut.normalizedBatch to inference.normalizedIn.normalizedBatch;
+        connect inference.analysisOut.result to reporting.analysisIn.result;
+        connect reporting.resultOut.result to resultOut.result;
+        connect monitor.healthOut.health to healthOut.health;
+
+        connect commandIn.command to acquisition.commandIn.command;
+        connect commandIn.command to inference.commandIn.command;
+        connect commandIn.command to reporting.commandIn.command;
+
+        perform action analyseIncomingData;
+        exhibit state analyserLifecycle;
+    }
+
+    part def DataAcquisitionUnit {
+        attribute inputBufferDepth : ScalarValues::Integer = 128;
+        attribute sustainedInputRate : SampleRate = 40000 [sample/s];
+
+        port rawIn : SampleInputPort;
+        port batchOut : SampleInputPort;
+        port commandIn : CommandPort;
+
+        action receiveBatch {
+            in item incoming : SampleBatch;
+            out item captured : SampleBatch;
+            first start;
+            then stampReceiptTime;
+            then bufferBatch;
+            then emitCapturedBatch;
+            then done;
+        }
+    }
+
+    part def ValidationUnit {
+        attribute minimumSampleQuality : Percent = 70 [%];
+        attribute maximumMissingSamples : Percent = 5 [%];
+
+        port rawIn : SampleInputPort;
+        port validBatchOut : SampleInputPort;
+
+        action validateBatch {
+            in item candidate : SampleBatch;
+            out item accepted : SampleBatch;
+            out attribute rejected : Boolean;
+
+            first start;
+            then checkSchema;
+            then checkTimestampContinuity;
+            then checkQualityThreshold;
+            then routeAcceptedOrRejected;
+            then done;
+        }
+    }
+
+    part def NormalizationUnit {
+        attribute calibrationVersion : String = "CAL-2026-01";
+        attribute targetScaleMinimum : ScalarValues::Real = 0.0;
+        attribute targetScaleMaximum : ScalarValues::Real = 1.0;
+
+        port rawIn : SampleInputPort;
+        port normalizedOut : InternalBatchPort;
+
+        action normalizeBatch {
+            in item accepted : SampleBatch;
+            out item normalized : NormalizedBatch;
+
+            first start;
+            then removeOutliers;
+            then interpolateMissingSamples;
+            then applyCalibration;
+            then scaleValues;
+            then emitNormalizedBatch;
+            then done;
+        }
+    }
+
+    part def AnalysisEngine {
+        attribute modelIdentifier : String = "ANALYSER-CORE-MODEL-4";
+        attribute modelConfidenceFloor : Confidence = 85 [%];
+        attribute maximumInferenceLatency : Latency = 50 [ms];
+
+        port normalizedIn : InternalBatchPort;
+        port analysisOut : InternalResultPort;
+        port commandIn : CommandPort;
+
+        action inferResult {
+            in item normalized : NormalizedBatch;
+            out item result : AnalysisResult;
+
+            first start;
+            then extractFeatures;
+            then compareAgainstReferenceModel;
+            then calculateAnomalyScore;
+            then assignClassification;
+            then calculateConfidence;
+            then emitAnalysisResult;
+            then done;
+        }
+    }
+
+    part def ReportingUnit {
+        attribute resultRetentionPeriod : Time = 2592000 [s];
+        attribute outputDataRate : DataRate = 10 [Mbit/s];
+
+        port analysisIn : InternalResultPort;
+        port resultOut : ResultOutputPort;
+        port commandIn : CommandPort;
+
+        action publishResult {
+            in item result : AnalysisResult;
+            first start;
+            then enrichWithMetadata;
+            then persistResult;
+            then transmitResult;
+            then done;
+        }
+    }
+
+    part def HealthMonitor {
+        attribute warningTemperature : Temperature = 70 [degC];
+        attribute shutdownTemperature : Temperature = 85 [degC];
+        attribute healthInterval : Time = 5 [s];
+
+        port healthOut : HealthPort;
+
+        action generateHealthReport {
+            out item report : HealthReport;
+            first start;
+            then readProcessorLoad;
+            then readMemoryUsage;
+            then readInternalTemperature;
+            then evaluateFaultStatus;
+            then emitHealthReport;
+            then done;
+        }
+    }
+
+    action def AnalyseIncomingData {
+        in item rawInput : SampleBatch;
+        out item finalResult : AnalysisResult;
+
+        first receive;
+        then validate;
+        then normalize;
+        then analyse;
+        then report;
+        then done;
+    }
+
+    state def AnalyserLifecycle {
+        state initial;
+        state idle;
+        state acquiring;
+        state validating;
+        state normalizing;
+        state analysing;
+        state reporting;
+        state degraded;
+        state faulted;
+        state shutdown;
+
+        transition first initial then idle;
+
+        transition idle_to_acquiring
+            first idle
+            accept SampleBatch
+            then acquiring;
+
+        transition acquiring_to_validating
+            first acquiring
+            then validating;
+
+        transition validating_to_normalizing
+            first validating
+            if validationPassed
+            then normalizing;
+
+        transition validating_to_degraded
+            first validating
+            if validationFailed
+            then degraded;
+
+        transition normalizing_to_analysing
+            first normalizing
+            then analysing;
+
+        transition analysing_to_reporting
+            first analysing
+            then reporting;
+
+        transition reporting_to_idle
+            first reporting
+            then idle;
+
+        transition degraded_to_idle
+            first degraded
+            accept CommandMessage
+            if commandType == "ACKNOWLEDGE_DEGRADED_MODE"
+            then idle;
+
+        transition any_to_faulted
+            first idle
+            accept HealthReport
+            if faultCode != "NONE"
+            then faulted;
+
+        transition faulted_to_shutdown
+            first faulted
+            accept CommandMessage
+            if commandType == "SHUTDOWN"
+            then shutdown;
+    }
+
+    requirement def AnalysePrimaryFunctionRequirement {
+        doc
+            /* The analyser shall accept raw sample batches from an external source, validate and normalize the data, apply an analysis model, and publish a classified result with confidence and anomaly score. */
+
+        subject analyser : Analyser;
+
+        require constraint {
+            analyser.nominalProcessingLatency <= 100 [ms]
+        }
+
+        require constraint {
+            analyser.minimumConfidence >= 85 [%]
+        }
+
+        require constraint {
+            analyser.maxInputRate >= 40000 [sample/s]
+        }
+    }
+
+    requirement def InputValidationRequirement {
+        doc
+            /* The analyser shall reject or degrade processing for input batches whose sample quality or continuity is below configured thresholds. */
+
+        subject validation : ValidationUnit;
+
+        require constraint {
+            validation.minimumSampleQuality >= 70 [%]
+        }
+
+        require constraint {
+            validation.maximumMissingSamples <= 5 [%]
+        }
+    }
+
+    requirement def HealthReportingRequirement {
+        doc
+            /* The analyser shall publish health status containing operating mode, processor load, memory usage, internal temperature, and fault code at a regular interval. */
+
+        subject monitor : HealthMonitor;
+
+        require constraint {
+            monitor.healthInterval <= 5 [s]
+        }
+
+        require constraint {
+            monitor.shutdownTemperature > monitor.warningTemperature
+        }
+    }
+
+    requirement def ResultReportingRequirement {
+        doc
+            /* The analyser shall persist and transmit each analysis result with traceability to the input batch that produced it. */
+
+        subject reporting : ReportingUnit;
+
+        require constraint {
+            reporting.outputDataRate >= 1 [Mbit/s]
+        }
+    }
+
+    part analyserSystem {
+        part analyser : Analyser;
+
+        port externalSamples : SampleInputPort;
+        port externalResults : ResultOutputPort;
+        port externalCommands : CommandPort;
+        port externalHealth : HealthPort;
+
+        connect externalSamples.rawBatch to analyser.sampleIn.rawBatch;
+        connect analyser.resultOut.result to externalResults.result;
+        connect externalCommands.command to analyser.commandIn.command;
+        connect analyser.healthOut.health to externalHealth.health;
+
+        satisfy AnalysePrimaryFunctionRequirement by analyser;
+        satisfy InputValidationRequirement by analyser.validation;
+        satisfy HealthReportingRequirement by analyser.monitor;
+        satisfy ResultReportingRequirement by analyser.reporting;
+    }
+}
+tokens used
+2,854
+package AnalyserSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Percent :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    value def SampleRate :> ScalarValues::Real {
+        unit = "sample/s";
+    }
+
+    value def DataRate :> ScalarValues::Real {
+        unit = "Mbit/s";
+    }
+
+    value def Latency :> ScalarValues::Real {
+        unit = "ms";
+    }
+
+    value def Confidence :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    value def MemorySize :> ScalarValues::Real {
+        unit = "GB";
+    }
+
+    value def Power :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    value def Temperature :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    item def RawSample {
+        attribute timestamp : Time;
+        attribute channelId : String;
+        attribute magnitude : ScalarValues::Real;
+        attribute quality : Percent;
+    }
+
+    item def SampleBatch {
+        attribute batchId : String;
+        attribute sourceId : String;
+        attribute sampleCount : ScalarValues::Integer;
+        attribute receivedAt : Time;
+        attribute nominalRate : SampleRate;
+        item samples : RawSample[1..*];
+    }
+
+    item def NormalizedBatch {
+        attribute batchId : String;
+        attribute sourceId : String;
+        attribute sampleCount : ScalarValues::Integer;
+        attribute normalizedAt : Time;
+        attribute missingSampleRatio : Percent;
+    }
+
+    item def AnalysisResult {
+        attribute resultId : String;
+        attribute batchId : String;
+        attribute producedAt : Time;
+        attribute classification : String;
+        attribute confidence : Confidence;
+        attribute anomalyScore : Percent;
+        attribute summary : String;
+    }
+
+    item def HealthReport {
+        attribute reportTime : Time;
+        attribute operatingMode : String;
+        attribute cpuLoad : Percent;
+        attribute memoryUsed : MemorySize;
+        attribute internalTemperature : Temperature;
+        attribute faultCode : String;
+    }
+
+    item def CommandMessage {
+        attribute commandId : String;
+        attribute commandType : String;
+        attribute issuedAt : Time;
+        attribute parameterName : String;
+        attribute parameterValue : String;
+    }
+
+    port def SampleInputPort {
+        in item rawBatch : SampleBatch;
+    }
+
+    port def ResultOutputPort {
+        out item result : AnalysisResult;
+    }
+
+    port def CommandPort {
+        in item command : CommandMessage;
+    }
+
+    port def HealthPort {
+        out item health : HealthReport;
+    }
+
+    port def InternalBatchPort {
+        out item normalizedBatch : NormalizedBatch;
+    }
+
+    port def InternalResultPort {
+        out item result : AnalysisResult;
+    }
+
+    part def Analyser {
+        attribute maxInputRate : SampleRate = 50000 [sample/s];
+        attribute nominalProcessingLatency : Latency = 75 [ms];
+        attribute minimumConfidence : Confidence = 85 [%];
+        attribute maximumPowerDraw : Power = 45 [W];
+
+        port sampleIn : SampleInputPort;
+        port resultOut : ResultOutputPort;
+        port commandIn : CommandPort;
+        port healthOut : HealthPort;
+
+        part acquisition : DataAcquisitionUnit;
+        part validation : ValidationUnit;
+        part normalization : NormalizationUnit;
+        part inference : AnalysisEngine;
+        part reporting : ReportingUnit;
+        part monitor : HealthMonitor;
+
+        connect sampleIn.rawBatch to acquisition.rawIn.rawBatch;
+        connect acquisition.batchOut.rawBatch to validation.rawIn.rawBatch;
+        connect validation.validBatchOut.rawBatch to normalization.rawIn.rawBatch;
+        connect normalization.normalizedOut.normalizedBatch to inference.normalizedIn.normalizedBatch;
+        connect inference.analysisOut.result to reporting.analysisIn.result;
+        connect reporting.resultOut.result to resultOut.result;
+        connect monitor.healthOut.health to healthOut.health;
+
+        connect commandIn.command to acquisition.commandIn.command;
+        connect commandIn.command to inference.commandIn.command;
+        connect commandIn.command to reporting.commandIn.command;
+
+        perform action analyseIncomingData;
+        exhibit state analyserLifecycle;
+    }
+
+    part def DataAcquisitionUnit {
+        attribute inputBufferDepth : ScalarValues::Integer = 128;
+        attribute sustainedInputRate : SampleRate = 40000 [sample/s];
+
+        port rawIn : SampleInputPort;
+        port batchOut : SampleInputPort;
+        port commandIn : CommandPort;
+
+        action receiveBatch {
+            in item incoming : SampleBatch;
+            out item captured : SampleBatch;
+            first start;
+            then stampReceiptTime;
+            then bufferBatch;
+            then emitCapturedBatch;
+            then done;
+        }
+    }
+
+    part def ValidationUnit {
+        attribute minimumSampleQuality : Percent = 70 [%];
+        attribute maximumMissingSamples : Percent = 5 [%];
+
+        port rawIn : SampleInputPort;
+        port validBatchOut : SampleInputPort;
+
+        action validateBatch {
+            in item candidate : SampleBatch;
+            out item accepted : SampleBatch;
+            out attribute rejected : Boolean;
+
+            first start;
+            then checkSchema;
+            then checkTimestampContinuity;
+            then checkQualityThreshold;
+            then routeAcceptedOrRejected;
+            then done;
+        }
+    }
+
+    part def NormalizationUnit {
+        attribute calibrationVersion : String = "CAL-2026-01";
+        attribute targetScaleMinimum : ScalarValues::Real = 0.0;
+        attribute targetScaleMaximum : ScalarValues::Real = 1.0;
+
+        port rawIn : SampleInputPort;
+        port normalizedOut : InternalBatchPort;
+
+        action normalizeBatch {
+            in item accepted : SampleBatch;
+            out item normalized : NormalizedBatch;
+
+            first start;
+            then removeOutliers;
+            then interpolateMissingSamples;
+            then applyCalibration;
+            then scaleValues;
+            then emitNormalizedBatch;
+            then done;
+        }
+    }
+
+    part def AnalysisEngine {
+        attribute modelIdentifier : String = "ANALYSER-CORE-MODEL-4";
+        attribute modelConfidenceFloor : Confidence = 85 [%];
+        attribute maximumInferenceLatency : Latency = 50 [ms];
+
+        port normalizedIn : InternalBatchPort;
+        port analysisOut : InternalResultPort;
+        port commandIn : CommandPort;
+
+        action inferResult {
+            in item normalized : NormalizedBatch;
+            out item result : AnalysisResult;
+
+            first start;
+            then extractFeatures;
+            then compareAgainstReferenceModel;
+            then calculateAnomalyScore;
+            then assignClassification;
+            then calculateConfidence;
+            then emitAnalysisResult;
+            then done;
+        }
+    }
+
+    part def ReportingUnit {
+        attribute resultRetentionPeriod : Time = 2592000 [s];
+        attribute outputDataRate : DataRate = 10 [Mbit/s];
+
+        port analysisIn : InternalResultPort;
+        port resultOut : ResultOutputPort;
+        port commandIn : CommandPort;
+
+        action publishResult {
+            in item result : AnalysisResult;
+            first start;
+            then enrichWithMetadata;
+            then persistResult;
+            then transmitResult;
+            then done;
+        }
+    }
+
+    part def HealthMonitor {
+        attribute warningTemperature : Temperature = 70 [degC];
+        attribute shutdownTemperature : Temperature = 85 [degC];
+        attribute healthInterval : Time = 5 [s];
+
+        port healthOut : HealthPort;
+
+        action generateHealthReport {
+            out item report : HealthReport;
+            first start;
+            then readProcessorLoad;
+            then readMemoryUsage;
+            then readInternalTemperature;
+            then evaluateFaultStatus;
+            then emitHealthReport;
+            then done;
+        }
+    }
+
+    action def AnalyseIncomingData {
+        in item rawInput : SampleBatch;
+        out item finalResult : AnalysisResult;
+
+        first receive;
+        then validate;
+        then normalize;
+        then analyse;
+        then report;
+        then done;
+    }
+
+    state def AnalyserLifecycle {
+        state initial;
+        state idle;
+        state acquiring;
+        state validating;
+        state normalizing;
+        state analysing;
+        state reporting;
+        state degraded;
+        state faulted;
+        state shutdown;
+
+        transition first initial then idle;
+
+        transition idle_to_acquiring
+            first idle
+            accept SampleBatch
+            then acquiring;
+
+        transition acquiring_to_validating
+            first acquiring
+            then validating;
+
+        transition validating_to_normalizing
+            first validating
+            if validationPassed
+            then normalizing;
+
+        transition validating_to_degraded
+            first validating
+            if validationFailed
+            then degraded;
+
+        transition normalizing_to_analysing
+            first normalizing
+            then analysing;
+
+        transition analysing_to_reporting
+            first analysing
+            then reporting;
+
+        transition reporting_to_idle
+            first reporting
+            then idle;
+
+        transition degraded_to_idle
+            first degraded
+            accept CommandMessage
+            if commandType == "ACKNOWLEDGE_DEGRADED_MODE"
+            then idle;
+
+        transition any_to_faulted
+            first idle
+            accept HealthReport
+            if faultCode != "NONE"
+            then faulted;
+
+        transition faulted_to_shutdown
+            first faulted
+            accept CommandMessage
+            if commandType == "SHUTDOWN"
+            then shutdown;
+    }
+
+    requirement def AnalysePrimaryFunctionRequirement {
+        doc
+            /* The analyser shall accept raw sample batches from an external source, validate and normalize the data, apply an analysis model, and publish a classified result with confidence and anomaly score. */
+
+        subject analyser : Analyser;
+
+        require constraint {
+            analyser.nominalProcessingLatency <= 100 [ms]
+        }
+
+        require constraint {
+            analyser.minimumConfidence >= 85 [%]
+        }
+
+        require constraint {
+            analyser.maxInputRate >= 40000 [sample/s]
+        }
+    }
+
+    requirement def InputValidationRequirement {
+        doc
+            /* The analyser shall reject or degrade processing for input batches whose sample quality or continuity is below configured thresholds. */
+
+        subject validation : ValidationUnit;
+
+        require constraint {
+            validation.minimumSampleQuality >= 70 [%]
+        }
+
+        require constraint {
+            validation.maximumMissingSamples <= 5 [%]
+        }
+    }
+
+    requirement def HealthReportingRequirement {
+        doc
+            /* The analyser shall publish health status containing operating mode, processor load, memory usage, internal temperature, and fault code at a regular interval. */
+
+        subject monitor : HealthMonitor;
+
+        require constraint {
+            monitor.healthInterval <= 5 [s]
+        }
+
+        require constraint {
+            monitor.shutdownTemperature > monitor.warningTemperature
+        }
+    }
+
+    requirement def ResultReportingRequirement {
+        doc
+            /* The analyser shall persist and transmit each analysis result with traceability to the input batch that produced it. */
+
+        subject reporting : ReportingUnit;
+
+        require constraint {
+            reporting.outputDataRate >= 1 [Mbit/s]
+        }
+    }
+
+    part analyserSystem {
+        part analyser : Analyser;
+
+        port externalSamples : SampleInputPort;
+        port externalResults : ResultOutputPort;
+        port externalCommands : CommandPort;
+        port externalHealth : HealthPort;
+
+        connect externalSamples.rawBatch to analyser.sampleIn.rawBatch;
+        connect analyser.resultOut.result to externalResults.result;
+        connect externalCommands.command to analyser.commandIn.command;
+        connect analyser.healthOut.health to externalHealth.health;
+
+        satisfy AnalysePrimaryFunctionRequirement by analyser;
+        satisfy InputValidationRequirement by analyser.validation;
+        satisfy HealthReportingRequirement by analyser.monitor;
+        satisfy ResultReportingRequirement by analyser.reporting;
+    }
+}

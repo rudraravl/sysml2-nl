@@ -1,0 +1,607 @@
+package EISSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    value type ElectricPotential specializes Real {
+        unit = V;
+    }
+
+    value type ElectricCurrent specializes Real {
+        unit = A;
+    }
+
+    value type Capacitance specializes Real {
+        unit = F;
+    }
+
+    value type Frequency specializes Real {
+        unit = Hz;
+    }
+
+    value type Temperature specializes Real {
+        unit = K;
+    }
+
+    value type HydrogenIonActivity specializes Real {
+        unit = one;
+    }
+
+    value type PH specializes Real {
+        unit = one;
+    }
+
+    value type MolarConcentration specializes Real {
+        unit = mol / m^3;
+    }
+
+    value type TimeDuration specializes Real {
+        unit = s;
+    }
+
+    value type SignalToNoiseRatio specializes Real {
+        unit = dB;
+    }
+
+    value type ResolutionPH specializes Real {
+        unit = one;
+    }
+
+    item def ElectrolyteSample {
+        attribute hydrogenIonActivity : HydrogenIonActivity;
+        attribute pH : PH;
+        attribute ionicStrength : MolarConcentration;
+        attribute temperature : Temperature;
+        attribute volume : Real;
+    }
+
+    item def BiasVoltageCommand {
+        attribute dcBias : ElectricPotential;
+        attribute acAmplitude : ElectricPotential;
+        attribute frequency : Frequency;
+    }
+
+    item def CapacitanceMeasurement {
+        attribute capacitance : Capacitance;
+        attribute conductance : ElectricCurrent;
+        attribute bias : ElectricPotential;
+        attribute frequency : Frequency;
+        attribute sampleTemperature : Temperature;
+        attribute acquisitionTime : TimeDuration;
+    }
+
+    item def PHMeasurement {
+        attribute pH : PH;
+        attribute temperatureCompensated : Boolean;
+        attribute confidence : Real;
+        attribute signalToNoiseRatio : SignalToNoiseRatio;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def CalibrationData {
+        attribute offsetVoltage : ElectricPotential;
+        attribute sensitivity : Real;
+        attribute referenceTemperature : Temperature;
+        attribute lowBufferPH : PH;
+        attribute highBufferPH : PH;
+        attribute valid : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorConnected : Boolean;
+        attribute electrolyteContactEstablished : Boolean;
+        attribute leakageCurrentWithinLimit : Boolean;
+        attribute capacitanceWithinRange : Boolean;
+        attribute calibrated : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    port def ElectrolytePort {
+        in item sample : ElectrolyteSample;
+    }
+
+    port def ElectricalExcitationPort {
+        in item command : BiasVoltageCommand;
+        out item response : CapacitanceMeasurement;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : PHMeasurement;
+        out item diagnostics : DiagnosticStatus;
+    }
+
+    port def CalibrationPort {
+        in item calibration : CalibrationData;
+    }
+
+    part def ElectrolyteInsulatorSemiconductorSensor {
+        attribute insulatorMaterial : String = "Si3N4";
+        attribute semiconductorMaterial : String = "p-type silicon";
+        attribute referenceElectrodeMaterial : String = "Ag/AgCl";
+        attribute sensingArea : Real;
+        attribute flatBandVoltage : ElectricPotential;
+        attribute leakageCurrent : ElectricCurrent;
+        attribute oxideCapacitance : Capacitance;
+        attribute nominalSensitivity : Real = 0.055;
+
+        port electrolyte : ElectrolytePort;
+        port electrical : ElectricalExcitationPort;
+
+        part electrolyteInterface {
+            attribute surfacePotential : ElectricPotential;
+            attribute doubleLayerCapacitance : Capacitance;
+            attribute ionSelectiveSitesAvailable : Boolean;
+        }
+
+        part insulatorLayer {
+            attribute thickness : Real;
+            attribute dielectricConstant : Real;
+            attribute pinholeFree : Boolean;
+        }
+
+        part semiconductorSubstrate {
+            attribute dopingConcentration : MolarConcentration;
+            attribute depletionCapacitance : Capacitance;
+            attribute inversionThreshold : ElectricPotential;
+        }
+
+        perform action senseCapacitance {
+            in item sample : ElectrolyteSample;
+            in item command : BiasVoltageCommand;
+            out item rawMeasurement : CapacitanceMeasurement;
+
+            first start;
+            then establishElectrolyteContact;
+            then applySmallSignalBias;
+            then acquireCVPoint;
+            then emitRawMeasurement;
+            then done;
+
+            action establishElectrolyteContact;
+            action applySmallSignalBias;
+            action acquireCVPoint;
+            action emitRawMeasurement;
+        }
+
+        state machine sensorHealth {
+            state disconnected;
+            state wetting;
+            state ready;
+            state degraded;
+            state failed;
+
+            initial then disconnected;
+
+            transition disconnected_to_wetting
+                first disconnected
+                accept sampleReceived
+                then wetting;
+
+            transition wetting_to_ready
+                first wetting
+                accept stableInterface
+                if electrolyteInterface.ionSelectiveSitesAvailable
+                then ready;
+
+            transition ready_to_degraded
+                first ready
+                accept excessiveNoise
+                then degraded;
+
+            transition degraded_to_ready
+                first degraded
+                accept recoveredSignal
+                then ready;
+
+            transition any_to_failed
+                first ready
+                accept leakageExceeded
+                then failed;
+        }
+    }
+
+    part def BiasAndImpedanceFrontEnd {
+        attribute dcBiasRangeMin : ElectricPotential = -2.0 [V];
+        attribute dcBiasRangeMax : ElectricPotential = 2.0 [V];
+        attribute acExcitationAmplitude : ElectricPotential = 0.010 [V];
+        attribute excitationFrequency : Frequency = 1000 [Hz];
+        attribute capacitanceNoiseFloor : Capacitance = 1.0e-12 [F];
+
+        port sensorElectrical : ElectricalExcitationPort;
+
+        perform action measureImpedance {
+            in item biasCommand : BiasVoltageCommand;
+            out item capacitanceMeasurement : CapacitanceMeasurement;
+
+            first generateBias;
+            then sampleCurrentResponse;
+            then demodulateInPhaseQuadrature;
+            then calculateCapacitanceConductance;
+            then outputMeasurement;
+
+            action generateBias;
+            action sampleCurrentResponse;
+            action demodulateInPhaseQuadrature;
+            action calculateCapacitanceConductance;
+            action outputMeasurement;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute accuracy : Temperature = 0.2 [K];
+        attribute responseTime : TimeDuration = 2.0 [s];
+        attribute measuredTemperature : Temperature;
+
+        port thermalContact : ElectrolytePort;
+
+        perform action acquireTemperature {
+            in item sample : ElectrolyteSample;
+            out temperature : Temperature;
+
+            first sampleThermalInterface;
+            then filterTemperature;
+            then reportTemperature;
+
+            action sampleThermalInterface;
+            action filterTemperature;
+            action reportTemperature;
+        }
+    }
+
+    part def CalibrationProcessor {
+        attribute activeCalibration : CalibrationData;
+        attribute nernstSlopeAtReference : Real = 0.05916;
+        attribute calibrationAge : TimeDuration;
+
+        port calibrationInput : CalibrationPort;
+
+        perform action applyTwoPointCalibration {
+            in item rawMeasurement : CapacitanceMeasurement;
+            in item calibration : CalibrationData;
+            out item compensatedMeasurement : PHMeasurement;
+
+            first verifyCalibration;
+            then convertCapacitanceShiftToSurfacePotential;
+            then compensateTemperature;
+            then calculatePH;
+            then estimateConfidence;
+            then publishPH;
+
+            action verifyCalibration;
+            action convertCapacitanceShiftToSurfacePotential;
+            action compensateTemperature;
+            action calculatePH;
+            action estimateConfidence;
+            action publishPH;
+        }
+
+        state machine calibrationState {
+            state uncalibrated;
+            state calibratingLowBuffer;
+            state calibratingHighBuffer;
+            state calibrated;
+            state expired;
+            state invalid;
+
+            initial then uncalibrated;
+
+            transition start_low
+                first uncalibrated
+                accept lowBufferApplied
+                then calibratingLowBuffer;
+
+            transition low_to_high
+                first calibratingLowBuffer
+                accept stableLowBufferReading
+                then calibratingHighBuffer;
+
+            transition high_to_calibrated
+                first calibratingHighBuffer
+                accept stableHighBufferReading
+                if activeCalibration.valid
+                then calibrated;
+
+            transition calibrated_to_expired
+                first calibrated
+                accept calibrationTimeout
+                then expired;
+
+            transition any_to_invalid
+                first calibrated
+                accept calibrationRejected
+                then invalid;
+        }
+    }
+
+    part def DigitalController {
+        attribute samplingPeriod : TimeDuration = 1.0 [s];
+        attribute averagingWindow : Integer = 8;
+        attribute stableReadingThreshold : ResolutionPH = 0.01;
+        attribute latestPH : PHMeasurement;
+        attribute latestDiagnostics : DiagnosticStatus;
+
+        port measurementOutput : MeasurementOutputPort;
+
+        perform action measurementCycle {
+            out item reportedMeasurement : PHMeasurement;
+            out item reportedDiagnostics : DiagnosticStatus;
+
+            first selfTest;
+            then prepareBiasCommand;
+            then acquireRawCapacitance;
+            then rejectOutliers;
+            then computeCompensatedPH;
+            then updateDiagnostics;
+            then transmitResult;
+
+            action selfTest;
+            action prepareBiasCommand;
+            action acquireRawCapacitance;
+            action rejectOutliers;
+            action computeCompensatedPH;
+            action updateDiagnostics;
+            action transmitResult;
+        }
+
+        state machine operatingMode {
+            state powerOff;
+            state initializing;
+            state idle;
+            state measuring;
+            state calibrating;
+            state fault;
+
+            initial then powerOff;
+
+            transition power_on
+                first powerOff
+                accept powerApplied
+                then initializing;
+
+            transition initialized
+                first initializing
+                accept selfTestPassed
+                then idle;
+
+            transition begin_measurement
+                first idle
+                accept samplePresent
+                then measuring;
+
+            transition measurement_complete
+                first measuring
+                accept resultPublished
+                then idle;
+
+            transition begin_calibration
+                first idle
+                accept calibrationRequested
+                then calibrating;
+
+            transition calibration_complete
+                first calibrating
+                accept calibrationAccepted
+                then idle;
+
+            transition fault_detected
+                first measuring
+                accept diagnosticFault
+                then fault;
+
+            transition reset_fault
+                first fault
+                accept resetCommand
+                then initializing;
+        }
+    }
+
+    part def SensingUnit {
+        attribute measuredQuantity : String = "pH from hydrogen ion activity";
+        attribute pHRangeMin : PH = 2.0;
+        attribute pHRangeMax : PH = 12.0;
+        attribute pHResolution : ResolutionPH = 0.01;
+        attribute responseTimeRequirement : TimeDuration = 10.0 [s];
+        attribute minimumSNR : SignalToNoiseRatio = 30 [dB];
+        attribute operatingTemperatureMin : Temperature = 278.15 [K];
+        attribute operatingTemperatureMax : Temperature = 323.15 [K];
+
+        port sampleInput : ElectrolytePort;
+        port calibrationInput : CalibrationPort;
+        port resultOutput : MeasurementOutputPort;
+
+        part eisSensor : ElectrolyteInsulatorSemiconductorSensor;
+        part frontEnd : BiasAndImpedanceFrontEnd;
+        part temperatureSensor : TemperatureSensor;
+        part calibrationProcessor : CalibrationProcessor;
+        part controller : DigitalController;
+
+        connect sampleInput to eisSensor.electrolyte;
+        connect sampleInput to temperatureSensor.thermalContact;
+        connect calibrationInput to calibrationProcessor.calibrationInput;
+        connect frontEnd.sensorElectrical to eisSensor.electrical;
+        connect controller.measurementOutput to resultOutput;
+
+        perform action measureSamplePH {
+            in item sample : ElectrolyteSample;
+            out item pHResult : PHMeasurement;
+            out item diagnosticResult : DiagnosticStatus;
+
+            first receiveSample;
+            then verifyTemperatureRange;
+            then biasEISSensor;
+            then measureCapacitanceVoltageResponse;
+            then correlateSurfacePotentialWithHydrogenIonActivity;
+            then compensateForTemperatureAndCalibration;
+            then producePHMeasurement;
+            then publishDiagnostics;
+
+            action receiveSample;
+            action verifyTemperatureRange;
+            action biasEISSensor;
+            action measureCapacitanceVoltageResponse;
+            action correlateSurfacePotentialWithHydrogenIonActivity;
+            action compensateForTemperatureAndCalibration;
+            action producePHMeasurement;
+            action publishDiagnostics;
+        }
+    }
+
+    requirement def MeasureRelevantQuantityRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall measure pH, the relevant electrolyte quantity derived from hydrogen ion activity, using an Electrolyte-insulator-semiconductor sensor as the primary sensing element. */
+
+        require constraint {
+            unit.measuredQuantity == "pH from hydrogen ion activity"
+        }
+    }
+
+    requirement def EISPrimarySensorRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall obtain the chemical response through changes in the capacitance-voltage behavior of the electrolyte-insulator-semiconductor structure. */
+
+        require constraint {
+            unit.eisSensor.insulatorMaterial == "Si3N4" and
+            unit.eisSensor.semiconductorMaterial == "p-type silicon"
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall report pH values from pH 2 to pH 12. */
+
+        require constraint {
+            unit.pHRangeMin <= 2.0 and unit.pHRangeMax >= 12.0
+        }
+    }
+
+    requirement def ResolutionRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall resolve pH changes of 0.01 pH or smaller after calibration and averaging. */
+
+        require constraint {
+            unit.pHResolution <= 0.01
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall produce a compensated pH measurement within 10 seconds after stable sample contact. */
+
+        require constraint {
+            unit.responseTimeRequirement <= 10.0 [s]
+        }
+    }
+
+    requirement def TemperatureCompensationRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall compensate pH conversion using measured sample temperature over the operating temperature range. */
+
+        require constraint {
+            unit.operatingTemperatureMin <= 278.15 [K] and
+            unit.operatingTemperatureMax >= 323.15 [K]
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall report diagnostics and reject measurements when signal-to-noise ratio is below 30 dB. */
+
+        require constraint {
+            unit.minimumSNR >= 30 [dB]
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject unit : SensingUnit;
+
+        doc /* The sensing unit shall support two-point calibration using low-pH and high-pH buffer solutions and shall mark measurements invalid when calibration is absent or expired. */
+
+        require constraint {
+            unit.calibrationProcessor.activeCalibration.valid == true
+        }
+    }
+
+    satisfy MeasureRelevantQuantityRequirement by SensingUnit;
+    satisfy EISPrimarySensorRequirement by SensingUnit.eisSensor;
+    satisfy MeasurementRangeRequirement by SensingUnit;
+    satisfy ResolutionRequirement by SensingUnit;
+    satisfy ResponseTimeRequirement by SensingUnit;
+    satisfy TemperatureCompensationRequirement by SensingUnit.temperatureSensor;
+    satisfy SignalQualityRequirement by SensingUnit.controller;
+    satisfy CalibrationRequirement by SensingUnit.calibrationProcessor;
+
+    part sensingUnit : SensingUnit {
+        attribute pHRangeMin = 2.0;
+        attribute pHRangeMax = 12.0;
+        attribute pHResolution = 0.01;
+        attribute responseTimeRequirement = 10.0 [s];
+        attribute minimumSNR = 30 [dB];
+
+        part eisSensor {
+            attribute sensingArea = 1.0e-6;
+            attribute flatBandVoltage = 0.20 [V];
+            attribute leakageCurrent = 1.0e-9 [A];
+            attribute oxideCapacitance = 2.0e-9 [F];
+
+            part electrolyteInterface {
+                attribute surfacePotential = 0.0 [V];
+                attribute doubleLayerCapacitance = 5.0e-9 [F];
+                attribute ionSelectiveSitesAvailable = true;
+            }
+
+            part insulatorLayer {
+                attribute thickness = 1.0e-7;
+                attribute dielectricConstant = 7.5;
+                attribute pinholeFree = true;
+            }
+
+            part semiconductorSubstrate {
+                attribute dopingConcentration = 1.0e21 [mol / m^3];
+                attribute depletionCapacitance = 1.2e-9 [F];
+                attribute inversionThreshold = 0.65 [V];
+            }
+        }
+
+        part frontEnd {
+            attribute dcBiasRangeMin = -2.0 [V];
+            attribute dcBiasRangeMax = 2.0 [V];
+            attribute acExcitationAmplitude = 0.010 [V];
+            attribute excitationFrequency = 1000 [Hz];
+            attribute capacitanceNoiseFloor = 1.0e-12 [F];
+        }
+
+        part temperatureSensor {
+            attribute accuracy = 0.2 [K];
+            attribute responseTime = 2.0 [s];
+            attribute measuredTemperature = 298.15 [K];
+        }
+
+        part calibrationProcessor {
+            attribute nernstSlopeAtReference = 0.05916;
+            attribute calibrationAge = 0.0 [s];
+
+            attribute activeCalibration : CalibrationData {
+                :>> offsetVoltage = 0.020 [V];
+                :>> sensitivity = 0.055;
+                :>> referenceTemperature = 298.15 [K];
+                :>> lowBufferPH = 4.00;
+                :>> highBufferPH = 10.00;
+                :>> valid = true;
+            }
+        }
+
+        part controller {
+            attribute samplingPeriod = 1.0 [s];
+            attribute averagingWindow = 8;
+            attribute stableReadingThreshold = 0.01;
+        }
+    }
+}

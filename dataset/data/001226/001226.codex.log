@@ -1,0 +1,793 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7cv9vzxo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5e8-35c6-7c80-854f-f99d0c7a0e94
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Ring laser gyroscope and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RingLaserGyroscopeSpecification {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def AngularRate :> Real {
+        attribute unit : String = "rad/s";
+    }
+
+    attribute def Angle :> Real {
+        attribute unit : String = "rad";
+    }
+
+    attribute def Frequency :> Real {
+        attribute unit : String = "Hz";
+    }
+
+    attribute def Voltage :> Real {
+        attribute unit : String = "V";
+    }
+
+    attribute def Current :> Real {
+        attribute unit : String = "A";
+    }
+
+    attribute def Temperature :> Real {
+        attribute unit : String = "degC";
+    }
+
+    attribute def OpticalPower :> Real {
+        attribute unit : String = "mW";
+    }
+
+    attribute def TimeDuration :> Real {
+        attribute unit : String = "s";
+    }
+
+    attribute def ScaleFactor :> Real {
+        attribute unit : String = "Hz/(rad/s)";
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def AngularMotion {
+        attribute angularRate : AngularRate;
+        attribute angleIncrement : Angle;
+        attribute axisName : String;
+    }
+
+    item def LaserBeam {
+        attribute wavelength : Real;
+        attribute opticalPower : OpticalPower;
+        attribute propagationDirection : String;
+        attribute polarizationState : String;
+    }
+
+    item def OpticalBeatSignal {
+        attribute beatFrequency : Frequency;
+        attribute fringeContrast : Real;
+        attribute clockwiseIntensity : OpticalPower;
+        attribute counterClockwiseIntensity : OpticalPower;
+    }
+
+    item def DigitalAngularRate {
+        attribute measuredRate : AngularRate;
+        attribute integratedAngle : Angle;
+        attribute samplePeriod : TimeDuration;
+        attribute validity : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute ready : Boolean;
+        attribute laserLocked : Boolean;
+        attribute temperatureStable : Boolean;
+        attribute faultCode : Integer;
+        attribute diagnosticMessage : String;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def MotionInputPort {
+        in item motion : AngularMotion;
+    }
+
+    port def OpticalPort {
+        inout item beam : LaserBeam;
+    }
+
+    port def BeatSignalPort {
+        out item beat : OpticalBeatSignal;
+    }
+
+    port def RateOutputPort {
+        out item rate : DigitalAngularRate;
+    }
+
+    port def StatusOutputPort {
+        out item status : HealthStatus;
+    }
+
+    part def LaserGainMedium {
+        attribute dischargeVoltage : Voltage = 1200.0;
+        attribute dischargeCurrent : Current = 0.004;
+        attribute operatingWavelength_nm : Real = 632.8;
+        attribute nominalOpticalPower : OpticalPower = 0.8;
+
+        port powerIn : PowerInputPort;
+        port clockwiseBeamOut : OpticalPort;
+        port counterClockwiseBeamOut : OpticalPort;
+    }
+
+    part def RingOpticalCavity {
+        attribute pathLength_m : Real = 0.28;
+        attribute enclosedArea_m2 : Real = 0.0025;
+        attribute mirrorReflectivity : Real = 0.9995;
+        attribute cavityLoss : Real = 0.0008;
+        attribute cavityTemperature : Temperature;
+
+        port clockwiseBeam : OpticalPort;
+        port counterClockwiseBeam : OpticalPort;
+        port motionIn : MotionInputPort;
+    }
+
+    part def DitherMechanism {
+        attribute ditherFrequency : Frequency = 450.0;
+        attribute ditherAmplitude : AngularRate = 0.002;
+        attribute lockInThreshold : AngularRate = 0.00005;
+
+        port powerIn : PowerInputPort;
+        port motionBiasOut : MotionInputPort;
+    }
+
+    part def PhotodetectorAssembly {
+        attribute responsivity_A_per_W : Real = 0.45;
+        attribute darkCurrent : Current = 0.000000002;
+        attribute bandwidth : Frequency = 200000.0;
+
+        port opticalInput : OpticalPort;
+        port beatOut : BeatSignalPort;
+        port powerIn : PowerInputPort;
+    }
+
+    part def SignalProcessor {
+        attribute nominalScaleFactor : ScaleFactor = 720000.0;
+        attribute biasEstimate : AngularRate = 0.0;
+        attribute samplePeriod : TimeDuration = 0.001;
+        attribute maxOutputRate : AngularRate = 8.73;
+
+        port beatIn : BeatSignalPort;
+        port rateOut : RateOutputPort;
+        port statusOut : StatusOutputPort;
+        port powerIn : PowerInputPort;
+
+        action def EstimateAngularRate {
+            in item beat : OpticalBeatSignal;
+            out item rate : DigitalAngularRate;
+
+            first start;
+            then validateSignal;
+            then removeBias;
+            then applyScaleFactor;
+            then integrateAngle;
+            then publishRate;
+            then done;
+
+            action validateSignal;
+            action removeBias;
+            action applyScaleFactor;
+            action integrateAngle;
+            action publishRate;
+        }
+    }
+
+    part def ThermalController {
+        attribute setPoint : Temperature = 45.0;
+        attribute stabilityBand : Temperature = 0.02;
+        attribute warmupTime : TimeDuration = 180.0;
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusOutputPort;
+    }
+
+    part def RingLaserGyroscopeSystem {
+        attribute primaryFunction : String =
+            "Measure angular rotation rate about the sensitive axis by sensing the Sagnac frequency difference between counter-propagating laser beams in a closed optical cavity.";
+
+        attribute sensitiveAxis : String = "Z";
+        attribute rateRange : AngularRate = 8.73;
+        attribute angleRandomWalk_deg_per_sqrt_hr : Real = 0.003;
+        attribute biasStability_deg_per_hr : Real = 0.01;
+        attribute updatePeriod : TimeDuration = 0.001;
+
+        port powerInput : PowerInputPort;
+        port angularMotionInput : MotionInputPort;
+        port angularRateOutput : RateOutputPort;
+        port healthStatusOutput : StatusOutputPort;
+
+        part laser : LaserGainMedium;
+        part cavity : RingOpticalCavity;
+        part dither : DitherMechanism;
+        part detector : PhotodetectorAssembly;
+        part processor : SignalProcessor;
+        part thermalControl : ThermalController;
+
+        connect powerInput.power to laser.powerIn.power;
+        connect powerInput.power to dither.powerIn.power;
+        connect powerInput.power to detector.powerIn.power;
+        connect powerInput.power to processor.powerIn.power;
+        connect powerInput.power to thermalControl.powerIn.power;
+
+        connect angularMotionInput.motion to cavity.motionIn.motion;
+        connect laser.clockwiseBeamOut.beam to cavity.clockwiseBeam.beam;
+        connect laser.counterClockwiseBeamOut.beam to cavity.counterClockwiseBeam.beam;
+        connect cavity.clockwiseBeam.beam to detector.opticalInput.beam;
+        connect detector.beatOut.beat to processor.beatIn.beat;
+        connect processor.rateOut.rate to angularRateOutput.rate;
+        connect processor.statusOut.status to healthStatusOutput.status;
+
+        state def OperatingStateMachine {
+            state Off;
+            state PowerApplied;
+            state Warmup;
+            state LaserStart;
+            state LockAcquisition;
+            state Measuring;
+            state Fault;
+
+            entry action initializeElectronics;
+            action initializeElectronics;
+            action regulateTemperature;
+            action igniteLaserDischarge;
+            action acquireOpticalLock;
+            action computeAngularRate;
+            action reportFault;
+
+            transition first Off;
+            transition Off_to_PowerApplied
+                first Off
+                then PowerApplied
+                if powerInput.power.supplyVoltage >= 18.0;
+
+            transition PowerApplied_to_Warmup
+                first PowerApplied
+                then Warmup;
+
+            transition Warmup_to_LaserStart
+                first Warmup
+                then LaserStart
+                if thermalControl.setPoint - cavity.cavityTemperature < 0.02;
+
+            transition LaserStart_to_LockAcquisition
+                first LaserStart
+                then LockAcquisition
+                if laser.nominalOpticalPower > 0.5;
+
+            transition LockAcquisition_to_Measuring
+                first LockAcquisition
+                then Measuring
+                if detector.bandwidth > 100000.0;
+
+            transition Measuring_to_Fault
+                first Measuring
+                then Fault
+                if processor.maxOutputRate < angularRateOutput.rate.measuredRate;
+
+            transition Fault_to_Off
+                first Fault
+                then Off
+                if powerInput.power.supplyVoltage < 1.0;
+        }
+
+        action def MeasureAngularRate {
+            in item appliedMotion : AngularMotion;
+            out item measuredMotion : DigitalAngularRate;
+
+            first acceptMotion;
+            then createCounterPropagatingBeams;
+            then accumulateSagnacPhaseShift;
+            then detectBeatFrequency;
+            then convertFrequencyToRate;
+            then compensateBiasAndDither;
+            then outputDigitalRate;
+            then done;
+
+            action acceptMotion;
+            action createCounterPropagatingBeams;
+            action accumulateSagnacPhaseShift;
+            action detectBeatFrequency;
+            action convertFrequencyToRate;
+            action compensateBiasAndDither;
+            action outputDigitalRate;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The ring laser gyroscope shall provide a digital measurement of angular rotation rate about its sensitive axis using the optical Sagnac effect. */
+
+        require constraint {
+            gyro.primaryFunction != ""
+        }
+    }
+
+    requirement def RateMeasurementRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall output valid angular rate data at a 1 ms update period while in Measuring state. */
+
+        require constraint {
+            gyro.updatePeriod <= 0.001
+        }
+    }
+
+    requirement def DynamicRangeRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall measure angular rates up to plus or minus 8.73 rad/s. */
+
+        require constraint {
+            gyro.rateRange >= 8.73
+        }
+    }
+
+    requirement def BiasStabilityRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall maintain bias stability no worse than 0.01 deg/hr under controlled temperature. */
+
+        require constraint {
+            gyro.biasStability_deg_per_hr <= 0.01
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The thermal controller shall keep the optical cavity within plus or minus 0.02 degC of its set point during measurement. */
+
+        require constraint {
+            gyro.thermalControl.stabilityBand <= 0.02
+        }
+    }
+
+    requirement def OpticalLockRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The laser cavity shall sustain counter-propagating beams with sufficient optical power for beat-frequency detection. */
+
+        require constraint {
+            gyro.laser.nominalOpticalPower >= 0.5 and
+            gyro.detector.bandwidth >= 100000.0
+        }
+    }
+
+    requirement def HealthReportingRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall report readiness, laser lock, temperature stability, and fault status. */
+
+        require constraint {
+            gyro.healthStatusOutput.status.faultCode >= 0
+        }
+    }
+
+    part rlgSystem : RingLaserGyroscopeSystem;
+
+    satisfy PrimaryFunctionRequirement by rlgSystem;
+    satisfy RateMeasurementRequirement by rlgSystem;
+    satisfy DynamicRangeRequirement by rlgSystem;
+    satisfy BiasStabilityRequirement by rlgSystem;
+    satisfy ThermalStabilityRequirement by rlgSystem;
+    satisfy OpticalLockRequirement by rlgSystem;
+    satisfy HealthReportingRequirement by rlgSystem;
+}
+tokens used
+4,263
+package RingLaserGyroscopeSpecification {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def AngularRate :> Real {
+        attribute unit : String = "rad/s";
+    }
+
+    attribute def Angle :> Real {
+        attribute unit : String = "rad";
+    }
+
+    attribute def Frequency :> Real {
+        attribute unit : String = "Hz";
+    }
+
+    attribute def Voltage :> Real {
+        attribute unit : String = "V";
+    }
+
+    attribute def Current :> Real {
+        attribute unit : String = "A";
+    }
+
+    attribute def Temperature :> Real {
+        attribute unit : String = "degC";
+    }
+
+    attribute def OpticalPower :> Real {
+        attribute unit : String = "mW";
+    }
+
+    attribute def TimeDuration :> Real {
+        attribute unit : String = "s";
+    }
+
+    attribute def ScaleFactor :> Real {
+        attribute unit : String = "Hz/(rad/s)";
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def AngularMotion {
+        attribute angularRate : AngularRate;
+        attribute angleIncrement : Angle;
+        attribute axisName : String;
+    }
+
+    item def LaserBeam {
+        attribute wavelength : Real;
+        attribute opticalPower : OpticalPower;
+        attribute propagationDirection : String;
+        attribute polarizationState : String;
+    }
+
+    item def OpticalBeatSignal {
+        attribute beatFrequency : Frequency;
+        attribute fringeContrast : Real;
+        attribute clockwiseIntensity : OpticalPower;
+        attribute counterClockwiseIntensity : OpticalPower;
+    }
+
+    item def DigitalAngularRate {
+        attribute measuredRate : AngularRate;
+        attribute integratedAngle : Angle;
+        attribute samplePeriod : TimeDuration;
+        attribute validity : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute ready : Boolean;
+        attribute laserLocked : Boolean;
+        attribute temperatureStable : Boolean;
+        attribute faultCode : Integer;
+        attribute diagnosticMessage : String;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def MotionInputPort {
+        in item motion : AngularMotion;
+    }
+
+    port def OpticalPort {
+        inout item beam : LaserBeam;
+    }
+
+    port def BeatSignalPort {
+        out item beat : OpticalBeatSignal;
+    }
+
+    port def RateOutputPort {
+        out item rate : DigitalAngularRate;
+    }
+
+    port def StatusOutputPort {
+        out item status : HealthStatus;
+    }
+
+    part def LaserGainMedium {
+        attribute dischargeVoltage : Voltage = 1200.0;
+        attribute dischargeCurrent : Current = 0.004;
+        attribute operatingWavelength_nm : Real = 632.8;
+        attribute nominalOpticalPower : OpticalPower = 0.8;
+
+        port powerIn : PowerInputPort;
+        port clockwiseBeamOut : OpticalPort;
+        port counterClockwiseBeamOut : OpticalPort;
+    }
+
+    part def RingOpticalCavity {
+        attribute pathLength_m : Real = 0.28;
+        attribute enclosedArea_m2 : Real = 0.0025;
+        attribute mirrorReflectivity : Real = 0.9995;
+        attribute cavityLoss : Real = 0.0008;
+        attribute cavityTemperature : Temperature;
+
+        port clockwiseBeam : OpticalPort;
+        port counterClockwiseBeam : OpticalPort;
+        port motionIn : MotionInputPort;
+    }
+
+    part def DitherMechanism {
+        attribute ditherFrequency : Frequency = 450.0;
+        attribute ditherAmplitude : AngularRate = 0.002;
+        attribute lockInThreshold : AngularRate = 0.00005;
+
+        port powerIn : PowerInputPort;
+        port motionBiasOut : MotionInputPort;
+    }
+
+    part def PhotodetectorAssembly {
+        attribute responsivity_A_per_W : Real = 0.45;
+        attribute darkCurrent : Current = 0.000000002;
+        attribute bandwidth : Frequency = 200000.0;
+
+        port opticalInput : OpticalPort;
+        port beatOut : BeatSignalPort;
+        port powerIn : PowerInputPort;
+    }
+
+    part def SignalProcessor {
+        attribute nominalScaleFactor : ScaleFactor = 720000.0;
+        attribute biasEstimate : AngularRate = 0.0;
+        attribute samplePeriod : TimeDuration = 0.001;
+        attribute maxOutputRate : AngularRate = 8.73;
+
+        port beatIn : BeatSignalPort;
+        port rateOut : RateOutputPort;
+        port statusOut : StatusOutputPort;
+        port powerIn : PowerInputPort;
+
+        action def EstimateAngularRate {
+            in item beat : OpticalBeatSignal;
+            out item rate : DigitalAngularRate;
+
+            first start;
+            then validateSignal;
+            then removeBias;
+            then applyScaleFactor;
+            then integrateAngle;
+            then publishRate;
+            then done;
+
+            action validateSignal;
+            action removeBias;
+            action applyScaleFactor;
+            action integrateAngle;
+            action publishRate;
+        }
+    }
+
+    part def ThermalController {
+        attribute setPoint : Temperature = 45.0;
+        attribute stabilityBand : Temperature = 0.02;
+        attribute warmupTime : TimeDuration = 180.0;
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusOutputPort;
+    }
+
+    part def RingLaserGyroscopeSystem {
+        attribute primaryFunction : String =
+            "Measure angular rotation rate about the sensitive axis by sensing the Sagnac frequency difference between counter-propagating laser beams in a closed optical cavity.";
+
+        attribute sensitiveAxis : String = "Z";
+        attribute rateRange : AngularRate = 8.73;
+        attribute angleRandomWalk_deg_per_sqrt_hr : Real = 0.003;
+        attribute biasStability_deg_per_hr : Real = 0.01;
+        attribute updatePeriod : TimeDuration = 0.001;
+
+        port powerInput : PowerInputPort;
+        port angularMotionInput : MotionInputPort;
+        port angularRateOutput : RateOutputPort;
+        port healthStatusOutput : StatusOutputPort;
+
+        part laser : LaserGainMedium;
+        part cavity : RingOpticalCavity;
+        part dither : DitherMechanism;
+        part detector : PhotodetectorAssembly;
+        part processor : SignalProcessor;
+        part thermalControl : ThermalController;
+
+        connect powerInput.power to laser.powerIn.power;
+        connect powerInput.power to dither.powerIn.power;
+        connect powerInput.power to detector.powerIn.power;
+        connect powerInput.power to processor.powerIn.power;
+        connect powerInput.power to thermalControl.powerIn.power;
+
+        connect angularMotionInput.motion to cavity.motionIn.motion;
+        connect laser.clockwiseBeamOut.beam to cavity.clockwiseBeam.beam;
+        connect laser.counterClockwiseBeamOut.beam to cavity.counterClockwiseBeam.beam;
+        connect cavity.clockwiseBeam.beam to detector.opticalInput.beam;
+        connect detector.beatOut.beat to processor.beatIn.beat;
+        connect processor.rateOut.rate to angularRateOutput.rate;
+        connect processor.statusOut.status to healthStatusOutput.status;
+
+        state def OperatingStateMachine {
+            state Off;
+            state PowerApplied;
+            state Warmup;
+            state LaserStart;
+            state LockAcquisition;
+            state Measuring;
+            state Fault;
+
+            entry action initializeElectronics;
+            action initializeElectronics;
+            action regulateTemperature;
+            action igniteLaserDischarge;
+            action acquireOpticalLock;
+            action computeAngularRate;
+            action reportFault;
+
+            transition first Off;
+            transition Off_to_PowerApplied
+                first Off
+                then PowerApplied
+                if powerInput.power.supplyVoltage >= 18.0;
+
+            transition PowerApplied_to_Warmup
+                first PowerApplied
+                then Warmup;
+
+            transition Warmup_to_LaserStart
+                first Warmup
+                then LaserStart
+                if thermalControl.setPoint - cavity.cavityTemperature < 0.02;
+
+            transition LaserStart_to_LockAcquisition
+                first LaserStart
+                then LockAcquisition
+                if laser.nominalOpticalPower > 0.5;
+
+            transition LockAcquisition_to_Measuring
+                first LockAcquisition
+                then Measuring
+                if detector.bandwidth > 100000.0;
+
+            transition Measuring_to_Fault
+                first Measuring
+                then Fault
+                if processor.maxOutputRate < angularRateOutput.rate.measuredRate;
+
+            transition Fault_to_Off
+                first Fault
+                then Off
+                if powerInput.power.supplyVoltage < 1.0;
+        }
+
+        action def MeasureAngularRate {
+            in item appliedMotion : AngularMotion;
+            out item measuredMotion : DigitalAngularRate;
+
+            first acceptMotion;
+            then createCounterPropagatingBeams;
+            then accumulateSagnacPhaseShift;
+            then detectBeatFrequency;
+            then convertFrequencyToRate;
+            then compensateBiasAndDither;
+            then outputDigitalRate;
+            then done;
+
+            action acceptMotion;
+            action createCounterPropagatingBeams;
+            action accumulateSagnacPhaseShift;
+            action detectBeatFrequency;
+            action convertFrequencyToRate;
+            action compensateBiasAndDither;
+            action outputDigitalRate;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The ring laser gyroscope shall provide a digital measurement of angular rotation rate about its sensitive axis using the optical Sagnac effect. */
+
+        require constraint {
+            gyro.primaryFunction != ""
+        }
+    }
+
+    requirement def RateMeasurementRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall output valid angular rate data at a 1 ms update period while in Measuring state. */
+
+        require constraint {
+            gyro.updatePeriod <= 0.001
+        }
+    }
+
+    requirement def DynamicRangeRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall measure angular rates up to plus or minus 8.73 rad/s. */
+
+        require constraint {
+            gyro.rateRange >= 8.73
+        }
+    }
+
+    requirement def BiasStabilityRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall maintain bias stability no worse than 0.01 deg/hr under controlled temperature. */
+
+        require constraint {
+            gyro.biasStability_deg_per_hr <= 0.01
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The thermal controller shall keep the optical cavity within plus or minus 0.02 degC of its set point during measurement. */
+
+        require constraint {
+            gyro.thermalControl.stabilityBand <= 0.02
+        }
+    }
+
+    requirement def OpticalLockRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The laser cavity shall sustain counter-propagating beams with sufficient optical power for beat-frequency detection. */
+
+        require constraint {
+            gyro.laser.nominalOpticalPower >= 0.5 and
+            gyro.detector.bandwidth >= 100000.0
+        }
+    }
+
+    requirement def HealthReportingRequirement {
+        subject gyro : RingLaserGyroscopeSystem;
+
+        doc
+        /* The gyroscope shall report readiness, laser lock, temperature stability, and fault status. */
+
+        require constraint {
+            gyro.healthStatusOutput.status.faultCode >= 0
+        }
+    }
+
+    part rlgSystem : RingLaserGyroscopeSystem;
+
+    satisfy PrimaryFunctionRequirement by rlgSystem;
+    satisfy RateMeasurementRequirement by rlgSystem;
+    satisfy DynamicRangeRequirement by rlgSystem;
+    satisfy BiasStabilityRequirement by rlgSystem;
+    satisfy ThermalStabilityRequirement by rlgSystem;
+    satisfy OpticalLockRequirement by rlgSystem;
+    satisfy HealthReportingRequirement by rlgSystem;
+}

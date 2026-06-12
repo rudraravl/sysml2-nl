@@ -1,0 +1,1435 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-qjhi_g23
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5f8-51c1-72c3-a25e-8c01f68f4379
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a sensing unit that measures the relevant quantity using a Sensor grid.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value def ElectricPotential {
+        unit = V;
+        quantity = ISQ::electricPotential;
+    }
+
+    value def ElectricCurrent {
+        unit = A;
+        quantity = ISQ::electricCurrent;
+    }
+
+    value def Power {
+        unit = W;
+        quantity = ISQ::power;
+    }
+
+    value def Temperature {
+        unit = K;
+        quantity = ISQ::thermodynamicTemperature;
+    }
+
+    value def Time {
+        unit = s;
+        quantity = ISQ::time;
+    }
+
+    value def Frequency {
+        unit = Hz;
+        quantity = ISQ::frequency;
+    }
+
+    value def Length {
+        unit = m;
+        quantity = ISQ::length;
+    }
+
+    value def Pressure {
+        unit = Pa;
+        quantity = ISQ::pressure;
+    }
+
+    value def DimensionlessRatio {
+        unit = one;
+    }
+
+    value def Count {
+        unit = one;
+    }
+
+    item def RawSample {
+        attribute pixelRow : Count;
+        attribute pixelColumn : Count;
+        attribute measuredPressure : Pressure;
+        attribute sensorTemperature : Temperature;
+        attribute sampleTime : Time;
+        attribute validity : Boolean;
+    }
+
+    item def CalibratedSample {
+        attribute xPosition : Length;
+        attribute yPosition : Length;
+        attribute pressure : Pressure;
+        attribute compensatedPressure : Pressure;
+        attribute confidence : DimensionlessRatio;
+        attribute sampleTime : Time;
+    }
+
+    item def PressureMap {
+        attribute rowCount : Count;
+        attribute columnCount : Count;
+        attribute pitch : Length;
+        attribute minimumPressure : Pressure;
+        attribute maximumPressure : Pressure;
+        attribute averagePressure : Pressure;
+        attribute mapTime : Time;
+    }
+
+    item def HealthReport {
+        attribute healthy : Boolean;
+        attribute failedCellCount : Count;
+        attribute supplyVoltage : ElectricPotential;
+        attribute controllerTemperature : Temperature;
+        attribute lastDiagnosticTime : Time;
+    }
+
+    item def ConfigurationCommand {
+        attribute requestedSamplingFrequency : Frequency;
+        attribute requestedGain : DimensionlessRatio;
+        attribute enableSelfTest : Boolean;
+        attribute resetFaults : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item supplyVoltage : ElectricPotential;
+        in item supplyCurrent : ElectricCurrent;
+    }
+
+    port def GridDrivePort {
+        out item excitationVoltage : ElectricPotential;
+        out item rowSelect : Count;
+        out item columnSelect : Count;
+    }
+
+    port def AnalogSensePort {
+        in item sensedVoltage : ElectricPotential;
+        in item leakageCurrent : ElectricCurrent;
+    }
+
+    port def DigitalDataPort {
+        out item pressureMap : PressureMap;
+        out item healthReport : HealthReport;
+        in item configurationCommand : ConfigurationCommand;
+    }
+
+    port def ThermalSensePort {
+        in item measuredTemperature : Temperature;
+    }
+
+    part def SensorCell {
+        attribute rowIndex : Count;
+        attribute columnIndex : Count;
+        attribute activeArea : Length;
+        attribute nominalSensitivity : DimensionlessRatio;
+        attribute offsetPressure : Pressure;
+        attribute gainError : DimensionlessRatio;
+        attribute failed : Boolean;
+
+        port drive : GridDrivePort;
+        port sense : AnalogSensePort;
+        port thermal : ThermalSensePort;
+
+        attribute localPressure : Pressure;
+        attribute cellTemperature : Temperature;
+        attribute rawVoltage : ElectricPotential;
+
+        action measureCell {
+            in pressureInput : Pressure;
+            in excitation : ElectricPotential;
+            in temperatureInput : Temperature;
+            out analogOutput : ElectricPotential;
+
+            first start;
+            then computeMechanicalResponse;
+            then applyTemperatureEffect;
+            then generateAnalogVoltage;
+            then done;
+
+            action computeMechanicalResponse {
+                in p : Pressure = pressureInput;
+                out normalizedResponse : DimensionlessRatio;
+            }
+
+            action applyTemperatureEffect {
+                in response : DimensionlessRatio = computeMechanicalResponse.normalizedResponse;
+                in t : Temperature = temperatureInput;
+                out compensatedResponse : DimensionlessRatio;
+            }
+
+            action generateAnalogVoltage {
+                in response : DimensionlessRatio = applyTemperatureEffect.compensatedResponse;
+                in vExcite : ElectricPotential = excitation;
+                out vSense : ElectricPotential = analogOutput;
+            }
+        }
+    }
+
+    part def SensorGrid {
+        attribute rows : Count = 16;
+        attribute columns : Count = 16;
+        attribute cellPitch : Length = 0.002 [m];
+        attribute samplingFrequency : Frequency = 100 [Hz];
+        attribute excitationVoltage : ElectricPotential = 3.3 [V];
+
+        port gridDrive : GridDrivePort;
+        port analogOutput : AnalogSensePort;
+        port thermalInput : ThermalSensePort;
+
+        part cells[256] : SensorCell;
+
+        attribute selectedRow : Count;
+        attribute selectedColumn : Count;
+        attribute failedCellCount : Count;
+
+        action scanGrid {
+            out rawSamples[256] : RawSample;
+
+            first initializeScan;
+            then scanRows;
+            then completeScan;
+
+            action initializeScan {
+                out firstRow : Count = 0;
+                out firstColumn : Count = 0;
+            }
+
+            action scanRows {
+                in startRow : Count = initializeScan.firstRow;
+                out samples[256] : RawSample;
+
+                action selectCell {
+                    in row : Count;
+                    in column : Count;
+                    out rowSelect : Count;
+                    out columnSelect : Count;
+                }
+
+                action acquireCellVoltage {
+                    in rowSelect : Count = selectCell.rowSelect;
+                    in columnSelect : Count = selectCell.columnSelect;
+                    out rawVoltage : ElectricPotential;
+                    out leakageCurrent : ElectricCurrent;
+                }
+
+                action convertVoltageToRawPressure {
+                    in rawVoltage : ElectricPotential = acquireCellVoltage.rawVoltage;
+                    out rawPressure : Pressure;
+                }
+
+                action publishRawSample {
+                    in rawPressure : Pressure = convertVoltageToRawPressure.rawPressure;
+                    out sample : RawSample;
+                }
+            }
+
+            action completeScan {
+                in samples[256] : RawSample = scanRows.samples;
+                out scanComplete : Boolean = true;
+            }
+        }
+
+        state def GridOperationalState {
+            entry action energizeGrid;
+            exit action deenergizeGrid;
+
+            state idle;
+            state scanning;
+            state degraded;
+            state failed;
+
+            transition idle_to_scanning
+                first idle
+                accept ConfigurationCommand
+                if enableSelfTest == false
+                then scanning;
+
+            transition scanning_to_idle
+                first scanning
+                accept Time
+                if failedCellCount < 16
+                then idle;
+
+            transition scanning_to_degraded
+                first scanning
+                if failedCellCount >= 16 and failedCellCount < 64
+                then degraded;
+
+            transition degraded_to_failed
+                first degraded
+                if failedCellCount >= 64
+                then failed;
+
+            transition failed_to_idle
+                first failed
+                accept ConfigurationCommand
+                if resetFaults == true
+                then idle;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute gain : DimensionlessRatio = 32;
+        attribute inputImpedance : DimensionlessRatio = 1000000;
+        attribute noiseFloor : ElectricPotential = 0.000002 [V];
+        attribute bandwidth : Frequency = 1000 [Hz];
+
+        port analogIn : AnalogSensePort;
+        port conditionedOut : AnalogSensePort;
+
+        action conditionSignal {
+            in sensedVoltage : ElectricPotential;
+            in gainSetting : DimensionlessRatio;
+            out conditionedVoltage : ElectricPotential;
+
+            first filterInput;
+            then amplifySignal;
+            then limitOutput;
+
+            action filterInput {
+                in inputVoltage : ElectricPotential = sensedVoltage;
+                out filteredVoltage : ElectricPotential;
+            }
+
+            action amplifySignal {
+                in filteredVoltage : ElectricPotential = filterInput.filteredVoltage;
+                in gain : DimensionlessRatio = gainSetting;
+                out amplifiedVoltage : ElectricPotential;
+            }
+
+            action limitOutput {
+                in amplifiedVoltage : ElectricPotential = amplifySignal.amplifiedVoltage;
+                out boundedVoltage : ElectricPotential = conditionedVoltage;
+            }
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Count = 16;
+        attribute referenceVoltage : ElectricPotential = 3.3 [V];
+        attribute conversionFrequency : Frequency = 50000 [Hz];
+
+        port analogIn : AnalogSensePort;
+
+        action digitize {
+            in conditionedVoltage : ElectricPotential;
+            out rawCode : Count;
+            out validConversion : Boolean;
+
+            first sampleAndHold;
+            then quantize;
+            then checkRange;
+
+            action sampleAndHold {
+                in voltage : ElectricPotential = conditionedVoltage;
+                out sampledVoltage : ElectricPotential;
+            }
+
+            action quantize {
+                in sampledVoltage : ElectricPotential = sampleAndHold.sampledVoltage;
+                out code : Count = rawCode;
+            }
+
+            action checkRange {
+                in code : Count = quantize.code;
+                out valid : Boolean = validConversion;
+            }
+        }
+    }
+
+    part def CalibrationProcessor {
+        attribute pressureOffset : Pressure = 0 [Pa];
+        attribute pressureScale : DimensionlessRatio = 1;
+        attribute temperatureCoefficient : DimensionlessRatio = 0.001;
+        attribute confidenceThreshold : DimensionlessRatio = 0.95;
+
+        action calibrateSamples {
+            in rawSamples[256] : RawSample;
+            out calibratedSamples[256] : CalibratedSample;
+
+            first rejectInvalidSamples;
+            then compensateTemperature;
+            then applyGainAndOffset;
+            then computeConfidence;
+
+            action rejectInvalidSamples {
+                in samples[256] : RawSample = rawSamples;
+                out acceptedSamples[256] : RawSample;
+            }
+
+            action compensateTemperature {
+                in acceptedSamples[256] : RawSample = rejectInvalidSamples.acceptedSamples;
+                out compensatedSamples[256] : RawSample;
+            }
+
+            action applyGainAndOffset {
+                in compensatedSamples[256] : RawSample = compensateTemperature.compensatedSamples;
+                out physicalSamples[256] : CalibratedSample;
+            }
+
+            action computeConfidence {
+                in physicalSamples[256] : CalibratedSample = applyGainAndOffset.physicalSamples;
+                out result[256] : CalibratedSample = calibratedSamples;
+            }
+        }
+    }
+
+    part def MapAssembler {
+        attribute rows : Count = 16;
+        attribute columns : Count = 16;
+        attribute pitch : Length = 0.002 [m];
+
+        action assemblePressureMap {
+            in calibratedSamples[256] : CalibratedSample;
+            out pressureMap : PressureMap;
+
+            first placeSamples;
+            then computeStatistics;
+            then publishMap;
+
+            action placeSamples {
+                in samples[256] : CalibratedSample = calibratedSamples;
+                out orderedCells[256] : CalibratedSample;
+            }
+
+            action computeStatistics {
+                in orderedCells[256] : CalibratedSample = placeSamples.orderedCells;
+                out minPressure : Pressure;
+                out maxPressure : Pressure;
+                out averagePressure : Pressure;
+            }
+
+            action publishMap {
+                in minPressure : Pressure = computeStatistics.minPressure;
+                in maxPressure : Pressure = computeStatistics.maxPressure;
+                in averagePressure : Pressure = computeStatistics.averagePressure;
+                out map : PressureMap = pressureMap;
+            }
+        }
+    }
+
+    part def HealthMonitor {
+        attribute minimumSupplyVoltage : ElectricPotential = 3.0 [V];
+        attribute maximumSupplyVoltage : ElectricPotential = 3.6 [V];
+        attribute maximumControllerTemperature : Temperature = 358.15 [K];
+        attribute maximumFailedCells : Count = 32;
+
+        port powerSense : PowerInputPort;
+        port controllerThermal : ThermalSensePort;
+
+        action performDiagnostics {
+            in supplyVoltage : ElectricPotential;
+            in controllerTemperature : Temperature;
+            in failedCellCount : Count;
+            out report : HealthReport;
+
+            first checkSupply;
+            then checkTemperature;
+            then checkGridIntegrity;
+            then produceReport;
+
+            action checkSupply {
+                in voltage : ElectricPotential = supplyVoltage;
+                out supplyOk : Boolean;
+            }
+
+            action checkTemperature {
+                in temperature : Temperature = controllerTemperature;
+                out temperatureOk : Boolean;
+            }
+
+            action checkGridIntegrity {
+                in failures : Count = failedCellCount;
+                out gridOk : Boolean;
+            }
+
+            action produceReport {
+                in supplyOk : Boolean = checkSupply.supplyOk;
+                in temperatureOk : Boolean = checkTemperature.temperatureOk;
+                in gridOk : Boolean = checkGridIntegrity.gridOk;
+                out health : HealthReport = report;
+            }
+        }
+    }
+
+    part def SensingController {
+        attribute commandedSamplingFrequency : Frequency = 100 [Hz];
+        attribute scanPeriod : Time = 0.01 [s];
+        attribute operatingMode : String = "Standby";
+
+        port digital : DigitalDataPort;
+
+        action acquireAndProcess {
+            in rawSamples[256] : RawSample;
+            out map : PressureMap;
+            out report : HealthReport;
+
+            first acquireGridData;
+            then calibrateGridData;
+            then assembleMap;
+            then runDiagnostics;
+            then transmitResults;
+
+            action acquireGridData {
+                out samples[256] : RawSample = rawSamples;
+            }
+
+            action calibrateGridData {
+                in samples[256] : RawSample = acquireGridData.samples;
+                out calibrated[256] : CalibratedSample;
+            }
+
+            action assembleMap {
+                in calibrated[256] : CalibratedSample = calibrateGridData.calibrated;
+                out pressureMap : PressureMap = map;
+            }
+
+            action runDiagnostics {
+                out healthReport : HealthReport = report;
+            }
+
+            action transmitResults {
+                in pressureMap : PressureMap = assembleMap.pressureMap;
+                in healthReport : HealthReport = runDiagnostics.healthReport;
+                out transmissionComplete : Boolean;
+            }
+        }
+
+        state def ControllerState {
+            state standby;
+            state configure;
+            state sample;
+            state process;
+            state transmit;
+            state fault;
+
+            transition standby_to_configure
+                first standby
+                accept ConfigurationCommand
+                then configure;
+
+            transition configure_to_sample
+                first configure
+                if requestedSamplingFrequency > 0 [Hz]
+                then sample;
+
+            transition sample_to_process
+                first sample
+                accept RawSample
+                then process;
+
+            transition process_to_transmit
+                first process
+                accept PressureMap
+                then transmit;
+
+            transition transmit_to_sample
+                first transmit
+                accept Time
+                then sample;
+
+            transition any_to_fault
+                first standby
+                if false
+                then fault;
+
+            transition fault_to_standby
+                first fault
+                accept ConfigurationCommand
+                if resetFaults == true
+                then standby;
+        }
+    }
+
+    part def SensingUnit {
+        attribute mass : SI::MassValue = 0.12 [kg];
+        attribute nominalSupplyVoltage : ElectricPotential = 3.3 [V];
+        attribute maximumPower : Power = 1.5 [W];
+        attribute measurementRangeMin : Pressure = 0 [Pa];
+        attribute measurementRangeMax : Pressure = 100000 [Pa];
+        attribute systemSamplingFrequency : Frequency = 100 [Hz];
+        attribute mapRows : Count = 16;
+        attribute mapColumns : Count = 16;
+
+        port powerInput : PowerInputPort;
+        port dataInterface : DigitalDataPort;
+        port ambientThermalInput : ThermalSensePort;
+
+        part grid : SensorGrid;
+        part frontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part calibration : CalibrationProcessor;
+        part assembler : MapAssembler;
+        part health : HealthMonitor;
+        part controller : SensingController;
+
+        connect powerInput to health.powerSense;
+        connect ambientThermalInput to grid.thermalInput;
+        connect ambientThermalInput to health.controllerThermal;
+        connect grid.analogOutput to frontEnd.analogIn;
+        connect frontEnd.conditionedOut to adc.analogIn;
+        connect controller.digital to dataInterface;
+
+        action sensePressureDistribution {
+            in appliedPressureField : Pressure;
+            out measuredPressureMap : PressureMap;
+            out unitHealth : HealthReport;
+
+            first powerStabilization;
+            then scanSensorGrid;
+            then conditionAnalogSignals;
+            then convertSignals;
+            then calibratePressureSamples;
+            then buildPressureMap;
+            then evaluateHealth;
+            then publishMeasurement;
+
+            action powerStabilization {
+                in supplyVoltage : ElectricPotential = nominalSupplyVoltage;
+                out powerReady : Boolean;
+            }
+
+            action scanSensorGrid {
+                in powerReady : Boolean = powerStabilization.powerReady;
+                out rawSamples[256] : RawSample;
+            }
+
+            action conditionAnalogSignals {
+                in rawSamples[256] : RawSample = scanSensorGrid.rawSamples;
+                out conditionedSamples[256] : RawSample;
+            }
+
+            action convertSignals {
+                in conditionedSamples[256] : RawSample = conditionAnalogSignals.conditionedSamples;
+                out digitalSamples[256] : RawSample;
+            }
+
+            action calibratePressureSamples {
+                in digitalSamples[256] : RawSample = convertSignals.digitalSamples;
+                out calibratedSamples[256] : CalibratedSample;
+            }
+
+            action buildPressureMap {
+                in calibratedSamples[256] : CalibratedSample = calibratePressureSamples.calibratedSamples;
+                out map : PressureMap = measuredPressureMap;
+            }
+
+            action evaluateHealth {
+                out report : HealthReport = unitHealth;
+            }
+
+            action publishMeasurement {
+                in map : PressureMap = buildPressureMap.map;
+                in report : HealthReport = evaluateHealth.report;
+                out published : Boolean;
+            }
+        }
+    }
+
+    requirement def MeasureRelevantQuantityRequirement {
+        subject unit : SensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin == 0 [Pa] and
+            unit.measurementRangeMax >= 100000 [Pa]
+        }
+
+        require constraint {
+            unit.systemSamplingFrequency >= 50 [Hz]
+        }
+
+        require constraint {
+            unit.mapRows == 16 and unit.mapColumns == 16
+        }
+
+        doc /* The sensing unit shall measure a two-dimensional pressure distribution as the relevant quantity using a sensor grid. */
+    }
+
+    requirement def GridCoverageRequirement {
+        subject grid : SensorGrid;
+
+        require constraint {
+            grid.rows == 16 and grid.columns == 16
+        }
+
+        require constraint {
+            grid.cellPitch <= 0.005 [m]
+        }
+
+        doc /* The sensor grid shall provide spatially distributed measurement coverage through individually addressable sensing cells. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject calibration : CalibrationProcessor;
+
+        require constraint {
+            calibration.confidenceThreshold >= 0.95
+        }
+
+        doc /* The calibration processor shall compensate sensor offset, gain, and temperature effects before producing pressure samples. */
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject health : HealthMonitor;
+
+        require constraint {
+            health.maximumFailedCells <= 32
+        }
+
+        require constraint {
+            health.minimumSupplyVoltage >= 3.0 [V] and
+            health.maximumSupplyVoltage <= 3.6 [V]
+        }
+
+        doc /* The sensing unit shall report operational health and detect excessive cell failures, supply faults, and over-temperature conditions. */
+    }
+
+    requirement def OutputRequirement {
+        subject unit : SensingUnit;
+
+        require constraint {
+            unit.mapRows * unit.mapColumns == 256
+        }
+
+        doc /* The sensing unit shall output a pressure map and health report through its digital data interface for each completed measurement cycle. */
+    }
+
+    satisfy MeasureRelevantQuantityRequirement by SensingUnit;
+    satisfy GridCoverageRequirement by SensorGrid;
+    satisfy AccuracyRequirement by CalibrationProcessor;
+    satisfy HealthMonitoringRequirement by HealthMonitor;
+    satisfy OutputRequirement by SensingUnit;
+
+    part sensingUnit : SensingUnit;
+
+}
+tokens used
+5,595
+package SensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    value def ElectricPotential {
+        unit = V;
+        quantity = ISQ::electricPotential;
+    }
+
+    value def ElectricCurrent {
+        unit = A;
+        quantity = ISQ::electricCurrent;
+    }
+
+    value def Power {
+        unit = W;
+        quantity = ISQ::power;
+    }
+
+    value def Temperature {
+        unit = K;
+        quantity = ISQ::thermodynamicTemperature;
+    }
+
+    value def Time {
+        unit = s;
+        quantity = ISQ::time;
+    }
+
+    value def Frequency {
+        unit = Hz;
+        quantity = ISQ::frequency;
+    }
+
+    value def Length {
+        unit = m;
+        quantity = ISQ::length;
+    }
+
+    value def Pressure {
+        unit = Pa;
+        quantity = ISQ::pressure;
+    }
+
+    value def DimensionlessRatio {
+        unit = one;
+    }
+
+    value def Count {
+        unit = one;
+    }
+
+    item def RawSample {
+        attribute pixelRow : Count;
+        attribute pixelColumn : Count;
+        attribute measuredPressure : Pressure;
+        attribute sensorTemperature : Temperature;
+        attribute sampleTime : Time;
+        attribute validity : Boolean;
+    }
+
+    item def CalibratedSample {
+        attribute xPosition : Length;
+        attribute yPosition : Length;
+        attribute pressure : Pressure;
+        attribute compensatedPressure : Pressure;
+        attribute confidence : DimensionlessRatio;
+        attribute sampleTime : Time;
+    }
+
+    item def PressureMap {
+        attribute rowCount : Count;
+        attribute columnCount : Count;
+        attribute pitch : Length;
+        attribute minimumPressure : Pressure;
+        attribute maximumPressure : Pressure;
+        attribute averagePressure : Pressure;
+        attribute mapTime : Time;
+    }
+
+    item def HealthReport {
+        attribute healthy : Boolean;
+        attribute failedCellCount : Count;
+        attribute supplyVoltage : ElectricPotential;
+        attribute controllerTemperature : Temperature;
+        attribute lastDiagnosticTime : Time;
+    }
+
+    item def ConfigurationCommand {
+        attribute requestedSamplingFrequency : Frequency;
+        attribute requestedGain : DimensionlessRatio;
+        attribute enableSelfTest : Boolean;
+        attribute resetFaults : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item supplyVoltage : ElectricPotential;
+        in item supplyCurrent : ElectricCurrent;
+    }
+
+    port def GridDrivePort {
+        out item excitationVoltage : ElectricPotential;
+        out item rowSelect : Count;
+        out item columnSelect : Count;
+    }
+
+    port def AnalogSensePort {
+        in item sensedVoltage : ElectricPotential;
+        in item leakageCurrent : ElectricCurrent;
+    }
+
+    port def DigitalDataPort {
+        out item pressureMap : PressureMap;
+        out item healthReport : HealthReport;
+        in item configurationCommand : ConfigurationCommand;
+    }
+
+    port def ThermalSensePort {
+        in item measuredTemperature : Temperature;
+    }
+
+    part def SensorCell {
+        attribute rowIndex : Count;
+        attribute columnIndex : Count;
+        attribute activeArea : Length;
+        attribute nominalSensitivity : DimensionlessRatio;
+        attribute offsetPressure : Pressure;
+        attribute gainError : DimensionlessRatio;
+        attribute failed : Boolean;
+
+        port drive : GridDrivePort;
+        port sense : AnalogSensePort;
+        port thermal : ThermalSensePort;
+
+        attribute localPressure : Pressure;
+        attribute cellTemperature : Temperature;
+        attribute rawVoltage : ElectricPotential;
+
+        action measureCell {
+            in pressureInput : Pressure;
+            in excitation : ElectricPotential;
+            in temperatureInput : Temperature;
+            out analogOutput : ElectricPotential;
+
+            first start;
+            then computeMechanicalResponse;
+            then applyTemperatureEffect;
+            then generateAnalogVoltage;
+            then done;
+
+            action computeMechanicalResponse {
+                in p : Pressure = pressureInput;
+                out normalizedResponse : DimensionlessRatio;
+            }
+
+            action applyTemperatureEffect {
+                in response : DimensionlessRatio = computeMechanicalResponse.normalizedResponse;
+                in t : Temperature = temperatureInput;
+                out compensatedResponse : DimensionlessRatio;
+            }
+
+            action generateAnalogVoltage {
+                in response : DimensionlessRatio = applyTemperatureEffect.compensatedResponse;
+                in vExcite : ElectricPotential = excitation;
+                out vSense : ElectricPotential = analogOutput;
+            }
+        }
+    }
+
+    part def SensorGrid {
+        attribute rows : Count = 16;
+        attribute columns : Count = 16;
+        attribute cellPitch : Length = 0.002 [m];
+        attribute samplingFrequency : Frequency = 100 [Hz];
+        attribute excitationVoltage : ElectricPotential = 3.3 [V];
+
+        port gridDrive : GridDrivePort;
+        port analogOutput : AnalogSensePort;
+        port thermalInput : ThermalSensePort;
+
+        part cells[256] : SensorCell;
+
+        attribute selectedRow : Count;
+        attribute selectedColumn : Count;
+        attribute failedCellCount : Count;
+
+        action scanGrid {
+            out rawSamples[256] : RawSample;
+
+            first initializeScan;
+            then scanRows;
+            then completeScan;
+
+            action initializeScan {
+                out firstRow : Count = 0;
+                out firstColumn : Count = 0;
+            }
+
+            action scanRows {
+                in startRow : Count = initializeScan.firstRow;
+                out samples[256] : RawSample;
+
+                action selectCell {
+                    in row : Count;
+                    in column : Count;
+                    out rowSelect : Count;
+                    out columnSelect : Count;
+                }
+
+                action acquireCellVoltage {
+                    in rowSelect : Count = selectCell.rowSelect;
+                    in columnSelect : Count = selectCell.columnSelect;
+                    out rawVoltage : ElectricPotential;
+                    out leakageCurrent : ElectricCurrent;
+                }
+
+                action convertVoltageToRawPressure {
+                    in rawVoltage : ElectricPotential = acquireCellVoltage.rawVoltage;
+                    out rawPressure : Pressure;
+                }
+
+                action publishRawSample {
+                    in rawPressure : Pressure = convertVoltageToRawPressure.rawPressure;
+                    out sample : RawSample;
+                }
+            }
+
+            action completeScan {
+                in samples[256] : RawSample = scanRows.samples;
+                out scanComplete : Boolean = true;
+            }
+        }
+
+        state def GridOperationalState {
+            entry action energizeGrid;
+            exit action deenergizeGrid;
+
+            state idle;
+            state scanning;
+            state degraded;
+            state failed;
+
+            transition idle_to_scanning
+                first idle
+                accept ConfigurationCommand
+                if enableSelfTest == false
+                then scanning;
+
+            transition scanning_to_idle
+                first scanning
+                accept Time
+                if failedCellCount < 16
+                then idle;
+
+            transition scanning_to_degraded
+                first scanning
+                if failedCellCount >= 16 and failedCellCount < 64
+                then degraded;
+
+            transition degraded_to_failed
+                first degraded
+                if failedCellCount >= 64
+                then failed;
+
+            transition failed_to_idle
+                first failed
+                accept ConfigurationCommand
+                if resetFaults == true
+                then idle;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute gain : DimensionlessRatio = 32;
+        attribute inputImpedance : DimensionlessRatio = 1000000;
+        attribute noiseFloor : ElectricPotential = 0.000002 [V];
+        attribute bandwidth : Frequency = 1000 [Hz];
+
+        port analogIn : AnalogSensePort;
+        port conditionedOut : AnalogSensePort;
+
+        action conditionSignal {
+            in sensedVoltage : ElectricPotential;
+            in gainSetting : DimensionlessRatio;
+            out conditionedVoltage : ElectricPotential;
+
+            first filterInput;
+            then amplifySignal;
+            then limitOutput;
+
+            action filterInput {
+                in inputVoltage : ElectricPotential = sensedVoltage;
+                out filteredVoltage : ElectricPotential;
+            }
+
+            action amplifySignal {
+                in filteredVoltage : ElectricPotential = filterInput.filteredVoltage;
+                in gain : DimensionlessRatio = gainSetting;
+                out amplifiedVoltage : ElectricPotential;
+            }
+
+            action limitOutput {
+                in amplifiedVoltage : ElectricPotential = amplifySignal.amplifiedVoltage;
+                out boundedVoltage : ElectricPotential = conditionedVoltage;
+            }
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Count = 16;
+        attribute referenceVoltage : ElectricPotential = 3.3 [V];
+        attribute conversionFrequency : Frequency = 50000 [Hz];
+
+        port analogIn : AnalogSensePort;
+
+        action digitize {
+            in conditionedVoltage : ElectricPotential;
+            out rawCode : Count;
+            out validConversion : Boolean;
+
+            first sampleAndHold;
+            then quantize;
+            then checkRange;
+
+            action sampleAndHold {
+                in voltage : ElectricPotential = conditionedVoltage;
+                out sampledVoltage : ElectricPotential;
+            }
+
+            action quantize {
+                in sampledVoltage : ElectricPotential = sampleAndHold.sampledVoltage;
+                out code : Count = rawCode;
+            }
+
+            action checkRange {
+                in code : Count = quantize.code;
+                out valid : Boolean = validConversion;
+            }
+        }
+    }
+
+    part def CalibrationProcessor {
+        attribute pressureOffset : Pressure = 0 [Pa];
+        attribute pressureScale : DimensionlessRatio = 1;
+        attribute temperatureCoefficient : DimensionlessRatio = 0.001;
+        attribute confidenceThreshold : DimensionlessRatio = 0.95;
+
+        action calibrateSamples {
+            in rawSamples[256] : RawSample;
+            out calibratedSamples[256] : CalibratedSample;
+
+            first rejectInvalidSamples;
+            then compensateTemperature;
+            then applyGainAndOffset;
+            then computeConfidence;
+
+            action rejectInvalidSamples {
+                in samples[256] : RawSample = rawSamples;
+                out acceptedSamples[256] : RawSample;
+            }
+
+            action compensateTemperature {
+                in acceptedSamples[256] : RawSample = rejectInvalidSamples.acceptedSamples;
+                out compensatedSamples[256] : RawSample;
+            }
+
+            action applyGainAndOffset {
+                in compensatedSamples[256] : RawSample = compensateTemperature.compensatedSamples;
+                out physicalSamples[256] : CalibratedSample;
+            }
+
+            action computeConfidence {
+                in physicalSamples[256] : CalibratedSample = applyGainAndOffset.physicalSamples;
+                out result[256] : CalibratedSample = calibratedSamples;
+            }
+        }
+    }
+
+    part def MapAssembler {
+        attribute rows : Count = 16;
+        attribute columns : Count = 16;
+        attribute pitch : Length = 0.002 [m];
+
+        action assemblePressureMap {
+            in calibratedSamples[256] : CalibratedSample;
+            out pressureMap : PressureMap;
+
+            first placeSamples;
+            then computeStatistics;
+            then publishMap;
+
+            action placeSamples {
+                in samples[256] : CalibratedSample = calibratedSamples;
+                out orderedCells[256] : CalibratedSample;
+            }
+
+            action computeStatistics {
+                in orderedCells[256] : CalibratedSample = placeSamples.orderedCells;
+                out minPressure : Pressure;
+                out maxPressure : Pressure;
+                out averagePressure : Pressure;
+            }
+
+            action publishMap {
+                in minPressure : Pressure = computeStatistics.minPressure;
+                in maxPressure : Pressure = computeStatistics.maxPressure;
+                in averagePressure : Pressure = computeStatistics.averagePressure;
+                out map : PressureMap = pressureMap;
+            }
+        }
+    }
+
+    part def HealthMonitor {
+        attribute minimumSupplyVoltage : ElectricPotential = 3.0 [V];
+        attribute maximumSupplyVoltage : ElectricPotential = 3.6 [V];
+        attribute maximumControllerTemperature : Temperature = 358.15 [K];
+        attribute maximumFailedCells : Count = 32;
+
+        port powerSense : PowerInputPort;
+        port controllerThermal : ThermalSensePort;
+
+        action performDiagnostics {
+            in supplyVoltage : ElectricPotential;
+            in controllerTemperature : Temperature;
+            in failedCellCount : Count;
+            out report : HealthReport;
+
+            first checkSupply;
+            then checkTemperature;
+            then checkGridIntegrity;
+            then produceReport;
+
+            action checkSupply {
+                in voltage : ElectricPotential = supplyVoltage;
+                out supplyOk : Boolean;
+            }
+
+            action checkTemperature {
+                in temperature : Temperature = controllerTemperature;
+                out temperatureOk : Boolean;
+            }
+
+            action checkGridIntegrity {
+                in failures : Count = failedCellCount;
+                out gridOk : Boolean;
+            }
+
+            action produceReport {
+                in supplyOk : Boolean = checkSupply.supplyOk;
+                in temperatureOk : Boolean = checkTemperature.temperatureOk;
+                in gridOk : Boolean = checkGridIntegrity.gridOk;
+                out health : HealthReport = report;
+            }
+        }
+    }
+
+    part def SensingController {
+        attribute commandedSamplingFrequency : Frequency = 100 [Hz];
+        attribute scanPeriod : Time = 0.01 [s];
+        attribute operatingMode : String = "Standby";
+
+        port digital : DigitalDataPort;
+
+        action acquireAndProcess {
+            in rawSamples[256] : RawSample;
+            out map : PressureMap;
+            out report : HealthReport;
+
+            first acquireGridData;
+            then calibrateGridData;
+            then assembleMap;
+            then runDiagnostics;
+            then transmitResults;
+
+            action acquireGridData {
+                out samples[256] : RawSample = rawSamples;
+            }
+
+            action calibrateGridData {
+                in samples[256] : RawSample = acquireGridData.samples;
+                out calibrated[256] : CalibratedSample;
+            }
+
+            action assembleMap {
+                in calibrated[256] : CalibratedSample = calibrateGridData.calibrated;
+                out pressureMap : PressureMap = map;
+            }
+
+            action runDiagnostics {
+                out healthReport : HealthReport = report;
+            }
+
+            action transmitResults {
+                in pressureMap : PressureMap = assembleMap.pressureMap;
+                in healthReport : HealthReport = runDiagnostics.healthReport;
+                out transmissionComplete : Boolean;
+            }
+        }
+
+        state def ControllerState {
+            state standby;
+            state configure;
+            state sample;
+            state process;
+            state transmit;
+            state fault;
+
+            transition standby_to_configure
+                first standby
+                accept ConfigurationCommand
+                then configure;
+
+            transition configure_to_sample
+                first configure
+                if requestedSamplingFrequency > 0 [Hz]
+                then sample;
+
+            transition sample_to_process
+                first sample
+                accept RawSample
+                then process;
+
+            transition process_to_transmit
+                first process
+                accept PressureMap
+                then transmit;
+
+            transition transmit_to_sample
+                first transmit
+                accept Time
+                then sample;
+
+            transition any_to_fault
+                first standby
+                if false
+                then fault;
+
+            transition fault_to_standby
+                first fault
+                accept ConfigurationCommand
+                if resetFaults == true
+                then standby;
+        }
+    }
+
+    part def SensingUnit {
+        attribute mass : SI::MassValue = 0.12 [kg];
+        attribute nominalSupplyVoltage : ElectricPotential = 3.3 [V];
+        attribute maximumPower : Power = 1.5 [W];
+        attribute measurementRangeMin : Pressure = 0 [Pa];
+        attribute measurementRangeMax : Pressure = 100000 [Pa];
+        attribute systemSamplingFrequency : Frequency = 100 [Hz];
+        attribute mapRows : Count = 16;
+        attribute mapColumns : Count = 16;
+
+        port powerInput : PowerInputPort;
+        port dataInterface : DigitalDataPort;
+        port ambientThermalInput : ThermalSensePort;
+
+        part grid : SensorGrid;
+        part frontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part calibration : CalibrationProcessor;
+        part assembler : MapAssembler;
+        part health : HealthMonitor;
+        part controller : SensingController;
+
+        connect powerInput to health.powerSense;
+        connect ambientThermalInput to grid.thermalInput;
+        connect ambientThermalInput to health.controllerThermal;
+        connect grid.analogOutput to frontEnd.analogIn;
+        connect frontEnd.conditionedOut to adc.analogIn;
+        connect controller.digital to dataInterface;
+
+        action sensePressureDistribution {
+            in appliedPressureField : Pressure;
+            out measuredPressureMap : PressureMap;
+            out unitHealth : HealthReport;
+
+            first powerStabilization;
+            then scanSensorGrid;
+            then conditionAnalogSignals;
+            then convertSignals;
+            then calibratePressureSamples;
+            then buildPressureMap;
+            then evaluateHealth;
+            then publishMeasurement;
+
+            action powerStabilization {
+                in supplyVoltage : ElectricPotential = nominalSupplyVoltage;
+                out powerReady : Boolean;
+            }
+
+            action scanSensorGrid {
+                in powerReady : Boolean = powerStabilization.powerReady;
+                out rawSamples[256] : RawSample;
+            }
+
+            action conditionAnalogSignals {
+                in rawSamples[256] : RawSample = scanSensorGrid.rawSamples;
+                out conditionedSamples[256] : RawSample;
+            }
+
+            action convertSignals {
+                in conditionedSamples[256] : RawSample = conditionAnalogSignals.conditionedSamples;
+                out digitalSamples[256] : RawSample;
+            }
+
+            action calibratePressureSamples {
+                in digitalSamples[256] : RawSample = convertSignals.digitalSamples;
+                out calibratedSamples[256] : CalibratedSample;
+            }
+
+            action buildPressureMap {
+                in calibratedSamples[256] : CalibratedSample = calibratePressureSamples.calibratedSamples;
+                out map : PressureMap = measuredPressureMap;
+            }
+
+            action evaluateHealth {
+                out report : HealthReport = unitHealth;
+            }
+
+            action publishMeasurement {
+                in map : PressureMap = buildPressureMap.map;
+                in report : HealthReport = evaluateHealth.report;
+                out published : Boolean;
+            }
+        }
+    }
+
+    requirement def MeasureRelevantQuantityRequirement {
+        subject unit : SensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin == 0 [Pa] and
+            unit.measurementRangeMax >= 100000 [Pa]
+        }
+
+        require constraint {
+            unit.systemSamplingFrequency >= 50 [Hz]
+        }
+
+        require constraint {
+            unit.mapRows == 16 and unit.mapColumns == 16
+        }
+
+        doc /* The sensing unit shall measure a two-dimensional pressure distribution as the relevant quantity using a sensor grid. */
+    }
+
+    requirement def GridCoverageRequirement {
+        subject grid : SensorGrid;
+
+        require constraint {
+            grid.rows == 16 and grid.columns == 16
+        }
+
+        require constraint {
+            grid.cellPitch <= 0.005 [m]
+        }
+
+        doc /* The sensor grid shall provide spatially distributed measurement coverage through individually addressable sensing cells. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject calibration : CalibrationProcessor;
+
+        require constraint {
+            calibration.confidenceThreshold >= 0.95
+        }
+
+        doc /* The calibration processor shall compensate sensor offset, gain, and temperature effects before producing pressure samples. */
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject health : HealthMonitor;
+
+        require constraint {
+            health.maximumFailedCells <= 32
+        }
+
+        require constraint {
+            health.minimumSupplyVoltage >= 3.0 [V] and
+            health.maximumSupplyVoltage <= 3.6 [V]
+        }
+
+        doc /* The sensing unit shall report operational health and detect excessive cell failures, supply faults, and over-temperature conditions. */
+    }
+
+    requirement def OutputRequirement {
+        subject unit : SensingUnit;
+
+        require constraint {
+            unit.mapRows * unit.mapColumns == 256
+        }
+
+        doc /* The sensing unit shall output a pressure map and health report through its digital data interface for each completed measurement cycle. */
+    }
+
+    satisfy MeasureRelevantQuantityRequirement by SensingUnit;
+    satisfy GridCoverageRequirement by SensorGrid;
+    satisfy AccuracyRequirement by CalibrationProcessor;
+    satisfy HealthMonitoringRequirement by HealthMonitor;
+    satisfy OutputRequirement by SensingUnit;
+
+    part sensingUnit : SensingUnit;
+
+}

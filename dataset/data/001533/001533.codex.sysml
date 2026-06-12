@@ -1,0 +1,436 @@
+package PostWorkSocietyModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Hours :> Real {
+    unit = "h";
+  }
+
+  attribute def Days :> Real {
+    unit = "d";
+  }
+
+  attribute def CurrencyCredit :> Real {
+    unit = "credit";
+  }
+
+  attribute def PersonCount :> Integer {
+    unit = "person";
+  }
+
+  attribute def EnergyKWh :> Real {
+    unit = "kW*h";
+  }
+
+  attribute def ServiceIndex :> Real {
+    unit = "index";
+  }
+
+  item def BasicNeedRequest {
+    attribute requesterId : String;
+    attribute category : NeedCategory;
+    attribute urgency : UrgencyLevel;
+    attribute quantity : Real;
+  }
+
+  item def ResourceAllocation {
+    attribute recipientId : String;
+    attribute category : NeedCategory;
+    attribute amount : CurrencyCredit;
+    attribute fulfillmentWindow : Hours;
+  }
+
+  item def CivicProposal {
+    attribute proposalId : String;
+    attribute title : String;
+    attribute expectedBenefit : ServiceIndex;
+    attribute resourceCost : CurrencyCredit;
+    attribute deliberationPeriod : Days;
+  }
+
+  item def LearningPlan {
+    attribute citizenId : String;
+    attribute topic : String;
+    attribute weeklyTime : Hours;
+    attribute supportLevel : SupportLevel;
+  }
+
+  item def CareSignal {
+    attribute citizenId : String;
+    attribute wellbeingScore : Percent;
+    attribute socialConnectionScore : Percent;
+    attribute requestedSupport : SupportLevel;
+  }
+
+  enum def NeedCategory {
+    food;
+    housing;
+    healthcare;
+    education;
+    mobility;
+    energy;
+    communication;
+    culturalAccess;
+  }
+
+  enum def UrgencyLevel {
+    routine;
+    elevated;
+    critical;
+  }
+
+  enum def SupportLevel {
+    selfDirected;
+    guided;
+    assisted;
+    intensive;
+  }
+
+  enum def GovernanceMode {
+    participatoryDeliberation;
+    delegatedStewardship;
+    emergencyCoordination;
+  }
+
+  port def NeedRequestPort {
+    in item request : BasicNeedRequest;
+  }
+
+  port def AllocationPort {
+    out item allocation : ResourceAllocation;
+  }
+
+  port def ProposalPort {
+    in item proposal : CivicProposal;
+  }
+
+  port def LearningPort {
+    out item plan : LearningPlan;
+  }
+
+  port def CarePort {
+    in item signal : CareSignal;
+  }
+
+  port def EnergyPort {
+    in attribute suppliedEnergy : EnergyKWh;
+    out attribute requiredEnergy : EnergyKWh;
+  }
+
+  port def CivicFeedbackPort {
+    in attribute satisfaction : Percent;
+    out attribute transparencyScore : Percent;
+  }
+
+  part def Citizen {
+    attribute citizenId : String;
+    attribute availableVoluntaryHoursPerWeek : Hours;
+    attribute wellbeing : Percent;
+    attribute basicNeedsFulfilled : Percent;
+    attribute civicParticipationRate : Percent;
+
+    port needRequestPort : NeedRequestPort;
+    port carePort : CarePort;
+    port civicFeedbackPort : CivicFeedbackPort;
+    port learningPort : LearningPort;
+  }
+
+  part def CommonsResourcePlatform {
+    attribute foodReserveDays : Days;
+    attribute housingAvailability : Percent;
+    attribute healthcareCapacity : Percent;
+    attribute mobilityCapacity : Percent;
+    attribute culturalAccessCapacity : Percent;
+    attribute monthlyCreditPool : CurrencyCredit;
+
+    port needRequestPort : NeedRequestPort;
+    port allocationPort : AllocationPort;
+    port energyPort : EnergyPort;
+
+    action allocateBasicNeeds {
+      in item request : BasicNeedRequest;
+      out item allocation : ResourceAllocation;
+
+      first start;
+      then classifyNeed;
+      then checkCommonsCapacity;
+      then computeEquitableAllocation;
+      then reserveResource;
+      then issueAllocation;
+      then done;
+
+      flow start to classifyNeed;
+      flow classifyNeed to checkCommonsCapacity;
+      flow checkCommonsCapacity to computeEquitableAllocation;
+      flow computeEquitableAllocation to reserveResource;
+      flow reserveResource to issueAllocation;
+      flow issueAllocation to done;
+    }
+  }
+
+  part def AutomationInfrastructure {
+    attribute automatedProductionCoverage : Percent;
+    attribute maintenanceBacklog : Hours;
+    attribute renewableEnergyShare : Percent;
+    attribute serviceReliability : Percent;
+    attribute weeklyHumanMaintenanceNeed : Hours;
+
+    port energyPort : EnergyPort;
+  }
+
+  part def CareAndWellbeingNetwork {
+    attribute averageWellbeing : Percent;
+    attribute isolationRiskRate : Percent;
+    attribute preventiveCareCoverage : Percent;
+    attribute responseTimeCritical : Hours;
+
+    port carePort : CarePort;
+    port allocationPort : AllocationPort;
+
+    action coordinateCare {
+      in item signal : CareSignal;
+      out item supportAllocation : ResourceAllocation;
+
+      first receiveSignal;
+      then assessRisk;
+      then selectCarePathway;
+      then assignHumanOrAutomatedSupport;
+      then confirmFollowUp;
+      then complete;
+
+      flow receiveSignal to assessRisk;
+      flow assessRisk to selectCarePathway;
+      flow selectCarePathway to assignHumanOrAutomatedSupport;
+      flow assignHumanOrAutomatedSupport to confirmFollowUp;
+      flow confirmFollowUp to complete;
+    }
+  }
+
+  part def LearningAndPurposeCommons {
+    attribute openCourseAvailability : Percent;
+    attribute mentorshipCapacity : PersonCount;
+    attribute creativeProjectCapacity : PersonCount;
+    attribute averageSelfDevelopmentHours : Hours;
+
+    port learningPort : LearningPort;
+
+    action generateLearningPlan {
+      in attribute citizenId : String;
+      in attribute interest : String;
+      out item plan : LearningPlan;
+
+      first identifyInterest;
+      then matchResources;
+      then assignMentorship;
+      then scheduleVoluntaryPractice;
+      then publishPlan;
+      then finish;
+
+      flow identifyInterest to matchResources;
+      flow matchResources to assignMentorship;
+      flow assignMentorship to scheduleVoluntaryPractice;
+      flow scheduleVoluntaryPractice to publishPlan;
+      flow publishPlan to finish;
+    }
+  }
+
+  part def ParticipatoryGovernanceAssembly {
+    attribute mode : GovernanceMode;
+    attribute quorum : Percent;
+    attribute proposalThroughputPerMonth : Integer;
+    attribute transparencyScore : Percent;
+    attribute conflictResolutionTime : Days;
+
+    port proposalPort : ProposalPort;
+    port civicFeedbackPort : CivicFeedbackPort;
+
+    action deliberateProposal {
+      in item proposal : CivicProposal;
+      out attribute accepted : Boolean;
+
+      first publishProposal;
+      then gatherEvidence;
+      then deliberate;
+      then amend;
+      then voteOrConsent;
+      then recordDecision;
+      then close;
+
+      flow publishProposal to gatherEvidence;
+      flow gatherEvidence to deliberate;
+      flow deliberate to amend;
+      flow amend to voteOrConsent;
+      flow voteOrConsent to recordDecision;
+      flow recordDecision to close;
+    }
+
+    state def GovernanceLifecycle {
+      state Monitoring;
+      state Deliberating;
+      state Allocating;
+      state Auditing;
+      state EmergencyCoordinating;
+
+      transition first Monitoring;
+      transition Monitoring to Deliberating
+        accept CivicProposal;
+      transition Deliberating to Allocating
+        if quorum >= 67 [%];
+      transition Allocating to Auditing;
+      transition Auditing to Monitoring
+        if transparencyScore >= 85 [%];
+      transition Monitoring to EmergencyCoordinating
+        if quorum < 40 [%];
+      transition EmergencyCoordinating to Auditing
+        after 7 [d];
+    }
+  }
+
+  part def PostWorkSociety {
+    doc
+    /*
+     * Primary function: ensure that every person can live with material security,
+     * care, learning, civic agency, and purposeful voluntary contribution without
+     * requiring wage labor as the organizing condition for survival.
+     */
+
+    attribute population : PersonCount = 1000000;
+    attribute guaranteedNeedsCoverage : Percent;
+    attribute averageRequiredLaborPerWeek : Hours;
+    attribute voluntaryContributionRate : Percent;
+    attribute socialTrustIndex : ServiceIndex;
+    attribute ecologicalRegenerationIndex : ServiceIndex;
+
+    part citizens[population] : Citizen;
+    part commonsPlatform : CommonsResourcePlatform;
+    part automation : AutomationInfrastructure;
+    part careNetwork : CareAndWellbeingNetwork;
+    part learningCommons : LearningAndPurposeCommons;
+    part governanceAssembly : ParticipatoryGovernanceAssembly;
+
+    port publicNeedRequests : NeedRequestPort;
+    port publicAllocations : AllocationPort;
+    port publicCareSignals : CarePort;
+    port publicProposals : ProposalPort;
+    port publicFeedback : CivicFeedbackPort;
+    port publicLearningPlans : LearningPort;
+
+    connect publicNeedRequests to commonsPlatform.needRequestPort;
+    connect commonsPlatform.allocationPort to publicAllocations;
+    connect publicCareSignals to careNetwork.carePort;
+    connect careNetwork.allocationPort to commonsPlatform.allocationPort;
+    connect publicProposals to governanceAssembly.proposalPort;
+    connect publicFeedback to governanceAssembly.civicFeedbackPort;
+    connect learningCommons.learningPort to publicLearningPlans;
+    connect automation.energyPort to commonsPlatform.energyPort;
+
+    action operateSociety {
+      first senseNeeds;
+      then forecastResources;
+      then allocateCommons;
+      then coordinateCare;
+      then supportLearningAndPurpose;
+      then deliberateCollectively;
+      then auditOutcomes;
+      then adaptPolicies;
+      then continueOperation;
+
+      flow senseNeeds to forecastResources;
+      flow forecastResources to allocateCommons;
+      flow allocateCommons to coordinateCare;
+      flow coordinateCare to supportLearningAndPurpose;
+      flow supportLearningAndPurpose to deliberateCollectively;
+      flow deliberateCollectively to auditOutcomes;
+      flow auditOutcomes to adaptPolicies;
+      flow adaptPolicies to continueOperation;
+      flow continueOperation to senseNeeds;
+    }
+
+    state def SocietyOperatingState {
+      state StableProvision;
+      state ResourceRebalancing;
+      state CivicDeliberation;
+      state CareSurge;
+      state EcologicalRecovery;
+      state CrisisContinuity;
+
+      transition first StableProvision;
+      transition StableProvision to CivicDeliberation
+        accept CivicProposal;
+      transition CivicDeliberation to ResourceRebalancing;
+      transition ResourceRebalancing to StableProvision
+        if guaranteedNeedsCoverage >= 99 [%];
+      transition StableProvision to CareSurge
+        if careNetwork.isolationRiskRate > 15 [%];
+      transition CareSurge to StableProvision
+        if careNetwork.averageWellbeing >= 80 [%];
+      transition StableProvision to EcologicalRecovery
+        if ecologicalRegenerationIndex < 70 [index];
+      transition EcologicalRecovery to StableProvision
+        if ecologicalRegenerationIndex >= 85 [index];
+      transition StableProvision to CrisisContinuity
+        if automation.serviceReliability < 90 [%];
+      transition CrisisContinuity to ResourceRebalancing
+        if automation.serviceReliability >= 95 [%];
+    }
+  }
+
+  requirement def MaterialSecurityRequirement {
+    subject society : PostWorkSociety;
+    require constraint {
+      society.guaranteedNeedsCoverage >= 99 [%]
+    }
+  }
+
+  requirement def LaborIndependenceRequirement {
+    subject society : PostWorkSociety;
+    require constraint {
+      society.averageRequiredLaborPerWeek <= 5 [h]
+    }
+  }
+
+  requirement def CivicAgencyRequirement {
+    subject society : PostWorkSociety;
+    require constraint {
+      society.governanceAssembly.transparencyScore >= 85 [%] and
+      society.governanceAssembly.quorum >= 60 [%]
+    }
+  }
+
+  requirement def WellbeingRequirement {
+    subject society : PostWorkSociety;
+    require constraint {
+      society.careNetwork.averageWellbeing >= 80 [%] and
+      society.careNetwork.responseTimeCritical <= 2 [h]
+    }
+  }
+
+  requirement def EcologicalRegenerationRequirement {
+    subject society : PostWorkSociety;
+    require constraint {
+      society.ecologicalRegenerationIndex >= 85 [index] and
+      society.automation.renewableEnergyShare >= 95 [%]
+    }
+  }
+
+  requirement def PurposeAndLearningRequirement {
+    subject society : PostWorkSociety;
+    require constraint {
+      society.learningCommons.openCourseAvailability >= 98 [%] and
+      society.learningCommons.averageSelfDevelopmentHours >= 10 [h]
+    }
+  }
+
+  satisfy MaterialSecurityRequirement by PostWorkSociety;
+  satisfy LaborIndependenceRequirement by PostWorkSociety;
+  satisfy CivicAgencyRequirement by PostWorkSociety;
+  satisfy WellbeingRequirement by PostWorkSociety;
+  satisfy EcologicalRegenerationRequirement by PostWorkSociety;
+  satisfy PurposeAndLearningRequirement by PostWorkSociety;
+}

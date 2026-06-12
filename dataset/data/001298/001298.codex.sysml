@@ -1,0 +1,460 @@
+package TristimulusColorimeterModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Wavelength :> Real {
+    unit = "nm";
+  }
+
+  attribute def OpticalPower :> Real {
+    unit = "uW";
+  }
+
+  attribute def Illuminance :> Real {
+    unit = "lx";
+  }
+
+  attribute def Luminance :> Real {
+    unit = "cd/m^2";
+  }
+
+  attribute def ChromaticityCoordinate :> Real {
+    range = "0..1";
+  }
+
+  attribute def CorrelatedColorTemperature :> Real {
+    unit = "K";
+  }
+
+  attribute def ColorDifference :> Real {
+    unit = "deltaE";
+  }
+
+  attribute def IntegrationTime :> Real {
+    unit = "ms";
+  }
+
+  attribute def Temperature :> Real {
+    unit = "degC";
+  }
+
+  attribute def Voltage :> Real {
+    unit = "V";
+  }
+
+  attribute def Current :> Real {
+    unit = "mA";
+  }
+
+  attribute def DigitalCount :> Integer;
+
+  item def IncidentLight {
+    attribute spectralRangeMin : Wavelength = 380;
+    attribute spectralRangeMax : Wavelength = 780;
+    attribute irradiance : OpticalPower;
+    attribute sourceLuminance : Luminance;
+  }
+
+  item def FilteredChannelSignal {
+    attribute channelName : String;
+    attribute rawCount : DigitalCount;
+    attribute darkCorrectedCount : DigitalCount;
+    attribute normalizedResponse : Real;
+  }
+
+  item def TristimulusSample {
+    attribute X : Real;
+    attribute Y : Real;
+    attribute Z : Real;
+    attribute integrationTime : IntegrationTime;
+    attribute sensorTemperature : Temperature;
+  }
+
+  item def ColorMeasurement {
+    attribute X : Real;
+    attribute Y : Real;
+    attribute Z : Real;
+    attribute x : ChromaticityCoordinate;
+    attribute y : ChromaticityCoordinate;
+    attribute uPrime : ChromaticityCoordinate;
+    attribute vPrime : ChromaticityCoordinate;
+    attribute luminance : Luminance;
+    attribute cct : CorrelatedColorTemperature;
+    attribute deltaE2000 : ColorDifference;
+    attribute valid : Boolean;
+  }
+
+  item def CalibrationProfile {
+    attribute serialNumber : String;
+    attribute observerFunction : String = "CIE 1931 2 degree";
+    attribute referenceIlluminant : String = "D65";
+    attribute xGain : Real;
+    attribute yGain : Real;
+    attribute zGain : Real;
+    attribute darkOffsetRed : DigitalCount;
+    attribute darkOffsetGreen : DigitalCount;
+    attribute darkOffsetBlue : DigitalCount;
+    attribute temperatureCoefficient : Real;
+  }
+
+  item def PowerEnergy {
+    attribute supplyVoltage : Voltage;
+    attribute loadCurrent : Current;
+  }
+
+  port def OpticalInputPort {
+    in item light : IncidentLight;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : PowerEnergy;
+  }
+
+  port def MeasurementOutputPort {
+    out item measurement : ColorMeasurement;
+  }
+
+  port def CalibrationDataPort {
+    in item profile : CalibrationProfile;
+  }
+
+  port def CommandPort {
+    in item command : MeasurementCommand;
+  }
+
+  port def StatusPort {
+    out item status : InstrumentStatus;
+  }
+
+  item def MeasurementCommand {
+    attribute requestedIntegrationTime : IntegrationTime;
+    attribute performDarkCorrection : Boolean;
+    attribute measurementMode : String;
+  }
+
+  item def InstrumentStatus {
+    attribute ready : Boolean;
+    attribute saturated : Boolean;
+    attribute calibrated : Boolean;
+    attribute faultCode : String;
+    attribute temperature : Temperature;
+  }
+
+  part def OpticalAperture {
+    port opticalIn : OpticalInputPort;
+    port conditionedLightOut : OpticalInputPort;
+    attribute apertureDiameter : Real = 8.0 {
+      unit = "mm";
+    }
+    attribute fieldOfView : Real = 2.0 {
+      unit = "deg";
+    }
+  }
+
+  part def TristimulusFilterSet {
+    port incomingLight : OpticalInputPort;
+    port redWeightedLight : OpticalInputPort;
+    port greenWeightedLight : OpticalInputPort;
+    port blueWeightedLight : OpticalInputPort;
+
+    attribute redPeakWavelength : Wavelength = 600;
+    attribute greenPeakWavelength : Wavelength = 545;
+    attribute bluePeakWavelength : Wavelength = 445;
+    attribute cieMatchTolerance : Real = 0.03;
+  }
+
+  part def PhotodiodeChannel {
+    port opticalIn : OpticalInputPort;
+    port electricalOut : MeasurementOutputPort;
+
+    attribute responsivity : Real {
+      unit = "A/W";
+    }
+    attribute darkCurrent : Current;
+    attribute saturationCount : DigitalCount = 65535;
+    attribute rawCount : DigitalCount;
+  }
+
+  part def AnalogFrontEnd {
+    attribute transimpedanceGain : Real {
+      unit = "V/A";
+    }
+    attribute adcResolutionBits : Integer = 16;
+    attribute noiseFloor : DigitalCount = 3;
+  }
+
+  part def TemperatureSensor {
+    attribute measuredTemperature : Temperature;
+    attribute accuracy : Temperature = 0.5;
+  }
+
+  part def Processor {
+    port calibrationIn : CalibrationDataPort;
+    port commandIn : CommandPort;
+    port measurementOut : MeasurementOutputPort;
+    port statusOut : StatusPort;
+
+    attribute activeProfile : CalibrationProfile;
+    attribute lastSample : TristimulusSample;
+    attribute lastMeasurement : ColorMeasurement;
+  }
+
+  part def DisplayAndInterface {
+    port displayedMeasurement : MeasurementOutputPort;
+    port userCommand : CommandPort;
+    attribute displayResolution : String = "320x240";
+    attribute supportedOutputs : String = "XYZ, xyY, u'v', CCT, deltaE2000";
+  }
+
+  part def PowerSubsystem {
+    port powerIn : ElectricalPowerPort;
+    attribute nominalVoltage : Voltage = 5.0;
+    attribute maximumCurrent : Current = 500.0;
+    attribute regulatorEfficiency : Real = 0.88;
+  }
+
+  action def AcquireRawChannels {
+    in item light : IncidentLight;
+    in item command : MeasurementCommand;
+    out item redSignal : FilteredChannelSignal;
+    out item greenSignal : FilteredChannelSignal;
+    out item blueSignal : FilteredChannelSignal;
+
+    attribute integrationTime : IntegrationTime = command.requestedIntegrationTime;
+  }
+
+  action def ApplyDarkAndTemperatureCorrection {
+    in item redRaw : FilteredChannelSignal;
+    in item greenRaw : FilteredChannelSignal;
+    in item blueRaw : FilteredChannelSignal;
+    in item profile : CalibrationProfile;
+    in temperature : Temperature;
+    out item redCorrected : FilteredChannelSignal;
+    out item greenCorrected : FilteredChannelSignal;
+    out item blueCorrected : FilteredChannelSignal;
+  }
+
+  action def ConvertToTristimulus {
+    in item redCorrected : FilteredChannelSignal;
+    in item greenCorrected : FilteredChannelSignal;
+    in item blueCorrected : FilteredChannelSignal;
+    in item profile : CalibrationProfile;
+    out item sample : TristimulusSample;
+  }
+
+  action def ComputeColorMetrics {
+    in item sample : TristimulusSample;
+    out item measurement : ColorMeasurement;
+
+    attribute denominator : Real = sample.X + sample.Y + sample.Z;
+  }
+
+  action def ReportMeasurement {
+    in item measurement : ColorMeasurement;
+    out item status : InstrumentStatus;
+  }
+
+  state def ColorimeterOperatingState {
+    entry action initializeElectronics;
+    state Off;
+    state SelfTest;
+    state AwaitingCalibration;
+    state Ready;
+    state Measuring;
+    state Processing;
+    state Reporting;
+    state Fault;
+
+    transition initial then Off;
+    transition Off_to_SelfTest
+      first Off
+      accept PowerApplied
+      then SelfTest;
+
+    transition SelfTest_to_AwaitingCalibration
+      first SelfTest
+      if not calibrated
+      then AwaitingCalibration;
+
+    transition SelfTest_to_Ready
+      first SelfTest
+      if calibrated and diagnosticsPassed
+      then Ready;
+
+    transition AwaitingCalibration_to_Ready
+      first AwaitingCalibration
+      accept CalibrationLoaded
+      then Ready;
+
+    transition Ready_to_Measuring
+      first Ready
+      accept MeasurementRequested
+      then Measuring;
+
+    transition Measuring_to_Processing
+      first Measuring
+      if acquisitionComplete and not saturated
+      then Processing;
+
+    transition Measuring_to_Fault
+      first Measuring
+      if saturated or sensorFailure
+      then Fault;
+
+    transition Processing_to_Reporting
+      first Processing
+      if colorComputationComplete
+      then Reporting;
+
+    transition Reporting_to_Ready
+      first Reporting
+      accept ReportAcknowledged
+      then Ready;
+
+    transition Fault_to_SelfTest
+      first Fault
+      accept ResetRequested
+      then SelfTest;
+  }
+
+  part def TristimulusColorimeter {
+    port opticalInput : OpticalInputPort;
+    port powerInput : ElectricalPowerPort;
+    port calibrationInput : CalibrationDataPort;
+    port commandInput : CommandPort;
+    port measurementOutput : MeasurementOutputPort;
+    port statusOutput : StatusPort;
+
+    part aperture : OpticalAperture;
+    part filterSet : TristimulusFilterSet;
+    part redDetector : PhotodiodeChannel {
+      attribute responsivity = 0.42;
+      attribute darkCurrent = 0.8;
+    }
+    part greenDetector : PhotodiodeChannel {
+      attribute responsivity = 0.50;
+      attribute darkCurrent = 0.7;
+    }
+    part blueDetector : PhotodiodeChannel {
+      attribute responsivity = 0.31;
+      attribute darkCurrent = 1.1;
+    }
+    part analogFrontEnd : AnalogFrontEnd {
+      attribute transimpedanceGain = 1000000.0;
+    }
+    part temperatureSensor : TemperatureSensor;
+    part processor : Processor;
+    part interface : DisplayAndInterface;
+    part powerSubsystem : PowerSubsystem;
+
+    connect opticalInput to aperture.opticalIn;
+    connect aperture.conditionedLightOut to filterSet.incomingLight;
+    connect filterSet.redWeightedLight to redDetector.opticalIn;
+    connect filterSet.greenWeightedLight to greenDetector.opticalIn;
+    connect filterSet.blueWeightedLight to blueDetector.opticalIn;
+    connect calibrationInput to processor.calibrationIn;
+    connect commandInput to processor.commandIn;
+    connect processor.measurementOut to measurementOutput;
+    connect processor.measurementOut to interface.displayedMeasurement;
+    connect processor.statusOut to statusOutput;
+    connect powerInput to powerSubsystem.powerIn;
+
+    perform action measurementFunction {
+      first start;
+      then acquire : AcquireRawChannels;
+      then correct : ApplyDarkAndTemperatureCorrection;
+      then convert : ConvertToTristimulus;
+      then compute : ComputeColorMetrics;
+      then report : ReportMeasurement;
+      then done;
+    }
+
+    exhibit state operatingState : ColorimeterOperatingState;
+
+    attribute primaryFunction : String =
+      "Measure incident visible light through three CIE-matched spectral channels and convert the responses into tristimulus values and high-level color metrics.";
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /*
+       The colorimeter shall measure visible light with red, green, and blue tristimulus-matched channels and produce calibrated CIE XYZ and chromaticity outputs representing the perceived color of the source or sample.
+      */
+    subject colorimeter : TristimulusColorimeter;
+    require constraint {
+      colorimeter.processor.lastMeasurement.valid == true
+    }
+  }
+
+  requirement def SpectralCoverageRequirement {
+    doc
+      /*
+       The optical input and detector chain shall cover the visible wavelength range from 380 nm to 780 nm.
+      */
+    subject inputLight : IncidentLight;
+    require constraint {
+      inputLight.spectralRangeMin <= 380 and inputLight.spectralRangeMax >= 780
+    }
+  }
+
+  requirement def TristimulusOutputRequirement {
+    doc
+      /*
+       Each completed measurement shall include X, Y, Z, x, y, luminance, correlated color temperature, and deltaE2000 fields.
+      */
+    subject measurement : ColorMeasurement;
+    require constraint {
+      measurement.X >= 0 and
+      measurement.Y >= 0 and
+      measurement.Z >= 0 and
+      measurement.x >= 0 and measurement.x <= 1 and
+      measurement.y >= 0 and measurement.y <= 1 and
+      measurement.luminance >= 0
+    }
+  }
+
+  requirement def CalibrationRequirement {
+    doc
+      /*
+       The colorimeter shall apply a calibration profile containing gain, dark offset, observer function, reference illuminant, and temperature compensation data before reporting final color values.
+      */
+    subject profile : CalibrationProfile;
+    require constraint {
+      profile.xGain > 0 and profile.yGain > 0 and profile.zGain > 0
+    }
+  }
+
+  requirement def SaturationProtectionRequirement {
+    doc
+      /*
+       The colorimeter shall detect detector saturation and shall mark the measurement invalid when any detector channel reaches its saturation count.
+      */
+    subject detector : PhotodiodeChannel;
+    require constraint {
+      detector.rawCount < detector.saturationCount
+    }
+  }
+
+  requirement def MeasurementLatencyRequirement {
+    doc
+      /*
+       The colorimeter shall complete acquisition, correction, tristimulus conversion, metric computation, and reporting within 1000 ms for a standard single measurement.
+      */
+    subject command : MeasurementCommand;
+    require constraint {
+      command.requestedIntegrationTime <= 500
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by TristimulusColorimeter;
+  satisfy SpectralCoverageRequirement by TristimulusColorimeter::opticalInput;
+  satisfy TristimulusOutputRequirement by TristimulusColorimeter::processor;
+  satisfy CalibrationRequirement by TristimulusColorimeter::processor;
+  satisfy SaturationProtectionRequirement by TristimulusColorimeter::redDetector;
+  satisfy SaturationProtectionRequirement by TristimulusColorimeter::greenDetector;
+  satisfy SaturationProtectionRequirement by TristimulusColorimeter::blueDetector;
+  satisfy MeasurementLatencyRequirement by TristimulusColorimeter::processor;
+
+}

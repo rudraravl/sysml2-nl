@@ -1,0 +1,455 @@
+package SmartSpeakerSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Percent :> Real {
+    range = 0.0..100.0;
+  }
+
+  attribute def DecibelSPL :> Real {
+    unit = "dB_SPL";
+  }
+
+  attribute def Hertz :> Real {
+    unit = "Hz";
+  }
+
+  attribute def Millisecond :> Real {
+    unit = "ms";
+  }
+
+  attribute def Watt :> Real {
+    unit = "W";
+  }
+
+  attribute def Volt :> Real {
+    unit = "V";
+  }
+
+  attribute def Celsius :> Real {
+    unit = "degC";
+  }
+
+  item def AcousticWave {
+    attribute soundPressureLevel : DecibelSPL;
+    attribute centerFrequency : Hertz;
+    attribute duration : Millisecond;
+  }
+
+  item def SpokenUtterance {
+    attribute languageCode : String;
+    attribute confidence : Percent;
+    attribute transcript : String;
+  }
+
+  item def WakeWordDetection {
+    attribute wakeWord : String;
+    attribute confidence : Percent;
+    attribute timestamp : Millisecond;
+  }
+
+  item def UserIntent {
+    attribute intentName : String;
+    attribute confidence : Percent;
+    attribute locale : String;
+  }
+
+  item def AudioStream {
+    attribute sampleRate : Hertz;
+    attribute bitDepth : Integer;
+    attribute channelCount : Integer;
+    attribute encodedFormat : String;
+  }
+
+  item def MusicStream :> AudioStream {
+    attribute contentTitle : String;
+    attribute providerName : String;
+    attribute targetLoudness : DecibelSPL;
+  }
+
+  item def VoiceResponse :> AudioStream {
+    attribute responseText : String;
+    attribute speechRateWordsPerMinute : Real;
+  }
+
+  item def NetworkPacket {
+    attribute protocol : String;
+    attribute payloadBytes : Integer;
+    attribute encrypted : Boolean;
+  }
+
+  item def PowerEnergy {
+    attribute voltage : Volt;
+    attribute powerDraw : Watt;
+  }
+
+  item def DeviceCommand {
+    attribute commandName : String;
+    attribute targetDeviceId : String;
+    attribute requestedState : String;
+  }
+
+  port def AcousticInputPort {
+    in item incomingSound : AcousticWave;
+  }
+
+  port def AcousticOutputPort {
+    out item outgoingSound : AcousticWave;
+  }
+
+  port def AudioDataPort {
+    inout item audio : AudioStream;
+  }
+
+  port def IntentPort {
+    out item recognizedIntent : UserIntent;
+  }
+
+  port def CommandPort {
+    out item command : DeviceCommand;
+  }
+
+  port def NetworkPort {
+    inout item packet : NetworkPacket;
+  }
+
+  port def PowerPort {
+    in item suppliedPower : PowerEnergy;
+  }
+
+  part def MicrophoneArray {
+    attribute microphoneCount : Integer = 4;
+    attribute sensitivity : DecibelSPL = -26.0;
+    attribute minimumFrequency : Hertz = 80.0;
+    attribute maximumFrequency : Hertz = 16000.0;
+    attribute beamformingEnabled : Boolean = true;
+
+    port acousticIn : AcousticInputPort;
+    port digitizedAudio : AudioDataPort;
+
+    action def CaptureAndBeamform {
+      in item sound : AcousticWave;
+      out item audio : AudioStream;
+    }
+  }
+
+  part def WakeWordEngine {
+    attribute configuredWakeWord : String = "Assistant";
+    attribute minimumConfidence : Percent = 92.0;
+    attribute falseAcceptsPerHour : Real = 0.05;
+
+    port audioIn : AudioDataPort;
+    out item detection : WakeWordDetection;
+
+    action def DetectWakeWord {
+      in item audio : AudioStream;
+      out item detectedWakeWord : WakeWordDetection;
+    }
+  }
+
+  part def SpeechRecognitionEngine {
+    attribute supportedLanguage : String = "en-US";
+    attribute maximumUtteranceDuration : Millisecond = 12000.0;
+    attribute targetRecognitionLatency : Millisecond = 700.0;
+
+    port audioIn : AudioDataPort;
+    out item utterance : SpokenUtterance;
+
+    action def TranscribeSpeech {
+      in item audio : AudioStream;
+      out item spokenText : SpokenUtterance;
+    }
+  }
+
+  part def NaturalLanguageProcessor {
+    attribute localIntentCount : Integer = 24;
+    attribute minimumIntentConfidence : Percent = 75.0;
+
+    in item utteranceIn : SpokenUtterance;
+    port intentOut : IntentPort;
+
+    action def DetermineIntent {
+      in item spokenText : SpokenUtterance;
+      out item intent : UserIntent;
+    }
+  }
+
+  part def AudioServiceClient {
+    attribute cloudEndpoint : String = "voice.service.example";
+    attribute requestTimeout : Millisecond = 2000.0;
+    attribute tlsRequired : Boolean = true;
+
+    port network : NetworkPort;
+    port musicOut : AudioDataPort;
+
+    action def RequestAudioContent {
+      in item intent : UserIntent;
+      out item stream : MusicStream;
+    }
+  }
+
+  part def SmartHomeController {
+    attribute supportedProtocol : String = "Matter";
+    attribute commandTimeout : Millisecond = 1500.0;
+
+    in item intentIn : UserIntent;
+    port commandOut : CommandPort;
+
+    action def TranslateIntentToDeviceCommand {
+      in item intent : UserIntent;
+      out item command : DeviceCommand;
+    }
+  }
+
+  part def SpeakerAmplifier {
+    attribute ratedOutputPower : Watt = 15.0;
+    attribute minimumFrequency : Hertz = 70.0;
+    attribute maximumFrequency : Hertz = 20000.0;
+    attribute maximumSoundPressureLevel : DecibelSPL = 92.0;
+
+    port audioIn : AudioDataPort;
+    port acousticOut : AcousticOutputPort;
+
+    action def RenderAudio {
+      in item audio : AudioStream;
+      out item sound : AcousticWave;
+    }
+  }
+
+  part def ConnectivityModule {
+    attribute wifiStandard : String = "IEEE 802.11ax";
+    attribute bluetoothVersion : String = "5.3";
+    attribute nominalLatency : Millisecond = 40.0;
+    attribute encryptedTransportEnabled : Boolean = true;
+
+    port network : NetworkPort;
+  }
+
+  part def PowerSubsystem {
+    attribute inputVoltage : Volt = 12.0;
+    attribute idlePower : Watt = 2.1;
+    attribute activeListeningPower : Watt = 3.8;
+    attribute playbackPower : Watt = 12.5;
+    attribute maximumInternalTemperature : Celsius = 70.0;
+
+    port powerIn : PowerPort;
+    out item regulatedPower : PowerEnergy;
+  }
+
+  part def StatusLightRing {
+    attribute ledCount : Integer = 12;
+    attribute brightness : Percent = 40.0;
+    attribute colorName : String = "white";
+
+    action def ShowListeningState;
+    action def ShowProcessingState;
+    action def ShowMutedState;
+    action def ShowErrorState;
+  }
+
+  part def PrivacyControl {
+    attribute microphoneMuted : Boolean = false;
+    attribute physicalMuteSwitchPresent : Boolean = true;
+
+    action def MuteMicrophones;
+    action def UnmuteMicrophones;
+  }
+
+  part def SmartSpeaker {
+    attribute deviceName : String = "Kitchen Smart Speaker";
+    attribute primaryFunction : String = "Listen for a wake word, understand spoken user requests, and provide audible responses, media playback, and connected-home commands.";
+    attribute targetEndToEndVoiceLatency : Millisecond = 1500.0;
+    attribute maximumOperatingTemperature : Celsius = 40.0;
+
+    port roomAudioIn : AcousticInputPort;
+    port roomAudioOut : AcousticOutputPort;
+    port internet : NetworkPort;
+    port acAdapterPower : PowerPort;
+    port homeDeviceCommand : CommandPort;
+
+    part microphones : MicrophoneArray;
+    part wakeWordEngine : WakeWordEngine;
+    part speechRecognition : SpeechRecognitionEngine;
+    part languageProcessor : NaturalLanguageProcessor;
+    part audioService : AudioServiceClient;
+    part smartHome : SmartHomeController;
+    part amplifier : SpeakerAmplifier;
+    part connectivity : ConnectivityModule;
+    part power : PowerSubsystem;
+    part lightRing : StatusLightRing;
+    part privacy : PrivacyControl;
+
+    connect roomAudioIn to microphones.acousticIn;
+    connect microphones.digitizedAudio to wakeWordEngine.audioIn;
+    connect microphones.digitizedAudio to speechRecognition.audioIn;
+    connect speechRecognition.utterance to languageProcessor.utteranceIn;
+    connect languageProcessor.intentOut to audioService.musicOut;
+    connect audioService.network to connectivity.network;
+    connect connectivity.network to internet;
+    connect audioService.musicOut to amplifier.audioIn;
+    connect amplifier.acousticOut to roomAudioOut;
+    connect smartHome.commandOut to homeDeviceCommand;
+    connect acAdapterPower to power.powerIn;
+
+    action def PrimaryVoiceInteraction {
+      in item userSpeech : AcousticWave;
+      out item audibleReply : AcousticWave;
+      out item issuedCommand : DeviceCommand;
+
+      first start;
+      then capture;
+      then checkWakeWord;
+      then recognizeSpeech;
+      then inferIntent;
+      then respondOrCommand;
+      then done;
+
+      action capture : microphones.CaptureAndBeamform;
+      action checkWakeWord : wakeWordEngine.DetectWakeWord;
+      action recognizeSpeech : speechRecognition.TranscribeSpeech;
+      action inferIntent : languageProcessor.DetermineIntent;
+
+      action respondOrCommand {
+        in item intent : UserIntent;
+        out item reply : AcousticWave;
+        out item command : DeviceCommand;
+      }
+    }
+
+    state def OperatingStateMachine {
+      state Off;
+      state Booting;
+      state Idle;
+      state Listening;
+      state Processing;
+      state Speaking;
+      state PlayingMedia;
+      state Muted;
+      state Error;
+
+      initial then Off;
+
+      transition Off_to_Booting
+        first Off
+        accept PowerApplied
+        then Booting;
+
+      transition Booting_to_Idle
+        first Booting
+        accept BootComplete
+        then Idle;
+
+      transition Idle_to_Listening
+        first Idle
+        accept WakeWordDetected
+        then Listening;
+
+      transition Listening_to_Processing
+        first Listening
+        accept UtteranceCaptured
+        then Processing;
+
+      transition Processing_to_Speaking
+        first Processing
+        accept VoiceResponseReady
+        then Speaking;
+
+      transition Processing_to_PlayingMedia
+        first Processing
+        accept MediaStreamReady
+        then PlayingMedia;
+
+      transition Processing_to_Idle
+        first Processing
+        accept CommandDispatched
+        then Idle;
+
+      transition Speaking_to_Idle
+        first Speaking
+        accept ResponseComplete
+        then Idle;
+
+      transition PlayingMedia_to_Idle
+        first PlayingMedia
+        accept PlaybackStopped
+        then Idle;
+
+      transition Idle_to_Muted
+        first Idle
+        accept MutePressed
+        then Muted;
+
+      transition Listening_to_Muted
+        first Listening
+        accept MutePressed
+        then Muted;
+
+      transition Muted_to_Idle
+        first Muted
+        accept UnmutePressed
+        then Idle;
+
+      transition Any_to_Error
+        first Idle
+        accept FaultDetected
+        then Error;
+
+      transition Error_to_Booting
+        first Error
+        accept RestartRequested
+        then Booting;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The smart speaker shall provide hands-free voice interaction by detecting a wake word, recognizing spoken user requests, determining intent, and producing an audible response, media playback, or connected-home command. */
+    subject speaker : SmartSpeaker;
+  }
+
+  requirement def WakeWordRequirement {
+    doc /* The smart speaker shall detect the configured wake word with at least 92 percent confidence before transmitting or processing the subsequent spoken request as a command. */
+    subject engine : WakeWordEngine;
+    require constraint { engine.minimumConfidence >= 92.0 }
+  }
+
+  requirement def LatencyRequirement {
+    doc /* The smart speaker shall complete the normal voice request path from wake word detection to beginning of audible response within 1500 milliseconds. */
+    subject speaker : SmartSpeaker;
+    require constraint { speaker.targetEndToEndVoiceLatency <= 1500.0 }
+  }
+
+  requirement def AudioPlaybackRequirement {
+    doc /* The smart speaker shall render voice responses and media streams through its speaker subsystem over the 70 Hz to 20000 Hz playback band. */
+    subject amp : SpeakerAmplifier;
+    require constraint { amp.minimumFrequency <= 70.0 and amp.maximumFrequency >= 20000.0 }
+  }
+
+  requirement def PrivacyRequirement {
+    doc /* The smart speaker shall provide a physical mute control that prevents microphone audio from being used for wake word detection and speech recognition when muted. */
+    subject privacyControl : PrivacyControl;
+    require constraint { privacyControl.physicalMuteSwitchPresent == true }
+  }
+
+  requirement def SecureConnectivityRequirement {
+    doc /* The smart speaker shall use encrypted network transport for cloud voice services and media service communication. */
+    subject connectivityModule : ConnectivityModule;
+    require constraint { connectivityModule.encryptedTransportEnabled == true }
+  }
+
+  requirement def PowerRequirement {
+    doc /* The smart speaker shall operate from a 12 volt external power supply and shall not exceed 12.5 watts during nominal media playback. */
+    subject powerSubsystem : PowerSubsystem;
+    require constraint { powerSubsystem.inputVoltage == 12.0 and powerSubsystem.playbackPower <= 12.5 }
+  }
+
+  satisfy PrimaryFunctionRequirement by SmartSpeaker;
+  satisfy WakeWordRequirement by WakeWordEngine;
+  satisfy LatencyRequirement by SmartSpeaker;
+  satisfy AudioPlaybackRequirement by SpeakerAmplifier;
+  satisfy PrivacyRequirement by PrivacyControl;
+  satisfy SecureConnectivityRequirement by ConnectivityModule;
+  satisfy PowerRequirement by PowerSubsystem;
+
+}

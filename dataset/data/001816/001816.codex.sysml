@@ -1,0 +1,463 @@
+package MicrofluidicSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def microliter :> Real {
+    unit = "uL";
+  }
+
+  attribute def microliterPerMinute :> Real {
+    unit = "uL/min";
+  }
+
+  attribute def kilopascal :> Real {
+    unit = "kPa";
+  }
+
+  attribute def millimeter :> Real {
+    unit = "mm";
+  }
+
+  attribute def micrometer :> Real {
+    unit = "um";
+  }
+
+  attribute def degreeCelsius :> Real {
+    unit = "degC";
+  }
+
+  attribute def second :> Real {
+    unit = "s";
+  }
+
+  item def Fluid {
+    attribute volume : microliter;
+    attribute temperature : degreeCelsius;
+    attribute viscosity : Real;
+  }
+
+  item def BiologicalSample :> Fluid {
+    attribute cellConcentration : Real;
+    attribute targetAnalyteConcentration : Real;
+  }
+
+  item def BufferReagent :> Fluid {
+    attribute ph : Real;
+    attribute ionicStrength : Real;
+  }
+
+  item def WasteFluid :> Fluid {
+    attribute biohazardLevel : Integer;
+  }
+
+  item def AnalysisResult {
+    attribute targetDetected : Boolean;
+    attribute measuredConcentration : Real;
+    attribute confidence : Real;
+    attribute measurementTime : second;
+  }
+
+  port def FluidPort {
+    inout item fluid : Fluid;
+    attribute pressure : kilopascal;
+    attribute flowRate : microliterPerMinute;
+  }
+
+  port def SampleInletPort :> FluidPort {
+    in item sample : BiologicalSample;
+  }
+
+  port def ReagentInletPort :> FluidPort {
+    in item reagent : BufferReagent;
+  }
+
+  port def WasteOutletPort :> FluidPort {
+    out item waste : WasteFluid;
+  }
+
+  port def ResultPort {
+    out item result : AnalysisResult;
+  }
+
+  part def Pump {
+    attribute commandedFlowRate : microliterPerMinute;
+    attribute maxPressure : kilopascal;
+    attribute responseTime : second;
+
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    action deliverFluid {
+      in item incoming : Fluid;
+      in attribute requestedFlowRate : microliterPerMinute;
+      out item meteredFluid : Fluid;
+
+      first startPump;
+      then regulatePressure;
+      then outputMeteredFluid;
+
+      action startPump;
+      action regulatePressure;
+      action outputMeteredFluid;
+    }
+  }
+
+  part def MicroValve {
+    attribute openState : Boolean;
+    attribute switchingTime : second;
+    attribute leakageRate : microliterPerMinute;
+
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    state valveState {
+      initial state Closed;
+      state Open;
+
+      transition open from Closed to Open;
+      transition close from Open to Closed;
+    }
+  }
+
+  part def MicroChannel {
+    attribute length : millimeter;
+    attribute width : micrometer;
+    attribute height : micrometer;
+    attribute hydraulicResistance : Real;
+
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+  }
+
+  part def MixingChamber {
+    attribute chamberVolume : microliter;
+    attribute mixingEfficiency : Real;
+    attribute residenceTime : second;
+
+    port sampleInlet : SampleInletPort;
+    port reagentInlet : ReagentInletPort;
+    port mixedOutlet : FluidPort;
+
+    action mixSampleWithReagent {
+      in item sample : BiologicalSample;
+      in item reagent : BufferReagent;
+      out item mixture : Fluid;
+
+      first admitSample;
+      then admitReagent;
+      then diffuseAndAdvect;
+      then releaseMixture;
+
+      action admitSample;
+      action admitReagent;
+      action diffuseAndAdvect;
+      action releaseMixture;
+    }
+  }
+
+  part def ReactionChamber {
+    attribute reactionVolume : microliter;
+    attribute reactionTemperature : degreeCelsius;
+    attribute incubationTime : second;
+    attribute conversionEfficiency : Real;
+
+    port inlet : FluidPort;
+    port outlet : FluidPort;
+
+    action incubateAnalyteReaction {
+      in item mixture : Fluid;
+      out item reactedFluid : Fluid;
+
+      first fillChamber;
+      then holdTemperature;
+      then allowBindingReaction;
+      then flushReactedFluid;
+
+      action fillChamber;
+      action holdTemperature;
+      action allowBindingReaction;
+      action flushReactedFluid;
+    }
+  }
+
+  part def OpticalDetector {
+    attribute excitationWavelength : Real;
+    attribute emissionWavelength : Real;
+    attribute limitOfDetection : Real;
+    attribute samplingInterval : second;
+
+    port fluidInlet : FluidPort;
+    port fluidOutlet : FluidPort;
+    port resultOut : ResultPort;
+
+    action measureAnalyte {
+      in item reactedFluid : Fluid;
+      out item result : AnalysisResult;
+
+      first illuminateDetectionZone;
+      then collectOpticalSignal;
+      then estimateConcentration;
+      then publishResult;
+
+      action illuminateDetectionZone;
+      action collectOpticalSignal;
+      action estimateConcentration;
+      action publishResult;
+    }
+  }
+
+  part def WasteReservoir {
+    attribute capacity : microliter;
+    attribute currentFillLevel : microliter;
+
+    port inlet : WasteOutletPort;
+  }
+
+  part def TemperatureController {
+    attribute setpoint : degreeCelsius;
+    attribute tolerance : degreeCelsius;
+    attribute thermalResponseTime : second;
+
+    action regulateTemperature {
+      in attribute requestedSetpoint : degreeCelsius;
+      out attribute stabilizedTemperature : degreeCelsius;
+
+      first senseTemperature;
+      then adjustHeaterPower;
+      then verifyStability;
+
+      action senseTemperature;
+      action adjustHeaterPower;
+      action verifyStability;
+    }
+  }
+
+  part def MicrofluidicAnalyzer {
+    attribute nominalSampleVolume : microliter = 25.0;
+    attribute nominalReagentVolume : microliter = 50.0;
+    attribute nominalFlowRate : microliterPerMinute = 12.0;
+    attribute operatingPressure : kilopascal = 75.0;
+    attribute assayTemperature : degreeCelsius = 37.0;
+    attribute totalAssayTime : second = 420.0;
+
+    port sampleInput : SampleInletPort;
+    port reagentInput : ReagentInletPort;
+    port wasteOutput : WasteOutletPort;
+    port analysisOutput : ResultPort;
+
+    part samplePump : Pump {
+      attribute commandedFlowRate = 8.0;
+      attribute maxPressure = 150.0;
+      attribute responseTime = 1.5;
+    }
+
+    part reagentPump : Pump {
+      attribute commandedFlowRate = 16.0;
+      attribute maxPressure = 150.0;
+      attribute responseTime = 1.5;
+    }
+
+    part sampleValve : MicroValve {
+      attribute switchingTime = 0.2;
+      attribute leakageRate = 0.001;
+    }
+
+    part reagentValve : MicroValve {
+      attribute switchingTime = 0.2;
+      attribute leakageRate = 0.001;
+    }
+
+    part sampleChannel : MicroChannel {
+      attribute length = 18.0;
+      attribute width = 80.0;
+      attribute height = 50.0;
+    }
+
+    part reagentChannel : MicroChannel {
+      attribute length = 22.0;
+      attribute width = 80.0;
+      attribute height = 50.0;
+    }
+
+    part mixer : MixingChamber {
+      attribute chamberVolume = 8.0;
+      attribute mixingEfficiency = 0.95;
+      attribute residenceTime = 15.0;
+    }
+
+    part reactionChamber : ReactionChamber {
+      attribute reactionVolume = 20.0;
+      attribute reactionTemperature = 37.0;
+      attribute incubationTime = 180.0;
+      attribute conversionEfficiency = 0.90;
+    }
+
+    part detector : OpticalDetector {
+      attribute excitationWavelength = 488.0;
+      attribute emissionWavelength = 520.0;
+      attribute limitOfDetection = 0.005;
+      attribute samplingInterval = 2.0;
+    }
+
+    part thermalControl : TemperatureController {
+      attribute setpoint = 37.0;
+      attribute tolerance = 0.5;
+      attribute thermalResponseTime = 20.0;
+    }
+
+    part wasteReservoir : WasteReservoir {
+      attribute capacity = 500.0;
+      attribute currentFillLevel = 0.0;
+    }
+
+    connect sampleInput to samplePump.inlet;
+    connect samplePump.outlet to sampleValve.inlet;
+    connect sampleValve.outlet to sampleChannel.inlet;
+    connect sampleChannel.outlet to mixer.sampleInlet;
+
+    connect reagentInput to reagentPump.inlet;
+    connect reagentPump.outlet to reagentValve.inlet;
+    connect reagentValve.outlet to reagentChannel.inlet;
+    connect reagentChannel.outlet to mixer.reagentInlet;
+
+    connect mixer.mixedOutlet to reactionChamber.inlet;
+    connect reactionChamber.outlet to detector.fluidInlet;
+    connect detector.fluidOutlet to wasteReservoir.inlet;
+    connect wasteReservoir.inlet to wasteOutput;
+    connect detector.resultOut to analysisOutput;
+
+    state analyzerState {
+      initial state Idle;
+      state Priming;
+      state LoadingSample;
+      state MeteringReagent;
+      state Mixing;
+      state Reacting;
+      state Detecting;
+      state Flushing;
+      state Complete;
+      state Fault;
+
+      transition startAssay from Idle to Priming;
+      transition primeComplete from Priming to LoadingSample;
+      transition sampleLoaded from LoadingSample to MeteringReagent;
+      transition reagentMetered from MeteringReagent to Mixing;
+      transition mixed from Mixing to Reacting;
+      transition reactionComplete from Reacting to Detecting;
+      transition detectionComplete from Detecting to Flushing;
+      transition flushComplete from Flushing to Complete;
+      transition reset from Complete to Idle;
+
+      transition pressureFault from Priming to Fault;
+      transition pressureFault from LoadingSample to Fault;
+      transition pressureFault from MeteringReagent to Fault;
+      transition temperatureFault from Reacting to Fault;
+      transition detectorFault from Detecting to Fault;
+      transition clearFault from Fault to Idle;
+    }
+
+    action performAssay {
+      in item sample : BiologicalSample;
+      in item reagent : BufferReagent;
+      out item result : AnalysisResult;
+
+      first primeFluidicPath;
+      then loadSample;
+      then meterReagent;
+      then mixFluids;
+      then incubateReaction;
+      then detectAnalyte;
+      then routeWaste;
+      then reportResult;
+
+      action primeFluidicPath;
+      action loadSample;
+      action meterReagent;
+      action mixFluids;
+      action incubateReaction;
+      action detectAnalyte;
+      action routeWaste;
+      action reportResult;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer performs high-level function of accepting a small biological sample,
+      metering it with reagent through micro-scale channels,
+      mixing and incubating the fluid,
+      detecting a target analyte,
+      and producing an analysis result while routing consumed fluid to waste.
+    }
+  }
+
+  requirement def SampleVolumeRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.nominalSampleVolume <= 25.0
+    }
+  }
+
+  requirement def FlowControlRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.nominalFlowRate >= 5.0 and analyzer.nominalFlowRate <= 25.0
+    }
+  }
+
+  requirement def PressureLimitRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.operatingPressure <= 100.0
+    }
+  }
+
+  requirement def TemperatureControlRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.assayTemperature >= 36.5 and analyzer.assayTemperature <= 37.5
+    }
+  }
+
+  requirement def AssayTimeRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.totalAssayTime <= 600.0
+    }
+  }
+
+  requirement def WasteContainmentRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.wasteReservoir.capacity >= 10.0 * analyzer.nominalSampleVolume
+    }
+  }
+
+  requirement def DetectionRequirement {
+    subject analyzer : MicrofluidicAnalyzer;
+
+    require constraint {
+      analyzer.detector.limitOfDetection <= 0.01
+    }
+  }
+
+  part microfluidicDiagnosticSystem : MicrofluidicAnalyzer;
+
+  satisfy PrimaryFunctionRequirement by microfluidicDiagnosticSystem;
+  satisfy SampleVolumeRequirement by microfluidicDiagnosticSystem;
+  satisfy FlowControlRequirement by microfluidicDiagnosticSystem;
+  satisfy PressureLimitRequirement by microfluidicDiagnosticSystem;
+  satisfy TemperatureControlRequirement by microfluidicDiagnosticSystem;
+  satisfy AssayTimeRequirement by microfluidicDiagnosticSystem;
+  satisfy WasteContainmentRequirement by microfluidicDiagnosticSystem;
+  satisfy DetectionRequirement by microfluidicDiagnosticSystem;
+}

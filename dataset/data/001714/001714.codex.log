@@ -1,0 +1,931 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-cr902som
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7ca-6d70-7a43-8a91-afdf3f8f4eb1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Kodi and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package KodiBasedMediaCenterSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def BitRate :> Real {
+        unit = "Mb/s";
+    }
+
+    attribute def FrameRate :> Real {
+        unit = "frame/s";
+    }
+
+    attribute def ResolutionWidth :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def ResolutionHeight :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def StorageCapacity :> Real {
+        unit = "GB";
+    }
+
+    attribute def DurationSeconds :> Real {
+        unit = "s";
+    }
+
+    attribute def TemperatureCelsius :> Real {
+        unit = "degC";
+    }
+
+    item def MediaFile {
+        attribute title : String;
+        attribute containerFormat : String;
+        attribute codec : String;
+        attribute duration : DurationSeconds;
+        attribute bitRate : BitRate;
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+        attribute hasSubtitleTrack : Boolean;
+        attribute hasAudioTrack : Boolean;
+    }
+
+    item def AudioStream {
+        attribute codec : String;
+        attribute channelCount : Integer;
+        attribute sampleRateHz : Integer;
+        attribute bitRate : BitRate;
+    }
+
+    item def VideoStream {
+        attribute codec : String;
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+        attribute frameRate : FrameRate;
+        attribute bitRate : BitRate;
+    }
+
+    item def SubtitleStream {
+        attribute languageCode : String;
+        attribute format : String;
+        attribute enabled : Boolean;
+    }
+
+    item def UserCommand {
+        attribute commandName : String;
+        attribute sourceDevice : String;
+        attribute issuedAt : String;
+    }
+
+    item def PlaybackStatus {
+        attribute stateName : String;
+        attribute position : DurationSeconds;
+        attribute bufferedPercent : Percent;
+        attribute volumePercent : Percent;
+    }
+
+    item def LibraryMetadata {
+        attribute title : String;
+        attribute contentType : String;
+        attribute seasonNumber : Integer;
+        attribute episodeNumber : Integer;
+        attribute releaseYear : Integer;
+        attribute artworkUri : String;
+        attribute summary : String;
+    }
+
+    item def NetworkPacket {
+        attribute protocol : String;
+        attribute payloadBytes : Integer;
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+    }
+
+    port def MediaInputPort {
+        in item mediaIn : MediaFile;
+        in item networkIn : NetworkPacket;
+    }
+
+    port def DisplayOutputPort {
+        out item videoOut : VideoStream;
+        out item subtitleOut : SubtitleStream;
+    }
+
+    port def AudioOutputPort {
+        out item audioOut : AudioStream;
+    }
+
+    port def ControlPort {
+        in item commandIn : UserCommand;
+        out item statusOut : PlaybackStatus;
+    }
+
+    port def MetadataPort {
+        in item metadataIn : LibraryMetadata;
+        out item metadataQuery : String;
+    }
+
+    action def ScanMediaLibrary {
+        in item sourceMedia : MediaFile;
+        out item discoveredMetadata : LibraryMetadata;
+    }
+
+    action def DecodeMedia {
+        in item encodedMedia : MediaFile;
+        out item decodedVideo : VideoStream;
+        out item decodedAudio : AudioStream;
+        out item decodedSubtitle : SubtitleStream;
+    }
+
+    action def RenderPlayback {
+        in item video : VideoStream;
+        in item audio : AudioStream;
+        in item subtitle : SubtitleStream;
+        out item status : PlaybackStatus;
+    }
+
+    action def ExecuteUserCommand {
+        in item command : UserCommand;
+        inout item status : PlaybackStatus;
+    }
+
+    action def StreamNetworkMedia {
+        in item packet : NetworkPacket;
+        out item media : MediaFile;
+    }
+
+    state def PlaybackStateMachine {
+        entry action initializeStatus;
+
+        state Idle;
+        state BrowsingLibrary;
+        state Buffering;
+        state Playing;
+        state Paused;
+        state Seeking;
+        state Stopped;
+        state Error;
+
+        transition first Idle;
+
+        transition Idle_to_Browsing
+            first Idle
+            then BrowsingLibrary
+            accept UserCommand
+            if commandName == "browse";
+
+        transition Browsing_to_Buffering
+            first BrowsingLibrary
+            then Buffering
+            accept UserCommand
+            if commandName == "play";
+
+        transition Buffering_to_Playing
+            first Buffering
+            then Playing
+            if bufferedPercent >= 10.0;
+
+        transition Playing_to_Paused
+            first Playing
+            then Paused
+            accept UserCommand
+            if commandName == "pause";
+
+        transition Paused_to_Playing
+            first Paused
+            then Playing
+            accept UserCommand
+            if commandName == "resume";
+
+        transition Playing_to_Seeking
+            first Playing
+            then Seeking
+            accept UserCommand
+            if commandName == "seek";
+
+        transition Seeking_to_Buffering
+            first Seeking
+            then Buffering;
+
+        transition Playing_to_Stopped
+            first Playing
+            then Stopped
+            accept UserCommand
+            if commandName == "stop";
+
+        transition Paused_to_Stopped
+            first Paused
+            then Stopped
+            accept UserCommand
+            if commandName == "stop";
+
+        transition Stopped_to_Idle
+            first Stopped
+            then Idle;
+
+        transition Buffering_to_Error
+            first Buffering
+            then Error
+            if bufferedPercent < 1.0;
+
+        transition Error_to_Idle
+            first Error
+            then Idle
+            accept UserCommand
+            if commandName == "reset";
+    }
+
+    part def LocalStorage {
+        attribute capacity : StorageCapacity;
+        attribute usedSpace : StorageCapacity;
+        attribute availableSpace : StorageCapacity;
+
+        port mediaStorePort : MediaInputPort;
+        port metadataStorePort : MetadataPort;
+    }
+
+    part def NetworkAdapter {
+        attribute linkSpeed : BitRate;
+        attribute connected : Boolean;
+        attribute ipAddress : String;
+
+        port networkMediaPort : MediaInputPort;
+    }
+
+    part def RemoteControlInterface {
+        attribute pairedDeviceCount : Integer;
+        attribute supportsKeyboardInput : Boolean;
+        attribute supportsTouchInput : Boolean;
+
+        port userControlPort : ControlPort;
+    }
+
+    part def MediaLibraryManager {
+        attribute indexedItemCount : Integer;
+        attribute lastScanCompletedAt : String;
+        attribute automaticScanEnabled : Boolean;
+
+        port mediaIndexInput : MediaInputPort;
+        port metadataExchange : MetadataPort;
+
+        action scanLibrary : ScanMediaLibrary;
+    }
+
+    part def KodiApplicationCore {
+        attribute version : String = "Kodi-compatible media center core";
+        attribute activeProfileName : String;
+        attribute addOnSupportEnabled : Boolean;
+        attribute cpuLoad : Percent;
+        attribute memoryUsePercent : Percent;
+
+        port mediaInput : MediaInputPort;
+        port controlInput : ControlPort;
+        port metadataInput : MetadataPort;
+        port displayOutput : DisplayOutputPort;
+        port audioOutput : AudioOutputPort;
+
+        action decode : DecodeMedia;
+        action render : RenderPlayback;
+        action commandHandler : ExecuteUserCommand;
+
+        state playbackLifecycle : PlaybackStateMachine;
+    }
+
+    part def VideoDisplaySubsystem {
+        attribute maximumWidth : ResolutionWidth;
+        attribute maximumHeight : ResolutionHeight;
+        attribute hdrSupported : Boolean;
+        attribute refreshRate : FrameRate;
+
+        port displayInput : DisplayOutputPort;
+    }
+
+    part def AudioSubsystem {
+        attribute maximumChannels : Integer;
+        attribute passthroughSupported : Boolean;
+        attribute volumePercent : Percent;
+
+        port audioInput : AudioOutputPort;
+    }
+
+    part def ThermalSupervisor {
+        attribute processorTemperature : TemperatureCelsius;
+        attribute throttlingActive : Boolean;
+        attribute maximumSafeTemperature : TemperatureCelsius;
+    }
+
+    part def KodiBasedMediaCenter {
+        attribute primaryFunction : String = "Organize, decode, and play local or network media content through a Kodi-compatible media center interface.";
+        attribute poweredOn : Boolean;
+        attribute uptime : DurationSeconds;
+
+        part storage : LocalStorage {
+            attribute capacity = 1024.0;
+            attribute usedSpace = 256.0;
+            attribute availableSpace = 768.0;
+        }
+
+        part network : NetworkAdapter {
+            attribute linkSpeed = 1000.0;
+            attribute connected = true;
+            attribute ipAddress = "192.168.1.40";
+        }
+
+        part remoteInterface : RemoteControlInterface {
+            attribute pairedDeviceCount = 3;
+            attribute supportsKeyboardInput = true;
+            attribute supportsTouchInput = true;
+        }
+
+        part libraryManager : MediaLibraryManager {
+            attribute indexedItemCount = 1842;
+            attribute automaticScanEnabled = true;
+        }
+
+        part kodiCore : KodiApplicationCore {
+            attribute activeProfileName = "Living Room";
+            attribute addOnSupportEnabled = true;
+            attribute cpuLoad = 22.0;
+            attribute memoryUsePercent = 48.0;
+        }
+
+        part display : VideoDisplaySubsystem {
+            attribute maximumWidth = 3840;
+            attribute maximumHeight = 2160;
+            attribute hdrSupported = true;
+            attribute refreshRate = 60.0;
+        }
+
+        part audio : AudioSubsystem {
+            attribute maximumChannels = 8;
+            attribute passthroughSupported = true;
+            attribute volumePercent = 65.0;
+        }
+
+        part thermal : ThermalSupervisor {
+            attribute processorTemperature = 51.0;
+            attribute throttlingActive = false;
+            attribute maximumSafeTemperature = 85.0;
+        }
+
+        connect storage.mediaStorePort to libraryManager.mediaIndexInput;
+        connect storage.metadataStorePort to libraryManager.metadataExchange;
+        connect network.networkMediaPort to kodiCore.mediaInput;
+        connect libraryManager.metadataExchange to kodiCore.metadataInput;
+        connect remoteInterface.userControlPort to kodiCore.controlInput;
+        connect kodiCore.displayOutput to display.displayInput;
+        connect kodiCore.audioOutput to audio.audioInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a Kodi-based media center that lets users browse, organize, decode, and play local or network media content at a high level through a unified interface. */
+
+        subject mediaCenter : KodiBasedMediaCenter;
+
+        require constraint {
+            mediaCenter.primaryFunction == "Organize, decode, and play local or network media content through a Kodi-compatible media center interface."
+        }
+    }
+
+    requirement def LibraryManagementRequirement {
+        doc /* The system shall maintain a searchable media library with metadata for indexed movies, television episodes, music, and other supported media assets. */
+
+        subject manager : MediaLibraryManager;
+
+        require constraint {
+            manager.indexedItemCount >= 0
+        }
+    }
+
+    requirement def PlaybackControlRequirement {
+        doc /* The system shall accept user commands for browsing, play, pause, resume, seek, stop, and reset operations. */
+
+        subject core : KodiApplicationCore;
+
+        require constraint {
+            core.addOnSupportEnabled == true or core.addOnSupportEnabled == false
+        }
+    }
+
+    requirement def HighDefinitionPlaybackRequirement {
+        doc /* The system shall support high-definition video playback up to 3840 by 2160 pixels when compatible media and display hardware are available. */
+
+        subject displaySubsystem : VideoDisplaySubsystem;
+
+        require constraint {
+            displaySubsystem.maximumWidth >= 3840 and displaySubsystem.maximumHeight >= 2160
+        }
+    }
+
+    requirement def NetworkStreamingRequirement {
+        doc /* The system shall receive media content from a network source when a network connection is available. */
+
+        subject adapter : NetworkAdapter;
+
+        require constraint {
+            adapter.connected == true implies adapter.linkSpeed >= 25.0
+        }
+    }
+
+    requirement def AudioOutputRequirement {
+        doc /* The system shall output decoded audio streams to an audio subsystem with volume control and optional passthrough support. */
+
+        subject audioSubsystem : AudioSubsystem;
+
+        require constraint {
+            audioSubsystem.volumePercent >= 0.0 and audioSubsystem.volumePercent <= 100.0
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        doc /* The system shall monitor processor temperature and indicate throttling when the maximum safe operating temperature is exceeded. */
+
+        subject supervisor : ThermalSupervisor;
+
+        require constraint {
+            supervisor.processorTemperature <= supervisor.maximumSafeTemperature or supervisor.throttlingActive == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by KodiBasedMediaCenter;
+    satisfy LibraryManagementRequirement by MediaLibraryManager;
+    satisfy PlaybackControlRequirement by KodiApplicationCore;
+    satisfy HighDefinitionPlaybackRequirement by VideoDisplaySubsystem;
+    satisfy NetworkStreamingRequirement by NetworkAdapter;
+    satisfy AudioOutputRequirement by AudioSubsystem;
+    satisfy ThermalProtectionRequirement by ThermalSupervisor;
+
+    part kodiMediaCenterSystem : KodiBasedMediaCenter;
+}
+tokens used
+4,146
+package KodiBasedMediaCenterSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def BitRate :> Real {
+        unit = "Mb/s";
+    }
+
+    attribute def FrameRate :> Real {
+        unit = "frame/s";
+    }
+
+    attribute def ResolutionWidth :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def ResolutionHeight :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def StorageCapacity :> Real {
+        unit = "GB";
+    }
+
+    attribute def DurationSeconds :> Real {
+        unit = "s";
+    }
+
+    attribute def TemperatureCelsius :> Real {
+        unit = "degC";
+    }
+
+    item def MediaFile {
+        attribute title : String;
+        attribute containerFormat : String;
+        attribute codec : String;
+        attribute duration : DurationSeconds;
+        attribute bitRate : BitRate;
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+        attribute hasSubtitleTrack : Boolean;
+        attribute hasAudioTrack : Boolean;
+    }
+
+    item def AudioStream {
+        attribute codec : String;
+        attribute channelCount : Integer;
+        attribute sampleRateHz : Integer;
+        attribute bitRate : BitRate;
+    }
+
+    item def VideoStream {
+        attribute codec : String;
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+        attribute frameRate : FrameRate;
+        attribute bitRate : BitRate;
+    }
+
+    item def SubtitleStream {
+        attribute languageCode : String;
+        attribute format : String;
+        attribute enabled : Boolean;
+    }
+
+    item def UserCommand {
+        attribute commandName : String;
+        attribute sourceDevice : String;
+        attribute issuedAt : String;
+    }
+
+    item def PlaybackStatus {
+        attribute stateName : String;
+        attribute position : DurationSeconds;
+        attribute bufferedPercent : Percent;
+        attribute volumePercent : Percent;
+    }
+
+    item def LibraryMetadata {
+        attribute title : String;
+        attribute contentType : String;
+        attribute seasonNumber : Integer;
+        attribute episodeNumber : Integer;
+        attribute releaseYear : Integer;
+        attribute artworkUri : String;
+        attribute summary : String;
+    }
+
+    item def NetworkPacket {
+        attribute protocol : String;
+        attribute payloadBytes : Integer;
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+    }
+
+    port def MediaInputPort {
+        in item mediaIn : MediaFile;
+        in item networkIn : NetworkPacket;
+    }
+
+    port def DisplayOutputPort {
+        out item videoOut : VideoStream;
+        out item subtitleOut : SubtitleStream;
+    }
+
+    port def AudioOutputPort {
+        out item audioOut : AudioStream;
+    }
+
+    port def ControlPort {
+        in item commandIn : UserCommand;
+        out item statusOut : PlaybackStatus;
+    }
+
+    port def MetadataPort {
+        in item metadataIn : LibraryMetadata;
+        out item metadataQuery : String;
+    }
+
+    action def ScanMediaLibrary {
+        in item sourceMedia : MediaFile;
+        out item discoveredMetadata : LibraryMetadata;
+    }
+
+    action def DecodeMedia {
+        in item encodedMedia : MediaFile;
+        out item decodedVideo : VideoStream;
+        out item decodedAudio : AudioStream;
+        out item decodedSubtitle : SubtitleStream;
+    }
+
+    action def RenderPlayback {
+        in item video : VideoStream;
+        in item audio : AudioStream;
+        in item subtitle : SubtitleStream;
+        out item status : PlaybackStatus;
+    }
+
+    action def ExecuteUserCommand {
+        in item command : UserCommand;
+        inout item status : PlaybackStatus;
+    }
+
+    action def StreamNetworkMedia {
+        in item packet : NetworkPacket;
+        out item media : MediaFile;
+    }
+
+    state def PlaybackStateMachine {
+        entry action initializeStatus;
+
+        state Idle;
+        state BrowsingLibrary;
+        state Buffering;
+        state Playing;
+        state Paused;
+        state Seeking;
+        state Stopped;
+        state Error;
+
+        transition first Idle;
+
+        transition Idle_to_Browsing
+            first Idle
+            then BrowsingLibrary
+            accept UserCommand
+            if commandName == "browse";
+
+        transition Browsing_to_Buffering
+            first BrowsingLibrary
+            then Buffering
+            accept UserCommand
+            if commandName == "play";
+
+        transition Buffering_to_Playing
+            first Buffering
+            then Playing
+            if bufferedPercent >= 10.0;
+
+        transition Playing_to_Paused
+            first Playing
+            then Paused
+            accept UserCommand
+            if commandName == "pause";
+
+        transition Paused_to_Playing
+            first Paused
+            then Playing
+            accept UserCommand
+            if commandName == "resume";
+
+        transition Playing_to_Seeking
+            first Playing
+            then Seeking
+            accept UserCommand
+            if commandName == "seek";
+
+        transition Seeking_to_Buffering
+            first Seeking
+            then Buffering;
+
+        transition Playing_to_Stopped
+            first Playing
+            then Stopped
+            accept UserCommand
+            if commandName == "stop";
+
+        transition Paused_to_Stopped
+            first Paused
+            then Stopped
+            accept UserCommand
+            if commandName == "stop";
+
+        transition Stopped_to_Idle
+            first Stopped
+            then Idle;
+
+        transition Buffering_to_Error
+            first Buffering
+            then Error
+            if bufferedPercent < 1.0;
+
+        transition Error_to_Idle
+            first Error
+            then Idle
+            accept UserCommand
+            if commandName == "reset";
+    }
+
+    part def LocalStorage {
+        attribute capacity : StorageCapacity;
+        attribute usedSpace : StorageCapacity;
+        attribute availableSpace : StorageCapacity;
+
+        port mediaStorePort : MediaInputPort;
+        port metadataStorePort : MetadataPort;
+    }
+
+    part def NetworkAdapter {
+        attribute linkSpeed : BitRate;
+        attribute connected : Boolean;
+        attribute ipAddress : String;
+
+        port networkMediaPort : MediaInputPort;
+    }
+
+    part def RemoteControlInterface {
+        attribute pairedDeviceCount : Integer;
+        attribute supportsKeyboardInput : Boolean;
+        attribute supportsTouchInput : Boolean;
+
+        port userControlPort : ControlPort;
+    }
+
+    part def MediaLibraryManager {
+        attribute indexedItemCount : Integer;
+        attribute lastScanCompletedAt : String;
+        attribute automaticScanEnabled : Boolean;
+
+        port mediaIndexInput : MediaInputPort;
+        port metadataExchange : MetadataPort;
+
+        action scanLibrary : ScanMediaLibrary;
+    }
+
+    part def KodiApplicationCore {
+        attribute version : String = "Kodi-compatible media center core";
+        attribute activeProfileName : String;
+        attribute addOnSupportEnabled : Boolean;
+        attribute cpuLoad : Percent;
+        attribute memoryUsePercent : Percent;
+
+        port mediaInput : MediaInputPort;
+        port controlInput : ControlPort;
+        port metadataInput : MetadataPort;
+        port displayOutput : DisplayOutputPort;
+        port audioOutput : AudioOutputPort;
+
+        action decode : DecodeMedia;
+        action render : RenderPlayback;
+        action commandHandler : ExecuteUserCommand;
+
+        state playbackLifecycle : PlaybackStateMachine;
+    }
+
+    part def VideoDisplaySubsystem {
+        attribute maximumWidth : ResolutionWidth;
+        attribute maximumHeight : ResolutionHeight;
+        attribute hdrSupported : Boolean;
+        attribute refreshRate : FrameRate;
+
+        port displayInput : DisplayOutputPort;
+    }
+
+    part def AudioSubsystem {
+        attribute maximumChannels : Integer;
+        attribute passthroughSupported : Boolean;
+        attribute volumePercent : Percent;
+
+        port audioInput : AudioOutputPort;
+    }
+
+    part def ThermalSupervisor {
+        attribute processorTemperature : TemperatureCelsius;
+        attribute throttlingActive : Boolean;
+        attribute maximumSafeTemperature : TemperatureCelsius;
+    }
+
+    part def KodiBasedMediaCenter {
+        attribute primaryFunction : String = "Organize, decode, and play local or network media content through a Kodi-compatible media center interface.";
+        attribute poweredOn : Boolean;
+        attribute uptime : DurationSeconds;
+
+        part storage : LocalStorage {
+            attribute capacity = 1024.0;
+            attribute usedSpace = 256.0;
+            attribute availableSpace = 768.0;
+        }
+
+        part network : NetworkAdapter {
+            attribute linkSpeed = 1000.0;
+            attribute connected = true;
+            attribute ipAddress = "192.168.1.40";
+        }
+
+        part remoteInterface : RemoteControlInterface {
+            attribute pairedDeviceCount = 3;
+            attribute supportsKeyboardInput = true;
+            attribute supportsTouchInput = true;
+        }
+
+        part libraryManager : MediaLibraryManager {
+            attribute indexedItemCount = 1842;
+            attribute automaticScanEnabled = true;
+        }
+
+        part kodiCore : KodiApplicationCore {
+            attribute activeProfileName = "Living Room";
+            attribute addOnSupportEnabled = true;
+            attribute cpuLoad = 22.0;
+            attribute memoryUsePercent = 48.0;
+        }
+
+        part display : VideoDisplaySubsystem {
+            attribute maximumWidth = 3840;
+            attribute maximumHeight = 2160;
+            attribute hdrSupported = true;
+            attribute refreshRate = 60.0;
+        }
+
+        part audio : AudioSubsystem {
+            attribute maximumChannels = 8;
+            attribute passthroughSupported = true;
+            attribute volumePercent = 65.0;
+        }
+
+        part thermal : ThermalSupervisor {
+            attribute processorTemperature = 51.0;
+            attribute throttlingActive = false;
+            attribute maximumSafeTemperature = 85.0;
+        }
+
+        connect storage.mediaStorePort to libraryManager.mediaIndexInput;
+        connect storage.metadataStorePort to libraryManager.metadataExchange;
+        connect network.networkMediaPort to kodiCore.mediaInput;
+        connect libraryManager.metadataExchange to kodiCore.metadataInput;
+        connect remoteInterface.userControlPort to kodiCore.controlInput;
+        connect kodiCore.displayOutput to display.displayInput;
+        connect kodiCore.audioOutput to audio.audioInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a Kodi-based media center that lets users browse, organize, decode, and play local or network media content at a high level through a unified interface. */
+
+        subject mediaCenter : KodiBasedMediaCenter;
+
+        require constraint {
+            mediaCenter.primaryFunction == "Organize, decode, and play local or network media content through a Kodi-compatible media center interface."
+        }
+    }
+
+    requirement def LibraryManagementRequirement {
+        doc /* The system shall maintain a searchable media library with metadata for indexed movies, television episodes, music, and other supported media assets. */
+
+        subject manager : MediaLibraryManager;
+
+        require constraint {
+            manager.indexedItemCount >= 0
+        }
+    }
+
+    requirement def PlaybackControlRequirement {
+        doc /* The system shall accept user commands for browsing, play, pause, resume, seek, stop, and reset operations. */
+
+        subject core : KodiApplicationCore;
+
+        require constraint {
+            core.addOnSupportEnabled == true or core.addOnSupportEnabled == false
+        }
+    }
+
+    requirement def HighDefinitionPlaybackRequirement {
+        doc /* The system shall support high-definition video playback up to 3840 by 2160 pixels when compatible media and display hardware are available. */
+
+        subject displaySubsystem : VideoDisplaySubsystem;
+
+        require constraint {
+            displaySubsystem.maximumWidth >= 3840 and displaySubsystem.maximumHeight >= 2160
+        }
+    }
+
+    requirement def NetworkStreamingRequirement {
+        doc /* The system shall receive media content from a network source when a network connection is available. */
+
+        subject adapter : NetworkAdapter;
+
+        require constraint {
+            adapter.connected == true implies adapter.linkSpeed >= 25.0
+        }
+    }
+
+    requirement def AudioOutputRequirement {
+        doc /* The system shall output decoded audio streams to an audio subsystem with volume control and optional passthrough support. */
+
+        subject audioSubsystem : AudioSubsystem;
+
+        require constraint {
+            audioSubsystem.volumePercent >= 0.0 and audioSubsystem.volumePercent <= 100.0
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        doc /* The system shall monitor processor temperature and indicate throttling when the maximum safe operating temperature is exceeded. */
+
+        subject supervisor : ThermalSupervisor;
+
+        require constraint {
+            supervisor.processorTemperature <= supervisor.maximumSafeTemperature or supervisor.throttlingActive == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by KodiBasedMediaCenter;
+    satisfy LibraryManagementRequirement by MediaLibraryManager;
+    satisfy PlaybackControlRequirement by KodiApplicationCore;
+    satisfy HighDefinitionPlaybackRequirement by VideoDisplaySubsystem;
+    satisfy NetworkStreamingRequirement by NetworkAdapter;
+    satisfy AudioOutputRequirement by AudioSubsystem;
+    satisfy ThermalProtectionRequirement by ThermalSupervisor;
+
+    part kodiMediaCenterSystem : KodiBasedMediaCenter;
+}

@@ -1,0 +1,440 @@
+package XMPPBasedMessagingSystem {
+  import ScalarValues::*;
+
+  item def XMLStream {
+    attribute streamId : String;
+    attribute namespace : String = "jabber:client";
+  }
+
+  item def JID {
+    attribute localpart : String;
+    attribute domainpart : String;
+    attribute resourcepart : String;
+  }
+
+  item def MessageStanza {
+    attribute stanzaId : String;
+    attribute from : JID;
+    attribute to : JID;
+    attribute body : String;
+    attribute timestamp_ms : Integer;
+    attribute encrypted : Boolean;
+  }
+
+  item def PresenceStanza {
+    attribute from : JID;
+    attribute to : JID;
+    attribute availability : AvailabilityKind;
+    attribute statusText : String;
+    attribute priority : Integer;
+  }
+
+  item def IQStanza {
+    attribute stanzaId : String;
+    attribute from : JID;
+    attribute to : JID;
+    attribute iqType : IQKind;
+    attribute payload : String;
+  }
+
+  item def AuthToken {
+    attribute subject : JID;
+    attribute mechanism : String;
+    attribute expiresAt_ms : Integer;
+  }
+
+  enum def AvailabilityKind {
+    available;
+    away;
+    dnd;
+    xa;
+    unavailable;
+  }
+
+  enum def IQKind {
+    get;
+    set;
+    result;
+    error;
+  }
+
+  enum def SessionSecurityKind {
+    cleartext;
+    tlsNegotiating;
+    tlsEstablished;
+    authenticated;
+  }
+
+  attribute def Duration_ms : Integer;
+  attribute def DataRate_kbps : Real;
+  attribute def Capacity_count : Integer;
+  attribute def Availability_ratio : Real;
+
+  port def ClientXmppPort {
+    out item clientStream : XMLStream;
+    in item serverStream : XMLStream;
+    out item outboundMessage : MessageStanza;
+    in item inboundMessage : MessageStanza;
+    out item outboundPresence : PresenceStanza;
+    in item inboundPresence : PresenceStanza;
+    out item outboundIQ : IQStanza;
+    in item inboundIQ : IQStanza;
+  }
+
+  port def ServerClientPort {
+    in item clientStream : XMLStream;
+    out item serverStream : XMLStream;
+    in item inboundMessage : MessageStanza;
+    out item outboundMessage : MessageStanza;
+    in item inboundPresence : PresenceStanza;
+    out item outboundPresence : PresenceStanza;
+    in item inboundIQ : IQStanza;
+    out item outboundIQ : IQStanza;
+  }
+
+  port def FederationPort {
+    out item federatedMessageOut : MessageStanza;
+    in item federatedMessageIn : MessageStanza;
+    out item federatedPresenceOut : PresenceStanza;
+    in item federatedPresenceIn : PresenceStanza;
+    out item federatedIQOut : IQStanza;
+    in item federatedIQIn : IQStanza;
+  }
+
+  port def DirectoryPort {
+    in item rosterQuery : IQStanza;
+    out item rosterResult : IQStanza;
+    in item presenceSubscription : PresenceStanza;
+    out item presenceAuthorization : PresenceStanza;
+  }
+
+  port def CredentialPort {
+    in item credentialProof : AuthToken;
+    out item authenticationResult : AuthToken;
+  }
+
+  part def XmppClient {
+    attribute jid : JID;
+    attribute reconnectBackoff_ms : Duration_ms = 5000;
+    attribute maxQueuedMessages : Capacity_count = 250;
+    attribute securityState : SessionSecurityKind = SessionSecurityKind::cleartext;
+
+    port xmpp : ClientXmppPort;
+
+    action composeMessage {
+      in item recipient : JID;
+      in item text : String;
+      out item message : MessageStanza;
+    }
+
+    action publishPresence {
+      in item currentAvailability : AvailabilityKind;
+      out item presence : PresenceStanza;
+    }
+
+    state clientSessionLifecycle {
+      state disconnected;
+      state tcpConnecting;
+      state streamOpening;
+      state tlsNegotiating;
+      state authenticating;
+      state bindingResource;
+      state online;
+      state reconnecting;
+
+      transition initial then disconnected;
+      transition disconnected_to_tcpConnecting first disconnected then tcpConnecting;
+      transition tcpConnecting_to_streamOpening first tcpConnecting then streamOpening;
+      transition streamOpening_to_tlsNegotiating first streamOpening then tlsNegotiating;
+      transition tlsNegotiating_to_authenticating first tlsNegotiating then authenticating;
+      transition authenticating_to_bindingResource first authenticating then bindingResource;
+      transition bindingResource_to_online first bindingResource then online;
+      transition online_to_reconnecting first online then reconnecting;
+      transition reconnecting_to_tcpConnecting first reconnecting then tcpConnecting;
+      transition reconnecting_to_disconnected first reconnecting then disconnected;
+    }
+  }
+
+  part def XmppServer {
+    attribute domain : String;
+    attribute maxClientSessions : Capacity_count = 100000;
+    attribute maxFederatedDomains : Capacity_count = 50000;
+    attribute targetRoutingLatency_ms : Duration_ms = 150;
+    attribute minimumAvailability : Availability_ratio = 0.9995;
+
+    port clientAccess : ServerClientPort;
+    port federation : FederationPort;
+    port directory : DirectoryPort;
+    port credentials : CredentialPort;
+
+    part sessionManager : SessionManager;
+    part stanzaRouter : StanzaRouter;
+    part presenceService : PresenceService;
+    part rosterService : RosterService;
+    part authService : AuthenticationService;
+    part archiveService : MessageArchiveService;
+
+    action receiveStanza {
+      in item stanza : XMLStream;
+    }
+
+    action routeMessage {
+      in item message : MessageStanza;
+      out item routedMessage : MessageStanza;
+    }
+
+    action routePresence {
+      in item presence : PresenceStanza;
+      out item routedPresence : PresenceStanza;
+    }
+
+    action answerIQ {
+      in item query : IQStanza;
+      out item response : IQStanza;
+    }
+  }
+
+  part def SessionManager {
+    attribute activeSessions : Capacity_count;
+    attribute idleTimeout_ms : Duration_ms = 600000;
+
+    action openStream {
+      in item clientStream : XMLStream;
+      out item serverStream : XMLStream;
+    }
+
+    action bindResource {
+      in item authenticatedToken : AuthToken;
+      out item boundJid : JID;
+    }
+
+    state sessionLifecycle {
+      state noStream;
+      state streamEstablished;
+      state secured;
+      state authenticated;
+      state resourceBound;
+      state closed;
+
+      transition initial then noStream;
+      transition noStream_to_streamEstablished first noStream then streamEstablished;
+      transition streamEstablished_to_secured first streamEstablished then secured;
+      transition secured_to_authenticated first secured then authenticated;
+      transition authenticated_to_resourceBound first authenticated then resourceBound;
+      transition resourceBound_to_closed first resourceBound then closed;
+      transition closed_to_noStream first closed then noStream;
+    }
+  }
+
+  part def AuthenticationService {
+    attribute supportedMechanisms : String = "SCRAM-SHA-256, EXTERNAL";
+    attribute tokenLifetime_ms : Duration_ms = 3600000;
+
+    port credentialExchange : CredentialPort;
+
+    action verifyCredential {
+      in item credentialProof : AuthToken;
+      out item authenticationResult : AuthToken;
+    }
+  }
+
+  part def StanzaRouter {
+    attribute localDeliveryLatency_ms : Duration_ms = 50;
+    attribute federationDeliveryLatency_ms : Duration_ms = 250;
+    attribute maximumStanzaSize_kB : Real = 256.0;
+
+    port localIngress : ServerClientPort;
+    port federationLink : FederationPort;
+
+    action classifyDestination {
+      in item message : MessageStanza;
+      out item destinationDomain : String;
+      out item localDelivery : Boolean;
+    }
+
+    action deliverLocal {
+      in item message : MessageStanza;
+      out item deliveredMessage : MessageStanza;
+    }
+
+    action deliverFederated {
+      in item message : MessageStanza;
+      out item federatedMessage : MessageStanza;
+    }
+  }
+
+  part def PresenceService {
+    attribute cachedPresenceRecords : Capacity_count;
+    attribute subscriptionFanoutLimit : Capacity_count = 10000;
+
+    port directoryAccess : DirectoryPort;
+
+    action updatePresence {
+      in item presence : PresenceStanza;
+      out item acceptedPresence : PresenceStanza;
+    }
+
+    action fanoutPresence {
+      in item acceptedPresence : PresenceStanza;
+      out item subscriberPresence : PresenceStanza;
+    }
+  }
+
+  part def RosterService {
+    attribute maximumContactsPerUser : Capacity_count = 5000;
+
+    port rosterDirectory : DirectoryPort;
+
+    action retrieveRoster {
+      in item rosterQuery : IQStanza;
+      out item rosterResult : IQStanza;
+    }
+
+    action authorizeSubscription {
+      in item presenceSubscription : PresenceStanza;
+      out item presenceAuthorization : PresenceStanza;
+    }
+  }
+
+  part def MessageArchiveService {
+    attribute retentionPeriod_ms : Duration_ms = 2592000000;
+    attribute writeThroughput_kbps : DataRate_kbps = 50000.0;
+
+    action persistMessage {
+      in item message : MessageStanza;
+      out item archivedMessage : MessageStanza;
+    }
+
+    action retrieveHistory {
+      in item historyQuery : IQStanza;
+      out item historyResult : IQStanza;
+    }
+  }
+
+  part def FederationGateway {
+    attribute remoteDomain : String;
+    attribute dialbackRequired : Boolean = true;
+    attribute tlsRequired : Boolean = true;
+
+    port federation : FederationPort;
+
+    action validateRemoteDomain {
+      in item federatedStream : XMLStream;
+      out item validated : Boolean;
+    }
+
+    action exchangeFederatedStanza {
+      in item outboundMessage : MessageStanza;
+      out item inboundMessage : MessageStanza;
+    }
+  }
+
+  part def XmppMessagingSystem {
+    doc /*
+      Primary function: provide standards-based XMPP message, presence, and query exchange between authenticated users, local server services, and federated remote domains.
+    */
+
+    attribute serviceDomain : String = "chat.example.net";
+    attribute supportedProtocol : String = "XMPP RFC 6120/6121";
+    attribute targetAvailability : Availability_ratio = 0.9995;
+    attribute targetEndToEndLatency_ms : Duration_ms = 500;
+    attribute encryptedTransportRequired : Boolean = true;
+
+    part clientA : XmppClient {
+      attribute jid : JID {
+        :>> localpart = "alice";
+        :>> domainpart = "chat.example.net";
+        :>> resourcepart = "mobile";
+      }
+    }
+
+    part clientB : XmppClient {
+      attribute jid : JID {
+        :>> localpart = "bob";
+        :>> domainpart = "chat.example.net";
+        :>> resourcepart = "desktop";
+      }
+    }
+
+    part localServer : XmppServer {
+      attribute domain = "chat.example.net";
+    }
+
+    part remoteFederationGateway : FederationGateway {
+      attribute remoteDomain = "remote.example.org";
+    }
+
+    connect clientA.xmpp to localServer.clientAccess;
+    connect clientB.xmpp to localServer.clientAccess;
+    connect localServer.federation to remoteFederationGateway.federation;
+    connect localServer.credentials to localServer.authService.credentialExchange;
+    connect localServer.directory to localServer.rosterService.rosterDirectory;
+    connect localServer.directory to localServer.presenceService.directoryAccess;
+
+    item flow aliceMessage from clientA.xmpp.outboundMessage to localServer.clientAccess.inboundMessage;
+    item flow bobMessage from localServer.clientAccess.outboundMessage to clientB.xmpp.inboundMessage;
+    item flow alicePresence from clientA.xmpp.outboundPresence to localServer.clientAccess.inboundPresence;
+    item flow presenceFanout from localServer.clientAccess.outboundPresence to clientB.xmpp.inboundPresence;
+    item flow federatedOutbound from localServer.federation.federatedMessageOut to remoteFederationGateway.federation.federatedMessageIn;
+    item flow federatedInbound from remoteFederationGateway.federation.federatedMessageOut to localServer.federation.federatedMessageIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : XmppMessagingSystem;
+
+    require constraint {
+      system.supportedProtocol == "XMPP RFC 6120/6121"
+    }
+
+    require constraint {
+      system.encryptedTransportRequired == true
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject system : XmppMessagingSystem;
+
+    require constraint {
+      system.targetEndToEndLatency_ms <= 500
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject system : XmppMessagingSystem;
+
+    require constraint {
+      system.targetAvailability >= 0.9995
+    }
+  }
+
+  requirement def AuthenticationRequirement {
+    subject server : XmppServer;
+
+    require constraint {
+      server.authService.tokenLifetime_ms <= 3600000
+    }
+  }
+
+  requirement def PresenceRequirement {
+    subject server : XmppServer;
+
+    require constraint {
+      server.presenceService.subscriptionFanoutLimit >= 10000
+    }
+  }
+
+  requirement def ArchiveRequirement {
+    subject archive : MessageArchiveService;
+
+    require constraint {
+      archive.retentionPeriod_ms >= 2592000000
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by XmppMessagingSystem;
+  satisfy LatencyRequirement by XmppMessagingSystem;
+  satisfy AvailabilityRequirement by XmppMessagingSystem;
+  satisfy AuthenticationRequirement by XmppServer;
+  satisfy PresenceRequirement by XmppServer;
+  satisfy ArchiveRequirement by MessageArchiveService;
+}

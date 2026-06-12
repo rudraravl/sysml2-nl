@@ -1,0 +1,799 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-4g50lnh0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb566-b45c-7450-985b-5c7fd5b8b9f0
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Hyperspectral imaging and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HyperspectralImagingSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Nanometer :> LengthValue;
+  attribute def Micrometer :> LengthValue;
+  attribute def Millisecond :> TimeValue;
+  attribute def FrameRate :> Real;
+  attribute def BitDepth :> Integer;
+  attribute def TemperatureCelsius :> Real;
+  attribute def Percent :> Real;
+  attribute def DataRateMbps :> Real;
+  attribute def Radiance :> Real;
+  attribute def PixelCount :> Integer;
+
+  enum def ImagingMode {
+    snapshot;
+    pushbroom;
+    staringCalibration;
+    darkReference;
+    whiteReference;
+    standby;
+  }
+
+  enum def ProcessingQuality {
+    raw;
+    radiometricallyCorrected;
+    atmosphericallyCorrected;
+    classified;
+    anomalyDetected;
+  }
+
+  enum def SystemHealth {
+    nominal;
+    degraded;
+    faulted;
+    safe;
+  }
+
+  item def SceneRadianceField {
+    attribute minWavelength : Nanometer = 400.0;
+    attribute maxWavelength : Nanometer = 1000.0;
+    attribute spatialWidth : PixelCount;
+    attribute spatialHeight : PixelCount;
+    attribute spectralBands : Integer;
+  }
+
+  item def RawHyperspectralCube {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute bands : Integer;
+    attribute bitDepth : BitDepth;
+    attribute integrationTime : Millisecond;
+    attribute quality : ProcessingQuality = ProcessingQuality::raw;
+  }
+
+  item def CalibratedHyperspectralCube {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute bands : Integer;
+    attribute spectralResolution : Nanometer;
+    attribute radiometricAccuracy : Percent;
+    attribute geometricRegistrationErrorPixels : Real;
+    attribute quality : ProcessingQuality = ProcessingQuality::radiometricallyCorrected;
+  }
+
+  item def ClassificationMap {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute classCount : Integer;
+    attribute confidenceMean : Percent;
+    attribute quality : ProcessingQuality = ProcessingQuality::classified;
+  }
+
+  item def AnomalyMap {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute anomalyPixelCount : PixelCount;
+    attribute confidenceMean : Percent;
+    attribute quality : ProcessingQuality = ProcessingQuality::anomalyDetected;
+  }
+
+  item def ThermalStatus {
+    attribute focalPlaneTemperature : TemperatureCelsius;
+    attribute opticsTemperature : TemperatureCelsius;
+    attribute electronicsTemperature : TemperatureCelsius;
+    attribute health : SystemHealth;
+  }
+
+  item def CommandMessage {
+    attribute requestedMode : ImagingMode;
+    attribute requestedIntegrationTime : Millisecond;
+    attribute requestedFrameRate : FrameRate;
+    attribute enableClassification : Boolean;
+    attribute enableAnomalyDetection : Boolean;
+  }
+
+  item def TelemetryMessage {
+    attribute activeMode : ImagingMode;
+    attribute health : SystemHealth;
+    attribute frameRate : FrameRate;
+    attribute dataRate : DataRateMbps;
+    attribute storedCubeCount : Integer;
+    attribute focalPlaneTemperature : TemperatureCelsius;
+  }
+
+  port def OpticalInputPort {
+    in item sceneRadiance : SceneRadianceField;
+  }
+
+  port def RawCubePort {
+    out item rawCube : RawHyperspectralCube;
+  }
+
+  port def RawCubeInputPort {
+    in item rawCube : RawHyperspectralCube;
+  }
+
+  port def CalibratedCubeOutputPort {
+    out item calibratedCube : CalibratedHyperspectralCube;
+  }
+
+  port def CalibratedCubeInputPort {
+    in item calibratedCube : CalibratedHyperspectralCube;
+  }
+
+  port def ProductOutputPort {
+    out item classification : ClassificationMap;
+    out item anomalies : AnomalyMap;
+    out item calibratedCube : CalibratedHyperspectralCube;
+  }
+
+  port def CommandPort {
+    in item command : CommandMessage;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryMessage;
+  }
+
+  port def ThermalPort {
+    out item thermalStatus : ThermalStatus;
+  }
+
+  port def PowerPort {
+    in attribute supplyVoltage : Real;
+    in attribute availablePower : Real;
+  }
+
+  part def ForeOptics {
+    attribute apertureDiameter : Millimeter = 50.0;
+    attribute fieldOfViewDegrees : Real = 22.0;
+    attribute transmittance : Percent = 88.0;
+    port opticalIn : OpticalInputPort;
+    port focusedSceneOut : OpticalInputPort;
+  }
+
+  part def SpectralDisperser {
+    attribute disperserType : String = "transmission grating";
+    attribute minWavelength : Nanometer = 400.0;
+    attribute maxWavelength : Nanometer = 1000.0;
+    attribute spectralResolution : Nanometer = 5.0;
+    port focusedSceneIn : OpticalInputPort;
+    port dispersedSceneOut : OpticalInputPort;
+  }
+
+  part def FocalPlaneArray {
+    attribute detectorTechnology : String = "CMOS";
+    attribute pixelColumns : PixelCount = 2048;
+    attribute pixelRows : PixelCount = 1024;
+    attribute bandCount : Integer = 128;
+    attribute bitDepth : BitDepth = 14;
+    attribute maxFrameRate : FrameRate = 120.0;
+    attribute darkCurrentElectronsPerSecond : Real = 45.0;
+    port dispersedSceneIn : OpticalInputPort;
+    port rawCubeOut : RawCubePort;
+    port thermalOut : ThermalPort;
+  }
+
+  part def CalibrationModule {
+    attribute darkReferenceIntervalSeconds : Real = 300.0;
+    attribute whiteReferenceReflectance : Percent = 99.0;
+    attribute badPixelMapVersion : String = "BPM-2026-01";
+    port rawCubeIn : RawCubeInputPort;
+    port calibratedCubeOut : CalibratedCubeOutputPort;
+  }
+
+  part def ImageProcessor {
+    attribute processorType : String = "embedded GPU";
+    attribute maximumThroughput : DataRateMbps = 1800.0;
+    attribute atmosphericCorrectionEnabled : Boolean = true;
+    attribute spectralLibrarySize : Integer = 420;
+    port calibratedCubeIn : CalibratedCubeInputPort;
+    port productOut : ProductOutputPort;
+  }
+
+  part def DataStorage {
+    attribute capacityGigabytes : Real = 2048.0;
+    attribute sustainedWriteRate : DataRateMbps = 2500.0;
+    attribute retainedCubeCount : Integer;
+    port productIn : ProductOutputPort;
+  }
+
+  part def ThermalController {
+    attribute focalPlaneSetPoint : TemperatureCelsius = -10.0;
+    attribute maximumElectronicsTemperature : TemperatureCelsius = 70.0;
+    attribute coolerPowerWatts : Real = 18.0;
+    port focalPlaneThermalIn : ThermalPort;
+    port thermalTelemetryOut : ThermalPort;
+  }
+
+  part def MissionController {
+    attribute activeMode : ImagingMode = ImagingMode::standby;
+    attribute health : SystemHealth = SystemHealth::nominal;
+    attribute commandedIntegrationTime : Millisecond = 8.0;
+    attribute commandedFrameRate : FrameRate = 60.0;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  action def AcquireHyperspectralImage {
+    in item scene : SceneRadianceField;
+    in attribute mode : ImagingMode;
+    out item calibratedCube : CalibratedHyperspectralCube;
+
+    action collectRadiance;
+    action spectrallyDisperseRadiance;
+    action digitizeDetectorResponse;
+    action subtractDarkReference;
+    action applyRadiometricCalibration;
+    action registerSpectralBands;
+
+    flow collectRadiance to spectrallyDisperseRadiance;
+    flow spectrallyDisperseRadiance to digitizeDetectorResponse;
+    flow digitizeDetectorResponse to subtractDarkReference;
+    flow subtractDarkReference to applyRadiometricCalibration;
+    flow applyRadiometricCalibration to registerSpectralBands;
+  }
+
+  action def AnalyzeHyperspectralImage {
+    in item calibratedCube : CalibratedHyperspectralCube;
+    out item classification : ClassificationMap;
+    out item anomalies : AnomalyMap;
+
+    action normalizeSpectra;
+    action compareWithSpectralLibrary;
+    action classifyMaterials;
+    action detectSpectralAnomalies;
+    action generateProductMetadata;
+
+    flow normalizeSpectra to compareWithSpectralLibrary;
+    flow compareWithSpectralLibrary to classifyMaterials;
+    flow normalizeSpectra to detectSpectralAnomalies;
+    flow classifyMaterials to generateProductMetadata;
+    flow detectSpectralAnomalies to generateProductMetadata;
+  }
+
+  state def ImagingOperationalStates {
+    state poweredOff;
+    state standby;
+    state calibrating;
+    state acquiring;
+    state processing;
+    state storing;
+    state faultRecovery;
+    state safeMode;
+
+    transition initial then poweredOff;
+    transition powerApplied from poweredOff to standby;
+    transition calibrationRequested from standby to calibrating;
+    transition calibrationComplete from calibrating to standby;
+    transition acquisitionCommanded from standby to acquiring;
+    transition rawCubeCaptured from acquiring to processing;
+    transition productsGenerated from processing to storing;
+    transition storageComplete from storing to standby;
+    transition recoverableFaultDetected from standby to faultRecovery;
+    transition acquisitionFaultDetected from acquiring to faultRecovery;
+    transition processingFaultDetected from processing to faultRecovery;
+    transition recoveryComplete from faultRecovery to standby;
+    transition unrecoverableFaultDetected from faultRecovery to safeMode;
+    transition safeCommanded from standby to safeMode;
+    transition resetCommanded from safeMode to poweredOff;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.primaryFunction == "Capture spatially registered spectral image cubes of a scene, calibrate them into physically meaningful hyperspectral data, and produce material classification and anomaly products for downstream users."
+    }
+  }
+
+  requirement def SpectralCoverageRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.spectralDisperser.minWavelength <= 400.0 and
+      system.spectralDisperser.maxWavelength >= 1000.0
+    }
+  }
+
+  requirement def SpectralResolutionRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.spectralDisperser.spectralResolution <= 5.0
+    }
+  }
+
+  requirement def SpatialSamplingRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.focalPlane.pixelColumns >= 2048 and
+      system.focalPlane.pixelRows >= 1024
+    }
+  }
+
+  requirement def RadiometricAccuracyRequirement {
+    subject cube : CalibratedHyperspectralCube;
+    require constraint {
+      cube.radiometricAccuracy >= 95.0
+    }
+  }
+
+  requirement def RealTimeProcessingRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.imageProcessor.maximumThroughput >= 1200.0
+    }
+  }
+
+  requirement def ThermalStabilityRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.thermalController.focalPlaneSetPoint <= -10.0 and
+      system.thermalController.maximumElectronicsTemperature <= 70.0
+    }
+  }
+
+  part def HyperspectralImagingSystem {
+    attribute primaryFunction : String =
+      "Capture spatially registered spectral image cubes of a scene, calibrate them into physically meaningful hyperspectral data, and produce material classification and anomaly products for downstream users.";
+
+    attribute operatingMode : ImagingMode = ImagingMode::standby;
+    attribute health : SystemHealth = SystemHealth::nominal;
+    attribute nominalPowerWatts : Real = 85.0;
+    attribute peakPowerWatts : Real = 130.0;
+    attribute outputDataRate : DataRateMbps = 900.0;
+
+    port sceneInput : OpticalInputPort;
+    port commandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+    port productOutput : ProductOutputPort;
+    port powerInput : PowerPort;
+
+    part foreOptics : ForeOptics;
+    part spectralDisperser : SpectralDisperser;
+    part focalPlane : FocalPlaneArray;
+    part calibrationModule : CalibrationModule;
+    part imageProcessor : ImageProcessor;
+    part dataStorage : DataStorage;
+    part thermalController : ThermalController;
+    part missionController : MissionController;
+
+    perform action acquireImage : AcquireHyperspectralImage;
+    perform action analyzeImage : AnalyzeHyperspectralImage;
+    exhibit state imagingStates : ImagingOperationalStates;
+
+    connect sceneInput to foreOptics.opticalIn;
+    connect foreOptics.focusedSceneOut to spectralDisperser.focusedSceneIn;
+    connect spectralDisperser.dispersedSceneOut to focalPlane.dispersedSceneIn;
+    connect focalPlane.rawCubeOut to calibrationModule.rawCubeIn;
+    connect calibrationModule.calibratedCubeOut to imageProcessor.calibratedCubeIn;
+    connect imageProcessor.productOut to dataStorage.productIn;
+    connect imageProcessor.productOut to productOutput;
+    connect focalPlane.thermalOut to thermalController.focalPlaneThermalIn;
+    connect missionController.telemetryOut to telemetryOutput;
+    connect commandInput to missionController.commandIn;
+
+    satisfy PrimaryFunctionRequirement by this;
+    satisfy SpectralCoverageRequirement by this;
+    satisfy SpectralResolutionRequirement by this;
+    satisfy SpatialSamplingRequirement by this;
+    satisfy RealTimeProcessingRequirement by this;
+    satisfy ThermalStabilityRequirement by this;
+  }
+
+  part hsiSystem : HyperspectralImagingSystem {
+    attribute operatingMode = ImagingMode::pushbroom;
+    attribute health = SystemHealth::nominal;
+  }
+}
+tokens used
+4,855
+package HyperspectralImagingSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Nanometer :> LengthValue;
+  attribute def Micrometer :> LengthValue;
+  attribute def Millisecond :> TimeValue;
+  attribute def FrameRate :> Real;
+  attribute def BitDepth :> Integer;
+  attribute def TemperatureCelsius :> Real;
+  attribute def Percent :> Real;
+  attribute def DataRateMbps :> Real;
+  attribute def Radiance :> Real;
+  attribute def PixelCount :> Integer;
+
+  enum def ImagingMode {
+    snapshot;
+    pushbroom;
+    staringCalibration;
+    darkReference;
+    whiteReference;
+    standby;
+  }
+
+  enum def ProcessingQuality {
+    raw;
+    radiometricallyCorrected;
+    atmosphericallyCorrected;
+    classified;
+    anomalyDetected;
+  }
+
+  enum def SystemHealth {
+    nominal;
+    degraded;
+    faulted;
+    safe;
+  }
+
+  item def SceneRadianceField {
+    attribute minWavelength : Nanometer = 400.0;
+    attribute maxWavelength : Nanometer = 1000.0;
+    attribute spatialWidth : PixelCount;
+    attribute spatialHeight : PixelCount;
+    attribute spectralBands : Integer;
+  }
+
+  item def RawHyperspectralCube {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute bands : Integer;
+    attribute bitDepth : BitDepth;
+    attribute integrationTime : Millisecond;
+    attribute quality : ProcessingQuality = ProcessingQuality::raw;
+  }
+
+  item def CalibratedHyperspectralCube {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute bands : Integer;
+    attribute spectralResolution : Nanometer;
+    attribute radiometricAccuracy : Percent;
+    attribute geometricRegistrationErrorPixels : Real;
+    attribute quality : ProcessingQuality = ProcessingQuality::radiometricallyCorrected;
+  }
+
+  item def ClassificationMap {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute classCount : Integer;
+    attribute confidenceMean : Percent;
+    attribute quality : ProcessingQuality = ProcessingQuality::classified;
+  }
+
+  item def AnomalyMap {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute anomalyPixelCount : PixelCount;
+    attribute confidenceMean : Percent;
+    attribute quality : ProcessingQuality = ProcessingQuality::anomalyDetected;
+  }
+
+  item def ThermalStatus {
+    attribute focalPlaneTemperature : TemperatureCelsius;
+    attribute opticsTemperature : TemperatureCelsius;
+    attribute electronicsTemperature : TemperatureCelsius;
+    attribute health : SystemHealth;
+  }
+
+  item def CommandMessage {
+    attribute requestedMode : ImagingMode;
+    attribute requestedIntegrationTime : Millisecond;
+    attribute requestedFrameRate : FrameRate;
+    attribute enableClassification : Boolean;
+    attribute enableAnomalyDetection : Boolean;
+  }
+
+  item def TelemetryMessage {
+    attribute activeMode : ImagingMode;
+    attribute health : SystemHealth;
+    attribute frameRate : FrameRate;
+    attribute dataRate : DataRateMbps;
+    attribute storedCubeCount : Integer;
+    attribute focalPlaneTemperature : TemperatureCelsius;
+  }
+
+  port def OpticalInputPort {
+    in item sceneRadiance : SceneRadianceField;
+  }
+
+  port def RawCubePort {
+    out item rawCube : RawHyperspectralCube;
+  }
+
+  port def RawCubeInputPort {
+    in item rawCube : RawHyperspectralCube;
+  }
+
+  port def CalibratedCubeOutputPort {
+    out item calibratedCube : CalibratedHyperspectralCube;
+  }
+
+  port def CalibratedCubeInputPort {
+    in item calibratedCube : CalibratedHyperspectralCube;
+  }
+
+  port def ProductOutputPort {
+    out item classification : ClassificationMap;
+    out item anomalies : AnomalyMap;
+    out item calibratedCube : CalibratedHyperspectralCube;
+  }
+
+  port def CommandPort {
+    in item command : CommandMessage;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryMessage;
+  }
+
+  port def ThermalPort {
+    out item thermalStatus : ThermalStatus;
+  }
+
+  port def PowerPort {
+    in attribute supplyVoltage : Real;
+    in attribute availablePower : Real;
+  }
+
+  part def ForeOptics {
+    attribute apertureDiameter : Millimeter = 50.0;
+    attribute fieldOfViewDegrees : Real = 22.0;
+    attribute transmittance : Percent = 88.0;
+    port opticalIn : OpticalInputPort;
+    port focusedSceneOut : OpticalInputPort;
+  }
+
+  part def SpectralDisperser {
+    attribute disperserType : String = "transmission grating";
+    attribute minWavelength : Nanometer = 400.0;
+    attribute maxWavelength : Nanometer = 1000.0;
+    attribute spectralResolution : Nanometer = 5.0;
+    port focusedSceneIn : OpticalInputPort;
+    port dispersedSceneOut : OpticalInputPort;
+  }
+
+  part def FocalPlaneArray {
+    attribute detectorTechnology : String = "CMOS";
+    attribute pixelColumns : PixelCount = 2048;
+    attribute pixelRows : PixelCount = 1024;
+    attribute bandCount : Integer = 128;
+    attribute bitDepth : BitDepth = 14;
+    attribute maxFrameRate : FrameRate = 120.0;
+    attribute darkCurrentElectronsPerSecond : Real = 45.0;
+    port dispersedSceneIn : OpticalInputPort;
+    port rawCubeOut : RawCubePort;
+    port thermalOut : ThermalPort;
+  }
+
+  part def CalibrationModule {
+    attribute darkReferenceIntervalSeconds : Real = 300.0;
+    attribute whiteReferenceReflectance : Percent = 99.0;
+    attribute badPixelMapVersion : String = "BPM-2026-01";
+    port rawCubeIn : RawCubeInputPort;
+    port calibratedCubeOut : CalibratedCubeOutputPort;
+  }
+
+  part def ImageProcessor {
+    attribute processorType : String = "embedded GPU";
+    attribute maximumThroughput : DataRateMbps = 1800.0;
+    attribute atmosphericCorrectionEnabled : Boolean = true;
+    attribute spectralLibrarySize : Integer = 420;
+    port calibratedCubeIn : CalibratedCubeInputPort;
+    port productOut : ProductOutputPort;
+  }
+
+  part def DataStorage {
+    attribute capacityGigabytes : Real = 2048.0;
+    attribute sustainedWriteRate : DataRateMbps = 2500.0;
+    attribute retainedCubeCount : Integer;
+    port productIn : ProductOutputPort;
+  }
+
+  part def ThermalController {
+    attribute focalPlaneSetPoint : TemperatureCelsius = -10.0;
+    attribute maximumElectronicsTemperature : TemperatureCelsius = 70.0;
+    attribute coolerPowerWatts : Real = 18.0;
+    port focalPlaneThermalIn : ThermalPort;
+    port thermalTelemetryOut : ThermalPort;
+  }
+
+  part def MissionController {
+    attribute activeMode : ImagingMode = ImagingMode::standby;
+    attribute health : SystemHealth = SystemHealth::nominal;
+    attribute commandedIntegrationTime : Millisecond = 8.0;
+    attribute commandedFrameRate : FrameRate = 60.0;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  action def AcquireHyperspectralImage {
+    in item scene : SceneRadianceField;
+    in attribute mode : ImagingMode;
+    out item calibratedCube : CalibratedHyperspectralCube;
+
+    action collectRadiance;
+    action spectrallyDisperseRadiance;
+    action digitizeDetectorResponse;
+    action subtractDarkReference;
+    action applyRadiometricCalibration;
+    action registerSpectralBands;
+
+    flow collectRadiance to spectrallyDisperseRadiance;
+    flow spectrallyDisperseRadiance to digitizeDetectorResponse;
+    flow digitizeDetectorResponse to subtractDarkReference;
+    flow subtractDarkReference to applyRadiometricCalibration;
+    flow applyRadiometricCalibration to registerSpectralBands;
+  }
+
+  action def AnalyzeHyperspectralImage {
+    in item calibratedCube : CalibratedHyperspectralCube;
+    out item classification : ClassificationMap;
+    out item anomalies : AnomalyMap;
+
+    action normalizeSpectra;
+    action compareWithSpectralLibrary;
+    action classifyMaterials;
+    action detectSpectralAnomalies;
+    action generateProductMetadata;
+
+    flow normalizeSpectra to compareWithSpectralLibrary;
+    flow compareWithSpectralLibrary to classifyMaterials;
+    flow normalizeSpectra to detectSpectralAnomalies;
+    flow classifyMaterials to generateProductMetadata;
+    flow detectSpectralAnomalies to generateProductMetadata;
+  }
+
+  state def ImagingOperationalStates {
+    state poweredOff;
+    state standby;
+    state calibrating;
+    state acquiring;
+    state processing;
+    state storing;
+    state faultRecovery;
+    state safeMode;
+
+    transition initial then poweredOff;
+    transition powerApplied from poweredOff to standby;
+    transition calibrationRequested from standby to calibrating;
+    transition calibrationComplete from calibrating to standby;
+    transition acquisitionCommanded from standby to acquiring;
+    transition rawCubeCaptured from acquiring to processing;
+    transition productsGenerated from processing to storing;
+    transition storageComplete from storing to standby;
+    transition recoverableFaultDetected from standby to faultRecovery;
+    transition acquisitionFaultDetected from acquiring to faultRecovery;
+    transition processingFaultDetected from processing to faultRecovery;
+    transition recoveryComplete from faultRecovery to standby;
+    transition unrecoverableFaultDetected from faultRecovery to safeMode;
+    transition safeCommanded from standby to safeMode;
+    transition resetCommanded from safeMode to poweredOff;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.primaryFunction == "Capture spatially registered spectral image cubes of a scene, calibrate them into physically meaningful hyperspectral data, and produce material classification and anomaly products for downstream users."
+    }
+  }
+
+  requirement def SpectralCoverageRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.spectralDisperser.minWavelength <= 400.0 and
+      system.spectralDisperser.maxWavelength >= 1000.0
+    }
+  }
+
+  requirement def SpectralResolutionRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.spectralDisperser.spectralResolution <= 5.0
+    }
+  }
+
+  requirement def SpatialSamplingRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.focalPlane.pixelColumns >= 2048 and
+      system.focalPlane.pixelRows >= 1024
+    }
+  }
+
+  requirement def RadiometricAccuracyRequirement {
+    subject cube : CalibratedHyperspectralCube;
+    require constraint {
+      cube.radiometricAccuracy >= 95.0
+    }
+  }
+
+  requirement def RealTimeProcessingRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.imageProcessor.maximumThroughput >= 1200.0
+    }
+  }
+
+  requirement def ThermalStabilityRequirement {
+    subject system : HyperspectralImagingSystem;
+    require constraint {
+      system.thermalController.focalPlaneSetPoint <= -10.0 and
+      system.thermalController.maximumElectronicsTemperature <= 70.0
+    }
+  }
+
+  part def HyperspectralImagingSystem {
+    attribute primaryFunction : String =
+      "Capture spatially registered spectral image cubes of a scene, calibrate them into physically meaningful hyperspectral data, and produce material classification and anomaly products for downstream users.";
+
+    attribute operatingMode : ImagingMode = ImagingMode::standby;
+    attribute health : SystemHealth = SystemHealth::nominal;
+    attribute nominalPowerWatts : Real = 85.0;
+    attribute peakPowerWatts : Real = 130.0;
+    attribute outputDataRate : DataRateMbps = 900.0;
+
+    port sceneInput : OpticalInputPort;
+    port commandInput : CommandPort;
+    port telemetryOutput : TelemetryPort;
+    port productOutput : ProductOutputPort;
+    port powerInput : PowerPort;
+
+    part foreOptics : ForeOptics;
+    part spectralDisperser : SpectralDisperser;
+    part focalPlane : FocalPlaneArray;
+    part calibrationModule : CalibrationModule;
+    part imageProcessor : ImageProcessor;
+    part dataStorage : DataStorage;
+    part thermalController : ThermalController;
+    part missionController : MissionController;
+
+    perform action acquireImage : AcquireHyperspectralImage;
+    perform action analyzeImage : AnalyzeHyperspectralImage;
+    exhibit state imagingStates : ImagingOperationalStates;
+
+    connect sceneInput to foreOptics.opticalIn;
+    connect foreOptics.focusedSceneOut to spectralDisperser.focusedSceneIn;
+    connect spectralDisperser.dispersedSceneOut to focalPlane.dispersedSceneIn;
+    connect focalPlane.rawCubeOut to calibrationModule.rawCubeIn;
+    connect calibrationModule.calibratedCubeOut to imageProcessor.calibratedCubeIn;
+    connect imageProcessor.productOut to dataStorage.productIn;
+    connect imageProcessor.productOut to productOutput;
+    connect focalPlane.thermalOut to thermalController.focalPlaneThermalIn;
+    connect missionController.telemetryOut to telemetryOutput;
+    connect commandInput to missionController.commandIn;
+
+    satisfy PrimaryFunctionRequirement by this;
+    satisfy SpectralCoverageRequirement by this;
+    satisfy SpectralResolutionRequirement by this;
+    satisfy SpatialSamplingRequirement by this;
+    satisfy RealTimeProcessingRequirement by this;
+    satisfy ThermalStabilityRequirement by this;
+  }
+
+  part hsiSystem : HyperspectralImagingSystem {
+    attribute operatingMode = ImagingMode::pushbroom;
+    attribute health = SystemHealth::nominal;
+  }
+}

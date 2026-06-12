@@ -1,0 +1,1007 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-vikuvubx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb815-6520-74b3-a57d-cb1f1aae81c6
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Hengsteysee and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HengsteyseeBasedEcoMobilitySystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percentage :> Real {
+        doc /* percent fraction in range 0..100 */
+    }
+
+    attribute def TurbidityNTU :> Real {
+        doc /* nephelometric turbidity units */
+    }
+
+    attribute def pHValue :> Real {
+        doc /* dimensionless acidity indicator */
+    }
+
+    attribute def PassengerCount :> Integer;
+    attribute def BicycleCount :> Integer;
+
+    item def Passenger {
+        attribute ticketId : String;
+        attribute destinationPier : PierId;
+    }
+
+    item def Bicycle {
+        attribute mass : Mass;
+    }
+
+    item def LakeWaterSample {
+        attribute temperature : Temperature;
+        attribute dissolvedOxygen : Real;
+        attribute turbidity : TurbidityNTU;
+        attribute pH : pHValue;
+        attribute sampledAt : Time;
+    }
+
+    item def NavigationCommand {
+        attribute targetPier : PierId;
+        attribute requestedSpeed : Speed;
+        attribute routeMode : RouteMode;
+    }
+
+    item def PropulsionPower {
+        attribute electricalPower : Power;
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    item def TelemetryPacket {
+        attribute vesselPositionLatitude : Real;
+        attribute vesselPositionLongitude : Real;
+        attribute batteryStateOfCharge : Percentage;
+        attribute passengerLoad : PassengerCount;
+        attribute waterQualityAlert : Boolean;
+        attribute timestamp : Time;
+    }
+
+    enum def PierId {
+        enum HengsteyPier;
+        enum HerdeckePier;
+        enum SyburgPier;
+        enum RuhrValleyPier;
+    }
+
+    enum def RouteMode {
+        enum ScheduledLoop;
+        enum OnDemandTransfer;
+        enum EmergencyReturn;
+        enum MaintenanceTransit;
+    }
+
+    port def PassengerBoardingPort {
+        in item boardingPassenger : Passenger;
+        out item alightingPassenger : Passenger;
+    }
+
+    port def BicycleLoadingPort {
+        in item loadedBicycle : Bicycle;
+        out item unloadedBicycle : Bicycle;
+    }
+
+    port def ElectricalPowerPort {
+        inout item powerFlow : PropulsionPower;
+    }
+
+    port def CommandPort {
+        in item command : NavigationCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def WaterSamplingPort {
+        out item sample : LakeWaterSample;
+    }
+
+    port def MooringPort {
+        inout item mooringLoad : Force;
+    }
+
+    port def HumanInterfacePort {
+        in item requestedDestination : NavigationCommand;
+        out item serviceStatus : TelemetryPacket;
+    }
+
+    action def CollectWaterSample {
+        in sampleDepth : Length;
+        out sample : LakeWaterSample;
+    }
+
+    action def ComputeEcoRoute {
+        in origin : PierId;
+        in destination : PierId;
+        in windSpeed : Speed;
+        in batteryStateOfCharge : Percentage;
+        out command : NavigationCommand;
+    }
+
+    action def BoardPassengers {
+        in passengersWaiting : PassengerCount;
+        in bicyclesWaiting : BicycleCount;
+        out passengersAccepted : PassengerCount;
+        out bicyclesAccepted : BicycleCount;
+    }
+
+    action def PropelVessel {
+        in command : NavigationCommand;
+        in availablePower : PropulsionPower;
+        out distanceAdvanced : Length;
+    }
+
+    action def PublishTelemetry {
+        in packet : TelemetryPacket;
+    }
+
+    part def HengsteyseeEcoMobilityService {
+        doc /* Primary function: provide quiet, low-emission passenger and bicycle mobility across Hengsteysee while continuously monitoring lake-water conditions for ecological stewardship. */
+
+        attribute maximumPassengers : PassengerCount = 48;
+        attribute maximumBicycles : BicycleCount = 18;
+        attribute nominalLoopDistance : Length = 7200 [m];
+        attribute targetCruiseSpeed : Speed = 2.8 [m/s];
+        attribute dailyOperatingTime : Time = 12 [h];
+        attribute minimumReserveStateOfCharge : Percentage = 22.0;
+        attribute maximumWakeHeight : Length = 0.18 [m];
+
+        part lake : HengsteyseeOperatingArea;
+        part vessel : SolarElectricLakeFerry;
+        part shoreNetwork : ShoreInfrastructure;
+        part ecologicalMonitor : LakeEcologyMonitoringSubsystem;
+        part operationsCenter : OperationsControlCenter;
+
+        port passengerInterface : HumanInterfacePort;
+
+        connect vessel.telemetryPort to operationsCenter.vesselTelemetryReceiver;
+        connect operationsCenter.commandTransmitter to vessel.commandPort;
+        connect vessel.waterSamplingPort to ecologicalMonitor.sampleReceiver;
+        connect ecologicalMonitor.telemetryPort to operationsCenter.ecologyTelemetryReceiver;
+        connect vessel.hengsteyMooring to shoreNetwork.hengsteyPier.mooring;
+        connect vessel.herdeckeMooring to shoreNetwork.herdeckePier.mooring;
+        connect vessel.chargingPort to shoreNetwork.hengsteyPier.chargingSupply;
+        connect passengerInterface to operationsCenter.publicInterface;
+
+        perform action serviceCycle {
+            first start;
+            then computeRoute : ComputeEcoRoute {
+                in origin = PierId::HengsteyPier;
+                in destination = PierId::HerdeckePier;
+                in windSpeed = lake.currentWindSpeed;
+                in batteryStateOfCharge = vessel.energyStorage.stateOfCharge;
+            }
+            then board : BoardPassengers {
+                in passengersWaiting = shoreNetwork.hengsteyPier.waitingPassengers;
+                in bicyclesWaiting = shoreNetwork.hengsteyPier.waitingBicycles;
+            }
+            then move : PropelVessel {
+                in command = computeRoute.command;
+                in availablePower = vessel.powerManagement.availablePropulsionPower;
+            }
+            then sample : CollectWaterSample {
+                in sampleDepth = 0.75 [m];
+            }
+            then publish : PublishTelemetry;
+            then done;
+        }
+    }
+
+    part def HengsteyseeOperatingArea {
+        attribute surfaceArea : Area = 1.36 [km^2];
+        attribute usableNavigationLength : Length = 4100 [m];
+        attribute averageDepth : Length = 4.7 [m];
+        attribute maximumPermittedSpeed : Speed = 3.5 [m/s];
+        attribute currentWindSpeed : Speed;
+        attribute waterTemperature : Temperature;
+        attribute protectedShoreBufferWidth : Length = 25 [m];
+
+        part navigationChannel {
+            attribute minimumChannelWidth : Length = 35 [m];
+            attribute minimumDepthClearance : Length = 1.2 [m];
+        }
+
+        part quietZone {
+            attribute entryPermitted : Boolean = false;
+            attribute shorelineOffset : Length = 20 [m];
+        }
+    }
+
+    part def SolarElectricLakeFerry {
+        attribute lengthOverall : Length = 16.5 [m];
+        attribute beam : Length = 4.8 [m];
+        attribute lightshipMass : Mass = 11800 [kg];
+        attribute maximumServiceMass : Mass = 17800 [kg];
+        attribute passengerCapacity : PassengerCount = 48;
+        attribute bicycleCapacity : BicycleCount = 18;
+        attribute acousticLimitAtShore : Real = 48.0;
+        attribute wakeHeightAtCruise : Length;
+
+        port commandPort : CommandPort;
+        port telemetryPort : TelemetryPort;
+        port waterSamplingPort : WaterSamplingPort;
+        port chargingPort : ElectricalPowerPort;
+        port hengsteyMooring : MooringPort;
+        port herdeckeMooring : MooringPort;
+        port passengerDoorPort : PassengerBoardingPort;
+        port bicycleRampPort : BicycleLoadingPort;
+
+        part hull : LowWakeCatamaranHull;
+        part solarArray : PhotovoltaicCanopy;
+        part energyStorage : BatteryEnergyStorage;
+        part powerManagement : VesselPowerManagement;
+        part propulsion : TwinElectricPropulsion;
+        part navigation : AutonomousAssistedNavigation;
+        part passengerDeck : PassengerAndBicycleDeck;
+        part sampler : WaterQualitySampler;
+
+        connect solarArray.dcOutput to powerManagement.solarInput;
+        connect energyStorage.dcPort to powerManagement.batteryPort;
+        connect powerManagement.propulsionOutput to propulsion.powerInput;
+        connect navigation.navigationCommandOutput to propulsion.commandInput;
+        connect sampler.sampleOutlet to waterSamplingPort;
+
+        state def FerryOperationalStates {
+            state idle;
+            state boarding;
+            state routePlanning;
+            state underway;
+            state sampling;
+            state docking;
+            state charging;
+            state ecologicalHold;
+            state emergencyReturn;
+
+            transition first idle;
+            transition idle to boarding
+                accept NavigationCommand
+                if energyStorage.stateOfCharge > 30.0;
+            transition boarding to routePlanning
+                if passengerDeck.currentPassengers <= passengerCapacity and passengerDeck.currentBicycles <= bicycleCapacity;
+            transition routePlanning to underway
+                if navigation.routeVerified == true;
+            transition underway to sampling
+                if sampler.sampleDue == true;
+            transition sampling to underway
+                if sampler.sampleStored == true;
+            transition underway to docking
+                if navigation.distanceToTargetPier < 12 [m];
+            transition docking to charging
+                if energyStorage.stateOfCharge < 65.0;
+            transition docking to idle
+                if energyStorage.stateOfCharge >= 65.0;
+            transition underway to ecologicalHold
+                if sampler.latestTurbidity > 35.0;
+            transition ecologicalHold to routePlanning
+                if sampler.latestTurbidity <= 25.0;
+            transition underway to emergencyReturn
+                if energyStorage.stateOfCharge < 18.0;
+            transition emergencyReturn to docking
+                if navigation.distanceToNearestPier < 10 [m];
+        }
+    }
+
+    part def LowWakeCatamaranHull {
+        attribute designDraft : Length = 0.72 [m];
+        attribute maximumDraft : Length = 0.95 [m];
+        attribute hullMaterialRecycledContent : Percentage = 42.0;
+        attribute maximumWakeHeightAtNominalSpeed : Length = 0.18 [m];
+    }
+
+    part def PhotovoltaicCanopy {
+        attribute panelArea : Area = 72 [m^2];
+        attribute peakPower : Power = 15.5 [kW];
+        attribute nominalDcVoltage : ElectricPotential = 420 [V];
+
+        port dcOutput : ElectricalPowerPort;
+    }
+
+    part def BatteryEnergyStorage {
+        attribute usableCapacity : Energy = 155 [kW*h];
+        attribute stateOfCharge : Percentage;
+        attribute maximumDischargePower : Power = 85 [kW];
+        attribute maximumChargePower : Power = 45 [kW];
+        attribute minimumReserveStateOfCharge : Percentage = 18.0;
+
+        port dcPort : ElectricalPowerPort;
+    }
+
+    part def VesselPowerManagement {
+        attribute hotelLoad : Power = 3.2 [kW];
+        attribute availablePropulsionPower : PropulsionPower;
+        attribute conversionEfficiency : Percentage = 96.0;
+
+        port solarInput : ElectricalPowerPort;
+        port batteryPort : ElectricalPowerPort;
+        port propulsionOutput : ElectricalPowerPort;
+    }
+
+    part def TwinElectricPropulsion {
+        attribute portMotorRatedPower : Power = 32 [kW];
+        attribute starboardMotorRatedPower : Power = 32 [kW];
+        attribute propellerDiameter : Length = 0.62 [m];
+
+        port powerInput : ElectricalPowerPort;
+        port commandInput : CommandPort;
+    }
+
+    part def AutonomousAssistedNavigation {
+        attribute routeVerified : Boolean;
+        attribute distanceToTargetPier : Length;
+        attribute distanceToNearestPier : Length;
+        attribute positionAccuracy : Length = 1.5 [m];
+
+        port navigationCommandOutput : CommandPort;
+
+        part lidarObstacleDetector {
+            attribute detectionRange : Length = 80 [m];
+        }
+
+        part gnssReceiver {
+            attribute updateRate : Frequency = 10 [Hz];
+        }
+
+        part shoreProximityLimiter {
+            attribute minimumProtectedShoreDistance : Length = 25 [m];
+        }
+    }
+
+    part def PassengerAndBicycleDeck {
+        attribute currentPassengers : PassengerCount;
+        attribute currentBicycles : BicycleCount;
+        attribute wheelchairSpaces : Integer = 2;
+        attribute evacuationTimeLimit : Time = 120 [s];
+
+        port passengerAccess : PassengerBoardingPort;
+        port bicycleAccess : BicycleLoadingPort;
+    }
+
+    part def WaterQualitySampler {
+        attribute sampleInterval : Time = 15 [min];
+        attribute sampleDue : Boolean;
+        attribute sampleStored : Boolean;
+        attribute latestTurbidity : TurbidityNTU;
+        attribute latestPH : pHValue;
+        attribute latestDissolvedOxygen : Real;
+
+        port sampleOutlet : WaterSamplingPort;
+    }
+
+    part def ShoreInfrastructure {
+        part hengsteyPier : SmartPier {
+            attribute pierId : PierId = PierId::HengsteyPier;
+            attribute waitingPassengers : PassengerCount;
+            attribute waitingBicycles : BicycleCount;
+        }
+
+        part herdeckePier : SmartPier {
+            attribute pierId : PierId = PierId::HerdeckePier;
+        }
+
+        part syburgPier : SmartPier {
+            attribute pierId : PierId = PierId::SyburgPier;
+        }
+    }
+
+    part def SmartPier {
+        attribute pierId : PierId;
+        attribute platformLength : Length = 24 [m];
+        attribute platformFreeboard : Length = 0.42 [m];
+        attribute waitingPassengers : PassengerCount;
+        attribute waitingBicycles : BicycleCount;
+        attribute lightingPower : Power = 0.8 [kW];
+
+        port mooring : MooringPort;
+        port chargingSupply : ElectricalPowerPort;
+        port passengerGate : PassengerBoardingPort;
+        port bicycleGate : BicycleLoadingPort;
+
+        part charger {
+            attribute maximumOutputPower : Power = 44 [kW];
+            attribute nominalVoltage : ElectricPotential = 420 [V];
+            attribute renewableEnergyShare : Percentage = 100.0;
+        }
+    }
+
+    part def LakeEcologyMonitoringSubsystem {
+        attribute turbidityAlertThreshold : TurbidityNTU = 35.0;
+        attribute dissolvedOxygenLowThreshold : Real = 5.0;
+        attribute pHLowerLimit : pHValue = 6.5;
+        attribute pHUpperLimit : pHValue = 8.5;
+
+        port sampleReceiver : WaterSamplingPort;
+        port telemetryPort : TelemetryPort;
+
+        part sampleAnalyzer {
+            attribute analysisLatency : Time = 30 [s];
+        }
+
+        part trendModel {
+            attribute rollingWindow : Time = 24 [h];
+            attribute predictedAlgaeRisk : Percentage;
+        }
+    }
+
+    part def OperationsControlCenter {
+        attribute scheduledHeadway : Time = 30 [min];
+        attribute serviceActive : Boolean;
+        attribute dispatchHorizon : Time = 2 [h];
+
+        port vesselTelemetryReceiver : TelemetryPort;
+        port ecologyTelemetryReceiver : TelemetryPort;
+        port commandTransmitter : CommandPort;
+        port publicInterface : HumanInterfacePort;
+
+        part dispatchComputer {
+            attribute routeRecalculationPeriod : Time = 60 [s];
+        }
+
+        part passengerInformationDisplay {
+            attribute updatePeriod : Time = 10 [s];
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide high-level Hengsteysee-based mobility by transporting passengers and bicycles between lake piers with low noise, low wake, and zero local exhaust emissions. */
+        subject service : HengsteyseeEcoMobilityService;
+        require constraint {
+            service.maximumPassengers >= 40 and
+            service.maximumBicycles >= 12 and
+            service.targetCruiseSpeed <= service.lake.maximumPermittedSpeed
+        }
+    }
+
+    requirement def EcologicalMonitoringRequirement {
+        doc /* The system shall collect and report lake-water quality samples during normal operation. */
+        subject service : HengsteyseeEcoMobilityService;
+        require constraint {
+            service.ecologicalMonitor.turbidityAlertThreshold <= 35.0 and
+            service.vessel.sampler.sampleInterval <= 15 [min]
+        }
+    }
+
+    requirement def LowWakeRequirement {
+        doc /* The ferry shall limit wake generation to protect Hengsteysee shorelines and recreation zones. */
+        subject ferry : SolarElectricLakeFerry;
+        require constraint {
+            ferry.hull.maximumWakeHeightAtNominalSpeed <= 0.18 [m]
+        }
+    }
+
+    requirement def EnergyReserveRequirement {
+        doc /* The vessel shall preserve sufficient battery reserve for return to the nearest pier. */
+        subject ferry : SolarElectricLakeFerry;
+        require constraint {
+            ferry.energyStorage.minimumReserveStateOfCharge >= 18.0
+        }
+    }
+
+    requirement def AccessibilityRequirement {
+        doc /* The passenger deck shall support mixed passenger, bicycle, and wheelchair access. */
+        subject deck : PassengerAndBicycleDeck;
+        require constraint {
+            deck.wheelchairSpaces >= 2 and
+            deck.evacuationTimeLimit <= 120 [s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HengsteyseeEcoMobilityService;
+    satisfy EcologicalMonitoringRequirement by LakeEcologyMonitoringSubsystem;
+    satisfy LowWakeRequirement by LowWakeCatamaranHull;
+    satisfy EnergyReserveRequirement by BatteryEnergyStorage;
+    satisfy AccessibilityRequirement by PassengerAndBicycleDeck;
+}
+tokens used
+4,126
+package HengsteyseeBasedEcoMobilitySystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percentage :> Real {
+        doc /* percent fraction in range 0..100 */
+    }
+
+    attribute def TurbidityNTU :> Real {
+        doc /* nephelometric turbidity units */
+    }
+
+    attribute def pHValue :> Real {
+        doc /* dimensionless acidity indicator */
+    }
+
+    attribute def PassengerCount :> Integer;
+    attribute def BicycleCount :> Integer;
+
+    item def Passenger {
+        attribute ticketId : String;
+        attribute destinationPier : PierId;
+    }
+
+    item def Bicycle {
+        attribute mass : Mass;
+    }
+
+    item def LakeWaterSample {
+        attribute temperature : Temperature;
+        attribute dissolvedOxygen : Real;
+        attribute turbidity : TurbidityNTU;
+        attribute pH : pHValue;
+        attribute sampledAt : Time;
+    }
+
+    item def NavigationCommand {
+        attribute targetPier : PierId;
+        attribute requestedSpeed : Speed;
+        attribute routeMode : RouteMode;
+    }
+
+    item def PropulsionPower {
+        attribute electricalPower : Power;
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    item def TelemetryPacket {
+        attribute vesselPositionLatitude : Real;
+        attribute vesselPositionLongitude : Real;
+        attribute batteryStateOfCharge : Percentage;
+        attribute passengerLoad : PassengerCount;
+        attribute waterQualityAlert : Boolean;
+        attribute timestamp : Time;
+    }
+
+    enum def PierId {
+        enum HengsteyPier;
+        enum HerdeckePier;
+        enum SyburgPier;
+        enum RuhrValleyPier;
+    }
+
+    enum def RouteMode {
+        enum ScheduledLoop;
+        enum OnDemandTransfer;
+        enum EmergencyReturn;
+        enum MaintenanceTransit;
+    }
+
+    port def PassengerBoardingPort {
+        in item boardingPassenger : Passenger;
+        out item alightingPassenger : Passenger;
+    }
+
+    port def BicycleLoadingPort {
+        in item loadedBicycle : Bicycle;
+        out item unloadedBicycle : Bicycle;
+    }
+
+    port def ElectricalPowerPort {
+        inout item powerFlow : PropulsionPower;
+    }
+
+    port def CommandPort {
+        in item command : NavigationCommand;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+    }
+
+    port def WaterSamplingPort {
+        out item sample : LakeWaterSample;
+    }
+
+    port def MooringPort {
+        inout item mooringLoad : Force;
+    }
+
+    port def HumanInterfacePort {
+        in item requestedDestination : NavigationCommand;
+        out item serviceStatus : TelemetryPacket;
+    }
+
+    action def CollectWaterSample {
+        in sampleDepth : Length;
+        out sample : LakeWaterSample;
+    }
+
+    action def ComputeEcoRoute {
+        in origin : PierId;
+        in destination : PierId;
+        in windSpeed : Speed;
+        in batteryStateOfCharge : Percentage;
+        out command : NavigationCommand;
+    }
+
+    action def BoardPassengers {
+        in passengersWaiting : PassengerCount;
+        in bicyclesWaiting : BicycleCount;
+        out passengersAccepted : PassengerCount;
+        out bicyclesAccepted : BicycleCount;
+    }
+
+    action def PropelVessel {
+        in command : NavigationCommand;
+        in availablePower : PropulsionPower;
+        out distanceAdvanced : Length;
+    }
+
+    action def PublishTelemetry {
+        in packet : TelemetryPacket;
+    }
+
+    part def HengsteyseeEcoMobilityService {
+        doc /* Primary function: provide quiet, low-emission passenger and bicycle mobility across Hengsteysee while continuously monitoring lake-water conditions for ecological stewardship. */
+
+        attribute maximumPassengers : PassengerCount = 48;
+        attribute maximumBicycles : BicycleCount = 18;
+        attribute nominalLoopDistance : Length = 7200 [m];
+        attribute targetCruiseSpeed : Speed = 2.8 [m/s];
+        attribute dailyOperatingTime : Time = 12 [h];
+        attribute minimumReserveStateOfCharge : Percentage = 22.0;
+        attribute maximumWakeHeight : Length = 0.18 [m];
+
+        part lake : HengsteyseeOperatingArea;
+        part vessel : SolarElectricLakeFerry;
+        part shoreNetwork : ShoreInfrastructure;
+        part ecologicalMonitor : LakeEcologyMonitoringSubsystem;
+        part operationsCenter : OperationsControlCenter;
+
+        port passengerInterface : HumanInterfacePort;
+
+        connect vessel.telemetryPort to operationsCenter.vesselTelemetryReceiver;
+        connect operationsCenter.commandTransmitter to vessel.commandPort;
+        connect vessel.waterSamplingPort to ecologicalMonitor.sampleReceiver;
+        connect ecologicalMonitor.telemetryPort to operationsCenter.ecologyTelemetryReceiver;
+        connect vessel.hengsteyMooring to shoreNetwork.hengsteyPier.mooring;
+        connect vessel.herdeckeMooring to shoreNetwork.herdeckePier.mooring;
+        connect vessel.chargingPort to shoreNetwork.hengsteyPier.chargingSupply;
+        connect passengerInterface to operationsCenter.publicInterface;
+
+        perform action serviceCycle {
+            first start;
+            then computeRoute : ComputeEcoRoute {
+                in origin = PierId::HengsteyPier;
+                in destination = PierId::HerdeckePier;
+                in windSpeed = lake.currentWindSpeed;
+                in batteryStateOfCharge = vessel.energyStorage.stateOfCharge;
+            }
+            then board : BoardPassengers {
+                in passengersWaiting = shoreNetwork.hengsteyPier.waitingPassengers;
+                in bicyclesWaiting = shoreNetwork.hengsteyPier.waitingBicycles;
+            }
+            then move : PropelVessel {
+                in command = computeRoute.command;
+                in availablePower = vessel.powerManagement.availablePropulsionPower;
+            }
+            then sample : CollectWaterSample {
+                in sampleDepth = 0.75 [m];
+            }
+            then publish : PublishTelemetry;
+            then done;
+        }
+    }
+
+    part def HengsteyseeOperatingArea {
+        attribute surfaceArea : Area = 1.36 [km^2];
+        attribute usableNavigationLength : Length = 4100 [m];
+        attribute averageDepth : Length = 4.7 [m];
+        attribute maximumPermittedSpeed : Speed = 3.5 [m/s];
+        attribute currentWindSpeed : Speed;
+        attribute waterTemperature : Temperature;
+        attribute protectedShoreBufferWidth : Length = 25 [m];
+
+        part navigationChannel {
+            attribute minimumChannelWidth : Length = 35 [m];
+            attribute minimumDepthClearance : Length = 1.2 [m];
+        }
+
+        part quietZone {
+            attribute entryPermitted : Boolean = false;
+            attribute shorelineOffset : Length = 20 [m];
+        }
+    }
+
+    part def SolarElectricLakeFerry {
+        attribute lengthOverall : Length = 16.5 [m];
+        attribute beam : Length = 4.8 [m];
+        attribute lightshipMass : Mass = 11800 [kg];
+        attribute maximumServiceMass : Mass = 17800 [kg];
+        attribute passengerCapacity : PassengerCount = 48;
+        attribute bicycleCapacity : BicycleCount = 18;
+        attribute acousticLimitAtShore : Real = 48.0;
+        attribute wakeHeightAtCruise : Length;
+
+        port commandPort : CommandPort;
+        port telemetryPort : TelemetryPort;
+        port waterSamplingPort : WaterSamplingPort;
+        port chargingPort : ElectricalPowerPort;
+        port hengsteyMooring : MooringPort;
+        port herdeckeMooring : MooringPort;
+        port passengerDoorPort : PassengerBoardingPort;
+        port bicycleRampPort : BicycleLoadingPort;
+
+        part hull : LowWakeCatamaranHull;
+        part solarArray : PhotovoltaicCanopy;
+        part energyStorage : BatteryEnergyStorage;
+        part powerManagement : VesselPowerManagement;
+        part propulsion : TwinElectricPropulsion;
+        part navigation : AutonomousAssistedNavigation;
+        part passengerDeck : PassengerAndBicycleDeck;
+        part sampler : WaterQualitySampler;
+
+        connect solarArray.dcOutput to powerManagement.solarInput;
+        connect energyStorage.dcPort to powerManagement.batteryPort;
+        connect powerManagement.propulsionOutput to propulsion.powerInput;
+        connect navigation.navigationCommandOutput to propulsion.commandInput;
+        connect sampler.sampleOutlet to waterSamplingPort;
+
+        state def FerryOperationalStates {
+            state idle;
+            state boarding;
+            state routePlanning;
+            state underway;
+            state sampling;
+            state docking;
+            state charging;
+            state ecologicalHold;
+            state emergencyReturn;
+
+            transition first idle;
+            transition idle to boarding
+                accept NavigationCommand
+                if energyStorage.stateOfCharge > 30.0;
+            transition boarding to routePlanning
+                if passengerDeck.currentPassengers <= passengerCapacity and passengerDeck.currentBicycles <= bicycleCapacity;
+            transition routePlanning to underway
+                if navigation.routeVerified == true;
+            transition underway to sampling
+                if sampler.sampleDue == true;
+            transition sampling to underway
+                if sampler.sampleStored == true;
+            transition underway to docking
+                if navigation.distanceToTargetPier < 12 [m];
+            transition docking to charging
+                if energyStorage.stateOfCharge < 65.0;
+            transition docking to idle
+                if energyStorage.stateOfCharge >= 65.0;
+            transition underway to ecologicalHold
+                if sampler.latestTurbidity > 35.0;
+            transition ecologicalHold to routePlanning
+                if sampler.latestTurbidity <= 25.0;
+            transition underway to emergencyReturn
+                if energyStorage.stateOfCharge < 18.0;
+            transition emergencyReturn to docking
+                if navigation.distanceToNearestPier < 10 [m];
+        }
+    }
+
+    part def LowWakeCatamaranHull {
+        attribute designDraft : Length = 0.72 [m];
+        attribute maximumDraft : Length = 0.95 [m];
+        attribute hullMaterialRecycledContent : Percentage = 42.0;
+        attribute maximumWakeHeightAtNominalSpeed : Length = 0.18 [m];
+    }
+
+    part def PhotovoltaicCanopy {
+        attribute panelArea : Area = 72 [m^2];
+        attribute peakPower : Power = 15.5 [kW];
+        attribute nominalDcVoltage : ElectricPotential = 420 [V];
+
+        port dcOutput : ElectricalPowerPort;
+    }
+
+    part def BatteryEnergyStorage {
+        attribute usableCapacity : Energy = 155 [kW*h];
+        attribute stateOfCharge : Percentage;
+        attribute maximumDischargePower : Power = 85 [kW];
+        attribute maximumChargePower : Power = 45 [kW];
+        attribute minimumReserveStateOfCharge : Percentage = 18.0;
+
+        port dcPort : ElectricalPowerPort;
+    }
+
+    part def VesselPowerManagement {
+        attribute hotelLoad : Power = 3.2 [kW];
+        attribute availablePropulsionPower : PropulsionPower;
+        attribute conversionEfficiency : Percentage = 96.0;
+
+        port solarInput : ElectricalPowerPort;
+        port batteryPort : ElectricalPowerPort;
+        port propulsionOutput : ElectricalPowerPort;
+    }
+
+    part def TwinElectricPropulsion {
+        attribute portMotorRatedPower : Power = 32 [kW];
+        attribute starboardMotorRatedPower : Power = 32 [kW];
+        attribute propellerDiameter : Length = 0.62 [m];
+
+        port powerInput : ElectricalPowerPort;
+        port commandInput : CommandPort;
+    }
+
+    part def AutonomousAssistedNavigation {
+        attribute routeVerified : Boolean;
+        attribute distanceToTargetPier : Length;
+        attribute distanceToNearestPier : Length;
+        attribute positionAccuracy : Length = 1.5 [m];
+
+        port navigationCommandOutput : CommandPort;
+
+        part lidarObstacleDetector {
+            attribute detectionRange : Length = 80 [m];
+        }
+
+        part gnssReceiver {
+            attribute updateRate : Frequency = 10 [Hz];
+        }
+
+        part shoreProximityLimiter {
+            attribute minimumProtectedShoreDistance : Length = 25 [m];
+        }
+    }
+
+    part def PassengerAndBicycleDeck {
+        attribute currentPassengers : PassengerCount;
+        attribute currentBicycles : BicycleCount;
+        attribute wheelchairSpaces : Integer = 2;
+        attribute evacuationTimeLimit : Time = 120 [s];
+
+        port passengerAccess : PassengerBoardingPort;
+        port bicycleAccess : BicycleLoadingPort;
+    }
+
+    part def WaterQualitySampler {
+        attribute sampleInterval : Time = 15 [min];
+        attribute sampleDue : Boolean;
+        attribute sampleStored : Boolean;
+        attribute latestTurbidity : TurbidityNTU;
+        attribute latestPH : pHValue;
+        attribute latestDissolvedOxygen : Real;
+
+        port sampleOutlet : WaterSamplingPort;
+    }
+
+    part def ShoreInfrastructure {
+        part hengsteyPier : SmartPier {
+            attribute pierId : PierId = PierId::HengsteyPier;
+            attribute waitingPassengers : PassengerCount;
+            attribute waitingBicycles : BicycleCount;
+        }
+
+        part herdeckePier : SmartPier {
+            attribute pierId : PierId = PierId::HerdeckePier;
+        }
+
+        part syburgPier : SmartPier {
+            attribute pierId : PierId = PierId::SyburgPier;
+        }
+    }
+
+    part def SmartPier {
+        attribute pierId : PierId;
+        attribute platformLength : Length = 24 [m];
+        attribute platformFreeboard : Length = 0.42 [m];
+        attribute waitingPassengers : PassengerCount;
+        attribute waitingBicycles : BicycleCount;
+        attribute lightingPower : Power = 0.8 [kW];
+
+        port mooring : MooringPort;
+        port chargingSupply : ElectricalPowerPort;
+        port passengerGate : PassengerBoardingPort;
+        port bicycleGate : BicycleLoadingPort;
+
+        part charger {
+            attribute maximumOutputPower : Power = 44 [kW];
+            attribute nominalVoltage : ElectricPotential = 420 [V];
+            attribute renewableEnergyShare : Percentage = 100.0;
+        }
+    }
+
+    part def LakeEcologyMonitoringSubsystem {
+        attribute turbidityAlertThreshold : TurbidityNTU = 35.0;
+        attribute dissolvedOxygenLowThreshold : Real = 5.0;
+        attribute pHLowerLimit : pHValue = 6.5;
+        attribute pHUpperLimit : pHValue = 8.5;
+
+        port sampleReceiver : WaterSamplingPort;
+        port telemetryPort : TelemetryPort;
+
+        part sampleAnalyzer {
+            attribute analysisLatency : Time = 30 [s];
+        }
+
+        part trendModel {
+            attribute rollingWindow : Time = 24 [h];
+            attribute predictedAlgaeRisk : Percentage;
+        }
+    }
+
+    part def OperationsControlCenter {
+        attribute scheduledHeadway : Time = 30 [min];
+        attribute serviceActive : Boolean;
+        attribute dispatchHorizon : Time = 2 [h];
+
+        port vesselTelemetryReceiver : TelemetryPort;
+        port ecologyTelemetryReceiver : TelemetryPort;
+        port commandTransmitter : CommandPort;
+        port publicInterface : HumanInterfacePort;
+
+        part dispatchComputer {
+            attribute routeRecalculationPeriod : Time = 60 [s];
+        }
+
+        part passengerInformationDisplay {
+            attribute updatePeriod : Time = 10 [s];
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide high-level Hengsteysee-based mobility by transporting passengers and bicycles between lake piers with low noise, low wake, and zero local exhaust emissions. */
+        subject service : HengsteyseeEcoMobilityService;
+        require constraint {
+            service.maximumPassengers >= 40 and
+            service.maximumBicycles >= 12 and
+            service.targetCruiseSpeed <= service.lake.maximumPermittedSpeed
+        }
+    }
+
+    requirement def EcologicalMonitoringRequirement {
+        doc /* The system shall collect and report lake-water quality samples during normal operation. */
+        subject service : HengsteyseeEcoMobilityService;
+        require constraint {
+            service.ecologicalMonitor.turbidityAlertThreshold <= 35.0 and
+            service.vessel.sampler.sampleInterval <= 15 [min]
+        }
+    }
+
+    requirement def LowWakeRequirement {
+        doc /* The ferry shall limit wake generation to protect Hengsteysee shorelines and recreation zones. */
+        subject ferry : SolarElectricLakeFerry;
+        require constraint {
+            ferry.hull.maximumWakeHeightAtNominalSpeed <= 0.18 [m]
+        }
+    }
+
+    requirement def EnergyReserveRequirement {
+        doc /* The vessel shall preserve sufficient battery reserve for return to the nearest pier. */
+        subject ferry : SolarElectricLakeFerry;
+        require constraint {
+            ferry.energyStorage.minimumReserveStateOfCharge >= 18.0
+        }
+    }
+
+    requirement def AccessibilityRequirement {
+        doc /* The passenger deck shall support mixed passenger, bicycle, and wheelchair access. */
+        subject deck : PassengerAndBicycleDeck;
+        require constraint {
+            deck.wheelchairSpaces >= 2 and
+            deck.evacuationTimeLimit <= 120 [s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HengsteyseeEcoMobilityService;
+    satisfy EcologicalMonitoringRequirement by LakeEcologyMonitoringSubsystem;
+    satisfy LowWakeRequirement by LowWakeCatamaranHull;
+    satisfy EnergyReserveRequirement by BatteryEnergyStorage;
+    satisfy AccessibilityRequirement by PassengerAndBicycleDeck;
+}

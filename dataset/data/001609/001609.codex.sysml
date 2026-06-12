@@ -1,0 +1,289 @@
+package UsbMassStorageSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Byte;
+    attribute def DataRate {
+        attribute value : Real;
+        attribute unit : String;
+    }
+    attribute def ElectricPotential {
+        attribute value : Real;
+        attribute unit : String;
+    }
+    attribute def ElectricCurrent {
+        attribute value : Real;
+        attribute unit : String;
+    }
+    attribute def Temperature {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    item def UsbPacket {
+        attribute packetId : Integer;
+        attribute endpointNumber : Integer;
+        attribute payloadSize : Byte;
+        attribute crcValid : Boolean;
+    }
+
+    item def UsbCommand {
+        attribute commandCode : Integer;
+        attribute logicalBlockAddress : Integer;
+        attribute transferLengthBlocks : Integer;
+    }
+
+    item def DataBlock {
+        attribute logicalBlockAddress : Integer;
+        attribute size : Byte = 512;
+        attribute dataIntegrityVerified : Boolean;
+    }
+
+    item def PowerSupply {
+        attribute voltage : ElectricPotential;
+        attribute availableCurrent : ElectricCurrent;
+    }
+
+    port def UsbDataPort {
+        in item commandIn : UsbCommand;
+        in item packetIn : UsbPacket;
+        out item packetOut : UsbPacket;
+        out item blockOut : DataBlock;
+        in item blockIn : DataBlock;
+    }
+
+    port def UsbPowerPort {
+        in item busPower : PowerSupply;
+    }
+
+    port def InternalDataPort {
+        in item blockWrite : DataBlock;
+        out item blockRead : DataBlock;
+        in item controlCommand : UsbCommand;
+    }
+
+    port def StatusPort {
+        out attribute enumerated : Boolean;
+        out attribute busy : Boolean;
+        out attribute errorPresent : Boolean;
+    }
+
+    action def EnumerateUsbDevice {
+        in item hostCommand : UsbCommand;
+        out attribute enumerationComplete : Boolean;
+        out attribute assignedAddress : Integer;
+    }
+
+    action def TranslateUsbCommand {
+        in item usbCommand : UsbCommand;
+        out item storageCommand : UsbCommand;
+    }
+
+    action def ReadStoredData {
+        in item storageCommand : UsbCommand;
+        out item returnedBlock : DataBlock;
+    }
+
+    action def WriteStoredData {
+        in item storageCommand : UsbCommand;
+        in item incomingBlock : DataBlock;
+        out attribute writeVerified : Boolean;
+    }
+
+    action def VerifyDataIntegrity {
+        in item candidateBlock : DataBlock;
+        out attribute valid : Boolean;
+    }
+
+    state def UsbStorageOperatingState {
+        entry action initializeStatus {
+            out attribute initialized : Boolean = true;
+        }
+
+        state poweredOff;
+        state attached;
+        state enumerating;
+        state idle;
+        state reading;
+        state writing;
+        state fault;
+
+        transition first poweredOff;
+
+        transition powerDetected
+            first poweredOff
+            then attached;
+
+        transition beginEnumeration
+            first attached
+            then enumerating;
+
+        transition enumerationAccepted
+            first enumerating
+            then idle;
+
+        transition readRequested
+            first idle
+            then reading;
+
+        transition readCompleted
+            first reading
+            then idle;
+
+        transition writeRequested
+            first idle
+            then writing;
+
+        transition writeCompleted
+            first writing
+            then idle;
+
+        transition protocolError
+            first attached
+            then fault;
+
+        transition storageError
+            first reading
+            then fault;
+
+        transition writeError
+            first writing
+            then fault;
+
+        transition detach
+            first idle
+            then poweredOff;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The USB storage system shall provide portable non-volatile data storage by accepting USB commands from a host, translating them into memory operations, and returning or storing data blocks. */
+    }
+
+    requirement def UsbPowerRequirement {
+        doc /* The device shall operate from nominal USB bus power without an external power supply. */
+        attribute nominalVoltage : ElectricPotential = (value = 5.0, unit = "V");
+        attribute maximumCurrent : ElectricCurrent = (value = 0.9, unit = "A");
+    }
+
+    requirement def DataTransferRequirement {
+        doc /* The device shall transfer user data between the host and non-volatile memory through the USB interface. */
+        attribute minimumSustainedReadRate : DataRate = (value = 30.0, unit = "MB/s");
+        attribute minimumSustainedWriteRate : DataRate = (value = 10.0, unit = "MB/s");
+    }
+
+    requirement def DataRetentionRequirement {
+        doc /* Stored user data shall remain available after removal of USB power. */
+        attribute minimumRetentionYears : Real = 10.0;
+    }
+
+    requirement def IntegrityRequirement {
+        doc /* The device shall detect invalid USB packets and verify stored data blocks before completing host-visible transfers. */
+        attribute crcRequired : Boolean = true;
+    }
+
+    part def UsbConnector {
+        port dataPort : UsbDataPort;
+        port powerPort : UsbPowerPort;
+        attribute connectorType : String = "USB Type-A";
+        attribute supportedUsbRevision : String = "USB 3.0";
+        attribute pinCount : Integer = 9;
+    }
+
+    part def UsbInterfaceController {
+        port upstreamPort : UsbDataPort;
+        port storagePort : InternalDataPort;
+        port status : StatusPort;
+
+        attribute deviceAddress : Integer;
+        attribute maxPacketSize : Byte = 512;
+        attribute linkSpeed : DataRate = (value = 5.0, unit = "Gb/s");
+
+        perform action enumerate : EnumerateUsbDevice;
+        perform action translate : TranslateUsbCommand;
+    }
+
+    part def FlashMemoryArray {
+        port memoryPort : InternalDataPort;
+
+        attribute capacity : Byte = 64000000000;
+        attribute blockSize : Byte = 512;
+        attribute eraseBlockSize : Byte = 262144;
+        attribute retentionYears : Real = 10.0;
+        attribute maximumOperatingTemperature : Temperature = (value = 70.0, unit = "degC");
+
+        perform action read : ReadStoredData;
+        perform action write : WriteStoredData;
+        perform action verify : VerifyDataIntegrity;
+    }
+
+    part def PowerConditioningCircuit {
+        port usbPowerInput : UsbPowerPort;
+
+        attribute inputVoltage : ElectricPotential = (value = 5.0, unit = "V");
+        attribute controllerRailVoltage : ElectricPotential = (value = 3.3, unit = "V");
+        attribute flashRailVoltage : ElectricPotential = (value = 1.8, unit = "V");
+        attribute peakCurrentLimit : ElectricCurrent = (value = 0.9, unit = "A");
+        attribute powerGood : Boolean;
+    }
+
+    part def ActivityIndicator {
+        port statusInput : StatusPort;
+
+        attribute illuminated : Boolean;
+        attribute blinkRateHz : Real;
+    }
+
+    part def UsbMassStorageDevice {
+        attribute primaryFunction : String = "Portable USB non-volatile data storage for host read and write operations";
+        attribute advertisedCapacity : Byte = 64000000000;
+        attribute removable : Boolean = true;
+
+        port hostUsbPort : UsbDataPort;
+        port hostPowerPort : UsbPowerPort;
+        port deviceStatus : StatusPort;
+
+        part connector : UsbConnector;
+        part controller : UsbInterfaceController;
+        part memory : FlashMemoryArray;
+        part power : PowerConditioningCircuit;
+        part indicator : ActivityIndicator;
+
+        connection usbDataConnection
+            connect hostUsbPort to connector.dataPort;
+
+        connection connectorToController
+            connect connector.dataPort to controller.upstreamPort;
+
+        connection controllerToMemory
+            connect controller.storagePort to memory.memoryPort;
+
+        connection usbPowerConnection
+            connect hostPowerPort to connector.powerPort;
+
+        connection connectorPowerToRegulator
+            connect connector.powerPort to power.usbPowerInput;
+
+        connection statusToIndicator
+            connect controller.status to indicator.statusInput;
+
+        connection externalStatus
+            connect controller.status to deviceStatus;
+
+        exhibit state operating : UsbStorageOperatingState;
+
+        satisfy PrimaryFunctionRequirement by UsbMassStorageDevice;
+        satisfy UsbPowerRequirement by PowerConditioningCircuit;
+        satisfy DataTransferRequirement by UsbInterfaceController;
+        satisfy DataRetentionRequirement by FlashMemoryArray;
+        satisfy IntegrityRequirement by UsbInterfaceController;
+        satisfy IntegrityRequirement by FlashMemoryArray;
+    }
+
+    part usbStorageSystem : UsbMassStorageDevice {
+        attribute primaryFunction = "Expose a block-storage volume to a USB host and persistently store host data in flash memory";
+        attribute advertisedCapacity = 64000000000;
+    }
+
+}

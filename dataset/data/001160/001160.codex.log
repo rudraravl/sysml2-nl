@@ -1,0 +1,815 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-fjaptbqe
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5a8-eb3f-7f90-b8fe-076e7d6375c1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a sensing unit that measures the relevant quantity using a Occupancy sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OccupancySensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Probability : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def Percent : Real {
+        unit = "%";
+    }
+
+    attribute def Lux : Real {
+        unit = "lx";
+    }
+
+    attribute def DegreeCelsius : Real {
+        unit = "degC";
+    }
+
+    attribute def Millisecond : Real {
+        unit = "ms";
+    }
+
+    attribute def Meter : Real {
+        unit = "m";
+    }
+
+    attribute def Volt : Real {
+        unit = "V";
+    }
+
+    enum def OccupancyState {
+        enum unoccupied;
+        enum occupied;
+        enum unknown;
+        enum faulted;
+    }
+
+    enum def SensorHealth {
+        enum nominal;
+        enum degraded;
+        enum failed;
+    }
+
+    enum def DetectionTechnology {
+        enum passiveInfrared;
+        enum ultrasonic;
+        enum dualTechnology;
+        enum cameraBased;
+        enum radar;
+    }
+
+    item def ThermalMotionField {
+        attribute motionEnergy : Real;
+        attribute ambientTemperature : DegreeCelsius;
+        attribute apparentTargetTemperature : DegreeCelsius;
+        attribute fieldOfViewRange : Meter;
+    }
+
+    item def OccupancyObservation {
+        attribute occupied : Boolean;
+        attribute confidence : Probability;
+        attribute detectedMotion : Boolean;
+        attribute targetCountEstimate : Integer;
+        attribute timestampMs : Millisecond;
+    }
+
+    item def OccupancyReport {
+        attribute state : OccupancyState;
+        attribute confidence : Probability;
+        attribute measurementAge : Millisecond;
+        attribute sensorHealth : SensorHealth;
+    }
+
+    item def Power {
+        attribute voltage : Volt;
+        attribute current : Real;
+    }
+
+    item def ConfigurationCommand {
+        attribute sensitivity : Percent;
+        attribute holdTime : Millisecond;
+        attribute reportingInterval : Millisecond;
+        attribute enableSelfTest : Boolean;
+    }
+
+    item def DiagnosticReport {
+        attribute health : SensorHealth;
+        attribute supplyVoltage : Volt;
+        attribute internalTemperature : DegreeCelsius;
+        attribute blockedFieldOfView : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    port def PowerInputPort {
+        in item power : Power;
+    }
+
+    port def OccupancyOutputPort {
+        out item report : OccupancyReport;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def SensingAperturePort {
+        in item field : ThermalMotionField;
+    }
+
+    action def AcquireThermalMotion {
+        in item field : ThermalMotionField;
+        out item observation : OccupancyObservation;
+
+        first start;
+        then sampleInfraredEnergy;
+        then compareAgainstBackground;
+        then estimateOccupancy;
+        then done;
+
+        action sampleInfraredEnergy;
+        action compareAgainstBackground;
+        action estimateOccupancy;
+    }
+
+    action def FilterOccupancyObservation {
+        in item rawObservation : OccupancyObservation;
+        in attribute holdTime : Millisecond;
+        in attribute sensitivity : Percent;
+        out item filteredReport : OccupancyReport;
+
+        first start;
+        then rejectTransientNoise;
+        then applyConfidenceThreshold;
+        then applyHoldTime;
+        then publishReport;
+        then done;
+
+        action rejectTransientNoise;
+        action applyConfidenceThreshold;
+        action applyHoldTime;
+        action publishReport;
+    }
+
+    action def PerformSelfTest {
+        in item suppliedPower : Power;
+        out item diagnostic : DiagnosticReport;
+
+        first start;
+        then checkSupplyVoltage;
+        then checkSensorElementResponse;
+        then checkProcessorMemory;
+        then evaluateHealth;
+        then done;
+
+        action checkSupplyVoltage;
+        action checkSensorElementResponse;
+        action checkProcessorMemory;
+        action evaluateHealth;
+    }
+
+    state def OccupancyDetectionStateMachine {
+        in item observation : OccupancyObservation;
+        in item diagnostic : DiagnosticReport;
+        out item report : OccupancyReport;
+
+        state unknown initial;
+        state unoccupied;
+        state occupied;
+        state degraded;
+        state faulted;
+
+        transition first unknown then unoccupied
+            if diagnostic.health == SensorHealth::nominal;
+
+        transition first unknown then faulted
+            if diagnostic.health == SensorHealth::failed;
+
+        transition first unoccupied then occupied
+            if observation.occupied and observation.confidence >= 0.75;
+
+        transition first occupied then unoccupied
+            if not observation.occupied and observation.confidence >= 0.70;
+
+        transition first unoccupied then degraded
+            if diagnostic.health == SensorHealth::degraded;
+
+        transition first occupied then degraded
+            if diagnostic.health == SensorHealth::degraded;
+
+        transition first degraded then unoccupied
+            if diagnostic.health == SensorHealth::nominal and not observation.occupied;
+
+        transition first degraded then occupied
+            if diagnostic.health == SensorHealth::nominal and observation.occupied;
+
+        transition first degraded then faulted
+            if diagnostic.health == SensorHealth::failed;
+
+        transition first unoccupied then faulted
+            if diagnostic.health == SensorHealth::failed;
+
+        transition first occupied then faulted
+            if diagnostic.health == SensorHealth::failed;
+    }
+
+    part def PassiveInfraredOccupancySensor {
+        attribute technology : DetectionTechnology = DetectionTechnology::passiveInfrared;
+        attribute detectionRange : Meter = 8.0;
+        attribute horizontalFieldOfView : Real = 110.0;
+        attribute sensitivity : Percent = 80.0;
+        attribute minimumConfidenceForOccupancy : Probability = 0.75;
+        attribute responseTime : Millisecond = 500.0;
+        attribute health : SensorHealth = SensorHealth::nominal;
+
+        port aperture : SensingAperturePort;
+        port powerIn : PowerInputPort;
+        port configIn : ConfigurationPort;
+        port occupancyOut : OccupancyOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        perform action acquire : AcquireThermalMotion;
+        perform action selfTest : PerformSelfTest;
+
+        bind aperture.field = acquire.field;
+        bind acquire.observation.detectedMotion = occupancyOut.report.state == OccupancyState::occupied;
+    }
+
+    part def SignalConditioner {
+        attribute noiseFloor : Real = 0.05;
+        attribute gain : Real = 12.0;
+        attribute lowPassCutoffHz : Real = 10.0;
+
+        port rawInput : SensingAperturePort;
+        port conditionedOutput : SensingAperturePort;
+    }
+
+    part def OccupancyProcessor {
+        attribute configuredSensitivity : Percent = 80.0;
+        attribute holdTime : Millisecond = 300000.0;
+        attribute reportingInterval : Millisecond = 1000.0;
+        attribute confidenceThreshold : Probability = 0.75;
+
+        port observationIn : OccupancyOutputPort;
+        port configIn : ConfigurationPort;
+        port reportOut : OccupancyOutputPort;
+        port diagnosticIn : DiagnosticPort;
+
+        perform action filter : FilterOccupancyObservation;
+        exhibit state detectionStates : OccupancyDetectionStateMachine;
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : Volt = 10.0;
+        attribute inputVoltageMax : Volt = 30.0;
+        attribute regulatedVoltage : Volt = 3.3;
+        attribute conversionEfficiency : Percent = 88.0;
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port processorPower : PowerInputPort;
+    }
+
+    part def NetworkInterface {
+        attribute busVoltage : Volt = 24.0;
+        attribute maximumReportLatency : Millisecond = 1000.0;
+
+        port occupancyReportOut : OccupancyOutputPort;
+        port diagnosticsOut : DiagnosticPort;
+        port configurationIn : ConfigurationPort;
+    }
+
+    part def OccupancySensingUnit {
+        attribute nominalSupplyVoltage : Volt = 24.0;
+        attribute operatingTemperatureMin : DegreeCelsius = -10.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 50.0;
+        attribute installationHeight : Meter = 2.7;
+        attribute measuredQuantity : String = "space occupancy";
+
+        port powerInput : PowerInputPort;
+        port roomFieldInput : SensingAperturePort;
+        port occupancyOutput : OccupancyOutputPort;
+        port diagnosticsOutput : DiagnosticPort;
+        port configurationInput : ConfigurationPort;
+
+        part regulator : PowerRegulator;
+        part conditioner : SignalConditioner;
+        part sensor : PassiveInfraredOccupancySensor;
+        part processor : OccupancyProcessor;
+        part network : NetworkInterface;
+
+        connect powerInput to regulator.externalPower;
+        connect regulator.sensorPower to sensor.powerIn;
+        connect regulator.processorPower to processor.configIn;
+
+        connect roomFieldInput to conditioner.rawInput;
+        connect conditioner.conditionedOutput to sensor.aperture;
+
+        connect sensor.occupancyOut to processor.observationIn;
+        connect sensor.diagnosticOut to processor.diagnosticIn;
+
+        connect configurationInput to sensor.configIn;
+        connect configurationInput to processor.configIn;
+        connect configurationInput to network.configurationIn;
+
+        connect processor.reportOut to network.occupancyReportOut;
+        connect sensor.diagnosticOut to network.diagnosticsOut;
+
+        connect network.occupancyReportOut to occupancyOutput;
+        connect network.diagnosticsOut to diagnosticsOutput;
+    }
+
+    requirement def MeasureOccupancyRequirement {
+        subject unit : OccupancySensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "space occupancy"
+        }
+
+        doc /* The sensing unit shall measure occupancy of a monitored space using an occupancy sensor. */
+    }
+
+    requirement def DetectionRangeRequirement {
+        subject sensor : PassiveInfraredOccupancySensor;
+
+        require constraint {
+            sensor.detectionRange >= 6.0 [m]
+        }
+
+        doc /* The occupancy sensor shall detect human presence within at least six meters of the installed unit. */
+    }
+
+    requirement def ConfidenceRequirement {
+        subject sensor : PassiveInfraredOccupancySensor;
+
+        require constraint {
+            sensor.minimumConfidenceForOccupancy >= 0.75
+        }
+
+        doc /* The unit shall report occupied only when the occupancy confidence is at least 0.75. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject sensor : PassiveInfraredOccupancySensor;
+
+        require constraint {
+            sensor.responseTime <= 1000.0 [ms]
+        }
+
+        doc /* The sensing unit shall produce an occupancy indication within one second after valid motion is detected. */
+    }
+
+    requirement def HoldTimeRequirement {
+        subject processor : OccupancyProcessor;
+
+        require constraint {
+            processor.holdTime >= 60000.0 [ms] and processor.holdTime <= 1800000.0 [ms]
+        }
+
+        doc /* The processor shall maintain the occupied state for a configurable hold time between one and thirty minutes after the last valid occupancy observation. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject unit : OccupancySensingUnit;
+
+        require constraint {
+            unit.diagnosticsOutput.diagnostic.health != SensorHealth::failed implies
+            unit.occupancyOutput.report.state != OccupancyState::faulted
+        }
+
+        doc /* The unit shall provide diagnostic status and identify failed sensing conditions through the reported occupancy state. */
+    }
+
+    requirement def PowerRequirement {
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.inputVoltageMin <= 24.0 [V] and regulator.inputVoltageMax >= 24.0 [V]
+        }
+
+        doc /* The sensing unit shall operate from a nominal 24 volt building automation supply. */
+    }
+
+    satisfy MeasureOccupancyRequirement by OccupancySensingUnit;
+    satisfy DetectionRangeRequirement by PassiveInfraredOccupancySensor;
+    satisfy ConfidenceRequirement by PassiveInfraredOccupancySensor;
+    satisfy ResponseTimeRequirement by PassiveInfraredOccupancySensor;
+    satisfy HoldTimeRequirement by OccupancyProcessor;
+    satisfy DiagnosticRequirement by OccupancySensingUnit;
+    satisfy PowerRequirement by PowerRegulator;
+
+    part occupancySensingUnit : OccupancySensingUnit;
+}
+tokens used
+3,991
+package OccupancySensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Probability : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def Percent : Real {
+        unit = "%";
+    }
+
+    attribute def Lux : Real {
+        unit = "lx";
+    }
+
+    attribute def DegreeCelsius : Real {
+        unit = "degC";
+    }
+
+    attribute def Millisecond : Real {
+        unit = "ms";
+    }
+
+    attribute def Meter : Real {
+        unit = "m";
+    }
+
+    attribute def Volt : Real {
+        unit = "V";
+    }
+
+    enum def OccupancyState {
+        enum unoccupied;
+        enum occupied;
+        enum unknown;
+        enum faulted;
+    }
+
+    enum def SensorHealth {
+        enum nominal;
+        enum degraded;
+        enum failed;
+    }
+
+    enum def DetectionTechnology {
+        enum passiveInfrared;
+        enum ultrasonic;
+        enum dualTechnology;
+        enum cameraBased;
+        enum radar;
+    }
+
+    item def ThermalMotionField {
+        attribute motionEnergy : Real;
+        attribute ambientTemperature : DegreeCelsius;
+        attribute apparentTargetTemperature : DegreeCelsius;
+        attribute fieldOfViewRange : Meter;
+    }
+
+    item def OccupancyObservation {
+        attribute occupied : Boolean;
+        attribute confidence : Probability;
+        attribute detectedMotion : Boolean;
+        attribute targetCountEstimate : Integer;
+        attribute timestampMs : Millisecond;
+    }
+
+    item def OccupancyReport {
+        attribute state : OccupancyState;
+        attribute confidence : Probability;
+        attribute measurementAge : Millisecond;
+        attribute sensorHealth : SensorHealth;
+    }
+
+    item def Power {
+        attribute voltage : Volt;
+        attribute current : Real;
+    }
+
+    item def ConfigurationCommand {
+        attribute sensitivity : Percent;
+        attribute holdTime : Millisecond;
+        attribute reportingInterval : Millisecond;
+        attribute enableSelfTest : Boolean;
+    }
+
+    item def DiagnosticReport {
+        attribute health : SensorHealth;
+        attribute supplyVoltage : Volt;
+        attribute internalTemperature : DegreeCelsius;
+        attribute blockedFieldOfView : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    port def PowerInputPort {
+        in item power : Power;
+    }
+
+    port def OccupancyOutputPort {
+        out item report : OccupancyReport;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def SensingAperturePort {
+        in item field : ThermalMotionField;
+    }
+
+    action def AcquireThermalMotion {
+        in item field : ThermalMotionField;
+        out item observation : OccupancyObservation;
+
+        first start;
+        then sampleInfraredEnergy;
+        then compareAgainstBackground;
+        then estimateOccupancy;
+        then done;
+
+        action sampleInfraredEnergy;
+        action compareAgainstBackground;
+        action estimateOccupancy;
+    }
+
+    action def FilterOccupancyObservation {
+        in item rawObservation : OccupancyObservation;
+        in attribute holdTime : Millisecond;
+        in attribute sensitivity : Percent;
+        out item filteredReport : OccupancyReport;
+
+        first start;
+        then rejectTransientNoise;
+        then applyConfidenceThreshold;
+        then applyHoldTime;
+        then publishReport;
+        then done;
+
+        action rejectTransientNoise;
+        action applyConfidenceThreshold;
+        action applyHoldTime;
+        action publishReport;
+    }
+
+    action def PerformSelfTest {
+        in item suppliedPower : Power;
+        out item diagnostic : DiagnosticReport;
+
+        first start;
+        then checkSupplyVoltage;
+        then checkSensorElementResponse;
+        then checkProcessorMemory;
+        then evaluateHealth;
+        then done;
+
+        action checkSupplyVoltage;
+        action checkSensorElementResponse;
+        action checkProcessorMemory;
+        action evaluateHealth;
+    }
+
+    state def OccupancyDetectionStateMachine {
+        in item observation : OccupancyObservation;
+        in item diagnostic : DiagnosticReport;
+        out item report : OccupancyReport;
+
+        state unknown initial;
+        state unoccupied;
+        state occupied;
+        state degraded;
+        state faulted;
+
+        transition first unknown then unoccupied
+            if diagnostic.health == SensorHealth::nominal;
+
+        transition first unknown then faulted
+            if diagnostic.health == SensorHealth::failed;
+
+        transition first unoccupied then occupied
+            if observation.occupied and observation.confidence >= 0.75;
+
+        transition first occupied then unoccupied
+            if not observation.occupied and observation.confidence >= 0.70;
+
+        transition first unoccupied then degraded
+            if diagnostic.health == SensorHealth::degraded;
+
+        transition first occupied then degraded
+            if diagnostic.health == SensorHealth::degraded;
+
+        transition first degraded then unoccupied
+            if diagnostic.health == SensorHealth::nominal and not observation.occupied;
+
+        transition first degraded then occupied
+            if diagnostic.health == SensorHealth::nominal and observation.occupied;
+
+        transition first degraded then faulted
+            if diagnostic.health == SensorHealth::failed;
+
+        transition first unoccupied then faulted
+            if diagnostic.health == SensorHealth::failed;
+
+        transition first occupied then faulted
+            if diagnostic.health == SensorHealth::failed;
+    }
+
+    part def PassiveInfraredOccupancySensor {
+        attribute technology : DetectionTechnology = DetectionTechnology::passiveInfrared;
+        attribute detectionRange : Meter = 8.0;
+        attribute horizontalFieldOfView : Real = 110.0;
+        attribute sensitivity : Percent = 80.0;
+        attribute minimumConfidenceForOccupancy : Probability = 0.75;
+        attribute responseTime : Millisecond = 500.0;
+        attribute health : SensorHealth = SensorHealth::nominal;
+
+        port aperture : SensingAperturePort;
+        port powerIn : PowerInputPort;
+        port configIn : ConfigurationPort;
+        port occupancyOut : OccupancyOutputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        perform action acquire : AcquireThermalMotion;
+        perform action selfTest : PerformSelfTest;
+
+        bind aperture.field = acquire.field;
+        bind acquire.observation.detectedMotion = occupancyOut.report.state == OccupancyState::occupied;
+    }
+
+    part def SignalConditioner {
+        attribute noiseFloor : Real = 0.05;
+        attribute gain : Real = 12.0;
+        attribute lowPassCutoffHz : Real = 10.0;
+
+        port rawInput : SensingAperturePort;
+        port conditionedOutput : SensingAperturePort;
+    }
+
+    part def OccupancyProcessor {
+        attribute configuredSensitivity : Percent = 80.0;
+        attribute holdTime : Millisecond = 300000.0;
+        attribute reportingInterval : Millisecond = 1000.0;
+        attribute confidenceThreshold : Probability = 0.75;
+
+        port observationIn : OccupancyOutputPort;
+        port configIn : ConfigurationPort;
+        port reportOut : OccupancyOutputPort;
+        port diagnosticIn : DiagnosticPort;
+
+        perform action filter : FilterOccupancyObservation;
+        exhibit state detectionStates : OccupancyDetectionStateMachine;
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : Volt = 10.0;
+        attribute inputVoltageMax : Volt = 30.0;
+        attribute regulatedVoltage : Volt = 3.3;
+        attribute conversionEfficiency : Percent = 88.0;
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port processorPower : PowerInputPort;
+    }
+
+    part def NetworkInterface {
+        attribute busVoltage : Volt = 24.0;
+        attribute maximumReportLatency : Millisecond = 1000.0;
+
+        port occupancyReportOut : OccupancyOutputPort;
+        port diagnosticsOut : DiagnosticPort;
+        port configurationIn : ConfigurationPort;
+    }
+
+    part def OccupancySensingUnit {
+        attribute nominalSupplyVoltage : Volt = 24.0;
+        attribute operatingTemperatureMin : DegreeCelsius = -10.0;
+        attribute operatingTemperatureMax : DegreeCelsius = 50.0;
+        attribute installationHeight : Meter = 2.7;
+        attribute measuredQuantity : String = "space occupancy";
+
+        port powerInput : PowerInputPort;
+        port roomFieldInput : SensingAperturePort;
+        port occupancyOutput : OccupancyOutputPort;
+        port diagnosticsOutput : DiagnosticPort;
+        port configurationInput : ConfigurationPort;
+
+        part regulator : PowerRegulator;
+        part conditioner : SignalConditioner;
+        part sensor : PassiveInfraredOccupancySensor;
+        part processor : OccupancyProcessor;
+        part network : NetworkInterface;
+
+        connect powerInput to regulator.externalPower;
+        connect regulator.sensorPower to sensor.powerIn;
+        connect regulator.processorPower to processor.configIn;
+
+        connect roomFieldInput to conditioner.rawInput;
+        connect conditioner.conditionedOutput to sensor.aperture;
+
+        connect sensor.occupancyOut to processor.observationIn;
+        connect sensor.diagnosticOut to processor.diagnosticIn;
+
+        connect configurationInput to sensor.configIn;
+        connect configurationInput to processor.configIn;
+        connect configurationInput to network.configurationIn;
+
+        connect processor.reportOut to network.occupancyReportOut;
+        connect sensor.diagnosticOut to network.diagnosticsOut;
+
+        connect network.occupancyReportOut to occupancyOutput;
+        connect network.diagnosticsOut to diagnosticsOutput;
+    }
+
+    requirement def MeasureOccupancyRequirement {
+        subject unit : OccupancySensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "space occupancy"
+        }
+
+        doc /* The sensing unit shall measure occupancy of a monitored space using an occupancy sensor. */
+    }
+
+    requirement def DetectionRangeRequirement {
+        subject sensor : PassiveInfraredOccupancySensor;
+
+        require constraint {
+            sensor.detectionRange >= 6.0 [m]
+        }
+
+        doc /* The occupancy sensor shall detect human presence within at least six meters of the installed unit. */
+    }
+
+    requirement def ConfidenceRequirement {
+        subject sensor : PassiveInfraredOccupancySensor;
+
+        require constraint {
+            sensor.minimumConfidenceForOccupancy >= 0.75
+        }
+
+        doc /* The unit shall report occupied only when the occupancy confidence is at least 0.75. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject sensor : PassiveInfraredOccupancySensor;
+
+        require constraint {
+            sensor.responseTime <= 1000.0 [ms]
+        }
+
+        doc /* The sensing unit shall produce an occupancy indication within one second after valid motion is detected. */
+    }
+
+    requirement def HoldTimeRequirement {
+        subject processor : OccupancyProcessor;
+
+        require constraint {
+            processor.holdTime >= 60000.0 [ms] and processor.holdTime <= 1800000.0 [ms]
+        }
+
+        doc /* The processor shall maintain the occupied state for a configurable hold time between one and thirty minutes after the last valid occupancy observation. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject unit : OccupancySensingUnit;
+
+        require constraint {
+            unit.diagnosticsOutput.diagnostic.health != SensorHealth::failed implies
+            unit.occupancyOutput.report.state != OccupancyState::faulted
+        }
+
+        doc /* The unit shall provide diagnostic status and identify failed sensing conditions through the reported occupancy state. */
+    }
+
+    requirement def PowerRequirement {
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.inputVoltageMin <= 24.0 [V] and regulator.inputVoltageMax >= 24.0 [V]
+        }
+
+        doc /* The sensing unit shall operate from a nominal 24 volt building automation supply. */
+    }
+
+    satisfy MeasureOccupancyRequirement by OccupancySensingUnit;
+    satisfy DetectionRangeRequirement by PassiveInfraredOccupancySensor;
+    satisfy ConfidenceRequirement by PassiveInfraredOccupancySensor;
+    satisfy ResponseTimeRequirement by PassiveInfraredOccupancySensor;
+    satisfy HoldTimeRequirement by OccupancyProcessor;
+    satisfy DiagnosticRequirement by OccupancySensingUnit;
+    satisfy PowerRequirement by PowerRegulator;
+
+    part occupancySensingUnit : OccupancySensingUnit;
+}

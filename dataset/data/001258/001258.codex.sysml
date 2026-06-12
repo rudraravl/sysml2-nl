@@ -1,0 +1,503 @@
+package SoundLocatorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    item def AcousticPressureSignal {
+        attribute soundPressure : PressureValue;
+        attribute frequency : FrequencyValue;
+        attribute arrivalTime : TimeValue;
+        attribute signalToNoiseRatio : Real;
+    }
+
+    item def BearingEstimate {
+        attribute azimuth : AngleValue;
+        attribute elevation : AngleValue;
+        attribute confidence : Real;
+        attribute timestamp : TimeValue;
+    }
+
+    item def LocationEstimate {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute covariance : Real[3,3];
+        attribute confidence : Real;
+        attribute timestamp : TimeValue;
+    }
+
+    item def PowerFlow {
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def CommandMessage {
+        attribute commandId : String;
+        attribute requestedMode : LocatorOperatingMode;
+    }
+
+    item def StatusMessage {
+        attribute mode : LocatorOperatingMode;
+        attribute health : LocatorHealth;
+        attribute batteryStateOfCharge : Real;
+        attribute activeTrackCount : Integer;
+    }
+
+    enum def LocatorOperatingMode {
+        enum idle;
+        enum calibrating;
+        enum monitoring;
+        enum locating;
+        enum reporting;
+        enum fault;
+    }
+
+    enum def LocatorHealth {
+        enum nominal;
+        enum degraded;
+        enum failed;
+    }
+
+    enum def DetectionClass {
+        enum impulse;
+        enum continuousTone;
+        enum speechLike;
+        enum machinery;
+        enum unknown;
+    }
+
+    attribute def SampleRateValue : FrequencyValue;
+    attribute def ProcessingLatencyValue : TimeValue;
+    attribute def DetectionRangeValue : LengthValue;
+    attribute def AngularErrorValue : AngleValue;
+
+    port def AcousticInputPort {
+        in item acousticSignal : AcousticPressureSignal;
+    }
+
+    port def PowerInputPort {
+        in item electricalPower : PowerFlow;
+    }
+
+    port def CommandPort {
+        in item command : CommandMessage;
+    }
+
+    port def StatusPort {
+        out item status : StatusMessage;
+    }
+
+    port def BearingOutputPort {
+        out item bearing : BearingEstimate;
+    }
+
+    port def LocationOutputPort {
+        out item location : LocationEstimate;
+    }
+
+    part def MicrophoneElement {
+        attribute sensitivity : Real;
+        attribute selfNoise : PressureValue;
+        attribute bandwidthLow : FrequencyValue;
+        attribute bandwidthHigh : FrequencyValue;
+
+        port acousticIn : AcousticInputPort;
+        port sampleOut {
+            out item sampledSignal : AcousticPressureSignal;
+        }
+    }
+
+    part def MicrophoneArray {
+        attribute elementCount : Integer = 6;
+        attribute apertureDiameter : LengthValue = 0.28 [m];
+        attribute nominalSampleRate : SampleRateValue = 96000 [Hz];
+
+        part microphone1 : MicrophoneElement {
+            attribute sensitivity = -38.0;
+            attribute selfNoise = 0.00002 [Pa];
+            attribute bandwidthLow = 20 [Hz];
+            attribute bandwidthHigh = 22000 [Hz];
+        }
+
+        part microphone2 : MicrophoneElement {
+            attribute sensitivity = -38.0;
+            attribute selfNoise = 0.00002 [Pa];
+            attribute bandwidthLow = 20 [Hz];
+            attribute bandwidthHigh = 22000 [Hz];
+        }
+
+        part microphone3 : MicrophoneElement {
+            attribute sensitivity = -38.0;
+            attribute selfNoise = 0.00002 [Pa];
+            attribute bandwidthLow = 20 [Hz];
+            attribute bandwidthHigh = 22000 [Hz];
+        }
+
+        part microphone4 : MicrophoneElement {
+            attribute sensitivity = -38.0;
+            attribute selfNoise = 0.00002 [Pa];
+            attribute bandwidthLow = 20 [Hz];
+            attribute bandwidthHigh = 22000 [Hz];
+        }
+
+        part microphone5 : MicrophoneElement {
+            attribute sensitivity = -38.0;
+            attribute selfNoise = 0.00002 [Pa];
+            attribute bandwidthLow = 20 [Hz];
+            attribute bandwidthHigh = 22000 [Hz];
+        }
+
+        part microphone6 : MicrophoneElement {
+            attribute sensitivity = -38.0;
+            attribute selfNoise = 0.00002 [Pa];
+            attribute bandwidthLow = 20 [Hz];
+            attribute bandwidthHigh = 22000 [Hz];
+        }
+
+        port acousticIn : AcousticInputPort;
+        port arraySamples {
+            out item channelSignals : AcousticPressureSignal[6];
+        }
+
+        connect acousticIn to microphone1.acousticIn;
+        connect acousticIn to microphone2.acousticIn;
+        connect acousticIn to microphone3.acousticIn;
+        connect acousticIn to microphone4.acousticIn;
+        connect acousticIn to microphone5.acousticIn;
+        connect acousticIn to microphone6.acousticIn;
+    }
+
+    part def TimingReference {
+        attribute clockAccuracy : Real = 0.000001;
+        attribute synchronizationError : TimeValue = 0.000002 [s];
+
+        port timingOut {
+            out item timebase : TimeValue;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute antiAliasCutoff : FrequencyValue = 24000 [Hz];
+        attribute dynamicRange : Real = 96.0;
+        attribute gain : Real = 12.0;
+
+        port rawSamples {
+            in item channelSignals : AcousticPressureSignal[6];
+        }
+
+        port conditionedSamples {
+            out item channelSignals : AcousticPressureSignal[6];
+        }
+    }
+
+    part def SoundDetector {
+        attribute minimumSoundPressure : PressureValue = 0.02 [Pa];
+        attribute minimumSignalToNoiseRatio : Real = 8.0;
+        attribute detectionWindow : TimeValue = 0.050 [s];
+
+        port conditionedSamples {
+            in item channelSignals : AcousticPressureSignal[6];
+        }
+
+        port detectionOut {
+            out item detectedSignal : AcousticPressureSignal;
+            out attribute detectionClass : DetectionClass;
+        }
+    }
+
+    part def DirectionEstimator {
+        attribute algorithm : String = "time-difference-of-arrival beamforming";
+        attribute maximumAngularError : AngularErrorValue = 5 [deg];
+        attribute updatePeriod : TimeValue = 0.100 [s];
+
+        port detectionIn {
+            in item detectedSignal : AcousticPressureSignal;
+        }
+
+        port bearingOut : BearingOutputPort;
+    }
+
+    part def PositionEstimator {
+        attribute localizationMethod : String = "bearing-only track refinement";
+        attribute maximumRange : DetectionRangeValue = 500 [m];
+        attribute locationUpdatePeriod : TimeValue = 0.250 [s];
+
+        port bearingIn {
+            in item bearing : BearingEstimate;
+        }
+
+        port locationOut : LocationOutputPort;
+    }
+
+    part def ProcessingUnit {
+        attribute processorName : String = "embedded acoustic localization processor";
+        attribute nominalProcessingLatency : ProcessingLatencyValue = 0.150 [s];
+        attribute memoryCapacity : Integer = 512;
+        attribute activeTrackCapacity : Integer = 16;
+
+        part conditioner : SignalConditioner;
+        part detector : SoundDetector;
+        part directionEstimator : DirectionEstimator;
+        part positionEstimator : PositionEstimator;
+
+        port sampleIn {
+            in item channelSignals : AcousticPressureSignal[6];
+        }
+
+        port bearingOut : BearingOutputPort;
+        port locationOut : LocationOutputPort;
+
+        connect sampleIn to conditioner.rawSamples;
+        connect conditioner.conditionedSamples to detector.conditionedSamples;
+        connect detector.detectionOut.detectedSignal to directionEstimator.detectionIn.detectedSignal;
+        connect directionEstimator.bearingOut to positionEstimator.bearingIn;
+        connect directionEstimator.bearingOut to bearingOut;
+        connect positionEstimator.locationOut to locationOut;
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : Real = 80.0;
+        attribute outputVoltage : ElectricPotentialValue = 24 [V];
+        attribute maximumPower : PowerValue = 60 [W];
+        attribute stateOfCharge : Real;
+
+        port powerIn : PowerInputPort;
+        port regulatedPower {
+            out item electricalPower : PowerFlow;
+        }
+    }
+
+    part def OperatorInterface {
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+        port bearingOut : BearingOutputPort;
+        port locationOut : LocationOutputPort;
+    }
+
+    action def AcquireAcousticSamples {
+        in item incomingSound : AcousticPressureSignal;
+        out item sampledChannels : AcousticPressureSignal[6];
+    }
+
+    action def DetectSoundEvent {
+        in item sampledChannels : AcousticPressureSignal[6];
+        out item eventSignal : AcousticPressureSignal;
+        out attribute eventClass : DetectionClass;
+        out attribute detected : Boolean;
+    }
+
+    action def EstimateSoundBearing {
+        in item eventSignal : AcousticPressureSignal;
+        out item bearing : BearingEstimate;
+    }
+
+    action def EstimateSoundLocation {
+        in item bearing : BearingEstimate;
+        out item location : LocationEstimate;
+    }
+
+    action def ReportLocalizationResult {
+        in item bearing : BearingEstimate;
+        in item location : LocationEstimate;
+        out item status : StatusMessage;
+    }
+
+    state def LocatorStateMachine {
+        attribute currentMode : LocatorOperatingMode;
+
+        state off;
+        state idle;
+        state calibrating;
+        state monitoring;
+        state locating;
+        state reporting;
+        state degraded;
+        state fault;
+
+        transition first off then idle;
+
+        transition idle_to_calibrating
+            first idle
+            accept CommandMessage
+            if command.requestedMode == LocatorOperatingMode::calibrating
+            then calibrating;
+
+        transition calibrating_to_monitoring
+            first calibrating
+            if currentMode == LocatorOperatingMode::monitoring
+            then monitoring;
+
+        transition idle_to_monitoring
+            first idle
+            accept CommandMessage
+            if command.requestedMode == LocatorOperatingMode::monitoring
+            then monitoring;
+
+        transition monitoring_to_locating
+            first monitoring
+            accept AcousticPressureSignal
+            if acousticSignal.signalToNoiseRatio >= 8.0
+            then locating;
+
+        transition locating_to_reporting
+            first locating
+            then reporting;
+
+        transition reporting_to_monitoring
+            first reporting
+            then monitoring;
+
+        transition any_to_degraded
+            first monitoring
+            if currentMode == LocatorOperatingMode::monitoring
+            then degraded;
+
+        transition degraded_to_fault
+            first degraded
+            if currentMode == LocatorOperatingMode::fault
+            then fault;
+
+        transition fault_to_idle
+            first fault
+            accept CommandMessage
+            if command.requestedMode == LocatorOperatingMode::idle
+            then idle;
+    }
+
+    part def SoundLocator {
+        attribute primaryFunction : String =
+            "Detect acoustic events, estimate their direction of arrival, refine source location, and report bearing and position estimates to an operator or host system.";
+        attribute operatingTemperatureLow : TemperatureValue = -20 [degC];
+        attribute operatingTemperatureHigh : TemperatureValue = 55 [degC];
+        attribute systemMass : MassValue = 3.5 [kg];
+        attribute maximumDetectionRange : DetectionRangeValue = 500 [m];
+        attribute maximumBearingError : AngularErrorValue = 5 [deg];
+        attribute maximumLatency : ProcessingLatencyValue = 0.500 [s];
+
+        part microphoneArray : MicrophoneArray;
+        part timingReference : TimingReference;
+        part processor : ProcessingUnit;
+        part powerSubsystem : PowerSubsystem;
+        part operatorInterface : OperatorInterface;
+
+        port acousticEnvironment : AcousticInputPort;
+        port externalPower : PowerInputPort;
+        port commandInput : CommandPort;
+        port statusOutput : StatusPort;
+        port bearingOutput : BearingOutputPort;
+        port locationOutput : LocationOutputPort;
+
+        perform action acquire : AcquireAcousticSamples;
+        perform action detect : DetectSoundEvent;
+        perform action estimateBearing : EstimateSoundBearing;
+        perform action estimateLocation : EstimateSoundLocation;
+        perform action report : ReportLocalizationResult;
+
+        exhibit state locatorBehavior : LocatorStateMachine;
+
+        connect acousticEnvironment to microphoneArray.acousticIn;
+        connect microphoneArray.arraySamples to processor.sampleIn;
+        connect processor.bearingOut to operatorInterface.bearingOut;
+        connect processor.locationOut to operatorInterface.locationOut;
+        connect processor.bearingOut to bearingOutput;
+        connect processor.locationOut to locationOutput;
+        connect externalPower to powerSubsystem.powerIn;
+        connect commandInput to operatorInterface.commandIn;
+        connect operatorInterface.statusOut to statusOutput;
+    }
+
+    requirement def LocateSoundSourceRequirement {
+        doc
+        /* The system shall determine the direction of arrival and estimated source position for detected acoustic events within the specified operating range. */
+
+        subject locator : SoundLocator;
+
+        require constraint {
+            locator.maximumDetectionRange >= 500 [m]
+        }
+
+        require constraint {
+            locator.maximumBearingError <= 5 [deg]
+        }
+    }
+
+    requirement def DetectionSensitivityRequirement {
+        doc
+        /* The system shall detect acoustic events with sufficient signal-to-noise ratio using the microphone array and processing unit. */
+
+        subject locator : SoundLocator;
+
+        require constraint {
+            locator.processor.detector.minimumSignalToNoiseRatio <= 8.0
+        }
+
+        require constraint {
+            locator.processor.detector.minimumSoundPressure <= 0.02 [Pa]
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc
+        /* The system shall report a valid bearing estimate within 500 ms after detection of an acoustic event. */
+
+        subject locator : SoundLocator;
+
+        require constraint {
+            locator.maximumLatency <= 0.500 [s]
+        }
+
+        require constraint {
+            locator.processor.nominalProcessingLatency <= 0.150 [s]
+        }
+    }
+
+    requirement def ContinuousMonitoringRequirement {
+        doc
+        /* The system shall continuously monitor the acoustic environment while in monitoring mode and transition to locating mode when a qualifying sound event is detected. */
+
+        subject locator : SoundLocator;
+
+        require constraint {
+            locator.processor.detector.detectionWindow <= 0.050 [s]
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc
+        /* The system shall operate from a regulated 24 V electrical power input and consume no more than 60 W during normal monitoring and localization. */
+
+        subject locator : SoundLocator;
+
+        require constraint {
+            locator.powerSubsystem.outputVoltage == 24 [V]
+        }
+
+        require constraint {
+            locator.powerSubsystem.maximumPower <= 60 [W]
+        }
+    }
+
+    requirement def ReportingRequirement {
+        doc
+        /* The system shall provide bearing, location, confidence, health, operating mode, and battery state information to the operator interface. */
+
+        subject locator : SoundLocator;
+
+        require constraint {
+            locator.processor.activeTrackCapacity >= 16
+        }
+    }
+
+    part soundLocatorSystem : SoundLocator {
+        attribute primaryFunction =
+            "The primary function of the sound locator is to passively listen for sound events, compute the direction and estimated location of their source, and publish actionable localization results.";
+    }
+
+    satisfy LocateSoundSourceRequirement by soundLocatorSystem;
+    satisfy DetectionSensitivityRequirement by soundLocatorSystem;
+    satisfy LatencyRequirement by soundLocatorSystem;
+    satisfy ContinuousMonitoringRequirement by soundLocatorSystem;
+    satisfy PowerRequirement by soundLocatorSystem;
+    satisfy ReportingRequirement by soundLocatorSystem;
+}

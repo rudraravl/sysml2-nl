@@ -1,0 +1,1149 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f663b3i8
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb73e-82aa-7fd0-a46e-3dd0d24762eb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Simultaneous localization and mapping and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SLAMSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def Confidence : Probability;
+    attribute def PixelCount : Integer;
+    attribute def FeatureCount : Integer;
+    attribute def LandmarkCount : Integer;
+    attribute def OccupancyProbability : Probability;
+
+    attribute def Meter : LengthUnit;
+    attribute def Radian : AngleUnit;
+    attribute def Second : TimeUnit;
+    attribute def Hertz : FrequencyUnit;
+    attribute def MeterPerSecond : SpeedUnit;
+    attribute def RadianPerSecond : AngularVelocityUnit;
+
+    value type Timestamp specializes Real {
+        unit = Second;
+    }
+
+    value type Distance specializes Real {
+        unit = Meter;
+    }
+
+    value type Angle specializes Real {
+        unit = Radian;
+    }
+
+    value type LinearVelocity specializes Real {
+        unit = MeterPerSecond;
+    }
+
+    value type AngularVelocity specializes Real {
+        unit = RadianPerSecond;
+    }
+
+    value type UpdateRate specializes Real {
+        unit = Hertz;
+    }
+
+    item def Pose2D {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute yaw : Angle;
+        attribute covarianceXX : Real;
+        attribute covarianceYY : Real;
+        attribute covarianceYawYaw : Real;
+        attribute timestamp : Timestamp;
+    }
+
+    item def Pose3D {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute z : Distance;
+        attribute roll : Angle;
+        attribute pitch : Angle;
+        attribute yaw : Angle;
+        attribute covarianceTrace : Real;
+        attribute timestamp : Timestamp;
+    }
+
+    item def InertialMeasurement {
+        attribute ax : Real;
+        attribute ay : Real;
+        attribute az : Real;
+        attribute wx : AngularVelocity;
+        attribute wy : AngularVelocity;
+        attribute wz : AngularVelocity;
+        attribute timestamp : Timestamp;
+    }
+
+    item def WheelOdometry {
+        attribute forwardVelocity : LinearVelocity;
+        attribute yawRate : AngularVelocity;
+        attribute leftWheelDistance : Distance;
+        attribute rightWheelDistance : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def CameraFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute exposureTime : Timestamp;
+        attribute timestamp : Timestamp;
+    }
+
+    item def LidarScan {
+        attribute beamCount : Integer;
+        attribute minRange : Distance;
+        attribute maxRange : Distance;
+        attribute angularResolution : Angle;
+        attribute timestamp : Timestamp;
+    }
+
+    item def FeatureSet {
+        attribute count : FeatureCount;
+        attribute descriptorDimension : Integer;
+        attribute averageTrackingConfidence : Confidence;
+        attribute timestamp : Timestamp;
+    }
+
+    item def LandmarkMap {
+        attribute landmarkCount : LandmarkCount;
+        attribute mapFrameId : String;
+        attribute meanPositionUncertainty : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def OccupancyGridMap {
+        attribute widthCells : Integer;
+        attribute heightCells : Integer;
+        attribute resolution : Distance;
+        attribute occupiedThreshold : OccupancyProbability;
+        attribute freeThreshold : OccupancyProbability;
+        attribute timestamp : Timestamp;
+    }
+
+    item def LoopClosureCandidate {
+        attribute candidateId : Integer;
+        attribute similarityScore : Confidence;
+        attribute relativeYaw : Angle;
+        attribute relativeDistance : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def CorrectedTrajectory {
+        attribute poseCount : Integer;
+        attribute totalLength : Distance;
+        attribute finalDriftEstimate : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def NavigationState {
+        attribute currentPose : Pose3D;
+        attribute mapQuality : Confidence;
+        attribute localizationConfidence : Confidence;
+        attribute trackingState : String;
+        attribute timestamp : Timestamp;
+    }
+
+    port def CameraDataOut {
+        out frame : CameraFrame;
+    }
+
+    port def LidarDataOut {
+        out scan : LidarScan;
+    }
+
+    port def ImuDataOut {
+        out measurement : InertialMeasurement;
+    }
+
+    port def WheelOdomOut {
+        out odometry : WheelOdometry;
+    }
+
+    port def SensorDataIn {
+        in frame : CameraFrame;
+        in scan : LidarScan;
+        in measurement : InertialMeasurement;
+        in odometry : WheelOdometry;
+    }
+
+    port def FeaturePort {
+        out features : FeatureSet;
+    }
+
+    port def PosePort {
+        inout pose : Pose3D;
+    }
+
+    port def MapPort {
+        inout landmarks : LandmarkMap;
+        inout grid : OccupancyGridMap;
+    }
+
+    port def LoopClosurePort {
+        out candidate : LoopClosureCandidate;
+    }
+
+    port def TrajectoryPort {
+        out trajectory : CorrectedTrajectory;
+    }
+
+    port def NavigationStateOut {
+        out state : NavigationState;
+    }
+
+    part def StereoCamera {
+        attribute frameRate : UpdateRate = 30 [Hz];
+        attribute horizontalFieldOfView : Angle = 1.57 [rad];
+        attribute baseline : Distance = 0.12 [m];
+        port imageOutput : CameraDataOut;
+    }
+
+    part def ScanningLidar {
+        attribute scanRate : UpdateRate = 10 [Hz];
+        attribute horizontalFieldOfView : Angle = 6.283 [rad];
+        attribute maximumRange : Distance = 30 [m];
+        attribute rangeResolution : Distance = 0.02 [m];
+        port scanOutput : LidarDataOut;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute sampleRate : UpdateRate = 200 [Hz];
+        attribute gyroNoiseDensity : Real = 0.004;
+        attribute accelNoiseDensity : Real = 0.02;
+        port imuOutput : ImuDataOut;
+    }
+
+    part def WheelEncoderPair {
+        attribute ticksPerRevolution : Integer = 2048;
+        attribute wheelRadius : Distance = 0.075 [m];
+        attribute wheelBase : Distance = 0.42 [m];
+        port odomOutput : WheelOdomOut;
+    }
+
+    part def TimeSynchronizer {
+        attribute maximumSkew : Timestamp = 0.01 [s];
+        port synchronizedSensorInput : SensorDataIn;
+        port synchronizedSensorOutput : SensorDataIn;
+    }
+
+    part def VisualFeatureExtractor {
+        attribute targetFeatureCount : FeatureCount = 1200;
+        attribute minimumFeatureConfidence : Confidence = 0.65;
+        port cameraInput : SensorDataIn;
+        port featureOutput : FeaturePort;
+    }
+
+    part def LidarPreprocessor {
+        attribute minimumValidRange : Distance = 0.15 [m];
+        attribute maximumValidRange : Distance = 30 [m];
+        attribute outlierRejectionThreshold : Distance = 0.20 [m];
+        port lidarInput : SensorDataIn;
+        port filteredScanOutput : LidarDataOut;
+    }
+
+    part def MotionPredictor {
+        attribute predictionRate : UpdateRate = 100 [Hz];
+        attribute maximumVelocity : LinearVelocity = 2.0 [m/s];
+        port inertialAndOdometryInput : SensorDataIn;
+        port predictedPoseOutput : PosePort;
+    }
+
+    part def SensorFusionEstimator {
+        attribute estimatorRate : UpdateRate = 50 [Hz];
+        attribute maximumPoseUncertainty : Distance = 0.50 [m];
+        port predictedPoseInput : PosePort;
+        port featureInput : FeaturePort;
+        port scanInput : LidarDataOut;
+        port estimatedPoseOutput : PosePort;
+    }
+
+    part def LocalMapper {
+        attribute localWindowRadius : Distance = 8.0 [m];
+        attribute minimumLandmarkObservations : Integer = 3;
+        port poseInput : PosePort;
+        port featureInput : FeaturePort;
+        port scanInput : LidarDataOut;
+        port localMapOutput : MapPort;
+    }
+
+    part def LoopClosureDetector {
+        attribute minimumSimilarityScore : Confidence = 0.80;
+        attribute minimumTravelDistanceBetweenClosures : Distance = 4.0 [m];
+        port featureInput : FeaturePort;
+        port mapInput : MapPort;
+        port loopClosureOutput : LoopClosurePort;
+    }
+
+    part def PoseGraphOptimizer {
+        attribute optimizationRate : UpdateRate = 2 [Hz];
+        attribute maximumIterations : Integer = 25;
+        attribute convergenceTolerance : Real = 0.0001;
+        port poseInput : PosePort;
+        port mapInput : MapPort;
+        port loopClosureInput : LoopClosurePort;
+        port correctedTrajectoryOutput : TrajectoryPort;
+        port optimizedMapOutput : MapPort;
+    }
+
+    part def NavigationStatePublisher {
+        attribute publishRate : UpdateRate = 20 [Hz];
+        port poseInput : PosePort;
+        port mapInput : MapPort;
+        port trajectoryInput : TrajectoryPort;
+        port navigationStateOutput : NavigationStateOut;
+    }
+
+    action def AcquireSensorData {
+        in cameraFrame : CameraFrame;
+        in lidarScan : LidarScan;
+        in imuMeasurement : InertialMeasurement;
+        in wheelOdometry : WheelOdometry;
+        out synchronizedFrame : CameraFrame;
+        out synchronizedScan : LidarScan;
+        out synchronizedImu : InertialMeasurement;
+        out synchronizedOdometry : WheelOdometry;
+    }
+
+    action def ExtractVisualFeatures {
+        in image : CameraFrame;
+        out features : FeatureSet;
+    }
+
+    action def PredictRobotMotion {
+        in imu : InertialMeasurement;
+        in odometry : WheelOdometry;
+        in previousPose : Pose3D;
+        out predictedPose : Pose3D;
+    }
+
+    action def EstimatePoseAndUncertainty {
+        in predictedPose : Pose3D;
+        in features : FeatureSet;
+        in scan : LidarScan;
+        out estimatedPose : Pose3D;
+        out localizationConfidence : Confidence;
+    }
+
+    action def UpdateMap {
+        in estimatedPose : Pose3D;
+        in features : FeatureSet;
+        in scan : LidarScan;
+        in previousLandmarks : LandmarkMap;
+        in previousGrid : OccupancyGridMap;
+        out updatedLandmarks : LandmarkMap;
+        out updatedGrid : OccupancyGridMap;
+    }
+
+    action def DetectLoopClosure {
+        in currentFeatures : FeatureSet;
+        in currentMap : LandmarkMap;
+        out candidate : LoopClosureCandidate;
+    }
+
+    action def OptimizePoseGraph {
+        in loopClosure : LoopClosureCandidate;
+        in estimatedPose : Pose3D;
+        in landmarkMap : LandmarkMap;
+        out correctedTrajectory : CorrectedTrajectory;
+        out optimizedLandmarks : LandmarkMap;
+    }
+
+    action def PublishNavigationState {
+        in pose : Pose3D;
+        in map : LandmarkMap;
+        in trajectory : CorrectedTrajectory;
+        out state : NavigationState;
+    }
+
+    state def SLAMOperatingState {
+        entry action InitializeCoordinateFrames;
+        state Initializing;
+        state Tracking;
+        state Mapping;
+        state LoopClosing;
+        state Relocalizing;
+        state Degraded;
+        state Shutdown;
+
+        transition first Initializing;
+        transition Initializing to Tracking
+            accept initializationComplete
+            if sensorTimeSynchronized == true and initialPoseAvailable == true;
+
+        transition Tracking to Mapping
+            accept poseEstimated
+            if localizationConfidence >= 0.70;
+
+        transition Mapping to Tracking
+            accept localMapUpdated;
+
+        transition Tracking to LoopClosing
+            accept loopClosureCandidateDetected
+            if loopClosureSimilarity >= 0.80;
+
+        transition LoopClosing to Tracking
+            accept poseGraphOptimized;
+
+        transition Tracking to Relocalizing
+            accept trackingLost
+            if localizationConfidence < 0.35;
+
+        transition Relocalizing to Tracking
+            accept relocalizationSucceeded
+            if localizationConfidence >= 0.70;
+
+        transition Relocalizing to Degraded
+            accept relocalizationTimedOut;
+
+        transition Degraded to Tracking
+            accept confidenceRecovered
+            if localizationConfidence >= 0.65;
+
+        transition Tracking to Shutdown
+            accept shutdownRequested;
+
+        transition Mapping to Shutdown
+            accept shutdownRequested;
+
+        transition Degraded to Shutdown
+            accept shutdownRequested;
+    }
+
+    part def SLAMSystem {
+        doc /* Primary function: estimate the robot pose while incrementally building and correcting a spatial map of an initially unknown environment from synchronized camera, lidar, inertial, and wheel-odometry data. */
+
+        attribute minimumLocalizationConfidence : Confidence = 0.70;
+        attribute maximumAllowedDriftPerTenMeters : Distance = 0.20 [m];
+        attribute mapResolution : Distance = 0.05 [m];
+        attribute nominalUpdateRate : UpdateRate = 20 [Hz];
+
+        part camera : StereoCamera;
+        part lidar : ScanningLidar;
+        part imu : InertialMeasurementUnit;
+        part wheelEncoders : WheelEncoderPair;
+        part synchronizer : TimeSynchronizer;
+        part featureExtractor : VisualFeatureExtractor;
+        part lidarPreprocessor : LidarPreprocessor;
+        part motionPredictor : MotionPredictor;
+        part fusionEstimator : SensorFusionEstimator;
+        part localMapper : LocalMapper;
+        part loopClosureDetector : LoopClosureDetector;
+        part poseGraphOptimizer : PoseGraphOptimizer;
+        part statePublisher : NavigationStatePublisher;
+
+        port navigationOutput : NavigationStateOut;
+
+        connection camera.imageOutput.frame to synchronizer.synchronizedSensorInput.frame;
+        connection lidar.scanOutput.scan to synchronizer.synchronizedSensorInput.scan;
+        connection imu.imuOutput.measurement to synchronizer.synchronizedSensorInput.measurement;
+        connection wheelEncoders.odomOutput.odometry to synchronizer.synchronizedSensorInput.odometry;
+
+        connection synchronizer.synchronizedSensorOutput.frame to featureExtractor.cameraInput.frame;
+        connection synchronizer.synchronizedSensorOutput.scan to lidarPreprocessor.lidarInput.scan;
+        connection synchronizer.synchronizedSensorOutput.measurement to motionPredictor.inertialAndOdometryInput.measurement;
+        connection synchronizer.synchronizedSensorOutput.odometry to motionPredictor.inertialAndOdometryInput.odometry;
+
+        connection featureExtractor.featureOutput.features to fusionEstimator.featureInput.features;
+        connection lidarPreprocessor.filteredScanOutput.scan to fusionEstimator.scanInput.scan;
+        connection motionPredictor.predictedPoseOutput.pose to fusionEstimator.predictedPoseInput.pose;
+
+        connection fusionEstimator.estimatedPoseOutput.pose to localMapper.poseInput.pose;
+        connection featureExtractor.featureOutput.features to localMapper.featureInput.features;
+        connection lidarPreprocessor.filteredScanOutput.scan to localMapper.scanInput.scan;
+
+        connection featureExtractor.featureOutput.features to loopClosureDetector.featureInput.features;
+        connection localMapper.localMapOutput.landmarks to loopClosureDetector.mapInput.landmarks;
+        connection localMapper.localMapOutput.grid to loopClosureDetector.mapInput.grid;
+
+        connection fusionEstimator.estimatedPoseOutput.pose to poseGraphOptimizer.poseInput.pose;
+        connection localMapper.localMapOutput.landmarks to poseGraphOptimizer.mapInput.landmarks;
+        connection localMapper.localMapOutput.grid to poseGraphOptimizer.mapInput.grid;
+        connection loopClosureDetector.loopClosureOutput.candidate to poseGraphOptimizer.loopClosureInput.candidate;
+
+        connection fusionEstimator.estimatedPoseOutput.pose to statePublisher.poseInput.pose;
+        connection poseGraphOptimizer.optimizedMapOutput.landmarks to statePublisher.mapInput.landmarks;
+        connection poseGraphOptimizer.optimizedMapOutput.grid to statePublisher.mapInput.grid;
+        connection poseGraphOptimizer.correctedTrajectoryOutput.trajectory to statePublisher.trajectoryInput.trajectory;
+
+        connection statePublisher.navigationStateOutput.state to navigationOutput.state;
+
+        exhibit stateMachine : SLAMOperatingState;
+
+        perform action mainLoop {
+            action acquire : AcquireSensorData;
+            action extract : ExtractVisualFeatures;
+            action predict : PredictRobotMotion;
+            action estimate : EstimatePoseAndUncertainty;
+            action mapUpdate : UpdateMap;
+            action closureDetect : DetectLoopClosure;
+            action optimize : OptimizePoseGraph;
+            action publish : PublishNavigationState;
+
+            flow acquire.synchronizedFrame to extract.image;
+            flow acquire.synchronizedImu to predict.imu;
+            flow acquire.synchronizedOdometry to predict.odometry;
+            flow predict.predictedPose to estimate.predictedPose;
+            flow extract.features to estimate.features;
+            flow acquire.synchronizedScan to estimate.scan;
+            flow estimate.estimatedPose to mapUpdate.estimatedPose;
+            flow extract.features to mapUpdate.features;
+            flow acquire.synchronizedScan to mapUpdate.scan;
+            flow extract.features to closureDetect.currentFeatures;
+            flow mapUpdate.updatedLandmarks to closureDetect.currentMap;
+            flow closureDetect.candidate to optimize.loopClosure;
+            flow estimate.estimatedPose to optimize.estimatedPose;
+            flow mapUpdate.updatedLandmarks to optimize.landmarkMap;
+            flow estimate.estimatedPose to publish.pose;
+            flow optimize.optimizedLandmarks to publish.map;
+            flow optimize.correctedTrajectory to publish.trajectory;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall simultaneously estimate the mobile platform pose and maintain a consistent spatial map of the surrounding environment using onboard sensor data. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.nominalUpdateRate >= 20 [Hz]
+        }
+    }
+
+    requirement def LocalizationAccuracyRequirement {
+        doc /* The system shall keep pose drift below 0.20 m per 10 m of traveled distance after loop-closure correction in feature-rich indoor environments. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.maximumAllowedDriftPerTenMeters <= 0.20 [m]
+        }
+    }
+
+    requirement def MapResolutionRequirement {
+        doc /* The generated occupancy grid shall represent occupied and free space at 0.05 m resolution or finer. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.mapResolution <= 0.05 [m]
+        }
+    }
+
+    requirement def RealTimeOperationRequirement {
+        doc /* The navigation state shall be published at a rate sufficient for closed-loop navigation. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.nominalUpdateRate >= 20 [Hz]
+        }
+    }
+
+    requirement def SensorSynchronizationRequirement {
+        doc /* Camera, lidar, inertial, and wheel odometry measurements shall be synchronized within 0.01 s before fusion. */
+        subject synchronizer : TimeSynchronizer;
+        require constraint {
+            synchronizer.maximumSkew <= 0.01 [s]
+        }
+    }
+
+    requirement def LoopClosureRequirement {
+        doc /* The system shall detect loop closures when the current observation strongly matches a previously mapped place and use them to reduce accumulated trajectory drift. */
+        subject detector : LoopClosureDetector;
+        require constraint {
+            detector.minimumSimilarityScore >= 0.80
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* The system shall report localization confidence with each published navigation state and enter relocalization behavior when confidence drops below the operational threshold. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.minimumLocalizationConfidence >= 0.70
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SLAMSystem;
+    satisfy LocalizationAccuracyRequirement by SLAMSystem;
+    satisfy MapResolutionRequirement by SLAMSystem;
+    satisfy RealTimeOperationRequirement by SLAMSystem;
+    satisfy SensorSynchronizationRequirement by TimeSynchronizer;
+    satisfy LoopClosureRequirement by LoopClosureDetector;
+    satisfy ConfidenceRequirement by SLAMSystem;
+}
+tokens used
+5,528
+package SLAMSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def Confidence : Probability;
+    attribute def PixelCount : Integer;
+    attribute def FeatureCount : Integer;
+    attribute def LandmarkCount : Integer;
+    attribute def OccupancyProbability : Probability;
+
+    attribute def Meter : LengthUnit;
+    attribute def Radian : AngleUnit;
+    attribute def Second : TimeUnit;
+    attribute def Hertz : FrequencyUnit;
+    attribute def MeterPerSecond : SpeedUnit;
+    attribute def RadianPerSecond : AngularVelocityUnit;
+
+    value type Timestamp specializes Real {
+        unit = Second;
+    }
+
+    value type Distance specializes Real {
+        unit = Meter;
+    }
+
+    value type Angle specializes Real {
+        unit = Radian;
+    }
+
+    value type LinearVelocity specializes Real {
+        unit = MeterPerSecond;
+    }
+
+    value type AngularVelocity specializes Real {
+        unit = RadianPerSecond;
+    }
+
+    value type UpdateRate specializes Real {
+        unit = Hertz;
+    }
+
+    item def Pose2D {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute yaw : Angle;
+        attribute covarianceXX : Real;
+        attribute covarianceYY : Real;
+        attribute covarianceYawYaw : Real;
+        attribute timestamp : Timestamp;
+    }
+
+    item def Pose3D {
+        attribute x : Distance;
+        attribute y : Distance;
+        attribute z : Distance;
+        attribute roll : Angle;
+        attribute pitch : Angle;
+        attribute yaw : Angle;
+        attribute covarianceTrace : Real;
+        attribute timestamp : Timestamp;
+    }
+
+    item def InertialMeasurement {
+        attribute ax : Real;
+        attribute ay : Real;
+        attribute az : Real;
+        attribute wx : AngularVelocity;
+        attribute wy : AngularVelocity;
+        attribute wz : AngularVelocity;
+        attribute timestamp : Timestamp;
+    }
+
+    item def WheelOdometry {
+        attribute forwardVelocity : LinearVelocity;
+        attribute yawRate : AngularVelocity;
+        attribute leftWheelDistance : Distance;
+        attribute rightWheelDistance : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def CameraFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute exposureTime : Timestamp;
+        attribute timestamp : Timestamp;
+    }
+
+    item def LidarScan {
+        attribute beamCount : Integer;
+        attribute minRange : Distance;
+        attribute maxRange : Distance;
+        attribute angularResolution : Angle;
+        attribute timestamp : Timestamp;
+    }
+
+    item def FeatureSet {
+        attribute count : FeatureCount;
+        attribute descriptorDimension : Integer;
+        attribute averageTrackingConfidence : Confidence;
+        attribute timestamp : Timestamp;
+    }
+
+    item def LandmarkMap {
+        attribute landmarkCount : LandmarkCount;
+        attribute mapFrameId : String;
+        attribute meanPositionUncertainty : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def OccupancyGridMap {
+        attribute widthCells : Integer;
+        attribute heightCells : Integer;
+        attribute resolution : Distance;
+        attribute occupiedThreshold : OccupancyProbability;
+        attribute freeThreshold : OccupancyProbability;
+        attribute timestamp : Timestamp;
+    }
+
+    item def LoopClosureCandidate {
+        attribute candidateId : Integer;
+        attribute similarityScore : Confidence;
+        attribute relativeYaw : Angle;
+        attribute relativeDistance : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def CorrectedTrajectory {
+        attribute poseCount : Integer;
+        attribute totalLength : Distance;
+        attribute finalDriftEstimate : Distance;
+        attribute timestamp : Timestamp;
+    }
+
+    item def NavigationState {
+        attribute currentPose : Pose3D;
+        attribute mapQuality : Confidence;
+        attribute localizationConfidence : Confidence;
+        attribute trackingState : String;
+        attribute timestamp : Timestamp;
+    }
+
+    port def CameraDataOut {
+        out frame : CameraFrame;
+    }
+
+    port def LidarDataOut {
+        out scan : LidarScan;
+    }
+
+    port def ImuDataOut {
+        out measurement : InertialMeasurement;
+    }
+
+    port def WheelOdomOut {
+        out odometry : WheelOdometry;
+    }
+
+    port def SensorDataIn {
+        in frame : CameraFrame;
+        in scan : LidarScan;
+        in measurement : InertialMeasurement;
+        in odometry : WheelOdometry;
+    }
+
+    port def FeaturePort {
+        out features : FeatureSet;
+    }
+
+    port def PosePort {
+        inout pose : Pose3D;
+    }
+
+    port def MapPort {
+        inout landmarks : LandmarkMap;
+        inout grid : OccupancyGridMap;
+    }
+
+    port def LoopClosurePort {
+        out candidate : LoopClosureCandidate;
+    }
+
+    port def TrajectoryPort {
+        out trajectory : CorrectedTrajectory;
+    }
+
+    port def NavigationStateOut {
+        out state : NavigationState;
+    }
+
+    part def StereoCamera {
+        attribute frameRate : UpdateRate = 30 [Hz];
+        attribute horizontalFieldOfView : Angle = 1.57 [rad];
+        attribute baseline : Distance = 0.12 [m];
+        port imageOutput : CameraDataOut;
+    }
+
+    part def ScanningLidar {
+        attribute scanRate : UpdateRate = 10 [Hz];
+        attribute horizontalFieldOfView : Angle = 6.283 [rad];
+        attribute maximumRange : Distance = 30 [m];
+        attribute rangeResolution : Distance = 0.02 [m];
+        port scanOutput : LidarDataOut;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute sampleRate : UpdateRate = 200 [Hz];
+        attribute gyroNoiseDensity : Real = 0.004;
+        attribute accelNoiseDensity : Real = 0.02;
+        port imuOutput : ImuDataOut;
+    }
+
+    part def WheelEncoderPair {
+        attribute ticksPerRevolution : Integer = 2048;
+        attribute wheelRadius : Distance = 0.075 [m];
+        attribute wheelBase : Distance = 0.42 [m];
+        port odomOutput : WheelOdomOut;
+    }
+
+    part def TimeSynchronizer {
+        attribute maximumSkew : Timestamp = 0.01 [s];
+        port synchronizedSensorInput : SensorDataIn;
+        port synchronizedSensorOutput : SensorDataIn;
+    }
+
+    part def VisualFeatureExtractor {
+        attribute targetFeatureCount : FeatureCount = 1200;
+        attribute minimumFeatureConfidence : Confidence = 0.65;
+        port cameraInput : SensorDataIn;
+        port featureOutput : FeaturePort;
+    }
+
+    part def LidarPreprocessor {
+        attribute minimumValidRange : Distance = 0.15 [m];
+        attribute maximumValidRange : Distance = 30 [m];
+        attribute outlierRejectionThreshold : Distance = 0.20 [m];
+        port lidarInput : SensorDataIn;
+        port filteredScanOutput : LidarDataOut;
+    }
+
+    part def MotionPredictor {
+        attribute predictionRate : UpdateRate = 100 [Hz];
+        attribute maximumVelocity : LinearVelocity = 2.0 [m/s];
+        port inertialAndOdometryInput : SensorDataIn;
+        port predictedPoseOutput : PosePort;
+    }
+
+    part def SensorFusionEstimator {
+        attribute estimatorRate : UpdateRate = 50 [Hz];
+        attribute maximumPoseUncertainty : Distance = 0.50 [m];
+        port predictedPoseInput : PosePort;
+        port featureInput : FeaturePort;
+        port scanInput : LidarDataOut;
+        port estimatedPoseOutput : PosePort;
+    }
+
+    part def LocalMapper {
+        attribute localWindowRadius : Distance = 8.0 [m];
+        attribute minimumLandmarkObservations : Integer = 3;
+        port poseInput : PosePort;
+        port featureInput : FeaturePort;
+        port scanInput : LidarDataOut;
+        port localMapOutput : MapPort;
+    }
+
+    part def LoopClosureDetector {
+        attribute minimumSimilarityScore : Confidence = 0.80;
+        attribute minimumTravelDistanceBetweenClosures : Distance = 4.0 [m];
+        port featureInput : FeaturePort;
+        port mapInput : MapPort;
+        port loopClosureOutput : LoopClosurePort;
+    }
+
+    part def PoseGraphOptimizer {
+        attribute optimizationRate : UpdateRate = 2 [Hz];
+        attribute maximumIterations : Integer = 25;
+        attribute convergenceTolerance : Real = 0.0001;
+        port poseInput : PosePort;
+        port mapInput : MapPort;
+        port loopClosureInput : LoopClosurePort;
+        port correctedTrajectoryOutput : TrajectoryPort;
+        port optimizedMapOutput : MapPort;
+    }
+
+    part def NavigationStatePublisher {
+        attribute publishRate : UpdateRate = 20 [Hz];
+        port poseInput : PosePort;
+        port mapInput : MapPort;
+        port trajectoryInput : TrajectoryPort;
+        port navigationStateOutput : NavigationStateOut;
+    }
+
+    action def AcquireSensorData {
+        in cameraFrame : CameraFrame;
+        in lidarScan : LidarScan;
+        in imuMeasurement : InertialMeasurement;
+        in wheelOdometry : WheelOdometry;
+        out synchronizedFrame : CameraFrame;
+        out synchronizedScan : LidarScan;
+        out synchronizedImu : InertialMeasurement;
+        out synchronizedOdometry : WheelOdometry;
+    }
+
+    action def ExtractVisualFeatures {
+        in image : CameraFrame;
+        out features : FeatureSet;
+    }
+
+    action def PredictRobotMotion {
+        in imu : InertialMeasurement;
+        in odometry : WheelOdometry;
+        in previousPose : Pose3D;
+        out predictedPose : Pose3D;
+    }
+
+    action def EstimatePoseAndUncertainty {
+        in predictedPose : Pose3D;
+        in features : FeatureSet;
+        in scan : LidarScan;
+        out estimatedPose : Pose3D;
+        out localizationConfidence : Confidence;
+    }
+
+    action def UpdateMap {
+        in estimatedPose : Pose3D;
+        in features : FeatureSet;
+        in scan : LidarScan;
+        in previousLandmarks : LandmarkMap;
+        in previousGrid : OccupancyGridMap;
+        out updatedLandmarks : LandmarkMap;
+        out updatedGrid : OccupancyGridMap;
+    }
+
+    action def DetectLoopClosure {
+        in currentFeatures : FeatureSet;
+        in currentMap : LandmarkMap;
+        out candidate : LoopClosureCandidate;
+    }
+
+    action def OptimizePoseGraph {
+        in loopClosure : LoopClosureCandidate;
+        in estimatedPose : Pose3D;
+        in landmarkMap : LandmarkMap;
+        out correctedTrajectory : CorrectedTrajectory;
+        out optimizedLandmarks : LandmarkMap;
+    }
+
+    action def PublishNavigationState {
+        in pose : Pose3D;
+        in map : LandmarkMap;
+        in trajectory : CorrectedTrajectory;
+        out state : NavigationState;
+    }
+
+    state def SLAMOperatingState {
+        entry action InitializeCoordinateFrames;
+        state Initializing;
+        state Tracking;
+        state Mapping;
+        state LoopClosing;
+        state Relocalizing;
+        state Degraded;
+        state Shutdown;
+
+        transition first Initializing;
+        transition Initializing to Tracking
+            accept initializationComplete
+            if sensorTimeSynchronized == true and initialPoseAvailable == true;
+
+        transition Tracking to Mapping
+            accept poseEstimated
+            if localizationConfidence >= 0.70;
+
+        transition Mapping to Tracking
+            accept localMapUpdated;
+
+        transition Tracking to LoopClosing
+            accept loopClosureCandidateDetected
+            if loopClosureSimilarity >= 0.80;
+
+        transition LoopClosing to Tracking
+            accept poseGraphOptimized;
+
+        transition Tracking to Relocalizing
+            accept trackingLost
+            if localizationConfidence < 0.35;
+
+        transition Relocalizing to Tracking
+            accept relocalizationSucceeded
+            if localizationConfidence >= 0.70;
+
+        transition Relocalizing to Degraded
+            accept relocalizationTimedOut;
+
+        transition Degraded to Tracking
+            accept confidenceRecovered
+            if localizationConfidence >= 0.65;
+
+        transition Tracking to Shutdown
+            accept shutdownRequested;
+
+        transition Mapping to Shutdown
+            accept shutdownRequested;
+
+        transition Degraded to Shutdown
+            accept shutdownRequested;
+    }
+
+    part def SLAMSystem {
+        doc /* Primary function: estimate the robot pose while incrementally building and correcting a spatial map of an initially unknown environment from synchronized camera, lidar, inertial, and wheel-odometry data. */
+
+        attribute minimumLocalizationConfidence : Confidence = 0.70;
+        attribute maximumAllowedDriftPerTenMeters : Distance = 0.20 [m];
+        attribute mapResolution : Distance = 0.05 [m];
+        attribute nominalUpdateRate : UpdateRate = 20 [Hz];
+
+        part camera : StereoCamera;
+        part lidar : ScanningLidar;
+        part imu : InertialMeasurementUnit;
+        part wheelEncoders : WheelEncoderPair;
+        part synchronizer : TimeSynchronizer;
+        part featureExtractor : VisualFeatureExtractor;
+        part lidarPreprocessor : LidarPreprocessor;
+        part motionPredictor : MotionPredictor;
+        part fusionEstimator : SensorFusionEstimator;
+        part localMapper : LocalMapper;
+        part loopClosureDetector : LoopClosureDetector;
+        part poseGraphOptimizer : PoseGraphOptimizer;
+        part statePublisher : NavigationStatePublisher;
+
+        port navigationOutput : NavigationStateOut;
+
+        connection camera.imageOutput.frame to synchronizer.synchronizedSensorInput.frame;
+        connection lidar.scanOutput.scan to synchronizer.synchronizedSensorInput.scan;
+        connection imu.imuOutput.measurement to synchronizer.synchronizedSensorInput.measurement;
+        connection wheelEncoders.odomOutput.odometry to synchronizer.synchronizedSensorInput.odometry;
+
+        connection synchronizer.synchronizedSensorOutput.frame to featureExtractor.cameraInput.frame;
+        connection synchronizer.synchronizedSensorOutput.scan to lidarPreprocessor.lidarInput.scan;
+        connection synchronizer.synchronizedSensorOutput.measurement to motionPredictor.inertialAndOdometryInput.measurement;
+        connection synchronizer.synchronizedSensorOutput.odometry to motionPredictor.inertialAndOdometryInput.odometry;
+
+        connection featureExtractor.featureOutput.features to fusionEstimator.featureInput.features;
+        connection lidarPreprocessor.filteredScanOutput.scan to fusionEstimator.scanInput.scan;
+        connection motionPredictor.predictedPoseOutput.pose to fusionEstimator.predictedPoseInput.pose;
+
+        connection fusionEstimator.estimatedPoseOutput.pose to localMapper.poseInput.pose;
+        connection featureExtractor.featureOutput.features to localMapper.featureInput.features;
+        connection lidarPreprocessor.filteredScanOutput.scan to localMapper.scanInput.scan;
+
+        connection featureExtractor.featureOutput.features to loopClosureDetector.featureInput.features;
+        connection localMapper.localMapOutput.landmarks to loopClosureDetector.mapInput.landmarks;
+        connection localMapper.localMapOutput.grid to loopClosureDetector.mapInput.grid;
+
+        connection fusionEstimator.estimatedPoseOutput.pose to poseGraphOptimizer.poseInput.pose;
+        connection localMapper.localMapOutput.landmarks to poseGraphOptimizer.mapInput.landmarks;
+        connection localMapper.localMapOutput.grid to poseGraphOptimizer.mapInput.grid;
+        connection loopClosureDetector.loopClosureOutput.candidate to poseGraphOptimizer.loopClosureInput.candidate;
+
+        connection fusionEstimator.estimatedPoseOutput.pose to statePublisher.poseInput.pose;
+        connection poseGraphOptimizer.optimizedMapOutput.landmarks to statePublisher.mapInput.landmarks;
+        connection poseGraphOptimizer.optimizedMapOutput.grid to statePublisher.mapInput.grid;
+        connection poseGraphOptimizer.correctedTrajectoryOutput.trajectory to statePublisher.trajectoryInput.trajectory;
+
+        connection statePublisher.navigationStateOutput.state to navigationOutput.state;
+
+        exhibit stateMachine : SLAMOperatingState;
+
+        perform action mainLoop {
+            action acquire : AcquireSensorData;
+            action extract : ExtractVisualFeatures;
+            action predict : PredictRobotMotion;
+            action estimate : EstimatePoseAndUncertainty;
+            action mapUpdate : UpdateMap;
+            action closureDetect : DetectLoopClosure;
+            action optimize : OptimizePoseGraph;
+            action publish : PublishNavigationState;
+
+            flow acquire.synchronizedFrame to extract.image;
+            flow acquire.synchronizedImu to predict.imu;
+            flow acquire.synchronizedOdometry to predict.odometry;
+            flow predict.predictedPose to estimate.predictedPose;
+            flow extract.features to estimate.features;
+            flow acquire.synchronizedScan to estimate.scan;
+            flow estimate.estimatedPose to mapUpdate.estimatedPose;
+            flow extract.features to mapUpdate.features;
+            flow acquire.synchronizedScan to mapUpdate.scan;
+            flow extract.features to closureDetect.currentFeatures;
+            flow mapUpdate.updatedLandmarks to closureDetect.currentMap;
+            flow closureDetect.candidate to optimize.loopClosure;
+            flow estimate.estimatedPose to optimize.estimatedPose;
+            flow mapUpdate.updatedLandmarks to optimize.landmarkMap;
+            flow estimate.estimatedPose to publish.pose;
+            flow optimize.optimizedLandmarks to publish.map;
+            flow optimize.correctedTrajectory to publish.trajectory;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall simultaneously estimate the mobile platform pose and maintain a consistent spatial map of the surrounding environment using onboard sensor data. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.nominalUpdateRate >= 20 [Hz]
+        }
+    }
+
+    requirement def LocalizationAccuracyRequirement {
+        doc /* The system shall keep pose drift below 0.20 m per 10 m of traveled distance after loop-closure correction in feature-rich indoor environments. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.maximumAllowedDriftPerTenMeters <= 0.20 [m]
+        }
+    }
+
+    requirement def MapResolutionRequirement {
+        doc /* The generated occupancy grid shall represent occupied and free space at 0.05 m resolution or finer. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.mapResolution <= 0.05 [m]
+        }
+    }
+
+    requirement def RealTimeOperationRequirement {
+        doc /* The navigation state shall be published at a rate sufficient for closed-loop navigation. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.nominalUpdateRate >= 20 [Hz]
+        }
+    }
+
+    requirement def SensorSynchronizationRequirement {
+        doc /* Camera, lidar, inertial, and wheel odometry measurements shall be synchronized within 0.01 s before fusion. */
+        subject synchronizer : TimeSynchronizer;
+        require constraint {
+            synchronizer.maximumSkew <= 0.01 [s]
+        }
+    }
+
+    requirement def LoopClosureRequirement {
+        doc /* The system shall detect loop closures when the current observation strongly matches a previously mapped place and use them to reduce accumulated trajectory drift. */
+        subject detector : LoopClosureDetector;
+        require constraint {
+            detector.minimumSimilarityScore >= 0.80
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* The system shall report localization confidence with each published navigation state and enter relocalization behavior when confidence drops below the operational threshold. */
+        subject system : SLAMSystem;
+        require constraint {
+            system.minimumLocalizationConfidence >= 0.70
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SLAMSystem;
+    satisfy LocalizationAccuracyRequirement by SLAMSystem;
+    satisfy MapResolutionRequirement by SLAMSystem;
+    satisfy RealTimeOperationRequirement by SLAMSystem;
+    satisfy SensorSynchronizationRequirement by TimeSynchronizer;
+    satisfy LoopClosureRequirement by LoopClosureDetector;
+    satisfy ConfidenceRequirement by SLAMSystem;
+}

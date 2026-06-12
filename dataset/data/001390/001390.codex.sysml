@@ -1,0 +1,356 @@
+package CritiqueOfWorkSystem {
+
+  private import ScalarValues::*;
+  private import ISQ::*;
+  private import SI::*;
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def Score :> Real {
+    range = "0..100";
+  }
+
+  attribute def Confidence :> Real {
+    range = "0..1";
+  }
+
+  attribute def WordCount :> Integer;
+  attribute def FindingCount :> Integer;
+  attribute def RevisionCount :> Integer;
+
+  item def WorkArtifact {
+    attribute title : String;
+    attribute author : String;
+    attribute domain : String;
+    attribute submittedText : String;
+    attribute words : WordCount;
+    attribute version : RevisionCount;
+  }
+
+  item def EvaluationCriterion {
+    attribute name : String;
+    attribute description : String;
+    attribute weight : Percent;
+    attribute passingScore : Score;
+  }
+
+  item def CritiqueFinding {
+    attribute criterionName : String;
+    attribute severity : SeverityLevel;
+    attribute locationReference : String;
+    attribute observation : String;
+    attribute evidence : String;
+    attribute recommendation : String;
+    attribute confidence : Confidence;
+  }
+
+  enum def SeverityLevel {
+    enum low;
+    enum medium;
+    enum high;
+    enum critical;
+  }
+
+  item def ScoreCard {
+    attribute clarityScore : Score;
+    attribute coherenceScore : Score;
+    attribute evidenceScore : Score;
+    attribute completenessScore : Score;
+    attribute originalityScore : Score;
+    attribute overallScore : Score;
+  }
+
+  item def CritiqueReport {
+    attribute reportId : String;
+    attribute summary : String;
+    attribute primaryFunctionStatement : String;
+    attribute totalFindings : FindingCount;
+    attribute generatedAt : String;
+    item scoreCard : ScoreCard;
+    item findings[0..*] : CritiqueFinding;
+  }
+
+  port def ArtifactInputPort {
+    in item artifact : WorkArtifact;
+  }
+
+  port def CriterionInputPort {
+    in item criterion[1..*] : EvaluationCriterion;
+  }
+
+  port def FindingPort {
+    out item finding[0..*] : CritiqueFinding;
+  }
+
+  port def ScorePort {
+    out item scoreCard : ScoreCard;
+  }
+
+  port def ReportOutputPort {
+    out item report : CritiqueReport;
+  }
+
+  part def ArtifactRepository {
+    port artifactIn : ArtifactInputPort;
+    port artifactOut {
+      out item artifact : WorkArtifact;
+    }
+
+    attribute storedArtifactCount : Integer;
+  }
+
+  part def CriterionCatalog {
+    port criteriaOut : CriterionInputPort;
+
+    item clarityCriterion : EvaluationCriterion {
+      attribute name = "Clarity";
+      attribute description = "Assesses whether the work communicates its intent, claims, and structure plainly.";
+      attribute weight = 25.0;
+      attribute passingScore = 75.0;
+    }
+
+    item coherenceCriterion : EvaluationCriterion {
+      attribute name = "Coherence";
+      attribute description = "Assesses logical flow, consistency, and relationship between sections.";
+      attribute weight = 20.0;
+      attribute passingScore = 75.0;
+    }
+
+    item evidenceCriterion : EvaluationCriterion {
+      attribute name = "Evidence";
+      attribute description = "Assesses support for claims, relevance of examples, and traceability to source material.";
+      attribute weight = 25.0;
+      attribute passingScore = 80.0;
+    }
+
+    item completenessCriterion : EvaluationCriterion {
+      attribute name = "Completeness";
+      attribute description = "Assesses whether the work satisfies its stated purpose and expected scope.";
+      attribute weight = 20.0;
+      attribute passingScore = 75.0;
+    }
+
+    item originalityCriterion : EvaluationCriterion {
+      attribute name = "Originality";
+      attribute description = "Assesses distinct contribution, synthesis, and avoidance of derivative reasoning.";
+      attribute weight = 10.0;
+      attribute passingScore = 70.0;
+    }
+  }
+
+  part def AnalysisEngine {
+    port artifactIn {
+      in item artifact : WorkArtifact;
+    }
+
+    port criteriaIn : CriterionInputPort;
+    port findingsOut : FindingPort;
+    port scoresOut : ScorePort;
+
+    attribute minimumConfidence : Confidence = 0.70;
+
+    action analyzeWork {
+      in item artifact : WorkArtifact;
+      in item criteria[1..*] : EvaluationCriterion;
+      out item findings[0..*] : CritiqueFinding;
+      out item scoreCard : ScoreCard;
+
+      action segmentArtifact;
+      action evaluateClarity;
+      action evaluateCoherence;
+      action evaluateEvidence;
+      action evaluateCompleteness;
+      action evaluateOriginality;
+      action calculateWeightedScore;
+      action rankFindings;
+
+      first start;
+      then segmentArtifact;
+      then evaluateClarity;
+      then evaluateCoherence;
+      then evaluateEvidence;
+      then evaluateCompleteness;
+      then evaluateOriginality;
+      then calculateWeightedScore;
+      then rankFindings;
+      then done;
+    }
+  }
+
+  part def ReportComposer {
+    port findingsIn {
+      in item finding[0..*] : CritiqueFinding;
+    }
+
+    port scoresIn {
+      in item scoreCard : ScoreCard;
+    }
+
+    port artifactIn {
+      in item artifact : WorkArtifact;
+    }
+
+    port reportOut : ReportOutputPort;
+
+    action composeReport {
+      in item artifact : WorkArtifact;
+      in item findings[0..*] : CritiqueFinding;
+      in item scoreCard : ScoreCard;
+      out item report : CritiqueReport;
+
+      action derivePrimaryFunctionStatement;
+      action summarizeStrengths;
+      action summarizeRisks;
+      action formatRecommendations;
+      action assembleCritiqueReport;
+
+      first start;
+      then derivePrimaryFunctionStatement;
+      then summarizeStrengths;
+      then summarizeRisks;
+      then formatRecommendations;
+      then assembleCritiqueReport;
+      then done;
+    }
+  }
+
+  part def ReviewController {
+    port artifactIn : ArtifactInputPort;
+    port reportOut : ReportOutputPort;
+
+    attribute currentStateName : String;
+
+    state reviewLifecycle {
+      state idle;
+      state artifactReceived;
+      state criteriaLoaded;
+      state analyzing;
+      state composing;
+      state reportReady;
+      state rejected;
+
+      entry; then idle;
+
+      transition idle_to_artifactReceived
+        first idle
+        accept artifactSubmitted
+        then artifactReceived;
+
+      transition artifactReceived_to_rejected
+        first artifactReceived
+        if artifact.words <= 0
+        then rejected;
+
+      transition artifactReceived_to_criteriaLoaded
+        first artifactReceived
+        if artifact.words > 0
+        then criteriaLoaded;
+
+      transition criteriaLoaded_to_analyzing
+        first criteriaLoaded
+        accept startAnalysis
+        then analyzing;
+
+      transition analyzing_to_composing
+        first analyzing
+        accept analysisComplete
+        then composing;
+
+      transition composing_to_reportReady
+        first composing
+        accept reportComposed
+        then reportReady;
+
+      transition reportReady_to_idle
+        first reportReady
+        accept newReviewRequested
+        then idle;
+
+      transition rejected_to_idle
+        first rejected
+        accept correctedArtifactSubmitted
+        then idle;
+    }
+  }
+
+  part def WorkCritiqueSystem {
+    doc
+    /*
+     * Primary function:
+     * The WorkCritiqueSystem receives a submitted work artifact, evaluates it against explicit critique criteria,
+     * identifies strengths and weaknesses with evidence, calculates quality scores, and produces a structured
+     * critique report that guides revision.
+     */
+
+    port artifactSubmission : ArtifactInputPort;
+    port critiqueDelivery : ReportOutputPort;
+
+    part repository : ArtifactRepository;
+    part catalog : CriterionCatalog;
+    part analyzer : AnalysisEngine;
+    part composer : ReportComposer;
+    part controller : ReviewController;
+
+    connect artifactSubmission to repository.artifactIn;
+    connect artifactSubmission to controller.artifactIn;
+    connect repository.artifactOut to analyzer.artifactIn;
+    connect repository.artifactOut to composer.artifactIn;
+    connect catalog.criteriaOut to analyzer.criteriaIn;
+    connect analyzer.findingsOut to composer.findingsIn;
+    connect analyzer.scoresOut to composer.scoresIn;
+    connect composer.reportOut to critiqueDelivery;
+    connect composer.reportOut to controller.reportOut;
+  }
+
+  requirement def CritiqueSystemRequirement {
+    subject system : WorkCritiqueSystem;
+  }
+
+  requirement primaryFunctionRequirement : CritiqueSystemRequirement {
+    doc
+    /*
+     * The system shall produce a high-level critique of a submitted work artifact by evaluating clarity,
+     * coherence, evidence, completeness, and originality, then returning a structured report with scores,
+     * findings, and revision recommendations.
+     */
+  }
+
+  requirement traceableEvidenceRequirement : CritiqueSystemRequirement {
+    doc
+    /*
+     * Each high or critical severity finding shall include a location reference, observation, evidence,
+     * recommendation, and confidence value.
+     */
+  }
+
+  requirement scoringRequirement : CritiqueSystemRequirement {
+    doc
+    /*
+     * The system shall calculate an overall score from weighted criterion scores using the criterion weights
+     * defined in the criterion catalog.
+     */
+  }
+
+  requirement rejectionRequirement : CritiqueSystemRequirement {
+    doc
+    /*
+     * The system shall reject an empty submitted work artifact before analysis begins.
+     */
+  }
+
+  requirement confidenceRequirement : CritiqueSystemRequirement {
+    doc
+    /*
+     * The system shall mark findings as suitable for report inclusion only when their confidence is greater
+     * than or equal to 0.70.
+     */
+  }
+
+  satisfy primaryFunctionRequirement by WorkCritiqueSystem;
+  satisfy traceableEvidenceRequirement by AnalysisEngine;
+  satisfy scoringRequirement by AnalysisEngine;
+  satisfy rejectionRequirement by ReviewController;
+  satisfy confidenceRequirement by AnalysisEngine;
+}

@@ -1,0 +1,746 @@
+package LinuxMCESmartHomeSystem {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    /* Units and value types */
+
+    attribute def Celsius :> ISQ::temperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Percent :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def Watts :> ISQ::power {
+        unit = SI::W;
+    }
+
+    attribute def Volts :> ISQ::electricPotential {
+        unit = SI::V;
+    }
+
+    attribute def Seconds :> ISQ::time {
+        unit = SI::s;
+    }
+
+    attribute def MegabitsPerSecond :> ScalarValues::Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def Lux :> ScalarValues::Real {
+        unit = "lx";
+    }
+
+    enum def SecurityMode {
+        enum off;
+        enum stay;
+        enum away;
+        enum alarm;
+    }
+
+    enum def DeviceHealth {
+        enum nominal;
+        enum degraded;
+        enum unreachable;
+        enum failed;
+    }
+
+    enum def MediaZoneState {
+        enum idle;
+        enum browsing;
+        enum playing;
+        enum paused;
+        enum stopped;
+    }
+
+    enum def LightingMode {
+        enum off;
+        enum scene;
+        enum manual;
+        enum scheduled;
+    }
+
+    enum def HVACMode {
+        enum off;
+        enum heat;
+        enum cool;
+        enum auto;
+        enum fanOnly;
+    }
+
+    /* Items */
+
+    item def AutomationCommand {
+        attribute commandId : String;
+        attribute targetDeviceId : String;
+        attribute requestedBy : String;
+        attribute issuedAt : Seconds;
+        attribute priority : Integer;
+    }
+
+    item def DeviceStatus {
+        attribute deviceId : String;
+        attribute health : DeviceHealth;
+        attribute lastHeartbeatAge : Seconds;
+        attribute powerDraw : Watts;
+    }
+
+    item def MediaStream {
+        attribute streamId : String;
+        attribute codec : String;
+        attribute bitrate : MegabitsPerSecond;
+        attribute encrypted : Boolean;
+    }
+
+    item def SensorReading {
+        attribute sourceId : String;
+        attribute measuredAt : Seconds;
+        attribute valid : Boolean;
+    }
+
+    item def TemperatureReading :> SensorReading {
+        attribute temperature : Celsius;
+    }
+
+    item def MotionReading :> SensorReading {
+        attribute motionDetected : Boolean;
+    }
+
+    item def LightReading :> SensorReading {
+        attribute illuminance : Lux;
+    }
+
+    item def SecurityEvent {
+        attribute eventId : String;
+        attribute zoneId : String;
+        attribute severity : Integer;
+        attribute message : String;
+    }
+
+    item def UserRequest {
+        attribute userId : String;
+        attribute requestedFunction : String;
+        attribute authenticated : Boolean;
+    }
+
+    /* Ports */
+
+    port def EthernetPort {
+        out item txFrames : Data;
+        in item rxFrames : Data;
+        attribute linkSpeed : MegabitsPerSecond;
+        attribute linkUp : Boolean;
+    }
+
+    port def WirelessPort {
+        out item txWireless : Data;
+        in item rxWireless : Data;
+        attribute signalQuality : Percent;
+        attribute encrypted : Boolean;
+    }
+
+    port def CommandPort {
+        in item commandIn : AutomationCommand;
+        out item statusOut : DeviceStatus;
+    }
+
+    port def SensorPort {
+        out item readingOut : SensorReading;
+        out item statusOut : DeviceStatus;
+    }
+
+    port def MediaPort {
+        out item mediaOut : MediaStream;
+        in item controlIn : AutomationCommand;
+    }
+
+    port def UserInterfacePort {
+        in item userRequest : UserRequest;
+        out item userFeedback : DeviceStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Volts;
+        out attribute consumedPower : Watts;
+    }
+
+    port def AlarmPort {
+        in item securityEvent : SecurityEvent;
+        out item alarmStatus : DeviceStatus;
+    }
+
+    /* Interfaces */
+
+    interface def IPNetworkInterface {
+        end host : EthernetPort;
+        end switch : EthernetPort;
+    }
+
+    interface def WirelessDeviceInterface {
+        end controller : WirelessPort;
+        end device : WirelessPort;
+    }
+
+    interface def CommandDispatchInterface {
+        end controller : CommandPort;
+        end endpoint : CommandPort;
+    }
+
+    interface def SensorTelemetryInterface {
+        end sensor : SensorPort;
+        end controller : SensorPort;
+    }
+
+    interface def MediaDistributionInterface {
+        end server : MediaPort;
+        end renderer : MediaPort;
+    }
+
+    interface def PowerDistributionInterface {
+        end supply : PowerPort;
+        end load : PowerPort;
+    }
+
+    /* Behaviors */
+
+    action def AuthenticateUser {
+        in item request : UserRequest;
+        out attribute accepted : Boolean;
+
+        action validateCredentials;
+        action assignUserRole;
+        action logAccessAttempt;
+
+        flow validateCredentials to assignUserRole;
+        flow assignUserRole to logAccessAttempt;
+    }
+
+    action def DispatchAutomationCommand {
+        in item request : UserRequest;
+        out item command : AutomationCommand;
+
+        action translateRequest;
+        action selectTargetDevice;
+        action assignPriority;
+        action publishCommand;
+
+        flow translateRequest to selectTargetDevice;
+        flow selectTargetDevice to assignPriority;
+        flow assignPriority to publishCommand;
+    }
+
+    action def AggregateSensorData {
+        in item rawReading : SensorReading;
+        out item normalizedReading : SensorReading;
+
+        action validateReading;
+        action normalizeUnits;
+        action updateContextModel;
+
+        flow validateReading to normalizeUnits;
+        flow normalizeUnits to updateContextModel;
+    }
+
+    action def ExecuteLightingScene {
+        in item command : AutomationCommand;
+
+        action computeSceneLevels;
+        action sendDimmerCommands;
+        action verifyLampFeedback;
+
+        flow computeSceneLevels to sendDimmerCommands;
+        flow sendDimmerCommands to verifyLampFeedback;
+    }
+
+    action def RouteMediaStream {
+        in item stream : MediaStream;
+
+        action selectMediaRenderer;
+        action reserveBandwidth;
+        action startPlaybackSession;
+        action monitorPlaybackHealth;
+
+        flow selectMediaRenderer to reserveBandwidth;
+        flow reserveBandwidth to startPlaybackSession;
+        flow startPlaybackSession to monitorPlaybackHealth;
+    }
+
+    action def HandleSecurityAlarm {
+        in item event : SecurityEvent;
+
+        action confirmZoneViolation;
+        action activateSirens;
+        action notifyUsers;
+        action recordEvent;
+
+        flow confirmZoneViolation to activateSirens;
+        flow activateSirens to notifyUsers;
+        flow notifyUsers to recordEvent;
+    }
+
+    state def LinuxMCEControllerState {
+        state booting;
+        state discoveringDevices;
+        state operational;
+        state degraded;
+        state emergencyMode;
+        state shuttingDown;
+
+        transition first booting;
+        transition bootComplete from booting to discoveringDevices;
+        transition discoveryComplete from discoveringDevices to operational;
+        transition deviceFailureDetected from operational to degraded;
+        transition redundancyRestored from degraded to operational;
+        transition securityAlarmRaised from operational to emergencyMode;
+        transition alarmCleared from emergencyMode to operational;
+        transition shutdownRequested from operational to shuttingDown;
+        transition degradedShutdownRequested from degraded to shuttingDown;
+    }
+
+    state def SecuritySubsystemState {
+        state disarmed;
+        state armedStay;
+        state armedAway;
+        state alarmActive;
+        state alarmAcknowledged;
+
+        transition first disarmed;
+        transition armStay from disarmed to armedStay;
+        transition armAway from disarmed to armedAway;
+        transition disarmFromStay from armedStay to disarmed;
+        transition disarmFromAway from armedAway to disarmed;
+        transition intrusionFromStay from armedStay to alarmActive;
+        transition intrusionFromAway from armedAway to alarmActive;
+        transition acknowledge from alarmActive to alarmAcknowledged;
+        transition reset from alarmAcknowledged to disarmed;
+    }
+
+    state def MediaZoneBehavior {
+        state idle;
+        state selectingMedia;
+        state buffering;
+        state playing;
+        state paused;
+        state stopped;
+
+        transition first idle;
+        transition browseRequested from idle to selectingMedia;
+        transition streamSelected from selectingMedia to buffering;
+        transition bufferReady from buffering to playing;
+        transition pauseRequested from playing to paused;
+        transition resumeRequested from paused to playing;
+        transition stopRequested from playing to stopped;
+        transition stopFromPause from paused to stopped;
+        transition resetToIdle from stopped to idle;
+    }
+
+    /* Parts */
+
+    part def LinuxMCECoreServer {
+        attribute hostName : String;
+        attribute controllerState : LinuxMCEControllerState;
+        attribute cpuLoad : Percent;
+        attribute memoryUtilization : Percent;
+        attribute storageUtilization : Percent;
+        attribute nominalPower : Watts = 120 [W];
+
+        port lan : EthernetPort {
+            attribute linkSpeed = 1000 [Mbit/s];
+        }
+
+        port automationBus : CommandPort;
+        port sensorIngest : SensorPort;
+        port mediaOutput : MediaPort;
+        port ui : UserInterfacePort;
+        port power : PowerPort;
+
+        perform action authenticate : AuthenticateUser;
+        perform action dispatch : DispatchAutomationCommand;
+        perform action aggregate : AggregateSensorData;
+        exhibit state controllerLifecycle : LinuxMCEControllerState;
+    }
+
+    part def NetworkSwitch {
+        attribute portCount : Integer;
+        attribute switchingCapacity : MegabitsPerSecond;
+        attribute health : DeviceHealth;
+
+        port uplink : EthernetPort {
+            attribute linkSpeed = 1000 [Mbit/s];
+        }
+
+        port devicePorts[1..24] : EthernetPort {
+            attribute linkSpeed = 1000 [Mbit/s];
+        }
+
+        port power : PowerPort;
+    }
+
+    part def WirelessAccessPoint {
+        attribute ssid : String;
+        attribute coverageQuality : Percent;
+        attribute clientCount : Integer;
+
+        port lan : EthernetPort;
+        port wireless : WirelessPort;
+        port power : PowerPort;
+    }
+
+    part def LightingController {
+        attribute mode : LightingMode;
+        attribute activeSceneName : String;
+        attribute averageDimLevel : Percent;
+        attribute health : DeviceHealth;
+
+        port command : CommandPort;
+        port wireless : WirelessPort;
+        port power : PowerPort;
+
+        perform action sceneExecution : ExecuteLightingScene;
+    }
+
+    part def SmartDimmer {
+        attribute deviceId : String;
+        attribute dimLevel : Percent;
+        attribute loadPower : Watts;
+        attribute health : DeviceHealth;
+
+        port command : CommandPort;
+        port power : PowerPort;
+    }
+
+    part def HVACController {
+        attribute mode : HVACMode;
+        attribute targetTemperature : Celsius;
+        attribute currentTemperature : Celsius;
+        attribute fanSpeed : Percent;
+        attribute health : DeviceHealth;
+
+        port command : CommandPort;
+        port temperatureInput : SensorPort;
+        port power : PowerPort;
+    }
+
+    part def ThermostatSensor {
+        attribute measuredTemperature : Celsius;
+        attribute batteryLevel : Percent;
+        attribute health : DeviceHealth;
+
+        port telemetry : SensorPort;
+        port wireless : WirelessPort;
+        port power : PowerPort;
+    }
+
+    part def MotionSensor {
+        attribute zoneId : String;
+        attribute motionDetected : Boolean;
+        attribute batteryLevel : Percent;
+        attribute health : DeviceHealth;
+
+        port telemetry : SensorPort;
+        port wireless : WirelessPort;
+        port power : PowerPort;
+    }
+
+    part def AmbientLightSensor {
+        attribute zoneId : String;
+        attribute illuminance : Lux;
+        attribute health : DeviceHealth;
+
+        port telemetry : SensorPort;
+        port wireless : WirelessPort;
+        port power : PowerPort;
+    }
+
+    part def SecurityPanel {
+        attribute mode : SecurityMode;
+        attribute armedZones : Integer;
+        attribute health : DeviceHealth;
+
+        port command : CommandPort;
+        port alarm : AlarmPort;
+        port sensorTelemetry : SensorPort;
+        port power : PowerPort;
+
+        perform action alarmHandling : HandleSecurityAlarm;
+        exhibit state securityLifecycle : SecuritySubsystemState;
+    }
+
+    part def DoorContactSensor {
+        attribute zoneId : String;
+        attribute open : Boolean;
+        attribute batteryLevel : Percent;
+        attribute health : DeviceHealth;
+
+        port telemetry : SensorPort;
+        port wireless : WirelessPort;
+        port power : PowerPort;
+    }
+
+    part def IPVideoCamera {
+        attribute cameraId : String;
+        attribute resolutionWidth : Integer;
+        attribute resolutionHeight : Integer;
+        attribute frameRate : ScalarValues::Real;
+        attribute health : DeviceHealth;
+
+        port lan : EthernetPort;
+        port telemetry : SensorPort;
+        port media : MediaPort;
+        port power : PowerPort;
+    }
+
+    part def MediaDirector {
+        attribute zoneName : String;
+        attribute playbackState : MediaZoneState;
+        attribute displayOn : Boolean;
+        attribute volumeLevel : Percent;
+        attribute health : DeviceHealth;
+
+        port lan : EthernetPort;
+        port mediaInput : MediaPort;
+        port command : CommandPort;
+        port power : PowerPort;
+
+        perform action mediaRouting : RouteMediaStream;
+        exhibit state zoneBehavior : MediaZoneBehavior;
+    }
+
+    part def TouchscreenConsole {
+        attribute location : String;
+        attribute screenBrightness : Percent;
+        attribute authenticatedSessionActive : Boolean;
+        attribute health : DeviceHealth;
+
+        port lan : EthernetPort;
+        port ui : UserInterfacePort;
+        port power : PowerPort;
+    }
+
+    part def MobileClient {
+        attribute userId : String;
+        attribute sessionAuthenticated : Boolean;
+        attribute signalQuality : Percent;
+
+        port wireless : WirelessPort;
+        port ui : UserInterfacePort;
+    }
+
+    part def PowerSupply {
+        attribute outputVoltage : Volts = 120 [V];
+        attribute availablePower : Watts = 2400 [W];
+
+        port outputs[1..32] : PowerPort;
+    }
+
+    /* System */
+
+    part def LinuxMCESmartHome {
+        doc /* 
+         * Primary function: provide a LinuxMCE-based residential automation platform
+         * that integrates media distribution, lighting, HVAC, security, sensing,
+         * device discovery, and user interaction through a central LinuxMCE core.
+         * The system coordinates user requests, sensor context, and scheduled
+         * policies to command home devices and report their status.
+         */
+
+        attribute systemName : String = "LinuxMCE Integrated Smart Home";
+        attribute supportedZones : Integer = 8;
+        attribute maximumDeviceHeartbeatAge : Seconds = 60 [s];
+        attribute minimumNetworkBandwidth : MegabitsPerSecond = 100 [Mbit/s];
+        attribute normalOperatingPower : Watts = 850 [W];
+
+        part core : LinuxMCECoreServer {
+            attribute hostName = "dcerouter";
+        }
+
+        part switch : NetworkSwitch {
+            attribute portCount = 24;
+            attribute switchingCapacity = 48000 [Mbit/s];
+        }
+
+        part accessPoint : WirelessAccessPoint {
+            attribute ssid = "LinuxMCE-Home";
+        }
+
+        part lightingController : LightingController;
+
+        part livingRoomDimmer : SmartDimmer {
+            attribute deviceId = "DIM-LR-001";
+            attribute loadPower = 180 [W];
+        }
+
+        part kitchenDimmer : SmartDimmer {
+            attribute deviceId = "DIM-KT-001";
+            attribute loadPower = 120 [W];
+        }
+
+        part hvac : HVACController {
+            attribute targetTemperature = 22 [degreeCelsius];
+        }
+
+        part thermostat : ThermostatSensor;
+
+        part livingRoomMotion : MotionSensor {
+            attribute zoneId = "LivingRoom";
+        }
+
+        part hallMotion : MotionSensor {
+            attribute zoneId = "Hall";
+        }
+
+        part ambientLight : AmbientLightSensor {
+            attribute zoneId = "LivingRoom";
+        }
+
+        part security : SecurityPanel;
+
+        part frontDoorContact : DoorContactSensor {
+            attribute zoneId = "FrontDoor";
+        }
+
+        part rearDoorContact : DoorContactSensor {
+            attribute zoneId = "RearDoor";
+        }
+
+        part frontCamera : IPVideoCamera {
+            attribute cameraId = "CAM-FRONT-001";
+            attribute resolutionWidth = 1920;
+            attribute resolutionHeight = 1080;
+        }
+
+        part livingRoomDirector : MediaDirector {
+            attribute zoneName = "Living Room";
+        }
+
+        part bedroomDirector : MediaDirector {
+            attribute zoneName = "Bedroom";
+        }
+
+        part kitchenConsole : TouchscreenConsole {
+            attribute location = "Kitchen";
+        }
+
+        part mobileApp : MobileClient {
+            attribute userId = "primaryResident";
+        }
+
+        part powerSupply : PowerSupply;
+
+        connection coreToSwitch : IPNetworkInterface connect core.lan to switch.uplink;
+        connection accessPointToSwitch : IPNetworkInterface connect accessPoint.lan to switch.devicePorts;
+        connection consoleToSwitch : IPNetworkInterface connect kitchenConsole.lan to switch.devicePorts;
+        connection cameraToSwitch : IPNetworkInterface connect frontCamera.lan to switch.devicePorts;
+        connection livingDirectorToSwitch : IPNetworkInterface connect livingRoomDirector.lan to switch.devicePorts;
+        connection bedroomDirectorToSwitch : IPNetworkInterface connect bedroomDirector.lan to switch.devicePorts;
+
+        connection mobileWireless : WirelessDeviceInterface connect accessPoint.wireless to mobileApp.wireless;
+        connection thermostatWireless : WirelessDeviceInterface connect accessPoint.wireless to thermostat.wireless;
+        connection motionWireless1 : WirelessDeviceInterface connect accessPoint.wireless to livingRoomMotion.wireless;
+        connection motionWireless2 : WirelessDeviceInterface connect accessPoint.wireless to hallMotion.wireless;
+        connection doorWireless1 : WirelessDeviceInterface connect accessPoint.wireless to frontDoorContact.wireless;
+        connection doorWireless2 : WirelessDeviceInterface connect accessPoint.wireless to rearDoorContact.wireless;
+        connection lightingWireless : WirelessDeviceInterface connect accessPoint.wireless to lightingController.wireless;
+
+        connection uiConsoleToCore connect kitchenConsole.ui to core.ui;
+        connection uiMobileToCore connect mobileApp.ui to core.ui;
+
+        connection coreToLighting connect core.automationBus to lightingController.command;
+        connection lightingToLivingDimmer connect lightingController.command to livingRoomDimmer.command;
+        connection lightingToKitchenDimmer connect lightingController.command to kitchenDimmer.command;
+        connection coreToHVAC connect core.automationBus to hvac.command;
+        connection coreToSecurity connect core.automationBus to security.command;
+        connection coreToLivingDirector connect core.automationBus to livingRoomDirector.command;
+        connection coreToBedroomDirector connect core.automationBus to bedroomDirector.command;
+
+        connection thermostatToCore : SensorTelemetryInterface connect thermostat.telemetry to core.sensorIngest;
+        connection thermostatToHVAC : SensorTelemetryInterface connect thermostat.telemetry to hvac.temperatureInput;
+        connection livingMotionToSecurity : SensorTelemetryInterface connect livingRoomMotion.telemetry to security.sensorTelemetry;
+        connection hallMotionToSecurity : SensorTelemetryInterface connect hallMotion.telemetry to security.sensorTelemetry;
+        connection frontDoorToSecurity : SensorTelemetryInterface connect frontDoorContact.telemetry to security.sensorTelemetry;
+        connection rearDoorToSecurity : SensorTelemetryInterface connect rearDoorContact.telemetry to security.sensorTelemetry;
+        connection ambientLightToCore : SensorTelemetryInterface connect ambientLight.telemetry to core.sensorIngest;
+        connection cameraTelemetryToCore : SensorTelemetryInterface connect frontCamera.telemetry to core.sensorIngest;
+
+        connection mediaToLivingRoom : MediaDistributionInterface connect core.mediaOutput to livingRoomDirector.mediaInput;
+        connection mediaToBedroom : MediaDistributionInterface connect core.mediaOutput to bedroomDirector.mediaInput;
+        connection cameraStreamToCore : MediaDistributionInterface connect frontCamera.media to core.mediaOutput;
+
+        connection corePower : PowerDistributionInterface connect powerSupply.outputs to core.power;
+        connection switchPower : PowerDistributionInterface connect powerSupply.outputs to switch.power;
+        connection accessPointPower : PowerDistributionInterface connect powerSupply.outputs to accessPoint.power;
+        connection lightingPower : PowerDistributionInterface connect powerSupply.outputs to lightingController.power;
+        connection livingDimmerPower : PowerDistributionInterface connect powerSupply.outputs to livingRoomDimmer.power;
+        connection kitchenDimmerPower : PowerDistributionInterface connect powerSupply.outputs to kitchenDimmer.power;
+        connection hvacPower : PowerDistributionInterface connect powerSupply.outputs to hvac.power;
+        connection securityPower : PowerDistributionInterface connect powerSupply.outputs to security.power;
+        connection cameraPower : PowerDistributionInterface connect powerSupply.outputs to frontCamera.power;
+        connection consolePower : PowerDistributionInterface connect powerSupply.outputs to kitchenConsole.power;
+        connection livingDirectorPower : PowerDistributionInterface connect powerSupply.outputs to livingRoomDirector.power;
+        connection bedroomDirectorPower : PowerDistributionInterface connect powerSupply.outputs to bedroomDirector.power;
+    }
+
+    /* Requirements */
+
+    requirement def HighLevelPrimaryFunction {
+        doc /* The system shall use a LinuxMCE core to coordinate home automation, media, security, HVAC, lighting, and user interfaces from a unified residential control platform. */
+    }
+
+    requirement def DeviceDiscoveryRequirement {
+        doc /* The LinuxMCE core shall discover and register compatible networked, wired, and wireless devices without manual database editing. */
+    }
+
+    requirement def AutomationLatencyRequirement {
+        doc /* The system shall dispatch a user automation command to the target subsystem within 2 seconds during nominal operation. */
+        attribute maximumDispatchLatency : Seconds = 2 [s];
+    }
+
+    requirement def MediaDistributionRequirement {
+        doc /* The system shall distribute at least two simultaneous media streams to independent media zones. */
+        attribute minimumConcurrentStreams : Integer = 2;
+        attribute minimumPerStreamBandwidth : MegabitsPerSecond = 20 [Mbit/s];
+    }
+
+    requirement def SecurityMonitoringRequirement {
+        doc /* The security subsystem shall raise an alarm event when an armed intrusion zone reports motion or door opening. */
+        attribute maximumAlarmActivationTime : Seconds = 1 [s];
+    }
+
+    requirement def HVACControlRequirement {
+        doc /* The HVAC controller shall maintain occupied-zone temperature within 1.5 degrees Celsius of the active setpoint. */
+        attribute allowedTemperatureError : Celsius = 1.5 [degreeCelsius];
+    }
+
+    requirement def LightingControlRequirement {
+        doc /* The lighting controller shall support named scenes and dimmer-level control for each controlled lighting zone. */
+        attribute minimumSceneCount : Integer = 8;
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The core automation service shall remain available for local control when external internet connectivity is unavailable. */
+        attribute localControlRequired : Boolean = true;
+    }
+
+    requirement def HealthMonitoringRequirement {
+        doc /* The system shall report degraded status when any required device misses heartbeat messages for more than 60 seconds. */
+        attribute maximumHeartbeatAge : Seconds = 60 [s];
+    }
+
+    requirement def PowerRequirement {
+        doc /* The installed power supply shall provide sufficient capacity for all continuously powered controllers, network devices, sensors, and media directors. */
+        attribute minimumAvailablePower : Watts = 1200 [W];
+    }
+
+    satisfy HighLevelPrimaryFunction by LinuxMCESmartHome;
+    satisfy DeviceDiscoveryRequirement by LinuxMCECoreServer;
+    satisfy AutomationLatencyRequirement by LinuxMCECoreServer;
+    satisfy MediaDistributionRequirement by LinuxMCECoreServer;
+    satisfy SecurityMonitoringRequirement by SecurityPanel;
+    satisfy HVACControlRequirement by HVACController;
+    satisfy LightingControlRequirement by LightingController;
+    satisfy AvailabilityRequirement by LinuxMCECoreServer;
+    satisfy HealthMonitoringRequirement by LinuxMCECoreServer;
+    satisfy PowerRequirement by PowerSupply;
+}

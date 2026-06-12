@@ -1,0 +1,1043 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-wbdmiaan
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb66a-e6c7-7792-8665-d760562b5b54
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Automation bias and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomationBiasMitigationSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Probability : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def ConfidenceScore : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def TrustScore : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def RiskScore : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def AlertPriority : Integer {
+    :>> range = "1..5";
+  }
+
+  attribute def DecisionLatency : Real {
+    unit = s;
+  }
+
+  attribute def WorkloadIndex : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def Count : Integer;
+
+  enum def DecisionDisposition {
+    enum acceptAutomation;
+    enum rejectAutomation;
+    enum requestReview;
+    enum deferDecision;
+  }
+
+  enum def BiasStateKind {
+    enum calibratedTrust;
+    enum overRelianceSuspected;
+    enum automationBiasDetected;
+    enum mitigationActive;
+    enum humanReviewRequired;
+  }
+
+  item def SensorObservation {
+    attribute sourceId : String;
+    attribute timestamp : Real { unit = s; }
+    attribute observedValue : Real;
+    attribute observationConfidence : ConfidenceScore;
+  }
+
+  item def AutomationRecommendation {
+    attribute recommendationId : String;
+    attribute recommendedAction : String;
+    attribute rationaleSummary : String;
+    attribute modelConfidence : ConfidenceScore;
+    attribute estimatedOperationalRisk : RiskScore;
+    attribute issuedAt : Real { unit = s; }
+  }
+
+  item def HumanDecision {
+    attribute operatorId : String;
+    attribute selectedAction : String;
+    attribute disposition : DecisionDisposition;
+    attribute responseTime : DecisionLatency;
+    attribute selfReportedCertainty : ConfidenceScore;
+    attribute madeAt : Real { unit = s; }
+  }
+
+  item def ContextEvidence {
+    attribute evidenceId : String;
+    attribute evidenceSummary : String;
+    attribute evidenceConfidence : ConfidenceScore;
+    attribute contradictsAutomation : Boolean;
+  }
+
+  item def BiasAssessment {
+    attribute assessmentId : String;
+    attribute currentBiasState : BiasStateKind;
+    attribute automationTrust : TrustScore;
+    attribute disagreementRate : Probability;
+    attribute contradictionIgnoredRate : Probability;
+    attribute rapidAcceptanceRate : Probability;
+    attribute mitigationRisk : RiskScore;
+    attribute assessedAt : Real { unit = s; }
+  }
+
+  item def MitigationPrompt {
+    attribute promptId : String;
+    attribute promptText : String;
+    attribute priority : AlertPriority;
+    attribute requiresCounterEvidenceReview : Boolean;
+    attribute requiresRationaleEntry : Boolean;
+    attribute issuedAt : Real { unit = s; }
+  }
+
+  item def AuditRecord {
+    attribute recordId : String;
+    attribute operatorId : String;
+    attribute recommendationId : String;
+    attribute decisionDisposition : DecisionDisposition;
+    attribute detectedBiasState : BiasStateKind;
+    attribute mitigationApplied : Boolean;
+    attribute recordedAt : Real { unit = s; }
+  }
+
+  port def ObservationInPort {
+    in item observation : SensorObservation;
+  }
+
+  port def RecommendationInPort {
+    in item recommendation : AutomationRecommendation;
+  }
+
+  port def EvidenceInPort {
+    in item evidence : ContextEvidence;
+  }
+
+  port def DecisionInPort {
+    in item decision : HumanDecision;
+  }
+
+  port def AssessmentOutPort {
+    out item assessment : BiasAssessment;
+  }
+
+  port def PromptOutPort {
+    out item prompt : MitigationPrompt;
+  }
+
+  port def AuditOutPort {
+    out item record : AuditRecord;
+  }
+
+  part def AutomationBiasMitigationSystem {
+    doc /* Primary function: monitor human interaction with automated recommendations, detect patterns of overreliance when contradictory evidence exists, and intervene with review prompts that improve calibrated trust and decision accountability. */
+
+    attribute assessmentWindowDuration : Real { unit = s; default = 900.0; }
+    attribute rapidAcceptanceThreshold : DecisionLatency = 5.0;
+    attribute disagreementRateThreshold : Probability = 0.15;
+    attribute contradictionIgnoredThreshold : Probability = 0.25;
+    attribute highAutomationTrustThreshold : TrustScore = 0.82;
+    attribute mitigationActivationRiskThreshold : RiskScore = 0.65;
+
+    port observationInput : ObservationInPort;
+    port recommendationInput : RecommendationInPort;
+    port evidenceInput : EvidenceInPort;
+    port decisionInput : DecisionInPort;
+    port assessmentOutput : AssessmentOutPort;
+    port promptOutput : PromptOutPort;
+    port auditOutput : AuditOutPort;
+
+    part ingestion : DataIngestionModule;
+    part evidenceCorrelator : EvidenceCorrelationModule;
+    part behaviorAnalyzer : OperatorBehaviorAnalyzer;
+    part biasDetector : BiasDetectionEngine;
+    part mitigationManager : MitigationManager;
+    part auditLogger : AuditLogger;
+    part operatorInterface : OperatorInterface;
+
+    connect observationInput to ingestion.observationInput;
+    connect recommendationInput to ingestion.recommendationInput;
+    connect evidenceInput to ingestion.evidenceInput;
+    connect decisionInput to behaviorAnalyzer.decisionInput;
+
+    connect ingestion.recommendationOutput to evidenceCorrelator.recommendationInput;
+    connect ingestion.evidenceOutput to evidenceCorrelator.evidenceInput;
+    connect evidenceCorrelator.correlatedEvidenceOutput to biasDetector.evidenceInput;
+
+    connect ingestion.recommendationOutput to behaviorAnalyzer.recommendationInput;
+    connect behaviorAnalyzer.behaviorMetricsOutput to biasDetector.behaviorMetricsInput;
+
+    connect biasDetector.assessmentOutput to assessmentOutput;
+    connect biasDetector.assessmentOutput to mitigationManager.assessmentInput;
+    connect mitigationManager.promptOutput to promptOutput;
+    connect mitigationManager.promptOutput to operatorInterface.promptInput;
+
+    connect behaviorAnalyzer.decisionOutput to auditLogger.decisionInput;
+    connect biasDetector.assessmentOutput to auditLogger.assessmentInput;
+    connect mitigationManager.promptOutput to auditLogger.promptInput;
+    connect auditLogger.auditOutput to auditOutput;
+
+    perform action monitorAndMitigateAutomationBias;
+  }
+
+  part def DataIngestionModule {
+    port observationInput : ObservationInPort;
+    port recommendationInput : RecommendationInPort;
+    port evidenceInput : EvidenceInPort;
+    port recommendationOutput : RecommendationInPort;
+    port evidenceOutput : EvidenceInPort;
+
+    attribute observationsReceived : Count;
+    attribute recommendationsReceived : Count;
+    attribute evidenceItemsReceived : Count;
+
+    action validateInputs {
+      in item rawObservation : SensorObservation;
+      in item rawRecommendation : AutomationRecommendation;
+      in item rawEvidence : ContextEvidence;
+      out item validatedRecommendation : AutomationRecommendation;
+      out item validatedEvidence : ContextEvidence;
+    }
+  }
+
+  part def EvidenceCorrelationModule {
+    port recommendationInput : RecommendationInPort;
+    port evidenceInput : EvidenceInPort;
+    port correlatedEvidenceOutput : EvidenceInPort;
+
+    attribute contradictoryEvidenceCount : Count;
+    attribute supportingEvidenceCount : Count;
+    attribute minimumEvidenceConfidence : ConfidenceScore = 0.60;
+
+    action correlateEvidence {
+      in item recommendation : AutomationRecommendation;
+      in item evidence : ContextEvidence;
+      out item correlatedEvidence : ContextEvidence;
+    }
+  }
+
+  item def OperatorBehaviorMetrics {
+    attribute operatorId : String;
+    attribute acceptedRecommendations : Count;
+    attribute rejectedRecommendations : Count;
+    attribute reviewedContradictions : Count;
+    attribute ignoredContradictions : Count;
+    attribute rapidAcceptances : Count;
+    attribute averageDecisionLatency : DecisionLatency;
+    attribute workload : WorkloadIndex;
+  }
+
+  port def BehaviorMetricsOutPort {
+    out item metrics : OperatorBehaviorMetrics;
+  }
+
+  port def BehaviorMetricsInPort {
+    in item metrics : OperatorBehaviorMetrics;
+  }
+
+  part def OperatorBehaviorAnalyzer {
+    port recommendationInput : RecommendationInPort;
+    port decisionInput : DecisionInPort;
+    port behaviorMetricsOutput : BehaviorMetricsOutPort;
+    port decisionOutput : DecisionInPort;
+
+    attribute rapidAcceptanceThreshold : DecisionLatency = 5.0;
+    attribute currentOperatorTrustEstimate : TrustScore;
+    attribute currentWorkloadEstimate : WorkloadIndex;
+
+    action computeBehaviorMetrics {
+      in item recommendation : AutomationRecommendation;
+      in item decision : HumanDecision;
+      out item metrics : OperatorBehaviorMetrics;
+    }
+  }
+
+  part def BiasDetectionEngine {
+    port evidenceInput : EvidenceInPort;
+    port behaviorMetricsInput : BehaviorMetricsInPort;
+    port assessmentOutput : AssessmentOutPort;
+
+    attribute rapidAcceptanceWeight : Real = 0.30;
+    attribute contradictionIgnoredWeight : Real = 0.40;
+    attribute highTrustWeight : Real = 0.20;
+    attribute highWorkloadWeight : Real = 0.10;
+    attribute activeBiasState : BiasStateKind = BiasStateKind::calibratedTrust;
+
+    action assessAutomationBias {
+      in item evidence : ContextEvidence;
+      in item metrics : OperatorBehaviorMetrics;
+      out item assessment : BiasAssessment;
+    }
+
+    state biasMonitoringState {
+      entry action initializeMonitoring;
+      state calibratedTrust;
+      state overRelianceSuspected;
+      state automationBiasDetected;
+      state mitigationActive;
+      state humanReviewRequired;
+
+      transition first calibratedTrust;
+
+      transition calibratedTrust_to_overRelianceSuspected
+        first calibratedTrust
+        then overRelianceSuspected
+        accept event metricsUpdated
+        if behaviorMetricsInput.metrics.rapidAcceptances > 3;
+
+      transition overRelianceSuspected_to_automationBiasDetected
+        first overRelianceSuspected
+        then automationBiasDetected
+        accept event contradictoryEvidenceIgnored
+        if evidenceInput.evidence.contradictsAutomation == true;
+
+      transition automationBiasDetected_to_mitigationActive
+        first automationBiasDetected
+        then mitigationActive
+        accept event assessmentPublished;
+
+      transition mitigationActive_to_humanReviewRequired
+        first mitigationActive
+        then humanReviewRequired
+        accept event highRiskRecommendation
+        if assessmentOutput.assessment.mitigationRisk >= 0.85;
+
+      transition mitigationActive_to_calibratedTrust
+        first mitigationActive
+        then calibratedTrust
+        accept event correctedDecisionPattern
+        if assessmentOutput.assessment.automationTrust < 0.70;
+
+      transition humanReviewRequired_to_calibratedTrust
+        first humanReviewRequired
+        then calibratedTrust
+        accept event supervisorReviewCompleted;
+    }
+  }
+
+  part def MitigationManager {
+    port assessmentInput : AssessmentOutPort;
+    port promptOutput : PromptOutPort;
+
+    attribute lowPriorityRiskThreshold : RiskScore = 0.45;
+    attribute mediumPriorityRiskThreshold : RiskScore = 0.65;
+    attribute highPriorityRiskThreshold : RiskScore = 0.85;
+
+    action generateMitigationPrompt {
+      in item assessment : BiasAssessment;
+      out item prompt : MitigationPrompt;
+    }
+
+    state mitigationState {
+      state idle;
+      state advisoryPromptIssued;
+      state counterEvidenceReviewRequired;
+      state supervisorEscalationRequired;
+
+      transition first idle;
+
+      transition idle_to_advisoryPromptIssued
+        first idle
+        then advisoryPromptIssued
+        accept event biasAssessmentReceived
+        if assessmentInput.assessment.mitigationRisk >= 0.45;
+
+      transition advisoryPromptIssued_to_counterEvidenceReviewRequired
+        first advisoryPromptIssued
+        then counterEvidenceReviewRequired
+        accept event contradictionPresent
+        if assessmentInput.assessment.contradictionIgnoredRate >= 0.25;
+
+      transition counterEvidenceReviewRequired_to_supervisorEscalationRequired
+        first counterEvidenceReviewRequired
+        then supervisorEscalationRequired
+        accept event severeBiasRisk
+        if assessmentInput.assessment.mitigationRisk >= 0.85;
+
+      transition advisoryPromptIssued_to_idle
+        first advisoryPromptIssued
+        then idle
+        accept event operatorRationaleSubmitted;
+
+      transition counterEvidenceReviewRequired_to_idle
+        first counterEvidenceReviewRequired
+        then idle
+        accept event counterEvidenceReviewed;
+
+      transition supervisorEscalationRequired_to_idle
+        first supervisorEscalationRequired
+        then idle
+        accept event supervisorDecisionLogged;
+    }
+  }
+
+  part def OperatorInterface {
+    port promptInput : PromptOutPort;
+
+    attribute visiblePromptCount : Count;
+    attribute maximumPromptLatency : DecisionLatency = 2.0;
+
+    action displayPrompt {
+      in item prompt : MitigationPrompt;
+    }
+
+    action collectRationale {
+      in item decision : HumanDecision;
+      out item rationaleEvidence : ContextEvidence;
+    }
+  }
+
+  part def AuditLogger {
+    port decisionInput : DecisionInPort;
+    port assessmentInput : AssessmentOutPort;
+    port promptInput : PromptOutPort;
+    port auditOutput : AuditOutPort;
+
+    attribute retainedRecordCount : Count;
+    attribute retentionDuration : Real { unit = s; default = 31536000.0; }
+
+    action writeAuditRecord {
+      in item decision : HumanDecision;
+      in item assessment : BiasAssessment;
+      in item prompt : MitigationPrompt;
+      out item record : AuditRecord;
+    }
+  }
+
+  action def monitorAndMitigateAutomationBias {
+    in item observation : SensorObservation;
+    in item recommendation : AutomationRecommendation;
+    in item evidence : ContextEvidence;
+    in item decision : HumanDecision;
+    out item assessment : BiasAssessment;
+    out item prompt : MitigationPrompt;
+    out item auditRecord : AuditRecord;
+
+    first start;
+    then validateOperationalInputs;
+    then correlateContradictoryEvidence;
+    then analyzeOperatorBehavior;
+    then assessBiasRisk;
+    then decideMitigation;
+    then logDecisionContext;
+    then done;
+
+    action start;
+    action validateOperationalInputs;
+    action correlateContradictoryEvidence;
+    action analyzeOperatorBehavior;
+    action assessBiasRisk;
+    action decideMitigation;
+    action logDecisionContext;
+    action done;
+  }
+
+  requirement def DetectAutomationBiasRequirement {
+    doc /* The system shall detect probable automation bias when an operator rapidly accepts automated recommendations while ignoring contradictory evidence within the assessment window. */
+    attribute maximumDetectionLatency : DecisionLatency = 10.0;
+    attribute minimumDetectionProbability : Probability = 0.90;
+  }
+
+  requirement def CalibratedTrustRequirement {
+    doc /* The system shall maintain an operator automation trust estimate and classify overreliance when the estimate exceeds the configured high-trust threshold during conflicting evidence conditions. */
+    attribute highTrustThreshold : TrustScore = 0.82;
+  }
+
+  requirement def MitigationPromptRequirement {
+    doc /* The system shall issue a mitigation prompt requiring rationale entry and counter-evidence review when automation bias risk exceeds the activation threshold. */
+    attribute promptIssueLatency : DecisionLatency = 2.0;
+    attribute activationThreshold : RiskScore = 0.65;
+  }
+
+  requirement def AuditabilityRequirement {
+    doc /* The system shall retain recommendation, decision, bias assessment, mitigation prompt, and operator response records for later safety review. */
+    attribute minimumRetentionDuration : Real { unit = s; default = 31536000.0; }
+  }
+
+  requirement def HumanAuthorityRequirement {
+    doc /* The system shall preserve human decision authority by advising, delaying, or escalating decisions without directly executing operational actions. */
+    attribute automatedExecutionAllowed : Boolean = false;
+  }
+
+  requirement def HighRiskEscalationRequirement {
+    doc /* The system shall require supervisor review when mitigation risk is at or above the high-risk threshold. */
+    attribute highRiskThreshold : RiskScore = 0.85;
+  }
+
+  satisfy DetectAutomationBiasRequirement by AutomationBiasMitigationSystem::biasDetector;
+  satisfy CalibratedTrustRequirement by AutomationBiasMitigationSystem::behaviorAnalyzer;
+  satisfy MitigationPromptRequirement by AutomationBiasMitigationSystem::mitigationManager;
+  satisfy AuditabilityRequirement by AutomationBiasMitigationSystem::auditLogger;
+  satisfy HumanAuthorityRequirement by AutomationBiasMitigationSystem;
+  satisfy HighRiskEscalationRequirement by AutomationBiasMitigationSystem::mitigationManager;
+
+  constraint def BiasRiskComputation {
+    in rapidAcceptanceRate : Probability;
+    in contradictionIgnoredRate : Probability;
+    in automationTrust : TrustScore;
+    in workload : WorkloadIndex;
+    out mitigationRisk : RiskScore;
+
+    mitigationRisk =
+      (0.30 * rapidAcceptanceRate) +
+      (0.40 * contradictionIgnoredRate) +
+      (0.20 * automationTrust) +
+      (0.10 * workload);
+  }
+
+  constraint def PromptPrioritySelection {
+    in mitigationRisk : RiskScore;
+    out priority : AlertPriority;
+
+    priority = if mitigationRisk >= 0.85 then 5
+               else if mitigationRisk >= 0.65 then 4
+               else if mitigationRisk >= 0.45 then 3
+               else if mitigationRisk >= 0.25 then 2
+               else 1;
+  }
+
+  part systemContext {
+    part automationBiasMitigationSystem : AutomationBiasMitigationSystem;
+  }
+}
+tokens used
+5,062
+package AutomationBiasMitigationSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Probability : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def ConfidenceScore : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def TrustScore : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def RiskScore : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def AlertPriority : Integer {
+    :>> range = "1..5";
+  }
+
+  attribute def DecisionLatency : Real {
+    unit = s;
+  }
+
+  attribute def WorkloadIndex : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def Count : Integer;
+
+  enum def DecisionDisposition {
+    enum acceptAutomation;
+    enum rejectAutomation;
+    enum requestReview;
+    enum deferDecision;
+  }
+
+  enum def BiasStateKind {
+    enum calibratedTrust;
+    enum overRelianceSuspected;
+    enum automationBiasDetected;
+    enum mitigationActive;
+    enum humanReviewRequired;
+  }
+
+  item def SensorObservation {
+    attribute sourceId : String;
+    attribute timestamp : Real { unit = s; }
+    attribute observedValue : Real;
+    attribute observationConfidence : ConfidenceScore;
+  }
+
+  item def AutomationRecommendation {
+    attribute recommendationId : String;
+    attribute recommendedAction : String;
+    attribute rationaleSummary : String;
+    attribute modelConfidence : ConfidenceScore;
+    attribute estimatedOperationalRisk : RiskScore;
+    attribute issuedAt : Real { unit = s; }
+  }
+
+  item def HumanDecision {
+    attribute operatorId : String;
+    attribute selectedAction : String;
+    attribute disposition : DecisionDisposition;
+    attribute responseTime : DecisionLatency;
+    attribute selfReportedCertainty : ConfidenceScore;
+    attribute madeAt : Real { unit = s; }
+  }
+
+  item def ContextEvidence {
+    attribute evidenceId : String;
+    attribute evidenceSummary : String;
+    attribute evidenceConfidence : ConfidenceScore;
+    attribute contradictsAutomation : Boolean;
+  }
+
+  item def BiasAssessment {
+    attribute assessmentId : String;
+    attribute currentBiasState : BiasStateKind;
+    attribute automationTrust : TrustScore;
+    attribute disagreementRate : Probability;
+    attribute contradictionIgnoredRate : Probability;
+    attribute rapidAcceptanceRate : Probability;
+    attribute mitigationRisk : RiskScore;
+    attribute assessedAt : Real { unit = s; }
+  }
+
+  item def MitigationPrompt {
+    attribute promptId : String;
+    attribute promptText : String;
+    attribute priority : AlertPriority;
+    attribute requiresCounterEvidenceReview : Boolean;
+    attribute requiresRationaleEntry : Boolean;
+    attribute issuedAt : Real { unit = s; }
+  }
+
+  item def AuditRecord {
+    attribute recordId : String;
+    attribute operatorId : String;
+    attribute recommendationId : String;
+    attribute decisionDisposition : DecisionDisposition;
+    attribute detectedBiasState : BiasStateKind;
+    attribute mitigationApplied : Boolean;
+    attribute recordedAt : Real { unit = s; }
+  }
+
+  port def ObservationInPort {
+    in item observation : SensorObservation;
+  }
+
+  port def RecommendationInPort {
+    in item recommendation : AutomationRecommendation;
+  }
+
+  port def EvidenceInPort {
+    in item evidence : ContextEvidence;
+  }
+
+  port def DecisionInPort {
+    in item decision : HumanDecision;
+  }
+
+  port def AssessmentOutPort {
+    out item assessment : BiasAssessment;
+  }
+
+  port def PromptOutPort {
+    out item prompt : MitigationPrompt;
+  }
+
+  port def AuditOutPort {
+    out item record : AuditRecord;
+  }
+
+  part def AutomationBiasMitigationSystem {
+    doc /* Primary function: monitor human interaction with automated recommendations, detect patterns of overreliance when contradictory evidence exists, and intervene with review prompts that improve calibrated trust and decision accountability. */
+
+    attribute assessmentWindowDuration : Real { unit = s; default = 900.0; }
+    attribute rapidAcceptanceThreshold : DecisionLatency = 5.0;
+    attribute disagreementRateThreshold : Probability = 0.15;
+    attribute contradictionIgnoredThreshold : Probability = 0.25;
+    attribute highAutomationTrustThreshold : TrustScore = 0.82;
+    attribute mitigationActivationRiskThreshold : RiskScore = 0.65;
+
+    port observationInput : ObservationInPort;
+    port recommendationInput : RecommendationInPort;
+    port evidenceInput : EvidenceInPort;
+    port decisionInput : DecisionInPort;
+    port assessmentOutput : AssessmentOutPort;
+    port promptOutput : PromptOutPort;
+    port auditOutput : AuditOutPort;
+
+    part ingestion : DataIngestionModule;
+    part evidenceCorrelator : EvidenceCorrelationModule;
+    part behaviorAnalyzer : OperatorBehaviorAnalyzer;
+    part biasDetector : BiasDetectionEngine;
+    part mitigationManager : MitigationManager;
+    part auditLogger : AuditLogger;
+    part operatorInterface : OperatorInterface;
+
+    connect observationInput to ingestion.observationInput;
+    connect recommendationInput to ingestion.recommendationInput;
+    connect evidenceInput to ingestion.evidenceInput;
+    connect decisionInput to behaviorAnalyzer.decisionInput;
+
+    connect ingestion.recommendationOutput to evidenceCorrelator.recommendationInput;
+    connect ingestion.evidenceOutput to evidenceCorrelator.evidenceInput;
+    connect evidenceCorrelator.correlatedEvidenceOutput to biasDetector.evidenceInput;
+
+    connect ingestion.recommendationOutput to behaviorAnalyzer.recommendationInput;
+    connect behaviorAnalyzer.behaviorMetricsOutput to biasDetector.behaviorMetricsInput;
+
+    connect biasDetector.assessmentOutput to assessmentOutput;
+    connect biasDetector.assessmentOutput to mitigationManager.assessmentInput;
+    connect mitigationManager.promptOutput to promptOutput;
+    connect mitigationManager.promptOutput to operatorInterface.promptInput;
+
+    connect behaviorAnalyzer.decisionOutput to auditLogger.decisionInput;
+    connect biasDetector.assessmentOutput to auditLogger.assessmentInput;
+    connect mitigationManager.promptOutput to auditLogger.promptInput;
+    connect auditLogger.auditOutput to auditOutput;
+
+    perform action monitorAndMitigateAutomationBias;
+  }
+
+  part def DataIngestionModule {
+    port observationInput : ObservationInPort;
+    port recommendationInput : RecommendationInPort;
+    port evidenceInput : EvidenceInPort;
+    port recommendationOutput : RecommendationInPort;
+    port evidenceOutput : EvidenceInPort;
+
+    attribute observationsReceived : Count;
+    attribute recommendationsReceived : Count;
+    attribute evidenceItemsReceived : Count;
+
+    action validateInputs {
+      in item rawObservation : SensorObservation;
+      in item rawRecommendation : AutomationRecommendation;
+      in item rawEvidence : ContextEvidence;
+      out item validatedRecommendation : AutomationRecommendation;
+      out item validatedEvidence : ContextEvidence;
+    }
+  }
+
+  part def EvidenceCorrelationModule {
+    port recommendationInput : RecommendationInPort;
+    port evidenceInput : EvidenceInPort;
+    port correlatedEvidenceOutput : EvidenceInPort;
+
+    attribute contradictoryEvidenceCount : Count;
+    attribute supportingEvidenceCount : Count;
+    attribute minimumEvidenceConfidence : ConfidenceScore = 0.60;
+
+    action correlateEvidence {
+      in item recommendation : AutomationRecommendation;
+      in item evidence : ContextEvidence;
+      out item correlatedEvidence : ContextEvidence;
+    }
+  }
+
+  item def OperatorBehaviorMetrics {
+    attribute operatorId : String;
+    attribute acceptedRecommendations : Count;
+    attribute rejectedRecommendations : Count;
+    attribute reviewedContradictions : Count;
+    attribute ignoredContradictions : Count;
+    attribute rapidAcceptances : Count;
+    attribute averageDecisionLatency : DecisionLatency;
+    attribute workload : WorkloadIndex;
+  }
+
+  port def BehaviorMetricsOutPort {
+    out item metrics : OperatorBehaviorMetrics;
+  }
+
+  port def BehaviorMetricsInPort {
+    in item metrics : OperatorBehaviorMetrics;
+  }
+
+  part def OperatorBehaviorAnalyzer {
+    port recommendationInput : RecommendationInPort;
+    port decisionInput : DecisionInPort;
+    port behaviorMetricsOutput : BehaviorMetricsOutPort;
+    port decisionOutput : DecisionInPort;
+
+    attribute rapidAcceptanceThreshold : DecisionLatency = 5.0;
+    attribute currentOperatorTrustEstimate : TrustScore;
+    attribute currentWorkloadEstimate : WorkloadIndex;
+
+    action computeBehaviorMetrics {
+      in item recommendation : AutomationRecommendation;
+      in item decision : HumanDecision;
+      out item metrics : OperatorBehaviorMetrics;
+    }
+  }
+
+  part def BiasDetectionEngine {
+    port evidenceInput : EvidenceInPort;
+    port behaviorMetricsInput : BehaviorMetricsInPort;
+    port assessmentOutput : AssessmentOutPort;
+
+    attribute rapidAcceptanceWeight : Real = 0.30;
+    attribute contradictionIgnoredWeight : Real = 0.40;
+    attribute highTrustWeight : Real = 0.20;
+    attribute highWorkloadWeight : Real = 0.10;
+    attribute activeBiasState : BiasStateKind = BiasStateKind::calibratedTrust;
+
+    action assessAutomationBias {
+      in item evidence : ContextEvidence;
+      in item metrics : OperatorBehaviorMetrics;
+      out item assessment : BiasAssessment;
+    }
+
+    state biasMonitoringState {
+      entry action initializeMonitoring;
+      state calibratedTrust;
+      state overRelianceSuspected;
+      state automationBiasDetected;
+      state mitigationActive;
+      state humanReviewRequired;
+
+      transition first calibratedTrust;
+
+      transition calibratedTrust_to_overRelianceSuspected
+        first calibratedTrust
+        then overRelianceSuspected
+        accept event metricsUpdated
+        if behaviorMetricsInput.metrics.rapidAcceptances > 3;
+
+      transition overRelianceSuspected_to_automationBiasDetected
+        first overRelianceSuspected
+        then automationBiasDetected
+        accept event contradictoryEvidenceIgnored
+        if evidenceInput.evidence.contradictsAutomation == true;
+
+      transition automationBiasDetected_to_mitigationActive
+        first automationBiasDetected
+        then mitigationActive
+        accept event assessmentPublished;
+
+      transition mitigationActive_to_humanReviewRequired
+        first mitigationActive
+        then humanReviewRequired
+        accept event highRiskRecommendation
+        if assessmentOutput.assessment.mitigationRisk >= 0.85;
+
+      transition mitigationActive_to_calibratedTrust
+        first mitigationActive
+        then calibratedTrust
+        accept event correctedDecisionPattern
+        if assessmentOutput.assessment.automationTrust < 0.70;
+
+      transition humanReviewRequired_to_calibratedTrust
+        first humanReviewRequired
+        then calibratedTrust
+        accept event supervisorReviewCompleted;
+    }
+  }
+
+  part def MitigationManager {
+    port assessmentInput : AssessmentOutPort;
+    port promptOutput : PromptOutPort;
+
+    attribute lowPriorityRiskThreshold : RiskScore = 0.45;
+    attribute mediumPriorityRiskThreshold : RiskScore = 0.65;
+    attribute highPriorityRiskThreshold : RiskScore = 0.85;
+
+    action generateMitigationPrompt {
+      in item assessment : BiasAssessment;
+      out item prompt : MitigationPrompt;
+    }
+
+    state mitigationState {
+      state idle;
+      state advisoryPromptIssued;
+      state counterEvidenceReviewRequired;
+      state supervisorEscalationRequired;
+
+      transition first idle;
+
+      transition idle_to_advisoryPromptIssued
+        first idle
+        then advisoryPromptIssued
+        accept event biasAssessmentReceived
+        if assessmentInput.assessment.mitigationRisk >= 0.45;
+
+      transition advisoryPromptIssued_to_counterEvidenceReviewRequired
+        first advisoryPromptIssued
+        then counterEvidenceReviewRequired
+        accept event contradictionPresent
+        if assessmentInput.assessment.contradictionIgnoredRate >= 0.25;
+
+      transition counterEvidenceReviewRequired_to_supervisorEscalationRequired
+        first counterEvidenceReviewRequired
+        then supervisorEscalationRequired
+        accept event severeBiasRisk
+        if assessmentInput.assessment.mitigationRisk >= 0.85;
+
+      transition advisoryPromptIssued_to_idle
+        first advisoryPromptIssued
+        then idle
+        accept event operatorRationaleSubmitted;
+
+      transition counterEvidenceReviewRequired_to_idle
+        first counterEvidenceReviewRequired
+        then idle
+        accept event counterEvidenceReviewed;
+
+      transition supervisorEscalationRequired_to_idle
+        first supervisorEscalationRequired
+        then idle
+        accept event supervisorDecisionLogged;
+    }
+  }
+
+  part def OperatorInterface {
+    port promptInput : PromptOutPort;
+
+    attribute visiblePromptCount : Count;
+    attribute maximumPromptLatency : DecisionLatency = 2.0;
+
+    action displayPrompt {
+      in item prompt : MitigationPrompt;
+    }
+
+    action collectRationale {
+      in item decision : HumanDecision;
+      out item rationaleEvidence : ContextEvidence;
+    }
+  }
+
+  part def AuditLogger {
+    port decisionInput : DecisionInPort;
+    port assessmentInput : AssessmentOutPort;
+    port promptInput : PromptOutPort;
+    port auditOutput : AuditOutPort;
+
+    attribute retainedRecordCount : Count;
+    attribute retentionDuration : Real { unit = s; default = 31536000.0; }
+
+    action writeAuditRecord {
+      in item decision : HumanDecision;
+      in item assessment : BiasAssessment;
+      in item prompt : MitigationPrompt;
+      out item record : AuditRecord;
+    }
+  }
+
+  action def monitorAndMitigateAutomationBias {
+    in item observation : SensorObservation;
+    in item recommendation : AutomationRecommendation;
+    in item evidence : ContextEvidence;
+    in item decision : HumanDecision;
+    out item assessment : BiasAssessment;
+    out item prompt : MitigationPrompt;
+    out item auditRecord : AuditRecord;
+
+    first start;
+    then validateOperationalInputs;
+    then correlateContradictoryEvidence;
+    then analyzeOperatorBehavior;
+    then assessBiasRisk;
+    then decideMitigation;
+    then logDecisionContext;
+    then done;
+
+    action start;
+    action validateOperationalInputs;
+    action correlateContradictoryEvidence;
+    action analyzeOperatorBehavior;
+    action assessBiasRisk;
+    action decideMitigation;
+    action logDecisionContext;
+    action done;
+  }
+
+  requirement def DetectAutomationBiasRequirement {
+    doc /* The system shall detect probable automation bias when an operator rapidly accepts automated recommendations while ignoring contradictory evidence within the assessment window. */
+    attribute maximumDetectionLatency : DecisionLatency = 10.0;
+    attribute minimumDetectionProbability : Probability = 0.90;
+  }
+
+  requirement def CalibratedTrustRequirement {
+    doc /* The system shall maintain an operator automation trust estimate and classify overreliance when the estimate exceeds the configured high-trust threshold during conflicting evidence conditions. */
+    attribute highTrustThreshold : TrustScore = 0.82;
+  }
+
+  requirement def MitigationPromptRequirement {
+    doc /* The system shall issue a mitigation prompt requiring rationale entry and counter-evidence review when automation bias risk exceeds the activation threshold. */
+    attribute promptIssueLatency : DecisionLatency = 2.0;
+    attribute activationThreshold : RiskScore = 0.65;
+  }
+
+  requirement def AuditabilityRequirement {
+    doc /* The system shall retain recommendation, decision, bias assessment, mitigation prompt, and operator response records for later safety review. */
+    attribute minimumRetentionDuration : Real { unit = s; default = 31536000.0; }
+  }
+
+  requirement def HumanAuthorityRequirement {
+    doc /* The system shall preserve human decision authority by advising, delaying, or escalating decisions without directly executing operational actions. */
+    attribute automatedExecutionAllowed : Boolean = false;
+  }
+
+  requirement def HighRiskEscalationRequirement {
+    doc /* The system shall require supervisor review when mitigation risk is at or above the high-risk threshold. */
+    attribute highRiskThreshold : RiskScore = 0.85;
+  }
+
+  satisfy DetectAutomationBiasRequirement by AutomationBiasMitigationSystem::biasDetector;
+  satisfy CalibratedTrustRequirement by AutomationBiasMitigationSystem::behaviorAnalyzer;
+  satisfy MitigationPromptRequirement by AutomationBiasMitigationSystem::mitigationManager;
+  satisfy AuditabilityRequirement by AutomationBiasMitigationSystem::auditLogger;
+  satisfy HumanAuthorityRequirement by AutomationBiasMitigationSystem;
+  satisfy HighRiskEscalationRequirement by AutomationBiasMitigationSystem::mitigationManager;
+
+  constraint def BiasRiskComputation {
+    in rapidAcceptanceRate : Probability;
+    in contradictionIgnoredRate : Probability;
+    in automationTrust : TrustScore;
+    in workload : WorkloadIndex;
+    out mitigationRisk : RiskScore;
+
+    mitigationRisk =
+      (0.30 * rapidAcceptanceRate) +
+      (0.40 * contradictionIgnoredRate) +
+      (0.20 * automationTrust) +
+      (0.10 * workload);
+  }
+
+  constraint def PromptPrioritySelection {
+    in mitigationRisk : RiskScore;
+    out priority : AlertPriority;
+
+    priority = if mitigationRisk >= 0.85 then 5
+               else if mitigationRisk >= 0.65 then 4
+               else if mitigationRisk >= 0.45 then 3
+               else if mitigationRisk >= 0.25 then 2
+               else 1;
+  }
+
+  part systemContext {
+    part automationBiasMitigationSystem : AutomationBiasMitigationSystem;
+  }
+}

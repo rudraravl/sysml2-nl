@@ -1,0 +1,1093 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-okxzwe0t
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb70a-763c-7dd0-9324-eda13f322fd0
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Outline of automation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomationOutlineModel {
+
+  import ScalarValues::*;
+
+  attribute def Time_s :> Real;
+  attribute def Length_m :> Real;
+  attribute def Speed_mps :> Real;
+  attribute def Mass_kg :> Real;
+  attribute def Temperature_degC :> Real;
+  attribute def Power_W :> Real;
+  attribute def Voltage_V :> Real;
+  attribute def Pressure_kPa :> Real;
+  attribute def Percent :> Real;
+  attribute def Count :> Integer;
+
+  item def Workpiece {
+    attribute id : String;
+    attribute length : Length_m;
+    attribute mass : Mass_kg;
+    attribute qualityScore : Percent;
+  }
+
+  item def ProcessedWorkpiece :> Workpiece {
+    attribute inspectionPassed : Boolean;
+    attribute processTime : Time_s;
+  }
+
+  item def DefectiveWorkpiece :> Workpiece {
+    attribute rejectReason : String;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute power : Power_W;
+  }
+
+  item def PneumaticSupply {
+    attribute pressure : Pressure_kPa;
+  }
+
+  item def AutomationCommand {
+    attribute commandId : String;
+    attribute targetMode : String;
+  }
+
+  item def AutomationStatus {
+    attribute mode : String;
+    attribute healthy : Boolean;
+    attribute throughputPerHour : Count;
+    attribute faultCode : String;
+  }
+
+  item def SensorReading {
+    attribute sensorId : String;
+    attribute detected : Boolean;
+    attribute measuredValue : Real;
+    attribute timestamp : Time_s;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def PneumaticPort {
+    in item air : PneumaticSupply;
+  }
+
+  port def MaterialInputPort {
+    in item workpiece : Workpiece;
+  }
+
+  port def MaterialOutputPort {
+    out item processed : ProcessedWorkpiece;
+    out item rejected : DefectiveWorkpiece;
+  }
+
+  port def CommandPort {
+    in item command : AutomationCommand;
+  }
+
+  port def StatusPort {
+    out item status : AutomationStatus;
+  }
+
+  port def SensorPort {
+    out item reading : SensorReading;
+  }
+
+  port def ActuatorControlPort {
+    in item command : AutomationCommand;
+    out item status : AutomationStatus;
+  }
+
+  part def ConveyorModule {
+    attribute beltSpeed : Speed_mps;
+    attribute maxLoad : Mass_kg;
+    attribute running : Boolean;
+
+    port powerIn : PowerPort;
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+    port positionSensor : SensorPort;
+
+    action def MoveWorkpiece {
+      in item input : Workpiece;
+      out item output : Workpiece;
+      attribute commandedSpeed : Speed_mps;
+      attribute transferTime : Time_s;
+    }
+
+    state def ConveyorState {
+      state stopped;
+      state accelerating;
+      state running;
+      state jammed;
+      state emergencyStopped;
+
+      transition start
+        first stopped
+        then accelerating;
+
+      transition reachSpeed
+        first accelerating
+        then running;
+
+      transition stop
+        first running
+        then stopped;
+
+      transition detectJam
+        first running
+        then jammed;
+
+      transition clearJam
+        first jammed
+        then stopped;
+
+      transition emergency
+        first stopped
+        then emergencyStopped;
+
+      transition emergencyFromRunning
+        first running
+        then emergencyStopped;
+
+      transition reset
+        first emergencyStopped
+        then stopped;
+    }
+  }
+
+  part def RoboticHandlingModule {
+    attribute payloadCapacity : Mass_kg;
+    attribute cycleTime : Time_s;
+    attribute positionAccuracy : Length_m;
+    attribute gripperClosed : Boolean;
+
+    port powerIn : PowerPort;
+    port pneumaticIn : PneumaticPort;
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+
+    action def PickAndPlace {
+      in item incoming : Workpiece;
+      out item placed : Workpiece;
+      attribute pickTime : Time_s;
+      attribute placeTime : Time_s;
+    }
+
+    state def RobotState {
+      state homing;
+      state idle;
+      state picking;
+      state placing;
+      state faulted;
+      state emergencyStopped;
+
+      transition homed
+        first homing
+        then idle;
+
+      transition pickCommanded
+        first idle
+        then picking;
+
+      transition picked
+        first picking
+        then placing;
+
+      transition placed
+        first placing
+        then idle;
+
+      transition robotFault
+        first picking
+        then faulted;
+
+      transition recover
+        first faulted
+        then homing;
+
+      transition emergencyStop
+        first idle
+        then emergencyStopped;
+
+      transition resetEmergency
+        first emergencyStopped
+        then homing;
+    }
+  }
+
+  part def ProcessingStation {
+    attribute processTemperature : Temperature_degC;
+    attribute nominalProcessTime : Time_s;
+    attribute energyPerPart : Power_W;
+    attribute enabled : Boolean;
+
+    port powerIn : PowerPort;
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+    port temperatureSensor : SensorPort;
+
+    action def ProcessWorkpiece {
+      in item raw : Workpiece;
+      out item processed : ProcessedWorkpiece;
+      attribute actualTemperature : Temperature_degC;
+      attribute elapsedTime : Time_s;
+    }
+
+    state def ProcessingState {
+      state idle;
+      state heating;
+      state ready;
+      state processing;
+      state cooling;
+      state faulted;
+
+      transition enable
+        first idle
+        then heating;
+
+      transition temperatureReached
+        first heating
+        then ready;
+
+      transition beginProcess
+        first ready
+        then processing;
+
+      transition processComplete
+        first processing
+        then ready;
+
+      transition disable
+        first ready
+        then cooling;
+
+      transition cooled
+        first cooling
+        then idle;
+
+      transition overTemperature
+        first processing
+        then faulted;
+
+      transition faultReset
+        first faulted
+        then idle;
+    }
+  }
+
+  part def InspectionStation {
+    attribute minimumQualityScore : Percent;
+    attribute inspectionTime : Time_s;
+    attribute rejectCount : Count;
+
+    port powerIn : PowerPort;
+    port materialIn : MaterialInputPort;
+    port acceptedOut : MaterialOutputPort;
+    port rejectedOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+    port visionSensor : SensorPort;
+
+    action def InspectWorkpiece {
+      in item candidate : ProcessedWorkpiece;
+      out item accepted : ProcessedWorkpiece;
+      out item rejected : DefectiveWorkpiece;
+      attribute measuredQuality : Percent;
+      attribute pass : Boolean;
+    }
+
+    state def InspectionState {
+      state waiting;
+      state imaging;
+      state evaluating;
+      state sorting;
+      state faulted;
+
+      transition detectPart
+        first waiting
+        then imaging;
+
+      transition imageCaptured
+        first imaging
+        then evaluating;
+
+      transition evaluationComplete
+        first evaluating
+        then sorting;
+
+      transition sorted
+        first sorting
+        then waiting;
+
+      transition inspectionFault
+        first imaging
+        then faulted;
+
+      transition resetInspection
+        first faulted
+        then waiting;
+    }
+  }
+
+  part def AutomationController {
+    attribute scanTime : Time_s;
+    attribute lineEnabled : Boolean;
+    attribute emergencyStopActive : Boolean;
+    attribute targetThroughputPerHour : Count;
+
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+    port conveyorControl : ActuatorControlPort;
+    port robotControl : ActuatorControlPort;
+    port processorControl : ActuatorControlPort;
+    port inspectionControl : ActuatorControlPort;
+
+    action def CoordinateAutomation {
+      in item operatorCommand : AutomationCommand;
+      out item systemStatus : AutomationStatus;
+    }
+
+    action def HandleFault {
+      in item faultStatus : AutomationStatus;
+      out item safeCommand : AutomationCommand;
+    }
+
+    state def ControllerState {
+      state poweredOff;
+      state initializing;
+      state standby;
+      state automatic;
+      state paused;
+      state faulted;
+      state emergencyStopped;
+
+      transition powerOn
+        first poweredOff
+        then initializing;
+
+      transition initializationComplete
+        first initializing
+        then standby;
+
+      transition startAutomatic
+        first standby
+        then automatic;
+
+      transition pause
+        first automatic
+        then paused;
+
+      transition resume
+        first paused
+        then automatic;
+
+      transition controlledStop
+        first automatic
+        then standby;
+
+      transition faultDetected
+        first automatic
+        then faulted;
+
+      transition faultCleared
+        first faulted
+        then standby;
+
+      transition emergencyStop
+        first automatic
+        then emergencyStopped;
+
+      transition emergencyReset
+        first emergencyStopped
+        then initializing;
+    }
+  }
+
+  part def OperatorInterface {
+    attribute authenticated : Boolean;
+    attribute selectedMode : String;
+
+    port commandOut : CommandPort;
+    port statusIn : StatusPort;
+
+    action def DisplayLineStatus {
+      in item status : AutomationStatus;
+    }
+
+    action def IssueOperatorCommand {
+      out item command : AutomationCommand;
+    }
+  }
+
+  part def AutomatedProcessingLine {
+    attribute primaryFunction : String = "Automatically receive raw workpieces, transport them through handling, processing, inspection, and sorting, then report production status while maintaining safe operation.";
+    attribute designThroughputPerHour : Count = 120;
+    attribute availabilityTarget : Percent = 95.0;
+    attribute maximumWorkpieceMass : Mass_kg = 8.0;
+
+    port facilityPower : PowerPort;
+    port facilityAir : PneumaticPort;
+    port rawMaterialIn : MaterialInputPort;
+    port finishedGoodsOut : MaterialOutputPort;
+    port rejectedGoodsOut : MaterialOutputPort;
+    port operatorCommandIn : CommandPort;
+    port lineStatusOut : StatusPort;
+
+    part controller : AutomationController;
+    part operatorPanel : OperatorInterface;
+    part infeedConveyor : ConveyorModule;
+    part robot : RoboticHandlingModule;
+    part processor : ProcessingStation;
+    part inspection : InspectionStation;
+    part outfeedConveyor : ConveyorModule;
+    part rejectConveyor : ConveyorModule;
+
+    connect facilityPower to controller.commandIn;
+    connect facilityPower to infeedConveyor.powerIn;
+    connect facilityPower to robot.powerIn;
+    connect facilityPower to processor.powerIn;
+    connect facilityPower to inspection.powerIn;
+    connect facilityPower to outfeedConveyor.powerIn;
+    connect facilityPower to rejectConveyor.powerIn;
+
+    connect facilityAir to robot.pneumaticIn;
+
+    connect operatorCommandIn to operatorPanel.commandOut;
+    connect operatorPanel.commandOut to controller.commandIn;
+    connect controller.statusOut to operatorPanel.statusIn;
+    connect controller.statusOut to lineStatusOut;
+
+    connect controller.conveyorControl to infeedConveyor.control;
+    connect controller.robotControl to robot.control;
+    connect controller.processorControl to processor.control;
+    connect controller.inspectionControl to inspection.control;
+    connect controller.conveyorControl to outfeedConveyor.control;
+    connect controller.conveyorControl to rejectConveyor.control;
+
+    connect rawMaterialIn to infeedConveyor.materialIn;
+    connect infeedConveyor.materialOut to robot.materialIn;
+    connect robot.materialOut to processor.materialIn;
+    connect processor.materialOut to inspection.materialIn;
+    connect inspection.acceptedOut to outfeedConveyor.materialIn;
+    connect inspection.rejectedOut to rejectConveyor.materialIn;
+    connect outfeedConveyor.materialOut to finishedGoodsOut;
+    connect rejectConveyor.materialOut to rejectedGoodsOut;
+
+    action def ExecuteAutomaticProduction {
+      in item rawInput : Workpiece;
+      out item acceptedOutput : ProcessedWorkpiece;
+      out item rejectedOutput : DefectiveWorkpiece;
+
+      action feed : infeedConveyor.MoveWorkpiece;
+      action handle : robot.PickAndPlace;
+      action process : processor.ProcessWorkpiece;
+      action inspect : inspection.InspectWorkpiece;
+      action dischargeAccepted : outfeedConveyor.MoveWorkpiece;
+      action dischargeRejected : rejectConveyor.MoveWorkpiece;
+
+      flow rawInput to feed.input;
+      flow feed.output to handle.incoming;
+      flow handle.placed to process.raw;
+      flow process.processed to inspect.candidate;
+      flow inspect.accepted to dischargeAccepted.input;
+      flow inspect.rejected to dischargeRejected.input;
+      flow dischargeAccepted.output to acceptedOutput;
+      flow dischargeRejected.output to rejectedOutput;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.primaryFunction == "Automatically receive raw workpieces, transport them through handling, processing, inspection, and sorting, then report production status while maintaining safe operation."
+    }
+  }
+
+  requirement def ThroughputRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.designThroughputPerHour >= 120
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.controller.emergencyStopActive == false implies line.controller.lineEnabled == true or line.controller.lineEnabled == false
+    }
+  }
+
+  requirement def QualitySortingRequirement {
+    subject station : InspectionStation;
+    require constraint {
+      station.minimumQualityScore >= 90.0
+    }
+  }
+
+  requirement def PayloadRequirement {
+    subject robot : RoboticHandlingModule;
+    require constraint {
+      robot.payloadCapacity >= 8.0
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.availabilityTarget >= 95.0
+    }
+  }
+
+}
+tokens used
+3,739
+package AutomationOutlineModel {
+
+  import ScalarValues::*;
+
+  attribute def Time_s :> Real;
+  attribute def Length_m :> Real;
+  attribute def Speed_mps :> Real;
+  attribute def Mass_kg :> Real;
+  attribute def Temperature_degC :> Real;
+  attribute def Power_W :> Real;
+  attribute def Voltage_V :> Real;
+  attribute def Pressure_kPa :> Real;
+  attribute def Percent :> Real;
+  attribute def Count :> Integer;
+
+  item def Workpiece {
+    attribute id : String;
+    attribute length : Length_m;
+    attribute mass : Mass_kg;
+    attribute qualityScore : Percent;
+  }
+
+  item def ProcessedWorkpiece :> Workpiece {
+    attribute inspectionPassed : Boolean;
+    attribute processTime : Time_s;
+  }
+
+  item def DefectiveWorkpiece :> Workpiece {
+    attribute rejectReason : String;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute power : Power_W;
+  }
+
+  item def PneumaticSupply {
+    attribute pressure : Pressure_kPa;
+  }
+
+  item def AutomationCommand {
+    attribute commandId : String;
+    attribute targetMode : String;
+  }
+
+  item def AutomationStatus {
+    attribute mode : String;
+    attribute healthy : Boolean;
+    attribute throughputPerHour : Count;
+    attribute faultCode : String;
+  }
+
+  item def SensorReading {
+    attribute sensorId : String;
+    attribute detected : Boolean;
+    attribute measuredValue : Real;
+    attribute timestamp : Time_s;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def PneumaticPort {
+    in item air : PneumaticSupply;
+  }
+
+  port def MaterialInputPort {
+    in item workpiece : Workpiece;
+  }
+
+  port def MaterialOutputPort {
+    out item processed : ProcessedWorkpiece;
+    out item rejected : DefectiveWorkpiece;
+  }
+
+  port def CommandPort {
+    in item command : AutomationCommand;
+  }
+
+  port def StatusPort {
+    out item status : AutomationStatus;
+  }
+
+  port def SensorPort {
+    out item reading : SensorReading;
+  }
+
+  port def ActuatorControlPort {
+    in item command : AutomationCommand;
+    out item status : AutomationStatus;
+  }
+
+  part def ConveyorModule {
+    attribute beltSpeed : Speed_mps;
+    attribute maxLoad : Mass_kg;
+    attribute running : Boolean;
+
+    port powerIn : PowerPort;
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+    port positionSensor : SensorPort;
+
+    action def MoveWorkpiece {
+      in item input : Workpiece;
+      out item output : Workpiece;
+      attribute commandedSpeed : Speed_mps;
+      attribute transferTime : Time_s;
+    }
+
+    state def ConveyorState {
+      state stopped;
+      state accelerating;
+      state running;
+      state jammed;
+      state emergencyStopped;
+
+      transition start
+        first stopped
+        then accelerating;
+
+      transition reachSpeed
+        first accelerating
+        then running;
+
+      transition stop
+        first running
+        then stopped;
+
+      transition detectJam
+        first running
+        then jammed;
+
+      transition clearJam
+        first jammed
+        then stopped;
+
+      transition emergency
+        first stopped
+        then emergencyStopped;
+
+      transition emergencyFromRunning
+        first running
+        then emergencyStopped;
+
+      transition reset
+        first emergencyStopped
+        then stopped;
+    }
+  }
+
+  part def RoboticHandlingModule {
+    attribute payloadCapacity : Mass_kg;
+    attribute cycleTime : Time_s;
+    attribute positionAccuracy : Length_m;
+    attribute gripperClosed : Boolean;
+
+    port powerIn : PowerPort;
+    port pneumaticIn : PneumaticPort;
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+
+    action def PickAndPlace {
+      in item incoming : Workpiece;
+      out item placed : Workpiece;
+      attribute pickTime : Time_s;
+      attribute placeTime : Time_s;
+    }
+
+    state def RobotState {
+      state homing;
+      state idle;
+      state picking;
+      state placing;
+      state faulted;
+      state emergencyStopped;
+
+      transition homed
+        first homing
+        then idle;
+
+      transition pickCommanded
+        first idle
+        then picking;
+
+      transition picked
+        first picking
+        then placing;
+
+      transition placed
+        first placing
+        then idle;
+
+      transition robotFault
+        first picking
+        then faulted;
+
+      transition recover
+        first faulted
+        then homing;
+
+      transition emergencyStop
+        first idle
+        then emergencyStopped;
+
+      transition resetEmergency
+        first emergencyStopped
+        then homing;
+    }
+  }
+
+  part def ProcessingStation {
+    attribute processTemperature : Temperature_degC;
+    attribute nominalProcessTime : Time_s;
+    attribute energyPerPart : Power_W;
+    attribute enabled : Boolean;
+
+    port powerIn : PowerPort;
+    port materialIn : MaterialInputPort;
+    port materialOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+    port temperatureSensor : SensorPort;
+
+    action def ProcessWorkpiece {
+      in item raw : Workpiece;
+      out item processed : ProcessedWorkpiece;
+      attribute actualTemperature : Temperature_degC;
+      attribute elapsedTime : Time_s;
+    }
+
+    state def ProcessingState {
+      state idle;
+      state heating;
+      state ready;
+      state processing;
+      state cooling;
+      state faulted;
+
+      transition enable
+        first idle
+        then heating;
+
+      transition temperatureReached
+        first heating
+        then ready;
+
+      transition beginProcess
+        first ready
+        then processing;
+
+      transition processComplete
+        first processing
+        then ready;
+
+      transition disable
+        first ready
+        then cooling;
+
+      transition cooled
+        first cooling
+        then idle;
+
+      transition overTemperature
+        first processing
+        then faulted;
+
+      transition faultReset
+        first faulted
+        then idle;
+    }
+  }
+
+  part def InspectionStation {
+    attribute minimumQualityScore : Percent;
+    attribute inspectionTime : Time_s;
+    attribute rejectCount : Count;
+
+    port powerIn : PowerPort;
+    port materialIn : MaterialInputPort;
+    port acceptedOut : MaterialOutputPort;
+    port rejectedOut : MaterialOutputPort;
+    port control : ActuatorControlPort;
+    port visionSensor : SensorPort;
+
+    action def InspectWorkpiece {
+      in item candidate : ProcessedWorkpiece;
+      out item accepted : ProcessedWorkpiece;
+      out item rejected : DefectiveWorkpiece;
+      attribute measuredQuality : Percent;
+      attribute pass : Boolean;
+    }
+
+    state def InspectionState {
+      state waiting;
+      state imaging;
+      state evaluating;
+      state sorting;
+      state faulted;
+
+      transition detectPart
+        first waiting
+        then imaging;
+
+      transition imageCaptured
+        first imaging
+        then evaluating;
+
+      transition evaluationComplete
+        first evaluating
+        then sorting;
+
+      transition sorted
+        first sorting
+        then waiting;
+
+      transition inspectionFault
+        first imaging
+        then faulted;
+
+      transition resetInspection
+        first faulted
+        then waiting;
+    }
+  }
+
+  part def AutomationController {
+    attribute scanTime : Time_s;
+    attribute lineEnabled : Boolean;
+    attribute emergencyStopActive : Boolean;
+    attribute targetThroughputPerHour : Count;
+
+    port commandIn : CommandPort;
+    port statusOut : StatusPort;
+    port conveyorControl : ActuatorControlPort;
+    port robotControl : ActuatorControlPort;
+    port processorControl : ActuatorControlPort;
+    port inspectionControl : ActuatorControlPort;
+
+    action def CoordinateAutomation {
+      in item operatorCommand : AutomationCommand;
+      out item systemStatus : AutomationStatus;
+    }
+
+    action def HandleFault {
+      in item faultStatus : AutomationStatus;
+      out item safeCommand : AutomationCommand;
+    }
+
+    state def ControllerState {
+      state poweredOff;
+      state initializing;
+      state standby;
+      state automatic;
+      state paused;
+      state faulted;
+      state emergencyStopped;
+
+      transition powerOn
+        first poweredOff
+        then initializing;
+
+      transition initializationComplete
+        first initializing
+        then standby;
+
+      transition startAutomatic
+        first standby
+        then automatic;
+
+      transition pause
+        first automatic
+        then paused;
+
+      transition resume
+        first paused
+        then automatic;
+
+      transition controlledStop
+        first automatic
+        then standby;
+
+      transition faultDetected
+        first automatic
+        then faulted;
+
+      transition faultCleared
+        first faulted
+        then standby;
+
+      transition emergencyStop
+        first automatic
+        then emergencyStopped;
+
+      transition emergencyReset
+        first emergencyStopped
+        then initializing;
+    }
+  }
+
+  part def OperatorInterface {
+    attribute authenticated : Boolean;
+    attribute selectedMode : String;
+
+    port commandOut : CommandPort;
+    port statusIn : StatusPort;
+
+    action def DisplayLineStatus {
+      in item status : AutomationStatus;
+    }
+
+    action def IssueOperatorCommand {
+      out item command : AutomationCommand;
+    }
+  }
+
+  part def AutomatedProcessingLine {
+    attribute primaryFunction : String = "Automatically receive raw workpieces, transport them through handling, processing, inspection, and sorting, then report production status while maintaining safe operation.";
+    attribute designThroughputPerHour : Count = 120;
+    attribute availabilityTarget : Percent = 95.0;
+    attribute maximumWorkpieceMass : Mass_kg = 8.0;
+
+    port facilityPower : PowerPort;
+    port facilityAir : PneumaticPort;
+    port rawMaterialIn : MaterialInputPort;
+    port finishedGoodsOut : MaterialOutputPort;
+    port rejectedGoodsOut : MaterialOutputPort;
+    port operatorCommandIn : CommandPort;
+    port lineStatusOut : StatusPort;
+
+    part controller : AutomationController;
+    part operatorPanel : OperatorInterface;
+    part infeedConveyor : ConveyorModule;
+    part robot : RoboticHandlingModule;
+    part processor : ProcessingStation;
+    part inspection : InspectionStation;
+    part outfeedConveyor : ConveyorModule;
+    part rejectConveyor : ConveyorModule;
+
+    connect facilityPower to controller.commandIn;
+    connect facilityPower to infeedConveyor.powerIn;
+    connect facilityPower to robot.powerIn;
+    connect facilityPower to processor.powerIn;
+    connect facilityPower to inspection.powerIn;
+    connect facilityPower to outfeedConveyor.powerIn;
+    connect facilityPower to rejectConveyor.powerIn;
+
+    connect facilityAir to robot.pneumaticIn;
+
+    connect operatorCommandIn to operatorPanel.commandOut;
+    connect operatorPanel.commandOut to controller.commandIn;
+    connect controller.statusOut to operatorPanel.statusIn;
+    connect controller.statusOut to lineStatusOut;
+
+    connect controller.conveyorControl to infeedConveyor.control;
+    connect controller.robotControl to robot.control;
+    connect controller.processorControl to processor.control;
+    connect controller.inspectionControl to inspection.control;
+    connect controller.conveyorControl to outfeedConveyor.control;
+    connect controller.conveyorControl to rejectConveyor.control;
+
+    connect rawMaterialIn to infeedConveyor.materialIn;
+    connect infeedConveyor.materialOut to robot.materialIn;
+    connect robot.materialOut to processor.materialIn;
+    connect processor.materialOut to inspection.materialIn;
+    connect inspection.acceptedOut to outfeedConveyor.materialIn;
+    connect inspection.rejectedOut to rejectConveyor.materialIn;
+    connect outfeedConveyor.materialOut to finishedGoodsOut;
+    connect rejectConveyor.materialOut to rejectedGoodsOut;
+
+    action def ExecuteAutomaticProduction {
+      in item rawInput : Workpiece;
+      out item acceptedOutput : ProcessedWorkpiece;
+      out item rejectedOutput : DefectiveWorkpiece;
+
+      action feed : infeedConveyor.MoveWorkpiece;
+      action handle : robot.PickAndPlace;
+      action process : processor.ProcessWorkpiece;
+      action inspect : inspection.InspectWorkpiece;
+      action dischargeAccepted : outfeedConveyor.MoveWorkpiece;
+      action dischargeRejected : rejectConveyor.MoveWorkpiece;
+
+      flow rawInput to feed.input;
+      flow feed.output to handle.incoming;
+      flow handle.placed to process.raw;
+      flow process.processed to inspect.candidate;
+      flow inspect.accepted to dischargeAccepted.input;
+      flow inspect.rejected to dischargeRejected.input;
+      flow dischargeAccepted.output to acceptedOutput;
+      flow dischargeRejected.output to rejectedOutput;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.primaryFunction == "Automatically receive raw workpieces, transport them through handling, processing, inspection, and sorting, then report production status while maintaining safe operation."
+    }
+  }
+
+  requirement def ThroughputRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.designThroughputPerHour >= 120
+    }
+  }
+
+  requirement def SafetyRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.controller.emergencyStopActive == false implies line.controller.lineEnabled == true or line.controller.lineEnabled == false
+    }
+  }
+
+  requirement def QualitySortingRequirement {
+    subject station : InspectionStation;
+    require constraint {
+      station.minimumQualityScore >= 90.0
+    }
+  }
+
+  requirement def PayloadRequirement {
+    subject robot : RoboticHandlingModule;
+    require constraint {
+      robot.payloadCapacity >= 8.0
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    subject line : AutomatedProcessingLine;
+    require constraint {
+      line.availabilityTarget >= 95.0
+    }
+  }
+
+}

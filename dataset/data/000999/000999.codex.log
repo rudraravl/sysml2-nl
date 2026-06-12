@@ -1,0 +1,901 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-b_umiv_b
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb512-2b77-78e1-8f15-4fccfd14603d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Calorimeter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CalorimeterSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def EnergyValue :> Real {
+        unit = "J";
+    }
+
+    attribute def PowerValue :> Real {
+        unit = "W";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "K";
+    }
+
+    attribute def HeatCapacityValue :> Real {
+        unit = "J/K";
+    }
+
+    attribute def MassValue :> Real {
+        unit = "kg";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = "V";
+    }
+
+    attribute def CurrentValue :> Real {
+        unit = "A";
+    }
+
+    attribute def PercentValue :> Real {
+        unit = "%";
+    }
+
+    attribute def SampleIdentifier :> String;
+    attribute def MeasurementIdentifier :> String;
+
+    item def ThermalEnergy {
+        attribute energy : EnergyValue;
+        attribute uncertainty : EnergyValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def TemperatureReading {
+        attribute sensorId : String;
+        attribute temperature : TemperatureValue;
+        attribute timestamp : TimeValue;
+        attribute uncertainty : TemperatureValue;
+    }
+
+    item def SampleMaterial {
+        attribute sampleId : SampleIdentifier;
+        attribute mass : MassValue;
+        attribute initialTemperature : TemperatureValue;
+        attribute expectedHeatCapacity : HeatCapacityValue;
+    }
+
+    item def CalorimetryResult {
+        attribute measurementId : MeasurementIdentifier;
+        attribute absorbedEnergy : EnergyValue;
+        attribute releasedEnergy : EnergyValue;
+        attribute temperatureRise : TemperatureValue;
+        attribute calculatedHeatCapacity : HeatCapacityValue;
+        attribute energyBalanceError : PercentValue;
+        attribute valid : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute targetTemperature : TemperatureValue;
+        attribute heaterPowerLimit : PowerValue;
+        attribute durationLimit : TimeValue;
+    }
+
+    port def ThermalPort {
+        in item heatIn : ThermalEnergy;
+        out item heatOut : ThermalEnergy;
+        attribute interfaceTemperature : TemperatureValue;
+    }
+
+    port def ElectricalPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def DataPort {
+        out item temperatureData : TemperatureReading;
+        out item resultData : CalorimetryResult;
+        in item controlInput : ControlCommand;
+    }
+
+    port def SamplePort {
+        in item insertedSample : SampleMaterial;
+        out item removedSample : SampleMaterial;
+    }
+
+    part def InsulatedChamber {
+        attribute chamberVolume : Real {
+            unit = "m^3";
+        }
+        attribute wallThermalConductance : Real {
+            unit = "W/K";
+        }
+        attribute maximumOperatingTemperature : TemperatureValue;
+        attribute ambientLeakagePower : PowerValue;
+
+        port sampleAccess : SamplePort;
+        port internalThermalInterface : ThermalPort;
+        port externalThermalInterface : ThermalPort;
+    }
+
+    part def SampleHolder {
+        attribute holderMass : MassValue;
+        attribute holderHeatCapacity : HeatCapacityValue;
+        attribute contactResistance : Real {
+            unit = "K/W";
+        }
+
+        port sampleInterface : SamplePort;
+        port holderThermalInterface : ThermalPort;
+    }
+
+    part def HeaterAssembly {
+        attribute ratedPower : PowerValue;
+        attribute minimumPower : PowerValue;
+        attribute commandPower : PowerValue;
+        attribute conversionEfficiency : PercentValue;
+
+        port electricalInput : ElectricalPort;
+        port heaterThermalOutput : ThermalPort;
+    }
+
+    part def TemperatureSensor {
+        attribute sensorId : String;
+        attribute rangeMinimum : TemperatureValue;
+        attribute rangeMaximum : TemperatureValue;
+        attribute accuracy : TemperatureValue;
+        attribute responseTime : TimeValue;
+        attribute measuredTemperature : TemperatureValue;
+
+        port sensingThermalInterface : ThermalPort;
+        port sensorDataOutput : DataPort;
+    }
+
+    part def ReferenceJunction {
+        attribute referenceTemperature : TemperatureValue;
+        attribute stability : TemperatureValue;
+        attribute heatCapacity : HeatCapacityValue;
+
+        port referenceThermalInterface : ThermalPort;
+    }
+
+    part def DataAcquisitionController {
+        attribute samplingPeriod : TimeValue;
+        attribute measurementDuration : TimeValue;
+        attribute baselineWindow : TimeValue;
+        attribute energyBalanceTolerance : PercentValue;
+        attribute activeMeasurementId : MeasurementIdentifier;
+
+        port sensorInput : DataPort;
+        port commandInterface : DataPort;
+        port resultOutput : DataPort;
+    }
+
+    part def Calorimeter {
+        attribute operatingTemperatureMinimum : TemperatureValue = 273.15;
+        attribute operatingTemperatureMaximum : TemperatureValue = 423.15;
+        attribute nominalEnergyResolution : EnergyValue = 0.05;
+        attribute maximumSampleMass : MassValue = 0.250;
+        attribute primaryFunction : String = "Measure heat exchanged by a sample by controlling energy input, sensing temperature change, and computing thermal properties from the observed energy balance.";
+
+        part chamber : InsulatedChamber {
+            attribute chamberVolume = 0.012;
+            attribute wallThermalConductance = 0.018;
+            attribute maximumOperatingTemperature = 423.15;
+            attribute ambientLeakagePower = 0.020;
+        }
+
+        part holder : SampleHolder {
+            attribute holderMass = 0.080;
+            attribute holderHeatCapacity = 72.0;
+            attribute contactResistance = 0.12;
+        }
+
+        part heater : HeaterAssembly {
+            attribute ratedPower = 75.0;
+            attribute minimumPower = 0.0;
+            attribute commandPower = 0.0;
+            attribute conversionEfficiency = 98.0;
+        }
+
+        part sampleSensor : TemperatureSensor {
+            attribute sensorId = "T_SAMPLE";
+            attribute rangeMinimum = 250.0;
+            attribute rangeMaximum = 450.0;
+            attribute accuracy = 0.02;
+            attribute responseTime = 0.5;
+        }
+
+        part chamberSensor : TemperatureSensor {
+            attribute sensorId = "T_CHAMBER";
+            attribute rangeMinimum = 250.0;
+            attribute rangeMaximum = 450.0;
+            attribute accuracy = 0.03;
+            attribute responseTime = 0.8;
+        }
+
+        part reference : ReferenceJunction {
+            attribute referenceTemperature = 298.15;
+            attribute stability = 0.01;
+            attribute heatCapacity = 120.0;
+        }
+
+        part controller : DataAcquisitionController {
+            attribute samplingPeriod = 0.25;
+            attribute measurementDuration = 600.0;
+            attribute baselineWindow = 30.0;
+            attribute energyBalanceTolerance = 2.0;
+        }
+
+        port sampleInterface : SamplePort;
+        port powerInterface : ElectricalPort;
+        port operatorDataInterface : DataPort;
+        port ambientThermalInterface : ThermalPort;
+
+        connect sampleInterface to chamber.sampleAccess;
+        connect chamber.sampleAccess to holder.sampleInterface;
+        connect powerInterface to heater.electricalInput;
+        connect heater.heaterThermalOutput to holder.holderThermalInterface;
+        connect holder.holderThermalInterface to chamber.internalThermalInterface;
+        connect chamber.internalThermalInterface to sampleSensor.sensingThermalInterface;
+        connect chamber.internalThermalInterface to chamberSensor.sensingThermalInterface;
+        connect chamber.externalThermalInterface to ambientThermalInterface;
+        connect reference.referenceThermalInterface to chamber.internalThermalInterface;
+        connect sampleSensor.sensorDataOutput to controller.sensorInput;
+        connect chamberSensor.sensorDataOutput to controller.sensorInput;
+        connect controller.commandInterface to operatorDataInterface;
+        connect controller.resultOutput to operatorDataInterface;
+
+        action def PrepareMeasurement {
+            in item sample : SampleMaterial;
+            in item command : ControlCommand;
+            out item acceptedSample : SampleMaterial;
+
+            first start;
+            then verifySampleMass;
+            then stabilizeReference;
+            then establishBaseline;
+            then ready;
+
+            action verifySampleMass {
+                assert constraint { sample.mass <= maximumSampleMass; }
+            }
+
+            action stabilizeReference {
+                assert constraint { reference.stability <= 0.02; }
+            }
+
+            action establishBaseline {
+                assert constraint { controller.baselineWindow >= 20.0; }
+            }
+        }
+
+        action def ApplyKnownHeat {
+            in item command : ControlCommand;
+            out item deliveredHeat : ThermalEnergy;
+
+            first receivePower;
+            then regulateHeater;
+            then integrateEnergy;
+            then stopHeating;
+
+            action receivePower {
+                assert constraint { command.heaterPowerLimit <= heater.ratedPower; }
+            }
+
+            action regulateHeater {
+                attribute regulatedPower : PowerValue;
+                assert constraint { regulatedPower >= heater.minimumPower and regulatedPower <= command.heaterPowerLimit; }
+            }
+
+            action integrateEnergy {
+                attribute heatingDuration : TimeValue;
+                assert constraint { heatingDuration <= command.durationLimit; }
+            }
+        }
+
+        action def AcquireThermalResponse {
+            out item sampleTemperature : TemperatureReading;
+            out item chamberTemperature : TemperatureReading;
+
+            first sampleTemperatureRead;
+            then chamberTemperatureRead;
+            then timestampReadings;
+            then publishReadings;
+        }
+
+        action def ComputeCalorimetryResult {
+            in item sample : SampleMaterial;
+            in item deliveredHeat : ThermalEnergy;
+            in item initialReading : TemperatureReading;
+            in item finalReading : TemperatureReading;
+            out item result : CalorimetryResult;
+
+            attribute deltaTemperature : TemperatureValue;
+            attribute correctedEnergy : EnergyValue;
+            attribute calculatedHeatCapacity : HeatCapacityValue;
+
+            first subtractBaseline;
+            then compensateThermalLeakage;
+            then computeTemperatureRise;
+            then computeHeatCapacity;
+            then validateEnergyBalance;
+
+            action computeTemperatureRise {
+                assert constraint { deltaTemperature == finalReading.temperature - initialReading.temperature; }
+            }
+
+            action computeHeatCapacity {
+                assert constraint { calculatedHeatCapacity == correctedEnergy / deltaTemperature; }
+            }
+
+            action validateEnergyBalance {
+                assert constraint { result.energyBalanceError <= controller.energyBalanceTolerance; }
+            }
+        }
+
+        state def CalorimeterOperatingState {
+            entry action initializeElectronics;
+            exit action persistMeasurementRecord;
+
+            state Off;
+            state Standby;
+            state LoadingSample;
+            state BaselineStabilization;
+            state Heating;
+            state ThermalEquilibration;
+            state DataReduction;
+            state ResultAvailable;
+            state Fault;
+
+            transition first Off then Standby;
+            transition Standby then LoadingSample accept ControlCommand;
+            transition LoadingSample then BaselineStabilization;
+            transition BaselineStabilization then Heating;
+            transition Heating then ThermalEquilibration;
+            transition ThermalEquilibration then DataReduction;
+            transition DataReduction then ResultAvailable;
+            transition ResultAvailable then Standby;
+            transition Standby then Fault if chamberSensor.measuredTemperature > chamber.maximumOperatingTemperature;
+            transition Heating then Fault if heater.commandPower > heater.ratedPower;
+            transition Fault then Standby accept ControlCommand;
+        }
+
+        perform action PrepareMeasurement;
+        perform action ApplyKnownHeat;
+        perform action AcquireThermalResponse;
+        perform action ComputeCalorimetryResult;
+        exhibit state CalorimeterOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject calorimeter : Calorimeter;
+
+        doc /* The calorimeter shall determine the heat exchanged by an inserted sample at a high level by isolating the sample thermally, applying or observing a known heat transfer, measuring the resulting temperature response, and computing a calibrated calorimetry result. */
+
+        require constraint {
+            calorimeter.nominalEnergyResolution <= 0.10
+        }
+    }
+
+    requirement def ThermalIsolationRequirement {
+        subject chamber : InsulatedChamber;
+
+        doc /* The insulated chamber shall limit uncontrolled heat leakage so that environmental heat exchange does not dominate the measured thermal response. */
+
+        require constraint {
+            chamber.wallThermalConductance <= 0.025
+        }
+    }
+
+    requirement def TemperatureMeasurementRequirement {
+        subject sensor : TemperatureSensor;
+
+        doc /* Each temperature sensor used for calorimetry shall provide sufficient accuracy and response time for transient thermal measurement. */
+
+        require constraint {
+            sensor.accuracy <= 0.05 and sensor.responseTime <= 1.0
+        }
+    }
+
+    requirement def HeaterControlRequirement {
+        subject heater : HeaterAssembly;
+
+        doc /* The heater assembly shall convert supplied electrical power into controlled thermal energy for calibration and sample excitation. */
+
+        require constraint {
+            heater.ratedPower >= 50.0 and heater.conversionEfficiency >= 95.0
+        }
+    }
+
+    requirement def SampleCapacityRequirement {
+        subject calorimeter : Calorimeter;
+
+        doc /* The calorimeter shall accept samples up to the specified maximum mass while preserving the validity of heat capacity calculation. */
+
+        require constraint {
+            calorimeter.maximumSampleMass >= 0.200
+        }
+    }
+
+    requirement def ResultValidityRequirement {
+        subject controller : DataAcquisitionController;
+
+        doc /* The controller shall mark a calorimetry result valid only when the computed energy balance error is within the configured tolerance. */
+
+        require constraint {
+            controller.energyBalanceTolerance <= 2.0
+        }
+    }
+
+    part calorimeterSystem : Calorimeter;
+
+    satisfy PrimaryFunctionRequirement by calorimeterSystem;
+    satisfy ThermalIsolationRequirement by calorimeterSystem.chamber;
+    satisfy TemperatureMeasurementRequirement by calorimeterSystem.sampleSensor;
+    satisfy TemperatureMeasurementRequirement by calorimeterSystem.chamberSensor;
+    satisfy HeaterControlRequirement by calorimeterSystem.heater;
+    satisfy SampleCapacityRequirement by calorimeterSystem;
+    satisfy ResultValidityRequirement by calorimeterSystem.controller;
+}
+tokens used
+3,337
+package CalorimeterSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def EnergyValue :> Real {
+        unit = "J";
+    }
+
+    attribute def PowerValue :> Real {
+        unit = "W";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "K";
+    }
+
+    attribute def HeatCapacityValue :> Real {
+        unit = "J/K";
+    }
+
+    attribute def MassValue :> Real {
+        unit = "kg";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = "V";
+    }
+
+    attribute def CurrentValue :> Real {
+        unit = "A";
+    }
+
+    attribute def PercentValue :> Real {
+        unit = "%";
+    }
+
+    attribute def SampleIdentifier :> String;
+    attribute def MeasurementIdentifier :> String;
+
+    item def ThermalEnergy {
+        attribute energy : EnergyValue;
+        attribute uncertainty : EnergyValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def TemperatureReading {
+        attribute sensorId : String;
+        attribute temperature : TemperatureValue;
+        attribute timestamp : TimeValue;
+        attribute uncertainty : TemperatureValue;
+    }
+
+    item def SampleMaterial {
+        attribute sampleId : SampleIdentifier;
+        attribute mass : MassValue;
+        attribute initialTemperature : TemperatureValue;
+        attribute expectedHeatCapacity : HeatCapacityValue;
+    }
+
+    item def CalorimetryResult {
+        attribute measurementId : MeasurementIdentifier;
+        attribute absorbedEnergy : EnergyValue;
+        attribute releasedEnergy : EnergyValue;
+        attribute temperatureRise : TemperatureValue;
+        attribute calculatedHeatCapacity : HeatCapacityValue;
+        attribute energyBalanceError : PercentValue;
+        attribute valid : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute targetTemperature : TemperatureValue;
+        attribute heaterPowerLimit : PowerValue;
+        attribute durationLimit : TimeValue;
+    }
+
+    port def ThermalPort {
+        in item heatIn : ThermalEnergy;
+        out item heatOut : ThermalEnergy;
+        attribute interfaceTemperature : TemperatureValue;
+    }
+
+    port def ElectricalPort {
+        in item suppliedPower : ElectricalPower;
+    }
+
+    port def DataPort {
+        out item temperatureData : TemperatureReading;
+        out item resultData : CalorimetryResult;
+        in item controlInput : ControlCommand;
+    }
+
+    port def SamplePort {
+        in item insertedSample : SampleMaterial;
+        out item removedSample : SampleMaterial;
+    }
+
+    part def InsulatedChamber {
+        attribute chamberVolume : Real {
+            unit = "m^3";
+        }
+        attribute wallThermalConductance : Real {
+            unit = "W/K";
+        }
+        attribute maximumOperatingTemperature : TemperatureValue;
+        attribute ambientLeakagePower : PowerValue;
+
+        port sampleAccess : SamplePort;
+        port internalThermalInterface : ThermalPort;
+        port externalThermalInterface : ThermalPort;
+    }
+
+    part def SampleHolder {
+        attribute holderMass : MassValue;
+        attribute holderHeatCapacity : HeatCapacityValue;
+        attribute contactResistance : Real {
+            unit = "K/W";
+        }
+
+        port sampleInterface : SamplePort;
+        port holderThermalInterface : ThermalPort;
+    }
+
+    part def HeaterAssembly {
+        attribute ratedPower : PowerValue;
+        attribute minimumPower : PowerValue;
+        attribute commandPower : PowerValue;
+        attribute conversionEfficiency : PercentValue;
+
+        port electricalInput : ElectricalPort;
+        port heaterThermalOutput : ThermalPort;
+    }
+
+    part def TemperatureSensor {
+        attribute sensorId : String;
+        attribute rangeMinimum : TemperatureValue;
+        attribute rangeMaximum : TemperatureValue;
+        attribute accuracy : TemperatureValue;
+        attribute responseTime : TimeValue;
+        attribute measuredTemperature : TemperatureValue;
+
+        port sensingThermalInterface : ThermalPort;
+        port sensorDataOutput : DataPort;
+    }
+
+    part def ReferenceJunction {
+        attribute referenceTemperature : TemperatureValue;
+        attribute stability : TemperatureValue;
+        attribute heatCapacity : HeatCapacityValue;
+
+        port referenceThermalInterface : ThermalPort;
+    }
+
+    part def DataAcquisitionController {
+        attribute samplingPeriod : TimeValue;
+        attribute measurementDuration : TimeValue;
+        attribute baselineWindow : TimeValue;
+        attribute energyBalanceTolerance : PercentValue;
+        attribute activeMeasurementId : MeasurementIdentifier;
+
+        port sensorInput : DataPort;
+        port commandInterface : DataPort;
+        port resultOutput : DataPort;
+    }
+
+    part def Calorimeter {
+        attribute operatingTemperatureMinimum : TemperatureValue = 273.15;
+        attribute operatingTemperatureMaximum : TemperatureValue = 423.15;
+        attribute nominalEnergyResolution : EnergyValue = 0.05;
+        attribute maximumSampleMass : MassValue = 0.250;
+        attribute primaryFunction : String = "Measure heat exchanged by a sample by controlling energy input, sensing temperature change, and computing thermal properties from the observed energy balance.";
+
+        part chamber : InsulatedChamber {
+            attribute chamberVolume = 0.012;
+            attribute wallThermalConductance = 0.018;
+            attribute maximumOperatingTemperature = 423.15;
+            attribute ambientLeakagePower = 0.020;
+        }
+
+        part holder : SampleHolder {
+            attribute holderMass = 0.080;
+            attribute holderHeatCapacity = 72.0;
+            attribute contactResistance = 0.12;
+        }
+
+        part heater : HeaterAssembly {
+            attribute ratedPower = 75.0;
+            attribute minimumPower = 0.0;
+            attribute commandPower = 0.0;
+            attribute conversionEfficiency = 98.0;
+        }
+
+        part sampleSensor : TemperatureSensor {
+            attribute sensorId = "T_SAMPLE";
+            attribute rangeMinimum = 250.0;
+            attribute rangeMaximum = 450.0;
+            attribute accuracy = 0.02;
+            attribute responseTime = 0.5;
+        }
+
+        part chamberSensor : TemperatureSensor {
+            attribute sensorId = "T_CHAMBER";
+            attribute rangeMinimum = 250.0;
+            attribute rangeMaximum = 450.0;
+            attribute accuracy = 0.03;
+            attribute responseTime = 0.8;
+        }
+
+        part reference : ReferenceJunction {
+            attribute referenceTemperature = 298.15;
+            attribute stability = 0.01;
+            attribute heatCapacity = 120.0;
+        }
+
+        part controller : DataAcquisitionController {
+            attribute samplingPeriod = 0.25;
+            attribute measurementDuration = 600.0;
+            attribute baselineWindow = 30.0;
+            attribute energyBalanceTolerance = 2.0;
+        }
+
+        port sampleInterface : SamplePort;
+        port powerInterface : ElectricalPort;
+        port operatorDataInterface : DataPort;
+        port ambientThermalInterface : ThermalPort;
+
+        connect sampleInterface to chamber.sampleAccess;
+        connect chamber.sampleAccess to holder.sampleInterface;
+        connect powerInterface to heater.electricalInput;
+        connect heater.heaterThermalOutput to holder.holderThermalInterface;
+        connect holder.holderThermalInterface to chamber.internalThermalInterface;
+        connect chamber.internalThermalInterface to sampleSensor.sensingThermalInterface;
+        connect chamber.internalThermalInterface to chamberSensor.sensingThermalInterface;
+        connect chamber.externalThermalInterface to ambientThermalInterface;
+        connect reference.referenceThermalInterface to chamber.internalThermalInterface;
+        connect sampleSensor.sensorDataOutput to controller.sensorInput;
+        connect chamberSensor.sensorDataOutput to controller.sensorInput;
+        connect controller.commandInterface to operatorDataInterface;
+        connect controller.resultOutput to operatorDataInterface;
+
+        action def PrepareMeasurement {
+            in item sample : SampleMaterial;
+            in item command : ControlCommand;
+            out item acceptedSample : SampleMaterial;
+
+            first start;
+            then verifySampleMass;
+            then stabilizeReference;
+            then establishBaseline;
+            then ready;
+
+            action verifySampleMass {
+                assert constraint { sample.mass <= maximumSampleMass; }
+            }
+
+            action stabilizeReference {
+                assert constraint { reference.stability <= 0.02; }
+            }
+
+            action establishBaseline {
+                assert constraint { controller.baselineWindow >= 20.0; }
+            }
+        }
+
+        action def ApplyKnownHeat {
+            in item command : ControlCommand;
+            out item deliveredHeat : ThermalEnergy;
+
+            first receivePower;
+            then regulateHeater;
+            then integrateEnergy;
+            then stopHeating;
+
+            action receivePower {
+                assert constraint { command.heaterPowerLimit <= heater.ratedPower; }
+            }
+
+            action regulateHeater {
+                attribute regulatedPower : PowerValue;
+                assert constraint { regulatedPower >= heater.minimumPower and regulatedPower <= command.heaterPowerLimit; }
+            }
+
+            action integrateEnergy {
+                attribute heatingDuration : TimeValue;
+                assert constraint { heatingDuration <= command.durationLimit; }
+            }
+        }
+
+        action def AcquireThermalResponse {
+            out item sampleTemperature : TemperatureReading;
+            out item chamberTemperature : TemperatureReading;
+
+            first sampleTemperatureRead;
+            then chamberTemperatureRead;
+            then timestampReadings;
+            then publishReadings;
+        }
+
+        action def ComputeCalorimetryResult {
+            in item sample : SampleMaterial;
+            in item deliveredHeat : ThermalEnergy;
+            in item initialReading : TemperatureReading;
+            in item finalReading : TemperatureReading;
+            out item result : CalorimetryResult;
+
+            attribute deltaTemperature : TemperatureValue;
+            attribute correctedEnergy : EnergyValue;
+            attribute calculatedHeatCapacity : HeatCapacityValue;
+
+            first subtractBaseline;
+            then compensateThermalLeakage;
+            then computeTemperatureRise;
+            then computeHeatCapacity;
+            then validateEnergyBalance;
+
+            action computeTemperatureRise {
+                assert constraint { deltaTemperature == finalReading.temperature - initialReading.temperature; }
+            }
+
+            action computeHeatCapacity {
+                assert constraint { calculatedHeatCapacity == correctedEnergy / deltaTemperature; }
+            }
+
+            action validateEnergyBalance {
+                assert constraint { result.energyBalanceError <= controller.energyBalanceTolerance; }
+            }
+        }
+
+        state def CalorimeterOperatingState {
+            entry action initializeElectronics;
+            exit action persistMeasurementRecord;
+
+            state Off;
+            state Standby;
+            state LoadingSample;
+            state BaselineStabilization;
+            state Heating;
+            state ThermalEquilibration;
+            state DataReduction;
+            state ResultAvailable;
+            state Fault;
+
+            transition first Off then Standby;
+            transition Standby then LoadingSample accept ControlCommand;
+            transition LoadingSample then BaselineStabilization;
+            transition BaselineStabilization then Heating;
+            transition Heating then ThermalEquilibration;
+            transition ThermalEquilibration then DataReduction;
+            transition DataReduction then ResultAvailable;
+            transition ResultAvailable then Standby;
+            transition Standby then Fault if chamberSensor.measuredTemperature > chamber.maximumOperatingTemperature;
+            transition Heating then Fault if heater.commandPower > heater.ratedPower;
+            transition Fault then Standby accept ControlCommand;
+        }
+
+        perform action PrepareMeasurement;
+        perform action ApplyKnownHeat;
+        perform action AcquireThermalResponse;
+        perform action ComputeCalorimetryResult;
+        exhibit state CalorimeterOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject calorimeter : Calorimeter;
+
+        doc /* The calorimeter shall determine the heat exchanged by an inserted sample at a high level by isolating the sample thermally, applying or observing a known heat transfer, measuring the resulting temperature response, and computing a calibrated calorimetry result. */
+
+        require constraint {
+            calorimeter.nominalEnergyResolution <= 0.10
+        }
+    }
+
+    requirement def ThermalIsolationRequirement {
+        subject chamber : InsulatedChamber;
+
+        doc /* The insulated chamber shall limit uncontrolled heat leakage so that environmental heat exchange does not dominate the measured thermal response. */
+
+        require constraint {
+            chamber.wallThermalConductance <= 0.025
+        }
+    }
+
+    requirement def TemperatureMeasurementRequirement {
+        subject sensor : TemperatureSensor;
+
+        doc /* Each temperature sensor used for calorimetry shall provide sufficient accuracy and response time for transient thermal measurement. */
+
+        require constraint {
+            sensor.accuracy <= 0.05 and sensor.responseTime <= 1.0
+        }
+    }
+
+    requirement def HeaterControlRequirement {
+        subject heater : HeaterAssembly;
+
+        doc /* The heater assembly shall convert supplied electrical power into controlled thermal energy for calibration and sample excitation. */
+
+        require constraint {
+            heater.ratedPower >= 50.0 and heater.conversionEfficiency >= 95.0
+        }
+    }
+
+    requirement def SampleCapacityRequirement {
+        subject calorimeter : Calorimeter;
+
+        doc /* The calorimeter shall accept samples up to the specified maximum mass while preserving the validity of heat capacity calculation. */
+
+        require constraint {
+            calorimeter.maximumSampleMass >= 0.200
+        }
+    }
+
+    requirement def ResultValidityRequirement {
+        subject controller : DataAcquisitionController;
+
+        doc /* The controller shall mark a calorimetry result valid only when the computed energy balance error is within the configured tolerance. */
+
+        require constraint {
+            controller.energyBalanceTolerance <= 2.0
+        }
+    }
+
+    part calorimeterSystem : Calorimeter;
+
+    satisfy PrimaryFunctionRequirement by calorimeterSystem;
+    satisfy ThermalIsolationRequirement by calorimeterSystem.chamber;
+    satisfy TemperatureMeasurementRequirement by calorimeterSystem.sampleSensor;
+    satisfy TemperatureMeasurementRequirement by calorimeterSystem.chamberSensor;
+    satisfy HeaterControlRequirement by calorimeterSystem.heater;
+    satisfy SampleCapacityRequirement by calorimeterSystem;
+    satisfy ResultValidityRequirement by calorimeterSystem.controller;
+}

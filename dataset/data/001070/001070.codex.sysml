@@ -1,0 +1,412 @@
+package GeophoneSeismicSensingSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Voltage {
+        unit = V;
+        quantityKind = electricPotential;
+    }
+
+    value def Current {
+        unit = A;
+        quantityKind = electricCurrent;
+    }
+
+    value def Resistance {
+        unit = Ohm;
+        quantityKind = resistance;
+    }
+
+    value def Frequency {
+        unit = Hz;
+        quantityKind = frequency;
+    }
+
+    value def Acceleration {
+        unit = m / s^2;
+        quantityKind = acceleration;
+    }
+
+    value def Velocity {
+        unit = m / s;
+        quantityKind = speed;
+    }
+
+    value def Temperature {
+        unit = degC;
+        quantityKind = thermodynamicTemperature;
+    }
+
+    value def TimeDuration {
+        unit = s;
+        quantityKind = time;
+    }
+
+    value def DigitalCount {
+        quantityKind = dimensionless;
+    }
+
+    value def Decibel {
+        unit = dB;
+        quantityKind = dimensionless;
+    }
+
+    value def DataRate {
+        unit = bit / s;
+        quantityKind = informationRate;
+    }
+
+    item def GroundMotion {
+        attribute verticalVelocity : Velocity;
+        attribute horizontalVelocity : Velocity;
+        attribute dominantFrequency : Frequency;
+        attribute peakAcceleration : Acceleration;
+    }
+
+    item def AnalogSeismicSignal {
+        attribute coilVoltage : Voltage;
+        attribute frequency : Frequency;
+        attribute signalToNoiseRatio : Decibel;
+    }
+
+    item def ConditionedSignal {
+        attribute amplifiedVoltage : Voltage;
+        attribute bandwidthLow : Frequency;
+        attribute bandwidthHigh : Frequency;
+        attribute noiseFloor : Voltage;
+    }
+
+    item def DigitalSeismicSample {
+        attribute sampleValue : DigitalCount;
+        attribute sampleRate : Frequency;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def SeismicEventRecord {
+        attribute startTime : TimeDuration;
+        attribute duration : TimeDuration;
+        attribute peakGroundVelocity : Velocity;
+        attribute eventConfidence : Real;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorHealthy : Boolean;
+        attribute batteryVoltage : Voltage;
+        attribute internalTemperature : Temperature;
+        attribute faultCode : Integer;
+    }
+
+    port def GroundCouplingPort {
+        in item motion : GroundMotion;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogSeismicSignal;
+    }
+
+    port def ConditionedSignalPort {
+        in item rawSignal : AnalogSeismicSignal;
+        out item conditionedSignal : ConditionedSignal;
+    }
+
+    port def DigitalSamplePort {
+        in item conditionedSignal : ConditionedSignal;
+        out item sample : DigitalSeismicSample;
+    }
+
+    port def EventOutputPort {
+        out item eventRecord : SeismicEventRecord;
+        out item status : DiagnosticStatus;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    part def GeophoneSensor {
+        attribute naturalFrequency : Frequency = 4.5 [Hz];
+        attribute coilResistance : Resistance = 375 [Ohm];
+        attribute sensitivity : Real = 28.8;
+        attribute maxTiltAngle : Real = 5.0;
+
+        port groundInput : GroundCouplingPort;
+        port analogOutput : AnalogSignalPort;
+
+        action convertGroundMotionToVoltage {
+            in item sensedMotion : GroundMotion;
+            out item inducedSignal : AnalogSeismicSignal;
+
+            assert constraint {
+                inducedSignal.frequency == sensedMotion.dominantFrequency
+            }
+        }
+
+        state def SensorOperatingState {
+            state uncoupled;
+            state coupled;
+            state saturated;
+            state failed;
+
+            transition first uncoupled;
+            transition uncoupled_to_coupled
+                first uncoupled then coupled
+                accept GroundContactEstablished;
+
+            transition coupled_to_saturated
+                first coupled then saturated
+                if groundInput.motion.peakAcceleration > 20 [m / s^2];
+
+            transition saturated_to_coupled
+                first saturated then coupled
+                if groundInput.motion.peakAcceleration <= 20 [m / s^2];
+
+            transition any_to_failed
+                first coupled then failed
+                accept SensorFaultDetected;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute gain : Real = 20.0;
+        attribute highPassCutoff : Frequency = 1.0 [Hz];
+        attribute lowPassCutoff : Frequency = 100.0 [Hz];
+        attribute inputNoise : Voltage = 2.0e-6 [V];
+
+        port signalPort : ConditionedSignalPort;
+        port powerPort : PowerInputPort;
+
+        action filterAndAmplify {
+            in item raw : AnalogSeismicSignal;
+            out item conditioned : ConditionedSignal;
+
+            assert constraint {
+                conditioned.bandwidthLow == highPassCutoff and
+                conditioned.bandwidthHigh == lowPassCutoff
+            }
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute sampleRate : Frequency = 500 [Hz];
+        attribute referenceVoltage : Voltage = 2.5 [V];
+
+        port samplePort : DigitalSamplePort;
+        port powerPort : PowerInputPort;
+
+        action digitizeSignal {
+            in item conditioned : ConditionedSignal;
+            out item sample : DigitalSeismicSample;
+
+            assert constraint {
+                sample.sampleRate == sampleRate
+            }
+        }
+    }
+
+    part def EventDetector {
+        attribute velocityThreshold : Velocity = 0.002 [m / s];
+        attribute minimumEventDuration : TimeDuration = 0.5 [s];
+        attribute triggerConfidenceThreshold : Real = 0.85;
+
+        in item sampleStream : DigitalSeismicSample;
+        out item detectedEvent : SeismicEventRecord;
+
+        action estimateGroundVelocity {
+            in item sample : DigitalSeismicSample;
+            out velocityEstimate : Velocity;
+        }
+
+        action classifySeismicEvent {
+            in velocityEstimate : Velocity;
+            out item event : SeismicEventRecord;
+        }
+
+        state def DetectionState {
+            state idle;
+            state monitoring;
+            state candidateEvent;
+            state eventConfirmed;
+            state eventReported;
+
+            transition first idle;
+            transition idle_to_monitoring
+                first idle then monitoring
+                accept SystemArmed;
+
+            transition monitoring_to_candidate
+                first monitoring then candidateEvent
+                if sampleStream.sampleValue > 1000;
+
+            transition candidate_to_confirmed
+                first candidateEvent then eventConfirmed
+                if detectedEvent.duration >= minimumEventDuration and
+                   detectedEvent.eventConfidence >= triggerConfidenceThreshold;
+
+            transition confirmed_to_reported
+                first eventConfirmed then eventReported
+                accept EventRecordStored;
+
+            transition reported_to_monitoring
+                first eventReported then monitoring;
+        }
+    }
+
+    part def DataLogger {
+        attribute storageCapacity : Real = 32.0;
+        attribute retainedEventCount : Integer = 10000;
+        attribute outputDataRate : DataRate = 115200 [bit / s];
+
+        port eventPort : EventOutputPort;
+
+        action storeEventRecord {
+            in item event : SeismicEventRecord;
+            out stored : Boolean;
+        }
+
+        action publishStatus {
+            out item status : DiagnosticStatus;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : Voltage = 12.0 [V];
+        attribute maximumCurrent : Current = 0.5 [A];
+        attribute lowVoltageLimit : Voltage = 10.5 [V];
+
+        port conditionerPower : PowerInputPort;
+        port adcPower : PowerInputPort;
+
+        out item suppliedPower : ElectricalPower;
+    }
+
+    part def GeophoneBasedSeismicSystem {
+        attribute primaryFunction : String =
+            "Detect ground vibration by converting relative motion between a seismic mass and coil into an electrical signal, condition and digitize that signal, and report high-level seismic event records.";
+
+        part sensor : GeophoneSensor;
+        part conditioner : SignalConditioner;
+        part adc : AnalogToDigitalConverter;
+        part detector : EventDetector;
+        part logger : DataLogger;
+        part power : PowerSubsystem;
+
+        port groundInterface : GroundCouplingPort;
+        port eventOutput : EventOutputPort;
+
+        connect groundInterface to sensor.groundInput;
+        connect sensor.analogOutput.signal to conditioner.signalPort.rawSignal;
+        connect conditioner.signalPort.conditionedSignal to adc.samplePort.conditionedSignal;
+        connect adc.samplePort.sample to detector.sampleStream;
+        connect detector.detectedEvent to logger.eventPort.eventRecord;
+        connect logger.eventPort to eventOutput;
+        connect power.conditionerPower to conditioner.powerPort;
+        connect power.adcPower to adc.powerPort;
+
+        action performPrimaryFunction {
+            in item groundMotion : GroundMotion;
+            out item eventRecord : SeismicEventRecord;
+
+            first start;
+            then senseGroundMotion;
+            then conditionSignal;
+            then digitize;
+            then detectEvent;
+            then reportEvent;
+            then done;
+
+            action senseGroundMotion {
+                in item groundMotion : GroundMotion;
+                out item rawSignal : AnalogSeismicSignal;
+            }
+
+            action conditionSignal {
+                in item rawSignal : AnalogSeismicSignal;
+                out item conditioned : ConditionedSignal;
+            }
+
+            action digitize {
+                in item conditioned : ConditionedSignal;
+                out item sample : DigitalSeismicSample;
+            }
+
+            action detectEvent {
+                in item sample : DigitalSeismicSample;
+                out item eventRecord : SeismicEventRecord;
+            }
+
+            action reportEvent {
+                in item eventRecord : SeismicEventRecord;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall sense ground motion using a geophone and produce a digital seismic event record representing detected vibration activity. */
+        subject system : GeophoneBasedSeismicSystem;
+
+        require constraint {
+            system.sensor.naturalFrequency <= 10 [Hz]
+        }
+    }
+
+    requirement def GroundMotionSensitivityRequirement {
+        doc /* The system shall detect ground velocity at or above 0.002 m/s within the configured measurement bandwidth. */
+        subject detector : EventDetector;
+
+        require constraint {
+            detector.velocityThreshold <= 0.002 [m / s]
+        }
+    }
+
+    requirement def MeasurementBandwidthRequirement {
+        doc /* The signal chain shall preserve seismic content from 1 Hz through 100 Hz. */
+        subject conditioner : SignalConditioner;
+
+        require constraint {
+            conditioner.highPassCutoff <= 1 [Hz] and
+            conditioner.lowPassCutoff >= 100 [Hz]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        doc /* The digitizer shall sample conditioned geophone data at no less than 500 Hz. */
+        subject adc : AnalogToDigitalConverter;
+
+        require constraint {
+            adc.sampleRate >= 500 [Hz]
+        }
+    }
+
+    requirement def EventReportingRequirement {
+        doc /* The system shall store and output confirmed seismic event records with timestamp, duration, peak ground velocity, and confidence. */
+        subject logger : DataLogger;
+
+        require constraint {
+            logger.retainedEventCount >= 10000
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        doc /* The system shall provide diagnostic status containing sensor health, supply voltage, internal temperature, and fault code. */
+        subject logger : DataLogger;
+
+        require constraint {
+            logger.eventPort.status.batteryVoltage >= 10.5 [V]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GeophoneBasedSeismicSystem;
+    satisfy GroundMotionSensitivityRequirement by EventDetector;
+    satisfy MeasurementBandwidthRequirement by SignalConditioner;
+    satisfy SamplingRequirement by AnalogToDigitalConverter;
+    satisfy EventReportingRequirement by DataLogger;
+    satisfy HealthMonitoringRequirement by DataLogger;
+}

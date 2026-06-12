@@ -1,0 +1,473 @@
+package SinglePhotonAvalancheDiodeSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def PhotonWavelength {
+    attribute value : Real;
+    attribute unit : String = "nm";
+  }
+
+  value def OpticalPower {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  value def ElectricVoltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  value def ElectricCurrent {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  value def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  value def TimeInterval {
+    attribute value : Real;
+    attribute unit : String = "ns";
+  }
+
+  value def CountRate {
+    attribute value : Real;
+    attribute unit : String = "counts/s";
+  }
+
+  value def Probability {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  item def IncidentPhoton {
+    attribute wavelength : PhotonWavelength;
+    attribute arrivalTime : TimeInterval;
+    attribute energy_eV : Real;
+  }
+
+  item def AvalancheCarrierPacket {
+    attribute electronCount : Integer;
+    attribute holeCount : Integer;
+    attribute multiplicationGain : Real;
+  }
+
+  item def DetectionPulse {
+    attribute amplitude : ElectricVoltage;
+    attribute width : TimeInterval;
+    attribute timestamp : TimeInterval;
+    attribute classifiedAsPhotonEvent : Boolean;
+  }
+
+  item def BiasSupply {
+    attribute voltage : ElectricVoltage;
+    attribute ripple : ElectricVoltage;
+  }
+
+  item def ThermalStatus {
+    attribute junctionTemperature : Temperature;
+    attribute heatSinkTemperature : Temperature;
+  }
+
+  port def OpticalInputPort {
+    in item photon : IncidentPhoton;
+  }
+
+  port def BiasPort {
+    in item bias : BiasSupply;
+  }
+
+  port def ThermalPort {
+    out item thermal : ThermalStatus;
+  }
+
+  port def PulseOutputPort {
+    out item pulse : DetectionPulse;
+  }
+
+  port def ControlPort {
+    in item enableCommand : Boolean;
+    in item resetCommand : Boolean;
+    out item readyStatus : Boolean;
+    out item saturatedStatus : Boolean;
+  }
+
+  part def AbsorptionRegion {
+    port opticalInput : OpticalInputPort;
+
+    attribute absorptionEfficiency : Probability;
+    attribute activeDiameter_um : Real;
+    attribute depletionDepth_um : Real;
+    attribute supportedWavelengthMin : PhotonWavelength;
+    attribute supportedWavelengthMax : PhotonWavelength;
+
+    action absorbPhoton {
+      in item photon : IncidentPhoton;
+      out item carrierPacket : AvalancheCarrierPacket;
+
+      first start;
+      then createElectronHolePair;
+      then emitCarrierPacket;
+      then done;
+
+      action createElectronHolePair;
+      action emitCarrierPacket;
+    }
+  }
+
+  part def AvalancheMultiplicationRegion {
+    in item seedCarrierPacket : AvalancheCarrierPacket;
+    out item avalanchePacket : AvalancheCarrierPacket;
+
+    attribute breakdownVoltage : ElectricVoltage;
+    attribute excessBiasVoltage : ElectricVoltage;
+    attribute peakAvalancheCurrent : ElectricCurrent;
+    attribute photonDetectionProbability : Probability;
+    attribute darkCountRate : CountRate;
+
+    action multiplyCarriers {
+      in item seedCarrierPacket : AvalancheCarrierPacket;
+      out item avalanchePacket : AvalancheCarrierPacket;
+
+      first start;
+      then impactIonization;
+      then selfSustainingAvalanche;
+      then emitAvalanchePacket;
+      then done;
+
+      action impactIonization;
+      action selfSustainingAvalanche;
+      action emitAvalanchePacket;
+    }
+  }
+
+  part def QuenchingCircuit {
+    in item avalanchePacket : AvalancheCarrierPacket;
+    in item bias : BiasSupply;
+    out item quenchedPulse : DetectionPulse;
+
+    attribute quenchResistance_ohm : Real;
+    attribute holdOffTime : TimeInterval;
+    attribute rechargeTime : TimeInterval;
+    attribute afterpulseProbability : Probability;
+
+    action quenchAvalanche {
+      in item avalanchePacket : AvalancheCarrierPacket;
+      out item quenchedPulse : DetectionPulse;
+
+      first start;
+      then detectCurrentRise;
+      then lowerJunctionBiasBelowBreakdown;
+      then shapeQuenchedPulse;
+      then enforceHoldOff;
+      then rechargeJunction;
+      then done;
+
+      action detectCurrentRise;
+      action lowerJunctionBiasBelowBreakdown;
+      action shapeQuenchedPulse;
+      action enforceHoldOff;
+      action rechargeJunction;
+    }
+  }
+
+  part def PulseDiscriminator {
+    in item quenchedPulse : DetectionPulse;
+    out item digitalPulse : DetectionPulse;
+
+    attribute thresholdVoltage : ElectricVoltage;
+    attribute timingJitter : TimeInterval;
+    attribute minimumPulseWidth : TimeInterval;
+    attribute falseTriggerRate : CountRate;
+
+    action discriminatePulse {
+      in item quenchedPulse : DetectionPulse;
+      out item digitalPulse : DetectionPulse;
+
+      first start;
+      then compareToThreshold;
+      then timeStampEvent;
+      then classifyEvent;
+      then emitDigitalPulse;
+      then done;
+
+      action compareToThreshold;
+      action timeStampEvent;
+      action classifyEvent;
+      action emitDigitalPulse;
+    }
+  }
+
+  part def TemperatureController {
+    out item thermalStatus : ThermalStatus;
+
+    attribute targetJunctionTemperature : Temperature;
+    attribute maximumJunctionTemperature : Temperature;
+    attribute coolingPower_W : Real;
+    attribute thermalResistance_K_per_W : Real;
+
+    action regulateTemperature {
+      first start;
+      then measureJunctionTemperature;
+      then adjustCoolingPower;
+      then reportThermalStatus;
+      then done;
+
+      action measureJunctionTemperature;
+      action adjustCoolingPower;
+      action reportThermalStatus;
+    }
+  }
+
+  state def SPADOperatingState {
+    entry action initializeDetector;
+
+    state Disabled;
+    state Armed;
+    state GeigerModeReady;
+    state AvalancheTriggered;
+    state Quenching;
+    state HoldOff;
+    state Recharge;
+    state Saturated;
+    state Fault;
+
+    transition t0 first Disabled then Armed
+      accept enableCommand
+      if enableCommand == true;
+
+    transition t1 first Armed then GeigerModeReady
+      if biasVoltage.value > breakdownVoltage.value;
+
+    transition t2 first GeigerModeReady then AvalancheTriggered
+      accept incidentPhoton
+      if incidentPhoton.energy_eV > 0.0;
+
+    transition t3 first AvalancheTriggered then Quenching;
+
+    transition t4 first Quenching then HoldOff;
+
+    transition t5 first HoldOff then Recharge
+      if elapsedHoldOffTime.value >= configuredHoldOffTime.value;
+
+    transition t6 first Recharge then GeigerModeReady
+      if junctionBias.value >= operatingBias.value;
+
+    transition t7 first GeigerModeReady then Saturated
+      if detectedCountRate.value > maximumLinearCountRate.value;
+
+    transition t8 first Saturated then GeigerModeReady
+      if detectedCountRate.value <= recoveryCountRate.value;
+
+    transition t9 first Armed then Fault
+      if junctionTemperature.value > maximumJunctionTemperature.value;
+
+    transition t10 first GeigerModeReady then Fault
+      if junctionTemperature.value > maximumJunctionTemperature.value;
+
+    transition t11 first Fault then Disabled
+      accept resetCommand
+      if resetCommand == true;
+
+    action initializeDetector;
+  }
+
+  part def SinglePhotonAvalancheDiodeDetector {
+    port opticalInput : OpticalInputPort;
+    port biasInput : BiasPort;
+    port control : ControlPort;
+    port pulseOutput : PulseOutputPort;
+    port thermalOutput : ThermalPort;
+
+    part absorber : AbsorptionRegion {
+      attribute absorptionEfficiency = Probability { value = 0.72; unit = "1"; }
+      attribute activeDiameter_um = 25.0;
+      attribute depletionDepth_um = 1.8;
+      attribute supportedWavelengthMin = PhotonWavelength { value = 400.0; unit = "nm"; }
+      attribute supportedWavelengthMax = PhotonWavelength { value = 900.0; unit = "nm"; }
+    }
+
+    part avalancheRegion : AvalancheMultiplicationRegion {
+      attribute breakdownVoltage = ElectricVoltage { value = 52.0; unit = "V"; }
+      attribute excessBiasVoltage = ElectricVoltage { value = 4.5; unit = "V"; }
+      attribute peakAvalancheCurrent = ElectricCurrent { value = 0.0015; unit = "A"; }
+      attribute photonDetectionProbability = Probability { value = 0.58; unit = "1"; }
+      attribute darkCountRate = CountRate { value = 75.0; unit = "counts/s"; }
+    }
+
+    part quench : QuenchingCircuit {
+      attribute quenchResistance_ohm = 150000.0;
+      attribute holdOffTime = TimeInterval { value = 50.0; unit = "ns"; }
+      attribute rechargeTime = TimeInterval { value = 12.0; unit = "ns"; }
+      attribute afterpulseProbability = Probability { value = 0.015; unit = "1"; }
+    }
+
+    part discriminator : PulseDiscriminator {
+      attribute thresholdVoltage = ElectricVoltage { value = 0.080; unit = "V"; }
+      attribute timingJitter = TimeInterval { value = 0.045; unit = "ns"; }
+      attribute minimumPulseWidth = TimeInterval { value = 2.0; unit = "ns"; }
+      attribute falseTriggerRate = CountRate { value = 3.0; unit = "counts/s"; }
+    }
+
+    part thermalController : TemperatureController {
+      attribute targetJunctionTemperature = Temperature { value = -20.0; unit = "degC"; }
+      attribute maximumJunctionTemperature = Temperature { value = 45.0; unit = "degC"; }
+      attribute coolingPower_W = 0.8;
+      attribute thermalResistance_K_per_W = 22.0;
+    }
+
+    attribute operatingBias : ElectricVoltage = ElectricVoltage { value = 56.5; unit = "V"; }
+    attribute maximumLinearCountRate : CountRate = CountRate { value = 10000000.0; unit = "counts/s"; }
+    attribute recoveryCountRate : CountRate = CountRate { value = 8000000.0; unit = "counts/s"; }
+    attribute detectionDeadTime : TimeInterval = TimeInterval { value = 62.0; unit = "ns"; }
+    attribute primaryFunction : String =
+      "Convert the arrival of a single incident photon into a measurable electrical pulse by operating a reverse-biased p-n junction above breakdown in Geiger mode.";
+
+    exhibit stateMachine : SPADOperatingState;
+
+    connect opticalInput.photon to absorber.opticalInput.photon;
+    connect biasInput.bias to quench.bias;
+    connect absorber.carrierPacket to avalancheRegion.seedCarrierPacket;
+    connect avalancheRegion.avalanchePacket to quench.avalanchePacket;
+    connect quench.quenchedPulse to discriminator.quenchedPulse;
+    connect discriminator.digitalPulse to pulseOutput.pulse;
+    connect thermalController.thermalStatus to thermalOutput.thermal;
+
+    action detectSinglePhoton {
+      in item photon : IncidentPhoton;
+      in item bias : BiasSupply;
+      out item pulse : DetectionPulse;
+
+      first receivePhoton;
+      then absorbPhoton;
+      then initiateAvalanche;
+      then quenchAvalanche;
+      then discriminatePulse;
+      then outputPulse;
+      then done;
+
+      action receivePhoton {
+        out item receivedPhoton : IncidentPhoton;
+      }
+
+      action absorbPhoton {
+        in item receivedPhoton : IncidentPhoton;
+        out item seedCarrierPacket : AvalancheCarrierPacket;
+      }
+
+      action initiateAvalanche {
+        in item seedCarrierPacket : AvalancheCarrierPacket;
+        out item avalanchePacket : AvalancheCarrierPacket;
+      }
+
+      action quenchAvalanche {
+        in item avalanchePacket : AvalancheCarrierPacket;
+        out item quenchedPulse : DetectionPulse;
+      }
+
+      action discriminatePulse {
+        in item quenchedPulse : DetectionPulse;
+        out item digitalPulse : DetectionPulse;
+      }
+
+      action outputPulse {
+        in item digitalPulse : DetectionPulse;
+        out item pulse : DetectionPulse;
+      }
+    }
+  }
+
+  requirement def PrimaryPhotonDetectionFunction {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall convert a single incident photon within the supported wavelength range into a timestamped electrical pulse. */
+
+    require constraint {
+      detector.primaryFunction ==
+      "Convert the arrival of a single incident photon into a measurable electrical pulse by operating a reverse-biased p-n junction above breakdown in Geiger mode."
+    }
+  }
+
+  requirement def GeigerModeBiasRequirement {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall maintain reverse bias above breakdown voltage while armed. */
+
+    require constraint {
+      detector.operatingBias.value >
+      detector.avalancheRegion.breakdownVoltage.value
+    }
+  }
+
+  requirement def DeadTimeRequirement {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall suppress additional detections during avalanche quench and recharge. */
+
+    require constraint {
+      detector.detectionDeadTime.value >=
+      detector.quench.holdOffTime.value + detector.quench.rechargeTime.value
+    }
+  }
+
+  requirement def DetectionProbabilityRequirement {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall provide at least 50 percent photon detection probability at nominal wavelength and temperature. */
+
+    require constraint {
+      detector.avalancheRegion.photonDetectionProbability.value >= 0.50
+    }
+  }
+
+  requirement def DarkCountRequirement {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall limit dark counts in nominal cooled operation. */
+
+    require constraint {
+      detector.avalancheRegion.darkCountRate.value <= 100.0
+    }
+  }
+
+  requirement def TimingJitterRequirement {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall timestamp photon events with sub-100 ps timing jitter. */
+
+    require constraint {
+      detector.discriminator.timingJitter.value <= 0.10
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    subject detector : SinglePhotonAvalancheDiodeDetector;
+
+    doc
+      /* The detector shall enter fault state when junction temperature exceeds its safe operating limit. */
+
+    require constraint {
+      detector.thermalController.maximumJunctionTemperature.value <= 45.0
+    }
+  }
+
+  part spadPhotonCounter : SinglePhotonAvalancheDiodeDetector;
+
+  satisfy PrimaryPhotonDetectionFunction by spadPhotonCounter;
+  satisfy GeigerModeBiasRequirement by spadPhotonCounter;
+  satisfy DeadTimeRequirement by spadPhotonCounter;
+  satisfy DetectionProbabilityRequirement by spadPhotonCounter;
+  satisfy DarkCountRequirement by spadPhotonCounter;
+  satisfy TimingJitterRequirement by spadPhotonCounter;
+  satisfy ThermalProtectionRequirement by spadPhotonCounter;
+}

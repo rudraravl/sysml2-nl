@@ -1,0 +1,414 @@
+package HygrometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    doc /* Relative quantity expressed from 0 to 100 percent. */
+  }
+
+  attribute def TemperatureCelsius :> Real {
+    doc /* Temperature in degrees Celsius. */
+  }
+
+  attribute def RelativeHumidity :> Percent {
+    doc /* Relative humidity percentage. */
+    constraint range {
+      0.0 <= self and self <= 100.0
+    }
+  }
+
+  attribute def DewPointCelsius :> TemperatureCelsius {
+    doc /* Dew point temperature in degrees Celsius. */
+  }
+
+  attribute def Voltage :> Real {
+    doc /* Electrical potential in volts. */
+  }
+
+  attribute def Current :> Real {
+    doc /* Electrical current in amperes. */
+  }
+
+  attribute def TimeSecond :> Real {
+    doc /* Time duration in seconds. */
+  }
+
+  attribute def SampleRateHz :> Real {
+    doc /* Measurement samples per second. */
+  }
+
+  attribute def AirFlowRate :> Real {
+    doc /* Air volume flow rate in liters per minute. */
+  }
+
+  item def AmbientAir {
+    attribute relativeHumidity : RelativeHumidity;
+    attribute temperature : TemperatureCelsius;
+    attribute pressure_kPa : Real;
+  }
+
+  item def HumidityReading {
+    attribute relativeHumidity : RelativeHumidity;
+    attribute temperature : TemperatureCelsius;
+    attribute dewPoint : DewPointCelsius;
+    attribute timestamp_s : TimeSecond;
+    attribute valid : Boolean;
+  }
+
+  item def ElectricalPower {
+    attribute voltage_V : Voltage;
+    attribute current_A : Current;
+  }
+
+  item def DisplayMessage {
+    attribute humidityText : String;
+    attribute temperatureText : String;
+    attribute statusText : String;
+  }
+
+  port def AirSamplePort {
+    in item air : AmbientAir;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ReadingOutputPort {
+    out item reading : HumidityReading;
+  }
+
+  port def DisplayPort {
+    out item message : DisplayMessage;
+  }
+
+  part def HygrometerSystem {
+    doc /* A hygrometer system measures the moisture content of ambient air and reports relative humidity, temperature, and derived dew point to a user or external system. */
+
+    attribute operatingVoltage_V : Voltage = 3.3;
+    attribute maxSupplyCurrent_A : Current = 0.08;
+    attribute sampleRate_Hz : SampleRateHz = 1.0;
+    attribute humidityAccuracy_percentRH : Percent = 2.0;
+    attribute temperatureAccuracy_C : TemperatureCelsius = 0.3;
+    attribute lowHumidityAlarmThreshold : RelativeHumidity = 25.0;
+    attribute highHumidityAlarmThreshold : RelativeHumidity = 70.0;
+
+    port airIn : AirSamplePort;
+    port powerIn : PowerInputPort;
+    port readingOut : ReadingOutputPort;
+    port displayOut : DisplayPort;
+
+    part sensingAssembly : HumiditySensingAssembly;
+    part processingUnit : SignalProcessingUnit;
+    part userInterface : HygrometerUserInterface;
+    part enclosure : ProtectiveEnclosure;
+    part powerRegulator : PowerRegulator;
+
+    connect airIn to sensingAssembly.airIn;
+    connect powerIn to powerRegulator.powerIn;
+    connect powerRegulator.regulatedPowerOut to sensingAssembly.powerIn;
+    connect powerRegulator.regulatedPowerOut to processingUnit.powerIn;
+    connect powerRegulator.regulatedPowerOut to userInterface.powerIn;
+    connect sensingAssembly.rawMeasurementOut to processingUnit.rawMeasurementIn;
+    connect processingUnit.readingOut to readingOut;
+    connect processingUnit.displayMessageOut to userInterface.displayIn;
+    connect userInterface.displayOut to displayOut;
+
+    perform measureAndReportHumidity : MeasureAndReportHumidity;
+    exhibit state operatingState : HygrometerOperatingState;
+  }
+
+  part def HumiditySensingAssembly {
+    attribute sensorResponseTime_s : TimeSecond = 8.0;
+    attribute measurementRangeLow : RelativeHumidity = 0.0;
+    attribute measurementRangeHigh : RelativeHumidity = 100.0;
+    attribute temperatureRangeLow_C : TemperatureCelsius = -20.0;
+    attribute temperatureRangeHigh_C : TemperatureCelsius = 60.0;
+    attribute airflowRequirement_L_per_min : AirFlowRate = 0.1;
+
+    port airIn : AirSamplePort;
+    port powerIn : PowerInputPort;
+    port rawMeasurementOut : ReadingOutputPort;
+
+    part humiditySensor : CapacitiveHumiditySensor;
+    part temperatureSensor : ThermistorTemperatureSensor;
+    part intakeVent : AirIntakeVent;
+
+    connect airIn to intakeVent.airIn;
+    connect intakeVent.sampledAirOut to humiditySensor.airIn;
+    connect intakeVent.sampledAirOut to temperatureSensor.airIn;
+    connect powerIn to humiditySensor.powerIn;
+    connect powerIn to temperatureSensor.powerIn;
+  }
+
+  part def CapacitiveHumiditySensor {
+    attribute capacitance_pF : Real;
+    attribute nominalAccuracy_percentRH : Percent = 2.0;
+    attribute driftPerYear_percentRH : Percent = 0.5;
+
+    port airIn : AirSamplePort;
+    port powerIn : PowerInputPort;
+    port humiditySignalOut : ReadingOutputPort;
+  }
+
+  part def ThermistorTemperatureSensor {
+    attribute resistance_ohm : Real;
+    attribute nominalAccuracy_C : TemperatureCelsius = 0.3;
+
+    port airIn : AirSamplePort;
+    port powerIn : PowerInputPort;
+    port temperatureSignalOut : ReadingOutputPort;
+  }
+
+  part def AirIntakeVent {
+    attribute meshOpening_mm : Real = 0.5;
+    attribute dustIngressReduction_percent : Percent = 80.0;
+
+    port airIn : AirSamplePort;
+    port sampledAirOut : AirSamplePort;
+  }
+
+  part def SignalProcessingUnit {
+    attribute calibrationOffset_percentRH : Percent = 0.0;
+    attribute calibrationOffset_C : TemperatureCelsius = 0.0;
+    attribute movingAverageWindow_samples : Integer = 8;
+    attribute lastHumidity : RelativeHumidity;
+    attribute lastTemperature_C : TemperatureCelsius;
+    attribute lastDewPoint_C : DewPointCelsius;
+
+    port powerIn : PowerInputPort;
+    port rawMeasurementIn : ReadingOutputPort;
+    port readingOut : ReadingOutputPort;
+    port displayMessageOut : DisplayPort;
+
+    perform acquireSample : AcquireSensorSample;
+    perform compensateSample : TemperatureCompensateHumidity;
+    perform calculateDewPoint : CalculateDewPoint;
+    perform validateReading : ValidateHumidityReading;
+  }
+
+  part def HygrometerUserInterface {
+    attribute updatePeriod_s : TimeSecond = 1.0;
+    attribute alarmEnabled : Boolean = true;
+
+    port powerIn : PowerInputPort;
+    port displayIn : DisplayPort;
+    port displayOut : DisplayPort;
+
+    part display : NumericDisplay;
+    part alarmIndicator : AlarmIndicator;
+
+    connect displayIn to display.messageIn;
+    connect displayIn to alarmIndicator.messageIn;
+    connect display.messageOut to displayOut;
+  }
+
+  part def NumericDisplay {
+    attribute digitCount : Integer = 4;
+    attribute backlightEnabled : Boolean = true;
+
+    port messageIn : DisplayPort;
+    port messageOut : DisplayPort;
+  }
+
+  part def AlarmIndicator {
+    attribute audibleLevel_dBA : Real = 55.0;
+    attribute active : Boolean;
+
+    port messageIn : DisplayPort;
+  }
+
+  part def ProtectiveEnclosure {
+    attribute width_mm : Real = 90.0;
+    attribute height_mm : Real = 55.0;
+    attribute depth_mm : Real = 24.0;
+    attribute ingressProtectionRating : String = "IP20";
+    attribute vented : Boolean = true;
+  }
+
+  part def PowerRegulator {
+    attribute inputVoltageMin_V : Voltage = 2.7;
+    attribute inputVoltageMax_V : Voltage = 5.5;
+    attribute outputVoltage_V : Voltage = 3.3;
+    attribute efficiency_percent : Percent = 88.0;
+
+    port powerIn : PowerInputPort;
+    port regulatedPowerOut : PowerInputPort;
+  }
+
+  action def MeasureAndReportHumidity {
+    in item ambientAir : AmbientAir;
+    out item reportedReading : HumidityReading;
+
+    first start;
+    then acquire : AcquireSensorSample;
+    then compensate : TemperatureCompensateHumidity;
+    then dewPoint : CalculateDewPoint;
+    then validate : ValidateHumidityReading;
+    then publish : PublishHumidityReading;
+    then done;
+
+    flow ambientAir to acquire.sampledAir;
+    flow acquire.rawReading to compensate.rawReading;
+    flow compensate.compensatedReading to dewPoint.inputReading;
+    flow dewPoint.readingWithDewPoint to validate.inputReading;
+    flow validate.validatedReading to publish.reading;
+    flow publish.publishedReading to reportedReading;
+  }
+
+  action def AcquireSensorSample {
+    in item sampledAir : AmbientAir;
+    out item rawReading : HumidityReading;
+  }
+
+  action def TemperatureCompensateHumidity {
+    in item rawReading : HumidityReading;
+    out item compensatedReading : HumidityReading;
+  }
+
+  action def CalculateDewPoint {
+    in item inputReading : HumidityReading;
+    out item readingWithDewPoint : HumidityReading;
+  }
+
+  action def ValidateHumidityReading {
+    in item inputReading : HumidityReading;
+    out item validatedReading : HumidityReading;
+  }
+
+  action def PublishHumidityReading {
+    in item reading : HumidityReading;
+    out item publishedReading : HumidityReading;
+  }
+
+  state def HygrometerOperatingState {
+    entry; then Initializing;
+
+    state Initializing;
+    state Sampling;
+    state Processing;
+    state Reporting;
+    state Alarm;
+    state Fault;
+    state LowPower;
+
+    transition Initializing_to_Sampling
+      first Initializing
+      accept after 2.0 [s]
+      then Sampling;
+
+    transition Sampling_to_Processing
+      first Sampling
+      accept sampleComplete
+      then Processing;
+
+    transition Processing_to_Reporting
+      first Processing
+      accept readingValid
+      then Reporting;
+
+    transition Processing_to_Fault
+      first Processing
+      accept sensorError
+      then Fault;
+
+    transition Reporting_to_Sampling
+      first Reporting
+      accept after 1.0 [s]
+      then Sampling;
+
+    transition Reporting_to_Alarm
+      first Reporting
+      accept humidityOutOfRange
+      then Alarm;
+
+    transition Alarm_to_Sampling
+      first Alarm
+      accept humidityNormal
+      then Sampling;
+
+    transition Sampling_to_LowPower
+      first Sampling
+      accept supplyVoltageLow
+      then LowPower;
+
+    transition LowPower_to_Initializing
+      first LowPower
+      accept supplyVoltageRestored
+      then Initializing;
+
+    transition Fault_to_Initializing
+      first Fault
+      accept resetCommand
+      then Initializing;
+  }
+
+  requirement def MeasureAmbientHumidityRequirement {
+    doc /* The system shall measure relative humidity of ambient air as its primary function. */
+    subject hygrometer : HygrometerSystem;
+    require constraint {
+      hygrometer.sensingAssembly.measurementRangeLow <= 0.0 and
+      hygrometer.sensingAssembly.measurementRangeHigh >= 100.0
+    }
+  }
+
+  requirement def ReportHumidityRequirement {
+    doc /* The system shall report a valid humidity reading at least once per second during normal operation. */
+    subject hygrometer : HygrometerSystem;
+    require constraint {
+      hygrometer.sampleRate_Hz >= 1.0
+    }
+  }
+
+  requirement def HumidityAccuracyRequirement {
+    doc /* The system shall measure relative humidity with an accuracy of plus or minus two percent relative humidity under nominal indoor conditions. */
+    subject hygrometer : HygrometerSystem;
+    require constraint {
+      hygrometer.humidityAccuracy_percentRH <= 2.0
+    }
+  }
+
+  requirement def TemperatureCompensationRequirement {
+    doc /* The system shall compensate relative humidity readings using measured ambient temperature. */
+    subject processor : SignalProcessingUnit;
+    require constraint {
+      processor.movingAverageWindow_samples >= 4
+    }
+  }
+
+  requirement def DewPointRequirement {
+    doc /* The system shall calculate dew point from measured relative humidity and temperature. */
+    subject processor : SignalProcessingUnit;
+    require constraint {
+      processor.lastDewPoint_C <= processor.lastTemperature_C
+    }
+  }
+
+  requirement def HumidityAlarmRequirement {
+    doc /* The system shall indicate an alarm when measured humidity is below the low threshold or above the high threshold. */
+    subject hygrometer : HygrometerSystem;
+    require constraint {
+      hygrometer.lowHumidityAlarmThreshold < hygrometer.highHumidityAlarmThreshold
+    }
+  }
+
+  requirement def ElectricalPowerRequirement {
+    doc /* The system shall operate from a regulated 3.3 volt supply and consume no more than 80 milliamperes during normal measurement. */
+    subject hygrometer : HygrometerSystem;
+    require constraint {
+      hygrometer.operatingVoltage_V == 3.3 and
+      hygrometer.maxSupplyCurrent_A <= 0.08
+    }
+  }
+
+  satisfy MeasureAmbientHumidityRequirement by HygrometerSystem;
+  satisfy ReportHumidityRequirement by HygrometerSystem;
+  satisfy HumidityAccuracyRequirement by HygrometerSystem;
+  satisfy TemperatureCompensationRequirement by SignalProcessingUnit;
+  satisfy DewPointRequirement by SignalProcessingUnit;
+  satisfy HumidityAlarmRequirement by HygrometerSystem;
+  satisfy ElectricalPowerRequirement by HygrometerSystem;
+
+}

@@ -1,0 +1,877 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-57__uqbp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6fc-c097-7233-b3b8-cc74e8e21fea
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Nanomaterials and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NanomaterialWaterPurificationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Concentration {
+        :> scalarValues::Real;
+        unit = "mg/L";
+    }
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def SurfaceAreaDensity {
+        :> scalarValues::Real;
+        unit = "m2/g";
+    }
+
+    attribute def RemovalEfficiency {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def ElectricalConductivity {
+        :> scalarValues::Real;
+        unit = "uS/cm";
+    }
+
+    attribute def Energy {
+        :> scalarValues::Real;
+        unit = "Wh";
+    }
+
+    item def RawWater {
+        attribute turbidity : Concentration;
+        attribute heavyMetalConcentration : Concentration;
+        attribute organicPollutantConcentration : Concentration;
+        attribute conductivity : ElectricalConductivity;
+        attribute temperature : Temperature;
+    }
+
+    item def TreatedWater {
+        attribute residualTurbidity : Concentration;
+        attribute residualHeavyMetalConcentration : Concentration;
+        attribute residualOrganicPollutantConcentration : Concentration;
+        attribute conductivity : ElectricalConductivity;
+        attribute temperature : Temperature;
+    }
+
+    item def ContaminantLoad {
+        attribute capturedHeavyMetals : Concentration;
+        attribute capturedOrganics : Concentration;
+        attribute capturedParticles : Concentration;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute energyConsumed : Energy;
+    }
+
+    item def ControlCommand {
+        attribute requestedFlowRate : FlowRate;
+        attribute regenerationRequested : Boolean;
+        attribute shutdownRequested : Boolean;
+    }
+
+    item def SensorReading {
+        attribute inletContaminantLevel : Concentration;
+        attribute outletContaminantLevel : Concentration;
+        attribute membranePressureDrop : Pressure;
+        attribute waterTemperature : Temperature;
+    }
+
+    port def WaterInletPort {
+        in item water : RawWater;
+    }
+
+    port def WaterOutletPort {
+        out item water : TreatedWater;
+    }
+
+    port def WastePort {
+        out item load : ContaminantLoad;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item reading : SensorReading;
+    }
+
+    part def NanomaterialMembraneModule {
+        attribute membraneArea : Area = 0.35 [m^2];
+        attribute grapheneOxideLayerThickness : Length = 120 [nm];
+        attribute titaniumDioxideNanoparticleDiameter : Length = 18 [nm];
+        attribute activeSurfaceAreaDensity : SurfaceAreaDensity = 730 [m2/g];
+        attribute nominalRemovalEfficiency : RemovalEfficiency = 97.5 [%];
+        attribute maxOperatingPressure : Pressure = 450 [kPa];
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port waste : WastePort;
+
+        action adsorbAndPhotocatalyze {
+            in item influent : RawWater;
+            out item effluent : TreatedWater;
+            out item captured : ContaminantLoad;
+
+            first start;
+            then bindHeavyMetalIons;
+            then oxidizeOrganicPollutants;
+            then rejectSuspendedParticles;
+            then releasePurifiedWater;
+            then done;
+
+            action bindHeavyMetalIons;
+            action oxidizeOrganicPollutants;
+            action rejectSuspendedParticles;
+            action releasePurifiedWater;
+        }
+
+        state def MembraneHealthState {
+            state Clean;
+            state Loaded;
+            state Saturated;
+            state Regenerating;
+
+            transition first Clean;
+            transition Clean_to_Loaded
+                first Clean
+                then Loaded
+                if inlet.water.heavyMetalConcentration > 2.0 [mg/L];
+
+            transition Loaded_to_Saturated
+                first Loaded
+                then Saturated
+                if nominalRemovalEfficiency < 90.0 [%];
+
+            transition Saturated_to_Regenerating
+                first Saturated
+                then Regenerating;
+
+            transition Regenerating_to_Clean
+                first Regenerating
+                then Clean;
+        }
+
+        perform purification : adsorbAndPhotocatalyze;
+        exhibit health : MembraneHealthState;
+    }
+
+    part def UVActivationUnit {
+        attribute wavelength : Length = 365 [nm];
+        attribute opticalPower : Power = 8 [W];
+        attribute dutyCycle : Real = 0.65;
+
+        port powerInput : PowerPort;
+
+        action activatePhotocatalyst {
+            in item power : ElectricalPower;
+            first start;
+            then energizeUVLEDArray;
+            then illuminateTiO2Nanoparticles;
+            then done;
+
+            action energizeUVLEDArray;
+            action illuminateTiO2Nanoparticles;
+        }
+    }
+
+    part def MicroPump {
+        attribute nominalFlowRate : FlowRate = 1.5 [L/min];
+        attribute maxFlowRate : FlowRate = 2.5 [L/min];
+        attribute nominalPressure : Pressure = 220 [kPa];
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port powerInput : PowerPort;
+        port commandInput : CommandPort;
+
+        action regulateFlow {
+            in item command : ControlCommand;
+            first start;
+            then compareRequestedFlow;
+            then adjustPumpSpeed;
+            then stabilizePressure;
+            then done;
+
+            action compareRequestedFlow;
+            action adjustPumpSpeed;
+            action stabilizePressure;
+        }
+    }
+
+    part def SensorSuite {
+        attribute contaminantDetectionLimit : Concentration = 0.005 [mg/L];
+        attribute pressureAccuracy : Pressure = 2 [kPa];
+        attribute sampleInterval : Time = 1 [s];
+
+        port inletTelemetry : TelemetryPort;
+        port outletTelemetry : TelemetryPort;
+
+        action measureWaterQuality {
+            out item reading : SensorReading;
+            first start;
+            then sampleInlet;
+            then sampleOutlet;
+            then measurePressureDrop;
+            then publishTelemetry;
+            then done;
+
+            action sampleInlet;
+            action sampleOutlet;
+            action measurePressureDrop;
+            action publishTelemetry;
+        }
+    }
+
+    part def Controller {
+        attribute targetRemovalEfficiency : RemovalEfficiency = 95.0 [%];
+        attribute maximumPressureDrop : Pressure = 300 [kPa];
+        attribute targetFlowRate : FlowRate = 1.2 [L/min];
+
+        port commandOutput : CommandPort;
+        port telemetryInput : TelemetryPort;
+
+        action controlPurification {
+            in item reading : SensorReading;
+            out item command : ControlCommand;
+
+            first start;
+            then evaluateOutletQuality;
+            then evaluatePressureDrop;
+            then selectFlowRate;
+            then requestRegenerationWhenNeeded;
+            then issueCommand;
+            then done;
+
+            action evaluateOutletQuality;
+            action evaluatePressureDrop;
+            action selectFlowRate;
+            action requestRegenerationWhenNeeded;
+            action issueCommand;
+        }
+
+        state def ControllerMode {
+            state Startup;
+            state NormalTreatment;
+            state ReducedFlowTreatment;
+            state MembraneRegeneration;
+            state FaultShutdown;
+
+            transition first Startup;
+            transition Startup_to_NormalTreatment
+                first Startup
+                then NormalTreatment;
+
+            transition NormalTreatment_to_ReducedFlowTreatment
+                first NormalTreatment
+                then ReducedFlowTreatment
+                if telemetryInput.reading.membranePressureDrop > 220 [kPa];
+
+            transition ReducedFlowTreatment_to_MembraneRegeneration
+                first ReducedFlowTreatment
+                then MembraneRegeneration
+                if telemetryInput.reading.outletContaminantLevel > 0.05 [mg/L];
+
+            transition MembraneRegeneration_to_NormalTreatment
+                first MembraneRegeneration
+                then NormalTreatment
+                if telemetryInput.reading.membranePressureDrop < 120 [kPa];
+
+            transition NormalTreatment_to_FaultShutdown
+                first NormalTreatment
+                then FaultShutdown
+                if telemetryInput.reading.membranePressureDrop > maximumPressureDrop;
+        }
+
+        exhibit mode : ControllerMode;
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : Energy = 120 [Wh];
+        attribute nominalVoltage : Real = 24;
+        attribute maxContinuousPower : Power = 60 [W];
+
+        port pumpPower : PowerPort;
+        port uvPower : PowerPort;
+        port controllerPower : PowerPort;
+    }
+
+    part def NanomaterialWaterPurifier {
+        attribute systemMass : Mass = 4.8 [kg];
+        attribute nominalSystemFlowRate : FlowRate = 1.2 [L/min];
+        attribute primaryFunction : String = "Remove dissolved heavy metals, organic pollutants, and suspended nanoscale particles from contaminated water using high-surface-area graphene oxide and titanium dioxide nanomaterial membranes.";
+
+        port rawWaterInput : WaterInletPort;
+        port cleanWaterOutput : WaterOutletPort;
+        port wasteOutput : WastePort;
+        port externalCommand : CommandPort;
+        port statusOutput : TelemetryPort;
+        port externalPower : PowerPort;
+
+        part pump : MicroPump;
+        part membrane : NanomaterialMembraneModule;
+        part uvUnit : UVActivationUnit;
+        part sensors : SensorSuite;
+        part controller : Controller;
+        part power : PowerSubsystem;
+
+        connect rawWaterInput to pump.inlet;
+        connect pump.outlet to membrane.inlet;
+        connect membrane.outlet to cleanWaterOutput;
+        connect membrane.waste to wasteOutput;
+
+        connect externalPower to power.controllerPower;
+        connect externalPower to power.pumpPower;
+        connect externalPower to power.uvPower;
+        connect power.pumpPower to pump.powerInput;
+        connect power.uvPower to uvUnit.powerInput;
+
+        connect externalCommand to controller.commandOutput;
+        connect controller.commandOutput to pump.commandInput;
+        connect sensors.outletTelemetry to controller.telemetryInput;
+        connect sensors.outletTelemetry to statusOutput;
+
+        action purifyWater {
+            in item contaminatedWater : RawWater;
+            in item powerInput : ElectricalPower;
+            in item operatorCommand : ControlCommand;
+            out item potableOutput : TreatedWater;
+            out item retainedContaminants : ContaminantLoad;
+            out item telemetry : SensorReading;
+
+            first receiveRawWater;
+            then regulateInletFlow;
+            then activateNanomaterialSurface;
+            then separateContaminants;
+            then verifyWaterQuality;
+            then dischargeTreatedWater;
+            then reportStatus;
+            then done;
+
+            action receiveRawWater;
+            action regulateInletFlow;
+            action activateNanomaterialSurface;
+            action separateContaminants;
+            action verifyWaterQuality;
+            action dischargeTreatedWater;
+            action reportStatus;
+        }
+
+        perform mainFunction : purifyWater;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall purify contaminated water at a high level by routing raw water through a nanomaterial membrane that adsorbs heavy metals, photocatalytically degrades organic pollutants, and rejects suspended particles. */
+    }
+
+    requirement def RemovalEfficiencyRequirement {
+        attribute minimumRemovalEfficiency : RemovalEfficiency = 95.0 [%];
+        doc /* The nanomaterial purifier shall achieve at least 95 percent removal of specified dissolved and particulate contaminants during normal treatment operation. */
+    }
+
+    requirement def FlowRequirement {
+        attribute requiredFlowRate : FlowRate = 1.0 [L/min];
+        doc /* The system shall provide treated water at no less than 1.0 liter per minute under nominal inlet conditions. */
+    }
+
+    requirement def PressureSafetyRequirement {
+        attribute maximumAllowedPressureDrop : Pressure = 300 [kPa];
+        doc /* The controller shall reduce flow or initiate membrane regeneration when membrane pressure drop exceeds 300 kPa. */
+    }
+
+    requirement def RegenerationRequirement {
+        doc /* The system shall provide a regeneration mode that restores nanomaterial membrane adsorption capacity when outlet contaminant concentration exceeds the treated-water threshold. */
+    }
+
+    requirement def TreatedWaterQualityRequirement {
+        attribute maxResidualHeavyMetals : Concentration = 0.05 [mg/L];
+        attribute maxResidualOrganics : Concentration = 0.10 [mg/L];
+        doc /* The treated water outlet shall maintain residual heavy metal concentration below 0.05 mg/L and residual organic pollutant concentration below 0.10 mg/L during normal operation. */
+    }
+
+    satisfy PrimaryFunctionRequirement by NanomaterialWaterPurifier;
+    satisfy RemovalEfficiencyRequirement by NanomaterialMembraneModule;
+    satisfy FlowRequirement by MicroPump;
+    satisfy PressureSafetyRequirement by Controller;
+    satisfy RegenerationRequirement by NanomaterialMembraneModule;
+    satisfy TreatedWaterQualityRequirement by NanomaterialWaterPurifier;
+
+    concern def PublicHealthConcern {
+        doc /* Reduce exposure to nanoscale, dissolved, and organic contaminants in decentralized drinking water treatment applications. */
+    }
+
+    viewpoint def HighLevelSystemViewpoint {
+        concern publicHealth : PublicHealthConcern;
+        frame NanomaterialWaterPurifier;
+    }
+
+    view def HighLevelNanomaterialPurifierView {
+        viewpoint : HighLevelSystemViewpoint;
+        expose NanomaterialWaterPurifier;
+        expose NanomaterialMembraneModule;
+        expose Controller;
+        expose PrimaryFunctionRequirement;
+        expose TreatedWaterQualityRequirement;
+    }
+}
+tokens used
+3,295
+package NanomaterialWaterPurificationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Concentration {
+        :> scalarValues::Real;
+        unit = "mg/L";
+    }
+
+    attribute def FlowRate {
+        :> scalarValues::Real;
+        unit = "L/min";
+    }
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def SurfaceAreaDensity {
+        :> scalarValues::Real;
+        unit = "m2/g";
+    }
+
+    attribute def RemovalEfficiency {
+        :> scalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def ElectricalConductivity {
+        :> scalarValues::Real;
+        unit = "uS/cm";
+    }
+
+    attribute def Energy {
+        :> scalarValues::Real;
+        unit = "Wh";
+    }
+
+    item def RawWater {
+        attribute turbidity : Concentration;
+        attribute heavyMetalConcentration : Concentration;
+        attribute organicPollutantConcentration : Concentration;
+        attribute conductivity : ElectricalConductivity;
+        attribute temperature : Temperature;
+    }
+
+    item def TreatedWater {
+        attribute residualTurbidity : Concentration;
+        attribute residualHeavyMetalConcentration : Concentration;
+        attribute residualOrganicPollutantConcentration : Concentration;
+        attribute conductivity : ElectricalConductivity;
+        attribute temperature : Temperature;
+    }
+
+    item def ContaminantLoad {
+        attribute capturedHeavyMetals : Concentration;
+        attribute capturedOrganics : Concentration;
+        attribute capturedParticles : Concentration;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute energyConsumed : Energy;
+    }
+
+    item def ControlCommand {
+        attribute requestedFlowRate : FlowRate;
+        attribute regenerationRequested : Boolean;
+        attribute shutdownRequested : Boolean;
+    }
+
+    item def SensorReading {
+        attribute inletContaminantLevel : Concentration;
+        attribute outletContaminantLevel : Concentration;
+        attribute membranePressureDrop : Pressure;
+        attribute waterTemperature : Temperature;
+    }
+
+    port def WaterInletPort {
+        in item water : RawWater;
+    }
+
+    port def WaterOutletPort {
+        out item water : TreatedWater;
+    }
+
+    port def WastePort {
+        out item load : ContaminantLoad;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        out item reading : SensorReading;
+    }
+
+    part def NanomaterialMembraneModule {
+        attribute membraneArea : Area = 0.35 [m^2];
+        attribute grapheneOxideLayerThickness : Length = 120 [nm];
+        attribute titaniumDioxideNanoparticleDiameter : Length = 18 [nm];
+        attribute activeSurfaceAreaDensity : SurfaceAreaDensity = 730 [m2/g];
+        attribute nominalRemovalEfficiency : RemovalEfficiency = 97.5 [%];
+        attribute maxOperatingPressure : Pressure = 450 [kPa];
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port waste : WastePort;
+
+        action adsorbAndPhotocatalyze {
+            in item influent : RawWater;
+            out item effluent : TreatedWater;
+            out item captured : ContaminantLoad;
+
+            first start;
+            then bindHeavyMetalIons;
+            then oxidizeOrganicPollutants;
+            then rejectSuspendedParticles;
+            then releasePurifiedWater;
+            then done;
+
+            action bindHeavyMetalIons;
+            action oxidizeOrganicPollutants;
+            action rejectSuspendedParticles;
+            action releasePurifiedWater;
+        }
+
+        state def MembraneHealthState {
+            state Clean;
+            state Loaded;
+            state Saturated;
+            state Regenerating;
+
+            transition first Clean;
+            transition Clean_to_Loaded
+                first Clean
+                then Loaded
+                if inlet.water.heavyMetalConcentration > 2.0 [mg/L];
+
+            transition Loaded_to_Saturated
+                first Loaded
+                then Saturated
+                if nominalRemovalEfficiency < 90.0 [%];
+
+            transition Saturated_to_Regenerating
+                first Saturated
+                then Regenerating;
+
+            transition Regenerating_to_Clean
+                first Regenerating
+                then Clean;
+        }
+
+        perform purification : adsorbAndPhotocatalyze;
+        exhibit health : MembraneHealthState;
+    }
+
+    part def UVActivationUnit {
+        attribute wavelength : Length = 365 [nm];
+        attribute opticalPower : Power = 8 [W];
+        attribute dutyCycle : Real = 0.65;
+
+        port powerInput : PowerPort;
+
+        action activatePhotocatalyst {
+            in item power : ElectricalPower;
+            first start;
+            then energizeUVLEDArray;
+            then illuminateTiO2Nanoparticles;
+            then done;
+
+            action energizeUVLEDArray;
+            action illuminateTiO2Nanoparticles;
+        }
+    }
+
+    part def MicroPump {
+        attribute nominalFlowRate : FlowRate = 1.5 [L/min];
+        attribute maxFlowRate : FlowRate = 2.5 [L/min];
+        attribute nominalPressure : Pressure = 220 [kPa];
+
+        port inlet : WaterInletPort;
+        port outlet : WaterOutletPort;
+        port powerInput : PowerPort;
+        port commandInput : CommandPort;
+
+        action regulateFlow {
+            in item command : ControlCommand;
+            first start;
+            then compareRequestedFlow;
+            then adjustPumpSpeed;
+            then stabilizePressure;
+            then done;
+
+            action compareRequestedFlow;
+            action adjustPumpSpeed;
+            action stabilizePressure;
+        }
+    }
+
+    part def SensorSuite {
+        attribute contaminantDetectionLimit : Concentration = 0.005 [mg/L];
+        attribute pressureAccuracy : Pressure = 2 [kPa];
+        attribute sampleInterval : Time = 1 [s];
+
+        port inletTelemetry : TelemetryPort;
+        port outletTelemetry : TelemetryPort;
+
+        action measureWaterQuality {
+            out item reading : SensorReading;
+            first start;
+            then sampleInlet;
+            then sampleOutlet;
+            then measurePressureDrop;
+            then publishTelemetry;
+            then done;
+
+            action sampleInlet;
+            action sampleOutlet;
+            action measurePressureDrop;
+            action publishTelemetry;
+        }
+    }
+
+    part def Controller {
+        attribute targetRemovalEfficiency : RemovalEfficiency = 95.0 [%];
+        attribute maximumPressureDrop : Pressure = 300 [kPa];
+        attribute targetFlowRate : FlowRate = 1.2 [L/min];
+
+        port commandOutput : CommandPort;
+        port telemetryInput : TelemetryPort;
+
+        action controlPurification {
+            in item reading : SensorReading;
+            out item command : ControlCommand;
+
+            first start;
+            then evaluateOutletQuality;
+            then evaluatePressureDrop;
+            then selectFlowRate;
+            then requestRegenerationWhenNeeded;
+            then issueCommand;
+            then done;
+
+            action evaluateOutletQuality;
+            action evaluatePressureDrop;
+            action selectFlowRate;
+            action requestRegenerationWhenNeeded;
+            action issueCommand;
+        }
+
+        state def ControllerMode {
+            state Startup;
+            state NormalTreatment;
+            state ReducedFlowTreatment;
+            state MembraneRegeneration;
+            state FaultShutdown;
+
+            transition first Startup;
+            transition Startup_to_NormalTreatment
+                first Startup
+                then NormalTreatment;
+
+            transition NormalTreatment_to_ReducedFlowTreatment
+                first NormalTreatment
+                then ReducedFlowTreatment
+                if telemetryInput.reading.membranePressureDrop > 220 [kPa];
+
+            transition ReducedFlowTreatment_to_MembraneRegeneration
+                first ReducedFlowTreatment
+                then MembraneRegeneration
+                if telemetryInput.reading.outletContaminantLevel > 0.05 [mg/L];
+
+            transition MembraneRegeneration_to_NormalTreatment
+                first MembraneRegeneration
+                then NormalTreatment
+                if telemetryInput.reading.membranePressureDrop < 120 [kPa];
+
+            transition NormalTreatment_to_FaultShutdown
+                first NormalTreatment
+                then FaultShutdown
+                if telemetryInput.reading.membranePressureDrop > maximumPressureDrop;
+        }
+
+        exhibit mode : ControllerMode;
+    }
+
+    part def PowerSubsystem {
+        attribute batteryCapacity : Energy = 120 [Wh];
+        attribute nominalVoltage : Real = 24;
+        attribute maxContinuousPower : Power = 60 [W];
+
+        port pumpPower : PowerPort;
+        port uvPower : PowerPort;
+        port controllerPower : PowerPort;
+    }
+
+    part def NanomaterialWaterPurifier {
+        attribute systemMass : Mass = 4.8 [kg];
+        attribute nominalSystemFlowRate : FlowRate = 1.2 [L/min];
+        attribute primaryFunction : String = "Remove dissolved heavy metals, organic pollutants, and suspended nanoscale particles from contaminated water using high-surface-area graphene oxide and titanium dioxide nanomaterial membranes.";
+
+        port rawWaterInput : WaterInletPort;
+        port cleanWaterOutput : WaterOutletPort;
+        port wasteOutput : WastePort;
+        port externalCommand : CommandPort;
+        port statusOutput : TelemetryPort;
+        port externalPower : PowerPort;
+
+        part pump : MicroPump;
+        part membrane : NanomaterialMembraneModule;
+        part uvUnit : UVActivationUnit;
+        part sensors : SensorSuite;
+        part controller : Controller;
+        part power : PowerSubsystem;
+
+        connect rawWaterInput to pump.inlet;
+        connect pump.outlet to membrane.inlet;
+        connect membrane.outlet to cleanWaterOutput;
+        connect membrane.waste to wasteOutput;
+
+        connect externalPower to power.controllerPower;
+        connect externalPower to power.pumpPower;
+        connect externalPower to power.uvPower;
+        connect power.pumpPower to pump.powerInput;
+        connect power.uvPower to uvUnit.powerInput;
+
+        connect externalCommand to controller.commandOutput;
+        connect controller.commandOutput to pump.commandInput;
+        connect sensors.outletTelemetry to controller.telemetryInput;
+        connect sensors.outletTelemetry to statusOutput;
+
+        action purifyWater {
+            in item contaminatedWater : RawWater;
+            in item powerInput : ElectricalPower;
+            in item operatorCommand : ControlCommand;
+            out item potableOutput : TreatedWater;
+            out item retainedContaminants : ContaminantLoad;
+            out item telemetry : SensorReading;
+
+            first receiveRawWater;
+            then regulateInletFlow;
+            then activateNanomaterialSurface;
+            then separateContaminants;
+            then verifyWaterQuality;
+            then dischargeTreatedWater;
+            then reportStatus;
+            then done;
+
+            action receiveRawWater;
+            action regulateInletFlow;
+            action activateNanomaterialSurface;
+            action separateContaminants;
+            action verifyWaterQuality;
+            action dischargeTreatedWater;
+            action reportStatus;
+        }
+
+        perform mainFunction : purifyWater;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall purify contaminated water at a high level by routing raw water through a nanomaterial membrane that adsorbs heavy metals, photocatalytically degrades organic pollutants, and rejects suspended particles. */
+    }
+
+    requirement def RemovalEfficiencyRequirement {
+        attribute minimumRemovalEfficiency : RemovalEfficiency = 95.0 [%];
+        doc /* The nanomaterial purifier shall achieve at least 95 percent removal of specified dissolved and particulate contaminants during normal treatment operation. */
+    }
+
+    requirement def FlowRequirement {
+        attribute requiredFlowRate : FlowRate = 1.0 [L/min];
+        doc /* The system shall provide treated water at no less than 1.0 liter per minute under nominal inlet conditions. */
+    }
+
+    requirement def PressureSafetyRequirement {
+        attribute maximumAllowedPressureDrop : Pressure = 300 [kPa];
+        doc /* The controller shall reduce flow or initiate membrane regeneration when membrane pressure drop exceeds 300 kPa. */
+    }
+
+    requirement def RegenerationRequirement {
+        doc /* The system shall provide a regeneration mode that restores nanomaterial membrane adsorption capacity when outlet contaminant concentration exceeds the treated-water threshold. */
+    }
+
+    requirement def TreatedWaterQualityRequirement {
+        attribute maxResidualHeavyMetals : Concentration = 0.05 [mg/L];
+        attribute maxResidualOrganics : Concentration = 0.10 [mg/L];
+        doc /* The treated water outlet shall maintain residual heavy metal concentration below 0.05 mg/L and residual organic pollutant concentration below 0.10 mg/L during normal operation. */
+    }
+
+    satisfy PrimaryFunctionRequirement by NanomaterialWaterPurifier;
+    satisfy RemovalEfficiencyRequirement by NanomaterialMembraneModule;
+    satisfy FlowRequirement by MicroPump;
+    satisfy PressureSafetyRequirement by Controller;
+    satisfy RegenerationRequirement by NanomaterialMembraneModule;
+    satisfy TreatedWaterQualityRequirement by NanomaterialWaterPurifier;
+
+    concern def PublicHealthConcern {
+        doc /* Reduce exposure to nanoscale, dissolved, and organic contaminants in decentralized drinking water treatment applications. */
+    }
+
+    viewpoint def HighLevelSystemViewpoint {
+        concern publicHealth : PublicHealthConcern;
+        frame NanomaterialWaterPurifier;
+    }
+
+    view def HighLevelNanomaterialPurifierView {
+        viewpoint : HighLevelSystemViewpoint;
+        expose NanomaterialWaterPurifier;
+        expose NanomaterialMembraneModule;
+        expose Controller;
+        expose PrimaryFunctionRequirement;
+        expose TreatedWaterQualityRequirement;
+    }
+}

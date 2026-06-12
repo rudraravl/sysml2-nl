@@ -1,0 +1,401 @@
+package HVACControlSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature {
+        attribute value: Real;
+        attribute unit: String = "degC";
+    }
+
+    attribute def RelativeHumidity {
+        attribute value: Real;
+        attribute unit: String = "%";
+    }
+
+    attribute def AirFlowRate {
+        attribute value: Real;
+        attribute unit: String = "m^3/s";
+    }
+
+    attribute def Power {
+        attribute value: Real;
+        attribute unit: String = "W";
+    }
+
+    attribute def Pressure {
+        attribute value: Real;
+        attribute unit: String = "Pa";
+    }
+
+    attribute def TimeDuration {
+        attribute value: Real;
+        attribute unit: String = "s";
+    }
+
+    item def ConditionedAir {
+        attribute temperature: Temperature;
+        attribute humidity: RelativeHumidity;
+        attribute flowRate: AirFlowRate;
+        attribute pressure: Pressure;
+    }
+
+    item def OutdoorAir {
+        attribute temperature: Temperature;
+        attribute humidity: RelativeHumidity;
+    }
+
+    item def ControlCommand {
+        attribute heatingRequest: Boolean;
+        attribute coolingRequest: Boolean;
+        attribute fanRequest: Boolean;
+        attribute ventilationRequest: Boolean;
+        attribute targetSupplyTemperature: Temperature;
+        attribute fanSpeedCommand: Real;
+    }
+
+    item def SensorReading {
+        attribute measuredTemperature: Temperature;
+        attribute measuredHumidity: RelativeHumidity;
+        attribute valid: Boolean;
+        attribute timestamp: TimeDuration;
+    }
+
+    item def ElectricalPower {
+        attribute availablePower: Power;
+        attribute energized: Boolean;
+    }
+
+    port def AirInletPort {
+        in item air: OutdoorAir;
+    }
+
+    port def AirOutletPort {
+        out item air: ConditionedAir;
+    }
+
+    port def ReturnAirPort {
+        in item air: ConditionedAir;
+    }
+
+    port def SupplyAirPort {
+        out item air: ConditionedAir;
+    }
+
+    port def SensorPort {
+        out item reading: SensorReading;
+    }
+
+    port def CommandPort {
+        in item command: ControlCommand;
+    }
+
+    port def PowerPort {
+        in item power: ElectricalPower;
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeLow: Temperature;
+        attribute measurementRangeHigh: Temperature;
+        attribute accuracy: Temperature;
+
+        port sensingOutput: SensorPort;
+
+        action senseTemperature {
+            out item reading: SensorReading;
+        }
+    }
+
+    part def HumiditySensor {
+        attribute measurementRangeLow: RelativeHumidity;
+        attribute measurementRangeHigh: RelativeHumidity;
+        attribute accuracy: RelativeHumidity;
+
+        port sensingOutput: SensorPort;
+
+        action senseHumidity {
+            out item reading: SensorReading;
+        }
+    }
+
+    part def ThermostatInterface {
+        attribute occupiedHeatingSetpoint: Temperature;
+        attribute occupiedCoolingSetpoint: Temperature;
+        attribute unoccupiedHeatingSetpoint: Temperature;
+        attribute unoccupiedCoolingSetpoint: Temperature;
+        attribute occupancyDetected: Boolean;
+
+        port temperatureInput: CommandPort;
+        port controlOutput: SensorPort;
+    }
+
+    part def HVACController {
+        attribute controlCycleTime: TimeDuration;
+        attribute heatingDeadband: Temperature;
+        attribute coolingDeadband: Temperature;
+        attribute minimumVentilationFlow: AirFlowRate;
+
+        port zoneTemperatureInput: CommandPort;
+        port zoneHumidityInput: CommandPort;
+        port outdoorAirInput: CommandPort;
+        port equipmentCommandOutput: CommandPort;
+
+        action computeControlMode {
+            in item zoneTemperature: SensorReading;
+            in item zoneHumidity: SensorReading;
+            in item outdoorCondition: OutdoorAir;
+            out item command: ControlCommand;
+        }
+
+        state controlState {
+            entry action initializeController;
+
+            state Off;
+            state Idle;
+            state Heating;
+            state Cooling;
+            state Ventilating;
+            state Fault;
+
+            transition first Off then Idle
+                accept event powerAvailable;
+
+            transition Idle then Heating
+                accept event zoneBelowHeatingSetpoint;
+
+            transition Idle then Cooling
+                accept event zoneAboveCoolingSetpoint;
+
+            transition Heating then Idle
+                accept event heatingSetpointSatisfied;
+
+            transition Cooling then Idle
+                accept event coolingSetpointSatisfied;
+
+            transition Idle then Ventilating
+                accept event ventilationDemandDetected;
+
+            transition Ventilating then Idle
+                accept event ventilationDemandCleared;
+
+            transition Idle then Fault
+                accept event invalidSensorReading;
+
+            transition Heating then Fault
+                accept event equipmentProtectionTrip;
+
+            transition Cooling then Fault
+                accept event equipmentProtectionTrip;
+
+            transition Fault then Idle
+                accept event faultReset;
+        }
+    }
+
+    part def HeatingCoil {
+        attribute ratedHeatingPower: Power;
+        attribute maximumSupplyTemperature: Temperature;
+
+        port commandInput: CommandPort;
+        port airIn: ReturnAirPort;
+        port airOut: SupplyAirPort;
+        port electricalInput: PowerPort;
+
+        action heatAir {
+            in item returnAir: ConditionedAir;
+            in item command: ControlCommand;
+            out item heatedAir: ConditionedAir;
+        }
+    }
+
+    part def CoolingCoil {
+        attribute ratedCoolingPower: Power;
+        attribute minimumSupplyTemperature: Temperature;
+        attribute condensateRemovalEnabled: Boolean;
+
+        port commandInput: CommandPort;
+        port airIn: ReturnAirPort;
+        port airOut: SupplyAirPort;
+        port electricalInput: PowerPort;
+
+        action coolAir {
+            in item returnAir: ConditionedAir;
+            in item command: ControlCommand;
+            out item cooledAir: ConditionedAir;
+        }
+    }
+
+    part def SupplyFan {
+        attribute ratedAirFlow: AirFlowRate;
+        attribute ratedElectricalPower: Power;
+        attribute currentSpeedPercent: Real;
+
+        port commandInput: CommandPort;
+        port airIn: ReturnAirPort;
+        port airOut: SupplyAirPort;
+        port electricalInput: PowerPort;
+
+        action moveAir {
+            in item inletAir: ConditionedAir;
+            in item command: ControlCommand;
+            out item outletAir: ConditionedAir;
+        }
+    }
+
+    part def OutdoorAirDamper {
+        attribute minimumPositionPercent: Real;
+        attribute maximumPositionPercent: Real;
+        attribute currentPositionPercent: Real;
+
+        port commandInput: CommandPort;
+        port outdoorAirIn: AirInletPort;
+        port mixedAirOut: SupplyAirPort;
+
+        action regulateVentilationAir {
+            in item outdoorAir: OutdoorAir;
+            in item command: ControlCommand;
+            out item mixedAir: ConditionedAir;
+        }
+    }
+
+    part def AirHandlingUnit {
+        port outdoorAirIn: AirInletPort;
+        port returnAirIn: ReturnAirPort;
+        port supplyAirOut: SupplyAirPort;
+        port controllerCommandIn: CommandPort;
+        port electricalInput: PowerPort;
+
+        part damper: OutdoorAirDamper;
+        part heatingCoil: HeatingCoil;
+        part coolingCoil: CoolingCoil;
+        part fan: SupplyFan;
+
+        connect outdoorAirIn to damper.outdoorAirIn;
+        connect controllerCommandIn to damper.commandInput;
+        connect controllerCommandIn to heatingCoil.commandInput;
+        connect controllerCommandIn to coolingCoil.commandInput;
+        connect controllerCommandIn to fan.commandInput;
+        connect electricalInput to heatingCoil.electricalInput;
+        connect electricalInput to coolingCoil.electricalInput;
+        connect electricalInput to fan.electricalInput;
+        connect returnAirIn to heatingCoil.airIn;
+        connect heatingCoil.airOut to coolingCoil.airIn;
+        connect coolingCoil.airOut to fan.airIn;
+        connect fan.airOut to supplyAirOut;
+    }
+
+    part def OccupiedZone {
+        attribute currentTemperature: Temperature;
+        attribute currentHumidity: RelativeHumidity;
+        attribute designHeatingSetpoint: Temperature;
+        attribute designCoolingSetpoint: Temperature;
+        attribute requiredVentilationFlow: AirFlowRate;
+
+        port supplyAirIn: ReturnAirPort;
+        port returnAirOut: SupplyAirPort;
+        port temperatureReadingOut: SensorPort;
+        port humidityReadingOut: SensorPort;
+
+        part temperatureSensor: TemperatureSensor;
+        part humiditySensor: HumiditySensor;
+
+        connect temperatureSensor.sensingOutput to temperatureReadingOut;
+        connect humiditySensor.sensingOutput to humidityReadingOut;
+    }
+
+    part def HVACControlSystem {
+        attribute primaryFunction: String =
+            "Maintain occupant comfort and indoor air quality by monitoring zone conditions and commanding heating, cooling, airflow, and ventilation equipment.";
+
+        port outdoorAirSource: AirInletPort;
+        port conditionedAirSupply: SupplyAirPort;
+        port returnAir: ReturnAirPort;
+        port electricalService: PowerPort;
+
+        part zone: OccupiedZone;
+        part thermostat: ThermostatInterface;
+        part controller: HVACController;
+        part airHandler: AirHandlingUnit;
+
+        connect outdoorAirSource to airHandler.outdoorAirIn;
+        connect electricalService to airHandler.electricalInput;
+        connect zone.returnAirOut to airHandler.returnAirIn;
+        connect airHandler.supplyAirOut to zone.supplyAirIn;
+        connect airHandler.supplyAirOut to conditionedAirSupply;
+        connect zone.temperatureReadingOut to controller.zoneTemperatureInput;
+        connect zone.humidityReadingOut to controller.zoneHumidityInput;
+        connect controller.equipmentCommandOutput to airHandler.controllerCommandIn;
+    }
+
+    action def MaintainIndoorComfort {
+        in item measuredZoneTemperature: SensorReading;
+        in item measuredZoneHumidity: SensorReading;
+        in item outdoorCondition: OutdoorAir;
+        out item supplyAir: ConditionedAir;
+
+        action evaluateZoneDemand;
+        action selectOperatingMode;
+        action commandHeatingCoolingVentilation;
+        action deliverConditionedAir;
+
+        first start then evaluateZoneDemand;
+        then selectOperatingMode;
+        then commandHeatingCoolingVentilation;
+        then deliverConditionedAir;
+        then done;
+    }
+
+    requirement def MaintainThermalComfort {
+        subject hvac: HVACControlSystem;
+        require constraint {
+            hvac.zone.currentTemperature.value >= hvac.zone.designHeatingSetpoint.value and
+            hvac.zone.currentTemperature.value <= hvac.zone.designCoolingSetpoint.value
+        }
+    }
+
+    requirement def ProvideVentilation {
+        subject hvac: HVACControlSystem;
+        require constraint {
+            hvac.zone.requiredVentilationFlow.value <= hvac.controller.minimumVentilationFlow.value
+        }
+    }
+
+    requirement def SensorValidity {
+        subject hvac: HVACControlSystem;
+        require constraint {
+            hvac.zone.temperatureSensor.accuracy.value <= 0.5 and
+            hvac.zone.humiditySensor.accuracy.value <= 3.0
+        }
+    }
+
+    requirement def EquipmentProtection {
+        subject hvac: HVACControlSystem;
+        require constraint {
+            hvac.airHandler.heatingCoil.maximumSupplyTemperature.value <= 50.0 and
+            hvac.airHandler.coolingCoil.minimumSupplyTemperature.value >= 8.0
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject hvac: HVACControlSystem;
+        require constraint {
+            hvac.primaryFunction != ""
+        }
+    }
+
+    part hvacControlSystem: HVACControlSystem {
+        :>> zone.designHeatingSetpoint.value = 20.0;
+        :>> zone.designCoolingSetpoint.value = 24.0;
+        :>> zone.requiredVentilationFlow.value = 0.15;
+        :>> controller.controlCycleTime.value = 5.0;
+        :>> controller.heatingDeadband.value = 0.5;
+        :>> controller.coolingDeadband.value = 0.5;
+        :>> controller.minimumVentilationFlow.value = 0.15;
+        :>> airHandler.heatingCoil.ratedHeatingPower.value = 8000.0;
+        :>> airHandler.coolingCoil.ratedCoolingPower.value = 7000.0;
+        :>> airHandler.fan.ratedAirFlow.value = 0.8;
+        :>> airHandler.fan.ratedElectricalPower.value = 750.0;
+        :>> airHandler.damper.minimumPositionPercent = 10.0;
+        :>> airHandler.damper.maximumPositionPercent = 100.0;
+    }
+}

@@ -1,0 +1,456 @@
+package BackIlluminatedSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def QuantumEfficiency :> Real {
+        doc /* Ratio of collected charge carriers to incident photons. */
+    }
+
+    attribute def SignalToNoiseRatio :> Real {
+        doc /* Ratio of measured signal power to noise power. */
+    }
+
+    attribute def BitDepth :> Integer {
+        doc /* Number of ADC quantization bits. */
+    }
+
+    attribute def PixelCount :> Integer {
+        doc /* Number of active sensor pixels. */
+    }
+
+    attribute def Percent :> Real;
+    attribute def ElectronCount :> Real;
+    attribute def DigitalCount :> Integer;
+
+    item def IncidentRadiation {
+        attribute wavelength : LengthValue;
+        attribute opticalPower : PowerValue;
+        attribute photonFlux : Real;
+        attribute exposureTime : TimeValue;
+    }
+
+    item def ElectricalMeasurement {
+        attribute signalCharge : ElectronCount;
+        attribute noiseCharge : ElectronCount;
+        attribute voltage : VoltageValue;
+        attribute snr : SignalToNoiseRatio;
+    }
+
+    item def DigitalMeasurement {
+        attribute rawCount : DigitalCount;
+        attribute calibratedQuantity : Real;
+        attribute timestamp : TimeValue;
+        attribute quality : Percent;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature : TemperatureValue;
+        attribute heatFlow : PowerValue;
+    }
+
+    item def PowerSupply {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+    }
+
+    port def OpticalInputPort {
+        in item radiation : IncidentRadiation;
+    }
+
+    port def AnalogSignalPort {
+        out item analogMeasurement : ElectricalMeasurement;
+    }
+
+    port def DigitalDataPort {
+        out item digitalMeasurement : DigitalMeasurement;
+    }
+
+    port def PowerPort {
+        in item supply : PowerSupply;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalEnergy;
+    }
+
+    part def BackIlluminatedSensor {
+        attribute activeArea : AreaValue;
+        attribute pixelPitch : LengthValue;
+        attribute activePixels : PixelCount;
+        attribute peakQuantumEfficiency : QuantumEfficiency;
+        attribute darkCurrent : CurrentValue;
+        attribute fullWellCapacity : ElectronCount;
+        attribute readNoise : ElectronCount;
+        attribute operatingTemperature : TemperatureValue;
+
+        port opticalIn : OpticalInputPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerPort;
+        port thermalOut : ThermalPort;
+
+        perform action ConvertPhotonsToCharge {
+            in item incoming : IncidentRadiation;
+            out item measured : ElectricalMeasurement;
+
+            attribute collectedCharge : ElectronCount;
+            attribute noise : ElectronCount;
+            attribute conversionGain : Real;
+
+            objective {
+                doc /* Convert photons entering the back surface into charge with high quantum efficiency and low front-side obstruction loss. */
+            }
+        }
+
+        exhibit state SensorOperationalState {
+            state off;
+            state biasing;
+            state integrating;
+            state readout;
+            state saturated;
+            state fault;
+
+            transition first off;
+            transition off_to_biasing first off then biasing
+                accept PowerApplied;
+
+            transition biasing_to_integrating first biasing then integrating
+                accept BiasStable;
+
+            transition integrating_to_readout first integrating then readout
+                accept ExposureComplete;
+
+            transition integrating_to_saturated first integrating then saturated
+                if signalCharge >= fullWellCapacity;
+
+            transition saturated_to_readout first saturated then readout
+                accept ExposureComplete;
+
+            transition readout_to_integrating first readout then integrating
+                accept FrameTransferComplete;
+
+            transition any_to_fault first off then fault
+                accept SensorDiagnosticFailure;
+        }
+    }
+
+    part def OpticalFrontEnd {
+        attribute apertureDiameter : LengthValue;
+        attribute focalLength : LengthValue;
+        attribute opticalTransmission : Percent;
+        attribute fieldOfView : AngleValue;
+        attribute spectralBandMin : LengthValue;
+        attribute spectralBandMax : LengthValue;
+
+        port sceneInput : OpticalInputPort;
+        port focusedOutput : OpticalInputPort;
+
+        perform action FocusRadiation {
+            in item sceneRadiation : IncidentRadiation;
+            out item focusedRadiation : IncidentRadiation;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute transimpedanceGain : Real;
+        attribute bandwidth : FrequencyValue;
+        attribute inputReferredNoise : VoltageValue;
+        attribute offsetVoltage : VoltageValue;
+
+        port sensorSignalIn : AnalogSignalPort;
+        port conditionedSignalOut : AnalogSignalPort;
+        port powerIn : PowerPort;
+
+        perform action ConditionSignal {
+            in item rawSignal : ElectricalMeasurement;
+            out item conditionedSignal : ElectricalMeasurement;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolution : BitDepth;
+        attribute sampleRate : FrequencyValue;
+        attribute referenceVoltage : VoltageValue;
+        attribute integralNonlinearity : Real;
+        attribute conversionLatency : TimeValue;
+
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalDataPort;
+        port powerIn : PowerPort;
+
+        perform action DigitizeSignal {
+            in item conditionedSignal : ElectricalMeasurement;
+            out item digitalSignal : DigitalMeasurement;
+        }
+    }
+
+    part def CalibrationProcessor {
+        attribute darkFrameCorrectionEnabled : Boolean;
+        attribute flatFieldCorrectionEnabled : Boolean;
+        attribute nonlinearityCorrectionEnabled : Boolean;
+        attribute calibrationVersion : String;
+        attribute processingLatency : TimeValue;
+
+        port rawDataIn : DigitalDataPort;
+        port calibratedDataOut : DigitalDataPort;
+        port powerIn : PowerPort;
+
+        perform action CalibrateMeasurement {
+            in item rawMeasurement : DigitalMeasurement;
+            out item calibratedMeasurement : DigitalMeasurement;
+        }
+    }
+
+    part def ThermalController {
+        attribute targetTemperature : TemperatureValue;
+        attribute temperatureTolerance : TemperatureValue;
+        attribute coolingCapacity : PowerValue;
+        attribute controlLoopRate : FrequencyValue;
+
+        port sensorHeatIn : ThermalPort;
+        port powerIn : PowerPort;
+
+        perform action RegulateSensorTemperature {
+            in item sensorHeat : ThermalEnergy;
+        }
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltage : VoltageValue;
+        attribute sensorBiasVoltage : VoltageValue;
+        attribute analogRailVoltage : VoltageValue;
+        attribute digitalRailVoltage : VoltageValue;
+        attribute efficiency : Percent;
+
+        port externalPowerIn : PowerPort;
+        port sensorPowerOut : PowerPort;
+        port analogPowerOut : PowerPort;
+        port digitalPowerOut : PowerPort;
+        port thermalPowerOut : PowerPort;
+
+        perform action ConditionPower {
+            in item externalSupply : PowerSupply;
+            out item regulatedSensorSupply : PowerSupply;
+            out item regulatedAnalogSupply : PowerSupply;
+            out item regulatedDigitalSupply : PowerSupply;
+        }
+    }
+
+    part def BackIlluminatedSensingUnit {
+        attribute mass : MassValue;
+        attribute envelopeLength : LengthValue;
+        attribute envelopeWidth : LengthValue;
+        attribute envelopeHeight : LengthValue;
+        attribute measurementUpdateRate : FrequencyValue;
+        attribute calibratedAccuracy : Percent;
+        attribute minimumDetectableSignal : Real;
+        attribute dynamicRange : Real;
+
+        port sceneRadiationIn : OpticalInputPort;
+        port measurementOut : DigitalDataPort;
+        port powerIn : PowerPort;
+
+        part optics : OpticalFrontEnd {
+            attribute apertureDiameter = 18 [mm];
+            attribute focalLength = 35 [mm];
+            attribute opticalTransmission = 88.0;
+            attribute fieldOfView = 42 [deg];
+            attribute spectralBandMin = 400 [nm];
+            attribute spectralBandMax = 1000 [nm];
+        }
+
+        part sensor : BackIlluminatedSensor {
+            attribute activeArea = 28.7 [mm^2];
+            attribute pixelPitch = 2.4 [um];
+            attribute activePixels = 8294400;
+            attribute peakQuantumEfficiency = 0.92;
+            attribute darkCurrent = 0.8 [nA];
+            attribute fullWellCapacity = 30000.0;
+            attribute readNoise = 1.6;
+            attribute operatingTemperature = 263.15 [K];
+        }
+
+        part analogFrontEnd : AnalogFrontEnd {
+            attribute transimpedanceGain = 2.5e6;
+            attribute bandwidth = 20 [MHz];
+            attribute inputReferredNoise = 18 [uV];
+            attribute offsetVoltage = 0.5 [mV];
+        }
+
+        part adc : AnalogToDigitalConverter {
+            attribute resolution = 14;
+            attribute sampleRate = 80 [MHz];
+            attribute referenceVoltage = 2.5 [V];
+            attribute integralNonlinearity = 1.2;
+            attribute conversionLatency = 1.5 [us];
+        }
+
+        part calibrationProcessor : CalibrationProcessor {
+            attribute darkFrameCorrectionEnabled = true;
+            attribute flatFieldCorrectionEnabled = true;
+            attribute nonlinearityCorrectionEnabled = true;
+            attribute calibrationVersion = "BISU-CAL-2.1";
+            attribute processingLatency = 350 [us];
+        }
+
+        part thermalController : ThermalController {
+            attribute targetTemperature = 263.15 [K];
+            attribute temperatureTolerance = 0.5 [K];
+            attribute coolingCapacity = 2.0 [W];
+            attribute controlLoopRate = 100 [Hz];
+        }
+
+        part powerConditioner : PowerConditioner {
+            attribute inputVoltage = 12 [V];
+            attribute sensorBiasVoltage = 3.3 [V];
+            attribute analogRailVoltage = 5.0 [V];
+            attribute digitalRailVoltage = 1.8 [V];
+            attribute efficiency = 91.0;
+        }
+
+        connect sceneRadiationIn to optics.sceneInput;
+        connect optics.focusedOutput to sensor.opticalIn;
+        connect sensor.analogOut to analogFrontEnd.sensorSignalIn;
+        connect analogFrontEnd.conditionedSignalOut to adc.analogIn;
+        connect adc.digitalOut to calibrationProcessor.rawDataIn;
+        connect calibrationProcessor.calibratedDataOut to measurementOut;
+
+        connect powerIn to powerConditioner.externalPowerIn;
+        connect powerConditioner.sensorPowerOut to sensor.powerIn;
+        connect powerConditioner.analogPowerOut to analogFrontEnd.powerIn;
+        connect powerConditioner.digitalPowerOut to adc.powerIn;
+        connect powerConditioner.digitalPowerOut to calibrationProcessor.powerIn;
+        connect powerConditioner.thermalPowerOut to thermalController.powerIn;
+        connect sensor.thermalOut to thermalController.sensorHeatIn;
+
+        perform action MeasureSceneQuantity {
+            in item incident : IncidentRadiation;
+            out item measurement : DigitalMeasurement;
+
+            first start;
+            then focusRadiation : optics.FocusRadiation;
+            then convertPhotons : sensor.ConvertPhotonsToCharge;
+            then conditionSignal : analogFrontEnd.ConditionSignal;
+            then digitizeSignal : adc.DigitizeSignal;
+            then calibrateSignal : calibrationProcessor.CalibrateMeasurement;
+            then done;
+
+            bind incident = focusRadiation.sceneRadiation;
+            bind focusRadiation.focusedRadiation = convertPhotons.incoming;
+            bind convertPhotons.measured = conditionSignal.rawSignal;
+            bind conditionSignal.conditionedSignal = digitizeSignal.conditionedSignal;
+            bind digitizeSignal.digitalSignal = calibrateSignal.rawMeasurement;
+            bind calibrateSignal.calibratedMeasurement = measurement;
+        }
+
+        exhibit state UnitOperationalState {
+            state unpowered;
+            state initializing;
+            state stabilizingTemperature;
+            state ready;
+            state measuring;
+            state calibrating;
+            state degraded;
+            state failed;
+
+            transition first unpowered;
+
+            transition power_on first unpowered then initializing
+                accept ExternalPowerAvailable;
+
+            transition initialized first initializing then stabilizingTemperature
+                accept ElectronicsSelfTestPassed;
+
+            transition thermally_stable first stabilizingTemperature then ready
+                if abs(sensor.operatingTemperature - thermalController.targetTemperature) <= thermalController.temperatureTolerance;
+
+            transition begin_measurement first ready then measuring
+                accept MeasurementRequested;
+
+            transition measurement_complete first measuring then calibrating
+                accept FrameReadoutComplete;
+
+            transition calibration_complete first calibrating then ready
+                accept CalibrationComplete;
+
+            transition low_quality first calibrating then degraded
+                if calibratedAccuracy < 95.0;
+
+            transition recover_quality first degraded then ready
+                accept DiagnosticRecoveryComplete;
+
+            transition fault_detected first initializing then failed
+                accept CriticalDiagnosticFailure;
+        }
+    }
+
+    requirement def BackIlluminatedSensingRequirement {
+        subject sensingUnit : BackIlluminatedSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.peakQuantumEfficiency >= 0.85
+        }
+
+        doc /* The sensing unit shall measure the incident optical quantity using a back-illuminated sensor with high quantum efficiency. */
+    }
+
+    requirement def MeasurementAccuracyRequirement {
+        subject sensingUnit : BackIlluminatedSensingUnit;
+
+        require constraint {
+            sensingUnit.calibratedAccuracy >= 95.0
+        }
+
+        doc /* The sensing unit shall provide calibrated digital measurements with at least 95 percent quality over the specified spectral band. */
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject sensingUnit : BackIlluminatedSensingUnit;
+
+        require constraint {
+            abs(sensingUnit.sensor.operatingTemperature - sensingUnit.thermalController.targetTemperature)
+                <= sensingUnit.thermalController.temperatureTolerance
+        }
+
+        doc /* The sensing unit shall regulate the back-illuminated sensor temperature during measurement. */
+    }
+
+    requirement def DigitizationRequirement {
+        subject sensingUnit : BackIlluminatedSensingUnit;
+
+        require constraint {
+            sensingUnit.adc.resolution >= 14 and sensingUnit.measurementUpdateRate >= 30 [Hz]
+        }
+
+        doc /* The sensing unit shall digitize sensor output with sufficient resolution and update rate for measurement reporting. */
+    }
+
+    requirement def SpectralBandRequirement {
+        subject sensingUnit : BackIlluminatedSensingUnit;
+
+        require constraint {
+            sensingUnit.optics.spectralBandMin <= 400 [nm] and
+            sensingUnit.optics.spectralBandMax >= 1000 [nm]
+        }
+
+        doc /* The optical front end shall pass the spectral range supported by the back-illuminated sensor. */
+    }
+
+    satisfy BackIlluminatedSensingRequirement by BackIlluminatedSensingUnit;
+    satisfy MeasurementAccuracyRequirement by BackIlluminatedSensingUnit;
+    satisfy ThermalStabilityRequirement by BackIlluminatedSensingUnit;
+    satisfy DigitizationRequirement by BackIlluminatedSensingUnit;
+    satisfy SpectralBandRequirement by BackIlluminatedSensingUnit;
+
+    part sensingUnit : BackIlluminatedSensingUnit {
+        attribute mass = 145 [g];
+        attribute envelopeLength = 62 [mm];
+        attribute envelopeWidth = 44 [mm];
+        attribute envelopeHeight = 31 [mm];
+        attribute measurementUpdateRate = 60 [Hz];
+        attribute calibratedAccuracy = 97.5;
+        attribute minimumDetectableSignal = 12.0;
+        attribute dynamicRange = 72.0;
+    }
+}

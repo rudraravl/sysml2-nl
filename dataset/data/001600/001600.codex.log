@@ -1,0 +1,709 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-mkzhmqrj
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb758-b36f-7033-87d2-2f5462c35c79
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Technology readiness level and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package TRL_Based_System_Model {
+    import ScalarValues::*;
+    import Quantities::*;
+    import MeasurementReferences::*;
+
+    enum def TechnologyReadinessLevel {
+        enum TRL1_BasicPrinciplesObserved;
+        enum TRL2_TechnologyConceptFormulated;
+        enum TRL3_ExperimentalProofOfConcept;
+        enum TRL4_LabValidation;
+        enum TRL5_RelevantEnvironmentValidation;
+        enum TRL6_RelevantEnvironmentDemonstration;
+        enum TRL7_OperationalEnvironmentPrototype;
+        enum TRL8_QualifiedSystem;
+        enum TRL9_OperationalSystemProven;
+    }
+
+    enum def MissionMode {
+        enum Idle;
+        enum ReadinessAssessment;
+        enum Demonstration;
+        enum OperationalService;
+        enum FaultRecovery;
+    }
+
+    enum def EvidenceStatus {
+        enum Missing;
+        enum InReview;
+        enum Accepted;
+        enum Rejected;
+    }
+
+    attribute def Percent :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def Hours :> ScalarValues::Real {
+        unit = "h";
+    }
+
+    attribute def Watts :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Volts :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def Celsius :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "Mb/s";
+    }
+
+    item def MissionCommand {
+        attribute commandId : String;
+        attribute requestedMode : MissionMode;
+        attribute minimumRequiredTRL : TechnologyReadinessLevel;
+    }
+
+    item def ReadinessEvidence {
+        attribute evidenceId : String;
+        attribute evidenceStatus : EvidenceStatus;
+        attribute demonstratedTRL : TechnologyReadinessLevel;
+        attribute confidence : Percent;
+    }
+
+    item def OperationalData {
+        attribute timestamp : String;
+        attribute measuredPerformance : Percent;
+        attribute availability : Percent;
+        attribute dataRate : DataRate;
+    }
+
+    item def HealthReport {
+        attribute powerDraw : Watts;
+        attribute supplyVoltage : Volts;
+        attribute internalTemperature : Celsius;
+        attribute uptime : Hours;
+        attribute faultCount : Integer;
+    }
+
+    port def CommandPort {
+        in item command : MissionCommand;
+    }
+
+    port def EvidencePort {
+        in item evidenceIn : ReadinessEvidence;
+        out item evidenceOut : ReadinessEvidence;
+    }
+
+    port def DataPort {
+        out item data : OperationalData;
+    }
+
+    port def HealthPort {
+        out item report : HealthReport;
+    }
+
+    part def TRLBasedTechnologySystem {
+        attribute systemName : String = "TRL-Governed Demonstration System";
+        attribute currentTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+        attribute targetTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL8_QualifiedSystem;
+        attribute primaryFunction : String =
+            "Assess, demonstrate, and operate a technology capability only when readiness evidence supports the required technology readiness level.";
+        attribute minimumOperationalTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL7_OperationalEnvironmentPrototype;
+        attribute readinessConfidence : Percent = 82.5;
+        attribute requiredAvailability : Percent = 97.0;
+        attribute nominalPowerDraw : Watts = 450.0;
+        attribute maximumPowerDraw : Watts = 700.0;
+
+        port commandInput : CommandPort;
+        port evidenceInterface : EvidencePort;
+        port operationalOutput : DataPort;
+        port healthOutput : HealthPort;
+
+        part readinessManager : ReadinessAssessmentUnit;
+        part missionController : MissionControlUnit;
+        part demonstrationPayload : TechnologyPayload;
+        part powerSubsystem : PowerSubsystem;
+        part healthMonitor : HealthMonitoringUnit;
+        part evidenceRepository : EvidenceRepository;
+
+        connect commandInput to missionController.commandPort;
+        connect missionController.assessmentRequestPort to readinessManager.commandPort;
+        connect evidenceInterface to evidenceRepository.externalEvidencePort;
+        connect evidenceRepository.validatedEvidencePort to readinessManager.evidencePort;
+        connect readinessManager.readinessDecisionPort to missionController.readinessPort;
+        connect missionController.payloadCommandPort to demonstrationPayload.commandPort;
+        connect demonstrationPayload.dataPort to operationalOutput;
+        connect powerSubsystem.powerStatusPort to healthMonitor.powerHealthPort;
+        connect demonstrationPayload.healthPort to healthMonitor.payloadHealthPort;
+        connect healthMonitor.systemHealthPort to healthOutput;
+
+        perform readinessGovernedOperation;
+    }
+
+    part def ReadinessAssessmentUnit {
+        attribute assessedTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+        attribute confidenceThreshold : Percent = 80.0;
+        attribute latestConfidence : Percent = 0.0;
+
+        port commandPort : CommandPort;
+        port evidencePort : EvidencePort;
+        port readinessDecisionPort : EvidencePort;
+
+        action assessEvidence {
+            in item submittedEvidence : ReadinessEvidence;
+            out item acceptedEvidence : ReadinessEvidence;
+        }
+
+        state readinessAssessmentState {
+            entry action initializeAssessment;
+            state WaitingForEvidence;
+            state ReviewingEvidence;
+            state ReadinessConfirmed;
+            state ReadinessRejected;
+
+            transition first WaitingForEvidence;
+            transition WaitingForEvidence to ReviewingEvidence
+                accept evidencePort.evidenceIn;
+            transition ReviewingEvidence to ReadinessConfirmed
+                if submittedEvidence.evidenceStatus == EvidenceStatus::Accepted;
+            transition ReviewingEvidence to ReadinessRejected
+                if submittedEvidence.evidenceStatus == EvidenceStatus::Rejected;
+            transition ReadinessConfirmed to WaitingForEvidence;
+            transition ReadinessRejected to WaitingForEvidence;
+        }
+    }
+
+    part def MissionControlUnit {
+        attribute activeMode : MissionMode = MissionMode::Idle;
+        attribute commandedTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+
+        port commandPort : CommandPort;
+        port assessmentRequestPort : CommandPort;
+        port readinessPort : EvidencePort;
+        port payloadCommandPort : CommandPort;
+
+        action routeMissionCommand {
+            in item command : MissionCommand;
+            out item routedCommand : MissionCommand;
+        }
+
+        state missionState {
+            state Idle;
+            state AssessingReadiness;
+            state DemonstratingTechnology;
+            state OperatingService;
+            state RecoveringFault;
+
+            transition first Idle;
+            transition Idle to AssessingReadiness
+                accept commandPort.command;
+            transition AssessingReadiness to DemonstratingTechnology
+                accept readinessPort.evidenceIn
+                if readinessPort.evidenceIn.demonstratedTRL >= TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+            transition DemonstratingTechnology to OperatingService
+                if readinessPort.evidenceIn.demonstratedTRL >= TechnologyReadinessLevel::TRL7_OperationalEnvironmentPrototype;
+            transition OperatingService to RecoveringFault
+                if activeMode == MissionMode::FaultRecovery;
+            transition RecoveringFault to AssessingReadiness;
+            transition DemonstratingTechnology to Idle
+                if readinessPort.evidenceIn.evidenceStatus == EvidenceStatus::Rejected;
+        }
+    }
+
+    part def TechnologyPayload {
+        attribute payloadName : String = "Core Technology Demonstrator";
+        attribute performanceMargin : Percent = 12.0;
+        attribute nominalDataRate : DataRate = 250.0;
+        attribute operatingTemperatureLimit : Celsius = 75.0;
+
+        port commandPort : CommandPort;
+        port dataPort : DataPort;
+        port healthPort : HealthPort;
+
+        action executePrimaryFunction {
+            in item command : MissionCommand;
+            out item data : OperationalData;
+        }
+
+        action produceDemonstrationData {
+            out item data : OperationalData;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : Volts = 28.0;
+        attribute availablePower : Watts = 1000.0;
+        attribute reservePowerMargin : Percent = 30.0;
+
+        port powerStatusPort : HealthPort;
+
+        action regulatePower {
+            out item report : HealthReport;
+        }
+    }
+
+    part def HealthMonitoringUnit {
+        attribute maximumAllowedTemperature : Celsius = 80.0;
+        attribute maximumFaultCount : Integer = 3;
+
+        port powerHealthPort : HealthPort;
+        port payloadHealthPort : HealthPort;
+        port systemHealthPort : HealthPort;
+
+        action aggregateHealth {
+            in item powerReport : HealthReport;
+            in item payloadReport : HealthReport;
+            out item systemReport : HealthReport;
+        }
+    }
+
+    part def EvidenceRepository {
+        attribute retainedEvidenceCount : Integer = 0;
+        attribute acceptedEvidenceCount : Integer = 0;
+
+        port externalEvidencePort : EvidencePort;
+        port validatedEvidencePort : EvidencePort;
+
+        action validateEvidence {
+            in item rawEvidence : ReadinessEvidence;
+            out item reviewedEvidence : ReadinessEvidence;
+        }
+    }
+
+    action def readinessGovernedOperation {
+        first start;
+        then receiveCommand;
+        then assessTechnologyReadiness;
+        then decidePermittedMode;
+        then executeIfReady;
+        then publishOperationalData;
+        then publishHealthReport;
+        then done;
+
+        action receiveCommand;
+        action assessTechnologyReadiness;
+        action decidePermittedMode;
+        action executeIfReady;
+        action publishOperationalData;
+        action publishHealthReport;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.primaryFunction ==
+            "Assess, demonstrate, and operate a technology capability only when readiness evidence supports the required technology readiness level."
+        }
+    }
+
+    requirement def MinimumOperationalReadinessRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.currentTRL >= system.minimumOperationalTRL
+        }
+    }
+
+    requirement def ReadinessConfidenceRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.readinessConfidence >= 80.0
+        }
+    }
+
+    requirement def PowerCapacityRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.maximumPowerDraw <= system.powerSubsystem.availablePower
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.requiredAvailability >= 97.0
+        }
+    }
+
+    part trlGovernedSystem : TRLBasedTechnologySystem;
+
+    requirement primaryFunctionSatisfied : PrimaryFunctionRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement readinessSatisfied : MinimumOperationalReadinessRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement confidenceSatisfied : ReadinessConfidenceRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement powerSatisfied : PowerCapacityRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement availabilitySatisfied : AvailabilityRequirement {
+        subject system = trlGovernedSystem;
+    }
+}
+tokens used
+3,803
+package TRL_Based_System_Model {
+    import ScalarValues::*;
+    import Quantities::*;
+    import MeasurementReferences::*;
+
+    enum def TechnologyReadinessLevel {
+        enum TRL1_BasicPrinciplesObserved;
+        enum TRL2_TechnologyConceptFormulated;
+        enum TRL3_ExperimentalProofOfConcept;
+        enum TRL4_LabValidation;
+        enum TRL5_RelevantEnvironmentValidation;
+        enum TRL6_RelevantEnvironmentDemonstration;
+        enum TRL7_OperationalEnvironmentPrototype;
+        enum TRL8_QualifiedSystem;
+        enum TRL9_OperationalSystemProven;
+    }
+
+    enum def MissionMode {
+        enum Idle;
+        enum ReadinessAssessment;
+        enum Demonstration;
+        enum OperationalService;
+        enum FaultRecovery;
+    }
+
+    enum def EvidenceStatus {
+        enum Missing;
+        enum InReview;
+        enum Accepted;
+        enum Rejected;
+    }
+
+    attribute def Percent :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    attribute def Hours :> ScalarValues::Real {
+        unit = "h";
+    }
+
+    attribute def Watts :> ScalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Volts :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def Celsius :> ScalarValues::Real {
+        unit = "degC";
+    }
+
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "Mb/s";
+    }
+
+    item def MissionCommand {
+        attribute commandId : String;
+        attribute requestedMode : MissionMode;
+        attribute minimumRequiredTRL : TechnologyReadinessLevel;
+    }
+
+    item def ReadinessEvidence {
+        attribute evidenceId : String;
+        attribute evidenceStatus : EvidenceStatus;
+        attribute demonstratedTRL : TechnologyReadinessLevel;
+        attribute confidence : Percent;
+    }
+
+    item def OperationalData {
+        attribute timestamp : String;
+        attribute measuredPerformance : Percent;
+        attribute availability : Percent;
+        attribute dataRate : DataRate;
+    }
+
+    item def HealthReport {
+        attribute powerDraw : Watts;
+        attribute supplyVoltage : Volts;
+        attribute internalTemperature : Celsius;
+        attribute uptime : Hours;
+        attribute faultCount : Integer;
+    }
+
+    port def CommandPort {
+        in item command : MissionCommand;
+    }
+
+    port def EvidencePort {
+        in item evidenceIn : ReadinessEvidence;
+        out item evidenceOut : ReadinessEvidence;
+    }
+
+    port def DataPort {
+        out item data : OperationalData;
+    }
+
+    port def HealthPort {
+        out item report : HealthReport;
+    }
+
+    part def TRLBasedTechnologySystem {
+        attribute systemName : String = "TRL-Governed Demonstration System";
+        attribute currentTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+        attribute targetTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL8_QualifiedSystem;
+        attribute primaryFunction : String =
+            "Assess, demonstrate, and operate a technology capability only when readiness evidence supports the required technology readiness level.";
+        attribute minimumOperationalTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL7_OperationalEnvironmentPrototype;
+        attribute readinessConfidence : Percent = 82.5;
+        attribute requiredAvailability : Percent = 97.0;
+        attribute nominalPowerDraw : Watts = 450.0;
+        attribute maximumPowerDraw : Watts = 700.0;
+
+        port commandInput : CommandPort;
+        port evidenceInterface : EvidencePort;
+        port operationalOutput : DataPort;
+        port healthOutput : HealthPort;
+
+        part readinessManager : ReadinessAssessmentUnit;
+        part missionController : MissionControlUnit;
+        part demonstrationPayload : TechnologyPayload;
+        part powerSubsystem : PowerSubsystem;
+        part healthMonitor : HealthMonitoringUnit;
+        part evidenceRepository : EvidenceRepository;
+
+        connect commandInput to missionController.commandPort;
+        connect missionController.assessmentRequestPort to readinessManager.commandPort;
+        connect evidenceInterface to evidenceRepository.externalEvidencePort;
+        connect evidenceRepository.validatedEvidencePort to readinessManager.evidencePort;
+        connect readinessManager.readinessDecisionPort to missionController.readinessPort;
+        connect missionController.payloadCommandPort to demonstrationPayload.commandPort;
+        connect demonstrationPayload.dataPort to operationalOutput;
+        connect powerSubsystem.powerStatusPort to healthMonitor.powerHealthPort;
+        connect demonstrationPayload.healthPort to healthMonitor.payloadHealthPort;
+        connect healthMonitor.systemHealthPort to healthOutput;
+
+        perform readinessGovernedOperation;
+    }
+
+    part def ReadinessAssessmentUnit {
+        attribute assessedTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+        attribute confidenceThreshold : Percent = 80.0;
+        attribute latestConfidence : Percent = 0.0;
+
+        port commandPort : CommandPort;
+        port evidencePort : EvidencePort;
+        port readinessDecisionPort : EvidencePort;
+
+        action assessEvidence {
+            in item submittedEvidence : ReadinessEvidence;
+            out item acceptedEvidence : ReadinessEvidence;
+        }
+
+        state readinessAssessmentState {
+            entry action initializeAssessment;
+            state WaitingForEvidence;
+            state ReviewingEvidence;
+            state ReadinessConfirmed;
+            state ReadinessRejected;
+
+            transition first WaitingForEvidence;
+            transition WaitingForEvidence to ReviewingEvidence
+                accept evidencePort.evidenceIn;
+            transition ReviewingEvidence to ReadinessConfirmed
+                if submittedEvidence.evidenceStatus == EvidenceStatus::Accepted;
+            transition ReviewingEvidence to ReadinessRejected
+                if submittedEvidence.evidenceStatus == EvidenceStatus::Rejected;
+            transition ReadinessConfirmed to WaitingForEvidence;
+            transition ReadinessRejected to WaitingForEvidence;
+        }
+    }
+
+    part def MissionControlUnit {
+        attribute activeMode : MissionMode = MissionMode::Idle;
+        attribute commandedTRL : TechnologyReadinessLevel = TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+
+        port commandPort : CommandPort;
+        port assessmentRequestPort : CommandPort;
+        port readinessPort : EvidencePort;
+        port payloadCommandPort : CommandPort;
+
+        action routeMissionCommand {
+            in item command : MissionCommand;
+            out item routedCommand : MissionCommand;
+        }
+
+        state missionState {
+            state Idle;
+            state AssessingReadiness;
+            state DemonstratingTechnology;
+            state OperatingService;
+            state RecoveringFault;
+
+            transition first Idle;
+            transition Idle to AssessingReadiness
+                accept commandPort.command;
+            transition AssessingReadiness to DemonstratingTechnology
+                accept readinessPort.evidenceIn
+                if readinessPort.evidenceIn.demonstratedTRL >= TechnologyReadinessLevel::TRL6_RelevantEnvironmentDemonstration;
+            transition DemonstratingTechnology to OperatingService
+                if readinessPort.evidenceIn.demonstratedTRL >= TechnologyReadinessLevel::TRL7_OperationalEnvironmentPrototype;
+            transition OperatingService to RecoveringFault
+                if activeMode == MissionMode::FaultRecovery;
+            transition RecoveringFault to AssessingReadiness;
+            transition DemonstratingTechnology to Idle
+                if readinessPort.evidenceIn.evidenceStatus == EvidenceStatus::Rejected;
+        }
+    }
+
+    part def TechnologyPayload {
+        attribute payloadName : String = "Core Technology Demonstrator";
+        attribute performanceMargin : Percent = 12.0;
+        attribute nominalDataRate : DataRate = 250.0;
+        attribute operatingTemperatureLimit : Celsius = 75.0;
+
+        port commandPort : CommandPort;
+        port dataPort : DataPort;
+        port healthPort : HealthPort;
+
+        action executePrimaryFunction {
+            in item command : MissionCommand;
+            out item data : OperationalData;
+        }
+
+        action produceDemonstrationData {
+            out item data : OperationalData;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : Volts = 28.0;
+        attribute availablePower : Watts = 1000.0;
+        attribute reservePowerMargin : Percent = 30.0;
+
+        port powerStatusPort : HealthPort;
+
+        action regulatePower {
+            out item report : HealthReport;
+        }
+    }
+
+    part def HealthMonitoringUnit {
+        attribute maximumAllowedTemperature : Celsius = 80.0;
+        attribute maximumFaultCount : Integer = 3;
+
+        port powerHealthPort : HealthPort;
+        port payloadHealthPort : HealthPort;
+        port systemHealthPort : HealthPort;
+
+        action aggregateHealth {
+            in item powerReport : HealthReport;
+            in item payloadReport : HealthReport;
+            out item systemReport : HealthReport;
+        }
+    }
+
+    part def EvidenceRepository {
+        attribute retainedEvidenceCount : Integer = 0;
+        attribute acceptedEvidenceCount : Integer = 0;
+
+        port externalEvidencePort : EvidencePort;
+        port validatedEvidencePort : EvidencePort;
+
+        action validateEvidence {
+            in item rawEvidence : ReadinessEvidence;
+            out item reviewedEvidence : ReadinessEvidence;
+        }
+    }
+
+    action def readinessGovernedOperation {
+        first start;
+        then receiveCommand;
+        then assessTechnologyReadiness;
+        then decidePermittedMode;
+        then executeIfReady;
+        then publishOperationalData;
+        then publishHealthReport;
+        then done;
+
+        action receiveCommand;
+        action assessTechnologyReadiness;
+        action decidePermittedMode;
+        action executeIfReady;
+        action publishOperationalData;
+        action publishHealthReport;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.primaryFunction ==
+            "Assess, demonstrate, and operate a technology capability only when readiness evidence supports the required technology readiness level."
+        }
+    }
+
+    requirement def MinimumOperationalReadinessRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.currentTRL >= system.minimumOperationalTRL
+        }
+    }
+
+    requirement def ReadinessConfidenceRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.readinessConfidence >= 80.0
+        }
+    }
+
+    requirement def PowerCapacityRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.maximumPowerDraw <= system.powerSubsystem.availablePower
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        subject system : TRLBasedTechnologySystem;
+        require constraint {
+            system.requiredAvailability >= 97.0
+        }
+    }
+
+    part trlGovernedSystem : TRLBasedTechnologySystem;
+
+    requirement primaryFunctionSatisfied : PrimaryFunctionRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement readinessSatisfied : MinimumOperationalReadinessRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement confidenceSatisfied : ReadinessConfidenceRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement powerSatisfied : PowerCapacityRequirement {
+        subject system = trlGovernedSystem;
+    }
+
+    requirement availabilitySatisfied : AvailabilityRequirement {
+        subject system = trlGovernedSystem;
+    }
+}

@@ -1,0 +1,1153 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-qplk4frx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb638-7e59-7b40-89f9-509b8e284577
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Voltage detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VoltageDetectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Probability {
+        attribute value : Real;
+    }
+
+    enum def DetectionState {
+        enum safe;
+        enum caution;
+        enum hazardous;
+        enum faulted;
+    }
+
+    enum def OutputMode {
+        enum silent;
+        enum visualOnly;
+        enum audibleAndVisual;
+        enum latchedAlarm;
+    }
+
+    enum def ProbeContactQuality {
+        enum openCircuit;
+        enum marginalContact;
+        enum stableContact;
+    }
+
+    item def ElectricalPotentialSignal {
+        attribute measuredVoltage : Voltage;
+        attribute sourceFrequency : Frequency;
+        attribute contactQuality : ProbeContactQuality;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def ConditionedVoltageSignal {
+        attribute scaledVoltage : Voltage;
+        attribute noiseRms : Voltage;
+        attribute isolationBarrierOk : Boolean;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def DetectionDecision {
+        attribute state : DetectionState;
+        attribute detectedVoltage : Voltage;
+        attribute confidence : Probability;
+        attribute latched : Boolean;
+    }
+
+    item def UserAlert {
+        attribute state : DetectionState;
+        attribute mode : OutputMode;
+        attribute visualIntensity : Real;
+        attribute audibleLevel : Real;
+    }
+
+    item def DiagnosticReport {
+        attribute selfTestPassed : Boolean;
+        attribute batteryVoltage : Voltage;
+        attribute probeContinuityOk : Boolean;
+        attribute isolationOk : Boolean;
+        attribute sensorSaturation : Boolean;
+        attribute internalTemperature : Temperature;
+    }
+
+    port def ProbeTipPort {
+        in item potential : ElectricalPotentialSignal;
+    }
+
+    port def ConditionedSignalPort {
+        out item conditioned : ConditionedVoltageSignal;
+    }
+
+    port def DecisionPort {
+        out item decision : DetectionDecision;
+    }
+
+    port def AlertPort {
+        out item alert : UserAlert;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostics : DiagnosticReport;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute availableCurrent : Current;
+    }
+
+    port def GroundReferencePort {
+        in attribute referencePotential : Voltage;
+    }
+
+    part def VoltageProbe {
+        attribute inputImpedance : Resistance = 10000000 [SI::ohm];
+        attribute maximumInputVoltage : Voltage = 1000 [SI::volt];
+        attribute minimumDetectableVoltage : Voltage = 12 [SI::volt];
+        attribute contactDebounceTime : TimeDuration = 0.050 [SI::second];
+
+        port tip : ProbeTipPort;
+        port reference : GroundReferencePort;
+        port conditionedOutput : ConditionedSignalPort;
+
+        perform action conditionInputSignal {
+            in item rawSignal : ElectricalPotentialSignal;
+            out item conditionedSignal : ConditionedVoltageSignal;
+
+            first start;
+            then verifyInputWithinRange;
+            then attenuateAndFilter;
+            then validateIsolationBarrier;
+            then publishConditionedSignal;
+            then done;
+
+            action verifyInputWithinRange;
+            action attenuateAndFilter;
+            action validateIsolationBarrier;
+            action publishConditionedSignal;
+        }
+    }
+
+    part def IsolationBarrier {
+        attribute ratedIsolationVoltage : Voltage = 1500 [SI::volt];
+        attribute leakageCurrentLimit : Current = 0.000001 [SI::ampere];
+        attribute barrierHealth : Boolean = true;
+
+        port input : ConditionedSignalPort;
+        port output : ConditionedSignalPort;
+
+        perform action isolateMeasurementPath {
+            in item incomingSignal : ConditionedVoltageSignal;
+            out item isolatedSignal : ConditionedVoltageSignal;
+
+            first start;
+            then transferSignalAcrossBarrier;
+            then evaluateLeakage;
+            then setIsolationStatus;
+            then done;
+
+            action transferSignalAcrossBarrier;
+            action evaluateLeakage;
+            action setIsolationStatus;
+        }
+    }
+
+    part def VoltageMeasurementProcessor {
+        attribute safeThreshold : Voltage = 30 [SI::volt];
+        attribute cautionThreshold : Voltage = 50 [SI::volt];
+        attribute hazardousThreshold : Voltage = 120 [SI::volt];
+        attribute overRangeThreshold : Voltage = 1000 [SI::volt];
+        attribute samplePeriod : TimeDuration = 0.010 [SI::second];
+        attribute decisionHoldTime : TimeDuration = 0.250 [SI::second];
+        attribute minimumConfidence : Probability = Probability { value = 0.95; };
+
+        port measurementInput : ConditionedSignalPort;
+        port decisionOutput : DecisionPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        state def DetectionLogic {
+            entry action initializeFilters;
+
+            state idle;
+            state sampling;
+            state safeVoltage;
+            state cautionVoltage;
+            state hazardousVoltage;
+            state fault;
+
+            transition first idle;
+            transition idle_to_sampling
+                first idle
+                then sampling
+                accept after samplePeriod;
+
+            transition sampling_to_safe
+                first sampling
+                then safeVoltage
+                if measuredVoltage < safeThreshold and isolationBarrierOk;
+
+            transition sampling_to_caution
+                first sampling
+                then cautionVoltage
+                if measuredVoltage >= cautionThreshold and measuredVoltage < hazardousThreshold and isolationBarrierOk;
+
+            transition sampling_to_hazardous
+                first sampling
+                then hazardousVoltage
+                if measuredVoltage >= hazardousThreshold and measuredVoltage <= overRangeThreshold and isolationBarrierOk;
+
+            transition sampling_to_fault
+                first sampling
+                then fault
+                if measuredVoltage > overRangeThreshold or not isolationBarrierOk or sensorSaturation;
+
+            transition safe_to_sampling
+                first safeVoltage
+                then sampling
+                accept after decisionHoldTime;
+
+            transition caution_to_sampling
+                first cautionVoltage
+                then sampling
+                accept after decisionHoldTime;
+
+            transition hazardous_to_sampling
+                first hazardousVoltage
+                then sampling
+                accept after decisionHoldTime;
+
+            transition fault_to_sampling
+                first fault
+                then sampling
+                accept after decisionHoldTime;
+        }
+
+        perform action classifyVoltage {
+            in item conditionedSignal : ConditionedVoltageSignal;
+            out item decision : DetectionDecision;
+
+            first start;
+            then removeMeasurementNoise;
+            then calculateRmsVoltage;
+            then compareAgainstThresholds;
+            then estimateDecisionConfidence;
+            then publishDecision;
+            then done;
+
+            action removeMeasurementNoise;
+            action calculateRmsVoltage;
+            action compareAgainstThresholds;
+            action estimateDecisionConfidence;
+            action publishDecision;
+        }
+
+        perform action runSelfDiagnostics {
+            out item report : DiagnosticReport;
+
+            first start;
+            then measureBattery;
+            then checkProbeContinuity;
+            then checkIsolationBarrier;
+            then checkSensorRange;
+            then measureInternalTemperature;
+            then publishDiagnostics;
+            then done;
+
+            action measureBattery;
+            action checkProbeContinuity;
+            action checkIsolationBarrier;
+            action checkSensorRange;
+            action measureInternalTemperature;
+            action publishDiagnostics;
+        }
+    }
+
+    part def AlertController {
+        attribute visualSafeIntensity : Real = 0.25;
+        attribute visualCautionIntensity : Real = 0.70;
+        attribute visualHazardIntensity : Real = 1.00;
+        attribute audibleHazardLevel : Real = 0.90;
+        attribute alarmLatchEnabled : Boolean = true;
+        attribute alarmLatchResetTime : TimeDuration = 2 [SI::second];
+
+        port decisionInput : DecisionPort;
+        port alertOutput : AlertPort;
+
+        state def AlertBehavior {
+            state noAlert;
+            state safeIndication;
+            state cautionIndication;
+            state hazardAlarm;
+            state latchedHazardAlarm;
+            state faultAlarm;
+
+            transition first noAlert;
+
+            transition noAlert_to_safe
+                first noAlert
+                then safeIndication
+                if decision.state == DetectionState::safe;
+
+            transition noAlert_to_caution
+                first noAlert
+                then cautionIndication
+                if decision.state == DetectionState::caution;
+
+            transition noAlert_to_hazard
+                first noAlert
+                then hazardAlarm
+                if decision.state == DetectionState::hazardous;
+
+            transition any_to_fault
+                first noAlert
+                then faultAlarm
+                if decision.state == DetectionState::faulted;
+
+            transition safe_to_caution
+                first safeIndication
+                then cautionIndication
+                if decision.state == DetectionState::caution;
+
+            transition caution_to_hazard
+                first cautionIndication
+                then hazardAlarm
+                if decision.state == DetectionState::hazardous;
+
+            transition hazard_to_latched
+                first hazardAlarm
+                then latchedHazardAlarm
+                if alarmLatchEnabled;
+
+            transition latched_to_noAlert
+                first latchedHazardAlarm
+                then noAlert
+                accept after alarmLatchResetTime
+                if decision.state != DetectionState::hazardous;
+
+            transition fault_to_noAlert
+                first faultAlarm
+                then noAlert
+                if decision.state != DetectionState::faulted;
+        }
+
+        perform action generateUserAlert {
+            in item decision : DetectionDecision;
+            out item alert : UserAlert;
+
+            first start;
+            then selectOutputMode;
+            then setVisualPattern;
+            then setAudiblePattern;
+            then applyAlarmLatch;
+            then publishAlert;
+            then done;
+
+            action selectOutputMode;
+            action setVisualPattern;
+            action setAudiblePattern;
+            action applyAlarmLatch;
+            action publishAlert;
+        }
+    }
+
+    part def IndicatorAssembly {
+        attribute greenLedCurrent : Current = 0.010 [SI::ampere];
+        attribute amberLedCurrent : Current = 0.012 [SI::ampere];
+        attribute redLedCurrent : Current = 0.015 [SI::ampere];
+        attribute buzzerCurrent : Current = 0.030 [SI::ampere];
+
+        port alertInput : AlertPort;
+
+        perform action presentAlert {
+            in item alert : UserAlert;
+
+            first start;
+            then driveVisualIndicators;
+            then driveAudibleIndicator;
+            then done;
+
+            action driveVisualIndicators;
+            action driveAudibleIndicator;
+        }
+    }
+
+    part def BatteryPowerSupply {
+        attribute nominalVoltage : Voltage = 3.7 [SI::volt];
+        attribute lowBatteryThreshold : Voltage = 3.2 [SI::volt];
+        attribute maximumOutputCurrent : Current = 0.250 [SI::ampere];
+
+        port powerOutput : PowerInputPort;
+
+        perform action regulatePower {
+            out attribute regulatedVoltage : Voltage;
+
+            first start;
+            then monitorCellVoltage;
+            then regulateOutput;
+            then protectAgainstOvercurrent;
+            then done;
+
+            action monitorCellVoltage;
+            action regulateOutput;
+            action protectAgainstOvercurrent;
+        }
+    }
+
+    part def VoltageDetector {
+        attribute detectorName : String = "Portable Voltage Detector";
+        attribute operatingTemperatureMinimum : Temperature = 253.15 [SI::kelvin];
+        attribute operatingTemperatureMaximum : Temperature = 323.15 [SI::kelvin];
+        attribute detectionResponseTime : TimeDuration = 0.300 [SI::second];
+
+        port sensedVoltage : ProbeTipPort;
+        port groundReference : GroundReferencePort;
+        port userAlert : AlertPort;
+        port diagnosticStatus : DiagnosticPort;
+
+        part probe : VoltageProbe;
+        part isolation : IsolationBarrier;
+        part processor : VoltageMeasurementProcessor;
+        part alertController : AlertController;
+        part indicators : IndicatorAssembly;
+        part powerSupply : BatteryPowerSupply;
+
+        connect sensedVoltage to probe.tip;
+        connect groundReference to probe.reference;
+        connect probe.conditionedOutput to isolation.input;
+        connect isolation.output to processor.measurementInput;
+        connect processor.decisionOutput to alertController.decisionInput;
+        connect alertController.alertOutput to indicators.alertInput;
+        connect alertController.alertOutput to userAlert;
+        connect processor.diagnosticOutput to diagnosticStatus;
+        connect powerSupply.powerOutput to processor.measurementInput;
+
+        perform action detectVoltage {
+            in item electricalPotential : ElectricalPotentialSignal;
+            out item decision : DetectionDecision;
+            out item alert : UserAlert;
+
+            first start;
+            then acquirePotentialAtProbe;
+            then conditionAndIsolateSignal;
+            then classifyElectricalHazard;
+            then notifyUserOfVoltageCondition;
+            then done;
+
+            action acquirePotentialAtProbe;
+            action conditionAndIsolateSignal;
+            action classifyElectricalHazard;
+            action notifyUserOfVoltageCondition;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : VoltageDetector;
+
+        doc /* The voltage detector shall sense electrical potential at its probe input, determine whether the measured voltage represents a safe, caution, hazardous, or faulted condition, and provide a clear user alert within the specified response time. */
+
+        require constraint {
+            detector.detectionResponseTime <= 0.300 [SI::second]
+        }
+    }
+
+    requirement def DetectionThresholdRequirement {
+        subject processor : VoltageMeasurementProcessor;
+
+        doc /* The voltage detector shall classify voltage below 30 V as safe, voltage from 50 V to below 120 V as caution, voltage from 120 V to 1000 V as hazardous, and voltage above 1000 V as a fault or over-range condition. */
+
+        require constraint {
+            processor.safeThreshold == 30 [SI::volt] and
+            processor.cautionThreshold == 50 [SI::volt] and
+            processor.hazardousThreshold == 120 [SI::volt] and
+            processor.overRangeThreshold == 1000 [SI::volt]
+        }
+    }
+
+    requirement def IsolationRequirement {
+        subject barrier : IsolationBarrier;
+
+        doc /* The voltage detector shall electrically isolate the measurement path from the user-accessible electronics for input voltages up to the rated isolation voltage. */
+
+        require constraint {
+            barrier.ratedIsolationVoltage >= 1500 [SI::volt] and
+            barrier.leakageCurrentLimit <= 0.000001 [SI::ampere]
+        }
+    }
+
+    requirement def AlertRequirement {
+        subject controller : AlertController;
+
+        doc /* The voltage detector shall provide visual indication for safe and caution conditions and both audible and visual indication for hazardous conditions. */
+
+        require constraint {
+            controller.visualSafeIntensity > 0.0 and
+            controller.visualCautionIntensity > controller.visualSafeIntensity and
+            controller.visualHazardIntensity >= controller.visualCautionIntensity and
+            controller.audibleHazardLevel > 0.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject processor : VoltageMeasurementProcessor;
+
+        doc /* The voltage detector shall report diagnostic status for battery voltage, probe continuity, isolation health, sensor saturation, and internal temperature. */
+
+        require constraint {
+            processor.samplePeriod <= 0.010 [SI::second]
+        }
+    }
+
+    requirement def LowPowerRequirement {
+        subject supply : BatteryPowerSupply;
+
+        doc /* The voltage detector shall monitor battery voltage and identify a low-battery condition before regulated supply voltage becomes insufficient for detection processing. */
+
+        require constraint {
+            supply.lowBatteryThreshold >= 3.2 [SI::volt] and
+            supply.nominalVoltage > supply.lowBatteryThreshold
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by VoltageDetector::detectVoltage;
+    satisfy DetectionThresholdRequirement by VoltageMeasurementProcessor::classifyVoltage;
+    satisfy IsolationRequirement by IsolationBarrier::isolateMeasurementPath;
+    satisfy AlertRequirement by AlertController::generateUserAlert;
+    satisfy DiagnosticRequirement by VoltageMeasurementProcessor::runSelfDiagnostics;
+    satisfy LowPowerRequirement by BatteryPowerSupply::regulatePower;
+
+    part voltageDetectorSystem : VoltageDetector {
+        attribute detectorName = "Handheld AC/DC Voltage Detector";
+        attribute detectionResponseTime = 0.250 [SI::second];
+
+        part redefines processor {
+            attribute safeThreshold = 30 [SI::volt];
+            attribute cautionThreshold = 50 [SI::volt];
+            attribute hazardousThreshold = 120 [SI::volt];
+            attribute overRangeThreshold = 1000 [SI::volt];
+            attribute samplePeriod = 0.010 [SI::second];
+            attribute decisionHoldTime = 0.250 [SI::second];
+        }
+
+        part redefines probe {
+            attribute inputImpedance = 10000000 [SI::ohm];
+            attribute maximumInputVoltage = 1000 [SI::volt];
+            attribute minimumDetectableVoltage = 12 [SI::volt];
+        }
+
+        part redefines isolation {
+            attribute ratedIsolationVoltage = 1500 [SI::volt];
+            attribute leakageCurrentLimit = 0.000001 [SI::ampere];
+        }
+
+        part redefines powerSupply {
+            attribute nominalVoltage = 3.7 [SI::volt];
+            attribute lowBatteryThreshold = 3.2 [SI::volt];
+            attribute maximumOutputCurrent = 0.250 [SI::ampere];
+        }
+    }
+
+}
+tokens used
+4,047
+package VoltageDetectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Probability {
+        attribute value : Real;
+    }
+
+    enum def DetectionState {
+        enum safe;
+        enum caution;
+        enum hazardous;
+        enum faulted;
+    }
+
+    enum def OutputMode {
+        enum silent;
+        enum visualOnly;
+        enum audibleAndVisual;
+        enum latchedAlarm;
+    }
+
+    enum def ProbeContactQuality {
+        enum openCircuit;
+        enum marginalContact;
+        enum stableContact;
+    }
+
+    item def ElectricalPotentialSignal {
+        attribute measuredVoltage : Voltage;
+        attribute sourceFrequency : Frequency;
+        attribute contactQuality : ProbeContactQuality;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def ConditionedVoltageSignal {
+        attribute scaledVoltage : Voltage;
+        attribute noiseRms : Voltage;
+        attribute isolationBarrierOk : Boolean;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def DetectionDecision {
+        attribute state : DetectionState;
+        attribute detectedVoltage : Voltage;
+        attribute confidence : Probability;
+        attribute latched : Boolean;
+    }
+
+    item def UserAlert {
+        attribute state : DetectionState;
+        attribute mode : OutputMode;
+        attribute visualIntensity : Real;
+        attribute audibleLevel : Real;
+    }
+
+    item def DiagnosticReport {
+        attribute selfTestPassed : Boolean;
+        attribute batteryVoltage : Voltage;
+        attribute probeContinuityOk : Boolean;
+        attribute isolationOk : Boolean;
+        attribute sensorSaturation : Boolean;
+        attribute internalTemperature : Temperature;
+    }
+
+    port def ProbeTipPort {
+        in item potential : ElectricalPotentialSignal;
+    }
+
+    port def ConditionedSignalPort {
+        out item conditioned : ConditionedVoltageSignal;
+    }
+
+    port def DecisionPort {
+        out item decision : DetectionDecision;
+    }
+
+    port def AlertPort {
+        out item alert : UserAlert;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostics : DiagnosticReport;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute availableCurrent : Current;
+    }
+
+    port def GroundReferencePort {
+        in attribute referencePotential : Voltage;
+    }
+
+    part def VoltageProbe {
+        attribute inputImpedance : Resistance = 10000000 [SI::ohm];
+        attribute maximumInputVoltage : Voltage = 1000 [SI::volt];
+        attribute minimumDetectableVoltage : Voltage = 12 [SI::volt];
+        attribute contactDebounceTime : TimeDuration = 0.050 [SI::second];
+
+        port tip : ProbeTipPort;
+        port reference : GroundReferencePort;
+        port conditionedOutput : ConditionedSignalPort;
+
+        perform action conditionInputSignal {
+            in item rawSignal : ElectricalPotentialSignal;
+            out item conditionedSignal : ConditionedVoltageSignal;
+
+            first start;
+            then verifyInputWithinRange;
+            then attenuateAndFilter;
+            then validateIsolationBarrier;
+            then publishConditionedSignal;
+            then done;
+
+            action verifyInputWithinRange;
+            action attenuateAndFilter;
+            action validateIsolationBarrier;
+            action publishConditionedSignal;
+        }
+    }
+
+    part def IsolationBarrier {
+        attribute ratedIsolationVoltage : Voltage = 1500 [SI::volt];
+        attribute leakageCurrentLimit : Current = 0.000001 [SI::ampere];
+        attribute barrierHealth : Boolean = true;
+
+        port input : ConditionedSignalPort;
+        port output : ConditionedSignalPort;
+
+        perform action isolateMeasurementPath {
+            in item incomingSignal : ConditionedVoltageSignal;
+            out item isolatedSignal : ConditionedVoltageSignal;
+
+            first start;
+            then transferSignalAcrossBarrier;
+            then evaluateLeakage;
+            then setIsolationStatus;
+            then done;
+
+            action transferSignalAcrossBarrier;
+            action evaluateLeakage;
+            action setIsolationStatus;
+        }
+    }
+
+    part def VoltageMeasurementProcessor {
+        attribute safeThreshold : Voltage = 30 [SI::volt];
+        attribute cautionThreshold : Voltage = 50 [SI::volt];
+        attribute hazardousThreshold : Voltage = 120 [SI::volt];
+        attribute overRangeThreshold : Voltage = 1000 [SI::volt];
+        attribute samplePeriod : TimeDuration = 0.010 [SI::second];
+        attribute decisionHoldTime : TimeDuration = 0.250 [SI::second];
+        attribute minimumConfidence : Probability = Probability { value = 0.95; };
+
+        port measurementInput : ConditionedSignalPort;
+        port decisionOutput : DecisionPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        state def DetectionLogic {
+            entry action initializeFilters;
+
+            state idle;
+            state sampling;
+            state safeVoltage;
+            state cautionVoltage;
+            state hazardousVoltage;
+            state fault;
+
+            transition first idle;
+            transition idle_to_sampling
+                first idle
+                then sampling
+                accept after samplePeriod;
+
+            transition sampling_to_safe
+                first sampling
+                then safeVoltage
+                if measuredVoltage < safeThreshold and isolationBarrierOk;
+
+            transition sampling_to_caution
+                first sampling
+                then cautionVoltage
+                if measuredVoltage >= cautionThreshold and measuredVoltage < hazardousThreshold and isolationBarrierOk;
+
+            transition sampling_to_hazardous
+                first sampling
+                then hazardousVoltage
+                if measuredVoltage >= hazardousThreshold and measuredVoltage <= overRangeThreshold and isolationBarrierOk;
+
+            transition sampling_to_fault
+                first sampling
+                then fault
+                if measuredVoltage > overRangeThreshold or not isolationBarrierOk or sensorSaturation;
+
+            transition safe_to_sampling
+                first safeVoltage
+                then sampling
+                accept after decisionHoldTime;
+
+            transition caution_to_sampling
+                first cautionVoltage
+                then sampling
+                accept after decisionHoldTime;
+
+            transition hazardous_to_sampling
+                first hazardousVoltage
+                then sampling
+                accept after decisionHoldTime;
+
+            transition fault_to_sampling
+                first fault
+                then sampling
+                accept after decisionHoldTime;
+        }
+
+        perform action classifyVoltage {
+            in item conditionedSignal : ConditionedVoltageSignal;
+            out item decision : DetectionDecision;
+
+            first start;
+            then removeMeasurementNoise;
+            then calculateRmsVoltage;
+            then compareAgainstThresholds;
+            then estimateDecisionConfidence;
+            then publishDecision;
+            then done;
+
+            action removeMeasurementNoise;
+            action calculateRmsVoltage;
+            action compareAgainstThresholds;
+            action estimateDecisionConfidence;
+            action publishDecision;
+        }
+
+        perform action runSelfDiagnostics {
+            out item report : DiagnosticReport;
+
+            first start;
+            then measureBattery;
+            then checkProbeContinuity;
+            then checkIsolationBarrier;
+            then checkSensorRange;
+            then measureInternalTemperature;
+            then publishDiagnostics;
+            then done;
+
+            action measureBattery;
+            action checkProbeContinuity;
+            action checkIsolationBarrier;
+            action checkSensorRange;
+            action measureInternalTemperature;
+            action publishDiagnostics;
+        }
+    }
+
+    part def AlertController {
+        attribute visualSafeIntensity : Real = 0.25;
+        attribute visualCautionIntensity : Real = 0.70;
+        attribute visualHazardIntensity : Real = 1.00;
+        attribute audibleHazardLevel : Real = 0.90;
+        attribute alarmLatchEnabled : Boolean = true;
+        attribute alarmLatchResetTime : TimeDuration = 2 [SI::second];
+
+        port decisionInput : DecisionPort;
+        port alertOutput : AlertPort;
+
+        state def AlertBehavior {
+            state noAlert;
+            state safeIndication;
+            state cautionIndication;
+            state hazardAlarm;
+            state latchedHazardAlarm;
+            state faultAlarm;
+
+            transition first noAlert;
+
+            transition noAlert_to_safe
+                first noAlert
+                then safeIndication
+                if decision.state == DetectionState::safe;
+
+            transition noAlert_to_caution
+                first noAlert
+                then cautionIndication
+                if decision.state == DetectionState::caution;
+
+            transition noAlert_to_hazard
+                first noAlert
+                then hazardAlarm
+                if decision.state == DetectionState::hazardous;
+
+            transition any_to_fault
+                first noAlert
+                then faultAlarm
+                if decision.state == DetectionState::faulted;
+
+            transition safe_to_caution
+                first safeIndication
+                then cautionIndication
+                if decision.state == DetectionState::caution;
+
+            transition caution_to_hazard
+                first cautionIndication
+                then hazardAlarm
+                if decision.state == DetectionState::hazardous;
+
+            transition hazard_to_latched
+                first hazardAlarm
+                then latchedHazardAlarm
+                if alarmLatchEnabled;
+
+            transition latched_to_noAlert
+                first latchedHazardAlarm
+                then noAlert
+                accept after alarmLatchResetTime
+                if decision.state != DetectionState::hazardous;
+
+            transition fault_to_noAlert
+                first faultAlarm
+                then noAlert
+                if decision.state != DetectionState::faulted;
+        }
+
+        perform action generateUserAlert {
+            in item decision : DetectionDecision;
+            out item alert : UserAlert;
+
+            first start;
+            then selectOutputMode;
+            then setVisualPattern;
+            then setAudiblePattern;
+            then applyAlarmLatch;
+            then publishAlert;
+            then done;
+
+            action selectOutputMode;
+            action setVisualPattern;
+            action setAudiblePattern;
+            action applyAlarmLatch;
+            action publishAlert;
+        }
+    }
+
+    part def IndicatorAssembly {
+        attribute greenLedCurrent : Current = 0.010 [SI::ampere];
+        attribute amberLedCurrent : Current = 0.012 [SI::ampere];
+        attribute redLedCurrent : Current = 0.015 [SI::ampere];
+        attribute buzzerCurrent : Current = 0.030 [SI::ampere];
+
+        port alertInput : AlertPort;
+
+        perform action presentAlert {
+            in item alert : UserAlert;
+
+            first start;
+            then driveVisualIndicators;
+            then driveAudibleIndicator;
+            then done;
+
+            action driveVisualIndicators;
+            action driveAudibleIndicator;
+        }
+    }
+
+    part def BatteryPowerSupply {
+        attribute nominalVoltage : Voltage = 3.7 [SI::volt];
+        attribute lowBatteryThreshold : Voltage = 3.2 [SI::volt];
+        attribute maximumOutputCurrent : Current = 0.250 [SI::ampere];
+
+        port powerOutput : PowerInputPort;
+
+        perform action regulatePower {
+            out attribute regulatedVoltage : Voltage;
+
+            first start;
+            then monitorCellVoltage;
+            then regulateOutput;
+            then protectAgainstOvercurrent;
+            then done;
+
+            action monitorCellVoltage;
+            action regulateOutput;
+            action protectAgainstOvercurrent;
+        }
+    }
+
+    part def VoltageDetector {
+        attribute detectorName : String = "Portable Voltage Detector";
+        attribute operatingTemperatureMinimum : Temperature = 253.15 [SI::kelvin];
+        attribute operatingTemperatureMaximum : Temperature = 323.15 [SI::kelvin];
+        attribute detectionResponseTime : TimeDuration = 0.300 [SI::second];
+
+        port sensedVoltage : ProbeTipPort;
+        port groundReference : GroundReferencePort;
+        port userAlert : AlertPort;
+        port diagnosticStatus : DiagnosticPort;
+
+        part probe : VoltageProbe;
+        part isolation : IsolationBarrier;
+        part processor : VoltageMeasurementProcessor;
+        part alertController : AlertController;
+        part indicators : IndicatorAssembly;
+        part powerSupply : BatteryPowerSupply;
+
+        connect sensedVoltage to probe.tip;
+        connect groundReference to probe.reference;
+        connect probe.conditionedOutput to isolation.input;
+        connect isolation.output to processor.measurementInput;
+        connect processor.decisionOutput to alertController.decisionInput;
+        connect alertController.alertOutput to indicators.alertInput;
+        connect alertController.alertOutput to userAlert;
+        connect processor.diagnosticOutput to diagnosticStatus;
+        connect powerSupply.powerOutput to processor.measurementInput;
+
+        perform action detectVoltage {
+            in item electricalPotential : ElectricalPotentialSignal;
+            out item decision : DetectionDecision;
+            out item alert : UserAlert;
+
+            first start;
+            then acquirePotentialAtProbe;
+            then conditionAndIsolateSignal;
+            then classifyElectricalHazard;
+            then notifyUserOfVoltageCondition;
+            then done;
+
+            action acquirePotentialAtProbe;
+            action conditionAndIsolateSignal;
+            action classifyElectricalHazard;
+            action notifyUserOfVoltageCondition;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : VoltageDetector;
+
+        doc /* The voltage detector shall sense electrical potential at its probe input, determine whether the measured voltage represents a safe, caution, hazardous, or faulted condition, and provide a clear user alert within the specified response time. */
+
+        require constraint {
+            detector.detectionResponseTime <= 0.300 [SI::second]
+        }
+    }
+
+    requirement def DetectionThresholdRequirement {
+        subject processor : VoltageMeasurementProcessor;
+
+        doc /* The voltage detector shall classify voltage below 30 V as safe, voltage from 50 V to below 120 V as caution, voltage from 120 V to 1000 V as hazardous, and voltage above 1000 V as a fault or over-range condition. */
+
+        require constraint {
+            processor.safeThreshold == 30 [SI::volt] and
+            processor.cautionThreshold == 50 [SI::volt] and
+            processor.hazardousThreshold == 120 [SI::volt] and
+            processor.overRangeThreshold == 1000 [SI::volt]
+        }
+    }
+
+    requirement def IsolationRequirement {
+        subject barrier : IsolationBarrier;
+
+        doc /* The voltage detector shall electrically isolate the measurement path from the user-accessible electronics for input voltages up to the rated isolation voltage. */
+
+        require constraint {
+            barrier.ratedIsolationVoltage >= 1500 [SI::volt] and
+            barrier.leakageCurrentLimit <= 0.000001 [SI::ampere]
+        }
+    }
+
+    requirement def AlertRequirement {
+        subject controller : AlertController;
+
+        doc /* The voltage detector shall provide visual indication for safe and caution conditions and both audible and visual indication for hazardous conditions. */
+
+        require constraint {
+            controller.visualSafeIntensity > 0.0 and
+            controller.visualCautionIntensity > controller.visualSafeIntensity and
+            controller.visualHazardIntensity >= controller.visualCautionIntensity and
+            controller.audibleHazardLevel > 0.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject processor : VoltageMeasurementProcessor;
+
+        doc /* The voltage detector shall report diagnostic status for battery voltage, probe continuity, isolation health, sensor saturation, and internal temperature. */
+
+        require constraint {
+            processor.samplePeriod <= 0.010 [SI::second]
+        }
+    }
+
+    requirement def LowPowerRequirement {
+        subject supply : BatteryPowerSupply;
+
+        doc /* The voltage detector shall monitor battery voltage and identify a low-battery condition before regulated supply voltage becomes insufficient for detection processing. */
+
+        require constraint {
+            supply.lowBatteryThreshold >= 3.2 [SI::volt] and
+            supply.nominalVoltage > supply.lowBatteryThreshold
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by VoltageDetector::detectVoltage;
+    satisfy DetectionThresholdRequirement by VoltageMeasurementProcessor::classifyVoltage;
+    satisfy IsolationRequirement by IsolationBarrier::isolateMeasurementPath;
+    satisfy AlertRequirement by AlertController::generateUserAlert;
+    satisfy DiagnosticRequirement by VoltageMeasurementProcessor::runSelfDiagnostics;
+    satisfy LowPowerRequirement by BatteryPowerSupply::regulatePower;
+
+    part voltageDetectorSystem : VoltageDetector {
+        attribute detectorName = "Handheld AC/DC Voltage Detector";
+        attribute detectionResponseTime = 0.250 [SI::second];
+
+        part redefines processor {
+            attribute safeThreshold = 30 [SI::volt];
+            attribute cautionThreshold = 50 [SI::volt];
+            attribute hazardousThreshold = 120 [SI::volt];
+            attribute overRangeThreshold = 1000 [SI::volt];
+            attribute samplePeriod = 0.010 [SI::second];
+            attribute decisionHoldTime = 0.250 [SI::second];
+        }
+
+        part redefines probe {
+            attribute inputImpedance = 10000000 [SI::ohm];
+            attribute maximumInputVoltage = 1000 [SI::volt];
+            attribute minimumDetectableVoltage = 12 [SI::volt];
+        }
+
+        part redefines isolation {
+            attribute ratedIsolationVoltage = 1500 [SI::volt];
+            attribute leakageCurrentLimit = 0.000001 [SI::ampere];
+        }
+
+        part redefines powerSupply {
+            attribute nominalVoltage = 3.7 [SI::volt];
+            attribute lowBatteryThreshold = 3.2 [SI::volt];
+            attribute maximumOutputCurrent = 0.250 [SI::ampere];
+        }
+    }
+
+}

@@ -1,0 +1,346 @@
+package QuartzThermometerSystem {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def CelsiusTemperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def KelvinTemperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def FrequencyHz :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def VoltageV :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentA :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def PowerW :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def TimeS :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def AccuracyC :> CelsiusTemperature;
+    attribute def ResolutionC :> CelsiusTemperature;
+
+    item def ThermalEnergy {
+        attribute temperature : CelsiusTemperature;
+        attribute heatFlowRate : PowerW;
+    }
+
+    item def QuartzOscillationSignal {
+        attribute oscillationFrequency : FrequencyHz;
+        attribute amplitude : VoltageV;
+        attribute signalQuality : Real;
+    }
+
+    item def ConditionedFrequencySignal {
+        attribute measuredFrequency : FrequencyHz;
+        attribute period : TimeS;
+        attribute jitter : TimeS;
+    }
+
+    item def TemperatureEstimate {
+        attribute value : CelsiusTemperature;
+        attribute uncertainty : AccuracyC;
+        attribute timestamp : TimeS;
+        attribute valid : Boolean;
+    }
+
+    item def DisplayedTemperature {
+        attribute value : CelsiusTemperature;
+        attribute resolution : ResolutionC;
+        attribute unitsLabel : String;
+        attribute alarmVisible : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : VoltageV;
+        attribute supplyCurrent : CurrentA;
+        attribute availablePower : PowerW;
+    }
+
+    port def ThermalContactPort {
+        in item thermalInput : ThermalEnergy;
+    }
+
+    port def OscillatorSignalPort {
+        out item oscillation : QuartzOscillationSignal;
+    }
+
+    port def FrequencyInputPort {
+        in item oscillation : QuartzOscillationSignal;
+    }
+
+    port def ConditionedSignalPort {
+        out item conditionedSignal : ConditionedFrequencySignal;
+    }
+
+    port def TemperatureOutputPort {
+        out item estimate : TemperatureEstimate;
+    }
+
+    port def TemperatureInputPort {
+        in item estimate : TemperatureEstimate;
+    }
+
+    port def DisplayOutputPort {
+        out item displayedTemperature : DisplayedTemperature;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PowerDistributionPort {
+        out item power : ElectricalPower;
+    }
+
+    action def SenseQuartzFrequency {
+        in item appliedThermalEnergy : ThermalEnergy;
+        out item rawOscillation : QuartzOscillationSignal;
+
+        attribute nominalFrequency : FrequencyHz = 32768 [SI::hertz];
+        attribute temperatureCoefficient : Real = -0.035;
+        attribute referenceTemperature : CelsiusTemperature = 25 [SI::degreeCelsius];
+    }
+
+    action def ConditionOscillationSignal {
+        in item rawOscillation : QuartzOscillationSignal;
+        out item conditionedSignal : ConditionedFrequencySignal;
+
+        attribute minimumSignalQuality : Real = 0.85;
+        attribute maximumJitter : TimeS = 0.000001 [SI::second];
+    }
+
+    action def ConvertFrequencyToTemperature {
+        in item conditionedSignal : ConditionedFrequencySignal;
+        out item estimate : TemperatureEstimate;
+
+        attribute calibrationOffset : CelsiusTemperature = 0.00 [SI::degreeCelsius];
+        attribute calibrationSlope : Real = -28.5714;
+        attribute validLowerLimit : CelsiusTemperature = -40 [SI::degreeCelsius];
+        attribute validUpperLimit : CelsiusTemperature = 125 [SI::degreeCelsius];
+    }
+
+    action def FilterTemperatureEstimate {
+        in item rawEstimate : TemperatureEstimate;
+        out item filteredEstimate : TemperatureEstimate;
+
+        attribute averagingWindow : Integer = 8;
+        attribute updatePeriod : TimeS = 0.5 [SI::second];
+    }
+
+    action def PresentTemperature {
+        in item estimate : TemperatureEstimate;
+        out item displayValue : DisplayedTemperature;
+
+        attribute displayResolution : ResolutionC = 0.1 [SI::degreeCelsius];
+        attribute highTemperatureAlarmLimit : CelsiusTemperature = 80 [SI::degreeCelsius];
+        attribute lowTemperatureAlarmLimit : CelsiusTemperature = -20 [SI::degreeCelsius];
+    }
+
+    state def ThermometerOperatingState {
+        state off;
+        state initializing;
+        state measuring;
+        state displaying;
+        state fault;
+
+        transition first off;
+        transition powerApplied from off to initializing;
+        transition initializationComplete from initializing to measuring;
+        transition measurementValid from measuring to displaying;
+        transition nextMeasurement from displaying to measuring;
+        transition signalInvalid from measuring to fault;
+        transition powerRemoved from initializing to off;
+        transition powerRemoved from measuring to off;
+        transition powerRemoved from displaying to off;
+        transition reset from fault to initializing;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The quartz thermometer shall determine ambient or contacted object temperature by measuring the temperature-dependent resonant frequency of a quartz sensing element, converting that frequency to a calibrated temperature estimate, and presenting the result to a user or host interface. */
+    }
+
+    requirement def MeasurementRangeRequirement {
+        attribute minimumTemperature : CelsiusTemperature = -40 [SI::degreeCelsius];
+        attribute maximumTemperature : CelsiusTemperature = 125 [SI::degreeCelsius];
+
+        doc /* The thermometer shall measure temperatures from -40 degC to 125 degC. */
+    }
+
+    requirement def AccuracyRequirement {
+        attribute maximumError : AccuracyC = 0.2 [SI::degreeCelsius];
+
+        doc /* The thermometer shall report calibrated temperature with absolute error no greater than 0.2 degC over the specified measurement range after stabilization. */
+    }
+
+    requirement def ResolutionRequirement {
+        attribute displayedResolution : ResolutionC = 0.1 [SI::degreeCelsius];
+
+        doc /* The thermometer shall display temperature in increments of 0.1 degC or finer. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        attribute maximumResponseTime : TimeS = 2.0 [SI::second];
+
+        doc /* The thermometer shall update a valid temperature indication within 2 seconds after a step change at the sensing surface. */
+    }
+
+    requirement def LowPowerRequirement {
+        attribute maximumOperatingPower : PowerW = 0.05 [SI::watt];
+
+        doc /* The thermometer shall consume no more than 50 mW during continuous measurement. */
+    }
+
+    part def QuartzTemperatureSensor {
+        port thermalPort : ThermalContactPort;
+        port signalPort : OscillatorSignalPort;
+        port powerPort : PowerInputPort;
+
+        attribute quartzCutType : String = "AT-cut quartz";
+        attribute nominalResonantFrequency : FrequencyHz = 32768 [SI::hertz];
+        attribute thermalTimeConstant : TimeS = 0.8 [SI::second];
+        attribute operatingCurrent : CurrentA = 0.0002 [SI::ampere];
+
+        perform action sense : SenseQuartzFrequency {
+            in appliedThermalEnergy = thermalPort.thermalInput;
+            out rawOscillation = signalPort.oscillation;
+        }
+    }
+
+    part def SignalConditioner {
+        port inputPort : FrequencyInputPort;
+        port outputPort : ConditionedSignalPort;
+        port powerPort : PowerInputPort;
+
+        attribute comparatorThreshold : VoltageV = 0.6 [SI::volt];
+        attribute inputImpedance : Real = 1000000.0;
+        attribute conditionerCurrent : CurrentA = 0.0005 [SI::ampere];
+
+        perform action condition : ConditionOscillationSignal {
+            in rawOscillation = inputPort.oscillation;
+            out conditionedSignal = outputPort.conditionedSignal;
+        }
+    }
+
+    part def FrequencyCounter {
+        port inputPort : FrequencyInputPort;
+        port outputPort : ConditionedSignalPort;
+        port powerPort : PowerInputPort;
+
+        attribute gateTime : TimeS = 0.25 [SI::second];
+        attribute clockReferenceFrequency : FrequencyHz = 1000000 [SI::hertz];
+        attribute counterCurrent : CurrentA = 0.001 [SI::ampere];
+    }
+
+    part def TemperatureProcessor {
+        port inputPort : TemperatureInputPort;
+        port outputPort : TemperatureOutputPort;
+        port powerPort : PowerInputPort;
+
+        attribute calibrationDate : String = "2026-06-11";
+        attribute offsetCorrection : CelsiusTemperature = 0.0 [SI::degreeCelsius];
+        attribute processorCurrent : CurrentA = 0.002 [SI::ampere];
+
+        perform action filter : FilterTemperatureEstimate {
+            in rawEstimate = inputPort.estimate;
+            out filteredEstimate = outputPort.estimate;
+        }
+    }
+
+    part def FrequencyToTemperatureConverter {
+        port inputPort : ConditionedSignalPort;
+        port outputPort : TemperatureOutputPort;
+        port powerPort : PowerInputPort;
+
+        attribute referenceFrequency : FrequencyHz = 32768 [SI::hertz];
+        attribute referenceTemperature : CelsiusTemperature = 25 [SI::degreeCelsius];
+        attribute converterCurrent : CurrentA = 0.0015 [SI::ampere];
+
+        perform action convert : ConvertFrequencyToTemperature {
+            in conditionedSignal = inputPort.conditionedSignal;
+            out estimate = outputPort.estimate;
+        }
+    }
+
+    part def UserDisplay {
+        port inputPort : TemperatureInputPort;
+        port outputPort : DisplayOutputPort;
+        port powerPort : PowerInputPort;
+
+        attribute displayType : String = "low-power LCD";
+        attribute refreshPeriod : TimeS = 0.5 [SI::second];
+        attribute displayCurrent : CurrentA = 0.0008 [SI::ampere];
+
+        perform action present : PresentTemperature {
+            in estimate = inputPort.estimate;
+            out displayValue = outputPort.displayedTemperature;
+        }
+    }
+
+    part def PowerSupply {
+        port outputPort : PowerDistributionPort;
+
+        attribute batteryVoltage : VoltageV = 3.0 [SI::volt];
+        attribute maximumCurrent : CurrentA = 0.02 [SI::ampere];
+        attribute maximumPower : PowerW = 0.06 [SI::watt];
+    }
+
+    part def QuartzThermometer {
+        port thermalInput : ThermalContactPort;
+        port displayOutput : DisplayOutputPort;
+
+        part powerSupply : PowerSupply;
+        part quartzSensor : QuartzTemperatureSensor;
+        part signalConditioner : SignalConditioner;
+        part converter : FrequencyToTemperatureConverter;
+        part processor : TemperatureProcessor;
+        part display : UserDisplay;
+
+        attribute measurementRangeLow : CelsiusTemperature = -40 [SI::degreeCelsius];
+        attribute measurementRangeHigh : CelsiusTemperature = 125 [SI::degreeCelsius];
+        attribute measurementAccuracy : AccuracyC = 0.2 [SI::degreeCelsius];
+        attribute measurementResolution : ResolutionC = 0.1 [SI::degreeCelsius];
+        attribute updatePeriod : TimeS = 0.5 [SI::second];
+        attribute operatingPower : PowerW = 0.035 [SI::watt];
+
+        exhibit state operatingState : ThermometerOperatingState;
+
+        connect thermalInput.thermalInput to quartzSensor.thermalPort.thermalInput;
+        connect quartzSensor.signalPort.oscillation to signalConditioner.inputPort.oscillation;
+        connect signalConditioner.outputPort.conditionedSignal to converter.inputPort.conditionedSignal;
+        connect converter.outputPort.estimate to processor.inputPort.estimate;
+        connect processor.outputPort.estimate to display.inputPort.estimate;
+        connect display.outputPort.displayedTemperature to displayOutput.displayedTemperature;
+
+        connect powerSupply.outputPort.power to quartzSensor.powerPort.power;
+        connect powerSupply.outputPort.power to signalConditioner.powerPort.power;
+        connect powerSupply.outputPort.power to converter.powerPort.power;
+        connect powerSupply.outputPort.power to processor.powerPort.power;
+        connect powerSupply.outputPort.power to display.powerPort.power;
+
+        satisfy PrimaryFunctionRequirement by QuartzThermometer;
+        satisfy MeasurementRangeRequirement by QuartzThermometer;
+        satisfy AccuracyRequirement by QuartzThermometer;
+        satisfy ResolutionRequirement by QuartzThermometer;
+        satisfy ResponseTimeRequirement by QuartzThermometer;
+        satisfy LowPowerRequirement by QuartzThermometer;
+    }
+
+    part thermometerSystem : QuartzThermometer {
+        attribute primaryFunction : String = "Measure temperature using the frequency shift of a quartz resonator and provide a calibrated human-readable temperature indication.";
+    }
+}

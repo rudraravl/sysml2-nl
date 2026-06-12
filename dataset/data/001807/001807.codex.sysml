@@ -1,0 +1,510 @@
+package LiquidMetalThermalRegulationSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Celsius :> Real;
+    attribute def Percent :> Real;
+    attribute def Volt :> Real;
+    attribute def Ampere :> Real;
+    attribute def Watt :> Real;
+    attribute def Pascal :> Real;
+    attribute def LiterPerMinute :> Real;
+    attribute def Millimeter :> Real;
+
+    item def ThermalEnergy {
+        attribute heatFlow : Watt;
+        attribute sourceTemperature : Celsius;
+        attribute sinkTemperature : Celsius;
+    }
+
+    item def LiquidMetalCoolant {
+        attribute materialName : String = "Eutectic Gallium-Indium-Tin";
+        attribute meltingPoint : Celsius = -19.0;
+        attribute boilingPoint : Celsius = 1300.0;
+        attribute electricalConductivity : Real;
+        attribute thermalConductivity : Real;
+        attribute dynamicViscosity : Real;
+        attribute volumeFlowRate : LiterPerMinute;
+        attribute temperature : Celsius;
+        attribute oxidationLevel : Percent;
+        attribute contaminationLevel : Percent;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute power : Watt;
+    }
+
+    item def ControlSignal {
+        attribute commandName : String;
+        attribute normalizedValue : Percent;
+    }
+
+    item def SensorReading {
+        attribute measuredTemperature : Celsius;
+        attribute measuredPressure : Pascal;
+        attribute measuredFlowRate : LiterPerMinute;
+        attribute timestamp_s : Real;
+    }
+
+    port def ThermalPort {
+        in item incomingHeat : ThermalEnergy;
+        out item rejectedHeat : ThermalEnergy;
+    }
+
+    port def LiquidMetalPort {
+        inout item coolant : LiquidMetalCoolant;
+    }
+
+    port def ElectricalPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item telemetry : SensorReading;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The system shall use a circulating liquid metal working fluid
+         * to absorb high heat flux from a compact heat source and transport
+         * that heat to a remote heat exchanger for rejection.
+         */
+        subject system : LiquidMetalThermalRegulator;
+
+        require constraint {
+            system.nominalHeatTransportCapacity >= 500.0
+        }
+
+        require constraint {
+            system.coolantInventory.materialName == "Eutectic Gallium-Indium-Tin"
+        }
+    }
+
+    requirement def SafeTemperatureRequirement {
+        subject system : LiquidMetalThermalRegulator;
+
+        require constraint {
+            system.controlledLoadTemperature <= 85.0
+        }
+    }
+
+    requirement def FreezeAvoidanceRequirement {
+        subject system : LiquidMetalThermalRegulator;
+
+        require constraint {
+            system.coolantInventory.temperature > system.coolantInventory.meltingPoint + 10.0
+        }
+    }
+
+    requirement def LeakContainmentRequirement {
+        subject system : LiquidMetalThermalRegulator;
+
+        require constraint {
+            system.containment.leakDetected == false
+        }
+    }
+
+    part def HeatSource {
+        attribute generatedHeat : Watt;
+        attribute surfaceTemperature : Celsius;
+        attribute maximumAllowedTemperature : Celsius;
+
+        port thermalInterface : ThermalPort;
+    }
+
+    part def LiquidMetalPump {
+        attribute commandedSpeed : Percent;
+        attribute actualSpeed : Percent;
+        attribute pressureRise : Pascal;
+        attribute nominalFlowRate : LiterPerMinute;
+        attribute powerConsumption : Watt;
+        attribute operational : Boolean;
+
+        port inlet : LiquidMetalPort;
+        port outlet : LiquidMetalPort;
+        port powerInput : ElectricalPort;
+        port controlInput : ControlPort;
+
+        action startPump {
+            in item command : ControlSignal;
+            out item response : SensorReading;
+        }
+
+        action stopPump {
+            out item response : SensorReading;
+        }
+
+        action regulateFlow {
+            in item desiredFlow : LiquidMetalCoolant;
+            out item actualFlow : LiquidMetalCoolant;
+        }
+
+        state def PumpOperatingState {
+            state Off;
+            state Priming;
+            state Running;
+            state Faulted;
+
+            initial then Off;
+
+            transition Off_to_Priming
+                first Off
+                accept ControlSignal
+                if commandedSpeed > 0.0
+                then Priming;
+
+            transition Priming_to_Running
+                first Priming
+                if pressureRise > 20000.0
+                then Running;
+
+            transition Running_to_Off
+                first Running
+                accept ControlSignal
+                if commandedSpeed == 0.0
+                then Off;
+
+            transition Any_to_Faulted
+                first Running
+                if operational == false
+                then Faulted;
+        }
+
+        perform state pumpState : PumpOperatingState;
+    }
+
+    part def MicroChannelColdPlate {
+        attribute channelWidth : Millimeter;
+        attribute channelDepth : Millimeter;
+        attribute wettedArea : Real;
+        attribute inletTemperature : Celsius;
+        attribute outletTemperature : Celsius;
+        attribute absorbedHeat : Watt;
+        attribute pressureDrop : Pascal;
+
+        port heatInput : ThermalPort;
+        port coolantIn : LiquidMetalPort;
+        port coolantOut : LiquidMetalPort;
+
+        action absorbHeat {
+            in item heat : ThermalEnergy;
+            inout item coolant : LiquidMetalCoolant;
+            out item warmedCoolant : LiquidMetalCoolant;
+        }
+    }
+
+    part def LiquidMetalHeatExchanger {
+        attribute exchangerEffectiveness : Percent;
+        attribute inletCoolantTemperature : Celsius;
+        attribute outletCoolantTemperature : Celsius;
+        attribute rejectedHeat : Watt;
+        attribute ambientTemperature : Celsius;
+
+        port coolantIn : LiquidMetalPort;
+        port coolantOut : LiquidMetalPort;
+        port heatRejection : ThermalPort;
+
+        action rejectHeatToAmbient {
+            inout item coolant : LiquidMetalCoolant;
+            out item heat : ThermalEnergy;
+        }
+    }
+
+    part def ExpansionReservoir {
+        attribute fillLevel : Percent;
+        attribute internalPressure : Pascal;
+        attribute gasBlanketPressure : Pascal;
+        attribute oxidationBarrierActive : Boolean;
+
+        port coolantPort : LiquidMetalPort;
+
+        action accommodateThermalExpansion {
+            inout item coolant : LiquidMetalCoolant;
+        }
+    }
+
+    part def OxideManagementModule {
+        attribute oxideTrapCapacity : Percent;
+        attribute oxideTrapLoading : Percent;
+        attribute filterPressureDrop : Pascal;
+
+        port inlet : LiquidMetalPort;
+        port outlet : LiquidMetalPort;
+
+        action removeOxides {
+            inout item coolant : LiquidMetalCoolant;
+            out item conditionedCoolant : LiquidMetalCoolant;
+        }
+    }
+
+    part def ContainmentShell {
+        attribute material : String = "Fluoropolymer-lined stainless steel";
+        attribute maximumPressure : Pascal;
+        attribute leakDetected : Boolean;
+        attribute secondaryCatchVolume_ml : Real;
+
+        port enclosedCoolantPath : LiquidMetalPort;
+
+        action isolateLeak {
+            out item shutdownCommand : ControlSignal;
+        }
+    }
+
+    part def SensorSuite {
+        attribute measuredLoadTemperature : Celsius;
+        attribute measuredInletTemperature : Celsius;
+        attribute measuredOutletTemperature : Celsius;
+        attribute measuredFlowRate : LiterPerMinute;
+        attribute measuredLoopPressure : Pascal;
+
+        port telemetryOut : ControlPort;
+
+        action sampleSensors {
+            out item reading : SensorReading;
+        }
+    }
+
+    part def ControlUnit {
+        attribute targetLoadTemperature : Celsius;
+        attribute flowCommand : Percent;
+        attribute shutdownRequested : Boolean;
+        attribute controlMode : String;
+
+        port sensorInput : ControlPort;
+        port pumpCommand : ControlPort;
+
+        action computeFlowCommand {
+            in item reading : SensorReading;
+            out item command : ControlSignal;
+        }
+
+        action requestShutdown {
+            out item command : ControlSignal;
+        }
+
+        state def ControllerStateMachine {
+            state Standby;
+            state Preheat;
+            state ActiveCooling;
+            state ThermalLimit;
+            state EmergencyShutdown;
+
+            initial then Standby;
+
+            transition Standby_to_Preheat
+                first Standby
+                accept ControlSignal
+                if shutdownRequested == false
+                then Preheat;
+
+            transition Preheat_to_ActiveCooling
+                first Preheat
+                if measuredInletTemperature > 0.0
+                then ActiveCooling;
+
+            transition ActiveCooling_to_ThermalLimit
+                first ActiveCooling
+                if measuredLoadTemperature > targetLoadTemperature + 10.0
+                then ThermalLimit;
+
+            transition ThermalLimit_to_ActiveCooling
+                first ThermalLimit
+                if measuredLoadTemperature <= targetLoadTemperature
+                then ActiveCooling;
+
+            transition Any_to_EmergencyShutdown
+                first ActiveCooling
+                if shutdownRequested == true
+                then EmergencyShutdown;
+        }
+
+        perform state controllerState : ControllerStateMachine;
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltage : Volt;
+        attribute outputVoltage : Volt;
+        attribute maximumOutputPower : Watt;
+        attribute efficiency : Percent;
+
+        port powerOut : ElectricalPort;
+    }
+
+    part def LiquidMetalThermalRegulator {
+        attribute nominalHeatTransportCapacity : Watt = 500.0;
+        attribute controlledLoadTemperature : Celsius;
+        attribute loopPressure : Pascal;
+        attribute systemMass_kg : Real;
+        attribute primaryFunction : String =
+            "Transport heat from a compact high-power source to a remote heat rejection interface using circulating liquid metal.";
+
+        item coolantInventory : LiquidMetalCoolant {
+            attribute materialName = "Eutectic Gallium-Indium-Tin";
+            attribute meltingPoint = -19.0;
+            attribute boilingPoint = 1300.0;
+            attribute volumeFlowRate = 1.8;
+            attribute temperature = 35.0;
+            attribute oxidationLevel = 2.0;
+            attribute contaminationLevel = 1.0;
+        }
+
+        part load : HeatSource {
+            attribute generatedHeat = 420.0;
+            attribute surfaceTemperature = 70.0;
+            attribute maximumAllowedTemperature = 85.0;
+        }
+
+        part coldPlate : MicroChannelColdPlate {
+            attribute channelWidth = 0.6;
+            attribute channelDepth = 0.8;
+            attribute inletTemperature = 35.0;
+            attribute outletTemperature = 48.0;
+            attribute absorbedHeat = 420.0;
+            attribute pressureDrop = 15000.0;
+        }
+
+        part pump : LiquidMetalPump {
+            attribute commandedSpeed = 65.0;
+            attribute actualSpeed = 64.0;
+            attribute pressureRise = 45000.0;
+            attribute nominalFlowRate = 2.0;
+            attribute powerConsumption = 18.0;
+            attribute operational = true;
+        }
+
+        part oxideManager : OxideManagementModule {
+            attribute oxideTrapCapacity = 100.0;
+            attribute oxideTrapLoading = 12.0;
+            attribute filterPressureDrop = 3000.0;
+        }
+
+        part reservoir : ExpansionReservoir {
+            attribute fillLevel = 72.0;
+            attribute internalPressure = 115000.0;
+            attribute gasBlanketPressure = 110000.0;
+            attribute oxidationBarrierActive = true;
+        }
+
+        part exchanger : LiquidMetalHeatExchanger {
+            attribute exchangerEffectiveness = 82.0;
+            attribute inletCoolantTemperature = 48.0;
+            attribute outletCoolantTemperature = 35.0;
+            attribute rejectedHeat = 420.0;
+            attribute ambientTemperature = 25.0;
+        }
+
+        part containment : ContainmentShell {
+            attribute maximumPressure = 250000.0;
+            attribute leakDetected = false;
+            attribute secondaryCatchVolume_ml = 120.0;
+        }
+
+        part sensors : SensorSuite {
+            attribute measuredLoadTemperature = 70.0;
+            attribute measuredInletTemperature = 35.0;
+            attribute measuredOutletTemperature = 48.0;
+            attribute measuredFlowRate = 1.8;
+            attribute measuredLoopPressure = 120000.0;
+        }
+
+        part controller : ControlUnit {
+            attribute targetLoadTemperature = 75.0;
+            attribute flowCommand = 65.0;
+            attribute shutdownRequested = false;
+            attribute controlMode = "closed-loop temperature regulation";
+        }
+
+        part power : PowerConditioner {
+            attribute inputVoltage = 28.0;
+            attribute outputVoltage = 12.0;
+            attribute maximumOutputPower = 80.0;
+            attribute efficiency = 92.0;
+        }
+
+        port heatAcquisition : ThermalPort;
+        port heatRejection : ThermalPort;
+        port electricalSupply : ElectricalPort;
+        port controlInterface : ControlPort;
+
+        connect load.thermalInterface to coldPlate.heatInput;
+        connect coldPlate.coolantOut to pump.inlet;
+        connect pump.outlet to oxideManager.inlet;
+        connect oxideManager.outlet to exchanger.coolantIn;
+        connect exchanger.coolantOut to reservoir.coolantPort;
+        connect reservoir.coolantPort to coldPlate.coolantIn;
+        connect exchanger.heatRejection to heatRejection;
+        connect power.powerOut to pump.powerInput;
+        connect sensors.telemetryOut to controller.sensorInput;
+        connect controller.pumpCommand to pump.controlInput;
+        connect containment.enclosedCoolantPath to reservoir.coolantPort;
+
+        action operateThermalRegulator {
+            in item heatFromLoad : ThermalEnergy;
+            in item electricalInput : ElectricalPower;
+            out item rejectedThermalEnergy : ThermalEnergy;
+
+            first start;
+            then sample : sensors.sampleSensors;
+            then command : controller.computeFlowCommand;
+            then circulate : pump.regulateFlow;
+            then absorb : coldPlate.absorbHeat;
+            then condition : oxideManager.removeOxides;
+            then reject : exchanger.rejectHeatToAmbient;
+            then expand : reservoir.accommodateThermalExpansion;
+            then done;
+        }
+
+        state def SystemOperatingState {
+            state Dormant;
+            state Startup;
+            state Regulating;
+            state DegradedCooling;
+            state LeakIsolated;
+            state Shutdown;
+
+            initial then Dormant;
+
+            transition Dormant_to_Startup
+                first Dormant
+                accept ElectricalPower
+                if electricalSupply.supply.voltage >= 24.0
+                then Startup;
+
+            transition Startup_to_Regulating
+                first Startup
+                if pump.operational == true and coolantInventory.temperature > coolantInventory.meltingPoint + 10.0
+                then Regulating;
+
+            transition Regulating_to_DegradedCooling
+                first Regulating
+                if sensors.measuredFlowRate < 1.0 or oxideManager.oxideTrapLoading > 85.0
+                then DegradedCooling;
+
+            transition DegradedCooling_to_Regulating
+                first DegradedCooling
+                if sensors.measuredFlowRate >= 1.5 and oxideManager.oxideTrapLoading <= 70.0
+                then Regulating;
+
+            transition Regulating_to_LeakIsolated
+                first Regulating
+                if containment.leakDetected == true
+                then LeakIsolated;
+
+            transition LeakIsolated_to_Shutdown
+                first LeakIsolated
+                then Shutdown;
+        }
+
+        perform state operatingState : SystemOperatingState;
+    }
+
+    satisfy PrimaryFunctionRequirement by LiquidMetalThermalRegulator;
+    satisfy SafeTemperatureRequirement by LiquidMetalThermalRegulator;
+    satisfy FreezeAvoidanceRequirement by LiquidMetalThermalRegulator;
+    satisfy LeakContainmentRequirement by LiquidMetalThermalRegulator;
+}

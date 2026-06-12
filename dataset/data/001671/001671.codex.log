@@ -1,0 +1,723 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-qoq9ubl0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7a0-d9ac-7b71-993d-1f82d13918a4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Mobile Internet device and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MobileInternetDeviceModel {
+    import ScalarValues::*;
+
+    attribute def DataRateMbps :> Real { doc /* unit: megabit per second */ }
+    attribute def FrequencyGHz :> Real { doc /* unit: gigahertz */ }
+    attribute def EnergyWh :> Real { doc /* unit: watt hour */ }
+    attribute def PowerW :> Real { doc /* unit: watt */ }
+    attribute def VoltageV :> Real { doc /* unit: volt */ }
+    attribute def LatencyMs :> Real { doc /* unit: millisecond */ }
+    attribute def StorageGB :> Real { doc /* unit: gigabyte */ }
+    attribute def MemoryGB :> Real { doc /* unit: gigabyte */ }
+    attribute def TemperatureC :> Real { doc /* unit: degree Celsius */ }
+    attribute def Percentage :> Real { doc /* unit: percent */ }
+
+    enum def RadioMode {
+        enum off;
+        enum cellular;
+        enum wifi;
+        enum dual;
+    }
+
+    enum def DevicePowerState {
+        enum poweredOff;
+        enum booting;
+        enum active;
+        enum sleep;
+        enum lowBattery;
+        enum charging;
+        enum fault;
+    }
+
+    item def TouchGesture {
+        attribute xCoordinate : Integer;
+        attribute yCoordinate : Integer;
+        attribute gestureType : String;
+    }
+
+    item def VoiceCommand {
+        attribute phrase : String;
+        attribute confidence : Percentage;
+    }
+
+    item def WebRequest {
+        attribute resourceUri : String;
+        attribute method : String;
+        attribute payloadSizeKb : Real;
+    }
+
+    item def IPPacket {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute payloadBytes : Integer;
+        attribute encrypted : Boolean;
+    }
+
+    item def WebContent {
+        attribute mimeType : String;
+        attribute sizeKb : Real;
+        attribute trustedSource : Boolean;
+    }
+
+    item def DisplayFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute refreshRateHz : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageV;
+        attribute power : PowerW;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : Percentage;
+        attribute temperature : TemperatureC;
+        attribute charging : Boolean;
+    }
+
+    item def NetworkStatus {
+        attribute connected : Boolean;
+        attribute dataRate : DataRateMbps;
+        attribute latency : LatencyMs;
+        attribute radioMode : RadioMode;
+    }
+
+    port def TouchInputPort {
+        in item gesture : TouchGesture;
+    }
+
+    port def VoiceInputPort {
+        in item command : VoiceCommand;
+    }
+
+    port def DisplayOutputPort {
+        out item frame : DisplayFrame;
+    }
+
+    port def PacketPort {
+        inout item packet : IPPacket;
+    }
+
+    port def WebSessionPort {
+        in item request : WebRequest;
+        out item content : WebContent;
+    }
+
+    port def PowerPort {
+        inout item power : ElectricalPower;
+    }
+
+    port def BatteryStatusPort {
+        out item status : BatteryStatus;
+    }
+
+    port def NetworkStatusPort {
+        out item status : NetworkStatus;
+    }
+
+    part def TouchScreen {
+        attribute diagonalSizeInch : Real = 6.8;
+        attribute widthPixels : Integer = 2400;
+        attribute heightPixels : Integer = 1080;
+        attribute refreshRateHz : Real = 120.0;
+        port touchIn : TouchInputPort;
+        port visualOut : DisplayOutputPort;
+        port powerIn : PowerPort;
+    }
+
+    part def Microphone {
+        attribute sensitivityDb : Real = -38.0;
+        port voiceOut : VoiceInputPort;
+        port powerIn : PowerPort;
+    }
+
+    part def ApplicationProcessor {
+        attribute cpuCoreCount : Integer = 8;
+        attribute memoryCapacity : MemoryGB = 8.0;
+        attribute storageCapacity : StorageGB = 256.0;
+        attribute peakPower : PowerW = 8.5;
+        port userGestureIn : TouchInputPort;
+        port voiceCommandIn : VoiceInputPort;
+        port renderedFrameOut : DisplayOutputPort;
+        port sessionPort : WebSessionPort;
+        port packetPort : PacketPort;
+        port powerIn : PowerPort;
+        port networkStatusIn : NetworkStatusPort;
+    }
+
+    part def CellularModem {
+        attribute supportedGeneration : String = "5G NR";
+        attribute uplinkRate : DataRateMbps = 150.0;
+        attribute downlinkRate : DataRateMbps = 1200.0;
+        attribute carrierFrequency : FrequencyGHz = 3.5;
+        attribute transmitPower : PowerW = 2.0;
+        port packetPort : PacketPort;
+        port antennaPort : PacketPort;
+        port statusOut : NetworkStatusPort;
+        port powerIn : PowerPort;
+    }
+
+    part def WiFiRadio {
+        attribute standard : String = "IEEE 802.11ax";
+        attribute uplinkRate : DataRateMbps = 600.0;
+        attribute downlinkRate : DataRateMbps = 1200.0;
+        attribute carrierFrequency : FrequencyGHz = 5.0;
+        port packetPort : PacketPort;
+        port antennaPort : PacketPort;
+        port statusOut : NetworkStatusPort;
+        port powerIn : PowerPort;
+    }
+
+    part def AntennaArray {
+        attribute elementCount : Integer = 4;
+        attribute gainDbi : Real = 4.5;
+        port cellularFeed : PacketPort;
+        port wifiFeed : PacketPort;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : VoltageV = 3.85;
+        attribute storedEnergy : EnergyWh = 18.5;
+        attribute maximumOutputPower : PowerW = 18.0;
+        attribute stateOfCharge : Percentage = 100.0;
+        port powerOut : PowerPort;
+        port statusOut : BatteryStatusPort;
+    }
+
+    part def PowerManagementUnit {
+        attribute conversionEfficiency : Percentage = 92.0;
+        attribute minimumOperatingVoltage : VoltageV = 3.2;
+        port batteryPowerIn : PowerPort;
+        port processorPowerOut : PowerPort;
+        port displayPowerOut : PowerPort;
+        port modemPowerOut : PowerPort;
+        port wifiPowerOut : PowerPort;
+        port microphonePowerOut : PowerPort;
+    }
+
+    action def EstablishInternetSession {
+        in item request : WebRequest;
+        in item network : NetworkStatus;
+        out item firstPacket : IPPacket;
+        out connected : Boolean;
+    }
+
+    action def TransferInternetData {
+        inout item packet : IPPacket;
+        in item network : NetworkStatus;
+        out item content : WebContent;
+    }
+
+    action def RenderWebExperience {
+        in item content : WebContent;
+        out item frame : DisplayFrame;
+    }
+
+    action def ManagePowerMode {
+        in item battery : BatteryStatus;
+        in item network : NetworkStatus;
+        out state : DevicePowerState;
+    }
+
+    state def MobileInternetOperatingStateMachine {
+        entry action ManagePowerMode;
+
+        state poweredOff;
+        state booting;
+        state ready;
+        state connecting;
+        state browsing;
+        state backgroundSync;
+        state sleeping;
+        state lowBattery;
+        state charging;
+        state fault;
+
+        transition initial then poweredOff;
+        transition powerPressed from poweredOff to booting;
+        transition bootComplete from booting to ready;
+        transition userRequestsInternet from ready to connecting;
+        transition networkAttached from connecting to browsing;
+        transition pageIdle from browsing to backgroundSync;
+        transition userInteraction from backgroundSync to browsing;
+        transition inactivityTimeout from ready to sleeping;
+        transition wakeGesture from sleeping to ready;
+        transition batteryBelowTenPercent from ready to lowBattery;
+        transition batteryBelowTenPercentWhileBrowsing from browsing to lowBattery;
+        transition chargerConnected from lowBattery to charging;
+        transition chargeSufficient from charging to ready;
+        transition unrecoverableHardwareError from ready to fault;
+        transition resetAfterFault from fault to booting;
+        transition powerHeld from ready to poweredOff;
+    }
+
+    part def MobileInternetDevice {
+        attribute productName : String = "Mobile Internet Device";
+        attribute nominalBatteryEnergy : EnergyWh = 18.5;
+        attribute maximumCellularDownlink : DataRateMbps = 1200.0;
+        attribute maximumWifiDownlink : DataRateMbps = 1200.0;
+        attribute targetInteractiveLatency : LatencyMs = 80.0;
+        attribute minimumUsableBatteryCharge : Percentage = 5.0;
+        attribute currentPowerState : DevicePowerState;
+        attribute preferredRadioMode : RadioMode = RadioMode::dual;
+
+        port userTouch : TouchInputPort;
+        port userVoice : VoiceInputPort;
+        port screenOutput : DisplayOutputPort;
+        port internetSession : WebSessionPort;
+        port networkStatus : NetworkStatusPort;
+        port externalPower : PowerPort;
+
+        part screen : TouchScreen;
+        part microphone : Microphone;
+        part processor : ApplicationProcessor;
+        part cellularModem : CellularModem;
+        part wifiRadio : WiFiRadio;
+        part antennas : AntennaArray;
+        part battery : BatteryPack;
+        part powerUnit : PowerManagementUnit;
+
+        connection touchPath connect userTouch to screen.touchIn;
+        connection screenTouchToProcessor connect screen.touchIn to processor.userGestureIn;
+        connection voicePath connect userVoice to microphone.voiceOut;
+        connection microphoneToProcessor connect microphone.voiceOut to processor.voiceCommandIn;
+        connection displayPath connect processor.renderedFrameOut to screen.visualOut;
+        connection displayToUser connect screen.visualOut to screenOutput;
+
+        connection applicationSession connect internetSession to processor.sessionPort;
+        connection processorToCellular connect processor.packetPort to cellularModem.packetPort;
+        connection processorToWifi connect processor.packetPort to wifiRadio.packetPort;
+        connection cellularRfPath connect cellularModem.antennaPort to antennas.cellularFeed;
+        connection wifiRfPath connect wifiRadio.antennaPort to antennas.wifiFeed;
+
+        connection cellularStatusPath connect cellularModem.statusOut to networkStatus;
+        connection wifiStatusPath connect wifiRadio.statusOut to networkStatus;
+        connection processorNetworkAwareness connect networkStatus to processor.networkStatusIn;
+
+        connection batteryToPowerUnit connect battery.powerOut to powerUnit.batteryPowerIn;
+        connection processorPower connect powerUnit.processorPowerOut to processor.powerIn;
+        connection displayPower connect powerUnit.displayPowerOut to screen.powerIn;
+        connection modemPower connect powerUnit.modemPowerOut to cellularModem.powerIn;
+        connection wifiPower connect powerUnit.wifiPowerOut to wifiRadio.powerIn;
+        connection microphonePower connect powerUnit.microphonePowerOut to microphone.powerIn;
+        connection chargingPower connect externalPower to powerUnit.batteryPowerIn;
+
+        perform action EstablishInternetSession;
+        perform action TransferInternetData;
+        perform action RenderWebExperience;
+        perform action ManagePowerMode;
+
+        exhibit state MobileInternetOperatingStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The mobile internet device shall allow a mobile user to request, receive, process, and view internet content through cellular or Wi-Fi radio access while operating from an internal battery. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.maximumCellularDownlink >= 100.0 or device.maximumWifiDownlink >= 100.0
+        }
+    }
+
+    requirement def InteractiveLatencyRequirement {
+        doc /* The device shall present retrieved internet content with an interactive response latency no greater than 80 milliseconds under nominal network conditions. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.targetInteractiveLatency <= 80.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        doc /* The device shall support mobile internet operation from the internal battery while battery charge remains above the minimum usable threshold. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.minimumUsableBatteryCharge <= 5.0
+        }
+    }
+
+    requirement def DualRadioRequirement {
+        doc /* The device shall support both cellular and Wi-Fi packet communication paths and select an available path for internet data transfer. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.preferredRadioMode == RadioMode::dual
+        }
+    }
+
+    part mobileInternetDevice : MobileInternetDevice;
+
+    satisfy PrimaryFunctionRequirement by mobileInternetDevice;
+    satisfy InteractiveLatencyRequirement by mobileInternetDevice;
+    satisfy BatteryOperationRequirement by mobileInternetDevice;
+    satisfy DualRadioRequirement by mobileInternetDevice;
+}
+tokens used
+3,553
+package MobileInternetDeviceModel {
+    import ScalarValues::*;
+
+    attribute def DataRateMbps :> Real { doc /* unit: megabit per second */ }
+    attribute def FrequencyGHz :> Real { doc /* unit: gigahertz */ }
+    attribute def EnergyWh :> Real { doc /* unit: watt hour */ }
+    attribute def PowerW :> Real { doc /* unit: watt */ }
+    attribute def VoltageV :> Real { doc /* unit: volt */ }
+    attribute def LatencyMs :> Real { doc /* unit: millisecond */ }
+    attribute def StorageGB :> Real { doc /* unit: gigabyte */ }
+    attribute def MemoryGB :> Real { doc /* unit: gigabyte */ }
+    attribute def TemperatureC :> Real { doc /* unit: degree Celsius */ }
+    attribute def Percentage :> Real { doc /* unit: percent */ }
+
+    enum def RadioMode {
+        enum off;
+        enum cellular;
+        enum wifi;
+        enum dual;
+    }
+
+    enum def DevicePowerState {
+        enum poweredOff;
+        enum booting;
+        enum active;
+        enum sleep;
+        enum lowBattery;
+        enum charging;
+        enum fault;
+    }
+
+    item def TouchGesture {
+        attribute xCoordinate : Integer;
+        attribute yCoordinate : Integer;
+        attribute gestureType : String;
+    }
+
+    item def VoiceCommand {
+        attribute phrase : String;
+        attribute confidence : Percentage;
+    }
+
+    item def WebRequest {
+        attribute resourceUri : String;
+        attribute method : String;
+        attribute payloadSizeKb : Real;
+    }
+
+    item def IPPacket {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute payloadBytes : Integer;
+        attribute encrypted : Boolean;
+    }
+
+    item def WebContent {
+        attribute mimeType : String;
+        attribute sizeKb : Real;
+        attribute trustedSource : Boolean;
+    }
+
+    item def DisplayFrame {
+        attribute widthPixels : Integer;
+        attribute heightPixels : Integer;
+        attribute refreshRateHz : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageV;
+        attribute power : PowerW;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : Percentage;
+        attribute temperature : TemperatureC;
+        attribute charging : Boolean;
+    }
+
+    item def NetworkStatus {
+        attribute connected : Boolean;
+        attribute dataRate : DataRateMbps;
+        attribute latency : LatencyMs;
+        attribute radioMode : RadioMode;
+    }
+
+    port def TouchInputPort {
+        in item gesture : TouchGesture;
+    }
+
+    port def VoiceInputPort {
+        in item command : VoiceCommand;
+    }
+
+    port def DisplayOutputPort {
+        out item frame : DisplayFrame;
+    }
+
+    port def PacketPort {
+        inout item packet : IPPacket;
+    }
+
+    port def WebSessionPort {
+        in item request : WebRequest;
+        out item content : WebContent;
+    }
+
+    port def PowerPort {
+        inout item power : ElectricalPower;
+    }
+
+    port def BatteryStatusPort {
+        out item status : BatteryStatus;
+    }
+
+    port def NetworkStatusPort {
+        out item status : NetworkStatus;
+    }
+
+    part def TouchScreen {
+        attribute diagonalSizeInch : Real = 6.8;
+        attribute widthPixels : Integer = 2400;
+        attribute heightPixels : Integer = 1080;
+        attribute refreshRateHz : Real = 120.0;
+        port touchIn : TouchInputPort;
+        port visualOut : DisplayOutputPort;
+        port powerIn : PowerPort;
+    }
+
+    part def Microphone {
+        attribute sensitivityDb : Real = -38.0;
+        port voiceOut : VoiceInputPort;
+        port powerIn : PowerPort;
+    }
+
+    part def ApplicationProcessor {
+        attribute cpuCoreCount : Integer = 8;
+        attribute memoryCapacity : MemoryGB = 8.0;
+        attribute storageCapacity : StorageGB = 256.0;
+        attribute peakPower : PowerW = 8.5;
+        port userGestureIn : TouchInputPort;
+        port voiceCommandIn : VoiceInputPort;
+        port renderedFrameOut : DisplayOutputPort;
+        port sessionPort : WebSessionPort;
+        port packetPort : PacketPort;
+        port powerIn : PowerPort;
+        port networkStatusIn : NetworkStatusPort;
+    }
+
+    part def CellularModem {
+        attribute supportedGeneration : String = "5G NR";
+        attribute uplinkRate : DataRateMbps = 150.0;
+        attribute downlinkRate : DataRateMbps = 1200.0;
+        attribute carrierFrequency : FrequencyGHz = 3.5;
+        attribute transmitPower : PowerW = 2.0;
+        port packetPort : PacketPort;
+        port antennaPort : PacketPort;
+        port statusOut : NetworkStatusPort;
+        port powerIn : PowerPort;
+    }
+
+    part def WiFiRadio {
+        attribute standard : String = "IEEE 802.11ax";
+        attribute uplinkRate : DataRateMbps = 600.0;
+        attribute downlinkRate : DataRateMbps = 1200.0;
+        attribute carrierFrequency : FrequencyGHz = 5.0;
+        port packetPort : PacketPort;
+        port antennaPort : PacketPort;
+        port statusOut : NetworkStatusPort;
+        port powerIn : PowerPort;
+    }
+
+    part def AntennaArray {
+        attribute elementCount : Integer = 4;
+        attribute gainDbi : Real = 4.5;
+        port cellularFeed : PacketPort;
+        port wifiFeed : PacketPort;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : VoltageV = 3.85;
+        attribute storedEnergy : EnergyWh = 18.5;
+        attribute maximumOutputPower : PowerW = 18.0;
+        attribute stateOfCharge : Percentage = 100.0;
+        port powerOut : PowerPort;
+        port statusOut : BatteryStatusPort;
+    }
+
+    part def PowerManagementUnit {
+        attribute conversionEfficiency : Percentage = 92.0;
+        attribute minimumOperatingVoltage : VoltageV = 3.2;
+        port batteryPowerIn : PowerPort;
+        port processorPowerOut : PowerPort;
+        port displayPowerOut : PowerPort;
+        port modemPowerOut : PowerPort;
+        port wifiPowerOut : PowerPort;
+        port microphonePowerOut : PowerPort;
+    }
+
+    action def EstablishInternetSession {
+        in item request : WebRequest;
+        in item network : NetworkStatus;
+        out item firstPacket : IPPacket;
+        out connected : Boolean;
+    }
+
+    action def TransferInternetData {
+        inout item packet : IPPacket;
+        in item network : NetworkStatus;
+        out item content : WebContent;
+    }
+
+    action def RenderWebExperience {
+        in item content : WebContent;
+        out item frame : DisplayFrame;
+    }
+
+    action def ManagePowerMode {
+        in item battery : BatteryStatus;
+        in item network : NetworkStatus;
+        out state : DevicePowerState;
+    }
+
+    state def MobileInternetOperatingStateMachine {
+        entry action ManagePowerMode;
+
+        state poweredOff;
+        state booting;
+        state ready;
+        state connecting;
+        state browsing;
+        state backgroundSync;
+        state sleeping;
+        state lowBattery;
+        state charging;
+        state fault;
+
+        transition initial then poweredOff;
+        transition powerPressed from poweredOff to booting;
+        transition bootComplete from booting to ready;
+        transition userRequestsInternet from ready to connecting;
+        transition networkAttached from connecting to browsing;
+        transition pageIdle from browsing to backgroundSync;
+        transition userInteraction from backgroundSync to browsing;
+        transition inactivityTimeout from ready to sleeping;
+        transition wakeGesture from sleeping to ready;
+        transition batteryBelowTenPercent from ready to lowBattery;
+        transition batteryBelowTenPercentWhileBrowsing from browsing to lowBattery;
+        transition chargerConnected from lowBattery to charging;
+        transition chargeSufficient from charging to ready;
+        transition unrecoverableHardwareError from ready to fault;
+        transition resetAfterFault from fault to booting;
+        transition powerHeld from ready to poweredOff;
+    }
+
+    part def MobileInternetDevice {
+        attribute productName : String = "Mobile Internet Device";
+        attribute nominalBatteryEnergy : EnergyWh = 18.5;
+        attribute maximumCellularDownlink : DataRateMbps = 1200.0;
+        attribute maximumWifiDownlink : DataRateMbps = 1200.0;
+        attribute targetInteractiveLatency : LatencyMs = 80.0;
+        attribute minimumUsableBatteryCharge : Percentage = 5.0;
+        attribute currentPowerState : DevicePowerState;
+        attribute preferredRadioMode : RadioMode = RadioMode::dual;
+
+        port userTouch : TouchInputPort;
+        port userVoice : VoiceInputPort;
+        port screenOutput : DisplayOutputPort;
+        port internetSession : WebSessionPort;
+        port networkStatus : NetworkStatusPort;
+        port externalPower : PowerPort;
+
+        part screen : TouchScreen;
+        part microphone : Microphone;
+        part processor : ApplicationProcessor;
+        part cellularModem : CellularModem;
+        part wifiRadio : WiFiRadio;
+        part antennas : AntennaArray;
+        part battery : BatteryPack;
+        part powerUnit : PowerManagementUnit;
+
+        connection touchPath connect userTouch to screen.touchIn;
+        connection screenTouchToProcessor connect screen.touchIn to processor.userGestureIn;
+        connection voicePath connect userVoice to microphone.voiceOut;
+        connection microphoneToProcessor connect microphone.voiceOut to processor.voiceCommandIn;
+        connection displayPath connect processor.renderedFrameOut to screen.visualOut;
+        connection displayToUser connect screen.visualOut to screenOutput;
+
+        connection applicationSession connect internetSession to processor.sessionPort;
+        connection processorToCellular connect processor.packetPort to cellularModem.packetPort;
+        connection processorToWifi connect processor.packetPort to wifiRadio.packetPort;
+        connection cellularRfPath connect cellularModem.antennaPort to antennas.cellularFeed;
+        connection wifiRfPath connect wifiRadio.antennaPort to antennas.wifiFeed;
+
+        connection cellularStatusPath connect cellularModem.statusOut to networkStatus;
+        connection wifiStatusPath connect wifiRadio.statusOut to networkStatus;
+        connection processorNetworkAwareness connect networkStatus to processor.networkStatusIn;
+
+        connection batteryToPowerUnit connect battery.powerOut to powerUnit.batteryPowerIn;
+        connection processorPower connect powerUnit.processorPowerOut to processor.powerIn;
+        connection displayPower connect powerUnit.displayPowerOut to screen.powerIn;
+        connection modemPower connect powerUnit.modemPowerOut to cellularModem.powerIn;
+        connection wifiPower connect powerUnit.wifiPowerOut to wifiRadio.powerIn;
+        connection microphonePower connect powerUnit.microphonePowerOut to microphone.powerIn;
+        connection chargingPower connect externalPower to powerUnit.batteryPowerIn;
+
+        perform action EstablishInternetSession;
+        perform action TransferInternetData;
+        perform action RenderWebExperience;
+        perform action ManagePowerMode;
+
+        exhibit state MobileInternetOperatingStateMachine;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The mobile internet device shall allow a mobile user to request, receive, process, and view internet content through cellular or Wi-Fi radio access while operating from an internal battery. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.maximumCellularDownlink >= 100.0 or device.maximumWifiDownlink >= 100.0
+        }
+    }
+
+    requirement def InteractiveLatencyRequirement {
+        doc /* The device shall present retrieved internet content with an interactive response latency no greater than 80 milliseconds under nominal network conditions. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.targetInteractiveLatency <= 80.0
+        }
+    }
+
+    requirement def BatteryOperationRequirement {
+        doc /* The device shall support mobile internet operation from the internal battery while battery charge remains above the minimum usable threshold. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.minimumUsableBatteryCharge <= 5.0
+        }
+    }
+
+    requirement def DualRadioRequirement {
+        doc /* The device shall support both cellular and Wi-Fi packet communication paths and select an available path for internet data transfer. */
+        subject device : MobileInternetDevice;
+        require constraint {
+            device.preferredRadioMode == RadioMode::dual
+        }
+    }
+
+    part mobileInternetDevice : MobileInternetDevice;
+
+    satisfy PrimaryFunctionRequirement by mobileInternetDevice;
+    satisfy InteractiveLatencyRequirement by mobileInternetDevice;
+    satisfy BatteryOperationRequirement by mobileInternetDevice;
+    satisfy DualRadioRequirement by mobileInternetDevice;
+}

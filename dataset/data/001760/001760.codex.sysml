@@ -1,0 +1,602 @@
+package CheckWeigherSystemModel {
+
+    import ScalarValues::*;
+    import Quantities::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def SpeedValue :> ISQ::speed {
+        unit = SI::metre / SI::second;
+    }
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def ProbabilityValue {
+        :>> scalarValues = Real;
+        doc /* Dimensionless probability from 0.0 to 1.0. */
+    }
+
+    attribute def CountValue {
+        :>> scalarValues = Integer;
+    }
+
+    enum def ProductDisposition {
+        enum accept;
+        enum rejectUnderweight;
+        enum rejectOverweight;
+        enum rejectUnstableMeasurement;
+        enum rejectSystemFault;
+    }
+
+    enum def WeigherOperatingMode {
+        enum stopped;
+        enum starting;
+        enum running;
+        enum paused;
+        enum cleaning;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    enum def ProductPresence {
+        enum absent;
+        enum approaching;
+        enum onWeighBelt;
+        enum leaving;
+    }
+
+    item def PackagedProduct {
+        attribute productId : String;
+        attribute nominalMass : MassValue;
+        attribute actualMass : MassValue;
+        attribute length : LengthValue;
+        attribute measuredMass : MassValue;
+        attribute disposition : ProductDisposition;
+        attribute timestamp : TimeValue;
+    }
+
+    item def MotionCommand {
+        attribute targetSpeed : SpeedValue;
+        attribute enabled : Boolean;
+    }
+
+    item def RejectCommand {
+        attribute reject : Boolean;
+        attribute delayFromWeighPoint : TimeValue;
+        attribute pulseDuration : TimeValue;
+        attribute reason : ProductDisposition;
+    }
+
+    item def WeightSample {
+        attribute sampleMass : MassValue;
+        attribute sampleTime : TimeValue;
+        attribute stable : Boolean;
+    }
+
+    item def CheckWeighResult {
+        attribute productId : String;
+        attribute measuredMass : MassValue;
+        attribute lowerLimit : MassValue;
+        attribute upperLimit : MassValue;
+        attribute disposition : ProductDisposition;
+        attribute accepted : Boolean;
+    }
+
+    item def AlarmMessage {
+        attribute alarmCode : String;
+        attribute alarmText : String;
+        attribute active : Boolean;
+        attribute severity : Integer;
+    }
+
+    item def ProductionStatistics {
+        attribute totalCount : CountValue;
+        attribute acceptedCount : CountValue;
+        attribute rejectedCount : CountValue;
+        attribute underweightCount : CountValue;
+        attribute overweightCount : CountValue;
+        attribute unstableCount : CountValue;
+    }
+
+    port def ProductFlowPort {
+        in item incomingProduct : PackagedProduct;
+        out item outgoingProduct : PackagedProduct;
+    }
+
+    port def SensorDataPort {
+        out item weightSample : WeightSample;
+        out item presence : ProductPresence;
+    }
+
+    port def ControlPort {
+        in item motionCommand : MotionCommand;
+        in item rejectCommand : RejectCommand;
+        out item alarm : AlarmMessage;
+    }
+
+    port def ResultPort {
+        out item result : CheckWeighResult;
+        out item statistics : ProductionStatistics;
+    }
+
+    port def OperatorPort {
+        in item startRequest : Boolean;
+        in item stopRequest : Boolean;
+        in item pauseRequest : Boolean;
+        in item resetRequest : Boolean;
+        out item currentMode : WeigherOperatingMode;
+        out item alarm : AlarmMessage;
+        out item statistics : ProductionStatistics;
+    }
+
+    part def InfeedConveyor {
+        port productPort : ProductFlowPort;
+        port controlPort : ControlPort;
+
+        attribute beltSpeed : SpeedValue = 1.2 [SI::metre / SI::second];
+        attribute beltLength : LengthValue = 0.8 [SI::metre];
+        attribute running : Boolean = false;
+
+        action start {
+            in targetSpeed : SpeedValue;
+            out command : MotionCommand;
+            assign command.targetSpeed := targetSpeed;
+            assign command.enabled := true;
+            assign running := true;
+        }
+
+        action stop {
+            out command : MotionCommand;
+            assign command.targetSpeed := 0.0 [SI::metre / SI::second];
+            assign command.enabled := false;
+            assign running := false;
+        }
+    }
+
+    part def WeighConveyor {
+        port productPort : ProductFlowPort;
+        port sensorPort : SensorDataPort;
+        port controlPort : ControlPort;
+
+        attribute beltSpeed : SpeedValue = 1.2 [SI::metre / SI::second];
+        attribute beltLength : LengthValue = 0.6 [SI::metre];
+        attribute tareMass : MassValue = 0.0 [SI::kilogram];
+        attribute vibrationFilterTime : TimeValue = 0.08 [SI::second];
+        attribute running : Boolean = false;
+
+        action acquireWeight {
+            in product : PackagedProduct;
+            out sample : WeightSample;
+            assign sample.sampleMass := product.actualMass - tareMass;
+            assign sample.sampleTime := 0.0 [SI::second];
+            assign sample.stable := true;
+        }
+    }
+
+    part def LoadCellAssembly {
+        port sensorPort : SensorDataPort;
+
+        attribute ratedCapacity : MassValue = 6.0 [SI::kilogram];
+        attribute minimumReadableMass : MassValue = 0.005 [SI::kilogram];
+        attribute repeatability : MassValue = 0.001 [SI::kilogram];
+        attribute overloadLimit : ForceValue = 90.0 [SI::newton];
+        attribute samplePeriod : TimeValue = 0.005 [SI::second];
+
+        action senseMass {
+            in product : PackagedProduct;
+            out sample : WeightSample;
+            assign sample.sampleMass := product.actualMass;
+            assign sample.sampleTime := samplePeriod;
+            assign sample.stable := true;
+        }
+    }
+
+    part def PhotoeyeSensor {
+        port sensorPort : SensorDataPort;
+
+        attribute detectionRange : LengthValue = 0.15 [SI::metre];
+        attribute responseTime : TimeValue = 0.002 [SI::second];
+
+        action detectProduct {
+            in productPresent : Boolean;
+            out presence : ProductPresence;
+            if productPresent {
+                assign presence := ProductPresence::approaching;
+            } else {
+                assign presence := ProductPresence::absent;
+            }
+        }
+    }
+
+    part def RejectMechanism {
+        port productPort : ProductFlowPort;
+        port controlPort : ControlPort;
+
+        attribute rejectDelay : TimeValue = 0.18 [SI::second];
+        attribute pulseDuration : TimeValue = 0.06 [SI::second];
+        attribute actuatorForce : ForceValue = 35.0 [SI::newton];
+        attribute ready : Boolean = true;
+
+        action rejectProduct {
+            in product : PackagedProduct;
+            in reason : ProductDisposition;
+            out rejectedProduct : PackagedProduct;
+            out command : RejectCommand;
+            assign command.reject := true;
+            assign command.delayFromWeighPoint := rejectDelay;
+            assign command.pulseDuration := pulseDuration;
+            assign command.reason := reason;
+            assign rejectedProduct := product;
+            assign rejectedProduct.disposition := reason;
+        }
+
+        action passProduct {
+            in product : PackagedProduct;
+            out acceptedProduct : PackagedProduct;
+            assign acceptedProduct := product;
+            assign acceptedProduct.disposition := ProductDisposition::accept;
+        }
+    }
+
+    part def OutfeedConveyor {
+        port productPort : ProductFlowPort;
+        port controlPort : ControlPort;
+
+        attribute beltSpeed : SpeedValue = 1.2 [SI::metre / SI::second];
+        attribute beltLength : LengthValue = 0.9 [SI::metre];
+        attribute running : Boolean = false;
+    }
+
+    part def WeighController {
+        port sensorPort : SensorDataPort;
+        port controlPort : ControlPort;
+        port resultPort : ResultPort;
+        port operatorPort : OperatorPort;
+
+        attribute lowerTolerance : MassValue = 0.015 [SI::kilogram];
+        attribute upperTolerance : MassValue = 0.020 [SI::kilogram];
+        attribute nominalPackageMass : MassValue = 0.500 [SI::kilogram];
+        attribute lowerLimit : MassValue = 0.485 [SI::kilogram];
+        attribute upperLimit : MassValue = 0.520 [SI::kilogram];
+        attribute maximumThroughput : CountValue = 220;
+        attribute measurementWindow : TimeValue = 0.12 [SI::second];
+        attribute rejectAccuracy : ProbabilityValue = 0.999;
+        attribute mode : WeigherOperatingMode = WeigherOperatingMode::stopped;
+        attribute totalCount : CountValue = 0;
+        attribute acceptedCount : CountValue = 0;
+        attribute rejectedCount : CountValue = 0;
+        attribute underweightCount : CountValue = 0;
+        attribute overweightCount : CountValue = 0;
+        attribute unstableCount : CountValue = 0;
+
+        action calculateLimits {
+            out low : MassValue;
+            out high : MassValue;
+            assign low := nominalPackageMass - lowerTolerance;
+            assign high := nominalPackageMass + upperTolerance;
+            assign lowerLimit := low;
+            assign upperLimit := high;
+        }
+
+        action classifyProduct {
+            in product : PackagedProduct;
+            in sample : WeightSample;
+            out result : CheckWeighResult;
+
+            assign result.productId := product.productId;
+            assign result.measuredMass := sample.sampleMass;
+            assign result.lowerLimit := lowerLimit;
+            assign result.upperLimit := upperLimit;
+
+            if not sample.stable {
+                assign result.disposition := ProductDisposition::rejectUnstableMeasurement;
+                assign result.accepted := false;
+                assign unstableCount := unstableCount + 1;
+            } else if sample.sampleMass < lowerLimit {
+                assign result.disposition := ProductDisposition::rejectUnderweight;
+                assign result.accepted := false;
+                assign underweightCount := underweightCount + 1;
+            } else if sample.sampleMass > upperLimit {
+                assign result.disposition := ProductDisposition::rejectOverweight;
+                assign result.accepted := false;
+                assign overweightCount := overweightCount + 1;
+            } else {
+                assign result.disposition := ProductDisposition::accept;
+                assign result.accepted := true;
+                assign acceptedCount := acceptedCount + 1;
+            }
+
+            assign totalCount := totalCount + 1;
+            if not result.accepted {
+                assign rejectedCount := rejectedCount + 1;
+            }
+        }
+
+        action publishStatistics {
+            out stats : ProductionStatistics;
+            assign stats.totalCount := totalCount;
+            assign stats.acceptedCount := acceptedCount;
+            assign stats.rejectedCount := rejectedCount;
+            assign stats.underweightCount := underweightCount;
+            assign stats.overweightCount := overweightCount;
+            assign stats.unstableCount := unstableCount;
+        }
+
+        state def OperatingStateMachine {
+            state stopped;
+            state starting;
+            state running;
+            state paused;
+            state cleaning;
+            state faulted;
+            state emergencyStopped;
+
+            initial then stopped;
+
+            transition stopped_to_starting
+                first stopped
+                accept startRequest
+                then starting;
+
+            transition starting_to_running
+                first starting
+                then running
+                effect calculateLimits;
+
+            transition running_to_paused
+                first running
+                accept pauseRequest
+                then paused;
+
+            transition paused_to_running
+                first paused
+                accept startRequest
+                then running;
+
+            transition running_to_stopped
+                first running
+                accept stopRequest
+                then stopped;
+
+            transition paused_to_stopped
+                first paused
+                accept stopRequest
+                then stopped;
+
+            transition any_to_faulted
+                first running
+                accept alarm
+                then faulted;
+
+            transition faulted_to_stopped
+                first faulted
+                accept resetRequest
+                then stopped;
+
+            transition running_to_emergencyStopped
+                first running
+                accept emergencyStop
+                then emergencyStopped;
+
+            transition emergencyStopped_to_stopped
+                first emergencyStopped
+                accept resetRequest
+                then stopped;
+        }
+    }
+
+    part def HumanMachineInterface {
+        port operatorPort : OperatorPort;
+
+        attribute displayedMode : WeigherOperatingMode = WeigherOperatingMode::stopped;
+        attribute displayedAcceptedCount : CountValue = 0;
+        attribute displayedRejectedCount : CountValue = 0;
+        attribute operatorLoggedIn : Boolean = false;
+
+        action requestStart {
+            out startRequest : Boolean;
+            assign startRequest := true;
+        }
+
+        action requestStop {
+            out stopRequest : Boolean;
+            assign stopRequest := true;
+        }
+
+        action acknowledgeAlarm {
+            out resetRequest : Boolean;
+            assign resetRequest := true;
+        }
+    }
+
+    part def CheckWeigherSystem {
+        port productInput : ProductFlowPort;
+        port productOutput : ProductFlowPort;
+        port rejectOutput : ProductFlowPort;
+        port operatorInterface : OperatorPort;
+        port productionData : ResultPort;
+
+        part infeed : InfeedConveyor;
+        part weighBelt : WeighConveyor;
+        part loadCell : LoadCellAssembly;
+        part entryPhotoeye : PhotoeyeSensor;
+        part controller : WeighController;
+        part rejector : RejectMechanism;
+        part outfeed : OutfeedConveyor;
+        part hmi : HumanMachineInterface;
+
+        attribute nominalMass : MassValue = 0.500 [SI::kilogram];
+        attribute allowableMinimumMass : MassValue = 0.485 [SI::kilogram];
+        attribute allowableMaximumMass : MassValue = 0.520 [SI::kilogram];
+        attribute conveyorSpeed : SpeedValue = 1.2 [SI::metre / SI::second];
+        attribute requiredThroughput : CountValue = 180;
+        attribute intendedFunction : String = "Continuously weigh packaged products in motion, compare each measured mass with configured acceptance limits, pass compliant products to the production line, and divert nonconforming products to reject collection.";
+
+        connect productInput to infeed.productPort;
+        connect infeed.productPort to weighBelt.productPort;
+        connect weighBelt.productPort to outfeed.productPort;
+        connect outfeed.productPort to productOutput;
+        connect rejector.productPort to rejectOutput;
+
+        connect loadCell.sensorPort to controller.sensorPort;
+        connect entryPhotoeye.sensorPort to controller.sensorPort;
+        connect weighBelt.sensorPort to controller.sensorPort;
+
+        connect controller.controlPort to infeed.controlPort;
+        connect controller.controlPort to weighBelt.controlPort;
+        connect controller.controlPort to rejector.controlPort;
+        connect controller.controlPort to outfeed.controlPort;
+
+        connect controller.operatorPort to hmi.operatorPort;
+        connect hmi.operatorPort to operatorInterface;
+        connect controller.resultPort to productionData;
+
+        action performCheckWeighing {
+            in product : PackagedProduct;
+            out checkedProduct : PackagedProduct;
+            out result : CheckWeighResult;
+
+            first start;
+            then senseProduct;
+            then measureMass;
+            then classify;
+            then routeProduct;
+
+            action start {
+                out motion : MotionCommand;
+                assign motion.targetSpeed := conveyorSpeed;
+                assign motion.enabled := true;
+            }
+
+            action senseProduct {
+                out presence : ProductPresence;
+                assign presence := ProductPresence::onWeighBelt;
+            }
+
+            action measureMass {
+                out sample : WeightSample;
+                assign sample.sampleMass := product.actualMass;
+                assign sample.sampleTime := controller.measurementWindow;
+                assign sample.stable := true;
+            }
+
+            action classify {
+                in sample : WeightSample;
+                out result : CheckWeighResult;
+                assign result.productId := product.productId;
+                assign result.measuredMass := sample.sampleMass;
+                assign result.lowerLimit := allowableMinimumMass;
+                assign result.upperLimit := allowableMaximumMass;
+
+                if sample.sampleMass < allowableMinimumMass {
+                    assign result.disposition := ProductDisposition::rejectUnderweight;
+                    assign result.accepted := false;
+                } else if sample.sampleMass > allowableMaximumMass {
+                    assign result.disposition := ProductDisposition::rejectOverweight;
+                    assign result.accepted := false;
+                } else {
+                    assign result.disposition := ProductDisposition::accept;
+                    assign result.accepted := true;
+                }
+            }
+
+            action routeProduct {
+                in result : CheckWeighResult;
+                out routedProduct : PackagedProduct;
+                assign routedProduct := product;
+                assign routedProduct.measuredMass := result.measuredMass;
+                assign routedProduct.disposition := result.disposition;
+            }
+
+            assign checkedProduct := routeProduct.routedProduct;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The check weigher shall continuously determine the mass of each packaged product moving through the system and classify the product as accepted or rejected according to configured minimum and maximum mass limits. */
+        subject system : CheckWeigherSystem;
+
+        require constraint {
+            system.intendedFunction ==
+            "Continuously weigh packaged products in motion, compare each measured mass with configured acceptance limits, pass compliant products to the production line, and divert nonconforming products to reject collection."
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The check weigher shall measure package mass with sufficient accuracy to support reliable acceptance or rejection near tolerance boundaries. */
+        subject controller : WeighController;
+        attribute maximumMassError : MassValue = 0.002 [SI::kilogram];
+
+        require constraint {
+            maximumMassError <= 0.002 [SI::kilogram]
+        }
+    }
+
+    requirement def ThroughputRequirement {
+        doc /* The check weigher shall process the required production rate without interrupting normal product flow. */
+        subject system : CheckWeigherSystem;
+
+        require constraint {
+            system.requiredThroughput <= system.controller.maximumThroughput
+        }
+    }
+
+    requirement def RejectionRequirement {
+        doc /* The check weigher shall actuate the reject mechanism for every classified nonconforming product and shall not actuate it for accepted products. */
+        subject system : CheckWeigherSystem;
+
+        require constraint {
+            system.controller.rejectAccuracy >= 0.999
+        }
+    }
+
+    requirement def LimitClassificationRequirement {
+        doc /* Products with measured mass below the lower limit shall be rejected as underweight, products above the upper limit shall be rejected as overweight, and products inside the inclusive limits shall be accepted. */
+        subject controller : WeighController;
+
+        require constraint {
+            controller.lowerLimit == controller.nominalPackageMass - controller.lowerTolerance and
+            controller.upperLimit == controller.nominalPackageMass + controller.upperTolerance
+        }
+    }
+
+    requirement def OperatorVisibilityRequirement {
+        doc /* The system shall provide operating mode, alarms, and production statistics to the operator interface. */
+        subject hmi : HumanMachineInterface;
+
+        require constraint {
+            hmi.operatorLoggedIn implies
+            hmi.displayedMode != WeigherOperatingMode::emergencyStopped or
+            hmi.displayedRejectedCount >= 0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by CheckWeigherSystem;
+    satisfy AccuracyRequirement by LoadCellAssembly;
+    satisfy ThroughputRequirement by CheckWeigherSystem;
+    satisfy RejectionRequirement by RejectMechanism;
+    satisfy LimitClassificationRequirement by WeighController;
+    satisfy OperatorVisibilityRequirement by HumanMachineInterface;
+
+    part checkWeigher : CheckWeigherSystem {
+        :>> nominalMass = 0.500 [SI::kilogram];
+        :>> allowableMinimumMass = 0.485 [SI::kilogram];
+        :>> allowableMaximumMass = 0.520 [SI::kilogram];
+        :>> conveyorSpeed = 1.2 [SI::metre / SI::second];
+        :>> requiredThroughput = 180;
+    }
+}

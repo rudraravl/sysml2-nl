@@ -1,0 +1,450 @@
+package PotentiometricSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Volt :> Real;
+    attribute def Ampere :> Real;
+    attribute def Ohm :> Real;
+    attribute def Degree :> Real;
+    attribute def Percent :> Real;
+    attribute def Millisecond :> Real;
+    attribute def Celsius :> Real;
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : Volt;
+        attribute sourceImpedance : Ohm;
+        attribute timestamp : Millisecond;
+    }
+
+    item def DigitalPositionSample {
+        attribute rawCount : Integer;
+        attribute normalizedPosition : Percent;
+        attribute measuredAngle : Degree;
+        attribute sampleTime : Millisecond;
+        attribute valid : Boolean;
+    }
+
+    item def MechanicalRotaryPosition {
+        attribute angle : Degree;
+        attribute angularRate : Degree;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogVoltageSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalPositionSample;
+    }
+
+    port def RotaryMechanicalInputPort {
+        in item position : MechanicalRotaryPosition;
+    }
+
+    port def GroundPort {
+        inout item reference : AnalogVoltageSignal;
+    }
+
+    part def RegulatedExcitationSupply {
+        port powerIn : PowerInputPort;
+        port excitationOut : AnalogSignalPort;
+        port ground : GroundPort;
+
+        attribute nominalOutputVoltage : Volt = 5.0;
+        attribute outputTolerance : Percent = 1.0;
+        attribute maximumOutputCurrent : Ampere = 0.025;
+
+        action regulateVoltage {
+            in item inputPower : ElectricalPower;
+            out item excitation : AnalogVoltageSignal;
+
+            first start;
+            then verifyInputVoltage;
+            then produceStableReference;
+            then done;
+
+            action verifyInputVoltage {
+                assert inputPower.voltage >= 4.75 and inputPower.voltage <= 5.25;
+            }
+
+            action produceStableReference {
+                excitation.voltage = nominalOutputVoltage;
+                excitation.sourceImpedance = 1.0;
+            }
+        }
+    }
+
+    part def PotentiometricSensor {
+        port mechanicalInput : RotaryMechanicalInputPort;
+        port excitation : PowerInputPort;
+        port wiperOutput : AnalogSignalPort;
+        port ground : GroundPort;
+
+        attribute totalResistance : Ohm = 10000.0;
+        attribute electricalTravel : Degree = 300.0;
+        attribute mechanicalTravel : Degree = 300.0;
+        attribute independentLinearityError : Percent = 0.5;
+        attribute wiperContactResistance : Ohm = 5.0;
+        attribute minimumAngle : Degree = 0.0;
+        attribute maximumAngle : Degree = 300.0;
+
+        action convertPositionToVoltage {
+            in item inputPosition : MechanicalRotaryPosition;
+            in item excitationPower : ElectricalPower;
+            out item wiperSignal : AnalogVoltageSignal;
+
+            first receivePosition;
+            then clampTravel;
+            then computeRatio;
+            then produceWiperVoltage;
+            then done;
+
+            action receivePosition {
+                assert inputPosition.angle >= minimumAngle - 2.0 and inputPosition.angle <= maximumAngle + 2.0;
+            }
+
+            action clampTravel {
+                if inputPosition.angle < minimumAngle {
+                    inputPosition.angle = minimumAngle;
+                } else if inputPosition.angle > maximumAngle {
+                    inputPosition.angle = maximumAngle;
+                }
+            }
+
+            action computeRatio {
+                attribute ratio : Real;
+                ratio = (inputPosition.angle - minimumAngle) / electricalTravel;
+            }
+
+            action produceWiperVoltage {
+                wiperSignal.voltage = excitationPower.voltage * ((inputPosition.angle - minimumAngle) / electricalTravel);
+                wiperSignal.sourceImpedance = totalResistance / 4.0 + wiperContactResistance;
+            }
+        }
+    }
+
+    part def AnalogInputFilter {
+        port analogIn : AnalogSignalPort;
+        port analogOut : AnalogSignalPort;
+        port ground : GroundPort;
+
+        attribute cutoffFrequencyHz : Real = 50.0;
+        attribute settlingTime : Millisecond = 10.0;
+        attribute attenuationAtSamplingFrequency : Percent = 90.0;
+
+        action filterSignal {
+            in item unfiltered : AnalogVoltageSignal;
+            out item filtered : AnalogVoltageSignal;
+
+            first sampleInput;
+            then rejectHighFrequencyNoise;
+            then outputFilteredSignal;
+            then done;
+
+            action sampleInput {
+                filtered.timestamp = unfiltered.timestamp;
+            }
+
+            action rejectHighFrequencyNoise {
+                filtered.sourceImpedance = unfiltered.sourceImpedance + 1000.0;
+            }
+
+            action outputFilteredSignal {
+                filtered.voltage = unfiltered.voltage;
+            }
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalSamplePort;
+        port referenceIn : PowerInputPort;
+        port ground : GroundPort;
+
+        attribute resolutionBits : Integer = 12;
+        attribute fullScaleCounts : Integer = 4095;
+        attribute referenceVoltage : Volt = 5.0;
+        attribute conversionTime : Millisecond = 1.0;
+        attribute inputImpedance : Ohm = 1000000.0;
+
+        action convertVoltageToCount {
+            in item analog : AnalogVoltageSignal;
+            out item sample : DigitalPositionSample;
+
+            first acquire;
+            then quantize;
+            then validateRange;
+            then publishSample;
+            then done;
+
+            action acquire {
+                sample.sampleTime = analog.timestamp + conversionTime;
+            }
+
+            action quantize {
+                sample.rawCount = Integer((analog.voltage / referenceVoltage) * fullScaleCounts);
+            }
+
+            action validateRange {
+                sample.valid = analog.voltage >= 0.0 and analog.voltage <= referenceVoltage;
+            }
+
+            action publishSample {
+                sample.normalizedPosition = (Real(sample.rawCount) / Real(fullScaleCounts)) * 100.0;
+                sample.measuredAngle = (Real(sample.rawCount) / Real(fullScaleCounts)) * 300.0;
+            }
+        }
+    }
+
+    part def SensingController {
+        port sampleIn : DigitalSamplePort;
+        port measurementOut : DigitalSamplePort;
+
+        attribute samplePeriod : Millisecond = 10.0;
+        attribute faultTimeout : Millisecond = 100.0;
+        attribute openCircuitLowThreshold : Volt = 0.05;
+        attribute openCircuitHighThreshold : Volt = 4.95;
+        attribute lastValidAngle : Degree = 0.0;
+        attribute sensorHealthy : Boolean = true;
+
+        state def SensingControllerStateMachine {
+            state idle;
+            state initializing;
+            state measuring;
+            state faultDetected;
+            state degradedOutput;
+
+            transition idle_to_initializing
+                first idle
+                then initializing;
+
+            transition initialized
+                first initializing
+                then measuring
+                if sensorHealthy == true;
+
+            transition invalid_sample
+                first measuring
+                then faultDetected
+                if sensorHealthy == false;
+
+            transition recoverable_fault
+                first faultDetected
+                then degradedOutput;
+
+            transition recovered
+                first degradedOutput
+                then measuring
+                if sensorHealthy == true;
+        }
+
+        action superviseSample {
+            in item sample : DigitalPositionSample;
+            out item supervisedSample : DigitalPositionSample;
+
+            first checkValidity;
+            then updateHealth;
+            then selectOutput;
+            then done;
+
+            action checkValidity {
+                sensorHealthy = sample.valid and sample.rawCount >= 0 and sample.rawCount <= 4095;
+            }
+
+            action updateHealth {
+                if sensorHealthy {
+                    lastValidAngle = sample.measuredAngle;
+                }
+            }
+
+            action selectOutput {
+                supervisedSample = sample;
+                if not sensorHealthy {
+                    supervisedSample.valid = false;
+                    supervisedSample.measuredAngle = lastValidAngle;
+                }
+            }
+        }
+    }
+
+    part def PotentiometricSensingUnit {
+        port positionInput : RotaryMechanicalInputPort;
+        port supplyInput : PowerInputPort;
+        port measuredPositionOutput : DigitalSamplePort;
+
+        part excitationSupply : RegulatedExcitationSupply;
+        part potentiometer : PotentiometricSensor;
+        part filter : AnalogInputFilter;
+        part adc : AnalogToDigitalConverter;
+        part controller : SensingController;
+
+        connect supplyInput.power to excitationSupply.powerIn.power;
+        connect excitationSupply.excitationOut.signal to potentiometer.excitation.power;
+        connect positionInput.position to potentiometer.mechanicalInput.position;
+        connect potentiometer.wiperOutput.signal to filter.analogIn.signal;
+        connect filter.analogOut.signal to adc.analogIn.signal;
+        connect excitationSupply.excitationOut.signal to adc.referenceIn.power;
+        connect adc.digitalOut.sample to controller.sampleIn.sample;
+        connect controller.measurementOut.sample to measuredPositionOutput.sample;
+
+        attribute measuringRangeLower : Degree = 0.0;
+        attribute measuringRangeUpper : Degree = 300.0;
+        attribute totalMeasurementError : Degree = 1.5;
+        attribute outputUpdatePeriod : Millisecond = 10.0;
+        attribute operatingTemperatureMin : Celsius = -40.0;
+        attribute operatingTemperatureMax : Celsius = 85.0;
+
+        action measureRotaryPosition {
+            in item actualPosition : MechanicalRotaryPosition;
+            in item inputPower : ElectricalPower;
+            out item reportedPosition : DigitalPositionSample;
+
+            first powerExcitation;
+            then sensePosition;
+            then filterWiperSignal;
+            then digitizeSignal;
+            then superviseMeasurement;
+            then publishMeasurement;
+            then done;
+
+            action powerExcitation {
+                perform excitationSupply.regulateVoltage(inputPower);
+            }
+
+            action sensePosition {
+                perform potentiometer.convertPositionToVoltage(actualPosition, inputPower);
+            }
+
+            action filterWiperSignal {
+                perform filter.filterSignal;
+            }
+
+            action digitizeSignal {
+                perform adc.convertVoltageToCount;
+            }
+
+            action superviseMeasurement {
+                perform controller.superviseSample;
+            }
+
+            action publishMeasurement {
+                reportedPosition = measuredPositionOutput.sample;
+            }
+        }
+    }
+
+    requirement def SensorTechnologyRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.potentiometer.totalResistance >= 1000.0 and
+            unit.potentiometer.totalResistance <= 50000.0
+        }
+
+        doc
+        /*
+         The sensing unit shall measure rotary position using a potentiometric sensor element.
+        */
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.measuringRangeLower == 0.0 and
+            unit.measuringRangeUpper >= 300.0
+        }
+
+        doc
+        /*
+         The sensing unit shall measure the full rotary input range from 0 degrees to at least 300 degrees.
+        */
+    }
+
+    requirement def AccuracyRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.totalMeasurementError <= 1.5
+        }
+
+        doc
+        /*
+         The sensing unit shall report rotary position with total measurement error no greater than 1.5 degrees over the specified range.
+        */
+    }
+
+    requirement def OutputRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.adc.resolutionBits >= 12 and
+            unit.outputUpdatePeriod <= 10.0
+        }
+
+        doc
+        /*
+         The sensing unit shall provide a digital position sample at least every 10 milliseconds with no less than 12-bit conversion resolution.
+        */
+    }
+
+    requirement def ElectricalInterfaceRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.excitationSupply.nominalOutputVoltage == 5.0 and
+            unit.adc.referenceVoltage == 5.0
+        }
+
+        doc
+        /*
+         The sensing unit shall excite the potentiometric sensor and digitize its wiper voltage using a common regulated 5 volt reference.
+        */
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.operatingTemperatureMin <= -40.0 and
+            unit.operatingTemperatureMax >= 85.0
+        }
+
+        doc
+        /*
+         The sensing unit shall operate across the temperature range from -40 degrees Celsius to 85 degrees Celsius.
+        */
+    }
+
+    requirement def FaultHandlingRequirement {
+        subject unit : PotentiometricSensingUnit;
+
+        require constraint {
+            unit.controller.faultTimeout <= 100.0
+        }
+
+        doc
+        /*
+         The sensing unit shall detect invalid potentiometer readings and provide a degraded output within 100 milliseconds.
+        */
+    }
+
+    satisfy SensorTechnologyRequirement by PotentiometricSensingUnit;
+    satisfy MeasurementRangeRequirement by PotentiometricSensingUnit;
+    satisfy AccuracyRequirement by PotentiometricSensingUnit;
+    satisfy OutputRequirement by PotentiometricSensingUnit;
+    satisfy ElectricalInterfaceRequirement by PotentiometricSensingUnit;
+    satisfy EnvironmentalRequirement by PotentiometricSensingUnit;
+    satisfy FaultHandlingRequirement by PotentiometricSensingUnit;
+
+}

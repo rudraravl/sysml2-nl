@@ -1,0 +1,518 @@
+package TransitionEdgeSensingUnitModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def Temperature :> ISQ::thermodynamicTemperature {
+    unit = K;
+  }
+
+  value def Power :> ISQ::power {
+    unit = W;
+  }
+
+  value def Voltage :> ISQ::electricPotential {
+    unit = V;
+  }
+
+  value def Current :> ISQ::electricCurrent {
+    unit = A;
+  }
+
+  value def Resistance :> ISQ::electricResistance {
+    unit = Ohm;
+  }
+
+  value def MagneticFluxDensity :> ISQ::magneticFluxDensity {
+    unit = T;
+  }
+
+  value def Time :> ISQ::time {
+    unit = s;
+  }
+
+  value def Energy :> ISQ::energy {
+    unit = J;
+  }
+
+  value def Frequency :> ISQ::frequency {
+    unit = Hz;
+  }
+
+  value def DimensionlessRatio :> ScalarValues::Real;
+
+  item def IncidentRadiation {
+    attribute photonEnergy : Energy;
+    attribute arrivalTime : Time;
+    attribute absorbedPower : Power;
+    attribute wavelengthFrequency : Frequency;
+  }
+
+  item def ThermalSignal {
+    attribute temperatureRise : Temperature;
+    attribute absorbedEnergy : Energy;
+    attribute pulseStartTime : Time;
+  }
+
+  item def BiasSignal {
+    attribute biasCurrent : Current;
+    attribute biasVoltage : Voltage;
+    attribute biasPower : Power;
+  }
+
+  item def SQUIDFluxSignal {
+    attribute inputCurrent : Current;
+    attribute coupledFluxDensity : MagneticFluxDensity;
+    attribute equivalentFluxNoise : MagneticFluxDensity;
+  }
+
+  item def DigitizedMeasurement {
+    attribute sampledVoltage : Voltage;
+    attribute sampleTime : Time;
+    attribute estimatedEnergy : Energy;
+    attribute qualityFactor : DimensionlessRatio;
+  }
+
+  item def HealthStatus {
+    attribute operatingTemperature : Temperature;
+    attribute tesResistance : Resistance;
+    attribute biasStability : DimensionlessRatio;
+    attribute lockState : DimensionlessRatio;
+  }
+
+  port def RadiationInputPort {
+    in item incident : IncidentRadiation;
+  }
+
+  port def ThermalPort {
+    out item thermalSignal : ThermalSignal;
+  }
+
+  port def BiasPort {
+    in item bias : BiasSignal;
+  }
+
+  port def CurrentReadoutPort {
+    out item readoutCurrent : SQUIDFluxSignal;
+  }
+
+  port def DigitalMeasurementPort {
+    out item measurement : DigitizedMeasurement;
+  }
+
+  port def StatusPort {
+    out item status : HealthStatus;
+  }
+
+  port def CryogenicHeatPort {
+    inout item conductedPower : Power;
+    inout item stageTemperature : Temperature;
+  }
+
+  part def TransitionEdgeSensor {
+    attribute criticalTemperature : Temperature = 0.090 [K];
+    attribute transitionWidth : Temperature = 0.0015 [K];
+    attribute normalResistance : Resistance = 0.120 [Ohm];
+    attribute operatingResistance : Resistance = 0.060 [Ohm];
+    attribute heatCapacity : Real = 0.42;
+    attribute thermalConductanceToBath : Real = 95.0;
+    attribute saturationPower : Power = 8.0e-12 [W];
+    attribute nominalBiasCurrent : Current = 25.0e-6 [A];
+    attribute nominalBiasVoltage : Voltage = 1.5e-6 [V];
+
+    port radiationPort : RadiationInputPort;
+    port biasPort : BiasPort;
+    port thermalPort : ThermalPort;
+    port heatPort : CryogenicHeatPort;
+    port readoutPort : CurrentReadoutPort;
+
+    state def TESOperatingState {
+      state Off;
+      state Cooling;
+      state Superconducting;
+      state TransitionLocked;
+      state Saturated;
+      state Fault;
+
+      first Off;
+
+      transition Off_to_Cooling
+        first Off
+        then Cooling;
+
+      transition Cooling_to_Superconducting
+        first Cooling
+        then Superconducting
+        guard stageTemperature <= 0.080 [K];
+
+      transition Superconducting_to_TransitionLocked
+        first Superconducting
+        then TransitionLocked
+        guard biasCurrent >= 0.8 * nominalBiasCurrent;
+
+      transition TransitionLocked_to_Saturated
+        first TransitionLocked
+        then Saturated
+        guard absorbedPower >= saturationPower;
+
+      transition Saturated_to_TransitionLocked
+        first Saturated
+        then TransitionLocked
+        guard absorbedPower < 0.5 * saturationPower;
+
+      transition any_to_Fault
+        first TransitionLocked
+        then Fault
+        guard operatingResistance > normalResistance or stageTemperature > 0.120 [K];
+    }
+
+    action absorbIncidentRadiation {
+      in item incident : IncidentRadiation;
+      out item thermal : ThermalSignal;
+
+      assign thermal.absorbedEnergy = incident.photonEnergy;
+      assign thermal.temperatureRise = incident.photonEnergy / heatCapacity;
+      assign thermal.pulseStartTime = incident.arrivalTime;
+    }
+
+    action transduceTemperatureToCurrent {
+      in item thermal : ThermalSignal;
+      in item bias : BiasSignal;
+      out item fluxSignal : SQUIDFluxSignal;
+
+      assign fluxSignal.inputCurrent =
+        bias.biasCurrent * (1.0 - thermal.temperatureRise / transitionWidth);
+
+      assign fluxSignal.coupledFluxDensity =
+        fluxSignal.inputCurrent * 2.0e-7 [T/A];
+
+      assign fluxSignal.equivalentFluxNoise = 3.0e-15 [T];
+    }
+
+    perform absorbIncidentRadiation;
+    perform transduceTemperatureToCurrent;
+  }
+
+  part def Absorber {
+    attribute absorptionEfficiency : DimensionlessRatio = 0.97;
+    attribute heatCapacity : Real = 0.18;
+    attribute thermalizationTime : Time = 2.0e-6 [s];
+
+    port radiationIn : RadiationInputPort;
+    port thermalOut : ThermalPort;
+
+    action thermalizePhoton {
+      in item incident : IncidentRadiation;
+      out item thermal : ThermalSignal;
+
+      assign thermal.absorbedEnergy = incident.photonEnergy * absorptionEfficiency;
+      assign thermal.temperatureRise = thermal.absorbedEnergy / heatCapacity;
+      assign thermal.pulseStartTime = incident.arrivalTime + thermalizationTime;
+    }
+
+    perform thermalizePhoton;
+  }
+
+  part def CryogenicThermalLink {
+    attribute bathTemperature : Temperature = 0.050 [K];
+    attribute maximumHeatLift : Power = 1.0e-9 [W];
+    attribute thermalConductance : Real = 110.0;
+
+    port sensorHeatPort : CryogenicHeatPort;
+    port coolerHeatPort : CryogenicHeatPort;
+  }
+
+  part def BiasSupply {
+    attribute commandedCurrent : Current = 25.0e-6 [A];
+    attribute currentNoiseDensity : Real = 4.0e-12;
+    attribute complianceVoltage : Voltage = 5.0e-6 [V];
+    attribute loopBandwidth : Frequency = 100000.0 [Hz];
+
+    port biasOut : BiasPort;
+    port statusOut : StatusPort;
+
+    action regulateBias {
+      out item bias : BiasSignal;
+
+      assign bias.biasCurrent = commandedCurrent;
+      assign bias.biasVoltage = complianceVoltage * 0.30;
+      assign bias.biasPower = bias.biasCurrent * bias.biasVoltage;
+    }
+
+    perform regulateBias;
+  }
+
+  part def SQUIDAmplifier {
+    attribute inputInductance : Real = 65.0e-9;
+    attribute transimpedanceGain : Real = 4000.0;
+    attribute inputCurrentNoise : Current = 3.0e-12 [A];
+    attribute fluxNoise : MagneticFluxDensity = 3.0e-15 [T];
+
+    port currentIn : CurrentReadoutPort;
+    port measurementOut : DigitalMeasurementPort;
+
+    action amplifyCurrentPulse {
+      in item fluxSignal : SQUIDFluxSignal;
+      out item measurement : DigitizedMeasurement;
+
+      assign measurement.sampledVoltage =
+        fluxSignal.inputCurrent * transimpedanceGain;
+
+      assign measurement.sampleTime = 0.0 [s];
+      assign measurement.estimatedEnergy =
+        measurement.sampledVoltage / transimpedanceGain * 1.6e-13 [J/A];
+
+      assign measurement.qualityFactor =
+        fluxSignal.coupledFluxDensity / fluxSignal.equivalentFluxNoise;
+    }
+
+    perform amplifyCurrentPulse;
+  }
+
+  part def DigitalSignalProcessor {
+    attribute samplingFrequency : Frequency = 5000000.0 [Hz];
+    attribute recordLength : Time = 0.004 [s];
+    attribute energyResolutionFWHM : Energy = 3.2e-19 [J];
+    attribute pulseDetectionThreshold : DimensionlessRatio = 7.0;
+
+    port rawMeasurementIn : DigitalMeasurementPort;
+    port calibratedMeasurementOut : DigitalMeasurementPort;
+    port statusOut : StatusPort;
+
+    action estimatePhotonEnergy {
+      in item raw : DigitizedMeasurement;
+      out item calibrated : DigitizedMeasurement;
+
+      assign calibrated.sampledVoltage = raw.sampledVoltage;
+      assign calibrated.sampleTime = raw.sampleTime;
+      assign calibrated.estimatedEnergy = raw.estimatedEnergy;
+      assign calibrated.qualityFactor = raw.qualityFactor;
+    }
+
+    state def ProcessingState {
+      state Idle;
+      state Armed;
+      state PulseDetected;
+      state EstimatingEnergy;
+      state ReportingMeasurement;
+
+      first Idle;
+
+      transition Idle_to_Armed
+        first Idle
+        then Armed;
+
+      transition Armed_to_PulseDetected
+        first Armed
+        then PulseDetected
+        guard qualityFactor >= pulseDetectionThreshold;
+
+      transition PulseDetected_to_EstimatingEnergy
+        first PulseDetected
+        then EstimatingEnergy;
+
+      transition EstimatingEnergy_to_ReportingMeasurement
+        first EstimatingEnergy
+        then ReportingMeasurement;
+
+      transition ReportingMeasurement_to_Armed
+        first ReportingMeasurement
+        then Armed;
+    }
+
+    perform estimatePhotonEnergy;
+  }
+
+  part def HealthMonitor {
+    attribute minimumValidTemperature : Temperature = 0.045 [K];
+    attribute maximumValidTemperature : Temperature = 0.120 [K];
+    attribute maximumResistanceDrift : DimensionlessRatio = 0.05;
+    attribute minimumBiasStability : DimensionlessRatio = 0.995;
+
+    port statusIn : StatusPort;
+    port statusOut : StatusPort;
+
+    action evaluateHealth {
+      in item inputStatus : HealthStatus;
+      out item outputStatus : HealthStatus;
+
+      assign outputStatus.operatingTemperature = inputStatus.operatingTemperature;
+      assign outputStatus.tesResistance = inputStatus.tesResistance;
+      assign outputStatus.biasStability = inputStatus.biasStability;
+      assign outputStatus.lockState =
+        if inputStatus.operatingTemperature >= minimumValidTemperature and
+           inputStatus.operatingTemperature <= maximumValidTemperature and
+           inputStatus.biasStability >= minimumBiasStability
+        then 1.0
+        else 0.0;
+    }
+
+    perform evaluateHealth;
+  }
+
+  part def TransitionEdgeSensingUnit {
+    attribute measurementQuantity : String = "incident photon energy";
+    attribute nominalOperatingTemperature : Temperature = 0.090 [K];
+    attribute measurableEnergyMin : Energy = 1.0e-19 [J];
+    attribute measurableEnergyMax : Energy = 1.2e-15 [J];
+    attribute maximumCountRate : Frequency = 10000.0 [Hz];
+    attribute endToEndLatency : Time = 0.001 [s];
+
+    port radiationInput : RadiationInputPort;
+    port measurementOutput : DigitalMeasurementPort;
+    port healthOutput : StatusPort;
+    port cryogenicInterface : CryogenicHeatPort;
+
+    part absorber : Absorber;
+    part tes : TransitionEdgeSensor;
+    part biasSupply : BiasSupply;
+    part squid : SQUIDAmplifier;
+    part processor : DigitalSignalProcessor;
+    part thermalLink : CryogenicThermalLink;
+    part healthMonitor : HealthMonitor;
+
+    connect radiationInput to absorber.radiationIn;
+    connect absorber.thermalOut to tes.thermalPort;
+    connect radiationInput to tes.radiationPort;
+    connect biasSupply.biasOut to tes.biasPort;
+    connect tes.readoutPort to squid.currentIn;
+    connect squid.measurementOut to processor.rawMeasurementIn;
+    connect processor.calibratedMeasurementOut to measurementOutput;
+    connect tes.heatPort to thermalLink.sensorHeatPort;
+    connect thermalLink.coolerHeatPort to cryogenicInterface;
+    connect processor.statusOut to healthMonitor.statusIn;
+    connect healthMonitor.statusOut to healthOutput;
+
+    action measureIncidentPhotonEnergy {
+      in item incident : IncidentRadiation;
+      out item result : DigitizedMeasurement;
+
+      send incident via radiationInput;
+      accept result via measurementOutput;
+    }
+
+    state def UnitState {
+      state PoweredOff;
+      state Cooldown;
+      state BiasRamp;
+      state Ready;
+      state Measuring;
+      state Recovering;
+      state MaintenanceFault;
+
+      first PoweredOff;
+
+      transition PoweredOff_to_Cooldown
+        first PoweredOff
+        then Cooldown;
+
+      transition Cooldown_to_BiasRamp
+        first Cooldown
+        then BiasRamp
+        guard nominalOperatingTemperature <= 0.100 [K];
+
+      transition BiasRamp_to_Ready
+        first BiasRamp
+        then Ready
+        guard tes.operatingResistance >= 0.45 * tes.normalResistance and
+              tes.operatingResistance <= 0.65 * tes.normalResistance;
+
+      transition Ready_to_Measuring
+        first Ready
+        then Measuring;
+
+      transition Measuring_to_Ready
+        first Measuring
+        then Ready;
+
+      transition Measuring_to_Recovering
+        first Measuring
+        then Recovering
+        guard tes.saturationPower <= 8.0e-12 [W];
+
+      transition Recovering_to_Ready
+        first Recovering
+        then Ready
+        guard tes.operatingResistance <= 0.65 * tes.normalResistance;
+
+      transition Ready_to_MaintenanceFault
+        first Ready
+        then MaintenanceFault
+        guard healthMonitor.minimumBiasStability > 1.0;
+    }
+
+    perform measureIncidentPhotonEnergy;
+  }
+
+  requirement def TESMeasurementRequirement {
+    subject sensingUnit : TransitionEdgeSensingUnit;
+
+    require constraint {
+      sensingUnit.measurableEnergyMin <= 1.0e-19 [J] and
+      sensingUnit.measurableEnergyMax >= 1.0e-15 [J]
+    }
+
+    doc /* The sensing unit shall measure incident photon energy using a transition-edge sensor operated in its superconducting-to-normal transition region. */
+  }
+
+  requirement def CryogenicOperationRequirement {
+    subject sensingUnit : TransitionEdgeSensingUnit;
+
+    require constraint {
+      sensingUnit.nominalOperatingTemperature >= 0.045 [K] and
+      sensingUnit.nominalOperatingTemperature <= 0.100 [K]
+    }
+
+    doc /* The sensing unit shall maintain the transition-edge sensor at cryogenic temperature near its critical temperature. */
+  }
+
+  requirement def EnergyResolutionRequirement {
+    subject sensingUnit : TransitionEdgeSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.energyResolutionFWHM <= 4.0e-19 [J]
+    }
+
+    doc /* The sensing unit shall resolve photon energy pulses with full-width half-maximum energy resolution no worse than 4.0e-19 joule. */
+  }
+
+  requirement def BiasStabilityRequirement {
+    subject sensingUnit : TransitionEdgeSensingUnit;
+
+    require constraint {
+      sensingUnit.biasSupply.commandedCurrent >= 20.0e-6 [A] and
+      sensingUnit.biasSupply.commandedCurrent <= 30.0e-6 [A]
+    }
+
+    doc /* The sensing unit shall provide stable electrothermal feedback by current-biasing the transition-edge sensor in the transition region. */
+  }
+
+  requirement def ReadoutRequirement {
+    subject sensingUnit : TransitionEdgeSensingUnit;
+
+    require constraint {
+      sensingUnit.squid.inputCurrentNoise <= 5.0e-12 [A]
+    }
+
+    doc /* The sensing unit shall use a low-noise SQUID readout chain to convert TES current pulses into digitized measurements. */
+  }
+
+  requirement def LatencyRequirement {
+    subject sensingUnit : TransitionEdgeSensingUnit;
+
+    require constraint {
+      sensingUnit.endToEndLatency <= 0.002 [s]
+    }
+
+    doc /* The sensing unit shall publish a calibrated measurement within 2 ms of photon absorption. */
+  }
+
+  satisfy TESMeasurementRequirement by TransitionEdgeSensingUnit;
+  satisfy CryogenicOperationRequirement by TransitionEdgeSensingUnit;
+  satisfy EnergyResolutionRequirement by TransitionEdgeSensingUnit;
+  satisfy BiasStabilityRequirement by TransitionEdgeSensingUnit;
+  satisfy ReadoutRequirement by TransitionEdgeSensingUnit;
+  satisfy LatencyRequirement by TransitionEdgeSensingUnit;
+
+}

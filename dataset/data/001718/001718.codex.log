@@ -1,0 +1,1361 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n2_jv_io
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7ce-fd57-7b22-adb3-c9a4904bfccb
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a MythTV and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MythTVSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    /* Value Types and Units */
+
+    attribute def DataRate :> Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def StorageCapacity :> Real {
+        unit = "GByte";
+    }
+
+    attribute def Duration :> Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "MHz";
+    }
+
+    attribute def ResolutionWidth :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def ResolutionHeight :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def ChannelNumber :> Integer;
+
+    attribute def RecordingPriority :> Integer;
+
+    attribute def SignalStrength :> Real {
+        unit = "%";
+    }
+
+    enum def MediaCodec {
+        enum h264;
+        enum h265;
+        enum mpeg2;
+        enum aac;
+        enum ac3;
+        enum pcm;
+    }
+
+    enum def RecordingStateKind {
+        enum idle;
+        enum scheduled;
+        enum tuning;
+        enum recording;
+        enum transcoding;
+        enum available;
+        enum failed;
+    }
+
+    enum def PlaybackStateKind {
+        enum stopped;
+        enum buffering;
+        enum playing;
+        enum paused;
+        enum seeking;
+        enum ended;
+        enum error;
+    }
+
+    /* Item Types */
+
+    item def TelevisionBroadcast {
+        attribute channel : ChannelNumber;
+        attribute frequency : Frequency;
+        attribute transportRate : DataRate;
+        attribute signalStrength : SignalStrength;
+        attribute videoCodec : MediaCodec;
+        attribute audioCodec : MediaCodec;
+    }
+
+    item def ProgramGuideEntry {
+        attribute channel : ChannelNumber;
+        attribute title : String;
+        attribute subtitle : String;
+        attribute description : String;
+        attribute startOffset : Duration;
+        attribute endOffset : Duration;
+        attribute recordingPriority : RecordingPriority;
+    }
+
+    item def RecordingRequest {
+        attribute channel : ChannelNumber;
+        attribute title : String;
+        attribute startOffset : Duration;
+        attribute duration : Duration;
+        attribute priority : RecordingPriority;
+    }
+
+    item def RecordedProgram {
+        attribute title : String;
+        attribute channel : ChannelNumber;
+        attribute duration : Duration;
+        attribute size : StorageCapacity;
+        attribute videoCodec : MediaCodec;
+        attribute audioCodec : MediaCodec;
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+    }
+
+    item def LiveVideoStream {
+        attribute channel : ChannelNumber;
+        attribute bitrate : DataRate;
+        attribute videoCodec : MediaCodec;
+        attribute audioCodec : MediaCodec;
+    }
+
+    item def PlaybackCommand {
+        attribute commandName : String;
+        attribute seekOffset : Duration;
+    }
+
+    item def MetadataRecord {
+        attribute title : String;
+        attribute season : Integer;
+        attribute episode : Integer;
+        attribute artworkUri : String;
+        attribute synopsis : String;
+    }
+
+    item def UserSelection {
+        attribute selectedTitle : String;
+        attribute selectedChannel : ChannelNumber;
+    }
+
+    item def SystemStatus {
+        attribute activeRecordings : Integer;
+        attribute freeStorage : StorageCapacity;
+        attribute backendAvailable : Boolean;
+        attribute guideAge : Duration;
+    }
+
+    /* Port Definitions */
+
+    port def BroadcastInputPort {
+        in item broadcast : TelevisionBroadcast;
+    }
+
+    port def GuideInputPort {
+        in item guideEntry : ProgramGuideEntry;
+    }
+
+    port def ScheduleCommandPort {
+        in item request : RecordingRequest;
+    }
+
+    port def MediaStreamPort {
+        out item liveStream : LiveVideoStream;
+        out item recordedProgram : RecordedProgram;
+    }
+
+    port def PlaybackControlPort {
+        in item command : PlaybackCommand;
+        in item selection : UserSelection;
+    }
+
+    port def MetadataPort {
+        in item metadataIn : MetadataRecord;
+        out item metadataOut : MetadataRecord;
+    }
+
+    port def StoragePort {
+        in item programToStore : RecordedProgram;
+        out item storedProgram : RecordedProgram;
+        out item storageStatus : SystemStatus;
+    }
+
+    port def StatusPort {
+        out item status : SystemStatus;
+    }
+
+    port def NetworkPort {
+        in item remoteCommand : PlaybackCommand;
+        in item remoteSchedule : RecordingRequest;
+        out item streamOut : LiveVideoStream;
+        out item statusOut : SystemStatus;
+    }
+
+    /* Part Definitions */
+
+    part def TVTuner {
+        attribute tunedChannel : ChannelNumber;
+        attribute tunedFrequency : Frequency;
+        attribute currentSignalStrength : SignalStrength;
+        port antenna : BroadcastInputPort;
+        port decodedStream : MediaStreamPort;
+
+        action tuneToChannel {
+            in item request : RecordingRequest;
+            out item stream : LiveVideoStream;
+        }
+
+        state tunerState {
+            state idle;
+            state tuning;
+            state locked;
+            state signalLost;
+
+            transition first idle;
+            transition idle_to_tuning
+                first idle
+                then tuning;
+
+            transition tuning_to_locked
+                first tuning
+                then locked;
+
+            transition locked_to_signalLost
+                first locked
+                then signalLost;
+
+            transition signalLost_to_tuning
+                first signalLost
+                then tuning;
+        }
+    }
+
+    part def ElectronicProgramGuide {
+        attribute guideRetention : Duration = 1209600 [s];
+        attribute updateInterval : Duration = 21600 [s];
+        port guideFeed : GuideInputPort;
+        port scheduleOut : ScheduleCommandPort;
+
+        action updateGuide {
+            in item entry : ProgramGuideEntry;
+            out item normalizedEntry : ProgramGuideEntry;
+        }
+
+        action createRecordingRequest {
+            in item selection : UserSelection;
+            out item request : RecordingRequest;
+        }
+    }
+
+    part def Scheduler {
+        attribute maximumConcurrentRecordings : Integer = 4;
+        port guideRequests : ScheduleCommandPort;
+        port tunerCommands : ScheduleCommandPort;
+        port scheduleStatus : StatusPort;
+
+        action resolveConflicts {
+            in item requestedRecording : RecordingRequest;
+            out item acceptedRecording : RecordingRequest;
+        }
+
+        action assignTuner {
+            in item acceptedRecording : RecordingRequest;
+            out item tunerRequest : RecordingRequest;
+        }
+
+        state schedulerState {
+            state waitingForRequests;
+            state evaluatingRequest;
+            state scheduled;
+            state conflictDetected;
+            state dispatching;
+
+            transition first waitingForRequests;
+            transition request_received
+                first waitingForRequests
+                then evaluatingRequest;
+
+            transition request_accepted
+                first evaluatingRequest
+                then scheduled;
+
+            transition request_conflict
+                first evaluatingRequest
+                then conflictDetected;
+
+            transition schedule_ready
+                first scheduled
+                then dispatching;
+
+            transition dispatch_complete
+                first dispatching
+                then waitingForRequests;
+        }
+    }
+
+    part def Recorder {
+        attribute recordingState : RecordingStateKind;
+        attribute preRoll : Duration = 120 [s];
+        attribute postRoll : Duration = 180 [s];
+        port tunerStream : MediaStreamPort;
+        port recordCommand : ScheduleCommandPort;
+        port storageAccess : StoragePort;
+
+        action startRecording {
+            in item request : RecordingRequest;
+            in item stream : LiveVideoStream;
+            out item partialProgram : RecordedProgram;
+        }
+
+        action stopRecording {
+            in item partialProgram : RecordedProgram;
+            out item completedProgram : RecordedProgram;
+        }
+
+        state recordingLifecycle {
+            state idle;
+            state scheduled;
+            state tuning;
+            state recording;
+            state finalizing;
+            state available;
+            state failed;
+
+            transition first idle;
+            transition idle_to_scheduled
+                first idle
+                then scheduled;
+
+            transition scheduled_to_tuning
+                first scheduled
+                then tuning;
+
+            transition tuning_to_recording
+                first tuning
+                then recording;
+
+            transition recording_to_finalizing
+                first recording
+                then finalizing;
+
+            transition finalizing_to_available
+                first finalizing
+                then available;
+
+            transition tuning_failure
+                first tuning
+                then failed;
+
+            transition storage_failure
+                first recording
+                then failed;
+
+            transition reset_after_failure
+                first failed
+                then idle;
+        }
+    }
+
+    part def MediaStorage {
+        attribute totalCapacity : StorageCapacity = 8000 [GByte];
+        attribute reservedCapacity : StorageCapacity = 500 [GByte];
+        attribute freeCapacity : StorageCapacity;
+        attribute minimumFreeCapacity : StorageCapacity = 100 [GByte];
+        port storageInterface : StoragePort;
+
+        action storeProgram {
+            in item completedProgram : RecordedProgram;
+            out item storedProgram : RecordedProgram;
+        }
+
+        action expireOldRecordings {
+            out item status : SystemStatus;
+        }
+
+        state storageState {
+            state normal;
+            state lowSpace;
+            state expiring;
+            state unavailable;
+
+            transition first normal;
+            transition capacity_low
+                first normal
+                then lowSpace;
+
+            transition expire_required
+                first lowSpace
+                then expiring;
+
+            transition capacity_recovered
+                first expiring
+                then normal;
+
+            transition storage_fault
+                first normal
+                then unavailable;
+        }
+    }
+
+    part def MetadataService {
+        port metadata : MetadataPort;
+
+        action enrichProgram {
+            in item program : RecordedProgram;
+            in item metadataIn : MetadataRecord;
+            out item metadataOut : MetadataRecord;
+        }
+    }
+
+    part def PlaybackEngine {
+        attribute playbackState : PlaybackStateKind;
+        attribute bufferDuration : Duration = 8 [s];
+        attribute maximumOutputBitrate : DataRate = 80 [Mbit/s];
+        port mediaInput : StoragePort;
+        port controlInput : PlaybackControlPort;
+        port streamOutput : MediaStreamPort;
+
+        action loadSelection {
+            in item selection : UserSelection;
+            out item selectedProgram : RecordedProgram;
+        }
+
+        action playProgram {
+            in item selectedProgram : RecordedProgram;
+            in item command : PlaybackCommand;
+            out item programStream : RecordedProgram;
+        }
+
+        action playLiveTV {
+            in item liveStream : LiveVideoStream;
+            in item command : PlaybackCommand;
+            out item outputStream : LiveVideoStream;
+        }
+
+        state playbackLifecycle {
+            state stopped;
+            state buffering;
+            state playing;
+            state paused;
+            state seeking;
+            state ended;
+            state error;
+
+            transition first stopped;
+            transition load_media
+                first stopped
+                then buffering;
+
+            transition buffer_ready
+                first buffering
+                then playing;
+
+            transition pause_requested
+                first playing
+                then paused;
+
+            transition resume_requested
+                first paused
+                then playing;
+
+            transition seek_requested
+                first playing
+                then seeking;
+
+            transition seek_complete
+                first seeking
+                then buffering;
+
+            transition stop_requested
+                first playing
+                then stopped;
+
+            transition media_complete
+                first playing
+                then ended;
+
+            transition playback_fault
+                first buffering
+                then error;
+        }
+    }
+
+    part def UserInterface {
+        port playbackControls : PlaybackControlPort;
+        port scheduleControls : ScheduleCommandPort;
+        port statusDisplay : StatusPort;
+
+        action browseGuide {
+            in item entry : ProgramGuideEntry;
+            out item selection : UserSelection;
+        }
+
+        action requestPlayback {
+            in item selection : UserSelection;
+            out item command : PlaybackCommand;
+        }
+
+        action requestRecording {
+            in item selection : UserSelection;
+            out item request : RecordingRequest;
+        }
+    }
+
+    part def RemoteFrontend {
+        port network : NetworkPort;
+        port playbackControls : PlaybackControlPort;
+
+        action streamRemotePlayback {
+            in item command : PlaybackCommand;
+            out item remoteStream : LiveVideoStream;
+        }
+    }
+
+    part def MythTVBackend {
+        part tuner1 : TVTuner;
+        part tuner2 : TVTuner;
+        part guide : ElectronicProgramGuide;
+        part scheduler : Scheduler;
+        part recorder : Recorder;
+        part storage : MediaStorage;
+        part metadataService : MetadataService;
+
+        port broadcastInput : BroadcastInputPort;
+        port guideInput : GuideInputPort;
+        port userScheduleInput : ScheduleCommandPort;
+        port backendMediaOutput : MediaStreamPort;
+        port backendStatus : StatusPort;
+        port remoteAccess : NetworkPort;
+
+        connect broadcastInput.broadcast to tuner1.antenna.broadcast;
+        connect broadcastInput.broadcast to tuner2.antenna.broadcast;
+        connect guideInput.guideEntry to guide.guideFeed.guideEntry;
+        connect guide.scheduleOut.request to scheduler.guideRequests.request;
+        connect userScheduleInput.request to scheduler.guideRequests.request;
+        connect scheduler.tunerCommands.request to recorder.recordCommand.request;
+        connect scheduler.tunerCommands.request to tuner1.antenna.broadcast.channel;
+        connect tuner1.decodedStream.liveStream to recorder.tunerStream.liveStream;
+        connect tuner2.decodedStream.liveStream to recorder.tunerStream.liveStream;
+        connect recorder.storageAccess.programToStore to storage.storageInterface.programToStore;
+        connect storage.storageInterface.storedProgram to backendMediaOutput.recordedProgram;
+        connect storage.storageInterface.storageStatus to backendStatus.status;
+        connect metadataService.metadata.metadataOut to remoteAccess.statusOut;
+    }
+
+    part def MythTVFrontend {
+        part ui : UserInterface;
+        part playback : PlaybackEngine;
+
+        port frontendControls : PlaybackControlPort;
+        port mediaInput : StoragePort;
+        port mediaOutput : MediaStreamPort;
+        port frontendStatus : StatusPort;
+
+        connect frontendControls.command to ui.playbackControls.command;
+        connect frontendControls.selection to ui.playbackControls.selection;
+        connect ui.playbackControls.command to playback.controlInput.command;
+        connect ui.playbackControls.selection to playback.controlInput.selection;
+        connect mediaInput.storedProgram to playback.mediaInput.storedProgram;
+        connect playback.streamOutput.liveStream to mediaOutput.liveStream;
+        connect playback.streamOutput.recordedProgram to mediaOutput.recordedProgram;
+        connect frontendStatus.status to ui.statusDisplay.status;
+    }
+
+    part def MythTVPersonalVideoRecorderSystem {
+        attribute primaryFunction : String =
+            "Capture broadcast television, organize program guide data, schedule and record selected programs, store recordings, and stream live or recorded media to local and remote frontends.";
+
+        part backend : MythTVBackend;
+        part livingRoomFrontend : MythTVFrontend;
+        part remoteFrontend : RemoteFrontend;
+
+        port antennaInput : BroadcastInputPort;
+        port programGuideFeed : GuideInputPort;
+        port userPlaybackControl : PlaybackControlPort;
+        port userRecordingControl : ScheduleCommandPort;
+        port displayedMedia : MediaStreamPort;
+        port systemStatus : StatusPort;
+        port homeNetwork : NetworkPort;
+
+        connect antennaInput.broadcast to backend.broadcastInput.broadcast;
+        connect programGuideFeed.guideEntry to backend.guideInput.guideEntry;
+        connect userRecordingControl.request to backend.userScheduleInput.request;
+        connect userPlaybackControl.command to livingRoomFrontend.frontendControls.command;
+        connect userPlaybackControl.selection to livingRoomFrontend.frontendControls.selection;
+        connect backend.backendMediaOutput.recordedProgram to livingRoomFrontend.mediaInput.storedProgram;
+        connect livingRoomFrontend.mediaOutput.liveStream to displayedMedia.liveStream;
+        connect livingRoomFrontend.mediaOutput.recordedProgram to displayedMedia.recordedProgram;
+        connect backend.backendStatus.status to systemStatus.status;
+        connect homeNetwork.remoteCommand to backend.remoteAccess.remoteCommand;
+        connect homeNetwork.remoteSchedule to backend.remoteAccess.remoteSchedule;
+        connect backend.remoteAccess.streamOut to homeNetwork.streamOut;
+        connect backend.remoteAccess.statusOut to homeNetwork.statusOut;
+    }
+
+    action def EndToEndRecordingAndPlayback {
+        in item guideEntry : ProgramGuideEntry;
+        in item request : RecordingRequest;
+        in item broadcast : TelevisionBroadcast;
+        in item playbackCommand : PlaybackCommand;
+        out item displayedProgram : RecordedProgram;
+
+        action updateGuide;
+        action scheduleProgram;
+        action tuneBroadcast;
+        action captureProgram;
+        action storeProgram;
+        action retrieveProgram;
+        action playProgram;
+
+        flow guideEntry to updateGuide;
+        flow updateGuide to scheduleProgram;
+        flow request to scheduleProgram;
+        flow scheduleProgram to tuneBroadcast;
+        flow broadcast to tuneBroadcast;
+        flow tuneBroadcast to captureProgram;
+        flow captureProgram to storeProgram;
+        flow storeProgram to retrieveProgram;
+        flow playbackCommand to playProgram;
+        flow retrieveProgram to playProgram;
+        flow playProgram to displayedProgram;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a MythTV-based personal video recorder capability that receives television broadcasts, maintains program guide information, records scheduled programs, stores media, and plays live or recorded television through user frontends. */
+    }
+
+    requirement def ScheduledRecordingRequirement {
+        doc /* The system shall allow a user to schedule a television program for recording from program guide data or manual channel/time selection. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::scheduler::maximumConcurrentRecordings >= 1
+        }
+    }
+
+    requirement def MultiTunerRequirement {
+        doc /* The backend shall support concurrent capture from at least two tuner sources to reduce recording conflicts. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::scheduler::maximumConcurrentRecordings >= 2
+        }
+    }
+
+    requirement def StorageCapacityRequirement {
+        doc /* The media storage subsystem shall provide sufficient capacity for long-term retention of recorded television programs. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::storage::totalCapacity >= 4000 [GByte]
+        }
+    }
+
+    requirement def LowStorageProtectionRequirement {
+        doc /* The storage subsystem shall preserve a minimum amount of free space by expiring eligible old recordings before storage exhaustion. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::storage::minimumFreeCapacity >= 50 [GByte]
+        }
+    }
+
+    requirement def PlaybackRequirement {
+        doc /* The frontend shall support playback control for live and recorded media, including play, pause, stop, and seek commands. */
+    }
+
+    requirement def RemoteAccessRequirement {
+        doc /* The system shall expose status, scheduling, and streaming functions over a home network for remote frontends. */
+    }
+
+    requirement def GuideUpdateRequirement {
+        doc /* The electronic program guide shall refresh guide data at least every twenty-four hours. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::guide::updateInterval <= 86400 [s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MythTVPersonalVideoRecorderSystem;
+    satisfy ScheduledRecordingRequirement by MythTVPersonalVideoRecorderSystem::backend::scheduler;
+    satisfy MultiTunerRequirement by MythTVPersonalVideoRecorderSystem::backend;
+    satisfy StorageCapacityRequirement by MythTVPersonalVideoRecorderSystem::backend::storage;
+    satisfy LowStorageProtectionRequirement by MythTVPersonalVideoRecorderSystem::backend::storage;
+    satisfy PlaybackRequirement by MythTVPersonalVideoRecorderSystem::livingRoomFrontend::playback;
+    satisfy RemoteAccessRequirement by MythTVPersonalVideoRecorderSystem::remoteFrontend;
+    satisfy GuideUpdateRequirement by MythTVPersonalVideoRecorderSystem::backend::guide;
+}
+tokens used
+5,427
+package MythTVSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    /* Value Types and Units */
+
+    attribute def DataRate :> Real {
+        unit = "Mbit/s";
+    }
+
+    attribute def StorageCapacity :> Real {
+        unit = "GByte";
+    }
+
+    attribute def Duration :> Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "MHz";
+    }
+
+    attribute def ResolutionWidth :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def ResolutionHeight :> Integer {
+        unit = "pixel";
+    }
+
+    attribute def ChannelNumber :> Integer;
+
+    attribute def RecordingPriority :> Integer;
+
+    attribute def SignalStrength :> Real {
+        unit = "%";
+    }
+
+    enum def MediaCodec {
+        enum h264;
+        enum h265;
+        enum mpeg2;
+        enum aac;
+        enum ac3;
+        enum pcm;
+    }
+
+    enum def RecordingStateKind {
+        enum idle;
+        enum scheduled;
+        enum tuning;
+        enum recording;
+        enum transcoding;
+        enum available;
+        enum failed;
+    }
+
+    enum def PlaybackStateKind {
+        enum stopped;
+        enum buffering;
+        enum playing;
+        enum paused;
+        enum seeking;
+        enum ended;
+        enum error;
+    }
+
+    /* Item Types */
+
+    item def TelevisionBroadcast {
+        attribute channel : ChannelNumber;
+        attribute frequency : Frequency;
+        attribute transportRate : DataRate;
+        attribute signalStrength : SignalStrength;
+        attribute videoCodec : MediaCodec;
+        attribute audioCodec : MediaCodec;
+    }
+
+    item def ProgramGuideEntry {
+        attribute channel : ChannelNumber;
+        attribute title : String;
+        attribute subtitle : String;
+        attribute description : String;
+        attribute startOffset : Duration;
+        attribute endOffset : Duration;
+        attribute recordingPriority : RecordingPriority;
+    }
+
+    item def RecordingRequest {
+        attribute channel : ChannelNumber;
+        attribute title : String;
+        attribute startOffset : Duration;
+        attribute duration : Duration;
+        attribute priority : RecordingPriority;
+    }
+
+    item def RecordedProgram {
+        attribute title : String;
+        attribute channel : ChannelNumber;
+        attribute duration : Duration;
+        attribute size : StorageCapacity;
+        attribute videoCodec : MediaCodec;
+        attribute audioCodec : MediaCodec;
+        attribute width : ResolutionWidth;
+        attribute height : ResolutionHeight;
+    }
+
+    item def LiveVideoStream {
+        attribute channel : ChannelNumber;
+        attribute bitrate : DataRate;
+        attribute videoCodec : MediaCodec;
+        attribute audioCodec : MediaCodec;
+    }
+
+    item def PlaybackCommand {
+        attribute commandName : String;
+        attribute seekOffset : Duration;
+    }
+
+    item def MetadataRecord {
+        attribute title : String;
+        attribute season : Integer;
+        attribute episode : Integer;
+        attribute artworkUri : String;
+        attribute synopsis : String;
+    }
+
+    item def UserSelection {
+        attribute selectedTitle : String;
+        attribute selectedChannel : ChannelNumber;
+    }
+
+    item def SystemStatus {
+        attribute activeRecordings : Integer;
+        attribute freeStorage : StorageCapacity;
+        attribute backendAvailable : Boolean;
+        attribute guideAge : Duration;
+    }
+
+    /* Port Definitions */
+
+    port def BroadcastInputPort {
+        in item broadcast : TelevisionBroadcast;
+    }
+
+    port def GuideInputPort {
+        in item guideEntry : ProgramGuideEntry;
+    }
+
+    port def ScheduleCommandPort {
+        in item request : RecordingRequest;
+    }
+
+    port def MediaStreamPort {
+        out item liveStream : LiveVideoStream;
+        out item recordedProgram : RecordedProgram;
+    }
+
+    port def PlaybackControlPort {
+        in item command : PlaybackCommand;
+        in item selection : UserSelection;
+    }
+
+    port def MetadataPort {
+        in item metadataIn : MetadataRecord;
+        out item metadataOut : MetadataRecord;
+    }
+
+    port def StoragePort {
+        in item programToStore : RecordedProgram;
+        out item storedProgram : RecordedProgram;
+        out item storageStatus : SystemStatus;
+    }
+
+    port def StatusPort {
+        out item status : SystemStatus;
+    }
+
+    port def NetworkPort {
+        in item remoteCommand : PlaybackCommand;
+        in item remoteSchedule : RecordingRequest;
+        out item streamOut : LiveVideoStream;
+        out item statusOut : SystemStatus;
+    }
+
+    /* Part Definitions */
+
+    part def TVTuner {
+        attribute tunedChannel : ChannelNumber;
+        attribute tunedFrequency : Frequency;
+        attribute currentSignalStrength : SignalStrength;
+        port antenna : BroadcastInputPort;
+        port decodedStream : MediaStreamPort;
+
+        action tuneToChannel {
+            in item request : RecordingRequest;
+            out item stream : LiveVideoStream;
+        }
+
+        state tunerState {
+            state idle;
+            state tuning;
+            state locked;
+            state signalLost;
+
+            transition first idle;
+            transition idle_to_tuning
+                first idle
+                then tuning;
+
+            transition tuning_to_locked
+                first tuning
+                then locked;
+
+            transition locked_to_signalLost
+                first locked
+                then signalLost;
+
+            transition signalLost_to_tuning
+                first signalLost
+                then tuning;
+        }
+    }
+
+    part def ElectronicProgramGuide {
+        attribute guideRetention : Duration = 1209600 [s];
+        attribute updateInterval : Duration = 21600 [s];
+        port guideFeed : GuideInputPort;
+        port scheduleOut : ScheduleCommandPort;
+
+        action updateGuide {
+            in item entry : ProgramGuideEntry;
+            out item normalizedEntry : ProgramGuideEntry;
+        }
+
+        action createRecordingRequest {
+            in item selection : UserSelection;
+            out item request : RecordingRequest;
+        }
+    }
+
+    part def Scheduler {
+        attribute maximumConcurrentRecordings : Integer = 4;
+        port guideRequests : ScheduleCommandPort;
+        port tunerCommands : ScheduleCommandPort;
+        port scheduleStatus : StatusPort;
+
+        action resolveConflicts {
+            in item requestedRecording : RecordingRequest;
+            out item acceptedRecording : RecordingRequest;
+        }
+
+        action assignTuner {
+            in item acceptedRecording : RecordingRequest;
+            out item tunerRequest : RecordingRequest;
+        }
+
+        state schedulerState {
+            state waitingForRequests;
+            state evaluatingRequest;
+            state scheduled;
+            state conflictDetected;
+            state dispatching;
+
+            transition first waitingForRequests;
+            transition request_received
+                first waitingForRequests
+                then evaluatingRequest;
+
+            transition request_accepted
+                first evaluatingRequest
+                then scheduled;
+
+            transition request_conflict
+                first evaluatingRequest
+                then conflictDetected;
+
+            transition schedule_ready
+                first scheduled
+                then dispatching;
+
+            transition dispatch_complete
+                first dispatching
+                then waitingForRequests;
+        }
+    }
+
+    part def Recorder {
+        attribute recordingState : RecordingStateKind;
+        attribute preRoll : Duration = 120 [s];
+        attribute postRoll : Duration = 180 [s];
+        port tunerStream : MediaStreamPort;
+        port recordCommand : ScheduleCommandPort;
+        port storageAccess : StoragePort;
+
+        action startRecording {
+            in item request : RecordingRequest;
+            in item stream : LiveVideoStream;
+            out item partialProgram : RecordedProgram;
+        }
+
+        action stopRecording {
+            in item partialProgram : RecordedProgram;
+            out item completedProgram : RecordedProgram;
+        }
+
+        state recordingLifecycle {
+            state idle;
+            state scheduled;
+            state tuning;
+            state recording;
+            state finalizing;
+            state available;
+            state failed;
+
+            transition first idle;
+            transition idle_to_scheduled
+                first idle
+                then scheduled;
+
+            transition scheduled_to_tuning
+                first scheduled
+                then tuning;
+
+            transition tuning_to_recording
+                first tuning
+                then recording;
+
+            transition recording_to_finalizing
+                first recording
+                then finalizing;
+
+            transition finalizing_to_available
+                first finalizing
+                then available;
+
+            transition tuning_failure
+                first tuning
+                then failed;
+
+            transition storage_failure
+                first recording
+                then failed;
+
+            transition reset_after_failure
+                first failed
+                then idle;
+        }
+    }
+
+    part def MediaStorage {
+        attribute totalCapacity : StorageCapacity = 8000 [GByte];
+        attribute reservedCapacity : StorageCapacity = 500 [GByte];
+        attribute freeCapacity : StorageCapacity;
+        attribute minimumFreeCapacity : StorageCapacity = 100 [GByte];
+        port storageInterface : StoragePort;
+
+        action storeProgram {
+            in item completedProgram : RecordedProgram;
+            out item storedProgram : RecordedProgram;
+        }
+
+        action expireOldRecordings {
+            out item status : SystemStatus;
+        }
+
+        state storageState {
+            state normal;
+            state lowSpace;
+            state expiring;
+            state unavailable;
+
+            transition first normal;
+            transition capacity_low
+                first normal
+                then lowSpace;
+
+            transition expire_required
+                first lowSpace
+                then expiring;
+
+            transition capacity_recovered
+                first expiring
+                then normal;
+
+            transition storage_fault
+                first normal
+                then unavailable;
+        }
+    }
+
+    part def MetadataService {
+        port metadata : MetadataPort;
+
+        action enrichProgram {
+            in item program : RecordedProgram;
+            in item metadataIn : MetadataRecord;
+            out item metadataOut : MetadataRecord;
+        }
+    }
+
+    part def PlaybackEngine {
+        attribute playbackState : PlaybackStateKind;
+        attribute bufferDuration : Duration = 8 [s];
+        attribute maximumOutputBitrate : DataRate = 80 [Mbit/s];
+        port mediaInput : StoragePort;
+        port controlInput : PlaybackControlPort;
+        port streamOutput : MediaStreamPort;
+
+        action loadSelection {
+            in item selection : UserSelection;
+            out item selectedProgram : RecordedProgram;
+        }
+
+        action playProgram {
+            in item selectedProgram : RecordedProgram;
+            in item command : PlaybackCommand;
+            out item programStream : RecordedProgram;
+        }
+
+        action playLiveTV {
+            in item liveStream : LiveVideoStream;
+            in item command : PlaybackCommand;
+            out item outputStream : LiveVideoStream;
+        }
+
+        state playbackLifecycle {
+            state stopped;
+            state buffering;
+            state playing;
+            state paused;
+            state seeking;
+            state ended;
+            state error;
+
+            transition first stopped;
+            transition load_media
+                first stopped
+                then buffering;
+
+            transition buffer_ready
+                first buffering
+                then playing;
+
+            transition pause_requested
+                first playing
+                then paused;
+
+            transition resume_requested
+                first paused
+                then playing;
+
+            transition seek_requested
+                first playing
+                then seeking;
+
+            transition seek_complete
+                first seeking
+                then buffering;
+
+            transition stop_requested
+                first playing
+                then stopped;
+
+            transition media_complete
+                first playing
+                then ended;
+
+            transition playback_fault
+                first buffering
+                then error;
+        }
+    }
+
+    part def UserInterface {
+        port playbackControls : PlaybackControlPort;
+        port scheduleControls : ScheduleCommandPort;
+        port statusDisplay : StatusPort;
+
+        action browseGuide {
+            in item entry : ProgramGuideEntry;
+            out item selection : UserSelection;
+        }
+
+        action requestPlayback {
+            in item selection : UserSelection;
+            out item command : PlaybackCommand;
+        }
+
+        action requestRecording {
+            in item selection : UserSelection;
+            out item request : RecordingRequest;
+        }
+    }
+
+    part def RemoteFrontend {
+        port network : NetworkPort;
+        port playbackControls : PlaybackControlPort;
+
+        action streamRemotePlayback {
+            in item command : PlaybackCommand;
+            out item remoteStream : LiveVideoStream;
+        }
+    }
+
+    part def MythTVBackend {
+        part tuner1 : TVTuner;
+        part tuner2 : TVTuner;
+        part guide : ElectronicProgramGuide;
+        part scheduler : Scheduler;
+        part recorder : Recorder;
+        part storage : MediaStorage;
+        part metadataService : MetadataService;
+
+        port broadcastInput : BroadcastInputPort;
+        port guideInput : GuideInputPort;
+        port userScheduleInput : ScheduleCommandPort;
+        port backendMediaOutput : MediaStreamPort;
+        port backendStatus : StatusPort;
+        port remoteAccess : NetworkPort;
+
+        connect broadcastInput.broadcast to tuner1.antenna.broadcast;
+        connect broadcastInput.broadcast to tuner2.antenna.broadcast;
+        connect guideInput.guideEntry to guide.guideFeed.guideEntry;
+        connect guide.scheduleOut.request to scheduler.guideRequests.request;
+        connect userScheduleInput.request to scheduler.guideRequests.request;
+        connect scheduler.tunerCommands.request to recorder.recordCommand.request;
+        connect scheduler.tunerCommands.request to tuner1.antenna.broadcast.channel;
+        connect tuner1.decodedStream.liveStream to recorder.tunerStream.liveStream;
+        connect tuner2.decodedStream.liveStream to recorder.tunerStream.liveStream;
+        connect recorder.storageAccess.programToStore to storage.storageInterface.programToStore;
+        connect storage.storageInterface.storedProgram to backendMediaOutput.recordedProgram;
+        connect storage.storageInterface.storageStatus to backendStatus.status;
+        connect metadataService.metadata.metadataOut to remoteAccess.statusOut;
+    }
+
+    part def MythTVFrontend {
+        part ui : UserInterface;
+        part playback : PlaybackEngine;
+
+        port frontendControls : PlaybackControlPort;
+        port mediaInput : StoragePort;
+        port mediaOutput : MediaStreamPort;
+        port frontendStatus : StatusPort;
+
+        connect frontendControls.command to ui.playbackControls.command;
+        connect frontendControls.selection to ui.playbackControls.selection;
+        connect ui.playbackControls.command to playback.controlInput.command;
+        connect ui.playbackControls.selection to playback.controlInput.selection;
+        connect mediaInput.storedProgram to playback.mediaInput.storedProgram;
+        connect playback.streamOutput.liveStream to mediaOutput.liveStream;
+        connect playback.streamOutput.recordedProgram to mediaOutput.recordedProgram;
+        connect frontendStatus.status to ui.statusDisplay.status;
+    }
+
+    part def MythTVPersonalVideoRecorderSystem {
+        attribute primaryFunction : String =
+            "Capture broadcast television, organize program guide data, schedule and record selected programs, store recordings, and stream live or recorded media to local and remote frontends.";
+
+        part backend : MythTVBackend;
+        part livingRoomFrontend : MythTVFrontend;
+        part remoteFrontend : RemoteFrontend;
+
+        port antennaInput : BroadcastInputPort;
+        port programGuideFeed : GuideInputPort;
+        port userPlaybackControl : PlaybackControlPort;
+        port userRecordingControl : ScheduleCommandPort;
+        port displayedMedia : MediaStreamPort;
+        port systemStatus : StatusPort;
+        port homeNetwork : NetworkPort;
+
+        connect antennaInput.broadcast to backend.broadcastInput.broadcast;
+        connect programGuideFeed.guideEntry to backend.guideInput.guideEntry;
+        connect userRecordingControl.request to backend.userScheduleInput.request;
+        connect userPlaybackControl.command to livingRoomFrontend.frontendControls.command;
+        connect userPlaybackControl.selection to livingRoomFrontend.frontendControls.selection;
+        connect backend.backendMediaOutput.recordedProgram to livingRoomFrontend.mediaInput.storedProgram;
+        connect livingRoomFrontend.mediaOutput.liveStream to displayedMedia.liveStream;
+        connect livingRoomFrontend.mediaOutput.recordedProgram to displayedMedia.recordedProgram;
+        connect backend.backendStatus.status to systemStatus.status;
+        connect homeNetwork.remoteCommand to backend.remoteAccess.remoteCommand;
+        connect homeNetwork.remoteSchedule to backend.remoteAccess.remoteSchedule;
+        connect backend.remoteAccess.streamOut to homeNetwork.streamOut;
+        connect backend.remoteAccess.statusOut to homeNetwork.statusOut;
+    }
+
+    action def EndToEndRecordingAndPlayback {
+        in item guideEntry : ProgramGuideEntry;
+        in item request : RecordingRequest;
+        in item broadcast : TelevisionBroadcast;
+        in item playbackCommand : PlaybackCommand;
+        out item displayedProgram : RecordedProgram;
+
+        action updateGuide;
+        action scheduleProgram;
+        action tuneBroadcast;
+        action captureProgram;
+        action storeProgram;
+        action retrieveProgram;
+        action playProgram;
+
+        flow guideEntry to updateGuide;
+        flow updateGuide to scheduleProgram;
+        flow request to scheduleProgram;
+        flow scheduleProgram to tuneBroadcast;
+        flow broadcast to tuneBroadcast;
+        flow tuneBroadcast to captureProgram;
+        flow captureProgram to storeProgram;
+        flow storeProgram to retrieveProgram;
+        flow playbackCommand to playProgram;
+        flow retrieveProgram to playProgram;
+        flow playProgram to displayedProgram;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a MythTV-based personal video recorder capability that receives television broadcasts, maintains program guide information, records scheduled programs, stores media, and plays live or recorded television through user frontends. */
+    }
+
+    requirement def ScheduledRecordingRequirement {
+        doc /* The system shall allow a user to schedule a television program for recording from program guide data or manual channel/time selection. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::scheduler::maximumConcurrentRecordings >= 1
+        }
+    }
+
+    requirement def MultiTunerRequirement {
+        doc /* The backend shall support concurrent capture from at least two tuner sources to reduce recording conflicts. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::scheduler::maximumConcurrentRecordings >= 2
+        }
+    }
+
+    requirement def StorageCapacityRequirement {
+        doc /* The media storage subsystem shall provide sufficient capacity for long-term retention of recorded television programs. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::storage::totalCapacity >= 4000 [GByte]
+        }
+    }
+
+    requirement def LowStorageProtectionRequirement {
+        doc /* The storage subsystem shall preserve a minimum amount of free space by expiring eligible old recordings before storage exhaustion. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::storage::minimumFreeCapacity >= 50 [GByte]
+        }
+    }
+
+    requirement def PlaybackRequirement {
+        doc /* The frontend shall support playback control for live and recorded media, including play, pause, stop, and seek commands. */
+    }
+
+    requirement def RemoteAccessRequirement {
+        doc /* The system shall expose status, scheduling, and streaming functions over a home network for remote frontends. */
+    }
+
+    requirement def GuideUpdateRequirement {
+        doc /* The electronic program guide shall refresh guide data at least every twenty-four hours. */
+        require constraint {
+            MythTVPersonalVideoRecorderSystem::backend::guide::updateInterval <= 86400 [s]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MythTVPersonalVideoRecorderSystem;
+    satisfy ScheduledRecordingRequirement by MythTVPersonalVideoRecorderSystem::backend::scheduler;
+    satisfy MultiTunerRequirement by MythTVPersonalVideoRecorderSystem::backend;
+    satisfy StorageCapacityRequirement by MythTVPersonalVideoRecorderSystem::backend::storage;
+    satisfy LowStorageProtectionRequirement by MythTVPersonalVideoRecorderSystem::backend::storage;
+    satisfy PlaybackRequirement by MythTVPersonalVideoRecorderSystem::livingRoomFrontend::playback;
+    satisfy RemoteAccessRequirement by MythTVPersonalVideoRecorderSystem::remoteFrontend;
+    satisfy GuideUpdateRequirement by MythTVPersonalVideoRecorderSystem::backend::guide;
+}

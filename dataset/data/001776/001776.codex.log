@@ -1,0 +1,957 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-hf261chc
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb807-fbae-7f82-a4d9-1eee355f4fe1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Federal Signal Corporation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FederalSignalBasedSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        :>> range = "0..100";
+    }
+
+    attribute def DecibelA :> Real {
+        unit = "dBA";
+    }
+
+    attribute def Candela :> Real {
+        unit = "cd";
+    }
+
+    attribute def VoltDC :> Real {
+        unit = "V";
+    }
+
+    attribute def AmpereHour :> Real {
+        unit = "A*h";
+    }
+
+    attribute def KilometerPerHour :> Real {
+        unit = "km/h";
+    }
+
+    attribute def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltDC;
+        attribute current : CurrentValue;
+        attribute available : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute requestedMode : AlertModeKind;
+    }
+
+    item def AudioSignal {
+        attribute pattern : SirenPatternKind;
+        attribute soundLevel : DecibelA;
+        attribute active : Boolean;
+    }
+
+    item def VisualSignal {
+        attribute flashPattern : FlashPatternKind;
+        attribute luminousIntensity : Candela;
+        attribute active : Boolean;
+    }
+
+    item def VehicleStatus {
+        attribute speed : KilometerPerHour;
+        attribute ignitionOn : Boolean;
+        attribute parkingBrakeApplied : Boolean;
+        attribute batteryStateOfCharge : Percent;
+    }
+
+    item def DiagnosticReport {
+        attribute faultPresent : Boolean;
+        attribute faultCode : String;
+        attribute degradedOperationAllowed : Boolean;
+    }
+
+    enum def AlertModeKind {
+        enum normal;
+        enum standby;
+        enum response;
+        enum intersectionClearance;
+        enum publicAddress;
+        enum airHorn;
+        enum fault;
+    }
+
+    enum def SirenPatternKind {
+        enum wail;
+        enum yelp;
+        enum priority;
+        enum hiLo;
+        enum manualTone;
+        enum silent;
+    }
+
+    enum def FlashPatternKind {
+        enum steadyBurn;
+        enum alternating;
+        enum tripleFlash;
+        enum intersectionSweep;
+        enum off;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusInputPort {
+        in item status : VehicleStatus;
+    }
+
+    port def AudioOutputPort {
+        out item audio : AudioSignal;
+    }
+
+    port def VisualOutputPort {
+        out item visual : VisualSignal;
+    }
+
+    port def DiagnosticOutputPort {
+        out item report : DiagnosticReport;
+    }
+
+    part def EmergencyWarningVehicleSystem {
+        attribute systemName : String = "Federal Signal Inspired Integrated Emergency Warning System";
+        attribute primaryFunction : String =
+            "Provide coordinated audible and visible warning from an emergency vehicle so nearby traffic and pedestrians are alerted to the vehicle's presence, direction, and operational priority.";
+        attribute nominalVoltage : VoltDC = 12.0;
+        attribute minimumOperatingVoltage : VoltDC = 10.5;
+        attribute maximumSoundLevel : DecibelA = 124.0;
+        attribute minimumWarningLightIntensity : Candela = 500.0;
+        attribute commandResponseTime : Millisecond = 100.0;
+
+        port powerIn : PowerInputPort;
+        port operatorCommandIn : CommandInputPort;
+        port vehicleStatusIn : StatusInputPort;
+        port audioOut : AudioOutputPort;
+        port visualOut : VisualOutputPort;
+        port diagnosticsOut : DiagnosticOutputPort;
+
+        part controlHead : OperatorControlHead;
+        part warningController : WarningController;
+        part sirenAmplifier : SirenAmplifier;
+        part speakerArray : SpeakerArray;
+        part lightbar : RoofLightbar;
+        part grilleLights : AuxiliaryWarningLights;
+        part powerModule : ProtectedPowerModule;
+        part diagnosticsModule : DiagnosticsModule;
+
+        connect powerIn to powerModule.externalPowerIn;
+        connect powerModule.protectedPowerOut to warningController.powerIn;
+        connect powerModule.protectedPowerOut to sirenAmplifier.powerIn;
+        connect powerModule.protectedPowerOut to lightbar.powerIn;
+        connect powerModule.protectedPowerOut to grilleLights.powerIn;
+        connect operatorCommandIn to controlHead.commandIn;
+        connect vehicleStatusIn to warningController.vehicleStatusIn;
+        connect controlHead.commandOut to warningController.commandIn;
+        connect warningController.audioCommandOut to sirenAmplifier.audioCommandIn;
+        connect warningController.visualCommandOut to lightbar.visualCommandIn;
+        connect warningController.visualCommandOut to grilleLights.visualCommandIn;
+        connect sirenAmplifier.audioOut to speakerArray.audioIn;
+        connect speakerArray.externalAudioOut to audioOut;
+        connect lightbar.externalVisualOut to visualOut;
+        connect grilleLights.externalVisualOut to visualOut;
+        connect diagnosticsModule.reportOut to diagnosticsOut;
+        connect warningController.diagnosticOut to diagnosticsModule.controllerDiagnosticIn;
+        connect sirenAmplifier.diagnosticOut to diagnosticsModule.audioDiagnosticIn;
+        connect lightbar.diagnosticOut to diagnosticsModule.visualDiagnosticIn;
+        connect powerModule.diagnosticOut to diagnosticsModule.powerDiagnosticIn;
+
+        perform action coordinateEmergencyWarning;
+        exhibit state warningSystemStates;
+    }
+
+    part def OperatorControlHead {
+        attribute buttonBacklightLevel : Percent = 75.0;
+        attribute selectedMode : AlertModeKind = AlertModeKind::standby;
+
+        port commandIn : CommandInputPort;
+        port commandOut : CommandInputPort;
+
+        action acceptOperatorSelection {
+            in item requestedCommand : ControlCommand;
+            out item validatedCommand : ControlCommand;
+        }
+    }
+
+    part def WarningController {
+        attribute activeMode : AlertModeKind = AlertModeKind::standby;
+        attribute responseLatency : Millisecond;
+        attribute automaticIntersectionModeEnabled : Boolean = true;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port vehicleStatusIn : StatusInputPort;
+        port audioCommandOut : AudioOutputPort;
+        port visualCommandOut : VisualOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action selectWarningProfile {
+            in item command : ControlCommand;
+            in item status : VehicleStatus;
+            out item audioProfile : AudioSignal;
+            out item visualProfile : VisualSignal;
+        }
+
+        action inhibitUnsafeModes {
+            in item status : VehicleStatus;
+            in item requestedCommand : ControlCommand;
+            out item permittedCommand : ControlCommand;
+        }
+    }
+
+    part def SirenAmplifier {
+        attribute ratedPowerOutput : PowerValue = 200 [W];
+        attribute outputImpedance : ResistanceValue = 11 [ohm];
+        attribute thermalLimit : TemperatureValue = 85 [degC];
+
+        port powerIn : PowerInputPort;
+        port audioCommandIn : AudioOutputPort;
+        port audioOut : AudioOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action synthesizeSirenTone {
+            in item commandSignal : AudioSignal;
+            out item amplifiedSignal : AudioSignal;
+        }
+    }
+
+    part def SpeakerArray {
+        attribute speakerCount : Integer = 2;
+        attribute nominalSoundLevelAt3m : DecibelA = 124.0;
+
+        port audioIn : AudioOutputPort;
+        port externalAudioOut : AudioOutputPort;
+    }
+
+    part def RoofLightbar {
+        attribute moduleCount : Integer = 14;
+        attribute peakIntensity : Candela = 1200.0;
+        attribute waterproofRating : String = "IP67";
+
+        port powerIn : PowerInputPort;
+        port visualCommandIn : VisualOutputPort;
+        port externalVisualOut : VisualOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action generateWarningFlash {
+            in item visualCommand : VisualSignal;
+            out item emittedLight : VisualSignal;
+        }
+    }
+
+    part def AuxiliaryWarningLights {
+        attribute moduleCount : Integer = 6;
+        attribute peakIntensity : Candela = 800.0;
+
+        port powerIn : PowerInputPort;
+        port visualCommandIn : VisualOutputPort;
+        port externalVisualOut : VisualOutputPort;
+    }
+
+    part def ProtectedPowerModule {
+        attribute fuseRating : CurrentValue = 40 [A];
+        attribute batteryCapacityReserve : AmpereHour = 18.0;
+        attribute lowVoltageCutoff : VoltDC = 10.5;
+
+        port externalPowerIn : PowerInputPort;
+        port protectedPowerOut : PowerInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action distributeProtectedPower {
+            in item rawPower : ElectricalPower;
+            out item protectedPower : ElectricalPower;
+        }
+    }
+
+    part def DiagnosticsModule {
+        attribute lastFaultCode : String = "NONE";
+        attribute faultPresent : Boolean = false;
+        attribute reportingInterval : TimeValue = 1 [s];
+
+        port controllerDiagnosticIn : DiagnosticOutputPort;
+        port audioDiagnosticIn : DiagnosticOutputPort;
+        port visualDiagnosticIn : DiagnosticOutputPort;
+        port powerDiagnosticIn : DiagnosticOutputPort;
+        port reportOut : DiagnosticOutputPort;
+
+        action aggregateHealthStatus {
+            in item controllerReport : DiagnosticReport;
+            in item audioReport : DiagnosticReport;
+            in item visualReport : DiagnosticReport;
+            in item powerReport : DiagnosticReport;
+            out item systemReport : DiagnosticReport;
+        }
+    }
+
+    action def CoordinateEmergencyWarning {
+        in item operatorCommand : ControlCommand;
+        in item vehicleStatus : VehicleStatus;
+        in item electricalPower : ElectricalPower;
+        out item audioWarning : AudioSignal;
+        out item visualWarning : VisualSignal;
+        out item diagnosticReport : DiagnosticReport;
+
+        first start;
+        then validateCommand;
+        then evaluateVehicleContext;
+        then selectAudiblePattern;
+        then selectVisualPattern;
+        then energizeOutputs;
+        then monitorHealth;
+        then done;
+
+        action validateCommand;
+        action evaluateVehicleContext;
+        action selectAudiblePattern;
+        action selectVisualPattern;
+        action energizeOutputs;
+        action monitorHealth;
+    }
+
+    state def WarningSystemStates {
+        entry action initializeSelfTest;
+
+        state standby;
+        state normalPatrol;
+        state emergencyResponse;
+        state intersectionClearance;
+        state publicAddress;
+        state degradedFault;
+        state shutdown;
+
+        transition initial then standby;
+
+        transition standby_to_normal
+            first standby
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::normal
+            then normalPatrol;
+
+        transition normal_to_response
+            first normalPatrol
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::response
+            then emergencyResponse;
+
+        transition response_to_intersection
+            first emergencyResponse
+            accept VehicleStatus
+            if status.speed < 25.0
+            then intersectionClearance;
+
+        transition intersection_to_response
+            first intersectionClearance
+            accept VehicleStatus
+            if status.speed >= 25.0
+            then emergencyResponse;
+
+        transition any_to_publicAddress
+            first standby
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::publicAddress
+            then publicAddress;
+
+        transition response_to_standby
+            first emergencyResponse
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::standby
+            then standby;
+
+        transition fault_detected
+            first emergencyResponse
+            accept DiagnosticReport
+            if report.faultPresent == true and report.degradedOperationAllowed == true
+            then degradedFault;
+
+        transition critical_fault_shutdown
+            first degradedFault
+            accept DiagnosticReport
+            if report.faultPresent == true and report.degradedOperationAllowed == false
+            then shutdown;
+
+        state emergencyResponse {
+            entry action enableWailOrYelpSiren;
+            do action maintainAlternatingWarningLights;
+            exit action silenceSirenIfCommanded;
+        }
+
+        state intersectionClearance {
+            entry action enablePriorityTone;
+            do action enableIntersectionSweepLighting;
+        }
+
+        state publicAddress {
+            entry action muteSirenTone;
+            do action amplifyMicrophoneAudio;
+        }
+
+        state degradedFault {
+            entry action notifyOperatorOfFault;
+            do action preserveAvailableWarningChannels;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The system shall provide coordinated audible and visual emergency warning for an authorized emergency vehicle at a high level comparable to Federal Signal Corporation warning products. */
+    }
+
+    requirement def AudibleWarningRequirement {
+        attribute requiredSoundLevelAt3m : DecibelA = 118.0;
+        doc
+            /* The system shall emit an audible warning pattern with a sound level of at least 118 dBA at 3 meters during emergency response mode. */
+    }
+
+    requirement def VisualWarningRequirement {
+        attribute requiredPeakIntensity : Candela = 500.0;
+        doc
+            /* The system shall emit visible warning flashes with peak luminous intensity of at least 500 cd from roof and auxiliary warning lamps during emergency response mode. */
+    }
+
+    requirement def PowerProtectionRequirement {
+        attribute minimumVoltage : VoltDC = 10.5;
+        doc
+            /* The system shall protect warning loads from undervoltage operation by reporting low voltage and disabling nonessential outputs below 10.5 VDC. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        attribute maximumLatency : Millisecond = 100.0;
+        doc
+            /* The system shall respond to a valid operator mode command within 100 ms. */
+    }
+
+    requirement def DiagnosticRequirement {
+        doc
+            /* The system shall continuously report controller, power, audio, and visual subsystem health to support operator awareness and maintenance. */
+    }
+
+    satisfy PrimaryFunctionRequirement by EmergencyWarningVehicleSystem;
+    satisfy AudibleWarningRequirement by SpeakerArray;
+    satisfy VisualWarningRequirement by RoofLightbar;
+    satisfy VisualWarningRequirement by AuxiliaryWarningLights;
+    satisfy PowerProtectionRequirement by ProtectedPowerModule;
+    satisfy ResponseTimeRequirement by WarningController;
+    satisfy DiagnosticRequirement by DiagnosticsModule;
+
+    concern def PublicSafetyWarningConcern {
+        doc
+            /* Nearby drivers and pedestrians need rapid recognition that an emergency vehicle is approaching or operating in a hazardous traffic environment. */
+    }
+
+    viewpoint def EmergencyVehicleOperatorViewpoint {
+        concern PublicSafetyWarningConcern;
+        language "SysML v2 textual notation";
+        purpose
+            /* Describe the high-level function, interfaces, behavior, and requirements of a Federal Signal inspired emergency warning system. */
+    }
+
+    view def EmergencyVehicleWarningSystemView {
+        viewpoint EmergencyVehicleOperatorViewpoint;
+        expose EmergencyWarningVehicleSystem;
+        expose PrimaryFunctionRequirement;
+        expose AudibleWarningRequirement;
+        expose VisualWarningRequirement;
+        expose PowerProtectionRequirement;
+        expose ResponseTimeRequirement;
+        expose DiagnosticRequirement;
+    }
+}
+tokens used
+3,550
+package FederalSignalBasedSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        :>> range = "0..100";
+    }
+
+    attribute def DecibelA :> Real {
+        unit = "dBA";
+    }
+
+    attribute def Candela :> Real {
+        unit = "cd";
+    }
+
+    attribute def VoltDC :> Real {
+        unit = "V";
+    }
+
+    attribute def AmpereHour :> Real {
+        unit = "A*h";
+    }
+
+    attribute def KilometerPerHour :> Real {
+        unit = "km/h";
+    }
+
+    attribute def Millisecond :> Real {
+        unit = "ms";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltDC;
+        attribute current : CurrentValue;
+        attribute available : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute requestedMode : AlertModeKind;
+    }
+
+    item def AudioSignal {
+        attribute pattern : SirenPatternKind;
+        attribute soundLevel : DecibelA;
+        attribute active : Boolean;
+    }
+
+    item def VisualSignal {
+        attribute flashPattern : FlashPatternKind;
+        attribute luminousIntensity : Candela;
+        attribute active : Boolean;
+    }
+
+    item def VehicleStatus {
+        attribute speed : KilometerPerHour;
+        attribute ignitionOn : Boolean;
+        attribute parkingBrakeApplied : Boolean;
+        attribute batteryStateOfCharge : Percent;
+    }
+
+    item def DiagnosticReport {
+        attribute faultPresent : Boolean;
+        attribute faultCode : String;
+        attribute degradedOperationAllowed : Boolean;
+    }
+
+    enum def AlertModeKind {
+        enum normal;
+        enum standby;
+        enum response;
+        enum intersectionClearance;
+        enum publicAddress;
+        enum airHorn;
+        enum fault;
+    }
+
+    enum def SirenPatternKind {
+        enum wail;
+        enum yelp;
+        enum priority;
+        enum hiLo;
+        enum manualTone;
+        enum silent;
+    }
+
+    enum def FlashPatternKind {
+        enum steadyBurn;
+        enum alternating;
+        enum tripleFlash;
+        enum intersectionSweep;
+        enum off;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    port def StatusInputPort {
+        in item status : VehicleStatus;
+    }
+
+    port def AudioOutputPort {
+        out item audio : AudioSignal;
+    }
+
+    port def VisualOutputPort {
+        out item visual : VisualSignal;
+    }
+
+    port def DiagnosticOutputPort {
+        out item report : DiagnosticReport;
+    }
+
+    part def EmergencyWarningVehicleSystem {
+        attribute systemName : String = "Federal Signal Inspired Integrated Emergency Warning System";
+        attribute primaryFunction : String =
+            "Provide coordinated audible and visible warning from an emergency vehicle so nearby traffic and pedestrians are alerted to the vehicle's presence, direction, and operational priority.";
+        attribute nominalVoltage : VoltDC = 12.0;
+        attribute minimumOperatingVoltage : VoltDC = 10.5;
+        attribute maximumSoundLevel : DecibelA = 124.0;
+        attribute minimumWarningLightIntensity : Candela = 500.0;
+        attribute commandResponseTime : Millisecond = 100.0;
+
+        port powerIn : PowerInputPort;
+        port operatorCommandIn : CommandInputPort;
+        port vehicleStatusIn : StatusInputPort;
+        port audioOut : AudioOutputPort;
+        port visualOut : VisualOutputPort;
+        port diagnosticsOut : DiagnosticOutputPort;
+
+        part controlHead : OperatorControlHead;
+        part warningController : WarningController;
+        part sirenAmplifier : SirenAmplifier;
+        part speakerArray : SpeakerArray;
+        part lightbar : RoofLightbar;
+        part grilleLights : AuxiliaryWarningLights;
+        part powerModule : ProtectedPowerModule;
+        part diagnosticsModule : DiagnosticsModule;
+
+        connect powerIn to powerModule.externalPowerIn;
+        connect powerModule.protectedPowerOut to warningController.powerIn;
+        connect powerModule.protectedPowerOut to sirenAmplifier.powerIn;
+        connect powerModule.protectedPowerOut to lightbar.powerIn;
+        connect powerModule.protectedPowerOut to grilleLights.powerIn;
+        connect operatorCommandIn to controlHead.commandIn;
+        connect vehicleStatusIn to warningController.vehicleStatusIn;
+        connect controlHead.commandOut to warningController.commandIn;
+        connect warningController.audioCommandOut to sirenAmplifier.audioCommandIn;
+        connect warningController.visualCommandOut to lightbar.visualCommandIn;
+        connect warningController.visualCommandOut to grilleLights.visualCommandIn;
+        connect sirenAmplifier.audioOut to speakerArray.audioIn;
+        connect speakerArray.externalAudioOut to audioOut;
+        connect lightbar.externalVisualOut to visualOut;
+        connect grilleLights.externalVisualOut to visualOut;
+        connect diagnosticsModule.reportOut to diagnosticsOut;
+        connect warningController.diagnosticOut to diagnosticsModule.controllerDiagnosticIn;
+        connect sirenAmplifier.diagnosticOut to diagnosticsModule.audioDiagnosticIn;
+        connect lightbar.diagnosticOut to diagnosticsModule.visualDiagnosticIn;
+        connect powerModule.diagnosticOut to diagnosticsModule.powerDiagnosticIn;
+
+        perform action coordinateEmergencyWarning;
+        exhibit state warningSystemStates;
+    }
+
+    part def OperatorControlHead {
+        attribute buttonBacklightLevel : Percent = 75.0;
+        attribute selectedMode : AlertModeKind = AlertModeKind::standby;
+
+        port commandIn : CommandInputPort;
+        port commandOut : CommandInputPort;
+
+        action acceptOperatorSelection {
+            in item requestedCommand : ControlCommand;
+            out item validatedCommand : ControlCommand;
+        }
+    }
+
+    part def WarningController {
+        attribute activeMode : AlertModeKind = AlertModeKind::standby;
+        attribute responseLatency : Millisecond;
+        attribute automaticIntersectionModeEnabled : Boolean = true;
+
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port vehicleStatusIn : StatusInputPort;
+        port audioCommandOut : AudioOutputPort;
+        port visualCommandOut : VisualOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action selectWarningProfile {
+            in item command : ControlCommand;
+            in item status : VehicleStatus;
+            out item audioProfile : AudioSignal;
+            out item visualProfile : VisualSignal;
+        }
+
+        action inhibitUnsafeModes {
+            in item status : VehicleStatus;
+            in item requestedCommand : ControlCommand;
+            out item permittedCommand : ControlCommand;
+        }
+    }
+
+    part def SirenAmplifier {
+        attribute ratedPowerOutput : PowerValue = 200 [W];
+        attribute outputImpedance : ResistanceValue = 11 [ohm];
+        attribute thermalLimit : TemperatureValue = 85 [degC];
+
+        port powerIn : PowerInputPort;
+        port audioCommandIn : AudioOutputPort;
+        port audioOut : AudioOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action synthesizeSirenTone {
+            in item commandSignal : AudioSignal;
+            out item amplifiedSignal : AudioSignal;
+        }
+    }
+
+    part def SpeakerArray {
+        attribute speakerCount : Integer = 2;
+        attribute nominalSoundLevelAt3m : DecibelA = 124.0;
+
+        port audioIn : AudioOutputPort;
+        port externalAudioOut : AudioOutputPort;
+    }
+
+    part def RoofLightbar {
+        attribute moduleCount : Integer = 14;
+        attribute peakIntensity : Candela = 1200.0;
+        attribute waterproofRating : String = "IP67";
+
+        port powerIn : PowerInputPort;
+        port visualCommandIn : VisualOutputPort;
+        port externalVisualOut : VisualOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action generateWarningFlash {
+            in item visualCommand : VisualSignal;
+            out item emittedLight : VisualSignal;
+        }
+    }
+
+    part def AuxiliaryWarningLights {
+        attribute moduleCount : Integer = 6;
+        attribute peakIntensity : Candela = 800.0;
+
+        port powerIn : PowerInputPort;
+        port visualCommandIn : VisualOutputPort;
+        port externalVisualOut : VisualOutputPort;
+    }
+
+    part def ProtectedPowerModule {
+        attribute fuseRating : CurrentValue = 40 [A];
+        attribute batteryCapacityReserve : AmpereHour = 18.0;
+        attribute lowVoltageCutoff : VoltDC = 10.5;
+
+        port externalPowerIn : PowerInputPort;
+        port protectedPowerOut : PowerInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action distributeProtectedPower {
+            in item rawPower : ElectricalPower;
+            out item protectedPower : ElectricalPower;
+        }
+    }
+
+    part def DiagnosticsModule {
+        attribute lastFaultCode : String = "NONE";
+        attribute faultPresent : Boolean = false;
+        attribute reportingInterval : TimeValue = 1 [s];
+
+        port controllerDiagnosticIn : DiagnosticOutputPort;
+        port audioDiagnosticIn : DiagnosticOutputPort;
+        port visualDiagnosticIn : DiagnosticOutputPort;
+        port powerDiagnosticIn : DiagnosticOutputPort;
+        port reportOut : DiagnosticOutputPort;
+
+        action aggregateHealthStatus {
+            in item controllerReport : DiagnosticReport;
+            in item audioReport : DiagnosticReport;
+            in item visualReport : DiagnosticReport;
+            in item powerReport : DiagnosticReport;
+            out item systemReport : DiagnosticReport;
+        }
+    }
+
+    action def CoordinateEmergencyWarning {
+        in item operatorCommand : ControlCommand;
+        in item vehicleStatus : VehicleStatus;
+        in item electricalPower : ElectricalPower;
+        out item audioWarning : AudioSignal;
+        out item visualWarning : VisualSignal;
+        out item diagnosticReport : DiagnosticReport;
+
+        first start;
+        then validateCommand;
+        then evaluateVehicleContext;
+        then selectAudiblePattern;
+        then selectVisualPattern;
+        then energizeOutputs;
+        then monitorHealth;
+        then done;
+
+        action validateCommand;
+        action evaluateVehicleContext;
+        action selectAudiblePattern;
+        action selectVisualPattern;
+        action energizeOutputs;
+        action monitorHealth;
+    }
+
+    state def WarningSystemStates {
+        entry action initializeSelfTest;
+
+        state standby;
+        state normalPatrol;
+        state emergencyResponse;
+        state intersectionClearance;
+        state publicAddress;
+        state degradedFault;
+        state shutdown;
+
+        transition initial then standby;
+
+        transition standby_to_normal
+            first standby
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::normal
+            then normalPatrol;
+
+        transition normal_to_response
+            first normalPatrol
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::response
+            then emergencyResponse;
+
+        transition response_to_intersection
+            first emergencyResponse
+            accept VehicleStatus
+            if status.speed < 25.0
+            then intersectionClearance;
+
+        transition intersection_to_response
+            first intersectionClearance
+            accept VehicleStatus
+            if status.speed >= 25.0
+            then emergencyResponse;
+
+        transition any_to_publicAddress
+            first standby
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::publicAddress
+            then publicAddress;
+
+        transition response_to_standby
+            first emergencyResponse
+            accept ControlCommand
+            if command.requestedMode == AlertModeKind::standby
+            then standby;
+
+        transition fault_detected
+            first emergencyResponse
+            accept DiagnosticReport
+            if report.faultPresent == true and report.degradedOperationAllowed == true
+            then degradedFault;
+
+        transition critical_fault_shutdown
+            first degradedFault
+            accept DiagnosticReport
+            if report.faultPresent == true and report.degradedOperationAllowed == false
+            then shutdown;
+
+        state emergencyResponse {
+            entry action enableWailOrYelpSiren;
+            do action maintainAlternatingWarningLights;
+            exit action silenceSirenIfCommanded;
+        }
+
+        state intersectionClearance {
+            entry action enablePriorityTone;
+            do action enableIntersectionSweepLighting;
+        }
+
+        state publicAddress {
+            entry action muteSirenTone;
+            do action amplifyMicrophoneAudio;
+        }
+
+        state degradedFault {
+            entry action notifyOperatorOfFault;
+            do action preserveAvailableWarningChannels;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The system shall provide coordinated audible and visual emergency warning for an authorized emergency vehicle at a high level comparable to Federal Signal Corporation warning products. */
+    }
+
+    requirement def AudibleWarningRequirement {
+        attribute requiredSoundLevelAt3m : DecibelA = 118.0;
+        doc
+            /* The system shall emit an audible warning pattern with a sound level of at least 118 dBA at 3 meters during emergency response mode. */
+    }
+
+    requirement def VisualWarningRequirement {
+        attribute requiredPeakIntensity : Candela = 500.0;
+        doc
+            /* The system shall emit visible warning flashes with peak luminous intensity of at least 500 cd from roof and auxiliary warning lamps during emergency response mode. */
+    }
+
+    requirement def PowerProtectionRequirement {
+        attribute minimumVoltage : VoltDC = 10.5;
+        doc
+            /* The system shall protect warning loads from undervoltage operation by reporting low voltage and disabling nonessential outputs below 10.5 VDC. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        attribute maximumLatency : Millisecond = 100.0;
+        doc
+            /* The system shall respond to a valid operator mode command within 100 ms. */
+    }
+
+    requirement def DiagnosticRequirement {
+        doc
+            /* The system shall continuously report controller, power, audio, and visual subsystem health to support operator awareness and maintenance. */
+    }
+
+    satisfy PrimaryFunctionRequirement by EmergencyWarningVehicleSystem;
+    satisfy AudibleWarningRequirement by SpeakerArray;
+    satisfy VisualWarningRequirement by RoofLightbar;
+    satisfy VisualWarningRequirement by AuxiliaryWarningLights;
+    satisfy PowerProtectionRequirement by ProtectedPowerModule;
+    satisfy ResponseTimeRequirement by WarningController;
+    satisfy DiagnosticRequirement by DiagnosticsModule;
+
+    concern def PublicSafetyWarningConcern {
+        doc
+            /* Nearby drivers and pedestrians need rapid recognition that an emergency vehicle is approaching or operating in a hazardous traffic environment. */
+    }
+
+    viewpoint def EmergencyVehicleOperatorViewpoint {
+        concern PublicSafetyWarningConcern;
+        language "SysML v2 textual notation";
+        purpose
+            /* Describe the high-level function, interfaces, behavior, and requirements of a Federal Signal inspired emergency warning system. */
+    }
+
+    view def EmergencyVehicleWarningSystemView {
+        viewpoint EmergencyVehicleOperatorViewpoint;
+        expose EmergencyWarningVehicleSystem;
+        expose PrimaryFunctionRequirement;
+        expose AudibleWarningRequirement;
+        expose VisualWarningRequirement;
+        expose PowerProtectionRequirement;
+        expose ResponseTimeRequirement;
+        expose DiagnosticRequirement;
+    }
+}

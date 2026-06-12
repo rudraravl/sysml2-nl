@@ -1,0 +1,279 @@
+package AlarmSensingUnitModel {
+
+    private import ScalarValues::*;
+    private import SI::*;
+    private import ISQ::*;
+
+    attribute def SoundPressureLevel :> ScalarValues::Real {
+        unit = "dB";
+    }
+
+    attribute def Frequency :> ScalarValues::Real {
+        unit = "Hz";
+    }
+
+    attribute def TimeDuration :> ScalarValues::Real {
+        unit = "s";
+    }
+
+    attribute def ElectricPotential :> ScalarValues::Real {
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent :> ScalarValues::Real {
+        unit = "mA";
+    }
+
+    attribute def Percentage :> ScalarValues::Real {
+        unit = "%";
+    }
+
+    enum def AlarmClassification {
+        enum normal;
+        enum warning;
+        enum alarm;
+        enum fault;
+    }
+
+    item def AcousticSample {
+        attribute soundPressureLevel : SoundPressureLevel;
+        attribute dominantFrequency : Frequency;
+        attribute sampleAge : TimeDuration;
+    }
+
+    item def AlarmMeasurement {
+        attribute measuredSoundLevel : SoundPressureLevel;
+        attribute measuredFrequency : Frequency;
+        attribute confidence : Percentage;
+        attribute classification : AlarmClassification;
+        attribute measurementTimestamp : TimeDuration;
+    }
+
+    item def AlarmEvent {
+        attribute eventLevel : AlarmClassification;
+        attribute eventSoundLevel : SoundPressureLevel;
+        attribute eventConfidence : Percentage;
+        attribute eventDuration : TimeDuration;
+    }
+
+    item def DiagnosticStatus {
+        attribute supplyVoltage : ElectricPotential;
+        attribute sensorCurrent : ElectricCurrent;
+        attribute signalQuality : Percentage;
+        attribute faultPresent : Boolean;
+    }
+
+    port def AcousticInputPort {
+        in item acousticSignal : AcousticSample;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : AlarmMeasurement;
+    }
+
+    port def AlarmEventPort {
+        out item alarmEvent : AlarmEvent;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticStatus;
+    }
+
+    port def PowerInputPort {
+        in attribute voltage : ElectricPotential;
+        in attribute currentLimit : ElectricCurrent;
+    }
+
+    action def AcquireAcousticSignal {
+        in item rawSignal : AcousticSample;
+        out item acquiredSignal : AcousticSample;
+    }
+
+    action def FilterAlarmBand {
+        in item acquiredSignal : AcousticSample;
+        out item filteredSignal : AcousticSample;
+    }
+
+    action def ClassifyAlarmSignal {
+        in item filteredSignal : AcousticSample;
+        out item measurement : AlarmMeasurement;
+    }
+
+    action def PublishMeasurement {
+        in item measurement : AlarmMeasurement;
+        out item publishedMeasurement : AlarmMeasurement;
+    }
+
+    action def PublishAlarmEvent {
+        in item measurement : AlarmMeasurement;
+        out item event : AlarmEvent;
+    }
+
+    state def AlarmSensorOperatingState {
+        entry action initialize;
+        state Initializing;
+        state Monitoring;
+        state AlarmDetected;
+        state Faulted;
+
+        transition first Initializing;
+        transition Initializing then Monitoring
+            accept after 2.0 [s];
+
+        transition Monitoring then AlarmDetected
+            accept when measurement.classification == AlarmClassification::alarm;
+
+        transition AlarmDetected then Monitoring
+            accept when measurement.classification == AlarmClassification::normal;
+
+        transition Monitoring then Faulted
+            accept when diagnostic.faultPresent == true;
+
+        transition AlarmDetected then Faulted
+            accept when diagnostic.faultPresent == true;
+
+        transition Faulted then Initializing
+            accept reset;
+    }
+
+    part def AlarmSensor {
+        port acousticIn : AcousticInputPort;
+        port measurementOut : MeasurementOutputPort;
+        port diagnosticOut : DiagnosticPort;
+        port powerIn : PowerInputPort;
+
+        attribute minimumDetectableLevel : SoundPressureLevel = 65.0;
+        attribute alarmThresholdLevel : SoundPressureLevel = 85.0;
+        attribute expectedAlarmFrequency : Frequency = 3200.0;
+        attribute frequencyTolerance : Frequency = 500.0;
+        attribute responseTimeLimit : TimeDuration = 1.0;
+        attribute minimumConfidence : Percentage = 90.0;
+        attribute nominalSupplyVoltage : ElectricPotential = 5.0;
+        attribute maximumSupplyCurrent : ElectricCurrent = 50.0;
+
+        perform action acquire : AcquireAcousticSignal;
+        perform action filter : FilterAlarmBand;
+        perform action classify : ClassifyAlarmSignal;
+        perform action publish : PublishMeasurement;
+
+        exhibit state operatingState : AlarmSensorOperatingState;
+    }
+
+    part def SignalProcessor {
+        port measurementIn : MeasurementOutputPort;
+        port eventOut : AlarmEventPort;
+        port diagnosticOut : DiagnosticPort;
+
+        attribute eventHoldTime : TimeDuration = 3.0;
+        attribute warningThresholdLevel : SoundPressureLevel = 75.0;
+        attribute alarmThresholdLevel : SoundPressureLevel = 85.0;
+        attribute requiredConfidence : Percentage = 90.0;
+
+        perform action generateEvent : PublishAlarmEvent;
+    }
+
+    part def PowerConditioner {
+        port powerIn : PowerInputPort;
+        port regulatedPowerOut : PowerInputPort;
+        port diagnosticOut : DiagnosticPort;
+
+        attribute inputVoltageMinimum : ElectricPotential = 9.0;
+        attribute inputVoltageMaximum : ElectricPotential = 32.0;
+        attribute outputVoltage : ElectricPotential = 5.0;
+        attribute outputCurrentLimit : ElectricCurrent = 100.0;
+    }
+
+    part def AlarmSensingUnit {
+        port externalAcousticInput : AcousticInputPort;
+        port externalPowerInput : PowerInputPort;
+        port measurementOutput : MeasurementOutputPort;
+        port alarmEventOutput : AlarmEventPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part sensor : AlarmSensor;
+        part processor : SignalProcessor;
+        part powerConditioner : PowerConditioner;
+
+        connect externalAcousticInput to sensor.acousticIn;
+        connect externalPowerInput to powerConditioner.powerIn;
+        connect powerConditioner.regulatedPowerOut to sensor.powerIn;
+        connect sensor.measurementOut to processor.measurementIn;
+        connect sensor.measurementOut to measurementOutput;
+        connect processor.eventOut to alarmEventOutput;
+        connect sensor.diagnosticOut to diagnosticOutput;
+        connect processor.diagnosticOut to diagnosticOutput;
+        connect powerConditioner.diagnosticOut to diagnosticOutput;
+
+        attribute measuredQuantity : String = "audible alarm acoustic signal";
+        attribute nominalSamplingPeriod : TimeDuration = 0.05;
+        attribute maximumEndToEndLatency : TimeDuration = 1.5;
+        attribute installedDetectionRange : SoundPressureLevel = 120.0;
+    }
+
+    requirement def DetectAudibleAlarmRequirement {
+        subject sensingUnit : AlarmSensingUnit;
+        attribute requiredAlarmLevel : SoundPressureLevel = 85.0;
+        attribute requiredConfidence : Percentage = 90.0;
+        attribute maximumDetectionTime : TimeDuration = 1.5;
+
+        require constraint {
+            sensingUnit.sensor.alarmThresholdLevel <= requiredAlarmLevel
+        }
+
+        require constraint {
+            sensingUnit.sensor.minimumConfidence >= requiredConfidence
+        }
+
+        require constraint {
+            sensingUnit.maximumEndToEndLatency <= maximumDetectionTime
+        }
+    }
+
+    requirement def PowerCompatibilityRequirement {
+        subject sensingUnit : AlarmSensingUnit;
+        attribute minimumInputVoltage : ElectricPotential = 9.0;
+        attribute maximumInputVoltage : ElectricPotential = 32.0;
+        attribute regulatedSensorVoltage : ElectricPotential = 5.0;
+
+        require constraint {
+            sensingUnit.powerConditioner.inputVoltageMinimum <= minimumInputVoltage
+        }
+
+        require constraint {
+            sensingUnit.powerConditioner.inputVoltageMaximum >= maximumInputVoltage
+        }
+
+        require constraint {
+            sensingUnit.sensor.nominalSupplyVoltage == regulatedSensorVoltage
+        }
+    }
+
+    requirement def DiagnosticReportingRequirement {
+        subject sensingUnit : AlarmSensingUnit;
+        attribute minimumSignalQuality : Percentage = 80.0;
+        attribute maximumSensorCurrent : ElectricCurrent = 50.0;
+
+        require constraint {
+            sensingUnit.sensor.maximumSupplyCurrent <= maximumSensorCurrent
+        }
+
+        require constraint {
+            sensingUnit.processor.requiredConfidence >= minimumSignalQuality
+        }
+    }
+
+    part alarmSensingUnit : AlarmSensingUnit;
+
+    requirement alarmDetectionRequirement : DetectAudibleAlarmRequirement {
+        subject sensingUnit = alarmSensingUnit;
+    }
+
+    requirement powerRequirement : PowerCompatibilityRequirement {
+        subject sensingUnit = alarmSensingUnit;
+    }
+
+    requirement diagnosticRequirement : DiagnosticReportingRequirement {
+        subject sensingUnit = alarmSensingUnit;
+    }
+
+}

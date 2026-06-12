@@ -1,0 +1,769 @@
+package HorizonScanningSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  enum def SourceKind {
+    enum openWeb;
+    enum scientificLiterature;
+    enum patentDatabase;
+    enum regulatoryFeed;
+    enum newsFeed;
+    enum marketSignal;
+    enum socialSignal;
+    enum expertSubmission;
+    enum internalData;
+  }
+
+  enum def SignalStatus {
+    enum collected;
+    enum normalized;
+    enum scored;
+    enum clustered;
+    enum reviewed;
+    enum escalated;
+    enum archived;
+  }
+
+  enum def AlertSeverity {
+    enum advisory;
+    enum watch;
+    enum warning;
+    enum critical;
+  }
+
+  enum def EvidenceQuality {
+    enum low;
+    enum moderate;
+    enum high;
+    enum verified;
+  }
+
+  enum def TrendTrajectory {
+    enum emerging;
+    enum accelerating;
+    enum stable;
+    enum declining;
+    enum disruptive;
+  }
+
+  enum def MissionDomain {
+    enum technology;
+    enum policy;
+    enum economy;
+    enum environment;
+    enum society;
+    enum security;
+    enum health;
+    enum infrastructure;
+  }
+
+  attribute def ConfidenceScore {
+    :> ScalarValues::Real;
+    range = "0.0..1.0";
+  }
+
+  attribute def RelevanceScore {
+    :> ScalarValues::Real;
+    range = "0.0..1.0";
+  }
+
+  attribute def NoveltyScore {
+    :> ScalarValues::Real;
+    range = "0.0..1.0";
+  }
+
+  attribute def RiskScore {
+    :> ScalarValues::Real;
+    range = "0.0..1.0";
+  }
+
+  attribute def PriorityScore {
+    :> ScalarValues::Real;
+    range = "0.0..100.0";
+  }
+
+  attribute def Percent {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  attribute def Count {
+    :> ScalarValues::Integer;
+  }
+
+  attribute def Hours {
+    :> ScalarValues::Real;
+    unit = "h";
+  }
+
+  attribute def Days {
+    :> ScalarValues::Real;
+    unit = "d";
+  }
+
+  attribute def ItemsPerHour {
+    :> ScalarValues::Real;
+    unit = "item/h";
+  }
+
+  attribute def Bytes {
+    :> ScalarValues::Integer;
+    unit = "byte";
+  }
+
+  attribute def Timestamp {
+    :> ScalarValues::String;
+  }
+
+  attribute def URI {
+    :> ScalarValues::String;
+  }
+
+  item def RawObservation {
+    attribute sourceId : ScalarValues::String;
+    attribute sourceKind : SourceKind;
+    attribute retrievalTime : Timestamp;
+    attribute title : ScalarValues::String;
+    attribute bodyText : ScalarValues::String;
+    attribute uri : URI;
+    attribute payloadSize : Bytes;
+    attribute languageTag : ScalarValues::String;
+  }
+
+  item def NormalizedSignal {
+    attribute signalId : ScalarValues::String;
+    attribute sourceKind : SourceKind;
+    attribute domain : MissionDomain;
+    attribute normalizedTime : Timestamp;
+    attribute summary : ScalarValues::String;
+    attribute keywords : ScalarValues::String;
+    attribute entities : ScalarValues::String;
+    attribute status : SignalStatus;
+  }
+
+  item def ScoredSignal {
+    attribute signalId : ScalarValues::String;
+    attribute relevance : RelevanceScore;
+    attribute novelty : NoveltyScore;
+    attribute confidence : ConfidenceScore;
+    attribute evidenceQuality : EvidenceQuality;
+    attribute risk : RiskScore;
+    attribute priority : PriorityScore;
+    attribute status : SignalStatus;
+  }
+
+  item def TrendHypothesis {
+    attribute hypothesisId : ScalarValues::String;
+    attribute domain : MissionDomain;
+    attribute title : ScalarValues::String;
+    attribute description : ScalarValues::String;
+    attribute trajectory : TrendTrajectory;
+    attribute confidence : ConfidenceScore;
+    attribute supportingSignalCount : Count;
+    attribute earliestEvidenceTime : Timestamp;
+    attribute latestEvidenceTime : Timestamp;
+  }
+
+  item def HorizonAlert {
+    attribute alertId : ScalarValues::String;
+    attribute severity : AlertSeverity;
+    attribute domain : MissionDomain;
+    attribute title : ScalarValues::String;
+    attribute narrative : ScalarValues::String;
+    attribute confidence : ConfidenceScore;
+    attribute priority : PriorityScore;
+    attribute issuedTime : Timestamp;
+    attribute recommendedAction : ScalarValues::String;
+  }
+
+  item def AnalystFeedback {
+    attribute feedbackId : ScalarValues::String;
+    attribute analystId : ScalarValues::String;
+    attribute relatedAlertId : ScalarValues::String;
+    attribute accepted : ScalarValues::Boolean;
+    attribute revisedSeverity : AlertSeverity;
+    attribute rationale : ScalarValues::String;
+    attribute submittedTime : Timestamp;
+  }
+
+  item def ScanningPolicy {
+    attribute policyId : ScalarValues::String;
+    attribute targetDomains : MissionDomain;
+    attribute minimumRelevance : RelevanceScore;
+    attribute minimumNovelty : NoveltyScore;
+    attribute minimumConfidence : ConfidenceScore;
+    attribute escalationThreshold : PriorityScore;
+    attribute lookbackWindow : Days;
+    attribute reviewCadence : Hours;
+  }
+
+  port def RawObservationIn {
+    in item observation : RawObservation;
+  }
+
+  port def NormalizedSignalOut {
+    out item signal : NormalizedSignal;
+  }
+
+  port def NormalizedSignalIn {
+    in item signal : NormalizedSignal;
+  }
+
+  port def ScoredSignalOut {
+    out item signal : ScoredSignal;
+  }
+
+  port def ScoredSignalIn {
+    in item signal : ScoredSignal;
+  }
+
+  port def TrendOut {
+    out item trend : TrendHypothesis;
+  }
+
+  port def TrendIn {
+    in item trend : TrendHypothesis;
+  }
+
+  port def AlertOut {
+    out item alert : HorizonAlert;
+  }
+
+  port def AlertIn {
+    in item alert : HorizonAlert;
+  }
+
+  port def FeedbackIn {
+    in item feedback : AnalystFeedback;
+  }
+
+  port def FeedbackOut {
+    out item feedback : AnalystFeedback;
+  }
+
+  port def PolicyIn {
+    in item policy : ScanningPolicy;
+  }
+
+  part def SourceConnector {
+    attribute connectorId : ScalarValues::String;
+    attribute kind : SourceKind;
+    attribute pollingInterval : Hours;
+    attribute averageIngestionRate : ItemsPerHour;
+    attribute availabilityTarget : Percent;
+    attribute lastPollTime : Timestamp;
+
+    port rawOut : RawObservationIn;
+
+    action collectObservation {
+      in item policy : ScanningPolicy;
+      out item observation : RawObservation;
+    }
+  }
+
+  part def IngestionGateway {
+    attribute gatewayId : ScalarValues::String;
+    attribute duplicateSuppressionWindow : Hours;
+    attribute acceptedObservationCount : Count;
+    attribute rejectedObservationCount : Count;
+
+    port webRawIn : RawObservationIn;
+    port literatureRawIn : RawObservationIn;
+    port patentRawIn : RawObservationIn;
+    port regulatoryRawIn : RawObservationIn;
+    port internalRawIn : RawObservationIn;
+    port normalizedOut : NormalizedSignalOut;
+
+    action validateAndNormalize {
+      in item observation : RawObservation;
+      out item signal : NormalizedSignal;
+    }
+
+    state ingestionState {
+      entry action initializeGateway;
+      state idle;
+      state receiving;
+      state validating;
+      state normalizing;
+      state publishing;
+      state rejecting;
+
+      transition first idle then receiving;
+      transition receiving then validating;
+      transition validating then normalizing;
+      transition validating then rejecting;
+      transition normalizing then publishing;
+      transition publishing then idle;
+      transition rejecting then idle;
+    }
+  }
+
+  part def SignalScoringEngine {
+    attribute engineId : ScalarValues::String;
+    attribute modelVersion : ScalarValues::String;
+    attribute scoringLatencyTarget : Hours;
+    attribute minimumConfidence : ConfidenceScore;
+    attribute minimumNovelty : NoveltyScore;
+
+    port signalIn : NormalizedSignalIn;
+    port policyIn : PolicyIn;
+    port scoredOut : ScoredSignalOut;
+
+    action scoreSignal {
+      in item signal : NormalizedSignal;
+      in item policy : ScanningPolicy;
+      out item scoredSignal : ScoredSignal;
+    }
+
+    action computePriority {
+      in attribute relevance : RelevanceScore;
+      in attribute novelty : NoveltyScore;
+      in attribute confidence : ConfidenceScore;
+      in attribute risk : RiskScore;
+      out attribute priority : PriorityScore;
+    }
+
+    state scoringState {
+      state waitingForSignal;
+      state extractingFeatures;
+      state estimatingScores;
+      state applyingPolicy;
+      state emittingScore;
+
+      transition first waitingForSignal then extractingFeatures;
+      transition extractingFeatures then estimatingScores;
+      transition estimatingScores then applyingPolicy;
+      transition applyingPolicy then emittingScore;
+      transition emittingScore then waitingForSignal;
+    }
+  }
+
+  part def TrendCorrelationService {
+    attribute serviceId : ScalarValues::String;
+    attribute clusterSimilarityThreshold : Percent;
+    attribute minimumClusterSize : Count;
+    attribute trendRefreshCadence : Hours;
+    attribute activeTrendCount : Count;
+
+    port scoredIn : ScoredSignalIn;
+    port trendOut : TrendOut;
+
+    action clusterSignals {
+      in item scoredSignal : ScoredSignal;
+      out item trend : TrendHypothesis;
+    }
+
+    action updateTrajectory {
+      in item trend : TrendHypothesis;
+      out item updatedTrend : TrendHypothesis;
+    }
+
+    state trendState {
+      state accumulatingSignals;
+      state formingClusters;
+      state assessingTrajectory;
+      state publishingTrend;
+
+      transition first accumulatingSignals then formingClusters;
+      transition formingClusters then assessingTrajectory;
+      transition assessingTrajectory then publishingTrend;
+      transition publishingTrend then accumulatingSignals;
+    }
+  }
+
+  part def AlertGenerationService {
+    attribute serviceId : ScalarValues::String;
+    attribute defaultEscalationThreshold : PriorityScore;
+    attribute criticalRiskThreshold : RiskScore;
+    attribute alertSuppressionWindow : Hours;
+
+    port trendIn : TrendIn;
+    port policyIn : PolicyIn;
+    port alertOut : AlertOut;
+
+    action determineSeverity {
+      in item trend : TrendHypothesis;
+      in item policy : ScanningPolicy;
+      out attribute severity : AlertSeverity;
+    }
+
+    action composeAlert {
+      in item trend : TrendHypothesis;
+      in attribute severity : AlertSeverity;
+      out item alert : HorizonAlert;
+    }
+
+    state alertState {
+      state monitoringTrends;
+      state testingThresholds;
+      state draftingAlert;
+      state issuingAlert;
+      state suppressingDuplicate;
+
+      transition first monitoringTrends then testingThresholds;
+      transition testingThresholds then draftingAlert;
+      transition testingThresholds then suppressingDuplicate;
+      transition draftingAlert then issuingAlert;
+      transition issuingAlert then monitoringTrends;
+      transition suppressingDuplicate then monitoringTrends;
+    }
+  }
+
+  part def AnalystReviewWorkbench {
+    attribute workbenchId : ScalarValues::String;
+    attribute activeAnalystCount : Count;
+    attribute reviewServiceLevel : Hours;
+    attribute acceptedAlertRatio : Percent;
+
+    port alertIn : AlertIn;
+    port feedbackOut : FeedbackOut;
+
+    action reviewAlert {
+      in item alert : HorizonAlert;
+      out item feedback : AnalystFeedback;
+    }
+
+    state reviewState {
+      state queueing;
+      state reviewingEvidence;
+      state acceptingAlert;
+      state revisingAlert;
+      state rejectingAlert;
+      state submittingFeedback;
+
+      transition first queueing then reviewingEvidence;
+      transition reviewingEvidence then acceptingAlert;
+      transition reviewingEvidence then revisingAlert;
+      transition reviewingEvidence then rejectingAlert;
+      transition acceptingAlert then submittingFeedback;
+      transition revisingAlert then submittingFeedback;
+      transition rejectingAlert then submittingFeedback;
+      transition submittingFeedback then queueing;
+    }
+  }
+
+  part def LearningAndGovernanceService {
+    attribute serviceId : ScalarValues::String;
+    attribute policyUpdateCadence : Days;
+    attribute calibrationDriftLimit : Percent;
+    attribute auditedDecisionCount : Count;
+
+    port feedbackIn : FeedbackIn;
+    port policyOut : PolicyIn;
+
+    action calibrateScoringPolicy {
+      in item feedback : AnalystFeedback;
+      out item policy : ScanningPolicy;
+    }
+
+    action auditDecisionTrace {
+      in item feedback : AnalystFeedback;
+      out attribute auditComplete : ScalarValues::Boolean;
+    }
+  }
+
+  part def KnowledgeRepository {
+    attribute repositoryId : ScalarValues::String;
+    attribute retainedObservationCount : Count;
+    attribute retainedSignalCount : Count;
+    attribute retainedTrendCount : Count;
+    attribute retentionPeriod : Days;
+    attribute storageUsed : Bytes;
+
+    port observationArchiveIn : RawObservationIn;
+    port signalArchiveIn : ScoredSignalIn;
+    port trendArchiveIn : TrendIn;
+    port alertArchiveIn : AlertIn;
+
+    action storeObservation {
+      in item observation : RawObservation;
+    }
+
+    action storeScoredSignal {
+      in item signal : ScoredSignal;
+    }
+
+    action storeTrend {
+      in item trend : TrendHypothesis;
+    }
+
+    action storeAlert {
+      in item alert : HorizonAlert;
+    }
+  }
+
+  part def HorizonScanningSystem {
+    attribute systemId : ScalarValues::String = "HSS-001";
+    attribute missionStatement : ScalarValues::String = "Continuously detect, assess, and communicate weak signals and emerging trends that may create future opportunities, risks, or strategic decision points.";
+    attribute scanCadence : Hours = 1.0;
+    attribute minimumOperationalAvailability : Percent = 99.0;
+    attribute maximumAlertLatency : Hours = 4.0;
+    attribute minimumVerifiedEvidenceRatio : Percent = 85.0;
+
+    port policyIn : PolicyIn;
+    port alertOut : AlertOut;
+    port feedbackIn : FeedbackIn;
+
+    part webConnector : SourceConnector {
+      attribute connectorId = "SRC-WEB";
+      attribute kind = SourceKind::openWeb;
+      attribute pollingInterval = 1.0;
+      attribute averageIngestionRate = 500.0;
+      attribute availabilityTarget = 99.0;
+    }
+
+    part literatureConnector : SourceConnector {
+      attribute connectorId = "SRC-LIT";
+      attribute kind = SourceKind::scientificLiterature;
+      attribute pollingInterval = 6.0;
+      attribute averageIngestionRate = 120.0;
+      attribute availabilityTarget = 98.5;
+    }
+
+    part patentConnector : SourceConnector {
+      attribute connectorId = "SRC-PAT";
+      attribute kind = SourceKind::patentDatabase;
+      attribute pollingInterval = 12.0;
+      attribute averageIngestionRate = 80.0;
+      attribute availabilityTarget = 98.5;
+    }
+
+    part regulatoryConnector : SourceConnector {
+      attribute connectorId = "SRC-REG";
+      attribute kind = SourceKind::regulatoryFeed;
+      attribute pollingInterval = 2.0;
+      attribute averageIngestionRate = 40.0;
+      attribute availabilityTarget = 99.5;
+    }
+
+    part internalConnector : SourceConnector {
+      attribute connectorId = "SRC-INT";
+      attribute kind = SourceKind::internalData;
+      attribute pollingInterval = 4.0;
+      attribute averageIngestionRate = 30.0;
+      attribute availabilityTarget = 99.9;
+    }
+
+    part ingestion : IngestionGateway {
+      attribute gatewayId = "ING-001";
+      attribute duplicateSuppressionWindow = 72.0;
+    }
+
+    part scoring : SignalScoringEngine {
+      attribute engineId = "SCORE-001";
+      attribute modelVersion = "horizon-risk-relevance-3.2";
+      attribute scoringLatencyTarget = 0.25;
+      attribute minimumConfidence = 0.65;
+      attribute minimumNovelty = 0.40;
+    }
+
+    part correlation : TrendCorrelationService {
+      attribute serviceId = "TREND-001";
+      attribute clusterSimilarityThreshold = 78.0;
+      attribute minimumClusterSize = 5;
+      attribute trendRefreshCadence = 2.0;
+    }
+
+    part alerting : AlertGenerationService {
+      attribute serviceId = "ALERT-001";
+      attribute defaultEscalationThreshold = 70.0;
+      attribute criticalRiskThreshold = 0.85;
+      attribute alertSuppressionWindow = 48.0;
+    }
+
+    part review : AnalystReviewWorkbench {
+      attribute workbenchId = "REVIEW-001";
+      attribute reviewServiceLevel = 8.0;
+    }
+
+    part learning : LearningAndGovernanceService {
+      attribute serviceId = "GOV-001";
+      attribute policyUpdateCadence = 14.0;
+      attribute calibrationDriftLimit = 5.0;
+    }
+
+    part repository : KnowledgeRepository {
+      attribute repositoryId = "REPO-001";
+      attribute retentionPeriod = 1825.0;
+    }
+
+    connect webConnector.rawOut to ingestion.webRawIn;
+    connect literatureConnector.rawOut to ingestion.literatureRawIn;
+    connect patentConnector.rawOut to ingestion.patentRawIn;
+    connect regulatoryConnector.rawOut to ingestion.regulatoryRawIn;
+    connect internalConnector.rawOut to ingestion.internalRawIn;
+
+    connect ingestion.normalizedOut to scoring.signalIn;
+    connect scoring.scoredOut to correlation.scoredIn;
+    connect correlation.trendOut to alerting.trendIn;
+    connect alerting.alertOut to review.alertIn;
+    connect alerting.alertOut to alertOut;
+    connect review.feedbackOut to learning.feedbackIn;
+    connect feedbackIn to learning.feedbackIn;
+    connect learning.policyOut to scoring.policyIn;
+    connect learning.policyOut to alerting.policyIn;
+    connect policyIn to scoring.policyIn;
+    connect policyIn to alerting.policyIn;
+
+    connect scoring.scoredOut to repository.signalArchiveIn;
+    connect correlation.trendOut to repository.trendArchiveIn;
+    connect alerting.alertOut to repository.alertArchiveIn;
+
+    action performHorizonScan {
+      in item policy : ScanningPolicy;
+      out item alert : HorizonAlert;
+
+      first startScan;
+      then collectFromSources;
+      then normalizeObservations;
+      then scoreWeakSignals;
+      then correlateIntoTrends;
+      then evaluateEscalation;
+      then issueStrategicAlert;
+    }
+
+    state operatingMode {
+      state initializing;
+      state scanning;
+      state degradedScanning;
+      state analystReview;
+      state learning;
+      state maintenance;
+
+      transition first initializing then scanning;
+      transition scanning then analystReview;
+      transition analystReview then learning;
+      transition learning then scanning;
+      transition scanning then degradedScanning;
+      transition degradedScanning then scanning;
+      transition scanning then maintenance;
+      transition maintenance then initializing;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     * The Horizon Scanning System shall continuously monitor diverse external and internal information sources,
+     * identify weak signals and emerging trends, assess their relevance, novelty, confidence, and risk,
+     * and provide prioritized alerts that support strategic decision making before impacts become immediate.
+     */
+
+    subject system : HorizonScanningSystem;
+
+    require constraint {
+      system.scanCadence <= 1.0
+    }
+  }
+
+  requirement def MultiSourceCoverageRequirement {
+    doc
+    /*
+     * The system shall collect observations from open web, scientific literature, patents, regulatory feeds,
+     * and internal data sources to reduce blind spots in horizon assessment.
+     */
+
+    subject system : HorizonScanningSystem;
+
+    require constraint {
+      system.webConnector.availabilityTarget >= 99.0 and
+      system.literatureConnector.availabilityTarget >= 98.0 and
+      system.patentConnector.availabilityTarget >= 98.0 and
+      system.regulatoryConnector.availabilityTarget >= 99.0 and
+      system.internalConnector.availabilityTarget >= 99.0
+    }
+  }
+
+  requirement def TimelyAlertRequirement {
+    doc
+    /*
+     * The system shall issue an alert for an escalated trend within four hours of receiving sufficient scored evidence.
+     */
+
+    subject system : HorizonScanningSystem;
+
+    require constraint {
+      system.maximumAlertLatency <= 4.0
+    }
+  }
+
+  requirement def EvidenceTraceabilityRequirement {
+    doc
+    /*
+     * Every alert shall be traceable to scored signals, normalized signals, and raw observations retained
+     * in the knowledge repository for audit and analyst review.
+     */
+
+    subject repository : KnowledgeRepository;
+
+    require constraint {
+      repository.retentionPeriod >= 1825.0
+    }
+  }
+
+  requirement def AnalystFeedbackRequirement {
+    doc
+    /*
+     * The system shall capture analyst feedback on issued alerts and use that feedback to calibrate future
+     * scoring thresholds, escalation policy, and evidence quality assessment.
+     */
+
+    subject system : HorizonScanningSystem;
+
+    require constraint {
+      system.learning.policyUpdateCadence <= 14.0
+    }
+  }
+
+  requirement def ConfidenceThresholdRequirement {
+    doc
+    /*
+     * The system shall not escalate a trend unless the calculated confidence satisfies the active scanning policy.
+     */
+
+    subject scoring : SignalScoringEngine;
+
+    require constraint {
+      scoring.minimumConfidence >= 0.65
+    }
+  }
+
+  requirement def OperationalAvailabilityRequirement {
+    doc
+    /*
+     * The system shall maintain at least 99 percent operational availability for scanning and alerting functions.
+     */
+
+    subject system : HorizonScanningSystem;
+
+    require constraint {
+      system.minimumOperationalAvailability >= 99.0
+    }
+  }
+
+  requirement def DuplicateSuppressionRequirement {
+    doc
+    /*
+     * The system shall suppress duplicate observations and duplicate alerts within configurable windows
+     * while preserving the evidence trail for repository audit.
+     */
+
+    subject system : HorizonScanningSystem;
+
+    require constraint {
+      system.ingestion.duplicateSuppressionWindow >= 24.0 and
+      system.alerting.alertSuppressionWindow >= 24.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HorizonScanningSystem;
+  satisfy MultiSourceCoverageRequirement by HorizonScanningSystem;
+  satisfy TimelyAlertRequirement by HorizonScanningSystem;
+  satisfy EvidenceTraceabilityRequirement by KnowledgeRepository;
+  satisfy AnalystFeedbackRequirement by LearningAndGovernanceService;
+  satisfy ConfidenceThresholdRequirement by SignalScoringEngine;
+  satisfy OperationalAvailabilityRequirement by HorizonScanningSystem;
+  satisfy DuplicateSuppressionRequirement by HorizonScanningSystem;
+
+}

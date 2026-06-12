@@ -1,0 +1,368 @@
+package SmartdustSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Temperature;
+  attribute def RelativeHumidity;
+  attribute def Pressure;
+  attribute def BatteryCharge;
+  attribute def SignalStrength;
+  attribute def NodeIdentifier;
+  attribute def SampleInterval;
+  attribute def DataRate;
+  attribute def LocationCoordinate;
+  attribute def DustConcentration;
+
+  item def EnvironmentalSample {
+    attribute nodeId : NodeIdentifier;
+    attribute timestamp : Time;
+    attribute temperature : Temperature;
+    attribute humidity : RelativeHumidity;
+    attribute pressure : Pressure;
+    attribute dustConcentration : DustConcentration;
+    attribute latitude : LocationCoordinate;
+    attribute longitude : LocationCoordinate;
+    attribute batteryCharge : BatteryCharge;
+  }
+
+  item def NetworkPacket {
+    attribute sourceNodeId : NodeIdentifier;
+    attribute destinationNodeId : NodeIdentifier;
+    attribute packetTimestamp : Time;
+    attribute payloadSize : DataRate;
+    attribute receivedSignalStrength : SignalStrength;
+    item payload : EnvironmentalSample;
+  }
+
+  port def WirelessTelemetryPort {
+    out item packetOut : NetworkPacket;
+    in item packetIn : NetworkPacket;
+  }
+
+  port def EnvironmentalSensingPort {
+    out item sampleOut : EnvironmentalSample;
+  }
+
+  port def PowerPort {
+    out attribute availableCharge : BatteryCharge;
+    in attribute requestedLoad : Power;
+  }
+
+  port def GatewayBackhaulPort {
+    out item aggregatedPacketOut : NetworkPacket;
+  }
+
+  part def MicroSensor {
+    attribute measurementAccuracy : Real;
+    attribute samplingInterval : SampleInterval;
+    port sensingPort : EnvironmentalSensingPort;
+
+    action senseEnvironment {
+      out item sample : EnvironmentalSample;
+    }
+  }
+
+  part def LowPowerProcessor {
+    attribute clockFrequency : Frequency;
+    attribute activePowerDraw : Power;
+    attribute sleepPowerDraw : Power;
+
+    action filterSample {
+      in item rawSample : EnvironmentalSample;
+      out item filteredSample : EnvironmentalSample;
+    }
+
+    action packetizeSample {
+      in item filteredSample : EnvironmentalSample;
+      out item packet : NetworkPacket;
+    }
+  }
+
+  part def MicroRadio {
+    attribute carrierFrequency : Frequency;
+    attribute transmitPower : Power;
+    attribute nominalRange : Length;
+    attribute dataRate : DataRate;
+    port wirelessPort : WirelessTelemetryPort;
+
+    action transmitPacket {
+      in item packet : NetworkPacket;
+    }
+
+    action receivePacket {
+      out item packet : NetworkPacket;
+    }
+  }
+
+  part def MicroEnergyStore {
+    attribute nominalCapacity : BatteryCharge;
+    attribute currentCharge : BatteryCharge;
+    port powerPort : PowerPort;
+
+    action supplyPower {
+      in attribute requestedLoad : Power;
+      out attribute availableCharge : BatteryCharge;
+    }
+
+    action harvestEnergy {
+      in attribute harvestedPower : Power;
+      out attribute updatedCharge : BatteryCharge;
+    }
+  }
+
+  part def SmartdustMote {
+    attribute nodeId : NodeIdentifier;
+    attribute deploymentLatitude : LocationCoordinate;
+    attribute deploymentLongitude : LocationCoordinate;
+    attribute sampleInterval : SampleInterval;
+    attribute minimumOperatingCharge : BatteryCharge;
+
+    port sensingPort : EnvironmentalSensingPort;
+    port wirelessPort : WirelessTelemetryPort;
+    port powerPort : PowerPort;
+
+    part sensor : MicroSensor;
+    part processor : LowPowerProcessor;
+    part radio : MicroRadio;
+    part energyStore : MicroEnergyStore;
+
+    connect sensor.sensingPort to sensingPort;
+    connect radio.wirelessPort to wirelessPort;
+    connect energyStore.powerPort to powerPort;
+
+    action collectEnvironmentalData {
+      first start;
+      then sense via sensor.senseEnvironment;
+      then filter via processor.filterSample;
+      then packetize via processor.packetizeSample;
+      then transmit via radio.transmitPacket;
+      then done;
+    }
+
+    state def MoteOperationalState {
+      state dormant;
+      state sensing;
+      state processing;
+      state transmitting;
+      state lowPower;
+
+      transition initial then dormant;
+      transition dormant then sensing
+        accept after sampleInterval;
+      transition sensing then processing
+        accept when sensor.sensingPort::sampleOut != null;
+      transition processing then transmitting
+        accept when processor.packetizeSample::packet != null;
+      transition transmitting then dormant
+        accept when radio.transmitPacket done;
+      transition dormant then lowPower
+        accept when energyStore.currentCharge <= minimumOperatingCharge;
+      transition lowPower then dormant
+        accept when energyStore.currentCharge > minimumOperatingCharge;
+    }
+
+    exhibit state moteState : MoteOperationalState;
+  }
+
+  part def MeshCluster {
+    attribute clusterId : String;
+    attribute nodeCount : Integer;
+    attribute nominalCoverageRadius : Length;
+
+    port clusterWirelessPort : WirelessTelemetryPort;
+
+    part mote[1..500] : SmartdustMote;
+
+    action relayTelemetry {
+      in item inboundPacket : NetworkPacket;
+      out item outboundPacket : NetworkPacket;
+    }
+  }
+
+  part def SmartdustGateway {
+    attribute gatewayId : String;
+    attribute storageCapacity : DataRate;
+    attribute uplinkDataRate : DataRate;
+
+    port meshPort : WirelessTelemetryPort;
+    port backhaulPort : GatewayBackhaulPort;
+
+    part gatewayRadio : MicroRadio;
+    part gatewayProcessor : LowPowerProcessor;
+
+    connect gatewayRadio.wirelessPort to meshPort;
+
+    action receiveMeshPacket {
+      out item packet : NetworkPacket;
+    }
+
+    action validateAndAggregate {
+      in item packet : NetworkPacket;
+      out item aggregatedPacket : NetworkPacket;
+    }
+
+    action forwardToMonitoringService {
+      in item aggregatedPacket : NetworkPacket;
+    }
+
+    state def GatewayState {
+      state listening;
+      state aggregating;
+      state forwarding;
+      state faulted;
+
+      transition initial then listening;
+      transition listening then aggregating
+        accept when meshPort::packetIn != null;
+      transition aggregating then forwarding
+        accept when validateAndAggregate::aggregatedPacket != null;
+      transition forwarding then listening
+        accept when forwardToMonitoringService done;
+      transition listening then faulted
+        accept when gatewayRadio.receivedSignalStrength < -110.0;
+    }
+
+    exhibit state gatewayState : GatewayState;
+  }
+
+  part def MonitoringService {
+    attribute serviceName : String;
+    attribute retentionPeriod : Time;
+    attribute alertTemperatureThreshold : Temperature;
+    attribute alertDustThreshold : DustConcentration;
+
+    port inboundBackhaulPort : GatewayBackhaulPort;
+
+    action storeSample {
+      in item packet : NetworkPacket;
+    }
+
+    action evaluateAlert {
+      in item packet : NetworkPacket;
+      out attribute alertRequired : Boolean;
+    }
+
+    action publishSituationView {
+      in item packet : NetworkPacket;
+    }
+  }
+
+  part def SmartdustEnvironmentalMonitoringSystem {
+    attribute systemName : String = "Smartdust Environmental Monitoring System";
+    attribute primaryFunction : String =
+      "Distributed smartdust motes autonomously sense local environmental conditions, exchange low-power wireless telemetry through a mesh network, and deliver aggregated measurements to a monitoring service for high-level situational awareness.";
+
+    attribute deploymentArea : Area;
+    attribute designLifetime : Time;
+    attribute targetSampleInterval : SampleInterval;
+    attribute requiredNodeAvailability : Real;
+
+    port systemBackhaulPort : GatewayBackhaulPort;
+
+    part cluster[1..20] : MeshCluster;
+    part gateway[1..5] : SmartdustGateway;
+    part monitoringService : MonitoringService;
+
+    connect gateway.backhaulPort to monitoringService.inboundBackhaulPort;
+    connect gateway.backhaulPort to systemBackhaulPort;
+    connect cluster.clusterWirelessPort to gateway.meshPort;
+
+    action performPrimaryFunction {
+      first deployDistributedMotes;
+      then collectLocalEnvironmentalMeasurements;
+      then exchangeTelemetryAcrossMesh;
+      then aggregateTelemetryAtGateway;
+      then deliverSituationAwareness;
+      then done;
+    }
+
+    action deployDistributedMotes {
+      out attribute deployed : Boolean;
+    }
+
+    action collectLocalEnvironmentalMeasurements {
+      out item sample : EnvironmentalSample;
+    }
+
+    action exchangeTelemetryAcrossMesh {
+      in item sample : EnvironmentalSample;
+      out item packet : NetworkPacket;
+    }
+
+    action aggregateTelemetryAtGateway {
+      in item packet : NetworkPacket;
+      out item aggregatedPacket : NetworkPacket;
+    }
+
+    action deliverSituationAwareness {
+      in item aggregatedPacket : NetworkPacket;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall provide distributed environmental awareness using smartdust motes that sense, process, and wirelessly report localized measurements through a low-power mesh network. */
+    subject system : SmartdustEnvironmentalMonitoringSystem;
+    require constraint {
+      system.targetSampleInterval <= 60 [s]
+    }
+  }
+
+  requirement def MiniaturizedNodeRequirement {
+    doc
+      /* Each smartdust mote shall integrate sensing, processing, wireless communication, and stored energy in a self-contained node suitable for dense distributed deployment. */
+    subject mote : SmartdustMote;
+    require constraint {
+      mote.sensor.measurementAccuracy <= 0.05 and
+      mote.radio.nominalRange >= 10 [m] and
+      mote.energyStore.nominalCapacity >= 10 [mA*h]
+    }
+  }
+
+  requirement def LowPowerOperationRequirement {
+    doc
+      /* Each smartdust mote shall conserve energy by remaining dormant between scheduled measurements and entering low-power mode when charge is insufficient for sensing and transmission. */
+    subject mote : SmartdustMote;
+    require constraint {
+      mote.processor.sleepPowerDraw < mote.processor.activePowerDraw and
+      mote.minimumOperatingCharge >= 5 [percent]
+    }
+  }
+
+  requirement def MeshTelemetryRequirement {
+    doc
+      /* The smartdust network shall relay environmental packets from distributed motes to at least one gateway using low-power wireless links. */
+    subject cluster : MeshCluster;
+    require constraint {
+      cluster.nodeCount >= 25 and
+      cluster.nominalCoverageRadius >= 25 [m]
+    }
+  }
+
+  requirement def MonitoringRequirement {
+    doc
+      /* The monitoring service shall store received environmental samples and evaluate them against configured alert thresholds. */
+    subject service : MonitoringService;
+    require constraint {
+      service.retentionPeriod >= 30 [d]
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    doc
+      /* The complete smartdust system shall maintain sufficient active nodes to support continuous high-level environmental situation awareness. */
+    subject system : SmartdustEnvironmentalMonitoringSystem;
+    require constraint {
+      system.requiredNodeAvailability >= 0.90
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by SmartdustEnvironmentalMonitoringSystem;
+  satisfy MiniaturizedNodeRequirement by SmartdustMote;
+  satisfy LowPowerOperationRequirement by SmartdustMote;
+  satisfy MeshTelemetryRequirement by MeshCluster;
+  satisfy MonitoringRequirement by MonitoringService;
+  satisfy AvailabilityRequirement by SmartdustEnvironmentalMonitoringSystem;
+
+}

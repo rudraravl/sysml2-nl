@@ -1,0 +1,506 @@
+package HumanRobotInteractionSystem {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Probability;
+    attribute def Percentage;
+    attribute def Latency {
+        attribute value : Real;
+        attribute unit : TimeUnit;
+    }
+
+    item def SpokenCommand {
+        attribute phrase : String;
+        attribute confidence : Probability;
+        attribute language : String;
+    }
+
+    item def GestureCommand {
+        attribute gestureName : String;
+        attribute confidence : Probability;
+    }
+
+    item def TaskRequest {
+        attribute taskId : String;
+        attribute taskType : String;
+        attribute priority : Integer;
+    }
+
+    item def HumanIntent {
+        attribute intentName : String;
+        attribute confidence : Probability;
+        attribute requiresConfirmation : Boolean;
+    }
+
+    item def RobotStatus {
+        attribute mode : String;
+        attribute batteryStateOfCharge : Percentage;
+        attribute currentTaskId : String;
+        attribute faultCode : String;
+    }
+
+    item def FeedbackMessage {
+        attribute message : String;
+        attribute urgency : String;
+    }
+
+    item def SafetyStopSignal {
+        attribute source : String;
+        attribute active : Boolean;
+    }
+
+    item def NavigationGoal {
+        attribute x : Real;
+        attribute y : Real;
+        attribute heading : Real;
+    }
+
+    item def ObjectPose {
+        attribute objectId : String;
+        attribute x : Real;
+        attribute y : Real;
+        attribute z : Real;
+        attribute yaw : Real;
+    }
+
+    item def ManipulationCommand {
+        attribute objectId : String;
+        attribute graspForce : Real;
+        attribute targetX : Real;
+        attribute targetY : Real;
+        attribute targetZ : Real;
+    }
+
+    item def BatteryEnergy {
+        attribute energy : Real;
+        attribute unit : EnergyUnit = J;
+    }
+
+    port def AudioInputPort {
+        in item voice : SpokenCommand;
+    }
+
+    port def GestureInputPort {
+        in item gesture : GestureCommand;
+    }
+
+    port def TaskRequestPort {
+        in item request : TaskRequest;
+    }
+
+    port def IntentPort {
+        out item intent : HumanIntent;
+    }
+
+    port def StatusPort {
+        out item status : RobotStatus;
+    }
+
+    port def FeedbackPort {
+        out item feedback : FeedbackMessage;
+    }
+
+    port def SafetyPort {
+        in item stop : SafetyStopSignal;
+    }
+
+    port def NavigationPort {
+        out item goal : NavigationGoal;
+    }
+
+    port def ManipulationPort {
+        out item command : ManipulationCommand;
+    }
+
+    port def PosePort {
+        out item pose : ObjectPose;
+    }
+
+    part def HumanOperator {
+        attribute operatorId : String;
+        attribute trainingLevel : String;
+
+        port voiceCommand : AudioInputPort;
+        port gestureCommand : GestureInputPort;
+        port taskRequest : TaskRequestPort;
+        port robotFeedback : FeedbackPort;
+        port robotStatus : StatusPort;
+        port emergencyStop : SafetyPort;
+
+        action issueTask {
+            out item request : TaskRequest;
+        }
+
+        action confirmIntent {
+            in item intent : HumanIntent;
+            out item confirmation : Boolean;
+        }
+    }
+
+    part def HumanRobotInterface {
+        attribute maxSpeechRecognitionLatency : Latency = (value = 0.500, unit = s);
+        attribute minIntentConfidence : Probability = 0.85;
+        attribute supportedLanguage : String = "en-US";
+
+        port voiceInput : AudioInputPort;
+        port gestureInput : GestureInputPort;
+        port taskInput : TaskRequestPort;
+        port interpretedIntent : IntentPort;
+        port feedbackOutput : FeedbackPort;
+        port statusInput : StatusPort;
+
+        action interpretMultimodalCommand {
+            in item speech : SpokenCommand;
+            in item gesture : GestureCommand;
+            in item request : TaskRequest;
+            out item intent : HumanIntent;
+        }
+
+        action requestClarification {
+            in item lowConfidenceIntent : HumanIntent;
+            out item feedback : FeedbackMessage;
+        }
+    }
+
+    part def PerceptionSubsystem {
+        attribute objectDetectionRange : Real = 4.0 [m];
+        attribute poseAccuracy : Real = 0.015 [m];
+
+        port objectPoseOutput : PosePort;
+
+        part depthCamera {
+            attribute horizontalFieldOfView : Real = 87.0 [deg];
+            attribute updateRate : Real = 30.0 [Hz];
+        }
+
+        part wristCamera {
+            attribute horizontalFieldOfView : Real = 70.0 [deg];
+            attribute updateRate : Real = 60.0 [Hz];
+        }
+
+        action detectTargetObject {
+            in item intent : HumanIntent;
+            out item pose : ObjectPose;
+        }
+    }
+
+    part def MobilitySubsystem {
+        attribute maxSpeed : Real = 1.2 [m/s];
+        attribute stoppingDistance : Real = 0.35 [m];
+        attribute localizationAccuracy : Real = 0.03 [m];
+
+        port navigationGoalInput : NavigationPort;
+
+        part differentialDrive {
+            attribute wheelRadius : Real = 0.10 [m];
+            attribute wheelBase : Real = 0.52 [m];
+            attribute maxTorque : Real = 18.0 [N*m];
+        }
+
+        action navigateToGoal {
+            in item goal : NavigationGoal;
+        }
+
+        state machine mobilityStates {
+            state idle;
+            state planning;
+            state moving;
+            state obstacleAvoidance;
+            state stopped;
+
+            transition first idle;
+            transition idle_to_planning from idle to planning;
+            transition planning_to_moving from planning to moving;
+            transition moving_to_obstacleAvoidance from moving to obstacleAvoidance;
+            transition obstacleAvoidance_to_moving from obstacleAvoidance to moving;
+            transition moving_to_stopped from moving to stopped;
+            transition stopped_to_idle from stopped to idle;
+        }
+    }
+
+    part def ManipulationSubsystem {
+        attribute payloadCapacity : Real = 5.0 [kg];
+        attribute reach : Real = 0.85 [m];
+        attribute placementAccuracy : Real = 0.01 [m];
+
+        port manipulationInput : ManipulationPort;
+
+        part sixAxisArm {
+            attribute jointCount : Integer = 6;
+            attribute maxEndEffectorSpeed : Real = 0.50 [m/s];
+        }
+
+        part adaptiveGripper {
+            attribute maxGripForce : Real = 120.0 [N];
+            attribute minGripForce : Real = 5.0 [N];
+        }
+
+        action graspObject {
+            in item command : ManipulationCommand;
+        }
+
+        action placeObject {
+            in item command : ManipulationCommand;
+        }
+
+        state machine manipulationStates {
+            state stowed;
+            state reaching;
+            state grasping;
+            state carrying;
+            state placing;
+            state released;
+
+            transition first stowed;
+            transition stowed_to_reaching from stowed to reaching;
+            transition reaching_to_grasping from reaching to grasping;
+            transition grasping_to_carrying from grasping to carrying;
+            transition carrying_to_placing from carrying to placing;
+            transition placing_to_released from placing to released;
+            transition released_to_stowed from released to stowed;
+        }
+    }
+
+    part def TaskExecutive {
+        attribute maxTaskCompletionTime : Real = 180.0 [s];
+        attribute minimumSafeBattery : Percentage = 20.0;
+        attribute confirmationTimeout : Real = 10.0 [s];
+
+        port humanIntentInput : IntentPort;
+        port robotStatusOutput : StatusPort;
+        port feedbackOutput : FeedbackPort;
+        port navigationOutput : NavigationPort;
+        port manipulationOutput : ManipulationPort;
+        port objectPoseInput : PosePort;
+        port safetyInput : SafetyPort;
+
+        action validateIntent {
+            in item intent : HumanIntent;
+            out item accepted : Boolean;
+        }
+
+        action planAssistiveTask {
+            in item intent : HumanIntent;
+            in item pose : ObjectPose;
+            out item navigationGoal : NavigationGoal;
+            out item manipulationCommand : ManipulationCommand;
+        }
+
+        action reportProgress {
+            out item status : RobotStatus;
+            out item feedback : FeedbackMessage;
+        }
+
+        state machine taskStates {
+            state awaitingHumanRequest;
+            state interpretingIntent;
+            state awaitingConfirmation;
+            state planningTask;
+            state navigatingToObject;
+            state graspingObject;
+            state navigatingToHuman;
+            state handoverReady;
+            state taskComplete;
+            state safetyHalted;
+            state faultRecovery;
+
+            transition first awaitingHumanRequest;
+            transition requestReceived from awaitingHumanRequest to interpretingIntent;
+            transition uncertainIntent from interpretingIntent to awaitingConfirmation;
+            transition confirmedIntent from awaitingConfirmation to planningTask;
+            transition acceptedIntent from interpretingIntent to planningTask;
+            transition planReady from planningTask to navigatingToObject;
+            transition arrivedAtObject from navigatingToObject to graspingObject;
+            transition objectSecured from graspingObject to navigatingToHuman;
+            transition arrivedAtHuman from navigatingToHuman to handoverReady;
+            transition humanTookObject from handoverReady to taskComplete;
+            transition resetForNextTask from taskComplete to awaitingHumanRequest;
+            transition emergencyStop from awaitingHumanRequest to safetyHalted;
+            transition emergencyStop2 from interpretingIntent to safetyHalted;
+            transition emergencyStop3 from planningTask to safetyHalted;
+            transition emergencyStop4 from navigatingToObject to safetyHalted;
+            transition emergencyStop5 from graspingObject to safetyHalted;
+            transition emergencyStop6 from navigatingToHuman to safetyHalted;
+            transition recover from safetyHalted to faultRecovery;
+            transition recoveryComplete from faultRecovery to awaitingHumanRequest;
+        }
+    }
+
+    part def SafetySubsystem {
+        attribute protectiveSeparationDistance : Real = 0.75 [m];
+        attribute maxCollaborativeSpeed : Real = 0.25 [m/s];
+        attribute emergencyStopReactionTime : Real = 0.120 [s];
+
+        port operatorStopInput : SafetyPort;
+        port executiveStopOutput : SafetyPort;
+
+        action monitorHumanProximity {
+            out item stop : SafetyStopSignal;
+        }
+
+        action executeEmergencyStop {
+            in item stop : SafetyStopSignal;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : Real = 48.0 [V];
+        attribute usableEnergy : BatteryEnergy = (energy = 1800000.0, unit = J);
+        attribute minimumOperatingCharge : Percentage = 15.0;
+
+        action providePower;
+        action estimateRemainingRuntime {
+            out remainingTime : Real [s];
+        }
+    }
+
+    part def CollaborativeServiceRobot {
+        attribute robotId : String = "HSR-01";
+        attribute systemMass : Real = 82.0 [kg];
+        attribute designLife : Real = 7.0 [yr];
+
+        port voiceInput : AudioInputPort;
+        port gestureInput : GestureInputPort;
+        port taskInput : TaskRequestPort;
+        port operatorStop : SafetyPort;
+        port feedbackToHuman : FeedbackPort;
+        port statusToHuman : StatusPort;
+
+        part hri : HumanRobotInterface;
+        part perception : PerceptionSubsystem;
+        part mobility : MobilitySubsystem;
+        part manipulation : ManipulationSubsystem;
+        part executive : TaskExecutive;
+        part safety : SafetySubsystem;
+        part power : PowerSubsystem;
+
+        connect voiceInput to hri.voiceInput;
+        connect gestureInput to hri.gestureInput;
+        connect taskInput to hri.taskInput;
+        connect operatorStop to safety.operatorStopInput;
+        connect hri.interpretedIntent to executive.humanIntentInput;
+        connect executive.feedbackOutput to feedbackToHuman;
+        connect executive.robotStatusOutput to statusToHuman;
+        connect executive.navigationOutput to mobility.navigationGoalInput;
+        connect executive.manipulationOutput to manipulation.manipulationInput;
+        connect perception.objectPoseOutput to executive.objectPoseInput;
+        connect safety.executiveStopOutput to executive.safetyInput;
+        connect executive.robotStatusOutput to hri.statusInput;
+
+        action performHumanDirectedFetchAndHandover {
+            in item request : TaskRequest;
+            in item speech : SpokenCommand;
+            in item gesture : GestureCommand;
+            out item finalStatus : RobotStatus;
+
+            first start;
+            then interpretCommand;
+            then confirmWhenNeeded;
+            then locateObject;
+            then navigateToObject;
+            then graspRequestedObject;
+            then navigateToOperator;
+            then handOverObject;
+            then reportCompletion;
+        }
+    }
+
+    part def HriRoboticWorkcell {
+        part operator : HumanOperator {
+            attribute operatorId = "operator-17";
+            attribute trainingLevel = "collaborative";
+        }
+
+        part robot : CollaborativeServiceRobot;
+
+        connect operator.voiceCommand to robot.voiceInput;
+        connect operator.gestureCommand to robot.gestureInput;
+        connect operator.taskRequest to robot.taskInput;
+        connect operator.emergencyStop to robot.operatorStop;
+        connect robot.feedbackToHuman to operator.robotFeedback;
+        connect robot.statusToHuman to operator.robotStatus;
+    }
+
+    requirement def HumanRobotPrimaryTaskRequirement {
+        subject robot : CollaborativeServiceRobot;
+
+        require constraint {
+            robot.hri.minIntentConfidence >= 0.85
+        }
+
+        doc /* The robot shall perform its primary fetch-and-handover task only after interpreting a human command from speech, gesture, or explicit task request. */
+    }
+
+    requirement def ConfirmationRequirement {
+        subject executive : TaskExecutive;
+
+        require constraint {
+            executive.confirmationTimeout <= 10.0 [s]
+        }
+
+        doc /* The system shall request human confirmation when interpreted intent confidence is below the accepted threshold or when the requested object is ambiguous. */
+    }
+
+    requirement def FeedbackRequirement {
+        subject robot : CollaborativeServiceRobot;
+
+        require constraint {
+            robot.hri.maxSpeechRecognitionLatency.value <= 0.500
+        }
+
+        doc /* The robot shall provide audible or visual feedback within 0.5 seconds after receiving a human command. */
+    }
+
+    requirement def CollaborativeSafetyRequirement {
+        subject safety : SafetySubsystem;
+
+        require constraint {
+            safety.protectiveSeparationDistance >= 0.75 [m] and
+            safety.emergencyStopReactionTime <= 0.120 [s]
+        }
+
+        doc /* The robot shall maintain protective separation from the human operator and enter a halted state within 120 ms after emergency stop activation. */
+    }
+
+    requirement def ManipulationRequirement {
+        subject manipulator : ManipulationSubsystem;
+
+        require constraint {
+            manipulator.payloadCapacity >= 5.0 [kg] and
+            manipulator.placementAccuracy <= 0.01 [m]
+        }
+
+        doc /* The manipulation subsystem shall grasp and hand over objects up to 5 kg with placement accuracy of 10 mm or better. */
+    }
+
+    requirement def MobilityRequirement {
+        subject mobility : MobilitySubsystem;
+
+        require constraint {
+            mobility.maxSpeed <= 1.2 [m/s] and
+            mobility.stoppingDistance <= 0.35 [m]
+        }
+
+        doc /* The mobility subsystem shall navigate shared human spaces while limiting speed and stopping distance to collaborative operation limits. */
+    }
+
+    requirement def PowerRequirement {
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.nominalVoltage == 48.0 [V] and
+            power.minimumOperatingCharge >= 15.0
+        }
+
+        doc /* The robot shall monitor battery state and reject new tasks when remaining charge is below the minimum operating threshold. */
+    }
+
+    satisfy HumanRobotPrimaryTaskRequirement by CollaborativeServiceRobot;
+    satisfy ConfirmationRequirement by TaskExecutive;
+    satisfy FeedbackRequirement by HumanRobotInterface;
+    satisfy CollaborativeSafetyRequirement by SafetySubsystem;
+    satisfy ManipulationRequirement by ManipulationSubsystem;
+    satisfy MobilityRequirement by MobilitySubsystem;
+    satisfy PowerRequirement by PowerSubsystem;
+}

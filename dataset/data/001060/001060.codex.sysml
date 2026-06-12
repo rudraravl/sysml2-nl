@@ -1,0 +1,456 @@
+package FrequencyDomainSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SampleCount :> Natural;
+    attribute def SignalToNoiseRatio :> Real;
+    attribute def Confidence :> Real {
+        doc /* Unitless confidence value from 0.0 to 1.0. */
+    }
+
+    attribute def FrequencyBin {
+        attribute centerFrequency : FrequencyValue;
+        attribute magnitude : Real;
+        attribute phase : PlaneAngleValue;
+    }
+
+    attribute def SpectrumFrame {
+        attribute frameId : Natural;
+        attribute acquisitionTime : TimeValue;
+        attribute binCount : SampleCount;
+        attribute bins : FrequencyBin[1..*];
+    }
+
+    attribute def MeasuredQuantityValue {
+        attribute value : Real;
+        attribute unitSymbol : String;
+        attribute uncertainty : Real;
+        attribute confidence : Confidence;
+    }
+
+    item def AnalogPhysicalStimulus {
+        attribute amplitude : Real;
+        attribute dominantFrequency : FrequencyValue;
+        attribute noiseDensity : Real;
+    }
+
+    item def ExcitationSignal {
+        attribute carrierFrequency : FrequencyValue;
+        attribute amplitude : Real;
+        attribute duration : TimeValue;
+    }
+
+    item def RawSensorSignal {
+        attribute voltage : ElectricPotentialValue;
+        attribute samplingRate : FrequencyValue;
+        attribute sampleCount : SampleCount;
+    }
+
+    item def DigitizedSignal {
+        attribute samples : Real[1..*];
+        attribute samplingRate : FrequencyValue;
+        attribute sampleCount : SampleCount;
+    }
+
+    item def MeasuredQuantityReport {
+        attribute measuredQuantity : MeasuredQuantityValue;
+        attribute spectrum : SpectrumFrame;
+        attribute status : SensorHealthStatus;
+    }
+
+    enum def SensorHealthStatus {
+        enum nominal;
+        enum warmingUp;
+        enum calibrating;
+        enum degraded;
+        enum faulted;
+        enum offline;
+    }
+
+    enum def MeasurementMode {
+        enum standby;
+        enum continuous;
+        enum triggered;
+        enum calibration;
+        enum selfTest;
+    }
+
+    port def StimulusPort {
+        in stimulus : AnalogPhysicalStimulus;
+    }
+
+    port def ExcitationPort {
+        out excitation : ExcitationSignal;
+    }
+
+    port def AnalogSignalPort {
+        out rawSignal : RawSensorSignal;
+    }
+
+    port def DigitalSignalPort {
+        out digitizedSignal : DigitizedSignal;
+    }
+
+    port def SpectrumPort {
+        out spectrum : SpectrumFrame;
+    }
+
+    port def MeasurementReportPort {
+        out report : MeasuredQuantityReport;
+    }
+
+    port def CommandPort {
+        in requestedMode : MeasurementMode;
+        in resetFault : Boolean;
+    }
+
+    port def HealthPort {
+        out healthStatus : SensorHealthStatus;
+        out temperature : TemperatureValue;
+        out supplyVoltage : ElectricPotentialValue;
+    }
+
+    part def FrequencyDomainSensor {
+        attribute lowerFrequencyLimit : FrequencyValue = 10 [Hz];
+        attribute upperFrequencyLimit : FrequencyValue = 100000 [Hz];
+        attribute nominalCarrierFrequency : FrequencyValue = 10000 [Hz];
+        attribute sensitivity : Real = 0.85;
+        attribute intrinsicNoiseDensity : Real = 0.002;
+        attribute health : SensorHealthStatus = SensorHealthStatus::offline;
+
+        port stimulusPort : StimulusPort;
+        port excitationPort : ExcitationPort;
+        port analogSignalPort : AnalogSignalPort;
+        port healthPort : HealthPort;
+
+        action generateExcitation {
+            out excitation : ExcitationSignal;
+            bind excitation.carrierFrequency = nominalCarrierFrequency;
+            bind excitation.amplitude = 1.0;
+            bind excitation.duration = 0.01 [s];
+        }
+
+        action transduceInFrequencyDomain {
+            in stimulus : AnalogPhysicalStimulus;
+            in excitation : ExcitationSignal;
+            out rawSignal : RawSensorSignal;
+
+            bind rawSignal.samplingRate = 250000 [Hz];
+            bind rawSignal.sampleCount = 4096;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute inputImpedance : ResistanceValue = 1000000 [Ohm];
+        attribute gain : Real = 12.0;
+        attribute antiAliasCutoffFrequency : FrequencyValue = 120000 [Hz];
+        attribute saturationVoltage : ElectricPotentialValue = 4.8 [V];
+
+        port analogInput : AnalogSignalPort;
+        port analogOutput : AnalogSignalPort;
+
+        action conditionSignal {
+            in rawInput : RawSensorSignal;
+            out conditionedOutput : RawSensorSignal;
+
+            bind conditionedOutput.samplingRate = rawInput.samplingRate;
+            bind conditionedOutput.sampleCount = rawInput.sampleCount;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Natural = 16;
+        attribute referenceVoltage : ElectricPotentialValue = 5.0 [V];
+        attribute samplingRate : FrequencyValue = 250000 [Hz];
+        attribute conversionLatency : TimeValue = 80 [us];
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalSignalPort;
+
+        action digitize {
+            in analogSignal : RawSensorSignal;
+            out digitalSignal : DigitizedSignal;
+
+            bind digitalSignal.samplingRate = samplingRate;
+            bind digitalSignal.sampleCount = analogSignal.sampleCount;
+        }
+    }
+
+    part def FrequencyAnalyzer {
+        attribute fftLength : SampleCount = 4096;
+        attribute windowType : String = "Hann";
+        attribute frequencyResolution : FrequencyValue = 61.03515625 [Hz];
+        attribute processingLatency : TimeValue = 2.5 [ms];
+
+        port digitalInput : DigitalSignalPort;
+        port spectrumOutput : SpectrumPort;
+
+        action estimateSpectrum {
+            in digitizedSignal : DigitizedSignal;
+            out spectrum : SpectrumFrame;
+
+            bind spectrum.binCount = fftLength / 2;
+        }
+
+        action rejectOutOfBandNoise {
+            in unfilteredSpectrum : SpectrumFrame;
+            out filteredSpectrum : SpectrumFrame;
+        }
+    }
+
+    part def QuantityEstimator {
+        attribute calibrationSlope : Real = 2.75;
+        attribute calibrationOffset : Real = 0.03;
+        attribute minimumConfidence : Confidence = 0.80;
+        attribute maximumAllowedUncertainty : Real = 0.05;
+
+        port spectrumInput : SpectrumPort;
+        port reportOutput : MeasurementReportPort;
+
+        action identifyDominantFrequency {
+            in spectrum : SpectrumFrame;
+            out dominantFrequency : FrequencyValue;
+            out signalToNoiseRatio : SignalToNoiseRatio;
+        }
+
+        action computeMeasuredQuantity {
+            in dominantFrequency : FrequencyValue;
+            in signalToNoiseRatio : SignalToNoiseRatio;
+            out quantity : MeasuredQuantityValue;
+
+            bind quantity.value = calibrationSlope * dominantFrequency.value + calibrationOffset;
+            bind quantity.unitSymbol = "application_defined_unit";
+        }
+
+        action packageReport {
+            in quantity : MeasuredQuantityValue;
+            in spectrum : SpectrumFrame;
+            in health : SensorHealthStatus;
+            out report : MeasuredQuantityReport;
+
+            bind report.measuredQuantity = quantity;
+            bind report.spectrum = spectrum;
+            bind report.status = health;
+        }
+    }
+
+    part def CalibrationReference {
+        attribute referenceFrequency : FrequencyValue = 10000 [Hz];
+        attribute referenceAmplitude : Real = 1.0;
+        attribute traceabilityId : String = "REF-FREQ-10KHZ-2026";
+
+        port referenceOutput : StimulusPort;
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltage : ElectricPotentialValue = 24 [V];
+        attribute regulatedVoltage : ElectricPotentialValue = 5 [V];
+        attribute maximumOutputCurrent : ElectricCurrentValue = 0.5 [A];
+        attribute rippleVoltage : ElectricPotentialValue = 0.01 [V];
+
+        port healthPort : HealthPort;
+    }
+
+    part def SensingUnitController {
+        attribute mode : MeasurementMode = MeasurementMode::standby;
+        attribute health : SensorHealthStatus = SensorHealthStatus::offline;
+        attribute measurementPeriod : TimeValue = 100 [ms];
+        attribute warmupDuration : TimeValue = 3 [s];
+
+        port commandPort : CommandPort;
+        port healthPort : HealthPort;
+
+        state def OperatingStateMachine {
+            state offline;
+            state initializing;
+            state standby;
+            state calibrating;
+            state measuring;
+            state reporting;
+            state degraded;
+            state faulted;
+
+            entry action initializeHardware;
+            do action monitorHealth;
+
+            transition first offline then initializing;
+            transition initializing_to_standby first initializing then standby
+                if health == SensorHealthStatus::nominal;
+
+            transition standby_to_calibrating first standby then calibrating
+                if mode == MeasurementMode::calibration;
+
+            transition standby_to_measuring first standby then measuring
+                if mode == MeasurementMode::continuous or mode == MeasurementMode::triggered;
+
+            transition calibrating_to_standby first calibrating then standby
+                if health == SensorHealthStatus::nominal;
+
+            transition measuring_to_reporting first measuring then reporting;
+            transition reporting_to_measuring first reporting then measuring
+                if mode == MeasurementMode::continuous;
+
+            transition reporting_to_standby first reporting then standby
+                if mode == MeasurementMode::triggered;
+
+            transition any_to_degraded first standby then degraded
+                if health == SensorHealthStatus::degraded;
+
+            transition any_to_faulted first measuring then faulted
+                if health == SensorHealthStatus::faulted;
+
+            transition faulted_to_initializing first faulted then initializing
+                if commandPort.resetFault == true;
+        }
+
+        action initializeHardware {
+            out initialized : Boolean;
+        }
+
+        action monitorHealth {
+            out currentHealth : SensorHealthStatus;
+        }
+
+        action scheduleMeasurement {
+            out acquireNow : Boolean;
+        }
+    }
+
+    part def FrequencyDomainSensingUnit {
+        attribute measuredQuantityName : String = "quantity inferred from frequency response";
+        attribute measurementRangeMinimum : Real = 0.0;
+        attribute measurementRangeMaximum : Real = 275000.0;
+        attribute totalMeasurementLatency : TimeValue = 6 [ms];
+        attribute specifiedAccuracy : Real = 0.02;
+        attribute specifiedConfidence : Confidence = 0.95;
+
+        port physicalInput : StimulusPort;
+        port commandInput : CommandPort;
+        port measurementOutput : MeasurementReportPort;
+        port healthOutput : HealthPort;
+
+        part sensor : FrequencyDomainSensor;
+        part frontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part analyzer : FrequencyAnalyzer;
+        part estimator : QuantityEstimator;
+        part controller : SensingUnitController;
+        part calibrationReference : CalibrationReference;
+        part powerConditioner : PowerConditioner;
+
+        connect physicalInput to sensor.stimulusPort;
+        connect sensor.analogSignalPort to frontEnd.analogInput;
+        connect frontEnd.analogOutput to adc.analogInput;
+        connect adc.digitalOutput to analyzer.digitalInput;
+        connect analyzer.spectrumOutput to estimator.spectrumInput;
+        connect estimator.reportOutput to measurementOutput;
+        connect commandInput to controller.commandPort;
+        connect controller.healthPort to healthOutput;
+        connect powerConditioner.healthPort to healthOutput;
+
+        flow sensor.excitationPort.excitation to sensor.stimulusPort.stimulus;
+        flow calibrationReference.referenceOutput.stimulus to sensor.stimulusPort.stimulus;
+
+        action performMeasurementCycle {
+            in stimulus : AnalogPhysicalStimulus;
+            out report : MeasuredQuantityReport;
+
+            action excite : sensor.generateExcitation;
+            action transduce : sensor.transduceInFrequencyDomain;
+            action condition : frontEnd.conditionSignal;
+            action convert : adc.digitize;
+            action transform : analyzer.estimateSpectrum;
+            action filter : analyzer.rejectOutOfBandNoise;
+            action detect : estimator.identifyDominantFrequency;
+            action estimate : estimator.computeMeasuredQuantity;
+            action package : estimator.packageReport;
+
+            flow excite.excitation to transduce.excitation;
+            flow stimulus to transduce.stimulus;
+            flow transduce.rawSignal to condition.rawInput;
+            flow condition.conditionedOutput to convert.analogSignal;
+            flow convert.digitalSignal to transform.digitizedSignal;
+            flow transform.spectrum to filter.unfilteredSpectrum;
+            flow filter.filteredSpectrum to detect.spectrum;
+            flow detect.dominantFrequency to estimate.dominantFrequency;
+            flow detect.signalToNoiseRatio to estimate.signalToNoiseRatio;
+            flow estimate.quantity to package.quantity;
+            flow filter.filteredSpectrum to package.spectrum;
+            flow package.report to report;
+        }
+    }
+
+    requirement def MeasureRelevantQuantityByFrequencyDomainSensor {
+        subject sensingUnit : FrequencyDomainSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.lowerFrequencyLimit <= sensingUnit.sensor.nominalCarrierFrequency and
+            sensingUnit.sensor.nominalCarrierFrequency <= sensingUnit.sensor.upperFrequencyLimit
+        }
+
+        require constraint {
+            sensingUnit.specifiedConfidence >= 0.95
+        }
+
+        require constraint {
+            sensingUnit.totalMeasurementLatency <= 10 [ms]
+        }
+
+        doc /*
+         The sensing unit shall measure the relevant quantity by exciting or observing
+         the input phenomenon, converting the sensor response into a frequency-domain
+         spectrum, identifying frequency-domain features, and reporting the inferred
+         measured quantity with uncertainty, confidence, and health status.
+        */
+    }
+
+    requirement def FrequencyCoverageRequirement {
+        subject sensor : FrequencyDomainSensor;
+
+        require constraint {
+            sensor.lowerFrequencyLimit <= 10 [Hz] and
+            sensor.upperFrequencyLimit >= 100000 [Hz]
+        }
+
+        doc /*
+         The frequency domain sensor shall cover the measurement band needed to detect
+         the spectral feature used to infer the relevant quantity.
+        */
+    }
+
+    requirement def SpectrumProcessingRequirement {
+        subject analyzer : FrequencyAnalyzer;
+
+        require constraint {
+            analyzer.fftLength >= 2048 and
+            analyzer.frequencyResolution <= 125 [Hz]
+        }
+
+        doc /*
+         The analyzer shall transform digitized sensor data into a spectrum with
+         sufficient frequency resolution to estimate the relevant quantity.
+        */
+    }
+
+    requirement def MeasurementReportRequirement {
+        subject estimator : QuantityEstimator;
+
+        require constraint {
+            estimator.minimumConfidence >= 0.80 and
+            estimator.maximumAllowedUncertainty <= 0.05
+        }
+
+        doc /*
+         The estimator shall publish a measured quantity report containing value,
+         unit, uncertainty, confidence, spectrum, and health status.
+        */
+    }
+
+    satisfy MeasureRelevantQuantityByFrequencyDomainSensor by FrequencyDomainSensingUnit;
+    satisfy FrequencyCoverageRequirement by FrequencyDomainSensor;
+    satisfy SpectrumProcessingRequirement by FrequencyAnalyzer;
+    satisfy MeasurementReportRequirement by QuantityEstimator;
+
+}

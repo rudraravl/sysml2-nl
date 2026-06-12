@@ -1,0 +1,610 @@
+package InternalCombustionEngineModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The internal combustion engine shall convert chemical energy stored in hydrocarbon fuel into controlled rotational mechanical power at its output shaft by inducting air, metering fuel, compressing the charge, combusting it, expanding combustion gases against pistons, exhausting spent gases, and regulating speed, torque, temperature, lubrication, and emissions within safe operating limits. */
+    }
+
+    item def Air {
+        attribute massFlowRate : MassFlowRateValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+        attribute oxygenMoleFraction : Real;
+    }
+
+    item def LiquidFuel {
+        attribute massFlowRate : MassFlowRateValue;
+        attribute lowerHeatingValue : SpecificEnergyValue;
+        attribute pressure : PressureValue;
+        attribute temperature : TemperatureValue;
+    }
+
+    item def AirFuelMixture {
+        attribute equivalenceRatio : Real;
+        attribute massFlowRate : MassFlowRateValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+    }
+
+    item def ExhaustGas {
+        attribute massFlowRate : MassFlowRateValue;
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+        attribute oxygenMoleFraction : Real;
+        attribute carbonDioxideMoleFraction : Real;
+        attribute nitrogenOxidesConcentration : Real;
+    }
+
+    item def LubricatingOil {
+        attribute pressure : PressureValue;
+        attribute temperature : TemperatureValue;
+        attribute flowRate : VolumeFlowRateValue;
+    }
+
+    item def Coolant {
+        attribute temperature : TemperatureValue;
+        attribute pressure : PressureValue;
+        attribute flowRate : VolumeFlowRateValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotentialValue;
+        attribute current : ElectricCurrentValue;
+        attribute power : PowerValue;
+    }
+
+    item def MechanicalRotation {
+        attribute speed : AngularVelocityValue;
+        attribute torque : TorqueValue;
+        attribute power : PowerValue;
+    }
+
+    item def ControlCommand {
+        attribute throttlePosition : Real;
+        attribute commandedFuelMassPerCycle : MassValue;
+        attribute sparkAdvance : PlaneAngleValue;
+        attribute targetIdleSpeed : AngularVelocityValue;
+    }
+
+    item def SensorSignal {
+        attribute value : Real;
+        attribute timestamp : TimeValue;
+        attribute validity : Boolean;
+    }
+
+    port def AirInletPort {
+        in item air : Air;
+    }
+
+    port def FuelInletPort {
+        in item fuel : LiquidFuel;
+    }
+
+    port def ExhaustOutletPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def MechanicalOutputPort {
+        out item rotation : MechanicalRotation;
+    }
+
+    port def OilPort {
+        inout item oil : LubricatingOil;
+    }
+
+    port def CoolantPort {
+        inout item coolant : Coolant;
+    }
+
+    port def ElectricalPort {
+        inout item electricalPower : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def SensorPort {
+        out item signal : SensorSignal;
+    }
+
+    action def InductAir {
+        in item ambientAir : Air;
+        in throttleOpening : Real;
+        out item meteredAir : Air;
+    }
+
+    action def MeterFuel {
+        in item fuelSupply : LiquidFuel;
+        in fuelMassPerCycle : MassValue;
+        out item injectedFuel : LiquidFuel;
+    }
+
+    action def FormMixture {
+        in item meteredAir : Air;
+        in item injectedFuel : LiquidFuel;
+        out item combustibleMixture : AirFuelMixture;
+    }
+
+    action def CompressCharge {
+        in item combustibleMixture : AirFuelMixture;
+        out item compressedCharge : AirFuelMixture;
+    }
+
+    action def IgniteCharge {
+        in item compressedCharge : AirFuelMixture;
+        in sparkAdvance : PlaneAngleValue;
+        out combustionStarted : Boolean;
+    }
+
+    action def ExpandCombustionGas {
+        in combustionStarted : Boolean;
+        out item crankshaftRotation : MechanicalRotation;
+        out item rawExhaust : ExhaustGas;
+    }
+
+    action def ExhaustSpentGas {
+        in item rawExhaust : ExhaustGas;
+        out item treatedExhaustFeed : ExhaustGas;
+    }
+
+    action def RegulateEngine {
+        in throttleDemand : Real;
+        in crankSpeed : AngularVelocityValue;
+        in coolantTemperature : TemperatureValue;
+        out command : ControlCommand;
+    }
+
+    action def CoolEngine {
+        inout item coolant : Coolant;
+        in heatRejectionRate : PowerValue;
+        out controlledTemperature : TemperatureValue;
+    }
+
+    action def LubricateEngine {
+        inout item oil : LubricatingOil;
+        in crankSpeed : AngularVelocityValue;
+        out oilPressureOk : Boolean;
+    }
+
+    action def TreatExhaust {
+        in item treatedExhaustFeed : ExhaustGas;
+        out item exhaustToTailpipe : ExhaustGas;
+    }
+
+    state def EngineOperatingState {
+        entry action initializeController;
+        state Off;
+        state Starting;
+        state Idling;
+        state Running;
+        state OverTemperatureProtection;
+        state FaultShutdown;
+        state Stopping;
+
+        transition first Off;
+        transition Off_to_Starting
+            first Off
+            then Starting
+            accept StartRequest;
+        transition Starting_to_Idling
+            first Starting
+            then Idling
+            if crankshaftSpeed >= 700 [SI::revolutions_per_minute];
+        transition Idling_to_Running
+            first Idling
+            then Running
+            if throttleDemand > 0.08;
+        transition Running_to_Idling
+            first Running
+            then Idling
+            if throttleDemand <= 0.04;
+        transition Idling_to_Stopping
+            first Idling
+            then Stopping
+            accept StopRequest;
+        transition Running_to_Stopping
+            first Running
+            then Stopping
+            accept StopRequest;
+        transition Starting_to_FaultShutdown
+            first Starting
+            then FaultShutdown
+            if startDuration > 5 [SI::s];
+        transition Idling_to_OverTemperatureProtection
+            first Idling
+            then OverTemperatureProtection
+            if coolantTemperature > 115 [SI::degC];
+        transition Running_to_OverTemperatureProtection
+            first Running
+            then OverTemperatureProtection
+            if coolantTemperature > 115 [SI::degC];
+        transition OverTemperatureProtection_to_FaultShutdown
+            first OverTemperatureProtection
+            then FaultShutdown
+            if coolantTemperature > 125 [SI::degC] or oilPressure < 120 [SI::kPa];
+        transition OverTemperatureProtection_to_Idling
+            first OverTemperatureProtection
+            then Idling
+            if coolantTemperature < 105 [SI::degC];
+        transition Stopping_to_Off
+            first Stopping
+            then Off
+            if crankshaftSpeed < 20 [SI::revolutions_per_minute];
+    }
+
+    part def ThrottleBody {
+        port airIn : AirInletPort;
+        port airOut : AirInletPort;
+        port commandIn : CommandPort;
+
+        attribute plateAngle : PlaneAngleValue;
+        attribute effectiveFlowArea : AreaValue;
+
+        action meterAir : InductAir;
+    }
+
+    part def FuelSystem {
+        port fuelIn : FuelInletPort;
+        port fuelOut : FuelInletPort;
+        port commandIn : CommandPort;
+        port electrical : ElectricalPort;
+
+        attribute railPressure : PressureValue = 350 [SI::kPa];
+        attribute injectorCount : Integer = 4;
+        attribute injectorFlowCapacity : MassFlowRateValue;
+
+        action meterFuel : MeterFuel;
+    }
+
+    part def IntakeManifold {
+        port airIn : AirInletPort;
+        port fuelIn : FuelInletPort;
+        port mixtureOut : AirInletPort;
+
+        attribute manifoldPressure : PressureValue;
+        attribute manifoldTemperature : TemperatureValue;
+        attribute plenumVolume : VolumeValue;
+
+        action mix : FormMixture;
+    }
+
+    part def Cylinder {
+        port mixtureIn : AirInletPort;
+        port exhaustOut : ExhaustOutletPort;
+        port crankOut : MechanicalOutputPort;
+        port oil : OilPort;
+        port coolant : CoolantPort;
+        port commandIn : CommandPort;
+
+        attribute bore : LengthValue = 86 [SI::mm];
+        attribute stroke : LengthValue = 86 [SI::mm];
+        attribute compressionRatio : Real = 10.5;
+        attribute displacement : VolumeValue = 0.499 [SI::L];
+        attribute peakCylinderPressure : PressureValue;
+        attribute combustionTemperature : TemperatureValue;
+
+        action compress : CompressCharge;
+        action ignite : IgniteCharge;
+        action expand : ExpandCombustionGas;
+        action exhaust : ExhaustSpentGas;
+    }
+
+    part def CrankshaftAssembly {
+        port cylinderTorqueIn : MechanicalOutputPort;
+        port outputShaft : MechanicalOutputPort;
+        port oil : OilPort;
+
+        attribute rotationalInertia : MomentOfInertiaValue;
+        attribute speed : AngularVelocityValue;
+        attribute torque : TorqueValue;
+        attribute power : PowerValue;
+
+        action sumCylinderTorque {
+            in item cylinderRotation : MechanicalRotation;
+            out item engineRotation : MechanicalRotation;
+        }
+    }
+
+    part def ValveTrain {
+        port commandIn : CommandPort;
+        port electrical : ElectricalPort;
+
+        attribute intakeValveLift : LengthValue;
+        attribute exhaustValveLift : LengthValue;
+        attribute camshaftSpeed : AngularVelocityValue;
+    }
+
+    part def IgnitionSystem {
+        port commandIn : CommandPort;
+        port electrical : ElectricalPort;
+
+        attribute coilVoltage : ElectricPotentialValue;
+        attribute sparkEnergy : EnergyValue;
+        attribute sparkAdvance : PlaneAngleValue;
+    }
+
+    part def CoolingSystem {
+        port coolantToBlock : CoolantPort;
+        port coolantFromBlock : CoolantPort;
+        port electrical : ElectricalPort;
+
+        attribute thermostatOpening : Real;
+        attribute radiatorHeatRejection : PowerValue;
+        attribute pumpFlowRate : VolumeFlowRateValue;
+        attribute targetCoolantTemperature : TemperatureValue = 95 [SI::degC];
+
+        action cool : CoolEngine;
+    }
+
+    part def LubricationSystem {
+        port oilToEngine : OilPort;
+        port oilFromEngine : OilPort;
+
+        attribute sumpVolume : VolumeValue = 4.5 [SI::L];
+        attribute pumpPressure : PressureValue;
+        attribute oilTemperature : TemperatureValue;
+        attribute minimumOilPressure : PressureValue = 120 [SI::kPa];
+
+        action lubricate : LubricateEngine;
+    }
+
+    part def ExhaustSystem {
+        port exhaustIn : ExhaustOutletPort;
+        port exhaustOut : ExhaustOutletPort;
+
+        attribute catalystTemperature : TemperatureValue;
+        attribute backPressure : PressureValue;
+        attribute conversionEfficiency : Real;
+
+        action treat : TreatExhaust;
+    }
+
+    part def EngineControlUnit {
+        port commandOut : CommandPort;
+        port electrical : ElectricalPort;
+        port crankSensorIn : SensorPort;
+        port tempSensorIn : SensorPort;
+        port oxygenSensorIn : SensorPort;
+
+        attribute targetIdleSpeed : AngularVelocityValue = 750 [SI::revolutions_per_minute];
+        attribute maximumSpeed : AngularVelocityValue = 6500 [SI::revolutions_per_minute];
+        attribute fuelCutEnabled : Boolean;
+        attribute closedLoopFuelControl : Boolean;
+
+        action regulate : RegulateEngine;
+        state operatingState : EngineOperatingState;
+    }
+
+    part def SensorSet {
+        port crankSpeedOut : SensorPort;
+        port coolantTemperatureOut : SensorPort;
+        port oxygenOut : SensorPort;
+        port manifoldPressureOut : SensorPort;
+
+        attribute crankSpeed : AngularVelocityValue;
+        attribute coolantTemperature : TemperatureValue;
+        attribute exhaustOxygenFraction : Real;
+        attribute manifoldAbsolutePressure : PressureValue;
+    }
+
+    part def FourStrokeInternalCombustionEngine {
+        port ambientAirIn : AirInletPort;
+        port fuelSupplyIn : FuelInletPort;
+        port exhaustOut : ExhaustOutletPort;
+        port shaftPowerOut : MechanicalOutputPort;
+        port batteryBus : ElectricalPort;
+
+        attribute cylinderCount : Integer = 4;
+        attribute totalDisplacement : VolumeValue = 1.996 [SI::L];
+        attribute ratedPower : PowerValue = 110 [SI::kW];
+        attribute ratedSpeed : AngularVelocityValue = 6000 [SI::revolutions_per_minute];
+        attribute peakTorque : TorqueValue = 200 [SI::N * SI::m];
+        attribute peakTorqueSpeed : AngularVelocityValue = 4000 [SI::revolutions_per_minute];
+        attribute idleSpeed : AngularVelocityValue = 750 [SI::revolutions_per_minute];
+        attribute thermalEfficiencyAtRatedPoint : Real = 0.34;
+        attribute stoichiometricAirFuelRatio : Real = 14.7;
+        attribute maximumCoolantTemperature : TemperatureValue = 115 [SI::degC];
+        attribute minimumOilPressureAtIdle : PressureValue = 120 [SI::kPa];
+
+        part throttleBody : ThrottleBody;
+        part fuelSystem : FuelSystem;
+        part intakeManifold : IntakeManifold;
+        part cylinder1 : Cylinder;
+        part cylinder2 : Cylinder;
+        part cylinder3 : Cylinder;
+        part cylinder4 : Cylinder;
+        part crankshaft : CrankshaftAssembly;
+        part valveTrain : ValveTrain;
+        part ignitionSystem : IgnitionSystem;
+        part coolingSystem : CoolingSystem;
+        part lubricationSystem : LubricationSystem;
+        part exhaustSystem : ExhaustSystem;
+        part ecu : EngineControlUnit;
+        part sensors : SensorSet;
+
+        connect ambientAirIn to throttleBody.airIn;
+        connect throttleBody.airOut to intakeManifold.airIn;
+        connect fuelSupplyIn to fuelSystem.fuelIn;
+        connect fuelSystem.fuelOut to intakeManifold.fuelIn;
+
+        connect intakeManifold.mixtureOut to cylinder1.mixtureIn;
+        connect intakeManifold.mixtureOut to cylinder2.mixtureIn;
+        connect intakeManifold.mixtureOut to cylinder3.mixtureIn;
+        connect intakeManifold.mixtureOut to cylinder4.mixtureIn;
+
+        connect cylinder1.crankOut to crankshaft.cylinderTorqueIn;
+        connect cylinder2.crankOut to crankshaft.cylinderTorqueIn;
+        connect cylinder3.crankOut to crankshaft.cylinderTorqueIn;
+        connect cylinder4.crankOut to crankshaft.cylinderTorqueIn;
+        connect crankshaft.outputShaft to shaftPowerOut;
+
+        connect cylinder1.exhaustOut to exhaustSystem.exhaustIn;
+        connect cylinder2.exhaustOut to exhaustSystem.exhaustIn;
+        connect cylinder3.exhaustOut to exhaustSystem.exhaustIn;
+        connect cylinder4.exhaustOut to exhaustSystem.exhaustIn;
+        connect exhaustSystem.exhaustOut to exhaustOut;
+
+        connect lubricationSystem.oilToEngine to cylinder1.oil;
+        connect lubricationSystem.oilToEngine to cylinder2.oil;
+        connect lubricationSystem.oilToEngine to cylinder3.oil;
+        connect lubricationSystem.oilToEngine to cylinder4.oil;
+        connect lubricationSystem.oilToEngine to crankshaft.oil;
+
+        connect coolingSystem.coolantToBlock to cylinder1.coolant;
+        connect coolingSystem.coolantToBlock to cylinder2.coolant;
+        connect coolingSystem.coolantToBlock to cylinder3.coolant;
+        connect coolingSystem.coolantToBlock to cylinder4.coolant;
+
+        connect batteryBus to ecu.electrical;
+        connect batteryBus to fuelSystem.electrical;
+        connect batteryBus to ignitionSystem.electrical;
+        connect batteryBus to valveTrain.electrical;
+        connect batteryBus to coolingSystem.electrical;
+
+        connect ecu.commandOut to throttleBody.commandIn;
+        connect ecu.commandOut to fuelSystem.commandIn;
+        connect ecu.commandOut to ignitionSystem.commandIn;
+        connect ecu.commandOut to valveTrain.commandIn;
+        connect ecu.commandOut to cylinder1.commandIn;
+        connect ecu.commandOut to cylinder2.commandIn;
+        connect ecu.commandOut to cylinder3.commandIn;
+        connect ecu.commandOut to cylinder4.commandIn;
+
+        connect sensors.crankSpeedOut to ecu.crankSensorIn;
+        connect sensors.coolantTemperatureOut to ecu.tempSensorIn;
+        connect sensors.oxygenOut to ecu.oxygenSensorIn;
+
+        action engineCycle {
+            first start;
+
+            then regulateControl : RegulateEngine {
+                in throttleDemand = throttlePedalPosition;
+                in crankSpeed = sensors.crankSpeed;
+                in coolantTemperature = sensors.coolantTemperature;
+                out command = ecu.commandOut.command;
+            }
+
+            then induct : InductAir {
+                in ambientAir = ambientAirIn.air;
+                in throttleOpening = ecu.commandOut.command.throttlePosition;
+                out meteredAir = throttleBody.airOut.air;
+            }
+
+            then inject : MeterFuel {
+                in fuelSupply = fuelSupplyIn.fuel;
+                in fuelMassPerCycle = ecu.commandOut.command.commandedFuelMassPerCycle;
+                out injectedFuel = fuelSystem.fuelOut.fuel;
+            }
+
+            then mixCharge : FormMixture {
+                in meteredAir = throttleBody.airOut.air;
+                in injectedFuel = fuelSystem.fuelOut.fuel;
+                out combustibleMixture = intakeManifold.mixtureOut.air;
+            }
+
+            then compressCharge : CompressCharge {
+                in combustibleMixture = intakeManifold.mixtureOut.air;
+                out compressedCharge = compressedCharge;
+            }
+
+            then igniteCharge : IgniteCharge {
+                in compressedCharge = compressedCharge;
+                in sparkAdvance = ecu.commandOut.command.sparkAdvance;
+                out combustionStarted = combustionStarted;
+            }
+
+            then powerStroke : ExpandCombustionGas {
+                in combustionStarted = combustionStarted;
+                out crankshaftRotation = crankshaft.outputShaft.rotation;
+                out rawExhaust = rawExhaust;
+            }
+
+            then dischargeExhaust : ExhaustSpentGas {
+                in rawExhaust = rawExhaust;
+                out treatedExhaustFeed = exhaustSystem.exhaustIn.exhaust;
+            }
+
+            then afterTreatment : TreatExhaust {
+                in treatedExhaustFeed = exhaustSystem.exhaustIn.exhaust;
+                out exhaustToTailpipe = exhaustOut.exhaust;
+            }
+
+            then lubricate : LubricateEngine {
+                inout oil = lubricationSystem.oilToEngine.oil;
+                in crankSpeed = crankshaft.speed;
+                out oilPressureOk = oilPressureOk;
+            }
+
+            then cool : CoolEngine {
+                inout coolant = coolingSystem.coolantToBlock.coolant;
+                in heatRejectionRate = combustionHeatRejected;
+                out controlledTemperature = sensors.coolantTemperature;
+            }
+
+            then done;
+        }
+
+        requirement primaryFunction : PrimaryFunctionRequirement {
+            subject engine : FourStrokeInternalCombustionEngine = FourStrokeInternalCombustionEngine;
+            require constraint {
+                shaftPowerOut.rotation.power > 0 [SI::W] implies
+                fuelSupplyIn.fuel.massFlowRate > 0 [SI::kg / SI::s] and
+                ambientAirIn.air.massFlowRate > 0 [SI::kg / SI::s] and
+                exhaustOut.exhaust.massFlowRate > 0 [SI::kg / SI::s];
+            }
+        }
+
+        requirement ratedPowerRequirement {
+            doc /* The engine shall deliver at least 110 kW of shaft power at 6000 revolutions per minute under rated ambient conditions. */
+            subject engine : FourStrokeInternalCombustionEngine = FourStrokeInternalCombustionEngine;
+            require constraint {
+                shaftPowerOut.rotation.speed == 6000 [SI::revolutions_per_minute] implies
+                shaftPowerOut.rotation.power >= ratedPower;
+            }
+        }
+
+        requirement idleStabilityRequirement {
+            doc /* The control system shall maintain stable idle speed without driver torque demand. */
+            subject engine : FourStrokeInternalCombustionEngine = FourStrokeInternalCombustionEngine;
+            require constraint {
+                ecu.commandOut.command.throttlePosition <= 0.04 implies
+                crankshaft.speed >= 700 [SI::revolutions_per_minute] and
+                crankshaft.speed <= 850 [SI::revolutions_per_minute];
+            }
+        }
+
+        requirement thermalProtectionRequirement {
+            doc /* The engine shall reduce torque or shut down when coolant temperature exceeds safe limits. */
+            subject engine : FourStrokeInternalCombustionEngine = FourStrokeInternalCombustionEngine;
+            require constraint {
+                sensors.coolantTemperature <= maximumCoolantTemperature or
+                ecu.fuelCutEnabled == true;
+            }
+        }
+
+        requirement lubricationRequirement {
+            doc /* The lubrication system shall maintain minimum oil pressure during engine operation. */
+            subject engine : FourStrokeInternalCombustionEngine = FourStrokeInternalCombustionEngine;
+            require constraint {
+                crankshaft.speed >= idleSpeed implies
+                lubricationSystem.pumpPressure >= minimumOilPressureAtIdle;
+            }
+        }
+
+        requirement emissionsRequirement {
+            doc /* The exhaust aftertreatment system shall reduce regulated emissions after catalyst light-off. */
+            subject engine : FourStrokeInternalCombustionEngine = FourStrokeInternalCombustionEngine;
+            require constraint {
+                exhaustSystem.catalystTemperature >= 400 [SI::degC] implies
+                exhaustSystem.conversionEfficiency >= 0.90;
+            }
+        }
+    }
+
+    part engineSystem : FourStrokeInternalCombustionEngine;
+
+}

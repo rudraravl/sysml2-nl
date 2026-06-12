@@ -1,0 +1,394 @@
+package TriangulationSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Distance :> ISQ::length;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def Power :> ISQ::power;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Time :> ISQ::time;
+    attribute def Frequency :> ISQ::frequency;
+    attribute def Illuminance :> ISQ::illuminance;
+    attribute def Confidence;
+    attribute def SignalToNoiseRatio;
+    attribute def PixelPosition;
+    attribute def MeasurementStatus;
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+        attribute consumedPower : Power;
+    }
+
+    item def OpticalBeam {
+        attribute wavelength : Distance;
+        attribute emittedPower : Power;
+        attribute divergenceAngle : Angle;
+        attribute pulseDuration : Time;
+    }
+
+    item def ReflectedOpticalSpot {
+        attribute centroidPosition : PixelPosition;
+        attribute spotIntensity : Illuminance;
+        attribute spotWidth : PixelPosition;
+        attribute backgroundIntensity : Illuminance;
+        attribute signalToNoiseRatio : SignalToNoiseRatio;
+    }
+
+    item def SensorCommand {
+        attribute enableEmitter : Boolean;
+        attribute startMeasurement : Boolean;
+        attribute integrationTime : Time;
+        attribute sampleRate : Frequency;
+    }
+
+    item def RawTriangulationFrame {
+        attribute detectorSpot : ReflectedOpticalSpot;
+        attribute detectorTemperature : Temperature;
+        attribute frameTimestamp : Time;
+    }
+
+    item def DistanceMeasurement {
+        attribute measuredDistance : Distance;
+        attribute compensatedDistance : Distance;
+        attribute uncertainty : Distance;
+        attribute confidence : Confidence;
+        attribute status : MeasurementStatus;
+        attribute timestamp : Time;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandInputPort {
+        in item command : SensorCommand;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : DistanceMeasurement;
+    }
+
+    port def OpticalTransmitPort {
+        out item emittedBeam : OpticalBeam;
+    }
+
+    port def OpticalReceivePort {
+        in item reflectedSpot : ReflectedOpticalSpot;
+    }
+
+    port def RawFramePort {
+        out item rawFrame : RawTriangulationFrame;
+    }
+
+    port def ProcessingInputPort {
+        in item rawFrame : RawTriangulationFrame;
+    }
+
+    constraint def TriangulationGeometry {
+        in baseline : Distance;
+        in focalLength : Distance;
+        in referencePixel : PixelPosition;
+        in measuredPixel : PixelPosition;
+        in pixelPitch : Distance;
+        out objectDistance : Distance;
+
+        objectDistance == baseline * focalLength /
+            ((measuredPixel - referencePixel) * pixelPitch);
+    }
+
+    constraint def MeasurementValidity {
+        in measuredDistance : Distance;
+        in minimumRange : Distance;
+        in maximumRange : Distance;
+        in signalToNoiseRatio : SignalToNoiseRatio;
+        in minimumSignalToNoiseRatio : SignalToNoiseRatio;
+        out valid : Boolean;
+
+        valid == measuredDistance >= minimumRange and
+                 measuredDistance <= maximumRange and
+                 signalToNoiseRatio >= minimumSignalToNoiseRatio;
+    }
+
+    action def EmitStructuredLight {
+        in command : SensorCommand;
+        out beam : OpticalBeam;
+
+        attribute nominalWavelength : Distance = 650 [SI::nano * SI::metre];
+        attribute nominalPower : Power = 2 [SI::milli * SI::watt];
+        attribute nominalDivergence : Angle = 1.5 [SI::degree];
+
+        beam.wavelength = nominalWavelength;
+        beam.emittedPower = nominalPower;
+        beam.divergenceAngle = nominalDivergence;
+        beam.pulseDuration = command.integrationTime;
+    }
+
+    action def CaptureReflectedSpot {
+        in reflectedSpot : ReflectedOpticalSpot;
+        in detectorTemperature : Temperature;
+        out rawFrame : RawTriangulationFrame;
+
+        rawFrame.detectorSpot = reflectedSpot;
+        rawFrame.detectorTemperature = detectorTemperature;
+    }
+
+    action def CalculateTriangulatedDistance {
+        in rawFrame : RawTriangulationFrame;
+        out measurement : DistanceMeasurement;
+
+        attribute baseline : Distance = 35 [SI::milli * SI::metre];
+        attribute focalLength : Distance = 8 [SI::milli * SI::metre];
+        attribute pixelPitch : Distance = 5.3 [SI::micro * SI::metre];
+        attribute referencePixel : PixelPosition = 512;
+        attribute minimumRange : Distance = 50 [SI::milli * SI::metre];
+        attribute maximumRange : Distance = 2000 [SI::milli * SI::metre];
+        attribute minimumSignalToNoiseRatio : SignalToNoiseRatio = 12;
+
+        satisfy triangulation by TriangulationGeometry {
+            baseline = baseline;
+            focalLength = focalLength;
+            referencePixel = referencePixel;
+            measuredPixel = rawFrame.detectorSpot.centroidPosition;
+            pixelPitch = pixelPitch;
+            objectDistance = measurement.measuredDistance;
+        }
+
+        satisfy validity by MeasurementValidity {
+            measuredDistance = measurement.measuredDistance;
+            minimumRange = minimumRange;
+            maximumRange = maximumRange;
+            signalToNoiseRatio = rawFrame.detectorSpot.signalToNoiseRatio;
+            minimumSignalToNoiseRatio = minimumSignalToNoiseRatio;
+            valid = measurement.status == "valid";
+        }
+
+        measurement.compensatedDistance =
+            measurement.measuredDistance *
+            (1 + 0.00002 * (rawFrame.detectorTemperature - 293.15 [SI::kelvin]));
+
+        measurement.uncertainty = 0.002 * measurement.compensatedDistance;
+        measurement.confidence = rawFrame.detectorSpot.signalToNoiseRatio / 40;
+    }
+
+    state def SensingUnitLifecycle {
+        state off;
+        state initializing;
+        state standby;
+        state emitting;
+        state acquiring;
+        state processing;
+        state reporting;
+        state fault;
+
+        transition initial then off;
+        transition off then initializing
+            accept SensorCommand
+            if command.enableEmitter == true;
+
+        transition initializing then standby;
+        transition standby then emitting
+            accept SensorCommand
+            if command.startMeasurement == true;
+
+        transition emitting then acquiring;
+        transition acquiring then processing;
+        transition processing then reporting;
+        transition reporting then standby;
+
+        transition emitting then fault
+            if emittedBeam.emittedPower > 5 [SI::milli * SI::watt];
+
+        transition acquiring then fault
+            if reflectedSpot.signalToNoiseRatio < 3;
+
+        transition fault then standby
+            accept SensorCommand
+            if command.enableEmitter == false;
+    }
+
+    part def LaserEmitter {
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port opticalOut : OpticalTransmitPort;
+
+        attribute wavelength : Distance = 650 [SI::nano * SI::metre];
+        attribute maximumOpticalPower : Power = 5 [SI::milli * SI::watt];
+        attribute nominalOpticalPower : Power = 2 [SI::milli * SI::watt];
+
+        perform emitLight : EmitStructuredLight;
+    }
+
+    part def ReceivingOptics {
+        port opticalIn : OpticalReceivePort;
+        port focusedSpotOut : RawFramePort;
+
+        attribute apertureDiameter : Distance = 12 [SI::milli * SI::metre];
+        attribute focalLength : Distance = 8 [SI::milli * SI::metre];
+        attribute opticalAxisOffset : Angle = 7 [SI::degree];
+    }
+
+    part def PositionSensitiveDetector {
+        port powerIn : PowerInputPort;
+        port opticalIn : OpticalReceivePort;
+        port rawFrameOut : RawFramePort;
+
+        attribute activeWidth : Distance = 6.8 [SI::milli * SI::metre];
+        attribute pixelPitch : Distance = 5.3 [SI::micro * SI::metre];
+        attribute pixelCount : Integer = 1280;
+        attribute detectorTemperature : Temperature;
+
+        perform captureSpot : CaptureReflectedSpot;
+    }
+
+    part def TriangulationProcessor {
+        port rawFrameIn : ProcessingInputPort;
+        port measurementOut : MeasurementOutputPort;
+
+        attribute baseline : Distance = 35 [SI::milli * SI::metre];
+        attribute referencePixel : PixelPosition = 512;
+        attribute measurementRate : Frequency = 100 [SI::hertz];
+
+        perform computeDistance : CalculateTriangulatedDistance;
+    }
+
+    part def TemperatureCompensator {
+        attribute referenceTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute expansionCoefficient : Real = 0.00002;
+    }
+
+    part def TriangulationSensor {
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port opticalTransmit : OpticalTransmitPort;
+        port opticalReceive : OpticalReceivePort;
+        port measurementOut : MeasurementOutputPort;
+
+        part emitter : LaserEmitter;
+        part optics : ReceivingOptics;
+        part detector : PositionSensitiveDetector;
+        part processor : TriangulationProcessor;
+        part compensator : TemperatureCompensator;
+
+        attribute minimumRange : Distance = 50 [SI::milli * SI::metre];
+        attribute maximumRange : Distance = 2000 [SI::milli * SI::metre];
+        attribute accuracy : Distance = 1 [SI::milli * SI::metre];
+        attribute repeatability : Distance = 0.2 [SI::milli * SI::metre];
+
+        connect powerIn to emitter.powerIn;
+        connect powerIn to detector.powerIn;
+        connect commandIn to emitter.commandIn;
+        connect emitter.opticalOut to opticalTransmit;
+        connect opticalReceive to detector.opticalIn;
+        connect detector.rawFrameOut to processor.rawFrameIn;
+        connect processor.measurementOut to measurementOut;
+
+        exhibit lifecycle : SensingUnitLifecycle;
+    }
+
+    part def SensingController {
+        port powerIn : PowerInputPort;
+        port commandOut : CommandInputPort;
+        port measurementIn : MeasurementOutputPort;
+        port measurementOut : MeasurementOutputPort;
+
+        attribute configuredSampleRate : Frequency = 100 [SI::hertz];
+        attribute maximumLatency : Time = 10 [SI::milli * SI::second];
+    }
+
+    part def SensingUnit {
+        port powerIn : PowerInputPort;
+        port commandIn : CommandInputPort;
+        port distanceOut : MeasurementOutputPort;
+        port opticalTransmit : OpticalTransmitPort;
+        port opticalReceive : OpticalReceivePort;
+
+        part triangulationSensor : TriangulationSensor;
+        part controller : SensingController;
+
+        attribute measuredQuantity : String = "distance";
+        attribute operatingVoltage : Voltage = 24 [SI::volt];
+        attribute maximumPowerConsumption : Power = 3 [SI::watt];
+        attribute operatingTemperatureMinimum : Temperature = 253.15 [SI::kelvin];
+        attribute operatingTemperatureMaximum : Temperature = 333.15 [SI::kelvin];
+
+        connect powerIn to controller.powerIn;
+        connect powerIn to triangulationSensor.powerIn;
+        connect commandIn to controller.commandOut;
+        connect controller.commandOut to triangulationSensor.commandIn;
+        connect triangulationSensor.measurementOut to controller.measurementIn;
+        connect controller.measurementOut to distanceOut;
+        connect triangulationSensor.opticalTransmit to opticalTransmit;
+        connect opticalReceive to triangulationSensor.opticalReceive;
+    }
+
+    requirement def MeasureDistanceUsingTriangulation {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantity == "distance";
+        }
+
+        require constraint {
+            sensingUnit.triangulationSensor.minimumRange <=
+                50 [SI::milli * SI::metre];
+        }
+
+        require constraint {
+            sensingUnit.triangulationSensor.maximumRange >=
+                2000 [SI::milli * SI::metre];
+        }
+
+        require constraint {
+            sensingUnit.triangulationSensor.accuracy <=
+                1 [SI::milli * SI::metre];
+        }
+
+        require constraint {
+            sensingUnit.controller.maximumLatency <=
+                10 [SI::milli * SI::second];
+        }
+    }
+
+    requirement def OpticalSafetyLimit {
+        subject sensor : TriangulationSensor;
+
+        require constraint {
+            sensor.emitter.maximumOpticalPower <=
+                5 [SI::milli * SI::watt];
+        }
+    }
+
+    requirement def MeasurementOutputCompleteness {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.distanceOut.measurement.measuredDistance >=
+                0 [SI::metre];
+        }
+
+        require constraint {
+            sensingUnit.distanceOut.measurement.uncertainty <=
+                0.002 * sensingUnit.distanceOut.measurement.compensatedDistance;
+        }
+
+        require constraint {
+            sensingUnit.distanceOut.measurement.confidence >= 0.8;
+        }
+    }
+
+    part sensingUnit : SensingUnit;
+
+    satisfy sensingUnitDistanceRequirement : MeasureDistanceUsingTriangulation
+        by sensingUnit;
+
+    satisfy sensingUnitSafetyRequirement : OpticalSafetyLimit
+        by sensingUnit.triangulationSensor;
+
+    satisfy sensingUnitOutputRequirement : MeasurementOutputCompleteness
+        by sensingUnit;
+}

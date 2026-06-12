@@ -1,0 +1,771 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f3n0rb2_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb584-d618-7951-bc28-bacd5ab4bfcf
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a sensing unit that measures the relevant quantity using a Littoral Airborne Sensor/Hyperspectral.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LittoralAirborneHyperspectralSensingUnit {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Wavelength :> Length {
+    unit = "nm";
+  }
+
+  attribute def SpectralRadiance {
+    unit = "W/(m^2*sr*nm)";
+  }
+
+  attribute def Reflectance {
+    unit = "1";
+  }
+
+  attribute def Irradiance {
+    unit = "W/m^2";
+  }
+
+  attribute def TemperatureCelsius {
+    unit = "degC";
+  }
+
+  attribute def DataRate {
+    unit = "Mbit/s";
+  }
+
+  attribute def StorageCapacity {
+    unit = "GByte";
+  }
+
+  attribute def GroundSampleDistance :> Length {
+    unit = "m";
+  }
+
+  attribute def SignalToNoiseRatio {
+    unit = "dB";
+  }
+
+  attribute def GeodeticLatitude {
+    unit = "deg";
+  }
+
+  attribute def GeodeticLongitude {
+    unit = "deg";
+  }
+
+  attribute def Altitude :> Length {
+    unit = "m";
+  }
+
+  item def LittoralSceneRadiance {
+    attribute centerWavelength : Wavelength;
+    attribute bandwidth : Wavelength;
+    attribute radiance : SpectralRadiance;
+    attribute solarIrradiance : Irradiance;
+    attribute seaSurfaceReflectance : Reflectance;
+    attribute bottomReflectance : Reflectance;
+    attribute waterColumnTurbidity : Real;
+  }
+
+  item def HyperspectralDataCube {
+    attribute lineCount : Integer;
+    attribute sampleCount : Integer;
+    attribute bandCount : Integer;
+    attribute minimumWavelength : Wavelength;
+    attribute maximumWavelength : Wavelength;
+    attribute spectralResolution : Wavelength;
+    attribute groundSampleDistance : GroundSampleDistance;
+    attribute calibratedRadiance : SpectralRadiance;
+    attribute estimatedReflectance : Reflectance;
+  }
+
+  item def GeoPose {
+    attribute latitude : GeodeticLatitude;
+    attribute longitude : GeodeticLongitude;
+    attribute altitude : Altitude;
+    attribute roll : Real;
+    attribute pitch : Real;
+    attribute yaw : Real;
+    attribute timeTag : Real;
+  }
+
+  item def SensorHealth {
+    attribute focalPlaneTemperature : TemperatureCelsius;
+    attribute electronicsTemperature : TemperatureCelsius;
+    attribute opticalBenchTemperature : TemperatureCelsius;
+    attribute detectorBiasNominal : Boolean;
+    attribute dataLinkNominal : Boolean;
+    attribute calibrationValid : Boolean;
+  }
+
+  item def CollectionCommand {
+    attribute collectEnabled : Boolean;
+    attribute requestedFrameRate : Real;
+    attribute requestedIntegrationTime : Real;
+    attribute requestedMinimumWavelength : Wavelength;
+    attribute requestedMaximumWavelength : Wavelength;
+  }
+
+  port def OpticalAperturePort {
+    in sceneRadiance : LittoralSceneRadiance;
+  }
+
+  port def DataOutPort {
+    out dataCube : HyperspectralDataCube;
+    out health : SensorHealth;
+  }
+
+  port def NavigationInPort {
+    in pose : GeoPose;
+  }
+
+  port def CommandInPort {
+    in command : CollectionCommand;
+  }
+
+  port def PowerInPort {
+    in voltage : Real;
+    in current : Real;
+  }
+
+  part def HyperspectralOpticalAssembly {
+    attribute apertureDiameter : Length = 0.18 [m];
+    attribute fieldOfViewAcrossTrack : Real = 36.0;
+    attribute fieldOfViewAlongTrack : Real = 2.5;
+    attribute transmissionEfficiency : Real = 0.72;
+
+    port aperture : OpticalAperturePort;
+    port spectrometerOutput : OpticalAperturePort;
+  }
+
+  part def ImagingSpectrometer {
+    attribute minimumWavelength : Wavelength = 400 [nm];
+    attribute maximumWavelength : Wavelength = 1000 [nm];
+    attribute spectralResolution : Wavelength = 5 [nm];
+    attribute bandCount : Integer = 121;
+    attribute strayLightRejection : SignalToNoiseRatio = 40 [dB];
+
+    port opticalInput : OpticalAperturePort;
+    port dispersedOutput : OpticalAperturePort;
+  }
+
+  part def FocalPlaneArray {
+    attribute acrossTrackPixels : Integer = 1024;
+    attribute spectralPixels : Integer = 121;
+    attribute quantumEfficiency : Real = 0.78;
+    attribute darkCurrent : Real = 180.0;
+    attribute targetTemperature : TemperatureCelsius = -20 [degC];
+
+    port photonInput : OpticalAperturePort;
+    port rawSampleOutput : DataOutPort;
+  }
+
+  part def CalibrationAssembly {
+    attribute darkReferenceInterval : Real = 300.0;
+    attribute radiometricCalibrationUncertainty : Real = 0.03;
+    attribute wavelengthCalibrationUncertainty : Wavelength = 0.5 [nm];
+
+    port calibrationCommand : CommandInPort;
+    port calibrationStatus : DataOutPort;
+  }
+
+  part def OnboardProcessor {
+    attribute maximumDataRate : DataRate = 850 [Mbit/s];
+    attribute storageCapacity : StorageCapacity = 2048 [GByte];
+    attribute atmosphericCorrectionEnabled : Boolean = true;
+    attribute waterColumnCorrectionEnabled : Boolean = true;
+
+    port rawInput : DataOutPort;
+    port navigationInput : NavigationInPort;
+    port commandInput : CommandInPort;
+    port processedOutput : DataOutPort;
+  }
+
+  part def ThermalControlUnit {
+    attribute coolerPower : Real = 95.0;
+    attribute focalPlaneSetPoint : TemperatureCelsius = -20 [degC];
+    attribute electronicsLimit : TemperatureCelsius = 55 [degC];
+
+    port powerInput : PowerInPort;
+    port healthOutput : DataOutPort;
+  }
+
+  part def AirborneSensorMount {
+    attribute vibrationIsolationFrequency : Real = 18.0;
+    attribute nadirPointingAccuracy : Real = 0.15;
+    attribute stabilizationEnabled : Boolean = true;
+
+    port navigationInput : NavigationInPort;
+  }
+
+  part def LittoralAirborneHyperspectralSensingUnit {
+    attribute unitMass : Mass = 84 [kg];
+    attribute nominalAltitude : Altitude = 1500 [m];
+    attribute nominalGroundSampleDistance : GroundSampleDistance = 1.5 [m];
+    attribute swathWidth : Length = 1536 [m];
+    attribute minimumDetectableRadiance : SpectralRadiance = 0.02;
+    attribute requiredSNR : SignalToNoiseRatio = 400 [dB];
+
+    port sceneInput : OpticalAperturePort;
+    port aircraftNavigationInput : NavigationInPort;
+    port aircraftCommandInput : CommandInPort;
+    port aircraftPowerInput : PowerInPort;
+    port missionDataOutput : DataOutPort;
+
+    part mount : AirborneSensorMount;
+    part optics : HyperspectralOpticalAssembly;
+    part spectrometer : ImagingSpectrometer;
+    part focalPlane : FocalPlaneArray;
+    part calibration : CalibrationAssembly;
+    part processor : OnboardProcessor;
+    part thermal : ThermalControlUnit;
+
+    connect sceneInput to optics.aperture;
+    connect optics.spectrometerOutput to spectrometer.opticalInput;
+    connect spectrometer.dispersedOutput to focalPlane.photonInput;
+    connect focalPlane.rawSampleOutput to processor.rawInput;
+    connect aircraftNavigationInput to mount.navigationInput;
+    connect aircraftNavigationInput to processor.navigationInput;
+    connect aircraftCommandInput to processor.commandInput;
+    connect aircraftCommandInput to calibration.calibrationCommand;
+    connect aircraftPowerInput to thermal.powerInput;
+    connect processor.processedOutput to missionDataOutput;
+    connect thermal.healthOutput to missionDataOutput;
+    connect calibration.calibrationStatus to missionDataOutput;
+  }
+
+  action def AcquireHyperspectralLine {
+    in sceneRadiance : LittoralSceneRadiance;
+    in pose : GeoPose;
+    out rawLine : HyperspectralDataCube;
+
+    first start;
+    then exposeDetector;
+    then digitizeSamples;
+    then tagWithPose;
+    then done;
+
+    action exposeDetector;
+    action digitizeSamples;
+    action tagWithPose;
+  }
+
+  action def CalibrateAndCorrectDataCube {
+    in rawCube : HyperspectralDataCube;
+    in pose : GeoPose;
+    out correctedCube : HyperspectralDataCube;
+
+    first validateCalibration;
+    then subtractDarkReference;
+    then applyRadiometricGain;
+    then estimateSurfaceReflectance;
+    then applyWaterColumnCorrection;
+    then publishCube;
+
+    action validateCalibration;
+    action subtractDarkReference;
+    action applyRadiometricGain;
+    action estimateSurfaceReflectance;
+    action applyWaterColumnCorrection;
+    action publishCube;
+  }
+
+  state def SensingUnitOperationalState {
+    entry action initializeElectronics;
+    exit action preserveCollectionMetadata;
+
+    state Off;
+    state Standby;
+    state ThermalStabilization;
+    state Calibrating;
+    state Ready;
+    state Collecting;
+    state Fault;
+    state Safe;
+
+    transition first Off then Standby
+      accept CollectionCommand
+      if command.collectEnabled == false;
+
+    transition Standby then ThermalStabilization
+      accept CollectionCommand
+      if command.collectEnabled == true;
+
+    transition ThermalStabilization then Calibrating
+      if SensorHealth::focalPlaneTemperature <= -18 [degC];
+
+    transition Calibrating then Ready
+      if SensorHealth::calibrationValid == true;
+
+    transition Ready then Collecting
+      accept CollectionCommand
+      if command.collectEnabled == true;
+
+    transition Collecting then Ready
+      accept CollectionCommand
+      if command.collectEnabled == false;
+
+    transition Ready then Calibrating
+      if CalibrationAssembly::darkReferenceInterval >= 300.0;
+
+    transition Collecting then Fault
+      if SensorHealth::dataLinkNominal == false;
+
+    transition Collecting then Fault
+      if SensorHealth::focalPlaneTemperature > -10 [degC];
+
+    transition Fault then Safe;
+    transition Safe then Standby
+      accept CollectionCommand
+      if command.collectEnabled == false;
+  }
+
+  requirement def MeasureLittoralHyperspectralRadiance {
+    subject sensingUnit : LittoralAirborneHyperspectralSensingUnit;
+
+    require constraint {
+      sensingUnit.spectrometer.minimumWavelength <= 400 [nm] and
+      sensingUnit.spectrometer.maximumWavelength >= 1000 [nm]
+    }
+
+    require constraint {
+      sensingUnit.spectrometer.spectralResolution <= 5 [nm]
+    }
+
+    require constraint {
+      sensingUnit.nominalGroundSampleDistance <= 2 [m]
+    }
+
+    require constraint {
+      sensingUnit.focalPlane.targetTemperature <= -20 [degC]
+    }
+  }
+
+  requirement def ProvideGeoreferencedDataCube {
+    subject sensingUnit : LittoralAirborneHyperspectralSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.atmosphericCorrectionEnabled == true and
+      sensingUnit.processor.waterColumnCorrectionEnabled == true
+    }
+
+    require constraint {
+      sensingUnit.processor.maximumDataRate >= 600 [Mbit/s]
+    }
+  }
+
+  requirement def MaintainAirborneSensorHealth {
+    subject sensingUnit : LittoralAirborneHyperspectralSensingUnit;
+
+    require constraint {
+      sensingUnit.thermal.electronicsLimit <= 55 [degC]
+    }
+
+    require constraint {
+      sensingUnit.calibration.radiometricCalibrationUncertainty <= 0.05
+    }
+
+    require constraint {
+      sensingUnit.mount.nadirPointingAccuracy <= 0.25
+    }
+  }
+
+  part littoralAirborneSensorHyperspectralUnit : LittoralAirborneHyperspectralSensingUnit {
+    perform SensingUnitOperationalState;
+    exhibit state SensingUnitOperationalState;
+
+    satisfy MeasureLittoralHyperspectralRadiance;
+    satisfy ProvideGeoreferencedDataCube;
+    satisfy MaintainAirborneSensorHealth;
+  }
+
+}
+tokens used
+4,002
+package LittoralAirborneHyperspectralSensingUnit {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Wavelength :> Length {
+    unit = "nm";
+  }
+
+  attribute def SpectralRadiance {
+    unit = "W/(m^2*sr*nm)";
+  }
+
+  attribute def Reflectance {
+    unit = "1";
+  }
+
+  attribute def Irradiance {
+    unit = "W/m^2";
+  }
+
+  attribute def TemperatureCelsius {
+    unit = "degC";
+  }
+
+  attribute def DataRate {
+    unit = "Mbit/s";
+  }
+
+  attribute def StorageCapacity {
+    unit = "GByte";
+  }
+
+  attribute def GroundSampleDistance :> Length {
+    unit = "m";
+  }
+
+  attribute def SignalToNoiseRatio {
+    unit = "dB";
+  }
+
+  attribute def GeodeticLatitude {
+    unit = "deg";
+  }
+
+  attribute def GeodeticLongitude {
+    unit = "deg";
+  }
+
+  attribute def Altitude :> Length {
+    unit = "m";
+  }
+
+  item def LittoralSceneRadiance {
+    attribute centerWavelength : Wavelength;
+    attribute bandwidth : Wavelength;
+    attribute radiance : SpectralRadiance;
+    attribute solarIrradiance : Irradiance;
+    attribute seaSurfaceReflectance : Reflectance;
+    attribute bottomReflectance : Reflectance;
+    attribute waterColumnTurbidity : Real;
+  }
+
+  item def HyperspectralDataCube {
+    attribute lineCount : Integer;
+    attribute sampleCount : Integer;
+    attribute bandCount : Integer;
+    attribute minimumWavelength : Wavelength;
+    attribute maximumWavelength : Wavelength;
+    attribute spectralResolution : Wavelength;
+    attribute groundSampleDistance : GroundSampleDistance;
+    attribute calibratedRadiance : SpectralRadiance;
+    attribute estimatedReflectance : Reflectance;
+  }
+
+  item def GeoPose {
+    attribute latitude : GeodeticLatitude;
+    attribute longitude : GeodeticLongitude;
+    attribute altitude : Altitude;
+    attribute roll : Real;
+    attribute pitch : Real;
+    attribute yaw : Real;
+    attribute timeTag : Real;
+  }
+
+  item def SensorHealth {
+    attribute focalPlaneTemperature : TemperatureCelsius;
+    attribute electronicsTemperature : TemperatureCelsius;
+    attribute opticalBenchTemperature : TemperatureCelsius;
+    attribute detectorBiasNominal : Boolean;
+    attribute dataLinkNominal : Boolean;
+    attribute calibrationValid : Boolean;
+  }
+
+  item def CollectionCommand {
+    attribute collectEnabled : Boolean;
+    attribute requestedFrameRate : Real;
+    attribute requestedIntegrationTime : Real;
+    attribute requestedMinimumWavelength : Wavelength;
+    attribute requestedMaximumWavelength : Wavelength;
+  }
+
+  port def OpticalAperturePort {
+    in sceneRadiance : LittoralSceneRadiance;
+  }
+
+  port def DataOutPort {
+    out dataCube : HyperspectralDataCube;
+    out health : SensorHealth;
+  }
+
+  port def NavigationInPort {
+    in pose : GeoPose;
+  }
+
+  port def CommandInPort {
+    in command : CollectionCommand;
+  }
+
+  port def PowerInPort {
+    in voltage : Real;
+    in current : Real;
+  }
+
+  part def HyperspectralOpticalAssembly {
+    attribute apertureDiameter : Length = 0.18 [m];
+    attribute fieldOfViewAcrossTrack : Real = 36.0;
+    attribute fieldOfViewAlongTrack : Real = 2.5;
+    attribute transmissionEfficiency : Real = 0.72;
+
+    port aperture : OpticalAperturePort;
+    port spectrometerOutput : OpticalAperturePort;
+  }
+
+  part def ImagingSpectrometer {
+    attribute minimumWavelength : Wavelength = 400 [nm];
+    attribute maximumWavelength : Wavelength = 1000 [nm];
+    attribute spectralResolution : Wavelength = 5 [nm];
+    attribute bandCount : Integer = 121;
+    attribute strayLightRejection : SignalToNoiseRatio = 40 [dB];
+
+    port opticalInput : OpticalAperturePort;
+    port dispersedOutput : OpticalAperturePort;
+  }
+
+  part def FocalPlaneArray {
+    attribute acrossTrackPixels : Integer = 1024;
+    attribute spectralPixels : Integer = 121;
+    attribute quantumEfficiency : Real = 0.78;
+    attribute darkCurrent : Real = 180.0;
+    attribute targetTemperature : TemperatureCelsius = -20 [degC];
+
+    port photonInput : OpticalAperturePort;
+    port rawSampleOutput : DataOutPort;
+  }
+
+  part def CalibrationAssembly {
+    attribute darkReferenceInterval : Real = 300.0;
+    attribute radiometricCalibrationUncertainty : Real = 0.03;
+    attribute wavelengthCalibrationUncertainty : Wavelength = 0.5 [nm];
+
+    port calibrationCommand : CommandInPort;
+    port calibrationStatus : DataOutPort;
+  }
+
+  part def OnboardProcessor {
+    attribute maximumDataRate : DataRate = 850 [Mbit/s];
+    attribute storageCapacity : StorageCapacity = 2048 [GByte];
+    attribute atmosphericCorrectionEnabled : Boolean = true;
+    attribute waterColumnCorrectionEnabled : Boolean = true;
+
+    port rawInput : DataOutPort;
+    port navigationInput : NavigationInPort;
+    port commandInput : CommandInPort;
+    port processedOutput : DataOutPort;
+  }
+
+  part def ThermalControlUnit {
+    attribute coolerPower : Real = 95.0;
+    attribute focalPlaneSetPoint : TemperatureCelsius = -20 [degC];
+    attribute electronicsLimit : TemperatureCelsius = 55 [degC];
+
+    port powerInput : PowerInPort;
+    port healthOutput : DataOutPort;
+  }
+
+  part def AirborneSensorMount {
+    attribute vibrationIsolationFrequency : Real = 18.0;
+    attribute nadirPointingAccuracy : Real = 0.15;
+    attribute stabilizationEnabled : Boolean = true;
+
+    port navigationInput : NavigationInPort;
+  }
+
+  part def LittoralAirborneHyperspectralSensingUnit {
+    attribute unitMass : Mass = 84 [kg];
+    attribute nominalAltitude : Altitude = 1500 [m];
+    attribute nominalGroundSampleDistance : GroundSampleDistance = 1.5 [m];
+    attribute swathWidth : Length = 1536 [m];
+    attribute minimumDetectableRadiance : SpectralRadiance = 0.02;
+    attribute requiredSNR : SignalToNoiseRatio = 400 [dB];
+
+    port sceneInput : OpticalAperturePort;
+    port aircraftNavigationInput : NavigationInPort;
+    port aircraftCommandInput : CommandInPort;
+    port aircraftPowerInput : PowerInPort;
+    port missionDataOutput : DataOutPort;
+
+    part mount : AirborneSensorMount;
+    part optics : HyperspectralOpticalAssembly;
+    part spectrometer : ImagingSpectrometer;
+    part focalPlane : FocalPlaneArray;
+    part calibration : CalibrationAssembly;
+    part processor : OnboardProcessor;
+    part thermal : ThermalControlUnit;
+
+    connect sceneInput to optics.aperture;
+    connect optics.spectrometerOutput to spectrometer.opticalInput;
+    connect spectrometer.dispersedOutput to focalPlane.photonInput;
+    connect focalPlane.rawSampleOutput to processor.rawInput;
+    connect aircraftNavigationInput to mount.navigationInput;
+    connect aircraftNavigationInput to processor.navigationInput;
+    connect aircraftCommandInput to processor.commandInput;
+    connect aircraftCommandInput to calibration.calibrationCommand;
+    connect aircraftPowerInput to thermal.powerInput;
+    connect processor.processedOutput to missionDataOutput;
+    connect thermal.healthOutput to missionDataOutput;
+    connect calibration.calibrationStatus to missionDataOutput;
+  }
+
+  action def AcquireHyperspectralLine {
+    in sceneRadiance : LittoralSceneRadiance;
+    in pose : GeoPose;
+    out rawLine : HyperspectralDataCube;
+
+    first start;
+    then exposeDetector;
+    then digitizeSamples;
+    then tagWithPose;
+    then done;
+
+    action exposeDetector;
+    action digitizeSamples;
+    action tagWithPose;
+  }
+
+  action def CalibrateAndCorrectDataCube {
+    in rawCube : HyperspectralDataCube;
+    in pose : GeoPose;
+    out correctedCube : HyperspectralDataCube;
+
+    first validateCalibration;
+    then subtractDarkReference;
+    then applyRadiometricGain;
+    then estimateSurfaceReflectance;
+    then applyWaterColumnCorrection;
+    then publishCube;
+
+    action validateCalibration;
+    action subtractDarkReference;
+    action applyRadiometricGain;
+    action estimateSurfaceReflectance;
+    action applyWaterColumnCorrection;
+    action publishCube;
+  }
+
+  state def SensingUnitOperationalState {
+    entry action initializeElectronics;
+    exit action preserveCollectionMetadata;
+
+    state Off;
+    state Standby;
+    state ThermalStabilization;
+    state Calibrating;
+    state Ready;
+    state Collecting;
+    state Fault;
+    state Safe;
+
+    transition first Off then Standby
+      accept CollectionCommand
+      if command.collectEnabled == false;
+
+    transition Standby then ThermalStabilization
+      accept CollectionCommand
+      if command.collectEnabled == true;
+
+    transition ThermalStabilization then Calibrating
+      if SensorHealth::focalPlaneTemperature <= -18 [degC];
+
+    transition Calibrating then Ready
+      if SensorHealth::calibrationValid == true;
+
+    transition Ready then Collecting
+      accept CollectionCommand
+      if command.collectEnabled == true;
+
+    transition Collecting then Ready
+      accept CollectionCommand
+      if command.collectEnabled == false;
+
+    transition Ready then Calibrating
+      if CalibrationAssembly::darkReferenceInterval >= 300.0;
+
+    transition Collecting then Fault
+      if SensorHealth::dataLinkNominal == false;
+
+    transition Collecting then Fault
+      if SensorHealth::focalPlaneTemperature > -10 [degC];
+
+    transition Fault then Safe;
+    transition Safe then Standby
+      accept CollectionCommand
+      if command.collectEnabled == false;
+  }
+
+  requirement def MeasureLittoralHyperspectralRadiance {
+    subject sensingUnit : LittoralAirborneHyperspectralSensingUnit;
+
+    require constraint {
+      sensingUnit.spectrometer.minimumWavelength <= 400 [nm] and
+      sensingUnit.spectrometer.maximumWavelength >= 1000 [nm]
+    }
+
+    require constraint {
+      sensingUnit.spectrometer.spectralResolution <= 5 [nm]
+    }
+
+    require constraint {
+      sensingUnit.nominalGroundSampleDistance <= 2 [m]
+    }
+
+    require constraint {
+      sensingUnit.focalPlane.targetTemperature <= -20 [degC]
+    }
+  }
+
+  requirement def ProvideGeoreferencedDataCube {
+    subject sensingUnit : LittoralAirborneHyperspectralSensingUnit;
+
+    require constraint {
+      sensingUnit.processor.atmosphericCorrectionEnabled == true and
+      sensingUnit.processor.waterColumnCorrectionEnabled == true
+    }
+
+    require constraint {
+      sensingUnit.processor.maximumDataRate >= 600 [Mbit/s]
+    }
+  }
+
+  requirement def MaintainAirborneSensorHealth {
+    subject sensingUnit : LittoralAirborneHyperspectralSensingUnit;
+
+    require constraint {
+      sensingUnit.thermal.electronicsLimit <= 55 [degC]
+    }
+
+    require constraint {
+      sensingUnit.calibration.radiometricCalibrationUncertainty <= 0.05
+    }
+
+    require constraint {
+      sensingUnit.mount.nadirPointingAccuracy <= 0.25
+    }
+  }
+
+  part littoralAirborneSensorHyperspectralUnit : LittoralAirborneHyperspectralSensingUnit {
+    perform SensingUnitOperationalState;
+    exhibit state SensingUnitOperationalState;
+
+    satisfy MeasureLittoralHyperspectralRadiance;
+    satisfy ProvideGeoreferencedDataCube;
+    satisfy MaintainAirborneSensorHealth;
+  }
+
+}

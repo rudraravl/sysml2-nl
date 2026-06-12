@@ -1,0 +1,302 @@
+package EfficientEnergyUseSystem {
+  import ScalarValues::*;
+
+  attribute def KilowattHour :> Real {
+    attribute unit : String = "kWh";
+  }
+
+  attribute def Kilowatt :> Real {
+    attribute unit : String = "kW";
+  }
+
+  attribute def Volt :> Real {
+    attribute unit : String = "V";
+  }
+
+  attribute def Ampere :> Real {
+    attribute unit : String = "A";
+  }
+
+  attribute def Celsius :> Real {
+    attribute unit : String = "degC";
+  }
+
+  attribute def Percent :> Real {
+    attribute unit : String = "%";
+  }
+
+  attribute def Minutes :> Real {
+    attribute unit : String = "min";
+  }
+
+  item def ElectricalPower {
+    attribute realPower : Kilowatt;
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute powerFactor : Percent;
+  }
+
+  item def EnergyUseReport {
+    attribute intervalEnergy : KilowattHour;
+    attribute peakDemand : Kilowatt;
+    attribute efficiencyScore : Percent;
+    attribute carbonAvoidedEstimate : Real;
+  }
+
+  item def OccupancySignal {
+    attribute occupied : Boolean;
+    attribute confidence : Percent;
+  }
+
+  item def TemperatureSignal {
+    attribute indoorTemperature : Celsius;
+    attribute outdoorTemperature : Celsius;
+  }
+
+  item def ControlCommand {
+    attribute targetPowerLimit : Kilowatt;
+    attribute hvacSetpoint : Celsius;
+    attribute lightingLevel : Percent;
+    attribute deferFlexibleLoads : Boolean;
+  }
+
+  port def PowerInPort {
+    in item power : ElectricalPower;
+  }
+
+  port def PowerOutPort {
+    out item power : ElectricalPower;
+  }
+
+  port def SensorInPort {
+    in item occupancy : OccupancySignal;
+    in item temperature : TemperatureSignal;
+  }
+
+  port def CommandOutPort {
+    out item command : ControlCommand;
+  }
+
+  port def ReportOutPort {
+    out item report : EnergyUseReport;
+  }
+
+  part def SmartMeter {
+    port gridPowerIn : PowerInPort;
+    port measuredPowerOut : PowerOutPort;
+    attribute samplePeriod : Minutes = 1.0;
+    attribute cumulativeEnergy : KilowattHour;
+    attribute presentDemand : Kilowatt;
+  }
+
+  part def OccupancySensor {
+    port occupancyOut : SensorInPort;
+    attribute detectionLatency : Minutes = 0.25;
+    attribute coverageConfidence : Percent = 95.0;
+  }
+
+  part def ThermalSensor {
+    port temperatureOut : SensorInPort;
+    attribute accuracy : Celsius = 0.3;
+  }
+
+  part def EnergyOptimizerController {
+    port measuredPowerIn : PowerInPort;
+    port sensorIn : SensorInPort;
+    port commandOut : CommandOutPort;
+    port reportOut : ReportOutPort;
+
+    attribute targetDailyEnergy : KilowattHour = 42.0;
+    attribute demandLimit : Kilowatt = 8.0;
+    attribute minimumComfortTemperature : Celsius = 20.0;
+    attribute maximumComfortTemperature : Celsius = 25.0;
+    attribute currentEfficiencyScore : Percent;
+  }
+
+  part def HVACSystem {
+    port commandIn : CommandOutPort;
+    port powerOut : PowerOutPort;
+    attribute ratedPower : Kilowatt = 5.5;
+    attribute activePower : Kilowatt;
+    attribute setpoint : Celsius = 22.0;
+  }
+
+  part def LightingSystem {
+    port commandIn : CommandOutPort;
+    port powerOut : PowerOutPort;
+    attribute ratedPower : Kilowatt = 1.2;
+    attribute activePower : Kilowatt;
+    attribute lightLevel : Percent = 70.0;
+  }
+
+  part def FlexibleLoadManager {
+    port commandIn : CommandOutPort;
+    port powerOut : PowerOutPort;
+    attribute deferrablePower : Kilowatt = 2.4;
+    attribute deferredDuration : Minutes;
+    attribute maximumDeferral : Minutes = 120.0;
+  }
+
+  part def EnergyStorage {
+    port chargePowerIn : PowerInPort;
+    port dischargePowerOut : PowerOutPort;
+    attribute capacity : KilowattHour = 13.5;
+    attribute stateOfCharge : Percent = 60.0;
+    attribute maximumChargePower : Kilowatt = 4.0;
+    attribute maximumDischargePower : Kilowatt = 4.0;
+  }
+
+  action def MeasureEnergyUse {
+    in item incomingPower : ElectricalPower;
+    out attribute demand : Kilowatt;
+    out attribute accumulatedEnergy : KilowattHour;
+  }
+
+  action def OptimizeEnergyUse {
+    in attribute measuredDemand : Kilowatt;
+    in attribute occupied : Boolean;
+    in attribute indoorTemperature : Celsius;
+    in attribute storageStateOfCharge : Percent;
+    out item command : ControlCommand;
+  }
+
+  action def ApplyEfficiencyControls {
+    in item command : ControlCommand;
+    out attribute controlledDemand : Kilowatt;
+  }
+
+  action def GenerateEfficiencyReport {
+    in attribute accumulatedEnergy : KilowattHour;
+    in attribute peakDemand : Kilowatt;
+    out item report : EnergyUseReport;
+  }
+
+  state def EnergyOptimizationStateMachine {
+    entry action MeasureEnergyUse;
+
+    state Monitoring;
+    state Optimizing;
+    state DemandLimiting;
+    state ComfortRecovery;
+    state Reporting;
+
+    transition first Monitoring;
+
+    transition Monitoring_to_Optimizing
+      first Monitoring
+      then Optimizing
+      if measuredDemand > demandLimit * 0.80;
+
+    transition Optimizing_to_DemandLimiting
+      first Optimizing
+      then DemandLimiting
+      if measuredDemand > demandLimit;
+
+    transition DemandLimiting_to_ComfortRecovery
+      first DemandLimiting
+      then ComfortRecovery
+      if indoorTemperature < minimumComfortTemperature or indoorTemperature > maximumComfortTemperature;
+
+    transition ComfortRecovery_to_Monitoring
+      first ComfortRecovery
+      then Monitoring
+      if indoorTemperature >= minimumComfortTemperature and indoorTemperature <= maximumComfortTemperature;
+
+    transition Optimizing_to_Reporting
+      first Optimizing
+      then Reporting
+      if reportingIntervalElapsed == true;
+
+    transition Reporting_to_Monitoring
+      first Reporting
+      then Monitoring;
+  }
+
+  requirement def EfficientEnergyUseRequirement {
+    subject system : EfficientEnergyUseSystem;
+
+    require constraint {
+      system.controller.currentEfficiencyScore >= 85.0
+    }
+
+    require constraint {
+      system.totalDailyEnergy <= system.controller.targetDailyEnergy
+    }
+
+    require constraint {
+      system.peakDemand <= system.controller.demandLimit
+    }
+  }
+
+  requirement def ComfortPreservationRequirement {
+    subject system : EfficientEnergyUseSystem;
+
+    require constraint {
+      system.indoorTemperature >= system.controller.minimumComfortTemperature and
+      system.indoorTemperature <= system.controller.maximumComfortTemperature
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : EfficientEnergyUseSystem;
+
+    doc /* The system shall monitor facility energy consumption, predict near-term demand, and coordinate HVAC, lighting, flexible loads, and storage to reduce energy use while preserving occupant comfort and operational availability. */
+  }
+
+  part def EfficientEnergyUseSystem {
+    port gridSupply : PowerInPort;
+    port efficiencyReport : ReportOutPort;
+
+    part meter : SmartMeter;
+    part occupancySensor : OccupancySensor;
+    part thermalSensor : ThermalSensor;
+    part controller : EnergyOptimizerController;
+    part hvac : HVACSystem;
+    part lighting : LightingSystem;
+    part flexibleLoads : FlexibleLoadManager;
+    part storage : EnergyStorage;
+
+    attribute totalDailyEnergy : KilowattHour;
+    attribute peakDemand : Kilowatt;
+    attribute indoorTemperature : Celsius;
+    attribute reportingIntervalElapsed : Boolean;
+
+    connect gridSupply to meter.gridPowerIn;
+    connect meter.measuredPowerOut to controller.measuredPowerIn;
+    connect occupancySensor.occupancyOut to controller.sensorIn;
+    connect thermalSensor.temperatureOut to controller.sensorIn;
+    connect controller.commandOut to hvac.commandIn;
+    connect controller.commandOut to lighting.commandIn;
+    connect controller.commandOut to flexibleLoads.commandIn;
+    connect controller.commandOut to storage.chargePowerIn;
+    connect storage.dischargePowerOut to meter.gridPowerIn;
+    connect controller.reportOut to efficiencyReport;
+
+    perform action MeasureEnergyUse {
+      in incomingPower = meter.gridPowerIn.power;
+      out demand = peakDemand;
+      out accumulatedEnergy = totalDailyEnergy;
+    }
+
+    perform action OptimizeEnergyUse {
+      in measuredDemand = meter.presentDemand;
+      in occupied = occupancySensor.occupancyOut.occupancy.occupied;
+      in indoorTemperature = thermalSensor.temperatureOut.temperature.indoorTemperature;
+      in storageStateOfCharge = storage.stateOfCharge;
+      out command = controller.commandOut.command;
+    }
+
+    perform action ApplyEfficiencyControls {
+      in command = controller.commandOut.command;
+      out controlledDemand = peakDemand;
+    }
+
+    perform action GenerateEfficiencyReport {
+      in accumulatedEnergy = totalDailyEnergy;
+      in peakDemand = peakDemand;
+      out report = efficiencyReport.report;
+    }
+
+    exhibit state EnergyOptimizationStateMachine;
+  }
+}

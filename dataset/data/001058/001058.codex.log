@@ -1,0 +1,869 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-y_wb3fw5
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb547-70df-7932-a378-d5e3a088e586
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Force gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ForceGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def ForceValue {
+        :> ISQ::force;
+        unit = SI::newton;
+    }
+
+    value def MassValue {
+        :> ISQ::mass;
+        unit = SI::kilogram;
+    }
+
+    value def TimeValue {
+        :> ISQ::time;
+        unit = SI::second;
+    }
+
+    value def VoltageValue {
+        :> ISQ::electricPotential;
+        unit = SI::volt;
+    }
+
+    value def TemperatureValue {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::degreeCelsius;
+    }
+
+    value def PercentValue {
+        :> ScalarValues::Real;
+    }
+
+    value def SampleRateValue {
+        :> ScalarValues::Real;
+        unit = SI::hertz;
+    }
+
+    item def MechanicalLoad {
+        attribute appliedForce : ForceValue;
+        attribute direction : String;
+        attribute contactCondition : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute currentAvailable : ScalarValues::Real;
+        attribute stateOfCharge : PercentValue;
+    }
+
+    item def RawSensorSignal {
+        attribute excitationVoltage : VoltageValue;
+        attribute bridgeOutputVoltage : VoltageValue;
+        attribute sensorTemperature : TemperatureValue;
+    }
+
+    item def ForceMeasurement {
+        attribute force : ForceValue;
+        attribute timestamp : TimeValue;
+        attribute sampleRate : SampleRateValue;
+        attribute overloadDetected : Boolean;
+        attribute calibrated : Boolean;
+    }
+
+    item def DisplayCommand {
+        attribute displayedForce : ForceValue;
+        attribute unitLabel : String;
+        attribute holdEnabled : Boolean;
+        attribute zeroOffsetActive : Boolean;
+        attribute overloadWarning : Boolean;
+    }
+
+    item def UserCommand {
+        attribute powerButtonPressed : Boolean;
+        attribute zeroButtonPressed : Boolean;
+        attribute holdButtonPressed : Boolean;
+        attribute unitButtonPressed : Boolean;
+    }
+
+    port def MechanicalInputPort {
+        in item load : MechanicalLoad;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def SensorSignalPort {
+        out item signal : RawSensorSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : ForceMeasurement;
+    }
+
+    port def DisplayPort {
+        in item command : DisplayCommand;
+    }
+
+    port def UserInterfacePort {
+        in item command : UserCommand;
+    }
+
+    part def LoadCell {
+        attribute ratedCapacity : ForceValue = 500 [SI::newton];
+        attribute overloadLimit : ForceValue = 750 [SI::newton];
+        attribute sensitivity : ScalarValues::Real = 2.0;
+        attribute nonLinearity : PercentValue = 0.03;
+        attribute hysteresis : PercentValue = 0.03;
+
+        port mechanicalInput : MechanicalInputPort;
+        port sensorOutput : SensorSignalPort;
+
+        action convertLoadToElectricalSignal {
+            in item load : MechanicalLoad;
+            out item signal : RawSensorSignal;
+
+            first start;
+            then senseElasticDeflection;
+            then produceBridgeVoltage;
+            then outputSignal;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute excitationVoltage : VoltageValue = 5.0 [SI::volt];
+        attribute amplifierGain : ScalarValues::Real = 128.0;
+        attribute filterCutoffFrequency : SampleRateValue = 50 [SI::hertz];
+
+        port rawInput : SensorSignalPort;
+        port conditionedOutput : MeasurementPort;
+
+        action conditionSignal {
+            in item raw : RawSensorSignal;
+            out item measured : ForceMeasurement;
+
+            first start;
+            then exciteBridge;
+            then amplifySignal;
+            then filterNoise;
+            then compensateTemperature;
+            then publishConditionedMeasurement;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute sampleRate : SampleRateValue = 100 [SI::hertz];
+        attribute zeroOffset : ForceValue = 0 [SI::newton];
+        attribute calibrationScaleFactor : ScalarValues::Real = 1.0;
+        attribute overloadThreshold : ForceValue = 500 [SI::newton];
+
+        port measurementInput : MeasurementPort;
+        port processedOutput : MeasurementPort;
+        port userInput : UserInterfacePort;
+
+        action processMeasurement {
+            in item incoming : ForceMeasurement;
+            in item userCommand : UserCommand;
+            out item processed : ForceMeasurement;
+
+            first start;
+            then readMeasurement;
+            then applyZeroOffset;
+            then applyCalibrationScale;
+            then evaluateOverload;
+            then outputProcessedMeasurement;
+        }
+
+        state def ProcessorState {
+            state off;
+            state initializing;
+            state measuring;
+            state zeroing;
+            state holding;
+            state overload;
+
+            transition first off then initializing
+                accept UserCommand
+                if powerButtonPressed;
+
+            transition initializing then measuring;
+
+            transition measuring then zeroing
+                accept UserCommand
+                if zeroButtonPressed;
+
+            transition zeroing then measuring;
+
+            transition measuring then holding
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition holding then measuring
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition measuring then overload
+                accept ForceMeasurement
+                if overloadDetected;
+
+            transition overload then measuring
+                accept ForceMeasurement
+                if not overloadDetected;
+
+            transition measuring then off
+                accept UserCommand
+                if powerButtonPressed;
+        }
+    }
+
+    part def DisplayModule {
+        attribute refreshRate : SampleRateValue = 20 [SI::hertz];
+        attribute resolution : ForceValue = 0.1 [SI::newton];
+        attribute selectedUnitLabel : String = "N";
+
+        port displayInput : DisplayPort;
+
+        action updateDisplay {
+            in item command : DisplayCommand;
+
+            first start;
+            then formatForceValue;
+            then applyHoldIndicator;
+            then applyZeroIndicator;
+            then applyOverloadWarning;
+            then refreshScreen;
+        }
+    }
+
+    part def UserControls {
+        port userCommandOutput : UserInterfacePort;
+
+        action captureUserInput {
+            out item command : UserCommand;
+
+            first start;
+            then scanButtons;
+            then debounceInputs;
+            then publishUserCommand;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : VoltageValue = 3.7 [SI::volt];
+        attribute minimumOperatingVoltage : VoltageValue = 3.2 [SI::volt];
+        attribute stateOfCharge : PercentValue = 100.0;
+
+        port powerOutput : ElectricalPowerPort;
+
+        action providePower {
+            out item power : ElectricalPower;
+
+            first start;
+            then regulateVoltage;
+            then monitorBatteryState;
+            then distributePower;
+        }
+    }
+
+    part def ForceGauge {
+        attribute maximumMeasuredForce : ForceValue = 500 [SI::newton];
+        attribute minimumMeasuredForce : ForceValue = -500 [SI::newton];
+        attribute accuracy : PercentValue = 0.25;
+        attribute operatingTemperatureMin : TemperatureValue = -10 [SI::degreeCelsius];
+        attribute operatingTemperatureMax : TemperatureValue = 50 [SI::degreeCelsius];
+
+        port forceInput : MechanicalInputPort;
+        port powerInput : ElectricalPowerPort;
+        port userInput : UserInterfacePort;
+        port forceOutput : MeasurementPort;
+        port displayInput : DisplayPort;
+
+        part loadCell : LoadCell;
+        part signalConditioner : SignalConditioner;
+        part processor : MeasurementProcessor;
+        part display : DisplayModule;
+        part controls : UserControls;
+        part power : PowerSubsystem;
+
+        connect forceInput to loadCell.mechanicalInput;
+        connect loadCell.sensorOutput to signalConditioner.rawInput;
+        connect signalConditioner.conditionedOutput to processor.measurementInput;
+        connect processor.processedOutput to forceOutput;
+        connect controls.userCommandOutput to processor.userInput;
+        connect controls.userCommandOutput to userInput;
+        connect power.powerOutput to powerInput;
+        connect displayInput to display.displayInput;
+
+        action measureAppliedForce {
+            in item load : MechanicalLoad;
+            out item measurement : ForceMeasurement;
+
+            first receiveMechanicalLoad;
+            then convertLoadCellDeflectionToSignal;
+            then conditionAnalogSignal;
+            then digitizeAndComputeForce;
+            then applyZeroAndCalibration;
+            then detectOverload;
+            then presentForceMeasurement;
+            then publishMeasurement;
+        }
+
+        state def ForceGaugeOperatingState {
+            state poweredOff;
+            state selfTest;
+            state ready;
+            state measuring;
+            state heldReading;
+            state zeroAdjustment;
+            state overloadProtected;
+            state lowPowerShutdown;
+
+            transition first poweredOff then selfTest
+                accept UserCommand
+                if powerButtonPressed;
+
+            transition selfTest then ready;
+
+            transition ready then measuring
+                accept MechanicalLoad;
+
+            transition measuring then zeroAdjustment
+                accept UserCommand
+                if zeroButtonPressed;
+
+            transition zeroAdjustment then measuring;
+
+            transition measuring then heldReading
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition heldReading then measuring
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition measuring then overloadProtected
+                accept ForceMeasurement
+                if overloadDetected;
+
+            transition overloadProtected then ready
+                accept MechanicalLoad
+                if appliedForce < 500 [SI::newton];
+
+            transition measuring then lowPowerShutdown
+                accept ElectricalPower
+                if stateOfCharge < 5.0;
+
+            transition ready then poweredOff
+                accept UserCommand
+                if powerButtonPressed;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.measureAppliedForce shall transform an externally applied mechanical load into a calibrated force measurement and make that measurement available to the operator and external consumers.
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.minimumMeasuredForce <= -500 [SI::newton] and
+            gauge.maximumMeasuredForce >= 500 [SI::newton]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.accuracy <= 0.25
+        }
+    }
+
+    requirement def OverloadProtectionRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.loadCell.overloadLimit >= 1.5 * gauge.maximumMeasuredForce
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.processor.sampleRate >= 100 [SI::hertz]
+        }
+    }
+
+    requirement def DisplayRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.display.resolution <= 0.1 [SI::newton]
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.operatingTemperatureMin <= -10 [SI::degreeCelsius] and
+            gauge.operatingTemperatureMax >= 50 [SI::degreeCelsius]
+        }
+    }
+
+    part forceGaugeSystem {
+        part gauge : ForceGauge;
+
+        satisfy PrimaryFunctionRequirement by gauge;
+        satisfy MeasurementRangeRequirement by gauge;
+        satisfy AccuracyRequirement by gauge;
+        satisfy OverloadProtectionRequirement by gauge;
+        satisfy SamplingRequirement by gauge;
+        satisfy DisplayRequirement by gauge;
+        satisfy OperatingTemperatureRequirement by gauge;
+    }
+}
+tokens used
+2,843
+package ForceGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def ForceValue {
+        :> ISQ::force;
+        unit = SI::newton;
+    }
+
+    value def MassValue {
+        :> ISQ::mass;
+        unit = SI::kilogram;
+    }
+
+    value def TimeValue {
+        :> ISQ::time;
+        unit = SI::second;
+    }
+
+    value def VoltageValue {
+        :> ISQ::electricPotential;
+        unit = SI::volt;
+    }
+
+    value def TemperatureValue {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::degreeCelsius;
+    }
+
+    value def PercentValue {
+        :> ScalarValues::Real;
+    }
+
+    value def SampleRateValue {
+        :> ScalarValues::Real;
+        unit = SI::hertz;
+    }
+
+    item def MechanicalLoad {
+        attribute appliedForce : ForceValue;
+        attribute direction : String;
+        attribute contactCondition : String;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute currentAvailable : ScalarValues::Real;
+        attribute stateOfCharge : PercentValue;
+    }
+
+    item def RawSensorSignal {
+        attribute excitationVoltage : VoltageValue;
+        attribute bridgeOutputVoltage : VoltageValue;
+        attribute sensorTemperature : TemperatureValue;
+    }
+
+    item def ForceMeasurement {
+        attribute force : ForceValue;
+        attribute timestamp : TimeValue;
+        attribute sampleRate : SampleRateValue;
+        attribute overloadDetected : Boolean;
+        attribute calibrated : Boolean;
+    }
+
+    item def DisplayCommand {
+        attribute displayedForce : ForceValue;
+        attribute unitLabel : String;
+        attribute holdEnabled : Boolean;
+        attribute zeroOffsetActive : Boolean;
+        attribute overloadWarning : Boolean;
+    }
+
+    item def UserCommand {
+        attribute powerButtonPressed : Boolean;
+        attribute zeroButtonPressed : Boolean;
+        attribute holdButtonPressed : Boolean;
+        attribute unitButtonPressed : Boolean;
+    }
+
+    port def MechanicalInputPort {
+        in item load : MechanicalLoad;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def SensorSignalPort {
+        out item signal : RawSensorSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurement : ForceMeasurement;
+    }
+
+    port def DisplayPort {
+        in item command : DisplayCommand;
+    }
+
+    port def UserInterfacePort {
+        in item command : UserCommand;
+    }
+
+    part def LoadCell {
+        attribute ratedCapacity : ForceValue = 500 [SI::newton];
+        attribute overloadLimit : ForceValue = 750 [SI::newton];
+        attribute sensitivity : ScalarValues::Real = 2.0;
+        attribute nonLinearity : PercentValue = 0.03;
+        attribute hysteresis : PercentValue = 0.03;
+
+        port mechanicalInput : MechanicalInputPort;
+        port sensorOutput : SensorSignalPort;
+
+        action convertLoadToElectricalSignal {
+            in item load : MechanicalLoad;
+            out item signal : RawSensorSignal;
+
+            first start;
+            then senseElasticDeflection;
+            then produceBridgeVoltage;
+            then outputSignal;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute excitationVoltage : VoltageValue = 5.0 [SI::volt];
+        attribute amplifierGain : ScalarValues::Real = 128.0;
+        attribute filterCutoffFrequency : SampleRateValue = 50 [SI::hertz];
+
+        port rawInput : SensorSignalPort;
+        port conditionedOutput : MeasurementPort;
+
+        action conditionSignal {
+            in item raw : RawSensorSignal;
+            out item measured : ForceMeasurement;
+
+            first start;
+            then exciteBridge;
+            then amplifySignal;
+            then filterNoise;
+            then compensateTemperature;
+            then publishConditionedMeasurement;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute sampleRate : SampleRateValue = 100 [SI::hertz];
+        attribute zeroOffset : ForceValue = 0 [SI::newton];
+        attribute calibrationScaleFactor : ScalarValues::Real = 1.0;
+        attribute overloadThreshold : ForceValue = 500 [SI::newton];
+
+        port measurementInput : MeasurementPort;
+        port processedOutput : MeasurementPort;
+        port userInput : UserInterfacePort;
+
+        action processMeasurement {
+            in item incoming : ForceMeasurement;
+            in item userCommand : UserCommand;
+            out item processed : ForceMeasurement;
+
+            first start;
+            then readMeasurement;
+            then applyZeroOffset;
+            then applyCalibrationScale;
+            then evaluateOverload;
+            then outputProcessedMeasurement;
+        }
+
+        state def ProcessorState {
+            state off;
+            state initializing;
+            state measuring;
+            state zeroing;
+            state holding;
+            state overload;
+
+            transition first off then initializing
+                accept UserCommand
+                if powerButtonPressed;
+
+            transition initializing then measuring;
+
+            transition measuring then zeroing
+                accept UserCommand
+                if zeroButtonPressed;
+
+            transition zeroing then measuring;
+
+            transition measuring then holding
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition holding then measuring
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition measuring then overload
+                accept ForceMeasurement
+                if overloadDetected;
+
+            transition overload then measuring
+                accept ForceMeasurement
+                if not overloadDetected;
+
+            transition measuring then off
+                accept UserCommand
+                if powerButtonPressed;
+        }
+    }
+
+    part def DisplayModule {
+        attribute refreshRate : SampleRateValue = 20 [SI::hertz];
+        attribute resolution : ForceValue = 0.1 [SI::newton];
+        attribute selectedUnitLabel : String = "N";
+
+        port displayInput : DisplayPort;
+
+        action updateDisplay {
+            in item command : DisplayCommand;
+
+            first start;
+            then formatForceValue;
+            then applyHoldIndicator;
+            then applyZeroIndicator;
+            then applyOverloadWarning;
+            then refreshScreen;
+        }
+    }
+
+    part def UserControls {
+        port userCommandOutput : UserInterfacePort;
+
+        action captureUserInput {
+            out item command : UserCommand;
+
+            first start;
+            then scanButtons;
+            then debounceInputs;
+            then publishUserCommand;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : VoltageValue = 3.7 [SI::volt];
+        attribute minimumOperatingVoltage : VoltageValue = 3.2 [SI::volt];
+        attribute stateOfCharge : PercentValue = 100.0;
+
+        port powerOutput : ElectricalPowerPort;
+
+        action providePower {
+            out item power : ElectricalPower;
+
+            first start;
+            then regulateVoltage;
+            then monitorBatteryState;
+            then distributePower;
+        }
+    }
+
+    part def ForceGauge {
+        attribute maximumMeasuredForce : ForceValue = 500 [SI::newton];
+        attribute minimumMeasuredForce : ForceValue = -500 [SI::newton];
+        attribute accuracy : PercentValue = 0.25;
+        attribute operatingTemperatureMin : TemperatureValue = -10 [SI::degreeCelsius];
+        attribute operatingTemperatureMax : TemperatureValue = 50 [SI::degreeCelsius];
+
+        port forceInput : MechanicalInputPort;
+        port powerInput : ElectricalPowerPort;
+        port userInput : UserInterfacePort;
+        port forceOutput : MeasurementPort;
+        port displayInput : DisplayPort;
+
+        part loadCell : LoadCell;
+        part signalConditioner : SignalConditioner;
+        part processor : MeasurementProcessor;
+        part display : DisplayModule;
+        part controls : UserControls;
+        part power : PowerSubsystem;
+
+        connect forceInput to loadCell.mechanicalInput;
+        connect loadCell.sensorOutput to signalConditioner.rawInput;
+        connect signalConditioner.conditionedOutput to processor.measurementInput;
+        connect processor.processedOutput to forceOutput;
+        connect controls.userCommandOutput to processor.userInput;
+        connect controls.userCommandOutput to userInput;
+        connect power.powerOutput to powerInput;
+        connect displayInput to display.displayInput;
+
+        action measureAppliedForce {
+            in item load : MechanicalLoad;
+            out item measurement : ForceMeasurement;
+
+            first receiveMechanicalLoad;
+            then convertLoadCellDeflectionToSignal;
+            then conditionAnalogSignal;
+            then digitizeAndComputeForce;
+            then applyZeroAndCalibration;
+            then detectOverload;
+            then presentForceMeasurement;
+            then publishMeasurement;
+        }
+
+        state def ForceGaugeOperatingState {
+            state poweredOff;
+            state selfTest;
+            state ready;
+            state measuring;
+            state heldReading;
+            state zeroAdjustment;
+            state overloadProtected;
+            state lowPowerShutdown;
+
+            transition first poweredOff then selfTest
+                accept UserCommand
+                if powerButtonPressed;
+
+            transition selfTest then ready;
+
+            transition ready then measuring
+                accept MechanicalLoad;
+
+            transition measuring then zeroAdjustment
+                accept UserCommand
+                if zeroButtonPressed;
+
+            transition zeroAdjustment then measuring;
+
+            transition measuring then heldReading
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition heldReading then measuring
+                accept UserCommand
+                if holdButtonPressed;
+
+            transition measuring then overloadProtected
+                accept ForceMeasurement
+                if overloadDetected;
+
+            transition overloadProtected then ready
+                accept MechanicalLoad
+                if appliedForce < 500 [SI::newton];
+
+            transition measuring then lowPowerShutdown
+                accept ElectricalPower
+                if stateOfCharge < 5.0;
+
+            transition ready then poweredOff
+                accept UserCommand
+                if powerButtonPressed;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.measureAppliedForce shall transform an externally applied mechanical load into a calibrated force measurement and make that measurement available to the operator and external consumers.
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.minimumMeasuredForce <= -500 [SI::newton] and
+            gauge.maximumMeasuredForce >= 500 [SI::newton]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.accuracy <= 0.25
+        }
+    }
+
+    requirement def OverloadProtectionRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.loadCell.overloadLimit >= 1.5 * gauge.maximumMeasuredForce
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.processor.sampleRate >= 100 [SI::hertz]
+        }
+    }
+
+    requirement def DisplayRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.display.resolution <= 0.1 [SI::newton]
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject gauge : ForceGauge;
+
+        require constraint {
+            gauge.operatingTemperatureMin <= -10 [SI::degreeCelsius] and
+            gauge.operatingTemperatureMax >= 50 [SI::degreeCelsius]
+        }
+    }
+
+    part forceGaugeSystem {
+        part gauge : ForceGauge;
+
+        satisfy PrimaryFunctionRequirement by gauge;
+        satisfy MeasurementRangeRequirement by gauge;
+        satisfy AccuracyRequirement by gauge;
+        satisfy OverloadProtectionRequirement by gauge;
+        satisfy SamplingRequirement by gauge;
+        satisfy DisplayRequirement by gauge;
+        satisfy OperatingTemperatureRequirement by gauge;
+    }
+}

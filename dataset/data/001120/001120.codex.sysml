@@ -1,0 +1,435 @@
+package LightSensingUnitModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Illuminance :> scalar;
+    attribute def LuminousFlux :> scalar;
+    attribute def ElectricPotential :> scalar;
+    attribute def ElectricCurrent :> scalar;
+    attribute def Power :> scalar;
+    attribute def Temperature :> scalar;
+    attribute def Time :> scalar;
+    attribute def Frequency :> scalar;
+    attribute def Ratio :> scalar;
+
+    item def IncidentLight {
+        attribute illuminance : Illuminance [lux];
+        attribute spectralRangeStart : Frequency [Hz];
+        attribute spectralRangeEnd : Frequency [Hz];
+    }
+
+    item def RawPhotodiodeSignal {
+        attribute current : ElectricCurrent [A];
+        attribute darkCurrentCompensated : Boolean;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute voltage : ElectricPotential [V];
+        attribute noiseRms : ElectricPotential [V];
+    }
+
+    item def DigitalLightSample {
+        attribute sampleTime : Time [s];
+        attribute adcCounts : Integer;
+        attribute measuredIlluminance : Illuminance [lux];
+        attribute quality : MeasurementQuality;
+    }
+
+    item def LightMeasurement {
+        attribute illuminance : Illuminance [lux];
+        attribute uncertainty : Illuminance [lux];
+        attribute timestamp : Time [s];
+        attribute valid : Boolean;
+    }
+
+    enum def MeasurementQuality {
+        enum nominal;
+        enum saturated;
+        enum belowNoiseFloor;
+        enum outOfCalibration;
+        enum sensorFault;
+    }
+
+    port def OpticalInputPort {
+        in item light : IncidentLight;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogVoltageSignal;
+    }
+
+    port def DigitalSamplePort {
+        out item sample : DigitalLightSample;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : LightMeasurement;
+    }
+
+    port def PowerInputPort {
+        in attribute supplyVoltage : ElectricPotential [V];
+        in attribute supplyCurrentLimit : ElectricCurrent [A];
+    }
+
+    port def DiagnosticPort {
+        out attribute sensorTemperature : Temperature [K];
+        out attribute faultActive : Boolean;
+        out attribute saturationActive : Boolean;
+    }
+
+    action def ConvertLightToCurrent {
+        in item opticalStimulus : IncidentLight;
+        in attribute responsivity : ElectricCurrent [A] / Illuminance [lux];
+        in attribute darkCurrent : ElectricCurrent [A];
+        out item currentSignal : RawPhotodiodeSignal;
+
+        action body {
+            currentSignal.current = opticalStimulus.illuminance * responsivity + darkCurrent;
+            currentSignal.darkCurrentCompensated = false;
+        }
+    }
+
+    action def ConditionPhotodiodeCurrent {
+        in item rawSignal : RawPhotodiodeSignal;
+        in attribute transimpedanceGain : ElectricPotential [V] / ElectricCurrent [A];
+        in attribute offsetVoltage : ElectricPotential [V];
+        out item conditionedSignal : AnalogVoltageSignal;
+
+        action body {
+            conditionedSignal.voltage = rawSignal.current * transimpedanceGain + offsetVoltage;
+            conditionedSignal.noiseRms = 0.002 [V];
+        }
+    }
+
+    action def DigitizeVoltage {
+        in item conditionedSignal : AnalogVoltageSignal;
+        in attribute adcReferenceVoltage : ElectricPotential [V];
+        in attribute adcResolutionBits : Integer;
+        out item sample : DigitalLightSample;
+
+        action body {
+            sample.adcCounts = Integer((conditionedSignal.voltage / adcReferenceVoltage) * ((2 ^ adcResolutionBits) - 1));
+            sample.sampleTime = timeNow();
+        }
+    }
+
+    action def ComputeIlluminance {
+        in item sample : DigitalLightSample;
+        in attribute calibrationSlope : Illuminance [lux] / Integer;
+        in attribute calibrationOffset : Illuminance [lux];
+        in attribute saturationCount : Integer;
+        out item measurement : LightMeasurement;
+
+        action body {
+            measurement.illuminance = sample.adcCounts * calibrationSlope + calibrationOffset;
+            measurement.uncertainty = measurement.illuminance * 0.03;
+            measurement.timestamp = sample.sampleTime;
+            measurement.valid = sample.adcCounts < saturationCount and sample.adcCounts > 5;
+        }
+    }
+
+    state def LightSensingLifecycle {
+        entry action initialize;
+
+        state poweredOff;
+        state selfTest;
+        state calibratingDarkLevel;
+        state measuring;
+        state saturated;
+        state fault;
+        state standby;
+
+        transition initial then poweredOff;
+
+        transition poweredOff_to_selfTest
+            first poweredOff
+            accept PowerApplied
+            then selfTest;
+
+        transition selfTest_to_calibratingDarkLevel
+            first selfTest
+            if diagnosticsOk
+            then calibratingDarkLevel;
+
+        transition selfTest_to_fault
+            first selfTest
+            if not diagnosticsOk
+            then fault;
+
+        transition calibratingDarkLevel_to_measuring
+            first calibratingDarkLevel
+            accept CalibrationComplete
+            then measuring;
+
+        transition measuring_to_saturated
+            first measuring
+            if latestAdcCounts >= 4090
+            then saturated;
+
+        transition saturated_to_measuring
+            first saturated
+            if latestAdcCounts < 3900
+            then measuring;
+
+        transition measuring_to_fault
+            first measuring
+            if supplyVoltageOutOfRange or sensorTemperatureTooHigh
+            then fault;
+
+        transition fault_to_selfTest
+            first fault
+            accept ResetCommand
+            then selfTest;
+
+        transition measuring_to_standby
+            first measuring
+            accept StandbyCommand
+            then standby;
+
+        transition standby_to_measuring
+            first standby
+            accept MeasureCommand
+            then measuring;
+
+        transition standby_to_poweredOff
+            first standby
+            accept PowerRemoved
+            then poweredOff;
+    }
+
+    part def OpticalWindow {
+        port opticalIn : OpticalInputPort;
+        port filteredLight : OpticalInputPort;
+
+        attribute transmissionRatio : Ratio;
+        attribute cutoffWavelengthLow : Frequency [Hz];
+        attribute cutoffWavelengthHigh : Frequency [Hz];
+        attribute contaminationLoss : Ratio;
+
+        constraint effectiveTransmission {
+            transmissionRatio >= 0.80 and transmissionRatio <= 0.98;
+            contaminationLoss <= 0.05;
+        }
+    }
+
+    part def LightSensor {
+        port opticalIn : OpticalInputPort;
+        port photocurrentOut {
+            out item signal : RawPhotodiodeSignal;
+        }
+
+        attribute responsivity : ElectricCurrent [A] / Illuminance [lux] = 4.2e-9 [A/lux];
+        attribute darkCurrent : ElectricCurrent [A] = 5.0e-9 [A];
+        attribute measurableRangeMin : Illuminance [lux] = 0.1 [lux];
+        attribute measurableRangeMax : Illuminance [lux] = 100000 [lux];
+        attribute temperature : Temperature [K];
+        attribute active : Boolean;
+
+        perform action sense : ConvertLightToCurrent {
+            opticalStimulus = opticalIn.light;
+            responsivity = responsivity;
+            darkCurrent = darkCurrent;
+            currentSignal = photocurrentOut.signal;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        port currentIn {
+            in item signal : RawPhotodiodeSignal;
+        }
+        port voltageOut : AnalogSignalPort;
+        port power : PowerInputPort;
+
+        attribute transimpedanceGain : ElectricPotential [V] / ElectricCurrent [A] = 220000 [V/A];
+        attribute offsetVoltage : ElectricPotential [V] = 0.05 [V];
+        attribute bandwidth : Frequency [Hz] = 100 [Hz];
+        attribute supplyVoltageNominal : ElectricPotential [V] = 3.3 [V];
+        attribute inputNoiseCurrentRms : ElectricCurrent [A] = 2.0e-9 [A];
+
+        perform action condition : ConditionPhotodiodeCurrent {
+            rawSignal = currentIn.signal;
+            transimpedanceGain = transimpedanceGain;
+            offsetVoltage = offsetVoltage;
+            conditionedSignal = voltageOut.signal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogIn {
+            in item signal : AnalogVoltageSignal;
+        }
+        port sampleOut : DigitalSamplePort;
+        port power : PowerInputPort;
+
+        attribute resolutionBits : Integer = 12;
+        attribute referenceVoltage : ElectricPotential [V] = 3.3 [V];
+        attribute sampleRate : Frequency [Hz] = 10 [Hz];
+        attribute saturationCount : Integer = 4095;
+        attribute conversionTime : Time [s] = 0.002 [s];
+
+        perform action digitize : DigitizeVoltage {
+            conditionedSignal = analogIn.signal;
+            adcReferenceVoltage = referenceVoltage;
+            adcResolutionBits = resolutionBits;
+            sample = sampleOut.sample;
+        }
+    }
+
+    part def MeasurementProcessor {
+        port sampleIn {
+            in item sample : DigitalLightSample;
+        }
+        port measurementOut : MeasurementOutputPort;
+        port diagnostics : DiagnosticPort;
+        port power : PowerInputPort;
+
+        attribute calibrationSlope : Illuminance [lux] / Integer = 0.0245 [lux];
+        attribute calibrationOffset : Illuminance [lux] = -1.2 [lux];
+        attribute maxAllowedTemperature : Temperature [K] = 358.15 [K];
+        attribute minSupplyVoltage : ElectricPotential [V] = 3.0 [V];
+        attribute maxSupplyVoltage : ElectricPotential [V] = 3.6 [V];
+        attribute latestAdcCounts : Integer;
+        attribute diagnosticsOk : Boolean;
+        attribute supplyVoltageOutOfRange : Boolean;
+        attribute sensorTemperatureTooHigh : Boolean;
+
+        perform action compute : ComputeIlluminance {
+            sample = sampleIn.sample;
+            calibrationSlope = calibrationSlope;
+            calibrationOffset = calibrationOffset;
+            saturationCount = 4090;
+            measurement = measurementOut.measurement;
+        }
+
+        exhibit state lifecycle : LightSensingLifecycle;
+    }
+
+    part def PowerRegulator {
+        port supplyIn : PowerInputPort;
+        port afePower : PowerInputPort;
+        port adcPower : PowerInputPort;
+        port processorPower : PowerInputPort;
+
+        attribute inputVoltage : ElectricPotential [V] = 5.0 [V];
+        attribute regulatedVoltage : ElectricPotential [V] = 3.3 [V];
+        attribute maximumOutputCurrent : ElectricCurrent [A] = 0.05 [A];
+        attribute efficiency : Ratio = 0.86;
+        attribute outputPower : Power [W];
+
+        constraint powerLimit {
+            outputPower <= regulatedVoltage * maximumOutputCurrent;
+        }
+    }
+
+    part def LightSensingUnit {
+        port lightInput : OpticalInputPort;
+        port powerInput : PowerInputPort;
+        port measurementOutput : MeasurementOutputPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part window : OpticalWindow {
+            attribute transmissionRatio = 0.92;
+            attribute contaminationLoss = 0.02;
+        }
+
+        part sensor : LightSensor;
+        part afe : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part regulator : PowerRegulator;
+
+        connect lightInput.light to window.opticalIn.light;
+        connect window.filteredLight.light to sensor.opticalIn.light;
+        connect sensor.photocurrentOut.signal to afe.currentIn.signal;
+        connect afe.voltageOut.signal to adc.analogIn.signal;
+        connect adc.sampleOut.sample to processor.sampleIn.sample;
+        connect processor.measurementOut.measurement to measurementOutput.measurement;
+
+        connect powerInput.supplyVoltage to regulator.supplyIn.supplyVoltage;
+        connect powerInput.supplyCurrentLimit to regulator.supplyIn.supplyCurrentLimit;
+        connect regulator.afePower.supplyVoltage to afe.power.supplyVoltage;
+        connect regulator.adcPower.supplyVoltage to adc.power.supplyVoltage;
+        connect regulator.processorPower.supplyVoltage to processor.power.supplyVoltage;
+
+        connect processor.diagnostics.sensorTemperature to diagnosticOutput.sensorTemperature;
+        connect processor.diagnostics.faultActive to diagnosticOutput.faultActive;
+        connect processor.diagnostics.saturationActive to diagnosticOutput.saturationActive;
+
+        constraint measurementRange {
+            sensor.measurableRangeMin <= measurementOutput.measurement.illuminance and
+            measurementOutput.measurement.illuminance <= sensor.measurableRangeMax;
+        }
+
+        constraint powerCompatibility {
+            powerInput.supplyVoltage >= 4.5 [V] and powerInput.supplyVoltage <= 5.5 [V];
+            powerInput.supplyCurrentLimit >= 0.05 [A];
+        }
+    }
+
+    requirement def MeasureLightRequirement {
+        subject sensingUnit : LightSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementOutput.measurement.valid == true implies
+            sensingUnit.measurementOutput.measurement.illuminance >= 0.1 [lux] and
+            sensingUnit.measurementOutput.measurement.illuminance <= 100000 [lux];
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : LightSensingUnit;
+
+        doc /* The sensing unit shall report illuminance measured by the light sensor with total uncertainty no greater than 5 percent of reading for 1 lux to 50000 lux. */
+
+        require constraint {
+            sensingUnit.measurementOutput.measurement.illuminance >= 1 [lux] and
+            sensingUnit.measurementOutput.measurement.illuminance <= 50000 [lux] implies
+            sensingUnit.measurementOutput.measurement.uncertainty <= sensingUnit.measurementOutput.measurement.illuminance * 0.05;
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        subject sensingUnit : LightSensingUnit;
+
+        require constraint {
+            sensingUnit.adc.sampleRate >= 10 [Hz];
+        }
+    }
+
+    requirement def SaturationDetectionRequirement {
+        subject sensingUnit : LightSensingUnit;
+
+        require constraint {
+            sensingUnit.adc.sampleOut.sample.adcCounts >= 4090 implies
+            sensingUnit.diagnosticOutput.saturationActive == true;
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : LightSensingUnit;
+
+        require constraint {
+            sensingUnit.powerInput.supplyVoltage >= 4.5 [V] and
+            sensingUnit.powerInput.supplyVoltage <= 5.5 [V] and
+            sensingUnit.powerInput.supplyCurrentLimit >= 0.05 [A];
+        }
+    }
+
+    requirement def LightSensorUsageRequirement {
+        subject sensingUnit : LightSensingUnit;
+
+        doc /* The sensing unit shall measure illuminance using a light sensor as the primary sensing element. */
+
+        require constraint {
+            sensingUnit.sensor.active == true;
+        }
+    }
+
+    satisfy MeasureLightRequirement by LightSensingUnit;
+    satisfy AccuracyRequirement by LightSensingUnit;
+    satisfy UpdateRateRequirement by LightSensingUnit;
+    satisfy SaturationDetectionRequirement by LightSensingUnit;
+    satisfy PowerRequirement by LightSensingUnit;
+    satisfy LightSensorUsageRequirement by LightSensingUnit;
+}

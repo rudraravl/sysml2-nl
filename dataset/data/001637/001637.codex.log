@@ -1,0 +1,903 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-nqb3cynt
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb77d-1fab-73b2-890d-3bd6fd1e6dd3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Zigbee and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ZigbeeBasedSensingAndControlSystem {
+
+  import ScalarValues::*;
+  import Quantities::*;
+
+  unit byte;
+  unit ms;
+  unit s;
+  unit m;
+  unit dBm;
+  unit GHz;
+  unit kbps;
+  unit percent;
+  unit V;
+  unit mA;
+
+  value type TemperatureValue specializes Real {
+    unit = "degC";
+  }
+
+  value type RelativeHumidityValue specializes Real {
+    unit = percent;
+  }
+
+  value type BatteryVoltageValue specializes Real {
+    unit = V;
+  }
+
+  value type CurrentValue specializes Real {
+    unit = mA;
+  }
+
+  value type TimeInterval specializes Real {
+    unit = s;
+  }
+
+  value type MillisecondInterval specializes Real {
+    unit = ms;
+  }
+
+  value type DistanceValue specializes Real {
+    unit = m;
+  }
+
+  value type RadioPowerValue specializes Real {
+    unit = dBm;
+  }
+
+  value type RadioFrequencyValue specializes Real {
+    unit = GHz;
+  }
+
+  value type DataRateValue specializes Real {
+    unit = kbps;
+  }
+
+  value type PayloadSizeValue specializes Integer {
+    unit = byte;
+  }
+
+  enum def DeviceRole {
+    enum coordinator;
+    enum router;
+    enum endDevice;
+  }
+
+  enum def NetworkState {
+    enum poweredOff;
+    enum scanning;
+    enum forming;
+    enum joining;
+    enum joined;
+    enum routing;
+    enum sleeping;
+    enum faulted;
+  }
+
+  enum def CommandKind {
+    enum bind;
+    enum report;
+    enum switchOn;
+    enum switchOff;
+    enum dim;
+    enum permitJoin;
+    enum leave;
+    enum heartbeat;
+  }
+
+  item def ZigbeeFrame {
+    attribute sourceAddress : String;
+    attribute destinationAddress : String;
+    attribute profileId : Integer;
+    attribute clusterId : Integer;
+    attribute sequenceNumber : Integer;
+    attribute payloadSize : PayloadSizeValue;
+    attribute encrypted : Boolean;
+    attribute command : CommandKind;
+  }
+
+  item def SensorMeasurement {
+    attribute nodeAddress : String;
+    attribute temperature : TemperatureValue;
+    attribute humidity : RelativeHumidityValue;
+    attribute batteryVoltage : BatteryVoltageValue;
+    attribute sampleAge : TimeInterval;
+  }
+
+  item def ControlCommand {
+    attribute targetAddress : String;
+    attribute command : CommandKind;
+    attribute level : Integer;
+    attribute requireAcknowledgement : Boolean;
+  }
+
+  item def Acknowledgement {
+    attribute sourceAddress : String;
+    attribute sequenceNumber : Integer;
+    attribute accepted : Boolean;
+    attribute latency : MillisecondInterval;
+  }
+
+  port def ZigbeeRadioPort {
+    out txFrame : ZigbeeFrame;
+    in rxFrame : ZigbeeFrame;
+    attribute channel : Integer;
+    attribute centerFrequency : RadioFrequencyValue;
+    attribute nominalDataRate : DataRateValue;
+    attribute txPower : RadioPowerValue;
+    attribute receiveSensitivity : RadioPowerValue;
+  }
+
+  port def SensorDataPort {
+    out measurement : SensorMeasurement;
+  }
+
+  port def CommandPort {
+    in commandIn : ControlCommand;
+    out acknowledgement : Acknowledgement;
+  }
+
+  port def GatewayServicePort {
+    in measurementIn : SensorMeasurement;
+    out commandOut : ControlCommand;
+    out networkStatus : NetworkState;
+  }
+
+  part def ZigbeeNode {
+    attribute ieeeAddress : String;
+    attribute networkAddress : String;
+    attribute role : DeviceRole;
+    attribute state : NetworkState;
+    attribute linkQuality : Integer;
+    attribute supplyVoltage : BatteryVoltageValue;
+    attribute activeCurrent : CurrentValue;
+    attribute sleepCurrent : CurrentValue;
+
+    port radio : ZigbeeRadioPort;
+    port commands : CommandPort;
+
+    action joinNetwork {
+      in permitJoinOpen : Boolean;
+      out joined : Boolean;
+    }
+
+    action sendHeartbeat {
+      out heartbeatFrame : ZigbeeFrame;
+    }
+
+    action processFrame {
+      in receivedFrame : ZigbeeFrame;
+      out accepted : Boolean;
+      out response : Acknowledgement;
+    }
+
+    state behavior NodeLifecycle {
+      entry action initialize;
+      state PoweredOff;
+      state ScanForNetwork;
+      state AttemptJoin;
+      state Connected;
+      state LowPowerSleep;
+      state Fault;
+
+      transition initial then PoweredOff;
+      transition PoweredOff to ScanForNetwork accept powerApplied;
+      transition ScanForNetwork to AttemptJoin accept beaconDetected;
+      transition AttemptJoin to Connected accept associationAccepted;
+      transition AttemptJoin to ScanForNetwork accept associationRejected;
+      transition Connected to LowPowerSleep accept idleTimeout;
+      transition LowPowerSleep to Connected accept reportDue;
+      transition Connected to Fault accept linkLost;
+      transition Fault to ScanForNetwork accept recoveryRequested;
+    }
+  }
+
+  part def ZigbeeCoordinator specializes ZigbeeNode {
+    attribute role : DeviceRole = DeviceRole::coordinator;
+    attribute panId : Integer;
+    attribute extendedPanId : String;
+    attribute permitJoinDuration : TimeInterval;
+    attribute requiredAvailability : Real;
+    port gateway : GatewayServicePort;
+
+    action formNetwork {
+      in selectedChannel : Integer;
+      out networkReady : Boolean;
+    }
+
+    action authorizeJoining {
+      in candidateAddress : String;
+      out permitted : Boolean;
+    }
+
+    action aggregateMeasurements {
+      in measurement : SensorMeasurement;
+      out forwardedMeasurement : SensorMeasurement;
+    }
+
+    state behavior CoordinatorLifecycle {
+      state Off;
+      state SelectChannel;
+      state FormMesh;
+      state AcceptingJoins;
+      state Operational;
+      state Maintenance;
+      state Fault;
+
+      transition initial then Off;
+      transition Off to SelectChannel accept powerApplied;
+      transition SelectChannel to FormMesh accept clearChannelFound;
+      transition FormMesh to AcceptingJoins accept panCreated;
+      transition AcceptingJoins to Operational accept permitJoinExpired;
+      transition Operational to AcceptingJoins accept permitJoinRequested;
+      transition Operational to Maintenance accept firmwareUpdateRequested;
+      transition Maintenance to Operational accept maintenanceComplete;
+      transition Operational to Fault accept coordinatorFailure;
+      transition Fault to SelectChannel accept reset;
+    }
+  }
+
+  part def ZigbeeRouter specializes ZigbeeNode {
+    attribute role : DeviceRole = DeviceRole::router;
+    attribute routeTableCapacity : Integer;
+    attribute childCapacity : Integer;
+
+    action relayFrame {
+      in inboundFrame : ZigbeeFrame;
+      out outboundFrame : ZigbeeFrame;
+    }
+
+    action updateRoute {
+      in destinationAddress : String;
+      out routeAvailable : Boolean;
+    }
+  }
+
+  part def ZigbeeEndDevice specializes ZigbeeNode {
+    attribute role : DeviceRole = DeviceRole::endDevice;
+    attribute reportingInterval : TimeInterval;
+    attribute maximumSleepInterval : TimeInterval;
+    port sensing : SensorDataPort;
+
+    action sampleEnvironment {
+      out measurement : SensorMeasurement;
+    }
+
+    action reportMeasurement {
+      in measurement : SensorMeasurement;
+      out frame : ZigbeeFrame;
+    }
+  }
+
+  part def EnvironmentalSensor {
+    attribute measurementRangeLow : TemperatureValue;
+    attribute measurementRangeHigh : TemperatureValue;
+    attribute temperatureAccuracy : TemperatureValue;
+    attribute humidityAccuracy : RelativeHumidityValue;
+    port data : SensorDataPort;
+
+    action acquireSample {
+      out sample : SensorMeasurement;
+    }
+  }
+
+  part def SmartLoadController {
+    attribute loadName : String;
+    attribute switchedOn : Boolean;
+    attribute dimLevel : Integer;
+    port commands : CommandPort;
+
+    action applyCommand {
+      in command : ControlCommand;
+      out acknowledgement : Acknowledgement;
+    }
+  }
+
+  part def IPGateway {
+    attribute localIpAddress : String;
+    attribute cloudConnected : Boolean;
+    attribute commandQueueDepth : Integer;
+    port zigbeeService : GatewayServicePort;
+
+    action publishTelemetry {
+      in measurement : SensorMeasurement;
+    }
+
+    action receiveUserCommand {
+      out command : ControlCommand;
+    }
+  }
+
+  part def ZigbeeMeshSystem {
+    attribute primaryFunction : String =
+      "Provide low-power wireless mesh communication for collecting environmental sensor data and delivering control commands between local devices and an IP gateway.";
+    attribute operatingChannel : Integer = 15;
+    attribute operatingFrequency : RadioFrequencyValue = 2.425;
+    attribute nominalDataRate : DataRateValue = 250.0;
+    attribute maximumMacPayload : PayloadSizeValue = 127;
+    attribute nominalIndoorRange : DistanceValue = 30.0;
+    attribute requiredCommandLatency : MillisecondInterval = 500.0;
+    attribute minimumBatteryLife : TimeInterval = 31536000.0;
+
+    part coordinator : ZigbeeCoordinator {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:00:01";
+      attribute networkAddress = "0x0000";
+      attribute panId = 4660;
+      attribute extendedPanId = "00:12:4B:00:AA:BB:CC:DD";
+      attribute permitJoinDuration = 180.0;
+      attribute requiredAvailability = 0.995;
+    }
+
+    part hallwayRouter : ZigbeeRouter {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:10:01";
+      attribute networkAddress = "0x1201";
+      attribute routeTableCapacity = 32;
+      attribute childCapacity = 12;
+    }
+
+    part kitchenRouter : ZigbeeRouter {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:10:02";
+      attribute networkAddress = "0x1202";
+      attribute routeTableCapacity = 32;
+      attribute childCapacity = 12;
+    }
+
+    part temperatureEndDevice : ZigbeeEndDevice {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:20:01";
+      attribute networkAddress = "0x2201";
+      attribute reportingInterval = 60.0;
+      attribute maximumSleepInterval = 300.0;
+    }
+
+    part humidityEndDevice : ZigbeeEndDevice {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:20:02";
+      attribute networkAddress = "0x2202";
+      attribute reportingInterval = 120.0;
+      attribute maximumSleepInterval = 600.0;
+    }
+
+    part sensor : EnvironmentalSensor {
+      attribute measurementRangeLow = -20.0;
+      attribute measurementRangeHigh = 60.0;
+      attribute temperatureAccuracy = 0.5;
+      attribute humidityAccuracy = 3.0;
+    }
+
+    part lampController : SmartLoadController {
+      attribute loadName = "Living Room Lamp";
+      attribute switchedOn = false;
+      attribute dimLevel = 0;
+    }
+
+    part gateway : IPGateway {
+      attribute localIpAddress = "192.168.1.20";
+      attribute cloudConnected = true;
+      attribute commandQueueDepth = 16;
+    }
+
+    connect coordinator.radio to hallwayRouter.radio;
+    connect coordinator.radio to kitchenRouter.radio;
+    connect hallwayRouter.radio to temperatureEndDevice.radio;
+    connect kitchenRouter.radio to humidityEndDevice.radio;
+    connect hallwayRouter.radio to lampController.commands;
+    connect temperatureEndDevice.sensing to sensor.data;
+    connect coordinator.gateway to gateway.zigbeeService;
+
+    action collectAndControl {
+      first startCoordinator : coordinator.formNetwork;
+      then enableJoining : coordinator.authorizeJoining;
+      then sampleTemperature : temperatureEndDevice.sampleEnvironment;
+      then reportTemperature : temperatureEndDevice.reportMeasurement;
+      then routeTelemetry : hallwayRouter.relayFrame;
+      then aggregate : coordinator.aggregateMeasurements;
+      then publish : gateway.publishTelemetry;
+      then receiveCommand : gateway.receiveUserCommand;
+      then routeCommand : kitchenRouter.relayFrame;
+      then actuateLoad : lampController.applyCommand;
+    }
+  }
+
+  requirement def LowPowerMeshRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.nominalDataRate >= 250.0 and
+      system.nominalIndoorRange >= 30.0
+    }
+  }
+
+  requirement def PayloadCompatibilityRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.maximumMacPayload == 127
+    }
+  }
+
+  requirement def CommandLatencyRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.requiredCommandLatency <= 500.0
+    }
+  }
+
+  requirement def BatteryLifeRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.minimumBatteryLife >= 31536000.0
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.primaryFunction != ""
+    }
+  }
+
+  satisfy LowPowerMeshRequirement by ZigbeeMeshSystem;
+  satisfy PayloadCompatibilityRequirement by ZigbeeMeshSystem;
+  satisfy CommandLatencyRequirement by ZigbeeMeshSystem;
+  satisfy BatteryLifeRequirement by ZigbeeMeshSystem;
+  satisfy PrimaryFunctionRequirement by ZigbeeMeshSystem;
+}
+tokens used
+3,593
+package ZigbeeBasedSensingAndControlSystem {
+
+  import ScalarValues::*;
+  import Quantities::*;
+
+  unit byte;
+  unit ms;
+  unit s;
+  unit m;
+  unit dBm;
+  unit GHz;
+  unit kbps;
+  unit percent;
+  unit V;
+  unit mA;
+
+  value type TemperatureValue specializes Real {
+    unit = "degC";
+  }
+
+  value type RelativeHumidityValue specializes Real {
+    unit = percent;
+  }
+
+  value type BatteryVoltageValue specializes Real {
+    unit = V;
+  }
+
+  value type CurrentValue specializes Real {
+    unit = mA;
+  }
+
+  value type TimeInterval specializes Real {
+    unit = s;
+  }
+
+  value type MillisecondInterval specializes Real {
+    unit = ms;
+  }
+
+  value type DistanceValue specializes Real {
+    unit = m;
+  }
+
+  value type RadioPowerValue specializes Real {
+    unit = dBm;
+  }
+
+  value type RadioFrequencyValue specializes Real {
+    unit = GHz;
+  }
+
+  value type DataRateValue specializes Real {
+    unit = kbps;
+  }
+
+  value type PayloadSizeValue specializes Integer {
+    unit = byte;
+  }
+
+  enum def DeviceRole {
+    enum coordinator;
+    enum router;
+    enum endDevice;
+  }
+
+  enum def NetworkState {
+    enum poweredOff;
+    enum scanning;
+    enum forming;
+    enum joining;
+    enum joined;
+    enum routing;
+    enum sleeping;
+    enum faulted;
+  }
+
+  enum def CommandKind {
+    enum bind;
+    enum report;
+    enum switchOn;
+    enum switchOff;
+    enum dim;
+    enum permitJoin;
+    enum leave;
+    enum heartbeat;
+  }
+
+  item def ZigbeeFrame {
+    attribute sourceAddress : String;
+    attribute destinationAddress : String;
+    attribute profileId : Integer;
+    attribute clusterId : Integer;
+    attribute sequenceNumber : Integer;
+    attribute payloadSize : PayloadSizeValue;
+    attribute encrypted : Boolean;
+    attribute command : CommandKind;
+  }
+
+  item def SensorMeasurement {
+    attribute nodeAddress : String;
+    attribute temperature : TemperatureValue;
+    attribute humidity : RelativeHumidityValue;
+    attribute batteryVoltage : BatteryVoltageValue;
+    attribute sampleAge : TimeInterval;
+  }
+
+  item def ControlCommand {
+    attribute targetAddress : String;
+    attribute command : CommandKind;
+    attribute level : Integer;
+    attribute requireAcknowledgement : Boolean;
+  }
+
+  item def Acknowledgement {
+    attribute sourceAddress : String;
+    attribute sequenceNumber : Integer;
+    attribute accepted : Boolean;
+    attribute latency : MillisecondInterval;
+  }
+
+  port def ZigbeeRadioPort {
+    out txFrame : ZigbeeFrame;
+    in rxFrame : ZigbeeFrame;
+    attribute channel : Integer;
+    attribute centerFrequency : RadioFrequencyValue;
+    attribute nominalDataRate : DataRateValue;
+    attribute txPower : RadioPowerValue;
+    attribute receiveSensitivity : RadioPowerValue;
+  }
+
+  port def SensorDataPort {
+    out measurement : SensorMeasurement;
+  }
+
+  port def CommandPort {
+    in commandIn : ControlCommand;
+    out acknowledgement : Acknowledgement;
+  }
+
+  port def GatewayServicePort {
+    in measurementIn : SensorMeasurement;
+    out commandOut : ControlCommand;
+    out networkStatus : NetworkState;
+  }
+
+  part def ZigbeeNode {
+    attribute ieeeAddress : String;
+    attribute networkAddress : String;
+    attribute role : DeviceRole;
+    attribute state : NetworkState;
+    attribute linkQuality : Integer;
+    attribute supplyVoltage : BatteryVoltageValue;
+    attribute activeCurrent : CurrentValue;
+    attribute sleepCurrent : CurrentValue;
+
+    port radio : ZigbeeRadioPort;
+    port commands : CommandPort;
+
+    action joinNetwork {
+      in permitJoinOpen : Boolean;
+      out joined : Boolean;
+    }
+
+    action sendHeartbeat {
+      out heartbeatFrame : ZigbeeFrame;
+    }
+
+    action processFrame {
+      in receivedFrame : ZigbeeFrame;
+      out accepted : Boolean;
+      out response : Acknowledgement;
+    }
+
+    state behavior NodeLifecycle {
+      entry action initialize;
+      state PoweredOff;
+      state ScanForNetwork;
+      state AttemptJoin;
+      state Connected;
+      state LowPowerSleep;
+      state Fault;
+
+      transition initial then PoweredOff;
+      transition PoweredOff to ScanForNetwork accept powerApplied;
+      transition ScanForNetwork to AttemptJoin accept beaconDetected;
+      transition AttemptJoin to Connected accept associationAccepted;
+      transition AttemptJoin to ScanForNetwork accept associationRejected;
+      transition Connected to LowPowerSleep accept idleTimeout;
+      transition LowPowerSleep to Connected accept reportDue;
+      transition Connected to Fault accept linkLost;
+      transition Fault to ScanForNetwork accept recoveryRequested;
+    }
+  }
+
+  part def ZigbeeCoordinator specializes ZigbeeNode {
+    attribute role : DeviceRole = DeviceRole::coordinator;
+    attribute panId : Integer;
+    attribute extendedPanId : String;
+    attribute permitJoinDuration : TimeInterval;
+    attribute requiredAvailability : Real;
+    port gateway : GatewayServicePort;
+
+    action formNetwork {
+      in selectedChannel : Integer;
+      out networkReady : Boolean;
+    }
+
+    action authorizeJoining {
+      in candidateAddress : String;
+      out permitted : Boolean;
+    }
+
+    action aggregateMeasurements {
+      in measurement : SensorMeasurement;
+      out forwardedMeasurement : SensorMeasurement;
+    }
+
+    state behavior CoordinatorLifecycle {
+      state Off;
+      state SelectChannel;
+      state FormMesh;
+      state AcceptingJoins;
+      state Operational;
+      state Maintenance;
+      state Fault;
+
+      transition initial then Off;
+      transition Off to SelectChannel accept powerApplied;
+      transition SelectChannel to FormMesh accept clearChannelFound;
+      transition FormMesh to AcceptingJoins accept panCreated;
+      transition AcceptingJoins to Operational accept permitJoinExpired;
+      transition Operational to AcceptingJoins accept permitJoinRequested;
+      transition Operational to Maintenance accept firmwareUpdateRequested;
+      transition Maintenance to Operational accept maintenanceComplete;
+      transition Operational to Fault accept coordinatorFailure;
+      transition Fault to SelectChannel accept reset;
+    }
+  }
+
+  part def ZigbeeRouter specializes ZigbeeNode {
+    attribute role : DeviceRole = DeviceRole::router;
+    attribute routeTableCapacity : Integer;
+    attribute childCapacity : Integer;
+
+    action relayFrame {
+      in inboundFrame : ZigbeeFrame;
+      out outboundFrame : ZigbeeFrame;
+    }
+
+    action updateRoute {
+      in destinationAddress : String;
+      out routeAvailable : Boolean;
+    }
+  }
+
+  part def ZigbeeEndDevice specializes ZigbeeNode {
+    attribute role : DeviceRole = DeviceRole::endDevice;
+    attribute reportingInterval : TimeInterval;
+    attribute maximumSleepInterval : TimeInterval;
+    port sensing : SensorDataPort;
+
+    action sampleEnvironment {
+      out measurement : SensorMeasurement;
+    }
+
+    action reportMeasurement {
+      in measurement : SensorMeasurement;
+      out frame : ZigbeeFrame;
+    }
+  }
+
+  part def EnvironmentalSensor {
+    attribute measurementRangeLow : TemperatureValue;
+    attribute measurementRangeHigh : TemperatureValue;
+    attribute temperatureAccuracy : TemperatureValue;
+    attribute humidityAccuracy : RelativeHumidityValue;
+    port data : SensorDataPort;
+
+    action acquireSample {
+      out sample : SensorMeasurement;
+    }
+  }
+
+  part def SmartLoadController {
+    attribute loadName : String;
+    attribute switchedOn : Boolean;
+    attribute dimLevel : Integer;
+    port commands : CommandPort;
+
+    action applyCommand {
+      in command : ControlCommand;
+      out acknowledgement : Acknowledgement;
+    }
+  }
+
+  part def IPGateway {
+    attribute localIpAddress : String;
+    attribute cloudConnected : Boolean;
+    attribute commandQueueDepth : Integer;
+    port zigbeeService : GatewayServicePort;
+
+    action publishTelemetry {
+      in measurement : SensorMeasurement;
+    }
+
+    action receiveUserCommand {
+      out command : ControlCommand;
+    }
+  }
+
+  part def ZigbeeMeshSystem {
+    attribute primaryFunction : String =
+      "Provide low-power wireless mesh communication for collecting environmental sensor data and delivering control commands between local devices and an IP gateway.";
+    attribute operatingChannel : Integer = 15;
+    attribute operatingFrequency : RadioFrequencyValue = 2.425;
+    attribute nominalDataRate : DataRateValue = 250.0;
+    attribute maximumMacPayload : PayloadSizeValue = 127;
+    attribute nominalIndoorRange : DistanceValue = 30.0;
+    attribute requiredCommandLatency : MillisecondInterval = 500.0;
+    attribute minimumBatteryLife : TimeInterval = 31536000.0;
+
+    part coordinator : ZigbeeCoordinator {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:00:01";
+      attribute networkAddress = "0x0000";
+      attribute panId = 4660;
+      attribute extendedPanId = "00:12:4B:00:AA:BB:CC:DD";
+      attribute permitJoinDuration = 180.0;
+      attribute requiredAvailability = 0.995;
+    }
+
+    part hallwayRouter : ZigbeeRouter {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:10:01";
+      attribute networkAddress = "0x1201";
+      attribute routeTableCapacity = 32;
+      attribute childCapacity = 12;
+    }
+
+    part kitchenRouter : ZigbeeRouter {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:10:02";
+      attribute networkAddress = "0x1202";
+      attribute routeTableCapacity = 32;
+      attribute childCapacity = 12;
+    }
+
+    part temperatureEndDevice : ZigbeeEndDevice {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:20:01";
+      attribute networkAddress = "0x2201";
+      attribute reportingInterval = 60.0;
+      attribute maximumSleepInterval = 300.0;
+    }
+
+    part humidityEndDevice : ZigbeeEndDevice {
+      attribute ieeeAddress = "00:12:4B:00:AA:00:20:02";
+      attribute networkAddress = "0x2202";
+      attribute reportingInterval = 120.0;
+      attribute maximumSleepInterval = 600.0;
+    }
+
+    part sensor : EnvironmentalSensor {
+      attribute measurementRangeLow = -20.0;
+      attribute measurementRangeHigh = 60.0;
+      attribute temperatureAccuracy = 0.5;
+      attribute humidityAccuracy = 3.0;
+    }
+
+    part lampController : SmartLoadController {
+      attribute loadName = "Living Room Lamp";
+      attribute switchedOn = false;
+      attribute dimLevel = 0;
+    }
+
+    part gateway : IPGateway {
+      attribute localIpAddress = "192.168.1.20";
+      attribute cloudConnected = true;
+      attribute commandQueueDepth = 16;
+    }
+
+    connect coordinator.radio to hallwayRouter.radio;
+    connect coordinator.radio to kitchenRouter.radio;
+    connect hallwayRouter.radio to temperatureEndDevice.radio;
+    connect kitchenRouter.radio to humidityEndDevice.radio;
+    connect hallwayRouter.radio to lampController.commands;
+    connect temperatureEndDevice.sensing to sensor.data;
+    connect coordinator.gateway to gateway.zigbeeService;
+
+    action collectAndControl {
+      first startCoordinator : coordinator.formNetwork;
+      then enableJoining : coordinator.authorizeJoining;
+      then sampleTemperature : temperatureEndDevice.sampleEnvironment;
+      then reportTemperature : temperatureEndDevice.reportMeasurement;
+      then routeTelemetry : hallwayRouter.relayFrame;
+      then aggregate : coordinator.aggregateMeasurements;
+      then publish : gateway.publishTelemetry;
+      then receiveCommand : gateway.receiveUserCommand;
+      then routeCommand : kitchenRouter.relayFrame;
+      then actuateLoad : lampController.applyCommand;
+    }
+  }
+
+  requirement def LowPowerMeshRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.nominalDataRate >= 250.0 and
+      system.nominalIndoorRange >= 30.0
+    }
+  }
+
+  requirement def PayloadCompatibilityRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.maximumMacPayload == 127
+    }
+  }
+
+  requirement def CommandLatencyRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.requiredCommandLatency <= 500.0
+    }
+  }
+
+  requirement def BatteryLifeRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.minimumBatteryLife >= 31536000.0
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ZigbeeMeshSystem;
+    require constraint {
+      system.primaryFunction != ""
+    }
+  }
+
+  satisfy LowPowerMeshRequirement by ZigbeeMeshSystem;
+  satisfy PayloadCompatibilityRequirement by ZigbeeMeshSystem;
+  satisfy CommandLatencyRequirement by ZigbeeMeshSystem;
+  satisfy BatteryLifeRequirement by ZigbeeMeshSystem;
+  satisfy PrimaryFunctionRequirement by ZigbeeMeshSystem;
+}

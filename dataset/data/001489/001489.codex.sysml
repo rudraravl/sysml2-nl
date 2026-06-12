@@ -1,0 +1,385 @@
+package LinearAcetylenicCarbonSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value def ElectronMobility :> Real {
+    unit = "cm^2/(V*s)";
+  }
+
+  value def BandGapEnergy :> Real {
+    unit = "eV";
+  }
+
+  value def TensileStrength :> Real {
+    unit = "GPa";
+  }
+
+  value def ThermalConductivity :> Real {
+    unit = "W/(m*K)";
+  }
+
+  value def ChainLength :> Real {
+    unit = "nm";
+  }
+
+  value def ElectricPotential :> Real {
+    unit = "V";
+  }
+
+  value def ElectricCurrent :> Real {
+    unit = "A";
+  }
+
+  value def Temperature :> Real {
+    unit = "K";
+  }
+
+  value def Force :> Real {
+    unit = "N";
+  }
+
+  item def ElectronFlow {
+    attribute current : ElectricCurrent;
+    attribute potential : ElectricPotential;
+    attribute carrierMobility : ElectronMobility;
+  }
+
+  item def HeatFlow {
+    attribute heatRate : Real;
+    attribute sourceTemperature : Temperature;
+    attribute sinkTemperature : Temperature;
+  }
+
+  item def MechanicalLoad {
+    attribute axialForce : Force;
+    attribute strain : Real;
+  }
+
+  item def OpticalPhoton {
+    attribute photonEnergy : BandGapEnergy;
+    attribute wavelength_nm : Real;
+  }
+
+  port def ElectricalPort {
+    out item electrons : ElectronFlow;
+    in item bias : ElectronFlow;
+  }
+
+  port def ThermalPort {
+    inout item heat : HeatFlow;
+  }
+
+  port def MechanicalAnchorPort {
+    in item load : MechanicalLoad;
+  }
+
+  port def OpticalPort {
+    in item incidentPhoton : OpticalPhoton;
+    out item emittedPhoton : OpticalPhoton;
+  }
+
+  part def LinearAcetylenicCarbonChain {
+    attribute length : ChainLength = 25.0;
+    attribute bondAlternationRatio : Real = 1.18;
+    attribute bandGap : BandGapEnergy = 2.2;
+    attribute tensileStrength : TensileStrength = 270.0;
+    attribute thermalConductivity : ThermalConductivity = 1200.0;
+    attribute electronMobility : ElectronMobility = 100000.0;
+    attribute maxOperatingTemperature : Temperature = 500.0;
+
+    port leftElectrode : ElectricalPort;
+    port rightElectrode : ElectricalPort;
+    port thermalInterface : ThermalPort;
+    port opticalInterface : OpticalPort;
+    port leftAnchor : MechanicalAnchorPort;
+    port rightAnchor : MechanicalAnchorPort;
+
+    perform action TransmitCharge {
+      in item inputBias : ElectronFlow;
+      out item conductedFlow : ElectronFlow;
+
+      first start;
+      then validateBias;
+      then delocalizePiElectrons;
+      then conductAlongChain;
+      then emitConductedFlow;
+      then done;
+
+      action validateBias;
+      action delocalizePiElectrons;
+      action conductAlongChain;
+      action emitConductedFlow;
+    }
+
+    perform action ConductHeat {
+      in item thermalInput : HeatFlow;
+      out item thermalOutput : HeatFlow;
+
+      first start;
+      then acceptHeat;
+      then propagatePhonons;
+      then rejectHeat;
+      then done;
+
+      action acceptHeat;
+      action propagatePhonons;
+      action rejectHeat;
+    }
+
+    state ChainOperationalState {
+      entry action InitializeChain;
+
+      state Stabilized;
+      state Conducting;
+      state ThermallyLimited;
+      state MechanicallyStressed;
+      state Degraded;
+
+      transition first Stabilized;
+      transition Stabilized to Conducting
+        accept ElectronFlow
+        if bias.current > 0.0;
+
+      transition Conducting to ThermallyLimited
+        if thermalInterface.heat.sourceTemperature > maxOperatingTemperature;
+
+      transition Conducting to MechanicallyStressed
+        accept MechanicalLoad
+        if load.strain > 0.02;
+
+      transition ThermallyLimited to Stabilized
+        if thermalInterface.heat.sourceTemperature <= maxOperatingTemperature;
+
+      transition MechanicallyStressed to Stabilized
+        if load.strain <= 0.02;
+
+      transition ThermallyLimited to Degraded
+        if thermalInterface.heat.sourceTemperature > 800.0;
+
+      transition MechanicallyStressed to Degraded
+        if load.strain > 0.08;
+    }
+  }
+
+  part def MolecularEndCap {
+    attribute chemicalRole : String = "Prevents chain crosslinking and preserves linear acetylenic structure";
+    attribute bindingEnergy_eV : Real = 4.7;
+
+    port chainBond : MechanicalAnchorPort;
+  }
+
+  part def NanoElectrode {
+    attribute workFunction : BandGapEnergy = 4.8;
+    attribute contactResistance_ohm : Real = 250.0;
+
+    port externalCircuit : ElectricalPort;
+    port chainContact : ElectricalPort;
+    port thermalPath : ThermalPort;
+  }
+
+  part def SubstrateSupport {
+    attribute dielectricConstant : Real = 3.9;
+    attribute thermalExpansionCoefficient : Real = 2.6e-6;
+
+    port leftAnchor : MechanicalAnchorPort;
+    port rightAnchor : MechanicalAnchorPort;
+    port heatSink : ThermalPort;
+  }
+
+  part def BiasController {
+    attribute commandedVoltage : ElectricPotential = 1.0;
+    attribute maxCurrent : ElectricCurrent = 1.0e-6;
+
+    port output : ElectricalPort;
+
+    perform action RegulateBias {
+      out item regulatedBias : ElectronFlow;
+
+      first start;
+      then measureCurrent;
+      then compareToLimit;
+      then adjustVoltage;
+      then issueBias;
+      then done;
+
+      action measureCurrent;
+      action compareToLimit;
+      action adjustVoltage;
+      action issueBias;
+    }
+  }
+
+  part def ThermalManager {
+    attribute nominalSinkTemperature : Temperature = 298.0;
+    attribute shutdownTemperature : Temperature = 650.0;
+
+    port chainThermalPort : ThermalPort;
+    port substrateThermalPort : ThermalPort;
+
+    perform action RemoveHeat {
+      in item chainHeat : HeatFlow;
+      out item rejectedHeat : HeatFlow;
+
+      first start;
+      then collectHeat;
+      then spreadHeatToSubstrate;
+      then maintainTemperatureGradient;
+      then done;
+
+      action collectHeat;
+      action spreadHeatToSubstrate;
+      action maintainTemperatureGradient;
+    }
+  }
+
+  part def OpticalProbe {
+    attribute excitationEnergy : BandGapEnergy = 2.2;
+    attribute samplingRate_Hz : Real = 1000000.0;
+
+    port opticalAccess : OpticalPort;
+
+    perform action InspectBondAlternation {
+      in item excitation : OpticalPhoton;
+      out item response : OpticalPhoton;
+
+      first start;
+      then illuminateChain;
+      then collectResponse;
+      then inferBondState;
+      then done;
+
+      action illuminateChain;
+      action collectResponse;
+      action inferBondState;
+    }
+  }
+
+  part def LinearAcetylenicCarbonDevice {
+    attribute primaryFunction : String =
+      "Provide an atomically narrow, linear carbon conduction path that transports electronic signals and heat along a mechanically strong acetylenic chain.";
+
+    part carbonChain : LinearAcetylenicCarbonChain;
+    part leftEndCap : MolecularEndCap;
+    part rightEndCap : MolecularEndCap;
+    part sourceElectrode : NanoElectrode;
+    part drainElectrode : NanoElectrode;
+    part support : SubstrateSupport;
+    part controller : BiasController;
+    part thermalManager : ThermalManager;
+    part opticalProbe : OpticalProbe;
+
+    port systemInput : ElectricalPort;
+    port systemOutput : ElectricalPort;
+    port systemHeatSink : ThermalPort;
+    port systemOpticalAccess : OpticalPort;
+
+    connect systemInput to controller.output;
+    connect controller.output to sourceElectrode.externalCircuit;
+    connect sourceElectrode.chainContact to carbonChain.leftElectrode;
+    connect carbonChain.rightElectrode to drainElectrode.chainContact;
+    connect drainElectrode.externalCircuit to systemOutput;
+
+    connect carbonChain.leftAnchor to leftEndCap.chainBond;
+    connect carbonChain.rightAnchor to rightEndCap.chainBond;
+    connect leftEndCap.chainBond to support.leftAnchor;
+    connect rightEndCap.chainBond to support.rightAnchor;
+
+    connect carbonChain.thermalInterface to thermalManager.chainThermalPort;
+    connect thermalManager.substrateThermalPort to support.heatSink;
+    connect support.heatSink to systemHeatSink;
+
+    connect opticalProbe.opticalAccess to carbonChain.opticalInterface;
+    connect opticalProbe.opticalAccess to systemOpticalAccess;
+
+    perform action OperateDevice {
+      first start;
+      then applyControlledBias;
+      then transportElectronsAlongCarbonChain;
+      then rejectJouleHeat;
+      then monitorStructuralIntegrity;
+      then deliverOutputSignal;
+      then done;
+
+      action applyControlledBias;
+      action transportElectronsAlongCarbonChain;
+      action rejectJouleHeat;
+      action monitorStructuralIntegrity;
+      action deliverOutputSignal;
+    }
+
+    state DeviceState {
+      state Off;
+      state Standby;
+      state ActiveConduction;
+      state ThermalProtection;
+      state DiagnosticMode;
+      state Fault;
+
+      transition first Off;
+      transition Off to Standby accept PowerEnabled;
+      transition Standby to ActiveConduction accept BiasCommand;
+      transition ActiveConduction to DiagnosticMode accept OpticalInspectionCommand;
+      transition DiagnosticMode to ActiveConduction accept InspectionComplete;
+      transition ActiveConduction to ThermalProtection
+        if thermalManager.chainThermalPort.heat.sourceTemperature > thermalManager.shutdownTemperature;
+      transition ThermalProtection to Standby
+        if thermalManager.chainThermalPort.heat.sourceTemperature <= carbonChain.maxOperatingTemperature;
+      transition ActiveConduction to Fault
+        if carbonChain.ChainOperationalState == carbonChain.ChainOperationalState::Degraded;
+      transition ThermalProtection to Fault
+        if thermalManager.chainThermalPort.heat.sourceTemperature > 800.0;
+      transition Fault to Off accept ResetCommand;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : LinearAcetylenicCarbonDevice;
+
+    require constraint {
+      device.primaryFunction ==
+      "Provide an atomically narrow, linear carbon conduction path that transports electronic signals and heat along a mechanically strong acetylenic chain."
+    }
+  }
+
+  requirement def ElectricalTransportRequirement {
+    subject chain : LinearAcetylenicCarbonChain;
+
+    require constraint {
+      chain.electronMobility >= 10000.0 and chain.bandGap >= 0.5 and chain.bandGap <= 4.0
+    }
+  }
+
+  requirement def MechanicalStabilityRequirement {
+    subject chain : LinearAcetylenicCarbonChain;
+
+    require constraint {
+      chain.tensileStrength >= 100.0 and chain.length <= 100.0
+    }
+  }
+
+  requirement def ThermalProtectionRequirement {
+    subject device : LinearAcetylenicCarbonDevice;
+
+    require constraint {
+      device.thermalManager.shutdownTemperature < 800.0
+    }
+  }
+
+  requirement def EndCapStabilityRequirement {
+    subject cap : MolecularEndCap;
+
+    require constraint {
+      cap.bindingEnergy_eV >= 3.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by LinearAcetylenicCarbonDevice;
+  satisfy ElectricalTransportRequirement by LinearAcetylenicCarbonChain;
+  satisfy MechanicalStabilityRequirement by LinearAcetylenicCarbonChain;
+  satisfy ThermalProtectionRequirement by LinearAcetylenicCarbonDevice;
+  satisfy EndCapStabilityRequirement by MolecularEndCap;
+
+  part lacConductionSystem : LinearAcetylenicCarbonDevice;
+}

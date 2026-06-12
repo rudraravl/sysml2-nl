@@ -1,0 +1,650 @@
+package HomeRobotPrimaryTaskSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+    import USCustomaryUnits::*;
+
+    private import NumericalFunctions::*;
+
+    attribute def Percentage :> ScalarValues::Real {
+        :>> range = "0.0..100.0";
+        unit = "%";
+    }
+
+    attribute def CurrencyAmount :> ScalarValues::Real {
+        unit = "USD";
+    }
+
+    attribute def CleanlinessScore :> ScalarValues::Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def DustMass :> ScalarValues::Real {
+        unit = "g";
+    }
+
+    attribute def AreaRate :> ScalarValues::Real {
+        unit = "m^2/min";
+    }
+
+    item def Power {
+        attribute voltage : ISQ::electricPotential;
+        attribute current : ISQ::electricCurrent;
+        attribute powerLevel : ISQ::power;
+    }
+
+    item def Command {
+        attribute commandId : ScalarValues::String;
+        attribute issuedBy : ScalarValues::String;
+        attribute requestedTask : TaskKind;
+        attribute requestedRoom : ScalarValues::String;
+        attribute priority : ScalarValues::Integer;
+    }
+
+    item def StatusReport {
+        attribute robotId : ScalarValues::String;
+        attribute operatingState : RobotOperatingMode;
+        attribute batteryCharge : Percentage;
+        attribute currentRoom : ScalarValues::String;
+        attribute coveredArea : ISQ::area;
+        attribute binFillLevel : Percentage;
+        attribute faultText : ScalarValues::String;
+    }
+
+    item def MapData {
+        attribute mapId : ScalarValues::String;
+        attribute resolution : ISQ::length;
+        attribute mappedArea : ISQ::area;
+        attribute lastUpdatedAge : ISQ::time;
+    }
+
+    item def MotionCommand {
+        attribute targetX : ISQ::length;
+        attribute targetY : ISQ::length;
+        attribute heading : ISQ::planeAngle;
+        attribute maxSpeed : ISQ::speed;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : ISQ::time;
+        attribute obstacleDistance : ISQ::length;
+        attribute floorDustDensity : DustMass;
+        attribute cliffDetected : ScalarValues::Boolean;
+        attribute humanDetected : ScalarValues::Boolean;
+        attribute petDetected : ScalarValues::Boolean;
+    }
+
+    item def CleaningRequest {
+        attribute targetRoom : ScalarValues::String;
+        attribute targetCleanliness : CleanlinessScore;
+        attribute scheduledStartOffset : ISQ::time;
+        attribute quietMode : ScalarValues::Boolean;
+    }
+
+    item def DustAndDebris {
+        attribute collectedMass : DustMass;
+        attribute particleSizeMean : ISQ::length;
+        attribute allergenPresent : ScalarValues::Boolean;
+    }
+
+    item def Notification {
+        attribute title : ScalarValues::String;
+        attribute message : ScalarValues::String;
+        attribute severity : NotificationSeverity;
+    }
+
+    enum def TaskKind {
+        enum cleanFloor;
+        enum returnToDock;
+        enum pause;
+        enum resume;
+        enum spotClean;
+        enum emptyBin;
+        enum updateMap;
+    }
+
+    enum def RobotOperatingMode {
+        enum off;
+        enum docked;
+        enum idle;
+        enum planning;
+        enum navigating;
+        enum cleaning;
+        enum avoidingObstacle;
+        enum returningToDock;
+        enum charging;
+        enum faulted;
+        enum maintenanceRequired;
+    }
+
+    enum def NotificationSeverity {
+        enum info;
+        enum warning;
+        enum critical;
+    }
+
+    port def PowerPort {
+        out item powerOut : Power;
+        in item powerIn : Power;
+    }
+
+    port def CommandPort {
+        in item commandIn : Command;
+        out item statusOut : StatusReport;
+    }
+
+    port def AppPort {
+        in item cleaningRequest : CleaningRequest;
+        out item notification : Notification;
+        out item statusReport : StatusReport;
+        out item mapPreview : MapData;
+    }
+
+    port def SensorPort {
+        out item frame : SensorFrame;
+    }
+
+    port def MotionPort {
+        in item motionCommand : MotionCommand;
+        out item motionStatus : StatusReport;
+    }
+
+    port def DebrisPort {
+        in item debrisIn : DustAndDebris;
+        out item binStatus : StatusReport;
+    }
+
+    port def MapPort {
+        in item sensorFrame : SensorFrame;
+        out item mapData : MapData;
+    }
+
+    part def HomeRoboticSystem {
+        attribute systemId : ScalarValues::String = "HRS-001";
+        attribute supportedPrimaryTask : TaskKind = TaskKind::cleanFloor;
+        attribute nominalServiceLife : ISQ::time = 6 [SI::year];
+        attribute targetHouseArea : ISQ::area = 180 [SI::m^2];
+
+        part home : HomeEnvironment;
+        part robot : HomeRobot;
+        part dock : ChargingDock;
+        part mobileApp : UserMobileApp;
+        part cloudService : HomeRobotCloudService;
+
+        connection appToCloud connect mobileApp.cloudPort to cloudService.appPort;
+        connection cloudToRobot connect cloudService.robotCommandPort to robot.commandPort;
+        connection robotToDockPower connect dock.robotPowerPort to robot.chargingPort;
+        connection robotNavigationToHome connect robot.navigationPort to home.navigationAidPort;
+        connection robotCleaningToFloor connect robot.cleaningPort to home.floorDebrisPort;
+
+        perform action operateSystem : OperateHomeRobotSystem;
+    }
+
+    part def HomeEnvironment {
+        attribute dwellingName : ScalarValues::String = "Occupied residence";
+        attribute floorArea : ISQ::area = 150 [SI::m^2];
+        attribute roomCount : ScalarValues::Integer = 8;
+        attribute maximumThresholdHeight : ISQ::length = 0.018 [SI::m];
+        attribute minimumPassageWidth : ISQ::length = 0.72 [SI::m];
+        attribute expectedObstacleCount : ScalarValues::Integer = 35;
+
+        port navigationAidPort : MapPort;
+        port floorDebrisPort : DebrisPort;
+
+        part kitchen : Room {
+            :>> name = "Kitchen";
+            :>> area = 18 [SI::m^2];
+            :>> expectedDustLoad = 22 [SI::g];
+        }
+
+        part livingRoom : Room {
+            :>> name = "Living Room";
+            :>> area = 34 [SI::m^2];
+            :>> expectedDustLoad = 30 [SI::g];
+        }
+
+        part bedroom1 : Room {
+            :>> name = "Bedroom 1";
+            :>> area = 22 [SI::m^2];
+            :>> expectedDustLoad = 16 [SI::g];
+        }
+
+        part hallway : Room {
+            :>> name = "Hallway";
+            :>> area = 12 [SI::m^2];
+            :>> expectedDustLoad = 12 [SI::g];
+        }
+    }
+
+    part def Room {
+        attribute name : ScalarValues::String;
+        attribute area : ISQ::area;
+        attribute expectedDustLoad : DustMass;
+        attribute targetCleanliness : CleanlinessScore = 0.92;
+        attribute hasStairs : ScalarValues::Boolean = false;
+        attribute hasCarpet : ScalarValues::Boolean;
+        attribute hasHardFloor : ScalarValues::Boolean;
+    }
+
+    part def UserMobileApp {
+        attribute appVersion : ScalarValues::String = "4.2.0";
+        attribute authenticatedUser : ScalarValues::String = "homeOwner";
+        port cloudPort : AppPort;
+    }
+
+    part def HomeRobotCloudService {
+        attribute serviceRegion : ScalarValues::String = "us-central";
+        attribute mapRetentionPeriod : ISQ::time = 365 [SI::day];
+        port appPort : AppPort;
+        port robotCommandPort : CommandPort;
+    }
+
+    part def ChargingDock {
+        attribute dockId : ScalarValues::String = "DOCK-001";
+        attribute inputVoltage : ISQ::electricPotential = 120 [SI::V];
+        attribute outputVoltage : ISQ::electricPotential = 24 [SI::V];
+        attribute maximumOutputPower : ISQ::power = 90 [SI::W];
+        attribute beaconRange : ISQ::length = 8 [SI::m];
+
+        port wallPowerPort : PowerPort;
+        port robotPowerPort : PowerPort;
+    }
+
+    part def HomeRobot {
+        attribute robotId : ScalarValues::String = "HOME-ROBOT-001";
+        attribute operatingMode : RobotOperatingMode = RobotOperatingMode::docked;
+        attribute mass : ISQ::mass = 4.8 [SI::kg];
+        attribute diameter : ISQ::length = 0.35 [SI::m];
+        attribute height : ISQ::length = 0.095 [SI::m];
+        attribute maximumSpeed : ISQ::speed = 0.45 [SI::m/s];
+        attribute nominalCleaningRate : AreaRate = 3.2;
+        attribute minimumReturnBatteryCharge : Percentage = 15.0;
+        attribute minimumTaskStartBatteryCharge : Percentage = 35.0;
+        attribute quietModeNoiseLimit : ScalarValues::Real = 55.0;
+
+        port commandPort : CommandPort;
+        port chargingPort : PowerPort;
+        port navigationPort : MapPort;
+        port cleaningPort : DebrisPort;
+
+        part controller : RobotController;
+        part battery : BatteryPack;
+        part drive : DifferentialDrive;
+        part sensors : SensorSuite;
+        part mapper : MappingAndLocalizationUnit;
+        part cleaner : FloorCleaningModule;
+        part bin : DebrisBin;
+        part speaker : UserAlertModule;
+        part wireless : WirelessCommunicationModule;
+        part safety : SafetySupervisor;
+
+        connection controllerToDrive connect controller.motionPort to drive.motionPort;
+        connection sensorsToMapper connect sensors.sensorPort to mapper.sensorPort;
+        connection mapperToController connect mapper.mapPort to controller.mapPort;
+        connection cleanerToBin connect cleaner.debrisPort to bin.debrisPort;
+        connection batteryToController connect battery.powerPort to controller.powerPort;
+        connection batteryToDrive connect battery.powerPort to drive.powerPort;
+        connection batteryToCleaner connect battery.powerPort to cleaner.powerPort;
+        connection safetyToController connect safety.commandPort to controller.safetyPort;
+        connection wirelessToController connect wireless.commandPort to controller.userCommandPort;
+
+        perform action cleanAssignedFloor : CleanHomeFloor;
+        exhibit state robotLifecycle : HomeRobotLifecycle;
+    }
+
+    part def BatteryPack {
+        attribute chemistry : ScalarValues::String = "Li-ion";
+        attribute nominalVoltage : ISQ::electricPotential = 21.6 [SI::V];
+        attribute capacity : ScalarValues::Real = 5.2;
+        attribute chargeLevel : Percentage = 100.0;
+        attribute maximumChargePower : ISQ::power = 70 [SI::W];
+        attribute minimumSafeCharge : Percentage = 5.0;
+        port powerPort : PowerPort;
+    }
+
+    part def DifferentialDrive {
+        attribute wheelDiameter : ISQ::length = 0.072 [SI::m];
+        attribute trackWidth : ISQ::length = 0.26 [SI::m];
+        attribute maxClimbHeight : ISQ::length = 0.018 [SI::m];
+        attribute maxRotationalSpeed : ScalarValues::Real = 120.0;
+        port motionPort : MotionPort;
+        port powerPort : PowerPort;
+    }
+
+    part def SensorSuite {
+        attribute lidarRange : ISQ::length = 8 [SI::m];
+        attribute bumperCount : ScalarValues::Integer = 2;
+        attribute cliffSensorCount : ScalarValues::Integer = 4;
+        attribute dustSensorSamplingPeriod : ISQ::time = 0.2 [SI::s];
+        attribute cameraResolutionPixels : ScalarValues::Integer = 921600;
+        port sensorPort : SensorPort;
+    }
+
+    part def MappingAndLocalizationUnit {
+        attribute localizationError95 : ISQ::length = 0.05 [SI::m];
+        attribute mapResolution : ISQ::length = 0.03 [SI::m];
+        attribute obstacleInflationRadius : ISQ::length = 0.18 [SI::m];
+        port sensorPort : SensorPort;
+        port mapPort : MapPort;
+    }
+
+    part def FloorCleaningModule {
+        attribute suctionPower : ISQ::power = 42 [SI::W];
+        attribute brushWidth : ISQ::length = 0.18 [SI::m];
+        attribute edgeBrushDiameter : ISQ::length = 0.075 [SI::m];
+        attribute dustPickupEfficiencyHardFloor : Percentage = 96.0;
+        attribute dustPickupEfficiencyCarpet : Percentage = 88.0;
+        attribute maximumParticleDiameter : ISQ::length = 0.012 [SI::m];
+        port debrisPort : DebrisPort;
+        port powerPort : PowerPort;
+    }
+
+    part def DebrisBin {
+        attribute capacity : ScalarValues::Real = 0.42;
+        attribute fillLevel : Percentage = 0.0;
+        attribute maxCollectedMass : DustMass = 450 [SI::g];
+        attribute washableFilterInstalled : ScalarValues::Boolean = true;
+        port debrisPort : DebrisPort;
+    }
+
+    part def RobotController {
+        attribute processorName : ScalarValues::String = "ARM Cortex-A78";
+        attribute planningCycleTime : ISQ::time = 0.1 [SI::s];
+        attribute pathReplanLimit : ISQ::time = 1.0 [SI::s];
+        attribute coverageCompletionThreshold : Percentage = 98.0;
+
+        port userCommandPort : CommandPort;
+        port safetyPort : CommandPort;
+        port mapPort : MapPort;
+        port motionPort : MotionPort;
+        port powerPort : PowerPort;
+
+        perform action planCoverage : PlanCoveragePath;
+        perform action monitorTask : MonitorCleaningTask;
+    }
+
+    part def WirelessCommunicationModule {
+        attribute wifiStandard : ScalarValues::String = "802.11ax";
+        attribute encryption : ScalarValues::String = "WPA3";
+        attribute cloudReconnectTimeout : ISQ::time = 30 [SI::s];
+        port commandPort : CommandPort;
+    }
+
+    part def SafetySupervisor {
+        attribute humanStopDistance : ISQ::length = 0.35 [SI::m];
+        attribute petSlowDistance : ISQ::length = 0.5 [SI::m];
+        attribute cliffStopLatency : ISQ::time = 0.05 [SI::s];
+        port commandPort : CommandPort;
+    }
+
+    part def UserAlertModule {
+        attribute maximumSoundLevel : ScalarValues::Real = 70.0;
+        attribute ledColorCount : ScalarValues::Integer = 7;
+    }
+
+    action def OperateHomeRobotSystem {
+        in item request : CleaningRequest;
+        out item completionNotice : Notification;
+
+        first start;
+        then validateRequest;
+        then dispatchCommand;
+        then executeCleaning;
+        then publishResult;
+        then done;
+
+        action validateRequest {
+            in item request : CleaningRequest;
+            out item command : Command;
+        }
+
+        action dispatchCommand {
+            in item command : Command;
+        }
+
+        action executeCleaning {
+            perform CleanHomeFloor;
+        }
+
+        action publishResult {
+            out item completionNotice : Notification;
+        }
+    }
+
+    action def CleanHomeFloor {
+        in item cleaningRequest : CleaningRequest;
+        in item initialMap : MapData;
+        out item finalStatus : StatusReport;
+        out item collectedDebris : DustAndDebris;
+
+        first receiveTask;
+        then checkBattery;
+        then localize;
+        then planCoveragePath;
+        then cleanEachCoverageSegment;
+        then verifyCoverage;
+        then returnToDock;
+        then reportCompletion;
+
+        action receiveTask {
+            in item cleaningRequest : CleaningRequest;
+        }
+
+        action checkBattery {
+            in item batteryStatus : StatusReport;
+            out item approvedToStart : ScalarValues::Boolean;
+        }
+
+        action localize {
+            in item map : MapData;
+            out item localizedMap : MapData;
+        }
+
+        action planCoveragePath : PlanCoveragePath {
+            in item targetMap : MapData;
+            out item plannedMotion : MotionCommand;
+        }
+
+        action cleanEachCoverageSegment {
+            in item motionCommand : MotionCommand;
+            out item collectedDebris : DustAndDebris;
+        }
+
+        action verifyCoverage {
+            in item status : StatusReport;
+            out item finalCleanliness : CleanlinessScore;
+        }
+
+        action returnToDock {
+            out item dockedStatus : StatusReport;
+        }
+
+        action reportCompletion {
+            out item finalStatus : StatusReport;
+        }
+    }
+
+    action def PlanCoveragePath {
+        in item targetMap : MapData;
+        in item currentSensorFrame : SensorFrame;
+        out item nextMotionCommand : MotionCommand;
+
+        action partitionFreeSpace;
+        then chooseNextCell;
+        then generateSweepTrajectory;
+        then publishMotionCommand;
+
+        action partitionFreeSpace {
+            in item targetMap : MapData;
+        }
+
+        action chooseNextCell {
+            out attribute selectedCellId : ScalarValues::String;
+        }
+
+        action generateSweepTrajectory {
+            out item nextMotionCommand : MotionCommand;
+        }
+
+        action publishMotionCommand {
+            out item nextMotionCommand : MotionCommand;
+        }
+    }
+
+    action def MonitorCleaningTask {
+        in item sensorFrame : SensorFrame;
+        in item status : StatusReport;
+        out item safetyCommand : Command;
+        out item progressNotice : Notification;
+
+        action detectObstacle;
+        then evaluateBattery;
+        then evaluateBin;
+        then updateProgress;
+        then commandIfNeeded;
+
+        action detectObstacle {
+            in item sensorFrame : SensorFrame;
+            out attribute obstacleRequiresAvoidance : ScalarValues::Boolean;
+        }
+
+        action evaluateBattery {
+            in item status : StatusReport;
+            out attribute returnToDockRequired : ScalarValues::Boolean;
+        }
+
+        action evaluateBin {
+            in item status : StatusReport;
+            out attribute emptyBinRequired : ScalarValues::Boolean;
+        }
+
+        action updateProgress {
+            out item progressNotice : Notification;
+        }
+
+        action commandIfNeeded {
+            out item safetyCommand : Command;
+        }
+    }
+
+    state def HomeRobotLifecycle {
+        entry action initializeSelfTest;
+
+        state Off;
+        state Docked;
+        state Idle;
+        state Planning;
+        state Navigating;
+        state Cleaning;
+        state AvoidingObstacle;
+        state ReturningToDock;
+        state Charging;
+        state Faulted;
+        state MaintenanceRequired;
+
+        transition powerOn first Off then Docked;
+        transition undock Docked then Idle;
+        transition acceptCleanCommand Idle then Planning
+            accept Command
+            if requestedTask == TaskKind::cleanFloor;
+        transition pathReady Planning then Navigating;
+        transition beginCoverage Navigating then Cleaning;
+        transition obstacleDetected Cleaning then AvoidingObstacle
+            accept SensorFrame
+            if obstacleDistance < 0.25 [SI::m] or cliffDetected;
+        transition obstacleCleared AvoidingObstacle then Cleaning;
+        transition lowBattery Cleaning then ReturningToDock
+            accept StatusReport
+            if batteryCharge < 15.0;
+        transition binFull Cleaning then MaintenanceRequired
+            accept StatusReport
+            if binFillLevel >= 95.0;
+        transition coverageComplete Cleaning then ReturningToDock
+            accept StatusReport
+            if coveredArea >= 0.98 * 150 [SI::m^2];
+        transition dockFound ReturningToDock then Charging;
+        transition charged Charging then Docked
+            accept StatusReport
+            if batteryCharge >= 95.0;
+        transition pause Cleaning then Idle
+            accept Command
+            if requestedTask == TaskKind::pause;
+        transition resume Idle then Planning
+            accept Command
+            if requestedTask == TaskKind::resume;
+        transition faultAny Cleaning then Faulted;
+        transition clearFault Faulted then Docked;
+        transition maintenanceComplete MaintenanceRequired then Docked;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        doc /* The robotic system shall perform its primary task using the HomeRobot part. */
+        subject robot : HomeRobot;
+        require constraint { robot.supportedPrimaryTask == TaskKind::cleanFloor }
+    }
+
+    requirement def FloorCoverageRequirement {
+        doc /* The HomeRobot shall cover at least 98 percent of mapped accessible floor area during a scheduled clean-floor task. */
+        subject status : StatusReport;
+        attribute requiredCoverage : Percentage = 98.0;
+        require constraint { status.coveredArea >= 0.98 * 150 [SI::m^2] }
+    }
+
+    requirement def BatteryReturnRequirement {
+        doc /* The HomeRobot shall return to the ChargingDock before battery charge falls below the minimum safe charge. */
+        subject robot : HomeRobot;
+        require constraint { robot.minimumReturnBatteryCharge > robot.battery.minimumSafeCharge }
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        doc /* The HomeRobot shall stop or replan when a human, pet, cliff, or obstacle is detected within the configured safety distance. */
+        subject safety : SafetySupervisor;
+        require constraint { safety.humanStopDistance >= 0.35 [SI::m] and safety.cliffStopLatency <= 0.05 [SI::s] }
+    }
+
+    requirement def CleaningPerformanceRequirement {
+        doc /* The HomeRobot shall collect dust and debris from hard floors with at least 96 percent pickup efficiency and from carpet with at least 88 percent pickup efficiency. */
+        subject cleaner : FloorCleaningModule;
+        require constraint {
+            cleaner.dustPickupEfficiencyHardFloor >= 96.0 and
+            cleaner.dustPickupEfficiencyCarpet >= 88.0
+        }
+    }
+
+    requirement def MappingRequirement {
+        doc /* The HomeRobot shall maintain localization error at or below 5 centimeters for 95 percent of the cleaning task. */
+        subject mapper : MappingAndLocalizationUnit;
+        require constraint { mapper.localizationError95 <= 0.05 [SI::m] }
+    }
+
+    requirement def BinCapacityRequirement {
+        doc /* The debris bin shall hold at least 400 grams of collected debris before requiring user emptying. */
+        subject bin : DebrisBin;
+        require constraint { bin.maxCollectedMass >= 400 [SI::g] }
+    }
+
+    requirement def RemoteCommandRequirement {
+        doc /* The robotic system shall accept authenticated cleaning requests from the mobile application and provide status reports during operation. */
+        subject app : UserMobileApp;
+        subject wireless : WirelessCommunicationModule;
+        require constraint { wireless.encryption == "WPA3" }
+    }
+
+    requirement def NoiseRequirement {
+        doc /* In quiet mode, the HomeRobot shall limit operating sound level to 55 dBA or less. */
+        subject robot : HomeRobot;
+        require constraint { robot.quietModeNoiseLimit <= 55.0 }
+    }
+
+    satisfy PrimaryTaskRequirement by HomeRoboticSystem::robot;
+    satisfy FloorCoverageRequirement by HomeRoboticSystem::robot::controller;
+    satisfy BatteryReturnRequirement by HomeRoboticSystem::robot::battery;
+    satisfy ObstacleAvoidanceRequirement by HomeRoboticSystem::robot::safety;
+    satisfy CleaningPerformanceRequirement by HomeRoboticSystem::robot::cleaner;
+    satisfy MappingRequirement by HomeRoboticSystem::robot::mapper;
+    satisfy BinCapacityRequirement by HomeRoboticSystem::robot::bin;
+    satisfy RemoteCommandRequirement by HomeRoboticSystem::robot::wireless;
+    satisfy NoiseRequirement by HomeRoboticSystem::robot;
+
+}

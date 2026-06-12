@@ -1,0 +1,951 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2s55_ro1
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb771-9eab-7413-9c1d-c0dacc5faf19
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Water heating and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WaterHeatingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Temperature {
+        unit = "degC";
+        quantity = temperature;
+    }
+
+    value def Pressure {
+        unit = "kPa";
+        quantity = pressure;
+    }
+
+    value def VolumeFlowRate {
+        unit = "L/min";
+        quantity = volumeFlowRate;
+    }
+
+    value def Energy {
+        unit = "kWh";
+        quantity = energy;
+    }
+
+    value def Power {
+        unit = "kW";
+        quantity = power;
+    }
+
+    value def Volume {
+        unit = "L";
+        quantity = volume;
+    }
+
+    value def TimeDuration {
+        unit = "s";
+        quantity = time;
+    }
+
+    item def ColdWater {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def HeatedWater {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Power;
+    }
+
+    item def HeatEnergy {
+        attribute thermalPower : Power;
+        attribute accumulatedEnergy : Energy;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : ColdWater;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : HeatedWater;
+    }
+
+    port def ElectricalPowerPort {
+        in item electricity : ElectricalEnergy;
+    }
+
+    port def HeatTransferPort {
+        out item heat : HeatEnergy;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredTemperature : Temperature;
+        out attribute measuredPressure : Pressure;
+    }
+
+    port def ControlCommandPort {
+        out attribute heaterEnable : Boolean;
+        out attribute targetTemperature : Temperature;
+    }
+
+    port def ReliefDischargePort {
+        out item dischargedWater : HeatedWater;
+    }
+
+    part def HeatingElement {
+        attribute ratedPower : Power = 4.5 [kW];
+        attribute enabled : Boolean = false;
+        port electricalInput : ElectricalPowerPort;
+        port heatOutput : HeatTransferPort;
+
+        action generateHeat {
+            in attribute commandEnable : Boolean;
+            in item suppliedEnergy : ElectricalEnergy;
+            out item producedHeat : HeatEnergy;
+
+            first start;
+            then decideEnable;
+
+            action decideEnable {
+                if commandEnable then heat;
+                else idle;
+            }
+
+            action heat {
+                producedHeat.thermalPower = ratedPower;
+            }
+
+            action idle {
+                producedHeat.thermalPower = 0 [kW];
+            }
+
+            then done;
+        }
+    }
+
+    part def StorageTank {
+        attribute capacity : Volume = 180 [L];
+        attribute waterTemperature : Temperature = 20 [degC];
+        attribute waterPressure : Pressure = 300 [kPa];
+        attribute maximumAllowablePressure : Pressure = 850 [kPa];
+        attribute usableHotWaterVolume : Volume;
+
+        port coldWaterInlet : WaterInletPort;
+        port hotWaterOutlet : WaterOutletPort;
+        port heatInput : HeatTransferPort;
+        port reliefOutlet : ReliefDischargePort;
+
+        action storeAndHeatWater {
+            in item incomingWater : ColdWater;
+            in item thermalEnergy : HeatEnergy;
+            out item outgoingWater : HeatedWater;
+
+            outgoingWater.temperature = waterTemperature;
+            outgoingWater.pressure = waterPressure;
+            outgoingWater.flowRate = incomingWater.flowRate;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute sensedTemperature : Temperature;
+        attribute accuracy : Temperature = 1 [degC];
+        port signalOut : SensorSignalPort;
+
+        action measureTemperature {
+            in attribute actualTemperature : Temperature;
+            out attribute reportedTemperature : Temperature;
+            reportedTemperature = actualTemperature;
+        }
+    }
+
+    part def PressureSensor {
+        attribute sensedPressure : Pressure;
+        attribute accuracy : Pressure = 10 [kPa];
+        port signalOut : SensorSignalPort;
+
+        action measurePressure {
+            in attribute actualPressure : Pressure;
+            out attribute reportedPressure : Pressure;
+            reportedPressure = actualPressure;
+        }
+    }
+
+    part def ThermostaticController {
+        attribute setpoint : Temperature = 55 [degC];
+        attribute lowerDeadband : Temperature = 50 [degC];
+        attribute upperDeadband : Temperature = 60 [degC];
+        attribute overTemperatureLimit : Temperature = 85 [degC];
+        attribute overPressureLimit : Pressure = 800 [kPa];
+        attribute heatingAllowed : Boolean = false;
+
+        port sensorInput : SensorSignalPort;
+        port commandOutput : ControlCommandPort;
+
+        state def HeatingControlStateMachine {
+            state off;
+            state standby;
+            state heating;
+            state fault;
+
+            initial then off;
+
+            transition off_to_standby
+                first off
+                accept PowerAvailable
+                then standby;
+
+            transition standby_to_heating
+                first standby
+                if sensorInput.measuredTemperature < lowerDeadband
+                then heating;
+
+            transition heating_to_standby
+                first heating
+                if sensorInput.measuredTemperature >= upperDeadband
+                then standby;
+
+            transition any_to_fault_by_temperature
+                first standby
+                if sensorInput.measuredTemperature >= overTemperatureLimit
+                then fault;
+
+            transition heating_to_fault_by_temperature
+                first heating
+                if sensorInput.measuredTemperature >= overTemperatureLimit
+                then fault;
+
+            transition any_to_fault_by_pressure
+                first standby
+                if sensorInput.measuredPressure >= overPressureLimit
+                then fault;
+
+            transition heating_to_fault_by_pressure
+                first heating
+                if sensorInput.measuredPressure >= overPressureLimit
+                then fault;
+        }
+
+        action regulateHeating {
+            in attribute measuredTemperature : Temperature;
+            in attribute measuredPressure : Pressure;
+            out attribute enableHeat : Boolean;
+            out attribute commandedSetpoint : Temperature;
+
+            commandedSetpoint = setpoint;
+
+            if measuredTemperature < lowerDeadband and measuredPressure < overPressureLimit {
+                enableHeat = true;
+            } else {
+                enableHeat = false;
+            }
+        }
+    }
+
+    part def TemperaturePressureReliefValve {
+        attribute openingPressure : Pressure = 850 [kPa];
+        attribute openingTemperature : Temperature = 90 [degC];
+        attribute open : Boolean = false;
+
+        port tankConnection : WaterOutletPort;
+        port discharge : ReliefDischargePort;
+
+        action protectTank {
+            in attribute tankPressure : Pressure;
+            in attribute tankTemperature : Temperature;
+            out attribute valveOpen : Boolean;
+
+            if tankPressure >= openingPressure or tankTemperature >= openingTemperature {
+                valveOpen = true;
+            } else {
+                valveOpen = false;
+            }
+        }
+    }
+
+    part def InsulationJacket {
+        attribute thermalResistance : Real = 2.5;
+        attribute heatLossRateAtSetpoint : Power = 0.08 [kW];
+
+        action reduceHeatLoss {
+            in attribute tankTemperature : Temperature;
+            in attribute ambientTemperature : Temperature;
+            out item retainedHeat : HeatEnergy;
+            retainedHeat.thermalPower = heatLossRateAtSetpoint;
+        }
+    }
+
+    part def UserDemandInterface {
+        attribute requestedFlowRate : VolumeFlowRate = 8 [L/min];
+        attribute minimumDeliveryTemperature : Temperature = 45 [degC];
+
+        port hotWaterRequest : WaterOutletPort;
+    }
+
+    part def WaterHeatingSystem {
+        attribute nominalSetpoint : Temperature = 55 [degC];
+        attribute maximumSafeTemperature : Temperature = 85 [degC];
+        attribute maximumSafePressure : Pressure = 800 [kPa];
+        attribute storageCapacity : Volume = 180 [L];
+        attribute recoveryPower : Power = 4.5 [kW];
+        attribute primaryFunction : String = "Convert incoming cold potable water into stored hot water and deliver it on demand at a controlled, safe temperature.";
+
+        port coldWaterSupply : WaterInletPort;
+        port hotWaterDelivery : WaterOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port reliefDischarge : ReliefDischargePort;
+
+        part tank : StorageTank {
+            capacity = storageCapacity;
+            maximumAllowablePressure = 850 [kPa];
+        }
+
+        part heater : HeatingElement {
+            ratedPower = recoveryPower;
+        }
+
+        part temperatureSensor : TemperatureSensor;
+        part pressureSensor : PressureSensor;
+
+        part controller : ThermostaticController {
+            setpoint = nominalSetpoint;
+            overTemperatureLimit = maximumSafeTemperature;
+            overPressureLimit = maximumSafePressure;
+        }
+
+        part reliefValve : TemperaturePressureReliefValve;
+        part insulation : InsulationJacket;
+        part demandInterface : UserDemandInterface;
+
+        connection coldSupplyToTank
+            connect coldWaterSupply to tank.coldWaterInlet;
+
+        connection tankToDelivery
+            connect tank.hotWaterOutlet to hotWaterDelivery;
+
+        connection electricalToHeater
+            connect electricalSupply to heater.electricalInput;
+
+        connection heaterToTank
+            connect heater.heatOutput to tank.heatInput;
+
+        connection tankToReliefValve
+            connect tank.hotWaterOutlet to reliefValve.tankConnection;
+
+        connection reliefValveToSystemDischarge
+            connect reliefValve.discharge to reliefDischarge;
+
+        connection tankToDemand
+            connect tank.hotWaterOutlet to demandInterface.hotWaterRequest;
+
+        connection temperatureSensorToController
+            connect temperatureSensor.signalOut to controller.sensorInput;
+
+        connection pressureSensorToController
+            connect pressureSensor.signalOut to controller.sensorInput;
+
+        perform action heatWaterCycle {
+            in item incomingColdWater : ColdWater;
+            in item suppliedElectricalEnergy : ElectricalEnergy;
+            out item deliveredHotWater : HeatedWater;
+
+            first receiveColdWater;
+            then senseTankConditions;
+            then decideHeating;
+            then applyHeat;
+            then storeThermalEnergy;
+            then deliverHotWater;
+
+            action receiveColdWater {
+                incomingColdWater.temperature = 15 [degC];
+                incomingColdWater.pressure = 300 [kPa];
+                incomingColdWater.flowRate = demandInterface.requestedFlowRate;
+            }
+
+            action senseTankConditions {
+                temperatureSensor.sensedTemperature = tank.waterTemperature;
+                pressureSensor.sensedPressure = tank.waterPressure;
+            }
+
+            action decideHeating {
+                controller.regulateHeating(
+                    measuredTemperature = temperatureSensor.sensedTemperature,
+                    measuredPressure = pressureSensor.sensedPressure,
+                    enableHeat = heater.enabled,
+                    commandedSetpoint = controller.setpoint
+                );
+            }
+
+            action applyHeat {
+                heater.generateHeat(
+                    commandEnable = heater.enabled,
+                    suppliedEnergy = suppliedElectricalEnergy,
+                    producedHeat = heater.heatOutput.heat
+                );
+            }
+
+            action storeThermalEnergy {
+                tank.storeAndHeatWater(
+                    incomingWater = incomingColdWater,
+                    thermalEnergy = heater.heatOutput.heat,
+                    outgoingWater = deliveredHotWater
+                );
+            }
+
+            action deliverHotWater {
+                deliveredHotWater.temperature = tank.waterTemperature;
+                deliveredHotWater.pressure = tank.waterPressure;
+                deliveredHotWater.flowRate = demandInterface.requestedFlowRate;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The water heating system shall heat incoming cold potable water and deliver hot water on demand at a controlled temperature suitable for domestic use. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.hotWaterDelivery.waterOut.temperature >= 45 [degC] and
+            system.hotWaterDelivery.waterOut.temperature <= 60 [degC]
+        }
+    }
+
+    requirement def StorageCapacityRequirement {
+        doc /* The system shall store at least 150 liters of heated water for expected household demand. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.storageCapacity >= 150 [L]
+        }
+    }
+
+    requirement def HeatingPowerRequirement {
+        doc /* The heating element shall provide sufficient thermal recovery power for normal residential operation. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.recoveryPower >= 3.0 [kW]
+        }
+    }
+
+    requirement def TemperatureSafetyRequirement {
+        doc /* The controller shall disable heating before the tank water temperature exceeds the maximum safe limit. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.tank.waterTemperature <= system.maximumSafeTemperature
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The system shall protect the storage tank from excessive pressure by monitoring tank pressure and discharging water through a relief valve when required. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.tank.waterPressure <= system.tank.maximumAllowablePressure
+        }
+    }
+
+    requirement def EnergyIsolationRequirement {
+        doc /* The insulation jacket shall reduce standby heat loss from the heated water storage tank. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.insulation.heatLossRateAtSetpoint <= 0.1 [kW]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by WaterHeatingSystem;
+    satisfy StorageCapacityRequirement by WaterHeatingSystem;
+    satisfy HeatingPowerRequirement by WaterHeatingSystem;
+    satisfy TemperatureSafetyRequirement by WaterHeatingSystem;
+    satisfy PressureSafetyRequirement by WaterHeatingSystem;
+    satisfy EnergyIsolationRequirement by WaterHeatingSystem;
+
+    part waterHeater : WaterHeatingSystem;
+
+}
+tokens used
+4,290
+package WaterHeatingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Temperature {
+        unit = "degC";
+        quantity = temperature;
+    }
+
+    value def Pressure {
+        unit = "kPa";
+        quantity = pressure;
+    }
+
+    value def VolumeFlowRate {
+        unit = "L/min";
+        quantity = volumeFlowRate;
+    }
+
+    value def Energy {
+        unit = "kWh";
+        quantity = energy;
+    }
+
+    value def Power {
+        unit = "kW";
+        quantity = power;
+    }
+
+    value def Volume {
+        unit = "L";
+        quantity = volume;
+    }
+
+    value def TimeDuration {
+        unit = "s";
+        quantity = time;
+    }
+
+    item def ColdWater {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def HeatedWater {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute flowRate : VolumeFlowRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Power;
+    }
+
+    item def HeatEnergy {
+        attribute thermalPower : Power;
+        attribute accumulatedEnergy : Energy;
+    }
+
+    port def WaterInletPort {
+        in item waterIn : ColdWater;
+    }
+
+    port def WaterOutletPort {
+        out item waterOut : HeatedWater;
+    }
+
+    port def ElectricalPowerPort {
+        in item electricity : ElectricalEnergy;
+    }
+
+    port def HeatTransferPort {
+        out item heat : HeatEnergy;
+    }
+
+    port def SensorSignalPort {
+        out attribute measuredTemperature : Temperature;
+        out attribute measuredPressure : Pressure;
+    }
+
+    port def ControlCommandPort {
+        out attribute heaterEnable : Boolean;
+        out attribute targetTemperature : Temperature;
+    }
+
+    port def ReliefDischargePort {
+        out item dischargedWater : HeatedWater;
+    }
+
+    part def HeatingElement {
+        attribute ratedPower : Power = 4.5 [kW];
+        attribute enabled : Boolean = false;
+        port electricalInput : ElectricalPowerPort;
+        port heatOutput : HeatTransferPort;
+
+        action generateHeat {
+            in attribute commandEnable : Boolean;
+            in item suppliedEnergy : ElectricalEnergy;
+            out item producedHeat : HeatEnergy;
+
+            first start;
+            then decideEnable;
+
+            action decideEnable {
+                if commandEnable then heat;
+                else idle;
+            }
+
+            action heat {
+                producedHeat.thermalPower = ratedPower;
+            }
+
+            action idle {
+                producedHeat.thermalPower = 0 [kW];
+            }
+
+            then done;
+        }
+    }
+
+    part def StorageTank {
+        attribute capacity : Volume = 180 [L];
+        attribute waterTemperature : Temperature = 20 [degC];
+        attribute waterPressure : Pressure = 300 [kPa];
+        attribute maximumAllowablePressure : Pressure = 850 [kPa];
+        attribute usableHotWaterVolume : Volume;
+
+        port coldWaterInlet : WaterInletPort;
+        port hotWaterOutlet : WaterOutletPort;
+        port heatInput : HeatTransferPort;
+        port reliefOutlet : ReliefDischargePort;
+
+        action storeAndHeatWater {
+            in item incomingWater : ColdWater;
+            in item thermalEnergy : HeatEnergy;
+            out item outgoingWater : HeatedWater;
+
+            outgoingWater.temperature = waterTemperature;
+            outgoingWater.pressure = waterPressure;
+            outgoingWater.flowRate = incomingWater.flowRate;
+        }
+    }
+
+    part def TemperatureSensor {
+        attribute sensedTemperature : Temperature;
+        attribute accuracy : Temperature = 1 [degC];
+        port signalOut : SensorSignalPort;
+
+        action measureTemperature {
+            in attribute actualTemperature : Temperature;
+            out attribute reportedTemperature : Temperature;
+            reportedTemperature = actualTemperature;
+        }
+    }
+
+    part def PressureSensor {
+        attribute sensedPressure : Pressure;
+        attribute accuracy : Pressure = 10 [kPa];
+        port signalOut : SensorSignalPort;
+
+        action measurePressure {
+            in attribute actualPressure : Pressure;
+            out attribute reportedPressure : Pressure;
+            reportedPressure = actualPressure;
+        }
+    }
+
+    part def ThermostaticController {
+        attribute setpoint : Temperature = 55 [degC];
+        attribute lowerDeadband : Temperature = 50 [degC];
+        attribute upperDeadband : Temperature = 60 [degC];
+        attribute overTemperatureLimit : Temperature = 85 [degC];
+        attribute overPressureLimit : Pressure = 800 [kPa];
+        attribute heatingAllowed : Boolean = false;
+
+        port sensorInput : SensorSignalPort;
+        port commandOutput : ControlCommandPort;
+
+        state def HeatingControlStateMachine {
+            state off;
+            state standby;
+            state heating;
+            state fault;
+
+            initial then off;
+
+            transition off_to_standby
+                first off
+                accept PowerAvailable
+                then standby;
+
+            transition standby_to_heating
+                first standby
+                if sensorInput.measuredTemperature < lowerDeadband
+                then heating;
+
+            transition heating_to_standby
+                first heating
+                if sensorInput.measuredTemperature >= upperDeadband
+                then standby;
+
+            transition any_to_fault_by_temperature
+                first standby
+                if sensorInput.measuredTemperature >= overTemperatureLimit
+                then fault;
+
+            transition heating_to_fault_by_temperature
+                first heating
+                if sensorInput.measuredTemperature >= overTemperatureLimit
+                then fault;
+
+            transition any_to_fault_by_pressure
+                first standby
+                if sensorInput.measuredPressure >= overPressureLimit
+                then fault;
+
+            transition heating_to_fault_by_pressure
+                first heating
+                if sensorInput.measuredPressure >= overPressureLimit
+                then fault;
+        }
+
+        action regulateHeating {
+            in attribute measuredTemperature : Temperature;
+            in attribute measuredPressure : Pressure;
+            out attribute enableHeat : Boolean;
+            out attribute commandedSetpoint : Temperature;
+
+            commandedSetpoint = setpoint;
+
+            if measuredTemperature < lowerDeadband and measuredPressure < overPressureLimit {
+                enableHeat = true;
+            } else {
+                enableHeat = false;
+            }
+        }
+    }
+
+    part def TemperaturePressureReliefValve {
+        attribute openingPressure : Pressure = 850 [kPa];
+        attribute openingTemperature : Temperature = 90 [degC];
+        attribute open : Boolean = false;
+
+        port tankConnection : WaterOutletPort;
+        port discharge : ReliefDischargePort;
+
+        action protectTank {
+            in attribute tankPressure : Pressure;
+            in attribute tankTemperature : Temperature;
+            out attribute valveOpen : Boolean;
+
+            if tankPressure >= openingPressure or tankTemperature >= openingTemperature {
+                valveOpen = true;
+            } else {
+                valveOpen = false;
+            }
+        }
+    }
+
+    part def InsulationJacket {
+        attribute thermalResistance : Real = 2.5;
+        attribute heatLossRateAtSetpoint : Power = 0.08 [kW];
+
+        action reduceHeatLoss {
+            in attribute tankTemperature : Temperature;
+            in attribute ambientTemperature : Temperature;
+            out item retainedHeat : HeatEnergy;
+            retainedHeat.thermalPower = heatLossRateAtSetpoint;
+        }
+    }
+
+    part def UserDemandInterface {
+        attribute requestedFlowRate : VolumeFlowRate = 8 [L/min];
+        attribute minimumDeliveryTemperature : Temperature = 45 [degC];
+
+        port hotWaterRequest : WaterOutletPort;
+    }
+
+    part def WaterHeatingSystem {
+        attribute nominalSetpoint : Temperature = 55 [degC];
+        attribute maximumSafeTemperature : Temperature = 85 [degC];
+        attribute maximumSafePressure : Pressure = 800 [kPa];
+        attribute storageCapacity : Volume = 180 [L];
+        attribute recoveryPower : Power = 4.5 [kW];
+        attribute primaryFunction : String = "Convert incoming cold potable water into stored hot water and deliver it on demand at a controlled, safe temperature.";
+
+        port coldWaterSupply : WaterInletPort;
+        port hotWaterDelivery : WaterOutletPort;
+        port electricalSupply : ElectricalPowerPort;
+        port reliefDischarge : ReliefDischargePort;
+
+        part tank : StorageTank {
+            capacity = storageCapacity;
+            maximumAllowablePressure = 850 [kPa];
+        }
+
+        part heater : HeatingElement {
+            ratedPower = recoveryPower;
+        }
+
+        part temperatureSensor : TemperatureSensor;
+        part pressureSensor : PressureSensor;
+
+        part controller : ThermostaticController {
+            setpoint = nominalSetpoint;
+            overTemperatureLimit = maximumSafeTemperature;
+            overPressureLimit = maximumSafePressure;
+        }
+
+        part reliefValve : TemperaturePressureReliefValve;
+        part insulation : InsulationJacket;
+        part demandInterface : UserDemandInterface;
+
+        connection coldSupplyToTank
+            connect coldWaterSupply to tank.coldWaterInlet;
+
+        connection tankToDelivery
+            connect tank.hotWaterOutlet to hotWaterDelivery;
+
+        connection electricalToHeater
+            connect electricalSupply to heater.electricalInput;
+
+        connection heaterToTank
+            connect heater.heatOutput to tank.heatInput;
+
+        connection tankToReliefValve
+            connect tank.hotWaterOutlet to reliefValve.tankConnection;
+
+        connection reliefValveToSystemDischarge
+            connect reliefValve.discharge to reliefDischarge;
+
+        connection tankToDemand
+            connect tank.hotWaterOutlet to demandInterface.hotWaterRequest;
+
+        connection temperatureSensorToController
+            connect temperatureSensor.signalOut to controller.sensorInput;
+
+        connection pressureSensorToController
+            connect pressureSensor.signalOut to controller.sensorInput;
+
+        perform action heatWaterCycle {
+            in item incomingColdWater : ColdWater;
+            in item suppliedElectricalEnergy : ElectricalEnergy;
+            out item deliveredHotWater : HeatedWater;
+
+            first receiveColdWater;
+            then senseTankConditions;
+            then decideHeating;
+            then applyHeat;
+            then storeThermalEnergy;
+            then deliverHotWater;
+
+            action receiveColdWater {
+                incomingColdWater.temperature = 15 [degC];
+                incomingColdWater.pressure = 300 [kPa];
+                incomingColdWater.flowRate = demandInterface.requestedFlowRate;
+            }
+
+            action senseTankConditions {
+                temperatureSensor.sensedTemperature = tank.waterTemperature;
+                pressureSensor.sensedPressure = tank.waterPressure;
+            }
+
+            action decideHeating {
+                controller.regulateHeating(
+                    measuredTemperature = temperatureSensor.sensedTemperature,
+                    measuredPressure = pressureSensor.sensedPressure,
+                    enableHeat = heater.enabled,
+                    commandedSetpoint = controller.setpoint
+                );
+            }
+
+            action applyHeat {
+                heater.generateHeat(
+                    commandEnable = heater.enabled,
+                    suppliedEnergy = suppliedElectricalEnergy,
+                    producedHeat = heater.heatOutput.heat
+                );
+            }
+
+            action storeThermalEnergy {
+                tank.storeAndHeatWater(
+                    incomingWater = incomingColdWater,
+                    thermalEnergy = heater.heatOutput.heat,
+                    outgoingWater = deliveredHotWater
+                );
+            }
+
+            action deliverHotWater {
+                deliveredHotWater.temperature = tank.waterTemperature;
+                deliveredHotWater.pressure = tank.waterPressure;
+                deliveredHotWater.flowRate = demandInterface.requestedFlowRate;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The water heating system shall heat incoming cold potable water and deliver hot water on demand at a controlled temperature suitable for domestic use. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.hotWaterDelivery.waterOut.temperature >= 45 [degC] and
+            system.hotWaterDelivery.waterOut.temperature <= 60 [degC]
+        }
+    }
+
+    requirement def StorageCapacityRequirement {
+        doc /* The system shall store at least 150 liters of heated water for expected household demand. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.storageCapacity >= 150 [L]
+        }
+    }
+
+    requirement def HeatingPowerRequirement {
+        doc /* The heating element shall provide sufficient thermal recovery power for normal residential operation. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.recoveryPower >= 3.0 [kW]
+        }
+    }
+
+    requirement def TemperatureSafetyRequirement {
+        doc /* The controller shall disable heating before the tank water temperature exceeds the maximum safe limit. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.tank.waterTemperature <= system.maximumSafeTemperature
+        }
+    }
+
+    requirement def PressureSafetyRequirement {
+        doc /* The system shall protect the storage tank from excessive pressure by monitoring tank pressure and discharging water through a relief valve when required. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.tank.waterPressure <= system.tank.maximumAllowablePressure
+        }
+    }
+
+    requirement def EnergyIsolationRequirement {
+        doc /* The insulation jacket shall reduce standby heat loss from the heated water storage tank. */
+        subject system : WaterHeatingSystem;
+
+        require constraint {
+            system.insulation.heatLossRateAtSetpoint <= 0.1 [kW]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by WaterHeatingSystem;
+    satisfy StorageCapacityRequirement by WaterHeatingSystem;
+    satisfy HeatingPowerRequirement by WaterHeatingSystem;
+    satisfy TemperatureSafetyRequirement by WaterHeatingSystem;
+    satisfy PressureSafetyRequirement by WaterHeatingSystem;
+    satisfy EnergyIsolationRequirement by WaterHeatingSystem;
+
+    part waterHeater : WaterHeatingSystem;
+
+}

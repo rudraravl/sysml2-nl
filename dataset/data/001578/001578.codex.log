@@ -1,0 +1,837 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-xpcwxc6x
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb741-e46f-70a1-b65d-4a7d39920e23
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Smart grid and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SmartGridHighLevelDesign {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def voltage :> real;
+  attribute def current :> real;
+  attribute def activePower :> real;
+  attribute def reactivePower :> real;
+  attribute def energy :> real;
+  attribute def frequency :> real;
+  attribute def temperature :> real;
+  attribute def stateOfCharge :> real;
+  attribute def price :> real;
+
+  enum def GridOperatingMode {
+    enum normal;
+    enum peakShaving;
+    enum islanded;
+    enum restoration;
+    enum emergencyLoadShed;
+  }
+
+  enum def EnergyDirection {
+    enum importFromGrid;
+    enum exportToGrid;
+    enum bidirectional;
+  }
+
+  item def ElectricalEnergy {
+    attribute p : activePower [W];
+    attribute q : reactivePower [var];
+    attribute v : voltage [V];
+    attribute i : current [A];
+    attribute f : frequency [Hz];
+    attribute direction : EnergyDirection;
+  }
+
+  item def TelemetryFrame {
+    attribute measuredVoltage : voltage [V];
+    attribute measuredCurrent : current [A];
+    attribute measuredPower : activePower [W];
+    attribute measuredFrequency : frequency [Hz];
+    attribute measuredEnergy : energy [W*h];
+    attribute measuredTemperature : temperature [K];
+  }
+
+  item def ControlCommand {
+    attribute targetPower : activePower [W];
+    attribute voltageSetpoint : voltage [V];
+    attribute frequencySetpoint : frequency [Hz];
+    attribute loadCurtailmentRequest : activePower [W];
+  }
+
+  item def PriceSignal {
+    attribute importPrice : price;
+    attribute exportPrice : price;
+    attribute demandResponseIncentive : price;
+  }
+
+  item def FaultEvent {
+    attribute faultVoltage : voltage [V];
+    attribute faultCurrent : current [A];
+    attribute affectedPower : activePower [W];
+  }
+
+  port def PowerPort {
+    inout flow energyFlow : ElectricalEnergy;
+  }
+
+  port def TelemetryPort {
+    out flow telemetry : TelemetryFrame;
+  }
+
+  port def CommandPort {
+    in flow command : ControlCommand;
+  }
+
+  port def MarketPort {
+    in flow tariff : PriceSignal;
+  }
+
+  port def FaultPort {
+    out flow fault : FaultEvent;
+  }
+
+  action def MeasureElectricalState {
+    out measured : TelemetryFrame;
+  }
+
+  action def ForecastDemandAndGeneration {
+    in currentTelemetry : TelemetryFrame;
+    in tariff : PriceSignal;
+    out forecastNetLoad : activePower [W];
+  }
+
+  action def OptimizeDispatch {
+    in forecastNetLoad : activePower [W];
+    in availableStorage : energy [W*h];
+    in tariff : PriceSignal;
+    out dispatchCommand : ControlCommand;
+  }
+
+  action def BalanceSupplyDemand {
+    in command : ControlCommand;
+    out adjustedEnergy : ElectricalEnergy;
+  }
+
+  action def IsolateFault {
+    in fault : FaultEvent;
+    out isolationCommand : ControlCommand;
+  }
+
+  action def RestoreService {
+    in telemetry : TelemetryFrame;
+    out restorationCommand : ControlCommand;
+  }
+
+  part def RenewableGenerator {
+    attribute ratedPower : activePower [W] = 5000000;
+    attribute nominalVoltage : voltage [V] = 34500;
+    attribute presentOutput : activePower [W];
+
+    port power : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    action generatePower : BalanceSupplyDemand;
+  }
+
+  part def BulkGridIntertie {
+    attribute importCapacity : activePower [W] = 50000000;
+    attribute exportCapacity : activePower [W] = 25000000;
+    attribute nominalVoltage : voltage [V] = 138000;
+
+    port transmissionPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def BatteryEnergyStorageSystem {
+    attribute ratedPower : activePower [W] = 10000000;
+    attribute usableEnergyCapacity : energy [W*h] = 40000000;
+    attribute soc : stateOfCharge = 0.62;
+    attribute minimumSoc : stateOfCharge = 0.15;
+    attribute maximumSoc : stateOfCharge = 0.95;
+    attribute dcBusVoltage : voltage [V] = 900;
+
+    port acPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    state def StorageStateMachine {
+      state idle;
+      state charging;
+      state discharging;
+      state reserveHold;
+      state faultLocked;
+
+      transition first idle;
+      transition idle to charging if soc < maximumSoc;
+      transition idle to discharging if soc > minimumSoc;
+      transition charging to reserveHold if soc >= maximumSoc;
+      transition discharging to reserveHold if soc <= minimumSoc;
+      transition reserveHold to discharging;
+      transition idle to faultLocked;
+      transition charging to faultLocked;
+      transition discharging to faultLocked;
+      transition faultLocked to idle;
+    }
+  }
+
+  part def SmartMeter {
+    attribute samplingInterval : real [s] = 1;
+    attribute accumulatedEnergy : energy [W*h];
+
+    port servicePower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    action meterMeasurement : MeasureElectricalState;
+  }
+
+  part def ControllableLoad {
+    attribute normalDemand : activePower [W] = 12000;
+    attribute minimumCriticalDemand : activePower [W] = 3000;
+    attribute curtailedDemand : activePower [W];
+
+    port power : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    state def LoadStateMachine {
+      state served;
+      state reduced;
+      state disconnected;
+
+      transition first served;
+      transition served to reduced;
+      transition reduced to served;
+      transition reduced to disconnected;
+      transition disconnected to reduced;
+    }
+  }
+
+  part def DistributionFeeder {
+    attribute nominalVoltage : voltage [V] = 13200;
+    attribute thermalLimit : current [A] = 600;
+    attribute feederLength : real [m] = 12000;
+
+    port sourcePower : PowerPort;
+    port loadPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+    port faultOut : FaultPort;
+  }
+
+  part def Substation {
+    attribute highSideVoltage : voltage [V] = 138000;
+    attribute lowSideVoltage : voltage [V] = 13200;
+    attribute transformerRating : activePower [W] = 30000000;
+    attribute busFrequency : frequency [Hz] = 60;
+
+    port highVoltagePower : PowerPort;
+    port feederPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+    port faultOut : FaultPort;
+  }
+
+  part def GridControlCenter {
+    attribute targetFrequency : frequency [Hz] = 60;
+    attribute permittedVoltageDeviation : real = 0.05;
+    attribute currentMode : GridOperatingMode = GridOperatingMode::normal;
+
+    port telemetryIn : TelemetryPort;
+    port commandOut : CommandPort;
+    port marketIn : MarketPort;
+    port faultIn : FaultPort;
+
+    action measureSystem : MeasureElectricalState;
+    action forecast : ForecastDemandAndGeneration;
+    action dispatch : OptimizeDispatch;
+    action isolate : IsolateFault;
+    action restore : RestoreService;
+
+    state def GridSupervisoryStateMachine {
+      state monitor;
+      state economicDispatch;
+      state demandResponse;
+      state faultIsolation;
+      state islandOperation;
+      state restoration;
+
+      transition first monitor;
+      transition monitor to economicDispatch;
+      transition economicDispatch to demandResponse;
+      transition demandResponse to economicDispatch;
+      transition monitor to faultIsolation;
+      transition economicDispatch to faultIsolation;
+      transition demandResponse to faultIsolation;
+      transition faultIsolation to islandOperation;
+      transition faultIsolation to restoration;
+      transition islandOperation to restoration;
+      transition restoration to monitor;
+    }
+  }
+
+  part def UtilityMarketInterface {
+    attribute updatePeriod : real [s] = 300;
+    attribute currentImportPrice : price = 0.14;
+    attribute currentExportPrice : price = 0.06;
+
+    port priceOut : MarketPort;
+  }
+
+  part def SmartGridSystem {
+    attribute primaryFunction : string = "Continuously coordinate distributed generation, storage, utility import or export, and controllable demand to deliver reliable, efficient, and resilient electric power while maintaining voltage, frequency, and service continuity.";
+
+    part controlCenter : GridControlCenter;
+    part market : UtilityMarketInterface;
+    part intertie : BulkGridIntertie;
+    part substation : Substation;
+    part feederA : DistributionFeeder;
+    part feederB : DistributionFeeder;
+    part solarPlant : RenewableGenerator;
+    part windPlant : RenewableGenerator;
+    part battery : BatteryEnergyStorageSystem;
+    part meterResidential : SmartMeter;
+    part meterCommercial : SmartMeter;
+    part residentialLoad : ControllableLoad;
+    part commercialLoad : ControllableLoad;
+
+    connect intertie.transmissionPower to substation.highVoltagePower;
+    connect substation.feederPower to feederA.sourcePower;
+    connect substation.feederPower to feederB.sourcePower;
+    connect feederA.loadPower to meterResidential.servicePower;
+    connect feederB.loadPower to meterCommercial.servicePower;
+    connect meterResidential.servicePower to residentialLoad.power;
+    connect meterCommercial.servicePower to commercialLoad.power;
+    connect solarPlant.power to feederA.sourcePower;
+    connect windPlant.power to feederB.sourcePower;
+    connect battery.acPower to substation.feederPower;
+
+    connect market.priceOut to controlCenter.marketIn;
+
+    connect substation.telemetry to controlCenter.telemetryIn;
+    connect feederA.telemetry to controlCenter.telemetryIn;
+    connect feederB.telemetry to controlCenter.telemetryIn;
+    connect battery.telemetry to controlCenter.telemetryIn;
+    connect solarPlant.telemetry to controlCenter.telemetryIn;
+    connect windPlant.telemetry to controlCenter.telemetryIn;
+    connect meterResidential.telemetry to controlCenter.telemetryIn;
+    connect meterCommercial.telemetry to controlCenter.telemetryIn;
+
+    connect controlCenter.commandOut to intertie.command;
+    connect controlCenter.commandOut to substation.command;
+    connect controlCenter.commandOut to feederA.command;
+    connect controlCenter.commandOut to feederB.command;
+    connect controlCenter.commandOut to battery.command;
+    connect controlCenter.commandOut to solarPlant.command;
+    connect controlCenter.commandOut to windPlant.command;
+    connect controlCenter.commandOut to residentialLoad.command;
+    connect controlCenter.commandOut to commercialLoad.command;
+
+    connect substation.faultOut to controlCenter.faultIn;
+    connect feederA.faultOut to controlCenter.faultIn;
+    connect feederB.faultOut to controlCenter.faultIn;
+
+    action operateGrid {
+      first start;
+      then sense : MeasureElectricalState;
+      then predict : ForecastDemandAndGeneration;
+      then optimize : OptimizeDispatch;
+      then balance : BalanceSupplyDemand;
+      then done;
+    }
+
+    action respondToFault {
+      first detectFault;
+      then isolateFault : IsolateFault;
+      then restoreLoads : RestoreService;
+      then returnToMonitoring;
+    }
+  }
+
+  requirement def ReliablePowerDelivery {
+    subject grid : SmartGridSystem;
+    require constraint {
+      grid.controlCenter.targetFrequency >= 59.7 [Hz] and
+      grid.controlCenter.targetFrequency <= 60.3 [Hz]
+    }
+  }
+
+  requirement def VoltageQuality {
+    subject substation : Substation;
+    require constraint {
+      substation.lowSideVoltage >= 12540 [V] and
+      substation.lowSideVoltage <= 13860 [V]
+    }
+  }
+
+  requirement def StorageReserve {
+    subject storage : BatteryEnergyStorageSystem;
+    require constraint {
+      storage.soc >= storage.minimumSoc and
+      storage.soc <= storage.maximumSoc
+    }
+  }
+
+  requirement def FeederThermalProtection {
+    subject feeder : DistributionFeeder;
+    require constraint {
+      feeder.thermalLimit <= 600 [A]
+    }
+  }
+
+  requirement def DemandResponseCapability {
+    subject load : ControllableLoad;
+    require constraint {
+      load.minimumCriticalDemand < load.normalDemand
+    }
+  }
+
+  requirement def MarketAwareDispatch {
+    subject grid : SmartGridSystem;
+    require constraint {
+      grid.market.updatePeriod <= 300 [s]
+    }
+  }
+
+  requirement def ResilientFaultOperation {
+    subject grid : SmartGridSystem;
+    require constraint {
+      grid.battery.usableEnergyCapacity >= 40000000 [W*h]
+    }
+  }
+
+  satisfy ReliablePowerDelivery by SmartGridSystem::controlCenter;
+  satisfy VoltageQuality by SmartGridSystem::substation;
+  satisfy StorageReserve by SmartGridSystem::battery;
+  satisfy FeederThermalProtection by SmartGridSystem::feederA;
+  satisfy FeederThermalProtection by SmartGridSystem::feederB;
+  satisfy DemandResponseCapability by SmartGridSystem::residentialLoad;
+  satisfy DemandResponseCapability by SmartGridSystem::commercialLoad;
+  satisfy MarketAwareDispatch by SmartGridSystem::market;
+  satisfy ResilientFaultOperation by SmartGridSystem::battery;
+}
+tokens used
+4,282
+package SmartGridHighLevelDesign {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def voltage :> real;
+  attribute def current :> real;
+  attribute def activePower :> real;
+  attribute def reactivePower :> real;
+  attribute def energy :> real;
+  attribute def frequency :> real;
+  attribute def temperature :> real;
+  attribute def stateOfCharge :> real;
+  attribute def price :> real;
+
+  enum def GridOperatingMode {
+    enum normal;
+    enum peakShaving;
+    enum islanded;
+    enum restoration;
+    enum emergencyLoadShed;
+  }
+
+  enum def EnergyDirection {
+    enum importFromGrid;
+    enum exportToGrid;
+    enum bidirectional;
+  }
+
+  item def ElectricalEnergy {
+    attribute p : activePower [W];
+    attribute q : reactivePower [var];
+    attribute v : voltage [V];
+    attribute i : current [A];
+    attribute f : frequency [Hz];
+    attribute direction : EnergyDirection;
+  }
+
+  item def TelemetryFrame {
+    attribute measuredVoltage : voltage [V];
+    attribute measuredCurrent : current [A];
+    attribute measuredPower : activePower [W];
+    attribute measuredFrequency : frequency [Hz];
+    attribute measuredEnergy : energy [W*h];
+    attribute measuredTemperature : temperature [K];
+  }
+
+  item def ControlCommand {
+    attribute targetPower : activePower [W];
+    attribute voltageSetpoint : voltage [V];
+    attribute frequencySetpoint : frequency [Hz];
+    attribute loadCurtailmentRequest : activePower [W];
+  }
+
+  item def PriceSignal {
+    attribute importPrice : price;
+    attribute exportPrice : price;
+    attribute demandResponseIncentive : price;
+  }
+
+  item def FaultEvent {
+    attribute faultVoltage : voltage [V];
+    attribute faultCurrent : current [A];
+    attribute affectedPower : activePower [W];
+  }
+
+  port def PowerPort {
+    inout flow energyFlow : ElectricalEnergy;
+  }
+
+  port def TelemetryPort {
+    out flow telemetry : TelemetryFrame;
+  }
+
+  port def CommandPort {
+    in flow command : ControlCommand;
+  }
+
+  port def MarketPort {
+    in flow tariff : PriceSignal;
+  }
+
+  port def FaultPort {
+    out flow fault : FaultEvent;
+  }
+
+  action def MeasureElectricalState {
+    out measured : TelemetryFrame;
+  }
+
+  action def ForecastDemandAndGeneration {
+    in currentTelemetry : TelemetryFrame;
+    in tariff : PriceSignal;
+    out forecastNetLoad : activePower [W];
+  }
+
+  action def OptimizeDispatch {
+    in forecastNetLoad : activePower [W];
+    in availableStorage : energy [W*h];
+    in tariff : PriceSignal;
+    out dispatchCommand : ControlCommand;
+  }
+
+  action def BalanceSupplyDemand {
+    in command : ControlCommand;
+    out adjustedEnergy : ElectricalEnergy;
+  }
+
+  action def IsolateFault {
+    in fault : FaultEvent;
+    out isolationCommand : ControlCommand;
+  }
+
+  action def RestoreService {
+    in telemetry : TelemetryFrame;
+    out restorationCommand : ControlCommand;
+  }
+
+  part def RenewableGenerator {
+    attribute ratedPower : activePower [W] = 5000000;
+    attribute nominalVoltage : voltage [V] = 34500;
+    attribute presentOutput : activePower [W];
+
+    port power : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    action generatePower : BalanceSupplyDemand;
+  }
+
+  part def BulkGridIntertie {
+    attribute importCapacity : activePower [W] = 50000000;
+    attribute exportCapacity : activePower [W] = 25000000;
+    attribute nominalVoltage : voltage [V] = 138000;
+
+    port transmissionPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+  }
+
+  part def BatteryEnergyStorageSystem {
+    attribute ratedPower : activePower [W] = 10000000;
+    attribute usableEnergyCapacity : energy [W*h] = 40000000;
+    attribute soc : stateOfCharge = 0.62;
+    attribute minimumSoc : stateOfCharge = 0.15;
+    attribute maximumSoc : stateOfCharge = 0.95;
+    attribute dcBusVoltage : voltage [V] = 900;
+
+    port acPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    state def StorageStateMachine {
+      state idle;
+      state charging;
+      state discharging;
+      state reserveHold;
+      state faultLocked;
+
+      transition first idle;
+      transition idle to charging if soc < maximumSoc;
+      transition idle to discharging if soc > minimumSoc;
+      transition charging to reserveHold if soc >= maximumSoc;
+      transition discharging to reserveHold if soc <= minimumSoc;
+      transition reserveHold to discharging;
+      transition idle to faultLocked;
+      transition charging to faultLocked;
+      transition discharging to faultLocked;
+      transition faultLocked to idle;
+    }
+  }
+
+  part def SmartMeter {
+    attribute samplingInterval : real [s] = 1;
+    attribute accumulatedEnergy : energy [W*h];
+
+    port servicePower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    action meterMeasurement : MeasureElectricalState;
+  }
+
+  part def ControllableLoad {
+    attribute normalDemand : activePower [W] = 12000;
+    attribute minimumCriticalDemand : activePower [W] = 3000;
+    attribute curtailedDemand : activePower [W];
+
+    port power : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+
+    state def LoadStateMachine {
+      state served;
+      state reduced;
+      state disconnected;
+
+      transition first served;
+      transition served to reduced;
+      transition reduced to served;
+      transition reduced to disconnected;
+      transition disconnected to reduced;
+    }
+  }
+
+  part def DistributionFeeder {
+    attribute nominalVoltage : voltage [V] = 13200;
+    attribute thermalLimit : current [A] = 600;
+    attribute feederLength : real [m] = 12000;
+
+    port sourcePower : PowerPort;
+    port loadPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+    port faultOut : FaultPort;
+  }
+
+  part def Substation {
+    attribute highSideVoltage : voltage [V] = 138000;
+    attribute lowSideVoltage : voltage [V] = 13200;
+    attribute transformerRating : activePower [W] = 30000000;
+    attribute busFrequency : frequency [Hz] = 60;
+
+    port highVoltagePower : PowerPort;
+    port feederPower : PowerPort;
+    port telemetry : TelemetryPort;
+    port command : CommandPort;
+    port faultOut : FaultPort;
+  }
+
+  part def GridControlCenter {
+    attribute targetFrequency : frequency [Hz] = 60;
+    attribute permittedVoltageDeviation : real = 0.05;
+    attribute currentMode : GridOperatingMode = GridOperatingMode::normal;
+
+    port telemetryIn : TelemetryPort;
+    port commandOut : CommandPort;
+    port marketIn : MarketPort;
+    port faultIn : FaultPort;
+
+    action measureSystem : MeasureElectricalState;
+    action forecast : ForecastDemandAndGeneration;
+    action dispatch : OptimizeDispatch;
+    action isolate : IsolateFault;
+    action restore : RestoreService;
+
+    state def GridSupervisoryStateMachine {
+      state monitor;
+      state economicDispatch;
+      state demandResponse;
+      state faultIsolation;
+      state islandOperation;
+      state restoration;
+
+      transition first monitor;
+      transition monitor to economicDispatch;
+      transition economicDispatch to demandResponse;
+      transition demandResponse to economicDispatch;
+      transition monitor to faultIsolation;
+      transition economicDispatch to faultIsolation;
+      transition demandResponse to faultIsolation;
+      transition faultIsolation to islandOperation;
+      transition faultIsolation to restoration;
+      transition islandOperation to restoration;
+      transition restoration to monitor;
+    }
+  }
+
+  part def UtilityMarketInterface {
+    attribute updatePeriod : real [s] = 300;
+    attribute currentImportPrice : price = 0.14;
+    attribute currentExportPrice : price = 0.06;
+
+    port priceOut : MarketPort;
+  }
+
+  part def SmartGridSystem {
+    attribute primaryFunction : string = "Continuously coordinate distributed generation, storage, utility import or export, and controllable demand to deliver reliable, efficient, and resilient electric power while maintaining voltage, frequency, and service continuity.";
+
+    part controlCenter : GridControlCenter;
+    part market : UtilityMarketInterface;
+    part intertie : BulkGridIntertie;
+    part substation : Substation;
+    part feederA : DistributionFeeder;
+    part feederB : DistributionFeeder;
+    part solarPlant : RenewableGenerator;
+    part windPlant : RenewableGenerator;
+    part battery : BatteryEnergyStorageSystem;
+    part meterResidential : SmartMeter;
+    part meterCommercial : SmartMeter;
+    part residentialLoad : ControllableLoad;
+    part commercialLoad : ControllableLoad;
+
+    connect intertie.transmissionPower to substation.highVoltagePower;
+    connect substation.feederPower to feederA.sourcePower;
+    connect substation.feederPower to feederB.sourcePower;
+    connect feederA.loadPower to meterResidential.servicePower;
+    connect feederB.loadPower to meterCommercial.servicePower;
+    connect meterResidential.servicePower to residentialLoad.power;
+    connect meterCommercial.servicePower to commercialLoad.power;
+    connect solarPlant.power to feederA.sourcePower;
+    connect windPlant.power to feederB.sourcePower;
+    connect battery.acPower to substation.feederPower;
+
+    connect market.priceOut to controlCenter.marketIn;
+
+    connect substation.telemetry to controlCenter.telemetryIn;
+    connect feederA.telemetry to controlCenter.telemetryIn;
+    connect feederB.telemetry to controlCenter.telemetryIn;
+    connect battery.telemetry to controlCenter.telemetryIn;
+    connect solarPlant.telemetry to controlCenter.telemetryIn;
+    connect windPlant.telemetry to controlCenter.telemetryIn;
+    connect meterResidential.telemetry to controlCenter.telemetryIn;
+    connect meterCommercial.telemetry to controlCenter.telemetryIn;
+
+    connect controlCenter.commandOut to intertie.command;
+    connect controlCenter.commandOut to substation.command;
+    connect controlCenter.commandOut to feederA.command;
+    connect controlCenter.commandOut to feederB.command;
+    connect controlCenter.commandOut to battery.command;
+    connect controlCenter.commandOut to solarPlant.command;
+    connect controlCenter.commandOut to windPlant.command;
+    connect controlCenter.commandOut to residentialLoad.command;
+    connect controlCenter.commandOut to commercialLoad.command;
+
+    connect substation.faultOut to controlCenter.faultIn;
+    connect feederA.faultOut to controlCenter.faultIn;
+    connect feederB.faultOut to controlCenter.faultIn;
+
+    action operateGrid {
+      first start;
+      then sense : MeasureElectricalState;
+      then predict : ForecastDemandAndGeneration;
+      then optimize : OptimizeDispatch;
+      then balance : BalanceSupplyDemand;
+      then done;
+    }
+
+    action respondToFault {
+      first detectFault;
+      then isolateFault : IsolateFault;
+      then restoreLoads : RestoreService;
+      then returnToMonitoring;
+    }
+  }
+
+  requirement def ReliablePowerDelivery {
+    subject grid : SmartGridSystem;
+    require constraint {
+      grid.controlCenter.targetFrequency >= 59.7 [Hz] and
+      grid.controlCenter.targetFrequency <= 60.3 [Hz]
+    }
+  }
+
+  requirement def VoltageQuality {
+    subject substation : Substation;
+    require constraint {
+      substation.lowSideVoltage >= 12540 [V] and
+      substation.lowSideVoltage <= 13860 [V]
+    }
+  }
+
+  requirement def StorageReserve {
+    subject storage : BatteryEnergyStorageSystem;
+    require constraint {
+      storage.soc >= storage.minimumSoc and
+      storage.soc <= storage.maximumSoc
+    }
+  }
+
+  requirement def FeederThermalProtection {
+    subject feeder : DistributionFeeder;
+    require constraint {
+      feeder.thermalLimit <= 600 [A]
+    }
+  }
+
+  requirement def DemandResponseCapability {
+    subject load : ControllableLoad;
+    require constraint {
+      load.minimumCriticalDemand < load.normalDemand
+    }
+  }
+
+  requirement def MarketAwareDispatch {
+    subject grid : SmartGridSystem;
+    require constraint {
+      grid.market.updatePeriod <= 300 [s]
+    }
+  }
+
+  requirement def ResilientFaultOperation {
+    subject grid : SmartGridSystem;
+    require constraint {
+      grid.battery.usableEnergyCapacity >= 40000000 [W*h]
+    }
+  }
+
+  satisfy ReliablePowerDelivery by SmartGridSystem::controlCenter;
+  satisfy VoltageQuality by SmartGridSystem::substation;
+  satisfy StorageReserve by SmartGridSystem::battery;
+  satisfy FeederThermalProtection by SmartGridSystem::feederA;
+  satisfy FeederThermalProtection by SmartGridSystem::feederB;
+  satisfy DemandResponseCapability by SmartGridSystem::residentialLoad;
+  satisfy DemandResponseCapability by SmartGridSystem::commercialLoad;
+  satisfy MarketAwareDispatch by SmartGridSystem::market;
+  satisfy ResilientFaultOperation by SmartGridSystem::battery;
+}

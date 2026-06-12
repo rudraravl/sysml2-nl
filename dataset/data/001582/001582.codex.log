@@ -1,0 +1,1243 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-i9pksrvs
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb746-65bd-7a63-a92a-684a34903463
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Smart meter and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SmartMeterSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def ActivePower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def ApparentPower :> ISQ::power {
+        unit = SI::voltAmpere;
+    }
+
+    attribute def ReactivePower :> ISQ::power {
+        unit = SI::var;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::wattHour;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def DataRate :> ISQ::dataRate {
+        unit = SI::bitPerSecond;
+    }
+
+    attribute def SignalStrength {
+        attribute rssi : Integer;
+    }
+
+    attribute def MeterIdentifier {
+        attribute utilityId : String;
+        attribute premiseId : String;
+        attribute serialNumber : String;
+    }
+
+    item def LinePower {
+        attribute phaseVoltage : Voltage;
+        attribute phaseCurrent : Current;
+        attribute gridFrequency : Frequency;
+        attribute powerFactor : Real;
+    }
+
+    item def EnergyReading {
+        attribute meterId : MeterIdentifier;
+        attribute deliveredEnergy : Energy;
+        attribute receivedEnergy : Energy;
+        attribute activePowerNow : ActivePower;
+        attribute reactivePowerNow : ReactivePower;
+        attribute apparentPowerNow : ApparentPower;
+        attribute readingTimestamp : String;
+        attribute intervalLength : TimeDuration;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute commandType : CommandKind;
+        attribute issuedTimestamp : String;
+        attribute targetState : SwitchState;
+    }
+
+    enum def CommandKind {
+        enum readNow;
+        enum disconnectService;
+        enum reconnectService;
+        enum updateTariff;
+        enum firmwareUpdate;
+        enum resetAlarm;
+    }
+
+    enum def SwitchState {
+        enum closed;
+        enum open;
+        enum lockedOpen;
+    }
+
+    enum def MeterOperatingMode {
+        enum initializing;
+        enum measuring;
+        enum communicating;
+        enum remoteDisconnecting;
+        enum faulted;
+        enum maintenance;
+    }
+
+    enum def AlarmKind {
+        enum coverOpen;
+        enum magneticTamper;
+        enum reverseEnergyFlow;
+        enum voltageSag;
+        enum voltageSwell;
+        enum overCurrent;
+        enum communicationLoss;
+        enum internalFault;
+    }
+
+    item def AlarmEvent {
+        attribute meterId : MeterIdentifier;
+        attribute alarmType : AlarmKind;
+        attribute alarmTimestamp : String;
+        attribute severity : Integer;
+        attribute active : Boolean;
+    }
+
+    port def ACLinePort {
+        in item incomingPower : LinePower;
+        out item loadPower : LinePower;
+    }
+
+    port def MeasurementPort {
+        in item sampledPower : LinePower;
+        out item measuredReading : EnergyReading;
+    }
+
+    port def CommunicationPort {
+        in item inboundCommand : ControlCommand;
+        out item outboundReading : EnergyReading;
+        out item outboundAlarm : AlarmEvent;
+        attribute nominalDataRate : DataRate;
+        attribute signalQuality : SignalStrength;
+    }
+
+    port def ControlPort {
+        in item serviceCommand : ControlCommand;
+        out attribute switchPosition : SwitchState;
+    }
+
+    port def DiagnosticPort {
+        out item alarm : AlarmEvent;
+        out attribute deviceTemperature : Temperature;
+        out attribute operatingMode : MeterOperatingMode;
+    }
+
+    action def SampleElectricalQuantities {
+        in item lineInput : LinePower;
+        out item sampledOutput : LinePower;
+    }
+
+    action def ComputeEnergyInterval {
+        in item sampledInput : LinePower;
+        in attribute integrationPeriod : TimeDuration;
+        out item intervalReading : EnergyReading;
+    }
+
+    action def StoreReading {
+        in item readingToStore : EnergyReading;
+        out attribute storedSuccessfully : Boolean;
+    }
+
+    action def TransmitReading {
+        in item readingToTransmit : EnergyReading;
+        out attribute acknowledged : Boolean;
+    }
+
+    action def DetectTamperAndPowerQuality {
+        in item sampledInput : LinePower;
+        in attribute enclosureOpen : Boolean;
+        in attribute magneticFieldDetected : Boolean;
+        out item alarmOutput : AlarmEvent;
+    }
+
+    action def ExecuteRemoteSwitchCommand {
+        in item requestedCommand : ControlCommand;
+        out attribute resultingSwitchState : SwitchState;
+        out attribute executionAccepted : Boolean;
+    }
+
+    part def VoltageSensor {
+        port measuredLine : MeasurementPort;
+        attribute accuracyClass : Real = 0.2;
+        attribute maximumVoltage : Voltage = 300 [SI::volt];
+    }
+
+    part def CurrentSensor {
+        port measuredLine : MeasurementPort;
+        attribute accuracyClass : Real = 0.2;
+        attribute maximumCurrent : Current = 200 [SI::ampere];
+    }
+
+    part def MeteringProcessor {
+        port measurementIn : MeasurementPort;
+        port diagnosticsOut : DiagnosticPort;
+
+        attribute samplingFrequency : Frequency = 4000 [SI::hertz];
+        attribute nominalInterval : TimeDuration = 900 [SI::second];
+        attribute accumulatedDeliveredEnergy : Energy;
+        attribute accumulatedReceivedEnergy : Energy;
+        attribute processorTemperature : Temperature;
+
+        action sample : SampleElectricalQuantities;
+        action compute : ComputeEnergyInterval;
+        action detect : DetectTamperAndPowerQuality;
+        action store : StoreReading;
+
+        state machine operatingBehavior {
+            state off;
+            state booting;
+            state normalMeasurement;
+            state intervalClosure;
+            state alarmEvaluation;
+            state degradedOperation;
+            state failed;
+
+            entry;
+            transition first boot from entry to booting;
+
+            transition bootComplete
+                from booting to normalMeasurement
+                accept after 10 [SI::second];
+
+            transition sampleCycle
+                from normalMeasurement to alarmEvaluation
+                accept after 1 [SI::second]
+                do sample;
+
+            transition alarmChecked
+                from alarmEvaluation to normalMeasurement;
+
+            transition intervalComplete
+                from normalMeasurement to intervalClosure
+                accept after 900 [SI::second]
+                do compute then store;
+
+            transition stored
+                from intervalClosure to normalMeasurement;
+
+            transition abnormalMeasurement
+                from alarmEvaluation to degradedOperation
+                if detect.alarmOutput.active == true;
+
+            transition alarmCleared
+                from degradedOperation to normalMeasurement
+                if detect.alarmOutput.active == false;
+
+            transition processorFault
+                from normalMeasurement to failed;
+
+            transition degradedFault
+                from degradedOperation to failed;
+        }
+    }
+
+    part def SecureMemory {
+        attribute retainedReadingsCapacity : Integer = 35040;
+        attribute retainedAlarmCapacity : Integer = 2048;
+        attribute writeEnduranceCycles : Integer = 100000;
+        attribute encryptedAtRest : Boolean = true;
+    }
+
+    part def CommunicationModule {
+        port network : CommunicationPort;
+        attribute supportedProtocol : String = "DLMS/COSEM over IPv6";
+        attribute nominalUplinkRate : DataRate = 50000 [SI::bitPerSecond];
+        attribute retryLimit : Integer = 5;
+        attribute lastSuccessfulContactTimestamp : String;
+
+        action transmitReading : TransmitReading;
+
+        state machine communicationBehavior {
+            state idle;
+            state registering;
+            state connected;
+            state sendingReading;
+            state receivingCommand;
+            state retrying;
+            state offline;
+
+            entry;
+            transition startRegistration from entry to registering;
+            transition registered from registering to connected;
+            transition sendDue from connected to sendingReading do transmitReading;
+            transition sentAndAcknowledged from sendingReading to connected if transmitReading.acknowledged == true;
+            transition noAcknowledgement from sendingReading to retrying if transmitReading.acknowledged == false;
+            transition retryAvailable from retrying to sendingReading;
+            transition retryExhausted from retrying to offline;
+            transition commandReceived from connected to receivingCommand;
+            transition commandHandled from receivingCommand to connected;
+            transition linkRestored from offline to registering;
+        }
+    }
+
+    part def RemoteServiceSwitch {
+        port lineSide : ACLinePort;
+        port loadSide : ACLinePort;
+        port control : ControlPort;
+
+        attribute ratedCurrent : Current = 200 [SI::ampere];
+        attribute ratedVoltage : Voltage = 240 [SI::volt];
+        attribute presentState : SwitchState = SwitchState::closed;
+
+        action executeSwitch : ExecuteRemoteSwitchCommand;
+
+        state machine switchBehavior {
+            state closed;
+            state opening;
+            state open;
+            state closing;
+            state lockedOpen;
+
+            entry;
+            transition initialized from entry to closed;
+
+            transition disconnectRequested
+                from closed to opening
+                accept control.serviceCommand
+                if control.serviceCommand.commandType == CommandKind::disconnectService
+                do executeSwitch;
+
+            transition opened from opening to open;
+
+            transition reconnectRequested
+                from open to closing
+                accept control.serviceCommand
+                if control.serviceCommand.commandType == CommandKind::reconnectService
+                do executeSwitch;
+
+            transition closedAgain from closing to closed;
+
+            transition lockout
+                from open to lockedOpen
+                if control.serviceCommand.targetState == SwitchState::lockedOpen;
+
+            transition maintenanceUnlock
+                from lockedOpen to open
+                if control.serviceCommand.targetState == SwitchState::open;
+        }
+    }
+
+    part def TamperSensor {
+        port diagnostic : DiagnosticPort;
+        attribute coverOpen : Boolean = false;
+        attribute magneticFieldDetected : Boolean = false;
+        attribute tiltDetected : Boolean = false;
+    }
+
+    part def PowerSupply {
+        port acInput : ACLinePort;
+        attribute inputVoltageMinimum : Voltage = 85 [SI::volt];
+        attribute inputVoltageMaximum : Voltage = 300 [SI::volt];
+        attribute outputVoltage : Voltage = 3.3 [SI::volt];
+        attribute backupHoldUpTime : TimeDuration = 30 [SI::second];
+    }
+
+    part def UtilityHeadEndSystem {
+        port meterNetwork : CommunicationPort;
+        attribute pollingInterval : TimeDuration = 3600 [SI::second];
+        attribute maximumCommandLatency : TimeDuration = 60 [SI::second];
+    }
+
+    part def CustomerLoad {
+        port serviceInput : ACLinePort;
+        attribute maximumDemand : ActivePower = 48000 [SI::watt];
+    }
+
+    part def DistributionService {
+        port serviceOutput : ACLinePort;
+        attribute nominalServiceVoltage : Voltage = 240 [SI::volt];
+        attribute nominalFrequency : Frequency = 60 [SI::hertz];
+    }
+
+    part def SmartMeter {
+        port utilityLine : ACLinePort;
+        port premisesLine : ACLinePort;
+        port amiNetwork : CommunicationPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute identity : MeterIdentifier;
+        attribute operatingMode : MeterOperatingMode = MeterOperatingMode::initializing;
+        attribute serviceVoltageNominal : Voltage = 240 [SI::volt];
+        attribute serviceFrequencyNominal : Frequency = 60 [SI::hertz];
+        attribute maximumServiceCurrent : Current = 200 [SI::ampere];
+        attribute billingInterval : TimeDuration = 900 [SI::second];
+
+        part voltageSensor : VoltageSensor;
+        part currentSensor : CurrentSensor;
+        part processor : MeteringProcessor;
+        part memory : SecureMemory;
+        part communications : CommunicationModule;
+        part switch : RemoteServiceSwitch;
+        part tamperSensor : TamperSensor;
+        part supply : PowerSupply;
+
+        connect utilityLine to switch.lineSide;
+        connect switch.loadSide to premisesLine;
+        connect utilityLine to supply.acInput;
+        connect utilityLine to voltageSensor.measuredLine;
+        connect utilityLine to currentSensor.measuredLine;
+        connect voltageSensor.measuredLine to processor.measurementIn;
+        connect currentSensor.measuredLine to processor.measurementIn;
+        connect processor.diagnosticsOut to diagnostics;
+        connect tamperSensor.diagnostic to diagnostics;
+        connect communications.network to amiNetwork;
+        connect amiNetwork.inboundCommand to switch.control.serviceCommand;
+        connect processor.measurementIn.measuredReading to communications.network.outboundReading;
+        connect diagnostics.alarm to communications.network.outboundAlarm;
+
+        perform action primaryMeteringFunction {
+            in item servicePower : LinePower = utilityLine.incomingPower;
+            out item billedUsage : EnergyReading = amiNetwork.outboundReading;
+
+            first start;
+            then sample : SampleElectricalQuantities {
+                in lineInput = servicePower;
+            }
+            then integrate : ComputeEnergyInterval {
+                in sampledInput = sample.sampledOutput;
+                in integrationPeriod = billingInterval;
+            }
+            then persist : StoreReading {
+                in readingToStore = integrate.intervalReading;
+            }
+            then report : TransmitReading {
+                in readingToTransmit = integrate.intervalReading;
+            }
+            then done;
+
+            return billedUsage = integrate.intervalReading;
+        }
+
+        state machine smartMeterLifeCycle {
+            state installedInactive;
+            state initializing;
+            state serviceConnected;
+            state intervalMetering;
+            state communicatingUsage;
+            state serviceDisconnected;
+            state tamperAlarm;
+            state maintenance;
+            state terminalFault;
+
+            entry;
+            transition install from entry to installedInactive;
+
+            transition energize
+                from installedInactive to initializing
+                accept utilityLine.incomingPower;
+
+            transition initialized
+                from initializing to serviceConnected
+                accept after 10 [SI::second];
+
+            transition beginMetering
+                from serviceConnected to intervalMetering;
+
+            transition intervalReady
+                from intervalMetering to communicatingUsage
+                accept after billingInterval
+                do primaryMeteringFunction;
+
+            transition reported
+                from communicatingUsage to intervalMetering;
+
+            transition remoteDisconnect
+                from intervalMetering to serviceDisconnected
+                accept amiNetwork.inboundCommand
+                if amiNetwork.inboundCommand.commandType == CommandKind::disconnectService;
+
+            transition remoteReconnect
+                from serviceDisconnected to serviceConnected
+                accept amiNetwork.inboundCommand
+                if amiNetwork.inboundCommand.commandType == CommandKind::reconnectService;
+
+            transition tamperDetected
+                from intervalMetering to tamperAlarm
+                accept diagnostics.alarm
+                if diagnostics.alarm.active == true;
+
+            transition tamperCleared
+                from tamperAlarm to intervalMetering
+                if diagnostics.alarm.active == false;
+
+            transition enterMaintenance
+                from intervalMetering to maintenance
+                accept amiNetwork.inboundCommand
+                if amiNetwork.inboundCommand.commandType == CommandKind::firmwareUpdate;
+
+            transition exitMaintenance
+                from maintenance to initializing;
+
+            transition unrecoverableFault
+                from intervalMetering to terminalFault;
+
+            transition faultFromAlarm
+                from tamperAlarm to terminalFault
+                if diagnostics.alarm.severity >= 5;
+        }
+    }
+
+    part smartMeterDeployment {
+        part gridService : DistributionService;
+        part meter : SmartMeter;
+        part residenceLoad : CustomerLoad;
+        part utilityOperations : UtilityHeadEndSystem;
+
+        connect gridService.serviceOutput to meter.utilityLine;
+        connect meter.premisesLine to residenceLoad.serviceInput;
+        connect meter.amiNetwork to utilityOperations.meterNetwork;
+    }
+
+    requirement def MeasureEnergyRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.primaryMeteringFunction.billedUsage.deliveredEnergy >= 0 [SI::wattHour]
+        }
+
+        doc
+        /*
+         * The smart meter shall measure electrical energy delivered to and received from
+         * the customer premises and produce interval readings suitable for billing.
+         */
+    }
+
+    requirement def CommunicationRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.communications.nominalUplinkRate >= 9600 [SI::bitPerSecond]
+        }
+
+        doc
+        /*
+         * The smart meter shall communicate validated interval readings and active alarms
+         * to the utility head-end system through the advanced metering infrastructure network.
+         */
+    }
+
+    requirement def RemoteDisconnectRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.switch.ratedCurrent >= meter.maximumServiceCurrent
+        }
+
+        doc
+        /*
+         * The smart meter shall support authorized remote disconnection and reconnection
+         * of customer service using an internal service switch rated for the installed service.
+         */
+    }
+
+    requirement def IntervalStorageRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.memory.retainedReadingsCapacity >= 35040
+        }
+
+        doc
+        /*
+         * The smart meter shall retain at least one year of fifteen-minute interval readings
+         * in nonvolatile secure storage.
+         */
+    }
+
+    requirement def TamperDetectionRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.tamperSensor.coverOpen == false implies meter.diagnostics.alarm.active == false
+        }
+
+        doc
+        /*
+         * The smart meter shall detect and report physical tamper conditions including
+         * enclosure opening and magnetic interference.
+         */
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.billingInterval == 900 [SI::second]
+        }
+
+        doc
+        /*
+         * The primary high-level function of the smart meter is to continuously sense
+         * electrical service quantities, compute accumulated energy consumption over
+         * billing intervals, securely store the readings, and transmit them to the utility
+         * for monitoring, billing, and service management.
+         */
+    }
+
+    satisfy MeasureEnergyRequirement by SmartMeter::primaryMeteringFunction;
+    satisfy CommunicationRequirement by SmartMeter::communications;
+    satisfy RemoteDisconnectRequirement by SmartMeter::switch;
+    satisfy IntervalStorageRequirement by SmartMeter::memory;
+    satisfy TamperDetectionRequirement by SmartMeter::tamperSensor;
+    satisfy PrimaryFunctionRequirement by SmartMeter::primaryMeteringFunction;
+}
+tokens used
+4,194
+package SmartMeterSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def ActivePower :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def ApparentPower :> ISQ::power {
+        unit = SI::voltAmpere;
+    }
+
+    attribute def ReactivePower :> ISQ::power {
+        unit = SI::var;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::wattHour;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def DataRate :> ISQ::dataRate {
+        unit = SI::bitPerSecond;
+    }
+
+    attribute def SignalStrength {
+        attribute rssi : Integer;
+    }
+
+    attribute def MeterIdentifier {
+        attribute utilityId : String;
+        attribute premiseId : String;
+        attribute serialNumber : String;
+    }
+
+    item def LinePower {
+        attribute phaseVoltage : Voltage;
+        attribute phaseCurrent : Current;
+        attribute gridFrequency : Frequency;
+        attribute powerFactor : Real;
+    }
+
+    item def EnergyReading {
+        attribute meterId : MeterIdentifier;
+        attribute deliveredEnergy : Energy;
+        attribute receivedEnergy : Energy;
+        attribute activePowerNow : ActivePower;
+        attribute reactivePowerNow : ReactivePower;
+        attribute apparentPowerNow : ApparentPower;
+        attribute readingTimestamp : String;
+        attribute intervalLength : TimeDuration;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute commandType : CommandKind;
+        attribute issuedTimestamp : String;
+        attribute targetState : SwitchState;
+    }
+
+    enum def CommandKind {
+        enum readNow;
+        enum disconnectService;
+        enum reconnectService;
+        enum updateTariff;
+        enum firmwareUpdate;
+        enum resetAlarm;
+    }
+
+    enum def SwitchState {
+        enum closed;
+        enum open;
+        enum lockedOpen;
+    }
+
+    enum def MeterOperatingMode {
+        enum initializing;
+        enum measuring;
+        enum communicating;
+        enum remoteDisconnecting;
+        enum faulted;
+        enum maintenance;
+    }
+
+    enum def AlarmKind {
+        enum coverOpen;
+        enum magneticTamper;
+        enum reverseEnergyFlow;
+        enum voltageSag;
+        enum voltageSwell;
+        enum overCurrent;
+        enum communicationLoss;
+        enum internalFault;
+    }
+
+    item def AlarmEvent {
+        attribute meterId : MeterIdentifier;
+        attribute alarmType : AlarmKind;
+        attribute alarmTimestamp : String;
+        attribute severity : Integer;
+        attribute active : Boolean;
+    }
+
+    port def ACLinePort {
+        in item incomingPower : LinePower;
+        out item loadPower : LinePower;
+    }
+
+    port def MeasurementPort {
+        in item sampledPower : LinePower;
+        out item measuredReading : EnergyReading;
+    }
+
+    port def CommunicationPort {
+        in item inboundCommand : ControlCommand;
+        out item outboundReading : EnergyReading;
+        out item outboundAlarm : AlarmEvent;
+        attribute nominalDataRate : DataRate;
+        attribute signalQuality : SignalStrength;
+    }
+
+    port def ControlPort {
+        in item serviceCommand : ControlCommand;
+        out attribute switchPosition : SwitchState;
+    }
+
+    port def DiagnosticPort {
+        out item alarm : AlarmEvent;
+        out attribute deviceTemperature : Temperature;
+        out attribute operatingMode : MeterOperatingMode;
+    }
+
+    action def SampleElectricalQuantities {
+        in item lineInput : LinePower;
+        out item sampledOutput : LinePower;
+    }
+
+    action def ComputeEnergyInterval {
+        in item sampledInput : LinePower;
+        in attribute integrationPeriod : TimeDuration;
+        out item intervalReading : EnergyReading;
+    }
+
+    action def StoreReading {
+        in item readingToStore : EnergyReading;
+        out attribute storedSuccessfully : Boolean;
+    }
+
+    action def TransmitReading {
+        in item readingToTransmit : EnergyReading;
+        out attribute acknowledged : Boolean;
+    }
+
+    action def DetectTamperAndPowerQuality {
+        in item sampledInput : LinePower;
+        in attribute enclosureOpen : Boolean;
+        in attribute magneticFieldDetected : Boolean;
+        out item alarmOutput : AlarmEvent;
+    }
+
+    action def ExecuteRemoteSwitchCommand {
+        in item requestedCommand : ControlCommand;
+        out attribute resultingSwitchState : SwitchState;
+        out attribute executionAccepted : Boolean;
+    }
+
+    part def VoltageSensor {
+        port measuredLine : MeasurementPort;
+        attribute accuracyClass : Real = 0.2;
+        attribute maximumVoltage : Voltage = 300 [SI::volt];
+    }
+
+    part def CurrentSensor {
+        port measuredLine : MeasurementPort;
+        attribute accuracyClass : Real = 0.2;
+        attribute maximumCurrent : Current = 200 [SI::ampere];
+    }
+
+    part def MeteringProcessor {
+        port measurementIn : MeasurementPort;
+        port diagnosticsOut : DiagnosticPort;
+
+        attribute samplingFrequency : Frequency = 4000 [SI::hertz];
+        attribute nominalInterval : TimeDuration = 900 [SI::second];
+        attribute accumulatedDeliveredEnergy : Energy;
+        attribute accumulatedReceivedEnergy : Energy;
+        attribute processorTemperature : Temperature;
+
+        action sample : SampleElectricalQuantities;
+        action compute : ComputeEnergyInterval;
+        action detect : DetectTamperAndPowerQuality;
+        action store : StoreReading;
+
+        state machine operatingBehavior {
+            state off;
+            state booting;
+            state normalMeasurement;
+            state intervalClosure;
+            state alarmEvaluation;
+            state degradedOperation;
+            state failed;
+
+            entry;
+            transition first boot from entry to booting;
+
+            transition bootComplete
+                from booting to normalMeasurement
+                accept after 10 [SI::second];
+
+            transition sampleCycle
+                from normalMeasurement to alarmEvaluation
+                accept after 1 [SI::second]
+                do sample;
+
+            transition alarmChecked
+                from alarmEvaluation to normalMeasurement;
+
+            transition intervalComplete
+                from normalMeasurement to intervalClosure
+                accept after 900 [SI::second]
+                do compute then store;
+
+            transition stored
+                from intervalClosure to normalMeasurement;
+
+            transition abnormalMeasurement
+                from alarmEvaluation to degradedOperation
+                if detect.alarmOutput.active == true;
+
+            transition alarmCleared
+                from degradedOperation to normalMeasurement
+                if detect.alarmOutput.active == false;
+
+            transition processorFault
+                from normalMeasurement to failed;
+
+            transition degradedFault
+                from degradedOperation to failed;
+        }
+    }
+
+    part def SecureMemory {
+        attribute retainedReadingsCapacity : Integer = 35040;
+        attribute retainedAlarmCapacity : Integer = 2048;
+        attribute writeEnduranceCycles : Integer = 100000;
+        attribute encryptedAtRest : Boolean = true;
+    }
+
+    part def CommunicationModule {
+        port network : CommunicationPort;
+        attribute supportedProtocol : String = "DLMS/COSEM over IPv6";
+        attribute nominalUplinkRate : DataRate = 50000 [SI::bitPerSecond];
+        attribute retryLimit : Integer = 5;
+        attribute lastSuccessfulContactTimestamp : String;
+
+        action transmitReading : TransmitReading;
+
+        state machine communicationBehavior {
+            state idle;
+            state registering;
+            state connected;
+            state sendingReading;
+            state receivingCommand;
+            state retrying;
+            state offline;
+
+            entry;
+            transition startRegistration from entry to registering;
+            transition registered from registering to connected;
+            transition sendDue from connected to sendingReading do transmitReading;
+            transition sentAndAcknowledged from sendingReading to connected if transmitReading.acknowledged == true;
+            transition noAcknowledgement from sendingReading to retrying if transmitReading.acknowledged == false;
+            transition retryAvailable from retrying to sendingReading;
+            transition retryExhausted from retrying to offline;
+            transition commandReceived from connected to receivingCommand;
+            transition commandHandled from receivingCommand to connected;
+            transition linkRestored from offline to registering;
+        }
+    }
+
+    part def RemoteServiceSwitch {
+        port lineSide : ACLinePort;
+        port loadSide : ACLinePort;
+        port control : ControlPort;
+
+        attribute ratedCurrent : Current = 200 [SI::ampere];
+        attribute ratedVoltage : Voltage = 240 [SI::volt];
+        attribute presentState : SwitchState = SwitchState::closed;
+
+        action executeSwitch : ExecuteRemoteSwitchCommand;
+
+        state machine switchBehavior {
+            state closed;
+            state opening;
+            state open;
+            state closing;
+            state lockedOpen;
+
+            entry;
+            transition initialized from entry to closed;
+
+            transition disconnectRequested
+                from closed to opening
+                accept control.serviceCommand
+                if control.serviceCommand.commandType == CommandKind::disconnectService
+                do executeSwitch;
+
+            transition opened from opening to open;
+
+            transition reconnectRequested
+                from open to closing
+                accept control.serviceCommand
+                if control.serviceCommand.commandType == CommandKind::reconnectService
+                do executeSwitch;
+
+            transition closedAgain from closing to closed;
+
+            transition lockout
+                from open to lockedOpen
+                if control.serviceCommand.targetState == SwitchState::lockedOpen;
+
+            transition maintenanceUnlock
+                from lockedOpen to open
+                if control.serviceCommand.targetState == SwitchState::open;
+        }
+    }
+
+    part def TamperSensor {
+        port diagnostic : DiagnosticPort;
+        attribute coverOpen : Boolean = false;
+        attribute magneticFieldDetected : Boolean = false;
+        attribute tiltDetected : Boolean = false;
+    }
+
+    part def PowerSupply {
+        port acInput : ACLinePort;
+        attribute inputVoltageMinimum : Voltage = 85 [SI::volt];
+        attribute inputVoltageMaximum : Voltage = 300 [SI::volt];
+        attribute outputVoltage : Voltage = 3.3 [SI::volt];
+        attribute backupHoldUpTime : TimeDuration = 30 [SI::second];
+    }
+
+    part def UtilityHeadEndSystem {
+        port meterNetwork : CommunicationPort;
+        attribute pollingInterval : TimeDuration = 3600 [SI::second];
+        attribute maximumCommandLatency : TimeDuration = 60 [SI::second];
+    }
+
+    part def CustomerLoad {
+        port serviceInput : ACLinePort;
+        attribute maximumDemand : ActivePower = 48000 [SI::watt];
+    }
+
+    part def DistributionService {
+        port serviceOutput : ACLinePort;
+        attribute nominalServiceVoltage : Voltage = 240 [SI::volt];
+        attribute nominalFrequency : Frequency = 60 [SI::hertz];
+    }
+
+    part def SmartMeter {
+        port utilityLine : ACLinePort;
+        port premisesLine : ACLinePort;
+        port amiNetwork : CommunicationPort;
+        port diagnostics : DiagnosticPort;
+
+        attribute identity : MeterIdentifier;
+        attribute operatingMode : MeterOperatingMode = MeterOperatingMode::initializing;
+        attribute serviceVoltageNominal : Voltage = 240 [SI::volt];
+        attribute serviceFrequencyNominal : Frequency = 60 [SI::hertz];
+        attribute maximumServiceCurrent : Current = 200 [SI::ampere];
+        attribute billingInterval : TimeDuration = 900 [SI::second];
+
+        part voltageSensor : VoltageSensor;
+        part currentSensor : CurrentSensor;
+        part processor : MeteringProcessor;
+        part memory : SecureMemory;
+        part communications : CommunicationModule;
+        part switch : RemoteServiceSwitch;
+        part tamperSensor : TamperSensor;
+        part supply : PowerSupply;
+
+        connect utilityLine to switch.lineSide;
+        connect switch.loadSide to premisesLine;
+        connect utilityLine to supply.acInput;
+        connect utilityLine to voltageSensor.measuredLine;
+        connect utilityLine to currentSensor.measuredLine;
+        connect voltageSensor.measuredLine to processor.measurementIn;
+        connect currentSensor.measuredLine to processor.measurementIn;
+        connect processor.diagnosticsOut to diagnostics;
+        connect tamperSensor.diagnostic to diagnostics;
+        connect communications.network to amiNetwork;
+        connect amiNetwork.inboundCommand to switch.control.serviceCommand;
+        connect processor.measurementIn.measuredReading to communications.network.outboundReading;
+        connect diagnostics.alarm to communications.network.outboundAlarm;
+
+        perform action primaryMeteringFunction {
+            in item servicePower : LinePower = utilityLine.incomingPower;
+            out item billedUsage : EnergyReading = amiNetwork.outboundReading;
+
+            first start;
+            then sample : SampleElectricalQuantities {
+                in lineInput = servicePower;
+            }
+            then integrate : ComputeEnergyInterval {
+                in sampledInput = sample.sampledOutput;
+                in integrationPeriod = billingInterval;
+            }
+            then persist : StoreReading {
+                in readingToStore = integrate.intervalReading;
+            }
+            then report : TransmitReading {
+                in readingToTransmit = integrate.intervalReading;
+            }
+            then done;
+
+            return billedUsage = integrate.intervalReading;
+        }
+
+        state machine smartMeterLifeCycle {
+            state installedInactive;
+            state initializing;
+            state serviceConnected;
+            state intervalMetering;
+            state communicatingUsage;
+            state serviceDisconnected;
+            state tamperAlarm;
+            state maintenance;
+            state terminalFault;
+
+            entry;
+            transition install from entry to installedInactive;
+
+            transition energize
+                from installedInactive to initializing
+                accept utilityLine.incomingPower;
+
+            transition initialized
+                from initializing to serviceConnected
+                accept after 10 [SI::second];
+
+            transition beginMetering
+                from serviceConnected to intervalMetering;
+
+            transition intervalReady
+                from intervalMetering to communicatingUsage
+                accept after billingInterval
+                do primaryMeteringFunction;
+
+            transition reported
+                from communicatingUsage to intervalMetering;
+
+            transition remoteDisconnect
+                from intervalMetering to serviceDisconnected
+                accept amiNetwork.inboundCommand
+                if amiNetwork.inboundCommand.commandType == CommandKind::disconnectService;
+
+            transition remoteReconnect
+                from serviceDisconnected to serviceConnected
+                accept amiNetwork.inboundCommand
+                if amiNetwork.inboundCommand.commandType == CommandKind::reconnectService;
+
+            transition tamperDetected
+                from intervalMetering to tamperAlarm
+                accept diagnostics.alarm
+                if diagnostics.alarm.active == true;
+
+            transition tamperCleared
+                from tamperAlarm to intervalMetering
+                if diagnostics.alarm.active == false;
+
+            transition enterMaintenance
+                from intervalMetering to maintenance
+                accept amiNetwork.inboundCommand
+                if amiNetwork.inboundCommand.commandType == CommandKind::firmwareUpdate;
+
+            transition exitMaintenance
+                from maintenance to initializing;
+
+            transition unrecoverableFault
+                from intervalMetering to terminalFault;
+
+            transition faultFromAlarm
+                from tamperAlarm to terminalFault
+                if diagnostics.alarm.severity >= 5;
+        }
+    }
+
+    part smartMeterDeployment {
+        part gridService : DistributionService;
+        part meter : SmartMeter;
+        part residenceLoad : CustomerLoad;
+        part utilityOperations : UtilityHeadEndSystem;
+
+        connect gridService.serviceOutput to meter.utilityLine;
+        connect meter.premisesLine to residenceLoad.serviceInput;
+        connect meter.amiNetwork to utilityOperations.meterNetwork;
+    }
+
+    requirement def MeasureEnergyRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.primaryMeteringFunction.billedUsage.deliveredEnergy >= 0 [SI::wattHour]
+        }
+
+        doc
+        /*
+         * The smart meter shall measure electrical energy delivered to and received from
+         * the customer premises and produce interval readings suitable for billing.
+         */
+    }
+
+    requirement def CommunicationRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.communications.nominalUplinkRate >= 9600 [SI::bitPerSecond]
+        }
+
+        doc
+        /*
+         * The smart meter shall communicate validated interval readings and active alarms
+         * to the utility head-end system through the advanced metering infrastructure network.
+         */
+    }
+
+    requirement def RemoteDisconnectRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.switch.ratedCurrent >= meter.maximumServiceCurrent
+        }
+
+        doc
+        /*
+         * The smart meter shall support authorized remote disconnection and reconnection
+         * of customer service using an internal service switch rated for the installed service.
+         */
+    }
+
+    requirement def IntervalStorageRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.memory.retainedReadingsCapacity >= 35040
+        }
+
+        doc
+        /*
+         * The smart meter shall retain at least one year of fifteen-minute interval readings
+         * in nonvolatile secure storage.
+         */
+    }
+
+    requirement def TamperDetectionRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.tamperSensor.coverOpen == false implies meter.diagnostics.alarm.active == false
+        }
+
+        doc
+        /*
+         * The smart meter shall detect and report physical tamper conditions including
+         * enclosure opening and magnetic interference.
+         */
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject meter : SmartMeter;
+
+        require constraint {
+            meter.billingInterval == 900 [SI::second]
+        }
+
+        doc
+        /*
+         * The primary high-level function of the smart meter is to continuously sense
+         * electrical service quantities, compute accumulated energy consumption over
+         * billing intervals, securely store the readings, and transmit them to the utility
+         * for monitoring, billing, and service management.
+         */
+    }
+
+    satisfy MeasureEnergyRequirement by SmartMeter::primaryMeteringFunction;
+    satisfy CommunicationRequirement by SmartMeter::communications;
+    satisfy RemoteDisconnectRequirement by SmartMeter::switch;
+    satisfy IntervalStorageRequirement by SmartMeter::memory;
+    satisfy TamperDetectionRequirement by SmartMeter::tamperSensor;
+    satisfy PrimaryFunctionRequirement by SmartMeter::primaryMeteringFunction;
+}

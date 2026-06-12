@@ -1,0 +1,767 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_wjyena_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb830-cbbb-7d43-9a1d-8b3bf37e0dab
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Natural gas and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NaturalGasDistributionSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = SI::pascal;
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::kelvin;
+    }
+
+    attribute def MassFlowRate {
+        :> ISQ::massFlowRate;
+        unit = SI::kilogramPerSecond;
+    }
+
+    attribute def VolumeFlowRate {
+        :> ISQ::volumeFlowRate;
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def EnergyRate {
+        :> ISQ::power;
+        unit = SI::watt;
+    }
+
+    attribute def MethaneFraction {
+        :> ScalarValues::Real;
+    }
+
+    item def NaturalGas {
+        attribute methaneContent : MethaneFraction;
+        attribute supplyPressure : Pressure;
+        attribute gasTemperature : Temperature;
+        attribute volumetricFlow : VolumeFlowRate;
+        attribute massFlow : MassFlowRate;
+        attribute heatingValue : EnergyRate;
+    }
+
+    item def OdorizedNaturalGas :> NaturalGas {
+        attribute odorantConcentration : ScalarValues::Real;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : ScalarValues::Real;
+        attribute timestamp : ScalarValues::Integer;
+    }
+
+    item def SensorReading {
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : VolumeFlowRate;
+        attribute measuredTemperature : Temperature;
+        attribute alarmActive : ScalarValues::Boolean;
+    }
+
+    port def GasInletPort {
+        in item gasIn : NaturalGas;
+    }
+
+    port def GasOutletPort {
+        out item gasOut : OdorizedNaturalGas;
+    }
+
+    port def GasTransferPort {
+        inout item gas : NaturalGas;
+    }
+
+    port def SignalInPort {
+        in item signalIn : ControlSignal;
+    }
+
+    port def SignalOutPort {
+        out item signalOut : ControlSignal;
+    }
+
+    port def ReadingOutPort {
+        out item readingOut : SensorReading;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The natural gas distribution system shall receive pressurized natural gas,
+         * regulate it to a safe delivery pressure, odorize it for leak detection,
+         * monitor operating conditions, and deliver usable gas to consumers.
+         */
+    }
+
+    requirement def PressureRegulationRequirement {
+        attribute maximumOutletPressure : Pressure = 500000 [SI::pascal];
+        attribute minimumOutletPressure : Pressure = 150000 [SI::pascal];
+
+        require constraint {
+            minimumOutletPressure <= maximumOutletPressure
+        }
+    }
+
+    requirement def OdorizationRequirement {
+        attribute minimumOdorantConcentration : ScalarValues::Real = 12.0;
+    }
+
+    requirement def SafetyShutdownRequirement {
+        attribute highPressureTrip : Pressure = 600000 [SI::pascal];
+        attribute lowPressureTrip : Pressure = 80000 [SI::pascal];
+    }
+
+    action def ReceiveGas {
+        in item rawGas : NaturalGas;
+        out item receivedGas : NaturalGas;
+
+        attribute inletPressure : Pressure;
+        attribute inletFlow : VolumeFlowRate;
+    }
+
+    action def FilterGas {
+        in item unfilteredGas : NaturalGas;
+        out item filteredGas : NaturalGas;
+
+        attribute particulateRemoved : ScalarValues::Boolean;
+        attribute liquidCondensateRemoved : ScalarValues::Boolean;
+    }
+
+    action def RegulatePressure {
+        in item highPressureGas : NaturalGas;
+        out item regulatedGas : NaturalGas;
+
+        attribute targetPressure : Pressure = 300000 [SI::pascal];
+    }
+
+    action def AddOdorant {
+        in item cleanGas : NaturalGas;
+        out item odorizedGas : OdorizedNaturalGas;
+
+        attribute odorantInjectionRate : ScalarValues::Real;
+    }
+
+    action def MeasureGasCondition {
+        in item monitoredGas : NaturalGas;
+        out item measurement : SensorReading;
+    }
+
+    action def DeliverGas {
+        in item deliveryGas : OdorizedNaturalGas;
+        out item consumerGas : OdorizedNaturalGas;
+    }
+
+    action def IsolateSystem {
+        in item shutdownCommand : ControlSignal;
+        out item isolationStatus : ControlSignal;
+    }
+
+    state def GasStationOperatingState {
+        entry action MeasureGasCondition;
+
+        state Off;
+        state StartUp;
+        state NormalDelivery;
+        state PressureCorrection;
+        state EmergencyShutdown;
+        state Maintenance;
+
+        transition first Off;
+
+        transition startSystem
+            first Off
+            then StartUp;
+
+        transition validatedStart
+            first StartUp
+            then NormalDelivery;
+
+        transition pressureOutOfRange
+            first NormalDelivery
+            then PressureCorrection;
+
+        transition pressureRecovered
+            first PressureCorrection
+            then NormalDelivery;
+
+        transition hazardousPressureDetected
+            first NormalDelivery
+            then EmergencyShutdown;
+
+        transition manualShutdown
+            first PressureCorrection
+            then EmergencyShutdown;
+
+        transition maintenanceRequested
+            first Off
+            then Maintenance;
+
+        transition maintenanceComplete
+            first Maintenance
+            then Off;
+    }
+
+    part def GasSupplySource {
+        port outlet : GasTransferPort;
+
+        attribute nominalSupplyPressure : Pressure = 5000000 [SI::pascal];
+        attribute nominalSupplyTemperature : Temperature = 288.15 [SI::kelvin];
+        attribute nominalMethaneContent : MethaneFraction = 0.93;
+    }
+
+    part def InletIsolationValve {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+        port command : SignalInPort;
+
+        attribute openPosition : ScalarValues::Boolean = true;
+        attribute maximumRatedPressure : Pressure = 7000000 [SI::pascal];
+
+        action closeValve : IsolateSystem;
+    }
+
+    part def GasFilterSeparator {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+        port drainSignal : SignalOutPort;
+
+        attribute filterEfficiency : ScalarValues::Real = 0.985;
+        attribute maximumDifferentialPressure : Pressure = 50000 [SI::pascal];
+
+        action filter : FilterGas;
+    }
+
+    part def PressureRegulator {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+        port controlInput : SignalInPort;
+
+        attribute setPoint : Pressure = 300000 [SI::pascal];
+        attribute droopCoefficient : ScalarValues::Real = 0.04;
+        attribute ratedFlow : VolumeFlowRate = 2.5 [SI::cubicMetrePerSecond];
+
+        action regulate : RegulatePressure;
+    }
+
+    part def ReliefValve {
+        port protectedLine : GasTransferPort;
+        port ventCommand : SignalOutPort;
+
+        attribute openingPressure : Pressure = 550000 [SI::pascal];
+        attribute reseatPressure : Pressure = 450000 [SI::pascal];
+    }
+
+    part def OdorantInjectionUnit {
+        port gasInlet : GasTransferPort;
+        port gasOutlet : GasTransferPort;
+        port controlInput : SignalInPort;
+
+        attribute odorantTankVolume : ISQ::volume = 0.25 [SI::cubicMetre];
+        attribute nominalInjectionRate : ScalarValues::Real = 16.0;
+
+        action odorize : AddOdorant;
+    }
+
+    part def FlowMeter {
+        port measuredLine : GasTransferPort;
+        port reading : ReadingOutPort;
+
+        attribute flowAccuracy : ScalarValues::Real = 0.01;
+        attribute minimumMeasurableFlow : VolumeFlowRate = 0.02 [SI::cubicMetrePerSecond];
+
+        action measure : MeasureGasCondition;
+    }
+
+    part def PressureSensor {
+        port sensedLine : GasTransferPort;
+        port reading : ReadingOutPort;
+
+        attribute sensorRangeMaximum : Pressure = 8000000 [SI::pascal];
+        attribute sensorAccuracy : ScalarValues::Real = 0.005;
+    }
+
+    part def ControlUnit {
+        port pressureReading : ReadingOutPort;
+        port flowReading : ReadingOutPort;
+        port regulatorCommand : SignalOutPort;
+        port valveCommand : SignalOutPort;
+        port odorizerCommand : SignalOutPort;
+
+        attribute normalOutletPressure : Pressure = 300000 [SI::pascal];
+        attribute highPressureAlarm : Pressure = 500000 [SI::pascal];
+        attribute emergencyTripPressure : Pressure = 600000 [SI::pascal];
+        attribute lowPressureAlarm : Pressure = 100000 [SI::pascal];
+
+        state operatingState : GasStationOperatingState;
+    }
+
+    part def DistributionMain {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+
+        attribute pipeLength : ISQ::length = 1500 [SI::metre];
+        attribute internalDiameter : ISQ::length = 0.3 [SI::metre];
+        attribute maximumAllowableOperatingPressure : Pressure = 500000 [SI::pascal];
+    }
+
+    part def ConsumerServiceConnection {
+        port inlet : GasTransferPort;
+        port outlet : GasOutletPort;
+
+        attribute servicePressure : Pressure = 250000 [SI::pascal];
+        attribute peakDemandFlow : VolumeFlowRate = 0.15 [SI::cubicMetrePerSecond];
+
+        action deliver : DeliverGas;
+    }
+
+    part def NaturalGasDistributionSystem {
+        port rawGasInlet : GasInletPort;
+        port deliveredGasOutlet : GasOutletPort;
+
+        part source : GasSupplySource;
+        part inletValve : InletIsolationValve;
+        part filterSeparator : GasFilterSeparator;
+        part regulator : PressureRegulator;
+        part reliefValve : ReliefValve;
+        part odorizer : OdorantInjectionUnit;
+        part flowMeter : FlowMeter;
+        part pressureSensor : PressureSensor;
+        part controller : ControlUnit;
+        part main : DistributionMain;
+        part consumerConnection : ConsumerServiceConnection;
+
+        attribute designCapacity : VolumeFlowRate = 2.0 [SI::cubicMetrePerSecond];
+        attribute normalDeliveryPressure : Pressure = 300000 [SI::pascal];
+        attribute maximumDeliveryPressure : Pressure = 500000 [SI::pascal];
+        attribute minimumMethaneContent : MethaneFraction = 0.85;
+
+        connect source.outlet to inletValve.inlet;
+        connect inletValve.outlet to filterSeparator.inlet;
+        connect filterSeparator.outlet to regulator.inlet;
+        connect regulator.outlet to odorizer.gasInlet;
+        connect odorizer.gasOutlet to main.inlet;
+        connect main.outlet to consumerConnection.inlet;
+        connect consumerConnection.outlet to deliveredGasOutlet;
+
+        connect regulator.outlet to reliefValve.protectedLine;
+        connect main.inlet to flowMeter.measuredLine;
+        connect main.inlet to pressureSensor.sensedLine;
+
+        connect controller.regulatorCommand to regulator.controlInput;
+        connect controller.valveCommand to inletValve.command;
+        connect controller.odorizerCommand to odorizer.controlInput;
+
+        perform action receiveGas : ReceiveGas;
+        perform action filterGas : FilterGas;
+        perform action regulatePressure : RegulatePressure;
+        perform action injectOdorant : AddOdorant;
+        perform action monitorGas : MeasureGasCondition;
+        perform action deliverGas : DeliverGas;
+
+        satisfy PrimaryFunctionRequirement by NaturalGasDistributionSystem;
+        satisfy PressureRegulationRequirement by regulator;
+        satisfy OdorizationRequirement by odorizer;
+        satisfy SafetyShutdownRequirement by inletValve;
+        satisfy SafetyShutdownRequirement by reliefValve;
+        satisfy SafetyShutdownRequirement by controller;
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement;
+    requirement pressureRegulation : PressureRegulationRequirement;
+    requirement odorization : OdorizationRequirement;
+    requirement shutdownSafety : SafetyShutdownRequirement;
+
+    part system : NaturalGasDistributionSystem;
+
+}
+tokens used
+2,945
+package NaturalGasDistributionSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> ISQ::pressure;
+        unit = SI::pascal;
+    }
+
+    attribute def Temperature {
+        :> ISQ::thermodynamicTemperature;
+        unit = SI::kelvin;
+    }
+
+    attribute def MassFlowRate {
+        :> ISQ::massFlowRate;
+        unit = SI::kilogramPerSecond;
+    }
+
+    attribute def VolumeFlowRate {
+        :> ISQ::volumeFlowRate;
+        unit = SI::cubicMetrePerSecond;
+    }
+
+    attribute def EnergyRate {
+        :> ISQ::power;
+        unit = SI::watt;
+    }
+
+    attribute def MethaneFraction {
+        :> ScalarValues::Real;
+    }
+
+    item def NaturalGas {
+        attribute methaneContent : MethaneFraction;
+        attribute supplyPressure : Pressure;
+        attribute gasTemperature : Temperature;
+        attribute volumetricFlow : VolumeFlowRate;
+        attribute massFlow : MassFlowRate;
+        attribute heatingValue : EnergyRate;
+    }
+
+    item def OdorizedNaturalGas :> NaturalGas {
+        attribute odorantConcentration : ScalarValues::Real;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : ScalarValues::Real;
+        attribute timestamp : ScalarValues::Integer;
+    }
+
+    item def SensorReading {
+        attribute measuredPressure : Pressure;
+        attribute measuredFlow : VolumeFlowRate;
+        attribute measuredTemperature : Temperature;
+        attribute alarmActive : ScalarValues::Boolean;
+    }
+
+    port def GasInletPort {
+        in item gasIn : NaturalGas;
+    }
+
+    port def GasOutletPort {
+        out item gasOut : OdorizedNaturalGas;
+    }
+
+    port def GasTransferPort {
+        inout item gas : NaturalGas;
+    }
+
+    port def SignalInPort {
+        in item signalIn : ControlSignal;
+    }
+
+    port def SignalOutPort {
+        out item signalOut : ControlSignal;
+    }
+
+    port def ReadingOutPort {
+        out item readingOut : SensorReading;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The natural gas distribution system shall receive pressurized natural gas,
+         * regulate it to a safe delivery pressure, odorize it for leak detection,
+         * monitor operating conditions, and deliver usable gas to consumers.
+         */
+    }
+
+    requirement def PressureRegulationRequirement {
+        attribute maximumOutletPressure : Pressure = 500000 [SI::pascal];
+        attribute minimumOutletPressure : Pressure = 150000 [SI::pascal];
+
+        require constraint {
+            minimumOutletPressure <= maximumOutletPressure
+        }
+    }
+
+    requirement def OdorizationRequirement {
+        attribute minimumOdorantConcentration : ScalarValues::Real = 12.0;
+    }
+
+    requirement def SafetyShutdownRequirement {
+        attribute highPressureTrip : Pressure = 600000 [SI::pascal];
+        attribute lowPressureTrip : Pressure = 80000 [SI::pascal];
+    }
+
+    action def ReceiveGas {
+        in item rawGas : NaturalGas;
+        out item receivedGas : NaturalGas;
+
+        attribute inletPressure : Pressure;
+        attribute inletFlow : VolumeFlowRate;
+    }
+
+    action def FilterGas {
+        in item unfilteredGas : NaturalGas;
+        out item filteredGas : NaturalGas;
+
+        attribute particulateRemoved : ScalarValues::Boolean;
+        attribute liquidCondensateRemoved : ScalarValues::Boolean;
+    }
+
+    action def RegulatePressure {
+        in item highPressureGas : NaturalGas;
+        out item regulatedGas : NaturalGas;
+
+        attribute targetPressure : Pressure = 300000 [SI::pascal];
+    }
+
+    action def AddOdorant {
+        in item cleanGas : NaturalGas;
+        out item odorizedGas : OdorizedNaturalGas;
+
+        attribute odorantInjectionRate : ScalarValues::Real;
+    }
+
+    action def MeasureGasCondition {
+        in item monitoredGas : NaturalGas;
+        out item measurement : SensorReading;
+    }
+
+    action def DeliverGas {
+        in item deliveryGas : OdorizedNaturalGas;
+        out item consumerGas : OdorizedNaturalGas;
+    }
+
+    action def IsolateSystem {
+        in item shutdownCommand : ControlSignal;
+        out item isolationStatus : ControlSignal;
+    }
+
+    state def GasStationOperatingState {
+        entry action MeasureGasCondition;
+
+        state Off;
+        state StartUp;
+        state NormalDelivery;
+        state PressureCorrection;
+        state EmergencyShutdown;
+        state Maintenance;
+
+        transition first Off;
+
+        transition startSystem
+            first Off
+            then StartUp;
+
+        transition validatedStart
+            first StartUp
+            then NormalDelivery;
+
+        transition pressureOutOfRange
+            first NormalDelivery
+            then PressureCorrection;
+
+        transition pressureRecovered
+            first PressureCorrection
+            then NormalDelivery;
+
+        transition hazardousPressureDetected
+            first NormalDelivery
+            then EmergencyShutdown;
+
+        transition manualShutdown
+            first PressureCorrection
+            then EmergencyShutdown;
+
+        transition maintenanceRequested
+            first Off
+            then Maintenance;
+
+        transition maintenanceComplete
+            first Maintenance
+            then Off;
+    }
+
+    part def GasSupplySource {
+        port outlet : GasTransferPort;
+
+        attribute nominalSupplyPressure : Pressure = 5000000 [SI::pascal];
+        attribute nominalSupplyTemperature : Temperature = 288.15 [SI::kelvin];
+        attribute nominalMethaneContent : MethaneFraction = 0.93;
+    }
+
+    part def InletIsolationValve {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+        port command : SignalInPort;
+
+        attribute openPosition : ScalarValues::Boolean = true;
+        attribute maximumRatedPressure : Pressure = 7000000 [SI::pascal];
+
+        action closeValve : IsolateSystem;
+    }
+
+    part def GasFilterSeparator {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+        port drainSignal : SignalOutPort;
+
+        attribute filterEfficiency : ScalarValues::Real = 0.985;
+        attribute maximumDifferentialPressure : Pressure = 50000 [SI::pascal];
+
+        action filter : FilterGas;
+    }
+
+    part def PressureRegulator {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+        port controlInput : SignalInPort;
+
+        attribute setPoint : Pressure = 300000 [SI::pascal];
+        attribute droopCoefficient : ScalarValues::Real = 0.04;
+        attribute ratedFlow : VolumeFlowRate = 2.5 [SI::cubicMetrePerSecond];
+
+        action regulate : RegulatePressure;
+    }
+
+    part def ReliefValve {
+        port protectedLine : GasTransferPort;
+        port ventCommand : SignalOutPort;
+
+        attribute openingPressure : Pressure = 550000 [SI::pascal];
+        attribute reseatPressure : Pressure = 450000 [SI::pascal];
+    }
+
+    part def OdorantInjectionUnit {
+        port gasInlet : GasTransferPort;
+        port gasOutlet : GasTransferPort;
+        port controlInput : SignalInPort;
+
+        attribute odorantTankVolume : ISQ::volume = 0.25 [SI::cubicMetre];
+        attribute nominalInjectionRate : ScalarValues::Real = 16.0;
+
+        action odorize : AddOdorant;
+    }
+
+    part def FlowMeter {
+        port measuredLine : GasTransferPort;
+        port reading : ReadingOutPort;
+
+        attribute flowAccuracy : ScalarValues::Real = 0.01;
+        attribute minimumMeasurableFlow : VolumeFlowRate = 0.02 [SI::cubicMetrePerSecond];
+
+        action measure : MeasureGasCondition;
+    }
+
+    part def PressureSensor {
+        port sensedLine : GasTransferPort;
+        port reading : ReadingOutPort;
+
+        attribute sensorRangeMaximum : Pressure = 8000000 [SI::pascal];
+        attribute sensorAccuracy : ScalarValues::Real = 0.005;
+    }
+
+    part def ControlUnit {
+        port pressureReading : ReadingOutPort;
+        port flowReading : ReadingOutPort;
+        port regulatorCommand : SignalOutPort;
+        port valveCommand : SignalOutPort;
+        port odorizerCommand : SignalOutPort;
+
+        attribute normalOutletPressure : Pressure = 300000 [SI::pascal];
+        attribute highPressureAlarm : Pressure = 500000 [SI::pascal];
+        attribute emergencyTripPressure : Pressure = 600000 [SI::pascal];
+        attribute lowPressureAlarm : Pressure = 100000 [SI::pascal];
+
+        state operatingState : GasStationOperatingState;
+    }
+
+    part def DistributionMain {
+        port inlet : GasTransferPort;
+        port outlet : GasTransferPort;
+
+        attribute pipeLength : ISQ::length = 1500 [SI::metre];
+        attribute internalDiameter : ISQ::length = 0.3 [SI::metre];
+        attribute maximumAllowableOperatingPressure : Pressure = 500000 [SI::pascal];
+    }
+
+    part def ConsumerServiceConnection {
+        port inlet : GasTransferPort;
+        port outlet : GasOutletPort;
+
+        attribute servicePressure : Pressure = 250000 [SI::pascal];
+        attribute peakDemandFlow : VolumeFlowRate = 0.15 [SI::cubicMetrePerSecond];
+
+        action deliver : DeliverGas;
+    }
+
+    part def NaturalGasDistributionSystem {
+        port rawGasInlet : GasInletPort;
+        port deliveredGasOutlet : GasOutletPort;
+
+        part source : GasSupplySource;
+        part inletValve : InletIsolationValve;
+        part filterSeparator : GasFilterSeparator;
+        part regulator : PressureRegulator;
+        part reliefValve : ReliefValve;
+        part odorizer : OdorantInjectionUnit;
+        part flowMeter : FlowMeter;
+        part pressureSensor : PressureSensor;
+        part controller : ControlUnit;
+        part main : DistributionMain;
+        part consumerConnection : ConsumerServiceConnection;
+
+        attribute designCapacity : VolumeFlowRate = 2.0 [SI::cubicMetrePerSecond];
+        attribute normalDeliveryPressure : Pressure = 300000 [SI::pascal];
+        attribute maximumDeliveryPressure : Pressure = 500000 [SI::pascal];
+        attribute minimumMethaneContent : MethaneFraction = 0.85;
+
+        connect source.outlet to inletValve.inlet;
+        connect inletValve.outlet to filterSeparator.inlet;
+        connect filterSeparator.outlet to regulator.inlet;
+        connect regulator.outlet to odorizer.gasInlet;
+        connect odorizer.gasOutlet to main.inlet;
+        connect main.outlet to consumerConnection.inlet;
+        connect consumerConnection.outlet to deliveredGasOutlet;
+
+        connect regulator.outlet to reliefValve.protectedLine;
+        connect main.inlet to flowMeter.measuredLine;
+        connect main.inlet to pressureSensor.sensedLine;
+
+        connect controller.regulatorCommand to regulator.controlInput;
+        connect controller.valveCommand to inletValve.command;
+        connect controller.odorizerCommand to odorizer.controlInput;
+
+        perform action receiveGas : ReceiveGas;
+        perform action filterGas : FilterGas;
+        perform action regulatePressure : RegulatePressure;
+        perform action injectOdorant : AddOdorant;
+        perform action monitorGas : MeasureGasCondition;
+        perform action deliverGas : DeliverGas;
+
+        satisfy PrimaryFunctionRequirement by NaturalGasDistributionSystem;
+        satisfy PressureRegulationRequirement by regulator;
+        satisfy OdorizationRequirement by odorizer;
+        satisfy SafetyShutdownRequirement by inletValve;
+        satisfy SafetyShutdownRequirement by reliefValve;
+        satisfy SafetyShutdownRequirement by controller;
+    }
+
+    requirement primaryFunction : PrimaryFunctionRequirement;
+    requirement pressureRegulation : PressureRegulationRequirement;
+    requirement odorization : OdorizationRequirement;
+    requirement shutdownSafety : SafetyShutdownRequirement;
+
+    part system : NaturalGasDistributionSystem;
+
+}

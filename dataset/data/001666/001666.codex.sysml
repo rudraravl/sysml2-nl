@@ -1,0 +1,663 @@
+package LawnMowerSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def RotationalSpeed :> scalar quantities {
+        unit = "rpm";
+    }
+
+    attribute def GrassHeight :> Length {
+        unit = "mm";
+    }
+
+    attribute def BladeTorque :> Torque {
+        unit = "N*m";
+    }
+
+    attribute def BatteryCharge :> Real {
+        unit = "%";
+    }
+
+    attribute def FuelLevel :> Real {
+        unit = "%";
+    }
+
+    attribute def NoiseLevel :> Real {
+        unit = "dBA";
+    }
+
+    attribute def SlopeAngle :> Real {
+        unit = "deg";
+    }
+
+    attribute def CuttingWidth :> Length {
+        unit = "cm";
+    }
+
+    item def GrassClippings {
+        attribute mass : Mass;
+        attribute averageLength : Length;
+        attribute moistureContent : Real;
+    }
+
+    item def OperatorCommand {
+        attribute startRequested : Boolean;
+        attribute stopRequested : Boolean;
+        attribute bladeEngageRequested : Boolean;
+        attribute targetCutHeight : GrassHeight;
+        attribute propulsionSpeedCommand : Speed;
+    }
+
+    item def LawnSurface {
+        attribute grassHeight : GrassHeight;
+        attribute slope : SlopeAngle;
+        attribute moistureLevel : Real;
+        attribute obstacleDetected : Boolean;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute torque : BladeTorque;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute availableCharge : BatteryCharge;
+    }
+
+    item def SafetyStatus {
+        attribute operatorPresent : Boolean;
+        attribute handleReleased : Boolean;
+        attribute bladeGuardClosed : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute emergencyStopActive : Boolean;
+    }
+
+    port def CommandPort {
+        in command : OperatorCommand;
+    }
+
+    port def SurfaceSensingPort {
+        in surface : LawnSurface;
+    }
+
+    port def PowerInputPort {
+        in electricalPower : ElectricalPower;
+    }
+
+    port def MechanicalDrivePort {
+        out mechanicalPower : MechanicalPower;
+    }
+
+    port def ClippingFlowPort {
+        out clippings : GrassClippings;
+    }
+
+    port def SafetyPort {
+        in safetyStatus : SafetyStatus;
+        out shutdownSignal : Boolean;
+    }
+
+    port def WheelDrivePort {
+        in commandedSpeed : Speed;
+        out actualSpeed : Speed;
+    }
+
+    part def LawnMower {
+        attribute mass : Mass = 28 [kg];
+        attribute nominalCuttingWidth : CuttingWidth = 53 [cm];
+        attribute minimumCutHeight : GrassHeight = 25 [mm];
+        attribute maximumCutHeight : GrassHeight = 95 [mm];
+        attribute maximumSafeSlope : SlopeAngle = 15 [deg];
+        attribute nominalNoiseLevel : NoiseLevel = 82 [dBA];
+
+        port operatorInterface : CommandPort;
+        port lawnSensorInput : SurfaceSensingPort;
+        port safetyInterface : SafetyPort;
+        port clippingDischarge : ClippingFlowPort;
+
+        part powerSubsystem : PowerSubsystem;
+        part cuttingSubsystem : CuttingSubsystem;
+        part propulsionSubsystem : PropulsionSubsystem;
+        part heightAdjustmentSubsystem : HeightAdjustmentSubsystem;
+        part sensingSubsystem : SensingSubsystem;
+        part safetySubsystem : SafetySubsystem;
+        part controlUnit : ControlUnit;
+        part collectionSubsystem : CollectionSubsystem;
+
+        connect operatorInterface.command to controlUnit.commandInput.command;
+        connect lawnSensorInput.surface to sensingSubsystem.surfaceInput.surface;
+        connect sensingSubsystem.surfaceOutput.surface to controlUnit.surfaceInput.surface;
+        connect safetySubsystem.safetyOutput.safetyStatus to controlUnit.safetyInput.safetyStatus;
+        connect controlUnit.shutdownCommand.shutdownSignal to safetyInterface.shutdownSignal;
+
+        connect powerSubsystem.bladeDrive.mechanicalPower to cuttingSubsystem.bladePower.mechanicalPower;
+        connect powerSubsystem.wheelDrive.mechanicalPower to propulsionSubsystem.drivePower.mechanicalPower;
+        connect controlUnit.bladeCommand.command to cuttingSubsystem.bladeCommand.command;
+        connect controlUnit.propulsionCommand.command to propulsionSubsystem.speedCommand.command;
+        connect controlUnit.heightCommand.command to heightAdjustmentSubsystem.heightCommand.command;
+
+        connect cuttingSubsystem.clippingOutput.clippings to collectionSubsystem.clippingInput.clippings;
+        connect collectionSubsystem.dischargeOutput.clippings to clippingDischarge.clippings;
+
+        perform primaryFunction : CutGrass;
+        perform safetyFunction : StopUnsafeOperation;
+    }
+
+    part def PowerSubsystem {
+        attribute ratedPower : Power = 2400 [W];
+        attribute nominalBladeSpeed : RotationalSpeed = 3000 [rpm];
+
+        port electricalInput : PowerInputPort;
+        port bladeDrive : MechanicalDrivePort;
+        port wheelDrive : MechanicalDrivePort;
+
+        part batteryPack : BatteryPack;
+        part motorController : MotorController;
+        part bladeMotor : ElectricMotor;
+        part wheelMotor : ElectricMotor;
+
+        connect electricalInput.electricalPower to batteryPack.powerInput.electricalPower;
+        connect batteryPack.powerOutput.electricalPower to motorController.powerInput.electricalPower;
+        connect motorController.bladeMotorPower.electricalPower to bladeMotor.powerInput.electricalPower;
+        connect motorController.wheelMotorPower.electricalPower to wheelMotor.powerInput.electricalPower;
+        connect bladeMotor.shaftOutput.mechanicalPower to bladeDrive.mechanicalPower;
+        connect wheelMotor.shaftOutput.mechanicalPower to wheelDrive.mechanicalPower;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : ElectricPotential = 56 [V];
+        attribute capacity : Real = 10 [A*h];
+        attribute stateOfCharge : BatteryCharge;
+        attribute minimumOperatingCharge : BatteryCharge = 10 [%];
+
+        port powerInput : PowerInputPort;
+        port powerOutput : PowerInputPort;
+    }
+
+    part def MotorController {
+        attribute bladeCurrentLimit : ElectricCurrent = 45 [A];
+        attribute wheelCurrentLimit : ElectricCurrent = 25 [A];
+
+        port powerInput : PowerInputPort;
+        port bladeMotorPower : PowerInputPort;
+        port wheelMotorPower : PowerInputPort;
+    }
+
+    part def ElectricMotor {
+        attribute ratedPower : Power;
+        attribute efficiency : Real = 0.88;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftTorque : BladeTorque;
+
+        port powerInput : PowerInputPort;
+        port shaftOutput : MechanicalDrivePort;
+    }
+
+    part def CuttingSubsystem {
+        attribute bladeDiameter : Length = 52 [cm];
+        attribute activeCutHeight : GrassHeight = 60 [mm];
+        attribute bladeSpeed : RotationalSpeed;
+        attribute cuttingTorque : BladeTorque;
+
+        port bladePower : MechanicalDrivePort;
+        port bladeCommand : CommandPort;
+        port clippingOutput : ClippingFlowPort;
+
+        part bladeAssembly : BladeAssembly;
+        part mowerDeck : MowerDeck;
+        part dischargeChute : DischargeChute;
+
+        connect bladePower.mechanicalPower to bladeAssembly.driveInput.mechanicalPower;
+        connect bladeAssembly.generatedClippings.clippings to mowerDeck.deckClippings.clippings;
+        connect mowerDeck.deckDischarge.clippings to dischargeChute.chuteInput.clippings;
+        connect dischargeChute.chuteOutput.clippings to clippingOutput.clippings;
+
+        perform cutAction : CutVegetation;
+    }
+
+    part def BladeAssembly {
+        attribute bladeCount : Integer = 2;
+        attribute bladeTipSpeed : Speed;
+        attribute bladeSharpness : Real;
+        attribute imbalanceLevel : Real;
+
+        port driveInput : MechanicalDrivePort;
+        port generatedClippings : ClippingFlowPort;
+    }
+
+    part def MowerDeck {
+        attribute deckWidth : CuttingWidth = 53 [cm];
+        attribute airflowRate : VolumeFlowRate;
+        attribute guardClosed : Boolean = true;
+
+        port deckClippings : ClippingFlowPort;
+        port deckDischarge : ClippingFlowPort;
+    }
+
+    part def DischargeChute {
+        attribute chuteBlocked : Boolean = false;
+        attribute baggingModeEnabled : Boolean = true;
+
+        port chuteInput : ClippingFlowPort;
+        port chuteOutput : ClippingFlowPort;
+    }
+
+    part def CollectionSubsystem {
+        attribute bagCapacity : Volume = 65 [L];
+        attribute bagFillFraction : Real;
+        attribute mulchingModeEnabled : Boolean = false;
+
+        port clippingInput : ClippingFlowPort;
+        port dischargeOutput : ClippingFlowPort;
+
+        part grassBag : GrassBag;
+        part mulchPlug : MulchPlug;
+
+        connect clippingInput.clippings to grassBag.bagInput.clippings;
+        connect grassBag.bagOutput.clippings to dischargeOutput.clippings;
+    }
+
+    part def GrassBag {
+        attribute fillVolume : Volume;
+        attribute full : Boolean;
+
+        port bagInput : ClippingFlowPort;
+        port bagOutput : ClippingFlowPort;
+    }
+
+    part def MulchPlug {
+        attribute installed : Boolean;
+    }
+
+    part def PropulsionSubsystem {
+        attribute commandedSpeed : Speed;
+        attribute actualGroundSpeed : Speed;
+        attribute maximumForwardSpeed : Speed = 1.6 [m/s];
+
+        port drivePower : MechanicalDrivePort;
+        port speedCommand : CommandPort;
+        port wheelDrive : WheelDrivePort;
+
+        part leftRearWheel : DriveWheel;
+        part rightRearWheel : DriveWheel;
+        part frontCasterLeft : SupportWheel;
+        part frontCasterRight : SupportWheel;
+        part transmission : Transmission;
+
+        connect drivePower.mechanicalPower to transmission.inputPower.mechanicalPower;
+        connect transmission.leftOutput.mechanicalPower to leftRearWheel.wheelPower.mechanicalPower;
+        connect transmission.rightOutput.mechanicalPower to rightRearWheel.wheelPower.mechanicalPower;
+    }
+
+    part def Transmission {
+        attribute gearReductionRatio : Real = 18.5;
+
+        port inputPower : MechanicalDrivePort;
+        port leftOutput : MechanicalDrivePort;
+        port rightOutput : MechanicalDrivePort;
+    }
+
+    part def DriveWheel {
+        attribute diameter : Length = 250 [mm];
+        attribute tractionCoefficient : Real;
+
+        port wheelPower : MechanicalDrivePort;
+    }
+
+    part def SupportWheel {
+        attribute diameter : Length = 200 [mm];
+        attribute bearingFriction : Real;
+    }
+
+    part def HeightAdjustmentSubsystem {
+        attribute selectedCutHeight : GrassHeight = 60 [mm];
+        attribute adjustmentIndex : Integer = 4;
+
+        port heightCommand : CommandPort;
+
+        part liftLinkage : LiftLinkage;
+        part heightLever : HeightLever;
+    }
+
+    part def LiftLinkage {
+        attribute deckOffset : Length;
+        attribute locked : Boolean = true;
+    }
+
+    part def HeightLever {
+        attribute availablePositions : Integer = 7;
+        attribute currentPosition : Integer = 4;
+    }
+
+    part def SensingSubsystem {
+        port surfaceInput : SurfaceSensingPort;
+        port surfaceOutput : SurfaceSensingPort;
+
+        part grassHeightSensor : GrassHeightSensor;
+        part slopeSensor : SlopeSensor;
+        part obstacleSensor : ObstacleSensor;
+        part motorLoadSensor : MotorLoadSensor;
+    }
+
+    part def GrassHeightSensor {
+        attribute measuredGrassHeight : GrassHeight;
+        attribute accuracy : Length = 5 [mm];
+    }
+
+    part def SlopeSensor {
+        attribute measuredSlope : SlopeAngle;
+        attribute accuracy : Real = 1 [deg];
+    }
+
+    part def ObstacleSensor {
+        attribute detectionRange : Length = 1.2 [m];
+        attribute obstacleDetected : Boolean;
+    }
+
+    part def MotorLoadSensor {
+        attribute measuredCurrent : ElectricCurrent;
+        attribute overloadDetected : Boolean;
+    }
+
+    part def SafetySubsystem {
+        port safetyInput : SafetyPort;
+        port safetyOutput : SafetyPort;
+
+        part operatorPresenceSwitch : OperatorPresenceSwitch;
+        part bladeBrake : BladeBrake;
+        part deckInterlock : DeckInterlock;
+        part emergencyStopSwitch : EmergencyStopSwitch;
+    }
+
+    part def OperatorPresenceSwitch {
+        attribute operatorPresent : Boolean;
+        attribute responseTime : Time = 0.1 [s];
+    }
+
+    part def BladeBrake {
+        attribute brakeApplied : Boolean;
+        attribute maximumStopTime : Time = 3 [s];
+    }
+
+    part def DeckInterlock {
+        attribute bladeGuardClosed : Boolean;
+    }
+
+    part def EmergencyStopSwitch {
+        attribute emergencyStopActive : Boolean;
+    }
+
+    part def ControlUnit {
+        attribute operatingMode : String;
+        attribute targetBladeSpeed : RotationalSpeed = 3000 [rpm];
+        attribute targetGroundSpeed : Speed;
+        attribute targetCutHeight : GrassHeight;
+
+        port commandInput : CommandPort;
+        port surfaceInput : SurfaceSensingPort;
+        port safetyInput : SafetyPort;
+        port bladeCommand : CommandPort;
+        port propulsionCommand : CommandPort;
+        port heightCommand : CommandPort;
+        port shutdownCommand : SafetyPort;
+
+        perform controlBehavior : ManageMowingOperation;
+    }
+
+    action def CutGrass {
+        in lawn : LawnSurface;
+        in command : OperatorCommand;
+        out clippings : GrassClippings;
+
+        first start;
+        then validateSafeStart;
+        then setCutHeight;
+        then energizeBlade;
+        then moveAcrossLawn;
+        then shearGrass;
+        then collectOrDischargeClippings;
+        then finish;
+
+        action validateSafeStart;
+        action setCutHeight;
+        action energizeBlade;
+        action moveAcrossLawn;
+        action shearGrass;
+        action collectOrDischargeClippings;
+    }
+
+    action def CutVegetation {
+        in incomingGrassHeight : GrassHeight;
+        in selectedCutHeight : GrassHeight;
+        in bladeSpeed : RotationalSpeed;
+        out clippingLength : Length;
+
+        action rotateBlade;
+        action createDeckAirflow;
+        action severGrass;
+        action routeClippings;
+
+        first rotateBlade;
+        then createDeckAirflow;
+        then severGrass;
+        then routeClippings;
+    }
+
+    action def ManageMowingOperation {
+        in command : OperatorCommand;
+        in surface : LawnSurface;
+        in safety : SafetyStatus;
+        out shutdownRequired : Boolean;
+
+        action interpretOperatorCommand;
+        action computeTargetBladeSpeed;
+        action computePropulsionSpeed;
+        action monitorSafety;
+        action commandActuators;
+
+        first interpretOperatorCommand;
+        then computeTargetBladeSpeed;
+        then computePropulsionSpeed;
+        then monitorSafety;
+        then commandActuators;
+    }
+
+    action def StopUnsafeOperation {
+        in safety : SafetyStatus;
+        out bladeStopped : Boolean;
+        out propulsionStopped : Boolean;
+
+        action cutMotorPower;
+        action applyBladeBrake;
+        action stopWheelDrive;
+        action reportShutdown;
+
+        first cutMotorPower;
+        then applyBladeBrake;
+        then stopWheelDrive;
+        then reportShutdown;
+    }
+
+    state def LawnMowerOperatingState {
+        entry action initializeController;
+
+        state Off;
+        state Ready;
+        state Mowing;
+        state Paused;
+        state Fault;
+        state Shutdown;
+
+        transition initial then Off;
+
+        transition Off_to_Ready
+            first Off
+            accept OperatorCommand
+            if command.startRequested == true
+            then Ready;
+
+        transition Ready_to_Mowing
+            first Ready
+            accept OperatorCommand
+            if command.bladeEngageRequested == true
+            then Mowing;
+
+        transition Mowing_to_Paused
+            first Mowing
+            accept SafetyStatus
+            if safetyStatus.handleReleased == true
+            then Paused;
+
+        transition Paused_to_Mowing
+            first Paused
+            accept SafetyStatus
+            if safetyStatus.operatorPresent == true and safetyStatus.handleReleased == false
+            then Mowing;
+
+        transition Mowing_to_Fault
+            first Mowing
+            accept SafetyStatus
+            if safetyStatus.overloadDetected == true or safetyStatus.bladeGuardClosed == false
+            then Fault;
+
+        transition Ready_to_Shutdown
+            first Ready
+            accept OperatorCommand
+            if command.stopRequested == true
+            then Shutdown;
+
+        transition Mowing_to_Shutdown
+            first Mowing
+            accept OperatorCommand
+            if command.stopRequested == true
+            then Shutdown;
+
+        transition Fault_to_Shutdown
+            first Fault
+            accept SafetyStatus
+            if safetyStatus.emergencyStopActive == true
+            then Shutdown;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The lawn mower shall reduce standing grass on a lawn surface to an operator-selected cutting height while moving over the lawn and collecting, mulching, or discharging the resulting clippings. */
+    }
+
+    requirement def SafeStartRequirement {
+        doc /* The lawn mower shall permit blade rotation only when the operator is present, the blade guard is closed, the emergency stop is inactive, and available energy is above the minimum operating threshold. */
+    }
+
+    requirement def BladeStopRequirement {
+        doc /* The lawn mower shall stop blade rotation within 3 seconds after operator presence is lost, the stop command is issued, the guard is opened, or emergency stop is activated. */
+    }
+
+    requirement def CutHeightRequirement {
+        doc /* The lawn mower shall provide selectable cut heights from 25 mm to 95 mm. */
+    }
+
+    requirement def SlopeLimitRequirement {
+        doc /* The lawn mower shall inhibit powered mowing operation when measured lawn slope exceeds 15 degrees. */
+    }
+
+    requirement def CollectionRequirement {
+        doc /* The lawn mower shall route grass clippings from the cutting deck to either a collection bag, mulch path, or discharge chute without exposing the operator to the rotating blade. */
+    }
+
+    requirement def PropulsionRequirement {
+        doc /* The self-propelled drive shall regulate forward ground speed between 0 m/s and 1.6 m/s according to operator command while maintaining blade speed for effective cutting. */
+    }
+
+    requirement def NoiseRequirement {
+        doc /* The lawn mower shall operate at or below 82 dBA under nominal mowing conditions. */
+    }
+
+    requirement mowerRequirements {
+        subject mower : LawnMower;
+
+        requirement primaryFunction : PrimaryFunctionRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement safeStart : SafeStartRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement bladeStop : BladeStopRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement cutHeight : CutHeightRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement slopeLimit : SlopeLimitRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement collection : CollectionRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement propulsion : PropulsionRequirement {
+            subject mower : LawnMower;
+        }
+
+        requirement noise : NoiseRequirement {
+            subject mower : LawnMower;
+        }
+    }
+
+    satisfy mowerRequirements.primaryFunction by LawnMower::primaryFunction;
+    satisfy mowerRequirements.safeStart by LawnMower::safetySubsystem;
+    satisfy mowerRequirements.bladeStop by LawnMower::safetySubsystem::bladeBrake;
+    satisfy mowerRequirements.cutHeight by LawnMower::heightAdjustmentSubsystem;
+    satisfy mowerRequirements.slopeLimit by LawnMower::controlUnit;
+    satisfy mowerRequirements.collection by LawnMower::collectionSubsystem;
+    satisfy mowerRequirements.propulsion by LawnMower::propulsionSubsystem;
+    satisfy mowerRequirements.noise by LawnMower::cuttingSubsystem;
+
+    analysis def CuttingPerformanceAnalysis {
+        in grassHeightBefore : GrassHeight;
+        in selectedCutHeight : GrassHeight;
+        in bladeSpeed : RotationalSpeed;
+        in groundSpeed : Speed;
+        out grassHeightAfter : GrassHeight;
+        out acceptableCut : Boolean;
+
+        constraint {
+            grassHeightAfter <= selectedCutHeight + 5 [mm]
+        }
+
+        constraint {
+            bladeSpeed >= 2800 [rpm]
+        }
+
+        constraint {
+            groundSpeed <= 1.6 [m/s]
+        }
+    }
+
+    verification def VerifyBladeStopTime {
+        subject mower : LawnMower;
+        objective {
+            verify mower.safetySubsystem.bladeBrake.maximumStopTime <= 3 [s];
+        }
+    }
+
+    verification def VerifyCutHeightRange {
+        subject mower : LawnMower;
+        objective {
+            verify mower.minimumCutHeight == 25 [mm] and mower.maximumCutHeight == 95 [mm];
+        }
+    }
+
+    verification def VerifySlopeProtection {
+        subject mower : LawnMower;
+        objective {
+            verify mower.maximumSafeSlope == 15 [deg];
+        }
+    }
+}

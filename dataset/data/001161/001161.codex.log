@@ -1,0 +1,1305 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zvq8ibiv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5aa-7b40-72a3-9772-962472bfc2bf
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Odometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OdometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def meter;
+    attribute def kilometer;
+    attribute def second;
+    attribute def hertz;
+    attribute def volt;
+    attribute def ampere;
+    attribute def degreeCelsius;
+    attribute def percent;
+    attribute def bit;
+
+    value def DistanceValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    value def SpeedValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    value def PulseCountValue {
+        attribute count : Integer;
+    }
+
+    value def DiagnosticCode {
+        attribute code : String;
+        attribute severity : DiagnosticSeverity;
+    }
+
+    enum def DiagnosticSeverity {
+        enum ok;
+        enum warning;
+        enum degraded;
+        enum fault;
+    }
+
+    enum def IgnitionStateKind {
+        enum off;
+        enum accessory;
+        enum run;
+        enum start;
+    }
+
+    enum def OdometerMode {
+        enum normal;
+        enum calibration;
+        enum limpHome;
+        enum faultLatched;
+    }
+
+    item def WheelRotationPulse {
+        attribute timestamp : Real;
+        attribute pulseIndex : Integer;
+    }
+
+    item def VehicleSpeedSignal {
+        attribute speed : SpeedValue;
+        attribute valid : Boolean;
+    }
+
+    item def DistanceIncrement {
+        attribute deltaDistance : DistanceValue;
+        attribute sourcePulseCount : Integer;
+    }
+
+    item def OdometerReading {
+        attribute totalDistance : DistanceValue;
+        attribute tripDistance : DistanceValue;
+        attribute valid : Boolean;
+    }
+
+    item def ResetTripCommand {
+        attribute requested : Boolean;
+        attribute requestTime : Real;
+    }
+
+    item def CalibrationData {
+        attribute tireCircumference : DistanceValue;
+        attribute pulsesPerWheelRevolution : Integer;
+        attribute finalDriveRatio : Real;
+        attribute nonvolatileWriteLimit : Integer;
+    }
+
+    item def PowerSupply {
+        attribute voltage : Real;
+        attribute currentLimit : Real;
+        attribute stable : Boolean;
+    }
+
+    item def IgnitionStatus {
+        attribute state : IgnitionStateKind;
+    }
+
+    item def DisplayFrame {
+        attribute primaryDistanceText : String;
+        attribute tripDistanceText : String;
+        attribute warningIconActive : Boolean;
+    }
+
+    port def PulseInputPort {
+        in item pulse : WheelRotationPulse;
+    }
+
+    port def SpeedOutputPort {
+        out item speedSignal : VehicleSpeedSignal;
+    }
+
+    port def DistanceOutputPort {
+        out item distanceIncrement : DistanceIncrement;
+    }
+
+    port def ReadingOutputPort {
+        out item reading : OdometerReading;
+    }
+
+    port def ReadingInputPort {
+        in item reading : OdometerReading;
+    }
+
+    port def CommandInputPort {
+        in item resetTrip : ResetTripCommand;
+    }
+
+    port def DisplayOutputPort {
+        out item frame : DisplayFrame;
+    }
+
+    port def PowerInputPort {
+        in item supply : PowerSupply;
+    }
+
+    port def IgnitionInputPort {
+        in item ignition : IgnitionStatus;
+    }
+
+    port def DiagnosticOutputPort {
+        out item diagnostic : DiagnosticCode;
+    }
+
+    part def WheelSpeedSensor {
+        attribute sensorId : String;
+        attribute pulsesPerRevolution : Integer = 48;
+        attribute operatingVoltage : Real = 5.0;
+        attribute maxPulseFrequency : Real = 2500.0;
+        attribute pulseTimeout : Real = 0.50;
+
+        port powerIn : PowerInputPort;
+        port pulseOut : PulseInputPort;
+
+        action detectWheelRotation {
+            in item physicalRotationPulse : WheelRotationPulse;
+            out item conditionedPulse : WheelRotationPulse;
+        }
+
+        state sensorHealth {
+            state unpowered;
+            state ready;
+            state noPulseTimeout;
+            state electricalFault;
+
+            initial then unpowered;
+            transition unpowered_to_ready
+                first unpowered
+                then ready
+                accept item supply : PowerSupply
+                if supply.stable;
+
+            transition ready_to_timeout
+                first ready
+                then noPulseTimeout
+                if true;
+
+            transition ready_to_fault
+                first ready
+                then electricalFault
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::fault;
+
+            transition fault_to_ready
+                first electricalFault
+                then ready
+                accept item supply : PowerSupply
+                if supply.stable;
+        }
+    }
+
+    part def PulseConditioner {
+        attribute debounceTime : Real = 0.002;
+        attribute minimumPulseWidth : Real = 0.0005;
+        attribute maximumPulseGap : Real = 2.0;
+
+        port rawPulseIn : PulseInputPort;
+        port conditionedPulseOut : PulseInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action rejectNoise {
+            in item rawPulse : WheelRotationPulse;
+            out item acceptedPulse : WheelRotationPulse;
+        }
+
+        action detectMissingPulse {
+            out item diagnostic : DiagnosticCode;
+        }
+    }
+
+    part def DistanceCalculator {
+        attribute tireCircumference : DistanceValue = (value = 2.050, unit = "m");
+        attribute pulsesPerWheelRevolution : Integer = 48;
+        attribute distancePerPulse : DistanceValue = (value = 0.042708, unit = "m");
+        attribute maximumAcceptedSpeed : SpeedValue = (value = 260.0, unit = "km/h");
+
+        port pulseIn : PulseInputPort;
+        port speedOut : SpeedOutputPort;
+        port incrementOut : DistanceOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action computeIncrement {
+            in item pulse : WheelRotationPulse;
+            out item increment : DistanceIncrement;
+        }
+
+        action computeSpeed {
+            in item previousPulse : WheelRotationPulse;
+            in item currentPulse : WheelRotationPulse;
+            out item speedSignal : VehicleSpeedSignal;
+        }
+
+        action rejectImplausibleSpeed {
+            in item speedSignal : VehicleSpeedSignal;
+            out item diagnostic : DiagnosticCode;
+        }
+    }
+
+    part def NonvolatileMemory {
+        attribute totalDistanceStored : DistanceValue = (value = 0.0, unit = "km");
+        attribute tripDistanceStored : DistanceValue = (value = 0.0, unit = "km");
+        attribute writeCycleCount : Integer = 0;
+        attribute maximumWriteCycles : Integer = 1000000;
+        attribute retentionYears : Real = 15.0;
+
+        port readingOut : ReadingOutputPort;
+        port readingIn : ReadingInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action loadReading {
+            out item reading : OdometerReading;
+        }
+
+        action commitReading {
+            in item reading : OdometerReading;
+        }
+
+        action verifyChecksum {
+            out item diagnostic : DiagnosticCode;
+        }
+
+        state memoryState {
+            state empty;
+            state validData;
+            state committing;
+            state corrupted;
+            state writeLimited;
+
+            initial then empty;
+
+            transition empty_to_valid
+                first empty
+                then validData
+                accept item reading : OdometerReading
+                if reading.valid;
+
+            transition valid_to_committing
+                first validData
+                then committing
+                accept item reading : OdometerReading;
+
+            transition committing_to_valid
+                first committing
+                then validData;
+
+            transition valid_to_corrupted
+                first validData
+                then corrupted
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::fault;
+
+            transition valid_to_writeLimited
+                first validData
+                then writeLimited
+                if writeCycleCount >= maximumWriteCycles;
+        }
+    }
+
+    part def OdometerController {
+        attribute mode : OdometerMode = OdometerMode::normal;
+        attribute totalDistance : DistanceValue = (value = 0.0, unit = "km");
+        attribute tripDistance : DistanceValue = (value = 0.0, unit = "km");
+        attribute updatePeriod : Real = 0.10;
+        attribute storeThreshold : DistanceValue = (value = 0.1, unit = "km");
+        attribute maximumDisplayDistance : DistanceValue = (value = 999999.9, unit = "km");
+
+        port incrementIn : DistanceOutputPort;
+        port speedIn : SpeedOutputPort;
+        port memoryReadingIn : ReadingInputPort;
+        port memoryReadingOut : ReadingOutputPort;
+        port commandIn : CommandInputPort;
+        port readingOut : ReadingOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+        port ignitionIn : IgnitionInputPort;
+
+        action initializeReading {
+            in item storedReading : OdometerReading;
+            out item currentReading : OdometerReading;
+        }
+
+        action accumulateDistance {
+            in item increment : DistanceIncrement;
+            out item reading : OdometerReading;
+        }
+
+        action resetTripDistance {
+            in item resetCommand : ResetTripCommand;
+            out item reading : OdometerReading;
+        }
+
+        action publishReading {
+            out item reading : OdometerReading;
+        }
+
+        action requestPersistentStore {
+            out item reading : OdometerReading;
+        }
+
+        state controllerState {
+            state poweredOff;
+            state initializing;
+            state measuring;
+            state storing;
+            state degraded;
+            state faultLatched;
+
+            initial then poweredOff;
+
+            transition power_on
+                first poweredOff
+                then initializing
+                accept item ignition : IgnitionStatus
+                if ignition.state == IgnitionStateKind::run or ignition.state == IgnitionStateKind::start;
+
+            transition initialized
+                first initializing
+                then measuring
+                accept item reading : OdometerReading
+                if reading.valid;
+
+            transition measure_to_store
+                first measuring
+                then storing
+                accept item increment : DistanceIncrement
+                if increment.deltaDistance.value >= storeThreshold.value;
+
+            transition store_to_measure
+                first storing
+                then measuring;
+
+            transition measure_to_degraded
+                first measuring
+                then degraded
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::degraded;
+
+            transition degraded_to_measure
+                first degraded
+                then measuring
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::ok;
+
+            transition any_to_fault
+                first measuring
+                then faultLatched
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::fault;
+
+            transition power_off
+                first measuring
+                then poweredOff
+                accept item ignition : IgnitionStatus
+                if ignition.state == IgnitionStateKind::off;
+        }
+    }
+
+    part def OdometerDisplay {
+        attribute primaryResolution : DistanceValue = (value = 0.1, unit = "km");
+        attribute tripResolution : DistanceValue = (value = 0.1, unit = "km");
+        attribute brightnessPercent : Real = 80.0;
+
+        port readingIn : ReadingInputPort;
+        port frameOut : DisplayOutputPort;
+        port diagnosticIn : DiagnosticOutputPort;
+
+        action formatReading {
+            in item reading : OdometerReading;
+            out item frame : DisplayFrame;
+        }
+
+        action showWarning {
+            in item diagnostic : DiagnosticCode;
+            out item frame : DisplayFrame;
+        }
+    }
+
+    part def VehiclePowerInterface {
+        attribute nominalVoltage : Real = 12.0;
+        attribute minimumOperatingVoltage : Real = 9.0;
+        attribute maximumOperatingVoltage : Real = 16.0;
+
+        port supplyOut : PowerInputPort;
+        port ignitionOut : IgnitionInputPort;
+
+        action conditionPower {
+            out item supply : PowerSupply;
+        }
+
+        action readIgnition {
+            out item ignition : IgnitionStatus;
+        }
+    }
+
+    part def OdometerSystem {
+        attribute primaryFunction : String = "Measure wheel rotation, convert validated movement pulses into accumulated vehicle distance, preserve the lifetime total distance, support resettable trip distance, and present the reading to the driver.";
+        attribute requiredAccuracyPercent : Real = 1.0;
+        attribute operatingTemperatureMin : Real = -40.0;
+        attribute operatingTemperatureMax : Real = 85.0;
+
+        part powerInterface : VehiclePowerInterface;
+        part leftFrontSensor : WheelSpeedSensor {
+            attribute sensorId = "LF";
+        }
+        part rightFrontSensor : WheelSpeedSensor {
+            attribute sensorId = "RF";
+        }
+        part pulseConditioner : PulseConditioner;
+        part distanceCalculator : DistanceCalculator;
+        part controller : OdometerController;
+        part memory : NonvolatileMemory;
+        part display : OdometerDisplay;
+
+        port resetTripCommandIn : CommandInputPort;
+        port displayFrameOut : DisplayOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        connection power_to_left_sensor
+            connect powerInterface.supplyOut to leftFrontSensor.powerIn;
+
+        connection power_to_right_sensor
+            connect powerInterface.supplyOut to rightFrontSensor.powerIn;
+
+        connection ignition_to_controller
+            connect powerInterface.ignitionOut to controller.ignitionIn;
+
+        connection left_sensor_to_conditioner
+            connect leftFrontSensor.pulseOut to pulseConditioner.rawPulseIn;
+
+        connection right_sensor_to_conditioner
+            connect rightFrontSensor.pulseOut to pulseConditioner.rawPulseIn;
+
+        connection conditioned_pulse_to_calculator
+            connect pulseConditioner.conditionedPulseOut to distanceCalculator.pulseIn;
+
+        connection increment_to_controller
+            connect distanceCalculator.incrementOut to controller.incrementIn;
+
+        connection speed_to_controller
+            connect distanceCalculator.speedOut to controller.speedIn;
+
+        connection memory_to_controller
+            connect memory.readingOut to controller.memoryReadingIn;
+
+        connection controller_to_memory
+            connect controller.memoryReadingOut to memory.readingIn;
+
+        connection controller_to_display
+            connect controller.readingOut to display.readingIn;
+
+        connection trip_reset_to_controller
+            connect resetTripCommandIn to controller.commandIn;
+
+        connection display_to_vehicle
+            connect display.frameOut to displayFrameOut;
+
+        connection controller_diagnostic_to_vehicle
+            connect controller.diagnosticOut to diagnosticOut;
+
+        connection calculator_diagnostic_to_vehicle
+            connect distanceCalculator.diagnosticOut to diagnosticOut;
+
+        connection conditioner_diagnostic_to_vehicle
+            connect pulseConditioner.diagnosticOut to diagnosticOut;
+
+        connection memory_diagnostic_to_vehicle
+            connect memory.diagnosticOut to diagnosticOut;
+
+        action operateOdometer {
+            first start;
+
+            then action readIgnitionState {
+                out item ignition : IgnitionStatus;
+            }
+
+            then action validatePower {
+                in item ignition : IgnitionStatus;
+                out item supply : PowerSupply;
+            }
+
+            then action receiveWheelPulses {
+                out item pulse : WheelRotationPulse;
+            }
+
+            then action filterPulses {
+                in item pulse : WheelRotationPulse;
+                out item conditionedPulse : WheelRotationPulse;
+            }
+
+            then action calculateTravel {
+                in item conditionedPulse : WheelRotationPulse;
+                out item increment : DistanceIncrement;
+            }
+
+            then action accumulateReading {
+                in item increment : DistanceIncrement;
+                out item reading : OdometerReading;
+            }
+
+            then action storeReading {
+                in item reading : OdometerReading;
+            }
+
+            then action displayReading {
+                in item reading : OdometerReading;
+                out item frame : DisplayFrame;
+            }
+
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject odometerSystem : OdometerSystem;
+        require constraint {
+            odometerSystem.primaryFunction == "Measure wheel rotation, convert validated movement pulses into accumulated vehicle distance, preserve the lifetime total distance, support resettable trip distance, and present the reading to the driver."
+        }
+    }
+
+    requirement def DistanceAccuracyRequirement {
+        subject odometerSystem : OdometerSystem;
+        require constraint {
+            odometerSystem.requiredAccuracyPercent <= 1.0
+        }
+    }
+
+    requirement def PersistentTotalDistanceRequirement {
+        subject memory : NonvolatileMemory;
+        require constraint {
+            memory.retentionYears >= 15.0
+        }
+    }
+
+    requirement def DisplayRangeRequirement {
+        subject controller : OdometerController;
+        require constraint {
+            controller.maximumDisplayDistance.value >= 999999.9
+        }
+    }
+
+    requirement def TripResetRequirement {
+        subject controller : OdometerController;
+        require constraint {
+            controller.tripDistance.value >= 0.0
+        }
+    }
+
+    requirement def PowerOperatingRequirement {
+        subject powerInterface : VehiclePowerInterface;
+        require constraint {
+            powerInterface.minimumOperatingVoltage <= 9.0 and powerInterface.maximumOperatingVoltage >= 16.0
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject odometerSystem : OdometerSystem;
+        require constraint {
+            odometerSystem.operatingTemperatureMin <= -40.0 and odometerSystem.operatingTemperatureMax >= 85.0
+        }
+    }
+
+    requirement def PulsePlausibilityRequirement {
+        subject calculator : DistanceCalculator;
+        require constraint {
+            calculator.maximumAcceptedSpeed.value <= 260.0
+        }
+    }
+
+    requirement primaryFunctionRequirement : PrimaryFunctionRequirement {
+        subject odometerSystem = odometer;
+    }
+
+    requirement distanceAccuracyRequirement : DistanceAccuracyRequirement {
+        subject odometerSystem = odometer;
+    }
+
+    requirement persistentTotalDistanceRequirement : PersistentTotalDistanceRequirement {
+        subject memory = odometer.memory;
+    }
+
+    requirement displayRangeRequirement : DisplayRangeRequirement {
+        subject controller = odometer.controller;
+    }
+
+    requirement tripResetRequirement : TripResetRequirement {
+        subject controller = odometer.controller;
+    }
+
+    requirement powerOperatingRequirement : PowerOperatingRequirement {
+        subject powerInterface = odometer.powerInterface;
+    }
+
+    requirement environmentalRequirement : EnvironmentalRequirement {
+        subject odometerSystem = odometer;
+    }
+
+    requirement pulsePlausibilityRequirement : PulsePlausibilityRequirement {
+        subject calculator = odometer.distanceCalculator;
+    }
+
+    part odometer : OdometerSystem;
+
+}
+tokens used
+5,216
+package OdometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def meter;
+    attribute def kilometer;
+    attribute def second;
+    attribute def hertz;
+    attribute def volt;
+    attribute def ampere;
+    attribute def degreeCelsius;
+    attribute def percent;
+    attribute def bit;
+
+    value def DistanceValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    value def SpeedValue {
+        attribute value : Real;
+        attribute unit : String;
+    }
+
+    value def PulseCountValue {
+        attribute count : Integer;
+    }
+
+    value def DiagnosticCode {
+        attribute code : String;
+        attribute severity : DiagnosticSeverity;
+    }
+
+    enum def DiagnosticSeverity {
+        enum ok;
+        enum warning;
+        enum degraded;
+        enum fault;
+    }
+
+    enum def IgnitionStateKind {
+        enum off;
+        enum accessory;
+        enum run;
+        enum start;
+    }
+
+    enum def OdometerMode {
+        enum normal;
+        enum calibration;
+        enum limpHome;
+        enum faultLatched;
+    }
+
+    item def WheelRotationPulse {
+        attribute timestamp : Real;
+        attribute pulseIndex : Integer;
+    }
+
+    item def VehicleSpeedSignal {
+        attribute speed : SpeedValue;
+        attribute valid : Boolean;
+    }
+
+    item def DistanceIncrement {
+        attribute deltaDistance : DistanceValue;
+        attribute sourcePulseCount : Integer;
+    }
+
+    item def OdometerReading {
+        attribute totalDistance : DistanceValue;
+        attribute tripDistance : DistanceValue;
+        attribute valid : Boolean;
+    }
+
+    item def ResetTripCommand {
+        attribute requested : Boolean;
+        attribute requestTime : Real;
+    }
+
+    item def CalibrationData {
+        attribute tireCircumference : DistanceValue;
+        attribute pulsesPerWheelRevolution : Integer;
+        attribute finalDriveRatio : Real;
+        attribute nonvolatileWriteLimit : Integer;
+    }
+
+    item def PowerSupply {
+        attribute voltage : Real;
+        attribute currentLimit : Real;
+        attribute stable : Boolean;
+    }
+
+    item def IgnitionStatus {
+        attribute state : IgnitionStateKind;
+    }
+
+    item def DisplayFrame {
+        attribute primaryDistanceText : String;
+        attribute tripDistanceText : String;
+        attribute warningIconActive : Boolean;
+    }
+
+    port def PulseInputPort {
+        in item pulse : WheelRotationPulse;
+    }
+
+    port def SpeedOutputPort {
+        out item speedSignal : VehicleSpeedSignal;
+    }
+
+    port def DistanceOutputPort {
+        out item distanceIncrement : DistanceIncrement;
+    }
+
+    port def ReadingOutputPort {
+        out item reading : OdometerReading;
+    }
+
+    port def ReadingInputPort {
+        in item reading : OdometerReading;
+    }
+
+    port def CommandInputPort {
+        in item resetTrip : ResetTripCommand;
+    }
+
+    port def DisplayOutputPort {
+        out item frame : DisplayFrame;
+    }
+
+    port def PowerInputPort {
+        in item supply : PowerSupply;
+    }
+
+    port def IgnitionInputPort {
+        in item ignition : IgnitionStatus;
+    }
+
+    port def DiagnosticOutputPort {
+        out item diagnostic : DiagnosticCode;
+    }
+
+    part def WheelSpeedSensor {
+        attribute sensorId : String;
+        attribute pulsesPerRevolution : Integer = 48;
+        attribute operatingVoltage : Real = 5.0;
+        attribute maxPulseFrequency : Real = 2500.0;
+        attribute pulseTimeout : Real = 0.50;
+
+        port powerIn : PowerInputPort;
+        port pulseOut : PulseInputPort;
+
+        action detectWheelRotation {
+            in item physicalRotationPulse : WheelRotationPulse;
+            out item conditionedPulse : WheelRotationPulse;
+        }
+
+        state sensorHealth {
+            state unpowered;
+            state ready;
+            state noPulseTimeout;
+            state electricalFault;
+
+            initial then unpowered;
+            transition unpowered_to_ready
+                first unpowered
+                then ready
+                accept item supply : PowerSupply
+                if supply.stable;
+
+            transition ready_to_timeout
+                first ready
+                then noPulseTimeout
+                if true;
+
+            transition ready_to_fault
+                first ready
+                then electricalFault
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::fault;
+
+            transition fault_to_ready
+                first electricalFault
+                then ready
+                accept item supply : PowerSupply
+                if supply.stable;
+        }
+    }
+
+    part def PulseConditioner {
+        attribute debounceTime : Real = 0.002;
+        attribute minimumPulseWidth : Real = 0.0005;
+        attribute maximumPulseGap : Real = 2.0;
+
+        port rawPulseIn : PulseInputPort;
+        port conditionedPulseOut : PulseInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action rejectNoise {
+            in item rawPulse : WheelRotationPulse;
+            out item acceptedPulse : WheelRotationPulse;
+        }
+
+        action detectMissingPulse {
+            out item diagnostic : DiagnosticCode;
+        }
+    }
+
+    part def DistanceCalculator {
+        attribute tireCircumference : DistanceValue = (value = 2.050, unit = "m");
+        attribute pulsesPerWheelRevolution : Integer = 48;
+        attribute distancePerPulse : DistanceValue = (value = 0.042708, unit = "m");
+        attribute maximumAcceptedSpeed : SpeedValue = (value = 260.0, unit = "km/h");
+
+        port pulseIn : PulseInputPort;
+        port speedOut : SpeedOutputPort;
+        port incrementOut : DistanceOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action computeIncrement {
+            in item pulse : WheelRotationPulse;
+            out item increment : DistanceIncrement;
+        }
+
+        action computeSpeed {
+            in item previousPulse : WheelRotationPulse;
+            in item currentPulse : WheelRotationPulse;
+            out item speedSignal : VehicleSpeedSignal;
+        }
+
+        action rejectImplausibleSpeed {
+            in item speedSignal : VehicleSpeedSignal;
+            out item diagnostic : DiagnosticCode;
+        }
+    }
+
+    part def NonvolatileMemory {
+        attribute totalDistanceStored : DistanceValue = (value = 0.0, unit = "km");
+        attribute tripDistanceStored : DistanceValue = (value = 0.0, unit = "km");
+        attribute writeCycleCount : Integer = 0;
+        attribute maximumWriteCycles : Integer = 1000000;
+        attribute retentionYears : Real = 15.0;
+
+        port readingOut : ReadingOutputPort;
+        port readingIn : ReadingInputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        action loadReading {
+            out item reading : OdometerReading;
+        }
+
+        action commitReading {
+            in item reading : OdometerReading;
+        }
+
+        action verifyChecksum {
+            out item diagnostic : DiagnosticCode;
+        }
+
+        state memoryState {
+            state empty;
+            state validData;
+            state committing;
+            state corrupted;
+            state writeLimited;
+
+            initial then empty;
+
+            transition empty_to_valid
+                first empty
+                then validData
+                accept item reading : OdometerReading
+                if reading.valid;
+
+            transition valid_to_committing
+                first validData
+                then committing
+                accept item reading : OdometerReading;
+
+            transition committing_to_valid
+                first committing
+                then validData;
+
+            transition valid_to_corrupted
+                first validData
+                then corrupted
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::fault;
+
+            transition valid_to_writeLimited
+                first validData
+                then writeLimited
+                if writeCycleCount >= maximumWriteCycles;
+        }
+    }
+
+    part def OdometerController {
+        attribute mode : OdometerMode = OdometerMode::normal;
+        attribute totalDistance : DistanceValue = (value = 0.0, unit = "km");
+        attribute tripDistance : DistanceValue = (value = 0.0, unit = "km");
+        attribute updatePeriod : Real = 0.10;
+        attribute storeThreshold : DistanceValue = (value = 0.1, unit = "km");
+        attribute maximumDisplayDistance : DistanceValue = (value = 999999.9, unit = "km");
+
+        port incrementIn : DistanceOutputPort;
+        port speedIn : SpeedOutputPort;
+        port memoryReadingIn : ReadingInputPort;
+        port memoryReadingOut : ReadingOutputPort;
+        port commandIn : CommandInputPort;
+        port readingOut : ReadingOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+        port ignitionIn : IgnitionInputPort;
+
+        action initializeReading {
+            in item storedReading : OdometerReading;
+            out item currentReading : OdometerReading;
+        }
+
+        action accumulateDistance {
+            in item increment : DistanceIncrement;
+            out item reading : OdometerReading;
+        }
+
+        action resetTripDistance {
+            in item resetCommand : ResetTripCommand;
+            out item reading : OdometerReading;
+        }
+
+        action publishReading {
+            out item reading : OdometerReading;
+        }
+
+        action requestPersistentStore {
+            out item reading : OdometerReading;
+        }
+
+        state controllerState {
+            state poweredOff;
+            state initializing;
+            state measuring;
+            state storing;
+            state degraded;
+            state faultLatched;
+
+            initial then poweredOff;
+
+            transition power_on
+                first poweredOff
+                then initializing
+                accept item ignition : IgnitionStatus
+                if ignition.state == IgnitionStateKind::run or ignition.state == IgnitionStateKind::start;
+
+            transition initialized
+                first initializing
+                then measuring
+                accept item reading : OdometerReading
+                if reading.valid;
+
+            transition measure_to_store
+                first measuring
+                then storing
+                accept item increment : DistanceIncrement
+                if increment.deltaDistance.value >= storeThreshold.value;
+
+            transition store_to_measure
+                first storing
+                then measuring;
+
+            transition measure_to_degraded
+                first measuring
+                then degraded
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::degraded;
+
+            transition degraded_to_measure
+                first degraded
+                then measuring
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::ok;
+
+            transition any_to_fault
+                first measuring
+                then faultLatched
+                accept item diagnostic : DiagnosticCode
+                if diagnostic.severity == DiagnosticSeverity::fault;
+
+            transition power_off
+                first measuring
+                then poweredOff
+                accept item ignition : IgnitionStatus
+                if ignition.state == IgnitionStateKind::off;
+        }
+    }
+
+    part def OdometerDisplay {
+        attribute primaryResolution : DistanceValue = (value = 0.1, unit = "km");
+        attribute tripResolution : DistanceValue = (value = 0.1, unit = "km");
+        attribute brightnessPercent : Real = 80.0;
+
+        port readingIn : ReadingInputPort;
+        port frameOut : DisplayOutputPort;
+        port diagnosticIn : DiagnosticOutputPort;
+
+        action formatReading {
+            in item reading : OdometerReading;
+            out item frame : DisplayFrame;
+        }
+
+        action showWarning {
+            in item diagnostic : DiagnosticCode;
+            out item frame : DisplayFrame;
+        }
+    }
+
+    part def VehiclePowerInterface {
+        attribute nominalVoltage : Real = 12.0;
+        attribute minimumOperatingVoltage : Real = 9.0;
+        attribute maximumOperatingVoltage : Real = 16.0;
+
+        port supplyOut : PowerInputPort;
+        port ignitionOut : IgnitionInputPort;
+
+        action conditionPower {
+            out item supply : PowerSupply;
+        }
+
+        action readIgnition {
+            out item ignition : IgnitionStatus;
+        }
+    }
+
+    part def OdometerSystem {
+        attribute primaryFunction : String = "Measure wheel rotation, convert validated movement pulses into accumulated vehicle distance, preserve the lifetime total distance, support resettable trip distance, and present the reading to the driver.";
+        attribute requiredAccuracyPercent : Real = 1.0;
+        attribute operatingTemperatureMin : Real = -40.0;
+        attribute operatingTemperatureMax : Real = 85.0;
+
+        part powerInterface : VehiclePowerInterface;
+        part leftFrontSensor : WheelSpeedSensor {
+            attribute sensorId = "LF";
+        }
+        part rightFrontSensor : WheelSpeedSensor {
+            attribute sensorId = "RF";
+        }
+        part pulseConditioner : PulseConditioner;
+        part distanceCalculator : DistanceCalculator;
+        part controller : OdometerController;
+        part memory : NonvolatileMemory;
+        part display : OdometerDisplay;
+
+        port resetTripCommandIn : CommandInputPort;
+        port displayFrameOut : DisplayOutputPort;
+        port diagnosticOut : DiagnosticOutputPort;
+
+        connection power_to_left_sensor
+            connect powerInterface.supplyOut to leftFrontSensor.powerIn;
+
+        connection power_to_right_sensor
+            connect powerInterface.supplyOut to rightFrontSensor.powerIn;
+
+        connection ignition_to_controller
+            connect powerInterface.ignitionOut to controller.ignitionIn;
+
+        connection left_sensor_to_conditioner
+            connect leftFrontSensor.pulseOut to pulseConditioner.rawPulseIn;
+
+        connection right_sensor_to_conditioner
+            connect rightFrontSensor.pulseOut to pulseConditioner.rawPulseIn;
+
+        connection conditioned_pulse_to_calculator
+            connect pulseConditioner.conditionedPulseOut to distanceCalculator.pulseIn;
+
+        connection increment_to_controller
+            connect distanceCalculator.incrementOut to controller.incrementIn;
+
+        connection speed_to_controller
+            connect distanceCalculator.speedOut to controller.speedIn;
+
+        connection memory_to_controller
+            connect memory.readingOut to controller.memoryReadingIn;
+
+        connection controller_to_memory
+            connect controller.memoryReadingOut to memory.readingIn;
+
+        connection controller_to_display
+            connect controller.readingOut to display.readingIn;
+
+        connection trip_reset_to_controller
+            connect resetTripCommandIn to controller.commandIn;
+
+        connection display_to_vehicle
+            connect display.frameOut to displayFrameOut;
+
+        connection controller_diagnostic_to_vehicle
+            connect controller.diagnosticOut to diagnosticOut;
+
+        connection calculator_diagnostic_to_vehicle
+            connect distanceCalculator.diagnosticOut to diagnosticOut;
+
+        connection conditioner_diagnostic_to_vehicle
+            connect pulseConditioner.diagnosticOut to diagnosticOut;
+
+        connection memory_diagnostic_to_vehicle
+            connect memory.diagnosticOut to diagnosticOut;
+
+        action operateOdometer {
+            first start;
+
+            then action readIgnitionState {
+                out item ignition : IgnitionStatus;
+            }
+
+            then action validatePower {
+                in item ignition : IgnitionStatus;
+                out item supply : PowerSupply;
+            }
+
+            then action receiveWheelPulses {
+                out item pulse : WheelRotationPulse;
+            }
+
+            then action filterPulses {
+                in item pulse : WheelRotationPulse;
+                out item conditionedPulse : WheelRotationPulse;
+            }
+
+            then action calculateTravel {
+                in item conditionedPulse : WheelRotationPulse;
+                out item increment : DistanceIncrement;
+            }
+
+            then action accumulateReading {
+                in item increment : DistanceIncrement;
+                out item reading : OdometerReading;
+            }
+
+            then action storeReading {
+                in item reading : OdometerReading;
+            }
+
+            then action displayReading {
+                in item reading : OdometerReading;
+                out item frame : DisplayFrame;
+            }
+
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject odometerSystem : OdometerSystem;
+        require constraint {
+            odometerSystem.primaryFunction == "Measure wheel rotation, convert validated movement pulses into accumulated vehicle distance, preserve the lifetime total distance, support resettable trip distance, and present the reading to the driver."
+        }
+    }
+
+    requirement def DistanceAccuracyRequirement {
+        subject odometerSystem : OdometerSystem;
+        require constraint {
+            odometerSystem.requiredAccuracyPercent <= 1.0
+        }
+    }
+
+    requirement def PersistentTotalDistanceRequirement {
+        subject memory : NonvolatileMemory;
+        require constraint {
+            memory.retentionYears >= 15.0
+        }
+    }
+
+    requirement def DisplayRangeRequirement {
+        subject controller : OdometerController;
+        require constraint {
+            controller.maximumDisplayDistance.value >= 999999.9
+        }
+    }
+
+    requirement def TripResetRequirement {
+        subject controller : OdometerController;
+        require constraint {
+            controller.tripDistance.value >= 0.0
+        }
+    }
+
+    requirement def PowerOperatingRequirement {
+        subject powerInterface : VehiclePowerInterface;
+        require constraint {
+            powerInterface.minimumOperatingVoltage <= 9.0 and powerInterface.maximumOperatingVoltage >= 16.0
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject odometerSystem : OdometerSystem;
+        require constraint {
+            odometerSystem.operatingTemperatureMin <= -40.0 and odometerSystem.operatingTemperatureMax >= 85.0
+        }
+    }
+
+    requirement def PulsePlausibilityRequirement {
+        subject calculator : DistanceCalculator;
+        require constraint {
+            calculator.maximumAcceptedSpeed.value <= 260.0
+        }
+    }
+
+    requirement primaryFunctionRequirement : PrimaryFunctionRequirement {
+        subject odometerSystem = odometer;
+    }
+
+    requirement distanceAccuracyRequirement : DistanceAccuracyRequirement {
+        subject odometerSystem = odometer;
+    }
+
+    requirement persistentTotalDistanceRequirement : PersistentTotalDistanceRequirement {
+        subject memory = odometer.memory;
+    }
+
+    requirement displayRangeRequirement : DisplayRangeRequirement {
+        subject controller = odometer.controller;
+    }
+
+    requirement tripResetRequirement : TripResetRequirement {
+        subject controller = odometer.controller;
+    }
+
+    requirement powerOperatingRequirement : PowerOperatingRequirement {
+        subject powerInterface = odometer.powerInterface;
+    }
+
+    requirement environmentalRequirement : EnvironmentalRequirement {
+        subject odometerSystem = odometer;
+    }
+
+    requirement pulsePlausibilityRequirement : PulsePlausibilityRequirement {
+        subject calculator = odometer.distanceCalculator;
+    }
+
+    part odometer : OdometerSystem;
+
+}

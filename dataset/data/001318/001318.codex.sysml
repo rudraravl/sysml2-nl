@@ -1,0 +1,575 @@
+package WireChamberDetectorSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricFieldStrength {
+        unit = SI::volt / SI::meter;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def GasFlowRate {
+        unit = SI::liter / SI::minute;
+    }
+
+    attribute def RadiationDoseRate {
+        unit = SI::sievert / SI::hour;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeInterval :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def PositionResolution {
+        unit = SI::micrometer;
+    }
+
+    attribute def SignalAmplitude {
+        unit = SI::volt;
+    }
+
+    attribute def CountRate {
+        unit = 1 / SI::second;
+    }
+
+    attribute def Efficiency {
+        unit = SI::percent;
+    }
+
+    item def ChargedParticle {
+        attribute kineticEnergy : ISQ::energy;
+        attribute charge : ISQ::electricCharge;
+        attribute incidentAngle : ISQ::planeAngle;
+        attribute entryTime : TimeInterval;
+    }
+
+    item def IonizationCluster {
+        attribute electronCount : ScalarValues::Integer;
+        attribute ionCount : ScalarValues::Integer;
+        attribute driftStartTime : TimeInterval;
+        attribute approximatePositionX : ISQ::length;
+        attribute approximatePositionY : ISQ::length;
+    }
+
+    item def AvalancheCharge {
+        attribute totalCharge : ISQ::electricCharge;
+        attribute multiplicationGain : ScalarValues::Real;
+        attribute collectionTime : TimeInterval;
+    }
+
+    item def AnalogPulse {
+        attribute amplitude : SignalAmplitude;
+        attribute riseTime : TimeInterval;
+        attribute width : TimeInterval;
+        attribute channelId : ScalarValues::Integer;
+    }
+
+    item def DigitalHit {
+        attribute channelId : ScalarValues::Integer;
+        attribute timeStamp : TimeInterval;
+        attribute timeOverThreshold : TimeInterval;
+        attribute estimatedCoordinate : ISQ::length;
+    }
+
+    item def ReconstructedTrack {
+        attribute trackId : ScalarValues::Integer;
+        attribute interceptX : ISQ::length;
+        attribute interceptY : ISQ::length;
+        attribute slopeX : ScalarValues::Real;
+        attribute slopeY : ScalarValues::Real;
+        attribute fitQuality : ScalarValues::Real;
+    }
+
+    item def DetectorStatus {
+        attribute highVoltageStable : ScalarValues::Boolean;
+        attribute gasFlowStable : ScalarValues::Boolean;
+        attribute electronicsReady : ScalarValues::Boolean;
+        attribute safeToAcquire : ScalarValues::Boolean;
+    }
+
+    port def ParticleEntryPort {
+        in item particle : ChargedParticle;
+    }
+
+    port def GasPort {
+        in item supplyGas;
+        out item exhaustGas;
+        attribute flowRate : GasFlowRate;
+        attribute pressure : Pressure;
+    }
+
+    port def HighVoltagePort {
+        in attribute potential : ElectricPotential;
+        out attribute leakageCurrent : ISQ::electricCurrent;
+    }
+
+    port def SignalPort {
+        out item pulse : AnalogPulse;
+    }
+
+    port def DataPort {
+        out item hit : DigitalHit;
+        out item track : ReconstructedTrack;
+        out item status : DetectorStatus;
+    }
+
+    port def ControlPort {
+        in attribute enableAcquisition : ScalarValues::Boolean;
+        in attribute requestedHighVoltage : ElectricPotential;
+        in attribute requestedGasFlow : GasFlowRate;
+        out attribute interlockActive : ScalarValues::Boolean;
+    }
+
+    part def GasVolume {
+        port particleIn : ParticleEntryPort;
+        port gasInterface : GasPort;
+
+        attribute operatingPressure : Pressure = 101325 [SI::pascal];
+        attribute operatingTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute nominalFlowRate : GasFlowRate = 2.0 [SI::liter / SI::minute];
+        attribute activeLength : ISQ::length = 1.0 [SI::meter];
+        attribute activeWidth : ISQ::length = 0.5 [SI::meter];
+        attribute activeDepth : ISQ::length = 0.02 [SI::meter];
+
+        perform action ionizeGas {
+            in item particle : ChargedParticle;
+            out item clusters : IonizationCluster;
+        }
+    }
+
+    part def CathodePlane {
+        port hv : HighVoltagePort;
+
+        attribute cathodePotential : ElectricPotential = -1500 [SI::volt];
+        attribute fieldUniformity : Efficiency = 98 [SI::percent];
+        attribute plateSpacing : ISQ::length = 0.01 [SI::meter];
+    }
+
+    part def SenseWire {
+        port hv : HighVoltagePort;
+        port signalOut : SignalPort;
+
+        attribute wireId : ScalarValues::Integer;
+        attribute wireDiameter : ISQ::length = 20 [SI::micrometer];
+        attribute wirePitch : ISQ::length = 2 [SI::millimeter];
+        attribute anodePotential : ElectricPotential = 1800 [SI::volt];
+        attribute localFieldStrength : ElectricFieldStrength = 1.5e6 [SI::volt / SI::meter];
+        attribute maximumRate : CountRate = 100000 [1 / SI::second];
+
+        perform action collectAvalanche {
+            in item cluster : IonizationCluster;
+            out item charge : AvalancheCharge;
+        }
+
+        perform action generatePulse {
+            in item charge : AvalancheCharge;
+            out item pulse : AnalogPulse;
+        }
+    }
+
+    part def WireArray {
+        port hvBus : HighVoltagePort;
+        port signalBus : SignalPort;
+
+        attribute wireCount : ScalarValues::Integer = 256;
+        attribute pitch : ISQ::length = 2 [SI::millimeter];
+        attribute sensitiveWidth : ISQ::length = 0.512 [SI::meter];
+
+        part wires[256] : SenseWire;
+
+        connect hvBus to wires.hv;
+        connect wires.signalOut to signalBus;
+    }
+
+    part def FrontEndElectronics {
+        port analogIn : SignalPort;
+        port dataOut : DataPort;
+        port control : ControlPort;
+
+        attribute threshold : SignalAmplitude = 0.015 [SI::volt];
+        attribute shapingTime : TimeInterval = 50e-9 [SI::second];
+        attribute timeResolution : TimeInterval = 5e-9 [SI::second];
+        attribute noiseRms : SignalAmplitude = 0.002 [SI::volt];
+
+        perform action discriminatePulse {
+            in item pulse : AnalogPulse;
+            out item hit : DigitalHit;
+        }
+
+        perform action publishStatus {
+            out item status : DetectorStatus;
+        }
+
+        state def ElectronicsState {
+            entry; then SelfTest;
+
+            state SelfTest;
+            state Standby;
+            state Armed;
+            state Acquiring;
+            state Fault;
+
+            transition SelfTest_to_Standby
+                first SelfTest
+                then Standby;
+
+            transition Standby_to_Armed
+                first Standby
+                accept enableAcquisition
+                if control.enableAcquisition
+                then Armed;
+
+            transition Armed_to_Acquiring
+                first Armed
+                accept stableDetector
+                then Acquiring;
+
+            transition Acquiring_to_Standby
+                first Acquiring
+                accept acquisitionDisabled
+                if not control.enableAcquisition
+                then Standby;
+
+            transition Any_to_Fault
+                first SelfTest, Standby, Armed, Acquiring
+                accept electronicsError
+                then Fault;
+        }
+    }
+
+    part def HighVoltageSupply {
+        port output : HighVoltagePort;
+        port control : ControlPort;
+
+        attribute setpoint : ElectricPotential = 1800 [SI::volt];
+        attribute rampRate : ElectricPotential = 50 [SI::volt];
+        attribute currentLimit : ISQ::electricCurrent = 20e-6 [SI::ampere];
+        attribute tripDelay : TimeInterval = 0.1 [SI::second];
+
+        perform action regulateVoltage {
+            in attribute requested : ElectricPotential;
+            out attribute delivered : ElectricPotential;
+        }
+
+        state def HighVoltageState {
+            entry; then Off;
+
+            state Off;
+            state RampingUp;
+            state Stable;
+            state RampingDown;
+            state Tripped;
+
+            transition Off_to_RampingUp
+                first Off
+                accept hvEnable
+                if not control.interlockActive
+                then RampingUp;
+
+            transition RampingUp_to_Stable
+                first RampingUp
+                accept voltageAtSetpoint
+                then Stable;
+
+            transition Stable_to_RampingDown
+                first Stable
+                accept hvDisable
+                then RampingDown;
+
+            transition RampingDown_to_Off
+                first RampingDown
+                accept voltageNearZero
+                then Off;
+
+            transition Stable_to_Tripped
+                first Stable
+                accept overCurrent
+                then Tripped;
+        }
+    }
+
+    part def GasHandlingSubsystem {
+        port chamberGas : GasPort;
+        port control : ControlPort;
+
+        attribute argonFraction : Efficiency = 70 [SI::percent];
+        attribute carbonDioxideFraction : Efficiency = 30 [SI::percent];
+        attribute nominalPressure : Pressure = 101325 [SI::pascal];
+        attribute minimumFlowRate : GasFlowRate = 1.0 [SI::liter / SI::minute];
+        attribute maximumOxygenContamination : Efficiency = 0.1 [SI::percent];
+
+        perform action regulateGas {
+            in attribute requestedFlow : GasFlowRate;
+            out attribute actualFlow : GasFlowRate;
+            out attribute actualPressure : Pressure;
+        }
+
+        perform action purgeChamber {
+            out attribute purgeComplete : ScalarValues::Boolean;
+        }
+    }
+
+    part def TrackProcessor {
+        port hitIn : DataPort;
+        port dataOut : DataPort;
+
+        attribute minimumHitsPerTrack : ScalarValues::Integer = 4;
+        attribute nominalPositionResolution : PositionResolution = 150 [SI::micrometer];
+        attribute maximumLatency : TimeInterval = 2e-6 [SI::second];
+
+        perform action reconstructTrack {
+            in item hits : DigitalHit;
+            out item track : ReconstructedTrack;
+        }
+    }
+
+    part def SafetyInterlock {
+        port control : ControlPort;
+        port hvMonitor : HighVoltagePort;
+        port gasMonitor : GasPort;
+
+        attribute maximumLeakageCurrent : ISQ::electricCurrent = 10e-6 [SI::ampere];
+        attribute minimumGasFlow : GasFlowRate = 1.0 [SI::liter / SI::minute];
+        attribute maximumDoseRateAtServicePanel : RadiationDoseRate = 2e-6 [SI::sievert / SI::hour];
+
+        perform action evaluateSafety {
+            in attribute leakageCurrent : ISQ::electricCurrent;
+            in attribute gasFlow : GasFlowRate;
+            out attribute interlockActive : ScalarValues::Boolean;
+        }
+    }
+
+    part def WireChamberDetector {
+        port particleInput : ParticleEntryPort;
+        port gasService : GasPort;
+        port highVoltageInput : HighVoltagePort;
+        port controlInterface : ControlPort;
+        port dataInterface : DataPort;
+
+        attribute detectionEfficiency : Efficiency = 95 [SI::percent];
+        attribute spatialResolution : PositionResolution = 150 [SI::micrometer];
+        attribute maximumSustainableRate : CountRate = 50000 [1 / SI::second];
+
+        part gasVolume : GasVolume;
+        part cathodeTop : CathodePlane;
+        part cathodeBottom : CathodePlane;
+        part wireArrayX : WireArray;
+        part wireArrayY : WireArray;
+        part electronics : FrontEndElectronics;
+        part hvSupply : HighVoltageSupply;
+        part gasHandling : GasHandlingSubsystem;
+        part processor : TrackProcessor;
+        part interlock : SafetyInterlock;
+
+        connect particleInput to gasVolume.particleIn;
+        connect gasService to gasHandling.chamberGas;
+        connect gasHandling.chamberGas to gasVolume.gasInterface;
+
+        connect highVoltageInput to hvSupply.output;
+        connect hvSupply.output to cathodeTop.hv;
+        connect hvSupply.output to cathodeBottom.hv;
+        connect hvSupply.output to wireArrayX.hvBus;
+        connect hvSupply.output to wireArrayY.hvBus;
+
+        connect wireArrayX.signalBus to electronics.analogIn;
+        connect wireArrayY.signalBus to electronics.analogIn;
+        connect electronics.dataOut to processor.hitIn;
+        connect processor.dataOut to dataInterface;
+        connect electronics.dataOut to dataInterface;
+
+        connect controlInterface to electronics.control;
+        connect controlInterface to hvSupply.control;
+        connect controlInterface to gasHandling.control;
+        connect controlInterface to interlock.control;
+        connect interlock.hvMonitor to hvSupply.output;
+        connect interlock.gasMonitor to gasHandling.chamberGas;
+
+        perform action detectChargedParticle {
+            in item incidentParticle : ChargedParticle;
+            out item measuredTrack : ReconstructedTrack;
+
+            first start;
+            then gasIonization;
+            then electronDrift;
+            then avalancheMultiplication;
+            then signalReadout;
+            then hitDigitization;
+            then trackReconstruction;
+            then done;
+
+            action gasIonization {
+                in item incidentParticle : ChargedParticle;
+                out item clusters : IonizationCluster;
+            }
+
+            action electronDrift {
+                in item clusters : IonizationCluster;
+                out item collectedClusters : IonizationCluster;
+            }
+
+            action avalancheMultiplication {
+                in item collectedClusters : IonizationCluster;
+                out item avalanche : AvalancheCharge;
+            }
+
+            action signalReadout {
+                in item avalanche : AvalancheCharge;
+                out item pulse : AnalogPulse;
+            }
+
+            action hitDigitization {
+                in item pulse : AnalogPulse;
+                out item hit : DigitalHit;
+            }
+
+            action trackReconstruction {
+                in item hit : DigitalHit;
+                out item measuredTrack : ReconstructedTrack;
+            }
+        }
+
+        state def DetectorOperatingState {
+            entry; then Unpowered;
+
+            state Unpowered;
+            state PurgingGas;
+            state HighVoltageRamp;
+            state Ready;
+            state Measuring;
+            state SafeShutdown;
+            state FaultLocked;
+
+            transition Unpowered_to_PurgingGas
+                first Unpowered
+                accept powerApplied
+                then PurgingGas;
+
+            transition PurgingGas_to_HighVoltageRamp
+                first PurgingGas
+                accept gasStable
+                then HighVoltageRamp;
+
+            transition HighVoltageRamp_to_Ready
+                first HighVoltageRamp
+                accept voltageStable
+                then Ready;
+
+            transition Ready_to_Measuring
+                first Ready
+                accept acquisitionEnabled
+                if controlInterface.enableAcquisition
+                then Measuring;
+
+            transition Measuring_to_Ready
+                first Measuring
+                accept acquisitionStopped
+                if not controlInterface.enableAcquisition
+                then Ready;
+
+            transition Ready_to_SafeShutdown
+                first Ready
+                accept shutdownRequested
+                then SafeShutdown;
+
+            transition Measuring_to_FaultLocked
+                first Measuring
+                accept unsafeCondition
+                then FaultLocked;
+
+            transition HighVoltageRamp_to_FaultLocked
+                first HighVoltageRamp
+                accept unsafeCondition
+                then FaultLocked;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The wire chamber shall detect charged particles passing through its gas volume by converting ionization into electrical pulses on sense wires and reconstructing the particle trajectory from digitized wire hits. */
+
+        subject detector : WireChamberDetector;
+
+        require constraint {
+            detector.detectionEfficiency >= 95 [SI::percent]
+        }
+
+        require constraint {
+            detector.spatialResolution <= 150 [SI::micrometer]
+        }
+    }
+
+    requirement def GasStabilityRequirement {
+        doc /* The gas subsystem shall maintain a stable argon-carbon-dioxide mixture, pressure, and flow sufficient for repeatable ionization drift and avalanche gain. */
+
+        subject gasSubsystem : GasHandlingSubsystem;
+
+        require constraint {
+            gasSubsystem.minimumFlowRate >= 1.0 [SI::liter / SI::minute]
+        }
+
+        require constraint {
+            gasSubsystem.maximumOxygenContamination <= 0.1 [SI::percent]
+        }
+    }
+
+    requirement def HighVoltageSafetyRequirement {
+        doc /* The high-voltage subsystem shall provide stable detector bias while limiting current and entering a tripped state under unsafe leakage-current conditions. */
+
+        subject supply : HighVoltageSupply;
+
+        require constraint {
+            supply.currentLimit <= 20e-6 [SI::ampere]
+        }
+
+        require constraint {
+            supply.tripDelay <= 0.1 [SI::second]
+        }
+    }
+
+    requirement def ReadoutPerformanceRequirement {
+        doc /* The readout electronics and track processor shall digitize wire pulses and publish reconstructed tracks with bounded timing uncertainty and processing latency. */
+
+        subject electronics : FrontEndElectronics;
+        subject processor : TrackProcessor;
+
+        require constraint {
+            electronics.timeResolution <= 5e-9 [SI::second]
+        }
+
+        require constraint {
+            processor.maximumLatency <= 2e-6 [SI::second]
+        }
+    }
+
+    requirement def InterlockRequirement {
+        doc /* The detector shall inhibit acquisition and remove operating bias when gas flow is insufficient or high-voltage leakage current exceeds the configured safety limit. */
+
+        subject interlock : SafetyInterlock;
+
+        require constraint {
+            interlock.minimumGasFlow >= 1.0 [SI::liter / SI::minute]
+        }
+
+        require constraint {
+            interlock.maximumLeakageCurrent <= 10e-6 [SI::ampere]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by WireChamberDetector;
+    satisfy GasStabilityRequirement by WireChamberDetector::gasHandling;
+    satisfy HighVoltageSafetyRequirement by WireChamberDetector::hvSupply;
+    satisfy ReadoutPerformanceRequirement by WireChamberDetector::electronics;
+    satisfy ReadoutPerformanceRequirement by WireChamberDetector::processor;
+    satisfy InterlockRequirement by WireChamberDetector::interlock;
+}

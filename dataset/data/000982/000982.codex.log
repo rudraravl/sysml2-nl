@@ -1,0 +1,744 @@
+WARNING: failed to clean up stale arg0 temp dirs: Directory not empty (os error 39)
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-daejo2a6
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb503-e41e-7242-a3ff-7523d2cd4a9a
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Auxanometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AuxanometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def LengthValue {
+    attribute value : Real;
+    attribute unit : String = "mm";
+  }
+
+  attribute def TimeValue {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  attribute def GrowthRateValue {
+    attribute value : Real;
+    attribute unit : String = "mm/h";
+  }
+
+  attribute def ForceValue {
+    attribute value : Real;
+    attribute unit : String = "N";
+  }
+
+  attribute def TemperatureValue {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def HumidityValue {
+    attribute value : Real;
+    attribute unit : String = "%RH";
+  }
+
+  item def StemDisplacement {
+    attribute displacement : LengthValue;
+    attribute timestamp : TimeValue;
+  }
+
+  item def GrowthMeasurement {
+    attribute initialLength : LengthValue;
+    attribute currentLength : LengthValue;
+    attribute elapsedTime : TimeValue;
+    attribute growthRate : GrowthRateValue;
+  }
+
+  item def EnvironmentalCondition {
+    attribute temperature : TemperatureValue;
+    attribute humidity : HumidityValue;
+    attribute timestamp : TimeValue;
+  }
+
+  item def MeasurementReport {
+    attribute measuredGrowth : GrowthMeasurement;
+    attribute environment : EnvironmentalCondition;
+    attribute valid : Boolean;
+  }
+
+  port def MechanicalGrowthPort {
+    in item stemMotion : StemDisplacement;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute supplyVoltage : Real;
+    in attribute supplyCurrent : Real;
+  }
+
+  port def DataPort {
+    out item report : MeasurementReport;
+  }
+
+  port def SensorSignalPort {
+    out item displacementSignal : StemDisplacement;
+  }
+
+  port def EnvironmentSignalPort {
+    out item condition : EnvironmentalCondition;
+  }
+
+  port def ControlPort {
+    in attribute resetCommand : Boolean;
+    in attribute sampleCommand : Boolean;
+    out attribute ready : Boolean;
+  }
+
+  part def PlantSpecimen {
+    attribute speciesName : String;
+    attribute initialStemLength : LengthValue;
+    attribute currentStemLength : LengthValue;
+    attribute maximumAllowedContactForce : ForceValue = (value = 0.02, unit = "N");
+
+    port growthInterface : MechanicalGrowthPort;
+
+    action elongateStem {
+      in attribute elapsed : TimeValue;
+      out item displacement : StemDisplacement;
+    }
+  }
+
+  part def GrowthFollower {
+    attribute contactForce : ForceValue = (value = 0.01, unit = "N");
+    attribute leverRatio : Real = 10.0;
+
+    port plantContact : MechanicalGrowthPort;
+    port amplifiedMotion : SensorSignalPort;
+
+    action amplifyGrowthMotion {
+      in item rawMotion : StemDisplacement;
+      out item amplifiedMotionItem : StemDisplacement;
+    }
+  }
+
+  part def DisplacementTransducer {
+    attribute resolution : LengthValue = (value = 0.01, unit = "mm");
+    attribute measurementRange : LengthValue = (value = 100.0, unit = "mm");
+    attribute calibratedOffset : LengthValue = (value = 0.0, unit = "mm");
+
+    port mechanicalInput : MechanicalGrowthPort;
+    port sensorOutput : SensorSignalPort;
+    port powerInput : ElectricalPowerPort;
+
+    action convertDisplacementToSignal {
+      in item physicalDisplacement : StemDisplacement;
+      out item measuredDisplacement : StemDisplacement;
+    }
+  }
+
+  part def EnvironmentSensor {
+    attribute temperatureAccuracy : TemperatureValue = (value = 0.5, unit = "degC");
+    attribute humidityAccuracy : HumidityValue = (value = 3.0, unit = "%RH");
+
+    port environmentOutput : EnvironmentSignalPort;
+    port powerInput : ElectricalPowerPort;
+
+    action sampleEnvironment {
+      out item condition : EnvironmentalCondition;
+    }
+  }
+
+  part def DataProcessor {
+    attribute sampleInterval : TimeValue = (value = 60.0, unit = "s");
+    attribute minimumDetectableGrowthRate : GrowthRateValue = (value = 0.01, unit = "mm/h");
+    attribute storedInitialLength : LengthValue;
+    attribute lastMeasuredLength : LengthValue;
+
+    port displacementInput : SensorSignalPort;
+    port environmentInput : EnvironmentSignalPort;
+    port control : ControlPort;
+    port dataOutput : DataPort;
+    port powerInput : ElectricalPowerPort;
+
+    action initializeMeasurement {
+      in item firstDisplacement : StemDisplacement;
+      out attribute baselineSet : Boolean;
+    }
+
+    action calculateGrowthRate {
+      in item currentDisplacement : StemDisplacement;
+      in item environment : EnvironmentalCondition;
+      out item report : MeasurementReport;
+    }
+
+    action validateMeasurement {
+      in item candidateReport : MeasurementReport;
+      out item validatedReport : MeasurementReport;
+    }
+
+    state def MeasurementController {
+      state poweredOff;
+      state initializing;
+      state ready;
+      state sampling;
+      state processing;
+      state reporting;
+      state fault;
+
+      transition first poweredOff then initializing
+        accept PowerApplied;
+
+      transition initializing then ready
+        accept CalibrationComplete;
+
+      transition ready then sampling
+        accept SampleRequested;
+
+      transition sampling then processing
+        accept DisplacementCaptured;
+
+      transition processing then reporting
+        accept GrowthRateCalculated;
+
+      transition reporting then ready
+        accept ReportTransmitted;
+
+      transition ready then initializing
+        accept ResetRequested;
+
+      transition sampling then fault
+        accept SensorSignalInvalid;
+
+      transition processing then fault
+        accept ComputationInvalid;
+
+      transition fault then initializing
+        accept ResetRequested;
+    }
+  }
+
+  part def DisplayAndLogger {
+    attribute storageCapacityRecords : Integer = 10000;
+
+    port reportInput : DataPort;
+    port powerInput : ElectricalPowerPort;
+
+    action recordReport {
+      in item report : MeasurementReport;
+    }
+
+    action showCurrentGrowthRate {
+      in item report : MeasurementReport;
+    }
+  }
+
+  part def PowerSupply {
+    attribute nominalVoltage : Real = 5.0;
+    attribute maximumCurrent : Real = 1.0;
+
+    port processorPower : ElectricalPowerPort;
+    port transducerPower : ElectricalPowerPort;
+    port environmentSensorPower : ElectricalPowerPort;
+    port loggerPower : ElectricalPowerPort;
+  }
+
+  part def Auxanometer {
+    attribute primaryFunction : String =
+      "Measure small changes in plant stem length over time and convert them into a growth-rate report.";
+
+    part plant : PlantSpecimen {
+      attribute speciesName = "Phaseolus vulgaris";
+      attribute initialStemLength = (value = 120.0, unit = "mm");
+      attribute currentStemLength = (value = 120.0, unit = "mm");
+    }
+
+    part follower : GrowthFollower;
+    part transducer : DisplacementTransducer;
+    part environmentSensor : EnvironmentSensor;
+    part processor : DataProcessor;
+    part logger : DisplayAndLogger;
+    part power : PowerSupply;
+
+    port measuredData : DataPort;
+    port operatorControl : ControlPort;
+
+    connect plant.growthInterface to follower.plantContact;
+    connect follower.amplifiedMotion to transducer.mechanicalInput;
+    connect transducer.sensorOutput to processor.displacementInput;
+    connect environmentSensor.environmentOutput to processor.environmentInput;
+    connect processor.dataOutput to logger.reportInput;
+    connect processor.dataOutput to measuredData;
+    connect operatorControl to processor.control;
+
+    connect power.processorPower to processor.powerInput;
+    connect power.transducerPower to transducer.powerInput;
+    connect power.environmentSensorPower to environmentSensor.powerInput;
+    connect power.loggerPower to logger.powerInput;
+
+    action measurePlantGrowth {
+      in attribute observationDuration : TimeValue;
+      out item finalReport : MeasurementReport;
+
+      first start;
+      then sampleStemDisplacement;
+      then sampleAmbientEnvironment;
+      then computeGrowthRate;
+      then validateAndPublishReport;
+      then done;
+
+      action sampleStemDisplacement {
+        out item displacement : StemDisplacement;
+      }
+
+      action sampleAmbientEnvironment {
+        out item condition : EnvironmentalCondition;
+      }
+
+      action computeGrowthRate {
+        in item displacement : StemDisplacement;
+        in item condition : EnvironmentalCondition;
+        out item calculatedReport : MeasurementReport;
+      }
+
+      action validateAndPublishReport {
+        in item calculatedReport : MeasurementReport;
+        out item finalReport : MeasurementReport;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The auxanometer shall measure incremental elongation of a plant stem and provide a growth rate over time. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.processor.sampleInterval.value > 0.0
+    }
+  }
+
+  requirement def MeasurementResolutionRequirement {
+    doc
+      /* The displacement transducer shall resolve stem elongation changes of 0.01 mm or smaller. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.transducer.resolution.value <= 0.01
+    }
+  }
+
+  requirement def LowContactForceRequirement {
+    doc
+      /* The growth follower shall maintain contact force below the plant specimen limit so that measurement does not inhibit growth. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.follower.contactForce.value <= auxanometer.plant.maximumAllowedContactForce.value
+    }
+  }
+
+  requirement def GrowthRateReportingRequirement {
+    doc
+      /* The auxanometer shall report growth rate in millimeters per hour with associated environmental temperature and humidity. */
+
+    subject report : MeasurementReport;
+
+    require constraint {
+      report.valid == true
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    doc
+      /* The auxanometer shall support cumulative measured elongation of at least 100 mm. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.transducer.measurementRange.value >= 100.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Auxanometer::measurePlantGrowth;
+  satisfy MeasurementResolutionRequirement by DisplacementTransducer;
+  satisfy LowContactForceRequirement by GrowthFollower;
+  satisfy GrowthRateReportingRequirement by DataProcessor::calculateGrowthRate;
+  satisfy MeasurementRangeRequirement by DisplacementTransducer;
+
+}
+tokens used
+2,626
+package AuxanometerSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def LengthValue {
+    attribute value : Real;
+    attribute unit : String = "mm";
+  }
+
+  attribute def TimeValue {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  attribute def GrowthRateValue {
+    attribute value : Real;
+    attribute unit : String = "mm/h";
+  }
+
+  attribute def ForceValue {
+    attribute value : Real;
+    attribute unit : String = "N";
+  }
+
+  attribute def TemperatureValue {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def HumidityValue {
+    attribute value : Real;
+    attribute unit : String = "%RH";
+  }
+
+  item def StemDisplacement {
+    attribute displacement : LengthValue;
+    attribute timestamp : TimeValue;
+  }
+
+  item def GrowthMeasurement {
+    attribute initialLength : LengthValue;
+    attribute currentLength : LengthValue;
+    attribute elapsedTime : TimeValue;
+    attribute growthRate : GrowthRateValue;
+  }
+
+  item def EnvironmentalCondition {
+    attribute temperature : TemperatureValue;
+    attribute humidity : HumidityValue;
+    attribute timestamp : TimeValue;
+  }
+
+  item def MeasurementReport {
+    attribute measuredGrowth : GrowthMeasurement;
+    attribute environment : EnvironmentalCondition;
+    attribute valid : Boolean;
+  }
+
+  port def MechanicalGrowthPort {
+    in item stemMotion : StemDisplacement;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute supplyVoltage : Real;
+    in attribute supplyCurrent : Real;
+  }
+
+  port def DataPort {
+    out item report : MeasurementReport;
+  }
+
+  port def SensorSignalPort {
+    out item displacementSignal : StemDisplacement;
+  }
+
+  port def EnvironmentSignalPort {
+    out item condition : EnvironmentalCondition;
+  }
+
+  port def ControlPort {
+    in attribute resetCommand : Boolean;
+    in attribute sampleCommand : Boolean;
+    out attribute ready : Boolean;
+  }
+
+  part def PlantSpecimen {
+    attribute speciesName : String;
+    attribute initialStemLength : LengthValue;
+    attribute currentStemLength : LengthValue;
+    attribute maximumAllowedContactForce : ForceValue = (value = 0.02, unit = "N");
+
+    port growthInterface : MechanicalGrowthPort;
+
+    action elongateStem {
+      in attribute elapsed : TimeValue;
+      out item displacement : StemDisplacement;
+    }
+  }
+
+  part def GrowthFollower {
+    attribute contactForce : ForceValue = (value = 0.01, unit = "N");
+    attribute leverRatio : Real = 10.0;
+
+    port plantContact : MechanicalGrowthPort;
+    port amplifiedMotion : SensorSignalPort;
+
+    action amplifyGrowthMotion {
+      in item rawMotion : StemDisplacement;
+      out item amplifiedMotionItem : StemDisplacement;
+    }
+  }
+
+  part def DisplacementTransducer {
+    attribute resolution : LengthValue = (value = 0.01, unit = "mm");
+    attribute measurementRange : LengthValue = (value = 100.0, unit = "mm");
+    attribute calibratedOffset : LengthValue = (value = 0.0, unit = "mm");
+
+    port mechanicalInput : MechanicalGrowthPort;
+    port sensorOutput : SensorSignalPort;
+    port powerInput : ElectricalPowerPort;
+
+    action convertDisplacementToSignal {
+      in item physicalDisplacement : StemDisplacement;
+      out item measuredDisplacement : StemDisplacement;
+    }
+  }
+
+  part def EnvironmentSensor {
+    attribute temperatureAccuracy : TemperatureValue = (value = 0.5, unit = "degC");
+    attribute humidityAccuracy : HumidityValue = (value = 3.0, unit = "%RH");
+
+    port environmentOutput : EnvironmentSignalPort;
+    port powerInput : ElectricalPowerPort;
+
+    action sampleEnvironment {
+      out item condition : EnvironmentalCondition;
+    }
+  }
+
+  part def DataProcessor {
+    attribute sampleInterval : TimeValue = (value = 60.0, unit = "s");
+    attribute minimumDetectableGrowthRate : GrowthRateValue = (value = 0.01, unit = "mm/h");
+    attribute storedInitialLength : LengthValue;
+    attribute lastMeasuredLength : LengthValue;
+
+    port displacementInput : SensorSignalPort;
+    port environmentInput : EnvironmentSignalPort;
+    port control : ControlPort;
+    port dataOutput : DataPort;
+    port powerInput : ElectricalPowerPort;
+
+    action initializeMeasurement {
+      in item firstDisplacement : StemDisplacement;
+      out attribute baselineSet : Boolean;
+    }
+
+    action calculateGrowthRate {
+      in item currentDisplacement : StemDisplacement;
+      in item environment : EnvironmentalCondition;
+      out item report : MeasurementReport;
+    }
+
+    action validateMeasurement {
+      in item candidateReport : MeasurementReport;
+      out item validatedReport : MeasurementReport;
+    }
+
+    state def MeasurementController {
+      state poweredOff;
+      state initializing;
+      state ready;
+      state sampling;
+      state processing;
+      state reporting;
+      state fault;
+
+      transition first poweredOff then initializing
+        accept PowerApplied;
+
+      transition initializing then ready
+        accept CalibrationComplete;
+
+      transition ready then sampling
+        accept SampleRequested;
+
+      transition sampling then processing
+        accept DisplacementCaptured;
+
+      transition processing then reporting
+        accept GrowthRateCalculated;
+
+      transition reporting then ready
+        accept ReportTransmitted;
+
+      transition ready then initializing
+        accept ResetRequested;
+
+      transition sampling then fault
+        accept SensorSignalInvalid;
+
+      transition processing then fault
+        accept ComputationInvalid;
+
+      transition fault then initializing
+        accept ResetRequested;
+    }
+  }
+
+  part def DisplayAndLogger {
+    attribute storageCapacityRecords : Integer = 10000;
+
+    port reportInput : DataPort;
+    port powerInput : ElectricalPowerPort;
+
+    action recordReport {
+      in item report : MeasurementReport;
+    }
+
+    action showCurrentGrowthRate {
+      in item report : MeasurementReport;
+    }
+  }
+
+  part def PowerSupply {
+    attribute nominalVoltage : Real = 5.0;
+    attribute maximumCurrent : Real = 1.0;
+
+    port processorPower : ElectricalPowerPort;
+    port transducerPower : ElectricalPowerPort;
+    port environmentSensorPower : ElectricalPowerPort;
+    port loggerPower : ElectricalPowerPort;
+  }
+
+  part def Auxanometer {
+    attribute primaryFunction : String =
+      "Measure small changes in plant stem length over time and convert them into a growth-rate report.";
+
+    part plant : PlantSpecimen {
+      attribute speciesName = "Phaseolus vulgaris";
+      attribute initialStemLength = (value = 120.0, unit = "mm");
+      attribute currentStemLength = (value = 120.0, unit = "mm");
+    }
+
+    part follower : GrowthFollower;
+    part transducer : DisplacementTransducer;
+    part environmentSensor : EnvironmentSensor;
+    part processor : DataProcessor;
+    part logger : DisplayAndLogger;
+    part power : PowerSupply;
+
+    port measuredData : DataPort;
+    port operatorControl : ControlPort;
+
+    connect plant.growthInterface to follower.plantContact;
+    connect follower.amplifiedMotion to transducer.mechanicalInput;
+    connect transducer.sensorOutput to processor.displacementInput;
+    connect environmentSensor.environmentOutput to processor.environmentInput;
+    connect processor.dataOutput to logger.reportInput;
+    connect processor.dataOutput to measuredData;
+    connect operatorControl to processor.control;
+
+    connect power.processorPower to processor.powerInput;
+    connect power.transducerPower to transducer.powerInput;
+    connect power.environmentSensorPower to environmentSensor.powerInput;
+    connect power.loggerPower to logger.powerInput;
+
+    action measurePlantGrowth {
+      in attribute observationDuration : TimeValue;
+      out item finalReport : MeasurementReport;
+
+      first start;
+      then sampleStemDisplacement;
+      then sampleAmbientEnvironment;
+      then computeGrowthRate;
+      then validateAndPublishReport;
+      then done;
+
+      action sampleStemDisplacement {
+        out item displacement : StemDisplacement;
+      }
+
+      action sampleAmbientEnvironment {
+        out item condition : EnvironmentalCondition;
+      }
+
+      action computeGrowthRate {
+        in item displacement : StemDisplacement;
+        in item condition : EnvironmentalCondition;
+        out item calculatedReport : MeasurementReport;
+      }
+
+      action validateAndPublishReport {
+        in item calculatedReport : MeasurementReport;
+        out item finalReport : MeasurementReport;
+      }
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The auxanometer shall measure incremental elongation of a plant stem and provide a growth rate over time. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.processor.sampleInterval.value > 0.0
+    }
+  }
+
+  requirement def MeasurementResolutionRequirement {
+    doc
+      /* The displacement transducer shall resolve stem elongation changes of 0.01 mm or smaller. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.transducer.resolution.value <= 0.01
+    }
+  }
+
+  requirement def LowContactForceRequirement {
+    doc
+      /* The growth follower shall maintain contact force below the plant specimen limit so that measurement does not inhibit growth. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.follower.contactForce.value <= auxanometer.plant.maximumAllowedContactForce.value
+    }
+  }
+
+  requirement def GrowthRateReportingRequirement {
+    doc
+      /* The auxanometer shall report growth rate in millimeters per hour with associated environmental temperature and humidity. */
+
+    subject report : MeasurementReport;
+
+    require constraint {
+      report.valid == true
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    doc
+      /* The auxanometer shall support cumulative measured elongation of at least 100 mm. */
+
+    subject auxanometer : Auxanometer;
+
+    require constraint {
+      auxanometer.transducer.measurementRange.value >= 100.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Auxanometer::measurePlantGrowth;
+  satisfy MeasurementResolutionRequirement by DisplacementTransducer;
+  satisfy LowContactForceRequirement by GrowthFollower;
+  satisfy GrowthRateReportingRequirement by DataProcessor::calculateGrowthRate;
+  satisfy MeasurementRangeRequirement by DisplacementTransducer;
+
+}

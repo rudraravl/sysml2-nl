@@ -1,0 +1,773 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-e_tt45cq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb53e-251d-7d71-a314-9eee7e4db4d0
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Faraday cup and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FaradayCupSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::meter;
+    }
+
+    attribute def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def BeamEnergy {
+        :>> unit = "electronvolt";
+        :>> quantityKind = "particle energy";
+    }
+
+    attribute def ParticleFlux {
+        :>> unit = "1 / (meter^2 * second)";
+        :>> quantityKind = "particle flux";
+    }
+
+    item def ChargedParticleBeam {
+        attribute particleCharge : ElectricCharge;
+        attribute beamCurrent : ElectricCurrent;
+        attribute beamEnergy : BeamEnergy;
+        attribute flux : ParticleFlux;
+        attribute diameter : Length;
+    }
+
+    item def CollectedCharge {
+        attribute charge : ElectricCharge;
+        attribute collectionDuration : Time;
+    }
+
+    item def MeasurementSignal {
+        attribute measuredCurrent : ElectricCurrent;
+        attribute signalVoltage : ElectricPotential;
+        attribute integrationTime : Time;
+        attribute noiseCurrent : ElectricCurrent;
+    }
+
+    item def ThermalLoad {
+        attribute depositedPower {
+            :>> unit = SI::watt;
+        }
+        attribute collectorTemperature : Temperature;
+    }
+
+    item def VacuumEnvironment {
+        attribute pressure {
+            :>> unit = SI::pascal;
+        }
+        attribute gasTemperature : Temperature;
+    }
+
+    port def BeamInputPort {
+        in item beam : ChargedParticleBeam;
+    }
+
+    port def ChargeCollectionPort {
+        in item collectedCharge : CollectedCharge;
+    }
+
+    port def SignalPort {
+        out item signal : MeasurementSignal;
+    }
+
+    port def VacuumPort {
+        inout item environment : VacuumEnvironment;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalLoad;
+    }
+
+    port def ElectricalGroundPort {
+        attribute potential : ElectricPotential;
+    }
+
+    port def ControlPort {
+        in attribute resetCommand : Boolean;
+        in attribute rangeCommand : Integer;
+        out attribute ready : Boolean;
+        out attribute fault : Boolean;
+    }
+
+    part def SuppressorElectrode {
+        attribute biasVoltage : ElectricPotential = -100.0 [SI::volt];
+        attribute apertureDiameter : Length = 0.012 [SI::meter];
+
+        port beamIn : BeamInputPort;
+        port beamOut : BeamInputPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def CollectorCup {
+        attribute cupDepth : Length = 0.080 [SI::meter];
+        attribute cupApertureDiameter : Length = 0.010 [SI::meter];
+        attribute collectionEfficiency : Real = 0.995;
+        attribute maximumTemperature : Temperature = 450.0 [SI::kelvin];
+
+        port beamIn : BeamInputPort;
+        port chargeOut : ChargeCollectionPort;
+        port thermalOut : ThermalPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def GuardRing {
+        attribute guardPotential : ElectricPotential = 0.0 [SI::volt];
+        attribute insulationResistance : Resistance = 1.0e12 [SI::ohm];
+
+        port ground : ElectricalGroundPort;
+    }
+
+    part def VacuumHousing {
+        attribute innerDiameter : Length = 0.150 [SI::meter];
+        attribute chamberLength : Length = 0.250 [SI::meter];
+        attribute nominalPressure {
+            :>> unit = SI::pascal;
+        } = 1.0e-5 [SI::pascal];
+
+        port beamEntrance : BeamInputPort;
+        port environment : VacuumPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def LowNoiseCurrentMeasurementCircuit {
+        attribute feedbackResistance : Resistance = 1.0e9 [SI::ohm];
+        attribute inputBiasCurrent : ElectricCurrent = 5.0e-15 [SI::ampere];
+        attribute currentRangeMinimum : ElectricCurrent = 1.0e-12 [SI::ampere];
+        attribute currentRangeMaximum : ElectricCurrent = 1.0e-3 [SI::ampere];
+        attribute outputScale : Real = 1.0e9;
+
+        port chargeIn : ChargeCollectionPort;
+        port signalOut : SignalPort;
+        port control : ControlPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def DataAcquisitionUnit {
+        attribute samplePeriod : Time = 0.001 [SI::second];
+        attribute averagingWindow : Time = 0.100 [SI::second];
+        attribute digitalResolution : Integer = 24;
+
+        port signalIn : SignalPort;
+        port control : ControlPort;
+    }
+
+    part def FaradayCupInstrument {
+        attribute measurementUncertainty : Real = 0.01;
+        attribute responseTime : Time = 0.010 [SI::second];
+
+        port beamInput : BeamInputPort;
+        port vacuumInterface : VacuumPort;
+        port measurementOutput : SignalPort;
+        port control : ControlPort;
+        port chassisGround : ElectricalGroundPort;
+
+        part housing : VacuumHousing;
+        part suppressor : SuppressorElectrode;
+        part collector : CollectorCup;
+        part guard : GuardRing;
+        part amplifier : LowNoiseCurrentMeasurementCircuit;
+        part acquisition : DataAcquisitionUnit;
+
+        connect beamInput to housing.beamEntrance;
+        connect housing.beamEntrance to suppressor.beamIn;
+        connect suppressor.beamOut to collector.beamIn;
+        connect collector.chargeOut to amplifier.chargeIn;
+        connect amplifier.signalOut to acquisition.signalIn;
+        connect amplifier.signalOut to measurementOutput;
+        connect vacuumInterface to housing.environment;
+        connect control to amplifier.control;
+        connect control to acquisition.control;
+        connect chassisGround to housing.ground;
+        connect chassisGround to suppressor.ground;
+        connect chassisGround to collector.ground;
+        connect chassisGround to guard.ground;
+        connect chassisGround to amplifier.ground;
+    }
+
+    action def CollectBeamCharge {
+        in item incidentBeam : ChargedParticleBeam;
+        in attribute efficiency : Real;
+        out item collectedCharge : CollectedCharge;
+
+        attribute idealCharge : ElectricCharge;
+        attribute effectiveCharge : ElectricCharge;
+
+        calc idealCharge = incidentBeam.beamCurrent * collectedCharge.collectionDuration;
+        calc effectiveCharge = idealCharge * efficiency;
+        bind collectedCharge.charge = effectiveCharge;
+    }
+
+    action def ConvertChargeToCurrentSignal {
+        in item collectedCharge : CollectedCharge;
+        in attribute feedbackResistance : Resistance;
+        out item signal : MeasurementSignal;
+
+        calc signal.measuredCurrent = collectedCharge.charge / collectedCharge.collectionDuration;
+        calc signal.signalVoltage = signal.measuredCurrent * feedbackResistance;
+        bind signal.integrationTime = collectedCharge.collectionDuration;
+    }
+
+    action def MeasureParticleBeamCurrent {
+        in item beam : ChargedParticleBeam;
+        out item signal : MeasurementSignal;
+
+        part collector : CollectorCup;
+        part amplifier : LowNoiseCurrentMeasurementCircuit;
+
+        action collect : CollectBeamCharge {
+            in incidentBeam = beam;
+            in efficiency = collector.collectionEfficiency;
+        }
+
+        action convert : ConvertChargeToCurrentSignal {
+            in collectedCharge = collect.collectedCharge;
+            in feedbackResistance = amplifier.feedbackResistance;
+            out signal = signal;
+        }
+    }
+
+    state def FaradayCupOperatingStateMachine {
+        attribute ready : Boolean;
+        attribute fault : Boolean;
+        attribute measuredCurrent : ElectricCurrent;
+        attribute collectorTemperature : Temperature;
+
+        state Off;
+        state PumpDown;
+        state BiasStabilization;
+        state Ready;
+        state Measuring;
+        state Saturated;
+        state Fault;
+        state Shutdown;
+
+        transition first Off;
+
+        transition Off_to_PumpDown
+            first Off
+            then PumpDown;
+
+        transition PumpDown_to_BiasStabilization
+            first PumpDown
+            accept VacuumReady
+            if environmentPressure <= 1.0e-4 [SI::pascal]
+            then BiasStabilization;
+
+        transition BiasStabilization_to_Ready
+            first BiasStabilization
+            accept BiasStable
+            then Ready
+            effect setReady;
+
+        transition Ready_to_Measuring
+            first Ready
+            accept BeamPresent
+            then Measuring;
+
+        transition Measuring_to_Ready
+            first Measuring
+            accept BeamAbsent
+            then Ready;
+
+        transition Measuring_to_Saturated
+            first Measuring
+            if measuredCurrent > 1.0e-3 [SI::ampere]
+            then Saturated;
+
+        transition Saturated_to_Ready
+            first Saturated
+            accept RangeIncreased
+            then Ready;
+
+        transition Measuring_to_Fault
+            first Measuring
+            if collectorTemperature > 450.0 [SI::kelvin]
+            then Fault
+            effect setFault;
+
+        transition Ready_to_Shutdown
+            first Ready
+            accept PowerDown
+            then Shutdown;
+
+        transition Fault_to_Shutdown
+            first Fault
+            accept Reset
+            then Shutdown;
+
+        action setReady {
+            out ready = true;
+            out fault = false;
+        }
+
+        action setFault {
+            out ready = false;
+            out fault = true;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Faraday cup system shall capture an incoming charged particle beam in a conductive collector and determine the beam current by measuring the net charge deposited per unit time. */
+    }
+
+    requirement def ChargeCaptureRequirement {
+        doc /* The collector geometry shall stop incident charged particles within the cup volume so that deposited charge is routed to the current measurement circuit. */
+        attribute minimumCollectionEfficiency : Real = 0.995;
+    }
+
+    requirement def SecondaryElectronSuppressionRequirement {
+        doc /* The suppressor electrode shall apply a negative bias to reduce escape of secondary electrons from the collector aperture. */
+        attribute suppressorBias : ElectricPotential = -100.0 [SI::volt];
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The measurement circuit shall resolve beam currents from 1 pA to 1 mA. */
+        attribute minimumCurrent : ElectricCurrent = 1.0e-12 [SI::ampere];
+        attribute maximumCurrent : ElectricCurrent = 1.0e-3 [SI::ampere];
+    }
+
+    requirement def VacuumOperationRequirement {
+        doc /* The instrument shall operate in a vacuum environment sufficient to limit beam scattering before charge collection. */
+        attribute maximumOperatingPressure {
+            :>> unit = SI::pascal;
+        } = 1.0e-4 [SI::pascal];
+    }
+
+    requirement def ThermalProtectionRequirement {
+        doc /* The system shall detect excessive collector heating and enter a fault state when the collector temperature exceeds the allowable limit. */
+        attribute maximumCollectorTemperature : Temperature = 450.0 [SI::kelvin];
+    }
+
+    requirement def GroundingRequirement {
+        doc /* The collector, guard ring, housing, suppressor reference, and amplifier reference shall share a controlled chassis ground to minimize leakage and measurement error. */
+        attribute maximumGroundOffset : ElectricPotential = 0.010 [SI::volt];
+    }
+
+    part faradayCupSystem : FaradayCupInstrument;
+
+    satisfy PrimaryFunctionRequirement by faradayCupSystem;
+    satisfy ChargeCaptureRequirement by faradayCupSystem.collector;
+    satisfy SecondaryElectronSuppressionRequirement by faradayCupSystem.suppressor;
+    satisfy MeasurementRangeRequirement by faradayCupSystem.amplifier;
+    satisfy VacuumOperationRequirement by faradayCupSystem.housing;
+    satisfy ThermalProtectionRequirement by faradayCupSystem.collector;
+    satisfy GroundingRequirement by faradayCupSystem;
+
+    exhibit state FaradayCupOperatingStateMachine by faradayCupSystem;
+
+    perform action MeasureParticleBeamCurrent by faradayCupSystem;
+}
+tokens used
+3,022
+package FaradayCupSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::meter;
+    }
+
+    attribute def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def BeamEnergy {
+        :>> unit = "electronvolt";
+        :>> quantityKind = "particle energy";
+    }
+
+    attribute def ParticleFlux {
+        :>> unit = "1 / (meter^2 * second)";
+        :>> quantityKind = "particle flux";
+    }
+
+    item def ChargedParticleBeam {
+        attribute particleCharge : ElectricCharge;
+        attribute beamCurrent : ElectricCurrent;
+        attribute beamEnergy : BeamEnergy;
+        attribute flux : ParticleFlux;
+        attribute diameter : Length;
+    }
+
+    item def CollectedCharge {
+        attribute charge : ElectricCharge;
+        attribute collectionDuration : Time;
+    }
+
+    item def MeasurementSignal {
+        attribute measuredCurrent : ElectricCurrent;
+        attribute signalVoltage : ElectricPotential;
+        attribute integrationTime : Time;
+        attribute noiseCurrent : ElectricCurrent;
+    }
+
+    item def ThermalLoad {
+        attribute depositedPower {
+            :>> unit = SI::watt;
+        }
+        attribute collectorTemperature : Temperature;
+    }
+
+    item def VacuumEnvironment {
+        attribute pressure {
+            :>> unit = SI::pascal;
+        }
+        attribute gasTemperature : Temperature;
+    }
+
+    port def BeamInputPort {
+        in item beam : ChargedParticleBeam;
+    }
+
+    port def ChargeCollectionPort {
+        in item collectedCharge : CollectedCharge;
+    }
+
+    port def SignalPort {
+        out item signal : MeasurementSignal;
+    }
+
+    port def VacuumPort {
+        inout item environment : VacuumEnvironment;
+    }
+
+    port def ThermalPort {
+        out item heat : ThermalLoad;
+    }
+
+    port def ElectricalGroundPort {
+        attribute potential : ElectricPotential;
+    }
+
+    port def ControlPort {
+        in attribute resetCommand : Boolean;
+        in attribute rangeCommand : Integer;
+        out attribute ready : Boolean;
+        out attribute fault : Boolean;
+    }
+
+    part def SuppressorElectrode {
+        attribute biasVoltage : ElectricPotential = -100.0 [SI::volt];
+        attribute apertureDiameter : Length = 0.012 [SI::meter];
+
+        port beamIn : BeamInputPort;
+        port beamOut : BeamInputPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def CollectorCup {
+        attribute cupDepth : Length = 0.080 [SI::meter];
+        attribute cupApertureDiameter : Length = 0.010 [SI::meter];
+        attribute collectionEfficiency : Real = 0.995;
+        attribute maximumTemperature : Temperature = 450.0 [SI::kelvin];
+
+        port beamIn : BeamInputPort;
+        port chargeOut : ChargeCollectionPort;
+        port thermalOut : ThermalPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def GuardRing {
+        attribute guardPotential : ElectricPotential = 0.0 [SI::volt];
+        attribute insulationResistance : Resistance = 1.0e12 [SI::ohm];
+
+        port ground : ElectricalGroundPort;
+    }
+
+    part def VacuumHousing {
+        attribute innerDiameter : Length = 0.150 [SI::meter];
+        attribute chamberLength : Length = 0.250 [SI::meter];
+        attribute nominalPressure {
+            :>> unit = SI::pascal;
+        } = 1.0e-5 [SI::pascal];
+
+        port beamEntrance : BeamInputPort;
+        port environment : VacuumPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def LowNoiseCurrentMeasurementCircuit {
+        attribute feedbackResistance : Resistance = 1.0e9 [SI::ohm];
+        attribute inputBiasCurrent : ElectricCurrent = 5.0e-15 [SI::ampere];
+        attribute currentRangeMinimum : ElectricCurrent = 1.0e-12 [SI::ampere];
+        attribute currentRangeMaximum : ElectricCurrent = 1.0e-3 [SI::ampere];
+        attribute outputScale : Real = 1.0e9;
+
+        port chargeIn : ChargeCollectionPort;
+        port signalOut : SignalPort;
+        port control : ControlPort;
+        port ground : ElectricalGroundPort;
+    }
+
+    part def DataAcquisitionUnit {
+        attribute samplePeriod : Time = 0.001 [SI::second];
+        attribute averagingWindow : Time = 0.100 [SI::second];
+        attribute digitalResolution : Integer = 24;
+
+        port signalIn : SignalPort;
+        port control : ControlPort;
+    }
+
+    part def FaradayCupInstrument {
+        attribute measurementUncertainty : Real = 0.01;
+        attribute responseTime : Time = 0.010 [SI::second];
+
+        port beamInput : BeamInputPort;
+        port vacuumInterface : VacuumPort;
+        port measurementOutput : SignalPort;
+        port control : ControlPort;
+        port chassisGround : ElectricalGroundPort;
+
+        part housing : VacuumHousing;
+        part suppressor : SuppressorElectrode;
+        part collector : CollectorCup;
+        part guard : GuardRing;
+        part amplifier : LowNoiseCurrentMeasurementCircuit;
+        part acquisition : DataAcquisitionUnit;
+
+        connect beamInput to housing.beamEntrance;
+        connect housing.beamEntrance to suppressor.beamIn;
+        connect suppressor.beamOut to collector.beamIn;
+        connect collector.chargeOut to amplifier.chargeIn;
+        connect amplifier.signalOut to acquisition.signalIn;
+        connect amplifier.signalOut to measurementOutput;
+        connect vacuumInterface to housing.environment;
+        connect control to amplifier.control;
+        connect control to acquisition.control;
+        connect chassisGround to housing.ground;
+        connect chassisGround to suppressor.ground;
+        connect chassisGround to collector.ground;
+        connect chassisGround to guard.ground;
+        connect chassisGround to amplifier.ground;
+    }
+
+    action def CollectBeamCharge {
+        in item incidentBeam : ChargedParticleBeam;
+        in attribute efficiency : Real;
+        out item collectedCharge : CollectedCharge;
+
+        attribute idealCharge : ElectricCharge;
+        attribute effectiveCharge : ElectricCharge;
+
+        calc idealCharge = incidentBeam.beamCurrent * collectedCharge.collectionDuration;
+        calc effectiveCharge = idealCharge * efficiency;
+        bind collectedCharge.charge = effectiveCharge;
+    }
+
+    action def ConvertChargeToCurrentSignal {
+        in item collectedCharge : CollectedCharge;
+        in attribute feedbackResistance : Resistance;
+        out item signal : MeasurementSignal;
+
+        calc signal.measuredCurrent = collectedCharge.charge / collectedCharge.collectionDuration;
+        calc signal.signalVoltage = signal.measuredCurrent * feedbackResistance;
+        bind signal.integrationTime = collectedCharge.collectionDuration;
+    }
+
+    action def MeasureParticleBeamCurrent {
+        in item beam : ChargedParticleBeam;
+        out item signal : MeasurementSignal;
+
+        part collector : CollectorCup;
+        part amplifier : LowNoiseCurrentMeasurementCircuit;
+
+        action collect : CollectBeamCharge {
+            in incidentBeam = beam;
+            in efficiency = collector.collectionEfficiency;
+        }
+
+        action convert : ConvertChargeToCurrentSignal {
+            in collectedCharge = collect.collectedCharge;
+            in feedbackResistance = amplifier.feedbackResistance;
+            out signal = signal;
+        }
+    }
+
+    state def FaradayCupOperatingStateMachine {
+        attribute ready : Boolean;
+        attribute fault : Boolean;
+        attribute measuredCurrent : ElectricCurrent;
+        attribute collectorTemperature : Temperature;
+
+        state Off;
+        state PumpDown;
+        state BiasStabilization;
+        state Ready;
+        state Measuring;
+        state Saturated;
+        state Fault;
+        state Shutdown;
+
+        transition first Off;
+
+        transition Off_to_PumpDown
+            first Off
+            then PumpDown;
+
+        transition PumpDown_to_BiasStabilization
+            first PumpDown
+            accept VacuumReady
+            if environmentPressure <= 1.0e-4 [SI::pascal]
+            then BiasStabilization;
+
+        transition BiasStabilization_to_Ready
+            first BiasStabilization
+            accept BiasStable
+            then Ready
+            effect setReady;
+
+        transition Ready_to_Measuring
+            first Ready
+            accept BeamPresent
+            then Measuring;
+
+        transition Measuring_to_Ready
+            first Measuring
+            accept BeamAbsent
+            then Ready;
+
+        transition Measuring_to_Saturated
+            first Measuring
+            if measuredCurrent > 1.0e-3 [SI::ampere]
+            then Saturated;
+
+        transition Saturated_to_Ready
+            first Saturated
+            accept RangeIncreased
+            then Ready;
+
+        transition Measuring_to_Fault
+            first Measuring
+            if collectorTemperature > 450.0 [SI::kelvin]
+            then Fault
+            effect setFault;
+
+        transition Ready_to_Shutdown
+            first Ready
+            accept PowerDown
+            then Shutdown;
+
+        transition Fault_to_Shutdown
+            first Fault
+            accept Reset
+            then Shutdown;
+
+        action setReady {
+            out ready = true;
+            out fault = false;
+        }
+
+        action setFault {
+            out ready = false;
+            out fault = true;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The Faraday cup system shall capture an incoming charged particle beam in a conductive collector and determine the beam current by measuring the net charge deposited per unit time. */
+    }
+
+    requirement def ChargeCaptureRequirement {
+        doc /* The collector geometry shall stop incident charged particles within the cup volume so that deposited charge is routed to the current measurement circuit. */
+        attribute minimumCollectionEfficiency : Real = 0.995;
+    }
+
+    requirement def SecondaryElectronSuppressionRequirement {
+        doc /* The suppressor electrode shall apply a negative bias to reduce escape of secondary electrons from the collector aperture. */
+        attribute suppressorBias : ElectricPotential = -100.0 [SI::volt];
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The measurement circuit shall resolve beam currents from 1 pA to 1 mA. */
+        attribute minimumCurrent : ElectricCurrent = 1.0e-12 [SI::ampere];
+        attribute maximumCurrent : ElectricCurrent = 1.0e-3 [SI::ampere];
+    }
+
+    requirement def VacuumOperationRequirement {
+        doc /* The instrument shall operate in a vacuum environment sufficient to limit beam scattering before charge collection. */
+        attribute maximumOperatingPressure {
+            :>> unit = SI::pascal;
+        } = 1.0e-4 [SI::pascal];
+    }
+
+    requirement def ThermalProtectionRequirement {
+        doc /* The system shall detect excessive collector heating and enter a fault state when the collector temperature exceeds the allowable limit. */
+        attribute maximumCollectorTemperature : Temperature = 450.0 [SI::kelvin];
+    }
+
+    requirement def GroundingRequirement {
+        doc /* The collector, guard ring, housing, suppressor reference, and amplifier reference shall share a controlled chassis ground to minimize leakage and measurement error. */
+        attribute maximumGroundOffset : ElectricPotential = 0.010 [SI::volt];
+    }
+
+    part faradayCupSystem : FaradayCupInstrument;
+
+    satisfy PrimaryFunctionRequirement by faradayCupSystem;
+    satisfy ChargeCaptureRequirement by faradayCupSystem.collector;
+    satisfy SecondaryElectronSuppressionRequirement by faradayCupSystem.suppressor;
+    satisfy MeasurementRangeRequirement by faradayCupSystem.amplifier;
+    satisfy VacuumOperationRequirement by faradayCupSystem.housing;
+    satisfy ThermalProtectionRequirement by faradayCupSystem.collector;
+    satisfy GroundingRequirement by faradayCupSystem;
+
+    exhibit state FaradayCupOperatingStateMachine by faradayCupSystem;
+
+    perform action MeasureParticleBeamCurrent by faradayCupSystem;
+}

@@ -1,0 +1,1263 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n0yrlcv9
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5e2-f567-7e83-ad7a-80405598e4be
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Rain gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RainGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    value def Millimeter :> LengthUnit {
+        symbol = "mm";
+    }
+
+    value def Hour :> TimeUnit {
+        symbol = "h";
+    }
+
+    value def MillimeterPerHour :> SpeedUnit {
+        symbol = "mm/h";
+    }
+
+    value def DegreeCelsius :> TemperatureUnit {
+        symbol = "degC";
+    }
+
+    value def Percent :> DimensionlessUnit {
+        symbol = "%";
+    }
+
+    value def Volt :> ElectricPotentialUnit {
+        symbol = "V";
+    }
+
+    value def Milliampere :> ElectricCurrentUnit {
+        symbol = "mA";
+    }
+
+    value def Milliliter :> VolumeUnit {
+        symbol = "mL";
+    }
+
+    value def RainfallDepth {
+        value depth : Real;
+        unit = Millimeter;
+    }
+
+    value def RainfallIntensity {
+        value rate : Real;
+        unit = MillimeterPerHour;
+    }
+
+    value def AmbientTemperature {
+        value temperature : Real;
+        unit = DegreeCelsius;
+    }
+
+    value def RelativeHumidity {
+        value humidity : Real;
+        unit = Percent;
+    }
+
+    value def SupplyVoltage {
+        value voltage : Real;
+        unit = Volt;
+    }
+
+    value def SupplyCurrent {
+        value current : Real;
+        unit = Milliampere;
+    }
+
+    item def RainWater {
+        attribute volume : Real;
+        attribute depthEquivalent : RainfallDepth;
+    }
+
+    item def FunnelFlow {
+        attribute flowVolume : Real;
+        attribute equivalentDepth : RainfallDepth;
+    }
+
+    item def TipEvent {
+        attribute tipCount : Integer;
+        attribute depthIncrement : RainfallDepth;
+        attribute eventTime : Time;
+    }
+
+    item def RainfallMeasurement {
+        attribute accumulatedDepth : RainfallDepth;
+        attribute intensity : RainfallIntensity;
+        attribute samplePeriod : Time;
+        attribute measurementTime : Time;
+        attribute sensorHealth : SensorHealthKind;
+    }
+
+    item def EnvironmentalCondition {
+        attribute temperature : AmbientTemperature;
+        attribute humidity : RelativeHumidity;
+        attribute windPresent : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : SupplyVoltage;
+        attribute current : SupplyCurrent;
+    }
+
+    item def TelemetryMessage {
+        attribute stationId : String;
+        attribute measurement : RainfallMeasurement;
+        attribute batteryVoltage : SupplyVoltage;
+        attribute enclosureOpen : Boolean;
+        attribute messageTime : Time;
+    }
+
+    enum def SensorHealthKind {
+        enum ok;
+        enum degraded;
+        enum blocked;
+        enum failed;
+    }
+
+    enum def GaugeModeKind {
+        enum standby;
+        enum measuring;
+        enum reporting;
+        enum maintenance;
+        enum fault;
+    }
+
+    port def RainCollectionPort {
+        in rain : RainWater;
+    }
+
+    port def FunnelOutletPort {
+        out directedWater : FunnelFlow;
+    }
+
+    port def BucketInputPort {
+        in directedWater : FunnelFlow;
+    }
+
+    port def TipSignalPort {
+        out tip : TipEvent;
+    }
+
+    port def TipInputPort {
+        in tip : TipEvent;
+    }
+
+    port def MeasurementOutputPort {
+        out measurement : RainfallMeasurement;
+    }
+
+    port def TelemetryOutputPort {
+        out telemetry : TelemetryMessage;
+    }
+
+    port def EnvironmentPort {
+        in condition : EnvironmentalCondition;
+    }
+
+    port def PowerInputPort {
+        in power : ElectricalPower;
+    }
+
+    port def LocalServicePort {
+        in resetCommand : Boolean;
+        out statusMessage : TelemetryMessage;
+    }
+
+    part def CollectionFunnel {
+        attribute inletDiameter : Real { unit = Millimeter; }
+        attribute collectionArea : Real;
+        attribute debrisScreenInstalled : Boolean;
+        attribute minimumParticlePassage : Real { unit = Millimeter; }
+
+        port rainIn : RainCollectionPort;
+        port waterOut : FunnelOutletPort;
+
+        action collectAndFocusRain {
+            in rain : RainWater;
+            out directedFlow : FunnelFlow;
+
+            first start;
+            then validateOpenInlet;
+            then convertDepthToFlow;
+            then dischargeToBucket;
+            then done;
+
+            action validateOpenInlet;
+            action convertDepthToFlow;
+            action dischargeToBucket;
+        }
+    }
+
+    part def TippingBucketSensor {
+        attribute bucketVolumePerTip : Real { unit = Milliliter; }
+        attribute depthPerTip : RainfallDepth;
+        attribute maximumTipRate : RainfallIntensity;
+        attribute totalTips : Integer;
+        attribute calibrated : Boolean;
+
+        port waterIn : BucketInputPort;
+        port tipOut : TipSignalPort;
+
+        state sensorState {
+            entry action initializeTipCounter;
+
+            state ready;
+            state fillingLeftCup;
+            state tippingToRightCup;
+            state fillingRightCup;
+            state tippingToLeftCup;
+            state jammed;
+
+            transition first ready;
+            transition ready then fillingLeftCup accept FunnelFlow;
+            transition fillingLeftCup then tippingToRightCup
+                if fillVolumeReachedLeft;
+            transition tippingToRightCup then fillingRightCup
+                do emitTipEvent;
+            transition fillingRightCup then tippingToLeftCup
+                if fillVolumeReachedRight;
+            transition tippingToLeftCup then fillingLeftCup
+                do emitTipEvent;
+            transition fillingLeftCup then jammed
+                if tipTimeoutExceeded;
+            transition fillingRightCup then jammed
+                if tipTimeoutExceeded;
+            transition jammed then ready
+                accept Boolean
+                if resetCommandReceived;
+        }
+
+        action initializeTipCounter;
+        action emitTipEvent {
+            out tip : TipEvent;
+        }
+
+        constraint fillVolumeReachedLeft {
+            bucketVolumePerTip > 0.0;
+        }
+
+        constraint fillVolumeReachedRight {
+            bucketVolumePerTip > 0.0;
+        }
+
+        constraint tipTimeoutExceeded {
+            maximumTipRate.rate > 0.0;
+        }
+
+        constraint resetCommandReceived {
+            calibrated == true;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute debounceTime : Time;
+        attribute minimumPulseWidth : Time;
+        attribute rejectedPulseCount : Integer;
+
+        port rawTipIn : TipInputPort;
+        port cleanTipOut : TipSignalPort;
+
+        action debounceTipSignal {
+            in rawTip : TipEvent;
+            out cleanTip : TipEvent;
+
+            first receivePulse;
+            then verifyPulseWidth;
+            then suppressBounce;
+            then publishCleanTip;
+            then done;
+
+            action receivePulse;
+            action verifyPulseWidth;
+            action suppressBounce;
+            action publishCleanTip;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute samplePeriod : Time;
+        attribute rollingWindow : Time;
+        attribute accumulatedTips : Integer;
+        attribute rainfallSinceReset : RainfallDepth;
+        attribute currentIntensity : RainfallIntensity;
+        attribute health : SensorHealthKind;
+
+        port tipIn : TipInputPort;
+        port measurementOut : MeasurementOutputPort;
+
+        action computeRainfallMeasurement {
+            in tip : TipEvent;
+            out measurement : RainfallMeasurement;
+
+            first countTip;
+            then updateAccumulatedDepth;
+            then calculateIntensity;
+            then evaluateSensorHealth;
+            then publishMeasurement;
+            then done;
+
+            action countTip;
+            action updateAccumulatedDepth;
+            action calculateIntensity;
+            action evaluateSensorHealth;
+            action publishMeasurement;
+        }
+
+        state processingState {
+            state idle;
+            state accumulating;
+            state calculating;
+            state publishing;
+            state sensorFault;
+
+            transition first idle;
+            transition idle then accumulating accept TipEvent;
+            transition accumulating then calculating;
+            transition calculating then publishing;
+            transition publishing then idle;
+            transition accumulating then sensorFault if impossibleTipRateDetected;
+            transition calculating then sensorFault if measurementInvalid;
+            transition sensorFault then idle accept Boolean if resetAccepted;
+        }
+
+        constraint impossibleTipRateDetected {
+            currentIntensity.rate <= 500.0;
+        }
+
+        constraint measurementInvalid {
+            rainfallSinceReset.depth >= 0.0;
+        }
+
+        constraint resetAccepted {
+            health != SensorHealthKind::failed;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : SupplyVoltage;
+        attribute minimumOperatingVoltage : SupplyVoltage;
+        attribute averageCurrentDraw : SupplyCurrent;
+        attribute batteryPresent : Boolean;
+
+        port powerOut : PowerInputPort;
+
+        action supplyRegulatedPower {
+            out power : ElectricalPower;
+        }
+    }
+
+    part def EnvironmentalCompensationUnit {
+        attribute temperatureRangeLow : AmbientTemperature;
+        attribute temperatureRangeHigh : AmbientTemperature;
+        attribute humidityLimit : RelativeHumidity;
+        attribute heaterEnabled : Boolean;
+
+        port environmentIn : EnvironmentPort;
+
+        action assessOperatingEnvironment {
+            in condition : EnvironmentalCondition;
+            out usable : Boolean;
+        }
+    }
+
+    part def TelemetryUnit {
+        attribute stationId : String;
+        attribute reportInterval : Time;
+        attribute lastReportTime : Time;
+        attribute messagesSent : Integer;
+
+        port measurementIn : MeasurementOutputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        action packageTelemetry {
+            in measurement : RainfallMeasurement;
+            out telemetry : TelemetryMessage;
+
+            first receiveMeasurement;
+            then addStationIdentity;
+            then addPowerAndStatus;
+            then transmitMessage;
+            then done;
+
+            action receiveMeasurement;
+            action addStationIdentity;
+            action addPowerAndStatus;
+            action transmitMessage;
+        }
+    }
+
+    part def Enclosure {
+        attribute ingressProtectionRating : String;
+        attribute enclosureOpen : Boolean;
+        attribute mountingHeight : Real { unit = Millimeter; }
+        attribute levelTolerance : Real;
+
+        port service : LocalServicePort;
+
+        action protectComponents {
+            out protected : Boolean;
+        }
+    }
+
+    part def RainGaugeSystem {
+        attribute mode : GaugeModeKind;
+        attribute totalRainfall : RainfallDepth;
+        attribute currentRainfallRate : RainfallIntensity;
+        attribute operational : Boolean;
+
+        part funnel : CollectionFunnel {
+            attribute inletDiameter = 200.0;
+            attribute debrisScreenInstalled = true;
+            attribute minimumParticlePassage = 1.5;
+        }
+
+        part bucketSensor : TippingBucketSensor {
+            attribute bucketVolumePerTip = 5.0;
+            attribute depthPerTip.depth = 0.2;
+            attribute calibrated = true;
+        }
+
+        part conditioner : SignalConditioner;
+
+        part processor : MeasurementProcessor;
+
+        part power : PowerSubsystem {
+            attribute nominalVoltage.voltage = 3.3;
+            attribute minimumOperatingVoltage.voltage = 2.8;
+            attribute averageCurrentDraw.current = 18.0;
+            attribute batteryPresent = true;
+        }
+
+        part environmentUnit : EnvironmentalCompensationUnit {
+            attribute temperatureRangeLow.temperature = -20.0;
+            attribute temperatureRangeHigh.temperature = 60.0;
+            attribute humidityLimit.humidity = 100.0;
+            attribute heaterEnabled = false;
+        }
+
+        part telemetry : TelemetryUnit {
+            attribute stationId = "RAIN-GAUGE-001";
+        }
+
+        part enclosure : Enclosure {
+            attribute ingressProtectionRating = "IP65";
+            attribute enclosureOpen = false;
+            attribute mountingHeight = 1500.0;
+        }
+
+        port rainInput : RainCollectionPort;
+        port environmentInput : EnvironmentPort;
+        port telemetryOutput : TelemetryOutputPort;
+        port servicePort : LocalServicePort;
+
+        connect rainInput to funnel.rainIn;
+        connect funnel.waterOut to bucketSensor.waterIn;
+        connect bucketSensor.tipOut to conditioner.rawTipIn;
+        connect conditioner.cleanTipOut to processor.tipIn;
+        connect processor.measurementOut to telemetry.measurementIn;
+        connect telemetry.telemetryOut to telemetryOutput;
+        connect environmentInput to environmentUnit.environmentIn;
+        connect enclosure.service to servicePort;
+        connect power.powerOut to processor.tipIn;
+
+        action measureRainfall {
+            in rain : RainWater;
+            out measurement : RainfallMeasurement;
+
+            first receivePrecipitation;
+            then collectRainThroughFunnel;
+            then convertWaterVolumeToTipEvents;
+            then filterTipSignals;
+            then computeRainfallDepthAndRate;
+            then reportMeasurement;
+            then done;
+
+            action receivePrecipitation;
+            action collectRainThroughFunnel;
+            action convertWaterVolumeToTipEvents;
+            action filterTipSignals;
+            action computeRainfallDepthAndRate;
+            action reportMeasurement;
+        }
+
+        state operatingState {
+            state standby;
+            state measuring;
+            state reporting;
+            state maintenance;
+            state fault;
+
+            transition first standby;
+            transition standby then measuring accept RainWater;
+            transition measuring then reporting accept RainfallMeasurement;
+            transition reporting then standby;
+            transition standby then maintenance accept Boolean if serviceRequested;
+            transition measuring then fault if sensorFaultDetected;
+            transition reporting then fault if telemetryFailureDetected;
+            transition fault then standby accept Boolean if resetCommandAccepted;
+            transition maintenance then standby accept Boolean if serviceComplete;
+        }
+
+        constraint serviceRequested {
+            enclosure.enclosureOpen == true;
+        }
+
+        constraint sensorFaultDetected {
+            processor.health == SensorHealthKind::failed or processor.health == SensorHealthKind::blocked;
+        }
+
+        constraint telemetryFailureDetected {
+            telemetry.messagesSent >= 0;
+        }
+
+        constraint resetCommandAccepted {
+            operational == true;
+        }
+
+        constraint serviceComplete {
+            enclosure.enclosureOpen == false;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : RainGaugeSystem;
+
+        doc
+        /* The rain gauge system shall collect falling rain, convert the collected water volume into calibrated tip events, compute accumulated rainfall depth and rainfall intensity, and provide a timestamped rainfall measurement for local or remote monitoring. */
+
+        require constraint {
+            system.operational == true;
+        }
+    }
+
+    requirement def CollectionRequirement {
+        subject funnel : CollectionFunnel;
+
+        doc
+        /* The collection funnel shall direct rain entering the gauge inlet toward the tipping bucket sensor while reducing debris entry through a screen. */
+
+        require constraint {
+            funnel.debrisScreenInstalled == true and funnel.inletDiameter > 0.0;
+        }
+    }
+
+    requirement def MeasurementResolutionRequirement {
+        subject sensor : TippingBucketSensor;
+
+        doc
+        /* The tipping bucket sensor shall generate one tip event for each calibrated bucket volume corresponding to 0.2 millimeters of rainfall depth. */
+
+        require constraint {
+            sensor.depthPerTip.depth == 0.2 and sensor.calibrated == true;
+        }
+    }
+
+    requirement def AccumulationRequirement {
+        subject processor : MeasurementProcessor;
+
+        doc
+        /* The processor shall accumulate rainfall depth from accepted tip events and shall never report a negative rainfall total. */
+
+        require constraint {
+            processor.rainfallSinceReset.depth >= 0.0;
+        }
+    }
+
+    requirement def IntensityRequirement {
+        subject processor : MeasurementProcessor;
+
+        doc
+        /* The processor shall estimate rainfall intensity over a rolling time window using debounced tip events. */
+
+        require constraint {
+            processor.rollingWindow > 0.0[s] and processor.currentIntensity.rate >= 0.0;
+        }
+    }
+
+    requirement def EnvironmentalOperatingRequirement {
+        subject environmentUnit : EnvironmentalCompensationUnit;
+
+        doc
+        /* The rain gauge shall operate within the configured outdoor temperature and humidity envelope. */
+
+        require constraint {
+            environmentUnit.temperatureRangeLow.temperature <= -20.0 and
+            environmentUnit.temperatureRangeHigh.temperature >= 60.0 and
+            environmentUnit.humidityLimit.humidity >= 95.0;
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        subject telemetry : TelemetryUnit;
+
+        doc
+        /* The telemetry unit shall produce messages containing station identity, rainfall measurement, battery voltage, enclosure status, and message time. */
+
+        require constraint {
+            telemetry.stationId != "";
+        }
+    }
+
+    requirement def EnclosureRequirement {
+        subject enclosure : Enclosure;
+
+        doc
+        /* The enclosure shall protect the electronics and sensing mechanism from outdoor ingress while allowing service access. */
+
+        require constraint {
+            enclosure.ingressProtectionRating == "IP65";
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RainGaugeSystem::measureRainfall;
+    satisfy CollectionRequirement by CollectionFunnel::collectAndFocusRain;
+    satisfy MeasurementResolutionRequirement by TippingBucketSensor::emitTipEvent;
+    satisfy AccumulationRequirement by MeasurementProcessor::computeRainfallMeasurement;
+    satisfy IntensityRequirement by MeasurementProcessor::computeRainfallMeasurement;
+    satisfy EnvironmentalOperatingRequirement by EnvironmentalCompensationUnit::assessOperatingEnvironment;
+    satisfy TelemetryRequirement by TelemetryUnit::packageTelemetry;
+    satisfy EnclosureRequirement by Enclosure::protectComponents;
+
+}
+tokens used
+3,889
+package RainGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+
+    value def Millimeter :> LengthUnit {
+        symbol = "mm";
+    }
+
+    value def Hour :> TimeUnit {
+        symbol = "h";
+    }
+
+    value def MillimeterPerHour :> SpeedUnit {
+        symbol = "mm/h";
+    }
+
+    value def DegreeCelsius :> TemperatureUnit {
+        symbol = "degC";
+    }
+
+    value def Percent :> DimensionlessUnit {
+        symbol = "%";
+    }
+
+    value def Volt :> ElectricPotentialUnit {
+        symbol = "V";
+    }
+
+    value def Milliampere :> ElectricCurrentUnit {
+        symbol = "mA";
+    }
+
+    value def Milliliter :> VolumeUnit {
+        symbol = "mL";
+    }
+
+    value def RainfallDepth {
+        value depth : Real;
+        unit = Millimeter;
+    }
+
+    value def RainfallIntensity {
+        value rate : Real;
+        unit = MillimeterPerHour;
+    }
+
+    value def AmbientTemperature {
+        value temperature : Real;
+        unit = DegreeCelsius;
+    }
+
+    value def RelativeHumidity {
+        value humidity : Real;
+        unit = Percent;
+    }
+
+    value def SupplyVoltage {
+        value voltage : Real;
+        unit = Volt;
+    }
+
+    value def SupplyCurrent {
+        value current : Real;
+        unit = Milliampere;
+    }
+
+    item def RainWater {
+        attribute volume : Real;
+        attribute depthEquivalent : RainfallDepth;
+    }
+
+    item def FunnelFlow {
+        attribute flowVolume : Real;
+        attribute equivalentDepth : RainfallDepth;
+    }
+
+    item def TipEvent {
+        attribute tipCount : Integer;
+        attribute depthIncrement : RainfallDepth;
+        attribute eventTime : Time;
+    }
+
+    item def RainfallMeasurement {
+        attribute accumulatedDepth : RainfallDepth;
+        attribute intensity : RainfallIntensity;
+        attribute samplePeriod : Time;
+        attribute measurementTime : Time;
+        attribute sensorHealth : SensorHealthKind;
+    }
+
+    item def EnvironmentalCondition {
+        attribute temperature : AmbientTemperature;
+        attribute humidity : RelativeHumidity;
+        attribute windPresent : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : SupplyVoltage;
+        attribute current : SupplyCurrent;
+    }
+
+    item def TelemetryMessage {
+        attribute stationId : String;
+        attribute measurement : RainfallMeasurement;
+        attribute batteryVoltage : SupplyVoltage;
+        attribute enclosureOpen : Boolean;
+        attribute messageTime : Time;
+    }
+
+    enum def SensorHealthKind {
+        enum ok;
+        enum degraded;
+        enum blocked;
+        enum failed;
+    }
+
+    enum def GaugeModeKind {
+        enum standby;
+        enum measuring;
+        enum reporting;
+        enum maintenance;
+        enum fault;
+    }
+
+    port def RainCollectionPort {
+        in rain : RainWater;
+    }
+
+    port def FunnelOutletPort {
+        out directedWater : FunnelFlow;
+    }
+
+    port def BucketInputPort {
+        in directedWater : FunnelFlow;
+    }
+
+    port def TipSignalPort {
+        out tip : TipEvent;
+    }
+
+    port def TipInputPort {
+        in tip : TipEvent;
+    }
+
+    port def MeasurementOutputPort {
+        out measurement : RainfallMeasurement;
+    }
+
+    port def TelemetryOutputPort {
+        out telemetry : TelemetryMessage;
+    }
+
+    port def EnvironmentPort {
+        in condition : EnvironmentalCondition;
+    }
+
+    port def PowerInputPort {
+        in power : ElectricalPower;
+    }
+
+    port def LocalServicePort {
+        in resetCommand : Boolean;
+        out statusMessage : TelemetryMessage;
+    }
+
+    part def CollectionFunnel {
+        attribute inletDiameter : Real { unit = Millimeter; }
+        attribute collectionArea : Real;
+        attribute debrisScreenInstalled : Boolean;
+        attribute minimumParticlePassage : Real { unit = Millimeter; }
+
+        port rainIn : RainCollectionPort;
+        port waterOut : FunnelOutletPort;
+
+        action collectAndFocusRain {
+            in rain : RainWater;
+            out directedFlow : FunnelFlow;
+
+            first start;
+            then validateOpenInlet;
+            then convertDepthToFlow;
+            then dischargeToBucket;
+            then done;
+
+            action validateOpenInlet;
+            action convertDepthToFlow;
+            action dischargeToBucket;
+        }
+    }
+
+    part def TippingBucketSensor {
+        attribute bucketVolumePerTip : Real { unit = Milliliter; }
+        attribute depthPerTip : RainfallDepth;
+        attribute maximumTipRate : RainfallIntensity;
+        attribute totalTips : Integer;
+        attribute calibrated : Boolean;
+
+        port waterIn : BucketInputPort;
+        port tipOut : TipSignalPort;
+
+        state sensorState {
+            entry action initializeTipCounter;
+
+            state ready;
+            state fillingLeftCup;
+            state tippingToRightCup;
+            state fillingRightCup;
+            state tippingToLeftCup;
+            state jammed;
+
+            transition first ready;
+            transition ready then fillingLeftCup accept FunnelFlow;
+            transition fillingLeftCup then tippingToRightCup
+                if fillVolumeReachedLeft;
+            transition tippingToRightCup then fillingRightCup
+                do emitTipEvent;
+            transition fillingRightCup then tippingToLeftCup
+                if fillVolumeReachedRight;
+            transition tippingToLeftCup then fillingLeftCup
+                do emitTipEvent;
+            transition fillingLeftCup then jammed
+                if tipTimeoutExceeded;
+            transition fillingRightCup then jammed
+                if tipTimeoutExceeded;
+            transition jammed then ready
+                accept Boolean
+                if resetCommandReceived;
+        }
+
+        action initializeTipCounter;
+        action emitTipEvent {
+            out tip : TipEvent;
+        }
+
+        constraint fillVolumeReachedLeft {
+            bucketVolumePerTip > 0.0;
+        }
+
+        constraint fillVolumeReachedRight {
+            bucketVolumePerTip > 0.0;
+        }
+
+        constraint tipTimeoutExceeded {
+            maximumTipRate.rate > 0.0;
+        }
+
+        constraint resetCommandReceived {
+            calibrated == true;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute debounceTime : Time;
+        attribute minimumPulseWidth : Time;
+        attribute rejectedPulseCount : Integer;
+
+        port rawTipIn : TipInputPort;
+        port cleanTipOut : TipSignalPort;
+
+        action debounceTipSignal {
+            in rawTip : TipEvent;
+            out cleanTip : TipEvent;
+
+            first receivePulse;
+            then verifyPulseWidth;
+            then suppressBounce;
+            then publishCleanTip;
+            then done;
+
+            action receivePulse;
+            action verifyPulseWidth;
+            action suppressBounce;
+            action publishCleanTip;
+        }
+    }
+
+    part def MeasurementProcessor {
+        attribute samplePeriod : Time;
+        attribute rollingWindow : Time;
+        attribute accumulatedTips : Integer;
+        attribute rainfallSinceReset : RainfallDepth;
+        attribute currentIntensity : RainfallIntensity;
+        attribute health : SensorHealthKind;
+
+        port tipIn : TipInputPort;
+        port measurementOut : MeasurementOutputPort;
+
+        action computeRainfallMeasurement {
+            in tip : TipEvent;
+            out measurement : RainfallMeasurement;
+
+            first countTip;
+            then updateAccumulatedDepth;
+            then calculateIntensity;
+            then evaluateSensorHealth;
+            then publishMeasurement;
+            then done;
+
+            action countTip;
+            action updateAccumulatedDepth;
+            action calculateIntensity;
+            action evaluateSensorHealth;
+            action publishMeasurement;
+        }
+
+        state processingState {
+            state idle;
+            state accumulating;
+            state calculating;
+            state publishing;
+            state sensorFault;
+
+            transition first idle;
+            transition idle then accumulating accept TipEvent;
+            transition accumulating then calculating;
+            transition calculating then publishing;
+            transition publishing then idle;
+            transition accumulating then sensorFault if impossibleTipRateDetected;
+            transition calculating then sensorFault if measurementInvalid;
+            transition sensorFault then idle accept Boolean if resetAccepted;
+        }
+
+        constraint impossibleTipRateDetected {
+            currentIntensity.rate <= 500.0;
+        }
+
+        constraint measurementInvalid {
+            rainfallSinceReset.depth >= 0.0;
+        }
+
+        constraint resetAccepted {
+            health != SensorHealthKind::failed;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalVoltage : SupplyVoltage;
+        attribute minimumOperatingVoltage : SupplyVoltage;
+        attribute averageCurrentDraw : SupplyCurrent;
+        attribute batteryPresent : Boolean;
+
+        port powerOut : PowerInputPort;
+
+        action supplyRegulatedPower {
+            out power : ElectricalPower;
+        }
+    }
+
+    part def EnvironmentalCompensationUnit {
+        attribute temperatureRangeLow : AmbientTemperature;
+        attribute temperatureRangeHigh : AmbientTemperature;
+        attribute humidityLimit : RelativeHumidity;
+        attribute heaterEnabled : Boolean;
+
+        port environmentIn : EnvironmentPort;
+
+        action assessOperatingEnvironment {
+            in condition : EnvironmentalCondition;
+            out usable : Boolean;
+        }
+    }
+
+    part def TelemetryUnit {
+        attribute stationId : String;
+        attribute reportInterval : Time;
+        attribute lastReportTime : Time;
+        attribute messagesSent : Integer;
+
+        port measurementIn : MeasurementOutputPort;
+        port telemetryOut : TelemetryOutputPort;
+
+        action packageTelemetry {
+            in measurement : RainfallMeasurement;
+            out telemetry : TelemetryMessage;
+
+            first receiveMeasurement;
+            then addStationIdentity;
+            then addPowerAndStatus;
+            then transmitMessage;
+            then done;
+
+            action receiveMeasurement;
+            action addStationIdentity;
+            action addPowerAndStatus;
+            action transmitMessage;
+        }
+    }
+
+    part def Enclosure {
+        attribute ingressProtectionRating : String;
+        attribute enclosureOpen : Boolean;
+        attribute mountingHeight : Real { unit = Millimeter; }
+        attribute levelTolerance : Real;
+
+        port service : LocalServicePort;
+
+        action protectComponents {
+            out protected : Boolean;
+        }
+    }
+
+    part def RainGaugeSystem {
+        attribute mode : GaugeModeKind;
+        attribute totalRainfall : RainfallDepth;
+        attribute currentRainfallRate : RainfallIntensity;
+        attribute operational : Boolean;
+
+        part funnel : CollectionFunnel {
+            attribute inletDiameter = 200.0;
+            attribute debrisScreenInstalled = true;
+            attribute minimumParticlePassage = 1.5;
+        }
+
+        part bucketSensor : TippingBucketSensor {
+            attribute bucketVolumePerTip = 5.0;
+            attribute depthPerTip.depth = 0.2;
+            attribute calibrated = true;
+        }
+
+        part conditioner : SignalConditioner;
+
+        part processor : MeasurementProcessor;
+
+        part power : PowerSubsystem {
+            attribute nominalVoltage.voltage = 3.3;
+            attribute minimumOperatingVoltage.voltage = 2.8;
+            attribute averageCurrentDraw.current = 18.0;
+            attribute batteryPresent = true;
+        }
+
+        part environmentUnit : EnvironmentalCompensationUnit {
+            attribute temperatureRangeLow.temperature = -20.0;
+            attribute temperatureRangeHigh.temperature = 60.0;
+            attribute humidityLimit.humidity = 100.0;
+            attribute heaterEnabled = false;
+        }
+
+        part telemetry : TelemetryUnit {
+            attribute stationId = "RAIN-GAUGE-001";
+        }
+
+        part enclosure : Enclosure {
+            attribute ingressProtectionRating = "IP65";
+            attribute enclosureOpen = false;
+            attribute mountingHeight = 1500.0;
+        }
+
+        port rainInput : RainCollectionPort;
+        port environmentInput : EnvironmentPort;
+        port telemetryOutput : TelemetryOutputPort;
+        port servicePort : LocalServicePort;
+
+        connect rainInput to funnel.rainIn;
+        connect funnel.waterOut to bucketSensor.waterIn;
+        connect bucketSensor.tipOut to conditioner.rawTipIn;
+        connect conditioner.cleanTipOut to processor.tipIn;
+        connect processor.measurementOut to telemetry.measurementIn;
+        connect telemetry.telemetryOut to telemetryOutput;
+        connect environmentInput to environmentUnit.environmentIn;
+        connect enclosure.service to servicePort;
+        connect power.powerOut to processor.tipIn;
+
+        action measureRainfall {
+            in rain : RainWater;
+            out measurement : RainfallMeasurement;
+
+            first receivePrecipitation;
+            then collectRainThroughFunnel;
+            then convertWaterVolumeToTipEvents;
+            then filterTipSignals;
+            then computeRainfallDepthAndRate;
+            then reportMeasurement;
+            then done;
+
+            action receivePrecipitation;
+            action collectRainThroughFunnel;
+            action convertWaterVolumeToTipEvents;
+            action filterTipSignals;
+            action computeRainfallDepthAndRate;
+            action reportMeasurement;
+        }
+
+        state operatingState {
+            state standby;
+            state measuring;
+            state reporting;
+            state maintenance;
+            state fault;
+
+            transition first standby;
+            transition standby then measuring accept RainWater;
+            transition measuring then reporting accept RainfallMeasurement;
+            transition reporting then standby;
+            transition standby then maintenance accept Boolean if serviceRequested;
+            transition measuring then fault if sensorFaultDetected;
+            transition reporting then fault if telemetryFailureDetected;
+            transition fault then standby accept Boolean if resetCommandAccepted;
+            transition maintenance then standby accept Boolean if serviceComplete;
+        }
+
+        constraint serviceRequested {
+            enclosure.enclosureOpen == true;
+        }
+
+        constraint sensorFaultDetected {
+            processor.health == SensorHealthKind::failed or processor.health == SensorHealthKind::blocked;
+        }
+
+        constraint telemetryFailureDetected {
+            telemetry.messagesSent >= 0;
+        }
+
+        constraint resetCommandAccepted {
+            operational == true;
+        }
+
+        constraint serviceComplete {
+            enclosure.enclosureOpen == false;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : RainGaugeSystem;
+
+        doc
+        /* The rain gauge system shall collect falling rain, convert the collected water volume into calibrated tip events, compute accumulated rainfall depth and rainfall intensity, and provide a timestamped rainfall measurement for local or remote monitoring. */
+
+        require constraint {
+            system.operational == true;
+        }
+    }
+
+    requirement def CollectionRequirement {
+        subject funnel : CollectionFunnel;
+
+        doc
+        /* The collection funnel shall direct rain entering the gauge inlet toward the tipping bucket sensor while reducing debris entry through a screen. */
+
+        require constraint {
+            funnel.debrisScreenInstalled == true and funnel.inletDiameter > 0.0;
+        }
+    }
+
+    requirement def MeasurementResolutionRequirement {
+        subject sensor : TippingBucketSensor;
+
+        doc
+        /* The tipping bucket sensor shall generate one tip event for each calibrated bucket volume corresponding to 0.2 millimeters of rainfall depth. */
+
+        require constraint {
+            sensor.depthPerTip.depth == 0.2 and sensor.calibrated == true;
+        }
+    }
+
+    requirement def AccumulationRequirement {
+        subject processor : MeasurementProcessor;
+
+        doc
+        /* The processor shall accumulate rainfall depth from accepted tip events and shall never report a negative rainfall total. */
+
+        require constraint {
+            processor.rainfallSinceReset.depth >= 0.0;
+        }
+    }
+
+    requirement def IntensityRequirement {
+        subject processor : MeasurementProcessor;
+
+        doc
+        /* The processor shall estimate rainfall intensity over a rolling time window using debounced tip events. */
+
+        require constraint {
+            processor.rollingWindow > 0.0[s] and processor.currentIntensity.rate >= 0.0;
+        }
+    }
+
+    requirement def EnvironmentalOperatingRequirement {
+        subject environmentUnit : EnvironmentalCompensationUnit;
+
+        doc
+        /* The rain gauge shall operate within the configured outdoor temperature and humidity envelope. */
+
+        require constraint {
+            environmentUnit.temperatureRangeLow.temperature <= -20.0 and
+            environmentUnit.temperatureRangeHigh.temperature >= 60.0 and
+            environmentUnit.humidityLimit.humidity >= 95.0;
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        subject telemetry : TelemetryUnit;
+
+        doc
+        /* The telemetry unit shall produce messages containing station identity, rainfall measurement, battery voltage, enclosure status, and message time. */
+
+        require constraint {
+            telemetry.stationId != "";
+        }
+    }
+
+    requirement def EnclosureRequirement {
+        subject enclosure : Enclosure;
+
+        doc
+        /* The enclosure shall protect the electronics and sensing mechanism from outdoor ingress while allowing service access. */
+
+        require constraint {
+            enclosure.ingressProtectionRating == "IP65";
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RainGaugeSystem::measureRainfall;
+    satisfy CollectionRequirement by CollectionFunnel::collectAndFocusRain;
+    satisfy MeasurementResolutionRequirement by TippingBucketSensor::emitTipEvent;
+    satisfy AccumulationRequirement by MeasurementProcessor::computeRainfallMeasurement;
+    satisfy IntensityRequirement by MeasurementProcessor::computeRainfallMeasurement;
+    satisfy EnvironmentalOperatingRequirement by EnvironmentalCompensationUnit::assessOperatingEnvironment;
+    satisfy TelemetryRequirement by TelemetryUnit::packageTelemetry;
+    satisfy EnclosureRequirement by Enclosure::protectComponents;
+
+}

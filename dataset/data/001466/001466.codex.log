@@ -1,0 +1,809 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p468w5_x
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6d3-46f1-7833-8ebc-96edd435fafe
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Index of home automation articles and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HomeAutomationArticleIndexModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real;
+  attribute def Millisecond :> Real;
+  attribute def ArticleCount :> Integer;
+  attribute def ByteCount :> Integer;
+
+  item def Article {
+    attribute articleId : String;
+    attribute title : String;
+    attribute author : String;
+    attribute sourceUri : String;
+    attribute publishedDate : String;
+    attribute summary : String;
+    attribute bodyText : String;
+    attribute wordCount : Integer;
+  }
+
+  item def ArticleMetadata {
+    attribute articleId : String;
+    attribute topic : AutomationTopic;
+    attribute skillLevel : SkillLevel;
+    attribute devicesMentioned : String[*];
+    attribute protocolsMentioned : String[*];
+    attribute tags : String[*];
+    attribute estimatedReadTime : Real [min];
+    attribute freshnessScore : Percent;
+  }
+
+  enum def AutomationTopic {
+    enum lighting;
+    enum climateControl;
+    enum security;
+    enum energyMonitoring;
+    enum smartAppliances;
+    enum voiceAssistants;
+    enum networking;
+    enum installationGuides;
+    enum troubleshooting;
+    enum privacyAndSafety;
+  }
+
+  enum def SkillLevel {
+    enum beginner;
+    enum intermediate;
+    enum advanced;
+    enum professional;
+  }
+
+  item def SearchQuery {
+    attribute queryText : String;
+    attribute requestedTopic : AutomationTopic[0..1];
+    attribute maximumResults : Integer;
+    attribute requesterId : String;
+  }
+
+  item def RankedResult {
+    attribute articleId : String;
+    attribute title : String;
+    attribute snippet : String;
+    attribute relevanceScore : Percent;
+    attribute estimatedReadTime : Real [min];
+  }
+
+  item def SearchResults {
+    attribute queryId : String;
+    attribute resultCount : Integer;
+    item results : RankedResult[*];
+  }
+
+  item def NavigationRequest {
+    attribute selectedTopic : AutomationTopic;
+    attribute requesterId : String;
+  }
+
+  item def RecommendationRequest {
+    attribute requesterId : String;
+    attribute preferredTopics : AutomationTopic[*];
+    attribute skillLevel : SkillLevel;
+  }
+
+  item def HealthStatus {
+    attribute uptime : Real [h];
+    attribute indexedArticles : ArticleCount;
+    attribute averageSearchLatency : Real [ms];
+    attribute storageUsed : ByteCount;
+    attribute ingestionQueueDepth : Integer;
+  }
+
+  port def UserInteractionPort {
+    in query : SearchQuery;
+    in navigation : NavigationRequest;
+    in recommendationRequest : RecommendationRequest;
+    out searchResults : SearchResults;
+    out recommendations : SearchResults;
+  }
+
+  port def ArticleSourcePort {
+    in discoveredArticle : Article;
+    out crawlRequest : String;
+  }
+
+  port def IndexDataPort {
+    in article : Article;
+    in metadata : ArticleMetadata;
+    out matchedArticles : SearchResults;
+  }
+
+  port def TelemetryPort {
+    out health : HealthStatus;
+    out eventMessage : String;
+  }
+
+  interface def QueryInterface {
+    end userSide : UserInteractionPort;
+    end processorSide : UserInteractionPort;
+  }
+
+  interface def SourceIngestionInterface {
+    end sourceSide : ArticleSourcePort;
+    end ingestionSide : ArticleSourcePort;
+  }
+
+  interface def IndexInterface {
+    end processorSide : IndexDataPort;
+    end indexSide : IndexDataPort;
+  }
+
+  interface def MonitoringInterface {
+    end monitoredSide : TelemetryPort;
+    end monitorSide : TelemetryPort;
+  }
+
+  action def NormalizeArticleText {
+    in rawArticle : Article;
+    out normalizedArticle : Article;
+  }
+
+  action def ExtractArticleMetadata {
+    in normalizedArticle : Article;
+    out metadata : ArticleMetadata;
+  }
+
+  action def ClassifyArticleTopic {
+    in article : Article;
+    out topic : AutomationTopic;
+    out skillLevel : SkillLevel;
+  }
+
+  action def UpdateSearchIndex {
+    in article : Article;
+    in metadata : ArticleMetadata;
+    out indexedArticleId : String;
+  }
+
+  action def ExecuteSearch {
+    in query : SearchQuery;
+    out results : SearchResults;
+  }
+
+  action def GenerateRecommendations {
+    in request : RecommendationRequest;
+    out recommendations : SearchResults;
+  }
+
+  action def ProduceHealthStatus {
+    in indexedArticleCount : ArticleCount;
+    in queueDepth : Integer;
+    out status : HealthStatus;
+  }
+
+  state def IndexLifecycle {
+    state initializing;
+    state loadingExistingIndex;
+    state ready;
+    state ingesting;
+    state searching;
+    state degraded;
+    state unavailable;
+
+    transition initial then initializing;
+    transition initializing then loadingExistingIndex;
+    transition loadingExistingIndex then ready;
+
+    transition ready then ingesting
+      accept discoveredArticle;
+
+    transition ingesting then ready
+      accept ingestionComplete;
+
+    transition ready then searching
+      accept queryReceived;
+
+    transition searching then ready
+      accept resultsDelivered;
+
+    transition ready then degraded
+      accept latencyThresholdExceeded;
+
+    transition degraded then ready
+      accept healthRecovered;
+
+    transition degraded then unavailable
+      accept storageFailure;
+
+    transition unavailable then loadingExistingIndex
+      accept restartRequested;
+  }
+
+  part def ArticleCrawler {
+    port sources : ArticleSourcePort;
+    port telemetry : TelemetryPort;
+
+    attribute crawlInterval : Real [min] = 30 [min];
+    attribute maximumArticlesPerCycle : Integer = 250;
+    attribute duplicateDetectionEnabled : Boolean = true;
+
+    perform action discoverArticles {
+      out discovered : Article[*];
+    }
+  }
+
+  part def IngestionPipeline {
+    port sourceInput : ArticleSourcePort;
+    port indexOutput : IndexDataPort;
+    port telemetry : TelemetryPort;
+
+    attribute maximumQueueDepth : Integer = 5000;
+    attribute maximumProcessingLatency : Real [ms] = 800 [ms];
+
+    perform action normalize : NormalizeArticleText;
+    perform action extract : ExtractArticleMetadata;
+    perform action classify : ClassifyArticleTopic;
+    perform action update : UpdateSearchIndex;
+  }
+
+  part def TopicTaxonomyManager {
+    port indexAccess : IndexDataPort;
+
+    attribute supportedTopics : AutomationTopic[*] =
+      (lighting, climateControl, security, energyMonitoring, smartAppliances,
+       voiceAssistants, networking, installationGuides, troubleshooting,
+       privacyAndSafety);
+
+    perform action assignCanonicalTags {
+      in metadata : ArticleMetadata;
+      out canonicalMetadata : ArticleMetadata;
+    }
+  }
+
+  part def SearchIndex {
+    port dataAccess : IndexDataPort;
+    port telemetry : TelemetryPort;
+
+    attribute storedArticleCount : ArticleCount;
+    attribute maximumStoredArticles : ArticleCount = 1000000;
+    attribute targetQueryLatency : Real [ms] = 500 [ms];
+    attribute minimumRelevanceScore : Percent = 35.0;
+
+    item storedArticles : Article[*];
+    item storedMetadata : ArticleMetadata[*];
+
+    perform action search : ExecuteSearch;
+  }
+
+  part def RecommendationEngine {
+    port userAccess : UserInteractionPort;
+    port indexAccess : IndexDataPort;
+    port telemetry : TelemetryPort;
+
+    attribute recommendationSetSize : Integer = 8;
+    attribute freshnessWeight : Percent = 25.0;
+    attribute topicMatchWeight : Percent = 45.0;
+    attribute skillMatchWeight : Percent = 30.0;
+
+    perform action recommend : GenerateRecommendations;
+  }
+
+  part def WebApplication {
+    port user : UserInteractionPort;
+    port telemetry : TelemetryPort;
+
+    attribute minimumSupportedViewportWidth : Real [px] = 320 [px];
+    attribute maximumDisplayedResults : Integer = 25;
+    attribute accessibilityConformanceLevel : String = "WCAG 2.2 AA";
+  }
+
+  part def OperationsMonitor {
+    port monitoredSystem : TelemetryPort;
+
+    attribute healthRefreshPeriod : Real [s] = 10 [s];
+    attribute maximumAllowedAverageLatency : Real [ms] = 1500 [ms];
+    attribute maximumAllowedQueueDepth : Integer = 4000;
+
+    perform action produceStatus : ProduceHealthStatus;
+  }
+
+  part def HomeAutomationArticleIndexSystem {
+    doc
+    /* Primary function: provide a searchable, categorized, and maintained index of home automation articles so users can discover guidance about devices, protocols, installation, troubleshooting, safety, privacy, and energy management at an appropriate skill level. */
+
+    port userFacing : UserInteractionPort;
+    port articleSources : ArticleSourcePort;
+    port operations : TelemetryPort;
+
+    part crawler : ArticleCrawler;
+    part ingestion : IngestionPipeline;
+    part taxonomy : TopicTaxonomyManager;
+    part index : SearchIndex;
+    part recommender : RecommendationEngine;
+    part webApp : WebApplication;
+    part monitor : OperationsMonitor;
+
+    connect articleSources to crawler.sources;
+    connect crawler.sources to ingestion.sourceInput;
+    connect ingestion.indexOutput to index.dataAccess;
+    connect taxonomy.indexAccess to index.dataAccess;
+    connect webApp.user to userFacing;
+    connect recommender.userAccess to userFacing;
+    connect recommender.indexAccess to index.dataAccess;
+
+    connect crawler.telemetry to operations;
+    connect ingestion.telemetry to operations;
+    connect index.telemetry to operations;
+    connect recommender.telemetry to operations;
+    connect webApp.telemetry to operations;
+    connect monitor.monitoredSystem to operations;
+
+    exhibit state lifecycle : IndexLifecycle;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The system shall maintain an indexed collection of home automation articles and shall enable users to search, browse, and receive recommendations by topic, device type, protocol, skill level, and freshness. */
+
+    subject system : HomeAutomationArticleIndexSystem;
+
+    require constraint {
+      system.index.maximumStoredArticles >= 1000000
+    }
+  }
+
+  requirement def SearchPerformanceRequirement {
+    doc
+    /* The system shall return search results quickly enough for interactive use. */
+
+    subject system : HomeAutomationArticleIndexSystem;
+
+    require constraint {
+      system.index.targetQueryLatency <= 500 [ms]
+    }
+  }
+
+  requirement def ClassificationCoverageRequirement {
+    doc
+    /* Each indexed article shall be classified into at least one home automation topic and assigned a skill level. */
+
+    subject metadata : ArticleMetadata;
+
+    require constraint {
+      metadata.tags->size() >= 1
+    }
+  }
+
+  requirement def RecommendationRequirement {
+    doc
+    /* The system shall recommend articles using topic match, freshness, and skill-level compatibility. */
+
+    subject engine : RecommendationEngine;
+
+    require constraint {
+      engine.recommendationSetSize >= 5 and
+      engine.topicMatchWeight + engine.freshnessWeight + engine.skillMatchWeight == 100.0
+    }
+  }
+
+  requirement def OperationsRequirement {
+    doc
+    /* The system shall report operational health including uptime, indexed article count, search latency, storage use, and ingestion queue depth. */
+
+    subject status : HealthStatus;
+
+    require constraint {
+      status.averageSearchLatency <= 1500 [ms]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HomeAutomationArticleIndexSystem;
+  satisfy SearchPerformanceRequirement by SearchIndex;
+  satisfy RecommendationRequirement by RecommendationEngine;
+  satisfy OperationsRequirement by OperationsMonitor;
+}
+tokens used
+4,268
+package HomeAutomationArticleIndexModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real;
+  attribute def Millisecond :> Real;
+  attribute def ArticleCount :> Integer;
+  attribute def ByteCount :> Integer;
+
+  item def Article {
+    attribute articleId : String;
+    attribute title : String;
+    attribute author : String;
+    attribute sourceUri : String;
+    attribute publishedDate : String;
+    attribute summary : String;
+    attribute bodyText : String;
+    attribute wordCount : Integer;
+  }
+
+  item def ArticleMetadata {
+    attribute articleId : String;
+    attribute topic : AutomationTopic;
+    attribute skillLevel : SkillLevel;
+    attribute devicesMentioned : String[*];
+    attribute protocolsMentioned : String[*];
+    attribute tags : String[*];
+    attribute estimatedReadTime : Real [min];
+    attribute freshnessScore : Percent;
+  }
+
+  enum def AutomationTopic {
+    enum lighting;
+    enum climateControl;
+    enum security;
+    enum energyMonitoring;
+    enum smartAppliances;
+    enum voiceAssistants;
+    enum networking;
+    enum installationGuides;
+    enum troubleshooting;
+    enum privacyAndSafety;
+  }
+
+  enum def SkillLevel {
+    enum beginner;
+    enum intermediate;
+    enum advanced;
+    enum professional;
+  }
+
+  item def SearchQuery {
+    attribute queryText : String;
+    attribute requestedTopic : AutomationTopic[0..1];
+    attribute maximumResults : Integer;
+    attribute requesterId : String;
+  }
+
+  item def RankedResult {
+    attribute articleId : String;
+    attribute title : String;
+    attribute snippet : String;
+    attribute relevanceScore : Percent;
+    attribute estimatedReadTime : Real [min];
+  }
+
+  item def SearchResults {
+    attribute queryId : String;
+    attribute resultCount : Integer;
+    item results : RankedResult[*];
+  }
+
+  item def NavigationRequest {
+    attribute selectedTopic : AutomationTopic;
+    attribute requesterId : String;
+  }
+
+  item def RecommendationRequest {
+    attribute requesterId : String;
+    attribute preferredTopics : AutomationTopic[*];
+    attribute skillLevel : SkillLevel;
+  }
+
+  item def HealthStatus {
+    attribute uptime : Real [h];
+    attribute indexedArticles : ArticleCount;
+    attribute averageSearchLatency : Real [ms];
+    attribute storageUsed : ByteCount;
+    attribute ingestionQueueDepth : Integer;
+  }
+
+  port def UserInteractionPort {
+    in query : SearchQuery;
+    in navigation : NavigationRequest;
+    in recommendationRequest : RecommendationRequest;
+    out searchResults : SearchResults;
+    out recommendations : SearchResults;
+  }
+
+  port def ArticleSourcePort {
+    in discoveredArticle : Article;
+    out crawlRequest : String;
+  }
+
+  port def IndexDataPort {
+    in article : Article;
+    in metadata : ArticleMetadata;
+    out matchedArticles : SearchResults;
+  }
+
+  port def TelemetryPort {
+    out health : HealthStatus;
+    out eventMessage : String;
+  }
+
+  interface def QueryInterface {
+    end userSide : UserInteractionPort;
+    end processorSide : UserInteractionPort;
+  }
+
+  interface def SourceIngestionInterface {
+    end sourceSide : ArticleSourcePort;
+    end ingestionSide : ArticleSourcePort;
+  }
+
+  interface def IndexInterface {
+    end processorSide : IndexDataPort;
+    end indexSide : IndexDataPort;
+  }
+
+  interface def MonitoringInterface {
+    end monitoredSide : TelemetryPort;
+    end monitorSide : TelemetryPort;
+  }
+
+  action def NormalizeArticleText {
+    in rawArticle : Article;
+    out normalizedArticle : Article;
+  }
+
+  action def ExtractArticleMetadata {
+    in normalizedArticle : Article;
+    out metadata : ArticleMetadata;
+  }
+
+  action def ClassifyArticleTopic {
+    in article : Article;
+    out topic : AutomationTopic;
+    out skillLevel : SkillLevel;
+  }
+
+  action def UpdateSearchIndex {
+    in article : Article;
+    in metadata : ArticleMetadata;
+    out indexedArticleId : String;
+  }
+
+  action def ExecuteSearch {
+    in query : SearchQuery;
+    out results : SearchResults;
+  }
+
+  action def GenerateRecommendations {
+    in request : RecommendationRequest;
+    out recommendations : SearchResults;
+  }
+
+  action def ProduceHealthStatus {
+    in indexedArticleCount : ArticleCount;
+    in queueDepth : Integer;
+    out status : HealthStatus;
+  }
+
+  state def IndexLifecycle {
+    state initializing;
+    state loadingExistingIndex;
+    state ready;
+    state ingesting;
+    state searching;
+    state degraded;
+    state unavailable;
+
+    transition initial then initializing;
+    transition initializing then loadingExistingIndex;
+    transition loadingExistingIndex then ready;
+
+    transition ready then ingesting
+      accept discoveredArticle;
+
+    transition ingesting then ready
+      accept ingestionComplete;
+
+    transition ready then searching
+      accept queryReceived;
+
+    transition searching then ready
+      accept resultsDelivered;
+
+    transition ready then degraded
+      accept latencyThresholdExceeded;
+
+    transition degraded then ready
+      accept healthRecovered;
+
+    transition degraded then unavailable
+      accept storageFailure;
+
+    transition unavailable then loadingExistingIndex
+      accept restartRequested;
+  }
+
+  part def ArticleCrawler {
+    port sources : ArticleSourcePort;
+    port telemetry : TelemetryPort;
+
+    attribute crawlInterval : Real [min] = 30 [min];
+    attribute maximumArticlesPerCycle : Integer = 250;
+    attribute duplicateDetectionEnabled : Boolean = true;
+
+    perform action discoverArticles {
+      out discovered : Article[*];
+    }
+  }
+
+  part def IngestionPipeline {
+    port sourceInput : ArticleSourcePort;
+    port indexOutput : IndexDataPort;
+    port telemetry : TelemetryPort;
+
+    attribute maximumQueueDepth : Integer = 5000;
+    attribute maximumProcessingLatency : Real [ms] = 800 [ms];
+
+    perform action normalize : NormalizeArticleText;
+    perform action extract : ExtractArticleMetadata;
+    perform action classify : ClassifyArticleTopic;
+    perform action update : UpdateSearchIndex;
+  }
+
+  part def TopicTaxonomyManager {
+    port indexAccess : IndexDataPort;
+
+    attribute supportedTopics : AutomationTopic[*] =
+      (lighting, climateControl, security, energyMonitoring, smartAppliances,
+       voiceAssistants, networking, installationGuides, troubleshooting,
+       privacyAndSafety);
+
+    perform action assignCanonicalTags {
+      in metadata : ArticleMetadata;
+      out canonicalMetadata : ArticleMetadata;
+    }
+  }
+
+  part def SearchIndex {
+    port dataAccess : IndexDataPort;
+    port telemetry : TelemetryPort;
+
+    attribute storedArticleCount : ArticleCount;
+    attribute maximumStoredArticles : ArticleCount = 1000000;
+    attribute targetQueryLatency : Real [ms] = 500 [ms];
+    attribute minimumRelevanceScore : Percent = 35.0;
+
+    item storedArticles : Article[*];
+    item storedMetadata : ArticleMetadata[*];
+
+    perform action search : ExecuteSearch;
+  }
+
+  part def RecommendationEngine {
+    port userAccess : UserInteractionPort;
+    port indexAccess : IndexDataPort;
+    port telemetry : TelemetryPort;
+
+    attribute recommendationSetSize : Integer = 8;
+    attribute freshnessWeight : Percent = 25.0;
+    attribute topicMatchWeight : Percent = 45.0;
+    attribute skillMatchWeight : Percent = 30.0;
+
+    perform action recommend : GenerateRecommendations;
+  }
+
+  part def WebApplication {
+    port user : UserInteractionPort;
+    port telemetry : TelemetryPort;
+
+    attribute minimumSupportedViewportWidth : Real [px] = 320 [px];
+    attribute maximumDisplayedResults : Integer = 25;
+    attribute accessibilityConformanceLevel : String = "WCAG 2.2 AA";
+  }
+
+  part def OperationsMonitor {
+    port monitoredSystem : TelemetryPort;
+
+    attribute healthRefreshPeriod : Real [s] = 10 [s];
+    attribute maximumAllowedAverageLatency : Real [ms] = 1500 [ms];
+    attribute maximumAllowedQueueDepth : Integer = 4000;
+
+    perform action produceStatus : ProduceHealthStatus;
+  }
+
+  part def HomeAutomationArticleIndexSystem {
+    doc
+    /* Primary function: provide a searchable, categorized, and maintained index of home automation articles so users can discover guidance about devices, protocols, installation, troubleshooting, safety, privacy, and energy management at an appropriate skill level. */
+
+    port userFacing : UserInteractionPort;
+    port articleSources : ArticleSourcePort;
+    port operations : TelemetryPort;
+
+    part crawler : ArticleCrawler;
+    part ingestion : IngestionPipeline;
+    part taxonomy : TopicTaxonomyManager;
+    part index : SearchIndex;
+    part recommender : RecommendationEngine;
+    part webApp : WebApplication;
+    part monitor : OperationsMonitor;
+
+    connect articleSources to crawler.sources;
+    connect crawler.sources to ingestion.sourceInput;
+    connect ingestion.indexOutput to index.dataAccess;
+    connect taxonomy.indexAccess to index.dataAccess;
+    connect webApp.user to userFacing;
+    connect recommender.userAccess to userFacing;
+    connect recommender.indexAccess to index.dataAccess;
+
+    connect crawler.telemetry to operations;
+    connect ingestion.telemetry to operations;
+    connect index.telemetry to operations;
+    connect recommender.telemetry to operations;
+    connect webApp.telemetry to operations;
+    connect monitor.monitoredSystem to operations;
+
+    exhibit state lifecycle : IndexLifecycle;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /* The system shall maintain an indexed collection of home automation articles and shall enable users to search, browse, and receive recommendations by topic, device type, protocol, skill level, and freshness. */
+
+    subject system : HomeAutomationArticleIndexSystem;
+
+    require constraint {
+      system.index.maximumStoredArticles >= 1000000
+    }
+  }
+
+  requirement def SearchPerformanceRequirement {
+    doc
+    /* The system shall return search results quickly enough for interactive use. */
+
+    subject system : HomeAutomationArticleIndexSystem;
+
+    require constraint {
+      system.index.targetQueryLatency <= 500 [ms]
+    }
+  }
+
+  requirement def ClassificationCoverageRequirement {
+    doc
+    /* Each indexed article shall be classified into at least one home automation topic and assigned a skill level. */
+
+    subject metadata : ArticleMetadata;
+
+    require constraint {
+      metadata.tags->size() >= 1
+    }
+  }
+
+  requirement def RecommendationRequirement {
+    doc
+    /* The system shall recommend articles using topic match, freshness, and skill-level compatibility. */
+
+    subject engine : RecommendationEngine;
+
+    require constraint {
+      engine.recommendationSetSize >= 5 and
+      engine.topicMatchWeight + engine.freshnessWeight + engine.skillMatchWeight == 100.0
+    }
+  }
+
+  requirement def OperationsRequirement {
+    doc
+    /* The system shall report operational health including uptime, indexed article count, search latency, storage use, and ingestion queue depth. */
+
+    subject status : HealthStatus;
+
+    require constraint {
+      status.averageSearchLatency <= 1500 [ms]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by HomeAutomationArticleIndexSystem;
+  satisfy SearchPerformanceRequirement by SearchIndex;
+  satisfy RecommendationRequirement by RecommendationEngine;
+  satisfy OperationsRequirement by OperationsMonitor;
+}

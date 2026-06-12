@@ -1,0 +1,747 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-n164oj_6
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb665-1906-72d2-bed7-311c6649368b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Automated reasoning and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomatedReasoningSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def Confidence : Probability;
+    attribute def Latency {
+        :>> unit = ms;
+        :>> quantityKind = time;
+    }
+
+    attribute def Throughput {
+        :>> unit = "request/s";
+    }
+
+    attribute def MemorySize {
+        :>> unit = MiB;
+    }
+
+    attribute def RuleCount : Integer;
+    attribute def FactCount : Integer;
+    attribute def TraceDepth : Integer;
+
+    enum def QueryPriority {
+        enum low;
+        enum normal;
+        enum high;
+        enum critical;
+    }
+
+    enum def ReasoningMode {
+        enum deductive;
+        enum abductive;
+        enum inductive;
+        enum consistencyChecking;
+        enum planning;
+    }
+
+    enum def VerdictKind {
+        enum entailed;
+        enum contradicted;
+        enum unknown;
+        enum inconsistentKnowledgeBase;
+        enum timeout;
+    }
+
+    item def UserQuery {
+        attribute id : String;
+        attribute naturalLanguageText : String;
+        attribute formalGoalExpression : String;
+        attribute priority : QueryPriority;
+        attribute requestedMode : ReasoningMode;
+        attribute maxLatency : Latency;
+    }
+
+    item def KnowledgeFact {
+        attribute subject : String;
+        attribute predicate : String;
+        attribute object : String;
+        attribute source : String;
+        attribute confidence : Confidence;
+    }
+
+    item def InferenceRule {
+        attribute ruleId : String;
+        attribute premiseExpression : String;
+        attribute conclusionExpression : String;
+        attribute weight : Confidence;
+    }
+
+    item def KnowledgeBaseSnapshot {
+        attribute snapshotId : String;
+        attribute factTotal : FactCount;
+        attribute ruleTotal : RuleCount;
+        attribute consistencyScore : Confidence;
+        item facts : KnowledgeFact[0..*];
+        item rules : InferenceRule[0..*];
+    }
+
+    item def ProofStep {
+        attribute stepNumber : Integer;
+        attribute appliedRuleId : String;
+        attribute derivedExpression : String;
+        attribute supportConfidence : Confidence;
+    }
+
+    item def ReasoningTrace {
+        attribute traceId : String;
+        attribute depth : TraceDepth;
+        attribute elapsedTime : Latency;
+        item steps : ProofStep[0..*];
+    }
+
+    item def ReasoningResult {
+        attribute queryId : String;
+        attribute verdict : VerdictKind;
+        attribute answerText : String;
+        attribute confidence : Confidence;
+        attribute latency : Latency;
+        item trace : ReasoningTrace;
+    }
+
+    port def QueryInputPort {
+        in item query : UserQuery;
+    }
+
+    port def KnowledgeInputPort {
+        in item fact : KnowledgeFact;
+        in item rule : InferenceRule;
+    }
+
+    port def ResultOutputPort {
+        out item result : ReasoningResult;
+    }
+
+    port def AuditOutputPort {
+        out item trace : ReasoningTrace;
+    }
+
+    port def KnowledgeAccessPort {
+        out item queryExpression : String;
+        in item snapshot : KnowledgeBaseSnapshot;
+    }
+
+    action def ParseUserQuery {
+        in item rawQuery : UserQuery;
+        out item normalizedQuery : UserQuery;
+    }
+
+    action def RetrieveRelevantKnowledge {
+        in item normalizedQuery : UserQuery;
+        in item knowledgeSnapshot : KnowledgeBaseSnapshot;
+        out item relevantSnapshot : KnowledgeBaseSnapshot;
+    }
+
+    action def CheckKnowledgeConsistency {
+        in item relevantSnapshot : KnowledgeBaseSnapshot;
+        out attribute isConsistent : Boolean;
+        out attribute consistencyScore : Confidence;
+    }
+
+    action def ExecuteInference {
+        in item normalizedQuery : UserQuery;
+        in item relevantSnapshot : KnowledgeBaseSnapshot;
+        out item trace : ReasoningTrace;
+        out attribute verdict : VerdictKind;
+        out attribute confidence : Confidence;
+    }
+
+    action def FormatReasoningResult {
+        in item query : UserQuery;
+        in attribute verdict : VerdictKind;
+        in attribute confidence : Confidence;
+        in item trace : ReasoningTrace;
+        out item result : ReasoningResult;
+    }
+
+    action def AutomatedReasoningWorkflow {
+        in item incomingQuery : UserQuery;
+        in item activeKnowledge : KnowledgeBaseSnapshot;
+        out item finalResult : ReasoningResult;
+
+        action parse : ParseUserQuery {
+            in rawQuery = incomingQuery;
+        }
+
+        action retrieve : RetrieveRelevantKnowledge {
+            in normalizedQuery = parse.normalizedQuery;
+            in knowledgeSnapshot = activeKnowledge;
+        }
+
+        action consistency : CheckKnowledgeConsistency {
+            in relevantSnapshot = retrieve.relevantSnapshot;
+        }
+
+        action infer : ExecuteInference {
+            in normalizedQuery = parse.normalizedQuery;
+            in relevantSnapshot = retrieve.relevantSnapshot;
+        }
+
+        action format : FormatReasoningResult {
+            in query = parse.normalizedQuery;
+            in verdict = infer.verdict;
+            in confidence = infer.confidence;
+            in trace = infer.trace;
+            out result = finalResult;
+        }
+
+        succession parse then retrieve;
+        succession retrieve then consistency;
+        succession consistency then infer;
+        succession infer then format;
+    }
+
+    state def ReasonerOperationalState {
+        entry action initializeCaches;
+        exit action persistAuditBuffer;
+
+        state idle;
+        state acceptingQuery;
+        state normalizingInput;
+        state retrievingKnowledge;
+        state checkingConsistency;
+        state inferring;
+        state explaining;
+        state returningResult;
+        state degraded;
+        state failed;
+
+        transition first idle;
+        transition idle_to_accepting first idle then acceptingQuery;
+        transition accepting_to_normalizing first acceptingQuery then normalizingInput;
+        transition normalizing_to_retrieving first normalizingInput then retrievingKnowledge;
+        transition retrieving_to_consistency first retrievingKnowledge then checkingConsistency;
+        transition consistency_to_inferring first checkingConsistency then inferring
+            if consistencyScore >= 0.95;
+        transition consistency_to_degraded first checkingConsistency then degraded
+            if consistencyScore < 0.95;
+        transition degraded_to_inferring first degraded then inferring;
+        transition inferring_to_explaining first inferring then explaining;
+        transition explaining_to_returning first explaining then returningResult;
+        transition returning_to_idle first returningResult then idle;
+        transition any_to_failed first acceptingQuery then failed
+            if unrecoverableInputError;
+    }
+
+    part def QueryInterface {
+        port queryIn : QueryInputPort;
+        port resultOut : ResultOutputPort;
+
+        attribute acceptedQueryRate : Throughput;
+        attribute maximumPayloadSize : MemorySize;
+    }
+
+    part def KnowledgeManager {
+        port knowledgeIn : KnowledgeInputPort;
+        port knowledgeAccess : KnowledgeAccessPort;
+
+        item activeSnapshot : KnowledgeBaseSnapshot;
+
+        attribute storedFacts : FactCount;
+        attribute storedRules : RuleCount;
+        attribute maximumSnapshotSize : MemorySize;
+        attribute minimumAcceptedFactConfidence : Confidence = 0.60;
+    }
+
+    part def QueryNormalizer {
+        port queryIn : QueryInputPort;
+        port normalizedQueryOut : QueryInputPort;
+
+        attribute parseConfidenceThreshold : Confidence = 0.75;
+        attribute maximumNormalizationLatency : Latency = 150 [ms];
+    }
+
+    part def InferenceEngine {
+        port knowledgeAccess : KnowledgeAccessPort;
+        port auditOut : AuditOutputPort;
+
+        attribute maximumTraceDepth : TraceDepth = 64;
+        attribute targetInferenceLatency : Latency = 500 [ms];
+        attribute minimumAnswerConfidence : Confidence = 0.70;
+
+        perform action reasoningWorkflow : AutomatedReasoningWorkflow;
+        exhibit state operationalState : ReasonerOperationalState;
+    }
+
+    part def ExplanationGenerator {
+        port auditIn : AuditOutputPort;
+        port resultOut : ResultOutputPort;
+
+        attribute maximumExplanationLength : Integer = 2000;
+        attribute includeProofTrace : Boolean = true;
+    }
+
+    part def AutomatedReasoningSystem {
+        port queryIn : QueryInputPort;
+        port knowledgeIn : KnowledgeInputPort;
+        port resultOut : ResultOutputPort;
+        port auditOut : AuditOutputPort;
+
+        part interface : QueryInterface;
+        part normalizer : QueryNormalizer;
+        part knowledgeManager : KnowledgeManager;
+        part inferenceEngine : InferenceEngine;
+        part explainer : ExplanationGenerator;
+
+        attribute primaryFunction : String =
+            "Accept formal or natural-language queries, retrieve relevant structured knowledge, apply automated inference, and return a justified verdict with confidence and trace evidence.";
+
+        attribute requiredAvailability : Probability = 0.995;
+        attribute targetEndToEndLatency : Latency = 750 [ms];
+        attribute peakQueryThroughput : Throughput = 40 ["request/s"];
+
+        connect queryIn to interface.queryIn;
+        connect interface.queryIn to normalizer.queryIn;
+        connect knowledgeIn to knowledgeManager.knowledgeIn;
+        connect knowledgeManager.knowledgeAccess to inferenceEngine.knowledgeAccess;
+        connect inferenceEngine.auditOut to explainer.auditIn;
+        connect inferenceEngine.auditOut to auditOut;
+        connect explainer.resultOut to interface.resultOut;
+        connect interface.resultOut to resultOut;
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        doc /* The system shall perform automated reasoning by converting user questions into normalized goals, applying stored facts and inference rules, and producing a justified answer. */
+        subject system : AutomatedReasoningSystem;
+        require constraint {
+            system.targetEndToEndLatency <= 750 [ms]
+        }
+    }
+
+    requirement def KnowledgeTraceabilityRequirement {
+        doc /* Every non-timeout result shall include a reasoning trace identifying the proof steps and rules used to reach the verdict. */
+        subject result : ReasoningResult;
+        require constraint {
+            result.verdict == VerdictKind::timeout or result.trace.depth >= 1
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* The system shall mark an answer as entailed or contradicted only when the computed confidence is at least 0.70. */
+        subject result : ReasoningResult;
+        require constraint {
+            (result.verdict == VerdictKind::entailed or result.verdict == VerdictKind::contradicted) implies result.confidence >= 0.70
+        }
+    }
+
+    requirement def ConsistencyRequirement {
+        doc /* The system shall detect inconsistent knowledge and return an explicit inconsistent-knowledge-base verdict instead of an unsupported answer. */
+        subject result : ReasoningResult;
+        require constraint {
+            result.verdict != VerdictKind::entailed or result.confidence >= 0.70
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc /* The system shall return results for normal-priority queries within the configured maximum latency unless a timeout verdict is issued. */
+        subject result : ReasoningResult;
+        subject query : UserQuery;
+        require constraint {
+            query.priority != QueryPriority::normal or result.verdict == VerdictKind::timeout or result.latency <= query.maxLatency
+        }
+    }
+
+    part automatedReasoner : AutomatedReasoningSystem {
+        attribute :>> targetEndToEndLatency = 750 [ms];
+        attribute :>> peakQueryThroughput = 40 ["request/s"];
+
+        part :>> knowledgeManager {
+            attribute :>> storedFacts = 250000;
+            attribute :>> storedRules = 12000;
+            attribute :>> maximumSnapshotSize = 4096 [MiB];
+        }
+
+        part :>> inferenceEngine {
+            attribute :>> maximumTraceDepth = 64;
+            attribute :>> targetInferenceLatency = 500 [ms];
+            attribute :>> minimumAnswerConfidence = 0.70;
+        }
+    }
+}
+tokens used
+2,909
+package AutomatedReasoningSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        :>> range = "0.0..1.0";
+    }
+
+    attribute def Confidence : Probability;
+    attribute def Latency {
+        :>> unit = ms;
+        :>> quantityKind = time;
+    }
+
+    attribute def Throughput {
+        :>> unit = "request/s";
+    }
+
+    attribute def MemorySize {
+        :>> unit = MiB;
+    }
+
+    attribute def RuleCount : Integer;
+    attribute def FactCount : Integer;
+    attribute def TraceDepth : Integer;
+
+    enum def QueryPriority {
+        enum low;
+        enum normal;
+        enum high;
+        enum critical;
+    }
+
+    enum def ReasoningMode {
+        enum deductive;
+        enum abductive;
+        enum inductive;
+        enum consistencyChecking;
+        enum planning;
+    }
+
+    enum def VerdictKind {
+        enum entailed;
+        enum contradicted;
+        enum unknown;
+        enum inconsistentKnowledgeBase;
+        enum timeout;
+    }
+
+    item def UserQuery {
+        attribute id : String;
+        attribute naturalLanguageText : String;
+        attribute formalGoalExpression : String;
+        attribute priority : QueryPriority;
+        attribute requestedMode : ReasoningMode;
+        attribute maxLatency : Latency;
+    }
+
+    item def KnowledgeFact {
+        attribute subject : String;
+        attribute predicate : String;
+        attribute object : String;
+        attribute source : String;
+        attribute confidence : Confidence;
+    }
+
+    item def InferenceRule {
+        attribute ruleId : String;
+        attribute premiseExpression : String;
+        attribute conclusionExpression : String;
+        attribute weight : Confidence;
+    }
+
+    item def KnowledgeBaseSnapshot {
+        attribute snapshotId : String;
+        attribute factTotal : FactCount;
+        attribute ruleTotal : RuleCount;
+        attribute consistencyScore : Confidence;
+        item facts : KnowledgeFact[0..*];
+        item rules : InferenceRule[0..*];
+    }
+
+    item def ProofStep {
+        attribute stepNumber : Integer;
+        attribute appliedRuleId : String;
+        attribute derivedExpression : String;
+        attribute supportConfidence : Confidence;
+    }
+
+    item def ReasoningTrace {
+        attribute traceId : String;
+        attribute depth : TraceDepth;
+        attribute elapsedTime : Latency;
+        item steps : ProofStep[0..*];
+    }
+
+    item def ReasoningResult {
+        attribute queryId : String;
+        attribute verdict : VerdictKind;
+        attribute answerText : String;
+        attribute confidence : Confidence;
+        attribute latency : Latency;
+        item trace : ReasoningTrace;
+    }
+
+    port def QueryInputPort {
+        in item query : UserQuery;
+    }
+
+    port def KnowledgeInputPort {
+        in item fact : KnowledgeFact;
+        in item rule : InferenceRule;
+    }
+
+    port def ResultOutputPort {
+        out item result : ReasoningResult;
+    }
+
+    port def AuditOutputPort {
+        out item trace : ReasoningTrace;
+    }
+
+    port def KnowledgeAccessPort {
+        out item queryExpression : String;
+        in item snapshot : KnowledgeBaseSnapshot;
+    }
+
+    action def ParseUserQuery {
+        in item rawQuery : UserQuery;
+        out item normalizedQuery : UserQuery;
+    }
+
+    action def RetrieveRelevantKnowledge {
+        in item normalizedQuery : UserQuery;
+        in item knowledgeSnapshot : KnowledgeBaseSnapshot;
+        out item relevantSnapshot : KnowledgeBaseSnapshot;
+    }
+
+    action def CheckKnowledgeConsistency {
+        in item relevantSnapshot : KnowledgeBaseSnapshot;
+        out attribute isConsistent : Boolean;
+        out attribute consistencyScore : Confidence;
+    }
+
+    action def ExecuteInference {
+        in item normalizedQuery : UserQuery;
+        in item relevantSnapshot : KnowledgeBaseSnapshot;
+        out item trace : ReasoningTrace;
+        out attribute verdict : VerdictKind;
+        out attribute confidence : Confidence;
+    }
+
+    action def FormatReasoningResult {
+        in item query : UserQuery;
+        in attribute verdict : VerdictKind;
+        in attribute confidence : Confidence;
+        in item trace : ReasoningTrace;
+        out item result : ReasoningResult;
+    }
+
+    action def AutomatedReasoningWorkflow {
+        in item incomingQuery : UserQuery;
+        in item activeKnowledge : KnowledgeBaseSnapshot;
+        out item finalResult : ReasoningResult;
+
+        action parse : ParseUserQuery {
+            in rawQuery = incomingQuery;
+        }
+
+        action retrieve : RetrieveRelevantKnowledge {
+            in normalizedQuery = parse.normalizedQuery;
+            in knowledgeSnapshot = activeKnowledge;
+        }
+
+        action consistency : CheckKnowledgeConsistency {
+            in relevantSnapshot = retrieve.relevantSnapshot;
+        }
+
+        action infer : ExecuteInference {
+            in normalizedQuery = parse.normalizedQuery;
+            in relevantSnapshot = retrieve.relevantSnapshot;
+        }
+
+        action format : FormatReasoningResult {
+            in query = parse.normalizedQuery;
+            in verdict = infer.verdict;
+            in confidence = infer.confidence;
+            in trace = infer.trace;
+            out result = finalResult;
+        }
+
+        succession parse then retrieve;
+        succession retrieve then consistency;
+        succession consistency then infer;
+        succession infer then format;
+    }
+
+    state def ReasonerOperationalState {
+        entry action initializeCaches;
+        exit action persistAuditBuffer;
+
+        state idle;
+        state acceptingQuery;
+        state normalizingInput;
+        state retrievingKnowledge;
+        state checkingConsistency;
+        state inferring;
+        state explaining;
+        state returningResult;
+        state degraded;
+        state failed;
+
+        transition first idle;
+        transition idle_to_accepting first idle then acceptingQuery;
+        transition accepting_to_normalizing first acceptingQuery then normalizingInput;
+        transition normalizing_to_retrieving first normalizingInput then retrievingKnowledge;
+        transition retrieving_to_consistency first retrievingKnowledge then checkingConsistency;
+        transition consistency_to_inferring first checkingConsistency then inferring
+            if consistencyScore >= 0.95;
+        transition consistency_to_degraded first checkingConsistency then degraded
+            if consistencyScore < 0.95;
+        transition degraded_to_inferring first degraded then inferring;
+        transition inferring_to_explaining first inferring then explaining;
+        transition explaining_to_returning first explaining then returningResult;
+        transition returning_to_idle first returningResult then idle;
+        transition any_to_failed first acceptingQuery then failed
+            if unrecoverableInputError;
+    }
+
+    part def QueryInterface {
+        port queryIn : QueryInputPort;
+        port resultOut : ResultOutputPort;
+
+        attribute acceptedQueryRate : Throughput;
+        attribute maximumPayloadSize : MemorySize;
+    }
+
+    part def KnowledgeManager {
+        port knowledgeIn : KnowledgeInputPort;
+        port knowledgeAccess : KnowledgeAccessPort;
+
+        item activeSnapshot : KnowledgeBaseSnapshot;
+
+        attribute storedFacts : FactCount;
+        attribute storedRules : RuleCount;
+        attribute maximumSnapshotSize : MemorySize;
+        attribute minimumAcceptedFactConfidence : Confidence = 0.60;
+    }
+
+    part def QueryNormalizer {
+        port queryIn : QueryInputPort;
+        port normalizedQueryOut : QueryInputPort;
+
+        attribute parseConfidenceThreshold : Confidence = 0.75;
+        attribute maximumNormalizationLatency : Latency = 150 [ms];
+    }
+
+    part def InferenceEngine {
+        port knowledgeAccess : KnowledgeAccessPort;
+        port auditOut : AuditOutputPort;
+
+        attribute maximumTraceDepth : TraceDepth = 64;
+        attribute targetInferenceLatency : Latency = 500 [ms];
+        attribute minimumAnswerConfidence : Confidence = 0.70;
+
+        perform action reasoningWorkflow : AutomatedReasoningWorkflow;
+        exhibit state operationalState : ReasonerOperationalState;
+    }
+
+    part def ExplanationGenerator {
+        port auditIn : AuditOutputPort;
+        port resultOut : ResultOutputPort;
+
+        attribute maximumExplanationLength : Integer = 2000;
+        attribute includeProofTrace : Boolean = true;
+    }
+
+    part def AutomatedReasoningSystem {
+        port queryIn : QueryInputPort;
+        port knowledgeIn : KnowledgeInputPort;
+        port resultOut : ResultOutputPort;
+        port auditOut : AuditOutputPort;
+
+        part interface : QueryInterface;
+        part normalizer : QueryNormalizer;
+        part knowledgeManager : KnowledgeManager;
+        part inferenceEngine : InferenceEngine;
+        part explainer : ExplanationGenerator;
+
+        attribute primaryFunction : String =
+            "Accept formal or natural-language queries, retrieve relevant structured knowledge, apply automated inference, and return a justified verdict with confidence and trace evidence.";
+
+        attribute requiredAvailability : Probability = 0.995;
+        attribute targetEndToEndLatency : Latency = 750 [ms];
+        attribute peakQueryThroughput : Throughput = 40 ["request/s"];
+
+        connect queryIn to interface.queryIn;
+        connect interface.queryIn to normalizer.queryIn;
+        connect knowledgeIn to knowledgeManager.knowledgeIn;
+        connect knowledgeManager.knowledgeAccess to inferenceEngine.knowledgeAccess;
+        connect inferenceEngine.auditOut to explainer.auditIn;
+        connect inferenceEngine.auditOut to auditOut;
+        connect explainer.resultOut to interface.resultOut;
+        connect interface.resultOut to resultOut;
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        doc /* The system shall perform automated reasoning by converting user questions into normalized goals, applying stored facts and inference rules, and producing a justified answer. */
+        subject system : AutomatedReasoningSystem;
+        require constraint {
+            system.targetEndToEndLatency <= 750 [ms]
+        }
+    }
+
+    requirement def KnowledgeTraceabilityRequirement {
+        doc /* Every non-timeout result shall include a reasoning trace identifying the proof steps and rules used to reach the verdict. */
+        subject result : ReasoningResult;
+        require constraint {
+            result.verdict == VerdictKind::timeout or result.trace.depth >= 1
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* The system shall mark an answer as entailed or contradicted only when the computed confidence is at least 0.70. */
+        subject result : ReasoningResult;
+        require constraint {
+            (result.verdict == VerdictKind::entailed or result.verdict == VerdictKind::contradicted) implies result.confidence >= 0.70
+        }
+    }
+
+    requirement def ConsistencyRequirement {
+        doc /* The system shall detect inconsistent knowledge and return an explicit inconsistent-knowledge-base verdict instead of an unsupported answer. */
+        subject result : ReasoningResult;
+        require constraint {
+            result.verdict != VerdictKind::entailed or result.confidence >= 0.70
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc /* The system shall return results for normal-priority queries within the configured maximum latency unless a timeout verdict is issued. */
+        subject result : ReasoningResult;
+        subject query : UserQuery;
+        require constraint {
+            query.priority != QueryPriority::normal or result.verdict == VerdictKind::timeout or result.latency <= query.maxLatency
+        }
+    }
+
+    part automatedReasoner : AutomatedReasoningSystem {
+        attribute :>> targetEndToEndLatency = 750 [ms];
+        attribute :>> peakQueryThroughput = 40 ["request/s"];
+
+        part :>> knowledgeManager {
+            attribute :>> storedFacts = 250000;
+            attribute :>> storedRules = 12000;
+            attribute :>> maximumSnapshotSize = 4096 [MiB];
+        }
+
+        part :>> inferenceEngine {
+            attribute :>> maximumTraceDepth = 64;
+            attribute :>> targetInferenceLatency = 500 [ms];
+            attribute :>> minimumAnswerConfidence = 0.70;
+        }
+    }
+}

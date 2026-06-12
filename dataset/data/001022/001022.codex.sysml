@@ -1,0 +1,457 @@
+package DepthGaugeSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Depth {
+        :> ScalarValues::Real;
+        unit = SI::metre;
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = SI::pascal;
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = SI::kelvin;
+    }
+
+    attribute def Density {
+        :> ScalarValues::Real;
+        unit = SI::kilogramPerCubicMetre;
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent {
+        :> ScalarValues::Real;
+        unit = SI::ampere;
+    }
+
+    attribute def Time {
+        :> ScalarValues::Real;
+        unit = SI::second;
+    }
+
+    attribute def Percentage {
+        :> ScalarValues::Real;
+        unit = SI::percent;
+    }
+
+    attribute def SamplingRate {
+        :> ScalarValues::Real;
+        unit = SI::hertz;
+    }
+
+    attribute def ErrorCode {
+        :> ScalarValues::Integer;
+    }
+
+    item def WaterPressureSignal {
+        attribute measuredPressure : Pressure;
+        attribute measuredTemperature : Temperature;
+        attribute sampleTime : Time;
+    }
+
+    item def DepthReading {
+        attribute depth : Depth;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute confidence : Percentage;
+        attribute sampleTime : Time;
+    }
+
+    item def UserAlert {
+        attribute code : ErrorCode;
+        attribute messageId : ErrorCode;
+        attribute severity : Percentage;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute loadCurrent : ElectricCurrent;
+    }
+
+    port def PressureMeasurementPort {
+        out item pressureSignal : WaterPressureSignal;
+    }
+
+    port def DepthOutputPort {
+        out item depthReading : DepthReading;
+        out item alert : UserAlert;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DisplayDataPort {
+        in item reading : DepthReading;
+        in item alert : UserAlert;
+    }
+
+    port def ConfigurationPort {
+        in attribute waterDensity : Density;
+        in attribute surfacePressure : Pressure;
+        in attribute sampleRate : SamplingRate;
+    }
+
+    part def PressureTransducer {
+        attribute operatingVoltage : Voltage = 3.3 [SI::volt];
+        attribute pressureRangeMinimum : Pressure = 0.0 [SI::pascal];
+        attribute pressureRangeMaximum : Pressure = 2000000.0 [SI::pascal];
+        attribute pressureAccuracy : Pressure = 1000.0 [SI::pascal];
+        attribute responseTime : Time = 0.02 [SI::second];
+
+        port powerIn : PowerInputPort;
+        port measurementOut : PressureMeasurementPort;
+
+        action senseHydrostaticPressure {
+            in attribute ambientPressure : Pressure;
+            in attribute ambientTemperature : Temperature;
+            out item signal : WaterPressureSignal;
+
+            assign signal.measuredPressure := ambientPressure;
+            assign signal.measuredTemperature := ambientTemperature;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute filterCutoffFrequency : SamplingRate = 8.0 [SI::hertz];
+        attribute conversionResolutionBits : ScalarValues::Integer = 16;
+        attribute noiseRejectionRatio : Percentage = 95.0 [SI::percent];
+
+        port rawPressureIn : PressureMeasurementPort;
+        port conditionedPressureOut : PressureMeasurementPort;
+        port powerIn : PowerInputPort;
+
+        action conditionSignal {
+            in item rawSignal : WaterPressureSignal;
+            out item conditionedSignal : WaterPressureSignal;
+
+            assign conditionedSignal.measuredPressure := rawSignal.measuredPressure;
+            assign conditionedSignal.measuredTemperature := rawSignal.measuredTemperature;
+            assign conditionedSignal.sampleTime := rawSignal.sampleTime;
+        }
+    }
+
+    part def DepthProcessor {
+        attribute gravitationalAcceleration : ISQ::AccelerationValue = 9.80665 [SI::metrePerSecondSquared];
+        attribute configuredWaterDensity : Density = 1025.0 [SI::kilogramPerCubicMetre];
+        attribute configuredSurfacePressure : Pressure = 101325.0 [SI::pascal];
+        attribute maximumRatedDepth : Depth = 100.0 [SI::metre];
+        attribute minimumValidPressure : Pressure = 90000.0 [SI::pascal];
+        attribute maximumValidPressure : Pressure = 1200000.0 [SI::pascal];
+
+        port pressureIn : PressureMeasurementPort;
+        port depthOut : DepthOutputPort;
+        port configurationIn : ConfigurationPort;
+        port powerIn : PowerInputPort;
+
+        action calculateDepth {
+            in item signal : WaterPressureSignal;
+            out item reading : DepthReading;
+
+            assign reading.pressure := signal.measuredPressure;
+            assign reading.temperature := signal.measuredTemperature;
+            assign reading.depth := (signal.measuredPressure - configuredSurfacePressure) / (configuredWaterDensity * gravitationalAcceleration);
+            assign reading.confidence := 98.0 [SI::percent];
+            assign reading.sampleTime := signal.sampleTime;
+        }
+
+        action validateReading {
+            in item reading : DepthReading;
+            out item alert : UserAlert;
+
+            if reading.pressure < minimumValidPressure {
+                assign alert.code := 101;
+                assign alert.messageId := 101;
+                assign alert.severity := 80.0 [SI::percent];
+            }
+
+            if reading.depth > maximumRatedDepth {
+                assign alert.code := 201;
+                assign alert.messageId := 201;
+                assign alert.severity := 95.0 [SI::percent];
+            }
+        }
+    }
+
+    part def UserDisplay {
+        attribute displayRefreshRate : SamplingRate = 2.0 [SI::hertz];
+        attribute minimumReadableDepthIncrement : Depth = 0.1 [SI::metre];
+        attribute backlightPower : Voltage = 3.3 [SI::volt];
+
+        port dataIn : DisplayDataPort;
+        port powerIn : PowerInputPort;
+
+        action renderDepth {
+            in item reading : DepthReading;
+        }
+
+        action renderAlert {
+            in item alert : UserAlert;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute nominalBatteryVoltage : Voltage = 3.7 [SI::volt];
+        attribute regulatedOutputVoltage : Voltage = 3.3 [SI::volt];
+        attribute maximumOutputCurrent : ElectricCurrent = 0.25 [SI::ampere];
+        attribute batteryStateOfCharge : Percentage = 100.0 [SI::percent];
+        attribute lowBatteryThreshold : Percentage = 15.0 [SI::percent];
+
+        port powerOut : PowerInputPort;
+
+        action regulatePower {
+            out item suppliedPower : ElectricalPower;
+
+            assign suppliedPower.supplyVoltage := regulatedOutputVoltage;
+            assign suppliedPower.loadCurrent := 0.08 [SI::ampere];
+        }
+
+        action assessBattery {
+            out item alert : UserAlert;
+
+            if batteryStateOfCharge < lowBatteryThreshold {
+                assign alert.code := 301;
+                assign alert.messageId := 301;
+                assign alert.severity := 70.0 [SI::percent];
+            }
+        }
+    }
+
+    part def SealedHousing {
+        attribute ingressProtectionDepth : Depth = 120.0 [SI::metre];
+        attribute proofPressure : Pressure = 1300000.0 [SI::pascal];
+        attribute operatingTemperatureMinimum : Temperature = 273.15 [SI::kelvin];
+        attribute operatingTemperatureMaximum : Temperature = 313.15 [SI::kelvin];
+
+        part sensorCavity : PressureTransducer;
+        part electronicsCavity : DepthProcessor;
+        part displayWindow : UserDisplay;
+    }
+
+    part def DepthGauge {
+        attribute primaryFunction : String = "Measure surrounding hydrostatic pressure and convert it into a reliable depth reading for the user.";
+        attribute ratedDepth : Depth = 100.0 [SI::metre];
+        attribute displayedDepthAccuracy : Depth = 0.5 [SI::metre];
+        attribute normalSamplingRate : SamplingRate = 4.0 [SI::hertz];
+
+        port environmentPressurePort : PressureMeasurementPort;
+        port userOutputPort : DepthOutputPort;
+        port configurationPort : ConfigurationPort;
+
+        part pressureTransducer : PressureTransducer;
+        part signalConditioner : SignalConditioner;
+        part depthProcessor : DepthProcessor;
+        part userDisplay : UserDisplay;
+        part powerSubsystem : PowerSubsystem;
+        part sealedHousing : SealedHousing;
+
+        connect powerSubsystem.powerOut to pressureTransducer.powerIn;
+        connect powerSubsystem.powerOut to signalConditioner.powerIn;
+        connect powerSubsystem.powerOut to depthProcessor.powerIn;
+        connect powerSubsystem.powerOut to userDisplay.powerIn;
+
+        connect pressureTransducer.measurementOut to signalConditioner.rawPressureIn;
+        connect signalConditioner.conditionedPressureOut to depthProcessor.pressureIn;
+        connect depthProcessor.depthOut to userOutputPort;
+        connect depthProcessor.depthOut.reading to userDisplay.dataIn.reading;
+        connect depthProcessor.depthOut.alert to userDisplay.dataIn.alert;
+        connect configurationPort to depthProcessor.configurationIn;
+
+        state def GaugeOperationalState {
+            state off;
+            state initializing;
+            state measuring;
+            state warning;
+            state fault;
+            state lowPower;
+
+            initial then off;
+
+            transition off_to_initializing
+                first off
+                accept PowerButtonPressed
+                then initializing;
+
+            transition initialized
+                first initializing
+                accept InitializationComplete
+                then measuring;
+
+            transition depth_warning
+                first measuring
+                accept DepthLimitApproached
+                then warning;
+
+            transition warning_cleared
+                first warning
+                accept DepthReturnedToNormal
+                then measuring;
+
+            transition sensor_fault
+                first measuring
+                accept SensorSignalInvalid
+                then fault;
+
+            transition warning_fault
+                first warning
+                accept SensorSignalInvalid
+                then fault;
+
+            transition battery_low
+                first measuring
+                accept BatteryBelowThreshold
+                then lowPower;
+
+            transition shutdown
+                first lowPower
+                accept PowerButtonPressed
+                then off;
+        }
+
+        action performDepthMeasurement {
+            in attribute ambientPressure : Pressure;
+            in attribute ambientTemperature : Temperature;
+            out item displayedReading : DepthReading;
+            out item activeAlert : UserAlert;
+
+            first start;
+            then sensePressure;
+            then conditionPressure;
+            then computeDepth;
+            then checkDepth;
+            then updateDisplay;
+            then done;
+
+            action sensePressure : pressureTransducer.senseHydrostaticPressure {
+                in ambientPressure = ambientPressure;
+                in ambientTemperature = ambientTemperature;
+            }
+
+            action conditionPressure : signalConditioner.conditionSignal {
+                in rawSignal = sensePressure.signal;
+            }
+
+            action computeDepth : depthProcessor.calculateDepth {
+                in signal = conditionPressure.conditionedSignal;
+            }
+
+            action checkDepth : depthProcessor.validateReading {
+                in reading = computeDepth.reading;
+            }
+
+            action updateDisplay : userDisplay.renderDepth {
+                in reading = computeDepth.reading;
+            }
+
+            assign displayedReading := computeDepth.reading;
+            assign activeAlert := checkDepth.alert;
+        }
+    }
+
+    requirement def MeasureDepthRequirement {
+        doc /* The depth gauge shall determine depth from measured hydrostatic pressure relative to surface pressure. */
+        attribute requiredAccuracy : Depth = 0.5 [SI::metre];
+        attribute requiredRange : Depth = 100.0 [SI::metre];
+
+        subject gauge : DepthGauge;
+
+        require constraint {
+            gauge.displayedDepthAccuracy <= requiredAccuracy
+        }
+
+        require constraint {
+            gauge.ratedDepth >= requiredRange
+        }
+    }
+
+    requirement def DisplayDepthRequirement {
+        doc /* The depth gauge shall present the current depth to the user at least twice per second during normal operation. */
+        attribute minimumRefreshRate : SamplingRate = 2.0 [SI::hertz];
+
+        subject display : UserDisplay;
+
+        require constraint {
+            display.displayRefreshRate >= minimumRefreshRate
+        }
+    }
+
+    requirement def PressureSurvivalRequirement {
+        doc /* The housing shall withstand pressure corresponding to a depth greater than the rated operating depth. */
+        attribute requiredProofPressure : Pressure = 1200000.0 [SI::pascal];
+
+        subject housing : SealedHousing;
+
+        require constraint {
+            housing.proofPressure >= requiredProofPressure
+        }
+    }
+
+    requirement def LowPowerWarningRequirement {
+        doc /* The depth gauge shall alert the user when battery state of charge falls below the configured low battery threshold. */
+
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.lowBatteryThreshold >= 10.0 [SI::percent]
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide a high-level function of sensing water pressure, calculating depth, validating the reading, and displaying depth to the user. */
+
+        subject gauge : DepthGauge;
+
+        require constraint {
+            gauge.normalSamplingRate >= 4.0 [SI::hertz]
+        }
+    }
+
+    satisfy MeasureDepthRequirement by DepthGauge::depthProcessor;
+    satisfy DisplayDepthRequirement by DepthGauge::userDisplay;
+    satisfy PressureSurvivalRequirement by DepthGauge::sealedHousing;
+    satisfy LowPowerWarningRequirement by DepthGauge::powerSubsystem;
+    satisfy PrimaryFunctionRequirement by DepthGauge;
+
+    part depthGaugeSystem : DepthGauge {
+        attribute ratedDepth = 100.0 [SI::metre];
+        attribute displayedDepthAccuracy = 0.5 [SI::metre];
+        attribute normalSamplingRate = 4.0 [SI::hertz];
+
+        part pressureTransducer {
+            attribute pressureRangeMaximum = 2000000.0 [SI::pascal];
+            attribute pressureAccuracy = 1000.0 [SI::pascal];
+        }
+
+        part depthProcessor {
+            attribute configuredWaterDensity = 1025.0 [SI::kilogramPerCubicMetre];
+            attribute configuredSurfacePressure = 101325.0 [SI::pascal];
+            attribute maximumRatedDepth = 100.0 [SI::metre];
+        }
+
+        part userDisplay {
+            attribute displayRefreshRate = 2.0 [SI::hertz];
+            attribute minimumReadableDepthIncrement = 0.1 [SI::metre];
+        }
+
+        part powerSubsystem {
+            attribute nominalBatteryVoltage = 3.7 [SI::volt];
+            attribute regulatedOutputVoltage = 3.3 [SI::volt];
+            attribute batteryStateOfCharge = 100.0 [SI::percent];
+        }
+
+        part sealedHousing {
+            attribute ingressProtectionDepth = 120.0 [SI::metre];
+            attribute proofPressure = 1300000.0 [SI::pascal];
+        }
+    }
+}

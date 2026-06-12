@@ -1,0 +1,973 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-xjd5gw0v
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb587-87ea-7051-a772-1b0d28df1b5b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a MAP sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MAPSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "mA";
+    }
+
+    attribute def Time :> Real {
+        unit = "ms";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def DiagnosticCode :> String;
+
+    item def AirPressureSample {
+        attribute absolutePressure : Pressure;
+        attribute sampleTime : Time;
+        attribute sensorTemperature : Temperature;
+        attribute validity : Boolean;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute signalVoltage : Voltage;
+        attribute sourceImpedance : Real;
+    }
+
+    item def DigitalPressureFrame {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute timestamp : Time;
+        attribute status : DiagnosticCode;
+        attribute checksumValid : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticMessage {
+        attribute code : DiagnosticCode;
+        attribute active : Boolean;
+        attribute description : String;
+    }
+
+    port def PressurePort {
+        out item pressureMedium : AirPressureSample;
+    }
+
+    port def AnalogSignalPort {
+        out item analogSignal : AnalogVoltageSignal;
+    }
+
+    port def DigitalDataPort {
+        inout item pressureFrame : DigitalPressureFrame;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    part def PressureTap {
+        attribute filteredPressure : Pressure;
+        attribute responseLag : Time = 3.0;
+        port outlet : PressurePort;
+    }
+
+    part def MAPSensor {
+        attribute measurementRangeMin : Pressure = 10.0;
+        attribute measurementRangeMax : Pressure = 250.0;
+        attribute accuracy : Pressure = 1.5;
+        attribute operatingTemperatureMin : Temperature = -40.0;
+        attribute operatingTemperatureMax : Temperature = 125.0;
+        attribute supplyVoltageNominal : Voltage = 5.0;
+        attribute outputVoltageMin : Voltage = 0.5;
+        attribute outputVoltageMax : Voltage = 4.5;
+        attribute responseTime : Time = 1.0;
+
+        port pressureInput : PressurePort;
+        port powerInput : PowerPort;
+        port analogOutput : AnalogSignalPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        action senseAbsolutePressure {
+            in item inletPressure : AirPressureSample;
+            out item voltageSignal : AnalogVoltageSignal;
+
+            attribute pressureSpan : Pressure = measurementRangeMax - measurementRangeMin;
+            attribute voltageSpan : Voltage = outputVoltageMax - outputVoltageMin;
+
+            voltageSignal.signalVoltage =
+                outputVoltageMin +
+                ((inletPressure.absolutePressure - measurementRangeMin) / pressureSpan) * voltageSpan;
+            voltageSignal.sourceImpedance = 100.0;
+        }
+
+        state mapSensorStateMachine {
+            state off;
+            state warmup;
+            state measuring;
+            state fault;
+
+            initial then off;
+
+            transition off_to_warmup
+                first off
+                accept PowerApplied
+                then warmup;
+
+            transition warmup_to_measuring
+                first warmup
+                accept WarmupComplete
+                if powerInput.power.supplyVoltage >= 4.75 and powerInput.power.supplyVoltage <= 5.25
+                then measuring;
+
+            transition measuring_to_fault_low_supply
+                first measuring
+                if powerInput.power.supplyVoltage < 4.75
+                then fault;
+
+            transition measuring_to_fault_high_supply
+                first measuring
+                if powerInput.power.supplyVoltage > 5.25
+                then fault;
+
+            transition fault_to_measuring
+                first fault
+                accept FaultCleared
+                if powerInput.power.supplyVoltage >= 4.75 and powerInput.power.supplyVoltage <= 5.25
+                then measuring;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute lowPassCutoffFrequency : Frequency = 100.0;
+        attribute adcResolutionBits : Integer = 12;
+        attribute referenceVoltage : Voltage = 5.0;
+        attribute conversionPeriod : Time = 1.0;
+
+        port analogInput : AnalogSignalPort;
+        port powerInput : PowerPort;
+        port digitalOutput : DigitalDataPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        action convertVoltageToPressure {
+            in item voltageSignal : AnalogVoltageSignal;
+            out item frame : DigitalPressureFrame;
+
+            attribute minPressure : Pressure = 10.0;
+            attribute maxPressure : Pressure = 250.0;
+            attribute minVoltage : Voltage = 0.5;
+            attribute maxVoltage : Voltage = 4.5;
+
+            frame.pressure =
+                minPressure +
+                ((voltageSignal.signalVoltage - minVoltage) / (maxVoltage - minVoltage)) *
+                (maxPressure - minPressure);
+            frame.temperature = 25.0;
+            frame.timestamp = 0.0;
+            frame.status = "OK";
+            frame.checksumValid = true;
+        }
+
+        state conditionerStateMachine {
+            state disabled;
+            state sampling;
+            state reporting;
+            state diagnosticFault;
+
+            initial then disabled;
+
+            transition disabled_to_sampling
+                first disabled
+                accept EnableAcquisition
+                then sampling;
+
+            transition sampling_to_reporting
+                first sampling
+                accept SampleReady
+                then reporting;
+
+            transition reporting_to_sampling
+                first reporting
+                accept FrameTransmitted
+                then sampling;
+
+            transition sampling_to_fault
+                first sampling
+                if analogInput.analogSignal.signalVoltage < 0.25 or analogInput.analogSignal.signalVoltage > 4.75
+                then diagnosticFault;
+
+            transition fault_to_sampling
+                first diagnosticFault
+                accept DiagnosticReset
+                then sampling;
+        }
+    }
+
+    part def MicrocontrollerInterface {
+        attribute busUpdateRate : Frequency = 100.0;
+        attribute pressureResolution : Pressure = 0.1;
+        attribute timeoutLimit : Time = 20.0;
+
+        port pressureDataInput : DigitalDataPort;
+        port hostDataOutput : DigitalDataPort;
+        port diagnosticInput : DiagnosticPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        action validateAndPublishPressure {
+            in item rawFrame : DigitalPressureFrame;
+            out item publishedFrame : DigitalPressureFrame;
+
+            publishedFrame.pressure = rawFrame.pressure;
+            publishedFrame.temperature = rawFrame.temperature;
+            publishedFrame.timestamp = rawFrame.timestamp;
+            publishedFrame.checksumValid = rawFrame.checksumValid;
+
+            if rawFrame.checksumValid and rawFrame.pressure >= 10.0 and rawFrame.pressure <= 250.0 {
+                publishedFrame.status = "VALID_PRESSURE";
+            } else {
+                publishedFrame.status = "INVALID_PRESSURE";
+            }
+        }
+
+        state interfaceStateMachine {
+            state boot;
+            state ready;
+            state publishing;
+            state degraded;
+
+            initial then boot;
+
+            transition boot_to_ready
+                first boot
+                accept InitializationComplete
+                then ready;
+
+            transition ready_to_publishing
+                first ready
+                accept ValidFrameReceived
+                then publishing;
+
+            transition publishing_to_ready
+                first publishing
+                accept PublishComplete
+                then ready;
+
+            transition ready_to_degraded
+                first ready
+                accept DiagnosticFaultReceived
+                then degraded;
+
+            transition degraded_to_ready
+                first degraded
+                accept DiagnosticRecovered
+                then ready;
+        }
+    }
+
+    part def RegulatedPowerSupply {
+        attribute inputVoltageMin : Voltage = 9.0;
+        attribute inputVoltageMax : Voltage = 16.0;
+        attribute outputVoltage : Voltage = 5.0;
+        attribute maximumCurrent : Current = 50.0;
+        attribute rippleVoltage : Voltage = 0.05;
+
+        port powerOutput : PowerPort;
+
+        action regulateInputPower {
+            out item regulatedPower : ElectricalPower;
+
+            regulatedPower.supplyVoltage = outputVoltage;
+            regulatedPower.supplyCurrent = 20.0;
+        }
+    }
+
+    part def MAPSensingUnit {
+        attribute measuredQuantityName : String = "Manifold absolute pressure";
+        attribute nominalUpdateRate : Frequency = 100.0;
+        attribute totalCurrentConsumption : Current = 35.0;
+        attribute pressureMeasurementMin : Pressure = 10.0;
+        attribute pressureMeasurementMax : Pressure = 250.0;
+        attribute endToEndLatency : Time = 8.0;
+
+        part pressureTap : PressureTap;
+        part mapSensor : MAPSensor;
+        part conditioner : SignalConditioner;
+        part controllerInterface : MicrocontrollerInterface;
+        part regulatedSupply : RegulatedPowerSupply;
+
+        port manifoldPressureInput : PressurePort;
+        port vehiclePowerInput : PowerPort;
+        port measuredPressureOutput : DigitalDataPort;
+        port unitDiagnosticOutput : DiagnosticPort;
+
+        connect manifoldPressureInput to pressureTap.outlet;
+        connect pressureTap.outlet to mapSensor.pressureInput;
+        connect vehiclePowerInput to regulatedSupply.powerOutput;
+        connect regulatedSupply.powerOutput to mapSensor.powerInput;
+        connect regulatedSupply.powerOutput to conditioner.powerInput;
+        connect mapSensor.analogOutput to conditioner.analogInput;
+        connect conditioner.digitalOutput to controllerInterface.pressureDataInput;
+        connect controllerInterface.hostDataOutput to measuredPressureOutput;
+        connect mapSensor.diagnosticOutput to controllerInterface.diagnosticInput;
+        connect conditioner.diagnosticOutput to controllerInterface.diagnosticInput;
+        connect controllerInterface.diagnosticOutput to unitDiagnosticOutput;
+
+        action measureManifoldAbsolutePressure {
+            in item manifoldPressure : AirPressureSample;
+            out item measuredFrame : DigitalPressureFrame;
+
+            send manifoldPressure to pressureTap.outlet;
+            perform mapSensor.senseAbsolutePressure;
+            perform conditioner.convertVoltageToPressure;
+            perform controllerInterface.validateAndPublishPressure;
+            measuredFrame = controllerInterface.hostDataOutput.pressureFrame;
+        }
+
+        state unitOperatingStateMachine {
+            state unpowered;
+            state initializing;
+            state operational;
+            state diagnosticMode;
+            state failed;
+
+            initial then unpowered;
+
+            transition unpowered_to_initializing
+                first unpowered
+                accept VehiclePowerAvailable
+                then initializing;
+
+            transition initializing_to_operational
+                first initializing
+                accept SelfTestPassed
+                then operational;
+
+            transition initializing_to_failed
+                first initializing
+                accept SelfTestFailed
+                then failed;
+
+            transition operational_to_diagnostic
+                first operational
+                accept ServiceToolRequest
+                then diagnosticMode;
+
+            transition diagnostic_to_operational
+                first diagnosticMode
+                accept ServiceToolRelease
+                then operational;
+
+            transition operational_to_failed
+                first operational
+                accept CriticalSensorFault
+                then failed;
+
+            transition failed_to_initializing
+                first failed
+                accept PowerCycle
+                then initializing;
+        }
+    }
+
+    requirement def MeasureMAPRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.measuredQuantityName == "Manifold absolute pressure"
+        }
+    }
+
+    requirement def PressureRangeRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.pressureMeasurementMin <= 10.0 and unit.pressureMeasurementMax >= 250.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensor : MAPSensor;
+        require constraint {
+            sensor.accuracy <= 1.5
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.endToEndLatency <= 10.0
+        }
+    }
+
+    requirement def SupplyRequirement {
+        subject supply : RegulatedPowerSupply;
+        require constraint {
+            supply.outputVoltage >= 4.75 and supply.outputVoltage <= 5.25
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.nominalUpdateRate >= 100.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.unitDiagnosticOutput.diagnostic.active implies
+            unit.unitDiagnosticOutput.diagnostic.code != ""
+        }
+    }
+
+    part sensingUnit : MAPSensingUnit;
+
+    requirement measureMAP : MeasureMAPRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement pressureRange : PressureRangeRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement latency : LatencyRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement updateRate : UpdateRateRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement supplyVoltage : SupplyRequirement {
+        subject supply = sensingUnit.regulatedSupply;
+    }
+
+    requirement sensorAccuracy : AccuracyRequirement {
+        subject sensor = sensingUnit.mapSensor;
+    }
+
+    requirement diagnostics : DiagnosticRequirement {
+        subject unit = sensingUnit;
+    }
+
+    satisfy measureMAP by sensingUnit;
+    satisfy pressureRange by sensingUnit;
+    satisfy latency by sensingUnit;
+    satisfy updateRate by sensingUnit;
+    satisfy supplyVoltage by sensingUnit.regulatedSupply;
+    satisfy sensorAccuracy by sensingUnit.mapSensor;
+    satisfy diagnostics by sensingUnit;
+}
+tokens used
+4,296
+package MAPSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Pressure :> Real {
+        unit = "kPa";
+    }
+
+    attribute def Temperature :> Real {
+        unit = "degC";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "mA";
+    }
+
+    attribute def Time :> Real {
+        unit = "ms";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def DiagnosticCode :> String;
+
+    item def AirPressureSample {
+        attribute absolutePressure : Pressure;
+        attribute sampleTime : Time;
+        attribute sensorTemperature : Temperature;
+        attribute validity : Boolean;
+    }
+
+    item def AnalogVoltageSignal {
+        attribute signalVoltage : Voltage;
+        attribute sourceImpedance : Real;
+    }
+
+    item def DigitalPressureFrame {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute timestamp : Time;
+        attribute status : DiagnosticCode;
+        attribute checksumValid : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticMessage {
+        attribute code : DiagnosticCode;
+        attribute active : Boolean;
+        attribute description : String;
+    }
+
+    port def PressurePort {
+        out item pressureMedium : AirPressureSample;
+    }
+
+    port def AnalogSignalPort {
+        out item analogSignal : AnalogVoltageSignal;
+    }
+
+    port def DigitalDataPort {
+        inout item pressureFrame : DigitalPressureFrame;
+    }
+
+    port def PowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticMessage;
+    }
+
+    part def PressureTap {
+        attribute filteredPressure : Pressure;
+        attribute responseLag : Time = 3.0;
+        port outlet : PressurePort;
+    }
+
+    part def MAPSensor {
+        attribute measurementRangeMin : Pressure = 10.0;
+        attribute measurementRangeMax : Pressure = 250.0;
+        attribute accuracy : Pressure = 1.5;
+        attribute operatingTemperatureMin : Temperature = -40.0;
+        attribute operatingTemperatureMax : Temperature = 125.0;
+        attribute supplyVoltageNominal : Voltage = 5.0;
+        attribute outputVoltageMin : Voltage = 0.5;
+        attribute outputVoltageMax : Voltage = 4.5;
+        attribute responseTime : Time = 1.0;
+
+        port pressureInput : PressurePort;
+        port powerInput : PowerPort;
+        port analogOutput : AnalogSignalPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        action senseAbsolutePressure {
+            in item inletPressure : AirPressureSample;
+            out item voltageSignal : AnalogVoltageSignal;
+
+            attribute pressureSpan : Pressure = measurementRangeMax - measurementRangeMin;
+            attribute voltageSpan : Voltage = outputVoltageMax - outputVoltageMin;
+
+            voltageSignal.signalVoltage =
+                outputVoltageMin +
+                ((inletPressure.absolutePressure - measurementRangeMin) / pressureSpan) * voltageSpan;
+            voltageSignal.sourceImpedance = 100.0;
+        }
+
+        state mapSensorStateMachine {
+            state off;
+            state warmup;
+            state measuring;
+            state fault;
+
+            initial then off;
+
+            transition off_to_warmup
+                first off
+                accept PowerApplied
+                then warmup;
+
+            transition warmup_to_measuring
+                first warmup
+                accept WarmupComplete
+                if powerInput.power.supplyVoltage >= 4.75 and powerInput.power.supplyVoltage <= 5.25
+                then measuring;
+
+            transition measuring_to_fault_low_supply
+                first measuring
+                if powerInput.power.supplyVoltage < 4.75
+                then fault;
+
+            transition measuring_to_fault_high_supply
+                first measuring
+                if powerInput.power.supplyVoltage > 5.25
+                then fault;
+
+            transition fault_to_measuring
+                first fault
+                accept FaultCleared
+                if powerInput.power.supplyVoltage >= 4.75 and powerInput.power.supplyVoltage <= 5.25
+                then measuring;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute lowPassCutoffFrequency : Frequency = 100.0;
+        attribute adcResolutionBits : Integer = 12;
+        attribute referenceVoltage : Voltage = 5.0;
+        attribute conversionPeriod : Time = 1.0;
+
+        port analogInput : AnalogSignalPort;
+        port powerInput : PowerPort;
+        port digitalOutput : DigitalDataPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        action convertVoltageToPressure {
+            in item voltageSignal : AnalogVoltageSignal;
+            out item frame : DigitalPressureFrame;
+
+            attribute minPressure : Pressure = 10.0;
+            attribute maxPressure : Pressure = 250.0;
+            attribute minVoltage : Voltage = 0.5;
+            attribute maxVoltage : Voltage = 4.5;
+
+            frame.pressure =
+                minPressure +
+                ((voltageSignal.signalVoltage - minVoltage) / (maxVoltage - minVoltage)) *
+                (maxPressure - minPressure);
+            frame.temperature = 25.0;
+            frame.timestamp = 0.0;
+            frame.status = "OK";
+            frame.checksumValid = true;
+        }
+
+        state conditionerStateMachine {
+            state disabled;
+            state sampling;
+            state reporting;
+            state diagnosticFault;
+
+            initial then disabled;
+
+            transition disabled_to_sampling
+                first disabled
+                accept EnableAcquisition
+                then sampling;
+
+            transition sampling_to_reporting
+                first sampling
+                accept SampleReady
+                then reporting;
+
+            transition reporting_to_sampling
+                first reporting
+                accept FrameTransmitted
+                then sampling;
+
+            transition sampling_to_fault
+                first sampling
+                if analogInput.analogSignal.signalVoltage < 0.25 or analogInput.analogSignal.signalVoltage > 4.75
+                then diagnosticFault;
+
+            transition fault_to_sampling
+                first diagnosticFault
+                accept DiagnosticReset
+                then sampling;
+        }
+    }
+
+    part def MicrocontrollerInterface {
+        attribute busUpdateRate : Frequency = 100.0;
+        attribute pressureResolution : Pressure = 0.1;
+        attribute timeoutLimit : Time = 20.0;
+
+        port pressureDataInput : DigitalDataPort;
+        port hostDataOutput : DigitalDataPort;
+        port diagnosticInput : DiagnosticPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        action validateAndPublishPressure {
+            in item rawFrame : DigitalPressureFrame;
+            out item publishedFrame : DigitalPressureFrame;
+
+            publishedFrame.pressure = rawFrame.pressure;
+            publishedFrame.temperature = rawFrame.temperature;
+            publishedFrame.timestamp = rawFrame.timestamp;
+            publishedFrame.checksumValid = rawFrame.checksumValid;
+
+            if rawFrame.checksumValid and rawFrame.pressure >= 10.0 and rawFrame.pressure <= 250.0 {
+                publishedFrame.status = "VALID_PRESSURE";
+            } else {
+                publishedFrame.status = "INVALID_PRESSURE";
+            }
+        }
+
+        state interfaceStateMachine {
+            state boot;
+            state ready;
+            state publishing;
+            state degraded;
+
+            initial then boot;
+
+            transition boot_to_ready
+                first boot
+                accept InitializationComplete
+                then ready;
+
+            transition ready_to_publishing
+                first ready
+                accept ValidFrameReceived
+                then publishing;
+
+            transition publishing_to_ready
+                first publishing
+                accept PublishComplete
+                then ready;
+
+            transition ready_to_degraded
+                first ready
+                accept DiagnosticFaultReceived
+                then degraded;
+
+            transition degraded_to_ready
+                first degraded
+                accept DiagnosticRecovered
+                then ready;
+        }
+    }
+
+    part def RegulatedPowerSupply {
+        attribute inputVoltageMin : Voltage = 9.0;
+        attribute inputVoltageMax : Voltage = 16.0;
+        attribute outputVoltage : Voltage = 5.0;
+        attribute maximumCurrent : Current = 50.0;
+        attribute rippleVoltage : Voltage = 0.05;
+
+        port powerOutput : PowerPort;
+
+        action regulateInputPower {
+            out item regulatedPower : ElectricalPower;
+
+            regulatedPower.supplyVoltage = outputVoltage;
+            regulatedPower.supplyCurrent = 20.0;
+        }
+    }
+
+    part def MAPSensingUnit {
+        attribute measuredQuantityName : String = "Manifold absolute pressure";
+        attribute nominalUpdateRate : Frequency = 100.0;
+        attribute totalCurrentConsumption : Current = 35.0;
+        attribute pressureMeasurementMin : Pressure = 10.0;
+        attribute pressureMeasurementMax : Pressure = 250.0;
+        attribute endToEndLatency : Time = 8.0;
+
+        part pressureTap : PressureTap;
+        part mapSensor : MAPSensor;
+        part conditioner : SignalConditioner;
+        part controllerInterface : MicrocontrollerInterface;
+        part regulatedSupply : RegulatedPowerSupply;
+
+        port manifoldPressureInput : PressurePort;
+        port vehiclePowerInput : PowerPort;
+        port measuredPressureOutput : DigitalDataPort;
+        port unitDiagnosticOutput : DiagnosticPort;
+
+        connect manifoldPressureInput to pressureTap.outlet;
+        connect pressureTap.outlet to mapSensor.pressureInput;
+        connect vehiclePowerInput to regulatedSupply.powerOutput;
+        connect regulatedSupply.powerOutput to mapSensor.powerInput;
+        connect regulatedSupply.powerOutput to conditioner.powerInput;
+        connect mapSensor.analogOutput to conditioner.analogInput;
+        connect conditioner.digitalOutput to controllerInterface.pressureDataInput;
+        connect controllerInterface.hostDataOutput to measuredPressureOutput;
+        connect mapSensor.diagnosticOutput to controllerInterface.diagnosticInput;
+        connect conditioner.diagnosticOutput to controllerInterface.diagnosticInput;
+        connect controllerInterface.diagnosticOutput to unitDiagnosticOutput;
+
+        action measureManifoldAbsolutePressure {
+            in item manifoldPressure : AirPressureSample;
+            out item measuredFrame : DigitalPressureFrame;
+
+            send manifoldPressure to pressureTap.outlet;
+            perform mapSensor.senseAbsolutePressure;
+            perform conditioner.convertVoltageToPressure;
+            perform controllerInterface.validateAndPublishPressure;
+            measuredFrame = controllerInterface.hostDataOutput.pressureFrame;
+        }
+
+        state unitOperatingStateMachine {
+            state unpowered;
+            state initializing;
+            state operational;
+            state diagnosticMode;
+            state failed;
+
+            initial then unpowered;
+
+            transition unpowered_to_initializing
+                first unpowered
+                accept VehiclePowerAvailable
+                then initializing;
+
+            transition initializing_to_operational
+                first initializing
+                accept SelfTestPassed
+                then operational;
+
+            transition initializing_to_failed
+                first initializing
+                accept SelfTestFailed
+                then failed;
+
+            transition operational_to_diagnostic
+                first operational
+                accept ServiceToolRequest
+                then diagnosticMode;
+
+            transition diagnostic_to_operational
+                first diagnosticMode
+                accept ServiceToolRelease
+                then operational;
+
+            transition operational_to_failed
+                first operational
+                accept CriticalSensorFault
+                then failed;
+
+            transition failed_to_initializing
+                first failed
+                accept PowerCycle
+                then initializing;
+        }
+    }
+
+    requirement def MeasureMAPRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.measuredQuantityName == "Manifold absolute pressure"
+        }
+    }
+
+    requirement def PressureRangeRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.pressureMeasurementMin <= 10.0 and unit.pressureMeasurementMax >= 250.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensor : MAPSensor;
+        require constraint {
+            sensor.accuracy <= 1.5
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.endToEndLatency <= 10.0
+        }
+    }
+
+    requirement def SupplyRequirement {
+        subject supply : RegulatedPowerSupply;
+        require constraint {
+            supply.outputVoltage >= 4.75 and supply.outputVoltage <= 5.25
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.nominalUpdateRate >= 100.0
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject unit : MAPSensingUnit;
+        require constraint {
+            unit.unitDiagnosticOutput.diagnostic.active implies
+            unit.unitDiagnosticOutput.diagnostic.code != ""
+        }
+    }
+
+    part sensingUnit : MAPSensingUnit;
+
+    requirement measureMAP : MeasureMAPRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement pressureRange : PressureRangeRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement latency : LatencyRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement updateRate : UpdateRateRequirement {
+        subject unit = sensingUnit;
+    }
+
+    requirement supplyVoltage : SupplyRequirement {
+        subject supply = sensingUnit.regulatedSupply;
+    }
+
+    requirement sensorAccuracy : AccuracyRequirement {
+        subject sensor = sensingUnit.mapSensor;
+    }
+
+    requirement diagnostics : DiagnosticRequirement {
+        subject unit = sensingUnit;
+    }
+
+    satisfy measureMAP by sensingUnit;
+    satisfy pressureRange by sensingUnit;
+    satisfy latency by sensingUnit;
+    satisfy updateRate by sensingUnit;
+    satisfy supplyVoltage by sensingUnit.regulatedSupply;
+    satisfy sensorAccuracy by sensingUnit.mapSensor;
+    satisfy diagnostics by sensingUnit;
+}

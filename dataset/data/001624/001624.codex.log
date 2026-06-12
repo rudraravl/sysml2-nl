@@ -1,0 +1,1043 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-bhnjbfsb
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb770-7a53-71e2-ab8a-6234947a541f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Washing machine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WashingMachineModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def MassKg :> Real { doc /* kilograms */ }
+  attribute def VolumeL :> Real { doc /* liters */ }
+  attribute def TemperatureC :> Real { doc /* degrees Celsius */ }
+  attribute def TimeMin :> Real { doc /* minutes */ }
+  attribute def PowerW :> Real { doc /* watts */ }
+  attribute def SpeedRpm :> Real { doc /* revolutions per minute */ }
+  attribute def MoisturePercent :> Real { doc /* percent remaining moisture */ }
+
+  item def ElectricalPower {
+    attribute voltage : Real = 120.0;
+    attribute frequencyHz : Real = 60.0;
+    attribute availablePower : PowerW;
+  }
+
+  item def Water {
+    attribute volume : VolumeL;
+    attribute temperature : TemperatureC;
+    attribute hardness : Real;
+    attribute detergentConcentration : Real;
+  }
+
+  item def WasteWater :> Water {
+    attribute soilConcentration : Real;
+    attribute lintMass : MassKg;
+  }
+
+  item def LaundryLoad {
+    attribute dryMass : MassKg;
+    attribute waterMass : MassKg;
+    attribute soilLevel : Real;
+    attribute fabricCareLimitTemperature : TemperatureC;
+    attribute imbalanceIndex : Real;
+  }
+
+  item def Detergent {
+    attribute doseMass : MassKg;
+    attribute concentration : Real;
+  }
+
+  enum def WashProgramKind {
+    enum normal;
+    enum delicate;
+    enum heavyDuty;
+    enum quick;
+    enum rinseAndSpin;
+  }
+
+  enum def MachineModeKind {
+    enum off;
+    enum standby;
+    enum running;
+    enum paused;
+    enum complete;
+    enum faulted;
+  }
+
+  item def WashCommand {
+    attribute selectedProgram : WashProgramKind;
+    attribute startRequested : Boolean;
+    attribute pauseRequested : Boolean;
+    attribute cancelRequested : Boolean;
+    attribute targetTemperature : TemperatureC;
+    attribute targetSpinSpeed : SpeedRpm;
+  }
+
+  item def MachineStatus {
+    attribute mode : MachineModeKind;
+    attribute remainingTime : TimeMin;
+    attribute doorLocked : Boolean;
+    attribute waterLevel : VolumeL;
+    attribute drumSpeed : SpeedRpm;
+    attribute faultCode : String;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def WaterInletPort {
+    in item supplyWater : Water;
+  }
+
+  port def DrainPort {
+    out item wasteWater : WasteWater;
+  }
+
+  port def DetergentPort {
+    in item detergent : Detergent;
+  }
+
+  port def LaundryAccessPort {
+    in item soiledLaundry : LaundryLoad;
+    out item cleanLaundry : LaundryLoad;
+  }
+
+  port def UserInterfacePort {
+    in item command : WashCommand;
+    out item status : MachineStatus;
+  }
+
+  port def ControlSignalPort {
+    in item commandSignal : WashCommand;
+    out item statusSignal : MachineStatus;
+  }
+
+  part def ElectronicController {
+    port ui : UserInterfacePort;
+    port actuatorControl : ControlSignalPort;
+    port sensorFeedback : ControlSignalPort;
+
+    attribute currentMode : MachineModeKind = MachineModeKind::standby;
+    attribute estimatedRemainingTime : TimeMin;
+    attribute selectedProgram : WashProgramKind;
+  }
+
+  part def DoorAssembly {
+    port laundryAccess : LaundryAccessPort;
+
+    attribute locked : Boolean = false;
+    attribute closed : Boolean = true;
+    attribute leakSealIntegrity : Real = 1.0;
+  }
+
+  part def WashTub {
+    port waterIn : WaterInletPort;
+    port drainOut : DrainPort;
+
+    attribute currentWaterVolume : VolumeL;
+    attribute maximumWaterVolume : VolumeL = 65.0;
+    attribute waterTemperature : TemperatureC;
+  }
+
+  part def RotatingDrum {
+    port laundryAccess : LaundryAccessPort;
+
+    attribute ratedDryLoadCapacity : MassKg = 8.0;
+    attribute currentSpeed : SpeedRpm = 0.0;
+    attribute balanceIndex : Real;
+  }
+
+  part def ElectricMotor {
+    port powerIn : ElectricalPowerPort;
+    port control : ControlSignalPort;
+
+    attribute ratedPower : PowerW = 650.0;
+    attribute commandedSpeed : SpeedRpm;
+    attribute actualSpeed : SpeedRpm;
+  }
+
+  part def WaterInletValve {
+    port supply : WaterInletPort;
+    port outlet : WaterInletPort;
+    port control : ControlSignalPort;
+
+    attribute open : Boolean = false;
+    attribute maximumFlowRate : VolumeL = 12.0;
+  }
+
+  part def DrainPump {
+    port inlet : DrainPort;
+    port outlet : DrainPort;
+    port powerIn : ElectricalPowerPort;
+    port control : ControlSignalPort;
+
+    attribute ratedPower : PowerW = 90.0;
+    attribute active : Boolean = false;
+    attribute flowRate : VolumeL = 18.0;
+  }
+
+  part def HeatingElement {
+    port powerIn : ElectricalPowerPort;
+    port control : ControlSignalPort;
+
+    attribute ratedPower : PowerW = 1200.0;
+    attribute active : Boolean = false;
+    attribute targetTemperature : TemperatureC;
+  }
+
+  part def DetergentDispenser {
+    port detergentInput : DetergentPort;
+    port waterCarrier : WaterInletPort;
+
+    attribute storedDose : MassKg;
+    attribute releasedDose : MassKg;
+  }
+
+  part def SensorSet {
+    port feedback : ControlSignalPort;
+
+    attribute measuredDoorClosed : Boolean;
+    attribute measuredDoorLocked : Boolean;
+    attribute measuredWaterVolume : VolumeL;
+    attribute measuredTemperature : TemperatureC;
+    attribute measuredDrumSpeed : SpeedRpm;
+    attribute measuredImbalance : Real;
+    attribute measuredLeakDetected : Boolean;
+  }
+
+  action def AcceptLaundry {
+    in item loadIn : LaundryLoad;
+    out item loadInDrum : LaundryLoad;
+  }
+
+  action def DoseDetergent {
+    in item detergentIn : Detergent;
+    in item waterIn : Water;
+    out item washSolution : Water;
+  }
+
+  action def FillTub {
+    in item supplyWater : Water;
+    out item tubWater : Water;
+
+    attribute targetVolume : VolumeL;
+  }
+
+  action def AgitateLaundry {
+    in item soiledLoad : LaundryLoad;
+    in item washSolution : Water;
+    out item loosenedSoilLoad : LaundryLoad;
+
+    attribute agitationSpeed : SpeedRpm;
+    attribute agitationTime : TimeMin;
+  }
+
+  action def HeatWashWater {
+    in item waterIn : Water;
+    out item heatedWater : Water;
+
+    attribute targetTemperature : TemperatureC;
+  }
+
+  action def DrainTub {
+    in item dirtyWater : Water;
+    out item drainedWater : WasteWater;
+  }
+
+  action def RinseLaundry {
+    in item washedLoad : LaundryLoad;
+    in item rinseWater : Water;
+    out item rinsedLoad : LaundryLoad;
+    out item rinseWaste : WasteWater;
+  }
+
+  action def SpinExtract {
+    in item wetLoad : LaundryLoad;
+    out item dampCleanLoad : LaundryLoad;
+
+    attribute spinSpeed : SpeedRpm;
+    attribute spinTime : TimeMin;
+    attribute finalMoisture : MoisturePercent;
+  }
+
+  action def WashLaundryCycle {
+    in item soiledLaundry : LaundryLoad;
+    in item supplyWater : Water;
+    in item detergent : Detergent;
+    in item power : ElectricalPower;
+    in item command : WashCommand;
+
+    out item cleanLaundry : LaundryLoad;
+    out item wasteWater : WasteWater;
+    out item status : MachineStatus;
+
+    first start;
+    then accept : AcceptLaundry;
+    then fill : FillTub;
+    then dose : DoseDetergent;
+    then heat : HeatWashWater;
+    then agitate : AgitateLaundry;
+    then drain1 : DrainTub;
+    then rinse : RinseLaundry;
+    then drain2 : DrainTub;
+    then spin : SpinExtract;
+    then finish;
+
+    flow soiledLaundry to accept.loadIn;
+    flow accept.loadInDrum to agitate.soiledLoad;
+    flow supplyWater to fill.supplyWater;
+    flow fill.tubWater to dose.waterIn;
+    flow detergent to dose.detergentIn;
+    flow dose.washSolution to heat.waterIn;
+    flow heat.heatedWater to agitate.washSolution;
+    flow agitate.loosenedSoilLoad to rinse.washedLoad;
+    flow rinse.rinsedLoad to spin.wetLoad;
+    flow spin.dampCleanLoad to cleanLaundry;
+    flow rinse.rinseWaste to wasteWater;
+  }
+
+  state def WashingMachineState {
+    entry; then Off;
+
+    state Off;
+    state Standby;
+    state DoorOpen;
+    state LoadSensing;
+    state Filling;
+    state Washing;
+    state Heating;
+    state Draining;
+    state Rinsing;
+    state Spinning;
+    state Complete;
+    state Fault;
+
+    transition Off_to_Standby
+      first Off
+      accept command : WashCommand
+      if command.startRequested
+      then Standby;
+
+    transition Standby_to_DoorOpen
+      first Standby
+      if not sensor.measuredDoorClosed
+      then DoorOpen;
+
+    transition DoorOpen_to_Standby
+      first DoorOpen
+      if sensor.measuredDoorClosed
+      then Standby;
+
+    transition Standby_to_LoadSensing
+      first Standby
+      accept command : WashCommand
+      if command.startRequested and sensor.measuredDoorClosed
+      then LoadSensing;
+
+    transition LoadSensing_to_Filling
+      first LoadSensing
+      if sensor.measuredDoorLocked
+      then Filling;
+
+    transition Filling_to_Washing
+      first Filling
+      if sensor.measuredWaterVolume >= targetFillVolume
+      then Washing;
+
+    transition Washing_to_Heating
+      first Washing
+      if sensor.measuredTemperature < selectedTargetTemperature
+      then Heating;
+
+    transition Heating_to_Washing
+      first Heating
+      if sensor.measuredTemperature >= selectedTargetTemperature
+      then Washing;
+
+    transition Washing_to_Draining
+      first Washing
+      if washTimeExpired
+      then Draining;
+
+    transition Draining_to_Rinsing
+      first Draining
+      if sensor.measuredWaterVolume <= 1.0
+      then Rinsing;
+
+    transition Rinsing_to_Spinning
+      first Rinsing
+      if rinseComplete and sensor.measuredWaterVolume <= 1.0
+      then Spinning;
+
+    transition Spinning_to_Complete
+      first Spinning
+      if finalSpinComplete
+      then Complete;
+
+    transition Any_to_Fault
+      first Off, Standby, DoorOpen, LoadSensing, Filling, Washing, Heating, Draining, Rinsing, Spinning
+      if sensor.measuredLeakDetected or sensor.measuredImbalance > 0.85
+      then Fault;
+
+    transition Complete_to_Standby
+      first Complete
+      accept command : WashCommand
+      if command.cancelRequested
+      then Standby;
+  }
+
+  part def WashingMachine {
+    port electricalSupply : ElectricalPowerPort;
+    port coldWaterSupply : WaterInletPort;
+    port householdDrain : DrainPort;
+    port detergentTray : DetergentPort;
+    port laundryDoor : LaundryAccessPort;
+    port userPanel : UserInterfacePort;
+
+    part controller : ElectronicController;
+    part door : DoorAssembly;
+    part tub : WashTub;
+    part drum : RotatingDrum;
+    part motor : ElectricMotor;
+    part inletValve : WaterInletValve;
+    part drainPump : DrainPump;
+    part heater : HeatingElement;
+    part dispenser : DetergentDispenser;
+    part sensors : SensorSet;
+
+    attribute maximumDryLoad : MassKg = 8.0;
+    attribute nominalCycleTime : TimeMin = 52.0;
+    attribute maximumWaterUsePerCycle : VolumeL = 80.0;
+    attribute maximumSpinSpeed : SpeedRpm = 1200.0;
+    attribute maximumWashTemperature : TemperatureC = 60.0;
+    attribute standbyPower : PowerW = 2.0;
+
+    perform cycle : WashLaundryCycle;
+    exhibit operatingState : WashingMachineState;
+
+    connect electricalSupply to motor.powerIn;
+    connect electricalSupply to drainPump.powerIn;
+    connect electricalSupply to heater.powerIn;
+
+    connect coldWaterSupply to inletValve.supply;
+    connect inletValve.outlet to tub.waterIn;
+    connect detergentTray to dispenser.detergentInput;
+    connect dispenser.waterCarrier to tub.waterIn;
+
+    connect tub.drainOut to drainPump.inlet;
+    connect drainPump.outlet to householdDrain;
+
+    connect laundryDoor to door.laundryAccess;
+    connect door.laundryAccess to drum.laundryAccess;
+
+    connect userPanel to controller.ui;
+    connect controller.actuatorControl to motor.control;
+    connect controller.actuatorControl to inletValve.control;
+    connect controller.actuatorControl to drainPump.control;
+    connect controller.actuatorControl to heater.control;
+    connect sensors.feedback to controller.sensorFeedback;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall clean a user-provided laundry load by accepting soiled laundry,
+      mixing water and detergent, agitating the load, rinsing away soil and detergent, extracting
+      excess water by spinning, and returning a damp clean load to the user.
+    */
+
+    require constraint {
+      machine.maximumDryLoad >= 8.0 and
+      machine.maximumWaterUsePerCycle <= 80.0 and
+      machine.maximumSpinSpeed >= 1000.0
+    }
+  }
+
+  requirement def DoorSafetyRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall prevent drum rotation above 50 rpm unless the door is closed and locked.
+    */
+
+    require constraint {
+      machine.door.closed and machine.door.locked or machine.drum.currentSpeed <= 50.0
+    }
+  }
+
+  requirement def WaterContainmentRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall contain wash and rinse water within the tub and door seal during all fill,
+      wash, rinse, drain, and spin states.
+    */
+
+    require constraint {
+      machine.door.leakSealIntegrity >= 0.95 and
+      machine.tub.currentWaterVolume <= machine.tub.maximumWaterVolume
+    }
+  }
+
+  requirement def TemperatureProtectionRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall not heat wash water above the selected program limit or the fabric care limit.
+    */
+
+    require constraint {
+      machine.tub.waterTemperature <= machine.maximumWashTemperature
+    }
+  }
+
+  requirement def LoadCapacityRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall process a dry laundry load up to the rated capacity without exceeding
+      the rated motor power or tub water volume.
+    */
+
+    require constraint {
+      machine.maximumDryLoad == machine.drum.ratedDryLoadCapacity and
+      machine.motor.ratedPower <= 650.0
+    }
+  }
+
+  part washingMachineSystem : WashingMachine;
+
+  satisfy PrimaryFunctionRequirement by washingMachineSystem;
+  satisfy DoorSafetyRequirement by washingMachineSystem;
+  satisfy WaterContainmentRequirement by washingMachineSystem;
+  satisfy TemperatureProtectionRequirement by washingMachineSystem;
+  satisfy LoadCapacityRequirement by washingMachineSystem;
+}
+tokens used
+4,170
+package WashingMachineModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def MassKg :> Real { doc /* kilograms */ }
+  attribute def VolumeL :> Real { doc /* liters */ }
+  attribute def TemperatureC :> Real { doc /* degrees Celsius */ }
+  attribute def TimeMin :> Real { doc /* minutes */ }
+  attribute def PowerW :> Real { doc /* watts */ }
+  attribute def SpeedRpm :> Real { doc /* revolutions per minute */ }
+  attribute def MoisturePercent :> Real { doc /* percent remaining moisture */ }
+
+  item def ElectricalPower {
+    attribute voltage : Real = 120.0;
+    attribute frequencyHz : Real = 60.0;
+    attribute availablePower : PowerW;
+  }
+
+  item def Water {
+    attribute volume : VolumeL;
+    attribute temperature : TemperatureC;
+    attribute hardness : Real;
+    attribute detergentConcentration : Real;
+  }
+
+  item def WasteWater :> Water {
+    attribute soilConcentration : Real;
+    attribute lintMass : MassKg;
+  }
+
+  item def LaundryLoad {
+    attribute dryMass : MassKg;
+    attribute waterMass : MassKg;
+    attribute soilLevel : Real;
+    attribute fabricCareLimitTemperature : TemperatureC;
+    attribute imbalanceIndex : Real;
+  }
+
+  item def Detergent {
+    attribute doseMass : MassKg;
+    attribute concentration : Real;
+  }
+
+  enum def WashProgramKind {
+    enum normal;
+    enum delicate;
+    enum heavyDuty;
+    enum quick;
+    enum rinseAndSpin;
+  }
+
+  enum def MachineModeKind {
+    enum off;
+    enum standby;
+    enum running;
+    enum paused;
+    enum complete;
+    enum faulted;
+  }
+
+  item def WashCommand {
+    attribute selectedProgram : WashProgramKind;
+    attribute startRequested : Boolean;
+    attribute pauseRequested : Boolean;
+    attribute cancelRequested : Boolean;
+    attribute targetTemperature : TemperatureC;
+    attribute targetSpinSpeed : SpeedRpm;
+  }
+
+  item def MachineStatus {
+    attribute mode : MachineModeKind;
+    attribute remainingTime : TimeMin;
+    attribute doorLocked : Boolean;
+    attribute waterLevel : VolumeL;
+    attribute drumSpeed : SpeedRpm;
+    attribute faultCode : String;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def WaterInletPort {
+    in item supplyWater : Water;
+  }
+
+  port def DrainPort {
+    out item wasteWater : WasteWater;
+  }
+
+  port def DetergentPort {
+    in item detergent : Detergent;
+  }
+
+  port def LaundryAccessPort {
+    in item soiledLaundry : LaundryLoad;
+    out item cleanLaundry : LaundryLoad;
+  }
+
+  port def UserInterfacePort {
+    in item command : WashCommand;
+    out item status : MachineStatus;
+  }
+
+  port def ControlSignalPort {
+    in item commandSignal : WashCommand;
+    out item statusSignal : MachineStatus;
+  }
+
+  part def ElectronicController {
+    port ui : UserInterfacePort;
+    port actuatorControl : ControlSignalPort;
+    port sensorFeedback : ControlSignalPort;
+
+    attribute currentMode : MachineModeKind = MachineModeKind::standby;
+    attribute estimatedRemainingTime : TimeMin;
+    attribute selectedProgram : WashProgramKind;
+  }
+
+  part def DoorAssembly {
+    port laundryAccess : LaundryAccessPort;
+
+    attribute locked : Boolean = false;
+    attribute closed : Boolean = true;
+    attribute leakSealIntegrity : Real = 1.0;
+  }
+
+  part def WashTub {
+    port waterIn : WaterInletPort;
+    port drainOut : DrainPort;
+
+    attribute currentWaterVolume : VolumeL;
+    attribute maximumWaterVolume : VolumeL = 65.0;
+    attribute waterTemperature : TemperatureC;
+  }
+
+  part def RotatingDrum {
+    port laundryAccess : LaundryAccessPort;
+
+    attribute ratedDryLoadCapacity : MassKg = 8.0;
+    attribute currentSpeed : SpeedRpm = 0.0;
+    attribute balanceIndex : Real;
+  }
+
+  part def ElectricMotor {
+    port powerIn : ElectricalPowerPort;
+    port control : ControlSignalPort;
+
+    attribute ratedPower : PowerW = 650.0;
+    attribute commandedSpeed : SpeedRpm;
+    attribute actualSpeed : SpeedRpm;
+  }
+
+  part def WaterInletValve {
+    port supply : WaterInletPort;
+    port outlet : WaterInletPort;
+    port control : ControlSignalPort;
+
+    attribute open : Boolean = false;
+    attribute maximumFlowRate : VolumeL = 12.0;
+  }
+
+  part def DrainPump {
+    port inlet : DrainPort;
+    port outlet : DrainPort;
+    port powerIn : ElectricalPowerPort;
+    port control : ControlSignalPort;
+
+    attribute ratedPower : PowerW = 90.0;
+    attribute active : Boolean = false;
+    attribute flowRate : VolumeL = 18.0;
+  }
+
+  part def HeatingElement {
+    port powerIn : ElectricalPowerPort;
+    port control : ControlSignalPort;
+
+    attribute ratedPower : PowerW = 1200.0;
+    attribute active : Boolean = false;
+    attribute targetTemperature : TemperatureC;
+  }
+
+  part def DetergentDispenser {
+    port detergentInput : DetergentPort;
+    port waterCarrier : WaterInletPort;
+
+    attribute storedDose : MassKg;
+    attribute releasedDose : MassKg;
+  }
+
+  part def SensorSet {
+    port feedback : ControlSignalPort;
+
+    attribute measuredDoorClosed : Boolean;
+    attribute measuredDoorLocked : Boolean;
+    attribute measuredWaterVolume : VolumeL;
+    attribute measuredTemperature : TemperatureC;
+    attribute measuredDrumSpeed : SpeedRpm;
+    attribute measuredImbalance : Real;
+    attribute measuredLeakDetected : Boolean;
+  }
+
+  action def AcceptLaundry {
+    in item loadIn : LaundryLoad;
+    out item loadInDrum : LaundryLoad;
+  }
+
+  action def DoseDetergent {
+    in item detergentIn : Detergent;
+    in item waterIn : Water;
+    out item washSolution : Water;
+  }
+
+  action def FillTub {
+    in item supplyWater : Water;
+    out item tubWater : Water;
+
+    attribute targetVolume : VolumeL;
+  }
+
+  action def AgitateLaundry {
+    in item soiledLoad : LaundryLoad;
+    in item washSolution : Water;
+    out item loosenedSoilLoad : LaundryLoad;
+
+    attribute agitationSpeed : SpeedRpm;
+    attribute agitationTime : TimeMin;
+  }
+
+  action def HeatWashWater {
+    in item waterIn : Water;
+    out item heatedWater : Water;
+
+    attribute targetTemperature : TemperatureC;
+  }
+
+  action def DrainTub {
+    in item dirtyWater : Water;
+    out item drainedWater : WasteWater;
+  }
+
+  action def RinseLaundry {
+    in item washedLoad : LaundryLoad;
+    in item rinseWater : Water;
+    out item rinsedLoad : LaundryLoad;
+    out item rinseWaste : WasteWater;
+  }
+
+  action def SpinExtract {
+    in item wetLoad : LaundryLoad;
+    out item dampCleanLoad : LaundryLoad;
+
+    attribute spinSpeed : SpeedRpm;
+    attribute spinTime : TimeMin;
+    attribute finalMoisture : MoisturePercent;
+  }
+
+  action def WashLaundryCycle {
+    in item soiledLaundry : LaundryLoad;
+    in item supplyWater : Water;
+    in item detergent : Detergent;
+    in item power : ElectricalPower;
+    in item command : WashCommand;
+
+    out item cleanLaundry : LaundryLoad;
+    out item wasteWater : WasteWater;
+    out item status : MachineStatus;
+
+    first start;
+    then accept : AcceptLaundry;
+    then fill : FillTub;
+    then dose : DoseDetergent;
+    then heat : HeatWashWater;
+    then agitate : AgitateLaundry;
+    then drain1 : DrainTub;
+    then rinse : RinseLaundry;
+    then drain2 : DrainTub;
+    then spin : SpinExtract;
+    then finish;
+
+    flow soiledLaundry to accept.loadIn;
+    flow accept.loadInDrum to agitate.soiledLoad;
+    flow supplyWater to fill.supplyWater;
+    flow fill.tubWater to dose.waterIn;
+    flow detergent to dose.detergentIn;
+    flow dose.washSolution to heat.waterIn;
+    flow heat.heatedWater to agitate.washSolution;
+    flow agitate.loosenedSoilLoad to rinse.washedLoad;
+    flow rinse.rinsedLoad to spin.wetLoad;
+    flow spin.dampCleanLoad to cleanLaundry;
+    flow rinse.rinseWaste to wasteWater;
+  }
+
+  state def WashingMachineState {
+    entry; then Off;
+
+    state Off;
+    state Standby;
+    state DoorOpen;
+    state LoadSensing;
+    state Filling;
+    state Washing;
+    state Heating;
+    state Draining;
+    state Rinsing;
+    state Spinning;
+    state Complete;
+    state Fault;
+
+    transition Off_to_Standby
+      first Off
+      accept command : WashCommand
+      if command.startRequested
+      then Standby;
+
+    transition Standby_to_DoorOpen
+      first Standby
+      if not sensor.measuredDoorClosed
+      then DoorOpen;
+
+    transition DoorOpen_to_Standby
+      first DoorOpen
+      if sensor.measuredDoorClosed
+      then Standby;
+
+    transition Standby_to_LoadSensing
+      first Standby
+      accept command : WashCommand
+      if command.startRequested and sensor.measuredDoorClosed
+      then LoadSensing;
+
+    transition LoadSensing_to_Filling
+      first LoadSensing
+      if sensor.measuredDoorLocked
+      then Filling;
+
+    transition Filling_to_Washing
+      first Filling
+      if sensor.measuredWaterVolume >= targetFillVolume
+      then Washing;
+
+    transition Washing_to_Heating
+      first Washing
+      if sensor.measuredTemperature < selectedTargetTemperature
+      then Heating;
+
+    transition Heating_to_Washing
+      first Heating
+      if sensor.measuredTemperature >= selectedTargetTemperature
+      then Washing;
+
+    transition Washing_to_Draining
+      first Washing
+      if washTimeExpired
+      then Draining;
+
+    transition Draining_to_Rinsing
+      first Draining
+      if sensor.measuredWaterVolume <= 1.0
+      then Rinsing;
+
+    transition Rinsing_to_Spinning
+      first Rinsing
+      if rinseComplete and sensor.measuredWaterVolume <= 1.0
+      then Spinning;
+
+    transition Spinning_to_Complete
+      first Spinning
+      if finalSpinComplete
+      then Complete;
+
+    transition Any_to_Fault
+      first Off, Standby, DoorOpen, LoadSensing, Filling, Washing, Heating, Draining, Rinsing, Spinning
+      if sensor.measuredLeakDetected or sensor.measuredImbalance > 0.85
+      then Fault;
+
+    transition Complete_to_Standby
+      first Complete
+      accept command : WashCommand
+      if command.cancelRequested
+      then Standby;
+  }
+
+  part def WashingMachine {
+    port electricalSupply : ElectricalPowerPort;
+    port coldWaterSupply : WaterInletPort;
+    port householdDrain : DrainPort;
+    port detergentTray : DetergentPort;
+    port laundryDoor : LaundryAccessPort;
+    port userPanel : UserInterfacePort;
+
+    part controller : ElectronicController;
+    part door : DoorAssembly;
+    part tub : WashTub;
+    part drum : RotatingDrum;
+    part motor : ElectricMotor;
+    part inletValve : WaterInletValve;
+    part drainPump : DrainPump;
+    part heater : HeatingElement;
+    part dispenser : DetergentDispenser;
+    part sensors : SensorSet;
+
+    attribute maximumDryLoad : MassKg = 8.0;
+    attribute nominalCycleTime : TimeMin = 52.0;
+    attribute maximumWaterUsePerCycle : VolumeL = 80.0;
+    attribute maximumSpinSpeed : SpeedRpm = 1200.0;
+    attribute maximumWashTemperature : TemperatureC = 60.0;
+    attribute standbyPower : PowerW = 2.0;
+
+    perform cycle : WashLaundryCycle;
+    exhibit operatingState : WashingMachineState;
+
+    connect electricalSupply to motor.powerIn;
+    connect electricalSupply to drainPump.powerIn;
+    connect electricalSupply to heater.powerIn;
+
+    connect coldWaterSupply to inletValve.supply;
+    connect inletValve.outlet to tub.waterIn;
+    connect detergentTray to dispenser.detergentInput;
+    connect dispenser.waterCarrier to tub.waterIn;
+
+    connect tub.drainOut to drainPump.inlet;
+    connect drainPump.outlet to householdDrain;
+
+    connect laundryDoor to door.laundryAccess;
+    connect door.laundryAccess to drum.laundryAccess;
+
+    connect userPanel to controller.ui;
+    connect controller.actuatorControl to motor.control;
+    connect controller.actuatorControl to inletValve.control;
+    connect controller.actuatorControl to drainPump.control;
+    connect controller.actuatorControl to heater.control;
+    connect sensors.feedback to controller.sensorFeedback;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall clean a user-provided laundry load by accepting soiled laundry,
+      mixing water and detergent, agitating the load, rinsing away soil and detergent, extracting
+      excess water by spinning, and returning a damp clean load to the user.
+    */
+
+    require constraint {
+      machine.maximumDryLoad >= 8.0 and
+      machine.maximumWaterUsePerCycle <= 80.0 and
+      machine.maximumSpinSpeed >= 1000.0
+    }
+  }
+
+  requirement def DoorSafetyRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall prevent drum rotation above 50 rpm unless the door is closed and locked.
+    */
+
+    require constraint {
+      machine.door.closed and machine.door.locked or machine.drum.currentSpeed <= 50.0
+    }
+  }
+
+  requirement def WaterContainmentRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall contain wash and rinse water within the tub and door seal during all fill,
+      wash, rinse, drain, and spin states.
+    */
+
+    require constraint {
+      machine.door.leakSealIntegrity >= 0.95 and
+      machine.tub.currentWaterVolume <= machine.tub.maximumWaterVolume
+    }
+  }
+
+  requirement def TemperatureProtectionRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall not heat wash water above the selected program limit or the fabric care limit.
+    */
+
+    require constraint {
+      machine.tub.waterTemperature <= machine.maximumWashTemperature
+    }
+  }
+
+  requirement def LoadCapacityRequirement {
+    subject machine : WashingMachine;
+
+    doc /*
+      The washing machine shall process a dry laundry load up to the rated capacity without exceeding
+      the rated motor power or tub water volume.
+    */
+
+    require constraint {
+      machine.maximumDryLoad == machine.drum.ratedDryLoadCapacity and
+      machine.motor.ratedPower <= 650.0
+    }
+  }
+
+  part washingMachineSystem : WashingMachine;
+
+  satisfy PrimaryFunctionRequirement by washingMachineSystem;
+  satisfy DoorSafetyRequirement by washingMachineSystem;
+  satisfy WaterContainmentRequirement by washingMachineSystem;
+  satisfy TemperatureProtectionRequirement by washingMachineSystem;
+  satisfy LoadCapacityRequirement by washingMachineSystem;
+}

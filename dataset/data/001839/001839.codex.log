@@ -1,0 +1,649 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-04z_shkg
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb848-10fb-70b0-9d9c-d6d5cc2773f9
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Pulley and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PulleySystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Force {
+    attribute magnitude : Real;
+    attribute unit : String = "N";
+  }
+
+  attribute def Torque {
+    attribute magnitude : Real;
+    attribute unit : String = "N*m";
+  }
+
+  attribute def Length {
+    attribute magnitude : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Mass {
+    attribute magnitude : Real;
+    attribute unit : String = "kg";
+  }
+
+  attribute def Speed {
+    attribute magnitude : Real;
+    attribute unit : String = "m/s";
+  }
+
+  attribute def Efficiency {
+    attribute value : Real;
+    attribute unit : String = "ratio";
+  }
+
+  item def RopeTension {
+    attribute tension : Force;
+  }
+
+  item def RotationalMotion {
+    attribute angularSpeed : Real;
+    attribute unit : String = "rad/s";
+  }
+
+  item def LinearMotion {
+    attribute velocity : Speed;
+    attribute displacement : Length;
+  }
+
+  item def LiftedLoad {
+    attribute loadMass : Mass;
+    attribute weight : Force;
+  }
+
+  port def RopePort {
+    inout item tensionFlow : RopeTension;
+    inout item motionFlow : LinearMotion;
+  }
+
+  port def LoadPort {
+    out item supportedLoad : LiftedLoad;
+    in item liftMotion : LinearMotion;
+  }
+
+  port def ShaftPort {
+    out item rotation : RotationalMotion;
+    in item appliedTorque : Torque;
+  }
+
+  port def UserForcePort {
+    in item userInputForce : Force;
+    out item ropeMotion : LinearMotion;
+  }
+
+  action def ApplyInputForce {
+    in forceInput : Force;
+    out ropeTension : RopeTension;
+    out ropeMotion : LinearMotion;
+  }
+
+  action def RedirectRopeTension {
+    in incomingTension : RopeTension;
+    out outgoingTension : RopeTension;
+    out pulleyRotation : RotationalMotion;
+  }
+
+  action def RaiseLoad {
+    in liftingTension : RopeTension;
+    in load : LiftedLoad;
+    out loadMotion : LinearMotion;
+  }
+
+  action def HoldLoad {
+    in holdingTension : RopeTension;
+    in load : LiftedLoad;
+    out staticMotion : LinearMotion;
+  }
+
+  state def PulleyOperatingState {
+    state idle;
+    state tensioning;
+    state lifting;
+    state holding;
+    state overload;
+    state fault;
+
+    entry; then idle;
+
+    transition idle_to_tensioning
+      first idle
+      then tensioning;
+
+    transition tensioning_to_lifting
+      first tensioning
+      then lifting;
+
+    transition lifting_to_holding
+      first lifting
+      then holding;
+
+    transition holding_to_lifting
+      first holding
+      then lifting;
+
+    transition any_to_overload
+      first lifting
+      then overload;
+
+    transition overload_to_fault
+      first overload
+      then fault;
+
+    transition holding_to_idle
+      first holding
+      then idle;
+  }
+
+  part def Rope {
+    attribute diameter : Length = (magnitude = 0.012, unit = "m");
+    attribute length : Length = (magnitude = 8.0, unit = "m");
+    attribute minimumBreakingForce : Force = (magnitude = 12000.0, unit = "N");
+    attribute currentTension : Force = (magnitude = 0.0, unit = "N");
+
+    port freeEnd : RopePort;
+    port loadEnd : RopePort;
+    port sheaveContact : RopePort;
+  }
+
+  part def Sheave {
+    attribute radius : Length = (magnitude = 0.15, unit = "m");
+    attribute grooveDepth : Length = (magnitude = 0.018, unit = "m");
+    attribute rotationalInertia : Real = 0.042;
+    attribute bearingFrictionTorque : Torque = (magnitude = 0.35, unit = "N*m");
+
+    port inputRopeSide : RopePort;
+    port outputRopeSide : RopePort;
+    port axle : ShaftPort;
+
+    perform action redirect : RedirectRopeTension;
+  }
+
+  part def AxleBearingAssembly {
+    attribute shaftDiameter : Length = (magnitude = 0.025, unit = "m");
+    attribute ratedRadialLoad : Force = (magnitude = 5000.0, unit = "N");
+    attribute frictionCoefficient : Real = 0.025;
+
+    port shaftInterface : ShaftPort;
+  }
+
+  part def Frame {
+    attribute frameMass : Mass = (magnitude = 3.5, unit = "kg");
+    attribute workingLoadLimit : Force = (magnitude = 2500.0, unit = "N");
+
+    port supportedShaft : ShaftPort;
+  }
+
+  part def Hook {
+    attribute throatOpening : Length = (magnitude = 0.035, unit = "m");
+    attribute ratedLoad : Force = (magnitude = 2500.0, unit = "N");
+
+    port loadAttachment : LoadPort;
+  }
+
+  part def Load {
+    attribute loadMass : Mass = (magnitude = 100.0, unit = "kg");
+    attribute gravitationalAcceleration : Real = 9.81;
+    attribute loadWeight : Force = (magnitude = 981.0, unit = "N");
+
+    port suspensionPoint : LoadPort;
+  }
+
+  part def HumanOperator {
+    attribute maximumSustainedPullForce : Force = (magnitude = 350.0, unit = "N");
+
+    port pullInterface : UserForcePort;
+
+    perform action applyForce : ApplyInputForce;
+  }
+
+  part def PulleySystem {
+    attribute mechanicalAdvantage : Real = 2.0;
+    attribute nominalEfficiency : Efficiency = (value = 0.90, unit = "ratio");
+    attribute maximumRatedLoad : Force = (magnitude = 2000.0, unit = "N");
+    attribute primaryFunction : String = "Redirect and multiply an applied rope force to lift or hold a suspended load with reduced input effort.";
+
+    part operator : HumanOperator;
+    part rope : Rope;
+    part sheave : Sheave;
+    part bearingAssembly : AxleBearingAssembly;
+    part frame : Frame;
+    part hook : Hook;
+    part payload : Load;
+
+    port userInput : UserForcePort;
+    port loadOutput : LoadPort;
+
+    connect userInput to operator.pullInterface;
+    connect operator.pullInterface to rope.freeEnd;
+    connect rope.sheaveContact to sheave.inputRopeSide;
+    connect sheave.outputRopeSide to rope.loadEnd;
+    connect sheave.axle to bearingAssembly.shaftInterface;
+    connect bearingAssembly.shaftInterface to frame.supportedShaft;
+    connect rope.loadEnd to hook.loadAttachment;
+    connect hook.loadAttachment to payload.suspensionPoint;
+    connect payload.suspensionPoint to loadOutput;
+
+    perform action inputForceApplication : ApplyInputForce;
+    perform action ropeRedirection : RedirectRopeTension;
+    perform action loadRaising : RaiseLoad;
+    perform action loadHolding : HoldLoad;
+
+    exhibit state operatingState : PulleyOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.primaryFunction == "Redirect and multiply an applied rope force to lift or hold a suspended load with reduced input effort."
+    }
+
+    doc /* The pulley system shall provide a high-level lifting function by converting operator-applied pull force at the free rope end into controlled upward motion or static support of a suspended load. */
+  }
+
+  requirement def MechanicalAdvantageRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.mechanicalAdvantage >= 2.0
+    }
+
+    doc /* The pulley arrangement shall provide at least a two-to-one mechanical advantage for nominal lifting operation. */
+  }
+
+  requirement def EfficiencyRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.nominalEfficiency.value >= 0.85
+    }
+
+    doc /* The pulley system shall transmit at least 85 percent of ideal mechanical work during normal lifting operation. */
+  }
+
+  requirement def LoadCapacityRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.payload.loadWeight.magnitude <= system.maximumRatedLoad.magnitude
+    }
+
+    doc /* The suspended load weight shall not exceed the rated load capacity of the pulley system. */
+  }
+
+  requirement def RopeSafetyRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.rope.minimumBreakingForce.magnitude >= 5.0 * system.payload.loadWeight.magnitude
+    }
+
+    doc /* The rope shall provide a minimum safety factor of five relative to the suspended load weight. */
+  }
+
+  requirement def FrameCapacityRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.frame.workingLoadLimit.magnitude >= system.maximumRatedLoad.magnitude
+    }
+
+    doc /* The frame shall support the maximum rated load transferred through the axle and bearing assembly. */
+  }
+
+  requirement def ControlledMotionRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.loadOutput.supportedLoad.weight.magnitude <= system.maximumRatedLoad.magnitude
+    }
+
+    doc /* The pulley system shall maintain controlled load motion during lifting and shall hold the load when input motion stops. */
+  }
+
+  part pulleySystemInstance : PulleySystem;
+
+  satisfy PrimaryFunctionRequirement by pulleySystemInstance;
+  satisfy MechanicalAdvantageRequirement by pulleySystemInstance;
+  satisfy EfficiencyRequirement by pulleySystemInstance;
+  satisfy LoadCapacityRequirement by pulleySystemInstance;
+  satisfy RopeSafetyRequirement by pulleySystemInstance;
+  satisfy FrameCapacityRequirement by pulleySystemInstance;
+  satisfy ControlledMotionRequirement by pulleySystemInstance;
+}
+tokens used
+2,540
+package PulleySystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Force {
+    attribute magnitude : Real;
+    attribute unit : String = "N";
+  }
+
+  attribute def Torque {
+    attribute magnitude : Real;
+    attribute unit : String = "N*m";
+  }
+
+  attribute def Length {
+    attribute magnitude : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Mass {
+    attribute magnitude : Real;
+    attribute unit : String = "kg";
+  }
+
+  attribute def Speed {
+    attribute magnitude : Real;
+    attribute unit : String = "m/s";
+  }
+
+  attribute def Efficiency {
+    attribute value : Real;
+    attribute unit : String = "ratio";
+  }
+
+  item def RopeTension {
+    attribute tension : Force;
+  }
+
+  item def RotationalMotion {
+    attribute angularSpeed : Real;
+    attribute unit : String = "rad/s";
+  }
+
+  item def LinearMotion {
+    attribute velocity : Speed;
+    attribute displacement : Length;
+  }
+
+  item def LiftedLoad {
+    attribute loadMass : Mass;
+    attribute weight : Force;
+  }
+
+  port def RopePort {
+    inout item tensionFlow : RopeTension;
+    inout item motionFlow : LinearMotion;
+  }
+
+  port def LoadPort {
+    out item supportedLoad : LiftedLoad;
+    in item liftMotion : LinearMotion;
+  }
+
+  port def ShaftPort {
+    out item rotation : RotationalMotion;
+    in item appliedTorque : Torque;
+  }
+
+  port def UserForcePort {
+    in item userInputForce : Force;
+    out item ropeMotion : LinearMotion;
+  }
+
+  action def ApplyInputForce {
+    in forceInput : Force;
+    out ropeTension : RopeTension;
+    out ropeMotion : LinearMotion;
+  }
+
+  action def RedirectRopeTension {
+    in incomingTension : RopeTension;
+    out outgoingTension : RopeTension;
+    out pulleyRotation : RotationalMotion;
+  }
+
+  action def RaiseLoad {
+    in liftingTension : RopeTension;
+    in load : LiftedLoad;
+    out loadMotion : LinearMotion;
+  }
+
+  action def HoldLoad {
+    in holdingTension : RopeTension;
+    in load : LiftedLoad;
+    out staticMotion : LinearMotion;
+  }
+
+  state def PulleyOperatingState {
+    state idle;
+    state tensioning;
+    state lifting;
+    state holding;
+    state overload;
+    state fault;
+
+    entry; then idle;
+
+    transition idle_to_tensioning
+      first idle
+      then tensioning;
+
+    transition tensioning_to_lifting
+      first tensioning
+      then lifting;
+
+    transition lifting_to_holding
+      first lifting
+      then holding;
+
+    transition holding_to_lifting
+      first holding
+      then lifting;
+
+    transition any_to_overload
+      first lifting
+      then overload;
+
+    transition overload_to_fault
+      first overload
+      then fault;
+
+    transition holding_to_idle
+      first holding
+      then idle;
+  }
+
+  part def Rope {
+    attribute diameter : Length = (magnitude = 0.012, unit = "m");
+    attribute length : Length = (magnitude = 8.0, unit = "m");
+    attribute minimumBreakingForce : Force = (magnitude = 12000.0, unit = "N");
+    attribute currentTension : Force = (magnitude = 0.0, unit = "N");
+
+    port freeEnd : RopePort;
+    port loadEnd : RopePort;
+    port sheaveContact : RopePort;
+  }
+
+  part def Sheave {
+    attribute radius : Length = (magnitude = 0.15, unit = "m");
+    attribute grooveDepth : Length = (magnitude = 0.018, unit = "m");
+    attribute rotationalInertia : Real = 0.042;
+    attribute bearingFrictionTorque : Torque = (magnitude = 0.35, unit = "N*m");
+
+    port inputRopeSide : RopePort;
+    port outputRopeSide : RopePort;
+    port axle : ShaftPort;
+
+    perform action redirect : RedirectRopeTension;
+  }
+
+  part def AxleBearingAssembly {
+    attribute shaftDiameter : Length = (magnitude = 0.025, unit = "m");
+    attribute ratedRadialLoad : Force = (magnitude = 5000.0, unit = "N");
+    attribute frictionCoefficient : Real = 0.025;
+
+    port shaftInterface : ShaftPort;
+  }
+
+  part def Frame {
+    attribute frameMass : Mass = (magnitude = 3.5, unit = "kg");
+    attribute workingLoadLimit : Force = (magnitude = 2500.0, unit = "N");
+
+    port supportedShaft : ShaftPort;
+  }
+
+  part def Hook {
+    attribute throatOpening : Length = (magnitude = 0.035, unit = "m");
+    attribute ratedLoad : Force = (magnitude = 2500.0, unit = "N");
+
+    port loadAttachment : LoadPort;
+  }
+
+  part def Load {
+    attribute loadMass : Mass = (magnitude = 100.0, unit = "kg");
+    attribute gravitationalAcceleration : Real = 9.81;
+    attribute loadWeight : Force = (magnitude = 981.0, unit = "N");
+
+    port suspensionPoint : LoadPort;
+  }
+
+  part def HumanOperator {
+    attribute maximumSustainedPullForce : Force = (magnitude = 350.0, unit = "N");
+
+    port pullInterface : UserForcePort;
+
+    perform action applyForce : ApplyInputForce;
+  }
+
+  part def PulleySystem {
+    attribute mechanicalAdvantage : Real = 2.0;
+    attribute nominalEfficiency : Efficiency = (value = 0.90, unit = "ratio");
+    attribute maximumRatedLoad : Force = (magnitude = 2000.0, unit = "N");
+    attribute primaryFunction : String = "Redirect and multiply an applied rope force to lift or hold a suspended load with reduced input effort.";
+
+    part operator : HumanOperator;
+    part rope : Rope;
+    part sheave : Sheave;
+    part bearingAssembly : AxleBearingAssembly;
+    part frame : Frame;
+    part hook : Hook;
+    part payload : Load;
+
+    port userInput : UserForcePort;
+    port loadOutput : LoadPort;
+
+    connect userInput to operator.pullInterface;
+    connect operator.pullInterface to rope.freeEnd;
+    connect rope.sheaveContact to sheave.inputRopeSide;
+    connect sheave.outputRopeSide to rope.loadEnd;
+    connect sheave.axle to bearingAssembly.shaftInterface;
+    connect bearingAssembly.shaftInterface to frame.supportedShaft;
+    connect rope.loadEnd to hook.loadAttachment;
+    connect hook.loadAttachment to payload.suspensionPoint;
+    connect payload.suspensionPoint to loadOutput;
+
+    perform action inputForceApplication : ApplyInputForce;
+    perform action ropeRedirection : RedirectRopeTension;
+    perform action loadRaising : RaiseLoad;
+    perform action loadHolding : HoldLoad;
+
+    exhibit state operatingState : PulleyOperatingState;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.primaryFunction == "Redirect and multiply an applied rope force to lift or hold a suspended load with reduced input effort."
+    }
+
+    doc /* The pulley system shall provide a high-level lifting function by converting operator-applied pull force at the free rope end into controlled upward motion or static support of a suspended load. */
+  }
+
+  requirement def MechanicalAdvantageRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.mechanicalAdvantage >= 2.0
+    }
+
+    doc /* The pulley arrangement shall provide at least a two-to-one mechanical advantage for nominal lifting operation. */
+  }
+
+  requirement def EfficiencyRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.nominalEfficiency.value >= 0.85
+    }
+
+    doc /* The pulley system shall transmit at least 85 percent of ideal mechanical work during normal lifting operation. */
+  }
+
+  requirement def LoadCapacityRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.payload.loadWeight.magnitude <= system.maximumRatedLoad.magnitude
+    }
+
+    doc /* The suspended load weight shall not exceed the rated load capacity of the pulley system. */
+  }
+
+  requirement def RopeSafetyRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.rope.minimumBreakingForce.magnitude >= 5.0 * system.payload.loadWeight.magnitude
+    }
+
+    doc /* The rope shall provide a minimum safety factor of five relative to the suspended load weight. */
+  }
+
+  requirement def FrameCapacityRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.frame.workingLoadLimit.magnitude >= system.maximumRatedLoad.magnitude
+    }
+
+    doc /* The frame shall support the maximum rated load transferred through the axle and bearing assembly. */
+  }
+
+  requirement def ControlledMotionRequirement {
+    subject system : PulleySystem;
+
+    require constraint {
+      system.loadOutput.supportedLoad.weight.magnitude <= system.maximumRatedLoad.magnitude
+    }
+
+    doc /* The pulley system shall maintain controlled load motion during lifting and shall hold the load when input motion stops. */
+  }
+
+  part pulleySystemInstance : PulleySystem;
+
+  satisfy PrimaryFunctionRequirement by pulleySystemInstance;
+  satisfy MechanicalAdvantageRequirement by pulleySystemInstance;
+  satisfy EfficiencyRequirement by pulleySystemInstance;
+  satisfy LoadCapacityRequirement by pulleySystemInstance;
+  satisfy RopeSafetyRequirement by pulleySystemInstance;
+  satisfy FrameCapacityRequirement by pulleySystemInstance;
+  satisfy ControlledMotionRequirement by pulleySystemInstance;
+}

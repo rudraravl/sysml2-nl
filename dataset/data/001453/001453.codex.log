@@ -1,0 +1,811 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-53rakwcq
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6c7-30c8-7dc2-8916-2b70e16bef74
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Home security and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HomeSecuritySystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Percent :> Real;
+  attribute def Decibel :> Real;
+  attribute def Lux :> Real;
+  attribute def Seconds :> Real;
+  attribute def Minutes :> Real;
+  attribute def Meters :> Real;
+  attribute def Volt :> Real;
+  attribute def Ampere :> Real;
+
+  enum def SecurityMode {
+    enum disarmed;
+    enum armedStay;
+    enum armedAway;
+    enum alarmActive;
+    enum maintenance;
+  }
+
+  enum def SensorState {
+    enum normal;
+    enum fault;
+    enum tamper;
+    enum intrusionDetected;
+  }
+
+  enum def AlarmPriority {
+    enum informational;
+    enum warning;
+    enum critical;
+  }
+
+  item def MotionEvent {
+    attribute detected : Boolean;
+    attribute confidence : Percent;
+    attribute detectionRange : Meters;
+    attribute timestamp : Seconds;
+  }
+
+  item def DoorWindowEvent {
+    attribute opened : Boolean;
+    attribute tamperDetected : Boolean;
+    attribute timestamp : Seconds;
+  }
+
+  item def CameraFrame {
+    attribute frameId : Integer;
+    attribute illumination : Lux;
+    attribute personDetected : Boolean;
+    attribute timestamp : Seconds;
+  }
+
+  item def SecurityCommand {
+    attribute targetMode : SecurityMode;
+    attribute issuedByAuthorizedUser : Boolean;
+    attribute timestamp : Seconds;
+  }
+
+  item def AlarmNotification {
+    attribute priority : AlarmPriority;
+    attribute messageCode : String;
+    attribute zoneId : String;
+    attribute timestamp : Seconds;
+  }
+
+  item def PowerSupply {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute batteryCharge : Percent;
+    attribute mainsAvailable : Boolean;
+  }
+
+  port def SensorOutputPort {
+    out item event : MotionEvent;
+    out item contactEvent : DoorWindowEvent;
+    out item videoFrame : CameraFrame;
+  }
+
+  port def CommandPort {
+    in item command : SecurityCommand;
+  }
+
+  port def AlarmPort {
+    out item notification : AlarmNotification;
+  }
+
+  port def PowerPort {
+    in item power : PowerSupply;
+  }
+
+  port def NetworkPort {
+    out item notification : AlarmNotification;
+    in item command : SecurityCommand;
+  }
+
+  action def ValidateCommand {
+    in item command : SecurityCommand;
+    out valid : Boolean;
+
+    action evaluateAuthorization {
+      out authorized : Boolean;
+    }
+
+    bind command.issuedByAuthorizedUser = evaluateAuthorization.authorized;
+    bind valid = evaluateAuthorization.authorized;
+  }
+
+  action def ClassifyThreat {
+    in item motion : MotionEvent;
+    in item contact : DoorWindowEvent;
+    in item camera : CameraFrame;
+    in currentMode : SecurityMode;
+    out threatDetected : Boolean;
+    out priority : AlarmPriority;
+
+    action correlateSensors {
+      out correlatedThreat : Boolean;
+    }
+
+    bind threatDetected = correlatedThreat;
+  }
+
+  action def DispatchAlarm {
+    in item notification : AlarmNotification;
+
+    action soundSiren;
+    action flashLights;
+    action notifyMobileApp;
+    action notifyMonitoringService;
+
+    first start;
+    then soundSiren;
+    then flashLights;
+    then notifyMobileApp;
+    then notifyMonitoringService;
+    then done;
+  }
+
+  state def SecurityControllerStateMachine {
+    in item command : SecurityCommand;
+    in item motion : MotionEvent;
+    in item contact : DoorWindowEvent;
+    in item camera : CameraFrame;
+
+    state initializing;
+    state disarmed;
+    state armedStay;
+    state armedAway;
+    state alarmActive;
+    state maintenance;
+
+    transition first initial then initialState;
+    transition initialState first initialState then initializing;
+    transition initializationComplete first initializing then disarmed;
+
+    transition armStay first disarmed then armedStay
+      accept command
+      if command.targetMode == SecurityMode::armedStay and command.issuedByAuthorizedUser;
+
+    transition armAway first disarmed then armedAway
+      accept command
+      if command.targetMode == SecurityMode::armedAway and command.issuedByAuthorizedUser;
+
+    transition disarmFromStay first armedStay then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+
+    transition disarmFromAway first armedAway then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+
+    transition intrusionStay first armedStay then alarmActive
+      accept contact
+      if contact.opened or contact.tamperDetected;
+
+    transition intrusionAwayMotion first armedAway then alarmActive
+      accept motion
+      if motion.detected and motion.confidence >= 70.0;
+
+    transition intrusionAwayContact first armedAway then alarmActive
+      accept contact
+      if contact.opened or contact.tamperDetected;
+
+    transition intrusionAwayCamera first armedAway then alarmActive
+      accept camera
+      if camera.personDetected;
+
+    transition acknowledgeAlarm first alarmActive then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+
+    transition enterMaintenance first disarmed then maintenance
+      accept command
+      if command.targetMode == SecurityMode::maintenance and command.issuedByAuthorizedUser;
+
+    transition exitMaintenance first maintenance then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+  }
+
+  part def MotionSensor {
+    attribute zoneId : String;
+    attribute range : Meters = 10.0;
+    attribute fieldOfView : Real = 110.0;
+    attribute sensitivity : Percent = 85.0;
+    attribute state : SensorState = SensorState::normal;
+
+    port powerIn : PowerPort;
+    port eventOut : SensorOutputPort;
+  }
+
+  part def DoorWindowContactSensor {
+    attribute zoneId : String;
+    attribute state : SensorState = SensorState::normal;
+    attribute magneticGapLimit : Meters = 0.025;
+
+    port powerIn : PowerPort;
+    port eventOut : SensorOutputPort;
+  }
+
+  part def SecurityCamera {
+    attribute zoneId : String;
+    attribute resolutionHorizontal : Integer = 1920;
+    attribute resolutionVertical : Integer = 1080;
+    attribute minimumIllumination : Lux = 0.5;
+    attribute state : SensorState = SensorState::normal;
+
+    port powerIn : PowerPort;
+    port eventOut : SensorOutputPort;
+  }
+
+  part def Siren {
+    attribute soundPressureLevel : Decibel = 105.0;
+    attribute active : Boolean = false;
+
+    port powerIn : PowerPort;
+    port alarmIn : AlarmPort;
+  }
+
+  part def StrobeLight {
+    attribute flashRateHz : Real = 2.0;
+    attribute active : Boolean = false;
+
+    port powerIn : PowerPort;
+    port alarmIn : AlarmPort;
+  }
+
+  part def MobileAppGateway {
+    attribute encryptedSessionActive : Boolean = true;
+    attribute maximumNotificationLatency : Seconds = 5.0;
+
+    port network : NetworkPort;
+  }
+
+  part def MonitoringServiceGateway {
+    attribute cellularBackupAvailable : Boolean = true;
+    attribute maximumDispatchLatency : Seconds = 30.0;
+
+    port network : NetworkPort;
+  }
+
+  part def BackupBattery {
+    attribute nominalVoltage : Volt = 12.0;
+    attribute capacityAmpHours : Real = 7.0;
+    attribute charge : Percent = 100.0;
+
+    port powerOut : PowerPort;
+  }
+
+  part def MainPowerAdapter {
+    attribute nominalVoltage : Volt = 12.0;
+    attribute maximumCurrent : Ampere = 3.0;
+    attribute mainsAvailable : Boolean = true;
+
+    port powerOut : PowerPort;
+  }
+
+  part def SecurityControlPanel {
+    attribute currentMode : SecurityMode = SecurityMode::disarmed;
+    attribute entryDelay : Seconds = 30.0;
+    attribute exitDelay : Seconds = 45.0;
+    attribute alarmTimeout : Minutes = 15.0;
+    attribute eventRetentionDays : Integer = 30;
+
+    port powerIn : PowerPort;
+    port commandIn : CommandPort;
+    port sensorIn : SensorOutputPort;
+    port alarmOut : AlarmPort;
+    port network : NetworkPort;
+
+    perform behavior : SecurityControllerStateMachine;
+  }
+
+  part def HomeSecuritySystem {
+    attribute primaryFunction : String = "Detect unauthorized entry or presence in protected home zones, alert occupants, notify authorized users, and escalate critical alarms to a monitoring service.";
+    attribute protectedArea : Meters = 250.0;
+    attribute nominalAvailability : Percent = 99.5;
+
+    part controlPanel : SecurityControlPanel;
+
+    part frontDoorSensor : DoorWindowContactSensor {
+      attribute zoneId = "front-door";
+    }
+
+    part backDoorSensor : DoorWindowContactSensor {
+      attribute zoneId = "back-door";
+    }
+
+    part livingRoomMotion : MotionSensor {
+      attribute zoneId = "living-room";
+      attribute range = 12.0;
+    }
+
+    part hallwayMotion : MotionSensor {
+      attribute zoneId = "hallway";
+      attribute range = 8.0;
+    }
+
+    part drivewayCamera : SecurityCamera {
+      attribute zoneId = "driveway";
+    }
+
+    part siren : Siren;
+    part strobe : StrobeLight;
+    part mobileGateway : MobileAppGateway;
+    part monitoringGateway : MonitoringServiceGateway;
+    part mainPower : MainPowerAdapter;
+    part backupBattery : BackupBattery;
+
+    connect mainPower.powerOut to controlPanel.powerIn;
+    connect backupBattery.powerOut to controlPanel.powerIn;
+
+    connect mainPower.powerOut to frontDoorSensor.powerIn;
+    connect mainPower.powerOut to backDoorSensor.powerIn;
+    connect mainPower.powerOut to livingRoomMotion.powerIn;
+    connect mainPower.powerOut to hallwayMotion.powerIn;
+    connect mainPower.powerOut to drivewayCamera.powerIn;
+    connect mainPower.powerOut to siren.powerIn;
+    connect mainPower.powerOut to strobe.powerIn;
+
+    connect frontDoorSensor.eventOut to controlPanel.sensorIn;
+    connect backDoorSensor.eventOut to controlPanel.sensorIn;
+    connect livingRoomMotion.eventOut to controlPanel.sensorIn;
+    connect hallwayMotion.eventOut to controlPanel.sensorIn;
+    connect drivewayCamera.eventOut to controlPanel.sensorIn;
+
+    connect controlPanel.alarmOut to siren.alarmIn;
+    connect controlPanel.alarmOut to strobe.alarmIn;
+    connect controlPanel.network to mobileGateway.network;
+    connect controlPanel.network to monitoringGateway.network;
+  }
+
+  requirement def DetectIntrusionRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.controlPanel.currentMode == SecurityMode::armedAway implies
+      system.livingRoomMotion.sensitivity >= 70.0
+    }
+  }
+
+  requirement def AlarmLatencyRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.mobileGateway.maximumNotificationLatency <= 5.0
+    }
+  }
+
+  requirement def AudibleAlarmRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.siren.soundPressureLevel >= 100.0
+    }
+  }
+
+  requirement def BackupPowerRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.backupBattery.charge >= 20.0
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HomeSecuritySystem;
+    doc /* The home security system shall provide high-level protection by monitoring entry points and occupied spaces, detecting unauthorized access, activating local alarms, and communicating actionable alerts to authorized users and monitoring services. */
+  }
+
+  satisfy DetectIntrusionRequirement by HomeSecuritySystem;
+  satisfy AlarmLatencyRequirement by HomeSecuritySystem;
+  satisfy AudibleAlarmRequirement by HomeSecuritySystem;
+  satisfy BackupPowerRequirement by HomeSecuritySystem;
+  satisfy PrimaryFunctionRequirement by HomeSecuritySystem;
+}
+tokens used
+4,020
+package HomeSecuritySystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  attribute def Percent :> Real;
+  attribute def Decibel :> Real;
+  attribute def Lux :> Real;
+  attribute def Seconds :> Real;
+  attribute def Minutes :> Real;
+  attribute def Meters :> Real;
+  attribute def Volt :> Real;
+  attribute def Ampere :> Real;
+
+  enum def SecurityMode {
+    enum disarmed;
+    enum armedStay;
+    enum armedAway;
+    enum alarmActive;
+    enum maintenance;
+  }
+
+  enum def SensorState {
+    enum normal;
+    enum fault;
+    enum tamper;
+    enum intrusionDetected;
+  }
+
+  enum def AlarmPriority {
+    enum informational;
+    enum warning;
+    enum critical;
+  }
+
+  item def MotionEvent {
+    attribute detected : Boolean;
+    attribute confidence : Percent;
+    attribute detectionRange : Meters;
+    attribute timestamp : Seconds;
+  }
+
+  item def DoorWindowEvent {
+    attribute opened : Boolean;
+    attribute tamperDetected : Boolean;
+    attribute timestamp : Seconds;
+  }
+
+  item def CameraFrame {
+    attribute frameId : Integer;
+    attribute illumination : Lux;
+    attribute personDetected : Boolean;
+    attribute timestamp : Seconds;
+  }
+
+  item def SecurityCommand {
+    attribute targetMode : SecurityMode;
+    attribute issuedByAuthorizedUser : Boolean;
+    attribute timestamp : Seconds;
+  }
+
+  item def AlarmNotification {
+    attribute priority : AlarmPriority;
+    attribute messageCode : String;
+    attribute zoneId : String;
+    attribute timestamp : Seconds;
+  }
+
+  item def PowerSupply {
+    attribute voltage : Volt;
+    attribute current : Ampere;
+    attribute batteryCharge : Percent;
+    attribute mainsAvailable : Boolean;
+  }
+
+  port def SensorOutputPort {
+    out item event : MotionEvent;
+    out item contactEvent : DoorWindowEvent;
+    out item videoFrame : CameraFrame;
+  }
+
+  port def CommandPort {
+    in item command : SecurityCommand;
+  }
+
+  port def AlarmPort {
+    out item notification : AlarmNotification;
+  }
+
+  port def PowerPort {
+    in item power : PowerSupply;
+  }
+
+  port def NetworkPort {
+    out item notification : AlarmNotification;
+    in item command : SecurityCommand;
+  }
+
+  action def ValidateCommand {
+    in item command : SecurityCommand;
+    out valid : Boolean;
+
+    action evaluateAuthorization {
+      out authorized : Boolean;
+    }
+
+    bind command.issuedByAuthorizedUser = evaluateAuthorization.authorized;
+    bind valid = evaluateAuthorization.authorized;
+  }
+
+  action def ClassifyThreat {
+    in item motion : MotionEvent;
+    in item contact : DoorWindowEvent;
+    in item camera : CameraFrame;
+    in currentMode : SecurityMode;
+    out threatDetected : Boolean;
+    out priority : AlarmPriority;
+
+    action correlateSensors {
+      out correlatedThreat : Boolean;
+    }
+
+    bind threatDetected = correlatedThreat;
+  }
+
+  action def DispatchAlarm {
+    in item notification : AlarmNotification;
+
+    action soundSiren;
+    action flashLights;
+    action notifyMobileApp;
+    action notifyMonitoringService;
+
+    first start;
+    then soundSiren;
+    then flashLights;
+    then notifyMobileApp;
+    then notifyMonitoringService;
+    then done;
+  }
+
+  state def SecurityControllerStateMachine {
+    in item command : SecurityCommand;
+    in item motion : MotionEvent;
+    in item contact : DoorWindowEvent;
+    in item camera : CameraFrame;
+
+    state initializing;
+    state disarmed;
+    state armedStay;
+    state armedAway;
+    state alarmActive;
+    state maintenance;
+
+    transition first initial then initialState;
+    transition initialState first initialState then initializing;
+    transition initializationComplete first initializing then disarmed;
+
+    transition armStay first disarmed then armedStay
+      accept command
+      if command.targetMode == SecurityMode::armedStay and command.issuedByAuthorizedUser;
+
+    transition armAway first disarmed then armedAway
+      accept command
+      if command.targetMode == SecurityMode::armedAway and command.issuedByAuthorizedUser;
+
+    transition disarmFromStay first armedStay then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+
+    transition disarmFromAway first armedAway then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+
+    transition intrusionStay first armedStay then alarmActive
+      accept contact
+      if contact.opened or contact.tamperDetected;
+
+    transition intrusionAwayMotion first armedAway then alarmActive
+      accept motion
+      if motion.detected and motion.confidence >= 70.0;
+
+    transition intrusionAwayContact first armedAway then alarmActive
+      accept contact
+      if contact.opened or contact.tamperDetected;
+
+    transition intrusionAwayCamera first armedAway then alarmActive
+      accept camera
+      if camera.personDetected;
+
+    transition acknowledgeAlarm first alarmActive then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+
+    transition enterMaintenance first disarmed then maintenance
+      accept command
+      if command.targetMode == SecurityMode::maintenance and command.issuedByAuthorizedUser;
+
+    transition exitMaintenance first maintenance then disarmed
+      accept command
+      if command.targetMode == SecurityMode::disarmed and command.issuedByAuthorizedUser;
+  }
+
+  part def MotionSensor {
+    attribute zoneId : String;
+    attribute range : Meters = 10.0;
+    attribute fieldOfView : Real = 110.0;
+    attribute sensitivity : Percent = 85.0;
+    attribute state : SensorState = SensorState::normal;
+
+    port powerIn : PowerPort;
+    port eventOut : SensorOutputPort;
+  }
+
+  part def DoorWindowContactSensor {
+    attribute zoneId : String;
+    attribute state : SensorState = SensorState::normal;
+    attribute magneticGapLimit : Meters = 0.025;
+
+    port powerIn : PowerPort;
+    port eventOut : SensorOutputPort;
+  }
+
+  part def SecurityCamera {
+    attribute zoneId : String;
+    attribute resolutionHorizontal : Integer = 1920;
+    attribute resolutionVertical : Integer = 1080;
+    attribute minimumIllumination : Lux = 0.5;
+    attribute state : SensorState = SensorState::normal;
+
+    port powerIn : PowerPort;
+    port eventOut : SensorOutputPort;
+  }
+
+  part def Siren {
+    attribute soundPressureLevel : Decibel = 105.0;
+    attribute active : Boolean = false;
+
+    port powerIn : PowerPort;
+    port alarmIn : AlarmPort;
+  }
+
+  part def StrobeLight {
+    attribute flashRateHz : Real = 2.0;
+    attribute active : Boolean = false;
+
+    port powerIn : PowerPort;
+    port alarmIn : AlarmPort;
+  }
+
+  part def MobileAppGateway {
+    attribute encryptedSessionActive : Boolean = true;
+    attribute maximumNotificationLatency : Seconds = 5.0;
+
+    port network : NetworkPort;
+  }
+
+  part def MonitoringServiceGateway {
+    attribute cellularBackupAvailable : Boolean = true;
+    attribute maximumDispatchLatency : Seconds = 30.0;
+
+    port network : NetworkPort;
+  }
+
+  part def BackupBattery {
+    attribute nominalVoltage : Volt = 12.0;
+    attribute capacityAmpHours : Real = 7.0;
+    attribute charge : Percent = 100.0;
+
+    port powerOut : PowerPort;
+  }
+
+  part def MainPowerAdapter {
+    attribute nominalVoltage : Volt = 12.0;
+    attribute maximumCurrent : Ampere = 3.0;
+    attribute mainsAvailable : Boolean = true;
+
+    port powerOut : PowerPort;
+  }
+
+  part def SecurityControlPanel {
+    attribute currentMode : SecurityMode = SecurityMode::disarmed;
+    attribute entryDelay : Seconds = 30.0;
+    attribute exitDelay : Seconds = 45.0;
+    attribute alarmTimeout : Minutes = 15.0;
+    attribute eventRetentionDays : Integer = 30;
+
+    port powerIn : PowerPort;
+    port commandIn : CommandPort;
+    port sensorIn : SensorOutputPort;
+    port alarmOut : AlarmPort;
+    port network : NetworkPort;
+
+    perform behavior : SecurityControllerStateMachine;
+  }
+
+  part def HomeSecuritySystem {
+    attribute primaryFunction : String = "Detect unauthorized entry or presence in protected home zones, alert occupants, notify authorized users, and escalate critical alarms to a monitoring service.";
+    attribute protectedArea : Meters = 250.0;
+    attribute nominalAvailability : Percent = 99.5;
+
+    part controlPanel : SecurityControlPanel;
+
+    part frontDoorSensor : DoorWindowContactSensor {
+      attribute zoneId = "front-door";
+    }
+
+    part backDoorSensor : DoorWindowContactSensor {
+      attribute zoneId = "back-door";
+    }
+
+    part livingRoomMotion : MotionSensor {
+      attribute zoneId = "living-room";
+      attribute range = 12.0;
+    }
+
+    part hallwayMotion : MotionSensor {
+      attribute zoneId = "hallway";
+      attribute range = 8.0;
+    }
+
+    part drivewayCamera : SecurityCamera {
+      attribute zoneId = "driveway";
+    }
+
+    part siren : Siren;
+    part strobe : StrobeLight;
+    part mobileGateway : MobileAppGateway;
+    part monitoringGateway : MonitoringServiceGateway;
+    part mainPower : MainPowerAdapter;
+    part backupBattery : BackupBattery;
+
+    connect mainPower.powerOut to controlPanel.powerIn;
+    connect backupBattery.powerOut to controlPanel.powerIn;
+
+    connect mainPower.powerOut to frontDoorSensor.powerIn;
+    connect mainPower.powerOut to backDoorSensor.powerIn;
+    connect mainPower.powerOut to livingRoomMotion.powerIn;
+    connect mainPower.powerOut to hallwayMotion.powerIn;
+    connect mainPower.powerOut to drivewayCamera.powerIn;
+    connect mainPower.powerOut to siren.powerIn;
+    connect mainPower.powerOut to strobe.powerIn;
+
+    connect frontDoorSensor.eventOut to controlPanel.sensorIn;
+    connect backDoorSensor.eventOut to controlPanel.sensorIn;
+    connect livingRoomMotion.eventOut to controlPanel.sensorIn;
+    connect hallwayMotion.eventOut to controlPanel.sensorIn;
+    connect drivewayCamera.eventOut to controlPanel.sensorIn;
+
+    connect controlPanel.alarmOut to siren.alarmIn;
+    connect controlPanel.alarmOut to strobe.alarmIn;
+    connect controlPanel.network to mobileGateway.network;
+    connect controlPanel.network to monitoringGateway.network;
+  }
+
+  requirement def DetectIntrusionRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.controlPanel.currentMode == SecurityMode::armedAway implies
+      system.livingRoomMotion.sensitivity >= 70.0
+    }
+  }
+
+  requirement def AlarmLatencyRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.mobileGateway.maximumNotificationLatency <= 5.0
+    }
+  }
+
+  requirement def AudibleAlarmRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.siren.soundPressureLevel >= 100.0
+    }
+  }
+
+  requirement def BackupPowerRequirement {
+    subject system : HomeSecuritySystem;
+    require constraint {
+      system.backupBattery.charge >= 20.0
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : HomeSecuritySystem;
+    doc /* The home security system shall provide high-level protection by monitoring entry points and occupied spaces, detecting unauthorized access, activating local alarms, and communicating actionable alerts to authorized users and monitoring services. */
+  }
+
+  satisfy DetectIntrusionRequirement by HomeSecuritySystem;
+  satisfy AlarmLatencyRequirement by HomeSecuritySystem;
+  satisfy AudibleAlarmRequirement by HomeSecuritySystem;
+  satisfy BackupPowerRequirement by HomeSecuritySystem;
+  satisfy PrimaryFunctionRequirement by HomeSecuritySystem;
+}

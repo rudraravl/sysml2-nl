@@ -1,0 +1,1031 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ppnr3mzv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb598-c26a-78b0-89d3-a7de6afe8584
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Microwave chemistry sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MicrowaveChemistrySensingUnit {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ElectricPotential :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def ElectricCurrent :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Time :> ISQ::duration {
+    unit = SI::second;
+  }
+
+  attribute def Length :> ISQ::length {
+    unit = SI::meter;
+  }
+
+  attribute def MassConcentration {
+    :>> quantityKind = ISQ::massConcentration;
+    unit = SI::kilogram / SI::meter**3;
+  }
+
+  attribute def RelativePermittivity {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  attribute def LossTangent {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  attribute def PhaseAngle {
+    :>> quantityKind = ISQ::planeAngle;
+    unit = SI::radian;
+  }
+
+  attribute def QualityFactor {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  attribute def MeasurementUncertainty {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  item def MicrowaveSignal {
+    attribute frequency : Frequency;
+    attribute power : Power;
+    attribute amplitude : ElectricPotential;
+    attribute phase : PhaseAngle;
+  }
+
+  item def ReflectedMicrowaveSignal :> MicrowaveSignal {
+    attribute reflectionMagnitude : Real;
+    attribute reflectionPhase : PhaseAngle;
+  }
+
+  item def ChemicalSample {
+    attribute analyteConcentration : MassConcentration;
+    attribute relativePermittivity : RelativePermittivity;
+    attribute lossTangent : LossTangent;
+    attribute temperature : Temperature;
+    attribute sampleVolume : ISQ::volume;
+  }
+
+  item def MeasurementResult {
+    attribute measuredConcentration : MassConcentration;
+    attribute estimatedPermittivity : RelativePermittivity;
+    attribute estimatedLossTangent : LossTangent;
+    attribute resonanceFrequency : Frequency;
+    attribute qualityFactor : QualityFactor;
+    attribute uncertainty : MeasurementUncertainty;
+    attribute valid : Boolean;
+    attribute timestamp : Time;
+  }
+
+  item def CalibrationProfile {
+    attribute coefficientA0 : Real;
+    attribute coefficientA1 : Real;
+    attribute coefficientA2 : Real;
+    attribute temperatureCoefficient : Real;
+    attribute referenceFrequency : Frequency;
+    attribute validUntilRuntime : Time;
+  }
+
+  port def PowerInputPort {
+    in item voltage : ElectricPotential;
+    in item currentLimit : ElectricCurrent;
+  }
+
+  port def SampleInletPort {
+    in item sample : ChemicalSample;
+  }
+
+  port def SampleOutletPort {
+    out item sample : ChemicalSample;
+  }
+
+  port def MicrowaveTransmitPort {
+    out item signal : MicrowaveSignal;
+  }
+
+  port def MicrowaveReceivePort {
+    in item signal : ReflectedMicrowaveSignal;
+  }
+
+  port def MeasurementOutputPort {
+    out item result : MeasurementResult;
+  }
+
+  port def ControlPort {
+    in item startCommand : Boolean;
+    in item stopCommand : Boolean;
+    in item calibrationCommand : Boolean;
+    out item ready : Boolean;
+    out item fault : Boolean;
+  }
+
+  part def PowerConditioner {
+    port powerIn : PowerInputPort;
+    out item regulatedVoltage : ElectricPotential;
+    out item availablePower : Power;
+
+    attribute inputVoltageMin : ElectricPotential = 10.8 [SI::volt];
+    attribute inputVoltageMax : ElectricPotential = 30.0 [SI::volt];
+    attribute outputVoltage : ElectricPotential = 5.0 [SI::volt];
+    attribute conversionEfficiency : Real = 0.88;
+  }
+
+  part def MicrowaveSource {
+    in item supplyVoltage : ElectricPotential;
+    port tx : MicrowaveTransmitPort;
+
+    attribute sweepStartFrequency : Frequency = 2.400 [SI::gigaHertz];
+    attribute sweepStopFrequency : Frequency = 2.500 [SI::gigaHertz];
+    attribute frequencyStep : Frequency = 100.0 [SI::kiloHertz];
+    attribute outputPower : Power = 10.0 [SI::milliWatt];
+
+    action generateSweep {
+      in item startFrequency : Frequency;
+      in item stopFrequency : Frequency;
+      in item step : Frequency;
+      out item emittedSignal : MicrowaveSignal;
+    }
+  }
+
+  part def DirectionalCoupler {
+    port txIn : MicrowaveReceivePort;
+    port sensorDrive : MicrowaveTransmitPort;
+    port reflectedOut : MicrowaveTransmitPort;
+
+    attribute couplingFactor : Real = 0.10;
+    attribute insertionLoss : Real = 0.6;
+  }
+
+  part def MicrowaveChemistrySensor {
+    port microwaveIn : MicrowaveReceivePort;
+    port reflectedOut : MicrowaveTransmitPort;
+    port sampleIn : SampleInletPort;
+    port sampleOut : SampleOutletPort;
+
+    attribute resonatorLength : Length = 0.028 [SI::meter];
+    attribute unloadedQualityFactor : QualityFactor = 850.0;
+    attribute nominalResonanceFrequency : Frequency = 2.450 [SI::gigaHertz];
+    attribute sampleCellVolume : ISQ::volume = 250.0 [SI::microLiter];
+    attribute wettedMaterialCompatible : Boolean = true;
+
+    action interactMicrowaveWithSample {
+      in item incidentSignal : MicrowaveSignal;
+      in item sample : ChemicalSample;
+      out item reflectedSignal : ReflectedMicrowaveSignal;
+    }
+  }
+
+  part def TemperatureSensor {
+    in item supplyVoltage : ElectricPotential;
+    out item sampleTemperature : Temperature;
+
+    attribute accuracy : Temperature = 0.2 [SI::kelvin];
+    attribute samplingPeriod : Time = 0.1 [SI::second];
+
+    action measureTemperature {
+      out item measuredTemperature : Temperature;
+    }
+  }
+
+  part def ReceiverDetector {
+    in item supplyVoltage : ElectricPotential;
+    port rx : MicrowaveReceivePort;
+
+    out item measuredMagnitude : Real;
+    out item measuredPhase : PhaseAngle;
+    out item detectedFrequency : Frequency;
+
+    attribute magnitudeResolution : Real = 0.001;
+    attribute phaseResolution : PhaseAngle = 0.002 [SI::radian];
+    attribute noiseFloor : Power = 1.0 [SI::nanoWatt];
+
+    action detectReflection {
+      in item reflectedSignal : ReflectedMicrowaveSignal;
+      out item magnitude : Real;
+      out item phase : PhaseAngle;
+      out item frequency : Frequency;
+    }
+  }
+
+  part def SignalProcessor {
+    in item supplyVoltage : ElectricPotential;
+    in item reflectionMagnitude : Real;
+    in item reflectionPhase : PhaseAngle;
+    in item frequency : Frequency;
+    in item temperature : Temperature;
+    in item calibration : CalibrationProfile;
+    port output : MeasurementOutputPort;
+
+    attribute resonanceSearchWindow : Frequency = 60.0 [SI::megaHertz];
+    attribute minimumSignalToNoiseRatio : Real = 20.0;
+    attribute maximumAllowedUncertainty : MeasurementUncertainty = 0.05;
+
+    action estimateChemicalQuantity {
+      in item magnitude : Real;
+      in item phase : PhaseAngle;
+      in item sweepFrequency : Frequency;
+      in item sampleTemperature : Temperature;
+      in item profile : CalibrationProfile;
+      out item result : MeasurementResult;
+    }
+  }
+
+  part def CalibrationMemory {
+    in item supplyVoltage : ElectricPotential;
+    out item activeProfile : CalibrationProfile;
+
+    attribute storedProfiles : Integer = 4;
+    attribute retentionTime : Time = 315360000.0 [SI::second];
+
+    action loadCalibration {
+      out item profile : CalibrationProfile;
+    }
+
+    action updateCalibration {
+      in item referenceSample : ChemicalSample;
+      out item profile : CalibrationProfile;
+    }
+  }
+
+  part def Controller {
+    port control : ControlPort;
+
+    in item supplyVoltage : ElectricPotential;
+    in item result : MeasurementResult;
+    out item enableSource : Boolean;
+    out item enableReceiver : Boolean;
+    out item enableProcessor : Boolean;
+    out item measurementReady : Boolean;
+    out item faultActive : Boolean;
+
+    attribute startupTime : Time = 2.0 [SI::second];
+    attribute measurementCycleTime : Time = 1.0 [SI::second];
+    attribute calibrationCycleTime : Time = 30.0 [SI::second];
+
+    state def OperatingState {
+      state off;
+      state startup;
+      state idle;
+      state measuring;
+      state processing;
+      state reporting;
+      state calibrating;
+      state fault;
+
+      transition first off;
+      transition off_to_startup
+        first off
+        accept startCommand
+        then startup;
+
+      transition startup_to_idle
+        first startup
+        if supplyVoltage >= 4.75 [SI::volt]
+        then idle;
+
+      transition idle_to_measuring
+        first idle
+        accept startCommand
+        then measuring;
+
+      transition measuring_to_processing
+        first measuring
+        after measurementCycleTime
+        then processing;
+
+      transition processing_to_reporting
+        first processing
+        if result.valid == true
+        then reporting;
+
+      transition reporting_to_idle
+        first reporting
+        after 0.1 [SI::second]
+        then idle;
+
+      transition idle_to_calibrating
+        first idle
+        accept calibrationCommand
+        then calibrating;
+
+      transition calibrating_to_idle
+        first calibrating
+        after calibrationCycleTime
+        then idle;
+
+      transition any_to_fault
+        first off
+        if supplyVoltage < 4.50 [SI::volt]
+        then fault;
+
+      transition fault_to_idle
+        first fault
+        accept stopCommand
+        then idle;
+    }
+  }
+
+  part def SensingUnit {
+    port power : PowerInputPort;
+    port sampleIn : SampleInletPort;
+    port sampleOut : SampleOutletPort;
+    port measurementOut : MeasurementOutputPort;
+    port command : ControlPort;
+
+    part powerConditioner : PowerConditioner;
+    part microwaveSource : MicrowaveSource;
+    part coupler : DirectionalCoupler;
+    part chemistrySensor : MicrowaveChemistrySensor;
+    part temperatureSensor : TemperatureSensor;
+    part receiver : ReceiverDetector;
+    part processor : SignalProcessor;
+    part calibrationMemory : CalibrationMemory;
+    part controller : Controller;
+
+    attribute operatingVoltage : ElectricPotential = 24.0 [SI::volt];
+    attribute maximumInputPower : Power = 5.0 [SI::watt];
+    attribute measurementRangeMin : MassConcentration = 0.0 [SI::kilogram / SI::meter**3];
+    attribute measurementRangeMax : MassConcentration = 10.0 [SI::kilogram / SI::meter**3];
+    attribute targetAccuracy : MeasurementUncertainty = 0.03;
+    attribute operatingTemperatureMin : Temperature = 273.15 [SI::kelvin];
+    attribute operatingTemperatureMax : Temperature = 323.15 [SI::kelvin];
+
+    connect power to powerConditioner.powerIn;
+    connect sampleIn to chemistrySensor.sampleIn;
+    connect chemistrySensor.sampleOut to sampleOut;
+    connect command to controller.control;
+    connect processor.output to measurementOut;
+
+    flow powerConditioner.regulatedVoltage to microwaveSource.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to receiver.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to processor.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to temperatureSensor.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to calibrationMemory.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to controller.supplyVoltage;
+
+    connect microwaveSource.tx to coupler.txIn;
+    connect coupler.sensorDrive to chemistrySensor.microwaveIn;
+    connect chemistrySensor.reflectedOut to coupler.reflectedOut;
+    connect coupler.reflectedOut to receiver.rx;
+
+    flow receiver.measuredMagnitude to processor.reflectionMagnitude;
+    flow receiver.measuredPhase to processor.reflectionPhase;
+    flow receiver.detectedFrequency to processor.frequency;
+    flow temperatureSensor.sampleTemperature to processor.temperature;
+    flow calibrationMemory.activeProfile to processor.calibration;
+    flow processor.output.result to controller.result;
+    flow controller.measurementReady to command.ready;
+    flow controller.faultActive to command.fault;
+
+    action performMeasurement {
+      in item sample : ChemicalSample;
+      out item result : MeasurementResult;
+
+      first start;
+      then loadProfile : calibrationMemory.loadCalibration;
+      then sweep : microwaveSource.generateSweep;
+      then interaction : chemistrySensor.interactMicrowaveWithSample;
+      then detect : receiver.detectReflection;
+      then temp : temperatureSensor.measureTemperature;
+      then estimate : processor.estimateChemicalQuantity;
+      then done;
+
+      bind sample = interaction.sample;
+      bind loadProfile.profile = estimate.profile;
+      bind sweep.emittedSignal = interaction.incidentSignal;
+      bind interaction.reflectedSignal = detect.reflectedSignal;
+      bind detect.magnitude = estimate.magnitude;
+      bind detect.phase = estimate.phase;
+      bind detect.frequency = estimate.sweepFrequency;
+      bind temp.measuredTemperature = estimate.sampleTemperature;
+      bind estimate.result = result;
+    }
+
+    assert constraint validOperatingVoltage {
+      power.voltage >= powerConditioner.inputVoltageMin and
+      power.voltage <= powerConditioner.inputVoltageMax;
+    }
+
+    assert constraint validSampleTemperature {
+      chemistrySensor.sampleIn.sample.temperature >= operatingTemperatureMin and
+      chemistrySensor.sampleIn.sample.temperature <= operatingTemperatureMax;
+    }
+
+    assert constraint validMeasurementRange {
+      processor.output.result.measuredConcentration >= measurementRangeMin and
+      processor.output.result.measuredConcentration <= measurementRangeMax;
+    }
+  }
+
+  requirement def MicrowaveChemistryMeasurementRequirement {
+    subject unit : SensingUnit;
+
+    requirement measureRelevantChemicalQuantity {
+      doc /* The sensing unit shall measure analyte concentration in a chemical sample using microwave interaction with the sample dielectric properties. */
+      require constraint {
+        unit.measurementOut.result.valid == true
+      }
+    }
+
+    requirement useMicrowaveChemistrySensor {
+      doc /* The primary measurement principle shall be a microwave chemistry sensor using resonance shift, reflected magnitude, and reflected phase. */
+      require constraint {
+        unit.chemistrySensor.nominalResonanceFrequency >= 2.400 [SI::gigaHertz] and
+        unit.chemistrySensor.nominalResonanceFrequency <= 2.500 [SI::gigaHertz]
+      }
+    }
+
+    requirement concentrationRange {
+      doc /* The sensing unit shall measure analyte concentration from 0 to 10 kg/m^3. */
+      require constraint {
+        unit.measurementRangeMin == 0.0 [SI::kilogram / SI::meter**3] and
+        unit.measurementRangeMax == 10.0 [SI::kilogram / SI::meter**3]
+      }
+    }
+
+    requirement measurementAccuracy {
+      doc /* The sensing unit shall report measurement uncertainty no greater than 5 percent of full scale under calibrated operating conditions. */
+      require constraint {
+        unit.measurementOut.result.uncertainty <= 0.05
+      }
+    }
+
+    requirement thermalCompensation {
+      doc /* The sensing unit shall compensate concentration estimates using measured sample temperature. */
+      require constraint {
+        unit.temperatureSensor.accuracy <= 0.5 [SI::kelvin]
+      }
+    }
+
+    requirement cycleTime {
+      doc /* The sensing unit shall complete one measurement cycle within 1 second after receiving a start command. */
+      require constraint {
+        unit.controller.measurementCycleTime <= 1.0 [SI::second]
+      }
+    }
+
+    requirement safePower {
+      doc /* The sensing unit shall operate from a 10.8 V to 30 V DC input and consume no more than 5 W. */
+      require constraint {
+        unit.powerConditioner.inputVoltageMin == 10.8 [SI::volt] and
+        unit.powerConditioner.inputVoltageMax == 30.0 [SI::volt] and
+        unit.maximumInputPower <= 5.0 [SI::watt]
+      }
+    }
+
+    requirement faultReporting {
+      doc /* The sensing unit shall assert a fault output when regulated supply voltage is below 4.5 V or measurement validity is false. */
+      require constraint {
+        unit.command.fault == true implies
+        unit.controller.faultActive == true
+      }
+    }
+  }
+
+  satisfy MicrowaveChemistryMeasurementRequirement::measureRelevantChemicalQuantity by SensingUnit::processor;
+  satisfy MicrowaveChemistryMeasurementRequirement::useMicrowaveChemistrySensor by SensingUnit::chemistrySensor;
+  satisfy MicrowaveChemistryMeasurementRequirement::concentrationRange by SensingUnit;
+  satisfy MicrowaveChemistryMeasurementRequirement::measurementAccuracy by SensingUnit::processor;
+  satisfy MicrowaveChemistryMeasurementRequirement::thermalCompensation by SensingUnit::temperatureSensor;
+  satisfy MicrowaveChemistryMeasurementRequirement::cycleTime by SensingUnit::controller;
+  satisfy MicrowaveChemistryMeasurementRequirement::safePower by SensingUnit::powerConditioner;
+  satisfy MicrowaveChemistryMeasurementRequirement::faultReporting by SensingUnit::controller;
+
+}
+tokens used
+4,055
+package MicrowaveChemistrySensingUnit {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def ElectricPotential :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def ElectricCurrent :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def Frequency :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Temperature :> ISQ::thermodynamicTemperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Time :> ISQ::duration {
+    unit = SI::second;
+  }
+
+  attribute def Length :> ISQ::length {
+    unit = SI::meter;
+  }
+
+  attribute def MassConcentration {
+    :>> quantityKind = ISQ::massConcentration;
+    unit = SI::kilogram / SI::meter**3;
+  }
+
+  attribute def RelativePermittivity {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  attribute def LossTangent {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  attribute def PhaseAngle {
+    :>> quantityKind = ISQ::planeAngle;
+    unit = SI::radian;
+  }
+
+  attribute def QualityFactor {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  attribute def MeasurementUncertainty {
+    :>> quantityKind = ScalarValues::Real;
+  }
+
+  item def MicrowaveSignal {
+    attribute frequency : Frequency;
+    attribute power : Power;
+    attribute amplitude : ElectricPotential;
+    attribute phase : PhaseAngle;
+  }
+
+  item def ReflectedMicrowaveSignal :> MicrowaveSignal {
+    attribute reflectionMagnitude : Real;
+    attribute reflectionPhase : PhaseAngle;
+  }
+
+  item def ChemicalSample {
+    attribute analyteConcentration : MassConcentration;
+    attribute relativePermittivity : RelativePermittivity;
+    attribute lossTangent : LossTangent;
+    attribute temperature : Temperature;
+    attribute sampleVolume : ISQ::volume;
+  }
+
+  item def MeasurementResult {
+    attribute measuredConcentration : MassConcentration;
+    attribute estimatedPermittivity : RelativePermittivity;
+    attribute estimatedLossTangent : LossTangent;
+    attribute resonanceFrequency : Frequency;
+    attribute qualityFactor : QualityFactor;
+    attribute uncertainty : MeasurementUncertainty;
+    attribute valid : Boolean;
+    attribute timestamp : Time;
+  }
+
+  item def CalibrationProfile {
+    attribute coefficientA0 : Real;
+    attribute coefficientA1 : Real;
+    attribute coefficientA2 : Real;
+    attribute temperatureCoefficient : Real;
+    attribute referenceFrequency : Frequency;
+    attribute validUntilRuntime : Time;
+  }
+
+  port def PowerInputPort {
+    in item voltage : ElectricPotential;
+    in item currentLimit : ElectricCurrent;
+  }
+
+  port def SampleInletPort {
+    in item sample : ChemicalSample;
+  }
+
+  port def SampleOutletPort {
+    out item sample : ChemicalSample;
+  }
+
+  port def MicrowaveTransmitPort {
+    out item signal : MicrowaveSignal;
+  }
+
+  port def MicrowaveReceivePort {
+    in item signal : ReflectedMicrowaveSignal;
+  }
+
+  port def MeasurementOutputPort {
+    out item result : MeasurementResult;
+  }
+
+  port def ControlPort {
+    in item startCommand : Boolean;
+    in item stopCommand : Boolean;
+    in item calibrationCommand : Boolean;
+    out item ready : Boolean;
+    out item fault : Boolean;
+  }
+
+  part def PowerConditioner {
+    port powerIn : PowerInputPort;
+    out item regulatedVoltage : ElectricPotential;
+    out item availablePower : Power;
+
+    attribute inputVoltageMin : ElectricPotential = 10.8 [SI::volt];
+    attribute inputVoltageMax : ElectricPotential = 30.0 [SI::volt];
+    attribute outputVoltage : ElectricPotential = 5.0 [SI::volt];
+    attribute conversionEfficiency : Real = 0.88;
+  }
+
+  part def MicrowaveSource {
+    in item supplyVoltage : ElectricPotential;
+    port tx : MicrowaveTransmitPort;
+
+    attribute sweepStartFrequency : Frequency = 2.400 [SI::gigaHertz];
+    attribute sweepStopFrequency : Frequency = 2.500 [SI::gigaHertz];
+    attribute frequencyStep : Frequency = 100.0 [SI::kiloHertz];
+    attribute outputPower : Power = 10.0 [SI::milliWatt];
+
+    action generateSweep {
+      in item startFrequency : Frequency;
+      in item stopFrequency : Frequency;
+      in item step : Frequency;
+      out item emittedSignal : MicrowaveSignal;
+    }
+  }
+
+  part def DirectionalCoupler {
+    port txIn : MicrowaveReceivePort;
+    port sensorDrive : MicrowaveTransmitPort;
+    port reflectedOut : MicrowaveTransmitPort;
+
+    attribute couplingFactor : Real = 0.10;
+    attribute insertionLoss : Real = 0.6;
+  }
+
+  part def MicrowaveChemistrySensor {
+    port microwaveIn : MicrowaveReceivePort;
+    port reflectedOut : MicrowaveTransmitPort;
+    port sampleIn : SampleInletPort;
+    port sampleOut : SampleOutletPort;
+
+    attribute resonatorLength : Length = 0.028 [SI::meter];
+    attribute unloadedQualityFactor : QualityFactor = 850.0;
+    attribute nominalResonanceFrequency : Frequency = 2.450 [SI::gigaHertz];
+    attribute sampleCellVolume : ISQ::volume = 250.0 [SI::microLiter];
+    attribute wettedMaterialCompatible : Boolean = true;
+
+    action interactMicrowaveWithSample {
+      in item incidentSignal : MicrowaveSignal;
+      in item sample : ChemicalSample;
+      out item reflectedSignal : ReflectedMicrowaveSignal;
+    }
+  }
+
+  part def TemperatureSensor {
+    in item supplyVoltage : ElectricPotential;
+    out item sampleTemperature : Temperature;
+
+    attribute accuracy : Temperature = 0.2 [SI::kelvin];
+    attribute samplingPeriod : Time = 0.1 [SI::second];
+
+    action measureTemperature {
+      out item measuredTemperature : Temperature;
+    }
+  }
+
+  part def ReceiverDetector {
+    in item supplyVoltage : ElectricPotential;
+    port rx : MicrowaveReceivePort;
+
+    out item measuredMagnitude : Real;
+    out item measuredPhase : PhaseAngle;
+    out item detectedFrequency : Frequency;
+
+    attribute magnitudeResolution : Real = 0.001;
+    attribute phaseResolution : PhaseAngle = 0.002 [SI::radian];
+    attribute noiseFloor : Power = 1.0 [SI::nanoWatt];
+
+    action detectReflection {
+      in item reflectedSignal : ReflectedMicrowaveSignal;
+      out item magnitude : Real;
+      out item phase : PhaseAngle;
+      out item frequency : Frequency;
+    }
+  }
+
+  part def SignalProcessor {
+    in item supplyVoltage : ElectricPotential;
+    in item reflectionMagnitude : Real;
+    in item reflectionPhase : PhaseAngle;
+    in item frequency : Frequency;
+    in item temperature : Temperature;
+    in item calibration : CalibrationProfile;
+    port output : MeasurementOutputPort;
+
+    attribute resonanceSearchWindow : Frequency = 60.0 [SI::megaHertz];
+    attribute minimumSignalToNoiseRatio : Real = 20.0;
+    attribute maximumAllowedUncertainty : MeasurementUncertainty = 0.05;
+
+    action estimateChemicalQuantity {
+      in item magnitude : Real;
+      in item phase : PhaseAngle;
+      in item sweepFrequency : Frequency;
+      in item sampleTemperature : Temperature;
+      in item profile : CalibrationProfile;
+      out item result : MeasurementResult;
+    }
+  }
+
+  part def CalibrationMemory {
+    in item supplyVoltage : ElectricPotential;
+    out item activeProfile : CalibrationProfile;
+
+    attribute storedProfiles : Integer = 4;
+    attribute retentionTime : Time = 315360000.0 [SI::second];
+
+    action loadCalibration {
+      out item profile : CalibrationProfile;
+    }
+
+    action updateCalibration {
+      in item referenceSample : ChemicalSample;
+      out item profile : CalibrationProfile;
+    }
+  }
+
+  part def Controller {
+    port control : ControlPort;
+
+    in item supplyVoltage : ElectricPotential;
+    in item result : MeasurementResult;
+    out item enableSource : Boolean;
+    out item enableReceiver : Boolean;
+    out item enableProcessor : Boolean;
+    out item measurementReady : Boolean;
+    out item faultActive : Boolean;
+
+    attribute startupTime : Time = 2.0 [SI::second];
+    attribute measurementCycleTime : Time = 1.0 [SI::second];
+    attribute calibrationCycleTime : Time = 30.0 [SI::second];
+
+    state def OperatingState {
+      state off;
+      state startup;
+      state idle;
+      state measuring;
+      state processing;
+      state reporting;
+      state calibrating;
+      state fault;
+
+      transition first off;
+      transition off_to_startup
+        first off
+        accept startCommand
+        then startup;
+
+      transition startup_to_idle
+        first startup
+        if supplyVoltage >= 4.75 [SI::volt]
+        then idle;
+
+      transition idle_to_measuring
+        first idle
+        accept startCommand
+        then measuring;
+
+      transition measuring_to_processing
+        first measuring
+        after measurementCycleTime
+        then processing;
+
+      transition processing_to_reporting
+        first processing
+        if result.valid == true
+        then reporting;
+
+      transition reporting_to_idle
+        first reporting
+        after 0.1 [SI::second]
+        then idle;
+
+      transition idle_to_calibrating
+        first idle
+        accept calibrationCommand
+        then calibrating;
+
+      transition calibrating_to_idle
+        first calibrating
+        after calibrationCycleTime
+        then idle;
+
+      transition any_to_fault
+        first off
+        if supplyVoltage < 4.50 [SI::volt]
+        then fault;
+
+      transition fault_to_idle
+        first fault
+        accept stopCommand
+        then idle;
+    }
+  }
+
+  part def SensingUnit {
+    port power : PowerInputPort;
+    port sampleIn : SampleInletPort;
+    port sampleOut : SampleOutletPort;
+    port measurementOut : MeasurementOutputPort;
+    port command : ControlPort;
+
+    part powerConditioner : PowerConditioner;
+    part microwaveSource : MicrowaveSource;
+    part coupler : DirectionalCoupler;
+    part chemistrySensor : MicrowaveChemistrySensor;
+    part temperatureSensor : TemperatureSensor;
+    part receiver : ReceiverDetector;
+    part processor : SignalProcessor;
+    part calibrationMemory : CalibrationMemory;
+    part controller : Controller;
+
+    attribute operatingVoltage : ElectricPotential = 24.0 [SI::volt];
+    attribute maximumInputPower : Power = 5.0 [SI::watt];
+    attribute measurementRangeMin : MassConcentration = 0.0 [SI::kilogram / SI::meter**3];
+    attribute measurementRangeMax : MassConcentration = 10.0 [SI::kilogram / SI::meter**3];
+    attribute targetAccuracy : MeasurementUncertainty = 0.03;
+    attribute operatingTemperatureMin : Temperature = 273.15 [SI::kelvin];
+    attribute operatingTemperatureMax : Temperature = 323.15 [SI::kelvin];
+
+    connect power to powerConditioner.powerIn;
+    connect sampleIn to chemistrySensor.sampleIn;
+    connect chemistrySensor.sampleOut to sampleOut;
+    connect command to controller.control;
+    connect processor.output to measurementOut;
+
+    flow powerConditioner.regulatedVoltage to microwaveSource.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to receiver.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to processor.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to temperatureSensor.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to calibrationMemory.supplyVoltage;
+    flow powerConditioner.regulatedVoltage to controller.supplyVoltage;
+
+    connect microwaveSource.tx to coupler.txIn;
+    connect coupler.sensorDrive to chemistrySensor.microwaveIn;
+    connect chemistrySensor.reflectedOut to coupler.reflectedOut;
+    connect coupler.reflectedOut to receiver.rx;
+
+    flow receiver.measuredMagnitude to processor.reflectionMagnitude;
+    flow receiver.measuredPhase to processor.reflectionPhase;
+    flow receiver.detectedFrequency to processor.frequency;
+    flow temperatureSensor.sampleTemperature to processor.temperature;
+    flow calibrationMemory.activeProfile to processor.calibration;
+    flow processor.output.result to controller.result;
+    flow controller.measurementReady to command.ready;
+    flow controller.faultActive to command.fault;
+
+    action performMeasurement {
+      in item sample : ChemicalSample;
+      out item result : MeasurementResult;
+
+      first start;
+      then loadProfile : calibrationMemory.loadCalibration;
+      then sweep : microwaveSource.generateSweep;
+      then interaction : chemistrySensor.interactMicrowaveWithSample;
+      then detect : receiver.detectReflection;
+      then temp : temperatureSensor.measureTemperature;
+      then estimate : processor.estimateChemicalQuantity;
+      then done;
+
+      bind sample = interaction.sample;
+      bind loadProfile.profile = estimate.profile;
+      bind sweep.emittedSignal = interaction.incidentSignal;
+      bind interaction.reflectedSignal = detect.reflectedSignal;
+      bind detect.magnitude = estimate.magnitude;
+      bind detect.phase = estimate.phase;
+      bind detect.frequency = estimate.sweepFrequency;
+      bind temp.measuredTemperature = estimate.sampleTemperature;
+      bind estimate.result = result;
+    }
+
+    assert constraint validOperatingVoltage {
+      power.voltage >= powerConditioner.inputVoltageMin and
+      power.voltage <= powerConditioner.inputVoltageMax;
+    }
+
+    assert constraint validSampleTemperature {
+      chemistrySensor.sampleIn.sample.temperature >= operatingTemperatureMin and
+      chemistrySensor.sampleIn.sample.temperature <= operatingTemperatureMax;
+    }
+
+    assert constraint validMeasurementRange {
+      processor.output.result.measuredConcentration >= measurementRangeMin and
+      processor.output.result.measuredConcentration <= measurementRangeMax;
+    }
+  }
+
+  requirement def MicrowaveChemistryMeasurementRequirement {
+    subject unit : SensingUnit;
+
+    requirement measureRelevantChemicalQuantity {
+      doc /* The sensing unit shall measure analyte concentration in a chemical sample using microwave interaction with the sample dielectric properties. */
+      require constraint {
+        unit.measurementOut.result.valid == true
+      }
+    }
+
+    requirement useMicrowaveChemistrySensor {
+      doc /* The primary measurement principle shall be a microwave chemistry sensor using resonance shift, reflected magnitude, and reflected phase. */
+      require constraint {
+        unit.chemistrySensor.nominalResonanceFrequency >= 2.400 [SI::gigaHertz] and
+        unit.chemistrySensor.nominalResonanceFrequency <= 2.500 [SI::gigaHertz]
+      }
+    }
+
+    requirement concentrationRange {
+      doc /* The sensing unit shall measure analyte concentration from 0 to 10 kg/m^3. */
+      require constraint {
+        unit.measurementRangeMin == 0.0 [SI::kilogram / SI::meter**3] and
+        unit.measurementRangeMax == 10.0 [SI::kilogram / SI::meter**3]
+      }
+    }
+
+    requirement measurementAccuracy {
+      doc /* The sensing unit shall report measurement uncertainty no greater than 5 percent of full scale under calibrated operating conditions. */
+      require constraint {
+        unit.measurementOut.result.uncertainty <= 0.05
+      }
+    }
+
+    requirement thermalCompensation {
+      doc /* The sensing unit shall compensate concentration estimates using measured sample temperature. */
+      require constraint {
+        unit.temperatureSensor.accuracy <= 0.5 [SI::kelvin]
+      }
+    }
+
+    requirement cycleTime {
+      doc /* The sensing unit shall complete one measurement cycle within 1 second after receiving a start command. */
+      require constraint {
+        unit.controller.measurementCycleTime <= 1.0 [SI::second]
+      }
+    }
+
+    requirement safePower {
+      doc /* The sensing unit shall operate from a 10.8 V to 30 V DC input and consume no more than 5 W. */
+      require constraint {
+        unit.powerConditioner.inputVoltageMin == 10.8 [SI::volt] and
+        unit.powerConditioner.inputVoltageMax == 30.0 [SI::volt] and
+        unit.maximumInputPower <= 5.0 [SI::watt]
+      }
+    }
+
+    requirement faultReporting {
+      doc /* The sensing unit shall assert a fault output when regulated supply voltage is below 4.5 V or measurement validity is false. */
+      require constraint {
+        unit.command.fault == true implies
+        unit.controller.faultActive == true
+      }
+    }
+  }
+
+  satisfy MicrowaveChemistryMeasurementRequirement::measureRelevantChemicalQuantity by SensingUnit::processor;
+  satisfy MicrowaveChemistryMeasurementRequirement::useMicrowaveChemistrySensor by SensingUnit::chemistrySensor;
+  satisfy MicrowaveChemistryMeasurementRequirement::concentrationRange by SensingUnit;
+  satisfy MicrowaveChemistryMeasurementRequirement::measurementAccuracy by SensingUnit::processor;
+  satisfy MicrowaveChemistryMeasurementRequirement::thermalCompensation by SensingUnit::temperatureSensor;
+  satisfy MicrowaveChemistryMeasurementRequirement::cycleTime by SensingUnit::controller;
+  satisfy MicrowaveChemistryMeasurementRequirement::safePower by SensingUnit::powerConditioner;
+  satisfy MicrowaveChemistryMeasurementRequirement::faultReporting by SensingUnit::controller;
+
+}

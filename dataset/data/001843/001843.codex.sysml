@@ -1,0 +1,784 @@
+package ReciprocatingEngineSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def RealValue;
+  attribute def BooleanValue;
+  attribute def TextValue;
+
+  item def Air {
+    attribute pressure : PressureValue;
+    attribute temperature : TemperatureValue;
+    attribute massFlowRate : MassFlowRateValue;
+    attribute oxygenFraction : RealValue;
+  }
+
+  item def Fuel {
+    attribute lowerHeatingValue : EnergyDensityValue;
+    attribute massFlowRate : MassFlowRateValue;
+    attribute octaneRating : RealValue;
+  }
+
+  item def AirFuelMixture {
+    attribute equivalenceRatio : RealValue;
+    attribute massFlowRate : MassFlowRateValue;
+    attribute temperature : TemperatureValue;
+    attribute pressure : PressureValue;
+  }
+
+  item def ExhaustGas {
+    attribute temperature : TemperatureValue;
+    attribute pressure : PressureValue;
+    attribute massFlowRate : MassFlowRateValue;
+    attribute carbonDioxideFraction : RealValue;
+    attribute carbonMonoxideFraction : RealValue;
+    attribute nitrogenOxidesFraction : RealValue;
+  }
+
+  item def LubricatingOil {
+    attribute pressure : PressureValue;
+    attribute temperature : TemperatureValue;
+    attribute flowRate : VolumeFlowRateValue;
+  }
+
+  item def Coolant {
+    attribute temperature : TemperatureValue;
+    attribute pressure : PressureValue;
+    attribute flowRate : VolumeFlowRateValue;
+  }
+
+  item def CrankshaftTorque {
+    attribute torque : TorqueValue;
+    attribute rotationalSpeed : FrequencyValue;
+    attribute mechanicalPower : PowerValue;
+  }
+
+  item def ElectricalSignal {
+    attribute voltage : ElectricPotentialValue;
+    attribute current : ElectricCurrentValue;
+  }
+
+  item def ControlCommand {
+    attribute throttlePosition : RealValue;
+    attribute fuelInjectionDuration : TimeValue;
+    attribute ignitionAdvance : PlaneAngleValue;
+    attribute starterEnabled : BooleanValue;
+  }
+
+  item def SensorData {
+    attribute crankshaftSpeed : FrequencyValue;
+    attribute manifoldPressure : PressureValue;
+    attribute coolantTemperature : TemperatureValue;
+    attribute oilPressure : PressureValue;
+    attribute exhaustOxygenFraction : RealValue;
+    attribute throttlePosition : RealValue;
+  }
+
+  port def AirInletPort {
+    in item air : Air;
+  }
+
+  port def FuelInletPort {
+    in item fuel : Fuel;
+  }
+
+  port def MixturePort {
+    item mixture : AirFuelMixture;
+  }
+
+  port def ExhaustPort {
+    out item exhaust : ExhaustGas;
+  }
+
+  port def TorqueOutputPort {
+    out item torqueOutput : CrankshaftTorque;
+  }
+
+  port def OilPort {
+    item oil : LubricatingOil;
+  }
+
+  port def CoolantPort {
+    item coolant : Coolant;
+  }
+
+  port def ElectricalPowerPort {
+    in item electricalPower : ElectricalSignal;
+  }
+
+  port def SensorPort {
+    out item sensorData : SensorData;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  value def PressureValue :> ISQ::pressure;
+  value def TemperatureValue :> ISQ::thermodynamicTemperature;
+  value def MassFlowRateValue :> ISQ::massFlowRate;
+  value def VolumeFlowRateValue :> ISQ::volumeFlowRate;
+  value def EnergyDensityValue :> ISQ::energyDensity;
+  value def TorqueValue :> ISQ::torque;
+  value def PowerValue :> ISQ::power;
+  value def FrequencyValue :> ISQ::frequency;
+  value def TimeValue :> ISQ::time;
+  value def PlaneAngleValue :> ISQ::planeAngle;
+  value def ElectricPotentialValue :> ISQ::electricPotential;
+  value def ElectricCurrentValue :> ISQ::electricCurrent;
+
+  part def ReciprocatingEngine {
+    attribute numberOfCylinders : Integer = 4;
+    attribute displacement : VolumeValue = 2.0 [SI::litre];
+    attribute compressionRatio : RealValue = 10.5;
+    attribute bore : LengthValue = 86 [SI::mm];
+    attribute stroke : LengthValue = 86 [SI::mm];
+    attribute idleSpeed : FrequencyValue = 800 [SI::rpm];
+    attribute maximumSpeed : FrequencyValue = 6500 [SI::rpm];
+    attribute ratedPower : PowerValue = 110 [SI::kW];
+    attribute ratedTorque : TorqueValue = 190 [SI::N * SI::m];
+    attribute operatingTemperature : TemperatureValue = 95 [SI::degC];
+    attribute minimumOilPressure : PressureValue = 150 [SI::kPa];
+
+    port airInlet : AirInletPort;
+    port fuelInlet : FuelInletPort;
+    port exhaustOutlet : ExhaustPort;
+    port torqueOutput : TorqueOutputPort;
+    port electricalInput : ElectricalPowerPort;
+    port sensorOutput : SensorPort;
+    port commandInput : CommandPort;
+
+    part intakeSystem : IntakeSystem;
+    part fuelSystem : FuelSystem;
+    part ignitionSystem : IgnitionSystem;
+    part cylinderBank : CylinderBank {
+      attribute cylinderCount : Integer = numberOfCylinders;
+    }
+    part crankTrain : CrankTrain;
+    part valveTrain : ValveTrain;
+    part lubricationSystem : LubricationSystem;
+    part coolingSystem : CoolingSystem;
+    part exhaustSystem : ExhaustSystem;
+    part engineController : EngineController;
+    part starterMotor : StarterMotor;
+    part sensorSuite : SensorSuite;
+
+    connect airInlet to intakeSystem.airInlet;
+    connect fuelInlet to fuelSystem.fuelInlet;
+    connect intakeSystem.mixtureOutlet to cylinderBank.mixtureInlet;
+    connect fuelSystem.fuelMeteringOutlet to intakeSystem.fuelInlet;
+    connect cylinderBank.combustionForceOutput to crankTrain.reciprocatingForceInput;
+    connect crankTrain.torqueOutput to torqueOutput;
+    connect cylinderBank.exhaustOutlet to exhaustSystem.exhaustInlet;
+    connect exhaustSystem.exhaustOutlet to exhaustOutlet;
+    connect lubricationSystem.oilSupply to crankTrain.oilInlet;
+    connect lubricationSystem.oilSupply to cylinderBank.oilInlet;
+    connect coolingSystem.coolantSupply to cylinderBank.coolantInlet;
+    connect valveTrain.valveMotionOutput to cylinderBank.valveMotionInput;
+    connect crankTrain.rotationOutput to valveTrain.rotationInput;
+    connect crankTrain.rotationOutput to sensorSuite.crankshaftSpeedInput;
+    connect sensorSuite.sensorOutput to engineController.sensorInput;
+    connect commandInput to engineController.commandInput;
+    connect engineController.fuelCommandOutput to fuelSystem.commandInput;
+    connect engineController.ignitionCommandOutput to ignitionSystem.commandInput;
+    connect ignitionSystem.sparkOutput to cylinderBank.sparkInput;
+    connect electricalInput to starterMotor.electricalInput;
+    connect starterMotor.startingTorqueOutput to crankTrain.startingTorqueInput;
+    connect sensorSuite.sensorOutput to sensorOutput;
+
+    perform action convertChemicalEnergyToRotaryMechanicalPower;
+    exhibit state engineOperatingStates;
+  }
+
+  part def IntakeSystem {
+    attribute manifoldVolume : VolumeValue = 4.5 [SI::litre];
+    attribute throttleArea : AreaValue = 1800 [SI::mm^2];
+
+    port airInlet : AirInletPort;
+    port fuelInlet : FuelInletPort;
+    port mixtureOutlet : MixturePort;
+
+    action mixAirAndFuel {
+      in item incomingAir : Air;
+      in item meteredFuel : Fuel;
+      out item preparedMixture : AirFuelMixture;
+
+      first start;
+      then meterAir;
+      then atomizeFuel;
+      then homogenizeCharge;
+      then deliverMixture;
+    }
+  }
+
+  part def FuelSystem {
+    attribute railPressure : PressureValue = 350 [SI::kPa];
+    attribute injectorCount : Integer = 4;
+
+    port fuelInlet : FuelInletPort;
+    port fuelMeteringOutlet : FuelInletPort;
+    port commandInput : CommandPort;
+
+    action meterFuel {
+      in item fuelSupply : Fuel;
+      in item command : ControlCommand;
+      out item meteredFuel : Fuel;
+
+      first receiveFuel;
+      then regulatePressure;
+      then pulseInjectors;
+      then deliverMeteredFuel;
+    }
+  }
+
+  part def IgnitionSystem {
+    attribute coilVoltage : ElectricPotentialValue = 40000 [SI::V];
+
+    port commandInput : CommandPort;
+    port sparkOutput : ElectricalPowerPort;
+
+    action generateSpark {
+      in item command : ControlCommand;
+      out item sparkEnergy : ElectricalSignal;
+
+      first chargeCoil;
+      then timeDischarge;
+      then fireSparkPlug;
+    }
+  }
+
+  part def CylinderBank {
+    attribute cylinderCount : Integer;
+    attribute compressionRatio : RealValue = 10.5;
+    attribute peakCombustionPressure : PressureValue = 6500 [SI::kPa];
+
+    port mixtureInlet : MixturePort;
+    port exhaustOutlet : ExhaustPort;
+    port combustionForceOutput : MechanicalForcePort;
+    port oilInlet : OilPort;
+    port coolantInlet : CoolantPort;
+    port sparkInput : ElectricalPowerPort;
+    port valveMotionInput : MechanicalMotionPort;
+
+    part cylinder1 : Cylinder;
+    part cylinder2 : Cylinder;
+    part cylinder3 : Cylinder;
+    part cylinder4 : Cylinder;
+
+    action fourStrokeCycle {
+      in item mixture : AirFuelMixture;
+      in item spark : ElectricalSignal;
+      out item exhaust : ExhaustGas;
+      out item pistonForce : LinearForce;
+
+      first intakeStroke;
+      then compressionStroke;
+      then combustionEvent;
+      then powerStroke;
+      then exhaustStroke;
+    }
+  }
+
+  part def Cylinder {
+    attribute bore : LengthValue = 86 [SI::mm];
+    attribute stroke : LengthValue = 86 [SI::mm];
+    attribute clearanceVolume : VolumeValue = 55 [SI::cm^3];
+
+    part piston : Piston;
+    part connectingRod : ConnectingRod;
+    part combustionChamber : CombustionChamber;
+    part intakeValve : Valve;
+    part exhaustValve : Valve;
+    part sparkPlug : SparkPlug;
+  }
+
+  part def Piston {
+    attribute mass : MassValue = 0.42 [SI::kg];
+    attribute crownArea : AreaValue = 5800 [SI::mm^2];
+  }
+
+  part def ConnectingRod {
+    attribute length : LengthValue = 143 [SI::mm];
+    attribute mass : MassValue = 0.58 [SI::kg];
+  }
+
+  part def CombustionChamber {
+    attribute nominalCompressionPressure : PressureValue = 1200 [SI::kPa];
+    attribute peakTemperature : TemperatureValue = 2400 [SI::K];
+  }
+
+  part def Valve {
+    attribute diameter : LengthValue = 32 [SI::mm];
+    attribute maximumLift : LengthValue = 9 [SI::mm];
+  }
+
+  part def SparkPlug {
+    attribute electrodeGap : LengthValue = 0.9 [SI::mm];
+    attribute requiredSparkEnergy : EnergyValue = 45 [SI::mJ];
+  }
+
+  part def CrankTrain {
+    attribute crankRadius : LengthValue = 43 [SI::mm];
+    attribute flywheelInertia : MomentOfInertiaValue = 0.18 [SI::kg * SI::m^2];
+
+    port reciprocatingForceInput : MechanicalForcePort;
+    port startingTorqueInput : MechanicalTorquePort;
+    port oilInlet : OilPort;
+    port rotationOutput : MechanicalRotationPort;
+    port torqueOutput : TorqueOutputPort;
+
+    action transformLinearMotionToRotation {
+      in item pistonForce : LinearForce;
+      out item crankshaftTorque : CrankshaftTorque;
+
+      first receivePistonForce;
+      then rotateCrankshaft;
+      then smoothTorqueWithFlywheel;
+      then outputUsableTorque;
+    }
+  }
+
+  part def ValveTrain {
+    attribute camshaftSpeedRatio : RealValue = 0.5;
+
+    port rotationInput : MechanicalRotationPort;
+    port valveMotionOutput : MechanicalMotionPort;
+
+    action scheduleValveEvents {
+      first receiveCrankRotation;
+      then phaseCamshaft;
+      then openIntakeValves;
+      then closeIntakeValves;
+      then openExhaustValves;
+      then closeExhaustValves;
+    }
+  }
+
+  part def LubricationSystem {
+    attribute oilCapacity : VolumeValue = 4.7 [SI::litre];
+    attribute nominalOilPressure : PressureValue = 320 [SI::kPa];
+
+    port oilSupply : OilPort;
+
+    part oilPump : OilPump;
+    part oilFilter : OilFilter;
+    part sump : OilSump;
+
+    action circulateOil {
+      first drawOilFromSump;
+      then pressurizeOil;
+      then filterOil;
+      then deliverOilToBearings;
+      then returnOilToSump;
+    }
+  }
+
+  part def OilPump {
+    attribute displacementPerRev : VolumeValue = 12 [SI::cm^3];
+  }
+
+  part def OilFilter {
+    attribute filtrationRating : LengthValue = 20 [SI::um];
+  }
+
+  part def OilSump {
+    attribute usableVolume : VolumeValue = 4.7 [SI::litre];
+  }
+
+  part def CoolingSystem {
+    attribute coolantCapacity : VolumeValue = 6.5 [SI::litre];
+    attribute thermostatOpeningTemperature : TemperatureValue = 88 [SI::degC];
+
+    port coolantSupply : CoolantPort;
+
+    part waterPump : WaterPump;
+    part radiator : Radiator;
+    part thermostat : Thermostat;
+
+    action rejectWasteHeat {
+      first pumpCoolant;
+      then absorbCylinderHeat;
+      then regulateThroughThermostat;
+      then rejectHeatAtRadiator;
+    }
+  }
+
+  part def WaterPump {
+    attribute nominalFlowRate : VolumeFlowRateValue = 90 [SI::litre / SI::min];
+  }
+
+  part def Radiator {
+    attribute heatRejectionCapacity : PowerValue = 65 [SI::kW];
+  }
+
+  part def Thermostat {
+    attribute startsOpeningAt : TemperatureValue = 88 [SI::degC];
+    attribute fullyOpenAt : TemperatureValue = 102 [SI::degC];
+  }
+
+  part def ExhaustSystem {
+    attribute backPressureLimit : PressureValue = 35 [SI::kPa];
+
+    port exhaustInlet : ExhaustPort;
+    port exhaustOutlet : ExhaustPort;
+
+    part manifold : ExhaustManifold;
+    part catalyticConverter : CatalyticConverter;
+    part muffler : Muffler;
+
+    action routeAndTreatExhaust {
+      first collectCylinderExhaust;
+      then oxidizeUnburnedHydrocarbons;
+      then reduceNitrogenOxides;
+      then attenuateAcousticEnergy;
+      then dischargeExhaust;
+    }
+  }
+
+  part def ExhaustManifold {
+    attribute runnerCount : Integer = 4;
+  }
+
+  part def CatalyticConverter {
+    attribute lightOffTemperature : TemperatureValue = 250 [SI::degC];
+    attribute conversionEfficiency : RealValue = 0.92;
+  }
+
+  part def Muffler {
+    attribute insertionLoss : RealValue = 24;
+  }
+
+  part def EngineController {
+    port sensorInput : SensorPort;
+    port commandInput : CommandPort;
+    port fuelCommandOutput : CommandPort;
+    port ignitionCommandOutput : CommandPort;
+
+    action controlCombustion {
+      in item measuredState : SensorData;
+      in item driverCommand : ControlCommand;
+      out item fuelCommand : ControlCommand;
+      out item ignitionCommand : ControlCommand;
+
+      first sampleSensors;
+      then estimateAirCharge;
+      then calculateFuelPulseWidth;
+      then calculateIgnitionTiming;
+      then issueActuatorCommands;
+    }
+
+    state def ControllerMode {
+      entry action initializeControlMaps;
+      state poweredOff;
+      state cranking;
+      state warmup;
+      state closedLoop;
+      state protection;
+
+      transition first poweredOff;
+      transition poweredOff_to_cranking
+        first poweredOff
+        accept ControlCommand
+        if commandInput.command.starterEnabled == true
+        then cranking;
+
+      transition cranking_to_warmup
+        first cranking
+        if sensorInput.sensorData.crankshaftSpeed > 400 [SI::rpm]
+        then warmup;
+
+      transition warmup_to_closedLoop
+        first warmup
+        if sensorInput.sensorData.coolantTemperature >= 80 [SI::degC]
+        then closedLoop;
+
+      transition closedLoop_to_protection
+        first closedLoop
+        if sensorInput.sensorData.oilPressure < 150 [SI::kPa]
+        then protection;
+
+      transition protection_to_poweredOff
+        first protection
+        if commandInput.command.starterEnabled == false
+        then poweredOff;
+    }
+
+    exhibit state controllerMode : ControllerMode;
+  }
+
+  part def StarterMotor {
+    attribute ratedPower : PowerValue = 1.4 [SI::kW];
+    attribute stallTorque : TorqueValue = 35 [SI::N * SI::m];
+
+    port electricalInput : ElectricalPowerPort;
+    port startingTorqueOutput : MechanicalTorquePort;
+
+    action crankEngine {
+      first receiveElectricalPower;
+      then engagePinion;
+      then applyStartingTorque;
+      then disengageAfterStart;
+    }
+  }
+
+  part def SensorSuite {
+    port crankshaftSpeedInput : MechanicalRotationPort;
+    port sensorOutput : SensorPort;
+
+    part crankshaftPositionSensor : CrankshaftPositionSensor;
+    part manifoldPressureSensor : PressureSensor;
+    part coolantTemperatureSensor : TemperatureSensor;
+    part oilPressureSensor : PressureSensor;
+    part oxygenSensor : OxygenSensor;
+
+    action measureEngineState {
+      first measureCrankshaftSpeed;
+      then measureManifoldPressure;
+      then measureCoolantTemperature;
+      then measureOilPressure;
+      then measureExhaustOxygen;
+      then publishSensorData;
+    }
+  }
+
+  part def CrankshaftPositionSensor {
+    attribute resolution : Integer = 60;
+  }
+
+  part def PressureSensor {
+    attribute rangeMinimum : PressureValue = 0 [SI::kPa];
+    attribute rangeMaximum : PressureValue = 700 [SI::kPa];
+  }
+
+  part def TemperatureSensor {
+    attribute rangeMinimum : TemperatureValue = -40 [SI::degC];
+    attribute rangeMaximum : TemperatureValue = 150 [SI::degC];
+  }
+
+  part def OxygenSensor {
+    attribute responseTime : TimeValue = 100 [SI::ms];
+  }
+
+  item def LinearForce {
+    attribute force : ForceValue;
+    attribute displacement : LengthValue;
+  }
+
+  port def MechanicalForcePort {
+    item force : LinearForce;
+  }
+
+  port def MechanicalTorquePort {
+    item torque : CrankshaftTorque;
+  }
+
+  port def MechanicalRotationPort {
+    item rotation : CrankshaftTorque;
+  }
+
+  port def MechanicalMotionPort {
+    item motion : LinearForce;
+  }
+
+  value def VolumeValue :> ISQ::volume;
+  value def LengthValue :> ISQ::length;
+  value def AreaValue :> ISQ::area;
+  value def MassValue :> ISQ::mass;
+  value def EnergyValue :> ISQ::energy;
+  value def ForceValue :> ISQ::force;
+  value def MomentOfInertiaValue :> ISQ::momentOfInertia;
+
+  action def ConvertChemicalEnergyToRotaryMechanicalPower {
+    in item air : Air;
+    in item fuel : Fuel;
+    out item exhaust : ExhaustGas;
+    out item torque : CrankshaftTorque;
+
+    first inductAir;
+    then meterFuel;
+    then formCombustibleCharge;
+    then compressCharge;
+    then igniteCharge;
+    then expandCombustionGases;
+    then transferPistonWorkToCrankshaft;
+    then expelExhaustGas;
+    then deliverRotaryPower;
+  }
+
+  state def EngineOperatingStates {
+    entry action initializeEngineState;
+
+    state off;
+    state cranking;
+    state idle;
+    state powerProducing;
+    state decelerating;
+    state overheated;
+    state lowOilPressureShutdown;
+
+    transition initial_to_off first off;
+
+    transition off_to_cranking
+      first off
+      accept ControlCommand
+      if command.starterEnabled == true
+      then cranking;
+
+    transition cranking_to_idle
+      first cranking
+      if torqueOutput.torqueOutput.rotationalSpeed >= 700 [SI::rpm]
+      then idle;
+
+    transition idle_to_powerProducing
+      first idle
+      if commandInput.command.throttlePosition > 0.08
+      then powerProducing;
+
+    transition powerProducing_to_idle
+      first powerProducing
+      if commandInput.command.throttlePosition <= 0.08
+      then idle;
+
+    transition powerProducing_to_decelerating
+      first powerProducing
+      if commandInput.command.throttlePosition < 0.02
+      then decelerating;
+
+    transition decelerating_to_idle
+      first decelerating
+      if torqueOutput.torqueOutput.rotationalSpeed <= 900 [SI::rpm]
+      then idle;
+
+    transition idle_to_overheated
+      first idle
+      if sensorOutput.sensorData.coolantTemperature > 115 [SI::degC]
+      then overheated;
+
+    transition powerProducing_to_overheated
+      first powerProducing
+      if sensorOutput.sensorData.coolantTemperature > 115 [SI::degC]
+      then overheated;
+
+    transition idle_to_lowOilPressureShutdown
+      first idle
+      if sensorOutput.sensorData.oilPressure < 100 [SI::kPa]
+      then lowOilPressureShutdown;
+
+    transition powerProducing_to_lowOilPressureShutdown
+      first powerProducing
+      if sensorOutput.sensorData.oilPressure < 100 [SI::kPa]
+      then lowOilPressureShutdown;
+
+    transition overheated_to_off
+      first overheated
+      then off;
+
+    transition lowOilPressureShutdown_to_off
+      first lowOilPressureShutdown
+      then off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The reciprocating engine shall convert the chemical energy of a controlled air-fuel mixture into continuous rotary mechanical power by repeating intake, compression, combustion-expansion, and exhaust strokes in each cylinder. */
+
+    require constraint {
+      engine.torqueOutput.torqueOutput.mechanicalPower >= 0 [SI::kW]
+    }
+  }
+
+  requirement def AirFuelPreparationRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The engine shall prepare a combustible charge by regulating air flow and metering fuel according to commanded load and measured operating conditions. */
+
+    require constraint {
+      engine.intakeSystem.mixtureOutlet.mixture.equivalenceRatio >= 0.7 and
+      engine.intakeSystem.mixtureOutlet.mixture.equivalenceRatio <= 1.3
+    }
+  }
+
+  requirement def PowerOutputRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The engine shall provide rated rotary output power at the crankshaft when supplied with nominal air, fuel, lubrication, cooling, and control inputs. */
+
+    require constraint {
+      engine.ratedPower >= 100 [SI::kW] and
+      engine.ratedTorque >= 180 [SI::N * SI::m]
+    }
+  }
+
+  requirement def ThermalManagementRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The cooling system shall reject waste heat to maintain normal engine coolant temperature during sustained operation. */
+
+    require constraint {
+      engine.coolingSystem.radiator.heatRejectionCapacity >= 60 [SI::kW] and
+      engine.operatingTemperature <= 105 [SI::degC]
+    }
+  }
+
+  requirement def LubricationRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The lubrication system shall provide pressurized oil to moving interfaces to limit friction, wear, and thermal degradation. */
+
+    require constraint {
+      engine.lubricationSystem.nominalOilPressure >= engine.minimumOilPressure
+    }
+  }
+
+  requirement def ExhaustTreatmentRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The exhaust system shall route combustion products away from the cylinders and reduce regulated emissions before discharge. */
+
+    require constraint {
+      engine.exhaustSystem.catalyticConverter.conversionEfficiency >= 0.90 and
+      engine.exhaustSystem.backPressureLimit <= 40 [SI::kPa]
+    }
+  }
+
+  requirement def StartabilityRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The starter motor shall rotate the crankshaft fast enough to initiate stable combustion from the off state. */
+
+    require constraint {
+      engine.starterMotor.stallTorque >= 30 [SI::N * SI::m] and
+      engine.starterMotor.ratedPower >= 1.0 [SI::kW]
+    }
+  }
+
+  requirement def ControlRequirement {
+    subject engine : ReciprocatingEngine;
+
+    doc /* The engine controller shall coordinate fuel delivery and ignition timing using sensor feedback to maintain stable combustion and protect the engine. */
+
+    require constraint {
+      engine.sensorSuite.oxygenSensor.responseTime <= 150 [SI::ms]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by ReciprocatingEngine::convertChemicalEnergyToRotaryMechanicalPower;
+  satisfy AirFuelPreparationRequirement by ReciprocatingEngine::intakeSystem;
+  satisfy PowerOutputRequirement by ReciprocatingEngine::crankTrain;
+  satisfy ThermalManagementRequirement by ReciprocatingEngine::coolingSystem;
+  satisfy LubricationRequirement by ReciprocatingEngine::lubricationSystem;
+  satisfy ExhaustTreatmentRequirement by ReciprocatingEngine::exhaustSystem;
+  satisfy StartabilityRequirement by ReciprocatingEngine::starterMotor;
+  satisfy ControlRequirement by ReciprocatingEngine::engineController;
+
+  part reciprocatingEngineSystem : ReciprocatingEngine {
+    attribute numberOfCylinders = 4;
+    attribute displacement = 2.0 [SI::litre];
+    attribute compressionRatio = 10.5;
+    attribute ratedPower = 110 [SI::kW];
+    attribute ratedTorque = 190 [SI::N * SI::m];
+  }
+}

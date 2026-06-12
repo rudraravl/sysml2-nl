@@ -1,0 +1,615 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-fla4m_wp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5ae-6741-7e93-80f2-869f2053904d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Optical fiber and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OpticalFiberTransmissionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength :> Real {
+        unit = SI::nanometre;
+    }
+
+    attribute def OpticalPower :> Real {
+        unit = SI::milliwatt;
+    }
+
+    attribute def DataRate :> Real {
+        unit = SI::gigabit / SI::second;
+    }
+
+    attribute def Length :> Real {
+        unit = SI::metre;
+    }
+
+    attribute def Attenuation :> Real {
+        unit = SI::decibel / SI::kilometre;
+    }
+
+    attribute def Temperature :> Real {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def BitErrorRate :> Real;
+
+    item def ElectricalData {
+        attribute bitRate : DataRate;
+        attribute encodedPayload : String;
+    }
+
+    item def OpticalSignal {
+        attribute wavelength : Wavelength;
+        attribute opticalPower : OpticalPower;
+        attribute bitRate : DataRate;
+        attribute modulationFormat : String;
+    }
+
+    item def RecoveredData {
+        attribute bitRate : DataRate;
+        attribute payload : String;
+        attribute bitErrorRate : BitErrorRate;
+    }
+
+    port def ElectricalInputPort {
+        in item dataIn : ElectricalData;
+    }
+
+    port def ElectricalOutputPort {
+        out item dataOut : RecoveredData;
+    }
+
+    port def OpticalTransmitPort {
+        out item opticalOut : OpticalSignal;
+    }
+
+    port def OpticalReceivePort {
+        in item opticalIn : OpticalSignal;
+    }
+
+    port def ThermalPort {
+        in attribute ambientTemperature : Temperature;
+    }
+
+    part def LaserTransmitter {
+        port electricalInput : ElectricalInputPort;
+        port opticalOutput : OpticalTransmitPort;
+        port thermalInput : ThermalPort;
+
+        attribute nominalWavelength : Wavelength = 1550 [SI::nanometre];
+        attribute outputPower : OpticalPower = 2.0 [SI::milliwatt];
+        attribute maximumBitRate : DataRate = 100 [SI::gigabit / SI::second];
+
+        action convertElectricalToOptical {
+            in item sourceData : ElectricalData;
+            out item modulatedLight : OpticalSignal;
+
+            bind sourceData.bitRate = modulatedLight.bitRate;
+            bind nominalWavelength = modulatedLight.wavelength;
+            bind outputPower = modulatedLight.opticalPower;
+        }
+    }
+
+    part def FiberCore {
+        port opticalInput : OpticalReceivePort;
+        port opticalOutput : OpticalTransmitPort;
+        port thermalInput : ThermalPort;
+
+        attribute fiberLength : Length = 10000 [SI::metre];
+        attribute coreDiameter : Length = 9 [SI::micrometre];
+        attribute claddingDiameter : Length = 125 [SI::micrometre];
+        attribute attenuationCoefficient : Attenuation = 0.2 [SI::decibel / SI::kilometre];
+        attribute operatingWavelength : Wavelength = 1550 [SI::nanometre];
+
+        action guideOpticalSignal {
+            in item launchedSignal : OpticalSignal;
+            out item propagatedSignal : OpticalSignal;
+
+            bind launchedSignal.wavelength = propagatedSignal.wavelength;
+            bind launchedSignal.bitRate = propagatedSignal.bitRate;
+            bind launchedSignal.modulationFormat = propagatedSignal.modulationFormat;
+        }
+    }
+
+    part def OpticalConnector {
+        port input : OpticalReceivePort;
+        port output : OpticalTransmitPort;
+
+        attribute insertionLoss : Real = 0.25;
+        attribute returnLoss : Real = 55.0;
+
+        action alignAndCoupleLight {
+            in item incomingSignal : OpticalSignal;
+            out item coupledSignal : OpticalSignal;
+
+            bind incomingSignal.wavelength = coupledSignal.wavelength;
+            bind incomingSignal.bitRate = coupledSignal.bitRate;
+        }
+    }
+
+    part def PhotodiodeReceiver {
+        port opticalInput : OpticalReceivePort;
+        port electricalOutput : ElectricalOutputPort;
+        port thermalInput : ThermalPort;
+
+        attribute receiverSensitivity : OpticalPower = 0.01 [SI::milliwatt];
+        attribute supportedBitRate : DataRate = 100 [SI::gigabit / SI::second];
+        attribute targetBitErrorRate : BitErrorRate = 1.0e-12;
+
+        action convertOpticalToElectrical {
+            in item receivedLight : OpticalSignal;
+            out item recoveredData : RecoveredData;
+
+            bind receivedLight.bitRate = recoveredData.bitRate;
+        }
+    }
+
+    part def SignalMonitor {
+        port monitoredInput : OpticalReceivePort;
+
+        attribute measuredPower : OpticalPower;
+        attribute measuredWavelength : Wavelength;
+        attribute measuredBitRate : DataRate;
+        attribute alarmThresholdPower : OpticalPower = 0.02 [SI::milliwatt];
+
+        action measureOpticalSignal {
+            in item signal : OpticalSignal;
+            out attribute power : OpticalPower;
+            out attribute wavelength : Wavelength;
+            out attribute bitRate : DataRate;
+
+            bind signal.opticalPower = power;
+            bind signal.wavelength = wavelength;
+            bind signal.bitRate = bitRate;
+        }
+    }
+
+    part def OpticalFiberLink {
+        port systemInput : ElectricalInputPort;
+        port systemOutput : ElectricalOutputPort;
+        port environment : ThermalPort;
+
+        part transmitter : LaserTransmitter;
+        part inputConnector : OpticalConnector;
+        part fiber : FiberCore;
+        part outputConnector : OpticalConnector;
+        part receiver : PhotodiodeReceiver;
+        part monitor : SignalMonitor;
+
+        connect systemInput to transmitter.electricalInput;
+        connect transmitter.opticalOutput to inputConnector.input;
+        connect inputConnector.output to fiber.opticalInput;
+        connect fiber.opticalOutput to outputConnector.input;
+        connect outputConnector.output to receiver.opticalInput;
+        connect outputConnector.output to monitor.monitoredInput;
+        connect receiver.electricalOutput to systemOutput;
+
+        connect environment to transmitter.thermalInput;
+        connect environment to fiber.thermalInput;
+        connect environment to receiver.thermalInput;
+
+        attribute totalLinkLength : Length = 10000 [SI::metre];
+        attribute nominalOperatingWavelength : Wavelength = 1550 [SI::nanometre];
+        attribute nominalCapacity : DataRate = 100 [SI::gigabit / SI::second];
+        attribute maximumOperatingTemperature : Temperature = 70 [SI::degreeCelsius];
+
+        action transmitInformation {
+            in item inputData : ElectricalData;
+            out item outputData : RecoveredData;
+
+            first startTransmission;
+            then modulateLight;
+            then propagateThroughFiber;
+            then detectLight;
+            then deliverRecoveredData;
+
+            action startTransmission;
+            action modulateLight;
+            action propagateThroughFiber;
+            action detectLight;
+            action deliverRecoveredData;
+        }
+
+        state def LinkOperationalState {
+            state Off;
+            state Initializing;
+            state Ready;
+            state Transmitting;
+            state Degraded;
+            state Fault;
+
+            transition first Off then Initializing;
+            transition Initializing then Ready
+                accept initializationComplete;
+
+            transition Ready then Transmitting
+                accept dataFrameAvailable;
+
+            transition Transmitting then Ready
+                accept frameTransmissionComplete;
+
+            transition Transmitting then Degraded
+                accept lowOpticalPowerDetected;
+
+            transition Degraded then Ready
+                accept opticalPowerRestored;
+
+            transition Ready then Fault
+                accept receiverLossOfSignal;
+
+            transition Degraded then Fault
+                accept bitErrorRateExceeded;
+
+            transition Fault then Initializing
+                accept resetCommand;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall convert electrical information into modulated light, guide the light through a glass fiber core using total internal reflection, and recover the transmitted information as electrical data at the receiver. */
+
+        require constraint {
+            link.nominalCapacity >= 100 [SI::gigabit / SI::second]
+        }
+    }
+
+    requirement def WavelengthRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall operate at a nominal wavelength suitable for low-loss long-distance transmission. */
+
+        require constraint {
+            link.nominalOperatingWavelength == 1550 [SI::nanometre]
+        }
+    }
+
+    requirement def LinkLengthRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall support a fiber span of at least ten kilometers without intermediate optical amplification. */
+
+        require constraint {
+            link.totalLinkLength >= 10000 [SI::metre]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall remain operational across normal equipment-room thermal conditions. */
+
+        require constraint {
+            link.maximumOperatingTemperature >= 70 [SI::degreeCelsius]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by OpticalFiberLink;
+    satisfy WavelengthRequirement by OpticalFiberLink;
+    satisfy LinkLengthRequirement by OpticalFiberLink;
+    satisfy EnvironmentalRequirement by OpticalFiberLink;
+
+    part opticalFiberCommunicationSystem : OpticalFiberLink {
+        attribute totalLinkLength = 10000 [SI::metre];
+        attribute nominalOperatingWavelength = 1550 [SI::nanometre];
+        attribute nominalCapacity = 100 [SI::gigabit / SI::second];
+    }
+}
+tokens used
+3,445
+package OpticalFiberTransmissionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Wavelength :> Real {
+        unit = SI::nanometre;
+    }
+
+    attribute def OpticalPower :> Real {
+        unit = SI::milliwatt;
+    }
+
+    attribute def DataRate :> Real {
+        unit = SI::gigabit / SI::second;
+    }
+
+    attribute def Length :> Real {
+        unit = SI::metre;
+    }
+
+    attribute def Attenuation :> Real {
+        unit = SI::decibel / SI::kilometre;
+    }
+
+    attribute def Temperature :> Real {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def BitErrorRate :> Real;
+
+    item def ElectricalData {
+        attribute bitRate : DataRate;
+        attribute encodedPayload : String;
+    }
+
+    item def OpticalSignal {
+        attribute wavelength : Wavelength;
+        attribute opticalPower : OpticalPower;
+        attribute bitRate : DataRate;
+        attribute modulationFormat : String;
+    }
+
+    item def RecoveredData {
+        attribute bitRate : DataRate;
+        attribute payload : String;
+        attribute bitErrorRate : BitErrorRate;
+    }
+
+    port def ElectricalInputPort {
+        in item dataIn : ElectricalData;
+    }
+
+    port def ElectricalOutputPort {
+        out item dataOut : RecoveredData;
+    }
+
+    port def OpticalTransmitPort {
+        out item opticalOut : OpticalSignal;
+    }
+
+    port def OpticalReceivePort {
+        in item opticalIn : OpticalSignal;
+    }
+
+    port def ThermalPort {
+        in attribute ambientTemperature : Temperature;
+    }
+
+    part def LaserTransmitter {
+        port electricalInput : ElectricalInputPort;
+        port opticalOutput : OpticalTransmitPort;
+        port thermalInput : ThermalPort;
+
+        attribute nominalWavelength : Wavelength = 1550 [SI::nanometre];
+        attribute outputPower : OpticalPower = 2.0 [SI::milliwatt];
+        attribute maximumBitRate : DataRate = 100 [SI::gigabit / SI::second];
+
+        action convertElectricalToOptical {
+            in item sourceData : ElectricalData;
+            out item modulatedLight : OpticalSignal;
+
+            bind sourceData.bitRate = modulatedLight.bitRate;
+            bind nominalWavelength = modulatedLight.wavelength;
+            bind outputPower = modulatedLight.opticalPower;
+        }
+    }
+
+    part def FiberCore {
+        port opticalInput : OpticalReceivePort;
+        port opticalOutput : OpticalTransmitPort;
+        port thermalInput : ThermalPort;
+
+        attribute fiberLength : Length = 10000 [SI::metre];
+        attribute coreDiameter : Length = 9 [SI::micrometre];
+        attribute claddingDiameter : Length = 125 [SI::micrometre];
+        attribute attenuationCoefficient : Attenuation = 0.2 [SI::decibel / SI::kilometre];
+        attribute operatingWavelength : Wavelength = 1550 [SI::nanometre];
+
+        action guideOpticalSignal {
+            in item launchedSignal : OpticalSignal;
+            out item propagatedSignal : OpticalSignal;
+
+            bind launchedSignal.wavelength = propagatedSignal.wavelength;
+            bind launchedSignal.bitRate = propagatedSignal.bitRate;
+            bind launchedSignal.modulationFormat = propagatedSignal.modulationFormat;
+        }
+    }
+
+    part def OpticalConnector {
+        port input : OpticalReceivePort;
+        port output : OpticalTransmitPort;
+
+        attribute insertionLoss : Real = 0.25;
+        attribute returnLoss : Real = 55.0;
+
+        action alignAndCoupleLight {
+            in item incomingSignal : OpticalSignal;
+            out item coupledSignal : OpticalSignal;
+
+            bind incomingSignal.wavelength = coupledSignal.wavelength;
+            bind incomingSignal.bitRate = coupledSignal.bitRate;
+        }
+    }
+
+    part def PhotodiodeReceiver {
+        port opticalInput : OpticalReceivePort;
+        port electricalOutput : ElectricalOutputPort;
+        port thermalInput : ThermalPort;
+
+        attribute receiverSensitivity : OpticalPower = 0.01 [SI::milliwatt];
+        attribute supportedBitRate : DataRate = 100 [SI::gigabit / SI::second];
+        attribute targetBitErrorRate : BitErrorRate = 1.0e-12;
+
+        action convertOpticalToElectrical {
+            in item receivedLight : OpticalSignal;
+            out item recoveredData : RecoveredData;
+
+            bind receivedLight.bitRate = recoveredData.bitRate;
+        }
+    }
+
+    part def SignalMonitor {
+        port monitoredInput : OpticalReceivePort;
+
+        attribute measuredPower : OpticalPower;
+        attribute measuredWavelength : Wavelength;
+        attribute measuredBitRate : DataRate;
+        attribute alarmThresholdPower : OpticalPower = 0.02 [SI::milliwatt];
+
+        action measureOpticalSignal {
+            in item signal : OpticalSignal;
+            out attribute power : OpticalPower;
+            out attribute wavelength : Wavelength;
+            out attribute bitRate : DataRate;
+
+            bind signal.opticalPower = power;
+            bind signal.wavelength = wavelength;
+            bind signal.bitRate = bitRate;
+        }
+    }
+
+    part def OpticalFiberLink {
+        port systemInput : ElectricalInputPort;
+        port systemOutput : ElectricalOutputPort;
+        port environment : ThermalPort;
+
+        part transmitter : LaserTransmitter;
+        part inputConnector : OpticalConnector;
+        part fiber : FiberCore;
+        part outputConnector : OpticalConnector;
+        part receiver : PhotodiodeReceiver;
+        part monitor : SignalMonitor;
+
+        connect systemInput to transmitter.electricalInput;
+        connect transmitter.opticalOutput to inputConnector.input;
+        connect inputConnector.output to fiber.opticalInput;
+        connect fiber.opticalOutput to outputConnector.input;
+        connect outputConnector.output to receiver.opticalInput;
+        connect outputConnector.output to monitor.monitoredInput;
+        connect receiver.electricalOutput to systemOutput;
+
+        connect environment to transmitter.thermalInput;
+        connect environment to fiber.thermalInput;
+        connect environment to receiver.thermalInput;
+
+        attribute totalLinkLength : Length = 10000 [SI::metre];
+        attribute nominalOperatingWavelength : Wavelength = 1550 [SI::nanometre];
+        attribute nominalCapacity : DataRate = 100 [SI::gigabit / SI::second];
+        attribute maximumOperatingTemperature : Temperature = 70 [SI::degreeCelsius];
+
+        action transmitInformation {
+            in item inputData : ElectricalData;
+            out item outputData : RecoveredData;
+
+            first startTransmission;
+            then modulateLight;
+            then propagateThroughFiber;
+            then detectLight;
+            then deliverRecoveredData;
+
+            action startTransmission;
+            action modulateLight;
+            action propagateThroughFiber;
+            action detectLight;
+            action deliverRecoveredData;
+        }
+
+        state def LinkOperationalState {
+            state Off;
+            state Initializing;
+            state Ready;
+            state Transmitting;
+            state Degraded;
+            state Fault;
+
+            transition first Off then Initializing;
+            transition Initializing then Ready
+                accept initializationComplete;
+
+            transition Ready then Transmitting
+                accept dataFrameAvailable;
+
+            transition Transmitting then Ready
+                accept frameTransmissionComplete;
+
+            transition Transmitting then Degraded
+                accept lowOpticalPowerDetected;
+
+            transition Degraded then Ready
+                accept opticalPowerRestored;
+
+            transition Ready then Fault
+                accept receiverLossOfSignal;
+
+            transition Degraded then Fault
+                accept bitErrorRateExceeded;
+
+            transition Fault then Initializing
+                accept resetCommand;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall convert electrical information into modulated light, guide the light through a glass fiber core using total internal reflection, and recover the transmitted information as electrical data at the receiver. */
+
+        require constraint {
+            link.nominalCapacity >= 100 [SI::gigabit / SI::second]
+        }
+    }
+
+    requirement def WavelengthRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall operate at a nominal wavelength suitable for low-loss long-distance transmission. */
+
+        require constraint {
+            link.nominalOperatingWavelength == 1550 [SI::nanometre]
+        }
+    }
+
+    requirement def LinkLengthRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall support a fiber span of at least ten kilometers without intermediate optical amplification. */
+
+        require constraint {
+            link.totalLinkLength >= 10000 [SI::metre]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject link : OpticalFiberLink;
+
+        doc
+        /* The optical fiber system shall remain operational across normal equipment-room thermal conditions. */
+
+        require constraint {
+            link.maximumOperatingTemperature >= 70 [SI::degreeCelsius]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by OpticalFiberLink;
+    satisfy WavelengthRequirement by OpticalFiberLink;
+    satisfy LinkLengthRequirement by OpticalFiberLink;
+    satisfy EnvironmentalRequirement by OpticalFiberLink;
+
+    part opticalFiberCommunicationSystem : OpticalFiberLink {
+        attribute totalLinkLength = 10000 [SI::metre];
+        attribute nominalOperatingWavelength = 1550 [SI::nanometre];
+        attribute nominalCapacity = 100 [SI::gigabit / SI::second];
+    }
+}

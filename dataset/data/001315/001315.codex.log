@@ -1,0 +1,737 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-53pfz769
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb63c-eaf1-7910-8453-abf82e012bac
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Weather radar and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WeatherRadarSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FrequencyGHz :> Real {
+        unit = "GHz";
+    }
+
+    attribute def PowerkW :> Real {
+        unit = "kW";
+    }
+
+    attribute def DistanceKm :> Real {
+        unit = "km";
+    }
+
+    attribute def AngleDeg :> Real {
+        unit = "deg";
+    }
+
+    attribute def SpeedMps :> Real {
+        unit = "m/s";
+    }
+
+    attribute def ReflectivityDbz :> Real {
+        unit = "dBZ";
+    }
+
+    attribute def RainRateMmPerHr :> Real {
+        unit = "mm/h";
+    }
+
+    attribute def TimeSeconds :> Real {
+        unit = "s";
+    }
+
+    attribute def TemperatureC :> Real {
+        unit = "degC";
+    }
+
+    item def RadioFrequencyPulse {
+        attribute carrierFrequency : FrequencyGHz;
+        attribute peakPower : PowerkW;
+        attribute pulseWidth : TimeSeconds;
+        attribute azimuth : AngleDeg;
+        attribute elevation : AngleDeg;
+    }
+
+    item def WeatherEcho {
+        attribute range : DistanceKm;
+        attribute azimuth : AngleDeg;
+        attribute elevation : AngleDeg;
+        attribute returnedPower : PowerkW;
+        attribute dopplerVelocity : SpeedMps;
+        attribute reflectivity : ReflectivityDbz;
+    }
+
+    item def RadarVolumeScan {
+        attribute maxRange : DistanceKm;
+        attribute minimumElevation : AngleDeg;
+        attribute maximumElevation : AngleDeg;
+        attribute scanDuration : TimeSeconds;
+        attribute radialCount : Integer;
+    }
+
+    item def PrecipitationProduct {
+        attribute reflectivity : ReflectivityDbz;
+        attribute rainRate : RainRateMmPerHr;
+        attribute stormTopHeight : DistanceKm;
+        attribute radialVelocity : SpeedMps;
+        attribute validForSeconds : TimeSeconds;
+    }
+
+    item def HealthStatus {
+        attribute transmitterReady : Boolean;
+        attribute receiverReady : Boolean;
+        attribute antennaReady : Boolean;
+        attribute processingReady : Boolean;
+        attribute internalTemperature : TemperatureC;
+    }
+
+    port def PowerInputPort {
+        in item electricalPower;
+    }
+
+    port def MaintenancePort {
+        in item maintenanceCommand;
+        out item status : HealthStatus;
+    }
+
+    port def RadioTransmitPort {
+        out item pulse : RadioFrequencyPulse;
+    }
+
+    port def RadioReceivePort {
+        in item echo : WeatherEcho;
+    }
+
+    port def DataOutputPort {
+        out item product : PrecipitationProduct;
+        out item health : HealthStatus;
+    }
+
+    port def ControlPort {
+        in item scanRequest : RadarVolumeScan;
+        out item scanComplete : RadarVolumeScan;
+    }
+
+    action def InitializeRadar {
+        out item status : HealthStatus;
+    }
+
+    action def PerformSelfTest {
+        in item inputStatus : HealthStatus;
+        out item testedStatus : HealthStatus;
+    }
+
+    action def GeneratePulse {
+        in item requestedScan : RadarVolumeScan;
+        out item pulse : RadioFrequencyPulse;
+    }
+
+    action def RadiatePulse {
+        in item pulse : RadioFrequencyPulse;
+        out item transmittedPulse : RadioFrequencyPulse;
+    }
+
+    action def ReceiveEchoes {
+        in item transmittedPulse : RadioFrequencyPulse;
+        out item echo : WeatherEcho;
+    }
+
+    action def ProcessWeatherEcho {
+        in item echo : WeatherEcho;
+        out item product : PrecipitationProduct;
+    }
+
+    action def PublishWeatherProduct {
+        in item product : PrecipitationProduct;
+        out item publishedProduct : PrecipitationProduct;
+    }
+
+    state def RadarOperatingState {
+        entry action InitializeRadar;
+
+        state Off;
+        state Initializing;
+        state Standby;
+        state Scanning;
+        state Processing;
+        state Reporting;
+        state Fault;
+        state Maintenance;
+
+        transition first Off;
+        transition Off_to_Initializing
+            first Off
+            then Initializing;
+
+        transition Initializing_to_Standby
+            first Initializing
+            accept after 30 [s]
+            then Standby;
+
+        transition Standby_to_Scanning
+            first Standby
+            accept scanRequest
+            then Scanning;
+
+        transition Scanning_to_Processing
+            first Scanning
+            accept scanComplete
+            then Processing;
+
+        transition Processing_to_Reporting
+            first Processing
+            accept productReady
+            then Reporting;
+
+        transition Reporting_to_Standby
+            first Reporting
+            accept productPublished
+            then Standby;
+
+        transition Any_to_Fault
+            first Off, Initializing, Standby, Scanning, Processing, Reporting
+            accept faultDetected
+            then Fault;
+
+        transition Fault_to_Maintenance
+            first Fault
+            accept maintenanceCommand
+            then Maintenance;
+
+        transition Maintenance_to_Initializing
+            first Maintenance
+            accept maintenanceComplete
+            then Initializing;
+    }
+
+    part def RadarTransmitter {
+        attribute operatingFrequency : FrequencyGHz = 9.4;
+        attribute peakTransmitPower : PowerkW = 250.0;
+        attribute nominalPulseWidth : TimeSeconds = 0.000001;
+
+        port controlPort : ControlPort;
+        port transmitPort : RadioTransmitPort;
+        port statusPort : MaintenancePort;
+
+        perform action generatePulse : GeneratePulse;
+    }
+
+    part def PhasedArrayAntenna {
+        attribute azimuthCoverage : AngleDeg = 360.0;
+        attribute minimumElevation : AngleDeg = 0.5;
+        attribute maximumElevation : AngleDeg = 20.0;
+        attribute beamWidth : AngleDeg = 1.0;
+        attribute rotationRate : SpeedMps = 0.5;
+
+        port transmitInput : RadioTransmitPort;
+        port receiveOutput : RadioReceivePort;
+
+        perform action radiatePulse : RadiatePulse;
+    }
+
+    part def RadarReceiver {
+        attribute minimumDetectableReflectivity : ReflectivityDbz = -10.0;
+        attribute maximumUnambiguousRange : DistanceKm = 250.0;
+        attribute maximumUnambiguousVelocity : SpeedMps = 60.0;
+
+        port receivePort : RadioReceivePort;
+        port echoOutput : RadioReceivePort;
+        port statusPort : MaintenancePort;
+
+        perform action receiveEchoes : ReceiveEchoes;
+    }
+
+    part def SignalProcessor {
+        attribute clutterSuppressionEnabled : Boolean = true;
+        attribute velocityDealiasingEnabled : Boolean = true;
+        attribute rangeResolution : DistanceKm = 0.25;
+
+        port echoInput : RadioReceivePort;
+        port productOutput : DataOutputPort;
+        port statusPort : MaintenancePort;
+
+        perform action processEcho : ProcessWeatherEcho;
+    }
+
+    part def RadarController {
+        attribute defaultScanRange : DistanceKm = 150.0;
+        attribute defaultScanDuration : TimeSeconds = 300.0;
+        attribute automaticScanEnabled : Boolean = true;
+
+        port operatorControl : ControlPort;
+        port transmitterControl : ControlPort;
+        port dataOutput : DataOutputPort;
+        port maintenance : MaintenancePort;
+
+        exhibit state operatingState : RadarOperatingState;
+        perform action initialize : InitializeRadar;
+        perform action selfTest : PerformSelfTest;
+    }
+
+    part def WeatherProductServer {
+        attribute productRetentionTime : TimeSeconds = 86400.0;
+        attribute updateInterval : TimeSeconds = 300.0;
+
+        port productInput : DataOutputPort;
+        port externalOutput : DataOutputPort;
+
+        perform action publishProduct : PublishWeatherProduct;
+    }
+
+    part def WeatherRadarSystem {
+        attribute primaryFunction : String =
+            "Detect, locate, and characterize precipitation and storm motion by transmitting radio-frequency pulses, receiving atmospheric echoes, processing reflectivity and Doppler velocity, and publishing weather products for situational awareness.";
+
+        attribute designRange : DistanceKm = 250.0;
+        attribute scanRefreshPeriod : TimeSeconds = 300.0;
+        attribute operatingFrequency : FrequencyGHz = 9.4;
+
+        port powerInput : PowerInputPort;
+        port operatorInterface : ControlPort;
+        port weatherDataOutput : DataOutputPort;
+        port maintenanceInterface : MaintenancePort;
+
+        part controller : RadarController;
+        part transmitter : RadarTransmitter;
+        part antenna : PhasedArrayAntenna;
+        part receiver : RadarReceiver;
+        part processor : SignalProcessor;
+        part productServer : WeatherProductServer;
+
+        connect operatorInterface to controller.operatorControl;
+        connect maintenanceInterface to controller.maintenance;
+        connect controller.transmitterControl to transmitter.controlPort;
+        connect transmitter.transmitPort to antenna.transmitInput;
+        connect antenna.receiveOutput to receiver.receivePort;
+        connect receiver.echoOutput to processor.echoInput;
+        connect processor.productOutput to productServer.productInput;
+        connect productServer.externalOutput to weatherDataOutput;
+        connect controller.dataOutput to weatherDataOutput;
+    }
+
+    requirement def PrimaryWeatherDetectionRequirement {
+        subject radar : WeatherRadarSystem;
+        require constraint {
+            radar.designRange >= 150.0 [km]
+        }
+        doc
+            /* The weather radar system shall detect precipitation within at least 150 km of the installation site. */
+    }
+
+    requirement def VolumeScanRefreshRequirement {
+        subject radar : WeatherRadarSystem;
+        require constraint {
+            radar.scanRefreshPeriod <= 300.0 [s]
+        }
+        doc
+            /* The weather radar system shall complete and publish a full volume scan at least once every five minutes. */
+    }
+
+    requirement def DopplerVelocityRequirement {
+        subject receiver : RadarReceiver;
+        require constraint {
+            receiver.maximumUnambiguousVelocity >= 50.0 [m/s]
+        }
+        doc
+            /* The radar receiver shall support Doppler velocity measurement sufficient to identify hazardous storm motion. */
+    }
+
+    requirement def ReflectivityProcessingRequirement {
+        subject processor : SignalProcessor;
+        require constraint {
+            processor.rangeResolution <= 0.25 [km]
+        }
+        doc
+            /* The signal processor shall generate reflectivity products with range resolution of 250 meters or better. */
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject radar : WeatherRadarSystem;
+        require constraint {
+            radar.controller.automaticScanEnabled == true
+        }
+        doc
+            /* The radar system shall continuously monitor subsystem health while supporting automatic scheduled scanning. */
+    }
+
+    satisfy PrimaryWeatherDetectionRequirement by WeatherRadarSystem;
+    satisfy VolumeScanRefreshRequirement by WeatherRadarSystem;
+    satisfy DopplerVelocityRequirement by RadarReceiver;
+    satisfy ReflectivityProcessingRequirement by SignalProcessor;
+    satisfy HealthMonitoringRequirement by WeatherRadarSystem;
+
+    part weatherRadar : WeatherRadarSystem;
+}
+tokens used
+2,692
+package WeatherRadarSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FrequencyGHz :> Real {
+        unit = "GHz";
+    }
+
+    attribute def PowerkW :> Real {
+        unit = "kW";
+    }
+
+    attribute def DistanceKm :> Real {
+        unit = "km";
+    }
+
+    attribute def AngleDeg :> Real {
+        unit = "deg";
+    }
+
+    attribute def SpeedMps :> Real {
+        unit = "m/s";
+    }
+
+    attribute def ReflectivityDbz :> Real {
+        unit = "dBZ";
+    }
+
+    attribute def RainRateMmPerHr :> Real {
+        unit = "mm/h";
+    }
+
+    attribute def TimeSeconds :> Real {
+        unit = "s";
+    }
+
+    attribute def TemperatureC :> Real {
+        unit = "degC";
+    }
+
+    item def RadioFrequencyPulse {
+        attribute carrierFrequency : FrequencyGHz;
+        attribute peakPower : PowerkW;
+        attribute pulseWidth : TimeSeconds;
+        attribute azimuth : AngleDeg;
+        attribute elevation : AngleDeg;
+    }
+
+    item def WeatherEcho {
+        attribute range : DistanceKm;
+        attribute azimuth : AngleDeg;
+        attribute elevation : AngleDeg;
+        attribute returnedPower : PowerkW;
+        attribute dopplerVelocity : SpeedMps;
+        attribute reflectivity : ReflectivityDbz;
+    }
+
+    item def RadarVolumeScan {
+        attribute maxRange : DistanceKm;
+        attribute minimumElevation : AngleDeg;
+        attribute maximumElevation : AngleDeg;
+        attribute scanDuration : TimeSeconds;
+        attribute radialCount : Integer;
+    }
+
+    item def PrecipitationProduct {
+        attribute reflectivity : ReflectivityDbz;
+        attribute rainRate : RainRateMmPerHr;
+        attribute stormTopHeight : DistanceKm;
+        attribute radialVelocity : SpeedMps;
+        attribute validForSeconds : TimeSeconds;
+    }
+
+    item def HealthStatus {
+        attribute transmitterReady : Boolean;
+        attribute receiverReady : Boolean;
+        attribute antennaReady : Boolean;
+        attribute processingReady : Boolean;
+        attribute internalTemperature : TemperatureC;
+    }
+
+    port def PowerInputPort {
+        in item electricalPower;
+    }
+
+    port def MaintenancePort {
+        in item maintenanceCommand;
+        out item status : HealthStatus;
+    }
+
+    port def RadioTransmitPort {
+        out item pulse : RadioFrequencyPulse;
+    }
+
+    port def RadioReceivePort {
+        in item echo : WeatherEcho;
+    }
+
+    port def DataOutputPort {
+        out item product : PrecipitationProduct;
+        out item health : HealthStatus;
+    }
+
+    port def ControlPort {
+        in item scanRequest : RadarVolumeScan;
+        out item scanComplete : RadarVolumeScan;
+    }
+
+    action def InitializeRadar {
+        out item status : HealthStatus;
+    }
+
+    action def PerformSelfTest {
+        in item inputStatus : HealthStatus;
+        out item testedStatus : HealthStatus;
+    }
+
+    action def GeneratePulse {
+        in item requestedScan : RadarVolumeScan;
+        out item pulse : RadioFrequencyPulse;
+    }
+
+    action def RadiatePulse {
+        in item pulse : RadioFrequencyPulse;
+        out item transmittedPulse : RadioFrequencyPulse;
+    }
+
+    action def ReceiveEchoes {
+        in item transmittedPulse : RadioFrequencyPulse;
+        out item echo : WeatherEcho;
+    }
+
+    action def ProcessWeatherEcho {
+        in item echo : WeatherEcho;
+        out item product : PrecipitationProduct;
+    }
+
+    action def PublishWeatherProduct {
+        in item product : PrecipitationProduct;
+        out item publishedProduct : PrecipitationProduct;
+    }
+
+    state def RadarOperatingState {
+        entry action InitializeRadar;
+
+        state Off;
+        state Initializing;
+        state Standby;
+        state Scanning;
+        state Processing;
+        state Reporting;
+        state Fault;
+        state Maintenance;
+
+        transition first Off;
+        transition Off_to_Initializing
+            first Off
+            then Initializing;
+
+        transition Initializing_to_Standby
+            first Initializing
+            accept after 30 [s]
+            then Standby;
+
+        transition Standby_to_Scanning
+            first Standby
+            accept scanRequest
+            then Scanning;
+
+        transition Scanning_to_Processing
+            first Scanning
+            accept scanComplete
+            then Processing;
+
+        transition Processing_to_Reporting
+            first Processing
+            accept productReady
+            then Reporting;
+
+        transition Reporting_to_Standby
+            first Reporting
+            accept productPublished
+            then Standby;
+
+        transition Any_to_Fault
+            first Off, Initializing, Standby, Scanning, Processing, Reporting
+            accept faultDetected
+            then Fault;
+
+        transition Fault_to_Maintenance
+            first Fault
+            accept maintenanceCommand
+            then Maintenance;
+
+        transition Maintenance_to_Initializing
+            first Maintenance
+            accept maintenanceComplete
+            then Initializing;
+    }
+
+    part def RadarTransmitter {
+        attribute operatingFrequency : FrequencyGHz = 9.4;
+        attribute peakTransmitPower : PowerkW = 250.0;
+        attribute nominalPulseWidth : TimeSeconds = 0.000001;
+
+        port controlPort : ControlPort;
+        port transmitPort : RadioTransmitPort;
+        port statusPort : MaintenancePort;
+
+        perform action generatePulse : GeneratePulse;
+    }
+
+    part def PhasedArrayAntenna {
+        attribute azimuthCoverage : AngleDeg = 360.0;
+        attribute minimumElevation : AngleDeg = 0.5;
+        attribute maximumElevation : AngleDeg = 20.0;
+        attribute beamWidth : AngleDeg = 1.0;
+        attribute rotationRate : SpeedMps = 0.5;
+
+        port transmitInput : RadioTransmitPort;
+        port receiveOutput : RadioReceivePort;
+
+        perform action radiatePulse : RadiatePulse;
+    }
+
+    part def RadarReceiver {
+        attribute minimumDetectableReflectivity : ReflectivityDbz = -10.0;
+        attribute maximumUnambiguousRange : DistanceKm = 250.0;
+        attribute maximumUnambiguousVelocity : SpeedMps = 60.0;
+
+        port receivePort : RadioReceivePort;
+        port echoOutput : RadioReceivePort;
+        port statusPort : MaintenancePort;
+
+        perform action receiveEchoes : ReceiveEchoes;
+    }
+
+    part def SignalProcessor {
+        attribute clutterSuppressionEnabled : Boolean = true;
+        attribute velocityDealiasingEnabled : Boolean = true;
+        attribute rangeResolution : DistanceKm = 0.25;
+
+        port echoInput : RadioReceivePort;
+        port productOutput : DataOutputPort;
+        port statusPort : MaintenancePort;
+
+        perform action processEcho : ProcessWeatherEcho;
+    }
+
+    part def RadarController {
+        attribute defaultScanRange : DistanceKm = 150.0;
+        attribute defaultScanDuration : TimeSeconds = 300.0;
+        attribute automaticScanEnabled : Boolean = true;
+
+        port operatorControl : ControlPort;
+        port transmitterControl : ControlPort;
+        port dataOutput : DataOutputPort;
+        port maintenance : MaintenancePort;
+
+        exhibit state operatingState : RadarOperatingState;
+        perform action initialize : InitializeRadar;
+        perform action selfTest : PerformSelfTest;
+    }
+
+    part def WeatherProductServer {
+        attribute productRetentionTime : TimeSeconds = 86400.0;
+        attribute updateInterval : TimeSeconds = 300.0;
+
+        port productInput : DataOutputPort;
+        port externalOutput : DataOutputPort;
+
+        perform action publishProduct : PublishWeatherProduct;
+    }
+
+    part def WeatherRadarSystem {
+        attribute primaryFunction : String =
+            "Detect, locate, and characterize precipitation and storm motion by transmitting radio-frequency pulses, receiving atmospheric echoes, processing reflectivity and Doppler velocity, and publishing weather products for situational awareness.";
+
+        attribute designRange : DistanceKm = 250.0;
+        attribute scanRefreshPeriod : TimeSeconds = 300.0;
+        attribute operatingFrequency : FrequencyGHz = 9.4;
+
+        port powerInput : PowerInputPort;
+        port operatorInterface : ControlPort;
+        port weatherDataOutput : DataOutputPort;
+        port maintenanceInterface : MaintenancePort;
+
+        part controller : RadarController;
+        part transmitter : RadarTransmitter;
+        part antenna : PhasedArrayAntenna;
+        part receiver : RadarReceiver;
+        part processor : SignalProcessor;
+        part productServer : WeatherProductServer;
+
+        connect operatorInterface to controller.operatorControl;
+        connect maintenanceInterface to controller.maintenance;
+        connect controller.transmitterControl to transmitter.controlPort;
+        connect transmitter.transmitPort to antenna.transmitInput;
+        connect antenna.receiveOutput to receiver.receivePort;
+        connect receiver.echoOutput to processor.echoInput;
+        connect processor.productOutput to productServer.productInput;
+        connect productServer.externalOutput to weatherDataOutput;
+        connect controller.dataOutput to weatherDataOutput;
+    }
+
+    requirement def PrimaryWeatherDetectionRequirement {
+        subject radar : WeatherRadarSystem;
+        require constraint {
+            radar.designRange >= 150.0 [km]
+        }
+        doc
+            /* The weather radar system shall detect precipitation within at least 150 km of the installation site. */
+    }
+
+    requirement def VolumeScanRefreshRequirement {
+        subject radar : WeatherRadarSystem;
+        require constraint {
+            radar.scanRefreshPeriod <= 300.0 [s]
+        }
+        doc
+            /* The weather radar system shall complete and publish a full volume scan at least once every five minutes. */
+    }
+
+    requirement def DopplerVelocityRequirement {
+        subject receiver : RadarReceiver;
+        require constraint {
+            receiver.maximumUnambiguousVelocity >= 50.0 [m/s]
+        }
+        doc
+            /* The radar receiver shall support Doppler velocity measurement sufficient to identify hazardous storm motion. */
+    }
+
+    requirement def ReflectivityProcessingRequirement {
+        subject processor : SignalProcessor;
+        require constraint {
+            processor.rangeResolution <= 0.25 [km]
+        }
+        doc
+            /* The signal processor shall generate reflectivity products with range resolution of 250 meters or better. */
+    }
+
+    requirement def HealthMonitoringRequirement {
+        subject radar : WeatherRadarSystem;
+        require constraint {
+            radar.controller.automaticScanEnabled == true
+        }
+        doc
+            /* The radar system shall continuously monitor subsystem health while supporting automatic scheduled scanning. */
+    }
+
+    satisfy PrimaryWeatherDetectionRequirement by WeatherRadarSystem;
+    satisfy VolumeScanRefreshRequirement by WeatherRadarSystem;
+    satisfy DopplerVelocityRequirement by RadarReceiver;
+    satisfy ReflectivityProcessingRequirement by SignalProcessor;
+    satisfy HealthMonitoringRequirement by WeatherRadarSystem;
+
+    part weatherRadar : WeatherRadarSystem;
+}

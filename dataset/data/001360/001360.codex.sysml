@@ -1,0 +1,467 @@
+package AutomationSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Voltage :> Real { unit = "V"; }
+    attribute def Current :> Real { unit = "A"; }
+    attribute def Power :> Real { unit = "W"; }
+    attribute def Pressure :> Real { unit = "kPa"; }
+    attribute def FlowRate :> Real { unit = "L/min"; }
+    attribute def Temperature :> Real { unit = "degC"; }
+    attribute def Duration :> Real { unit = "s"; }
+    attribute def Position :> Real { unit = "mm"; }
+    attribute def Speed :> Real { unit = "mm/s"; }
+    attribute def Percent :> Real { unit = "%"; }
+
+    enum def AutomationMode {
+        enum manual;
+        enum automatic;
+        enum maintenance;
+        enum faultRecovery;
+    }
+
+    enum def EquipmentState {
+        enum stopped;
+        enum starting;
+        enum running;
+        enum paused;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    enum def ProductStatus {
+        enum absent;
+        enum detected;
+        enum clamped;
+        enum processed;
+        enum passedInspection;
+        enum rejected;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def PneumaticSupply {
+        attribute pressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    item def SensorSignal {
+        attribute valid : Boolean;
+        attribute value : Real;
+        attribute timestamp : Duration;
+    }
+
+    item def ControlCommand {
+        attribute enable : Boolean;
+        attribute targetPosition : Position;
+        attribute targetSpeed : Speed;
+        attribute requestedMode : AutomationMode;
+    }
+
+    item def SafetySignal {
+        attribute safe : Boolean;
+        attribute emergencyStopActive : Boolean;
+        attribute guardDoorClosed : Boolean;
+        attribute lightCurtainClear : Boolean;
+    }
+
+    item def ProductCarrier {
+        attribute id : String;
+        attribute position : Position;
+        attribute status : ProductStatus;
+    }
+
+    port def PowerInPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def PowerOutPort {
+        out item powerOut : ElectricalPower;
+    }
+
+    port def PneumaticInPort {
+        in item airIn : PneumaticSupply;
+    }
+
+    port def PneumaticOutPort {
+        out item airOut : PneumaticSupply;
+    }
+
+    port def SignalInPort {
+        in item signalIn : SensorSignal;
+    }
+
+    port def SignalOutPort {
+        out item signalOut : SensorSignal;
+    }
+
+    port def CommandInPort {
+        in item commandIn : ControlCommand;
+    }
+
+    port def CommandOutPort {
+        out item commandOut : ControlCommand;
+    }
+
+    port def SafetyInPort {
+        in item safetyIn : SafetySignal;
+    }
+
+    port def SafetyOutPort {
+        out item safetyOut : SafetySignal;
+    }
+
+    port def MaterialInPort {
+        in item carrierIn : ProductCarrier;
+    }
+
+    port def MaterialOutPort {
+        out item carrierOut : ProductCarrier;
+    }
+
+    action def AcquireInputs {
+        in item sensorData : SensorSignal;
+        in item safetyData : SafetySignal;
+        out item normalizedData : SensorSignal;
+    }
+
+    action def EvaluateControlLogic {
+        in item normalizedData : SensorSignal;
+        in item currentMode : AutomationMode;
+        out item motionCommand : ControlCommand;
+        out item pneumaticCommand : ControlCommand;
+    }
+
+    action def ExecuteMotion {
+        in item command : ControlCommand;
+        out item measuredPosition : SensorSignal;
+    }
+
+    action def ExecutePneumatics {
+        in item command : ControlCommand;
+        out item clampFeedback : SensorSignal;
+    }
+
+    action def InspectProduct {
+        in item carrier : ProductCarrier;
+        in item measuredPosition : SensorSignal;
+        out item inspectedCarrier : ProductCarrier;
+    }
+
+    action def StopSafely {
+        in item safetyData : SafetySignal;
+        out item stopCommand : ControlCommand;
+    }
+
+    state def AutomationOperatingState {
+        entry action initializeCell;
+        state off;
+        state idle;
+        state automaticRun;
+        state manualJog;
+        state maintenanceLockout;
+        state fault;
+        state emergencyStop;
+
+        initial then off;
+
+        transition off_to_idle
+            first off
+            accept ControlCommand
+            if commandIn.enable
+            then idle;
+
+        transition idle_to_auto
+            first idle
+            accept ControlCommand
+            if commandIn.requestedMode == AutomationMode::automatic
+            then automaticRun;
+
+        transition idle_to_manual
+            first idle
+            accept ControlCommand
+            if commandIn.requestedMode == AutomationMode::manual
+            then manualJog;
+
+        transition idle_to_maintenance
+            first idle
+            accept ControlCommand
+            if commandIn.requestedMode == AutomationMode::maintenance
+            then maintenanceLockout;
+
+        transition auto_to_idle
+            first automaticRun
+            accept ControlCommand
+            if not commandIn.enable
+            then idle;
+
+        transition manual_to_idle
+            first manualJog
+            accept ControlCommand
+            if commandIn.requestedMode == AutomationMode::automatic
+            then idle;
+
+        transition any_to_fault
+            first off, idle, automaticRun, manualJog, maintenanceLockout
+            accept SafetySignal
+            if safetyIn.safe == false and safetyIn.emergencyStopActive == false
+            then fault;
+
+        transition any_to_estop
+            first off, idle, automaticRun, manualJog, maintenanceLockout, fault
+            accept SafetySignal
+            if safetyIn.emergencyStopActive
+            then emergencyStop;
+
+        transition fault_to_idle
+            first fault
+            accept ControlCommand
+            if commandIn.enable and commandIn.requestedMode == AutomationMode::faultRecovery
+            then idle;
+
+        transition estop_to_idle
+            first emergencyStop
+            accept SafetySignal
+            if safetyIn.safe and not safetyIn.emergencyStopActive
+            then idle;
+    }
+
+    part def PowerDistributionUnit {
+        port supply : PowerInPort;
+        port controllerPower : PowerOutPort;
+        port actuatorPower : PowerOutPort;
+
+        attribute inputVoltage : Voltage = 480;
+        attribute controlVoltage : Voltage = 24;
+        attribute maxOutputPower : Power = 5000;
+    }
+
+    part def PneumaticPreparationUnit {
+        port plantAir : PneumaticInPort;
+        port regulatedAir : PneumaticOutPort;
+
+        attribute regulatedPressure : Pressure = 620;
+        attribute minimumPressure : Pressure = 500;
+        attribute maximumFlow : FlowRate = 120;
+    }
+
+    part def SafetyController {
+        port power : PowerInPort;
+        port safetyInputs : SafetyInPort;
+        port safetyOutput : SafetyOutPort;
+        port stopCommand : CommandOutPort;
+
+        attribute responseTime : Duration = 0.05;
+        attribute safetyIntegrityLevel : Integer = 3;
+
+        behavior state safetyState : AutomationOperatingState;
+    }
+
+    part def ProgrammableLogicController {
+        port power : PowerInPort;
+        port sensorInput : SignalInPort;
+        port safetyInput : SafetyInPort;
+        port motionCommand : CommandOutPort;
+        port pneumaticCommand : CommandOutPort;
+        port statusOutput : SignalOutPort;
+
+        attribute scanTime : Duration = 0.01;
+        attribute mode : AutomationMode = AutomationMode::automatic;
+        attribute currentState : EquipmentState = EquipmentState::stopped;
+
+        perform action acquireInputs : AcquireInputs;
+        perform action evaluateLogic : EvaluateControlLogic;
+    }
+
+    part def ConveyorAxis {
+        port power : PowerInPort;
+        port command : CommandInPort;
+        port positionFeedback : SignalOutPort;
+        port materialIn : MaterialInPort;
+        port materialOut : MaterialOutPort;
+
+        attribute length : Position = 1200;
+        attribute nominalSpeed : Speed = 250;
+        attribute maxSpeed : Speed = 600;
+        attribute positionTolerance : Position = 1.0;
+
+        perform action executeMotion : ExecuteMotion;
+    }
+
+    part def ClampActuator {
+        port air : PneumaticInPort;
+        port command : CommandInPort;
+        port clampFeedback : SignalOutPort;
+
+        attribute clampPressure : Pressure = 550;
+        attribute extendTime : Duration = 0.35;
+        attribute retractTime : Duration = 0.30;
+        attribute holdingForcePercent : Percent = 85;
+
+        perform action executePneumatics : ExecutePneumatics;
+    }
+
+    part def VisionInspectionStation {
+        port power : PowerInPort;
+        port trigger : CommandInPort;
+        port inspectionResult : SignalOutPort;
+        port inspectedMaterial : MaterialOutPort;
+
+        attribute exposureTime : Duration = 0.015;
+        attribute inspectionCycleTime : Duration = 0.75;
+        attribute minimumConfidence : Percent = 97;
+
+        perform action inspectProduct : InspectProduct;
+    }
+
+    part def HumanMachineInterface {
+        port power : PowerInPort;
+        port operatorCommand : CommandOutPort;
+        port machineStatus : SignalInPort;
+
+        attribute displaySize : Real = 10.1;
+        attribute commandTimeout : Duration = 2.0;
+    }
+
+    part def AutomationCell {
+        doc /* Primary function: automatically move a product carrier through a controlled work zone, clamp it, inspect it, classify it, and release it while continuously supervising power, pneumatics, machine state, and personnel safety. */
+
+        port mainPower : PowerInPort;
+        port plantAir : PneumaticInPort;
+        port productEntry : MaterialInPort;
+        port productExit : MaterialOutPort;
+        port rejectedProductExit : MaterialOutPort;
+        port operatorInterface : CommandInPort;
+
+        part powerDistribution : PowerDistributionUnit;
+        part airPreparation : PneumaticPreparationUnit;
+        part safetyController : SafetyController;
+        part plc : ProgrammableLogicController;
+        part conveyor : ConveyorAxis;
+        part clamp : ClampActuator;
+        part visionStation : VisionInspectionStation;
+        part hmi : HumanMachineInterface;
+
+        attribute targetCycleTime : Duration = 4.5;
+        attribute availabilityTarget : Percent = 98.5;
+        attribute nominalThroughput : Real = 800;
+        attribute operatingMode : AutomationMode = AutomationMode::automatic;
+
+        connect mainPower.powerIn to powerDistribution.supply.powerIn;
+        connect powerDistribution.controllerPower.powerOut to plc.power.powerIn;
+        connect powerDistribution.controllerPower.powerOut to safetyController.power.powerIn;
+        connect powerDistribution.controllerPower.powerOut to hmi.power.powerIn;
+        connect powerDistribution.actuatorPower.powerOut to conveyor.power.powerIn;
+        connect powerDistribution.controllerPower.powerOut to visionStation.power.powerIn;
+
+        connect plantAir.airIn to airPreparation.plantAir.airIn;
+        connect airPreparation.regulatedAir.airOut to clamp.air.airIn;
+
+        connect hmi.operatorCommand.commandOut to operatorInterface.commandIn;
+        connect hmi.operatorCommand.commandOut to plc.motionCommand.commandOut;
+        connect plc.motionCommand.commandOut to conveyor.command.commandIn;
+        connect plc.pneumaticCommand.commandOut to clamp.command.commandIn;
+        connect plc.motionCommand.commandOut to visionStation.trigger.commandIn;
+
+        connect conveyor.positionFeedback.signalOut to plc.sensorInput.signalIn;
+        connect clamp.clampFeedback.signalOut to plc.sensorInput.signalIn;
+        connect visionStation.inspectionResult.signalOut to plc.sensorInput.signalIn;
+        connect plc.statusOutput.signalOut to hmi.machineStatus.signalIn;
+
+        connect safetyController.safetyOutput.safetyOut to plc.safetyInput.safetyIn;
+        connect safetyController.stopCommand.commandOut to conveyor.command.commandIn;
+        connect safetyController.stopCommand.commandOut to clamp.command.commandIn;
+
+        connect productEntry.carrierIn to conveyor.materialIn.carrierIn;
+        connect conveyor.materialOut.carrierOut to visionStation.inspectedMaterial.carrierOut;
+        connect conveyor.materialOut.carrierOut to productExit.carrierOut;
+        connect visionStation.inspectedMaterial.carrierOut to rejectedProductExit.carrierOut;
+
+        behavior state operatingState : AutomationOperatingState;
+    }
+
+    requirement def PrimaryAutomationFunction {
+        subject cell : AutomationCell;
+        require constraint {
+            cell.targetCycleTime <= 5.0
+        }
+        doc /* The automation cell shall automatically transport, clamp, inspect, classify, and release each product carrier without routine operator intervention during automatic mode. */
+    }
+
+    requirement def SafetyStopRequirement {
+        subject cell : AutomationCell;
+        require constraint {
+            cell.safetyController.responseTime <= 0.1
+        }
+        doc /* The automation cell shall remove motion and pneumatic actuation commands within 0.1 s when an emergency stop or unsafe guarding condition is detected. */
+    }
+
+    requirement def PneumaticPressureRequirement {
+        subject cell : AutomationCell;
+        require constraint {
+            cell.airPreparation.regulatedPressure >= cell.airPreparation.minimumPressure
+        }
+        doc /* The automation cell shall maintain sufficient regulated pneumatic pressure for repeatable clamping during automatic operation. */
+    }
+
+    requirement def InspectionConfidenceRequirement {
+        subject cell : AutomationCell;
+        require constraint {
+            cell.visionStation.minimumConfidence >= 95
+        }
+        doc /* The inspection station shall classify product carriers using a minimum confidence threshold of 95 percent. */
+    }
+
+    requirement def MotionAccuracyRequirement {
+        subject cell : AutomationCell;
+        require constraint {
+            cell.conveyor.positionTolerance <= 1.5
+        }
+        doc /* The conveyor axis shall position product carriers within 1.5 mm of the commanded inspection position. */
+    }
+
+    requirement def AvailabilityRequirement {
+        subject cell : AutomationCell;
+        require constraint {
+            cell.availabilityTarget >= 98
+        }
+        doc /* The automation cell shall be designed for at least 98 percent operational availability during scheduled production time. */
+    }
+
+    part automationCell : AutomationCell;
+
+    requirement primaryFunction : PrimaryAutomationFunction {
+        subject cell = automationCell;
+    }
+
+    requirement safetyStop : SafetyStopRequirement {
+        subject cell = automationCell;
+    }
+
+    requirement pneumaticPressure : PneumaticPressureRequirement {
+        subject cell = automationCell;
+    }
+
+    requirement inspectionConfidence : InspectionConfidenceRequirement {
+        subject cell = automationCell;
+    }
+
+    requirement motionAccuracy : MotionAccuracyRequirement {
+        subject cell = automationCell;
+    }
+
+    requirement availability : AvailabilityRequirement {
+        subject cell = automationCell;
+    }
+
+    satisfy primaryFunction by automationCell;
+    satisfy safetyStop by automationCell.safetyController;
+    satisfy pneumaticPressure by automationCell.airPreparation;
+    satisfy inspectionConfidence by automationCell.visionStation;
+    satisfy motionAccuracy by automationCell.conveyor;
+    satisfy availability by automationCell;
+}

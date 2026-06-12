@@ -1,0 +1,1333 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-jetvu83r
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb58b-360a-78f2-80ae-ef3948b09b28
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Machine vision and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MachineVisionInspectionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def PixelCount {
+        :> ScalarValues::Integer;
+    }
+
+    attribute def FramesPerSecond {
+        :> ScalarValues::Real;
+        unit = "frame/s";
+    }
+
+    attribute def Lux {
+        :> ScalarValues::Real;
+        unit = "lx";
+    }
+
+    attribute def Millisecond {
+        :> ScalarValues::Real;
+        unit = "ms";
+    }
+
+    attribute def ConfidenceScore {
+        :> ScalarValues::Real;
+        range = "0.0..1.0";
+    }
+
+    attribute def DefectClass {
+        :> ScalarValues::String;
+    }
+
+    item def OpticalImage {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute exposureTime : Millisecond;
+        attribute illuminationLevel : Lux;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def ImageFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute bitDepth : ScalarValues::Integer;
+        attribute frameRate : FramesPerSecond;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def FeatureVector {
+        attribute featureCount : ScalarValues::Integer;
+        attribute normalized : ScalarValues::Boolean;
+    }
+
+    item def InspectionDecision {
+        attribute accepted : ScalarValues::Boolean;
+        attribute defectClass : DefectClass;
+        attribute confidence : ConfidenceScore;
+        attribute defectArea : ISQ::area;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def ControlCommand {
+        attribute commandName : ScalarValues::String;
+        attribute commandCode : ScalarValues::Integer;
+        attribute issuedAt : ISQ::time;
+    }
+
+    port def OpticalInputPort {
+        in item incomingLight : OpticalImage;
+    }
+
+    port def ImageOutputPort {
+        out item frame : ImageFrame;
+    }
+
+    port def ImageInputPort {
+        in item frame : ImageFrame;
+    }
+
+    port def FeatureOutputPort {
+        out item features : FeatureVector;
+    }
+
+    port def FeatureInputPort {
+        in item features : FeatureVector;
+    }
+
+    port def DecisionOutputPort {
+        out item decision : InspectionDecision;
+    }
+
+    port def DecisionInputPort {
+        in item decision : InspectionDecision;
+    }
+
+    port def CommandOutputPort {
+        out item command : ControlCommand;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    part def IlluminationSubsystem {
+        attribute nominalIllumination : Lux = 12000;
+        attribute uniformity : Percent = 92;
+        attribute strobePulseWidth : Millisecond = 1.5;
+
+        port commandIn : CommandInputPort;
+        port opticalOut : OpticalInputPort;
+
+        action illuminateScene {
+            in item trigger : ControlCommand;
+            out item illuminatedImage : OpticalImage;
+        }
+
+        state illuminationState {
+            state off;
+            state ready;
+            state exposing;
+            state fault;
+
+            initial then off;
+
+            transition off_to_ready
+                first off
+                then ready
+                accept ControlCommand
+                if command.commandName == "ENABLE_LIGHT";
+
+            transition ready_to_exposing
+                first ready
+                then exposing
+                accept ControlCommand
+                if command.commandName == "STROBE";
+
+            transition exposing_to_ready
+                first exposing
+                then ready
+                after 2 [ms];
+
+            transition any_to_fault
+                first ready
+                then fault
+                accept ControlCommand
+                if command.commandName == "LIGHT_FAULT";
+        }
+    }
+
+    part def LensAssembly {
+        attribute focalLength : ISQ::length = 25 [mm];
+        attribute apertureNumber : ScalarValues::Real = 2.8;
+        attribute workingDistance : ISQ::length = 350 [mm];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+
+        action focusImage {
+            in item rawLight : OpticalImage;
+            out item focusedLight : OpticalImage;
+        }
+    }
+
+    part def CameraSensor {
+        attribute sensorWidth : PixelCount = 4096;
+        attribute sensorHeight : PixelCount = 3000;
+        attribute maximumFrameRate : FramesPerSecond = 60;
+        attribute exposureTime : Millisecond = 4.0;
+        attribute quantumEfficiency : Percent = 68;
+
+        port opticalIn : OpticalInputPort;
+        port imageOut : ImageOutputPort;
+        port commandIn : CommandInputPort;
+
+        action captureFrame {
+            in item focusedLight : OpticalImage;
+            out item capturedFrame : ImageFrame;
+        }
+
+        state cameraState {
+            state idle;
+            state armed;
+            state exposing;
+            state transferring;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_armed
+                first idle
+                then armed
+                accept ControlCommand
+                if command.commandName == "ARM_CAMERA";
+
+            transition armed_to_exposing
+                first armed
+                then exposing
+                accept ControlCommand
+                if command.commandName == "CAPTURE";
+
+            transition exposing_to_transferring
+                first exposing
+                then transferring
+                after 4 [ms];
+
+            transition transferring_to_armed
+                first transferring
+                then armed
+                after 8 [ms];
+
+            transition armed_to_fault
+                first armed
+                then fault
+                accept ControlCommand
+                if command.commandName == "CAMERA_FAULT";
+        }
+    }
+
+    part def ImagePreprocessor {
+        attribute darkFrameCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute flatFieldCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute noiseReductionKernelSize : ScalarValues::Integer = 3;
+        attribute maximumProcessingLatency : Millisecond = 12;
+
+        port imageIn : ImageInputPort;
+        port imageOut : ImageOutputPort;
+
+        action correctImage {
+            in item rawFrame : ImageFrame;
+            out item correctedFrame : ImageFrame;
+        }
+
+        action reduceNoise {
+            in item correctedFrame : ImageFrame;
+            out item cleanFrame : ImageFrame;
+        }
+    }
+
+    part def FeatureExtractor {
+        attribute minimumEdgeGradient : ScalarValues::Real = 0.18;
+        attribute minimumBlobArea : ISQ::area = 0.04 [mm^2];
+        attribute featureVectorSize : ScalarValues::Integer = 256;
+
+        port imageIn : ImageInputPort;
+        port featureOut : FeatureOutputPort;
+
+        action extractFeatures {
+            in item cleanFrame : ImageFrame;
+            out item measuredFeatures : FeatureVector;
+        }
+    }
+
+    part def DefectClassifier {
+        attribute modelName : ScalarValues::String = "surface_defect_cnn_v4";
+        attribute minimumAcceptConfidence : ConfidenceScore = 0.93;
+        attribute inferenceLatencyLimit : Millisecond = 20;
+        attribute trainedDefectClasses : ScalarValues::Integer = 8;
+
+        port featureIn : FeatureInputPort;
+        port decisionOut : DecisionOutputPort;
+
+        action classifyFeatures {
+            in item measuredFeatures : FeatureVector;
+            out item inspectionResult : InspectionDecision;
+        }
+
+        state classifierState {
+            state loadingModel;
+            state ready;
+            state inferring;
+            state degraded;
+            state unavailable;
+
+            initial then loadingModel;
+
+            transition model_loaded
+                first loadingModel
+                then ready
+                after 500 [ms];
+
+            transition ready_to_inferring
+                first ready
+                then inferring
+                accept FeatureVector;
+
+            transition inference_complete
+                first inferring
+                then ready
+                after 20 [ms];
+
+            transition ready_to_degraded
+                first ready
+                then degraded
+                if minimumAcceptConfidence < 0.85;
+
+            transition degraded_to_unavailable
+                first degraded
+                then unavailable
+                accept ControlCommand
+                if command.commandName == "MODEL_UNAVAILABLE";
+        }
+    }
+
+    part def DecisionManager {
+        attribute rejectThreshold : ConfidenceScore = 0.90;
+        attribute maximumFalseAcceptRate : Percent = 0.1;
+        attribute maximumFalseRejectRate : Percent = 2.0;
+
+        port decisionIn : DecisionInputPort;
+        port commandOut : CommandOutputPort;
+
+        action evaluateDecision {
+            in item classifierDecision : InspectionDecision;
+            out item actuatorCommand : ControlCommand;
+        }
+
+        state decisionState {
+            state monitoring;
+            state acceptedPart;
+            state rejectedPart;
+            state reviewRequired;
+
+            initial then monitoring;
+
+            transition monitoring_to_accepted
+                first monitoring
+                then acceptedPart
+                accept InspectionDecision
+                if decision.accepted == true and decision.confidence >= 0.90;
+
+            transition monitoring_to_rejected
+                first monitoring
+                then rejectedPart
+                accept InspectionDecision
+                if decision.accepted == false and decision.confidence >= 0.90;
+
+            transition monitoring_to_review
+                first monitoring
+                then reviewRequired
+                accept InspectionDecision
+                if decision.confidence < 0.90;
+
+            transition accepted_to_monitoring
+                first acceptedPart
+                then monitoring
+                after 10 [ms];
+
+            transition rejected_to_monitoring
+                first rejectedPart
+                then monitoring
+                after 10 [ms];
+
+            transition review_to_monitoring
+                first reviewRequired
+                then monitoring
+                after 50 [ms];
+        }
+    }
+
+    part def RejectActuator {
+        attribute actuationDelay : Millisecond = 75;
+        attribute placementAccuracy : ISQ::length = 1.0 [mm];
+
+        port commandIn : CommandInputPort;
+
+        action divertRejectedPart {
+            in item rejectCommand : ControlCommand;
+        }
+
+        state actuatorState {
+            state standby;
+            state diverting;
+            state fault;
+
+            initial then standby;
+
+            transition standby_to_diverting
+                first standby
+                then diverting
+                accept ControlCommand
+                if command.commandName == "REJECT_PART";
+
+            transition diverting_to_standby
+                first diverting
+                then standby
+                after 75 [ms];
+
+            transition standby_to_fault
+                first standby
+                then fault
+                accept ControlCommand
+                if command.commandName == "ACTUATOR_FAULT";
+        }
+    }
+
+    part def OperatorInterface {
+        attribute displayRefreshRate : FramesPerSecond = 30;
+        attribute alarmAcknowledged : ScalarValues::Boolean = false;
+
+        port decisionIn : DecisionInputPort;
+        port commandOut : CommandOutputPort;
+
+        action displayInspectionResult {
+            in item result : InspectionDecision;
+        }
+
+        action issueOperatorCommand {
+            out item operatorCommand : ControlCommand;
+        }
+    }
+
+    part def MachineVisionInspectionCell {
+        attribute inspectedPartRate : FramesPerSecond = 20;
+        attribute minimumDetectionAccuracy : Percent = 99.5;
+        attribute maximumEndToEndLatency : Millisecond = 100;
+        attribute fieldOfViewWidth : ISQ::length = 120 [mm];
+        attribute fieldOfViewHeight : ISQ::length = 90 [mm];
+
+        port externalCommandIn : CommandInputPort;
+        port inspectionDecisionOut : DecisionOutputPort;
+
+        part lighting : IlluminationSubsystem;
+        part optics : LensAssembly;
+        part camera : CameraSensor;
+        part preprocessor : ImagePreprocessor;
+        part extractor : FeatureExtractor;
+        part classifier : DefectClassifier;
+        part decisionManager : DecisionManager;
+        part rejectActuator : RejectActuator;
+        part operatorInterface : OperatorInterface;
+
+        connection light_to_optics
+            connect lighting.opticalOut to optics.opticalIn;
+
+        connection optics_to_camera
+            connect optics.opticalOut to camera.opticalIn;
+
+        connection camera_to_preprocessor
+            connect camera.imageOut to preprocessor.imageIn;
+
+        connection preprocessor_to_extractor
+            connect preprocessor.imageOut to extractor.imageIn;
+
+        connection extractor_to_classifier
+            connect extractor.featureOut to classifier.featureIn;
+
+        connection classifier_to_decision
+            connect classifier.decisionOut to decisionManager.decisionIn;
+
+        connection classifier_to_operator
+            connect classifier.decisionOut to operatorInterface.decisionIn;
+
+        connection decision_to_reject
+            connect decisionManager.commandOut to rejectActuator.commandIn;
+
+        connection operator_to_lighting
+            connect operatorInterface.commandOut to lighting.commandIn;
+
+        connection operator_to_camera
+            connect operatorInterface.commandOut to camera.commandIn;
+
+        action performPrimaryInspectionFunction {
+            in item sceneImage : OpticalImage;
+            out item result : InspectionDecision;
+
+            action capture {
+                in item sceneImage : OpticalImage;
+                out item rawFrame : ImageFrame;
+            }
+
+            action preprocess {
+                in item rawFrame : ImageFrame;
+                out item cleanFrame : ImageFrame;
+            }
+
+            action analyze {
+                in item cleanFrame : ImageFrame;
+                out item features : FeatureVector;
+            }
+
+            action decide {
+                in item features : FeatureVector;
+                out item result : InspectionDecision;
+            }
+
+            flow capture.rawFrame to preprocess.rawFrame;
+            flow preprocess.cleanFrame to analyze.cleanFrame;
+            flow analyze.features to decide.features;
+        }
+
+        state inspectionCellState {
+            state poweredOff;
+            state initializing;
+            state ready;
+            state inspecting;
+            state rejecting;
+            state maintenance;
+            state fault;
+
+            initial then poweredOff;
+
+            transition power_on
+                first poweredOff
+                then initializing
+                accept ControlCommand
+                if command.commandName == "POWER_ON";
+
+            transition initialization_complete
+                first initializing
+                then ready
+                after 2 [s];
+
+            transition begin_inspection
+                first ready
+                then inspecting
+                accept ControlCommand
+                if command.commandName == "START_INSPECTION";
+
+            transition inspection_accept
+                first inspecting
+                then ready
+                accept InspectionDecision
+                if decision.accepted == true;
+
+            transition inspection_reject
+                first inspecting
+                then rejecting
+                accept InspectionDecision
+                if decision.accepted == false;
+
+            transition reject_complete
+                first rejecting
+                then ready
+                after 75 [ms];
+
+            transition ready_to_maintenance
+                first ready
+                then maintenance
+                accept ControlCommand
+                if command.commandName == "ENTER_MAINTENANCE";
+
+            transition maintenance_to_ready
+                first maintenance
+                then ready
+                accept ControlCommand
+                if command.commandName == "EXIT_MAINTENANCE";
+
+            transition any_fault
+                first ready
+                then fault
+                accept ControlCommand
+                if command.commandName == "SYSTEM_FAULT";
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The machine vision inspection system shall acquire optical images of manufactured parts, process the images, classify visible defects, and produce an accept/reject decision for each inspected part. */
+
+        subject system : MachineVisionInspectionCell;
+
+        require constraint {
+            system.inspectedPartRate >= 20 [frame/s]
+        }
+
+        require constraint {
+            system.maximumEndToEndLatency <= 100 [ms]
+        }
+
+        require constraint {
+            system.minimumDetectionAccuracy >= 99.5 [%]
+        }
+    }
+
+    requirement def ImageAcquisitionRequirement {
+        doc /* The camera subsystem shall capture each inspected part at sufficient resolution and frame rate to support reliable defect detection. */
+
+        subject camera : CameraSensor;
+
+        require constraint {
+            camera.sensorWidth >= 4096
+        }
+
+        require constraint {
+            camera.sensorHeight >= 3000
+        }
+
+        require constraint {
+            camera.maximumFrameRate >= 60 [frame/s]
+        }
+    }
+
+    requirement def IlluminationRequirement {
+        doc /* The illumination subsystem shall provide stable, uniform lighting over the entire field of view during image exposure. */
+
+        subject lighting : IlluminationSubsystem;
+
+        require constraint {
+            lighting.nominalIllumination >= 12000 [lx]
+        }
+
+        require constraint {
+            lighting.uniformity >= 90 [%]
+        }
+
+        require constraint {
+            lighting.strobePulseWidth <= 2 [ms]
+        }
+    }
+
+    requirement def ClassificationRequirement {
+        doc /* The classifier shall identify known defect classes and provide a confidence score for every inspection decision. */
+
+        subject classifier : DefectClassifier;
+
+        require constraint {
+            classifier.minimumAcceptConfidence >= 0.93
+        }
+
+        require constraint {
+            classifier.inferenceLatencyLimit <= 20 [ms]
+        }
+
+        require constraint {
+            classifier.trainedDefectClasses >= 8
+        }
+    }
+
+    requirement def RejectControlRequirement {
+        doc /* The reject actuator shall divert rejected parts within the conveyor timing window without affecting accepted parts. */
+
+        subject actuator : RejectActuator;
+
+        require constraint {
+            actuator.actuationDelay <= 75 [ms]
+        }
+
+        require constraint {
+            actuator.placementAccuracy <= 1 [mm]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MachineVisionInspectionCell;
+    satisfy ImageAcquisitionRequirement by CameraSensor;
+    satisfy IlluminationRequirement by IlluminationSubsystem;
+    satisfy ClassificationRequirement by DefectClassifier;
+    satisfy RejectControlRequirement by RejectActuator;
+
+    part inspectionCell : MachineVisionInspectionCell;
+
+}
+tokens used
+5,043
+package MachineVisionInspectionSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def PixelCount {
+        :> ScalarValues::Integer;
+    }
+
+    attribute def FramesPerSecond {
+        :> ScalarValues::Real;
+        unit = "frame/s";
+    }
+
+    attribute def Lux {
+        :> ScalarValues::Real;
+        unit = "lx";
+    }
+
+    attribute def Millisecond {
+        :> ScalarValues::Real;
+        unit = "ms";
+    }
+
+    attribute def ConfidenceScore {
+        :> ScalarValues::Real;
+        range = "0.0..1.0";
+    }
+
+    attribute def DefectClass {
+        :> ScalarValues::String;
+    }
+
+    item def OpticalImage {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute exposureTime : Millisecond;
+        attribute illuminationLevel : Lux;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def ImageFrame {
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute bitDepth : ScalarValues::Integer;
+        attribute frameRate : FramesPerSecond;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def FeatureVector {
+        attribute featureCount : ScalarValues::Integer;
+        attribute normalized : ScalarValues::Boolean;
+    }
+
+    item def InspectionDecision {
+        attribute accepted : ScalarValues::Boolean;
+        attribute defectClass : DefectClass;
+        attribute confidence : ConfidenceScore;
+        attribute defectArea : ISQ::area;
+        attribute timestamp : ISQ::time;
+    }
+
+    item def ControlCommand {
+        attribute commandName : ScalarValues::String;
+        attribute commandCode : ScalarValues::Integer;
+        attribute issuedAt : ISQ::time;
+    }
+
+    port def OpticalInputPort {
+        in item incomingLight : OpticalImage;
+    }
+
+    port def ImageOutputPort {
+        out item frame : ImageFrame;
+    }
+
+    port def ImageInputPort {
+        in item frame : ImageFrame;
+    }
+
+    port def FeatureOutputPort {
+        out item features : FeatureVector;
+    }
+
+    port def FeatureInputPort {
+        in item features : FeatureVector;
+    }
+
+    port def DecisionOutputPort {
+        out item decision : InspectionDecision;
+    }
+
+    port def DecisionInputPort {
+        in item decision : InspectionDecision;
+    }
+
+    port def CommandOutputPort {
+        out item command : ControlCommand;
+    }
+
+    port def CommandInputPort {
+        in item command : ControlCommand;
+    }
+
+    part def IlluminationSubsystem {
+        attribute nominalIllumination : Lux = 12000;
+        attribute uniformity : Percent = 92;
+        attribute strobePulseWidth : Millisecond = 1.5;
+
+        port commandIn : CommandInputPort;
+        port opticalOut : OpticalInputPort;
+
+        action illuminateScene {
+            in item trigger : ControlCommand;
+            out item illuminatedImage : OpticalImage;
+        }
+
+        state illuminationState {
+            state off;
+            state ready;
+            state exposing;
+            state fault;
+
+            initial then off;
+
+            transition off_to_ready
+                first off
+                then ready
+                accept ControlCommand
+                if command.commandName == "ENABLE_LIGHT";
+
+            transition ready_to_exposing
+                first ready
+                then exposing
+                accept ControlCommand
+                if command.commandName == "STROBE";
+
+            transition exposing_to_ready
+                first exposing
+                then ready
+                after 2 [ms];
+
+            transition any_to_fault
+                first ready
+                then fault
+                accept ControlCommand
+                if command.commandName == "LIGHT_FAULT";
+        }
+    }
+
+    part def LensAssembly {
+        attribute focalLength : ISQ::length = 25 [mm];
+        attribute apertureNumber : ScalarValues::Real = 2.8;
+        attribute workingDistance : ISQ::length = 350 [mm];
+
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+
+        action focusImage {
+            in item rawLight : OpticalImage;
+            out item focusedLight : OpticalImage;
+        }
+    }
+
+    part def CameraSensor {
+        attribute sensorWidth : PixelCount = 4096;
+        attribute sensorHeight : PixelCount = 3000;
+        attribute maximumFrameRate : FramesPerSecond = 60;
+        attribute exposureTime : Millisecond = 4.0;
+        attribute quantumEfficiency : Percent = 68;
+
+        port opticalIn : OpticalInputPort;
+        port imageOut : ImageOutputPort;
+        port commandIn : CommandInputPort;
+
+        action captureFrame {
+            in item focusedLight : OpticalImage;
+            out item capturedFrame : ImageFrame;
+        }
+
+        state cameraState {
+            state idle;
+            state armed;
+            state exposing;
+            state transferring;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_armed
+                first idle
+                then armed
+                accept ControlCommand
+                if command.commandName == "ARM_CAMERA";
+
+            transition armed_to_exposing
+                first armed
+                then exposing
+                accept ControlCommand
+                if command.commandName == "CAPTURE";
+
+            transition exposing_to_transferring
+                first exposing
+                then transferring
+                after 4 [ms];
+
+            transition transferring_to_armed
+                first transferring
+                then armed
+                after 8 [ms];
+
+            transition armed_to_fault
+                first armed
+                then fault
+                accept ControlCommand
+                if command.commandName == "CAMERA_FAULT";
+        }
+    }
+
+    part def ImagePreprocessor {
+        attribute darkFrameCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute flatFieldCorrectionEnabled : ScalarValues::Boolean = true;
+        attribute noiseReductionKernelSize : ScalarValues::Integer = 3;
+        attribute maximumProcessingLatency : Millisecond = 12;
+
+        port imageIn : ImageInputPort;
+        port imageOut : ImageOutputPort;
+
+        action correctImage {
+            in item rawFrame : ImageFrame;
+            out item correctedFrame : ImageFrame;
+        }
+
+        action reduceNoise {
+            in item correctedFrame : ImageFrame;
+            out item cleanFrame : ImageFrame;
+        }
+    }
+
+    part def FeatureExtractor {
+        attribute minimumEdgeGradient : ScalarValues::Real = 0.18;
+        attribute minimumBlobArea : ISQ::area = 0.04 [mm^2];
+        attribute featureVectorSize : ScalarValues::Integer = 256;
+
+        port imageIn : ImageInputPort;
+        port featureOut : FeatureOutputPort;
+
+        action extractFeatures {
+            in item cleanFrame : ImageFrame;
+            out item measuredFeatures : FeatureVector;
+        }
+    }
+
+    part def DefectClassifier {
+        attribute modelName : ScalarValues::String = "surface_defect_cnn_v4";
+        attribute minimumAcceptConfidence : ConfidenceScore = 0.93;
+        attribute inferenceLatencyLimit : Millisecond = 20;
+        attribute trainedDefectClasses : ScalarValues::Integer = 8;
+
+        port featureIn : FeatureInputPort;
+        port decisionOut : DecisionOutputPort;
+
+        action classifyFeatures {
+            in item measuredFeatures : FeatureVector;
+            out item inspectionResult : InspectionDecision;
+        }
+
+        state classifierState {
+            state loadingModel;
+            state ready;
+            state inferring;
+            state degraded;
+            state unavailable;
+
+            initial then loadingModel;
+
+            transition model_loaded
+                first loadingModel
+                then ready
+                after 500 [ms];
+
+            transition ready_to_inferring
+                first ready
+                then inferring
+                accept FeatureVector;
+
+            transition inference_complete
+                first inferring
+                then ready
+                after 20 [ms];
+
+            transition ready_to_degraded
+                first ready
+                then degraded
+                if minimumAcceptConfidence < 0.85;
+
+            transition degraded_to_unavailable
+                first degraded
+                then unavailable
+                accept ControlCommand
+                if command.commandName == "MODEL_UNAVAILABLE";
+        }
+    }
+
+    part def DecisionManager {
+        attribute rejectThreshold : ConfidenceScore = 0.90;
+        attribute maximumFalseAcceptRate : Percent = 0.1;
+        attribute maximumFalseRejectRate : Percent = 2.0;
+
+        port decisionIn : DecisionInputPort;
+        port commandOut : CommandOutputPort;
+
+        action evaluateDecision {
+            in item classifierDecision : InspectionDecision;
+            out item actuatorCommand : ControlCommand;
+        }
+
+        state decisionState {
+            state monitoring;
+            state acceptedPart;
+            state rejectedPart;
+            state reviewRequired;
+
+            initial then monitoring;
+
+            transition monitoring_to_accepted
+                first monitoring
+                then acceptedPart
+                accept InspectionDecision
+                if decision.accepted == true and decision.confidence >= 0.90;
+
+            transition monitoring_to_rejected
+                first monitoring
+                then rejectedPart
+                accept InspectionDecision
+                if decision.accepted == false and decision.confidence >= 0.90;
+
+            transition monitoring_to_review
+                first monitoring
+                then reviewRequired
+                accept InspectionDecision
+                if decision.confidence < 0.90;
+
+            transition accepted_to_monitoring
+                first acceptedPart
+                then monitoring
+                after 10 [ms];
+
+            transition rejected_to_monitoring
+                first rejectedPart
+                then monitoring
+                after 10 [ms];
+
+            transition review_to_monitoring
+                first reviewRequired
+                then monitoring
+                after 50 [ms];
+        }
+    }
+
+    part def RejectActuator {
+        attribute actuationDelay : Millisecond = 75;
+        attribute placementAccuracy : ISQ::length = 1.0 [mm];
+
+        port commandIn : CommandInputPort;
+
+        action divertRejectedPart {
+            in item rejectCommand : ControlCommand;
+        }
+
+        state actuatorState {
+            state standby;
+            state diverting;
+            state fault;
+
+            initial then standby;
+
+            transition standby_to_diverting
+                first standby
+                then diverting
+                accept ControlCommand
+                if command.commandName == "REJECT_PART";
+
+            transition diverting_to_standby
+                first diverting
+                then standby
+                after 75 [ms];
+
+            transition standby_to_fault
+                first standby
+                then fault
+                accept ControlCommand
+                if command.commandName == "ACTUATOR_FAULT";
+        }
+    }
+
+    part def OperatorInterface {
+        attribute displayRefreshRate : FramesPerSecond = 30;
+        attribute alarmAcknowledged : ScalarValues::Boolean = false;
+
+        port decisionIn : DecisionInputPort;
+        port commandOut : CommandOutputPort;
+
+        action displayInspectionResult {
+            in item result : InspectionDecision;
+        }
+
+        action issueOperatorCommand {
+            out item operatorCommand : ControlCommand;
+        }
+    }
+
+    part def MachineVisionInspectionCell {
+        attribute inspectedPartRate : FramesPerSecond = 20;
+        attribute minimumDetectionAccuracy : Percent = 99.5;
+        attribute maximumEndToEndLatency : Millisecond = 100;
+        attribute fieldOfViewWidth : ISQ::length = 120 [mm];
+        attribute fieldOfViewHeight : ISQ::length = 90 [mm];
+
+        port externalCommandIn : CommandInputPort;
+        port inspectionDecisionOut : DecisionOutputPort;
+
+        part lighting : IlluminationSubsystem;
+        part optics : LensAssembly;
+        part camera : CameraSensor;
+        part preprocessor : ImagePreprocessor;
+        part extractor : FeatureExtractor;
+        part classifier : DefectClassifier;
+        part decisionManager : DecisionManager;
+        part rejectActuator : RejectActuator;
+        part operatorInterface : OperatorInterface;
+
+        connection light_to_optics
+            connect lighting.opticalOut to optics.opticalIn;
+
+        connection optics_to_camera
+            connect optics.opticalOut to camera.opticalIn;
+
+        connection camera_to_preprocessor
+            connect camera.imageOut to preprocessor.imageIn;
+
+        connection preprocessor_to_extractor
+            connect preprocessor.imageOut to extractor.imageIn;
+
+        connection extractor_to_classifier
+            connect extractor.featureOut to classifier.featureIn;
+
+        connection classifier_to_decision
+            connect classifier.decisionOut to decisionManager.decisionIn;
+
+        connection classifier_to_operator
+            connect classifier.decisionOut to operatorInterface.decisionIn;
+
+        connection decision_to_reject
+            connect decisionManager.commandOut to rejectActuator.commandIn;
+
+        connection operator_to_lighting
+            connect operatorInterface.commandOut to lighting.commandIn;
+
+        connection operator_to_camera
+            connect operatorInterface.commandOut to camera.commandIn;
+
+        action performPrimaryInspectionFunction {
+            in item sceneImage : OpticalImage;
+            out item result : InspectionDecision;
+
+            action capture {
+                in item sceneImage : OpticalImage;
+                out item rawFrame : ImageFrame;
+            }
+
+            action preprocess {
+                in item rawFrame : ImageFrame;
+                out item cleanFrame : ImageFrame;
+            }
+
+            action analyze {
+                in item cleanFrame : ImageFrame;
+                out item features : FeatureVector;
+            }
+
+            action decide {
+                in item features : FeatureVector;
+                out item result : InspectionDecision;
+            }
+
+            flow capture.rawFrame to preprocess.rawFrame;
+            flow preprocess.cleanFrame to analyze.cleanFrame;
+            flow analyze.features to decide.features;
+        }
+
+        state inspectionCellState {
+            state poweredOff;
+            state initializing;
+            state ready;
+            state inspecting;
+            state rejecting;
+            state maintenance;
+            state fault;
+
+            initial then poweredOff;
+
+            transition power_on
+                first poweredOff
+                then initializing
+                accept ControlCommand
+                if command.commandName == "POWER_ON";
+
+            transition initialization_complete
+                first initializing
+                then ready
+                after 2 [s];
+
+            transition begin_inspection
+                first ready
+                then inspecting
+                accept ControlCommand
+                if command.commandName == "START_INSPECTION";
+
+            transition inspection_accept
+                first inspecting
+                then ready
+                accept InspectionDecision
+                if decision.accepted == true;
+
+            transition inspection_reject
+                first inspecting
+                then rejecting
+                accept InspectionDecision
+                if decision.accepted == false;
+
+            transition reject_complete
+                first rejecting
+                then ready
+                after 75 [ms];
+
+            transition ready_to_maintenance
+                first ready
+                then maintenance
+                accept ControlCommand
+                if command.commandName == "ENTER_MAINTENANCE";
+
+            transition maintenance_to_ready
+                first maintenance
+                then ready
+                accept ControlCommand
+                if command.commandName == "EXIT_MAINTENANCE";
+
+            transition any_fault
+                first ready
+                then fault
+                accept ControlCommand
+                if command.commandName == "SYSTEM_FAULT";
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The machine vision inspection system shall acquire optical images of manufactured parts, process the images, classify visible defects, and produce an accept/reject decision for each inspected part. */
+
+        subject system : MachineVisionInspectionCell;
+
+        require constraint {
+            system.inspectedPartRate >= 20 [frame/s]
+        }
+
+        require constraint {
+            system.maximumEndToEndLatency <= 100 [ms]
+        }
+
+        require constraint {
+            system.minimumDetectionAccuracy >= 99.5 [%]
+        }
+    }
+
+    requirement def ImageAcquisitionRequirement {
+        doc /* The camera subsystem shall capture each inspected part at sufficient resolution and frame rate to support reliable defect detection. */
+
+        subject camera : CameraSensor;
+
+        require constraint {
+            camera.sensorWidth >= 4096
+        }
+
+        require constraint {
+            camera.sensorHeight >= 3000
+        }
+
+        require constraint {
+            camera.maximumFrameRate >= 60 [frame/s]
+        }
+    }
+
+    requirement def IlluminationRequirement {
+        doc /* The illumination subsystem shall provide stable, uniform lighting over the entire field of view during image exposure. */
+
+        subject lighting : IlluminationSubsystem;
+
+        require constraint {
+            lighting.nominalIllumination >= 12000 [lx]
+        }
+
+        require constraint {
+            lighting.uniformity >= 90 [%]
+        }
+
+        require constraint {
+            lighting.strobePulseWidth <= 2 [ms]
+        }
+    }
+
+    requirement def ClassificationRequirement {
+        doc /* The classifier shall identify known defect classes and provide a confidence score for every inspection decision. */
+
+        subject classifier : DefectClassifier;
+
+        require constraint {
+            classifier.minimumAcceptConfidence >= 0.93
+        }
+
+        require constraint {
+            classifier.inferenceLatencyLimit <= 20 [ms]
+        }
+
+        require constraint {
+            classifier.trainedDefectClasses >= 8
+        }
+    }
+
+    requirement def RejectControlRequirement {
+        doc /* The reject actuator shall divert rejected parts within the conveyor timing window without affecting accepted parts. */
+
+        subject actuator : RejectActuator;
+
+        require constraint {
+            actuator.actuationDelay <= 75 [ms]
+        }
+
+        require constraint {
+            actuator.placementAccuracy <= 1 [mm]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MachineVisionInspectionCell;
+    satisfy ImageAcquisitionRequirement by CameraSensor;
+    satisfy IlluminationRequirement by IlluminationSubsystem;
+    satisfy ClassificationRequirement by DefectClassifier;
+    satisfy RejectControlRequirement by RejectActuator;
+
+    part inspectionCell : MachineVisionInspectionCell;
+
+}

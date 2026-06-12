@@ -1,0 +1,1105 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-_e78t26b
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb76a-a83c-7662-8903-810e89a36008
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Vehicular automation and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package VehicularAutomationSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  item def Energy {
+    attribute amount : Real;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+  }
+
+  item def VehicleMotionCommand {
+    attribute targetSpeed_mps : Real;
+    attribute targetAcceleration_mps2 : Real;
+    attribute targetSteeringAngle_rad : Real;
+    attribute targetYawRate_radps : Real;
+  }
+
+  item def PerceptionObject {
+    attribute objectId : Integer;
+    attribute range_m : Real;
+    attribute bearing_rad : Real;
+    attribute relativeSpeed_mps : Real;
+    attribute confidence : Real;
+  }
+
+  item def LaneModel {
+    attribute leftBoundaryOffset_m : Real;
+    attribute rightBoundaryOffset_m : Real;
+    attribute curvature_1pm : Real;
+    attribute confidence : Real;
+  }
+
+  item def VehiclePose {
+    attribute x_m : Real;
+    attribute y_m : Real;
+    attribute heading_rad : Real;
+    attribute speed_mps : Real;
+    attribute yawRate_radps : Real;
+  }
+
+  item def DriverIntent {
+    attribute automationEnabled : Boolean;
+    attribute desiredSpeed_mps : Real;
+    attribute laneChangeRequest : Boolean;
+    attribute emergencyOverride : Boolean;
+  }
+
+  value def Speed {
+    :> scalarValues::Real;
+    unit = "m/s";
+  }
+
+  value def Distance {
+    :> scalarValues::Real;
+    unit = "m";
+  }
+
+  value def Acceleration {
+    :> scalarValues::Real;
+    unit = "m/s^2";
+  }
+
+  value def Angle {
+    :> scalarValues::Real;
+    unit = "rad";
+  }
+
+  value def TimeDuration {
+    :> scalarValues::Real;
+    unit = "s";
+  }
+
+  value def Confidence {
+    :> scalarValues::Real;
+    unit = "1";
+  }
+
+  port def SensorDataPort {
+    out item objects : PerceptionObject[*];
+    out item lanes : LaneModel;
+    out item pose : VehiclePose;
+  }
+
+  port def DriverInterfacePort {
+    in item intent : DriverIntent;
+    out item statusText : String;
+    out item warningActive : Boolean;
+  }
+
+  port def MotionCommandPort {
+    out item command : VehicleMotionCommand;
+  }
+
+  port def ActuatorCommandPort {
+    in item command : VehicleMotionCommand;
+    out item actuatorHealthy : Boolean;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  part def VehicularAutomationSystem {
+    attribute primaryFunction : String = "Automate longitudinal and lateral vehicle motion by perceiving the road environment, planning a safe trajectory, and commanding propulsion, braking, and steering while allowing driver override.";
+    attribute maxAutomatedSpeed_mps : Speed = 33.3;
+    attribute minimumFollowingGap_s : TimeDuration = 2.0;
+    attribute minimumObjectConfidence : Confidence = 0.65;
+
+    port driverPort : DriverInterfacePort;
+    port vehiclePower : PowerPort;
+
+    part perception : PerceptionSubsystem;
+    part localization : LocalizationSubsystem;
+    part decisionController : AutomationController;
+    part motionPlanner : MotionPlanningSubsystem;
+    part actuation : VehicleActuationSubsystem;
+    part safetyMonitor : SafetySupervisionSubsystem;
+    part hmi : HumanMachineInterface;
+
+    connect vehiclePower to perception.power;
+    connect vehiclePower to localization.power;
+    connect vehiclePower to decisionController.power;
+    connect vehiclePower to motionPlanner.power;
+    connect vehiclePower to actuation.power;
+    connect vehiclePower to safetyMonitor.power;
+    connect driverPort to hmi.driverPort;
+
+    connect perception.sensorOutput to decisionController.sensorInput;
+    connect localization.poseOutput to decisionController.localizationInput;
+    connect decisionController.planRequest to motionPlanner.planInput;
+    connect motionPlanner.motionOutput to actuation.commandInput;
+    connect safetyMonitor.safeCommandOutput to actuation.commandInput;
+    connect hmi.intentOutput to decisionController.driverInput;
+    connect decisionController.statusOutput to hmi.statusInput;
+    connect perception.sensorOutput to safetyMonitor.sensorInput;
+    connect localization.poseOutput to safetyMonitor.poseInput;
+    connect motionPlanner.motionOutput to safetyMonitor.nominalCommandInput;
+
+    perform behavior AutomatedDrivingMission;
+  }
+
+  part def PerceptionSubsystem {
+    attribute cameraFrameRate_Hz : Real = 30.0;
+    attribute radarUpdateRate_Hz : Real = 20.0;
+    attribute lidarRange_m : Distance = 120.0;
+    attribute objectClassificationLatency_s : TimeDuration = 0.08;
+
+    port power : PowerPort;
+    port sensorOutput : SensorDataPort;
+
+    part forwardCamera : CameraSensor {
+      attribute fieldOfView_rad : Angle = 1.22;
+      attribute detectionRange_m : Distance = 90.0;
+    }
+
+    part frontRadar : RadarSensor {
+      attribute detectionRange_m : Distance = 180.0;
+      attribute rangeResolution_m : Distance = 0.25;
+    }
+
+    part roofLidar : LidarSensor {
+      attribute detectionRange_m : Distance = 120.0;
+      attribute angularResolution_rad : Angle = 0.0035;
+    }
+
+    action fuseSensorData {
+      in item cameraObjects : PerceptionObject[*];
+      in item radarObjects : PerceptionObject[*];
+      in item lidarObjects : PerceptionObject[*];
+      out item fusedObjects : PerceptionObject[*];
+      out item lanes : LaneModel;
+    }
+  }
+
+  part def LocalizationSubsystem {
+    attribute gnssUpdateRate_Hz : Real = 10.0;
+    attribute inertialUpdateRate_Hz : Real = 100.0;
+    attribute maxPoseError_m : Distance = 0.35;
+
+    port power : PowerPort;
+    port poseOutput {
+      out item pose : VehiclePose;
+    }
+
+    part gnssReceiver : PositionSensor;
+    part inertialMeasurementUnit : InertialSensor;
+    part wheelOdometry : WheelSpeedSensor;
+
+    action estimatePose {
+      in item gnssPose : VehiclePose;
+      in item inertialDelta : VehiclePose;
+      in item wheelSpeed_mps : Speed;
+      out item estimatedPose : VehiclePose;
+    }
+  }
+
+  part def AutomationController {
+    attribute enabled : Boolean = false;
+    attribute currentMode : String = "Manual";
+    attribute requestedCruiseSpeed_mps : Speed = 22.2;
+
+    port power : PowerPort;
+    port sensorInput : SensorDataPort;
+    port localizationInput {
+      in item pose : VehiclePose;
+    }
+    port driverInput {
+      in item intent : DriverIntent;
+    }
+    port planRequest {
+      out item targetPose : VehiclePose;
+      out item desiredSpeed_mps : Speed;
+      out item objects : PerceptionObject[*];
+      out item lane : LaneModel;
+    }
+    port statusOutput {
+      out item statusText : String;
+      out item warningActive : Boolean;
+    }
+
+    state def AutomationOperatingState {
+      entry action initializeController;
+
+      state Manual;
+      state Standby;
+      state AutomatedCruise;
+      state AutomatedLaneKeeping;
+      state DriverOverride;
+      state MinimumRiskManeuver;
+      state Faulted;
+
+      transition first Manual;
+
+      transition Manual_to_Standby
+        first Manual
+        then Standby
+        accept DriverIntent
+        if intent.automationEnabled and not intent.emergencyOverride;
+
+      transition Standby_to_AutomatedCruise
+        first Standby
+        then AutomatedCruise
+        if requestedCruiseSpeed_mps > 0.0;
+
+      transition AutomatedCruise_to_AutomatedLaneKeeping
+        first AutomatedCruise
+        then AutomatedLaneKeeping
+        if sensorInput::lanes.confidence >= 0.7;
+
+      transition AutomatedLaneKeeping_to_DriverOverride
+        first AutomatedLaneKeeping
+        then DriverOverride
+        accept DriverIntent
+        if intent.emergencyOverride;
+
+      transition AutomatedCruise_to_MinimumRiskManeuver
+        first AutomatedCruise
+        then MinimumRiskManeuver
+        if sensorInput::objects[0].range_m < 12.0;
+
+      transition AutomatedLaneKeeping_to_MinimumRiskManeuver
+        first AutomatedLaneKeeping
+        then MinimumRiskManeuver
+        if sensorInput::objects[0].range_m < 12.0;
+
+      transition MinimumRiskManeuver_to_Standby
+        first MinimumRiskManeuver
+        then Standby
+        if localizationInput::pose.speed_mps <= 0.5;
+
+      transition Standby_to_Faulted
+        first Standby
+        then Faulted
+        if not power::power.voltage > 9.0;
+
+      transition Faulted_to_Manual
+        first Faulted
+        then Manual
+        accept DriverIntent
+        if not intent.automationEnabled;
+    }
+
+    action evaluateDrivingContext {
+      in item objects : PerceptionObject[*];
+      in item lane : LaneModel;
+      in item pose : VehiclePose;
+      in item intent : DriverIntent;
+      out item targetPose : VehiclePose;
+      out item targetSpeed_mps : Speed;
+    }
+  }
+
+  part def MotionPlanningSubsystem {
+    attribute planningHorizon_s : TimeDuration = 5.0;
+    attribute replanningPeriod_s : TimeDuration = 0.05;
+    attribute maximumComfortAcceleration_mps2 : Acceleration = 2.0;
+    attribute maximumComfortDeceleration_mps2 : Acceleration = -3.0;
+    attribute maximumSteeringAngle_rad : Angle = 0.52;
+
+    port power : PowerPort;
+    port planInput {
+      in item targetPose : VehiclePose;
+      in item desiredSpeed_mps : Speed;
+      in item objects : PerceptionObject[*];
+      in item lane : LaneModel;
+    }
+    port motionOutput : MotionCommandPort;
+
+    action generateTrajectory {
+      in item pose : VehiclePose;
+      in item lane : LaneModel;
+      in item objects : PerceptionObject[*];
+      in item desiredSpeed_mps : Speed;
+      out item command : VehicleMotionCommand;
+    }
+  }
+
+  part def VehicleActuationSubsystem {
+    attribute throttleResponseTime_s : TimeDuration = 0.12;
+    attribute brakeResponseTime_s : TimeDuration = 0.10;
+    attribute steeringResponseTime_s : TimeDuration = 0.15;
+
+    port power : PowerPort;
+    port commandInput : ActuatorCommandPort;
+
+    part propulsionController : PropulsionController;
+    part brakeController : BrakeController;
+    part steeringController : SteeringController;
+
+    action applyMotionCommand {
+      in item command : VehicleMotionCommand;
+      out item actuatorHealthy : Boolean;
+    }
+  }
+
+  part def SafetySupervisionSubsystem {
+    attribute maximumAllowedAcceleration_mps2 : Acceleration = 3.0;
+    attribute maximumAllowedDeceleration_mps2 : Acceleration = -6.0;
+    attribute minimumObstacleRange_m : Distance = 8.0;
+    attribute watchdogTimeout_s : TimeDuration = 0.2;
+
+    port power : PowerPort;
+    port sensorInput : SensorDataPort;
+    port poseInput {
+      in item pose : VehiclePose;
+    }
+    port nominalCommandInput {
+      in item command : VehicleMotionCommand;
+    }
+    port safeCommandOutput : MotionCommandPort;
+
+    action validateCommand {
+      in item nominalCommand : VehicleMotionCommand;
+      in item nearestObject : PerceptionObject;
+      in item currentPose : VehiclePose;
+      out item safeCommand : VehicleMotionCommand;
+    }
+
+    state def SafetyState {
+      state Nominal;
+      state Degraded;
+      state EmergencyBraking;
+      state SafeStop;
+
+      transition first Nominal;
+
+      transition Nominal_to_Degraded
+        first Nominal
+        then Degraded
+        if sensorInput::lanes.confidence < 0.5;
+
+      transition Nominal_to_EmergencyBraking
+        first Nominal
+        then EmergencyBraking
+        if sensorInput::objects[0].range_m < minimumObstacleRange_m;
+
+      transition Degraded_to_SafeStop
+        first Degraded
+        then SafeStop
+        if poseInput::pose.speed_mps < 1.0;
+
+      transition EmergencyBraking_to_SafeStop
+        first EmergencyBraking
+        then SafeStop
+        if poseInput::pose.speed_mps <= 0.1;
+    }
+  }
+
+  part def HumanMachineInterface {
+    attribute displayRefreshRate_Hz : Real = 10.0;
+    attribute audibleWarningLevel_dBA : Real = 72.0;
+
+    port driverPort : DriverInterfacePort;
+    port intentOutput {
+      out item intent : DriverIntent;
+    }
+    port statusInput {
+      in item statusText : String;
+      in item warningActive : Boolean;
+    }
+
+    action presentAutomationStatus {
+      in item statusText : String;
+      in item warningActive : Boolean;
+      out item driverIntent : DriverIntent;
+    }
+  }
+
+  part def CameraSensor {
+    attribute fieldOfView_rad : Angle;
+    attribute detectionRange_m : Distance;
+    port power : PowerPort;
+  }
+
+  part def RadarSensor {
+    attribute detectionRange_m : Distance;
+    attribute rangeResolution_m : Distance;
+    port power : PowerPort;
+  }
+
+  part def LidarSensor {
+    attribute detectionRange_m : Distance;
+    attribute angularResolution_rad : Angle;
+    port power : PowerPort;
+  }
+
+  part def PositionSensor {
+    attribute horizontalAccuracy_m : Distance = 0.5;
+    port power : PowerPort;
+  }
+
+  part def InertialSensor {
+    attribute biasStability_radps : Real = 0.002;
+    port power : PowerPort;
+  }
+
+  part def WheelSpeedSensor {
+    attribute speedAccuracy_mps : Speed = 0.1;
+    port power : PowerPort;
+  }
+
+  part def PropulsionController {
+    attribute maximumDriveTorque_Nm : Real = 320.0;
+    port power : PowerPort;
+  }
+
+  part def BrakeController {
+    attribute maximumBrakePressure_bar : Real = 160.0;
+    port power : PowerPort;
+  }
+
+  part def SteeringController {
+    attribute maximumSteeringRate_radps : Real = 0.8;
+    port power : PowerPort;
+  }
+
+  action def AutomatedDrivingMission {
+    objective {
+      doc "Maintain a safe automated driving path by sensing the environment, estimating vehicle state, selecting an appropriate driving mode, planning motion, validating safety constraints, and commanding vehicle actuators."
+    }
+
+    first startAutomation;
+    then perceiveEnvironment;
+    then estimateVehicleState;
+    then decideDrivingMode;
+    then planVehicleMotion;
+    then superviseSafety;
+    then commandActuators;
+
+    action startAutomation;
+    action perceiveEnvironment;
+    action estimateVehicleState;
+    action decideDrivingMode;
+    action planVehicleMotion;
+    action superviseSafety;
+    action commandActuators;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The system shall provide vehicular automation that controls vehicle speed and lane position at a high level while monitoring the driving environment and preserving driver override authority."
+  }
+
+  requirement def PerceptionRequirement {
+    doc "The system shall detect forward objects within 120 m and estimate lane geometry with confidence values for automated motion planning."
+  }
+
+  requirement def LocalizationRequirement {
+    doc "The system shall estimate vehicle pose with lateral error less than or equal to 0.35 m during automated operation."
+  }
+
+  requirement def MotionPlanningRequirement {
+    doc "The system shall generate a motion command at least every 0.05 s using current pose, detected objects, lane geometry, and desired speed."
+  }
+
+  requirement def SafetyRequirement {
+    doc "The system shall replace a nominal command with a safe braking command when an obstacle is detected closer than 8 m in the vehicle path."
+  }
+
+  requirement def DriverOverrideRequirement {
+    doc "The system shall transition to DriverOverride or Manual mode when the driver requests emergency override."
+  }
+
+  satisfy PrimaryFunctionRequirement by VehicularAutomationSystem;
+  satisfy PerceptionRequirement by PerceptionSubsystem;
+  satisfy LocalizationRequirement by LocalizationSubsystem;
+  satisfy MotionPlanningRequirement by MotionPlanningSubsystem;
+  satisfy SafetyRequirement by SafetySupervisionSubsystem;
+  satisfy DriverOverrideRequirement by AutomationController;
+
+  package OperationalScenario {
+    part automatedPassengerVehicle : VehicularAutomationSystem {
+      attribute maxAutomatedSpeed_mps = 31.0;
+      attribute minimumFollowingGap_s = 2.2;
+    }
+
+    item egoPose : VehiclePose {
+      attribute x_m = 0.0;
+      attribute y_m = 0.0;
+      attribute heading_rad = 0.0;
+      attribute speed_mps = 22.0;
+      attribute yawRate_radps = 0.0;
+    }
+
+    item leadingVehicle : PerceptionObject {
+      attribute objectId = 101;
+      attribute range_m = 42.0;
+      attribute bearing_rad = 0.01;
+      attribute relativeSpeed_mps = -1.5;
+      attribute confidence = 0.92;
+    }
+
+    item detectedLane : LaneModel {
+      attribute leftBoundaryOffset_m = 1.85;
+      attribute rightBoundaryOffset_m = -1.85;
+      attribute curvature_1pm = 0.0008;
+      attribute confidence = 0.88;
+    }
+  }
+}
+tokens used
+4,106
+package VehicularAutomationSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  item def Energy {
+    attribute amount : Real;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+  }
+
+  item def VehicleMotionCommand {
+    attribute targetSpeed_mps : Real;
+    attribute targetAcceleration_mps2 : Real;
+    attribute targetSteeringAngle_rad : Real;
+    attribute targetYawRate_radps : Real;
+  }
+
+  item def PerceptionObject {
+    attribute objectId : Integer;
+    attribute range_m : Real;
+    attribute bearing_rad : Real;
+    attribute relativeSpeed_mps : Real;
+    attribute confidence : Real;
+  }
+
+  item def LaneModel {
+    attribute leftBoundaryOffset_m : Real;
+    attribute rightBoundaryOffset_m : Real;
+    attribute curvature_1pm : Real;
+    attribute confidence : Real;
+  }
+
+  item def VehiclePose {
+    attribute x_m : Real;
+    attribute y_m : Real;
+    attribute heading_rad : Real;
+    attribute speed_mps : Real;
+    attribute yawRate_radps : Real;
+  }
+
+  item def DriverIntent {
+    attribute automationEnabled : Boolean;
+    attribute desiredSpeed_mps : Real;
+    attribute laneChangeRequest : Boolean;
+    attribute emergencyOverride : Boolean;
+  }
+
+  value def Speed {
+    :> scalarValues::Real;
+    unit = "m/s";
+  }
+
+  value def Distance {
+    :> scalarValues::Real;
+    unit = "m";
+  }
+
+  value def Acceleration {
+    :> scalarValues::Real;
+    unit = "m/s^2";
+  }
+
+  value def Angle {
+    :> scalarValues::Real;
+    unit = "rad";
+  }
+
+  value def TimeDuration {
+    :> scalarValues::Real;
+    unit = "s";
+  }
+
+  value def Confidence {
+    :> scalarValues::Real;
+    unit = "1";
+  }
+
+  port def SensorDataPort {
+    out item objects : PerceptionObject[*];
+    out item lanes : LaneModel;
+    out item pose : VehiclePose;
+  }
+
+  port def DriverInterfacePort {
+    in item intent : DriverIntent;
+    out item statusText : String;
+    out item warningActive : Boolean;
+  }
+
+  port def MotionCommandPort {
+    out item command : VehicleMotionCommand;
+  }
+
+  port def ActuatorCommandPort {
+    in item command : VehicleMotionCommand;
+    out item actuatorHealthy : Boolean;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+  }
+
+  part def VehicularAutomationSystem {
+    attribute primaryFunction : String = "Automate longitudinal and lateral vehicle motion by perceiving the road environment, planning a safe trajectory, and commanding propulsion, braking, and steering while allowing driver override.";
+    attribute maxAutomatedSpeed_mps : Speed = 33.3;
+    attribute minimumFollowingGap_s : TimeDuration = 2.0;
+    attribute minimumObjectConfidence : Confidence = 0.65;
+
+    port driverPort : DriverInterfacePort;
+    port vehiclePower : PowerPort;
+
+    part perception : PerceptionSubsystem;
+    part localization : LocalizationSubsystem;
+    part decisionController : AutomationController;
+    part motionPlanner : MotionPlanningSubsystem;
+    part actuation : VehicleActuationSubsystem;
+    part safetyMonitor : SafetySupervisionSubsystem;
+    part hmi : HumanMachineInterface;
+
+    connect vehiclePower to perception.power;
+    connect vehiclePower to localization.power;
+    connect vehiclePower to decisionController.power;
+    connect vehiclePower to motionPlanner.power;
+    connect vehiclePower to actuation.power;
+    connect vehiclePower to safetyMonitor.power;
+    connect driverPort to hmi.driverPort;
+
+    connect perception.sensorOutput to decisionController.sensorInput;
+    connect localization.poseOutput to decisionController.localizationInput;
+    connect decisionController.planRequest to motionPlanner.planInput;
+    connect motionPlanner.motionOutput to actuation.commandInput;
+    connect safetyMonitor.safeCommandOutput to actuation.commandInput;
+    connect hmi.intentOutput to decisionController.driverInput;
+    connect decisionController.statusOutput to hmi.statusInput;
+    connect perception.sensorOutput to safetyMonitor.sensorInput;
+    connect localization.poseOutput to safetyMonitor.poseInput;
+    connect motionPlanner.motionOutput to safetyMonitor.nominalCommandInput;
+
+    perform behavior AutomatedDrivingMission;
+  }
+
+  part def PerceptionSubsystem {
+    attribute cameraFrameRate_Hz : Real = 30.0;
+    attribute radarUpdateRate_Hz : Real = 20.0;
+    attribute lidarRange_m : Distance = 120.0;
+    attribute objectClassificationLatency_s : TimeDuration = 0.08;
+
+    port power : PowerPort;
+    port sensorOutput : SensorDataPort;
+
+    part forwardCamera : CameraSensor {
+      attribute fieldOfView_rad : Angle = 1.22;
+      attribute detectionRange_m : Distance = 90.0;
+    }
+
+    part frontRadar : RadarSensor {
+      attribute detectionRange_m : Distance = 180.0;
+      attribute rangeResolution_m : Distance = 0.25;
+    }
+
+    part roofLidar : LidarSensor {
+      attribute detectionRange_m : Distance = 120.0;
+      attribute angularResolution_rad : Angle = 0.0035;
+    }
+
+    action fuseSensorData {
+      in item cameraObjects : PerceptionObject[*];
+      in item radarObjects : PerceptionObject[*];
+      in item lidarObjects : PerceptionObject[*];
+      out item fusedObjects : PerceptionObject[*];
+      out item lanes : LaneModel;
+    }
+  }
+
+  part def LocalizationSubsystem {
+    attribute gnssUpdateRate_Hz : Real = 10.0;
+    attribute inertialUpdateRate_Hz : Real = 100.0;
+    attribute maxPoseError_m : Distance = 0.35;
+
+    port power : PowerPort;
+    port poseOutput {
+      out item pose : VehiclePose;
+    }
+
+    part gnssReceiver : PositionSensor;
+    part inertialMeasurementUnit : InertialSensor;
+    part wheelOdometry : WheelSpeedSensor;
+
+    action estimatePose {
+      in item gnssPose : VehiclePose;
+      in item inertialDelta : VehiclePose;
+      in item wheelSpeed_mps : Speed;
+      out item estimatedPose : VehiclePose;
+    }
+  }
+
+  part def AutomationController {
+    attribute enabled : Boolean = false;
+    attribute currentMode : String = "Manual";
+    attribute requestedCruiseSpeed_mps : Speed = 22.2;
+
+    port power : PowerPort;
+    port sensorInput : SensorDataPort;
+    port localizationInput {
+      in item pose : VehiclePose;
+    }
+    port driverInput {
+      in item intent : DriverIntent;
+    }
+    port planRequest {
+      out item targetPose : VehiclePose;
+      out item desiredSpeed_mps : Speed;
+      out item objects : PerceptionObject[*];
+      out item lane : LaneModel;
+    }
+    port statusOutput {
+      out item statusText : String;
+      out item warningActive : Boolean;
+    }
+
+    state def AutomationOperatingState {
+      entry action initializeController;
+
+      state Manual;
+      state Standby;
+      state AutomatedCruise;
+      state AutomatedLaneKeeping;
+      state DriverOverride;
+      state MinimumRiskManeuver;
+      state Faulted;
+
+      transition first Manual;
+
+      transition Manual_to_Standby
+        first Manual
+        then Standby
+        accept DriverIntent
+        if intent.automationEnabled and not intent.emergencyOverride;
+
+      transition Standby_to_AutomatedCruise
+        first Standby
+        then AutomatedCruise
+        if requestedCruiseSpeed_mps > 0.0;
+
+      transition AutomatedCruise_to_AutomatedLaneKeeping
+        first AutomatedCruise
+        then AutomatedLaneKeeping
+        if sensorInput::lanes.confidence >= 0.7;
+
+      transition AutomatedLaneKeeping_to_DriverOverride
+        first AutomatedLaneKeeping
+        then DriverOverride
+        accept DriverIntent
+        if intent.emergencyOverride;
+
+      transition AutomatedCruise_to_MinimumRiskManeuver
+        first AutomatedCruise
+        then MinimumRiskManeuver
+        if sensorInput::objects[0].range_m < 12.0;
+
+      transition AutomatedLaneKeeping_to_MinimumRiskManeuver
+        first AutomatedLaneKeeping
+        then MinimumRiskManeuver
+        if sensorInput::objects[0].range_m < 12.0;
+
+      transition MinimumRiskManeuver_to_Standby
+        first MinimumRiskManeuver
+        then Standby
+        if localizationInput::pose.speed_mps <= 0.5;
+
+      transition Standby_to_Faulted
+        first Standby
+        then Faulted
+        if not power::power.voltage > 9.0;
+
+      transition Faulted_to_Manual
+        first Faulted
+        then Manual
+        accept DriverIntent
+        if not intent.automationEnabled;
+    }
+
+    action evaluateDrivingContext {
+      in item objects : PerceptionObject[*];
+      in item lane : LaneModel;
+      in item pose : VehiclePose;
+      in item intent : DriverIntent;
+      out item targetPose : VehiclePose;
+      out item targetSpeed_mps : Speed;
+    }
+  }
+
+  part def MotionPlanningSubsystem {
+    attribute planningHorizon_s : TimeDuration = 5.0;
+    attribute replanningPeriod_s : TimeDuration = 0.05;
+    attribute maximumComfortAcceleration_mps2 : Acceleration = 2.0;
+    attribute maximumComfortDeceleration_mps2 : Acceleration = -3.0;
+    attribute maximumSteeringAngle_rad : Angle = 0.52;
+
+    port power : PowerPort;
+    port planInput {
+      in item targetPose : VehiclePose;
+      in item desiredSpeed_mps : Speed;
+      in item objects : PerceptionObject[*];
+      in item lane : LaneModel;
+    }
+    port motionOutput : MotionCommandPort;
+
+    action generateTrajectory {
+      in item pose : VehiclePose;
+      in item lane : LaneModel;
+      in item objects : PerceptionObject[*];
+      in item desiredSpeed_mps : Speed;
+      out item command : VehicleMotionCommand;
+    }
+  }
+
+  part def VehicleActuationSubsystem {
+    attribute throttleResponseTime_s : TimeDuration = 0.12;
+    attribute brakeResponseTime_s : TimeDuration = 0.10;
+    attribute steeringResponseTime_s : TimeDuration = 0.15;
+
+    port power : PowerPort;
+    port commandInput : ActuatorCommandPort;
+
+    part propulsionController : PropulsionController;
+    part brakeController : BrakeController;
+    part steeringController : SteeringController;
+
+    action applyMotionCommand {
+      in item command : VehicleMotionCommand;
+      out item actuatorHealthy : Boolean;
+    }
+  }
+
+  part def SafetySupervisionSubsystem {
+    attribute maximumAllowedAcceleration_mps2 : Acceleration = 3.0;
+    attribute maximumAllowedDeceleration_mps2 : Acceleration = -6.0;
+    attribute minimumObstacleRange_m : Distance = 8.0;
+    attribute watchdogTimeout_s : TimeDuration = 0.2;
+
+    port power : PowerPort;
+    port sensorInput : SensorDataPort;
+    port poseInput {
+      in item pose : VehiclePose;
+    }
+    port nominalCommandInput {
+      in item command : VehicleMotionCommand;
+    }
+    port safeCommandOutput : MotionCommandPort;
+
+    action validateCommand {
+      in item nominalCommand : VehicleMotionCommand;
+      in item nearestObject : PerceptionObject;
+      in item currentPose : VehiclePose;
+      out item safeCommand : VehicleMotionCommand;
+    }
+
+    state def SafetyState {
+      state Nominal;
+      state Degraded;
+      state EmergencyBraking;
+      state SafeStop;
+
+      transition first Nominal;
+
+      transition Nominal_to_Degraded
+        first Nominal
+        then Degraded
+        if sensorInput::lanes.confidence < 0.5;
+
+      transition Nominal_to_EmergencyBraking
+        first Nominal
+        then EmergencyBraking
+        if sensorInput::objects[0].range_m < minimumObstacleRange_m;
+
+      transition Degraded_to_SafeStop
+        first Degraded
+        then SafeStop
+        if poseInput::pose.speed_mps < 1.0;
+
+      transition EmergencyBraking_to_SafeStop
+        first EmergencyBraking
+        then SafeStop
+        if poseInput::pose.speed_mps <= 0.1;
+    }
+  }
+
+  part def HumanMachineInterface {
+    attribute displayRefreshRate_Hz : Real = 10.0;
+    attribute audibleWarningLevel_dBA : Real = 72.0;
+
+    port driverPort : DriverInterfacePort;
+    port intentOutput {
+      out item intent : DriverIntent;
+    }
+    port statusInput {
+      in item statusText : String;
+      in item warningActive : Boolean;
+    }
+
+    action presentAutomationStatus {
+      in item statusText : String;
+      in item warningActive : Boolean;
+      out item driverIntent : DriverIntent;
+    }
+  }
+
+  part def CameraSensor {
+    attribute fieldOfView_rad : Angle;
+    attribute detectionRange_m : Distance;
+    port power : PowerPort;
+  }
+
+  part def RadarSensor {
+    attribute detectionRange_m : Distance;
+    attribute rangeResolution_m : Distance;
+    port power : PowerPort;
+  }
+
+  part def LidarSensor {
+    attribute detectionRange_m : Distance;
+    attribute angularResolution_rad : Angle;
+    port power : PowerPort;
+  }
+
+  part def PositionSensor {
+    attribute horizontalAccuracy_m : Distance = 0.5;
+    port power : PowerPort;
+  }
+
+  part def InertialSensor {
+    attribute biasStability_radps : Real = 0.002;
+    port power : PowerPort;
+  }
+
+  part def WheelSpeedSensor {
+    attribute speedAccuracy_mps : Speed = 0.1;
+    port power : PowerPort;
+  }
+
+  part def PropulsionController {
+    attribute maximumDriveTorque_Nm : Real = 320.0;
+    port power : PowerPort;
+  }
+
+  part def BrakeController {
+    attribute maximumBrakePressure_bar : Real = 160.0;
+    port power : PowerPort;
+  }
+
+  part def SteeringController {
+    attribute maximumSteeringRate_radps : Real = 0.8;
+    port power : PowerPort;
+  }
+
+  action def AutomatedDrivingMission {
+    objective {
+      doc "Maintain a safe automated driving path by sensing the environment, estimating vehicle state, selecting an appropriate driving mode, planning motion, validating safety constraints, and commanding vehicle actuators."
+    }
+
+    first startAutomation;
+    then perceiveEnvironment;
+    then estimateVehicleState;
+    then decideDrivingMode;
+    then planVehicleMotion;
+    then superviseSafety;
+    then commandActuators;
+
+    action startAutomation;
+    action perceiveEnvironment;
+    action estimateVehicleState;
+    action decideDrivingMode;
+    action planVehicleMotion;
+    action superviseSafety;
+    action commandActuators;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc "The system shall provide vehicular automation that controls vehicle speed and lane position at a high level while monitoring the driving environment and preserving driver override authority."
+  }
+
+  requirement def PerceptionRequirement {
+    doc "The system shall detect forward objects within 120 m and estimate lane geometry with confidence values for automated motion planning."
+  }
+
+  requirement def LocalizationRequirement {
+    doc "The system shall estimate vehicle pose with lateral error less than or equal to 0.35 m during automated operation."
+  }
+
+  requirement def MotionPlanningRequirement {
+    doc "The system shall generate a motion command at least every 0.05 s using current pose, detected objects, lane geometry, and desired speed."
+  }
+
+  requirement def SafetyRequirement {
+    doc "The system shall replace a nominal command with a safe braking command when an obstacle is detected closer than 8 m in the vehicle path."
+  }
+
+  requirement def DriverOverrideRequirement {
+    doc "The system shall transition to DriverOverride or Manual mode when the driver requests emergency override."
+  }
+
+  satisfy PrimaryFunctionRequirement by VehicularAutomationSystem;
+  satisfy PerceptionRequirement by PerceptionSubsystem;
+  satisfy LocalizationRequirement by LocalizationSubsystem;
+  satisfy MotionPlanningRequirement by MotionPlanningSubsystem;
+  satisfy SafetyRequirement by SafetySupervisionSubsystem;
+  satisfy DriverOverrideRequirement by AutomationController;
+
+  package OperationalScenario {
+    part automatedPassengerVehicle : VehicularAutomationSystem {
+      attribute maxAutomatedSpeed_mps = 31.0;
+      attribute minimumFollowingGap_s = 2.2;
+    }
+
+    item egoPose : VehiclePose {
+      attribute x_m = 0.0;
+      attribute y_m = 0.0;
+      attribute heading_rad = 0.0;
+      attribute speed_mps = 22.0;
+      attribute yawRate_radps = 0.0;
+    }
+
+    item leadingVehicle : PerceptionObject {
+      attribute objectId = 101;
+      attribute range_m = 42.0;
+      attribute bearing_rad = 0.01;
+      attribute relativeSpeed_mps = -1.5;
+      attribute confidence = 0.92;
+    }
+
+    item detectedLane : LaneModel {
+      attribute leftBoundaryOffset_m = 1.85;
+      attribute rightBoundaryOffset_m = -1.85;
+      attribute curvature_1pm = 0.0008;
+      attribute confidence = 0.88;
+    }
+  }
+}

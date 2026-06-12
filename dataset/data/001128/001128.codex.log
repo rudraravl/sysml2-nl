@@ -1,0 +1,1283 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-aytme9g1
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb588-6ad2-77b0-9c6b-121cc3712af7
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a sensing unit that measures the relevant quantity using a MEMS magnetic field sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MEMSMagneticFieldSensingUnit {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MagneticFluxDensity :> ISQ::magneticFluxDensity {
+        unit = SI::tesla;
+    }
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    attribute def SignalToNoiseRatio :> ScalarValues::Real {
+        unit = "dB";
+    }
+
+    item def MagneticFieldVector {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def RawSensorSample {
+        attribute xCount : DigitalCount;
+        attribute yCount : DigitalCount;
+        attribute zCount : DigitalCount;
+        attribute dieTemperature : Temperature;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def CalibratedMagneticField {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute magnitude : MagneticFluxDensity;
+        attribute heading : Angle;
+        attribute temperature : Temperature;
+        attribute valid : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def ConfigurationCommand {
+        attribute outputDataRate : Frequency;
+        attribute measurementRange : MagneticFluxDensity;
+        attribute lowPassCutoff : Frequency;
+        attribute enableSelfTest : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorReady : Boolean;
+        attribute adcReady : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute saturationDetected : Boolean;
+        attribute communicationFault : Boolean;
+        attribute supplyFault : Boolean;
+        attribute noiseLevel : SignalToNoiseRatio;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    port def MagneticFieldInputPort {
+        in item field : MagneticFieldVector;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def MagneticMeasurementOutputPort {
+        out item measurement : CalibratedMagneticField;
+    }
+
+    port def StatusOutputPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def MEMSMagneticFieldSensor {
+        attribute fullScaleRange : MagneticFluxDensity = 0.008 [SI::tesla];
+        attribute sensitivityX : Real = 163840.0;
+        attribute sensitivityY : Real = 163840.0;
+        attribute sensitivityZ : Real = 163840.0;
+        attribute offsetX : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute offsetY : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute offsetZ : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute noiseDensity : MagneticFluxDensity = 0.00000015 [SI::tesla];
+        attribute operatingTemperature : Temperature;
+
+        port magneticInput : MagneticFieldInputPort;
+        port electricalPower : PowerInputPort;
+        port rawSampleOut {
+            out item sample : RawSensorSample;
+        }
+        port healthOut : StatusOutputPort;
+
+        action senseMagneticField {
+            in item appliedField : MagneticFieldVector;
+            out item rawSample : RawSensorSample;
+
+            first start;
+            then transduceX;
+            then transduceY;
+            then transduceZ;
+            then compensateBridgeTemperature;
+            then emitRawSample;
+            then done;
+
+            action transduceX;
+            action transduceY;
+            action transduceZ;
+            action compensateBridgeTemperature;
+            action emitRawSample;
+        }
+
+        state sensorLifecycle {
+            state Off;
+            state PowerStabilizing;
+            state SelfTest;
+            state Ready;
+            state Measuring;
+            state Fault;
+
+            entry; then Off;
+
+            transition Off_to_PowerStabilizing
+                first Off
+                accept item power : ElectricalPower
+                if power.voltage >= 2.7 [SI::volt] and power.voltage <= 3.6 [SI::volt]
+                then PowerStabilizing;
+
+            transition PowerStabilizing_to_SelfTest
+                first PowerStabilizing
+                after 0.010 [SI::second]
+                then SelfTest;
+
+            transition SelfTest_to_Ready
+                first SelfTest
+                if healthOut.status.sensorReady
+                then Ready;
+
+            transition Ready_to_Measuring
+                first Ready
+                accept item field : MagneticFieldVector
+                then Measuring;
+
+            transition Measuring_to_Ready
+                first Measuring
+                after 0.002 [SI::second]
+                then Ready;
+
+            transition Any_to_Fault
+                first Off
+                if healthOut.status.supplyFault or healthOut.status.communicationFault
+                then Fault;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute bridgeBiasVoltage : ElectricPotential = 1.8 [SI::volt];
+        attribute antiAliasCutoff : Frequency = 400.0 [SI::hertz];
+        attribute gain : Real = 16.0;
+
+        port powerIn : PowerInputPort;
+        port rawSensorIn {
+            in item sample : RawSensorSample;
+        }
+        port conditionedSampleOut {
+            out item sample : RawSensorSample;
+        }
+
+        action conditionSignal {
+            in item raw : RawSensorSample;
+            out item conditioned : RawSensorSample;
+
+            first receiveRawCounts;
+            then rejectAliasedNoise;
+            then amplifyDifferentialSignal;
+            then outputConditionedCounts;
+            then done;
+
+            action receiveRawCounts;
+            action rejectAliasedNoise;
+            action amplifyDifferentialSignal;
+            action outputConditionedCounts;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 16;
+        attribute sampleRate : Frequency = 1000.0 [SI::hertz];
+        attribute referenceVoltage : ElectricPotential = 2.5 [SI::volt];
+
+        port analogSampleIn {
+            in item sample : RawSensorSample;
+        }
+        port digitalSampleOut {
+            out item sample : RawSensorSample;
+        }
+        port statusOut : StatusOutputPort;
+
+        action digitize {
+            in item analogSample : RawSensorSample;
+            out item digitalSample : RawSensorSample;
+
+            first sampleAndHold;
+            then quantizeX;
+            then quantizeY;
+            then quantizeZ;
+            then attachTimestamp;
+            then publishDigitalSample;
+            then done;
+
+            action sampleAndHold;
+            action quantizeX;
+            action quantizeY;
+            action quantizeZ;
+            action attachTimestamp;
+            action publishDigitalSample;
+        }
+    }
+
+    part def CalibrationProcessor {
+        attribute hardIronOffsetX : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute hardIronOffsetY : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute hardIronOffsetZ : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute softIronScaleX : Real = 1.0;
+        attribute softIronScaleY : Real = 1.0;
+        attribute softIronScaleZ : Real = 1.0;
+        attribute temperatureCoefficient : Real = 0.0008;
+
+        port digitalSampleIn {
+            in item sample : RawSensorSample;
+        }
+        port calibratedOut : MagneticMeasurementOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action calibrateAndEstimate {
+            in item raw : RawSensorSample;
+            out item calibrated : CalibratedMagneticField;
+
+            first convertCountsToFluxDensity;
+            then removeHardIronOffset;
+            then applySoftIronScale;
+            then compensateTemperatureDrift;
+            then computeMagnitude;
+            then computeHeading;
+            then validateRangeAndNoise;
+            then publishMeasurement;
+            then done;
+
+            action convertCountsToFluxDensity;
+            action removeHardIronOffset;
+            action applySoftIronScale;
+            action compensateTemperatureDrift;
+            action computeMagnitude;
+            action computeHeading;
+            action validateRangeAndNoise;
+            action publishMeasurement;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : ElectricPotential = 3.0 [SI::volt];
+        attribute inputVoltageMax : ElectricPotential = 5.5 [SI::volt];
+        attribute regulatedVoltage : ElectricPotential = 3.3 [SI::volt];
+        attribute maximumOutputCurrent : ElectricCurrent = 0.025 [SI::ampere];
+
+        port externalPower : PowerInputPort;
+        port regulatedPower {
+            out item power : ElectricalPower;
+        }
+        port statusOut : StatusOutputPort;
+
+        state regulatorState {
+            state Unpowered;
+            state Regulating;
+            state Brownout;
+            state OverCurrent;
+
+            entry; then Unpowered;
+
+            transition startRegulating
+                first Unpowered
+                accept item power : ElectricalPower
+                if power.voltage >= inputVoltageMin and power.voltage <= inputVoltageMax
+                then Regulating;
+
+            transition detectBrownout
+                first Regulating
+                if externalPower.power.voltage < inputVoltageMin
+                then Brownout;
+
+            transition detectOverCurrent
+                first Regulating
+                if regulatedPower.power.current > maximumOutputCurrent
+                then OverCurrent;
+
+            transition recover
+                first Brownout
+                accept item power : ElectricalPower
+                if power.voltage >= inputVoltageMin
+                then Regulating;
+        }
+    }
+
+    part def DigitalController {
+        attribute activeOutputDataRate : Frequency = 100.0 [SI::hertz];
+        attribute measurementRange : MagneticFluxDensity = 0.008 [SI::tesla];
+        attribute lowPassCutoff : Frequency = 40.0 [SI::hertz];
+        attribute warmupTime : TimeDuration = 0.025 [SI::second];
+
+        port configurationIn : ConfigurationPort;
+        port sampleIn {
+            in item measurement : CalibratedMagneticField;
+        }
+        port measurementOut : MagneticMeasurementOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action manageMeasurementCycle {
+            first initializeRegisters;
+            then waitForSensorReady;
+            then requestSample;
+            then receiveCalibratedField;
+            then applyOutputRateLimit;
+            then publishFieldMeasurement;
+            then done;
+
+            action initializeRegisters;
+            action waitForSensorReady;
+            action requestSample;
+            action receiveCalibratedField;
+            action applyOutputRateLimit;
+            action publishFieldMeasurement;
+        }
+
+        state controllerState {
+            state Boot;
+            state Configure;
+            state Idle;
+            state Acquire;
+            state Publish;
+            state Diagnostics;
+            state Fault;
+
+            entry; then Boot;
+
+            transition bootComplete
+                first Boot
+                after warmupTime
+                then Configure;
+
+            transition configured
+                first Configure
+                accept item command : ConfigurationCommand
+                then Idle;
+
+            transition acquireSample
+                first Idle
+                after 0.010 [SI::second]
+                then Acquire;
+
+            transition publishSample
+                first Acquire
+                accept item measurement : CalibratedMagneticField
+                if measurement.valid
+                then Publish;
+
+            transition publishComplete
+                first Publish
+                then Idle;
+
+            transition runDiagnostics
+                first Idle
+                after 1.000 [SI::second]
+                then Diagnostics;
+
+            transition diagnosticsComplete
+                first Diagnostics
+                then Idle;
+
+            transition controllerFault
+                first Acquire
+                if statusOut.status.communicationFault or statusOut.status.supplyFault
+                then Fault;
+        }
+    }
+
+    part def MagneticSensingUnit {
+        attribute specifiedRange : MagneticFluxDensity = 0.006 [SI::tesla];
+        attribute maximumTotalError : MagneticFluxDensity = 0.0000008 [SI::tesla];
+        attribute minimumOutputRate : Frequency = 50.0 [SI::hertz];
+        attribute maximumStartupTime : TimeDuration = 0.100 [SI::second];
+
+        port fieldInput : MagneticFieldInputPort;
+        port powerInput : PowerInputPort;
+        port configurationInput : ConfigurationPort;
+        port magneticMeasurementOutput : MagneticMeasurementOutputPort;
+        port diagnosticOutput : StatusOutputPort;
+
+        part regulator : PowerRegulator;
+        part memsSensor : MEMSMagneticFieldSensor;
+        part analogFrontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part calibrationProcessor : CalibrationProcessor;
+        part controller : DigitalController;
+
+        connect powerInput to regulator.externalPower;
+        connect regulator.regulatedPower to memsSensor.electricalPower;
+        connect regulator.regulatedPower to analogFrontEnd.powerIn;
+
+        connect fieldInput to memsSensor.magneticInput;
+        connect memsSensor.rawSampleOut to analogFrontEnd.rawSensorIn;
+        connect analogFrontEnd.conditionedSampleOut to adc.analogSampleIn;
+        connect adc.digitalSampleOut to calibrationProcessor.digitalSampleIn;
+        connect calibrationProcessor.calibratedOut to controller.sampleIn;
+        connect controller.measurementOut to magneticMeasurementOutput;
+
+        connect configurationInput to controller.configurationIn;
+
+        connect regulator.statusOut to diagnosticOutput;
+        connect memsSensor.healthOut to diagnosticOutput;
+        connect adc.statusOut to diagnosticOutput;
+        connect calibrationProcessor.statusOut to diagnosticOutput;
+        connect controller.statusOut to diagnosticOutput;
+
+        action measureMagneticField {
+            in item environmentalField : MagneticFieldVector;
+            in item supply : ElectricalPower;
+            in item configuration : ConfigurationCommand;
+            out item reportedField : CalibratedMagneticField;
+            out item diagnostic : DiagnosticStatus;
+
+            first applyPower;
+            then configureOutputRangeAndRate;
+            then stabilizeMEMSSensor;
+            then captureMagneticField;
+            then conditionAnalogResponse;
+            then digitizeResponse;
+            then calibrateFieldVector;
+            then verifyMeasurementQuality;
+            then publishMeasurementAndStatus;
+            then done;
+
+            action applyPower;
+            action configureOutputRangeAndRate;
+            action stabilizeMEMSSensor;
+            action captureMagneticField;
+            action conditionAnalogResponse;
+            action digitizeResponse;
+            action calibrateFieldVector;
+            action verifyMeasurementQuality;
+            action publishMeasurementAndStatus;
+        }
+
+        state unitOperationalState {
+            state Unpowered;
+            state Startup;
+            state Configured;
+            state Measuring;
+            state Reporting;
+            state Degraded;
+            state Failed;
+
+            entry; then Unpowered;
+
+            transition powerApplied
+                first Unpowered
+                accept item power : ElectricalPower
+                if power.voltage >= regulator.inputVoltageMin and power.voltage <= regulator.inputVoltageMax
+                then Startup;
+
+            transition startupComplete
+                first Startup
+                after maximumStartupTime
+                then Configured;
+
+            transition configurationAccepted
+                first Configured
+                accept item command : ConfigurationCommand
+                then Measuring;
+
+            transition sampleValid
+                first Measuring
+                accept item measurement : CalibratedMagneticField
+                if measurement.valid
+                then Reporting;
+
+            transition reportComplete
+                first Reporting
+                then Measuring;
+
+            transition saturationOrNoise
+                first Measuring
+                if diagnosticOutput.status.saturationDetected or diagnosticOutput.status.noiseLevel < 40.0
+                then Degraded;
+
+            transition degradedRecovered
+                first Degraded
+                if not diagnosticOutput.status.saturationDetected and diagnosticOutput.status.noiseLevel >= 40.0
+                then Measuring;
+
+            transition unrecoverableFault
+                first Startup
+                if diagnosticOutput.status.supplyFault or diagnosticOutput.status.communicationFault
+                then Failed;
+        }
+    }
+
+    requirement def MagneticFieldMeasurementRequirement {
+        subject sensingUnit : MagneticSensingUnit;
+
+        require constraint {
+            sensingUnit.specifiedRange >= 0.006 [SI::tesla]
+        }
+
+        require constraint {
+            sensingUnit.maximumTotalError <= 0.0000008 [SI::tesla]
+        }
+
+        require constraint {
+            sensingUnit.minimumOutputRate >= 50.0 [SI::hertz]
+        }
+    }
+
+    requirement def MEMSSensorRequirement {
+        subject sensor : MEMSMagneticFieldSensor;
+
+        require constraint {
+            sensor.fullScaleRange >= 0.006 [SI::tesla]
+        }
+
+        require constraint {
+            sensor.noiseDensity <= 0.0000002 [SI::tesla]
+        }
+    }
+
+    requirement def StartupRequirement {
+        subject sensingUnit : MagneticSensingUnit;
+
+        require constraint {
+            sensingUnit.maximumStartupTime <= 0.100 [SI::second]
+        }
+    }
+
+    requirement def SupplyRequirement {
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.inputVoltageMin <= 3.0 [SI::volt]
+        }
+
+        require constraint {
+            regulator.inputVoltageMax >= 5.0 [SI::volt]
+        }
+
+        require constraint {
+            regulator.regulatedVoltage == 3.3 [SI::volt]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : MagneticSensingUnit;
+
+        require constraint {
+            sensingUnit.diagnosticOutput.status.sensorReady implies
+            not sensingUnit.diagnosticOutput.status.supplyFault
+        }
+
+        require constraint {
+            sensingUnit.diagnosticOutput.status.calibrationValid implies
+            not sensingUnit.diagnosticOutput.status.saturationDetected
+        }
+    }
+
+    part magneticSensingUnit : MagneticSensingUnit;
+
+    requirement magneticMeasurementRequirement : MagneticFieldMeasurementRequirement {
+        subject sensingUnit = magneticSensingUnit;
+    }
+
+    requirement memsSensorRequirement : MEMSSensorRequirement {
+        subject sensor = magneticSensingUnit.memsSensor;
+    }
+
+    requirement startupRequirement : StartupRequirement {
+        subject sensingUnit = magneticSensingUnit;
+    }
+
+    requirement supplyRequirement : SupplyRequirement {
+        subject regulator = magneticSensingUnit.regulator;
+    }
+
+    requirement diagnosticRequirement : DiagnosticRequirement {
+        subject sensingUnit = magneticSensingUnit;
+    }
+
+    satisfy magneticMeasurementRequirement by magneticSensingUnit;
+    satisfy memsSensorRequirement by magneticSensingUnit.memsSensor;
+    satisfy startupRequirement by magneticSensingUnit;
+    satisfy supplyRequirement by magneticSensingUnit.regulator;
+    satisfy diagnosticRequirement by magneticSensingUnit;
+}
+tokens used
+4,370
+package MEMSMagneticFieldSensingUnit {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MagneticFluxDensity :> ISQ::magneticFluxDensity {
+        unit = SI::tesla;
+    }
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    attribute def SignalToNoiseRatio :> ScalarValues::Real {
+        unit = "dB";
+    }
+
+    item def MagneticFieldVector {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def RawSensorSample {
+        attribute xCount : DigitalCount;
+        attribute yCount : DigitalCount;
+        attribute zCount : DigitalCount;
+        attribute dieTemperature : Temperature;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def CalibratedMagneticField {
+        attribute bx : MagneticFluxDensity;
+        attribute by : MagneticFluxDensity;
+        attribute bz : MagneticFluxDensity;
+        attribute magnitude : MagneticFluxDensity;
+        attribute heading : Angle;
+        attribute temperature : Temperature;
+        attribute valid : Boolean;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def ConfigurationCommand {
+        attribute outputDataRate : Frequency;
+        attribute measurementRange : MagneticFluxDensity;
+        attribute lowPassCutoff : Frequency;
+        attribute enableSelfTest : Boolean;
+    }
+
+    item def DiagnosticStatus {
+        attribute sensorReady : Boolean;
+        attribute adcReady : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute saturationDetected : Boolean;
+        attribute communicationFault : Boolean;
+        attribute supplyFault : Boolean;
+        attribute noiseLevel : SignalToNoiseRatio;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    port def MagneticFieldInputPort {
+        in item field : MagneticFieldVector;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ConfigurationPort {
+        in item command : ConfigurationCommand;
+    }
+
+    port def MagneticMeasurementOutputPort {
+        out item measurement : CalibratedMagneticField;
+    }
+
+    port def StatusOutputPort {
+        out item status : DiagnosticStatus;
+    }
+
+    part def MEMSMagneticFieldSensor {
+        attribute fullScaleRange : MagneticFluxDensity = 0.008 [SI::tesla];
+        attribute sensitivityX : Real = 163840.0;
+        attribute sensitivityY : Real = 163840.0;
+        attribute sensitivityZ : Real = 163840.0;
+        attribute offsetX : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute offsetY : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute offsetZ : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute noiseDensity : MagneticFluxDensity = 0.00000015 [SI::tesla];
+        attribute operatingTemperature : Temperature;
+
+        port magneticInput : MagneticFieldInputPort;
+        port electricalPower : PowerInputPort;
+        port rawSampleOut {
+            out item sample : RawSensorSample;
+        }
+        port healthOut : StatusOutputPort;
+
+        action senseMagneticField {
+            in item appliedField : MagneticFieldVector;
+            out item rawSample : RawSensorSample;
+
+            first start;
+            then transduceX;
+            then transduceY;
+            then transduceZ;
+            then compensateBridgeTemperature;
+            then emitRawSample;
+            then done;
+
+            action transduceX;
+            action transduceY;
+            action transduceZ;
+            action compensateBridgeTemperature;
+            action emitRawSample;
+        }
+
+        state sensorLifecycle {
+            state Off;
+            state PowerStabilizing;
+            state SelfTest;
+            state Ready;
+            state Measuring;
+            state Fault;
+
+            entry; then Off;
+
+            transition Off_to_PowerStabilizing
+                first Off
+                accept item power : ElectricalPower
+                if power.voltage >= 2.7 [SI::volt] and power.voltage <= 3.6 [SI::volt]
+                then PowerStabilizing;
+
+            transition PowerStabilizing_to_SelfTest
+                first PowerStabilizing
+                after 0.010 [SI::second]
+                then SelfTest;
+
+            transition SelfTest_to_Ready
+                first SelfTest
+                if healthOut.status.sensorReady
+                then Ready;
+
+            transition Ready_to_Measuring
+                first Ready
+                accept item field : MagneticFieldVector
+                then Measuring;
+
+            transition Measuring_to_Ready
+                first Measuring
+                after 0.002 [SI::second]
+                then Ready;
+
+            transition Any_to_Fault
+                first Off
+                if healthOut.status.supplyFault or healthOut.status.communicationFault
+                then Fault;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        attribute bridgeBiasVoltage : ElectricPotential = 1.8 [SI::volt];
+        attribute antiAliasCutoff : Frequency = 400.0 [SI::hertz];
+        attribute gain : Real = 16.0;
+
+        port powerIn : PowerInputPort;
+        port rawSensorIn {
+            in item sample : RawSensorSample;
+        }
+        port conditionedSampleOut {
+            out item sample : RawSensorSample;
+        }
+
+        action conditionSignal {
+            in item raw : RawSensorSample;
+            out item conditioned : RawSensorSample;
+
+            first receiveRawCounts;
+            then rejectAliasedNoise;
+            then amplifyDifferentialSignal;
+            then outputConditionedCounts;
+            then done;
+
+            action receiveRawCounts;
+            action rejectAliasedNoise;
+            action amplifyDifferentialSignal;
+            action outputConditionedCounts;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 16;
+        attribute sampleRate : Frequency = 1000.0 [SI::hertz];
+        attribute referenceVoltage : ElectricPotential = 2.5 [SI::volt];
+
+        port analogSampleIn {
+            in item sample : RawSensorSample;
+        }
+        port digitalSampleOut {
+            out item sample : RawSensorSample;
+        }
+        port statusOut : StatusOutputPort;
+
+        action digitize {
+            in item analogSample : RawSensorSample;
+            out item digitalSample : RawSensorSample;
+
+            first sampleAndHold;
+            then quantizeX;
+            then quantizeY;
+            then quantizeZ;
+            then attachTimestamp;
+            then publishDigitalSample;
+            then done;
+
+            action sampleAndHold;
+            action quantizeX;
+            action quantizeY;
+            action quantizeZ;
+            action attachTimestamp;
+            action publishDigitalSample;
+        }
+    }
+
+    part def CalibrationProcessor {
+        attribute hardIronOffsetX : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute hardIronOffsetY : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute hardIronOffsetZ : MagneticFluxDensity = 0.0 [SI::tesla];
+        attribute softIronScaleX : Real = 1.0;
+        attribute softIronScaleY : Real = 1.0;
+        attribute softIronScaleZ : Real = 1.0;
+        attribute temperatureCoefficient : Real = 0.0008;
+
+        port digitalSampleIn {
+            in item sample : RawSensorSample;
+        }
+        port calibratedOut : MagneticMeasurementOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action calibrateAndEstimate {
+            in item raw : RawSensorSample;
+            out item calibrated : CalibratedMagneticField;
+
+            first convertCountsToFluxDensity;
+            then removeHardIronOffset;
+            then applySoftIronScale;
+            then compensateTemperatureDrift;
+            then computeMagnitude;
+            then computeHeading;
+            then validateRangeAndNoise;
+            then publishMeasurement;
+            then done;
+
+            action convertCountsToFluxDensity;
+            action removeHardIronOffset;
+            action applySoftIronScale;
+            action compensateTemperatureDrift;
+            action computeMagnitude;
+            action computeHeading;
+            action validateRangeAndNoise;
+            action publishMeasurement;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : ElectricPotential = 3.0 [SI::volt];
+        attribute inputVoltageMax : ElectricPotential = 5.5 [SI::volt];
+        attribute regulatedVoltage : ElectricPotential = 3.3 [SI::volt];
+        attribute maximumOutputCurrent : ElectricCurrent = 0.025 [SI::ampere];
+
+        port externalPower : PowerInputPort;
+        port regulatedPower {
+            out item power : ElectricalPower;
+        }
+        port statusOut : StatusOutputPort;
+
+        state regulatorState {
+            state Unpowered;
+            state Regulating;
+            state Brownout;
+            state OverCurrent;
+
+            entry; then Unpowered;
+
+            transition startRegulating
+                first Unpowered
+                accept item power : ElectricalPower
+                if power.voltage >= inputVoltageMin and power.voltage <= inputVoltageMax
+                then Regulating;
+
+            transition detectBrownout
+                first Regulating
+                if externalPower.power.voltage < inputVoltageMin
+                then Brownout;
+
+            transition detectOverCurrent
+                first Regulating
+                if regulatedPower.power.current > maximumOutputCurrent
+                then OverCurrent;
+
+            transition recover
+                first Brownout
+                accept item power : ElectricalPower
+                if power.voltage >= inputVoltageMin
+                then Regulating;
+        }
+    }
+
+    part def DigitalController {
+        attribute activeOutputDataRate : Frequency = 100.0 [SI::hertz];
+        attribute measurementRange : MagneticFluxDensity = 0.008 [SI::tesla];
+        attribute lowPassCutoff : Frequency = 40.0 [SI::hertz];
+        attribute warmupTime : TimeDuration = 0.025 [SI::second];
+
+        port configurationIn : ConfigurationPort;
+        port sampleIn {
+            in item measurement : CalibratedMagneticField;
+        }
+        port measurementOut : MagneticMeasurementOutputPort;
+        port statusOut : StatusOutputPort;
+
+        action manageMeasurementCycle {
+            first initializeRegisters;
+            then waitForSensorReady;
+            then requestSample;
+            then receiveCalibratedField;
+            then applyOutputRateLimit;
+            then publishFieldMeasurement;
+            then done;
+
+            action initializeRegisters;
+            action waitForSensorReady;
+            action requestSample;
+            action receiveCalibratedField;
+            action applyOutputRateLimit;
+            action publishFieldMeasurement;
+        }
+
+        state controllerState {
+            state Boot;
+            state Configure;
+            state Idle;
+            state Acquire;
+            state Publish;
+            state Diagnostics;
+            state Fault;
+
+            entry; then Boot;
+
+            transition bootComplete
+                first Boot
+                after warmupTime
+                then Configure;
+
+            transition configured
+                first Configure
+                accept item command : ConfigurationCommand
+                then Idle;
+
+            transition acquireSample
+                first Idle
+                after 0.010 [SI::second]
+                then Acquire;
+
+            transition publishSample
+                first Acquire
+                accept item measurement : CalibratedMagneticField
+                if measurement.valid
+                then Publish;
+
+            transition publishComplete
+                first Publish
+                then Idle;
+
+            transition runDiagnostics
+                first Idle
+                after 1.000 [SI::second]
+                then Diagnostics;
+
+            transition diagnosticsComplete
+                first Diagnostics
+                then Idle;
+
+            transition controllerFault
+                first Acquire
+                if statusOut.status.communicationFault or statusOut.status.supplyFault
+                then Fault;
+        }
+    }
+
+    part def MagneticSensingUnit {
+        attribute specifiedRange : MagneticFluxDensity = 0.006 [SI::tesla];
+        attribute maximumTotalError : MagneticFluxDensity = 0.0000008 [SI::tesla];
+        attribute minimumOutputRate : Frequency = 50.0 [SI::hertz];
+        attribute maximumStartupTime : TimeDuration = 0.100 [SI::second];
+
+        port fieldInput : MagneticFieldInputPort;
+        port powerInput : PowerInputPort;
+        port configurationInput : ConfigurationPort;
+        port magneticMeasurementOutput : MagneticMeasurementOutputPort;
+        port diagnosticOutput : StatusOutputPort;
+
+        part regulator : PowerRegulator;
+        part memsSensor : MEMSMagneticFieldSensor;
+        part analogFrontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part calibrationProcessor : CalibrationProcessor;
+        part controller : DigitalController;
+
+        connect powerInput to regulator.externalPower;
+        connect regulator.regulatedPower to memsSensor.electricalPower;
+        connect regulator.regulatedPower to analogFrontEnd.powerIn;
+
+        connect fieldInput to memsSensor.magneticInput;
+        connect memsSensor.rawSampleOut to analogFrontEnd.rawSensorIn;
+        connect analogFrontEnd.conditionedSampleOut to adc.analogSampleIn;
+        connect adc.digitalSampleOut to calibrationProcessor.digitalSampleIn;
+        connect calibrationProcessor.calibratedOut to controller.sampleIn;
+        connect controller.measurementOut to magneticMeasurementOutput;
+
+        connect configurationInput to controller.configurationIn;
+
+        connect regulator.statusOut to diagnosticOutput;
+        connect memsSensor.healthOut to diagnosticOutput;
+        connect adc.statusOut to diagnosticOutput;
+        connect calibrationProcessor.statusOut to diagnosticOutput;
+        connect controller.statusOut to diagnosticOutput;
+
+        action measureMagneticField {
+            in item environmentalField : MagneticFieldVector;
+            in item supply : ElectricalPower;
+            in item configuration : ConfigurationCommand;
+            out item reportedField : CalibratedMagneticField;
+            out item diagnostic : DiagnosticStatus;
+
+            first applyPower;
+            then configureOutputRangeAndRate;
+            then stabilizeMEMSSensor;
+            then captureMagneticField;
+            then conditionAnalogResponse;
+            then digitizeResponse;
+            then calibrateFieldVector;
+            then verifyMeasurementQuality;
+            then publishMeasurementAndStatus;
+            then done;
+
+            action applyPower;
+            action configureOutputRangeAndRate;
+            action stabilizeMEMSSensor;
+            action captureMagneticField;
+            action conditionAnalogResponse;
+            action digitizeResponse;
+            action calibrateFieldVector;
+            action verifyMeasurementQuality;
+            action publishMeasurementAndStatus;
+        }
+
+        state unitOperationalState {
+            state Unpowered;
+            state Startup;
+            state Configured;
+            state Measuring;
+            state Reporting;
+            state Degraded;
+            state Failed;
+
+            entry; then Unpowered;
+
+            transition powerApplied
+                first Unpowered
+                accept item power : ElectricalPower
+                if power.voltage >= regulator.inputVoltageMin and power.voltage <= regulator.inputVoltageMax
+                then Startup;
+
+            transition startupComplete
+                first Startup
+                after maximumStartupTime
+                then Configured;
+
+            transition configurationAccepted
+                first Configured
+                accept item command : ConfigurationCommand
+                then Measuring;
+
+            transition sampleValid
+                first Measuring
+                accept item measurement : CalibratedMagneticField
+                if measurement.valid
+                then Reporting;
+
+            transition reportComplete
+                first Reporting
+                then Measuring;
+
+            transition saturationOrNoise
+                first Measuring
+                if diagnosticOutput.status.saturationDetected or diagnosticOutput.status.noiseLevel < 40.0
+                then Degraded;
+
+            transition degradedRecovered
+                first Degraded
+                if not diagnosticOutput.status.saturationDetected and diagnosticOutput.status.noiseLevel >= 40.0
+                then Measuring;
+
+            transition unrecoverableFault
+                first Startup
+                if diagnosticOutput.status.supplyFault or diagnosticOutput.status.communicationFault
+                then Failed;
+        }
+    }
+
+    requirement def MagneticFieldMeasurementRequirement {
+        subject sensingUnit : MagneticSensingUnit;
+
+        require constraint {
+            sensingUnit.specifiedRange >= 0.006 [SI::tesla]
+        }
+
+        require constraint {
+            sensingUnit.maximumTotalError <= 0.0000008 [SI::tesla]
+        }
+
+        require constraint {
+            sensingUnit.minimumOutputRate >= 50.0 [SI::hertz]
+        }
+    }
+
+    requirement def MEMSSensorRequirement {
+        subject sensor : MEMSMagneticFieldSensor;
+
+        require constraint {
+            sensor.fullScaleRange >= 0.006 [SI::tesla]
+        }
+
+        require constraint {
+            sensor.noiseDensity <= 0.0000002 [SI::tesla]
+        }
+    }
+
+    requirement def StartupRequirement {
+        subject sensingUnit : MagneticSensingUnit;
+
+        require constraint {
+            sensingUnit.maximumStartupTime <= 0.100 [SI::second]
+        }
+    }
+
+    requirement def SupplyRequirement {
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.inputVoltageMin <= 3.0 [SI::volt]
+        }
+
+        require constraint {
+            regulator.inputVoltageMax >= 5.0 [SI::volt]
+        }
+
+        require constraint {
+            regulator.regulatedVoltage == 3.3 [SI::volt]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : MagneticSensingUnit;
+
+        require constraint {
+            sensingUnit.diagnosticOutput.status.sensorReady implies
+            not sensingUnit.diagnosticOutput.status.supplyFault
+        }
+
+        require constraint {
+            sensingUnit.diagnosticOutput.status.calibrationValid implies
+            not sensingUnit.diagnosticOutput.status.saturationDetected
+        }
+    }
+
+    part magneticSensingUnit : MagneticSensingUnit;
+
+    requirement magneticMeasurementRequirement : MagneticFieldMeasurementRequirement {
+        subject sensingUnit = magneticSensingUnit;
+    }
+
+    requirement memsSensorRequirement : MEMSSensorRequirement {
+        subject sensor = magneticSensingUnit.memsSensor;
+    }
+
+    requirement startupRequirement : StartupRequirement {
+        subject sensingUnit = magneticSensingUnit;
+    }
+
+    requirement supplyRequirement : SupplyRequirement {
+        subject regulator = magneticSensingUnit.regulator;
+    }
+
+    requirement diagnosticRequirement : DiagnosticRequirement {
+        subject sensingUnit = magneticSensingUnit;
+    }
+
+    satisfy magneticMeasurementRequirement by magneticSensingUnit;
+    satisfy memsSensorRequirement by magneticSensingUnit.memsSensor;
+    satisfy startupRequirement by magneticSensingUnit;
+    satisfy supplyRequirement by magneticSensingUnit.regulator;
+    satisfy diagnosticRequirement by magneticSensingUnit;
+}

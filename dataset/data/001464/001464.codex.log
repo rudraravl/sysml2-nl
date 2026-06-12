@@ -1,0 +1,839 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2vuo37oa
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6d1-6d70-7fb0-b819-ca4e6a6e7c44
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a ISSN and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ISSNBasedSerialIdentificationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ISSNText : String;
+    attribute def SerialTitleText : String;
+    attribute def PublisherNameText : String;
+    attribute def CountryCodeText : String;
+    attribute def URLText : String;
+
+    enum def MediumKind {
+        enum print;
+        enum online;
+        enum digitalFile;
+        enum microform;
+        enum other;
+    }
+
+    enum def ISSNValidationStatus {
+        enum unchecked;
+        enum valid;
+        enum invalidFormat;
+        enum invalidCheckDigit;
+        enum notRegistered;
+        enum registryUnavailable;
+    }
+
+    enum def IdentificationDecision {
+        enum accepted;
+        enum rejected;
+        enum manualReview;
+    }
+
+    item def ISSNIdentifier {
+        attribute issn : ISSNText;
+        attribute normalizedIssn : ISSNText;
+        attribute checkDigit : String;
+        attribute validationStatus : ISSNValidationStatus;
+    }
+
+    item def SerialPublicationRequest {
+        attribute submittedISSN : ISSNText;
+        attribute requestSource : String;
+        attribute submittedAt : Time;
+    }
+
+    item def SerialPublicationRecord {
+        attribute issn : ISSNText;
+        attribute keyTitle : SerialTitleText;
+        attribute publisher : PublisherNameText;
+        attribute countryCode : CountryCodeText;
+        attribute medium : MediumKind;
+        attribute registryURL : URLText;
+        attribute lastRegistryUpdate : Time;
+    }
+
+    item def IdentificationResult {
+        attribute issn : ISSNText;
+        attribute decision : IdentificationDecision;
+        attribute status : ISSNValidationStatus;
+        attribute matchedTitle : SerialTitleText;
+        attribute confidence : Real;
+        attribute explanation : String;
+    }
+
+    port def RequestPort {
+        in item request : SerialPublicationRequest;
+    }
+
+    port def ResultPort {
+        out item result : IdentificationResult;
+    }
+
+    port def RegistryQueryPort {
+        out item queryISSN : ISSNIdentifier;
+        in item registryRecord : SerialPublicationRecord;
+    }
+
+    port def AuditPort {
+        out item auditEvent : String;
+    }
+
+    part def ISSNInputInterface {
+        port requestPort : RequestPort;
+        port auditPort : AuditPort;
+
+        attribute acceptedRequests : Integer;
+        attribute rejectedRequests : Integer;
+
+        action receiveRequest {
+            in item rawRequest : SerialPublicationRequest;
+            out item acceptedRequest : SerialPublicationRequest;
+        }
+    }
+
+    part def ISSNNormalizer {
+        port auditPort : AuditPort;
+
+        attribute hyphenatedPattern : String = "[0-9]{4}-[0-9]{3}[0-9X]";
+        attribute compactPattern : String = "[0-9]{7}[0-9X]";
+
+        action normalizeISSN {
+            in item request : SerialPublicationRequest;
+            out item identifier : ISSNIdentifier;
+        }
+
+        action removeDecorators {
+            in attribute submittedISSN : ISSNText;
+            out attribute compactISSN : ISSNText;
+        }
+
+        action formatWithHyphen {
+            in attribute compactISSN : ISSNText;
+            out attribute normalizedISSN : ISSNText;
+        }
+    }
+
+    part def CheckDigitValidator {
+        port auditPort : AuditPort;
+
+        attribute modulus : Integer = 11;
+        attribute minimumLength : Integer = 8;
+        attribute maximumLength : Integer = 9;
+
+        action validateFormat {
+            in item identifier : ISSNIdentifier;
+            out item formattedIdentifier : ISSNIdentifier;
+        }
+
+        action computeCheckDigit {
+            in attribute sevenDigitPrefix : String;
+            out attribute expectedCheckDigit : String;
+        }
+
+        action compareCheckDigit {
+            in item identifier : ISSNIdentifier;
+            in attribute expectedCheckDigit : String;
+            out item validatedIdentifier : ISSNIdentifier;
+        }
+    }
+
+    part def ISSNRegistryClient {
+        port registryPort : RegistryQueryPort;
+        port auditPort : AuditPort;
+
+        attribute endpointURL : URLText;
+        attribute queryTimeout : Time;
+        attribute retryLimit : Integer = 2;
+        attribute registryAvailability : Boolean;
+
+        action queryRegistry {
+            in item identifier : ISSNIdentifier;
+            out item publicationRecord : SerialPublicationRecord;
+            out attribute status : ISSNValidationStatus;
+        }
+
+        action retryQuery {
+            in item identifier : ISSNIdentifier;
+            out item publicationRecord : SerialPublicationRecord;
+        }
+    }
+
+    part def PublicationMatcher {
+        port auditPort : AuditPort;
+
+        attribute acceptanceThreshold : Real = 0.95;
+        attribute reviewThreshold : Real = 0.75;
+
+        action compareRegistryRecord {
+            in item request : SerialPublicationRequest;
+            in item record : SerialPublicationRecord;
+            out attribute confidence : Real;
+        }
+
+        action decideIdentification {
+            in item identifier : ISSNIdentifier;
+            in item record : SerialPublicationRecord;
+            in attribute confidence : Real;
+            out item result : IdentificationResult;
+        }
+    }
+
+    part def ResultPublisher {
+        port resultPort : ResultPort;
+        port auditPort : AuditPort;
+
+        attribute resultsPublished : Integer;
+
+        action publishResult {
+            in item result : IdentificationResult;
+            out item publishedResult : IdentificationResult;
+        }
+    }
+
+    part def ISSNBasedSystem {
+        port requestPort : RequestPort;
+        port resultPort : ResultPort;
+        port registryPort : RegistryQueryPort;
+        port auditPort : AuditPort;
+
+        part inputInterface : ISSNInputInterface;
+        part normalizer : ISSNNormalizer;
+        part validator : CheckDigitValidator;
+        part registryClient : ISSNRegistryClient;
+        part matcher : PublicationMatcher;
+        part publisher : ResultPublisher;
+
+        attribute primaryFunction : String =
+            "Identify and describe a serial publication at a high level by accepting an ISSN, validating its structure and check digit, resolving the ISSN against a serial registry, and returning authoritative publication metadata.";
+
+        attribute operatingAvailabilityTarget : Real = 0.995;
+        attribute maximumIdentificationLatency : Time = 3 [s];
+        attribute minimumAcceptedConfidence : Real = 0.95;
+
+        connect requestPort to inputInterface.requestPort;
+        connect publisher.resultPort to resultPort;
+        connect registryClient.registryPort to registryPort;
+        connect inputInterface.auditPort to auditPort;
+        connect normalizer.auditPort to auditPort;
+        connect validator.auditPort to auditPort;
+        connect registryClient.auditPort to auditPort;
+        connect matcher.auditPort to auditPort;
+        connect publisher.auditPort to auditPort;
+
+        action identifySerialPublication {
+            in item request : SerialPublicationRequest;
+            out item result : IdentificationResult;
+
+            first start;
+            then inputInterface.receiveRequest;
+            then normalizer.normalizeISSN;
+            then validator.validateFormat;
+            then validator.computeCheckDigit;
+            then validator.compareCheckDigit;
+            then registryClient.queryRegistry;
+            then matcher.compareRegistryRecord;
+            then matcher.decideIdentification;
+            then publisher.publishResult;
+            then done;
+        }
+
+        state def IdentificationLifecycle {
+            entry action initialize {
+                out attribute initialized : Boolean;
+            }
+
+            state Idle;
+            state ReceivingRequest;
+            state NormalizingISSN;
+            state ValidatingCheckDigit;
+            state QueryingRegistry;
+            state MatchingPublication;
+            state PublishingAcceptedResult;
+            state PublishingRejectedResult;
+            state ManualReviewRequired;
+            state RegistryUnavailable;
+
+            transition initial then Idle;
+
+            transition Idle_to_Receiving
+                first Idle
+                accept SerialPublicationRequest
+                then ReceivingRequest;
+
+            transition Receiving_to_Normalizing
+                first ReceivingRequest
+                then NormalizingISSN;
+
+            transition Normalizing_to_Validating
+                first NormalizingISSN
+                then ValidatingCheckDigit;
+
+            transition InvalidFormat_to_Rejected
+                first ValidatingCheckDigit
+                if validationStatus == ISSNValidationStatus::invalidFormat
+                then PublishingRejectedResult;
+
+            transition InvalidDigit_to_Rejected
+                first ValidatingCheckDigit
+                if validationStatus == ISSNValidationStatus::invalidCheckDigit
+                then PublishingRejectedResult;
+
+            transition Valid_to_Querying
+                first ValidatingCheckDigit
+                if validationStatus == ISSNValidationStatus::valid
+                then QueryingRegistry;
+
+            transition RegistryDown
+                first QueryingRegistry
+                if validationStatus == ISSNValidationStatus::registryUnavailable
+                then RegistryUnavailable;
+
+            transition NotRegistered
+                first QueryingRegistry
+                if validationStatus == ISSNValidationStatus::notRegistered
+                then PublishingRejectedResult;
+
+            transition RegistryFound
+                first QueryingRegistry
+                then MatchingPublication;
+
+            transition Accepted
+                first MatchingPublication
+                if confidence >= minimumAcceptedConfidence
+                then PublishingAcceptedResult;
+
+            transition Review
+                first MatchingPublication
+                if confidence < minimumAcceptedConfidence and confidence >= 0.75
+                then ManualReviewRequired;
+
+            transition Rejected
+                first MatchingPublication
+                if confidence < 0.75
+                then PublishingRejectedResult;
+
+            transition AcceptedDone
+                first PublishingAcceptedResult
+                then Idle;
+
+            transition RejectedDone
+                first PublishingRejectedResult
+                then Idle;
+
+            transition ReviewDone
+                first ManualReviewRequired
+                then Idle;
+
+            transition RegistryUnavailableDone
+                first RegistryUnavailable
+                then Idle;
+        }
+    }
+
+    requirement def ISSNSystemRequirement {
+        subject system : ISSNBasedSystem;
+    }
+
+    requirement identifyByISSN : ISSNSystemRequirement {
+        doc
+            /* The system shall identify a serial publication using a submitted ISSN as the primary identifier. */
+        require constraint {
+            system.primaryFunction != "";
+        }
+    }
+
+    requirement validateISSNStructure : ISSNSystemRequirement {
+        doc
+            /* The system shall normalize submitted ISSNs and reject identifiers that do not conform to the ISSN format or check digit rule. */
+        require constraint {
+            system.validator.minimumLength == 8;
+        }
+    }
+
+    requirement resolveRegistryRecord : ISSNSystemRequirement {
+        doc
+            /* The system shall query an authoritative registry for a validated ISSN and return the associated serial publication record when available. */
+        require constraint {
+            system.registryClient.retryLimit >= 1;
+        }
+    }
+
+    requirement publishHighLevelDescription : ISSNSystemRequirement {
+        doc
+            /* The system shall return a high-level description containing ISSN, key title, publisher, country, medium, decision, validation status, and confidence. */
+        require constraint {
+            system.minimumAcceptedConfidence >= 0.90;
+        }
+    }
+
+    requirement latencyRequirement : ISSNSystemRequirement {
+        doc
+            /* The system shall complete normal identification within three seconds when the registry is available. */
+        require constraint {
+            system.maximumIdentificationLatency <= 3 [s];
+        }
+    }
+
+    requirement availabilityRequirement : ISSNSystemRequirement {
+        doc
+            /* The system shall meet an operating availability target of at least 99.5 percent. */
+        require constraint {
+            system.operatingAvailabilityTarget >= 0.995;
+        }
+    }
+
+    part serialIdentificationSystem : ISSNBasedSystem {
+        attribute primaryFunction =
+            "Provide authoritative high-level identification of a serial publication from its ISSN.";
+        attribute maximumIdentificationLatency = 3 [s];
+        attribute operatingAvailabilityTarget = 0.995;
+        attribute minimumAcceptedConfidence = 0.95;
+
+        part registryClient {
+            attribute endpointURL = "https://portal.issn.org/resource/ISSN/";
+            attribute queryTimeout = 2 [s];
+            attribute retryLimit = 2;
+            attribute registryAvailability = true;
+        }
+    }
+
+    satisfy identifyByISSN by serialIdentificationSystem;
+    satisfy validateISSNStructure by serialIdentificationSystem;
+    satisfy resolveRegistryRecord by serialIdentificationSystem;
+    satisfy publishHighLevelDescription by serialIdentificationSystem;
+    satisfy latencyRequirement by serialIdentificationSystem;
+    satisfy availabilityRequirement by serialIdentificationSystem;
+}
+tokens used
+4,010
+package ISSNBasedSerialIdentificationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def ISSNText : String;
+    attribute def SerialTitleText : String;
+    attribute def PublisherNameText : String;
+    attribute def CountryCodeText : String;
+    attribute def URLText : String;
+
+    enum def MediumKind {
+        enum print;
+        enum online;
+        enum digitalFile;
+        enum microform;
+        enum other;
+    }
+
+    enum def ISSNValidationStatus {
+        enum unchecked;
+        enum valid;
+        enum invalidFormat;
+        enum invalidCheckDigit;
+        enum notRegistered;
+        enum registryUnavailable;
+    }
+
+    enum def IdentificationDecision {
+        enum accepted;
+        enum rejected;
+        enum manualReview;
+    }
+
+    item def ISSNIdentifier {
+        attribute issn : ISSNText;
+        attribute normalizedIssn : ISSNText;
+        attribute checkDigit : String;
+        attribute validationStatus : ISSNValidationStatus;
+    }
+
+    item def SerialPublicationRequest {
+        attribute submittedISSN : ISSNText;
+        attribute requestSource : String;
+        attribute submittedAt : Time;
+    }
+
+    item def SerialPublicationRecord {
+        attribute issn : ISSNText;
+        attribute keyTitle : SerialTitleText;
+        attribute publisher : PublisherNameText;
+        attribute countryCode : CountryCodeText;
+        attribute medium : MediumKind;
+        attribute registryURL : URLText;
+        attribute lastRegistryUpdate : Time;
+    }
+
+    item def IdentificationResult {
+        attribute issn : ISSNText;
+        attribute decision : IdentificationDecision;
+        attribute status : ISSNValidationStatus;
+        attribute matchedTitle : SerialTitleText;
+        attribute confidence : Real;
+        attribute explanation : String;
+    }
+
+    port def RequestPort {
+        in item request : SerialPublicationRequest;
+    }
+
+    port def ResultPort {
+        out item result : IdentificationResult;
+    }
+
+    port def RegistryQueryPort {
+        out item queryISSN : ISSNIdentifier;
+        in item registryRecord : SerialPublicationRecord;
+    }
+
+    port def AuditPort {
+        out item auditEvent : String;
+    }
+
+    part def ISSNInputInterface {
+        port requestPort : RequestPort;
+        port auditPort : AuditPort;
+
+        attribute acceptedRequests : Integer;
+        attribute rejectedRequests : Integer;
+
+        action receiveRequest {
+            in item rawRequest : SerialPublicationRequest;
+            out item acceptedRequest : SerialPublicationRequest;
+        }
+    }
+
+    part def ISSNNormalizer {
+        port auditPort : AuditPort;
+
+        attribute hyphenatedPattern : String = "[0-9]{4}-[0-9]{3}[0-9X]";
+        attribute compactPattern : String = "[0-9]{7}[0-9X]";
+
+        action normalizeISSN {
+            in item request : SerialPublicationRequest;
+            out item identifier : ISSNIdentifier;
+        }
+
+        action removeDecorators {
+            in attribute submittedISSN : ISSNText;
+            out attribute compactISSN : ISSNText;
+        }
+
+        action formatWithHyphen {
+            in attribute compactISSN : ISSNText;
+            out attribute normalizedISSN : ISSNText;
+        }
+    }
+
+    part def CheckDigitValidator {
+        port auditPort : AuditPort;
+
+        attribute modulus : Integer = 11;
+        attribute minimumLength : Integer = 8;
+        attribute maximumLength : Integer = 9;
+
+        action validateFormat {
+            in item identifier : ISSNIdentifier;
+            out item formattedIdentifier : ISSNIdentifier;
+        }
+
+        action computeCheckDigit {
+            in attribute sevenDigitPrefix : String;
+            out attribute expectedCheckDigit : String;
+        }
+
+        action compareCheckDigit {
+            in item identifier : ISSNIdentifier;
+            in attribute expectedCheckDigit : String;
+            out item validatedIdentifier : ISSNIdentifier;
+        }
+    }
+
+    part def ISSNRegistryClient {
+        port registryPort : RegistryQueryPort;
+        port auditPort : AuditPort;
+
+        attribute endpointURL : URLText;
+        attribute queryTimeout : Time;
+        attribute retryLimit : Integer = 2;
+        attribute registryAvailability : Boolean;
+
+        action queryRegistry {
+            in item identifier : ISSNIdentifier;
+            out item publicationRecord : SerialPublicationRecord;
+            out attribute status : ISSNValidationStatus;
+        }
+
+        action retryQuery {
+            in item identifier : ISSNIdentifier;
+            out item publicationRecord : SerialPublicationRecord;
+        }
+    }
+
+    part def PublicationMatcher {
+        port auditPort : AuditPort;
+
+        attribute acceptanceThreshold : Real = 0.95;
+        attribute reviewThreshold : Real = 0.75;
+
+        action compareRegistryRecord {
+            in item request : SerialPublicationRequest;
+            in item record : SerialPublicationRecord;
+            out attribute confidence : Real;
+        }
+
+        action decideIdentification {
+            in item identifier : ISSNIdentifier;
+            in item record : SerialPublicationRecord;
+            in attribute confidence : Real;
+            out item result : IdentificationResult;
+        }
+    }
+
+    part def ResultPublisher {
+        port resultPort : ResultPort;
+        port auditPort : AuditPort;
+
+        attribute resultsPublished : Integer;
+
+        action publishResult {
+            in item result : IdentificationResult;
+            out item publishedResult : IdentificationResult;
+        }
+    }
+
+    part def ISSNBasedSystem {
+        port requestPort : RequestPort;
+        port resultPort : ResultPort;
+        port registryPort : RegistryQueryPort;
+        port auditPort : AuditPort;
+
+        part inputInterface : ISSNInputInterface;
+        part normalizer : ISSNNormalizer;
+        part validator : CheckDigitValidator;
+        part registryClient : ISSNRegistryClient;
+        part matcher : PublicationMatcher;
+        part publisher : ResultPublisher;
+
+        attribute primaryFunction : String =
+            "Identify and describe a serial publication at a high level by accepting an ISSN, validating its structure and check digit, resolving the ISSN against a serial registry, and returning authoritative publication metadata.";
+
+        attribute operatingAvailabilityTarget : Real = 0.995;
+        attribute maximumIdentificationLatency : Time = 3 [s];
+        attribute minimumAcceptedConfidence : Real = 0.95;
+
+        connect requestPort to inputInterface.requestPort;
+        connect publisher.resultPort to resultPort;
+        connect registryClient.registryPort to registryPort;
+        connect inputInterface.auditPort to auditPort;
+        connect normalizer.auditPort to auditPort;
+        connect validator.auditPort to auditPort;
+        connect registryClient.auditPort to auditPort;
+        connect matcher.auditPort to auditPort;
+        connect publisher.auditPort to auditPort;
+
+        action identifySerialPublication {
+            in item request : SerialPublicationRequest;
+            out item result : IdentificationResult;
+
+            first start;
+            then inputInterface.receiveRequest;
+            then normalizer.normalizeISSN;
+            then validator.validateFormat;
+            then validator.computeCheckDigit;
+            then validator.compareCheckDigit;
+            then registryClient.queryRegistry;
+            then matcher.compareRegistryRecord;
+            then matcher.decideIdentification;
+            then publisher.publishResult;
+            then done;
+        }
+
+        state def IdentificationLifecycle {
+            entry action initialize {
+                out attribute initialized : Boolean;
+            }
+
+            state Idle;
+            state ReceivingRequest;
+            state NormalizingISSN;
+            state ValidatingCheckDigit;
+            state QueryingRegistry;
+            state MatchingPublication;
+            state PublishingAcceptedResult;
+            state PublishingRejectedResult;
+            state ManualReviewRequired;
+            state RegistryUnavailable;
+
+            transition initial then Idle;
+
+            transition Idle_to_Receiving
+                first Idle
+                accept SerialPublicationRequest
+                then ReceivingRequest;
+
+            transition Receiving_to_Normalizing
+                first ReceivingRequest
+                then NormalizingISSN;
+
+            transition Normalizing_to_Validating
+                first NormalizingISSN
+                then ValidatingCheckDigit;
+
+            transition InvalidFormat_to_Rejected
+                first ValidatingCheckDigit
+                if validationStatus == ISSNValidationStatus::invalidFormat
+                then PublishingRejectedResult;
+
+            transition InvalidDigit_to_Rejected
+                first ValidatingCheckDigit
+                if validationStatus == ISSNValidationStatus::invalidCheckDigit
+                then PublishingRejectedResult;
+
+            transition Valid_to_Querying
+                first ValidatingCheckDigit
+                if validationStatus == ISSNValidationStatus::valid
+                then QueryingRegistry;
+
+            transition RegistryDown
+                first QueryingRegistry
+                if validationStatus == ISSNValidationStatus::registryUnavailable
+                then RegistryUnavailable;
+
+            transition NotRegistered
+                first QueryingRegistry
+                if validationStatus == ISSNValidationStatus::notRegistered
+                then PublishingRejectedResult;
+
+            transition RegistryFound
+                first QueryingRegistry
+                then MatchingPublication;
+
+            transition Accepted
+                first MatchingPublication
+                if confidence >= minimumAcceptedConfidence
+                then PublishingAcceptedResult;
+
+            transition Review
+                first MatchingPublication
+                if confidence < minimumAcceptedConfidence and confidence >= 0.75
+                then ManualReviewRequired;
+
+            transition Rejected
+                first MatchingPublication
+                if confidence < 0.75
+                then PublishingRejectedResult;
+
+            transition AcceptedDone
+                first PublishingAcceptedResult
+                then Idle;
+
+            transition RejectedDone
+                first PublishingRejectedResult
+                then Idle;
+
+            transition ReviewDone
+                first ManualReviewRequired
+                then Idle;
+
+            transition RegistryUnavailableDone
+                first RegistryUnavailable
+                then Idle;
+        }
+    }
+
+    requirement def ISSNSystemRequirement {
+        subject system : ISSNBasedSystem;
+    }
+
+    requirement identifyByISSN : ISSNSystemRequirement {
+        doc
+            /* The system shall identify a serial publication using a submitted ISSN as the primary identifier. */
+        require constraint {
+            system.primaryFunction != "";
+        }
+    }
+
+    requirement validateISSNStructure : ISSNSystemRequirement {
+        doc
+            /* The system shall normalize submitted ISSNs and reject identifiers that do not conform to the ISSN format or check digit rule. */
+        require constraint {
+            system.validator.minimumLength == 8;
+        }
+    }
+
+    requirement resolveRegistryRecord : ISSNSystemRequirement {
+        doc
+            /* The system shall query an authoritative registry for a validated ISSN and return the associated serial publication record when available. */
+        require constraint {
+            system.registryClient.retryLimit >= 1;
+        }
+    }
+
+    requirement publishHighLevelDescription : ISSNSystemRequirement {
+        doc
+            /* The system shall return a high-level description containing ISSN, key title, publisher, country, medium, decision, validation status, and confidence. */
+        require constraint {
+            system.minimumAcceptedConfidence >= 0.90;
+        }
+    }
+
+    requirement latencyRequirement : ISSNSystemRequirement {
+        doc
+            /* The system shall complete normal identification within three seconds when the registry is available. */
+        require constraint {
+            system.maximumIdentificationLatency <= 3 [s];
+        }
+    }
+
+    requirement availabilityRequirement : ISSNSystemRequirement {
+        doc
+            /* The system shall meet an operating availability target of at least 99.5 percent. */
+        require constraint {
+            system.operatingAvailabilityTarget >= 0.995;
+        }
+    }
+
+    part serialIdentificationSystem : ISSNBasedSystem {
+        attribute primaryFunction =
+            "Provide authoritative high-level identification of a serial publication from its ISSN.";
+        attribute maximumIdentificationLatency = 3 [s];
+        attribute operatingAvailabilityTarget = 0.995;
+        attribute minimumAcceptedConfidence = 0.95;
+
+        part registryClient {
+            attribute endpointURL = "https://portal.issn.org/resource/ISSN/";
+            attribute queryTimeout = 2 [s];
+            attribute retryLimit = 2;
+            attribute registryAvailability = true;
+        }
+    }
+
+    satisfy identifyByISSN by serialIdentificationSystem;
+    satisfy validateISSNStructure by serialIdentificationSystem;
+    satisfy resolveRegistryRecord by serialIdentificationSystem;
+    satisfy publishHighLevelDescription by serialIdentificationSystem;
+    satisfy latencyRequirement by serialIdentificationSystem;
+    satisfy availabilityRequirement by serialIdentificationSystem;
+}

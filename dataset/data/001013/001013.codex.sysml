@@ -1,0 +1,347 @@
+package CompressiveSensingSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def FrequencyValue {
+        attribute value: Real;
+        attribute unit: String = "Hz";
+    }
+
+    attribute def DataRateValue {
+        attribute value: Real;
+        attribute unit: String = "bit/s";
+    }
+
+    attribute def PowerValue {
+        attribute value: Real;
+        attribute unit: String = "W";
+    }
+
+    attribute def TimeValue {
+        attribute value: Real;
+        attribute unit: String = "s";
+    }
+
+    attribute def RatioValue {
+        attribute value: Real;
+        attribute unit: String = "1";
+    }
+
+    attribute def CountValue {
+        attribute value: Integer;
+        attribute unit: String = "count";
+    }
+
+    item def AnalogSignal {
+        attribute bandwidth: FrequencyValue;
+        attribute amplitudeRms: Real;
+        attribute sparsityRatio: RatioValue;
+    }
+
+    item def SparseSignal {
+        attribute ambientDimension: CountValue;
+        attribute sparsityLevel: CountValue;
+        attribute basisName: String;
+    }
+
+    item def MeasurementVector {
+        attribute measurementCount: CountValue;
+        attribute quantizationBits: CountValue;
+        attribute samplingRate: FrequencyValue;
+    }
+
+    item def RandomProjectionMatrix {
+        attribute rows: CountValue;
+        attribute columns: CountValue;
+        attribute coherenceLimit: RatioValue;
+        attribute seed: Integer;
+    }
+
+    item def ReconstructedSignal {
+        attribute reconstructionError: RatioValue;
+        attribute recoveredDimension: CountValue;
+        attribute confidence: RatioValue;
+    }
+
+    item def DiagnosticReport {
+        attribute snrEstimateDb: Real;
+        attribute compressionRatio: RatioValue;
+        attribute latency: TimeValue;
+        attribute statusCode: Integer;
+    }
+
+    port def AnalogInputPort {
+        in item signal: AnalogSignal;
+    }
+
+    port def MeasurementPort {
+        out item measurements: MeasurementVector;
+    }
+
+    port def MatrixPort {
+        out item matrix: RandomProjectionMatrix;
+    }
+
+    port def ReconstructionInputPort {
+        in item measurements: MeasurementVector;
+        in item matrix: RandomProjectionMatrix;
+    }
+
+    port def ReconstructionOutputPort {
+        out item reconstructed: ReconstructedSignal;
+    }
+
+    port def DiagnosticPort {
+        out item report: DiagnosticReport;
+    }
+
+    port def ControlPort {
+        in item targetCompressionRatio: RatioValue;
+        in item targetErrorBound: RatioValue;
+    }
+
+    interface def MeasurementTransfer {
+        end source: MeasurementPort;
+        end sink: ReconstructionInputPort;
+    }
+
+    interface def MatrixTransfer {
+        end source: MatrixPort;
+        end sink: ReconstructionInputPort;
+    }
+
+    action def AcquireAnalogSignal {
+        in item inputSignal: AnalogSignal;
+        out item sparseRepresentation: SparseSignal;
+    }
+
+    action def GenerateRandomProjection {
+        in attribute ambientDimension: CountValue;
+        in attribute measurementCount: CountValue;
+        out item projectionMatrix: RandomProjectionMatrix;
+    }
+
+    action def CompressiveSample {
+        in item sparseRepresentation: SparseSignal;
+        in item projectionMatrix: RandomProjectionMatrix;
+        out item measurements: MeasurementVector;
+    }
+
+    action def ReconstructSparseSignal {
+        in item measurements: MeasurementVector;
+        in item projectionMatrix: RandomProjectionMatrix;
+        out item reconstructedSignal: ReconstructedSignal;
+    }
+
+    action def EvaluateReconstruction {
+        in item reconstructedSignal: ReconstructedSignal;
+        out item diagnostics: DiagnosticReport;
+    }
+
+    state def CompressiveSensingOperationalState {
+        state idle;
+        state calibrating;
+        state sensing;
+        state projecting;
+        state reconstructing;
+        state reporting;
+        state fault;
+
+        transition idle_to_calibrating
+            first idle
+            then calibrating;
+
+        transition calibrating_to_sensing
+            first calibrating
+            then sensing;
+
+        transition sensing_to_projecting
+            first sensing
+            then projecting;
+
+        transition projecting_to_reconstructing
+            first projecting
+            then reconstructing;
+
+        transition reconstructing_to_reporting
+            first reconstructing
+            then reporting;
+
+        transition reporting_to_sensing
+            first reporting
+            then sensing;
+
+        transition sensing_to_fault
+            first sensing
+            then fault;
+
+        transition reconstructing_to_fault
+            first reconstructing
+            then fault;
+    }
+
+    part def AnalogFrontEnd {
+        port analogIn: AnalogInputPort;
+        port sparseOut: MeasurementPort;
+
+        attribute inputBandwidth: FrequencyValue = (value = 20000000.0; unit = "Hz");
+        attribute antiAliasCutoff: FrequencyValue = (value = 22000000.0; unit = "Hz");
+        attribute noiseFigureDb: Real = 3.2;
+        attribute powerDraw: PowerValue = (value = 1.8; unit = "W");
+
+        perform action acquire: AcquireAnalogSignal;
+    }
+
+    part def ProjectionEngine {
+        port matrixOut: MatrixPort;
+        port measurementOut: MeasurementPort;
+
+        attribute ambientDimension: CountValue = (value = 4096; unit = "count");
+        attribute measurementCount: CountValue = (value = 768; unit = "count");
+        attribute compressionRatio: RatioValue = (value = 0.1875; unit = "1");
+        attribute projectionUpdatePeriod: TimeValue = (value = 0.5; unit = "s");
+        attribute powerDraw: PowerValue = (value = 2.4; unit = "W");
+
+        perform action generateProjection: GenerateRandomProjection;
+        perform action sample: CompressiveSample;
+    }
+
+    part def Quantizer {
+        port measurementIn: ReconstructionInputPort;
+        port measurementOut: MeasurementPort;
+
+        attribute resolutionBits: CountValue = (value = 12; unit = "count");
+        attribute outputDataRate: DataRateValue = (value = 18432000.0; unit = "bit/s");
+        attribute quantizationNoiseDb: Real = -72.0;
+        attribute powerDraw: PowerValue = (value = 0.9; unit = "W");
+    }
+
+    part def SparseRecoveryProcessor {
+        port recoveryIn: ReconstructionInputPort;
+        port recoveredOut: ReconstructionOutputPort;
+        port diagnostics: DiagnosticPort;
+
+        attribute algorithm: String = "basis pursuit denoising with iterative threshold refinement";
+        attribute maxIterations: CountValue = (value = 120; unit = "count");
+        attribute convergenceTolerance: RatioValue = (value = 0.0005; unit = "1");
+        attribute maximumLatency: TimeValue = (value = 0.075; unit = "s");
+        attribute powerDraw: PowerValue = (value = 6.5; unit = "W");
+
+        perform action reconstruct: ReconstructSparseSignal;
+        perform action evaluate: EvaluateReconstruction;
+    }
+
+    part def ControlAndCalibrationUnit {
+        port controlIn: ControlPort;
+        port diagnostics: DiagnosticPort;
+
+        attribute selectedBasis: String = "wavelet";
+        attribute targetCompressionRatio: RatioValue = (value = 0.20; unit = "1");
+        attribute targetReconstructionError: RatioValue = (value = 0.03; unit = "1");
+        attribute calibrationInterval: TimeValue = (value = 30.0; unit = "s");
+        attribute powerDraw: PowerValue = (value = 1.1; unit = "W");
+    }
+
+    part def CompressiveSensingSystem {
+        doc
+        /* Primary function: acquire a high-bandwidth signal that is sparse in a known transform basis, collect far fewer randomized linear measurements than required by Nyquist sampling, and reconstruct the original information-bearing signal with bounded error. */
+
+        part frontEnd: AnalogFrontEnd;
+        part projectionEngine: ProjectionEngine;
+        part quantizer: Quantizer;
+        part recoveryProcessor: SparseRecoveryProcessor;
+        part controller: ControlAndCalibrationUnit;
+
+        port analogInput: AnalogInputPort;
+        port reconstructedOutput: ReconstructionOutputPort;
+        port diagnosticOutput: DiagnosticPort;
+        port controlInput: ControlPort;
+
+        attribute totalPowerBudget: PowerValue = (value = 15.0; unit = "W");
+        attribute endToEndLatencyLimit: TimeValue = (value = 0.100; unit = "s");
+        attribute minimumCompressionRatio: RatioValue = (value = 0.10; unit = "1");
+        attribute maximumCompressionRatio: RatioValue = (value = 0.30; unit = "1");
+        attribute requiredRecoveryConfidence: RatioValue = (value = 0.95; unit = "1");
+
+        exhibit state operationalState: CompressiveSensingOperationalState;
+
+        connect analogInput to frontEnd.analogIn;
+        connect frontEnd.sparseOut to projectionEngine.measurementOut;
+        connect projectionEngine.measurementOut to quantizer.measurementIn;
+        connect projectionEngine.matrixOut to recoveryProcessor.recoveryIn;
+        connect quantizer.measurementOut to recoveryProcessor.recoveryIn;
+        connect recoveryProcessor.recoveredOut to reconstructedOutput;
+        connect recoveryProcessor.diagnostics to diagnosticOutput;
+        connect controlInput to controller.controlIn;
+        connect controller.diagnostics to diagnosticOutput;
+    }
+
+    requirement def HighLevelCompressiveSensingFunction {
+        subject system: CompressiveSensingSystem;
+
+        doc
+        /* The system shall transform sparse analog input information into compressed random measurements and recover a digital signal estimate while preserving the information content needed by downstream consumers. */
+
+        require constraint {
+            system.minimumCompressionRatio.value <= system.projectionEngine.compressionRatio.value and
+            system.projectionEngine.compressionRatio.value <= system.maximumCompressionRatio.value
+        }
+    }
+
+    requirement def ReconstructionAccuracyRequirement {
+        subject system: CompressiveSensingSystem;
+
+        require constraint {
+            system.controller.targetReconstructionError.value <= 0.03 and
+            system.requiredRecoveryConfidence.value >= 0.95
+        }
+    }
+
+    requirement def LatencyRequirement {
+        subject system: CompressiveSensingSystem;
+
+        require constraint {
+            system.recoveryProcessor.maximumLatency.value <= system.endToEndLatencyLimit.value
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject system: CompressiveSensingSystem;
+
+        require constraint {
+            system.frontEnd.powerDraw.value +
+            system.projectionEngine.powerDraw.value +
+            system.quantizer.powerDraw.value +
+            system.recoveryProcessor.powerDraw.value +
+            system.controller.powerDraw.value
+            <= system.totalPowerBudget.value
+        }
+    }
+
+    requirement def MeasurementEfficiencyRequirement {
+        subject system: CompressiveSensingSystem;
+
+        require constraint {
+            system.projectionEngine.measurementCount.value < system.projectionEngine.ambientDimension.value and
+            system.projectionEngine.measurementCount.value >= 4 * 64
+        }
+    }
+
+    requirement def ProjectionQualityRequirement {
+        subject system: CompressiveSensingSystem;
+
+        require constraint {
+            system.projectionEngine.compressionRatio.value <= 0.30
+        }
+    }
+
+    satisfy HighLevelCompressiveSensingFunction by CompressiveSensingSystem;
+    satisfy ReconstructionAccuracyRequirement by SparseRecoveryProcessor;
+    satisfy LatencyRequirement by SparseRecoveryProcessor;
+    satisfy PowerRequirement by CompressiveSensingSystem;
+    satisfy MeasurementEfficiencyRequirement by ProjectionEngine;
+    satisfy ProjectionQualityRequirement by ProjectionEngine;
+
+    part compressiveSensingReceiver: CompressiveSensingSystem;
+}

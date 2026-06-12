@@ -1,0 +1,971 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-5gqy4qa2
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb707-aa78-7473-a291-6a994e5e5170
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Open source and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OpenSourceEnergyManagementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MoneyPerEnergyUnit {
+        :> ScalarValues::Real;
+        unit = "USD/kWh";
+    }
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def KilowattHour {
+        :> ScalarValues::Real;
+        unit = "kWh";
+    }
+
+    attribute def Kilowatt {
+        :> ScalarValues::Real;
+        unit = "kW";
+    }
+
+    attribute def VoltAC {
+        :> ScalarValues::Real;
+        unit = "V_ac";
+    }
+
+    attribute def AmpereAC {
+        :> ScalarValues::Real;
+        unit = "A_ac";
+    }
+
+    attribute def Hertz {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def Seconds {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    enum def GridMode {
+        enum gridConnected;
+        enum islanded;
+        enum reconnecting;
+        enum faulted;
+    }
+
+    enum def OptimizationMode {
+        enum minimizeCost;
+        enum maximizeSelfConsumption;
+        enum backupReserve;
+        enum demandResponse;
+    }
+
+    enum def DeviceCommandKind {
+        enum start;
+        enum stop;
+        enum limitPower;
+        enum chargeBattery;
+        enum dischargeBattery;
+        enum shedLoad;
+        enum restoreLoad;
+    }
+
+    item def ElectricalPowerFlow {
+        attribute activePower : Kilowatt;
+        attribute reactivePower : Kilowatt;
+        attribute voltage : VoltAC;
+        attribute current : AmpereAC;
+        attribute frequency : Hertz;
+    }
+
+    item def EnergyForecast {
+        attribute forecastHorizon : Seconds;
+        attribute expectedSolarGeneration : KilowattHour;
+        attribute expectedSiteLoad : KilowattHour;
+        attribute expectedGridPrice : MoneyPerEnergyUnit;
+        attribute confidence : Percent;
+    }
+
+    item def PriceSignal {
+        attribute importPrice : MoneyPerEnergyUnit;
+        attribute exportPrice : MoneyPerEnergyUnit;
+        attribute validFor : Seconds;
+    }
+
+    item def DeviceCommand {
+        attribute commandKind : DeviceCommandKind;
+        attribute requestedPower : Kilowatt;
+        attribute duration : Seconds;
+        attribute priority : ScalarValues::Integer;
+    }
+
+    item def TelemetryFrame {
+        attribute measuredPower : Kilowatt;
+        attribute measuredEnergyToday : KilowattHour;
+        attribute healthScore : Percent;
+        attribute sampleAge : Seconds;
+    }
+
+    port def ACPowerPort {
+        out item powerOut : ElectricalPowerFlow;
+        in item powerIn : ElectricalPowerFlow;
+    }
+
+    port def ControlPort {
+        out item command : DeviceCommand;
+        in item telemetry : TelemetryFrame;
+    }
+
+    port def ForecastPort {
+        in item forecast : EnergyForecast;
+        in item price : PriceSignal;
+    }
+
+    port def DataPort {
+        out item telemetryOut : TelemetryFrame;
+        in item telemetryIn : TelemetryFrame;
+    }
+
+    part def SolarArray {
+        attribute ratedPower : Kilowatt = 12.0;
+        attribute dailyEnergyEstimate : KilowattHour = 52.0;
+        attribute inverterEfficiency : Percent = 97.5;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+
+        action generateACPower {
+            in item irradianceForecast : EnergyForecast;
+            out item generatedPower : ElectricalPowerFlow;
+        }
+    }
+
+    part def BatteryStorage {
+        attribute capacity : KilowattHour = 38.4;
+        attribute maximumChargePower : Kilowatt = 10.0;
+        attribute maximumDischargePower : Kilowatt = 10.0;
+        attribute reserveStateOfCharge : Percent = 25.0;
+        attribute stateOfCharge : Percent;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+
+        state def BatteryOperatingState {
+            state idle;
+            state charging;
+            state discharging;
+            state reserveProtected;
+            state unavailable;
+
+            transition first idle;
+            transition idle_to_charging first idle then charging
+                accept DeviceCommand
+                if command.commandKind == DeviceCommandKind::chargeBattery;
+            transition idle_to_discharging first idle then discharging
+                accept DeviceCommand
+                if command.commandKind == DeviceCommandKind::dischargeBattery;
+            transition discharging_to_reserve first discharging then reserveProtected
+                if stateOfCharge <= reserveStateOfCharge;
+            transition any_to_unavailable first idle then unavailable
+                accept DeviceCommand
+                if command.commandKind == DeviceCommandKind::stop;
+        }
+
+        perform stateMachine : BatteryOperatingState;
+    }
+
+    part def CriticalLoadPanel {
+        attribute peakDemand : Kilowatt = 8.0;
+        attribute averageDemand : Kilowatt = 3.2;
+        attribute minimumSupportedPower : Kilowatt = 1.5;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+    }
+
+    part def FlexibleLoadController {
+        attribute controllableLoadCapacity : Kilowatt = 6.0;
+        attribute shedResponseTime : Seconds = 5.0;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+
+        action shedNonCriticalLoads {
+            in item request : DeviceCommand;
+            out item reducedLoad : ElectricalPowerFlow;
+        }
+
+        action restoreNonCriticalLoads {
+            in item request : DeviceCommand;
+            out item restoredLoad : ElectricalPowerFlow;
+        }
+    }
+
+    part def GridIntertie {
+        attribute maximumImportPower : Kilowatt = 25.0;
+        attribute maximumExportPower : Kilowatt = 15.0;
+        attribute nominalVoltage : VoltAC = 240.0;
+        attribute nominalFrequency : Hertz = 60.0;
+        attribute mode : GridMode;
+
+        port utilityAC : ACPowerPort;
+        port siteAC : ACPowerPort;
+        port control : ControlPort;
+
+        state def GridConnectionState {
+            state connected;
+            state islanded;
+            state reconnectDelay;
+            state faultLockout;
+
+            transition first connected;
+            transition connected_to_islanded first connected then islanded
+                if mode == GridMode::islanded;
+            transition islanded_to_reconnect first islanded then reconnectDelay
+                if mode == GridMode::reconnecting;
+            transition reconnect_to_connected first reconnectDelay then connected
+                if mode == GridMode::gridConnected;
+            transition connected_to_fault first connected then faultLockout
+                if mode == GridMode::faulted;
+        }
+
+        perform stateMachine : GridConnectionState;
+    }
+
+    part def OpenSourceController {
+        attribute softwareName : ScalarValues::String = "OpenEMS-based Energy Management Controller";
+        attribute license : ScalarValues::String = "Eclipse Public License 2.0";
+        attribute optimizationInterval : Seconds = 60.0;
+        attribute controlResponseLimit : Seconds = 2.0;
+        attribute selectedMode : OptimizationMode = OptimizationMode::maximizeSelfConsumption;
+
+        port solarControl : ControlPort;
+        port batteryControl : ControlPort;
+        port loadControl : ControlPort;
+        port gridControl : ControlPort;
+        port forecastInput : ForecastPort;
+        port telemetryBus : DataPort;
+
+        action collectTelemetry {
+            in item solarTelemetry : TelemetryFrame;
+            in item batteryTelemetry : TelemetryFrame;
+            in item loadTelemetry : TelemetryFrame;
+            in item gridTelemetry : TelemetryFrame;
+            out item siteTelemetry : TelemetryFrame;
+        }
+
+        action optimizeEnergySchedule {
+            in item siteTelemetry : TelemetryFrame;
+            in item forecast : EnergyForecast;
+            in item price : PriceSignal;
+            out item batteryCommand : DeviceCommand;
+            out item loadCommand : DeviceCommand;
+            out item gridCommand : DeviceCommand;
+        }
+
+        action protectBackupReserve {
+            in item batteryTelemetry : TelemetryFrame;
+            out item reserveCommand : DeviceCommand;
+        }
+
+        action publishOperatorView {
+            in item siteTelemetry : TelemetryFrame;
+            in item forecast : EnergyForecast;
+        }
+
+        state def ControllerStateMachine {
+            state booting;
+            state monitoring;
+            state optimizing;
+            state dispatching;
+            state protectiveMode;
+            state degradedOperation;
+
+            transition first booting;
+            transition boot_complete first booting then monitoring;
+            transition monitoring_to_optimizing first monitoring then optimizing
+                after 60.0 [s];
+            transition optimizing_to_dispatching first optimizing then dispatching;
+            transition dispatching_to_monitoring first dispatching then monitoring;
+            transition monitoring_to_protective first monitoring then protectiveMode
+                if selectedMode == OptimizationMode::backupReserve;
+            transition protective_to_monitoring first protectiveMode then monitoring
+                if selectedMode != OptimizationMode::backupReserve;
+            transition monitoring_to_degraded first monitoring then degradedOperation
+                if telemetryBus.telemetryIn.healthScore < 70.0;
+        }
+
+        perform stateMachine : ControllerStateMachine;
+    }
+
+    part def OperatorDashboard {
+        attribute refreshPeriod : Seconds = 5.0;
+        attribute retainedHistory : Seconds = 604800.0;
+
+        port data : DataPort;
+
+        action displayPrimaryFunction {
+            in item currentTelemetry : TelemetryFrame;
+        }
+    }
+
+    part def WeatherAndPriceAdapter {
+        attribute forecastRefreshPeriod : Seconds = 900.0;
+
+        port forecastOut : ForecastPort;
+        port data : DataPort;
+
+        action acquireForecast {
+            out item forecast : EnergyForecast;
+            out item price : PriceSignal;
+        }
+    }
+
+    part def HomeEnergyManagementSystem {
+        attribute primaryFunction : ScalarValues::String =
+            "Coordinate solar generation, battery storage, grid exchange, and controllable loads using open-source energy management software to reduce electricity cost, increase self-consumption, and preserve backup energy.";
+
+        part solar : SolarArray;
+        part battery : BatteryStorage;
+        part criticalLoads : CriticalLoadPanel;
+        part flexibleLoads : FlexibleLoadController;
+        part grid : GridIntertie;
+        part controller : OpenSourceController;
+        part dashboard : OperatorDashboard;
+        part forecastAdapter : WeatherAndPriceAdapter;
+
+        port gridConnection : ACPowerPort;
+        port operatorData : DataPort;
+
+        connect solar.ac to grid.siteAC;
+        connect battery.ac to grid.siteAC;
+        connect criticalLoads.ac to grid.siteAC;
+        connect flexibleLoads.ac to grid.siteAC;
+        connect grid.utilityAC to gridConnection;
+
+        connect controller.solarControl to solar.control;
+        connect controller.batteryControl to battery.control;
+        connect controller.loadControl to flexibleLoads.control;
+        connect controller.gridControl to grid.control;
+
+        connect forecastAdapter.forecastOut to controller.forecastInput;
+        connect controller.telemetryBus to dashboard.data;
+        connect dashboard.data to operatorData;
+
+        action manageEnergy {
+            first start;
+            then collectSiteData;
+            then computeOptimalDispatch;
+            then sendDeviceCommands;
+            then updateDashboard;
+            then done;
+
+            action collectSiteData;
+            action computeOptimalDispatch;
+            action sendDeviceCommands;
+            action updateDashboard;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         The system shall provide a high-level open-source energy management function that coordinates distributed energy resources and loads for a residential or small commercial site.
+        */
+    }
+
+    requirement def OpenSourceBasisRequirement {
+        doc
+        /*
+         The controller software shall be based on an open-source energy management architecture and shall expose device integration, telemetry collection, optimization, and dispatch behavior through documented interfaces.
+        */
+    }
+
+    requirement def SelfConsumptionRequirement {
+        attribute minimumSelfConsumption : Percent = 75.0;
+
+        doc
+        /*
+         The system shall use locally generated solar energy for site loads or battery charging before exporting power to the utility grid when economically and operationally practical.
+        */
+    }
+
+    requirement def BackupReserveRequirement {
+        attribute minimumReserve : Percent = 25.0;
+
+        doc
+        /*
+         The system shall maintain at least the configured battery reserve state of charge for critical loads unless an operator explicitly disables backup reserve mode.
+        */
+    }
+
+    requirement def DemandResponseRequirement {
+        attribute maximumLoadShedResponse : Seconds = 5.0;
+
+        doc
+        /*
+         The system shall reduce flexible loads within the required response time when a demand response or grid protection command is active.
+        */
+    }
+
+    requirement def ControlLatencyRequirement {
+        attribute maximumControlLatency : Seconds = 2.0;
+
+        doc
+        /*
+         The controller shall issue dispatch commands to connected devices within the maximum control latency after an optimization cycle completes.
+        */
+    }
+
+    requirement def GridProtectionRequirement {
+        doc
+        /*
+         The system shall disconnect or limit export when the grid intertie reports islanding, abnormal voltage, abnormal frequency, or a faulted operating mode.
+        */
+    }
+
+    requirement def OperatorVisibilityRequirement {
+        attribute maximumDashboardAge : Seconds = 5.0;
+
+        doc
+        /*
+         The dashboard shall show current power flow, battery state, grid mode, active optimization mode, and device health with data no older than the maximum dashboard age.
+        */
+    }
+
+    satisfy PrimaryFunctionRequirement by HomeEnergyManagementSystem;
+    satisfy OpenSourceBasisRequirement by OpenSourceController;
+    satisfy SelfConsumptionRequirement by OpenSourceController::optimizeEnergySchedule;
+    satisfy BackupReserveRequirement by BatteryStorage;
+    satisfy DemandResponseRequirement by FlexibleLoadController::shedNonCriticalLoads;
+    satisfy ControlLatencyRequirement by OpenSourceController;
+    satisfy GridProtectionRequirement by GridIntertie;
+    satisfy OperatorVisibilityRequirement by OperatorDashboard;
+
+    analysis def EnergyBalanceAnalysis {
+        subject system : HomeEnergyManagementSystem;
+
+        attribute solarPower : Kilowatt;
+        attribute batteryPower : Kilowatt;
+        attribute gridPower : Kilowatt;
+        attribute criticalLoadPower : Kilowatt;
+        attribute flexibleLoadPower : Kilowatt;
+
+        constraint energyBalance {
+            solarPower + batteryPower + gridPower == criticalLoadPower + flexibleLoadPower;
+        }
+    }
+
+    verification def BackupReserveVerification {
+        subject battery : BatteryStorage;
+        objective requirement BackupReserveRequirement;
+
+        action verifyReserve {
+            in attribute observedStateOfCharge : Percent;
+            assert observedStateOfCharge >= BackupReserveRequirement::minimumReserve;
+        }
+    }
+
+    verification def DashboardFreshnessVerification {
+        subject dashboard : OperatorDashboard;
+        objective requirement OperatorVisibilityRequirement;
+
+        action verifyFreshTelemetry {
+            in item telemetry : TelemetryFrame;
+            assert telemetry.sampleAge <= OperatorVisibilityRequirement::maximumDashboardAge;
+        }
+    }
+}
+tokens used
+4,546
+package OpenSourceEnergyManagementSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MoneyPerEnergyUnit {
+        :> ScalarValues::Real;
+        unit = "USD/kWh";
+    }
+
+    attribute def Percent {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    attribute def KilowattHour {
+        :> ScalarValues::Real;
+        unit = "kWh";
+    }
+
+    attribute def Kilowatt {
+        :> ScalarValues::Real;
+        unit = "kW";
+    }
+
+    attribute def VoltAC {
+        :> ScalarValues::Real;
+        unit = "V_ac";
+    }
+
+    attribute def AmpereAC {
+        :> ScalarValues::Real;
+        unit = "A_ac";
+    }
+
+    attribute def Hertz {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def Seconds {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    enum def GridMode {
+        enum gridConnected;
+        enum islanded;
+        enum reconnecting;
+        enum faulted;
+    }
+
+    enum def OptimizationMode {
+        enum minimizeCost;
+        enum maximizeSelfConsumption;
+        enum backupReserve;
+        enum demandResponse;
+    }
+
+    enum def DeviceCommandKind {
+        enum start;
+        enum stop;
+        enum limitPower;
+        enum chargeBattery;
+        enum dischargeBattery;
+        enum shedLoad;
+        enum restoreLoad;
+    }
+
+    item def ElectricalPowerFlow {
+        attribute activePower : Kilowatt;
+        attribute reactivePower : Kilowatt;
+        attribute voltage : VoltAC;
+        attribute current : AmpereAC;
+        attribute frequency : Hertz;
+    }
+
+    item def EnergyForecast {
+        attribute forecastHorizon : Seconds;
+        attribute expectedSolarGeneration : KilowattHour;
+        attribute expectedSiteLoad : KilowattHour;
+        attribute expectedGridPrice : MoneyPerEnergyUnit;
+        attribute confidence : Percent;
+    }
+
+    item def PriceSignal {
+        attribute importPrice : MoneyPerEnergyUnit;
+        attribute exportPrice : MoneyPerEnergyUnit;
+        attribute validFor : Seconds;
+    }
+
+    item def DeviceCommand {
+        attribute commandKind : DeviceCommandKind;
+        attribute requestedPower : Kilowatt;
+        attribute duration : Seconds;
+        attribute priority : ScalarValues::Integer;
+    }
+
+    item def TelemetryFrame {
+        attribute measuredPower : Kilowatt;
+        attribute measuredEnergyToday : KilowattHour;
+        attribute healthScore : Percent;
+        attribute sampleAge : Seconds;
+    }
+
+    port def ACPowerPort {
+        out item powerOut : ElectricalPowerFlow;
+        in item powerIn : ElectricalPowerFlow;
+    }
+
+    port def ControlPort {
+        out item command : DeviceCommand;
+        in item telemetry : TelemetryFrame;
+    }
+
+    port def ForecastPort {
+        in item forecast : EnergyForecast;
+        in item price : PriceSignal;
+    }
+
+    port def DataPort {
+        out item telemetryOut : TelemetryFrame;
+        in item telemetryIn : TelemetryFrame;
+    }
+
+    part def SolarArray {
+        attribute ratedPower : Kilowatt = 12.0;
+        attribute dailyEnergyEstimate : KilowattHour = 52.0;
+        attribute inverterEfficiency : Percent = 97.5;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+
+        action generateACPower {
+            in item irradianceForecast : EnergyForecast;
+            out item generatedPower : ElectricalPowerFlow;
+        }
+    }
+
+    part def BatteryStorage {
+        attribute capacity : KilowattHour = 38.4;
+        attribute maximumChargePower : Kilowatt = 10.0;
+        attribute maximumDischargePower : Kilowatt = 10.0;
+        attribute reserveStateOfCharge : Percent = 25.0;
+        attribute stateOfCharge : Percent;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+
+        state def BatteryOperatingState {
+            state idle;
+            state charging;
+            state discharging;
+            state reserveProtected;
+            state unavailable;
+
+            transition first idle;
+            transition idle_to_charging first idle then charging
+                accept DeviceCommand
+                if command.commandKind == DeviceCommandKind::chargeBattery;
+            transition idle_to_discharging first idle then discharging
+                accept DeviceCommand
+                if command.commandKind == DeviceCommandKind::dischargeBattery;
+            transition discharging_to_reserve first discharging then reserveProtected
+                if stateOfCharge <= reserveStateOfCharge;
+            transition any_to_unavailable first idle then unavailable
+                accept DeviceCommand
+                if command.commandKind == DeviceCommandKind::stop;
+        }
+
+        perform stateMachine : BatteryOperatingState;
+    }
+
+    part def CriticalLoadPanel {
+        attribute peakDemand : Kilowatt = 8.0;
+        attribute averageDemand : Kilowatt = 3.2;
+        attribute minimumSupportedPower : Kilowatt = 1.5;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+    }
+
+    part def FlexibleLoadController {
+        attribute controllableLoadCapacity : Kilowatt = 6.0;
+        attribute shedResponseTime : Seconds = 5.0;
+
+        port ac : ACPowerPort;
+        port control : ControlPort;
+
+        action shedNonCriticalLoads {
+            in item request : DeviceCommand;
+            out item reducedLoad : ElectricalPowerFlow;
+        }
+
+        action restoreNonCriticalLoads {
+            in item request : DeviceCommand;
+            out item restoredLoad : ElectricalPowerFlow;
+        }
+    }
+
+    part def GridIntertie {
+        attribute maximumImportPower : Kilowatt = 25.0;
+        attribute maximumExportPower : Kilowatt = 15.0;
+        attribute nominalVoltage : VoltAC = 240.0;
+        attribute nominalFrequency : Hertz = 60.0;
+        attribute mode : GridMode;
+
+        port utilityAC : ACPowerPort;
+        port siteAC : ACPowerPort;
+        port control : ControlPort;
+
+        state def GridConnectionState {
+            state connected;
+            state islanded;
+            state reconnectDelay;
+            state faultLockout;
+
+            transition first connected;
+            transition connected_to_islanded first connected then islanded
+                if mode == GridMode::islanded;
+            transition islanded_to_reconnect first islanded then reconnectDelay
+                if mode == GridMode::reconnecting;
+            transition reconnect_to_connected first reconnectDelay then connected
+                if mode == GridMode::gridConnected;
+            transition connected_to_fault first connected then faultLockout
+                if mode == GridMode::faulted;
+        }
+
+        perform stateMachine : GridConnectionState;
+    }
+
+    part def OpenSourceController {
+        attribute softwareName : ScalarValues::String = "OpenEMS-based Energy Management Controller";
+        attribute license : ScalarValues::String = "Eclipse Public License 2.0";
+        attribute optimizationInterval : Seconds = 60.0;
+        attribute controlResponseLimit : Seconds = 2.0;
+        attribute selectedMode : OptimizationMode = OptimizationMode::maximizeSelfConsumption;
+
+        port solarControl : ControlPort;
+        port batteryControl : ControlPort;
+        port loadControl : ControlPort;
+        port gridControl : ControlPort;
+        port forecastInput : ForecastPort;
+        port telemetryBus : DataPort;
+
+        action collectTelemetry {
+            in item solarTelemetry : TelemetryFrame;
+            in item batteryTelemetry : TelemetryFrame;
+            in item loadTelemetry : TelemetryFrame;
+            in item gridTelemetry : TelemetryFrame;
+            out item siteTelemetry : TelemetryFrame;
+        }
+
+        action optimizeEnergySchedule {
+            in item siteTelemetry : TelemetryFrame;
+            in item forecast : EnergyForecast;
+            in item price : PriceSignal;
+            out item batteryCommand : DeviceCommand;
+            out item loadCommand : DeviceCommand;
+            out item gridCommand : DeviceCommand;
+        }
+
+        action protectBackupReserve {
+            in item batteryTelemetry : TelemetryFrame;
+            out item reserveCommand : DeviceCommand;
+        }
+
+        action publishOperatorView {
+            in item siteTelemetry : TelemetryFrame;
+            in item forecast : EnergyForecast;
+        }
+
+        state def ControllerStateMachine {
+            state booting;
+            state monitoring;
+            state optimizing;
+            state dispatching;
+            state protectiveMode;
+            state degradedOperation;
+
+            transition first booting;
+            transition boot_complete first booting then monitoring;
+            transition monitoring_to_optimizing first monitoring then optimizing
+                after 60.0 [s];
+            transition optimizing_to_dispatching first optimizing then dispatching;
+            transition dispatching_to_monitoring first dispatching then monitoring;
+            transition monitoring_to_protective first monitoring then protectiveMode
+                if selectedMode == OptimizationMode::backupReserve;
+            transition protective_to_monitoring first protectiveMode then monitoring
+                if selectedMode != OptimizationMode::backupReserve;
+            transition monitoring_to_degraded first monitoring then degradedOperation
+                if telemetryBus.telemetryIn.healthScore < 70.0;
+        }
+
+        perform stateMachine : ControllerStateMachine;
+    }
+
+    part def OperatorDashboard {
+        attribute refreshPeriod : Seconds = 5.0;
+        attribute retainedHistory : Seconds = 604800.0;
+
+        port data : DataPort;
+
+        action displayPrimaryFunction {
+            in item currentTelemetry : TelemetryFrame;
+        }
+    }
+
+    part def WeatherAndPriceAdapter {
+        attribute forecastRefreshPeriod : Seconds = 900.0;
+
+        port forecastOut : ForecastPort;
+        port data : DataPort;
+
+        action acquireForecast {
+            out item forecast : EnergyForecast;
+            out item price : PriceSignal;
+        }
+    }
+
+    part def HomeEnergyManagementSystem {
+        attribute primaryFunction : ScalarValues::String =
+            "Coordinate solar generation, battery storage, grid exchange, and controllable loads using open-source energy management software to reduce electricity cost, increase self-consumption, and preserve backup energy.";
+
+        part solar : SolarArray;
+        part battery : BatteryStorage;
+        part criticalLoads : CriticalLoadPanel;
+        part flexibleLoads : FlexibleLoadController;
+        part grid : GridIntertie;
+        part controller : OpenSourceController;
+        part dashboard : OperatorDashboard;
+        part forecastAdapter : WeatherAndPriceAdapter;
+
+        port gridConnection : ACPowerPort;
+        port operatorData : DataPort;
+
+        connect solar.ac to grid.siteAC;
+        connect battery.ac to grid.siteAC;
+        connect criticalLoads.ac to grid.siteAC;
+        connect flexibleLoads.ac to grid.siteAC;
+        connect grid.utilityAC to gridConnection;
+
+        connect controller.solarControl to solar.control;
+        connect controller.batteryControl to battery.control;
+        connect controller.loadControl to flexibleLoads.control;
+        connect controller.gridControl to grid.control;
+
+        connect forecastAdapter.forecastOut to controller.forecastInput;
+        connect controller.telemetryBus to dashboard.data;
+        connect dashboard.data to operatorData;
+
+        action manageEnergy {
+            first start;
+            then collectSiteData;
+            then computeOptimalDispatch;
+            then sendDeviceCommands;
+            then updateDashboard;
+            then done;
+
+            action collectSiteData;
+            action computeOptimalDispatch;
+            action sendDeviceCommands;
+            action updateDashboard;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         The system shall provide a high-level open-source energy management function that coordinates distributed energy resources and loads for a residential or small commercial site.
+        */
+    }
+
+    requirement def OpenSourceBasisRequirement {
+        doc
+        /*
+         The controller software shall be based on an open-source energy management architecture and shall expose device integration, telemetry collection, optimization, and dispatch behavior through documented interfaces.
+        */
+    }
+
+    requirement def SelfConsumptionRequirement {
+        attribute minimumSelfConsumption : Percent = 75.0;
+
+        doc
+        /*
+         The system shall use locally generated solar energy for site loads or battery charging before exporting power to the utility grid when economically and operationally practical.
+        */
+    }
+
+    requirement def BackupReserveRequirement {
+        attribute minimumReserve : Percent = 25.0;
+
+        doc
+        /*
+         The system shall maintain at least the configured battery reserve state of charge for critical loads unless an operator explicitly disables backup reserve mode.
+        */
+    }
+
+    requirement def DemandResponseRequirement {
+        attribute maximumLoadShedResponse : Seconds = 5.0;
+
+        doc
+        /*
+         The system shall reduce flexible loads within the required response time when a demand response or grid protection command is active.
+        */
+    }
+
+    requirement def ControlLatencyRequirement {
+        attribute maximumControlLatency : Seconds = 2.0;
+
+        doc
+        /*
+         The controller shall issue dispatch commands to connected devices within the maximum control latency after an optimization cycle completes.
+        */
+    }
+
+    requirement def GridProtectionRequirement {
+        doc
+        /*
+         The system shall disconnect or limit export when the grid intertie reports islanding, abnormal voltage, abnormal frequency, or a faulted operating mode.
+        */
+    }
+
+    requirement def OperatorVisibilityRequirement {
+        attribute maximumDashboardAge : Seconds = 5.0;
+
+        doc
+        /*
+         The dashboard shall show current power flow, battery state, grid mode, active optimization mode, and device health with data no older than the maximum dashboard age.
+        */
+    }
+
+    satisfy PrimaryFunctionRequirement by HomeEnergyManagementSystem;
+    satisfy OpenSourceBasisRequirement by OpenSourceController;
+    satisfy SelfConsumptionRequirement by OpenSourceController::optimizeEnergySchedule;
+    satisfy BackupReserveRequirement by BatteryStorage;
+    satisfy DemandResponseRequirement by FlexibleLoadController::shedNonCriticalLoads;
+    satisfy ControlLatencyRequirement by OpenSourceController;
+    satisfy GridProtectionRequirement by GridIntertie;
+    satisfy OperatorVisibilityRequirement by OperatorDashboard;
+
+    analysis def EnergyBalanceAnalysis {
+        subject system : HomeEnergyManagementSystem;
+
+        attribute solarPower : Kilowatt;
+        attribute batteryPower : Kilowatt;
+        attribute gridPower : Kilowatt;
+        attribute criticalLoadPower : Kilowatt;
+        attribute flexibleLoadPower : Kilowatt;
+
+        constraint energyBalance {
+            solarPower + batteryPower + gridPower == criticalLoadPower + flexibleLoadPower;
+        }
+    }
+
+    verification def BackupReserveVerification {
+        subject battery : BatteryStorage;
+        objective requirement BackupReserveRequirement;
+
+        action verifyReserve {
+            in attribute observedStateOfCharge : Percent;
+            assert observedStateOfCharge >= BackupReserveRequirement::minimumReserve;
+        }
+    }
+
+    verification def DashboardFreshnessVerification {
+        subject dashboard : OperatorDashboard;
+        objective requirement OperatorVisibilityRequirement;
+
+        action verifyFreshTelemetry {
+            in item telemetry : TelemetryFrame;
+            assert telemetry.sampleAge <= OperatorVisibilityRequirement::maximumDashboardAge;
+        }
+    }
+}

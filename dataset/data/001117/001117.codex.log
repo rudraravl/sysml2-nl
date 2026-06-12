@@ -1,0 +1,931 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-5rugsnwz
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb57f-1e29-7a12-8072-303dcf162cf6
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Leaf sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LeafSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        doc "Dimensionless percentage value from 0 to 100.";
+    }
+
+    attribute def Millivolt :> Real {
+        doc "Electrical potential in millivolts.";
+    }
+
+    attribute def Second :> Real {
+        doc "Time duration in seconds.";
+    }
+
+    attribute def DegreeCelsius :> Real {
+        doc "Temperature in degrees Celsius.";
+    }
+
+    attribute def Milliampere :> Real {
+        doc "Electrical current in milliamperes.";
+    }
+
+    attribute def Volt :> Real {
+        doc "Electrical potential in volts.";
+    }
+
+    attribute def LeafWetnessIndex :> Percent {
+        doc "Normalized indication of moisture retained on the leaf-sensor surface.";
+    }
+
+    attribute def SensorRawVoltage :> Millivolt;
+    attribute def SupplyVoltage :> Volt;
+    attribute def SamplePeriod :> Second;
+    attribute def AmbientTemperature :> DegreeCelsius;
+    attribute def PowerCurrent :> Milliampere;
+
+    item def LeafWetnessMeasurement {
+        attribute wetness : LeafWetnessIndex;
+        attribute sensorSurfaceTemperature : AmbientTemperature;
+        attribute confidence : Percent;
+        attribute timestamp : Second;
+    }
+
+    item def RawLeafSensorSignal {
+        attribute voltage : SensorRawVoltage;
+        attribute excitationVoltage : SupplyVoltage;
+        attribute acquisitionTime : Second;
+    }
+
+    item def MeasurementStatus {
+        attribute valid : Boolean;
+        attribute saturated : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : SupplyVoltage;
+        attribute current : PowerCurrent;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AnalogSignalPort {
+        out item rawSignal : RawLeafSensorSignal;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : LeafWetnessMeasurement;
+        out item status : MeasurementStatus;
+    }
+
+    port def ControlPort {
+        in item sampleCommand : Boolean;
+        out item ready : Boolean;
+    }
+
+    part def LeafSensor {
+        doc "Resistive leaf wetness sensor with exposed conductive traces that emulate moisture retention on a natural leaf surface.";
+
+        port powerIn : PowerInputPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute sensingArea_cm2 : Real = 25.0;
+        attribute excitationVoltage : SupplyVoltage = 3.3;
+        attribute dryOutputVoltage : SensorRawVoltage = 250.0;
+        attribute wetOutputVoltage : SensorRawVoltage = 2850.0;
+        attribute responseTime : Second = 3.0;
+        attribute operatingTemperatureMin : AmbientTemperature = -20.0;
+        attribute operatingTemperatureMax : AmbientTemperature = 60.0;
+
+        action senseLeafSurface {
+            in item suppliedPower : ElectricalPower;
+            out item raw : RawLeafSensorSignal;
+
+            first start;
+            then energizeSensor;
+            then stabilizeReading;
+            then emitAnalogSignal;
+            then done;
+
+            action energizeSensor;
+            action stabilizeReading;
+            action emitAnalogSignal;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        doc "Conditions the raw leaf sensor voltage before conversion.";
+
+        port sensorInput : AnalogSignalPort;
+        port conditionedOutput : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute inputImpedance_MOhm : Real = 10.0;
+        attribute lowPassCutoff_Hz : Real = 5.0;
+        attribute gain : Real = 1.0;
+        attribute offset : SensorRawVoltage = 0.0;
+
+        action conditionSignal {
+            in item raw : RawLeafSensorSignal;
+            out item conditioned : RawLeafSensorSignal;
+
+            first receiveRawVoltage;
+            then filterNoise;
+            then applyGainAndOffset;
+            then publishConditionedSignal;
+            then done;
+
+            action receiveRawVoltage;
+            action filterNoise;
+            action applyGainAndOffset;
+            action publishConditionedSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        doc "Digitizes conditioned analog voltage for the controller.";
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute resolution_bits : Integer = 12;
+        attribute referenceVoltage : SupplyVoltage = 3.3;
+        attribute conversionTime : Second = 0.010;
+        attribute quantizationError_mV : SensorRawVoltage = 0.805;
+
+        action convert {
+            in item conditioned : RawLeafSensorSignal;
+            out item digitalEquivalent : RawLeafSensorSignal;
+
+            first sampleInput;
+            then quantizeVoltage;
+            then outputDigitalSample;
+            then done;
+
+            action sampleInput;
+            action quantizeVoltage;
+            action outputDigitalSample;
+        }
+    }
+
+    part def TemperatureSensor {
+        port powerIn : PowerInputPort;
+        port measurementOut : MeasurementOutputPort;
+
+        attribute accuracy : AmbientTemperature = 0.5;
+        attribute operatingMin : AmbientTemperature = -20.0;
+        attribute operatingMax : AmbientTemperature = 60.0;
+
+        action measureAmbientTemperature {
+            out attribute temperature : AmbientTemperature;
+
+            first start;
+            then acquireTemperature;
+            then validateTemperature;
+            then done;
+
+            action acquireTemperature;
+            action validateTemperature;
+        }
+    }
+
+    part def ProcessingController {
+        doc "Controls sampling, calibrates raw sensor voltage, compensates temperature, and publishes leaf wetness measurement.";
+
+        port control : ControlPort;
+        port rawInput : AnalogSignalPort;
+        port temperatureInput : MeasurementOutputPort;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerInputPort;
+
+        attribute samplePeriod : SamplePeriod = 60.0;
+        attribute dryCalibrationVoltage : SensorRawVoltage = 250.0;
+        attribute wetCalibrationVoltage : SensorRawVoltage = 2850.0;
+        attribute validWetnessMin : LeafWetnessIndex = 0.0;
+        attribute validWetnessMax : LeafWetnessIndex = 100.0;
+        attribute faultVoltageLow : SensorRawVoltage = 50.0;
+        attribute faultVoltageHigh : SensorRawVoltage = 3250.0;
+
+        action computeLeafWetness {
+            in item raw : RawLeafSensorSignal;
+            in attribute ambientTemperature : AmbientTemperature;
+            out item measurement : LeafWetnessMeasurement;
+            out item status : MeasurementStatus;
+
+            first validateVoltage;
+            then normalizeVoltage;
+            then compensateTemperature;
+            then boundWetnessIndex;
+            then estimateConfidence;
+            then publishMeasurement;
+            then done;
+
+            action validateVoltage;
+            action normalizeVoltage;
+            action compensateTemperature;
+            action boundWetnessIndex;
+            action estimateConfidence;
+            action publishMeasurement;
+        }
+
+        state def ControllerStateMachine {
+            state off;
+            state initialize;
+            state idle;
+            state sampling;
+            state processing;
+            state reporting;
+            state fault;
+
+            entry; then off;
+
+            transition off_to_initialize
+                first off
+                accept powerApplied
+                then initialize;
+
+            transition initialize_to_idle
+                first initialize
+                accept initializationComplete
+                then idle;
+
+            transition idle_to_sampling
+                first idle
+                accept sampleTimerExpired
+                then sampling;
+
+            transition sampling_to_processing
+                first sampling
+                accept sampleAcquired
+                then processing;
+
+            transition processing_to_reporting
+                first processing
+                accept measurementComputed
+                then reporting;
+
+            transition reporting_to_idle
+                first reporting
+                accept reportTransmitted
+                then idle;
+
+            transition any_to_fault
+                first idle
+                accept sensorFaultDetected
+                then fault;
+
+            transition fault_to_initialize
+                first fault
+                accept resetCommand
+                then initialize;
+        }
+    }
+
+    part def PowerRegulator {
+        port supplyIn : PowerInputPort;
+        port regulatedOut : PowerInputPort;
+
+        attribute inputVoltageMin : SupplyVoltage = 5.0;
+        attribute inputVoltageMax : SupplyVoltage = 24.0;
+        attribute regulatedVoltage : SupplyVoltage = 3.3;
+        attribute maxOutputCurrent : PowerCurrent = 100.0;
+        attribute efficiency : Percent = 88.0;
+    }
+
+    part def CommunicationInterface {
+        port measurementIn : MeasurementOutputPort;
+        port controlOut : ControlPort;
+        port powerIn : PowerInputPort;
+
+        attribute baudRate_bps : Integer = 115200;
+        attribute maxReportLatency : Second = 2.0;
+
+        action transmitMeasurement {
+            in item measurement : LeafWetnessMeasurement;
+            in item status : MeasurementStatus;
+
+            first framePayload;
+            then appendIntegrityCheck;
+            then transmitFrame;
+            then done;
+
+            action framePayload;
+            action appendIntegrityCheck;
+            action transmitFrame;
+        }
+    }
+
+    part def LeafSensingUnit {
+        doc "Integrated sensing unit that measures leaf wetness using a leaf sensor and reports calibrated wetness index.";
+
+        port externalPower : PowerInputPort;
+        port externalControl : ControlPort;
+        port wetnessOutput : MeasurementOutputPort;
+
+        part regulator : PowerRegulator;
+        part leafSensor : LeafSensor;
+        part analogFrontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part temperatureSensor : TemperatureSensor;
+        part controller : ProcessingController;
+        part communication : CommunicationInterface;
+
+        attribute nominalSupplyVoltage : SupplyVoltage = 12.0;
+        attribute regulatedVoltage : SupplyVoltage = 3.3;
+        attribute nominalSamplePeriod : SamplePeriod = 60.0;
+        attribute measurementRangeMin : LeafWetnessIndex = 0.0;
+        attribute measurementRangeMax : LeafWetnessIndex = 100.0;
+        attribute wetnessAccuracy : LeafWetnessIndex = 5.0;
+        attribute startupTime : Second = 5.0;
+        attribute operatingCurrentTypical : PowerCurrent = 35.0;
+
+        connect externalPower to regulator.supplyIn;
+        connect regulator.regulatedOut to leafSensor.powerIn;
+        connect regulator.regulatedOut to analogFrontEnd.powerIn;
+        connect regulator.regulatedOut to adc.powerIn;
+        connect regulator.regulatedOut to temperatureSensor.powerIn;
+        connect regulator.regulatedOut to controller.powerIn;
+        connect regulator.regulatedOut to communication.powerIn;
+
+        connect leafSensor.analogOut to analogFrontEnd.sensorInput;
+        connect analogFrontEnd.conditionedOutput to adc.analogInput;
+        connect adc.digitalOutput to controller.rawInput;
+        connect temperatureSensor.measurementOut to controller.temperatureInput;
+        connect controller.measurementOut to communication.measurementIn;
+        connect communication.measurementIn to wetnessOutput;
+
+        connect externalControl to controller.control;
+        connect communication.controlOut to controller.control;
+
+        action performMeasurementCycle {
+            out item result : LeafWetnessMeasurement;
+            out item status : MeasurementStatus;
+
+            first wakeElectronics;
+            then exciteLeafSensor;
+            then acquireRawSignal;
+            then conditionRawSignal;
+            then digitizeSignal;
+            then measureTemperature;
+            then calculateWetness;
+            then publishWetness;
+            then returnToIdle;
+            then done;
+
+            action wakeElectronics;
+            action exciteLeafSensor;
+            action acquireRawSignal;
+            action conditionRawSignal;
+            action digitizeSignal;
+            action measureTemperature;
+            action calculateWetness;
+            action publishWetness;
+            action returnToIdle;
+        }
+    }
+
+    requirement def MeasureLeafWetnessRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin == 0.0 and
+            unit.measurementRangeMax == 100.0
+        }
+
+        doc "The sensing unit shall measure leaf wetness as a calibrated 0 to 100 percent wetness index using a leaf sensor."
+    }
+
+    requirement def SamplingRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.nominalSamplePeriod <= 60.0
+        }
+
+        doc "The sensing unit shall complete at least one leaf wetness measurement every 60 seconds during normal operation."
+    }
+
+    requirement def AccuracyRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.wetnessAccuracy <= 5.0
+        }
+
+        doc "The reported leaf wetness index shall be accurate within plus or minus 5 percentage points after calibration."
+    }
+
+    requirement def StartupRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.startupTime <= 5.0
+        }
+
+        doc "The sensing unit shall become ready to measure within 5 seconds after regulated power is available."
+    }
+
+    requirement def PowerRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.operatingCurrentTypical <= 35.0
+        }
+
+        doc "The sensing unit shall consume no more than 35 mA typical current at 3.3 V during periodic measurement operation."
+    }
+
+    requirement def FaultDetectionRequirement {
+        subject controller : ProcessingController;
+
+        require constraint {
+            controller.faultVoltageLow < controller.dryCalibrationVoltage and
+            controller.faultVoltageHigh > controller.wetCalibrationVoltage
+        }
+
+        doc "The controller shall detect open-circuit, short-circuit, and saturated sensor voltage conditions outside the valid calibrated sensor range."
+    }
+
+    satisfy MeasureLeafWetnessRequirement by LeafSensingUnit;
+    satisfy SamplingRequirement by LeafSensingUnit;
+    satisfy AccuracyRequirement by LeafSensingUnit;
+    satisfy StartupRequirement by LeafSensingUnit;
+    satisfy PowerRequirement by LeafSensingUnit;
+    satisfy FaultDetectionRequirement by ProcessingController;
+
+    part leafWetnessSensingUnit : LeafSensingUnit;
+
+}
+tokens used
+4,369
+package LeafSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent :> Real {
+        doc "Dimensionless percentage value from 0 to 100.";
+    }
+
+    attribute def Millivolt :> Real {
+        doc "Electrical potential in millivolts.";
+    }
+
+    attribute def Second :> Real {
+        doc "Time duration in seconds.";
+    }
+
+    attribute def DegreeCelsius :> Real {
+        doc "Temperature in degrees Celsius.";
+    }
+
+    attribute def Milliampere :> Real {
+        doc "Electrical current in milliamperes.";
+    }
+
+    attribute def Volt :> Real {
+        doc "Electrical potential in volts.";
+    }
+
+    attribute def LeafWetnessIndex :> Percent {
+        doc "Normalized indication of moisture retained on the leaf-sensor surface.";
+    }
+
+    attribute def SensorRawVoltage :> Millivolt;
+    attribute def SupplyVoltage :> Volt;
+    attribute def SamplePeriod :> Second;
+    attribute def AmbientTemperature :> DegreeCelsius;
+    attribute def PowerCurrent :> Milliampere;
+
+    item def LeafWetnessMeasurement {
+        attribute wetness : LeafWetnessIndex;
+        attribute sensorSurfaceTemperature : AmbientTemperature;
+        attribute confidence : Percent;
+        attribute timestamp : Second;
+    }
+
+    item def RawLeafSensorSignal {
+        attribute voltage : SensorRawVoltage;
+        attribute excitationVoltage : SupplyVoltage;
+        attribute acquisitionTime : Second;
+    }
+
+    item def MeasurementStatus {
+        attribute valid : Boolean;
+        attribute saturated : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : SupplyVoltage;
+        attribute current : PowerCurrent;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AnalogSignalPort {
+        out item rawSignal : RawLeafSensorSignal;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : LeafWetnessMeasurement;
+        out item status : MeasurementStatus;
+    }
+
+    port def ControlPort {
+        in item sampleCommand : Boolean;
+        out item ready : Boolean;
+    }
+
+    part def LeafSensor {
+        doc "Resistive leaf wetness sensor with exposed conductive traces that emulate moisture retention on a natural leaf surface.";
+
+        port powerIn : PowerInputPort;
+        port analogOut : AnalogSignalPort;
+
+        attribute sensingArea_cm2 : Real = 25.0;
+        attribute excitationVoltage : SupplyVoltage = 3.3;
+        attribute dryOutputVoltage : SensorRawVoltage = 250.0;
+        attribute wetOutputVoltage : SensorRawVoltage = 2850.0;
+        attribute responseTime : Second = 3.0;
+        attribute operatingTemperatureMin : AmbientTemperature = -20.0;
+        attribute operatingTemperatureMax : AmbientTemperature = 60.0;
+
+        action senseLeafSurface {
+            in item suppliedPower : ElectricalPower;
+            out item raw : RawLeafSensorSignal;
+
+            first start;
+            then energizeSensor;
+            then stabilizeReading;
+            then emitAnalogSignal;
+            then done;
+
+            action energizeSensor;
+            action stabilizeReading;
+            action emitAnalogSignal;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        doc "Conditions the raw leaf sensor voltage before conversion.";
+
+        port sensorInput : AnalogSignalPort;
+        port conditionedOutput : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute inputImpedance_MOhm : Real = 10.0;
+        attribute lowPassCutoff_Hz : Real = 5.0;
+        attribute gain : Real = 1.0;
+        attribute offset : SensorRawVoltage = 0.0;
+
+        action conditionSignal {
+            in item raw : RawLeafSensorSignal;
+            out item conditioned : RawLeafSensorSignal;
+
+            first receiveRawVoltage;
+            then filterNoise;
+            then applyGainAndOffset;
+            then publishConditionedSignal;
+            then done;
+
+            action receiveRawVoltage;
+            action filterNoise;
+            action applyGainAndOffset;
+            action publishConditionedSignal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        doc "Digitizes conditioned analog voltage for the controller.";
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute resolution_bits : Integer = 12;
+        attribute referenceVoltage : SupplyVoltage = 3.3;
+        attribute conversionTime : Second = 0.010;
+        attribute quantizationError_mV : SensorRawVoltage = 0.805;
+
+        action convert {
+            in item conditioned : RawLeafSensorSignal;
+            out item digitalEquivalent : RawLeafSensorSignal;
+
+            first sampleInput;
+            then quantizeVoltage;
+            then outputDigitalSample;
+            then done;
+
+            action sampleInput;
+            action quantizeVoltage;
+            action outputDigitalSample;
+        }
+    }
+
+    part def TemperatureSensor {
+        port powerIn : PowerInputPort;
+        port measurementOut : MeasurementOutputPort;
+
+        attribute accuracy : AmbientTemperature = 0.5;
+        attribute operatingMin : AmbientTemperature = -20.0;
+        attribute operatingMax : AmbientTemperature = 60.0;
+
+        action measureAmbientTemperature {
+            out attribute temperature : AmbientTemperature;
+
+            first start;
+            then acquireTemperature;
+            then validateTemperature;
+            then done;
+
+            action acquireTemperature;
+            action validateTemperature;
+        }
+    }
+
+    part def ProcessingController {
+        doc "Controls sampling, calibrates raw sensor voltage, compensates temperature, and publishes leaf wetness measurement.";
+
+        port control : ControlPort;
+        port rawInput : AnalogSignalPort;
+        port temperatureInput : MeasurementOutputPort;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerInputPort;
+
+        attribute samplePeriod : SamplePeriod = 60.0;
+        attribute dryCalibrationVoltage : SensorRawVoltage = 250.0;
+        attribute wetCalibrationVoltage : SensorRawVoltage = 2850.0;
+        attribute validWetnessMin : LeafWetnessIndex = 0.0;
+        attribute validWetnessMax : LeafWetnessIndex = 100.0;
+        attribute faultVoltageLow : SensorRawVoltage = 50.0;
+        attribute faultVoltageHigh : SensorRawVoltage = 3250.0;
+
+        action computeLeafWetness {
+            in item raw : RawLeafSensorSignal;
+            in attribute ambientTemperature : AmbientTemperature;
+            out item measurement : LeafWetnessMeasurement;
+            out item status : MeasurementStatus;
+
+            first validateVoltage;
+            then normalizeVoltage;
+            then compensateTemperature;
+            then boundWetnessIndex;
+            then estimateConfidence;
+            then publishMeasurement;
+            then done;
+
+            action validateVoltage;
+            action normalizeVoltage;
+            action compensateTemperature;
+            action boundWetnessIndex;
+            action estimateConfidence;
+            action publishMeasurement;
+        }
+
+        state def ControllerStateMachine {
+            state off;
+            state initialize;
+            state idle;
+            state sampling;
+            state processing;
+            state reporting;
+            state fault;
+
+            entry; then off;
+
+            transition off_to_initialize
+                first off
+                accept powerApplied
+                then initialize;
+
+            transition initialize_to_idle
+                first initialize
+                accept initializationComplete
+                then idle;
+
+            transition idle_to_sampling
+                first idle
+                accept sampleTimerExpired
+                then sampling;
+
+            transition sampling_to_processing
+                first sampling
+                accept sampleAcquired
+                then processing;
+
+            transition processing_to_reporting
+                first processing
+                accept measurementComputed
+                then reporting;
+
+            transition reporting_to_idle
+                first reporting
+                accept reportTransmitted
+                then idle;
+
+            transition any_to_fault
+                first idle
+                accept sensorFaultDetected
+                then fault;
+
+            transition fault_to_initialize
+                first fault
+                accept resetCommand
+                then initialize;
+        }
+    }
+
+    part def PowerRegulator {
+        port supplyIn : PowerInputPort;
+        port regulatedOut : PowerInputPort;
+
+        attribute inputVoltageMin : SupplyVoltage = 5.0;
+        attribute inputVoltageMax : SupplyVoltage = 24.0;
+        attribute regulatedVoltage : SupplyVoltage = 3.3;
+        attribute maxOutputCurrent : PowerCurrent = 100.0;
+        attribute efficiency : Percent = 88.0;
+    }
+
+    part def CommunicationInterface {
+        port measurementIn : MeasurementOutputPort;
+        port controlOut : ControlPort;
+        port powerIn : PowerInputPort;
+
+        attribute baudRate_bps : Integer = 115200;
+        attribute maxReportLatency : Second = 2.0;
+
+        action transmitMeasurement {
+            in item measurement : LeafWetnessMeasurement;
+            in item status : MeasurementStatus;
+
+            first framePayload;
+            then appendIntegrityCheck;
+            then transmitFrame;
+            then done;
+
+            action framePayload;
+            action appendIntegrityCheck;
+            action transmitFrame;
+        }
+    }
+
+    part def LeafSensingUnit {
+        doc "Integrated sensing unit that measures leaf wetness using a leaf sensor and reports calibrated wetness index.";
+
+        port externalPower : PowerInputPort;
+        port externalControl : ControlPort;
+        port wetnessOutput : MeasurementOutputPort;
+
+        part regulator : PowerRegulator;
+        part leafSensor : LeafSensor;
+        part analogFrontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part temperatureSensor : TemperatureSensor;
+        part controller : ProcessingController;
+        part communication : CommunicationInterface;
+
+        attribute nominalSupplyVoltage : SupplyVoltage = 12.0;
+        attribute regulatedVoltage : SupplyVoltage = 3.3;
+        attribute nominalSamplePeriod : SamplePeriod = 60.0;
+        attribute measurementRangeMin : LeafWetnessIndex = 0.0;
+        attribute measurementRangeMax : LeafWetnessIndex = 100.0;
+        attribute wetnessAccuracy : LeafWetnessIndex = 5.0;
+        attribute startupTime : Second = 5.0;
+        attribute operatingCurrentTypical : PowerCurrent = 35.0;
+
+        connect externalPower to regulator.supplyIn;
+        connect regulator.regulatedOut to leafSensor.powerIn;
+        connect regulator.regulatedOut to analogFrontEnd.powerIn;
+        connect regulator.regulatedOut to adc.powerIn;
+        connect regulator.regulatedOut to temperatureSensor.powerIn;
+        connect regulator.regulatedOut to controller.powerIn;
+        connect regulator.regulatedOut to communication.powerIn;
+
+        connect leafSensor.analogOut to analogFrontEnd.sensorInput;
+        connect analogFrontEnd.conditionedOutput to adc.analogInput;
+        connect adc.digitalOutput to controller.rawInput;
+        connect temperatureSensor.measurementOut to controller.temperatureInput;
+        connect controller.measurementOut to communication.measurementIn;
+        connect communication.measurementIn to wetnessOutput;
+
+        connect externalControl to controller.control;
+        connect communication.controlOut to controller.control;
+
+        action performMeasurementCycle {
+            out item result : LeafWetnessMeasurement;
+            out item status : MeasurementStatus;
+
+            first wakeElectronics;
+            then exciteLeafSensor;
+            then acquireRawSignal;
+            then conditionRawSignal;
+            then digitizeSignal;
+            then measureTemperature;
+            then calculateWetness;
+            then publishWetness;
+            then returnToIdle;
+            then done;
+
+            action wakeElectronics;
+            action exciteLeafSensor;
+            action acquireRawSignal;
+            action conditionRawSignal;
+            action digitizeSignal;
+            action measureTemperature;
+            action calculateWetness;
+            action publishWetness;
+            action returnToIdle;
+        }
+    }
+
+    requirement def MeasureLeafWetnessRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.measurementRangeMin == 0.0 and
+            unit.measurementRangeMax == 100.0
+        }
+
+        doc "The sensing unit shall measure leaf wetness as a calibrated 0 to 100 percent wetness index using a leaf sensor."
+    }
+
+    requirement def SamplingRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.nominalSamplePeriod <= 60.0
+        }
+
+        doc "The sensing unit shall complete at least one leaf wetness measurement every 60 seconds during normal operation."
+    }
+
+    requirement def AccuracyRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.wetnessAccuracy <= 5.0
+        }
+
+        doc "The reported leaf wetness index shall be accurate within plus or minus 5 percentage points after calibration."
+    }
+
+    requirement def StartupRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.startupTime <= 5.0
+        }
+
+        doc "The sensing unit shall become ready to measure within 5 seconds after regulated power is available."
+    }
+
+    requirement def PowerRequirement {
+        subject unit : LeafSensingUnit;
+
+        require constraint {
+            unit.operatingCurrentTypical <= 35.0
+        }
+
+        doc "The sensing unit shall consume no more than 35 mA typical current at 3.3 V during periodic measurement operation."
+    }
+
+    requirement def FaultDetectionRequirement {
+        subject controller : ProcessingController;
+
+        require constraint {
+            controller.faultVoltageLow < controller.dryCalibrationVoltage and
+            controller.faultVoltageHigh > controller.wetCalibrationVoltage
+        }
+
+        doc "The controller shall detect open-circuit, short-circuit, and saturated sensor voltage conditions outside the valid calibrated sensor range."
+    }
+
+    satisfy MeasureLeafWetnessRequirement by LeafSensingUnit;
+    satisfy SamplingRequirement by LeafSensingUnit;
+    satisfy AccuracyRequirement by LeafSensingUnit;
+    satisfy StartupRequirement by LeafSensingUnit;
+    satisfy PowerRequirement by LeafSensingUnit;
+    satisfy FaultDetectionRequirement by ProcessingController;
+
+    part leafWetnessSensingUnit : LeafSensingUnit;
+
+}

@@ -1,0 +1,1029 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ajmb4ysr
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb83e-0542-7da1-acb4-c83b33c53065
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Peristalsis and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PeristalticTransportSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> ScalarValues::Real;
+    unit = "kPa";
+  }
+
+  attribute def FlowRate {
+    :> ScalarValues::Real;
+    unit = "mL/s";
+  }
+
+  attribute def Volume {
+    :> ScalarValues::Real;
+    unit = "mL";
+  }
+
+  attribute def TimeDuration {
+    :> ScalarValues::Real;
+    unit = "s";
+  }
+
+  attribute def Frequency {
+    :> ScalarValues::Real;
+    unit = "Hz";
+  }
+
+  attribute def Length {
+    :> ScalarValues::Real;
+    unit = "mm";
+  }
+
+  attribute def Temperature {
+    :> ScalarValues::Real;
+    unit = "degC";
+  }
+
+  attribute def Force {
+    :> ScalarValues::Real;
+    unit = "N";
+  }
+
+  attribute def Percent {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  item def WorkingFluid {
+    attribute viscosity : ScalarValues::Real;
+    attribute temperature : Temperature;
+    attribute contaminationRisk : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ScalarValues::Real;
+    attribute current : ScalarValues::Real;
+  }
+
+  item def ControlSignal {
+    attribute commandFrequency : Frequency;
+    attribute commandAmplitude : Percent;
+    attribute enable : ScalarValues::Boolean;
+  }
+
+  item def SensorSignal {
+    attribute measuredPressure : Pressure;
+    attribute measuredFlowRate : FlowRate;
+    attribute measuredOcclusion : Percent;
+    attribute valid : ScalarValues::Boolean;
+  }
+
+  port def FluidInletPort {
+    in item fluid : WorkingFluid;
+  }
+
+  port def FluidOutletPort {
+    out item fluid : WorkingFluid;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ControlInputPort {
+    in item command : ControlSignal;
+  }
+
+  port def SensorOutputPort {
+    out item telemetry : SensorSignal;
+  }
+
+  part def PeristalticTransportSystem {
+    attribute primaryFunction : ScalarValues::String =
+      "Move working fluid through an isolated flexible tube by propagating controlled compression waves along the tube, producing directional flow without direct contact between the actuator mechanism and the fluid.";
+
+    attribute targetFlowRate : FlowRate = 4.0;
+    attribute maximumOutletPressure : Pressure = 250.0;
+    attribute minimumTubeOcclusion : Percent = 92.0;
+    attribute maximumFluidTemperature : Temperature = 45.0;
+    attribute primingVolume : Volume = 8.0;
+
+    port fluidIn : FluidInletPort;
+    port fluidOut : FluidOutletPort;
+    port powerIn : PowerInputPort;
+    port controlIn : ControlInputPort;
+    port statusOut : SensorOutputPort;
+
+    part controller : WaveController;
+    part actuator : SequentialCompressionActuator;
+    part tube : FlexibleTransportTube;
+    part inletCheckRegion : InletComplianceRegion;
+    part outletCheckRegion : OutletComplianceRegion;
+    part sensors : FlowPressureSensorSet;
+    part enclosure : ProtectiveHousing;
+
+    connect controlIn.command to controller.externalCommand;
+    connect powerIn.power to controller.controlPower;
+    connect controller.actuatorCommand to actuator.driveCommand;
+    connect actuator.compressionInterface to tube.wallCompressionInterface;
+    connect fluidIn.fluid to inletCheckRegion.incomingFluid;
+    connect inletCheckRegion.conditionedFluid to tube.upstreamFluid;
+    connect tube.downstreamFluid to outletCheckRegion.pressurizedFluid;
+    connect outletCheckRegion.deliveredFluid to fluidOut.fluid;
+    connect tube.sensedFluidState to sensors.fluidMeasurementInput;
+    connect sensors.telemetryOutput to statusOut.telemetry;
+    connect sensors.feedbackSignal to controller.sensorFeedback;
+
+    perform action transportFluid;
+    exhibit state lifecycle;
+  }
+
+  part def WaveController {
+    attribute nominalWaveFrequency : Frequency = 1.2;
+    attribute minimumWaveFrequency : Frequency = 0.1;
+    attribute maximumWaveFrequency : Frequency = 5.0;
+    attribute closedLoopEnabled : ScalarValues::Boolean = true;
+
+    in item externalCommand : ControlSignal;
+    in item controlPower : ElectricalPower;
+    in item sensorFeedback : SensorSignal;
+    out item actuatorCommand : ControlSignal;
+
+    action regulateWave {
+      in item requested : ControlSignal;
+      in item feedback : SensorSignal;
+      out item command : ControlSignal;
+
+      first start;
+      then validateCommand;
+      then compareMeasuredFlow;
+      then limitPressure;
+      then outputCompressionWave;
+
+      action validateCommand;
+      action compareMeasuredFlow;
+      action limitPressure;
+      action outputCompressionWave;
+    }
+  }
+
+  part def SequentialCompressionActuator {
+    attribute rollerCount : ScalarValues::Integer = 3;
+    attribute compressionForce : Force = 18.0;
+    attribute wavePitch : Length = 22.0;
+    attribute maximumSurfaceSpeed : ScalarValues::Real = 120.0;
+
+    in item driveCommand : ControlSignal;
+
+    port compressionInterface : CompressionPort;
+
+    part motor : RotaryDriveMotor;
+    part rotor : CompressionRotor;
+    part roller1 : CompressionElement;
+    part roller2 : CompressionElement;
+    part roller3 : CompressionElement;
+
+    connect motor.shaftTorque to rotor.inputTorque;
+    connect rotor.position1 to roller1.positionInput;
+    connect rotor.position2 to roller2.positionInput;
+    connect rotor.position3 to roller3.positionInput;
+    connect roller1.compressionOutput to compressionInterface.compression;
+    connect roller2.compressionOutput to compressionInterface.compression;
+    connect roller3.compressionOutput to compressionInterface.compression;
+  }
+
+  port def CompressionPort {
+    out item compression : CompressionWave;
+  }
+
+  item def CompressionWave {
+    attribute occlusion : Percent;
+    attribute frequency : Frequency;
+    attribute contactForce : Force;
+    attribute axialPosition : Length;
+  }
+
+  part def RotaryDriveMotor {
+    attribute ratedPower : ScalarValues::Real = 24.0;
+    attribute nominalVoltage : ScalarValues::Real = 24.0;
+    attribute speedCommand : Frequency;
+
+    out item shaftTorque : MechanicalTorque;
+  }
+
+  item def MechanicalTorque {
+    attribute torque : ScalarValues::Real;
+    attribute rotationalSpeed : Frequency;
+  }
+
+  part def CompressionRotor {
+    in item inputTorque : MechanicalTorque;
+    out item position1 : RollerPosition;
+    out item position2 : RollerPosition;
+    out item position3 : RollerPosition;
+  }
+
+  item def RollerPosition {
+    attribute angularPosition : ScalarValues::Real;
+    attribute axialContactPosition : Length;
+  }
+
+  part def CompressionElement {
+    attribute radius : Length = 7.0;
+    attribute contactWidth : Length = 10.0;
+
+    in item positionInput : RollerPosition;
+    out item compressionOutput : CompressionWave;
+  }
+
+  part def FlexibleTransportTube {
+    attribute internalDiameter : Length = 4.0;
+    attribute wallThickness : Length = 1.0;
+    attribute activeCompressionLength : Length = 86.0;
+    attribute elasticRecoveryTime : TimeDuration = 0.18;
+    attribute allowablePressure : Pressure = 300.0;
+
+    in item upstreamFluid : WorkingFluid;
+    out item downstreamFluid : WorkingFluid;
+    out item sensedFluidState : SensorSignal;
+
+    port wallCompressionInterface : TubeCompressionPort;
+
+    connect wallCompressionInterface.appliedCompression to peristalticSegment.receivedCompression;
+
+    part peristalticSegment : PeristalticSegment;
+    part upstreamSegment : TubeSegment;
+    part downstreamSegment : TubeSegment;
+  }
+
+  port def TubeCompressionPort {
+    in item appliedCompression : CompressionWave;
+  }
+
+  part def TubeSegment {
+    attribute segmentLength : Length;
+    attribute containedVolume : Volume;
+    attribute localPressure : Pressure;
+  }
+
+  part def PeristalticSegment {
+    attribute occludedVolumePerWave : Volume = 1.5;
+    attribute refluxFraction : Percent = 2.0;
+    attribute recoveryCompleteness : Percent = 98.0;
+
+    in item receivedCompression : CompressionWave;
+
+    action generateDirectionalFlow {
+      first receiveCompression;
+      then occludeTubeWall;
+      then advanceOcclusionZone;
+      then displaceFluidForward;
+      then allowElasticRecovery;
+      then preventBackflow;
+
+      action receiveCompression;
+      action occludeTubeWall;
+      action advanceOcclusionZone;
+      action displaceFluidForward;
+      action allowElasticRecovery;
+      action preventBackflow;
+    }
+  }
+
+  part def InletComplianceRegion {
+    attribute dampingVolume : Volume = 3.0;
+    attribute minimumSuctionPressure : Pressure = -35.0;
+
+    in item incomingFluid : WorkingFluid;
+    out item conditionedFluid : WorkingFluid;
+  }
+
+  part def OutletComplianceRegion {
+    attribute pulseDampingVolume : Volume = 4.5;
+    attribute maximumRipple : Percent = 8.0;
+
+    in item pressurizedFluid : WorkingFluid;
+    out item deliveredFluid : WorkingFluid;
+  }
+
+  part def FlowPressureSensorSet {
+    attribute flowAccuracy : Percent = 3.0;
+    attribute pressureAccuracy : Percent = 2.0;
+    attribute samplePeriod : TimeDuration = 0.05;
+
+    in item fluidMeasurementInput : SensorSignal;
+    out item telemetryOutput : SensorSignal;
+    out item feedbackSignal : SensorSignal;
+
+    part pressureSensor : PressureSensor;
+    part flowSensor : FlowSensor;
+    part occlusionEstimator : OcclusionEstimator;
+  }
+
+  part def PressureSensor {
+    attribute rangeMinimum : Pressure = -50.0;
+    attribute rangeMaximum : Pressure = 300.0;
+    out item pressureReading : SensorSignal;
+  }
+
+  part def FlowSensor {
+    attribute rangeMinimum : FlowRate = 0.0;
+    attribute rangeMaximum : FlowRate = 25.0;
+    out item flowReading : SensorSignal;
+  }
+
+  part def OcclusionEstimator {
+    attribute minimumReliableOcclusion : Percent = 80.0;
+    out item occlusionReading : SensorSignal;
+  }
+
+  part def ProtectiveHousing {
+    attribute ingressProtectionRating : ScalarValues::String = "IP54";
+    attribute removableTubeCassette : ScalarValues::Boolean = true;
+    attribute externalSurfaceTemperatureLimit : Temperature = 40.0;
+  }
+
+  action def TransportFluidAction {
+    in item inletFluid : WorkingFluid;
+    in item power : ElectricalPower;
+    in item command : ControlSignal;
+    out item outletFluid : WorkingFluid;
+    out item status : SensorSignal;
+
+    first initialize;
+    then primeTube;
+    then createSequentialCompression;
+    then propagatePeristalticWave;
+    then deliverMeteredFlow;
+    then monitorFlowAndPressure;
+    then adjustWaveFrequency;
+
+    action initialize;
+    action primeTube;
+    action createSequentialCompression;
+    action propagatePeristalticWave;
+    action deliverMeteredFlow;
+    action monitorFlowAndPressure;
+    action adjustWaveFrequency;
+  }
+
+  state def PeristalticTransportLifecycle {
+    entry action powerOnSelfTest;
+
+    state Off;
+    state Ready;
+    state Priming;
+    state Pumping;
+    state PressureLimited;
+    state OcclusionFault;
+    state Shutdown;
+
+    transition initial then Off;
+    transition Off_to_Ready
+      first Off
+      accept PowerAvailable
+      then Ready;
+
+    transition Ready_to_Priming
+      first Ready
+      accept PrimeCommand
+      then Priming;
+
+    transition Priming_to_Pumping
+      first Priming
+      accept TubeFilled
+      then Pumping;
+
+    transition Pumping_to_PressureLimited
+      first Pumping
+      accept HighOutletPressure
+      then PressureLimited;
+
+    transition PressureLimited_to_Pumping
+      first PressureLimited
+      accept PressureRecovered
+      then Pumping;
+
+    transition Pumping_to_OcclusionFault
+      first Pumping
+      accept OcclusionBelowLimit
+      then OcclusionFault;
+
+    transition OcclusionFault_to_Ready
+      first OcclusionFault
+      accept FaultCleared
+      then Ready;
+
+    transition Ready_to_Shutdown
+      first Ready
+      accept StopCommand
+      then Shutdown;
+
+    transition Pumping_to_Shutdown
+      first Pumping
+      accept StopCommand
+      then Shutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall transport fluid by peristalsis, using a moving compression wave on a flexible tube to produce directional, metered flow while maintaining isolation between the fluid and mechanical actuator. */
+  }
+
+  requirement def FlowControlRequirement {
+    attribute requiredNominalFlowRate : FlowRate = 4.0;
+    attribute allowedFlowError : Percent = 5.0;
+
+    doc
+      /* The system shall regulate delivered flow to the commanded rate within the allowed flow error during steady pumping operation. */
+  }
+
+  requirement def FluidIsolationRequirement {
+    doc
+      /* The working fluid shall contact only the internal surface of the flexible transport tube and connected fluid fittings during normal operation. */
+  }
+
+  requirement def PressureProtectionRequirement {
+    attribute maximumSafePressure : Pressure = 250.0;
+
+    doc
+      /* The system shall reduce or stop the compression wave when measured outlet pressure exceeds the maximum safe pressure. */
+  }
+
+  requirement def OcclusionRequirement {
+    attribute minimumRequiredOcclusion : Percent = 92.0;
+
+    doc
+      /* The actuator shall compress the flexible tube sufficiently to create a sealed occlusion zone that minimizes backflow during wave propagation. */
+  }
+
+  requirement def PulsationRequirement {
+    attribute maximumAllowedRipple : Percent = 8.0;
+
+    doc
+      /* The outlet compliance region shall limit cyclic flow ripple produced by discrete peristaltic compression events. */
+  }
+
+  requirement def RecoveryRequirement {
+    attribute minimumRecoveryCompleteness : Percent = 98.0;
+
+    doc
+      /* The tube shall elastically recover after compression to refill from the inlet side and sustain repeated peristaltic cycles. */
+  }
+
+  requirement def SafetyMonitoringRequirement {
+    attribute maximumSensorSamplePeriod : TimeDuration = 0.05;
+
+    doc
+      /* The sensor set shall provide pressure, flow, and occlusion telemetry quickly enough for closed-loop control and fault detection. */
+  }
+
+  satisfy PrimaryFunctionRequirement by PeristalticTransportSystem;
+  satisfy FlowControlRequirement by WaveController;
+  satisfy FluidIsolationRequirement by FlexibleTransportTube;
+  satisfy PressureProtectionRequirement by WaveController;
+  satisfy OcclusionRequirement by SequentialCompressionActuator;
+  satisfy PulsationRequirement by OutletComplianceRegion;
+  satisfy RecoveryRequirement by FlexibleTransportTube;
+  satisfy SafetyMonitoringRequirement by FlowPressureSensorSet;
+
+  assert constraint FlowRateConstraint {
+    PeristalticTransportSystem::targetFlowRate >= 0.1 and
+    PeristalticTransportSystem::targetFlowRate <= 25.0;
+  }
+
+  assert constraint PressureLimitConstraint {
+    PeristalticTransportSystem::maximumOutletPressure <=
+    FlexibleTransportTube::allowablePressure;
+  }
+
+  assert constraint OcclusionConstraint {
+    PeristalticTransportSystem::minimumTubeOcclusion >=
+    OcclusionRequirement::minimumRequiredOcclusion;
+  }
+
+  part peristalticPumpSystem : PeristalticTransportSystem {
+    perform transportFluid : TransportFluidAction;
+    exhibit lifecycle : PeristalticTransportLifecycle;
+  }
+
+}
+tokens used
+3,681
+package PeristalticTransportSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :> ScalarValues::Real;
+    unit = "kPa";
+  }
+
+  attribute def FlowRate {
+    :> ScalarValues::Real;
+    unit = "mL/s";
+  }
+
+  attribute def Volume {
+    :> ScalarValues::Real;
+    unit = "mL";
+  }
+
+  attribute def TimeDuration {
+    :> ScalarValues::Real;
+    unit = "s";
+  }
+
+  attribute def Frequency {
+    :> ScalarValues::Real;
+    unit = "Hz";
+  }
+
+  attribute def Length {
+    :> ScalarValues::Real;
+    unit = "mm";
+  }
+
+  attribute def Temperature {
+    :> ScalarValues::Real;
+    unit = "degC";
+  }
+
+  attribute def Force {
+    :> ScalarValues::Real;
+    unit = "N";
+  }
+
+  attribute def Percent {
+    :> ScalarValues::Real;
+    unit = "%";
+  }
+
+  item def WorkingFluid {
+    attribute viscosity : ScalarValues::Real;
+    attribute temperature : Temperature;
+    attribute contaminationRisk : Percent;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : ScalarValues::Real;
+    attribute current : ScalarValues::Real;
+  }
+
+  item def ControlSignal {
+    attribute commandFrequency : Frequency;
+    attribute commandAmplitude : Percent;
+    attribute enable : ScalarValues::Boolean;
+  }
+
+  item def SensorSignal {
+    attribute measuredPressure : Pressure;
+    attribute measuredFlowRate : FlowRate;
+    attribute measuredOcclusion : Percent;
+    attribute valid : ScalarValues::Boolean;
+  }
+
+  port def FluidInletPort {
+    in item fluid : WorkingFluid;
+  }
+
+  port def FluidOutletPort {
+    out item fluid : WorkingFluid;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ControlInputPort {
+    in item command : ControlSignal;
+  }
+
+  port def SensorOutputPort {
+    out item telemetry : SensorSignal;
+  }
+
+  part def PeristalticTransportSystem {
+    attribute primaryFunction : ScalarValues::String =
+      "Move working fluid through an isolated flexible tube by propagating controlled compression waves along the tube, producing directional flow without direct contact between the actuator mechanism and the fluid.";
+
+    attribute targetFlowRate : FlowRate = 4.0;
+    attribute maximumOutletPressure : Pressure = 250.0;
+    attribute minimumTubeOcclusion : Percent = 92.0;
+    attribute maximumFluidTemperature : Temperature = 45.0;
+    attribute primingVolume : Volume = 8.0;
+
+    port fluidIn : FluidInletPort;
+    port fluidOut : FluidOutletPort;
+    port powerIn : PowerInputPort;
+    port controlIn : ControlInputPort;
+    port statusOut : SensorOutputPort;
+
+    part controller : WaveController;
+    part actuator : SequentialCompressionActuator;
+    part tube : FlexibleTransportTube;
+    part inletCheckRegion : InletComplianceRegion;
+    part outletCheckRegion : OutletComplianceRegion;
+    part sensors : FlowPressureSensorSet;
+    part enclosure : ProtectiveHousing;
+
+    connect controlIn.command to controller.externalCommand;
+    connect powerIn.power to controller.controlPower;
+    connect controller.actuatorCommand to actuator.driveCommand;
+    connect actuator.compressionInterface to tube.wallCompressionInterface;
+    connect fluidIn.fluid to inletCheckRegion.incomingFluid;
+    connect inletCheckRegion.conditionedFluid to tube.upstreamFluid;
+    connect tube.downstreamFluid to outletCheckRegion.pressurizedFluid;
+    connect outletCheckRegion.deliveredFluid to fluidOut.fluid;
+    connect tube.sensedFluidState to sensors.fluidMeasurementInput;
+    connect sensors.telemetryOutput to statusOut.telemetry;
+    connect sensors.feedbackSignal to controller.sensorFeedback;
+
+    perform action transportFluid;
+    exhibit state lifecycle;
+  }
+
+  part def WaveController {
+    attribute nominalWaveFrequency : Frequency = 1.2;
+    attribute minimumWaveFrequency : Frequency = 0.1;
+    attribute maximumWaveFrequency : Frequency = 5.0;
+    attribute closedLoopEnabled : ScalarValues::Boolean = true;
+
+    in item externalCommand : ControlSignal;
+    in item controlPower : ElectricalPower;
+    in item sensorFeedback : SensorSignal;
+    out item actuatorCommand : ControlSignal;
+
+    action regulateWave {
+      in item requested : ControlSignal;
+      in item feedback : SensorSignal;
+      out item command : ControlSignal;
+
+      first start;
+      then validateCommand;
+      then compareMeasuredFlow;
+      then limitPressure;
+      then outputCompressionWave;
+
+      action validateCommand;
+      action compareMeasuredFlow;
+      action limitPressure;
+      action outputCompressionWave;
+    }
+  }
+
+  part def SequentialCompressionActuator {
+    attribute rollerCount : ScalarValues::Integer = 3;
+    attribute compressionForce : Force = 18.0;
+    attribute wavePitch : Length = 22.0;
+    attribute maximumSurfaceSpeed : ScalarValues::Real = 120.0;
+
+    in item driveCommand : ControlSignal;
+
+    port compressionInterface : CompressionPort;
+
+    part motor : RotaryDriveMotor;
+    part rotor : CompressionRotor;
+    part roller1 : CompressionElement;
+    part roller2 : CompressionElement;
+    part roller3 : CompressionElement;
+
+    connect motor.shaftTorque to rotor.inputTorque;
+    connect rotor.position1 to roller1.positionInput;
+    connect rotor.position2 to roller2.positionInput;
+    connect rotor.position3 to roller3.positionInput;
+    connect roller1.compressionOutput to compressionInterface.compression;
+    connect roller2.compressionOutput to compressionInterface.compression;
+    connect roller3.compressionOutput to compressionInterface.compression;
+  }
+
+  port def CompressionPort {
+    out item compression : CompressionWave;
+  }
+
+  item def CompressionWave {
+    attribute occlusion : Percent;
+    attribute frequency : Frequency;
+    attribute contactForce : Force;
+    attribute axialPosition : Length;
+  }
+
+  part def RotaryDriveMotor {
+    attribute ratedPower : ScalarValues::Real = 24.0;
+    attribute nominalVoltage : ScalarValues::Real = 24.0;
+    attribute speedCommand : Frequency;
+
+    out item shaftTorque : MechanicalTorque;
+  }
+
+  item def MechanicalTorque {
+    attribute torque : ScalarValues::Real;
+    attribute rotationalSpeed : Frequency;
+  }
+
+  part def CompressionRotor {
+    in item inputTorque : MechanicalTorque;
+    out item position1 : RollerPosition;
+    out item position2 : RollerPosition;
+    out item position3 : RollerPosition;
+  }
+
+  item def RollerPosition {
+    attribute angularPosition : ScalarValues::Real;
+    attribute axialContactPosition : Length;
+  }
+
+  part def CompressionElement {
+    attribute radius : Length = 7.0;
+    attribute contactWidth : Length = 10.0;
+
+    in item positionInput : RollerPosition;
+    out item compressionOutput : CompressionWave;
+  }
+
+  part def FlexibleTransportTube {
+    attribute internalDiameter : Length = 4.0;
+    attribute wallThickness : Length = 1.0;
+    attribute activeCompressionLength : Length = 86.0;
+    attribute elasticRecoveryTime : TimeDuration = 0.18;
+    attribute allowablePressure : Pressure = 300.0;
+
+    in item upstreamFluid : WorkingFluid;
+    out item downstreamFluid : WorkingFluid;
+    out item sensedFluidState : SensorSignal;
+
+    port wallCompressionInterface : TubeCompressionPort;
+
+    connect wallCompressionInterface.appliedCompression to peristalticSegment.receivedCompression;
+
+    part peristalticSegment : PeristalticSegment;
+    part upstreamSegment : TubeSegment;
+    part downstreamSegment : TubeSegment;
+  }
+
+  port def TubeCompressionPort {
+    in item appliedCompression : CompressionWave;
+  }
+
+  part def TubeSegment {
+    attribute segmentLength : Length;
+    attribute containedVolume : Volume;
+    attribute localPressure : Pressure;
+  }
+
+  part def PeristalticSegment {
+    attribute occludedVolumePerWave : Volume = 1.5;
+    attribute refluxFraction : Percent = 2.0;
+    attribute recoveryCompleteness : Percent = 98.0;
+
+    in item receivedCompression : CompressionWave;
+
+    action generateDirectionalFlow {
+      first receiveCompression;
+      then occludeTubeWall;
+      then advanceOcclusionZone;
+      then displaceFluidForward;
+      then allowElasticRecovery;
+      then preventBackflow;
+
+      action receiveCompression;
+      action occludeTubeWall;
+      action advanceOcclusionZone;
+      action displaceFluidForward;
+      action allowElasticRecovery;
+      action preventBackflow;
+    }
+  }
+
+  part def InletComplianceRegion {
+    attribute dampingVolume : Volume = 3.0;
+    attribute minimumSuctionPressure : Pressure = -35.0;
+
+    in item incomingFluid : WorkingFluid;
+    out item conditionedFluid : WorkingFluid;
+  }
+
+  part def OutletComplianceRegion {
+    attribute pulseDampingVolume : Volume = 4.5;
+    attribute maximumRipple : Percent = 8.0;
+
+    in item pressurizedFluid : WorkingFluid;
+    out item deliveredFluid : WorkingFluid;
+  }
+
+  part def FlowPressureSensorSet {
+    attribute flowAccuracy : Percent = 3.0;
+    attribute pressureAccuracy : Percent = 2.0;
+    attribute samplePeriod : TimeDuration = 0.05;
+
+    in item fluidMeasurementInput : SensorSignal;
+    out item telemetryOutput : SensorSignal;
+    out item feedbackSignal : SensorSignal;
+
+    part pressureSensor : PressureSensor;
+    part flowSensor : FlowSensor;
+    part occlusionEstimator : OcclusionEstimator;
+  }
+
+  part def PressureSensor {
+    attribute rangeMinimum : Pressure = -50.0;
+    attribute rangeMaximum : Pressure = 300.0;
+    out item pressureReading : SensorSignal;
+  }
+
+  part def FlowSensor {
+    attribute rangeMinimum : FlowRate = 0.0;
+    attribute rangeMaximum : FlowRate = 25.0;
+    out item flowReading : SensorSignal;
+  }
+
+  part def OcclusionEstimator {
+    attribute minimumReliableOcclusion : Percent = 80.0;
+    out item occlusionReading : SensorSignal;
+  }
+
+  part def ProtectiveHousing {
+    attribute ingressProtectionRating : ScalarValues::String = "IP54";
+    attribute removableTubeCassette : ScalarValues::Boolean = true;
+    attribute externalSurfaceTemperatureLimit : Temperature = 40.0;
+  }
+
+  action def TransportFluidAction {
+    in item inletFluid : WorkingFluid;
+    in item power : ElectricalPower;
+    in item command : ControlSignal;
+    out item outletFluid : WorkingFluid;
+    out item status : SensorSignal;
+
+    first initialize;
+    then primeTube;
+    then createSequentialCompression;
+    then propagatePeristalticWave;
+    then deliverMeteredFlow;
+    then monitorFlowAndPressure;
+    then adjustWaveFrequency;
+
+    action initialize;
+    action primeTube;
+    action createSequentialCompression;
+    action propagatePeristalticWave;
+    action deliverMeteredFlow;
+    action monitorFlowAndPressure;
+    action adjustWaveFrequency;
+  }
+
+  state def PeristalticTransportLifecycle {
+    entry action powerOnSelfTest;
+
+    state Off;
+    state Ready;
+    state Priming;
+    state Pumping;
+    state PressureLimited;
+    state OcclusionFault;
+    state Shutdown;
+
+    transition initial then Off;
+    transition Off_to_Ready
+      first Off
+      accept PowerAvailable
+      then Ready;
+
+    transition Ready_to_Priming
+      first Ready
+      accept PrimeCommand
+      then Priming;
+
+    transition Priming_to_Pumping
+      first Priming
+      accept TubeFilled
+      then Pumping;
+
+    transition Pumping_to_PressureLimited
+      first Pumping
+      accept HighOutletPressure
+      then PressureLimited;
+
+    transition PressureLimited_to_Pumping
+      first PressureLimited
+      accept PressureRecovered
+      then Pumping;
+
+    transition Pumping_to_OcclusionFault
+      first Pumping
+      accept OcclusionBelowLimit
+      then OcclusionFault;
+
+    transition OcclusionFault_to_Ready
+      first OcclusionFault
+      accept FaultCleared
+      then Ready;
+
+    transition Ready_to_Shutdown
+      first Ready
+      accept StopCommand
+      then Shutdown;
+
+    transition Pumping_to_Shutdown
+      first Pumping
+      accept StopCommand
+      then Shutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall transport fluid by peristalsis, using a moving compression wave on a flexible tube to produce directional, metered flow while maintaining isolation between the fluid and mechanical actuator. */
+  }
+
+  requirement def FlowControlRequirement {
+    attribute requiredNominalFlowRate : FlowRate = 4.0;
+    attribute allowedFlowError : Percent = 5.0;
+
+    doc
+      /* The system shall regulate delivered flow to the commanded rate within the allowed flow error during steady pumping operation. */
+  }
+
+  requirement def FluidIsolationRequirement {
+    doc
+      /* The working fluid shall contact only the internal surface of the flexible transport tube and connected fluid fittings during normal operation. */
+  }
+
+  requirement def PressureProtectionRequirement {
+    attribute maximumSafePressure : Pressure = 250.0;
+
+    doc
+      /* The system shall reduce or stop the compression wave when measured outlet pressure exceeds the maximum safe pressure. */
+  }
+
+  requirement def OcclusionRequirement {
+    attribute minimumRequiredOcclusion : Percent = 92.0;
+
+    doc
+      /* The actuator shall compress the flexible tube sufficiently to create a sealed occlusion zone that minimizes backflow during wave propagation. */
+  }
+
+  requirement def PulsationRequirement {
+    attribute maximumAllowedRipple : Percent = 8.0;
+
+    doc
+      /* The outlet compliance region shall limit cyclic flow ripple produced by discrete peristaltic compression events. */
+  }
+
+  requirement def RecoveryRequirement {
+    attribute minimumRecoveryCompleteness : Percent = 98.0;
+
+    doc
+      /* The tube shall elastically recover after compression to refill from the inlet side and sustain repeated peristaltic cycles. */
+  }
+
+  requirement def SafetyMonitoringRequirement {
+    attribute maximumSensorSamplePeriod : TimeDuration = 0.05;
+
+    doc
+      /* The sensor set shall provide pressure, flow, and occlusion telemetry quickly enough for closed-loop control and fault detection. */
+  }
+
+  satisfy PrimaryFunctionRequirement by PeristalticTransportSystem;
+  satisfy FlowControlRequirement by WaveController;
+  satisfy FluidIsolationRequirement by FlexibleTransportTube;
+  satisfy PressureProtectionRequirement by WaveController;
+  satisfy OcclusionRequirement by SequentialCompressionActuator;
+  satisfy PulsationRequirement by OutletComplianceRegion;
+  satisfy RecoveryRequirement by FlexibleTransportTube;
+  satisfy SafetyMonitoringRequirement by FlowPressureSensorSet;
+
+  assert constraint FlowRateConstraint {
+    PeristalticTransportSystem::targetFlowRate >= 0.1 and
+    PeristalticTransportSystem::targetFlowRate <= 25.0;
+  }
+
+  assert constraint PressureLimitConstraint {
+    PeristalticTransportSystem::maximumOutletPressure <=
+    FlexibleTransportTube::allowablePressure;
+  }
+
+  assert constraint OcclusionConstraint {
+    PeristalticTransportSystem::minimumTubeOcclusion >=
+    OcclusionRequirement::minimumRequiredOcclusion;
+  }
+
+  part peristalticPumpSystem : PeristalticTransportSystem {
+    perform transportFluid : TransportFluidAction;
+    exhibit lifecycle : PeristalticTransportLifecycle;
+  }
+
+}

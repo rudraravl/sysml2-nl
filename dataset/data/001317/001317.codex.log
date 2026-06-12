@@ -1,0 +1,847 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0p0ki2lo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb63e-847a-78e0-9054-a6b8c61d23fa
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a sensing unit that measures the relevant quantity using a Wheel speed sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package WheelSpeedSensorSensingUnitModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Voltage;
+  attribute def Current;
+  attribute def Frequency;
+  attribute def TimeDuration;
+  attribute def WheelSpeed;
+  attribute def AngularSpeed;
+  attribute def Temperature;
+  attribute def Distance;
+  attribute def Count;
+  attribute def Ratio;
+  attribute def BooleanStatus;
+
+  enum def RotationDirection {
+    enum forward;
+    enum reverse;
+    enum stopped;
+    enum unknown;
+  }
+
+  enum def DiagnosticStatus {
+    enum nominal;
+    enum degraded;
+    enum openCircuit;
+    enum shortCircuit;
+    enum implausibleSignal;
+    enum noTargetDetected;
+    enum overTemperature;
+    enum undervoltage;
+  }
+
+  item def WheelRotation {
+    attribute angularSpeed : AngularSpeed;
+    attribute direction : RotationDirection;
+    attribute toothCountPerRevolution : Count;
+    attribute airGap : Distance;
+  }
+
+  item def MagneticToothEvent {
+    attribute eventTime : TimeDuration;
+    attribute toothIndex : Count;
+    attribute polarityValid : BooleanStatus;
+  }
+
+  item def SensorPulseTrain {
+    attribute pulseFrequency : Frequency;
+    attribute dutyCycle : Ratio;
+    attribute pulseCount : Count;
+    attribute direction : RotationDirection;
+    attribute diagnosticStatus : DiagnosticStatus;
+  }
+
+  item def WheelSpeedSample {
+    attribute speed : WheelSpeed;
+    attribute angularSpeed : AngularSpeed;
+    attribute direction : RotationDirection;
+    attribute sampleTime : TimeDuration;
+    attribute valid : BooleanStatus;
+    attribute diagnosticStatus : DiagnosticStatus;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : Current;
+  }
+
+  item def DiagnosticMessage {
+    attribute status : DiagnosticStatus;
+    attribute detectedAt : TimeDuration;
+    attribute latched : BooleanStatus;
+  }
+
+  port def WheelRotationPort {
+    in item rotation : WheelRotation;
+  }
+
+  port def SensorEventPort {
+    out item event : MagneticToothEvent;
+  }
+
+  port def PulseTrainPort {
+    in item toothEvent : MagneticToothEvent;
+    out item pulseTrain : SensorPulseTrain;
+  }
+
+  port def SpeedOutputPort {
+    out item speedSample : WheelSpeedSample;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def DiagnosticPort {
+    out item diagnostic : DiagnosticMessage;
+  }
+
+  part def ToneRing {
+    attribute teeth : Count = 48;
+    attribute missingTeeth : Count = 0;
+    attribute nominalAirGap : Distance;
+    port rotationInterface : WheelRotationPort;
+  }
+
+  part def WheelSpeedSensor {
+    attribute minimumDetectableFrequency : Frequency;
+    attribute maximumDetectableFrequency : Frequency;
+    attribute nominalSupplyVoltage : Voltage;
+    attribute operatingTemperature : Temperature;
+    attribute airGapTolerance : Distance;
+
+    port target : WheelRotationPort;
+    port powerIn : PowerInputPort;
+    port eventOut : SensorEventPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action detectToothEvent {
+      in item wheelRotation : WheelRotation;
+      out item event : MagneticToothEvent;
+      out item diagnostic : DiagnosticMessage;
+    }
+
+    state sensorBehavior {
+      entry action initializeSensor;
+      state unpowered;
+      state startupSelfTest;
+      state detecting;
+      state degradedDetection;
+      state failed;
+
+      transition initial then unpowered;
+      transition unpowered_to_selfTest
+        first unpowered
+        accept item power : ElectricalPower
+        if power.supplyVoltage >= 4.5
+        then startupSelfTest;
+
+      transition selfTest_to_detecting
+        first startupSelfTest
+        if nominalSupplyVoltage >= 4.5
+        then detecting;
+
+      transition detecting_to_degraded
+        first detecting
+        accept item rotation : WheelRotation
+        if rotation.airGap > airGapTolerance
+        then degradedDetection;
+
+      transition detecting_to_failed
+        first detecting
+        if operatingTemperature > 150
+        then failed;
+
+      transition degraded_to_detecting
+        first degradedDetection
+        accept item rotation : WheelRotation
+        if rotation.airGap <= airGapTolerance
+        then detecting;
+
+      transition failed_to_unpowered
+        first failed
+        accept item power : ElectricalPower
+        if power.supplyVoltage < 1.0
+        then unpowered;
+    }
+  }
+
+  part def SignalConditioner {
+    attribute debounceTime : TimeDuration;
+    attribute minimumDutyCycle : Ratio = 0.30;
+    attribute maximumDutyCycle : Ratio = 0.70;
+
+    port eventIn : SensorEventPort;
+    port pulseOut : PulseTrainPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action filterAndShapePulseTrain {
+      in item event : MagneticToothEvent;
+      out item pulseTrain : SensorPulseTrain;
+      out item diagnostic : DiagnosticMessage;
+    }
+  }
+
+  part def WheelSpeedEstimator {
+    attribute teethPerRevolution : Count = 48;
+    attribute samplePeriod : TimeDuration;
+    attribute timeoutPeriod : TimeDuration;
+    attribute wheelRadius : Distance;
+
+    port pulseIn : PulseTrainPort;
+    port speedOut : SpeedOutputPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action computeWheelSpeed {
+      in item pulseTrain : SensorPulseTrain;
+      out item speedSample : WheelSpeedSample;
+    }
+
+    action validateSpeedSample {
+      in item speedSample : WheelSpeedSample;
+      out item diagnostic : DiagnosticMessage;
+    }
+
+    state estimatorBehavior {
+      state waitingForPulses;
+      state estimatingSpeed;
+      state zeroSpeedHold;
+      state invalidSignal;
+
+      transition initial then waitingForPulses;
+
+      transition waiting_to_estimating
+        first waitingForPulses
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.pulseFrequency > 0
+        then estimatingSpeed;
+
+      transition estimating_to_zero
+        first estimatingSpeed
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.pulseFrequency == 0
+        then zeroSpeedHold;
+
+      transition estimating_to_invalid
+        first estimatingSpeed
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.diagnosticStatus != DiagnosticStatus::nominal
+        then invalidSignal;
+
+      transition invalid_to_waiting
+        first invalidSignal
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.diagnosticStatus == DiagnosticStatus::nominal
+        then waitingForPulses;
+    }
+  }
+
+  part def SensingUnitController {
+    port powerIn : PowerInputPort;
+    port speedOut : SpeedOutputPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action publishMeasurement {
+      in item speedSample : WheelSpeedSample;
+      out item diagnostic : DiagnosticMessage;
+    }
+
+    state controllerBehavior {
+      state off;
+      state selfTest;
+      state ready;
+      state measuring;
+      state degraded;
+      state fault;
+
+      transition initial then off;
+
+      transition off_to_selfTest
+        first off
+        accept item power : ElectricalPower
+        if power.supplyVoltage >= 4.5
+        then selfTest;
+
+      transition selfTest_to_ready
+        first selfTest
+        then ready;
+
+      transition ready_to_measuring
+        first ready
+        accept item speedSample : WheelSpeedSample
+        if speedSample.valid == true
+        then measuring;
+
+      transition measuring_to_degraded
+        first measuring
+        accept item diagnostic : DiagnosticMessage
+        if diagnostic.status == DiagnosticStatus::implausibleSignal
+        then degraded;
+
+      transition degraded_to_fault
+        first degraded
+        accept item diagnostic : DiagnosticMessage
+        if diagnostic.latched == true
+        then fault;
+
+      transition measuring_to_fault
+        first measuring
+        accept item diagnostic : DiagnosticMessage
+        if diagnostic.status == DiagnosticStatus::openCircuit or diagnostic.status == DiagnosticStatus::shortCircuit
+        then fault;
+
+      transition fault_to_off
+        first fault
+        accept item power : ElectricalPower
+        if power.supplyVoltage < 1.0
+        then off;
+    }
+  }
+
+  part def WheelSpeedSensingUnit {
+    attribute measurementRangeMinimum : WheelSpeed;
+    attribute measurementRangeMaximum : WheelSpeed;
+    attribute maximumLatency : TimeDuration;
+    attribute speedAccuracy : WheelSpeed;
+    attribute supportedDirectionSensing : BooleanStatus = true;
+
+    port wheelInput : WheelRotationPort;
+    port powerInput : PowerInputPort;
+    port measuredSpeedOutput : SpeedOutputPort;
+    port diagnostics : DiagnosticPort;
+
+    part toneRing : ToneRing;
+    part sensor : WheelSpeedSensor;
+    part conditioner : SignalConditioner;
+    part estimator : WheelSpeedEstimator;
+    part controller : SensingUnitController;
+
+    connection wheel_to_toneRing connect wheelInput to toneRing.rotationInterface;
+    connection toneRing_to_sensor connect toneRing.rotationInterface to sensor.target;
+    connection power_to_sensor connect powerInput to sensor.powerIn;
+    connection power_to_controller connect powerInput to controller.powerIn;
+    connection sensor_events_to_conditioner connect sensor.eventOut to conditioner.eventIn;
+    connection conditioned_pulses_to_estimator connect conditioner.pulseOut to estimator.pulseIn;
+    connection estimator_speed_to_controller connect estimator.speedOut to controller.speedOut;
+    connection controller_speed_to_external connect controller.speedOut to measuredSpeedOutput;
+    connection sensor_diagnostics_to_external connect sensor.diagnosticOut to diagnostics;
+    connection conditioner_diagnostics_to_external connect conditioner.diagnosticOut to diagnostics;
+    connection estimator_diagnostics_to_external connect estimator.diagnosticOut to diagnostics;
+    connection controller_diagnostics_to_external connect controller.diagnosticOut to diagnostics;
+  }
+
+  requirement def MeasureWheelSpeedRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.measuredSpeedOutput.speedSample.valid == true
+    }
+  }
+
+  requirement def WheelSpeedRangeRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.measurementRangeMinimum <= unit.measuredSpeedOutput.speedSample.speed and
+      unit.measuredSpeedOutput.speedSample.speed <= unit.measurementRangeMaximum
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.maximumLatency <= 0.020
+    }
+  }
+
+  requirement def DirectionRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.supportedDirectionSensing == true
+    }
+  }
+
+  requirement def DiagnosticRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.diagnostics.diagnostic.status != DiagnosticStatus::unknown
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.powerInput.power.supplyVoltage >= 4.5 and
+      unit.powerInput.power.supplyVoltage <= 16.0
+    }
+  }
+
+  part wheelSpeedSensingUnit : WheelSpeedSensingUnit {
+    attribute measurementRangeMinimum = 0.0;
+    attribute measurementRangeMaximum = 250.0;
+    attribute maximumLatency = 0.020;
+    attribute speedAccuracy = 0.5;
+
+    part toneRing {
+      attribute teeth = 48;
+      attribute missingTeeth = 0;
+      attribute nominalAirGap = 0.001;
+    }
+
+    part sensor {
+      attribute minimumDetectableFrequency = 1.0;
+      attribute maximumDetectableFrequency = 12000.0;
+      attribute nominalSupplyVoltage = 5.0;
+      attribute operatingTemperature = 25.0;
+      attribute airGapTolerance = 0.002;
+    }
+
+    part conditioner {
+      attribute debounceTime = 0.00005;
+      attribute minimumDutyCycle = 0.30;
+      attribute maximumDutyCycle = 0.70;
+    }
+
+    part estimator {
+      attribute teethPerRevolution = 48;
+      attribute samplePeriod = 0.010;
+      attribute timeoutPeriod = 0.100;
+      attribute wheelRadius = 0.315;
+    }
+  }
+
+}
+tokens used
+4,450
+package WheelSpeedSensorSensingUnitModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Voltage;
+  attribute def Current;
+  attribute def Frequency;
+  attribute def TimeDuration;
+  attribute def WheelSpeed;
+  attribute def AngularSpeed;
+  attribute def Temperature;
+  attribute def Distance;
+  attribute def Count;
+  attribute def Ratio;
+  attribute def BooleanStatus;
+
+  enum def RotationDirection {
+    enum forward;
+    enum reverse;
+    enum stopped;
+    enum unknown;
+  }
+
+  enum def DiagnosticStatus {
+    enum nominal;
+    enum degraded;
+    enum openCircuit;
+    enum shortCircuit;
+    enum implausibleSignal;
+    enum noTargetDetected;
+    enum overTemperature;
+    enum undervoltage;
+  }
+
+  item def WheelRotation {
+    attribute angularSpeed : AngularSpeed;
+    attribute direction : RotationDirection;
+    attribute toothCountPerRevolution : Count;
+    attribute airGap : Distance;
+  }
+
+  item def MagneticToothEvent {
+    attribute eventTime : TimeDuration;
+    attribute toothIndex : Count;
+    attribute polarityValid : BooleanStatus;
+  }
+
+  item def SensorPulseTrain {
+    attribute pulseFrequency : Frequency;
+    attribute dutyCycle : Ratio;
+    attribute pulseCount : Count;
+    attribute direction : RotationDirection;
+    attribute diagnosticStatus : DiagnosticStatus;
+  }
+
+  item def WheelSpeedSample {
+    attribute speed : WheelSpeed;
+    attribute angularSpeed : AngularSpeed;
+    attribute direction : RotationDirection;
+    attribute sampleTime : TimeDuration;
+    attribute valid : BooleanStatus;
+    attribute diagnosticStatus : DiagnosticStatus;
+  }
+
+  item def ElectricalPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : Current;
+  }
+
+  item def DiagnosticMessage {
+    attribute status : DiagnosticStatus;
+    attribute detectedAt : TimeDuration;
+    attribute latched : BooleanStatus;
+  }
+
+  port def WheelRotationPort {
+    in item rotation : WheelRotation;
+  }
+
+  port def SensorEventPort {
+    out item event : MagneticToothEvent;
+  }
+
+  port def PulseTrainPort {
+    in item toothEvent : MagneticToothEvent;
+    out item pulseTrain : SensorPulseTrain;
+  }
+
+  port def SpeedOutputPort {
+    out item speedSample : WheelSpeedSample;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def DiagnosticPort {
+    out item diagnostic : DiagnosticMessage;
+  }
+
+  part def ToneRing {
+    attribute teeth : Count = 48;
+    attribute missingTeeth : Count = 0;
+    attribute nominalAirGap : Distance;
+    port rotationInterface : WheelRotationPort;
+  }
+
+  part def WheelSpeedSensor {
+    attribute minimumDetectableFrequency : Frequency;
+    attribute maximumDetectableFrequency : Frequency;
+    attribute nominalSupplyVoltage : Voltage;
+    attribute operatingTemperature : Temperature;
+    attribute airGapTolerance : Distance;
+
+    port target : WheelRotationPort;
+    port powerIn : PowerInputPort;
+    port eventOut : SensorEventPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action detectToothEvent {
+      in item wheelRotation : WheelRotation;
+      out item event : MagneticToothEvent;
+      out item diagnostic : DiagnosticMessage;
+    }
+
+    state sensorBehavior {
+      entry action initializeSensor;
+      state unpowered;
+      state startupSelfTest;
+      state detecting;
+      state degradedDetection;
+      state failed;
+
+      transition initial then unpowered;
+      transition unpowered_to_selfTest
+        first unpowered
+        accept item power : ElectricalPower
+        if power.supplyVoltage >= 4.5
+        then startupSelfTest;
+
+      transition selfTest_to_detecting
+        first startupSelfTest
+        if nominalSupplyVoltage >= 4.5
+        then detecting;
+
+      transition detecting_to_degraded
+        first detecting
+        accept item rotation : WheelRotation
+        if rotation.airGap > airGapTolerance
+        then degradedDetection;
+
+      transition detecting_to_failed
+        first detecting
+        if operatingTemperature > 150
+        then failed;
+
+      transition degraded_to_detecting
+        first degradedDetection
+        accept item rotation : WheelRotation
+        if rotation.airGap <= airGapTolerance
+        then detecting;
+
+      transition failed_to_unpowered
+        first failed
+        accept item power : ElectricalPower
+        if power.supplyVoltage < 1.0
+        then unpowered;
+    }
+  }
+
+  part def SignalConditioner {
+    attribute debounceTime : TimeDuration;
+    attribute minimumDutyCycle : Ratio = 0.30;
+    attribute maximumDutyCycle : Ratio = 0.70;
+
+    port eventIn : SensorEventPort;
+    port pulseOut : PulseTrainPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action filterAndShapePulseTrain {
+      in item event : MagneticToothEvent;
+      out item pulseTrain : SensorPulseTrain;
+      out item diagnostic : DiagnosticMessage;
+    }
+  }
+
+  part def WheelSpeedEstimator {
+    attribute teethPerRevolution : Count = 48;
+    attribute samplePeriod : TimeDuration;
+    attribute timeoutPeriod : TimeDuration;
+    attribute wheelRadius : Distance;
+
+    port pulseIn : PulseTrainPort;
+    port speedOut : SpeedOutputPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action computeWheelSpeed {
+      in item pulseTrain : SensorPulseTrain;
+      out item speedSample : WheelSpeedSample;
+    }
+
+    action validateSpeedSample {
+      in item speedSample : WheelSpeedSample;
+      out item diagnostic : DiagnosticMessage;
+    }
+
+    state estimatorBehavior {
+      state waitingForPulses;
+      state estimatingSpeed;
+      state zeroSpeedHold;
+      state invalidSignal;
+
+      transition initial then waitingForPulses;
+
+      transition waiting_to_estimating
+        first waitingForPulses
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.pulseFrequency > 0
+        then estimatingSpeed;
+
+      transition estimating_to_zero
+        first estimatingSpeed
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.pulseFrequency == 0
+        then zeroSpeedHold;
+
+      transition estimating_to_invalid
+        first estimatingSpeed
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.diagnosticStatus != DiagnosticStatus::nominal
+        then invalidSignal;
+
+      transition invalid_to_waiting
+        first invalidSignal
+        accept item pulseTrain : SensorPulseTrain
+        if pulseTrain.diagnosticStatus == DiagnosticStatus::nominal
+        then waitingForPulses;
+    }
+  }
+
+  part def SensingUnitController {
+    port powerIn : PowerInputPort;
+    port speedOut : SpeedOutputPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action publishMeasurement {
+      in item speedSample : WheelSpeedSample;
+      out item diagnostic : DiagnosticMessage;
+    }
+
+    state controllerBehavior {
+      state off;
+      state selfTest;
+      state ready;
+      state measuring;
+      state degraded;
+      state fault;
+
+      transition initial then off;
+
+      transition off_to_selfTest
+        first off
+        accept item power : ElectricalPower
+        if power.supplyVoltage >= 4.5
+        then selfTest;
+
+      transition selfTest_to_ready
+        first selfTest
+        then ready;
+
+      transition ready_to_measuring
+        first ready
+        accept item speedSample : WheelSpeedSample
+        if speedSample.valid == true
+        then measuring;
+
+      transition measuring_to_degraded
+        first measuring
+        accept item diagnostic : DiagnosticMessage
+        if diagnostic.status == DiagnosticStatus::implausibleSignal
+        then degraded;
+
+      transition degraded_to_fault
+        first degraded
+        accept item diagnostic : DiagnosticMessage
+        if diagnostic.latched == true
+        then fault;
+
+      transition measuring_to_fault
+        first measuring
+        accept item diagnostic : DiagnosticMessage
+        if diagnostic.status == DiagnosticStatus::openCircuit or diagnostic.status == DiagnosticStatus::shortCircuit
+        then fault;
+
+      transition fault_to_off
+        first fault
+        accept item power : ElectricalPower
+        if power.supplyVoltage < 1.0
+        then off;
+    }
+  }
+
+  part def WheelSpeedSensingUnit {
+    attribute measurementRangeMinimum : WheelSpeed;
+    attribute measurementRangeMaximum : WheelSpeed;
+    attribute maximumLatency : TimeDuration;
+    attribute speedAccuracy : WheelSpeed;
+    attribute supportedDirectionSensing : BooleanStatus = true;
+
+    port wheelInput : WheelRotationPort;
+    port powerInput : PowerInputPort;
+    port measuredSpeedOutput : SpeedOutputPort;
+    port diagnostics : DiagnosticPort;
+
+    part toneRing : ToneRing;
+    part sensor : WheelSpeedSensor;
+    part conditioner : SignalConditioner;
+    part estimator : WheelSpeedEstimator;
+    part controller : SensingUnitController;
+
+    connection wheel_to_toneRing connect wheelInput to toneRing.rotationInterface;
+    connection toneRing_to_sensor connect toneRing.rotationInterface to sensor.target;
+    connection power_to_sensor connect powerInput to sensor.powerIn;
+    connection power_to_controller connect powerInput to controller.powerIn;
+    connection sensor_events_to_conditioner connect sensor.eventOut to conditioner.eventIn;
+    connection conditioned_pulses_to_estimator connect conditioner.pulseOut to estimator.pulseIn;
+    connection estimator_speed_to_controller connect estimator.speedOut to controller.speedOut;
+    connection controller_speed_to_external connect controller.speedOut to measuredSpeedOutput;
+    connection sensor_diagnostics_to_external connect sensor.diagnosticOut to diagnostics;
+    connection conditioner_diagnostics_to_external connect conditioner.diagnosticOut to diagnostics;
+    connection estimator_diagnostics_to_external connect estimator.diagnosticOut to diagnostics;
+    connection controller_diagnostics_to_external connect controller.diagnosticOut to diagnostics;
+  }
+
+  requirement def MeasureWheelSpeedRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.measuredSpeedOutput.speedSample.valid == true
+    }
+  }
+
+  requirement def WheelSpeedRangeRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.measurementRangeMinimum <= unit.measuredSpeedOutput.speedSample.speed and
+      unit.measuredSpeedOutput.speedSample.speed <= unit.measurementRangeMaximum
+    }
+  }
+
+  requirement def LatencyRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.maximumLatency <= 0.020
+    }
+  }
+
+  requirement def DirectionRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.supportedDirectionSensing == true
+    }
+  }
+
+  requirement def DiagnosticRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.diagnostics.diagnostic.status != DiagnosticStatus::unknown
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject unit : WheelSpeedSensingUnit;
+    require constraint {
+      unit.powerInput.power.supplyVoltage >= 4.5 and
+      unit.powerInput.power.supplyVoltage <= 16.0
+    }
+  }
+
+  part wheelSpeedSensingUnit : WheelSpeedSensingUnit {
+    attribute measurementRangeMinimum = 0.0;
+    attribute measurementRangeMaximum = 250.0;
+    attribute maximumLatency = 0.020;
+    attribute speedAccuracy = 0.5;
+
+    part toneRing {
+      attribute teeth = 48;
+      attribute missingTeeth = 0;
+      attribute nominalAirGap = 0.001;
+    }
+
+    part sensor {
+      attribute minimumDetectableFrequency = 1.0;
+      attribute maximumDetectableFrequency = 12000.0;
+      attribute nominalSupplyVoltage = 5.0;
+      attribute operatingTemperature = 25.0;
+      attribute airGapTolerance = 0.002;
+    }
+
+    part conditioner {
+      attribute debounceTime = 0.00005;
+      attribute minimumDutyCycle = 0.30;
+      attribute maximumDutyCycle = 0.70;
+    }
+
+    part estimator {
+      attribute teethPerRevolution = 48;
+      attribute samplePeriod = 0.010;
+      attribute timeoutPeriod = 0.100;
+      attribute wheelRadius = 0.315;
+    }
+  }
+
+}

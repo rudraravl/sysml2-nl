@@ -1,0 +1,387 @@
+package BangladeshFloodResilienceSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real;
+    attribute def Taka :> Real;
+    attribute def PeopleCount :> Integer;
+    attribute def RiskIndex :> Real;
+    attribute def AlertLevel :> Integer;
+
+    item def RainfallReport {
+        attribute stationId : String;
+        attribute district : String;
+        attribute rainfallRate : Real [mm/h];
+        attribute accumulatedRainfall : Real [mm];
+        attribute observationTime : String;
+    }
+
+    item def RiverGaugeReport {
+        attribute gaugeId : String;
+        attribute riverName : String;
+        attribute district : String;
+        attribute waterLevel : Real [m];
+        attribute dangerLevel : Real [m];
+        attribute rateOfRise : Real [m/h];
+    }
+
+    item def CycloneTrackReport {
+        attribute stormName : String;
+        attribute windSpeed : Real [km/h];
+        attribute pressure : Real [hPa];
+        attribute projectedLandfallDistrict : String;
+        attribute hoursToLandfall : Real [h];
+    }
+
+    item def FloodForecast {
+        attribute affectedDistrict : String;
+        attribute expectedDepth : Real [m];
+        attribute expectedOnsetTime : String;
+        attribute exposedPopulation : PeopleCount;
+        attribute confidence : Percent;
+        attribute risk : RiskIndex;
+    }
+
+    item def PublicWarning {
+        attribute warningId : String;
+        attribute district : String;
+        attribute upazila : String;
+        attribute language : String;
+        attribute level : AlertLevel;
+        attribute messageText : String;
+        attribute recommendedAction : String;
+        attribute validUntil : String;
+    }
+
+    item def EvacuationOrder {
+        attribute orderId : String;
+        attribute district : String;
+        attribute shelterId : String;
+        attribute targetPopulation : PeopleCount;
+        attribute transportNeed : Integer;
+        attribute issueTime : String;
+    }
+
+    item def ReliefRequest {
+        attribute requestId : String;
+        attribute district : String;
+        attribute foodPackets : Integer;
+        attribute cleanWaterLiters : Real [L];
+        attribute medicalTeams : Integer;
+        attribute priority : AlertLevel;
+    }
+
+    item def ResourceDispatch {
+        attribute dispatchId : String;
+        attribute originHub : String;
+        attribute destinationDistrict : String;
+        attribute trucks : Integer;
+        attribute boats : Integer;
+        attribute foodPackets : Integer;
+        attribute cleanWaterLiters : Real [L];
+        attribute estimatedArrivalHours : Real [h];
+    }
+
+    port def SensorDataPort {
+        in item rainfall : RainfallReport;
+        in item riverGauge : RiverGaugeReport;
+        in item cycloneTrack : CycloneTrackReport;
+    }
+
+    port def ForecastPort {
+        out item forecast : FloodForecast;
+    }
+
+    port def WarningPort {
+        in item forecast : FloodForecast;
+        out item warning : PublicWarning;
+    }
+
+    port def EvacuationPort {
+        in item warning : PublicWarning;
+        out item order : EvacuationOrder;
+    }
+
+    port def LogisticsPort {
+        in item request : ReliefRequest;
+        out item dispatch : ResourceDispatch;
+    }
+
+    port def PublicCommunicationPort {
+        out item warning : PublicWarning;
+    }
+
+    part def HydroMeteorologicalNetwork {
+        attribute sensorAvailability : Percent;
+        attribute reportingInterval : Real [min];
+
+        port dataOut : SensorDataPort;
+
+        part rainfallStations {
+            attribute count : Integer = 420;
+        }
+
+        part riverGauges {
+            attribute count : Integer = 145;
+        }
+
+        part coastalCycloneRadars {
+            attribute count : Integer = 5;
+        }
+    }
+
+    part def ForecastAnalyticsCenter {
+        attribute modelRefreshPeriod : Real [min] = 15;
+        attribute minimumForecastConfidence : Percent = 75.0;
+        attribute nationalRiskThreshold : RiskIndex = 0.65;
+
+        port sensorDataIn : SensorDataPort;
+        port forecastOut : ForecastPort;
+
+        action classifyFloodRisk {
+            in item rainfall : RainfallReport;
+            in item gauge : RiverGaugeReport;
+            out item forecast : FloodForecast;
+        }
+
+        state def ForecastingStateMachine {
+            state idle;
+            state ingestingData;
+            state validatingData;
+            state computingForecast;
+            state publishingForecast;
+            state degradedMode;
+
+            transition first idle;
+            transition idle_to_ingesting
+                first idle then ingestingData;
+
+            transition ingesting_to_validating
+                first ingestingData then validatingData;
+
+            transition validating_to_computing
+                first validatingData then computingForecast;
+
+            transition computing_to_publishing
+                first computingForecast then publishingForecast;
+
+            transition publishing_to_idle
+                first publishingForecast then idle;
+
+            transition validation_failure
+                first validatingData then degradedMode;
+
+            transition degraded_recovery
+                first degradedMode then ingestingData;
+        }
+    }
+
+    part def NationalWarningService {
+        attribute maximumWarningLatency : Real [min] = 10;
+        attribute supportedLanguages : Integer = 3;
+
+        port forecastIn : WarningPort;
+        port publicOut : PublicCommunicationPort;
+        port evacuationOut : EvacuationPort;
+
+        action generateLocalizedWarning {
+            in item forecast : FloodForecast;
+            out item warning : PublicWarning;
+        }
+
+        state def WarningLifecycle {
+            state monitoring;
+            state draftWarning;
+            state approveWarning;
+            state broadcastWarning;
+            state updateWarning;
+            state expireWarning;
+
+            transition first monitoring;
+            transition risk_detected first monitoring then draftWarning;
+            transition drafted first draftWarning then approveWarning;
+            transition approved first approveWarning then broadcastWarning;
+            transition conditions_changed first broadcastWarning then updateWarning;
+            transition updated first updateWarning then broadcastWarning;
+            transition validity_elapsed first broadcastWarning then expireWarning;
+            transition expired first expireWarning then monitoring;
+        }
+    }
+
+    part def LocalDisasterManagementOffice {
+        attribute districtName : String;
+        attribute registeredShelters : Integer;
+        attribute shelterCapacity : PeopleCount;
+        attribute trainedVolunteers : Integer;
+
+        port warningIn : EvacuationPort;
+        port logisticsOut : LogisticsPort;
+
+        action selectSafeShelters {
+            in item warning : PublicWarning;
+            out item order : EvacuationOrder;
+        }
+
+        action estimateReliefNeed {
+            in item order : EvacuationOrder;
+            out item request : ReliefRequest;
+        }
+    }
+
+    part def EmergencyLogisticsNetwork {
+        attribute nationalFoodStock : Integer;
+        attribute nationalWaterStock : Real [L];
+        attribute availableBoats : Integer;
+        attribute availableTrucks : Integer;
+        attribute maximumDispatchTime : Real [h] = 6;
+
+        port requestIn : LogisticsPort;
+
+        action allocateReliefResources {
+            in item request : ReliefRequest;
+            out item dispatch : ResourceDispatch;
+        }
+
+        state def LogisticsStateMachine {
+            state ready;
+            state receivingRequests;
+            state prioritizing;
+            state dispatching;
+            state trackingDelivery;
+            state replenishing;
+
+            transition first ready;
+            transition request_received first ready then receivingRequests;
+            transition request_logged first receivingRequests then prioritizing;
+            transition priority_assigned first prioritizing then dispatching;
+            transition dispatched first dispatching then trackingDelivery;
+            transition delivered first trackingDelivery then ready;
+            transition low_stock first ready then replenishing;
+            transition stock_restored first replenishing then ready;
+        }
+    }
+
+    part def CommunityCommunicationNetwork {
+        attribute smsCapacityPerMinute : Integer = 250000;
+        attribute radioCoverage : Percent = 92.0;
+        attribute cellBroadcastCoverage : Percent = 88.0;
+        attribute mosqueLoudspeakerCoverage : Percent = 76.0;
+
+        port publicWarningIn : PublicCommunicationPort;
+
+        action broadcastWarning {
+            in item warning : PublicWarning;
+        }
+    }
+
+    part def BangladeshFloodResilienceSystem {
+        attribute primaryFunction : String =
+            "Provide Bangladesh-wide flood and cyclone flood early warning, evacuation coordination, and emergency relief dispatch to protect people, livelihoods, and critical services.";
+        attribute protectedPopulation : PeopleCount = 171000000;
+        attribute coveredDistricts : Integer = 64;
+        attribute minimumDistrictCoverage : Percent = 95.0;
+        attribute targetWarningLeadTime : Real [h] = 24;
+
+        part sensors : HydroMeteorologicalNetwork;
+        part analytics : ForecastAnalyticsCenter;
+        part warningService : NationalWarningService;
+        part dhakaOffice : LocalDisasterManagementOffice {
+            attribute districtName = "Dhaka";
+            attribute registeredShelters = 620;
+            attribute shelterCapacity = 920000;
+            attribute trainedVolunteers = 18000;
+        }
+        part chattogramOffice : LocalDisasterManagementOffice {
+            attribute districtName = "Chattogram";
+            attribute registeredShelters = 1180;
+            attribute shelterCapacity = 1650000;
+            attribute trainedVolunteers = 26000;
+        }
+        part sylhetOffice : LocalDisasterManagementOffice {
+            attribute districtName = "Sylhet";
+            attribute registeredShelters = 740;
+            attribute shelterCapacity = 810000;
+            attribute trainedVolunteers = 14000;
+        }
+        part logistics : EmergencyLogisticsNetwork {
+            attribute nationalFoodStock = 12000000;
+            attribute nationalWaterStock = 85000000;
+            attribute availableBoats = 3200;
+            attribute availableTrucks = 2100;
+        }
+        part communications : CommunityCommunicationNetwork;
+
+        connect sensors.dataOut to analytics.sensorDataIn;
+        connect analytics.forecastOut to warningService.forecastIn;
+        connect warningService.publicOut to communications.publicWarningIn;
+        connect warningService.evacuationOut to dhakaOffice.warningIn;
+        connect warningService.evacuationOut to chattogramOffice.warningIn;
+        connect warningService.evacuationOut to sylhetOffice.warningIn;
+        connect dhakaOffice.logisticsOut to logistics.requestIn;
+        connect chattogramOffice.logisticsOut to logistics.requestIn;
+        connect sylhetOffice.logisticsOut to logistics.requestIn;
+    }
+
+    requirement def NationalCoverageRequirement {
+        subject system : BangladeshFloodResilienceSystem;
+        require constraint {
+            system.coveredDistricts == 64
+        }
+    }
+
+    requirement def WarningLeadTimeRequirement {
+        subject system : BangladeshFloodResilienceSystem;
+        require constraint {
+            system.targetWarningLeadTime >= 24 [h]
+        }
+    }
+
+    requirement def SensorAvailabilityRequirement {
+        subject network : HydroMeteorologicalNetwork;
+        require constraint {
+            network.sensorAvailability >= 90.0
+        }
+    }
+
+    requirement def WarningLatencyRequirement {
+        subject service : NationalWarningService;
+        require constraint {
+            service.maximumWarningLatency <= 10 [min]
+        }
+    }
+
+    requirement def LogisticsDispatchRequirement {
+        subject logistics : EmergencyLogisticsNetwork;
+        require constraint {
+            logistics.maximumDispatchTime <= 6 [h]
+        }
+    }
+
+    requirement def CommunicationCoverageRequirement {
+        subject communications : CommunityCommunicationNetwork;
+        require constraint {
+            communications.radioCoverage >= 90.0 and
+            communications.cellBroadcastCoverage >= 85.0
+        }
+    }
+
+    requirement def ShelterPlanningRequirement {
+        subject office : LocalDisasterManagementOffice;
+        require constraint {
+            office.shelterCapacity > 0 and
+            office.trainedVolunteers >= 1000
+        }
+    }
+
+    satisfy NationalCoverageRequirement by BangladeshFloodResilienceSystem;
+    satisfy WarningLeadTimeRequirement by BangladeshFloodResilienceSystem;
+    satisfy SensorAvailabilityRequirement by BangladeshFloodResilienceSystem::sensors;
+    satisfy WarningLatencyRequirement by BangladeshFloodResilienceSystem::warningService;
+    satisfy LogisticsDispatchRequirement by BangladeshFloodResilienceSystem::logistics;
+    satisfy CommunicationCoverageRequirement by BangladeshFloodResilienceSystem::communications;
+    satisfy ShelterPlanningRequirement by BangladeshFloodResilienceSystem::dhakaOffice;
+    satisfy ShelterPlanningRequirement by BangladeshFloodResilienceSystem::chattogramOffice;
+    satisfy ShelterPlanningRequirement by BangladeshFloodResilienceSystem::sylhetOffice;
+}

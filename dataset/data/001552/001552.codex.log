@@ -1,0 +1,1387 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-od0l4vz_
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb725-deb7-7fc3-af2a-43af7f8a0379
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Robotic arm and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RoboticArmSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        doc /* Dimensionless percentage from 0 to 100. */
+    }
+
+    attribute def Degree : Real {
+        doc /* Angular measure in degrees. */
+    }
+
+    attribute def NewtonMeter : Real {
+        doc /* Torque measure in newton meters. */
+    }
+
+    attribute def Kilogram : Real {
+        doc /* Mass measure in kilograms. */
+    }
+
+    attribute def Millimeter : Real {
+        doc /* Linear measure in millimeters. */
+    }
+
+    attribute def MillimeterPerSecond : Real {
+        doc /* Linear velocity in millimeters per second. */
+    }
+
+    attribute def Celsius : Real {
+        doc /* Temperature in degrees Celsius. */
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute frequency : Hertz;
+    }
+
+    item def MotorCommand {
+        attribute targetAngle : Degree;
+        attribute targetVelocity : Degree;
+        attribute targetTorque : NewtonMeter;
+        attribute enable : Boolean;
+    }
+
+    item def JointTelemetry {
+        attribute actualAngle : Degree;
+        attribute actualVelocity : Degree;
+        attribute actualTorque : NewtonMeter;
+        attribute motorTemperature : Celsius;
+        attribute encoderHealthy : Boolean;
+    }
+
+    item def ToolCommand {
+        attribute gripForce : NewtonMeter;
+        attribute openWidth : Millimeter;
+        attribute vacuumEnabled : Boolean;
+        attribute releaseObject : Boolean;
+    }
+
+    item def ToolTelemetry {
+        attribute objectDetected : Boolean;
+        attribute appliedForce : NewtonMeter;
+        attribute toolOpenWidth : Millimeter;
+        attribute payloadMassEstimate : Kilogram;
+    }
+
+    item def CartesianPose {
+        attribute x : Millimeter;
+        attribute y : Millimeter;
+        attribute z : Millimeter;
+        attribute roll : Degree;
+        attribute pitch : Degree;
+        attribute yaw : Degree;
+    }
+
+    item def MotionPlan {
+        attribute startPose : CartesianPose;
+        attribute goalPose : CartesianPose;
+        attribute maximumSpeed : MillimeterPerSecond;
+        attribute maximumPayload : Kilogram;
+        attribute collisionAvoidanceEnabled : Boolean;
+    }
+
+    item def SafetySignal {
+        attribute emergencyStopActive : Boolean;
+        attribute protectiveStopActive : Boolean;
+        attribute humanInWorkspace : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    item def Workpiece {
+        attribute mass : Kilogram;
+        attribute width : Millimeter;
+        attribute height : Millimeter;
+        attribute depth : Millimeter;
+        attribute fragile : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item motionPlan : MotionPlan;
+        in item toolCommand : ToolCommand;
+    }
+
+    port def TelemetryPort {
+        out item endEffectorPose : CartesianPose;
+        out item jointStatus : JointTelemetry;
+        out item toolStatus : ToolTelemetry;
+        out item safetyStatus : SafetySignal;
+    }
+
+    port def JointControlPort {
+        out item command : MotorCommand;
+        in item telemetry : JointTelemetry;
+    }
+
+    port def ToolControlPort {
+        out item command : ToolCommand;
+        in item telemetry : ToolTelemetry;
+    }
+
+    port def SafetyPort {
+        in item safetyInput : SafetySignal;
+        out item safetyOutput : SafetySignal;
+    }
+
+    port def WorkpiecePort {
+        inout item handledItem : Workpiece;
+    }
+
+    part def ServoJoint {
+        attribute jointId : Integer;
+        attribute minimumAngle : Degree;
+        attribute maximumAngle : Degree;
+        attribute maximumTorque : NewtonMeter;
+        attribute maximumVelocity : Degree;
+        attribute gearRatio : Real;
+        attribute holdingBrakeEngaged : Boolean;
+        attribute currentAngle : Degree;
+        attribute commandedAngle : Degree;
+
+        port control : JointControlPort;
+
+        action def MoveToTarget {
+            in targetAngle : Degree;
+            in targetVelocity : Degree;
+            out reachedTarget : Boolean;
+
+            first start;
+            then validateRange;
+            then releaseBrake;
+            then driveMotor;
+            then verifyPosition;
+            then done;
+
+            action validateRange {
+                assert constraint {
+                    targetAngle >= minimumAngle and targetAngle <= maximumAngle
+                }
+            }
+
+            action releaseBrake {
+                holdingBrakeEngaged = false;
+            }
+
+            action driveMotor {
+                commandedAngle = targetAngle;
+            }
+
+            action verifyPosition {
+                reachedTarget = true;
+            }
+        }
+
+        state def JointOperatingState {
+            state Disabled;
+            state Enabled;
+            state Moving;
+            state Holding;
+            state Faulted;
+
+            entry action initialize {
+                holdingBrakeEngaged = true;
+            }
+
+            transition first Disabled;
+            transition Disabled to Enabled
+                accept MotorCommand
+                if control.command.enable == true;
+
+            transition Enabled to Moving
+                accept MotorCommand
+                if control.command.targetAngle != currentAngle;
+
+            transition Moving to Holding
+                if currentAngle == commandedAngle;
+
+            transition Holding to Moving
+                accept MotorCommand
+                if control.command.targetAngle != currentAngle;
+
+            transition Enabled to Faulted
+                if control.telemetry.encoderHealthy == false;
+
+            transition Moving to Faulted
+                if control.telemetry.motorTemperature > 85.0;
+
+            transition Holding to Disabled
+                accept MotorCommand
+                if control.command.enable == false;
+        }
+    }
+
+    part def EndEffector {
+        attribute maximumGripForce : NewtonMeter;
+        attribute maximumOpening : Millimeter;
+        attribute currentOpening : Millimeter;
+        attribute objectSecured : Boolean;
+        attribute ratedPayload : Kilogram;
+
+        port toolControl : ToolControlPort;
+        port workpieceInterface : WorkpiecePort;
+
+        action def GraspObject {
+            in object : Workpiece;
+            in desiredForce : NewtonMeter;
+            out grasped : Boolean;
+
+            first approach;
+            then closeFingers;
+            then confirmObject;
+            then done;
+
+            action approach {
+                currentOpening = object.width + 5.0;
+            }
+
+            action closeFingers {
+                assert constraint {
+                    desiredForce <= maximumGripForce
+                }
+                currentOpening = object.width;
+            }
+
+            action confirmObject {
+                objectSecured = true;
+                grasped = true;
+            }
+        }
+
+        action def ReleaseObject {
+            out released : Boolean;
+
+            first openFingers;
+            then clearObject;
+            then done;
+
+            action openFingers {
+                currentOpening = maximumOpening;
+            }
+
+            action clearObject {
+                objectSecured = false;
+                released = true;
+            }
+        }
+
+        state def ToolState {
+            state Open;
+            state Closing;
+            state HoldingObject;
+            state Releasing;
+            state ToolFault;
+
+            transition first Open;
+
+            transition Open to Closing
+                accept ToolCommand
+                if toolControl.command.openWidth < currentOpening;
+
+            transition Closing to HoldingObject
+                if toolControl.telemetry.objectDetected == true;
+
+            transition HoldingObject to Releasing
+                accept ToolCommand
+                if toolControl.command.releaseObject == true;
+
+            transition Releasing to Open
+                if objectSecured == false;
+
+            transition Closing to ToolFault
+                if toolControl.telemetry.appliedForce > maximumGripForce;
+        }
+    }
+
+    part def RobotController {
+        attribute cycleTime : Millisecond;
+        attribute activeProgramId : Integer;
+        attribute plannedPose : CartesianPose;
+        attribute actualPose : CartesianPose;
+        attribute servoPowerEnabled : Boolean;
+        attribute automaticModeEnabled : Boolean;
+
+        port operatorCommand : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port safetyInterface : SafetyPort;
+
+        port joint1Control : JointControlPort;
+        port joint2Control : JointControlPort;
+        port joint3Control : JointControlPort;
+        port joint4Control : JointControlPort;
+        port joint5Control : JointControlPort;
+        port joint6Control : JointControlPort;
+        port toolControl : ToolControlPort;
+
+        action def ExecutePickAndPlace {
+            in plan : MotionPlan;
+            in workpiece : Workpiece;
+            out completed : Boolean;
+
+            first receivePlan;
+            then checkSafety;
+            then moveToPickPose;
+            then closeTool;
+            then liftWorkpiece;
+            then moveToPlacePose;
+            then releaseTool;
+            then returnHome;
+            then done;
+
+            action receivePlan {
+                plannedPose = plan.goalPose;
+            }
+
+            action checkSafety {
+                assert constraint {
+                    safetyInterface.safetyInput.emergencyStopActive == false and
+                    safetyInterface.safetyInput.protectiveStopActive == false and
+                    safetyInterface.safetyInput.humanInWorkspace == false
+                }
+            }
+
+            action moveToPickPose {
+                servoPowerEnabled = true;
+            }
+
+            action closeTool {
+                toolControl.command.gripForce = 18.0;
+                toolControl.command.releaseObject = false;
+            }
+
+            action liftWorkpiece {
+                assert constraint {
+                    workpiece.mass <= plan.maximumPayload
+                }
+            }
+
+            action moveToPlacePose {
+                plannedPose = plan.goalPose;
+            }
+
+            action releaseTool {
+                toolControl.command.releaseObject = true;
+            }
+
+            action returnHome {
+                completed = true;
+            }
+        }
+
+        state def ControllerState {
+            state Booting;
+            state Idle;
+            state Planning;
+            state ExecutingMotion;
+            state Paused;
+            state ProtectiveStop;
+            state EmergencyStop;
+            state FaultRecovery;
+
+            transition first Booting;
+            transition Booting to Idle
+                if servoPowerEnabled == false;
+
+            transition Idle to Planning
+                accept MotionPlan
+                if automaticModeEnabled == true;
+
+            transition Planning to ExecutingMotion
+                if safetyInterface.safetyInput.protectiveStopActive == false;
+
+            transition ExecutingMotion to Idle
+                if actualPose == plannedPose;
+
+            transition ExecutingMotion to ProtectiveStop
+                if safetyInterface.safetyInput.humanInWorkspace == true;
+
+            transition ExecutingMotion to EmergencyStop
+                if safetyInterface.safetyInput.emergencyStopActive == true;
+
+            transition ProtectiveStop to Paused
+                if safetyInterface.safetyInput.humanInWorkspace == false;
+
+            transition Paused to ExecutingMotion
+                accept MotionPlan
+                if safetyInterface.safetyInput.protectiveStopActive == false;
+
+            transition EmergencyStop to FaultRecovery
+                if safetyInterface.safetyInput.emergencyStopActive == false;
+
+            transition FaultRecovery to Idle
+                if safetyInterface.safetyInput.faultCode == 0;
+        }
+    }
+
+    part def SafetySystem {
+        attribute emergencyStopLatched : Boolean;
+        attribute protectiveStopRequested : Boolean;
+        attribute workspaceScannerRange : Millimeter;
+        attribute safeSpeedLimit : MillimeterPerSecond;
+
+        port safetyPort : SafetyPort;
+
+        action def EvaluateSafety {
+            in currentSafety : SafetySignal;
+            out resultingSafety : SafetySignal;
+
+            first readInputs;
+            then determineStopMode;
+            then publishStatus;
+            then done;
+
+            action readInputs {
+                emergencyStopLatched = currentSafety.emergencyStopActive;
+                protectiveStopRequested = currentSafety.humanInWorkspace;
+            }
+
+            action determineStopMode {
+                resultingSafety.emergencyStopActive = emergencyStopLatched;
+                resultingSafety.protectiveStopActive = protectiveStopRequested;
+            }
+
+            action publishStatus {
+                safetyPort.safetyOutput = resultingSafety;
+            }
+        }
+
+        state def SafetyState {
+            state Clear;
+            state HumanDetected;
+            state ProtectiveStopped;
+            state EmergencyStopped;
+
+            transition first Clear;
+
+            transition Clear to HumanDetected
+                if safetyPort.safetyInput.humanInWorkspace == true;
+
+            transition HumanDetected to ProtectiveStopped
+                if protectiveStopRequested == true;
+
+            transition ProtectiveStopped to Clear
+                if safetyPort.safetyInput.humanInWorkspace == false;
+
+            transition Clear to EmergencyStopped
+                if safetyPort.safetyInput.emergencyStopActive == true;
+
+            transition HumanDetected to EmergencyStopped
+                if safetyPort.safetyInput.emergencyStopActive == true;
+
+            transition ProtectiveStopped to EmergencyStopped
+                if safetyPort.safetyInput.emergencyStopActive == true;
+
+            transition EmergencyStopped to Clear
+                if safetyPort.safetyInput.emergencyStopActive == false and
+                   safetyPort.safetyInput.faultCode == 0;
+        }
+    }
+
+    part def RoboticArm {
+        doc /* Primary function: position and orient an end effector in three-dimensional space to pick, move, and place workpieces safely and repeatably under programmed control. */
+
+        attribute axisCount : Integer = 6;
+        attribute reach : Millimeter = 850.0;
+        attribute repeatability : Millimeter = 0.05;
+        attribute ratedPayload : Kilogram = 5.0;
+        attribute maximumTcpSpeed : MillimeterPerSecond = 2000.0;
+        attribute installedMass : Kilogram = 42.0;
+
+        port powerInput : PowerInputPort;
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port safetyInput : SafetyPort;
+        port workpiecePort : WorkpiecePort;
+
+        part controller : RobotController {
+            cycleTime = 4.0;
+            servoPowerEnabled = false;
+            automaticModeEnabled = true;
+        }
+
+        part baseJoint : ServoJoint {
+            jointId = 1;
+            minimumAngle = -170.0;
+            maximumAngle = 170.0;
+            maximumTorque = 150.0;
+            maximumVelocity = 180.0;
+            gearRatio = 120.0;
+        }
+
+        part shoulderJoint : ServoJoint {
+            jointId = 2;
+            minimumAngle = -120.0;
+            maximumAngle = 120.0;
+            maximumTorque = 140.0;
+            maximumVelocity = 160.0;
+            gearRatio = 130.0;
+        }
+
+        part elbowJoint : ServoJoint {
+            jointId = 3;
+            minimumAngle = -150.0;
+            maximumAngle = 150.0;
+            maximumTorque = 100.0;
+            maximumVelocity = 190.0;
+            gearRatio = 110.0;
+        }
+
+        part wristPitchJoint : ServoJoint {
+            jointId = 4;
+            minimumAngle = -180.0;
+            maximumAngle = 180.0;
+            maximumTorque = 45.0;
+            maximumVelocity = 240.0;
+            gearRatio = 80.0;
+        }
+
+        part wristYawJoint : ServoJoint {
+            jointId = 5;
+            minimumAngle = -125.0;
+            maximumAngle = 125.0;
+            maximumTorque = 35.0;
+            maximumVelocity = 240.0;
+            gearRatio = 75.0;
+        }
+
+        part wristRollJoint : ServoJoint {
+            jointId = 6;
+            minimumAngle = -360.0;
+            maximumAngle = 360.0;
+            maximumTorque = 25.0;
+            maximumVelocity = 300.0;
+            gearRatio = 60.0;
+        }
+
+        part gripper : EndEffector {
+            maximumGripForce = 60.0;
+            maximumOpening = 85.0;
+            currentOpening = 85.0;
+            objectSecured = false;
+            ratedPayload = 5.0;
+        }
+
+        part safetySystem : SafetySystem {
+            emergencyStopLatched = false;
+            protectiveStopRequested = false;
+            workspaceScannerRange = 1500.0;
+            safeSpeedLimit = 250.0;
+        }
+
+        connect commandInput to controller.operatorCommand;
+        connect telemetryOutput to controller.telemetryOutput;
+        connect safetyInput to safetySystem.safetyPort;
+        connect safetySystem.safetyPort to controller.safetyInterface;
+
+        connect controller.joint1Control to baseJoint.control;
+        connect controller.joint2Control to shoulderJoint.control;
+        connect controller.joint3Control to elbowJoint.control;
+        connect controller.joint4Control to wristPitchJoint.control;
+        connect controller.joint5Control to wristYawJoint.control;
+        connect controller.joint6Control to wristRollJoint.control;
+        connect controller.toolControl to gripper.toolControl;
+        connect workpiecePort to gripper.workpieceInterface;
+
+        constraint payloadWithinRating {
+            gripper.ratedPayload <= ratedPayload
+        }
+
+        constraint reachSupportsProgrammedWorkspace {
+            reach >= 800.0
+        }
+
+        constraint repeatabilitySupportsPrecisePlacement {
+            repeatability <= 0.10
+        }
+
+        constraint sixAxisConfiguration {
+            axisCount == 6
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.axisCount == 6 and
+            arm.ratedPayload >= 5.0 and
+            arm.reach >= 800.0
+        }
+
+        doc /* The robotic arm shall provide six-axis controlled motion for positioning an end effector to pick, transfer, orient, and place workpieces within its rated payload and reachable workspace. */
+    }
+
+    requirement def PlacementAccuracyRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.repeatability <= 0.10
+        }
+
+        doc /* The robotic arm shall repeatedly place workpieces with repeatability of 0.10 mm or better. */
+    }
+
+    requirement def PayloadRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.ratedPayload >= 5.0
+        }
+
+        doc /* The robotic arm shall handle workpieces up to at least 5 kg at the tool center point. */
+    }
+
+    requirement def SafetyStopRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.safetySystem.safeSpeedLimit <= 250.0
+        }
+
+        doc /* The robotic arm shall enter protective stop when a human is detected in the monitored workspace and shall remain stopped during an active emergency stop. */
+    }
+
+    requirement def ToolControlRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.gripper.maximumGripForce >= 50.0 and
+            arm.gripper.maximumOpening >= 80.0
+        }
+
+        doc /* The end effector shall grip and release workpieces using commanded force and opening width while reporting object detection and applied force. */
+    }
+
+    requirement def JointTelemetryRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.baseJoint.maximumTorque > 0.0 and
+            arm.shoulderJoint.maximumTorque > 0.0 and
+            arm.elbowJoint.maximumTorque > 0.0 and
+            arm.wristPitchJoint.maximumTorque > 0.0 and
+            arm.wristYawJoint.maximumTorque > 0.0 and
+            arm.wristRollJoint.maximumTorque > 0.0
+        }
+
+        doc /* Each servo joint shall report angular position, velocity, torque, temperature, and encoder health for closed-loop control and diagnostics. */
+    }
+
+    part roboticArmSystem : RoboticArm;
+
+    satisfy PrimaryFunctionRequirement by roboticArmSystem;
+    satisfy PlacementAccuracyRequirement by roboticArmSystem;
+    satisfy PayloadRequirement by roboticArmSystem;
+    satisfy SafetyStopRequirement by roboticArmSystem;
+    satisfy ToolControlRequirement by roboticArmSystem;
+    satisfy JointTelemetryRequirement by roboticArmSystem;
+}
+tokens used
+4,497
+package RoboticArmSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        doc /* Dimensionless percentage from 0 to 100. */
+    }
+
+    attribute def Degree : Real {
+        doc /* Angular measure in degrees. */
+    }
+
+    attribute def NewtonMeter : Real {
+        doc /* Torque measure in newton meters. */
+    }
+
+    attribute def Kilogram : Real {
+        doc /* Mass measure in kilograms. */
+    }
+
+    attribute def Millimeter : Real {
+        doc /* Linear measure in millimeters. */
+    }
+
+    attribute def MillimeterPerSecond : Real {
+        doc /* Linear velocity in millimeters per second. */
+    }
+
+    attribute def Celsius : Real {
+        doc /* Temperature in degrees Celsius. */
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute frequency : Hertz;
+    }
+
+    item def MotorCommand {
+        attribute targetAngle : Degree;
+        attribute targetVelocity : Degree;
+        attribute targetTorque : NewtonMeter;
+        attribute enable : Boolean;
+    }
+
+    item def JointTelemetry {
+        attribute actualAngle : Degree;
+        attribute actualVelocity : Degree;
+        attribute actualTorque : NewtonMeter;
+        attribute motorTemperature : Celsius;
+        attribute encoderHealthy : Boolean;
+    }
+
+    item def ToolCommand {
+        attribute gripForce : NewtonMeter;
+        attribute openWidth : Millimeter;
+        attribute vacuumEnabled : Boolean;
+        attribute releaseObject : Boolean;
+    }
+
+    item def ToolTelemetry {
+        attribute objectDetected : Boolean;
+        attribute appliedForce : NewtonMeter;
+        attribute toolOpenWidth : Millimeter;
+        attribute payloadMassEstimate : Kilogram;
+    }
+
+    item def CartesianPose {
+        attribute x : Millimeter;
+        attribute y : Millimeter;
+        attribute z : Millimeter;
+        attribute roll : Degree;
+        attribute pitch : Degree;
+        attribute yaw : Degree;
+    }
+
+    item def MotionPlan {
+        attribute startPose : CartesianPose;
+        attribute goalPose : CartesianPose;
+        attribute maximumSpeed : MillimeterPerSecond;
+        attribute maximumPayload : Kilogram;
+        attribute collisionAvoidanceEnabled : Boolean;
+    }
+
+    item def SafetySignal {
+        attribute emergencyStopActive : Boolean;
+        attribute protectiveStopActive : Boolean;
+        attribute humanInWorkspace : Boolean;
+        attribute faultCode : Integer;
+    }
+
+    item def Workpiece {
+        attribute mass : Kilogram;
+        attribute width : Millimeter;
+        attribute height : Millimeter;
+        attribute depth : Millimeter;
+        attribute fragile : Boolean;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item motionPlan : MotionPlan;
+        in item toolCommand : ToolCommand;
+    }
+
+    port def TelemetryPort {
+        out item endEffectorPose : CartesianPose;
+        out item jointStatus : JointTelemetry;
+        out item toolStatus : ToolTelemetry;
+        out item safetyStatus : SafetySignal;
+    }
+
+    port def JointControlPort {
+        out item command : MotorCommand;
+        in item telemetry : JointTelemetry;
+    }
+
+    port def ToolControlPort {
+        out item command : ToolCommand;
+        in item telemetry : ToolTelemetry;
+    }
+
+    port def SafetyPort {
+        in item safetyInput : SafetySignal;
+        out item safetyOutput : SafetySignal;
+    }
+
+    port def WorkpiecePort {
+        inout item handledItem : Workpiece;
+    }
+
+    part def ServoJoint {
+        attribute jointId : Integer;
+        attribute minimumAngle : Degree;
+        attribute maximumAngle : Degree;
+        attribute maximumTorque : NewtonMeter;
+        attribute maximumVelocity : Degree;
+        attribute gearRatio : Real;
+        attribute holdingBrakeEngaged : Boolean;
+        attribute currentAngle : Degree;
+        attribute commandedAngle : Degree;
+
+        port control : JointControlPort;
+
+        action def MoveToTarget {
+            in targetAngle : Degree;
+            in targetVelocity : Degree;
+            out reachedTarget : Boolean;
+
+            first start;
+            then validateRange;
+            then releaseBrake;
+            then driveMotor;
+            then verifyPosition;
+            then done;
+
+            action validateRange {
+                assert constraint {
+                    targetAngle >= minimumAngle and targetAngle <= maximumAngle
+                }
+            }
+
+            action releaseBrake {
+                holdingBrakeEngaged = false;
+            }
+
+            action driveMotor {
+                commandedAngle = targetAngle;
+            }
+
+            action verifyPosition {
+                reachedTarget = true;
+            }
+        }
+
+        state def JointOperatingState {
+            state Disabled;
+            state Enabled;
+            state Moving;
+            state Holding;
+            state Faulted;
+
+            entry action initialize {
+                holdingBrakeEngaged = true;
+            }
+
+            transition first Disabled;
+            transition Disabled to Enabled
+                accept MotorCommand
+                if control.command.enable == true;
+
+            transition Enabled to Moving
+                accept MotorCommand
+                if control.command.targetAngle != currentAngle;
+
+            transition Moving to Holding
+                if currentAngle == commandedAngle;
+
+            transition Holding to Moving
+                accept MotorCommand
+                if control.command.targetAngle != currentAngle;
+
+            transition Enabled to Faulted
+                if control.telemetry.encoderHealthy == false;
+
+            transition Moving to Faulted
+                if control.telemetry.motorTemperature > 85.0;
+
+            transition Holding to Disabled
+                accept MotorCommand
+                if control.command.enable == false;
+        }
+    }
+
+    part def EndEffector {
+        attribute maximumGripForce : NewtonMeter;
+        attribute maximumOpening : Millimeter;
+        attribute currentOpening : Millimeter;
+        attribute objectSecured : Boolean;
+        attribute ratedPayload : Kilogram;
+
+        port toolControl : ToolControlPort;
+        port workpieceInterface : WorkpiecePort;
+
+        action def GraspObject {
+            in object : Workpiece;
+            in desiredForce : NewtonMeter;
+            out grasped : Boolean;
+
+            first approach;
+            then closeFingers;
+            then confirmObject;
+            then done;
+
+            action approach {
+                currentOpening = object.width + 5.0;
+            }
+
+            action closeFingers {
+                assert constraint {
+                    desiredForce <= maximumGripForce
+                }
+                currentOpening = object.width;
+            }
+
+            action confirmObject {
+                objectSecured = true;
+                grasped = true;
+            }
+        }
+
+        action def ReleaseObject {
+            out released : Boolean;
+
+            first openFingers;
+            then clearObject;
+            then done;
+
+            action openFingers {
+                currentOpening = maximumOpening;
+            }
+
+            action clearObject {
+                objectSecured = false;
+                released = true;
+            }
+        }
+
+        state def ToolState {
+            state Open;
+            state Closing;
+            state HoldingObject;
+            state Releasing;
+            state ToolFault;
+
+            transition first Open;
+
+            transition Open to Closing
+                accept ToolCommand
+                if toolControl.command.openWidth < currentOpening;
+
+            transition Closing to HoldingObject
+                if toolControl.telemetry.objectDetected == true;
+
+            transition HoldingObject to Releasing
+                accept ToolCommand
+                if toolControl.command.releaseObject == true;
+
+            transition Releasing to Open
+                if objectSecured == false;
+
+            transition Closing to ToolFault
+                if toolControl.telemetry.appliedForce > maximumGripForce;
+        }
+    }
+
+    part def RobotController {
+        attribute cycleTime : Millisecond;
+        attribute activeProgramId : Integer;
+        attribute plannedPose : CartesianPose;
+        attribute actualPose : CartesianPose;
+        attribute servoPowerEnabled : Boolean;
+        attribute automaticModeEnabled : Boolean;
+
+        port operatorCommand : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port safetyInterface : SafetyPort;
+
+        port joint1Control : JointControlPort;
+        port joint2Control : JointControlPort;
+        port joint3Control : JointControlPort;
+        port joint4Control : JointControlPort;
+        port joint5Control : JointControlPort;
+        port joint6Control : JointControlPort;
+        port toolControl : ToolControlPort;
+
+        action def ExecutePickAndPlace {
+            in plan : MotionPlan;
+            in workpiece : Workpiece;
+            out completed : Boolean;
+
+            first receivePlan;
+            then checkSafety;
+            then moveToPickPose;
+            then closeTool;
+            then liftWorkpiece;
+            then moveToPlacePose;
+            then releaseTool;
+            then returnHome;
+            then done;
+
+            action receivePlan {
+                plannedPose = plan.goalPose;
+            }
+
+            action checkSafety {
+                assert constraint {
+                    safetyInterface.safetyInput.emergencyStopActive == false and
+                    safetyInterface.safetyInput.protectiveStopActive == false and
+                    safetyInterface.safetyInput.humanInWorkspace == false
+                }
+            }
+
+            action moveToPickPose {
+                servoPowerEnabled = true;
+            }
+
+            action closeTool {
+                toolControl.command.gripForce = 18.0;
+                toolControl.command.releaseObject = false;
+            }
+
+            action liftWorkpiece {
+                assert constraint {
+                    workpiece.mass <= plan.maximumPayload
+                }
+            }
+
+            action moveToPlacePose {
+                plannedPose = plan.goalPose;
+            }
+
+            action releaseTool {
+                toolControl.command.releaseObject = true;
+            }
+
+            action returnHome {
+                completed = true;
+            }
+        }
+
+        state def ControllerState {
+            state Booting;
+            state Idle;
+            state Planning;
+            state ExecutingMotion;
+            state Paused;
+            state ProtectiveStop;
+            state EmergencyStop;
+            state FaultRecovery;
+
+            transition first Booting;
+            transition Booting to Idle
+                if servoPowerEnabled == false;
+
+            transition Idle to Planning
+                accept MotionPlan
+                if automaticModeEnabled == true;
+
+            transition Planning to ExecutingMotion
+                if safetyInterface.safetyInput.protectiveStopActive == false;
+
+            transition ExecutingMotion to Idle
+                if actualPose == plannedPose;
+
+            transition ExecutingMotion to ProtectiveStop
+                if safetyInterface.safetyInput.humanInWorkspace == true;
+
+            transition ExecutingMotion to EmergencyStop
+                if safetyInterface.safetyInput.emergencyStopActive == true;
+
+            transition ProtectiveStop to Paused
+                if safetyInterface.safetyInput.humanInWorkspace == false;
+
+            transition Paused to ExecutingMotion
+                accept MotionPlan
+                if safetyInterface.safetyInput.protectiveStopActive == false;
+
+            transition EmergencyStop to FaultRecovery
+                if safetyInterface.safetyInput.emergencyStopActive == false;
+
+            transition FaultRecovery to Idle
+                if safetyInterface.safetyInput.faultCode == 0;
+        }
+    }
+
+    part def SafetySystem {
+        attribute emergencyStopLatched : Boolean;
+        attribute protectiveStopRequested : Boolean;
+        attribute workspaceScannerRange : Millimeter;
+        attribute safeSpeedLimit : MillimeterPerSecond;
+
+        port safetyPort : SafetyPort;
+
+        action def EvaluateSafety {
+            in currentSafety : SafetySignal;
+            out resultingSafety : SafetySignal;
+
+            first readInputs;
+            then determineStopMode;
+            then publishStatus;
+            then done;
+
+            action readInputs {
+                emergencyStopLatched = currentSafety.emergencyStopActive;
+                protectiveStopRequested = currentSafety.humanInWorkspace;
+            }
+
+            action determineStopMode {
+                resultingSafety.emergencyStopActive = emergencyStopLatched;
+                resultingSafety.protectiveStopActive = protectiveStopRequested;
+            }
+
+            action publishStatus {
+                safetyPort.safetyOutput = resultingSafety;
+            }
+        }
+
+        state def SafetyState {
+            state Clear;
+            state HumanDetected;
+            state ProtectiveStopped;
+            state EmergencyStopped;
+
+            transition first Clear;
+
+            transition Clear to HumanDetected
+                if safetyPort.safetyInput.humanInWorkspace == true;
+
+            transition HumanDetected to ProtectiveStopped
+                if protectiveStopRequested == true;
+
+            transition ProtectiveStopped to Clear
+                if safetyPort.safetyInput.humanInWorkspace == false;
+
+            transition Clear to EmergencyStopped
+                if safetyPort.safetyInput.emergencyStopActive == true;
+
+            transition HumanDetected to EmergencyStopped
+                if safetyPort.safetyInput.emergencyStopActive == true;
+
+            transition ProtectiveStopped to EmergencyStopped
+                if safetyPort.safetyInput.emergencyStopActive == true;
+
+            transition EmergencyStopped to Clear
+                if safetyPort.safetyInput.emergencyStopActive == false and
+                   safetyPort.safetyInput.faultCode == 0;
+        }
+    }
+
+    part def RoboticArm {
+        doc /* Primary function: position and orient an end effector in three-dimensional space to pick, move, and place workpieces safely and repeatably under programmed control. */
+
+        attribute axisCount : Integer = 6;
+        attribute reach : Millimeter = 850.0;
+        attribute repeatability : Millimeter = 0.05;
+        attribute ratedPayload : Kilogram = 5.0;
+        attribute maximumTcpSpeed : MillimeterPerSecond = 2000.0;
+        attribute installedMass : Kilogram = 42.0;
+
+        port powerInput : PowerInputPort;
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port safetyInput : SafetyPort;
+        port workpiecePort : WorkpiecePort;
+
+        part controller : RobotController {
+            cycleTime = 4.0;
+            servoPowerEnabled = false;
+            automaticModeEnabled = true;
+        }
+
+        part baseJoint : ServoJoint {
+            jointId = 1;
+            minimumAngle = -170.0;
+            maximumAngle = 170.0;
+            maximumTorque = 150.0;
+            maximumVelocity = 180.0;
+            gearRatio = 120.0;
+        }
+
+        part shoulderJoint : ServoJoint {
+            jointId = 2;
+            minimumAngle = -120.0;
+            maximumAngle = 120.0;
+            maximumTorque = 140.0;
+            maximumVelocity = 160.0;
+            gearRatio = 130.0;
+        }
+
+        part elbowJoint : ServoJoint {
+            jointId = 3;
+            minimumAngle = -150.0;
+            maximumAngle = 150.0;
+            maximumTorque = 100.0;
+            maximumVelocity = 190.0;
+            gearRatio = 110.0;
+        }
+
+        part wristPitchJoint : ServoJoint {
+            jointId = 4;
+            minimumAngle = -180.0;
+            maximumAngle = 180.0;
+            maximumTorque = 45.0;
+            maximumVelocity = 240.0;
+            gearRatio = 80.0;
+        }
+
+        part wristYawJoint : ServoJoint {
+            jointId = 5;
+            minimumAngle = -125.0;
+            maximumAngle = 125.0;
+            maximumTorque = 35.0;
+            maximumVelocity = 240.0;
+            gearRatio = 75.0;
+        }
+
+        part wristRollJoint : ServoJoint {
+            jointId = 6;
+            minimumAngle = -360.0;
+            maximumAngle = 360.0;
+            maximumTorque = 25.0;
+            maximumVelocity = 300.0;
+            gearRatio = 60.0;
+        }
+
+        part gripper : EndEffector {
+            maximumGripForce = 60.0;
+            maximumOpening = 85.0;
+            currentOpening = 85.0;
+            objectSecured = false;
+            ratedPayload = 5.0;
+        }
+
+        part safetySystem : SafetySystem {
+            emergencyStopLatched = false;
+            protectiveStopRequested = false;
+            workspaceScannerRange = 1500.0;
+            safeSpeedLimit = 250.0;
+        }
+
+        connect commandInput to controller.operatorCommand;
+        connect telemetryOutput to controller.telemetryOutput;
+        connect safetyInput to safetySystem.safetyPort;
+        connect safetySystem.safetyPort to controller.safetyInterface;
+
+        connect controller.joint1Control to baseJoint.control;
+        connect controller.joint2Control to shoulderJoint.control;
+        connect controller.joint3Control to elbowJoint.control;
+        connect controller.joint4Control to wristPitchJoint.control;
+        connect controller.joint5Control to wristYawJoint.control;
+        connect controller.joint6Control to wristRollJoint.control;
+        connect controller.toolControl to gripper.toolControl;
+        connect workpiecePort to gripper.workpieceInterface;
+
+        constraint payloadWithinRating {
+            gripper.ratedPayload <= ratedPayload
+        }
+
+        constraint reachSupportsProgrammedWorkspace {
+            reach >= 800.0
+        }
+
+        constraint repeatabilitySupportsPrecisePlacement {
+            repeatability <= 0.10
+        }
+
+        constraint sixAxisConfiguration {
+            axisCount == 6
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.axisCount == 6 and
+            arm.ratedPayload >= 5.0 and
+            arm.reach >= 800.0
+        }
+
+        doc /* The robotic arm shall provide six-axis controlled motion for positioning an end effector to pick, transfer, orient, and place workpieces within its rated payload and reachable workspace. */
+    }
+
+    requirement def PlacementAccuracyRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.repeatability <= 0.10
+        }
+
+        doc /* The robotic arm shall repeatedly place workpieces with repeatability of 0.10 mm or better. */
+    }
+
+    requirement def PayloadRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.ratedPayload >= 5.0
+        }
+
+        doc /* The robotic arm shall handle workpieces up to at least 5 kg at the tool center point. */
+    }
+
+    requirement def SafetyStopRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.safetySystem.safeSpeedLimit <= 250.0
+        }
+
+        doc /* The robotic arm shall enter protective stop when a human is detected in the monitored workspace and shall remain stopped during an active emergency stop. */
+    }
+
+    requirement def ToolControlRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.gripper.maximumGripForce >= 50.0 and
+            arm.gripper.maximumOpening >= 80.0
+        }
+
+        doc /* The end effector shall grip and release workpieces using commanded force and opening width while reporting object detection and applied force. */
+    }
+
+    requirement def JointTelemetryRequirement {
+        subject arm : RoboticArm;
+
+        require constraint {
+            arm.baseJoint.maximumTorque > 0.0 and
+            arm.shoulderJoint.maximumTorque > 0.0 and
+            arm.elbowJoint.maximumTorque > 0.0 and
+            arm.wristPitchJoint.maximumTorque > 0.0 and
+            arm.wristYawJoint.maximumTorque > 0.0 and
+            arm.wristRollJoint.maximumTorque > 0.0
+        }
+
+        doc /* Each servo joint shall report angular position, velocity, torque, temperature, and encoder health for closed-loop control and diagnostics. */
+    }
+
+    part roboticArmSystem : RoboticArm;
+
+    satisfy PrimaryFunctionRequirement by roboticArmSystem;
+    satisfy PlacementAccuracyRequirement by roboticArmSystem;
+    satisfy PayloadRequirement by roboticArmSystem;
+    satisfy SafetyStopRequirement by roboticArmSystem;
+    satisfy ToolControlRequirement by roboticArmSystem;
+    satisfy JointTelemetryRequirement by roboticArmSystem;
+}

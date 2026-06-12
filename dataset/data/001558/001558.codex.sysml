@@ -1,0 +1,373 @@
+package RoboticParadigmSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  value def Percent :> Real;
+  value def WattHour :> Real;
+  value def MeterPerSecond :> Real;
+  value def Kilogram :> Real;
+  value def NewtonMeter :> Real;
+  value def Degree :> Real;
+  value def Millisecond :> Real;
+
+  item def MotionCommand {
+    attribute linearVelocity : MeterPerSecond;
+    attribute angularVelocity : Degree;
+    attribute priority : Integer;
+  }
+
+  item def NavigationGoal {
+    attribute goalId : String;
+    attribute xPosition : LengthValue;
+    attribute yPosition : LengthValue;
+    attribute heading : Degree;
+    attribute toleranceRadius : LengthValue;
+  }
+
+  item def BatteryStatus {
+    attribute stateOfCharge : Percent;
+    attribute remainingEnergy : WattHour;
+    attribute voltage : ElectricPotentialValue;
+    attribute temperature : TemperatureValue;
+  }
+
+  item def PerceptionFrame {
+    attribute timestamp : TimeValue;
+    attribute obstacleCount : Integer;
+    attribute nearestObstacleRange : LengthValue;
+    attribute localizationConfidence : Percent;
+  }
+
+  item def Payload {
+    attribute payloadId : String;
+    attribute mass : Kilogram;
+    attribute secured : Boolean;
+    attribute destinationId : String;
+  }
+
+  item def DiagnosticReport {
+    attribute faultCode : String;
+    attribute severity : Integer;
+    attribute message : String;
+    attribute recoverable : Boolean;
+  }
+
+  port def MotionCommandPort {
+    out command : MotionCommand;
+  }
+
+  port def NavigationGoalPort {
+    in goal : NavigationGoal;
+  }
+
+  port def PerceptionPort {
+    out frame : PerceptionFrame;
+  }
+
+  port def BatteryStatusPort {
+    out status : BatteryStatus;
+  }
+
+  port def PayloadPort {
+    in payload : Payload;
+    out securedPayload : Payload;
+  }
+
+  port def DiagnosticPort {
+    out report : DiagnosticReport;
+  }
+
+  part def SensorSuite {
+    attribute lidarRange : LengthValue = 25 [m];
+    attribute cameraHorizontalFov : Degree = 90;
+    attribute imuUpdatePeriod : Millisecond = 5;
+    attribute localizationAccuracy : LengthValue = 0.05 [m];
+
+    port perceptionOut : PerceptionPort;
+
+    action def AcquireEnvironmentFrame {
+      out frame : PerceptionFrame;
+    }
+  }
+
+  part def DriveBase {
+    attribute wheelCount : Integer = 4;
+    attribute maxLinearSpeed : MeterPerSecond = 1.5;
+    attribute maxSlopeAngle : Degree = 8;
+    attribute continuousTorque : NewtonMeter = 18;
+    attribute stoppingDistanceAtMaxSpeed : LengthValue = 0.45 [m];
+
+    port commandIn : ~MotionCommandPort;
+    port diagnosticsOut : DiagnosticPort;
+
+    action def ApplyMotionCommand {
+      in command : MotionCommand;
+      out actualVelocity : MeterPerSecond;
+    }
+  }
+
+  part def BatterySystem {
+    attribute nominalEnergy : WattHour = 960;
+    attribute minimumOperationalCharge : Percent = 20;
+    attribute maximumCharge : Percent = 100;
+    attribute nominalVoltage : ElectricPotentialValue = 48 [V];
+
+    port statusOut : BatteryStatusPort;
+    port diagnosticsOut : DiagnosticPort;
+
+    action def SupplyPower {
+      out status : BatteryStatus;
+    }
+  }
+
+  part def Manipulator {
+    attribute degreesOfFreedom : Integer = 6;
+    attribute maximumReach : LengthValue = 0.85 [m];
+    attribute payloadCapacity : Kilogram = 5;
+    attribute gripForce : ForceValue = 120 [N];
+
+    port payloadIn : PayloadPort;
+    port diagnosticsOut : DiagnosticPort;
+
+    action def SecurePayload {
+      in payload : Payload;
+      out securedPayload : Payload;
+    }
+
+    action def ReleasePayload {
+      in securedPayload : Payload;
+    }
+  }
+
+  part def AutonomyController {
+    attribute controlLoopPeriod : Millisecond = 20;
+    attribute minimumLocalizationConfidence : Percent = 85;
+    attribute obstacleAvoidanceDistance : LengthValue = 0.7 [m];
+
+    port goalIn : NavigationGoalPort;
+    port perceptionIn : ~PerceptionPort;
+    port batteryIn : ~BatteryStatusPort;
+    port motionOut : MotionCommandPort;
+    port diagnosticsOut : DiagnosticPort;
+
+    action def PlanPath {
+      in goal : NavigationGoal;
+      in perception : PerceptionFrame;
+      out command : MotionCommand;
+    }
+
+    action def EvaluateSafety {
+      in perception : PerceptionFrame;
+      in battery : BatteryStatus;
+      out safeToMove : Boolean;
+    }
+  }
+
+  part def HumanRobotInterface {
+    attribute displaySize : LengthValue = 0.18 [m];
+    attribute audibleAlertLevel : SoundPressureLevelValue = 70 [dB];
+
+    port goalOut : NavigationGoalPort;
+    port diagnosticsIn : ~DiagnosticPort;
+
+    action def AcceptMissionGoal {
+      out goal : NavigationGoal;
+    }
+
+    action def NotifyOperator {
+      in report : DiagnosticReport;
+    }
+  }
+
+  part def MobileServiceRobot {
+    attribute primaryFunction : String =
+      "Autonomously transport secured payloads between indoor waypoints while perceiving surroundings, avoiding obstacles, and reporting operational status.";
+    attribute nominalPayloadMass : Kilogram = 5;
+    attribute operatingRadius : LengthValue = 1000 [m];
+    attribute nominalMissionDuration : TimeValue = 2 [h];
+    attribute mass : Kilogram = 85;
+
+    part sensors : SensorSuite;
+    part driveBase : DriveBase;
+    part battery : BatterySystem;
+    part manipulator : Manipulator;
+    part controller : AutonomyController;
+    part interface : HumanRobotInterface;
+
+    port missionGoal : NavigationGoalPort;
+    port payloadBay : PayloadPort;
+    port robotDiagnostics : DiagnosticPort;
+
+    connect interface.goalOut to controller.goalIn;
+    connect missionGoal to controller.goalIn;
+    connect sensors.perceptionOut to controller.perceptionIn;
+    connect battery.statusOut to controller.batteryIn;
+    connect controller.motionOut to driveBase.commandIn;
+    connect payloadBay to manipulator.payloadIn;
+    connect controller.diagnosticsOut to robotDiagnostics;
+    connect driveBase.diagnosticsOut to robotDiagnostics;
+    connect battery.diagnosticsOut to robotDiagnostics;
+    connect manipulator.diagnosticsOut to robotDiagnostics;
+    connect robotDiagnostics to interface.diagnosticsIn;
+
+    state def RobotOperationalStates {
+      entry action InitializeRobot;
+
+      state Off;
+      state Booting;
+      state Idle;
+      state AcceptingPayload;
+      state PlanningMission;
+      state Navigating;
+      state AvoidingObstacle;
+      state DeliveringPayload;
+      state ReturningToBase;
+      state Charging;
+      state Fault;
+
+      transition first Off;
+      transition Off_to_Booting
+        first Off then Booting
+        accept StartCommand;
+
+      transition Booting_to_Idle
+        first Booting then Idle
+        if selfCheckPassed;
+
+      transition Idle_to_AcceptingPayload
+        first Idle then AcceptingPayload
+        accept PayloadDetected;
+
+      transition AcceptingPayload_to_PlanningMission
+        first AcceptingPayload then PlanningMission
+        if payloadSecured;
+
+      transition PlanningMission_to_Navigating
+        first PlanningMission then Navigating
+        if pathAvailable and batteryAboveReserve;
+
+      transition Navigating_to_AvoidingObstacle
+        first Navigating then AvoidingObstacle
+        if nearestObstacleRange < 0.7 [m];
+
+      transition AvoidingObstacle_to_Navigating
+        first AvoidingObstacle then Navigating
+        if pathClear;
+
+      transition Navigating_to_DeliveringPayload
+        first Navigating then DeliveringPayload
+        if atDestination;
+
+      transition DeliveringPayload_to_ReturningToBase
+        first DeliveringPayload then ReturningToBase
+        if payloadReleased;
+
+      transition ReturningToBase_to_Charging
+        first ReturningToBase then Charging
+        if dockedAtBase;
+
+      transition Charging_to_Idle
+        first Charging then Idle
+        if battery.stateOfCharge >= 95;
+
+      transition Any_to_Fault
+        first Idle then Fault
+        if unrecoverableDiagnostic;
+    }
+  }
+
+  action def ExecuteAutonomousPayloadDelivery {
+    in robot : MobileServiceRobot;
+    in payload : Payload;
+    in goal : NavigationGoal;
+    out deliveryComplete : Boolean;
+
+    first start;
+    then acceptPayload;
+    then securePayload;
+    then planRoute;
+    then navigateToGoal;
+    then releasePayload;
+    then returnToBase;
+    then finish;
+
+    action start;
+    action acceptPayload;
+    action securePayload;
+    action planRoute;
+    action navigateToGoal;
+    action releasePayload;
+    action returnToBase;
+    action finish;
+  }
+
+  requirement def PrimaryRoboticFunctionRequirement {
+    subject robot : MobileServiceRobot;
+
+    doc /* The robot shall perform autonomous payload transport as its primary high-level function. */
+
+    require constraint {
+      robot.nominalPayloadMass >= 5
+    }
+
+    require constraint {
+      robot.operatingRadius >= 500 [m]
+    }
+
+    require constraint {
+      robot.controller.obstacleAvoidanceDistance >= 0.5 [m]
+    }
+  }
+
+  requirement def SafeNavigationRequirement {
+    subject robot : MobileServiceRobot;
+
+    doc /* The robot shall avoid collisions during autonomous motion. */
+
+    require constraint {
+      robot.driveBase.stoppingDistanceAtMaxSpeed <= robot.controller.obstacleAvoidanceDistance
+    }
+
+    require constraint {
+      robot.sensors.lidarRange >= 10 [m]
+    }
+  }
+
+  requirement def EnergyAutonomyRequirement {
+    subject robot : MobileServiceRobot;
+
+    doc /* The robot shall reserve sufficient battery energy to return to its base. */
+
+    require constraint {
+      robot.battery.minimumOperationalCharge >= 20
+    }
+
+    require constraint {
+      robot.battery.nominalEnergy >= 800
+    }
+  }
+
+  requirement def PayloadHandlingRequirement {
+    subject robot : MobileServiceRobot;
+
+    doc /* The robot shall securely grasp, carry, and release the payload at the requested destination. */
+
+    require constraint {
+      robot.manipulator.payloadCapacity >= robot.nominalPayloadMass
+    }
+
+    require constraint {
+      robot.manipulator.gripForce >= 100 [N]
+    }
+  }
+
+  satisfy PrimaryRoboticFunctionRequirement by MobileServiceRobot;
+  satisfy SafeNavigationRequirement by MobileServiceRobot;
+  satisfy EnergyAutonomyRequirement by MobileServiceRobot;
+  satisfy PayloadHandlingRequirement by MobileServiceRobot;
+
+  part roboticPayloadDeliverySystem : MobileServiceRobot;
+
+}

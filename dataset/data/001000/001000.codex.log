@@ -1,0 +1,687 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-89lbvh_0
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb513-100e-77b3-af21-8311666e69fc
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Capacitance probe and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CapacitanceProbeSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Capacitance {
+    unit = farad;
+  }
+
+  value def Length {
+    unit = metre;
+  }
+
+  value def Voltage {
+    unit = volt;
+  }
+
+  value def Frequency {
+    unit = hertz;
+  }
+
+  value def Temperature {
+    unit = kelvin;
+  }
+
+  value def Percent {
+    unit = one;
+  }
+
+  value def TimeDuration {
+    unit = second;
+  }
+
+  value def Conductivity {
+    unit = siemens / metre;
+  }
+
+  item def ExcitationSignal {
+    attribute amplitude : Voltage;
+    attribute frequency : Frequency;
+  }
+
+  item def CapacitanceMeasurement {
+    attribute rawCapacitance : Capacitance;
+    attribute compensatedCapacitance : Capacitance;
+    attribute measurementTime : TimeDuration;
+  }
+
+  item def ProcessMediumCondition {
+    attribute level : Length;
+    attribute dielectricConstant : Real;
+    attribute temperature : Temperature;
+    attribute conductivity : Conductivity;
+  }
+
+  item def LevelEstimate {
+    attribute measuredLevel : Length;
+    attribute confidence : Percent;
+    attribute valid : Boolean;
+  }
+
+  item def ProbeStatus {
+    attribute energized : Boolean;
+    attribute calibrated : Boolean;
+    attribute faultPresent : Boolean;
+    attribute foulingDetected : Boolean;
+  }
+
+  port def ElectricalPowerPort {
+    in item supplyVoltage : Voltage;
+  }
+
+  port def SignalPort {
+    out item signal : ExcitationSignal;
+  }
+
+  port def MeasurementPort {
+    out item measurement : CapacitanceMeasurement;
+  }
+
+  port def ProcessInterfacePort {
+    in item medium : ProcessMediumCondition;
+  }
+
+  port def DataOutputPort {
+    out item estimate : LevelEstimate;
+    out item status : ProbeStatus;
+  }
+
+  action def GenerateExcitation {
+    in item requestedAmplitude : Voltage;
+    in item requestedFrequency : Frequency;
+    out item excitation : ExcitationSignal;
+  }
+
+  action def SenseCapacitance {
+    in item excitation : ExcitationSignal;
+    in item medium : ProcessMediumCondition;
+    out item measuredCapacitance : CapacitanceMeasurement;
+  }
+
+  action def CompensateMeasurement {
+    in item rawMeasurement : CapacitanceMeasurement;
+    in item mediumTemperature : Temperature;
+    out item compensatedMeasurement : CapacitanceMeasurement;
+  }
+
+  action def ConvertCapacitanceToLevel {
+    in item measurement : CapacitanceMeasurement;
+    out item level : LevelEstimate;
+  }
+
+  action def DetectProbeFaults {
+    in item measurement : CapacitanceMeasurement;
+    in item medium : ProcessMediumCondition;
+    out item status : ProbeStatus;
+  }
+
+  state def ProbeOperatingState {
+    entry action initialize;
+    state Off;
+    state SelfTest;
+    state Calibrating;
+    state Measuring;
+    state Compensating;
+    state Reporting;
+    state Fault;
+
+    transition first Off;
+
+    transition Off_to_SelfTest
+      first Off
+      then SelfTest;
+
+    transition SelfTest_to_Calibrating
+      first SelfTest
+      then Calibrating
+      if noFaultDetected;
+
+    transition SelfTest_to_Fault
+      first SelfTest
+      then Fault
+      if faultDetected;
+
+    transition Calibrating_to_Measuring
+      first Calibrating
+      then Measuring
+      if calibrationComplete;
+
+    transition Measuring_to_Compensating
+      first Measuring
+      then Compensating
+      if sampleAvailable;
+
+    transition Compensating_to_Reporting
+      first Compensating
+      then Reporting
+      if compensationComplete;
+
+    transition Reporting_to_Measuring
+      first Reporting
+      then Measuring
+      if reportSent;
+
+    transition Measuring_to_Fault
+      first Measuring
+      then Fault
+      if measurementInvalid;
+
+    transition Fault_to_SelfTest
+      first Fault
+      then SelfTest
+      if resetCommanded;
+  }
+
+  part def CapacitanceProbeSystem {
+    attribute nominalExcitationAmplitude : Voltage = 5 [V];
+    attribute nominalExcitationFrequency : Frequency = 100000 [Hz];
+    attribute minimumDetectableCapacitance : Capacitance = 1e-12 [F];
+    attribute maximumMeasurableCapacitance : Capacitance = 1e-9 [F];
+    attribute responseTimeLimit : TimeDuration = 1 [s];
+
+    port power : ElectricalPowerPort;
+    port processInterface : ProcessInterfacePort;
+    port dataOutput : DataOutputPort;
+
+    part probeElectrode : ProbeElectrode;
+    part referenceShield : GuardShield;
+    part excitationCircuit : ExcitationCircuit;
+    part capacitanceDetector : CapacitanceDetector;
+    part temperatureSensor : TemperatureSensor;
+    part signalProcessor : SignalProcessor;
+    part diagnostics : DiagnosticsModule;
+    part housing : ProbeHousing;
+
+    connect excitationCircuit.excitationOut to probeElectrode.excitationIn;
+    connect probeElectrode.processContact to processInterface;
+    connect probeElectrode.senseOut to capacitanceDetector.measurementIn;
+    connect referenceShield.guardDrive to excitationCircuit.guardOut;
+    connect capacitanceDetector.measurementOut to signalProcessor.measurementIn;
+    connect temperatureSensor.temperatureOut to signalProcessor.temperatureIn;
+    connect signalProcessor.levelOut to dataOutput;
+    connect diagnostics.statusOut to dataOutput;
+
+    perform action GenerateExcitation;
+    perform action SenseCapacitance;
+    perform action CompensateMeasurement;
+    perform action ConvertCapacitanceToLevel;
+    perform action DetectProbeFaults;
+
+    exhibit state ProbeOperatingState;
+  }
+
+  part def ProbeElectrode {
+    attribute immersedLength : Length;
+    attribute activeLength : Length = 1.2 [m];
+    attribute electrodeDiameter : Length = 0.012 [m];
+    attribute insulationThickness : Length = 0.001 [m];
+
+    port excitationIn : SignalPort;
+    port processContact : ProcessInterfacePort;
+    port senseOut : MeasurementPort;
+  }
+
+  part def GuardShield {
+    attribute shieldLength : Length = 1.25 [m];
+    port guardDrive : SignalPort;
+  }
+
+  part def ExcitationCircuit {
+    attribute outputAmplitude : Voltage = 5 [V];
+    attribute outputFrequency : Frequency = 100000 [Hz];
+
+    port supply : ElectricalPowerPort;
+    port excitationOut : SignalPort;
+    port guardOut : SignalPort;
+  }
+
+  part def CapacitanceDetector {
+    attribute lowerRange : Capacitance = 1e-12 [F];
+    attribute upperRange : Capacitance = 1e-9 [F];
+    attribute samplingPeriod : TimeDuration = 0.05 [s];
+
+    port measurementIn : MeasurementPort;
+    port measurementOut : MeasurementPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow : Temperature = 233.15 [K];
+    attribute measurementRangeHigh : Temperature = 423.15 [K];
+
+    port temperatureOut {
+      out item sensedTemperature : Temperature;
+    }
+  }
+
+  part def SignalProcessor {
+    attribute dryReferenceCapacitance : Capacitance = 5e-12 [F];
+    attribute fullScaleReferenceCapacitance : Capacitance = 250e-12 [F];
+    attribute filteredLevel : Length;
+    attribute validOutput : Boolean;
+
+    port measurementIn : MeasurementPort;
+
+    port temperatureIn {
+      in item sensedTemperature : Temperature;
+    }
+
+    port levelOut : DataOutputPort;
+  }
+
+  part def DiagnosticsModule {
+    attribute openCircuitThreshold : Capacitance = 0.5e-12 [F];
+    attribute shortCircuitThreshold : Capacitance = 900e-12 [F];
+    attribute foulingDriftLimit : Capacitance = 20e-12 [F];
+
+    port statusOut : DataOutputPort;
+  }
+
+  part def ProbeHousing {
+    attribute insertionLength : Length = 1.5 [m];
+    attribute processConnectionDiameter : Length = 0.05 [m];
+    attribute maximumProcessTemperature : Temperature = 423.15 [K];
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The capacitance probe system shall determine the level or presence of a process medium by exciting a probe electrode, sensing capacitance variation caused by the medium dielectric, compensating the measurement, and reporting a valid level estimate. */
+
+    subject probeSystem : CapacitanceProbeSystem;
+
+    require constraint {
+      probeSystem.signalProcessor.validOutput == true
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    subject probeSystem : CapacitanceProbeSystem;
+
+    require constraint {
+      probeSystem.minimumDetectableCapacitance <= 1e-12 [F] and
+      probeSystem.maximumMeasurableCapacitance >= 1e-9 [F]
+    }
+  }
+
+  requirement def ResponseTimeRequirement {
+    subject probeSystem : CapacitanceProbeSystem;
+
+    require constraint {
+      probeSystem.responseTimeLimit <= 1 [s]
+    }
+  }
+
+  requirement def FaultDetectionRequirement {
+    doc /* The system shall detect open electrode, shorted electrode, invalid measurement, and excessive fouling conditions before reporting a trusted level estimate. */
+
+    subject diagnostics : DiagnosticsModule;
+
+    require constraint {
+      diagnostics.openCircuitThreshold < diagnostics.shortCircuitThreshold
+    }
+  }
+
+  requirement def TemperatureCompensationRequirement {
+    doc /* The system shall compensate capacitance-derived level estimates for process temperature effects over the specified sensor operating range. */
+
+    subject temperatureSensor : TemperatureSensor;
+
+    require constraint {
+      temperatureSensor.measurementRangeLow <= 233.15 [K] and
+      temperatureSensor.measurementRangeHigh >= 423.15 [K]
+    }
+  }
+
+}
+tokens used
+2,562
+package CapacitanceProbeSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Capacitance {
+    unit = farad;
+  }
+
+  value def Length {
+    unit = metre;
+  }
+
+  value def Voltage {
+    unit = volt;
+  }
+
+  value def Frequency {
+    unit = hertz;
+  }
+
+  value def Temperature {
+    unit = kelvin;
+  }
+
+  value def Percent {
+    unit = one;
+  }
+
+  value def TimeDuration {
+    unit = second;
+  }
+
+  value def Conductivity {
+    unit = siemens / metre;
+  }
+
+  item def ExcitationSignal {
+    attribute amplitude : Voltage;
+    attribute frequency : Frequency;
+  }
+
+  item def CapacitanceMeasurement {
+    attribute rawCapacitance : Capacitance;
+    attribute compensatedCapacitance : Capacitance;
+    attribute measurementTime : TimeDuration;
+  }
+
+  item def ProcessMediumCondition {
+    attribute level : Length;
+    attribute dielectricConstant : Real;
+    attribute temperature : Temperature;
+    attribute conductivity : Conductivity;
+  }
+
+  item def LevelEstimate {
+    attribute measuredLevel : Length;
+    attribute confidence : Percent;
+    attribute valid : Boolean;
+  }
+
+  item def ProbeStatus {
+    attribute energized : Boolean;
+    attribute calibrated : Boolean;
+    attribute faultPresent : Boolean;
+    attribute foulingDetected : Boolean;
+  }
+
+  port def ElectricalPowerPort {
+    in item supplyVoltage : Voltage;
+  }
+
+  port def SignalPort {
+    out item signal : ExcitationSignal;
+  }
+
+  port def MeasurementPort {
+    out item measurement : CapacitanceMeasurement;
+  }
+
+  port def ProcessInterfacePort {
+    in item medium : ProcessMediumCondition;
+  }
+
+  port def DataOutputPort {
+    out item estimate : LevelEstimate;
+    out item status : ProbeStatus;
+  }
+
+  action def GenerateExcitation {
+    in item requestedAmplitude : Voltage;
+    in item requestedFrequency : Frequency;
+    out item excitation : ExcitationSignal;
+  }
+
+  action def SenseCapacitance {
+    in item excitation : ExcitationSignal;
+    in item medium : ProcessMediumCondition;
+    out item measuredCapacitance : CapacitanceMeasurement;
+  }
+
+  action def CompensateMeasurement {
+    in item rawMeasurement : CapacitanceMeasurement;
+    in item mediumTemperature : Temperature;
+    out item compensatedMeasurement : CapacitanceMeasurement;
+  }
+
+  action def ConvertCapacitanceToLevel {
+    in item measurement : CapacitanceMeasurement;
+    out item level : LevelEstimate;
+  }
+
+  action def DetectProbeFaults {
+    in item measurement : CapacitanceMeasurement;
+    in item medium : ProcessMediumCondition;
+    out item status : ProbeStatus;
+  }
+
+  state def ProbeOperatingState {
+    entry action initialize;
+    state Off;
+    state SelfTest;
+    state Calibrating;
+    state Measuring;
+    state Compensating;
+    state Reporting;
+    state Fault;
+
+    transition first Off;
+
+    transition Off_to_SelfTest
+      first Off
+      then SelfTest;
+
+    transition SelfTest_to_Calibrating
+      first SelfTest
+      then Calibrating
+      if noFaultDetected;
+
+    transition SelfTest_to_Fault
+      first SelfTest
+      then Fault
+      if faultDetected;
+
+    transition Calibrating_to_Measuring
+      first Calibrating
+      then Measuring
+      if calibrationComplete;
+
+    transition Measuring_to_Compensating
+      first Measuring
+      then Compensating
+      if sampleAvailable;
+
+    transition Compensating_to_Reporting
+      first Compensating
+      then Reporting
+      if compensationComplete;
+
+    transition Reporting_to_Measuring
+      first Reporting
+      then Measuring
+      if reportSent;
+
+    transition Measuring_to_Fault
+      first Measuring
+      then Fault
+      if measurementInvalid;
+
+    transition Fault_to_SelfTest
+      first Fault
+      then SelfTest
+      if resetCommanded;
+  }
+
+  part def CapacitanceProbeSystem {
+    attribute nominalExcitationAmplitude : Voltage = 5 [V];
+    attribute nominalExcitationFrequency : Frequency = 100000 [Hz];
+    attribute minimumDetectableCapacitance : Capacitance = 1e-12 [F];
+    attribute maximumMeasurableCapacitance : Capacitance = 1e-9 [F];
+    attribute responseTimeLimit : TimeDuration = 1 [s];
+
+    port power : ElectricalPowerPort;
+    port processInterface : ProcessInterfacePort;
+    port dataOutput : DataOutputPort;
+
+    part probeElectrode : ProbeElectrode;
+    part referenceShield : GuardShield;
+    part excitationCircuit : ExcitationCircuit;
+    part capacitanceDetector : CapacitanceDetector;
+    part temperatureSensor : TemperatureSensor;
+    part signalProcessor : SignalProcessor;
+    part diagnostics : DiagnosticsModule;
+    part housing : ProbeHousing;
+
+    connect excitationCircuit.excitationOut to probeElectrode.excitationIn;
+    connect probeElectrode.processContact to processInterface;
+    connect probeElectrode.senseOut to capacitanceDetector.measurementIn;
+    connect referenceShield.guardDrive to excitationCircuit.guardOut;
+    connect capacitanceDetector.measurementOut to signalProcessor.measurementIn;
+    connect temperatureSensor.temperatureOut to signalProcessor.temperatureIn;
+    connect signalProcessor.levelOut to dataOutput;
+    connect diagnostics.statusOut to dataOutput;
+
+    perform action GenerateExcitation;
+    perform action SenseCapacitance;
+    perform action CompensateMeasurement;
+    perform action ConvertCapacitanceToLevel;
+    perform action DetectProbeFaults;
+
+    exhibit state ProbeOperatingState;
+  }
+
+  part def ProbeElectrode {
+    attribute immersedLength : Length;
+    attribute activeLength : Length = 1.2 [m];
+    attribute electrodeDiameter : Length = 0.012 [m];
+    attribute insulationThickness : Length = 0.001 [m];
+
+    port excitationIn : SignalPort;
+    port processContact : ProcessInterfacePort;
+    port senseOut : MeasurementPort;
+  }
+
+  part def GuardShield {
+    attribute shieldLength : Length = 1.25 [m];
+    port guardDrive : SignalPort;
+  }
+
+  part def ExcitationCircuit {
+    attribute outputAmplitude : Voltage = 5 [V];
+    attribute outputFrequency : Frequency = 100000 [Hz];
+
+    port supply : ElectricalPowerPort;
+    port excitationOut : SignalPort;
+    port guardOut : SignalPort;
+  }
+
+  part def CapacitanceDetector {
+    attribute lowerRange : Capacitance = 1e-12 [F];
+    attribute upperRange : Capacitance = 1e-9 [F];
+    attribute samplingPeriod : TimeDuration = 0.05 [s];
+
+    port measurementIn : MeasurementPort;
+    port measurementOut : MeasurementPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow : Temperature = 233.15 [K];
+    attribute measurementRangeHigh : Temperature = 423.15 [K];
+
+    port temperatureOut {
+      out item sensedTemperature : Temperature;
+    }
+  }
+
+  part def SignalProcessor {
+    attribute dryReferenceCapacitance : Capacitance = 5e-12 [F];
+    attribute fullScaleReferenceCapacitance : Capacitance = 250e-12 [F];
+    attribute filteredLevel : Length;
+    attribute validOutput : Boolean;
+
+    port measurementIn : MeasurementPort;
+
+    port temperatureIn {
+      in item sensedTemperature : Temperature;
+    }
+
+    port levelOut : DataOutputPort;
+  }
+
+  part def DiagnosticsModule {
+    attribute openCircuitThreshold : Capacitance = 0.5e-12 [F];
+    attribute shortCircuitThreshold : Capacitance = 900e-12 [F];
+    attribute foulingDriftLimit : Capacitance = 20e-12 [F];
+
+    port statusOut : DataOutputPort;
+  }
+
+  part def ProbeHousing {
+    attribute insertionLength : Length = 1.5 [m];
+    attribute processConnectionDiameter : Length = 0.05 [m];
+    attribute maximumProcessTemperature : Temperature = 423.15 [K];
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The capacitance probe system shall determine the level or presence of a process medium by exciting a probe electrode, sensing capacitance variation caused by the medium dielectric, compensating the measurement, and reporting a valid level estimate. */
+
+    subject probeSystem : CapacitanceProbeSystem;
+
+    require constraint {
+      probeSystem.signalProcessor.validOutput == true
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    subject probeSystem : CapacitanceProbeSystem;
+
+    require constraint {
+      probeSystem.minimumDetectableCapacitance <= 1e-12 [F] and
+      probeSystem.maximumMeasurableCapacitance >= 1e-9 [F]
+    }
+  }
+
+  requirement def ResponseTimeRequirement {
+    subject probeSystem : CapacitanceProbeSystem;
+
+    require constraint {
+      probeSystem.responseTimeLimit <= 1 [s]
+    }
+  }
+
+  requirement def FaultDetectionRequirement {
+    doc /* The system shall detect open electrode, shorted electrode, invalid measurement, and excessive fouling conditions before reporting a trusted level estimate. */
+
+    subject diagnostics : DiagnosticsModule;
+
+    require constraint {
+      diagnostics.openCircuitThreshold < diagnostics.shortCircuitThreshold
+    }
+  }
+
+  requirement def TemperatureCompensationRequirement {
+    doc /* The system shall compensate capacitance-derived level estimates for process temperature effects over the specified sensor operating range. */
+
+    subject temperatureSensor : TemperatureSensor;
+
+    require constraint {
+      temperatureSensor.measurementRangeLow <= 233.15 [K] and
+      temperatureSensor.measurementRangeHigh >= 423.15 [K]
+    }
+  }
+
+}

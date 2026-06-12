@@ -1,0 +1,1049 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-u2_hmy5h
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb594-7cbf-7290-8e53-c1eeba49dc11
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a McLeod gauge and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package McLeodGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = SI::pascal;
+    }
+
+    attribute def Volume {
+        :> scalarValues::Real;
+        unit = SI::cubicMetre;
+    }
+
+    attribute def Length {
+        :> scalarValues::Real;
+        unit = SI::metre;
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = SI::kelvin;
+    }
+
+    attribute def Density {
+        :> scalarValues::Real;
+        unit = SI::kilogramPerCubicMetre;
+    }
+
+    attribute def Angle {
+        :> scalarValues::Real;
+        unit = SI::radian;
+    }
+
+    attribute def Time {
+        :> scalarValues::Real;
+        unit = SI::second;
+    }
+
+    attribute def DimensionlessRatio {
+        :> scalarValues::Real;
+    }
+
+    item def GasSample {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute initialVolume : Volume;
+        attribute compressedVolume : Volume;
+        attribute compositionDescription : String;
+    }
+
+    item def Mercury {
+        attribute density : Density = 13534.0 [SI::kilogramPerCubicMetre];
+        attribute vaporPressure : Pressure = 0.17 [SI::pascal];
+        attribute columnHeight : Length;
+    }
+
+    item def PressureReading {
+        attribute measuredPressure : Pressure;
+        attribute compressionRatio : DimensionlessRatio;
+        attribute mercuryHeightDifference : Length;
+        attribute validAt : Time;
+        attribute uncertainty : Pressure;
+    }
+
+    port def GasPort {
+        in item gasIn : GasSample;
+        out item gasOut : GasSample;
+        attribute portPressure : Pressure;
+    }
+
+    port def MercuryPort {
+        inout item workingFluid : Mercury;
+        attribute fluidLevel : Length;
+    }
+
+    port def ReadingPort {
+        out item reading : PressureReading;
+    }
+
+    port def ControlPort {
+        in item command : GaugeCommand;
+        out item status : GaugeStatus;
+    }
+
+    item def GaugeCommand {
+        attribute requestedMode : String;
+        attribute targetReservoirAngle : Angle;
+        attribute isolateSample : Boolean;
+    }
+
+    item def GaugeStatus {
+        attribute mode : String;
+        attribute isSampleIsolated : Boolean;
+        attribute isReadyForReading : Boolean;
+        attribute faultDescription : String;
+    }
+
+    part def VacuumProcessPort {
+        port processGasPort : GasPort;
+        attribute processPressure : Pressure;
+    }
+
+    part def InletValve {
+        port upstream : GasPort;
+        port downstream : GasPort;
+        attribute openFraction : DimensionlessRatio;
+        attribute leakRateEquivalentPressureRise : Pressure;
+        attribute isClosed : Boolean;
+
+        action openValve {
+            first start;
+            then setOpen;
+            action setOpen {
+                openFraction := 1.0;
+                isClosed := false;
+            }
+            then done;
+        }
+
+        action closeValve {
+            first start;
+            then setClosed;
+            action setClosed {
+                openFraction := 0.0;
+                isClosed := true;
+            }
+            then done;
+        }
+    }
+
+    part def CompressionBulb {
+        port samplePort : GasPort;
+        attribute calibratedBulbVolume : Volume = 1.0e-4 [SI::cubicMetre];
+        attribute trappedGasPressure : Pressure;
+        attribute trappedGasTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute trappedGasVolume : Volume;
+        attribute isSampleTrapped : Boolean;
+    }
+
+    part def CapillaryTube {
+        port lowerGasPort : GasPort;
+        port mercuryInterface : MercuryPort;
+        attribute boreDiameter : Length = 1.0e-3 [SI::metre];
+        attribute readableLength : Length = 0.25 [SI::metre];
+        attribute meniscusHeight : Length;
+        attribute capillaryVolumePerLength : Volume;
+        attribute compressedGasVolume : Volume;
+    }
+
+    part def ReferenceLeg {
+        port mercuryInterface : MercuryPort;
+        attribute referenceMeniscusHeight : Length;
+        attribute sealedEndVolume : Volume = 0.0 [SI::cubicMetre];
+    }
+
+    part def MercuryReservoir {
+        port reservoirMercuryPort : MercuryPort;
+        attribute mercuryInventory : Volume = 2.5e-4 [SI::cubicMetre];
+        attribute tiltAngle : Angle;
+        attribute reservoirElevation : Length;
+        attribute fillState : String;
+    }
+
+    part def Scale {
+        attribute zeroMarkHeight : Length;
+        attribute minorDivision : Length = 5.0e-4 [SI::metre];
+        attribute maximumReadableHeight : Length = 0.25 [SI::metre];
+
+        action readHeightDifference {
+            in attribute capillaryHeight : Length;
+            in attribute referenceHeight : Length;
+            out attribute heightDifference : Length;
+
+            first start;
+            then compute;
+            action compute {
+                heightDifference := capillaryHeight - referenceHeight;
+            }
+            then done;
+        }
+    }
+
+    part def PressureCalculator {
+        port readingOutput : ReadingPort;
+        attribute gravitationalAcceleration : Length = 9.80665 [SI::metre];
+        attribute mercuryDensity : Density = 13534.0 [SI::kilogramPerCubicMetre];
+        attribute initialSampleVolume : Volume = 1.0e-4 [SI::cubicMetre];
+        attribute compressedGasVolume : Volume;
+        attribute heightDifference : Length;
+        attribute calculatedPressure : Pressure;
+        attribute compressionRatio : DimensionlessRatio;
+        attribute uncertainty : Pressure = 1.0e-3 [SI::pascal];
+
+        action calculatePressure {
+            in attribute V_initial : Volume;
+            in attribute V_compressed : Volume;
+            in attribute h : Length;
+            out item result : PressureReading;
+
+            first start;
+            then computeRatio;
+            action computeRatio {
+                compressionRatio := V_compressed / V_initial;
+            }
+            then computePressure;
+            action computePressure {
+                calculatedPressure := mercuryDensity * gravitationalAcceleration * h * compressionRatio;
+            }
+            then createReading;
+            action createReading {
+                result.measuredPressure := calculatedPressure;
+                result.compressionRatio := compressionRatio;
+                result.mercuryHeightDifference := h;
+                result.uncertainty := uncertainty;
+            }
+            then done;
+        }
+    }
+
+    part def ManualTiltMechanism {
+        port control : ControlPort;
+        attribute commandedAngle : Angle;
+        attribute actualAngle : Angle;
+        attribute maximumAngle : Angle = 1.5708 [SI::radian];
+
+        action raiseReservoir {
+            in attribute targetAngle : Angle;
+
+            first start;
+            then move;
+            action move {
+                commandedAngle := targetAngle;
+                actualAngle := targetAngle;
+            }
+            then done;
+        }
+
+        action lowerReservoir {
+            first start;
+            then move;
+            action move {
+                commandedAngle := 0.0 [SI::radian];
+                actualAngle := 0.0 [SI::radian];
+            }
+            then done;
+        }
+    }
+
+    part def McLeodGauge {
+        port vacuumConnection : GasPort;
+        port userControl : ControlPort;
+        port indicatedPressure : ReadingPort;
+
+        part inletValve : InletValve;
+        part bulb : CompressionBulb;
+        part capillary : CapillaryTube;
+        part referenceLeg : ReferenceLeg;
+        part reservoir : MercuryReservoir;
+        part scale : Scale;
+        part calculator : PressureCalculator;
+        part tiltMechanism : ManualTiltMechanism;
+
+        attribute measurementRangeLow : Pressure = 1.0e-3 [SI::pascal];
+        attribute measurementRangeHigh : Pressure = 100.0 [SI::pascal];
+        attribute ambientTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute currentHeightDifference : Length;
+        attribute currentCompressedVolume : Volume;
+        attribute currentReading : PressureReading;
+
+        connect vacuumConnection to inletValve.upstream;
+        connect inletValve.downstream to bulb.samplePort;
+        connect bulb.samplePort to capillary.lowerGasPort;
+        connect capillary.mercuryInterface to reservoir.reservoirMercuryPort;
+        connect referenceLeg.mercuryInterface to reservoir.reservoirMercuryPort;
+        connect calculator.readingOutput to indicatedPressure;
+        connect userControl to tiltMechanism.control;
+
+        action admitSample {
+            first start;
+            then openInlet;
+            action openInlet {
+                perform inletValve.openValve;
+                bulb.isSampleTrapped := false;
+            }
+            then equilibrate;
+            action equilibrate {
+                bulb.trappedGasPressure := vacuumConnection.portPressure;
+                bulb.trappedGasVolume := bulb.calibratedBulbVolume;
+                bulb.trappedGasTemperature := ambientTemperature;
+            }
+            then done;
+        }
+
+        action isolateSample {
+            first start;
+            then closeInlet;
+            action closeInlet {
+                perform inletValve.closeValve;
+                bulb.isSampleTrapped := true;
+            }
+            then done;
+        }
+
+        action compressSample {
+            in attribute targetAngle : Angle;
+
+            first start;
+            then raiseMercury;
+            action raiseMercury {
+                perform tiltMechanism.raiseReservoir(targetAngle);
+                reservoir.tiltAngle := tiltMechanism.actualAngle;
+                capillary.meniscusHeight := 0.18 [SI::metre];
+                referenceLeg.referenceMeniscusHeight := 0.04 [SI::metre];
+                capillary.compressedGasVolume := 2.0e-7 [SI::cubicMetre];
+                bulb.trappedGasVolume := capillary.compressedGasVolume;
+            }
+            then done;
+        }
+
+        action measurePressure {
+            first start;
+            then readScale;
+            action readScale {
+                perform scale.readHeightDifference(
+                    capillary.meniscusHeight,
+                    referenceLeg.referenceMeniscusHeight,
+                    currentHeightDifference
+                );
+                currentCompressedVolume := capillary.compressedGasVolume;
+            }
+            then calculate;
+            action calculate {
+                perform calculator.calculatePressure(
+                    bulb.calibratedBulbVolume,
+                    currentCompressedVolume,
+                    currentHeightDifference,
+                    currentReading
+                );
+            }
+            then publish;
+            action publish {
+                send currentReading via indicatedPressure.reading;
+            }
+            then done;
+        }
+
+        action resetGauge {
+            first start;
+            then lowerMercury;
+            action lowerMercury {
+                perform tiltMechanism.lowerReservoir;
+                reservoir.tiltAngle := 0.0 [SI::radian];
+                bulb.isSampleTrapped := false;
+            }
+            then done;
+        }
+
+        state def GaugeOperationalState {
+            entry action initialize {
+                inletValve.openFraction := 0.0;
+                inletValve.isClosed := true;
+                reservoir.tiltAngle := 0.0 [SI::radian];
+                bulb.isSampleTrapped := false;
+            }
+
+            state Idle;
+            state Sampling;
+            state Isolated;
+            state Compressing;
+            state Reading;
+            state Resetting;
+            state Fault;
+
+            transition first Idle;
+            transition Idle_to_Sampling
+                first Idle
+                accept GaugeCommand
+                if userControl.command.requestedMode == "sample"
+                then Sampling;
+
+            transition Sampling_to_Isolated
+                first Sampling
+                do admitSample
+                then Isolated;
+
+            transition Isolated_to_Compressing
+                first Isolated
+                do isolateSample
+                then Compressing;
+
+            transition Compressing_to_Reading
+                first Compressing
+                do compressSample(userControl.command.targetReservoirAngle)
+                then Reading;
+
+            transition Reading_to_Resetting
+                first Reading
+                do measurePressure
+                then Resetting;
+
+            transition Resetting_to_Idle
+                first Resetting
+                do resetGauge
+                then Idle;
+
+            transition Any_to_Fault
+                first Idle
+                if capillary.meniscusHeight > scale.maximumReadableHeight
+                then Fault;
+        }
+    }
+
+    part def GaugeOperator {
+        port commandPort : ControlPort;
+        port readingPort : ReadingPort;
+        attribute requestedReservoirAngle : Angle = 1.2 [SI::radian];
+        attribute acceptedPressure : Pressure;
+    }
+
+    part def McLeodGaugeVacuumMeasurementSystem {
+        part vacuumProcess : VacuumProcessPort;
+        part gauge : McLeodGauge;
+        part operator : GaugeOperator;
+
+        connect vacuumProcess.processGasPort to gauge.vacuumConnection;
+        connect operator.commandPort to gauge.userControl;
+        connect gauge.indicatedPressure to operator.readingPort;
+
+        attribute primaryFunction : String =
+            "Isolate a known volume of low-pressure gas from a vacuum process, compress it with a mercury column, observe the mercury height difference, and infer the original absolute pressure using the gas compression ratio.";
+
+        action performSingleMeasurement {
+            first start;
+            then commandSampling;
+            action commandSampling {
+                operator.commandPort.command.requestedMode := "sample";
+                operator.commandPort.command.targetReservoirAngle := operator.requestedReservoirAngle;
+                operator.commandPort.command.isolateSample := true;
+            }
+            then gaugeCycle;
+            action gaugeCycle {
+                perform gauge.admitSample;
+                perform gauge.isolateSample;
+                perform gauge.compressSample(operator.requestedReservoirAngle);
+                perform gauge.measurePressure;
+            }
+            then acceptReading;
+            action acceptReading {
+                operator.acceptedPressure := gauge.currentReading.measuredPressure;
+            }
+            then reset;
+            action reset {
+                perform gauge.resetGauge;
+            }
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall measure absolute pressure in a vacuum process by trapping a known gas volume, compressing that gas with mercury, measuring the resulting mercury column height difference, and calculating the original pressure from Boyle's law. */
+
+        subject system : McLeodGaugeVacuumMeasurementSystem;
+
+        require constraint {
+            system.gauge.currentReading.measuredPressure >= system.gauge.measurementRangeLow and
+            system.gauge.currentReading.measuredPressure <= system.gauge.measurementRangeHigh
+        }
+    }
+
+    requirement def SampleIsolationRequirement {
+        doc
+        /* The inlet valve shall isolate the gas sample before mercury compression begins so that the measured gas quantity remains fixed. */
+
+        subject gauge : McLeodGauge;
+
+        require constraint {
+            gauge.inletValve.isClosed == true implies gauge.bulb.isSampleTrapped == true
+        }
+    }
+
+    requirement def CompressionMeasurementRequirement {
+        doc
+        /* The gauge shall determine pressure from the measured mercury height difference and the ratio of compressed gas volume to calibrated initial sample volume. */
+
+        subject gauge : McLeodGauge;
+
+        require constraint {
+            gauge.calculator.calculatedPressure ==
+            gauge.calculator.mercuryDensity *
+            gauge.calculator.gravitationalAcceleration *
+            gauge.calculator.heightDifference *
+            gauge.calculator.compressionRatio
+        }
+    }
+
+    requirement def NonCondensableGasRequirement {
+        doc
+        /* The measurement shall be valid only for non-condensable gases whose pressure is above the mercury vapor pressure contribution under the measurement temperature. */
+
+        subject sample : GasSample;
+
+        require constraint {
+            sample.pressure > 0.17 [SI::pascal]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by McLeodGaugeVacuumMeasurementSystem;
+    satisfy SampleIsolationRequirement by McLeodGauge;
+    satisfy CompressionMeasurementRequirement by PressureCalculator;
+
+}
+tokens used
+4,734
+package McLeodGaugeSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Pressure {
+        :> scalarValues::Real;
+        unit = SI::pascal;
+    }
+
+    attribute def Volume {
+        :> scalarValues::Real;
+        unit = SI::cubicMetre;
+    }
+
+    attribute def Length {
+        :> scalarValues::Real;
+        unit = SI::metre;
+    }
+
+    attribute def Temperature {
+        :> scalarValues::Real;
+        unit = SI::kelvin;
+    }
+
+    attribute def Density {
+        :> scalarValues::Real;
+        unit = SI::kilogramPerCubicMetre;
+    }
+
+    attribute def Angle {
+        :> scalarValues::Real;
+        unit = SI::radian;
+    }
+
+    attribute def Time {
+        :> scalarValues::Real;
+        unit = SI::second;
+    }
+
+    attribute def DimensionlessRatio {
+        :> scalarValues::Real;
+    }
+
+    item def GasSample {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute initialVolume : Volume;
+        attribute compressedVolume : Volume;
+        attribute compositionDescription : String;
+    }
+
+    item def Mercury {
+        attribute density : Density = 13534.0 [SI::kilogramPerCubicMetre];
+        attribute vaporPressure : Pressure = 0.17 [SI::pascal];
+        attribute columnHeight : Length;
+    }
+
+    item def PressureReading {
+        attribute measuredPressure : Pressure;
+        attribute compressionRatio : DimensionlessRatio;
+        attribute mercuryHeightDifference : Length;
+        attribute validAt : Time;
+        attribute uncertainty : Pressure;
+    }
+
+    port def GasPort {
+        in item gasIn : GasSample;
+        out item gasOut : GasSample;
+        attribute portPressure : Pressure;
+    }
+
+    port def MercuryPort {
+        inout item workingFluid : Mercury;
+        attribute fluidLevel : Length;
+    }
+
+    port def ReadingPort {
+        out item reading : PressureReading;
+    }
+
+    port def ControlPort {
+        in item command : GaugeCommand;
+        out item status : GaugeStatus;
+    }
+
+    item def GaugeCommand {
+        attribute requestedMode : String;
+        attribute targetReservoirAngle : Angle;
+        attribute isolateSample : Boolean;
+    }
+
+    item def GaugeStatus {
+        attribute mode : String;
+        attribute isSampleIsolated : Boolean;
+        attribute isReadyForReading : Boolean;
+        attribute faultDescription : String;
+    }
+
+    part def VacuumProcessPort {
+        port processGasPort : GasPort;
+        attribute processPressure : Pressure;
+    }
+
+    part def InletValve {
+        port upstream : GasPort;
+        port downstream : GasPort;
+        attribute openFraction : DimensionlessRatio;
+        attribute leakRateEquivalentPressureRise : Pressure;
+        attribute isClosed : Boolean;
+
+        action openValve {
+            first start;
+            then setOpen;
+            action setOpen {
+                openFraction := 1.0;
+                isClosed := false;
+            }
+            then done;
+        }
+
+        action closeValve {
+            first start;
+            then setClosed;
+            action setClosed {
+                openFraction := 0.0;
+                isClosed := true;
+            }
+            then done;
+        }
+    }
+
+    part def CompressionBulb {
+        port samplePort : GasPort;
+        attribute calibratedBulbVolume : Volume = 1.0e-4 [SI::cubicMetre];
+        attribute trappedGasPressure : Pressure;
+        attribute trappedGasTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute trappedGasVolume : Volume;
+        attribute isSampleTrapped : Boolean;
+    }
+
+    part def CapillaryTube {
+        port lowerGasPort : GasPort;
+        port mercuryInterface : MercuryPort;
+        attribute boreDiameter : Length = 1.0e-3 [SI::metre];
+        attribute readableLength : Length = 0.25 [SI::metre];
+        attribute meniscusHeight : Length;
+        attribute capillaryVolumePerLength : Volume;
+        attribute compressedGasVolume : Volume;
+    }
+
+    part def ReferenceLeg {
+        port mercuryInterface : MercuryPort;
+        attribute referenceMeniscusHeight : Length;
+        attribute sealedEndVolume : Volume = 0.0 [SI::cubicMetre];
+    }
+
+    part def MercuryReservoir {
+        port reservoirMercuryPort : MercuryPort;
+        attribute mercuryInventory : Volume = 2.5e-4 [SI::cubicMetre];
+        attribute tiltAngle : Angle;
+        attribute reservoirElevation : Length;
+        attribute fillState : String;
+    }
+
+    part def Scale {
+        attribute zeroMarkHeight : Length;
+        attribute minorDivision : Length = 5.0e-4 [SI::metre];
+        attribute maximumReadableHeight : Length = 0.25 [SI::metre];
+
+        action readHeightDifference {
+            in attribute capillaryHeight : Length;
+            in attribute referenceHeight : Length;
+            out attribute heightDifference : Length;
+
+            first start;
+            then compute;
+            action compute {
+                heightDifference := capillaryHeight - referenceHeight;
+            }
+            then done;
+        }
+    }
+
+    part def PressureCalculator {
+        port readingOutput : ReadingPort;
+        attribute gravitationalAcceleration : Length = 9.80665 [SI::metre];
+        attribute mercuryDensity : Density = 13534.0 [SI::kilogramPerCubicMetre];
+        attribute initialSampleVolume : Volume = 1.0e-4 [SI::cubicMetre];
+        attribute compressedGasVolume : Volume;
+        attribute heightDifference : Length;
+        attribute calculatedPressure : Pressure;
+        attribute compressionRatio : DimensionlessRatio;
+        attribute uncertainty : Pressure = 1.0e-3 [SI::pascal];
+
+        action calculatePressure {
+            in attribute V_initial : Volume;
+            in attribute V_compressed : Volume;
+            in attribute h : Length;
+            out item result : PressureReading;
+
+            first start;
+            then computeRatio;
+            action computeRatio {
+                compressionRatio := V_compressed / V_initial;
+            }
+            then computePressure;
+            action computePressure {
+                calculatedPressure := mercuryDensity * gravitationalAcceleration * h * compressionRatio;
+            }
+            then createReading;
+            action createReading {
+                result.measuredPressure := calculatedPressure;
+                result.compressionRatio := compressionRatio;
+                result.mercuryHeightDifference := h;
+                result.uncertainty := uncertainty;
+            }
+            then done;
+        }
+    }
+
+    part def ManualTiltMechanism {
+        port control : ControlPort;
+        attribute commandedAngle : Angle;
+        attribute actualAngle : Angle;
+        attribute maximumAngle : Angle = 1.5708 [SI::radian];
+
+        action raiseReservoir {
+            in attribute targetAngle : Angle;
+
+            first start;
+            then move;
+            action move {
+                commandedAngle := targetAngle;
+                actualAngle := targetAngle;
+            }
+            then done;
+        }
+
+        action lowerReservoir {
+            first start;
+            then move;
+            action move {
+                commandedAngle := 0.0 [SI::radian];
+                actualAngle := 0.0 [SI::radian];
+            }
+            then done;
+        }
+    }
+
+    part def McLeodGauge {
+        port vacuumConnection : GasPort;
+        port userControl : ControlPort;
+        port indicatedPressure : ReadingPort;
+
+        part inletValve : InletValve;
+        part bulb : CompressionBulb;
+        part capillary : CapillaryTube;
+        part referenceLeg : ReferenceLeg;
+        part reservoir : MercuryReservoir;
+        part scale : Scale;
+        part calculator : PressureCalculator;
+        part tiltMechanism : ManualTiltMechanism;
+
+        attribute measurementRangeLow : Pressure = 1.0e-3 [SI::pascal];
+        attribute measurementRangeHigh : Pressure = 100.0 [SI::pascal];
+        attribute ambientTemperature : Temperature = 293.15 [SI::kelvin];
+        attribute currentHeightDifference : Length;
+        attribute currentCompressedVolume : Volume;
+        attribute currentReading : PressureReading;
+
+        connect vacuumConnection to inletValve.upstream;
+        connect inletValve.downstream to bulb.samplePort;
+        connect bulb.samplePort to capillary.lowerGasPort;
+        connect capillary.mercuryInterface to reservoir.reservoirMercuryPort;
+        connect referenceLeg.mercuryInterface to reservoir.reservoirMercuryPort;
+        connect calculator.readingOutput to indicatedPressure;
+        connect userControl to tiltMechanism.control;
+
+        action admitSample {
+            first start;
+            then openInlet;
+            action openInlet {
+                perform inletValve.openValve;
+                bulb.isSampleTrapped := false;
+            }
+            then equilibrate;
+            action equilibrate {
+                bulb.trappedGasPressure := vacuumConnection.portPressure;
+                bulb.trappedGasVolume := bulb.calibratedBulbVolume;
+                bulb.trappedGasTemperature := ambientTemperature;
+            }
+            then done;
+        }
+
+        action isolateSample {
+            first start;
+            then closeInlet;
+            action closeInlet {
+                perform inletValve.closeValve;
+                bulb.isSampleTrapped := true;
+            }
+            then done;
+        }
+
+        action compressSample {
+            in attribute targetAngle : Angle;
+
+            first start;
+            then raiseMercury;
+            action raiseMercury {
+                perform tiltMechanism.raiseReservoir(targetAngle);
+                reservoir.tiltAngle := tiltMechanism.actualAngle;
+                capillary.meniscusHeight := 0.18 [SI::metre];
+                referenceLeg.referenceMeniscusHeight := 0.04 [SI::metre];
+                capillary.compressedGasVolume := 2.0e-7 [SI::cubicMetre];
+                bulb.trappedGasVolume := capillary.compressedGasVolume;
+            }
+            then done;
+        }
+
+        action measurePressure {
+            first start;
+            then readScale;
+            action readScale {
+                perform scale.readHeightDifference(
+                    capillary.meniscusHeight,
+                    referenceLeg.referenceMeniscusHeight,
+                    currentHeightDifference
+                );
+                currentCompressedVolume := capillary.compressedGasVolume;
+            }
+            then calculate;
+            action calculate {
+                perform calculator.calculatePressure(
+                    bulb.calibratedBulbVolume,
+                    currentCompressedVolume,
+                    currentHeightDifference,
+                    currentReading
+                );
+            }
+            then publish;
+            action publish {
+                send currentReading via indicatedPressure.reading;
+            }
+            then done;
+        }
+
+        action resetGauge {
+            first start;
+            then lowerMercury;
+            action lowerMercury {
+                perform tiltMechanism.lowerReservoir;
+                reservoir.tiltAngle := 0.0 [SI::radian];
+                bulb.isSampleTrapped := false;
+            }
+            then done;
+        }
+
+        state def GaugeOperationalState {
+            entry action initialize {
+                inletValve.openFraction := 0.0;
+                inletValve.isClosed := true;
+                reservoir.tiltAngle := 0.0 [SI::radian];
+                bulb.isSampleTrapped := false;
+            }
+
+            state Idle;
+            state Sampling;
+            state Isolated;
+            state Compressing;
+            state Reading;
+            state Resetting;
+            state Fault;
+
+            transition first Idle;
+            transition Idle_to_Sampling
+                first Idle
+                accept GaugeCommand
+                if userControl.command.requestedMode == "sample"
+                then Sampling;
+
+            transition Sampling_to_Isolated
+                first Sampling
+                do admitSample
+                then Isolated;
+
+            transition Isolated_to_Compressing
+                first Isolated
+                do isolateSample
+                then Compressing;
+
+            transition Compressing_to_Reading
+                first Compressing
+                do compressSample(userControl.command.targetReservoirAngle)
+                then Reading;
+
+            transition Reading_to_Resetting
+                first Reading
+                do measurePressure
+                then Resetting;
+
+            transition Resetting_to_Idle
+                first Resetting
+                do resetGauge
+                then Idle;
+
+            transition Any_to_Fault
+                first Idle
+                if capillary.meniscusHeight > scale.maximumReadableHeight
+                then Fault;
+        }
+    }
+
+    part def GaugeOperator {
+        port commandPort : ControlPort;
+        port readingPort : ReadingPort;
+        attribute requestedReservoirAngle : Angle = 1.2 [SI::radian];
+        attribute acceptedPressure : Pressure;
+    }
+
+    part def McLeodGaugeVacuumMeasurementSystem {
+        part vacuumProcess : VacuumProcessPort;
+        part gauge : McLeodGauge;
+        part operator : GaugeOperator;
+
+        connect vacuumProcess.processGasPort to gauge.vacuumConnection;
+        connect operator.commandPort to gauge.userControl;
+        connect gauge.indicatedPressure to operator.readingPort;
+
+        attribute primaryFunction : String =
+            "Isolate a known volume of low-pressure gas from a vacuum process, compress it with a mercury column, observe the mercury height difference, and infer the original absolute pressure using the gas compression ratio.";
+
+        action performSingleMeasurement {
+            first start;
+            then commandSampling;
+            action commandSampling {
+                operator.commandPort.command.requestedMode := "sample";
+                operator.commandPort.command.targetReservoirAngle := operator.requestedReservoirAngle;
+                operator.commandPort.command.isolateSample := true;
+            }
+            then gaugeCycle;
+            action gaugeCycle {
+                perform gauge.admitSample;
+                perform gauge.isolateSample;
+                perform gauge.compressSample(operator.requestedReservoirAngle);
+                perform gauge.measurePressure;
+            }
+            then acceptReading;
+            action acceptReading {
+                operator.acceptedPressure := gauge.currentReading.measuredPressure;
+            }
+            then reset;
+            action reset {
+                perform gauge.resetGauge;
+            }
+            then done;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall measure absolute pressure in a vacuum process by trapping a known gas volume, compressing that gas with mercury, measuring the resulting mercury column height difference, and calculating the original pressure from Boyle's law. */
+
+        subject system : McLeodGaugeVacuumMeasurementSystem;
+
+        require constraint {
+            system.gauge.currentReading.measuredPressure >= system.gauge.measurementRangeLow and
+            system.gauge.currentReading.measuredPressure <= system.gauge.measurementRangeHigh
+        }
+    }
+
+    requirement def SampleIsolationRequirement {
+        doc
+        /* The inlet valve shall isolate the gas sample before mercury compression begins so that the measured gas quantity remains fixed. */
+
+        subject gauge : McLeodGauge;
+
+        require constraint {
+            gauge.inletValve.isClosed == true implies gauge.bulb.isSampleTrapped == true
+        }
+    }
+
+    requirement def CompressionMeasurementRequirement {
+        doc
+        /* The gauge shall determine pressure from the measured mercury height difference and the ratio of compressed gas volume to calibrated initial sample volume. */
+
+        subject gauge : McLeodGauge;
+
+        require constraint {
+            gauge.calculator.calculatedPressure ==
+            gauge.calculator.mercuryDensity *
+            gauge.calculator.gravitationalAcceleration *
+            gauge.calculator.heightDifference *
+            gauge.calculator.compressionRatio
+        }
+    }
+
+    requirement def NonCondensableGasRequirement {
+        doc
+        /* The measurement shall be valid only for non-condensable gases whose pressure is above the mercury vapor pressure contribution under the measurement temperature. */
+
+        subject sample : GasSample;
+
+        require constraint {
+            sample.pressure > 0.17 [SI::pascal]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by McLeodGaugeVacuumMeasurementSystem;
+    satisfy SampleIsolationRequirement by McLeodGauge;
+    satisfy CompressionMeasurementRequirement by PressureCalculator;
+
+}

@@ -1,0 +1,366 @@
+package PicotechnologySystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    doc /* 
+     * System: Picotechnology Precision Matter Arranger
+     * Primary function: position, probe, and modify atomic-scale structures with picometer-level spatial resolution.
+     */
+
+    attribute def LengthValue {
+        value : Real;
+        unit : Unit = SI::metre;
+    }
+
+    attribute def TimeValue {
+        value : Real;
+        unit : Unit = SI::second;
+    }
+
+    attribute def VoltageValue {
+        value : Real;
+        unit : Unit = SI::volt;
+    }
+
+    attribute def CurrentValue {
+        value : Real;
+        unit : Unit = SI::ampere;
+    }
+
+    attribute def TemperatureValue {
+        value : Real;
+        unit : Unit = SI::kelvin;
+    }
+
+    attribute def ForceValue {
+        value : Real;
+        unit : Unit = SI::newton;
+    }
+
+    attribute def EnergyValue {
+        value : Real;
+        unit : Unit = SI::joule;
+    }
+
+    item def ControlCommand {
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute targetZ : LengthValue;
+        attribute dwellTime : TimeValue;
+        attribute biasVoltage : VoltageValue;
+        attribute tunnelingCurrentSetpoint : CurrentValue;
+    }
+
+    item def PositionTelemetry {
+        attribute measuredX : LengthValue;
+        attribute measuredY : LengthValue;
+        attribute measuredZ : LengthValue;
+        attribute positionError : LengthValue;
+        attribute vibrationAmplitude : LengthValue;
+    }
+
+    item def ProbeSignal {
+        attribute tunnelingCurrent : CurrentValue;
+        attribute probeForce : ForceValue;
+        attribute localPotential : VoltageValue;
+        attribute sampleTemperature : TemperatureValue;
+    }
+
+    item def AtomicModificationPulse {
+        attribute pulseVoltage : VoltageValue;
+        attribute pulseDuration : TimeValue;
+        attribute pulseEnergy : EnergyValue;
+        attribute intendedDisplacement : LengthValue;
+    }
+
+    item def ThermalLoad {
+        attribute heatFlow : Real;
+        attribute unit : Unit = SI::watt;
+    }
+
+    item def AtomicSiteMap {
+        attribute gridSpacing : LengthValue;
+        attribute confidence : Real;
+        attribute mappedSites : Integer;
+    }
+
+    port def CommandPort {
+        out command : ControlCommand;
+    }
+
+    port def TelemetryPort {
+        in telemetry : PositionTelemetry;
+    }
+
+    port def ProbeSignalPort {
+        out signal : ProbeSignal;
+    }
+
+    port def PulsePort {
+        in pulse : AtomicModificationPulse;
+    }
+
+    port def ThermalPort {
+        in load : ThermalLoad;
+        out removedLoad : ThermalLoad;
+    }
+
+    port def MapPort {
+        out map : AtomicSiteMap;
+    }
+
+    part def PicotechnologyMatterArranger {
+        attribute nominalResolution : LengthValue = 1.0e-12 [SI::metre];
+        attribute maximumScanRangeX : LengthValue = 1.0e-6 [SI::metre];
+        attribute maximumScanRangeY : LengthValue = 1.0e-6 [SI::metre];
+        attribute maximumScanRangeZ : LengthValue = 1.0e-7 [SI::metre];
+        attribute operatingTemperature : TemperatureValue = 4.0 [SI::kelvin];
+        attribute maximumPositionError : LengthValue = 5.0e-12 [SI::metre];
+
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port probeOutput : ProbeSignalPort;
+        port pulseInput : PulsePort;
+        port thermalInterface : ThermalPort;
+        port siteMapOutput : MapPort;
+
+        part vibrationIsolation : ActiveVibrationIsolation;
+        part cryogenicStage : CryogenicStabilizationStage;
+        part piezoPositioner : PicometerPositioningStage;
+        part probeAssembly : ScanningProbeAssembly;
+        part pulseGenerator : AtomicPulseGenerator;
+        part controller : ClosedLoopController;
+        part dataProcessor : AtomicSiteMapper;
+        part sampleHolder : SampleHolder;
+
+        connect controller.positionCommand to piezoPositioner.commandInput;
+        connect piezoPositioner.telemetryOutput to controller.positionFeedback;
+        connect probeAssembly.signalOutput to controller.probeFeedback;
+        connect probeAssembly.signalOutput to dataProcessor.probeInput;
+        connect pulseGenerator.pulseOutput to probeAssembly.pulseInput;
+        connect cryogenicStage.thermalOutput to sampleHolder.thermalInput;
+        connect vibrationIsolation.stabilizedMount to piezoPositioner.mountInput;
+        connect dataProcessor.mapOutput to siteMapOutput;
+
+        action def PrimaryFunction {
+            in command : ControlCommand;
+            out siteMap : AtomicSiteMap;
+
+            action stabilizeEnvironment;
+            action approachSurface;
+            action scanAtomicSites;
+            action computeTargetSite;
+            action applyAtomicModification;
+            action verifyModification;
+
+            first start;
+            then stabilizeEnvironment;
+            then approachSurface;
+            then scanAtomicSites;
+            then computeTargetSite;
+            then applyAtomicModification;
+            then verifyModification;
+            then done;
+        }
+
+        state def OperatingStateMachine {
+            state Off;
+            state Initializing;
+            state Stabilizing;
+            state SurfaceApproach;
+            state AtomicScanning;
+            state ModificationReady;
+            state AtomicModification;
+            state VerificationScan;
+            state SafeHold;
+            state Fault;
+
+            entry action Initializing {
+                send ControlCommand {
+                    targetX = 0.0 [SI::metre];
+                    targetY = 0.0 [SI::metre];
+                    targetZ = 1.0e-7 [SI::metre];
+                    dwellTime = 1.0 [SI::second];
+                    biasVoltage = 0.0 [SI::volt];
+                    tunnelingCurrentSetpoint = 0.0 [SI::ampere];
+                } via commandInput;
+            }
+
+            transition Off_to_Initializing
+                first Off
+                accept StartCommand
+                then Initializing;
+
+            transition Initializing_to_Stabilizing
+                first Initializing
+                if controller.selfTestPassed == true
+                then Stabilizing;
+
+            transition Stabilizing_to_SurfaceApproach
+                first Stabilizing
+                if cryogenicStage.temperatureStable == true and vibrationIsolation.residualMotion < 1.0e-12 [SI::metre]
+                then SurfaceApproach;
+
+            transition SurfaceApproach_to_AtomicScanning
+                first SurfaceApproach
+                if probeAssembly.tunnelingEstablished == true
+                then AtomicScanning;
+
+            transition AtomicScanning_to_ModificationReady
+                first AtomicScanning
+                if dataProcessor.siteMapConfidence > 0.95
+                then ModificationReady;
+
+            transition ModificationReady_to_AtomicModification
+                first ModificationReady
+                accept ModificationPulseAuthorized
+                then AtomicModification;
+
+            transition AtomicModification_to_VerificationScan
+                first AtomicModification
+                if pulseGenerator.pulseCompleted == true
+                then VerificationScan;
+
+            transition VerificationScan_to_AtomicScanning
+                first VerificationScan
+                if dataProcessor.modificationVerified == true
+                then AtomicScanning;
+
+            transition Any_to_Fault
+                first Off, Initializing, Stabilizing, SurfaceApproach, AtomicScanning, ModificationReady, AtomicModification, VerificationScan
+                if controller.faultDetected == true
+                then Fault;
+
+            transition Fault_to_SafeHold
+                first Fault
+                then SafeHold;
+        }
+    }
+
+    part def ActiveVibrationIsolation {
+        attribute residualMotion : LengthValue;
+        attribute isolationBandwidth : Real;
+        port stabilizedMount : TelemetryPort;
+    }
+
+    part def CryogenicStabilizationStage {
+        attribute targetTemperature : TemperatureValue = 4.0 [SI::kelvin];
+        attribute measuredTemperature : TemperatureValue;
+        attribute temperatureStability : TemperatureValue = 0.001 [SI::kelvin];
+        attribute temperatureStable : Boolean;
+        port thermalInput : ThermalPort;
+        port thermalOutput : ThermalPort;
+    }
+
+    part def PicometerPositioningStage {
+        attribute xPosition : LengthValue;
+        attribute yPosition : LengthValue;
+        attribute zPosition : LengthValue;
+        attribute closedLoopError : LengthValue;
+        attribute stepResolution : LengthValue = 1.0e-12 [SI::metre];
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        port mountInput : TelemetryPort;
+    }
+
+    part def ScanningProbeAssembly {
+        attribute tipRadius : LengthValue = 5.0e-10 [SI::metre];
+        attribute tunnelingEstablished : Boolean;
+        attribute interactionForce : ForceValue;
+        attribute tunnelingCurrent : CurrentValue;
+        port signalOutput : ProbeSignalPort;
+        port pulseInput : PulsePort;
+    }
+
+    part def AtomicPulseGenerator {
+        attribute maximumPulseVoltage : VoltageValue = 5.0 [SI::volt];
+        attribute minimumPulseDuration : TimeValue = 1.0e-12 [SI::second];
+        attribute pulseCompleted : Boolean;
+        port pulseOutput : PulsePort;
+    }
+
+    part def ClosedLoopController {
+        attribute selfTestPassed : Boolean;
+        attribute faultDetected : Boolean;
+        attribute controlCycleTime : TimeValue = 1.0e-6 [SI::second];
+        attribute positionErrorLimit : LengthValue = 5.0e-12 [SI::metre];
+        port positionCommand : CommandPort;
+        port positionFeedback : TelemetryPort;
+        port probeFeedback : ProbeSignalPort;
+    }
+
+    part def AtomicSiteMapper {
+        attribute siteMapConfidence : Real;
+        attribute modificationVerified : Boolean;
+        attribute minimumConfidenceRequired : Real = 0.95;
+        port probeInput : ProbeSignalPort;
+        port mapOutput : MapPort;
+    }
+
+    part def SampleHolder {
+        attribute sampleBias : VoltageValue;
+        attribute sampleTemperature : TemperatureValue;
+        port thermalInput : ThermalPort;
+    }
+
+    requirement def PicometerResolutionRequirement {
+        subject system : PicotechnologyMatterArranger;
+        require constraint {
+            system.nominalResolution <= 1.0e-12 [SI::metre]
+        }
+    }
+
+    requirement def PositionErrorRequirement {
+        subject system : PicotechnologyMatterArranger;
+        require constraint {
+            system.piezoPositioner.closedLoopError <= system.maximumPositionError
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject system : PicotechnologyMatterArranger;
+        require constraint {
+            abs(system.cryogenicStage.measuredTemperature - system.cryogenicStage.targetTemperature) <= system.cryogenicStage.temperatureStability
+        }
+    }
+
+    requirement def VibrationIsolationRequirement {
+        subject system : PicotechnologyMatterArranger;
+        require constraint {
+            system.vibrationIsolation.residualMotion <= 1.0e-12 [SI::metre]
+        }
+    }
+
+    requirement def AtomicMappingConfidenceRequirement {
+        subject system : PicotechnologyMatterArranger;
+        require constraint {
+            system.dataProcessor.siteMapConfidence >= system.dataProcessor.minimumConfidenceRequired
+        }
+    }
+
+    requirement def SafePulseRequirement {
+        subject system : PicotechnologyMatterArranger;
+        require constraint {
+            system.pulseGenerator.maximumPulseVoltage <= 5.0 [SI::volt]
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : PicotechnologyMatterArranger;
+        doc /* The system shall use picotechnology-scale positioning and probing to map and selectively modify atomic-scale material features. */
+        require constraint {
+            system.nominalResolution <= 1.0e-12 [SI::metre] and
+            system.dataProcessor.siteMapConfidence >= 0.95
+        }
+    }
+
+    satisfy PicometerResolutionRequirement by PicotechnologyMatterArranger;
+    satisfy PositionErrorRequirement by PicotechnologyMatterArranger::piezoPositioner;
+    satisfy ThermalStabilityRequirement by PicotechnologyMatterArranger::cryogenicStage;
+    satisfy VibrationIsolationRequirement by PicotechnologyMatterArranger::vibrationIsolation;
+    satisfy AtomicMappingConfidenceRequirement by PicotechnologyMatterArranger::dataProcessor;
+    satisfy SafePulseRequirement by PicotechnologyMatterArranger::pulseGenerator;
+    satisfy PrimaryFunctionRequirement by PicotechnologyMatterArranger;
+
+}

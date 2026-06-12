@@ -1,0 +1,885 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-h1uq4s9k
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb524-eb93-71e1-a5ae-365e76fb5090
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Daly detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DalyDetectorHighLevelModel {
+
+    import ScalarValues::*;
+    import NumericalFunctions::*;
+
+    attribute def ElectricPotential {
+        :>> unit = "V";
+        attribute value : Real;
+    }
+
+    attribute def ElectricCurrent {
+        :>> unit = "A";
+        attribute value : Real;
+    }
+
+    attribute def TimeDuration {
+        :>> unit = "s";
+        attribute value : Real;
+    }
+
+    attribute def Energy {
+        :>> unit = "eV";
+        attribute value : Real;
+    }
+
+    attribute def CountRate {
+        :>> unit = "count/s";
+        attribute value : Real;
+    }
+
+    attribute def Efficiency {
+        :>> unit = "1";
+        attribute value : Real;
+    }
+
+    attribute def Temperature {
+        :>> unit = "degC";
+        attribute value : Real;
+    }
+
+    item def ChargedParticle {
+        attribute chargeState : Integer;
+        attribute kineticEnergy : Energy;
+    }
+
+    item def IncidentIon :> ChargedParticle {
+        attribute massToChargeRatio : Real;
+    }
+
+    item def SecondaryElectron {
+        attribute kineticEnergy : Energy;
+    }
+
+    item def ElectronCascade {
+        attribute electronCount : Integer;
+        attribute meanEnergy : Energy;
+    }
+
+    item def PhotonPulse {
+        attribute photonCount : Integer;
+        attribute pulseWidth : TimeDuration;
+    }
+
+    item def ElectricalPulse {
+        attribute peakVoltage : ElectricPotential;
+        attribute pulseWidth : TimeDuration;
+        attribute thresholdCrossed : Boolean;
+    }
+
+    item def DetectionEvent {
+        attribute eventTime : TimeDuration;
+        attribute pulseHeight : ElectricPotential;
+        attribute valid : Boolean;
+    }
+
+    item def DetectorStatus {
+        attribute highVoltageEnabled : Boolean;
+        attribute photomultiplierEnabled : Boolean;
+        attribute ready : Boolean;
+        attribute faultActive : Boolean;
+        attribute measuredCountRate : CountRate;
+    }
+
+    port def IonInputPort {
+        in item incidentIon : IncidentIon;
+    }
+
+    port def ElectronPort {
+        out item cascade : ElectronCascade;
+    }
+
+    port def PhotonPort {
+        out item photons : PhotonPulse;
+    }
+
+    port def SignalPort {
+        out item pulse : ElectricalPulse;
+    }
+
+    port def EventPort {
+        out item event : DetectionEvent;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute reset : Boolean;
+        out item status : DetectorStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : ElectricPotential;
+        in attribute supplyCurrent : ElectricCurrent;
+    }
+
+    port def VacuumInterfacePort {
+        in attribute chamberPressure : Real;
+    }
+
+    action def AccelerateIon {
+        in item ionIn : IncidentIon;
+        in attribute dynodePotential : ElectricPotential;
+        out item ionAtDynode : IncidentIon;
+    }
+
+    action def GenerateSecondaryElectrons {
+        in item ionAtDynode : IncidentIon;
+        out item secondaryElectrons : ElectronCascade;
+    }
+
+    action def ConvertElectronsToPhotons {
+        in item secondaryElectrons : ElectronCascade;
+        out item photonPulse : PhotonPulse;
+    }
+
+    action def ConvertPhotonsToElectricalPulse {
+        in item photonPulse : PhotonPulse;
+        out item electricalPulse : ElectricalPulse;
+    }
+
+    action def DiscriminatePulse {
+        in item electricalPulse : ElectricalPulse;
+        in attribute threshold : ElectricPotential;
+        out item detectionEvent : DetectionEvent;
+    }
+
+    action def DetectIncidentIon {
+        in item ion : IncidentIon;
+        out item event : DetectionEvent;
+
+        action accelerate : AccelerateIon;
+        action emitElectrons : GenerateSecondaryElectrons;
+        action scintillate : ConvertElectronsToPhotons;
+        action amplify : ConvertPhotonsToElectricalPulse;
+        action discriminate : DiscriminatePulse;
+
+        flow ion to accelerate.ionIn;
+        flow accelerate.ionAtDynode to emitElectrons.ionAtDynode;
+        flow emitElectrons.secondaryElectrons to scintillate.secondaryElectrons;
+        flow scintillate.photonPulse to amplify.photonPulse;
+        flow amplify.electricalPulse to discriminate.electricalPulse;
+        flow discriminate.detectionEvent to event;
+    }
+
+    state def DalyDetectorOperatingState {
+        state off;
+        state standby;
+        state evacuating;
+        state highVoltageRamp;
+        state ready;
+        state detecting;
+        state saturated;
+        state fault;
+
+        transition initial then off;
+        transition off then standby
+            accept enable;
+
+        transition standby then evacuating
+            if chamberPressure <= 1.0e-5;
+
+        transition evacuating then highVoltageRamp
+            if chamberPressure <= 1.0e-7;
+
+        transition highVoltageRamp then ready
+            if dynodeVoltage.value >= 10000.0 and photomultiplierVoltage.value >= 900.0;
+
+        transition ready then detecting
+            accept incidentIon;
+
+        transition detecting then ready
+            accept detectionEvent;
+
+        transition detecting then saturated
+            if measuredCountRate.value > 1000000.0;
+
+        transition saturated then ready
+            if measuredCountRate.value < 800000.0;
+
+        transition standby then fault
+            accept faultCondition;
+
+        transition highVoltageRamp then fault
+            accept overVoltage;
+
+        transition detecting then fault
+            accept signalChainFailure;
+
+        transition fault then standby
+            accept reset;
+    }
+
+    part def ConversionDynode {
+        port ionInput : IonInputPort;
+        port electronOutput : ElectronPort;
+
+        attribute dynodeVoltage : ElectricPotential = 12000.0 [V];
+        attribute secondaryElectronYield : Real = 8.0;
+        attribute impactSurfaceMaterial : String = "stainless steel";
+        attribute maximumIonEnergy : Energy = 20000.0 [eV];
+
+        perform action GenerateSecondaryElectrons;
+    }
+
+    part def ElectronOptics {
+        port electronInput : ElectronPort;
+        port electronOutput : ElectronPort;
+
+        attribute focusingVoltage : ElectricPotential = 350.0 [V];
+        attribute collectionEfficiency : Efficiency = 0.92;
+        attribute transitTime : TimeDuration = 12.0e-9 [s];
+    }
+
+    part def Scintillator {
+        port electronInput : ElectronPort;
+        port photonOutput : PhotonPort;
+
+        attribute scintillatorBias : ElectricPotential = 8000.0 [V];
+        attribute photonYieldPerElectron : Real = 120.0;
+        attribute decayTime : TimeDuration = 2.4e-9 [s];
+
+        perform action ConvertElectronsToPhotons;
+    }
+
+    part def PhotomultiplierTube {
+        port photonInput : PhotonPort;
+        port signalOutput : SignalPort;
+        port powerInput : PowerPort;
+
+        attribute photomultiplierVoltage : ElectricPotential = 950.0 [V];
+        attribute gain : Real = 1.0e6;
+        attribute darkCountRate : CountRate = 25.0 [count/s];
+        attribute outputRiseTime : TimeDuration = 1.8e-9 [s];
+
+        perform action ConvertPhotonsToElectricalPulse;
+    }
+
+    part def PulseDiscriminator {
+        port signalInput : SignalPort;
+        port eventOutput : EventPort;
+
+        attribute pulseThreshold : ElectricPotential = 0.015 [V];
+        attribute deadTime : TimeDuration = 20.0e-9 [s];
+        attribute minimumPulseWidth : TimeDuration = 1.0e-9 [s];
+
+        perform action DiscriminatePulse;
+    }
+
+    part def HighVoltageSupply {
+        port dynodePower : PowerPort;
+        port scintillatorPower : PowerPort;
+        port photomultiplierPower : PowerPort;
+        port control : ControlPort;
+
+        attribute dynodeSetpoint : ElectricPotential = 12000.0 [V];
+        attribute scintillatorSetpoint : ElectricPotential = 8000.0 [V];
+        attribute photomultiplierSetpoint : ElectricPotential = 950.0 [V];
+        attribute voltageRipple : ElectricPotential = 0.005 [V];
+        attribute rampTime : TimeDuration = 5.0 [s];
+    }
+
+    part def EventCounter {
+        port eventInput : EventPort;
+        port control : ControlPort;
+
+        attribute integrationTime : TimeDuration = 1.0 [s];
+        attribute measuredCountRate : CountRate;
+        attribute accumulatedCounts : Integer;
+    }
+
+    part def VacuumHousing {
+        port vacuumInterface : VacuumInterfacePort;
+        port ionEntrance : IonInputPort;
+
+        attribute chamberPressure : Real = 1.0e-8;
+        attribute operatingTemperature : Temperature = 25.0 [degC];
+        attribute entranceApertureDiameter : Real = 2.0e-3;
+    }
+
+    part def DalyDetector {
+        port ionInput : IonInputPort;
+        port eventOutput : EventPort;
+        port control : ControlPort;
+        port powerInput : PowerPort;
+        port vacuumInterface : VacuumInterfacePort;
+
+        part housing : VacuumHousing;
+        part dynode : ConversionDynode;
+        part optics : ElectronOptics;
+        part scintillator : Scintillator;
+        part photomultiplier : PhotomultiplierTube;
+        part discriminator : PulseDiscriminator;
+        part counter : EventCounter;
+        part highVoltageSupply : HighVoltageSupply;
+
+        attribute detectionEfficiency : Efficiency = 0.65;
+        attribute maximumLinearCountRate : CountRate = 1000000.0 [count/s];
+        attribute nominalPulseWidth : TimeDuration = 5.0e-9 [s];
+        attribute dynodeVoltage : ElectricPotential = 12000.0 [V];
+        attribute photomultiplierVoltage : ElectricPotential = 950.0 [V];
+        attribute measuredCountRate : CountRate;
+
+        connect ionInput to housing.ionEntrance;
+        connect housing.ionEntrance to dynode.ionInput;
+        connect dynode.electronOutput to optics.electronInput;
+        connect optics.electronOutput to scintillator.electronInput;
+        connect scintillator.photonOutput to photomultiplier.photonInput;
+        connect photomultiplier.signalOutput to discriminator.signalInput;
+        connect discriminator.eventOutput to counter.eventInput;
+        connect discriminator.eventOutput to eventOutput;
+        connect powerInput to highVoltageSupply.dynodePower;
+        connect highVoltageSupply.dynodePower to dynode.ionInput;
+        connect highVoltageSupply.scintillatorPower to scintillator.electronInput;
+        connect highVoltageSupply.photomultiplierPower to photomultiplier.powerInput;
+        connect vacuumInterface to housing.vacuumInterface;
+        connect control to highVoltageSupply.control;
+        connect control to counter.control;
+
+        perform action DetectIncidentIon;
+        exhibit state DalyDetectorOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The Daly detector shall convert each incident charged particle entering the detector aperture into a discriminated electrical detection event suitable for counting, while electrically isolating the initial particle impact from the low-noise signal amplification chain. */
+
+        require constraint {
+            detector.detectionEfficiency.value >= 0.50
+        }
+
+        require constraint {
+            detector.nominalPulseWidth.value <= 10.0e-9
+        }
+
+        require constraint {
+            detector.maximumLinearCountRate.value >= 100000.0
+        }
+    }
+
+    requirement def VacuumOperatingRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall operate only when installed in a high-vacuum environment compatible with charged-particle transport and high-voltage dynode operation. */
+
+        require constraint {
+            detector.housing.chamberPressure <= 1.0e-6
+        }
+    }
+
+    requirement def HighVoltageBiasRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall maintain independent high-voltage bias for the conversion dynode, scintillator, and photomultiplier tube to support ion acceleration, electron-to-photon conversion, and signal gain. */
+
+        require constraint {
+            detector.highVoltageSupply.dynodeSetpoint.value >= 8000.0 and
+            detector.highVoltageSupply.dynodeSetpoint.value <= 20000.0
+        }
+
+        require constraint {
+            detector.highVoltageSupply.photomultiplierSetpoint.value >= 700.0 and
+            detector.highVoltageSupply.photomultiplierSetpoint.value <= 1200.0
+        }
+    }
+
+    requirement def PulseDiscriminationRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall reject pulses below the discriminator threshold and emit a valid detection event only when the photomultiplier output exceeds the configured threshold. */
+
+        require constraint {
+            detector.discriminator.pulseThreshold.value > 0.0
+        }
+
+        require constraint {
+            detector.discriminator.deadTime.value <= 50.0e-9
+        }
+    }
+
+    requirement def SaturationProtectionRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall identify saturation when the measured count rate exceeds the configured linear operating range and shall return to ready operation when the rate falls below the recovery threshold. */
+
+        require constraint {
+            detector.maximumLinearCountRate.value == 1000000.0
+        }
+    }
+
+    part dalyDetectorSystem {
+        part detector : DalyDetector;
+
+        requirement primaryFunction : PrimaryFunctionRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement vacuumOperation : VacuumOperatingRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement highVoltageBias : HighVoltageBiasRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement pulseDiscrimination : PulseDiscriminationRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement saturationProtection : SaturationProtectionRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+    }
+}
+tokens used
+4,637
+package DalyDetectorHighLevelModel {
+
+    import ScalarValues::*;
+    import NumericalFunctions::*;
+
+    attribute def ElectricPotential {
+        :>> unit = "V";
+        attribute value : Real;
+    }
+
+    attribute def ElectricCurrent {
+        :>> unit = "A";
+        attribute value : Real;
+    }
+
+    attribute def TimeDuration {
+        :>> unit = "s";
+        attribute value : Real;
+    }
+
+    attribute def Energy {
+        :>> unit = "eV";
+        attribute value : Real;
+    }
+
+    attribute def CountRate {
+        :>> unit = "count/s";
+        attribute value : Real;
+    }
+
+    attribute def Efficiency {
+        :>> unit = "1";
+        attribute value : Real;
+    }
+
+    attribute def Temperature {
+        :>> unit = "degC";
+        attribute value : Real;
+    }
+
+    item def ChargedParticle {
+        attribute chargeState : Integer;
+        attribute kineticEnergy : Energy;
+    }
+
+    item def IncidentIon :> ChargedParticle {
+        attribute massToChargeRatio : Real;
+    }
+
+    item def SecondaryElectron {
+        attribute kineticEnergy : Energy;
+    }
+
+    item def ElectronCascade {
+        attribute electronCount : Integer;
+        attribute meanEnergy : Energy;
+    }
+
+    item def PhotonPulse {
+        attribute photonCount : Integer;
+        attribute pulseWidth : TimeDuration;
+    }
+
+    item def ElectricalPulse {
+        attribute peakVoltage : ElectricPotential;
+        attribute pulseWidth : TimeDuration;
+        attribute thresholdCrossed : Boolean;
+    }
+
+    item def DetectionEvent {
+        attribute eventTime : TimeDuration;
+        attribute pulseHeight : ElectricPotential;
+        attribute valid : Boolean;
+    }
+
+    item def DetectorStatus {
+        attribute highVoltageEnabled : Boolean;
+        attribute photomultiplierEnabled : Boolean;
+        attribute ready : Boolean;
+        attribute faultActive : Boolean;
+        attribute measuredCountRate : CountRate;
+    }
+
+    port def IonInputPort {
+        in item incidentIon : IncidentIon;
+    }
+
+    port def ElectronPort {
+        out item cascade : ElectronCascade;
+    }
+
+    port def PhotonPort {
+        out item photons : PhotonPulse;
+    }
+
+    port def SignalPort {
+        out item pulse : ElectricalPulse;
+    }
+
+    port def EventPort {
+        out item event : DetectionEvent;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute reset : Boolean;
+        out item status : DetectorStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : ElectricPotential;
+        in attribute supplyCurrent : ElectricCurrent;
+    }
+
+    port def VacuumInterfacePort {
+        in attribute chamberPressure : Real;
+    }
+
+    action def AccelerateIon {
+        in item ionIn : IncidentIon;
+        in attribute dynodePotential : ElectricPotential;
+        out item ionAtDynode : IncidentIon;
+    }
+
+    action def GenerateSecondaryElectrons {
+        in item ionAtDynode : IncidentIon;
+        out item secondaryElectrons : ElectronCascade;
+    }
+
+    action def ConvertElectronsToPhotons {
+        in item secondaryElectrons : ElectronCascade;
+        out item photonPulse : PhotonPulse;
+    }
+
+    action def ConvertPhotonsToElectricalPulse {
+        in item photonPulse : PhotonPulse;
+        out item electricalPulse : ElectricalPulse;
+    }
+
+    action def DiscriminatePulse {
+        in item electricalPulse : ElectricalPulse;
+        in attribute threshold : ElectricPotential;
+        out item detectionEvent : DetectionEvent;
+    }
+
+    action def DetectIncidentIon {
+        in item ion : IncidentIon;
+        out item event : DetectionEvent;
+
+        action accelerate : AccelerateIon;
+        action emitElectrons : GenerateSecondaryElectrons;
+        action scintillate : ConvertElectronsToPhotons;
+        action amplify : ConvertPhotonsToElectricalPulse;
+        action discriminate : DiscriminatePulse;
+
+        flow ion to accelerate.ionIn;
+        flow accelerate.ionAtDynode to emitElectrons.ionAtDynode;
+        flow emitElectrons.secondaryElectrons to scintillate.secondaryElectrons;
+        flow scintillate.photonPulse to amplify.photonPulse;
+        flow amplify.electricalPulse to discriminate.electricalPulse;
+        flow discriminate.detectionEvent to event;
+    }
+
+    state def DalyDetectorOperatingState {
+        state off;
+        state standby;
+        state evacuating;
+        state highVoltageRamp;
+        state ready;
+        state detecting;
+        state saturated;
+        state fault;
+
+        transition initial then off;
+        transition off then standby
+            accept enable;
+
+        transition standby then evacuating
+            if chamberPressure <= 1.0e-5;
+
+        transition evacuating then highVoltageRamp
+            if chamberPressure <= 1.0e-7;
+
+        transition highVoltageRamp then ready
+            if dynodeVoltage.value >= 10000.0 and photomultiplierVoltage.value >= 900.0;
+
+        transition ready then detecting
+            accept incidentIon;
+
+        transition detecting then ready
+            accept detectionEvent;
+
+        transition detecting then saturated
+            if measuredCountRate.value > 1000000.0;
+
+        transition saturated then ready
+            if measuredCountRate.value < 800000.0;
+
+        transition standby then fault
+            accept faultCondition;
+
+        transition highVoltageRamp then fault
+            accept overVoltage;
+
+        transition detecting then fault
+            accept signalChainFailure;
+
+        transition fault then standby
+            accept reset;
+    }
+
+    part def ConversionDynode {
+        port ionInput : IonInputPort;
+        port electronOutput : ElectronPort;
+
+        attribute dynodeVoltage : ElectricPotential = 12000.0 [V];
+        attribute secondaryElectronYield : Real = 8.0;
+        attribute impactSurfaceMaterial : String = "stainless steel";
+        attribute maximumIonEnergy : Energy = 20000.0 [eV];
+
+        perform action GenerateSecondaryElectrons;
+    }
+
+    part def ElectronOptics {
+        port electronInput : ElectronPort;
+        port electronOutput : ElectronPort;
+
+        attribute focusingVoltage : ElectricPotential = 350.0 [V];
+        attribute collectionEfficiency : Efficiency = 0.92;
+        attribute transitTime : TimeDuration = 12.0e-9 [s];
+    }
+
+    part def Scintillator {
+        port electronInput : ElectronPort;
+        port photonOutput : PhotonPort;
+
+        attribute scintillatorBias : ElectricPotential = 8000.0 [V];
+        attribute photonYieldPerElectron : Real = 120.0;
+        attribute decayTime : TimeDuration = 2.4e-9 [s];
+
+        perform action ConvertElectronsToPhotons;
+    }
+
+    part def PhotomultiplierTube {
+        port photonInput : PhotonPort;
+        port signalOutput : SignalPort;
+        port powerInput : PowerPort;
+
+        attribute photomultiplierVoltage : ElectricPotential = 950.0 [V];
+        attribute gain : Real = 1.0e6;
+        attribute darkCountRate : CountRate = 25.0 [count/s];
+        attribute outputRiseTime : TimeDuration = 1.8e-9 [s];
+
+        perform action ConvertPhotonsToElectricalPulse;
+    }
+
+    part def PulseDiscriminator {
+        port signalInput : SignalPort;
+        port eventOutput : EventPort;
+
+        attribute pulseThreshold : ElectricPotential = 0.015 [V];
+        attribute deadTime : TimeDuration = 20.0e-9 [s];
+        attribute minimumPulseWidth : TimeDuration = 1.0e-9 [s];
+
+        perform action DiscriminatePulse;
+    }
+
+    part def HighVoltageSupply {
+        port dynodePower : PowerPort;
+        port scintillatorPower : PowerPort;
+        port photomultiplierPower : PowerPort;
+        port control : ControlPort;
+
+        attribute dynodeSetpoint : ElectricPotential = 12000.0 [V];
+        attribute scintillatorSetpoint : ElectricPotential = 8000.0 [V];
+        attribute photomultiplierSetpoint : ElectricPotential = 950.0 [V];
+        attribute voltageRipple : ElectricPotential = 0.005 [V];
+        attribute rampTime : TimeDuration = 5.0 [s];
+    }
+
+    part def EventCounter {
+        port eventInput : EventPort;
+        port control : ControlPort;
+
+        attribute integrationTime : TimeDuration = 1.0 [s];
+        attribute measuredCountRate : CountRate;
+        attribute accumulatedCounts : Integer;
+    }
+
+    part def VacuumHousing {
+        port vacuumInterface : VacuumInterfacePort;
+        port ionEntrance : IonInputPort;
+
+        attribute chamberPressure : Real = 1.0e-8;
+        attribute operatingTemperature : Temperature = 25.0 [degC];
+        attribute entranceApertureDiameter : Real = 2.0e-3;
+    }
+
+    part def DalyDetector {
+        port ionInput : IonInputPort;
+        port eventOutput : EventPort;
+        port control : ControlPort;
+        port powerInput : PowerPort;
+        port vacuumInterface : VacuumInterfacePort;
+
+        part housing : VacuumHousing;
+        part dynode : ConversionDynode;
+        part optics : ElectronOptics;
+        part scintillator : Scintillator;
+        part photomultiplier : PhotomultiplierTube;
+        part discriminator : PulseDiscriminator;
+        part counter : EventCounter;
+        part highVoltageSupply : HighVoltageSupply;
+
+        attribute detectionEfficiency : Efficiency = 0.65;
+        attribute maximumLinearCountRate : CountRate = 1000000.0 [count/s];
+        attribute nominalPulseWidth : TimeDuration = 5.0e-9 [s];
+        attribute dynodeVoltage : ElectricPotential = 12000.0 [V];
+        attribute photomultiplierVoltage : ElectricPotential = 950.0 [V];
+        attribute measuredCountRate : CountRate;
+
+        connect ionInput to housing.ionEntrance;
+        connect housing.ionEntrance to dynode.ionInput;
+        connect dynode.electronOutput to optics.electronInput;
+        connect optics.electronOutput to scintillator.electronInput;
+        connect scintillator.photonOutput to photomultiplier.photonInput;
+        connect photomultiplier.signalOutput to discriminator.signalInput;
+        connect discriminator.eventOutput to counter.eventInput;
+        connect discriminator.eventOutput to eventOutput;
+        connect powerInput to highVoltageSupply.dynodePower;
+        connect highVoltageSupply.dynodePower to dynode.ionInput;
+        connect highVoltageSupply.scintillatorPower to scintillator.electronInput;
+        connect highVoltageSupply.photomultiplierPower to photomultiplier.powerInput;
+        connect vacuumInterface to housing.vacuumInterface;
+        connect control to highVoltageSupply.control;
+        connect control to counter.control;
+
+        perform action DetectIncidentIon;
+        exhibit state DalyDetectorOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The Daly detector shall convert each incident charged particle entering the detector aperture into a discriminated electrical detection event suitable for counting, while electrically isolating the initial particle impact from the low-noise signal amplification chain. */
+
+        require constraint {
+            detector.detectionEfficiency.value >= 0.50
+        }
+
+        require constraint {
+            detector.nominalPulseWidth.value <= 10.0e-9
+        }
+
+        require constraint {
+            detector.maximumLinearCountRate.value >= 100000.0
+        }
+    }
+
+    requirement def VacuumOperatingRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall operate only when installed in a high-vacuum environment compatible with charged-particle transport and high-voltage dynode operation. */
+
+        require constraint {
+            detector.housing.chamberPressure <= 1.0e-6
+        }
+    }
+
+    requirement def HighVoltageBiasRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall maintain independent high-voltage bias for the conversion dynode, scintillator, and photomultiplier tube to support ion acceleration, electron-to-photon conversion, and signal gain. */
+
+        require constraint {
+            detector.highVoltageSupply.dynodeSetpoint.value >= 8000.0 and
+            detector.highVoltageSupply.dynodeSetpoint.value <= 20000.0
+        }
+
+        require constraint {
+            detector.highVoltageSupply.photomultiplierSetpoint.value >= 700.0 and
+            detector.highVoltageSupply.photomultiplierSetpoint.value <= 1200.0
+        }
+    }
+
+    requirement def PulseDiscriminationRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall reject pulses below the discriminator threshold and emit a valid detection event only when the photomultiplier output exceeds the configured threshold. */
+
+        require constraint {
+            detector.discriminator.pulseThreshold.value > 0.0
+        }
+
+        require constraint {
+            detector.discriminator.deadTime.value <= 50.0e-9
+        }
+    }
+
+    requirement def SaturationProtectionRequirement {
+        subject detector : DalyDetector;
+
+        doc /* The detector shall identify saturation when the measured count rate exceeds the configured linear operating range and shall return to ready operation when the rate falls below the recovery threshold. */
+
+        require constraint {
+            detector.maximumLinearCountRate.value == 1000000.0
+        }
+    }
+
+    part dalyDetectorSystem {
+        part detector : DalyDetector;
+
+        requirement primaryFunction : PrimaryFunctionRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement vacuumOperation : VacuumOperatingRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement highVoltageBias : HighVoltageBiasRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement pulseDiscrimination : PulseDiscriminationRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+
+        requirement saturationProtection : SaturationProtectionRequirement {
+            subject detector = dalyDetectorSystem.detector;
+        }
+    }
+}

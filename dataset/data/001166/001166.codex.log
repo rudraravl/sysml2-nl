@@ -1,0 +1,761 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-0one4b9z
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5af-1cc8-7140-ad6f-564eba8661d1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a sensing unit that measures the relevant quantity using a Optical position sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OpticalPositionSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def VoltageValue :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentValue :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def PercentValue :> Real;
+
+    attribute def BitCountValue :> Integer;
+
+    enum def SensorHealth {
+        enum nominal;
+        enum degraded;
+        enum faulted;
+        enum uncalibrated;
+    }
+
+    enum def MeasurementValidity {
+        enum valid;
+        enum saturated;
+        enum noTarget;
+        enum lowSignal;
+        enum invalid;
+    }
+
+    item def OpticalSignal {
+        attribute wavelength : LengthValue;
+        attribute radiantPower : PowerValue;
+        attribute modulationFrequency : FrequencyValue;
+    }
+
+    item def ReflectedOpticalSignal {
+        attribute wavelength : LengthValue;
+        attribute radiantPower : PowerValue;
+        attribute spotPositionX : LengthValue;
+        attribute spotPositionY : LengthValue;
+        attribute signalToNoiseRatio : Real;
+    }
+
+    item def PositionMeasurement {
+        attribute position : LengthValue;
+        attribute velocity : ISQ::speed;
+        attribute timestamp : TimeValue;
+        attribute uncertainty : LengthValue;
+        attribute validity : MeasurementValidity;
+    }
+
+    item def DiagnosticReport {
+        attribute health : SensorHealth;
+        attribute supplyVoltage : VoltageValue;
+        attribute emitterCurrent : CurrentValue;
+        attribute detectorTemperature : TemperatureValue;
+        attribute opticalSignalLevel : PercentValue;
+        attribute faultCode : Integer;
+    }
+
+    port def ElectricalPowerPort {
+        in item voltage : VoltageValue;
+        in item current : CurrentValue;
+    }
+
+    port def OpticalEmissionPort {
+        out item emittedLight : OpticalSignal;
+    }
+
+    port def OpticalReceptionPort {
+        in item reflectedLight : ReflectedOpticalSignal;
+    }
+
+    port def PositionDataPort {
+        out item measuredPosition : PositionMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def ConfigurationPort {
+        in item sampleRateCommand : FrequencyValue;
+        in item zeroOffsetCommand : LengthValue;
+    }
+
+    action def EmitModulatedLight {
+        in attribute commandedCurrent : CurrentValue;
+        in attribute modulationFrequency : FrequencyValue;
+        out item opticalOutput : OpticalSignal;
+    }
+
+    action def ReceiveReflectedLight {
+        in item opticalInput : ReflectedOpticalSignal;
+        out attribute photocurrentA : CurrentValue;
+        out attribute photocurrentB : CurrentValue;
+        out attribute totalSignal : CurrentValue;
+    }
+
+    action def ComputePosition {
+        in attribute photocurrentA : CurrentValue;
+        in attribute photocurrentB : CurrentValue;
+        in attribute zeroOffset : LengthValue;
+        out item positionResult : PositionMeasurement;
+    }
+
+    action def FilterPosition {
+        in item rawPosition : PositionMeasurement;
+        in attribute filterCutoff : FrequencyValue;
+        out item filteredPosition : PositionMeasurement;
+    }
+
+    action def RunSelfTest {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute detectorTemperature : TemperatureValue;
+        in attribute signalLevel : PercentValue;
+        out item report : DiagnosticReport;
+    }
+
+    state def OpticalPositionSensorStateMachine {
+        entry action initialize;
+        state off;
+        state startup;
+        state calibrating;
+        state measuring;
+        state degraded;
+        state faulted;
+
+        transition first off;
+        transition off_to_startup
+            first off
+            then startup;
+
+        transition startup_to_calibrating
+            first startup
+            accept after 250 [ms]
+            then calibrating;
+
+        transition calibrating_to_measuring
+            first calibrating
+            accept when calibrationComplete
+            then measuring;
+
+        transition measuring_to_degraded
+            first measuring
+            accept when signalLevel < 20.0
+            then degraded;
+
+        transition degraded_to_measuring
+            first degraded
+            accept when signalLevel >= 35.0
+            then measuring;
+
+        transition measuring_to_faulted
+            first measuring
+            accept when supplyVoltage < 4.5 [V] or detectorTemperature > 358.15 [K]
+            then faulted;
+
+        transition degraded_to_faulted
+            first degraded
+            accept when supplyVoltage < 4.5 [V] or signalLevel < 5.0
+            then faulted;
+
+        transition faulted_to_startup
+            first faulted
+            accept when resetCommanded
+            then startup;
+    }
+
+    part def OpticalPositionSensor {
+        attribute measurementRange : LengthValue = 0.050 [m];
+        attribute resolution : LengthValue = 0.000001 [m];
+        attribute linearityError : LengthValue = 0.000025 [m];
+        attribute sampleRate : FrequencyValue = 1000 [Hz];
+        attribute wavelength : LengthValue = 0.000000850 [m];
+        attribute emitterCurrentLimit : CurrentValue = 0.030 [A];
+        attribute supplyVoltageNominal : VoltageValue = 5.0 [V];
+        attribute operatingTemperatureMin : TemperatureValue = 253.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 358.15 [K];
+        attribute health : SensorHealth = SensorHealth::uncalibrated;
+        attribute zeroOffset : LengthValue = 0.0 [m];
+
+        port power : ElectricalPowerPort;
+        port opticalOut : OpticalEmissionPort;
+        port opticalIn : OpticalReceptionPort;
+        port dataOut : PositionDataPort;
+        port diagOut : DiagnosticPort;
+        port configIn : ConfigurationPort;
+
+        action emit : EmitModulatedLight;
+        action receive : ReceiveReflectedLight;
+        action compute : ComputePosition;
+        action filter : FilterPosition;
+        action selfTest : RunSelfTest;
+
+        exhibit stateMachine : OpticalPositionSensorStateMachine;
+    }
+
+    part def TargetSurface {
+        attribute reflectivity : PercentValue = 65.0;
+        attribute positionAlongAxis : LengthValue;
+        attribute maximumVelocity : ISQ::speed = 2.0 [m/s];
+
+        port illuminationIn : OpticalReceptionPort;
+        port reflectionOut : OpticalEmissionPort;
+    }
+
+    part def SignalConditioningElectronics {
+        attribute adcResolution : BitCountValue = 16;
+        attribute amplifierGain : Real = 24.0;
+        attribute lowPassCutoff : FrequencyValue = 250 [Hz];
+        attribute noiseFloor : CurrentValue = 0.000000002 [A];
+
+        port detectorInput : OpticalReceptionPort;
+        port positionOutput : PositionDataPort;
+        port diagnosticOutput : DiagnosticPort;
+    }
+
+    part def SensingUnitController {
+        attribute commandedSampleRate : FrequencyValue = 1000 [Hz];
+        attribute lastMeasurementAgeLimit : TimeValue = 0.010 [s];
+
+        port positionInput : PositionDataPort;
+        port positionOutput : PositionDataPort;
+        port diagnosticInput : DiagnosticPort;
+        port diagnosticOutput : DiagnosticPort;
+        port configurationOutput : ConfigurationPort;
+    }
+
+    part def OpticalPositionSensingUnit {
+        attribute ratedSupplyVoltage : VoltageValue = 5.0 [V];
+        attribute inputCurrentMax : CurrentValue = 0.120 [A];
+        attribute measuredQuantityName : String = "linear position";
+        attribute measurementAxisName : String = "optical triangulation axis";
+        attribute totalMeasurementRange : LengthValue = 0.050 [m];
+        attribute systemAccuracy : LengthValue = 0.000050 [m];
+        attribute updateRate : FrequencyValue = 1000 [Hz];
+        attribute startupTime : TimeValue = 0.500 [s];
+
+        port powerInput : ElectricalPowerPort;
+        port measuredPositionOutput : PositionDataPort;
+        port diagnosticOutput : DiagnosticPort;
+        port configurationInput : ConfigurationPort;
+
+        part sensor : OpticalPositionSensor;
+        part target : TargetSurface;
+        part conditioner : SignalConditioningElectronics;
+        part controller : SensingUnitController;
+
+        connect powerInput to sensor.power;
+        connect configurationInput to controller.configurationOutput;
+        connect controller.configurationOutput to sensor.configIn;
+        connect sensor.opticalOut to target.illuminationIn;
+        connect target.reflectionOut to sensor.opticalIn;
+        connect sensor.dataOut to conditioner.positionOutput;
+        connect sensor.diagOut to conditioner.diagnosticOutput;
+        connect conditioner.positionOutput to controller.positionInput;
+        connect conditioner.diagnosticOutput to controller.diagnosticInput;
+        connect controller.positionOutput to measuredPositionOutput;
+        connect controller.diagnosticOutput to diagnosticOutput;
+    }
+
+    requirement def PositionMeasurementRequirement {
+        subject sensingUnit : OpticalPositionSensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantityName == "linear position"
+        }
+
+        require constraint {
+            sensingUnit.totalMeasurementRange >= 0.050 [m]
+        }
+
+        require constraint {
+            sensingUnit.systemAccuracy <= 0.000050 [m]
+        }
+
+        require constraint {
+            sensingUnit.updateRate >= 1000 [Hz]
+        }
+    }
+
+    requirement def OpticalSensorRequirement {
+        subject sensor : OpticalPositionSensor;
+
+        require constraint {
+            sensor.resolution <= 0.000001 [m]
+        }
+
+        require constraint {
+            sensor.linearityError <= 0.000025 [m]
+        }
+
+        require constraint {
+            sensor.wavelength >= 0.000000800 [m] and sensor.wavelength <= 0.000000900 [m]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : OpticalPositionSensingUnit;
+
+        require constraint {
+            sensingUnit.startupTime <= 0.500 [s]
+        }
+
+        require constraint {
+            sensingUnit.inputCurrentMax <= 0.120 [A]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensor : OpticalPositionSensor;
+
+        require constraint {
+            sensor.operatingTemperatureMin <= 253.15 [K]
+        }
+
+        require constraint {
+            sensor.operatingTemperatureMax >= 358.15 [K]
+        }
+    }
+
+    satisfy PositionMeasurementRequirement by OpticalPositionSensingUnit;
+    satisfy OpticalSensorRequirement by OpticalPositionSensingUnit::sensor;
+    satisfy DiagnosticRequirement by OpticalPositionSensingUnit;
+    satisfy EnvironmentalRequirement by OpticalPositionSensingUnit::sensor;
+
+    analysis def PositionAccuracyAnalysis {
+        subject sensingUnit : OpticalPositionSensingUnit;
+
+        attribute sensorResolutionContribution : LengthValue = 0.000001 [m];
+        attribute linearityContribution : LengthValue = 0.000025 [m];
+        attribute noiseContribution : LengthValue = 0.000015 [m];
+        attribute calibrationContribution : LengthValue = 0.000020 [m];
+        attribute totalEstimatedError : LengthValue = 0.000046 [m];
+
+        assert constraint {
+            totalEstimatedError <= sensingUnit.systemAccuracy
+        }
+    }
+
+    perform PositionAccuracyAnalysis on OpticalPositionSensingUnit;
+
+}
+tokens used
+3,922
+package OpticalPositionSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def VoltageValue :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentValue :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def PercentValue :> Real;
+
+    attribute def BitCountValue :> Integer;
+
+    enum def SensorHealth {
+        enum nominal;
+        enum degraded;
+        enum faulted;
+        enum uncalibrated;
+    }
+
+    enum def MeasurementValidity {
+        enum valid;
+        enum saturated;
+        enum noTarget;
+        enum lowSignal;
+        enum invalid;
+    }
+
+    item def OpticalSignal {
+        attribute wavelength : LengthValue;
+        attribute radiantPower : PowerValue;
+        attribute modulationFrequency : FrequencyValue;
+    }
+
+    item def ReflectedOpticalSignal {
+        attribute wavelength : LengthValue;
+        attribute radiantPower : PowerValue;
+        attribute spotPositionX : LengthValue;
+        attribute spotPositionY : LengthValue;
+        attribute signalToNoiseRatio : Real;
+    }
+
+    item def PositionMeasurement {
+        attribute position : LengthValue;
+        attribute velocity : ISQ::speed;
+        attribute timestamp : TimeValue;
+        attribute uncertainty : LengthValue;
+        attribute validity : MeasurementValidity;
+    }
+
+    item def DiagnosticReport {
+        attribute health : SensorHealth;
+        attribute supplyVoltage : VoltageValue;
+        attribute emitterCurrent : CurrentValue;
+        attribute detectorTemperature : TemperatureValue;
+        attribute opticalSignalLevel : PercentValue;
+        attribute faultCode : Integer;
+    }
+
+    port def ElectricalPowerPort {
+        in item voltage : VoltageValue;
+        in item current : CurrentValue;
+    }
+
+    port def OpticalEmissionPort {
+        out item emittedLight : OpticalSignal;
+    }
+
+    port def OpticalReceptionPort {
+        in item reflectedLight : ReflectedOpticalSignal;
+    }
+
+    port def PositionDataPort {
+        out item measuredPosition : PositionMeasurement;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : DiagnosticReport;
+    }
+
+    port def ConfigurationPort {
+        in item sampleRateCommand : FrequencyValue;
+        in item zeroOffsetCommand : LengthValue;
+    }
+
+    action def EmitModulatedLight {
+        in attribute commandedCurrent : CurrentValue;
+        in attribute modulationFrequency : FrequencyValue;
+        out item opticalOutput : OpticalSignal;
+    }
+
+    action def ReceiveReflectedLight {
+        in item opticalInput : ReflectedOpticalSignal;
+        out attribute photocurrentA : CurrentValue;
+        out attribute photocurrentB : CurrentValue;
+        out attribute totalSignal : CurrentValue;
+    }
+
+    action def ComputePosition {
+        in attribute photocurrentA : CurrentValue;
+        in attribute photocurrentB : CurrentValue;
+        in attribute zeroOffset : LengthValue;
+        out item positionResult : PositionMeasurement;
+    }
+
+    action def FilterPosition {
+        in item rawPosition : PositionMeasurement;
+        in attribute filterCutoff : FrequencyValue;
+        out item filteredPosition : PositionMeasurement;
+    }
+
+    action def RunSelfTest {
+        in attribute supplyVoltage : VoltageValue;
+        in attribute detectorTemperature : TemperatureValue;
+        in attribute signalLevel : PercentValue;
+        out item report : DiagnosticReport;
+    }
+
+    state def OpticalPositionSensorStateMachine {
+        entry action initialize;
+        state off;
+        state startup;
+        state calibrating;
+        state measuring;
+        state degraded;
+        state faulted;
+
+        transition first off;
+        transition off_to_startup
+            first off
+            then startup;
+
+        transition startup_to_calibrating
+            first startup
+            accept after 250 [ms]
+            then calibrating;
+
+        transition calibrating_to_measuring
+            first calibrating
+            accept when calibrationComplete
+            then measuring;
+
+        transition measuring_to_degraded
+            first measuring
+            accept when signalLevel < 20.0
+            then degraded;
+
+        transition degraded_to_measuring
+            first degraded
+            accept when signalLevel >= 35.0
+            then measuring;
+
+        transition measuring_to_faulted
+            first measuring
+            accept when supplyVoltage < 4.5 [V] or detectorTemperature > 358.15 [K]
+            then faulted;
+
+        transition degraded_to_faulted
+            first degraded
+            accept when supplyVoltage < 4.5 [V] or signalLevel < 5.0
+            then faulted;
+
+        transition faulted_to_startup
+            first faulted
+            accept when resetCommanded
+            then startup;
+    }
+
+    part def OpticalPositionSensor {
+        attribute measurementRange : LengthValue = 0.050 [m];
+        attribute resolution : LengthValue = 0.000001 [m];
+        attribute linearityError : LengthValue = 0.000025 [m];
+        attribute sampleRate : FrequencyValue = 1000 [Hz];
+        attribute wavelength : LengthValue = 0.000000850 [m];
+        attribute emitterCurrentLimit : CurrentValue = 0.030 [A];
+        attribute supplyVoltageNominal : VoltageValue = 5.0 [V];
+        attribute operatingTemperatureMin : TemperatureValue = 253.15 [K];
+        attribute operatingTemperatureMax : TemperatureValue = 358.15 [K];
+        attribute health : SensorHealth = SensorHealth::uncalibrated;
+        attribute zeroOffset : LengthValue = 0.0 [m];
+
+        port power : ElectricalPowerPort;
+        port opticalOut : OpticalEmissionPort;
+        port opticalIn : OpticalReceptionPort;
+        port dataOut : PositionDataPort;
+        port diagOut : DiagnosticPort;
+        port configIn : ConfigurationPort;
+
+        action emit : EmitModulatedLight;
+        action receive : ReceiveReflectedLight;
+        action compute : ComputePosition;
+        action filter : FilterPosition;
+        action selfTest : RunSelfTest;
+
+        exhibit stateMachine : OpticalPositionSensorStateMachine;
+    }
+
+    part def TargetSurface {
+        attribute reflectivity : PercentValue = 65.0;
+        attribute positionAlongAxis : LengthValue;
+        attribute maximumVelocity : ISQ::speed = 2.0 [m/s];
+
+        port illuminationIn : OpticalReceptionPort;
+        port reflectionOut : OpticalEmissionPort;
+    }
+
+    part def SignalConditioningElectronics {
+        attribute adcResolution : BitCountValue = 16;
+        attribute amplifierGain : Real = 24.0;
+        attribute lowPassCutoff : FrequencyValue = 250 [Hz];
+        attribute noiseFloor : CurrentValue = 0.000000002 [A];
+
+        port detectorInput : OpticalReceptionPort;
+        port positionOutput : PositionDataPort;
+        port diagnosticOutput : DiagnosticPort;
+    }
+
+    part def SensingUnitController {
+        attribute commandedSampleRate : FrequencyValue = 1000 [Hz];
+        attribute lastMeasurementAgeLimit : TimeValue = 0.010 [s];
+
+        port positionInput : PositionDataPort;
+        port positionOutput : PositionDataPort;
+        port diagnosticInput : DiagnosticPort;
+        port diagnosticOutput : DiagnosticPort;
+        port configurationOutput : ConfigurationPort;
+    }
+
+    part def OpticalPositionSensingUnit {
+        attribute ratedSupplyVoltage : VoltageValue = 5.0 [V];
+        attribute inputCurrentMax : CurrentValue = 0.120 [A];
+        attribute measuredQuantityName : String = "linear position";
+        attribute measurementAxisName : String = "optical triangulation axis";
+        attribute totalMeasurementRange : LengthValue = 0.050 [m];
+        attribute systemAccuracy : LengthValue = 0.000050 [m];
+        attribute updateRate : FrequencyValue = 1000 [Hz];
+        attribute startupTime : TimeValue = 0.500 [s];
+
+        port powerInput : ElectricalPowerPort;
+        port measuredPositionOutput : PositionDataPort;
+        port diagnosticOutput : DiagnosticPort;
+        port configurationInput : ConfigurationPort;
+
+        part sensor : OpticalPositionSensor;
+        part target : TargetSurface;
+        part conditioner : SignalConditioningElectronics;
+        part controller : SensingUnitController;
+
+        connect powerInput to sensor.power;
+        connect configurationInput to controller.configurationOutput;
+        connect controller.configurationOutput to sensor.configIn;
+        connect sensor.opticalOut to target.illuminationIn;
+        connect target.reflectionOut to sensor.opticalIn;
+        connect sensor.dataOut to conditioner.positionOutput;
+        connect sensor.diagOut to conditioner.diagnosticOutput;
+        connect conditioner.positionOutput to controller.positionInput;
+        connect conditioner.diagnosticOutput to controller.diagnosticInput;
+        connect controller.positionOutput to measuredPositionOutput;
+        connect controller.diagnosticOutput to diagnosticOutput;
+    }
+
+    requirement def PositionMeasurementRequirement {
+        subject sensingUnit : OpticalPositionSensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantityName == "linear position"
+        }
+
+        require constraint {
+            sensingUnit.totalMeasurementRange >= 0.050 [m]
+        }
+
+        require constraint {
+            sensingUnit.systemAccuracy <= 0.000050 [m]
+        }
+
+        require constraint {
+            sensingUnit.updateRate >= 1000 [Hz]
+        }
+    }
+
+    requirement def OpticalSensorRequirement {
+        subject sensor : OpticalPositionSensor;
+
+        require constraint {
+            sensor.resolution <= 0.000001 [m]
+        }
+
+        require constraint {
+            sensor.linearityError <= 0.000025 [m]
+        }
+
+        require constraint {
+            sensor.wavelength >= 0.000000800 [m] and sensor.wavelength <= 0.000000900 [m]
+        }
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : OpticalPositionSensingUnit;
+
+        require constraint {
+            sensingUnit.startupTime <= 0.500 [s]
+        }
+
+        require constraint {
+            sensingUnit.inputCurrentMax <= 0.120 [A]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensor : OpticalPositionSensor;
+
+        require constraint {
+            sensor.operatingTemperatureMin <= 253.15 [K]
+        }
+
+        require constraint {
+            sensor.operatingTemperatureMax >= 358.15 [K]
+        }
+    }
+
+    satisfy PositionMeasurementRequirement by OpticalPositionSensingUnit;
+    satisfy OpticalSensorRequirement by OpticalPositionSensingUnit::sensor;
+    satisfy DiagnosticRequirement by OpticalPositionSensingUnit;
+    satisfy EnvironmentalRequirement by OpticalPositionSensingUnit::sensor;
+
+    analysis def PositionAccuracyAnalysis {
+        subject sensingUnit : OpticalPositionSensingUnit;
+
+        attribute sensorResolutionContribution : LengthValue = 0.000001 [m];
+        attribute linearityContribution : LengthValue = 0.000025 [m];
+        attribute noiseContribution : LengthValue = 0.000015 [m];
+        attribute calibrationContribution : LengthValue = 0.000020 [m];
+        attribute totalEstimatedError : LengthValue = 0.000046 [m];
+
+        assert constraint {
+            totalEstimatedError <= sensingUnit.systemAccuracy
+        }
+    }
+
+    perform PositionAccuracyAnalysis on OpticalPositionSensingUnit;
+
+}

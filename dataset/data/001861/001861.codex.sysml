@@ -1,0 +1,308 @@
+package SimpleMachineModel {
+
+  import ScalarValues::*;
+
+  attribute def Length_m :> Real;
+  attribute def Force_N :> Real;
+  attribute def Mass_kg :> Real;
+  attribute def Angle_deg :> Real;
+  attribute def Energy_J :> Real;
+  attribute def Time_s :> Real;
+  attribute def Ratio :> Real;
+
+  item def MechanicalEffort {
+    attribute force : Force_N;
+    attribute displacement : Length_m;
+    attribute directionAngle : Angle_deg;
+  }
+
+  item def MechanicalLoad {
+    attribute mass : Mass_kg;
+    attribute weight : Force_N;
+    attribute liftHeight : Length_m;
+  }
+
+  item def MotionCommand {
+    attribute requestedLiftHeight : Length_m;
+    attribute maximumEffortForce : Force_N;
+  }
+
+  item def MachineStatus {
+    attribute isStable : Boolean;
+    attribute loadRaised : Boolean;
+    attribute overloadDetected : Boolean;
+    attribute currentLiftHeight : Length_m;
+  }
+
+  port def EffortPort {
+    in item effort : MechanicalEffort;
+  }
+
+  port def LoadPort {
+    inout item load : MechanicalLoad;
+  }
+
+  port def SupportPort {
+    inout item reaction : MechanicalEffort;
+  }
+
+  port def CommandPort {
+    in item command : MotionCommand;
+    out item status : MachineStatus;
+  }
+
+  part def LeverArm {
+    attribute totalLength : Length_m = 2.0;
+    attribute effortArmLength : Length_m = 1.6;
+    attribute loadArmLength : Length_m = 0.4;
+    attribute mass : Mass_kg = 3.5;
+    attribute angularPosition : Angle_deg = 0.0;
+    attribute mechanicalAdvantage : Ratio = 4.0;
+
+    port effortEnd : EffortPort;
+    port loadEnd : LoadPort;
+    port pivotInterface : SupportPort;
+  }
+
+  part def Fulcrum {
+    attribute height : Length_m = 0.35;
+    attribute baseWidth : Length_m = 0.5;
+    attribute maximumReactionForce : Force_N = 2500.0;
+    attribute frictionCoefficient : Ratio = 0.18;
+
+    port pivot : SupportPort;
+    port groundInterface : SupportPort;
+  }
+
+  part def EffortHandle {
+    attribute gripLength : Length_m = 0.18;
+    attribute maximumOperatorForce : Force_N = 350.0;
+
+    port operatorInput : EffortPort;
+    port leverInterface : EffortPort;
+  }
+
+  part def LoadSaddle {
+    attribute contactWidth : Length_m = 0.22;
+    attribute maximumLoadMass : Mass_kg = 120.0;
+    attribute currentLoadHeight : Length_m = 0.0;
+
+    port loadInterface : LoadPort;
+    port leverInterface : LoadPort;
+  }
+
+  part def GroundBase {
+    attribute length : Length_m = 0.8;
+    attribute width : Length_m = 0.55;
+    attribute allowableTiltAngle : Angle_deg = 5.0;
+
+    port supportInterface : SupportPort;
+  }
+
+  part def SafetyStop {
+    attribute maximumLeverAngle : Angle_deg = 32.0;
+    attribute minimumLeverAngle : Angle_deg = -8.0;
+    attribute engaged : Boolean = false;
+
+    port leverLimitInterface : SupportPort;
+  }
+
+  action def ApplyEffort {
+    in item command : MotionCommand;
+    in item load : MechanicalLoad;
+    out item effort : MechanicalEffort;
+
+    attribute requiredEffortForce : Force_N;
+    attribute inputDisplacement : Length_m;
+
+    first start;
+    then computeRequiredEffort;
+    then limitEffort;
+    then outputEffort;
+    then done;
+  }
+
+  action def TransferLeverMotion {
+    in item effort : MechanicalEffort;
+    in item load : MechanicalLoad;
+    out item raisedLoad : MechanicalLoad;
+    out item status : MachineStatus;
+
+    attribute outputForce : Force_N;
+    attribute outputDisplacement : Length_m;
+    attribute workInput : Energy_J;
+    attribute workOutput : Energy_J;
+
+    first receiveEffort;
+    then rotateLever;
+    then raiseLoad;
+    then reportStatus;
+    then done;
+  }
+
+  action def LowerLoad {
+    in item command : MotionCommand;
+    inout item load : MechanicalLoad;
+    out item status : MachineStatus;
+
+    first verifyStableSupport;
+    then reduceEffort;
+    then controlDescent;
+    then settleLoad;
+    then done;
+  }
+
+  state def SimpleMachineOperatingStates {
+    entry action initializeStatus;
+
+    state idle;
+    state positioned;
+    state lifting;
+    state holding;
+    state lowering;
+    state overload;
+    state complete;
+
+    transition idle_to_positioned
+      first idle
+      accept MotionCommand
+      if command.requestedLiftHeight > 0.0
+      then positioned;
+
+    transition positioned_to_lifting
+      first positioned
+      if command.maximumEffortForce <= 350.0
+      then lifting;
+
+    transition positioned_to_overload
+      first positioned
+      if command.maximumEffortForce > 350.0
+      then overload;
+
+    transition lifting_to_holding
+      first lifting
+      if status.currentLiftHeight >= command.requestedLiftHeight
+      then holding;
+
+    transition holding_to_lowering
+      first holding
+      accept MotionCommand
+      if command.requestedLiftHeight == 0.0
+      then lowering;
+
+    transition lowering_to_complete
+      first lowering
+      if status.currentLiftHeight == 0.0
+      then complete;
+
+    transition overload_to_idle
+      first overload
+      accept MotionCommand
+      if command.maximumEffortForce <= 350.0
+      then idle;
+  }
+
+  part def LeverBasedSimpleMachine {
+    doc /* Primary function: amplify an applied human effort force through a lever and fulcrum to raise, hold, and lower a load with controlled motion. */
+
+    attribute ratedLoadMass : Mass_kg = 100.0;
+    attribute ratedLiftHeight : Length_m = 0.25;
+    attribute nominalMechanicalAdvantage : Ratio = 4.0;
+    attribute maximumInputForce : Force_N = 350.0;
+    attribute maximumOutputForce : Force_N = 1400.0;
+
+    port operatorCommand : CommandPort;
+    port loadPort : LoadPort;
+    port groundPort : SupportPort;
+
+    part lever : LeverArm;
+    part fulcrum : Fulcrum;
+    part handle : EffortHandle;
+    part saddle : LoadSaddle;
+    part base : GroundBase;
+    part stop : SafetyStop;
+
+    connection handleToLever connect handle.leverInterface to lever.effortEnd;
+    connection leverToSaddle connect lever.loadEnd to saddle.leverInterface;
+    connection saddleToLoad connect saddle.loadInterface to loadPort;
+    connection leverToFulcrum connect lever.pivotInterface to fulcrum.pivot;
+    connection fulcrumToBase connect fulcrum.groundInterface to base.supportInterface;
+    connection baseToGround connect base.supportInterface to groundPort;
+    connection stopToLever connect stop.leverLimitInterface to lever.pivotInterface;
+
+    perform action applyEffort : ApplyEffort;
+    perform action transferMotion : TransferLeverMotion;
+    perform action lowerLoad : LowerLoad;
+
+    exhibit state operatingStates : SimpleMachineOperatingStates;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    subject machine : LeverBasedSimpleMachine;
+
+    require constraint {
+      machine.nominalMechanicalAdvantage >= 3.5
+    }
+
+    doc /* The simple machine shall convert operator effort at the handle into amplified lifting force at the load saddle. */
+  }
+
+  requirement def RatedLoadRequirement {
+    subject machine : LeverBasedSimpleMachine;
+
+    require constraint {
+      machine.ratedLoadMass >= 100.0
+    }
+
+    doc /* The machine shall raise a 100 kg load under rated operating conditions. */
+  }
+
+  requirement def EffortLimitRequirement {
+    subject machine : LeverBasedSimpleMachine;
+
+    require constraint {
+      machine.maximumInputForce <= 350.0
+    }
+
+    doc /* The operator input force required for rated operation shall not exceed 350 N. */
+  }
+
+  requirement def LiftHeightRequirement {
+    subject machine : LeverBasedSimpleMachine;
+
+    require constraint {
+      machine.ratedLiftHeight >= 0.25
+    }
+
+    doc /* The machine shall provide at least 0.25 m of vertical load travel. */
+  }
+
+  requirement def StabilityRequirement {
+    subject machine : LeverBasedSimpleMachine;
+
+    require constraint {
+      machine.base.allowableTiltAngle >= 5.0
+    }
+
+    doc /* The base and fulcrum shall maintain stable support during lifting, holding, and lowering. */
+  }
+
+  requirement def SafetyStopRequirement {
+    subject machine : LeverBasedSimpleMachine;
+
+    require constraint {
+      machine.stop.maximumLeverAngle <= 32.0 and machine.stop.minimumLeverAngle >= -8.0
+    }
+
+    doc /* Mechanical stops shall constrain lever travel to prevent over-rotation. */
+  }
+
+  part simpleMachineSystem : LeverBasedSimpleMachine;
+
+  satisfy HighLevelFunctionRequirement by simpleMachineSystem;
+  satisfy RatedLoadRequirement by simpleMachineSystem;
+  satisfy EffortLimitRequirement by simpleMachineSystem;
+  satisfy LiftHeightRequirement by simpleMachineSystem;
+  satisfy StabilityRequirement by simpleMachineSystem;
+  satisfy SafetyStopRequirement by simpleMachineSystem;
+}

@@ -1,0 +1,355 @@
+package UbiquitousComputingSystemModel {
+
+    attribute def Temperature {
+        :>> unit = "K";
+    }
+
+    attribute def RelativeHumidity {
+        :>> unit = "%";
+    }
+
+    attribute def Illuminance {
+        :>> unit = "lx";
+    }
+
+    attribute def CarbonDioxideConcentration {
+        :>> unit = "ppm";
+    }
+
+    attribute def OccupancyCount {
+        :>> unit = "person";
+    }
+
+    attribute def ElectricalPower {
+        :>> unit = "W";
+    }
+
+    attribute def Energy {
+        :>> unit = "Wh";
+    }
+
+    attribute def TimeDuration {
+        :>> unit = "s";
+    }
+
+    attribute def Confidence {
+        :>> unit = "%";
+    }
+
+    attribute def DataRate {
+        :>> unit = "Mb/s";
+    }
+
+    item def SensorObservation {
+        attribute timestamp : TimeDuration;
+        attribute sourceId : String;
+        attribute confidence : Confidence;
+    }
+
+    item def AmbientObservation specializes SensorObservation {
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute illuminance : Illuminance;
+        attribute co2 : CarbonDioxideConcentration;
+        attribute occupancy : OccupancyCount;
+    }
+
+    item def UserContext {
+        attribute userId : String;
+        attribute roomId : String;
+        attribute activity : String;
+        attribute preferredTemperature : Temperature;
+        attribute preferredIlluminance : Illuminance;
+        attribute privacyModeEnabled : Boolean;
+    }
+
+    item def ControlCommand {
+        attribute targetId : String;
+        attribute commandKind : String;
+        attribute setpoint : Real;
+        attribute priority : Integer;
+        attribute expiresAfter : TimeDuration;
+    }
+
+    item def EnergyReport {
+        attribute reportingInterval : TimeDuration;
+        attribute consumedEnergy : Energy;
+        attribute averagePower : ElectricalPower;
+    }
+
+    port def ObservationPort {
+        out item observation : SensorObservation;
+    }
+
+    port def ContextPort {
+        in item observation : SensorObservation;
+        out item context : UserContext;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def ReportPort {
+        out item report : EnergyReport;
+    }
+
+    port def WirelessNetworkPort {
+        in item inbound;
+        out item outbound;
+        attribute maximumDataRate : DataRate;
+        attribute encrypted : Boolean;
+    }
+
+    action def SenseAmbientEnvironment {
+        out item observation : AmbientObservation;
+    }
+
+    action def InferUserContext {
+        in item observation : SensorObservation;
+        out item context : UserContext;
+    }
+
+    action def OptimizeSpace {
+        in item context : UserContext;
+        out item lightingCommand : ControlCommand;
+        out item climateCommand : ControlCommand;
+        out item accessCommand : ControlCommand;
+    }
+
+    action def ApplyControl {
+        in item command : ControlCommand;
+    }
+
+    action def PublishEnergyReport {
+        in item report : EnergyReport;
+    }
+
+    state def UbiquitousComputingOperationalState {
+        entry action InitializeNetwork;
+        state DiscoveringDevices;
+        state Monitoring;
+        state InferringContext;
+        state AdaptingEnvironment;
+        state PrivacyRestricted;
+        state FaultTolerantMode;
+
+        transition first DiscoveringDevices;
+        transition DiscoveringDevices then Monitoring
+            accept DeviceRegistryComplete;
+
+        transition Monitoring then InferringContext
+            accept NewObservation;
+
+        transition InferringContext then AdaptingEnvironment
+            accept ContextConfidenceSufficient;
+
+        transition InferringContext then PrivacyRestricted
+            accept PrivacyModeRequested;
+
+        transition PrivacyRestricted then Monitoring
+            accept PrivacyModeCleared;
+
+        transition AdaptingEnvironment then Monitoring
+            accept CommandsAcknowledged;
+
+        transition Monitoring then FaultTolerantMode
+            accept SensorFaultDetected;
+
+        transition FaultTolerantMode then DiscoveringDevices
+            accept NetworkRecovered;
+    }
+
+    part def AmbientSensorNode {
+        attribute nodeId : String;
+        attribute samplePeriod : TimeDuration = 5;
+        attribute batteryEnergy : Energy;
+        attribute transmitPower : ElectricalPower;
+
+        port observations : ObservationPort;
+        port wireless : WirelessNetworkPort;
+
+        perform action sense : SenseAmbientEnvironment;
+    }
+
+    part def WearableUserDevice {
+        attribute deviceId : String;
+        attribute ownerId : String;
+        attribute privacyModeEnabled : Boolean;
+        attribute batteryEnergy : Energy;
+
+        port contextOut : ContextPort;
+        port wireless : WirelessNetworkPort;
+    }
+
+    part def EdgeContextHub {
+        attribute hubId : String;
+        attribute retainedHistory : TimeDuration = 86400;
+        attribute minimumContextConfidence : Confidence = 85;
+
+        port sensorInput : ContextPort;
+        port wearableInput : ContextPort;
+        port commandOutput : CommandPort;
+        port reportOutput : ReportPort;
+        port wireless : WirelessNetworkPort;
+
+        perform action inferContext : InferUserContext;
+        exhibit state operationalState : UbiquitousComputingOperationalState;
+    }
+
+    part def LightingActuator {
+        attribute actuatorId : String;
+        attribute maximumPower : ElectricalPower = 120;
+        attribute currentIlluminanceSetpoint : Illuminance;
+
+        port commandIn : CommandPort;
+        perform action applyLighting : ApplyControl;
+    }
+
+    part def ClimateActuator {
+        attribute actuatorId : String;
+        attribute maximumPower : ElectricalPower = 3500;
+        attribute temperatureSetpoint : Temperature;
+
+        port commandIn : CommandPort;
+        perform action applyClimate : ApplyControl;
+    }
+
+    part def AccessControlActuator {
+        attribute actuatorId : String;
+        attribute locked : Boolean;
+
+        port commandIn : CommandPort;
+        perform action applyAccessPolicy : ApplyControl;
+    }
+
+    part def EnergyManagementService {
+        attribute serviceId : String;
+        attribute reportingPeriod : TimeDuration = 900;
+        attribute peakPowerLimit : ElectricalPower = 12000;
+
+        port reportIn : ReportPort;
+        port commandOut : CommandPort;
+
+        perform action publishReport : PublishEnergyReport;
+    }
+
+    part def SmartRoom {
+        attribute roomId : String;
+        attribute floorArea : Real;
+        attribute nominalOccupancyLimit : OccupancyCount;
+
+        part temperatureSensor : AmbientSensorNode {
+            :>> nodeId = "temp-humidity-co2-01";
+        }
+
+        part lightSensor : AmbientSensorNode {
+            :>> nodeId = "light-motion-01";
+        }
+
+        part userWearable : WearableUserDevice {
+            :>> deviceId = "wearable-user-17";
+            :>> ownerId = "user-17";
+        }
+
+        part contextHub : EdgeContextHub {
+            :>> hubId = "edge-hub-room-a";
+        }
+
+        part lighting : LightingActuator {
+            :>> actuatorId = "dimmable-led-zone-a";
+        }
+
+        part climate : ClimateActuator {
+            :>> actuatorId = "hvac-vav-zone-a";
+        }
+
+        part accessControl : AccessControlActuator {
+            :>> actuatorId = "door-lock-room-a";
+        }
+
+        part energyService : EnergyManagementService {
+            :>> serviceId = "energy-optimizer-building-01";
+        }
+
+        connect temperatureSensor.observations to contextHub.sensorInput;
+        connect lightSensor.observations to contextHub.sensorInput;
+        connect userWearable.contextOut to contextHub.wearableInput;
+        connect contextHub.commandOutput to lighting.commandIn;
+        connect contextHub.commandOutput to climate.commandIn;
+        connect contextHub.commandOutput to accessControl.commandIn;
+        connect contextHub.reportOutput to energyService.reportIn;
+        connect energyService.commandOut to contextHub.commandOutput;
+
+        flow ambientData from temperatureSensor.observations.observation to contextHub.sensorInput.observation;
+        flow illuminationData from lightSensor.observations.observation to contextHub.sensorInput.observation;
+        flow userContextData from userWearable.contextOut.context to contextHub.wearableInput.context;
+        flow adaptiveLightingCommand from contextHub.commandOutput.command to lighting.commandIn.command;
+        flow adaptiveClimateCommand from contextHub.commandOutput.command to climate.commandIn.command;
+        flow adaptiveAccessCommand from contextHub.commandOutput.command to accessControl.commandIn.command;
+        flow energyReportFlow from contextHub.reportOutput.report to energyService.reportIn.report;
+    }
+
+    part def UbiquitousComputingEnvironment {
+        attribute systemName : String = "Context-Aware Smart Space";
+        attribute primaryFunction : String = "Continuously sense people, devices, and ambient conditions, infer user context, and adapt lighting, climate, access, and energy behavior without explicit user commands.";
+        attribute maximumResponseTime : TimeDuration = 2;
+        attribute minimumAvailability : Confidence = 99.5;
+
+        part roomA : SmartRoom {
+            :>> roomId = "A-120";
+            :>> floorArea = 42.0;
+            :>> nominalOccupancyLimit = 12;
+        }
+
+        part roomB : SmartRoom {
+            :>> roomId = "A-121";
+            :>> floorArea = 36.0;
+            :>> nominalOccupancyLimit = 10;
+        }
+
+        connect roomA.contextHub.wireless to roomB.contextHub.wireless;
+    }
+
+    requirement def ContextAwareAdaptationRequirement {
+        doc /* The system shall infer occupant context from distributed sensors and wearable devices and adapt the environment automatically. */
+        subject system : UbiquitousComputingEnvironment;
+        require constraint {
+            system.maximumResponseTime <= 2
+        }
+    }
+
+    requirement def PrivacyRequirement {
+        doc /* The system shall suppress personally identifiable context sharing when a user enables privacy mode. */
+        subject wearable : WearableUserDevice;
+        require constraint {
+            wearable.privacyModeEnabled implies wearable.contextOut.context.privacyModeEnabled
+        }
+    }
+
+    requirement def EnergyEfficiencyRequirement {
+        doc /* The system shall reduce energy consumption by coordinating lighting and climate control with occupancy and ambient conditions. */
+        subject service : EnergyManagementService;
+        require constraint {
+            service.peakPowerLimit <= 12000
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The system shall continue operating in a degraded fault-tolerant mode when a sensor node fails. */
+        subject hub : EdgeContextHub;
+        require constraint {
+            hub.minimumContextConfidence >= 60
+        }
+    }
+
+    part ubiquitousComputingSystem : UbiquitousComputingEnvironment;
+
+    satisfy ContextAwareAdaptationRequirement by ubiquitousComputingSystem;
+    satisfy EnergyEfficiencyRequirement by ubiquitousComputingSystem.roomA.energyService;
+    satisfy EnergyEfficiencyRequirement by ubiquitousComputingSystem.roomB.energyService;
+    satisfy PrivacyRequirement by ubiquitousComputingSystem.roomA.userWearable;
+    satisfy PrivacyRequirement by ubiquitousComputingSystem.roomB.userWearable;
+    satisfy AvailabilityRequirement by ubiquitousComputingSystem.roomA.contextHub;
+    satisfy AvailabilityRequirement by ubiquitousComputingSystem.roomB.contextHub;
+}

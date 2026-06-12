@@ -1,0 +1,895 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-6mbyjluy
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5f4-c509-7283-83a7-5bb0b3c2abdd
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Semiconductor detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SemiconductorDetectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    value def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    value def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    value def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    value def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    value def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    value def CountRate {
+        unit = 1 / SI::second;
+    }
+
+    value def DoseRate {
+        unit = SI::gray / SI::second;
+    }
+
+    value def DigitalCount {
+        unit = 1;
+    }
+
+    item def IonizingRadiation {
+        attribute particleKind : String;
+        attribute incidentEnergy : Energy;
+        attribute arrivalTime : Time;
+    }
+
+    item def ElectronHolePairs {
+        attribute generatedCharge : ElectricCharge;
+        attribute pairCount : DigitalCount;
+        attribute generationEnergy : Energy;
+    }
+
+    item def AnalogPulse {
+        attribute amplitude : ElectricPotential;
+        attribute riseTime : Time;
+        attribute collectedCharge : ElectricCharge;
+        attribute timestamp : Time;
+    }
+
+    item def DigitizedEvent {
+        attribute channelId : Integer;
+        attribute pulseHeight : DigitalCount;
+        attribute eventEnergy : Energy;
+        attribute timestamp : Time;
+        attribute valid : Boolean;
+    }
+
+    item def DetectorStatus {
+        attribute detectorTemperature : Temperature;
+        attribute biasVoltage : ElectricPotential;
+        attribute leakageCurrent : ElectricCurrent;
+        attribute countRate : CountRate;
+        attribute faultActive : Boolean;
+    }
+
+    port def RadiationInputPort {
+        in item radiation : IonizingRadiation;
+    }
+
+    port def ChargeTransportPort {
+        out item chargeCloud : ElectronHolePairs;
+    }
+
+    port def AnalogSignalPort {
+        in item chargeCloud : ElectronHolePairs;
+        out item pulse : AnalogPulse;
+    }
+
+    port def DigitalEventPort {
+        out item event : DigitizedEvent;
+    }
+
+    port def StatusPort {
+        out item status : DetectorStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : ElectricPotential;
+        in attribute supplyCurrent : ElectricCurrent;
+    }
+
+    port def ThermalPort {
+        out attribute heatLoad : ISQ::power;
+        in attribute sinkTemperature : Temperature;
+    }
+
+    part def SemiconductorDetectorSystem {
+        attribute primaryFunction : String = "Convert incident ionizing radiation into calibrated digital detection events by generating, collecting, amplifying, digitizing, and classifying charge produced in a reverse-biased semiconductor sensor.";
+
+        attribute minimumDetectableEnergy : Energy = 8.0e-16 [SI::joule];
+        attribute maximumEventRate : CountRate = 100000 [1 / SI::second];
+        attribute nominalBiasVoltage : ElectricPotential = 150 [SI::volt];
+        attribute operatingTemperature : Temperature = 253.15 [SI::kelvin];
+
+        port radiationIn : RadiationInputPort;
+        port eventOut : DigitalEventPort;
+        port statusOut : StatusPort;
+        port powerIn : PowerPort;
+        port thermalInterface : ThermalPort;
+
+        part sensor : SemiconductorSensor;
+        part biasSupply : BiasSupply;
+        part preamplifier : ChargeSensitivePreamplifier;
+        part shaper : PulseShaper;
+        part digitizer : AnalogToDigitalConverter;
+        part processor : EventProcessor;
+        part thermalController : ThermalController;
+        part healthMonitor : HealthMonitor;
+
+        connect radiationIn.radiation to sensor.incidentRadiation.radiation;
+        connect biasSupply.biasOutput.supplyVoltage to sensor.biasInput.supplyVoltage;
+        connect sensor.chargeOutput.chargeCloud to preamplifier.signalInput.chargeCloud;
+        connect preamplifier.pulseOutput.pulse to shaper.rawPulseInput.pulse;
+        connect shaper.shapedPulseOutput.pulse to digitizer.analogInput.pulse;
+        connect digitizer.digitalOutput.event to processor.rawEventInput.event;
+        connect processor.validEventOutput.event to eventOut.event;
+        connect sensor.thermalInterface.heatLoad to thermalController.detectorThermalInput.heatLoad;
+        connect thermalController.systemThermalOutput.heatLoad to thermalInterface.heatLoad;
+        connect healthMonitor.statusOutput.status to statusOut.status;
+
+        action detectRadiation {
+            first start;
+            then applyBias;
+            then waitForRadiation;
+            then generateCharge;
+            then collectCharge;
+            then amplifyPulse;
+            then shapePulse;
+            then digitizePulse;
+            then classifyEvent;
+            then publishEvent;
+            then updateStatus;
+            then done;
+
+            action applyBias {
+                out attribute appliedVoltage : ElectricPotential = nominalBiasVoltage;
+            }
+
+            action waitForRadiation {
+                in item incoming : IonizingRadiation;
+            }
+
+            action generateCharge {
+                in item incoming : IonizingRadiation;
+                out item charge : ElectronHolePairs;
+            }
+
+            action collectCharge {
+                in item charge : ElectronHolePairs;
+                out item collectedCharge : ElectronHolePairs;
+            }
+
+            action amplifyPulse {
+                in item collectedCharge : ElectronHolePairs;
+                out item pulse : AnalogPulse;
+            }
+
+            action shapePulse {
+                in item pulse : AnalogPulse;
+                out item shapedPulse : AnalogPulse;
+            }
+
+            action digitizePulse {
+                in item shapedPulse : AnalogPulse;
+                out item rawEvent : DigitizedEvent;
+            }
+
+            action classifyEvent {
+                in item rawEvent : DigitizedEvent;
+                out item validEvent : DigitizedEvent;
+            }
+
+            action publishEvent {
+                in item validEvent : DigitizedEvent;
+            }
+
+            action updateStatus {
+                out item status : DetectorStatus;
+            }
+        }
+
+        state detectorOperatingState {
+            entry; then Off;
+
+            state Off;
+            state Initializing;
+            state BiasRamp;
+            state StabilizingTemperature;
+            state Ready;
+            state Detecting;
+            state Calibrating;
+            state Fault;
+            state SafeShutdown;
+
+            transition Off_to_Initializing
+                first Off
+                accept PowerApplied
+                then Initializing;
+
+            transition Initializing_to_BiasRamp
+                first Initializing
+                if healthMonitor.selfTestPassed
+                then BiasRamp;
+
+            transition BiasRamp_to_StabilizingTemperature
+                first BiasRamp
+                if biasSupply.outputVoltage >= nominalBiasVoltage
+                then StabilizingTemperature;
+
+            transition StabilizingTemperature_to_Ready
+                first StabilizingTemperature
+                if thermalController.detectorTemperature <= operatingTemperature
+                then Ready;
+
+            transition Ready_to_Detecting
+                first Ready
+                accept AcquisitionEnabled
+                then Detecting;
+
+            transition Detecting_to_Calibrating
+                first Detecting
+                accept CalibrationRequested
+                then Calibrating;
+
+            transition Calibrating_to_Ready
+                first Calibrating
+                if processor.energyCalibrationValid
+                then Ready;
+
+            transition Any_to_Fault
+                first Off, Initializing, BiasRamp, StabilizingTemperature, Ready, Detecting, Calibrating
+                if healthMonitor.faultDetected
+                then Fault;
+
+            transition Fault_to_SafeShutdown
+                first Fault
+                accept FaultConfirmed
+                then SafeShutdown;
+
+            transition SafeShutdown_to_Off
+                first SafeShutdown
+                if biasSupply.outputVoltage <= 1 [SI::volt]
+                then Off;
+        }
+    }
+
+    part def SemiconductorSensor {
+        attribute material : String = "High purity silicon";
+        attribute depletionDepth : ISQ::length = 500e-6 [SI::metre];
+        attribute activeArea : ISQ::area = 100e-6 [SI::metre * SI::metre];
+        attribute electronHoleCreationEnergy : Energy = 5.77e-19 [SI::joule];
+        attribute leakageCurrent : ElectricCurrent = 1.0e-9 [SI::ampere];
+        attribute biasVoltage : ElectricPotential;
+
+        port incidentRadiation : RadiationInputPort;
+        port biasInput : PowerPort;
+        port chargeOutput : ChargeTransportPort;
+        port thermalInterface : ThermalPort;
+
+        action convertRadiationToCharge {
+            in item radiation : IonizingRadiation;
+            out item chargeCloud : ElectronHolePairs;
+        }
+    }
+
+    part def BiasSupply {
+        attribute outputVoltage : ElectricPotential = 0 [SI::volt];
+        attribute voltageSetpoint : ElectricPotential = 150 [SI::volt];
+        attribute rampRate : ElectricPotential = 10 [SI::volt];
+        attribute currentLimit : ElectricCurrent = 50e-6 [SI::ampere];
+
+        port powerInput : PowerPort;
+        port biasOutput : PowerPort;
+
+        action rampBias {
+            in attribute requestedVoltage : ElectricPotential;
+            out attribute deliveredVoltage : ElectricPotential;
+        }
+    }
+
+    part def ChargeSensitivePreamplifier {
+        attribute feedbackCapacitance : ISQ::capacitance = 1.0e-12 [SI::farad];
+        attribute equivalentNoiseCharge : ElectricCharge = 1.6e-17 [SI::coulomb];
+        attribute gain : Real = 1.0e12;
+
+        port signalInput : AnalogSignalPort;
+        port pulseOutput : AnalogSignalPort;
+
+        action integrateCharge {
+            in item chargeCloud : ElectronHolePairs;
+            out item pulse : AnalogPulse;
+        }
+    }
+
+    part def PulseShaper {
+        attribute shapingTime : Time = 2.0e-6 [SI::second];
+        attribute baselineRestorationEnabled : Boolean = true;
+        attribute pileupRejectionEnabled : Boolean = true;
+
+        port rawPulseInput : AnalogSignalPort;
+        port shapedPulseOutput : AnalogSignalPort;
+
+        action filterPulse {
+            in item rawPulse : AnalogPulse;
+            out item shapedPulse : AnalogPulse;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 14;
+        attribute sampleRate : CountRate = 50000000 [1 / SI::second];
+        attribute inputRange : ElectricPotential = 2.0 [SI::volt];
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalEventPort;
+
+        action sampleAndQuantize {
+            in item shapedPulse : AnalogPulse;
+            out item event : DigitizedEvent;
+        }
+    }
+
+    part def EventProcessor {
+        attribute lowerEnergyThreshold : Energy = 8.0e-16 [SI::joule];
+        attribute upperEnergyThreshold : Energy = 1.6e-12 [SI::joule];
+        attribute energyCalibrationValid : Boolean = false;
+        attribute deadTimeCorrectionEnabled : Boolean = true;
+
+        port rawEventInput : DigitalEventPort;
+        port validEventOutput : DigitalEventPort;
+
+        action classifyAndCalibrate {
+            in item rawEvent : DigitizedEvent;
+            out item validEvent : DigitizedEvent;
+        }
+    }
+
+    part def ThermalController {
+        attribute detectorTemperature : Temperature = 253.15 [SI::kelvin];
+        attribute maximumTemperature : Temperature = 273.15 [SI::kelvin];
+        attribute coolingPower : ISQ::power = 5 [SI::watt];
+
+        port detectorThermalInput : ThermalPort;
+        port systemThermalOutput : ThermalPort;
+
+        action regulateTemperature {
+            in attribute measuredTemperature : Temperature;
+            out attribute commandedCoolingPower : ISQ::power;
+        }
+    }
+
+    part def HealthMonitor {
+        attribute selfTestPassed : Boolean = false;
+        attribute faultDetected : Boolean = false;
+        attribute measuredLeakageCurrent : ElectricCurrent;
+        attribute measuredBiasVoltage : ElectricPotential;
+        attribute measuredCountRate : CountRate;
+
+        port statusOutput : StatusPort;
+
+        action evaluateHealth {
+            in attribute leakageCurrent : ElectricCurrent;
+            in attribute biasVoltage : ElectricPotential;
+            in attribute countRate : CountRate;
+            out item status : DetectorStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The semiconductor detector system shall detect incident ionizing radiation and provide calibrated digital event records containing event energy, timestamp, channel identity, and validity classification. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.primaryFunction == "Convert incident ionizing radiation into calibrated digital detection events by generating, collecting, amplifying, digitizing, and classifying charge produced in a reverse-biased semiconductor sensor."
+        }
+    }
+
+    requirement def EnergyThresholdRequirement {
+        doc /* The system shall reject events below the configured minimum detectable energy. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.processor.lowerEnergyThreshold == detector.minimumDetectableEnergy
+        }
+    }
+
+    requirement def BiasControlRequirement {
+        doc /* The bias supply shall provide the nominal reverse-bias voltage required to fully deplete the semiconductor sensor during acquisition. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.biasSupply.voltageSetpoint == detector.nominalBiasVoltage
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        doc /* The thermal controller shall maintain the semiconductor sensor at or below the nominal operating temperature before the detector enters acquisition mode. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.thermalController.detectorTemperature <= detector.operatingTemperature
+        }
+    }
+
+    requirement def EventRateRequirement {
+        doc /* The detector shall process radiation events up to the specified maximum event rate without disabling event classification. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.processor.deadTimeCorrectionEnabled == true and detector.maximumEventRate >= 100000 [1 / SI::second]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SemiconductorDetectorSystem;
+    satisfy EnergyThresholdRequirement by SemiconductorDetectorSystem;
+    satisfy BiasControlRequirement by BiasSupply;
+    satisfy ThermalStabilityRequirement by ThermalController;
+    satisfy EventRateRequirement by EventProcessor;
+
+    part semiconductorDetectorSystem : SemiconductorDetectorSystem;
+}
+tokens used
+3,446
+package SemiconductorDetectorSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def ElectricCharge :> ISQ::electricCharge {
+        unit = SI::coulomb;
+    }
+
+    value def ElectricCurrent :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    value def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    value def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    value def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    value def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    value def CountRate {
+        unit = 1 / SI::second;
+    }
+
+    value def DoseRate {
+        unit = SI::gray / SI::second;
+    }
+
+    value def DigitalCount {
+        unit = 1;
+    }
+
+    item def IonizingRadiation {
+        attribute particleKind : String;
+        attribute incidentEnergy : Energy;
+        attribute arrivalTime : Time;
+    }
+
+    item def ElectronHolePairs {
+        attribute generatedCharge : ElectricCharge;
+        attribute pairCount : DigitalCount;
+        attribute generationEnergy : Energy;
+    }
+
+    item def AnalogPulse {
+        attribute amplitude : ElectricPotential;
+        attribute riseTime : Time;
+        attribute collectedCharge : ElectricCharge;
+        attribute timestamp : Time;
+    }
+
+    item def DigitizedEvent {
+        attribute channelId : Integer;
+        attribute pulseHeight : DigitalCount;
+        attribute eventEnergy : Energy;
+        attribute timestamp : Time;
+        attribute valid : Boolean;
+    }
+
+    item def DetectorStatus {
+        attribute detectorTemperature : Temperature;
+        attribute biasVoltage : ElectricPotential;
+        attribute leakageCurrent : ElectricCurrent;
+        attribute countRate : CountRate;
+        attribute faultActive : Boolean;
+    }
+
+    port def RadiationInputPort {
+        in item radiation : IonizingRadiation;
+    }
+
+    port def ChargeTransportPort {
+        out item chargeCloud : ElectronHolePairs;
+    }
+
+    port def AnalogSignalPort {
+        in item chargeCloud : ElectronHolePairs;
+        out item pulse : AnalogPulse;
+    }
+
+    port def DigitalEventPort {
+        out item event : DigitizedEvent;
+    }
+
+    port def StatusPort {
+        out item status : DetectorStatus;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : ElectricPotential;
+        in attribute supplyCurrent : ElectricCurrent;
+    }
+
+    port def ThermalPort {
+        out attribute heatLoad : ISQ::power;
+        in attribute sinkTemperature : Temperature;
+    }
+
+    part def SemiconductorDetectorSystem {
+        attribute primaryFunction : String = "Convert incident ionizing radiation into calibrated digital detection events by generating, collecting, amplifying, digitizing, and classifying charge produced in a reverse-biased semiconductor sensor.";
+
+        attribute minimumDetectableEnergy : Energy = 8.0e-16 [SI::joule];
+        attribute maximumEventRate : CountRate = 100000 [1 / SI::second];
+        attribute nominalBiasVoltage : ElectricPotential = 150 [SI::volt];
+        attribute operatingTemperature : Temperature = 253.15 [SI::kelvin];
+
+        port radiationIn : RadiationInputPort;
+        port eventOut : DigitalEventPort;
+        port statusOut : StatusPort;
+        port powerIn : PowerPort;
+        port thermalInterface : ThermalPort;
+
+        part sensor : SemiconductorSensor;
+        part biasSupply : BiasSupply;
+        part preamplifier : ChargeSensitivePreamplifier;
+        part shaper : PulseShaper;
+        part digitizer : AnalogToDigitalConverter;
+        part processor : EventProcessor;
+        part thermalController : ThermalController;
+        part healthMonitor : HealthMonitor;
+
+        connect radiationIn.radiation to sensor.incidentRadiation.radiation;
+        connect biasSupply.biasOutput.supplyVoltage to sensor.biasInput.supplyVoltage;
+        connect sensor.chargeOutput.chargeCloud to preamplifier.signalInput.chargeCloud;
+        connect preamplifier.pulseOutput.pulse to shaper.rawPulseInput.pulse;
+        connect shaper.shapedPulseOutput.pulse to digitizer.analogInput.pulse;
+        connect digitizer.digitalOutput.event to processor.rawEventInput.event;
+        connect processor.validEventOutput.event to eventOut.event;
+        connect sensor.thermalInterface.heatLoad to thermalController.detectorThermalInput.heatLoad;
+        connect thermalController.systemThermalOutput.heatLoad to thermalInterface.heatLoad;
+        connect healthMonitor.statusOutput.status to statusOut.status;
+
+        action detectRadiation {
+            first start;
+            then applyBias;
+            then waitForRadiation;
+            then generateCharge;
+            then collectCharge;
+            then amplifyPulse;
+            then shapePulse;
+            then digitizePulse;
+            then classifyEvent;
+            then publishEvent;
+            then updateStatus;
+            then done;
+
+            action applyBias {
+                out attribute appliedVoltage : ElectricPotential = nominalBiasVoltage;
+            }
+
+            action waitForRadiation {
+                in item incoming : IonizingRadiation;
+            }
+
+            action generateCharge {
+                in item incoming : IonizingRadiation;
+                out item charge : ElectronHolePairs;
+            }
+
+            action collectCharge {
+                in item charge : ElectronHolePairs;
+                out item collectedCharge : ElectronHolePairs;
+            }
+
+            action amplifyPulse {
+                in item collectedCharge : ElectronHolePairs;
+                out item pulse : AnalogPulse;
+            }
+
+            action shapePulse {
+                in item pulse : AnalogPulse;
+                out item shapedPulse : AnalogPulse;
+            }
+
+            action digitizePulse {
+                in item shapedPulse : AnalogPulse;
+                out item rawEvent : DigitizedEvent;
+            }
+
+            action classifyEvent {
+                in item rawEvent : DigitizedEvent;
+                out item validEvent : DigitizedEvent;
+            }
+
+            action publishEvent {
+                in item validEvent : DigitizedEvent;
+            }
+
+            action updateStatus {
+                out item status : DetectorStatus;
+            }
+        }
+
+        state detectorOperatingState {
+            entry; then Off;
+
+            state Off;
+            state Initializing;
+            state BiasRamp;
+            state StabilizingTemperature;
+            state Ready;
+            state Detecting;
+            state Calibrating;
+            state Fault;
+            state SafeShutdown;
+
+            transition Off_to_Initializing
+                first Off
+                accept PowerApplied
+                then Initializing;
+
+            transition Initializing_to_BiasRamp
+                first Initializing
+                if healthMonitor.selfTestPassed
+                then BiasRamp;
+
+            transition BiasRamp_to_StabilizingTemperature
+                first BiasRamp
+                if biasSupply.outputVoltage >= nominalBiasVoltage
+                then StabilizingTemperature;
+
+            transition StabilizingTemperature_to_Ready
+                first StabilizingTemperature
+                if thermalController.detectorTemperature <= operatingTemperature
+                then Ready;
+
+            transition Ready_to_Detecting
+                first Ready
+                accept AcquisitionEnabled
+                then Detecting;
+
+            transition Detecting_to_Calibrating
+                first Detecting
+                accept CalibrationRequested
+                then Calibrating;
+
+            transition Calibrating_to_Ready
+                first Calibrating
+                if processor.energyCalibrationValid
+                then Ready;
+
+            transition Any_to_Fault
+                first Off, Initializing, BiasRamp, StabilizingTemperature, Ready, Detecting, Calibrating
+                if healthMonitor.faultDetected
+                then Fault;
+
+            transition Fault_to_SafeShutdown
+                first Fault
+                accept FaultConfirmed
+                then SafeShutdown;
+
+            transition SafeShutdown_to_Off
+                first SafeShutdown
+                if biasSupply.outputVoltage <= 1 [SI::volt]
+                then Off;
+        }
+    }
+
+    part def SemiconductorSensor {
+        attribute material : String = "High purity silicon";
+        attribute depletionDepth : ISQ::length = 500e-6 [SI::metre];
+        attribute activeArea : ISQ::area = 100e-6 [SI::metre * SI::metre];
+        attribute electronHoleCreationEnergy : Energy = 5.77e-19 [SI::joule];
+        attribute leakageCurrent : ElectricCurrent = 1.0e-9 [SI::ampere];
+        attribute biasVoltage : ElectricPotential;
+
+        port incidentRadiation : RadiationInputPort;
+        port biasInput : PowerPort;
+        port chargeOutput : ChargeTransportPort;
+        port thermalInterface : ThermalPort;
+
+        action convertRadiationToCharge {
+            in item radiation : IonizingRadiation;
+            out item chargeCloud : ElectronHolePairs;
+        }
+    }
+
+    part def BiasSupply {
+        attribute outputVoltage : ElectricPotential = 0 [SI::volt];
+        attribute voltageSetpoint : ElectricPotential = 150 [SI::volt];
+        attribute rampRate : ElectricPotential = 10 [SI::volt];
+        attribute currentLimit : ElectricCurrent = 50e-6 [SI::ampere];
+
+        port powerInput : PowerPort;
+        port biasOutput : PowerPort;
+
+        action rampBias {
+            in attribute requestedVoltage : ElectricPotential;
+            out attribute deliveredVoltage : ElectricPotential;
+        }
+    }
+
+    part def ChargeSensitivePreamplifier {
+        attribute feedbackCapacitance : ISQ::capacitance = 1.0e-12 [SI::farad];
+        attribute equivalentNoiseCharge : ElectricCharge = 1.6e-17 [SI::coulomb];
+        attribute gain : Real = 1.0e12;
+
+        port signalInput : AnalogSignalPort;
+        port pulseOutput : AnalogSignalPort;
+
+        action integrateCharge {
+            in item chargeCloud : ElectronHolePairs;
+            out item pulse : AnalogPulse;
+        }
+    }
+
+    part def PulseShaper {
+        attribute shapingTime : Time = 2.0e-6 [SI::second];
+        attribute baselineRestorationEnabled : Boolean = true;
+        attribute pileupRejectionEnabled : Boolean = true;
+
+        port rawPulseInput : AnalogSignalPort;
+        port shapedPulseOutput : AnalogSignalPort;
+
+        action filterPulse {
+            in item rawPulse : AnalogPulse;
+            out item shapedPulse : AnalogPulse;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 14;
+        attribute sampleRate : CountRate = 50000000 [1 / SI::second];
+        attribute inputRange : ElectricPotential = 2.0 [SI::volt];
+
+        port analogInput : AnalogSignalPort;
+        port digitalOutput : DigitalEventPort;
+
+        action sampleAndQuantize {
+            in item shapedPulse : AnalogPulse;
+            out item event : DigitizedEvent;
+        }
+    }
+
+    part def EventProcessor {
+        attribute lowerEnergyThreshold : Energy = 8.0e-16 [SI::joule];
+        attribute upperEnergyThreshold : Energy = 1.6e-12 [SI::joule];
+        attribute energyCalibrationValid : Boolean = false;
+        attribute deadTimeCorrectionEnabled : Boolean = true;
+
+        port rawEventInput : DigitalEventPort;
+        port validEventOutput : DigitalEventPort;
+
+        action classifyAndCalibrate {
+            in item rawEvent : DigitizedEvent;
+            out item validEvent : DigitizedEvent;
+        }
+    }
+
+    part def ThermalController {
+        attribute detectorTemperature : Temperature = 253.15 [SI::kelvin];
+        attribute maximumTemperature : Temperature = 273.15 [SI::kelvin];
+        attribute coolingPower : ISQ::power = 5 [SI::watt];
+
+        port detectorThermalInput : ThermalPort;
+        port systemThermalOutput : ThermalPort;
+
+        action regulateTemperature {
+            in attribute measuredTemperature : Temperature;
+            out attribute commandedCoolingPower : ISQ::power;
+        }
+    }
+
+    part def HealthMonitor {
+        attribute selfTestPassed : Boolean = false;
+        attribute faultDetected : Boolean = false;
+        attribute measuredLeakageCurrent : ElectricCurrent;
+        attribute measuredBiasVoltage : ElectricPotential;
+        attribute measuredCountRate : CountRate;
+
+        port statusOutput : StatusPort;
+
+        action evaluateHealth {
+            in attribute leakageCurrent : ElectricCurrent;
+            in attribute biasVoltage : ElectricPotential;
+            in attribute countRate : CountRate;
+            out item status : DetectorStatus;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The semiconductor detector system shall detect incident ionizing radiation and provide calibrated digital event records containing event energy, timestamp, channel identity, and validity classification. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.primaryFunction == "Convert incident ionizing radiation into calibrated digital detection events by generating, collecting, amplifying, digitizing, and classifying charge produced in a reverse-biased semiconductor sensor."
+        }
+    }
+
+    requirement def EnergyThresholdRequirement {
+        doc /* The system shall reject events below the configured minimum detectable energy. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.processor.lowerEnergyThreshold == detector.minimumDetectableEnergy
+        }
+    }
+
+    requirement def BiasControlRequirement {
+        doc /* The bias supply shall provide the nominal reverse-bias voltage required to fully deplete the semiconductor sensor during acquisition. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.biasSupply.voltageSetpoint == detector.nominalBiasVoltage
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        doc /* The thermal controller shall maintain the semiconductor sensor at or below the nominal operating temperature before the detector enters acquisition mode. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.thermalController.detectorTemperature <= detector.operatingTemperature
+        }
+    }
+
+    requirement def EventRateRequirement {
+        doc /* The detector shall process radiation events up to the specified maximum event rate without disabling event classification. */
+        subject detector : SemiconductorDetectorSystem;
+        require constraint {
+            detector.processor.deadTimeCorrectionEnabled == true and detector.maximumEventRate >= 100000 [1 / SI::second]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by SemiconductorDetectorSystem;
+    satisfy EnergyThresholdRequirement by SemiconductorDetectorSystem;
+    satisfy BiasControlRequirement by BiasSupply;
+    satisfy ThermalStabilityRequirement by ThermalController;
+    satisfy EventRateRequirement by EventProcessor;
+
+    part semiconductorDetectorSystem : SemiconductorDetectorSystem;
+}

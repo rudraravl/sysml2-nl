@@ -1,0 +1,345 @@
+package DemoticInterpretationSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Confidence : Real {
+    :>> range = "0.0..1.0";
+  }
+
+  attribute def PixelCount : Integer;
+  attribute def CharacterCount : Integer;
+  attribute def ProcessingTime : Real {
+    unit = "s";
+  }
+
+  item def DemoticArtifactImage {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute dpi : Real;
+    attribute spectralBand : String;
+  }
+
+  item def EnhancedImage {
+    attribute contrastIndex : Real;
+    attribute noiseLevel : Real;
+  }
+
+  item def TextRegion {
+    attribute boundingBoxX : PixelCount;
+    attribute boundingBoxY : PixelCount;
+    attribute boundingBoxWidth : PixelCount;
+    attribute boundingBoxHeight : PixelCount;
+  }
+
+  item def DemoticSign {
+    attribute signCode : String;
+    attribute recognitionConfidence : Confidence;
+  }
+
+  item def Transliteration {
+    attribute encodedText : String;
+    attribute characterCount : CharacterCount;
+    attribute confidence : Confidence;
+  }
+
+  item def Translation {
+    attribute targetLanguage : String;
+    attribute translatedText : String;
+    attribute confidence : Confidence;
+  }
+
+  item def AnnotationPackage {
+    attribute artifactId : String;
+    attribute signCount : Integer;
+    attribute transliterationText : String;
+    attribute translationText : String;
+    attribute overallConfidence : Confidence;
+  }
+
+  item def OperatorCommand {
+    attribute commandName : String;
+    attribute priority : Integer;
+  }
+
+  item def LexiconEntry {
+    attribute demoticForm : String;
+    attribute normalizedReading : String;
+    attribute meaning : String;
+    attribute sourceCitation : String;
+  }
+
+  port def ImageInputPort {
+    in item artifactImage : DemoticArtifactImage;
+  }
+
+  port def CommandPort {
+    in item command : OperatorCommand;
+  }
+
+  port def LexiconUpdatePort {
+    in item entry : LexiconEntry;
+  }
+
+  port def AnnotationOutputPort {
+    out item annotation : AnnotationPackage;
+  }
+
+  port def InternalImagePort {
+    out item enhanced : EnhancedImage;
+  }
+
+  port def RegionPort {
+    out item region : TextRegion;
+  }
+
+  port def SignPort {
+    out item sign : DemoticSign;
+  }
+
+  port def TransliterationPort {
+    out item transliteration : Transliteration;
+  }
+
+  port def TranslationPort {
+    out item translation : Translation;
+  }
+
+  part def OpticalCaptureUnit {
+    port imageIn : ImageInputPort;
+    port enhancedOut : InternalImagePort;
+
+    attribute acceptedMinimumDpi : Real = 300.0;
+    attribute maximumImageWidth : PixelCount = 12000;
+    attribute maximumImageHeight : PixelCount = 12000;
+  }
+
+  part def ImageEnhancementUnit {
+    port enhancedIn : InternalImagePort;
+    port regionOut : RegionPort;
+
+    attribute targetContrastIndex : Real = 0.75;
+    attribute maximumNoiseLevel : Real = 0.15;
+  }
+
+  part def DemoticSegmentationUnit {
+    port regionIn : RegionPort;
+    port signOut : SignPort;
+
+    attribute minimumRegionConfidence : Confidence = 0.70;
+    attribute supportedWritingDirection : String = "right-to-left";
+  }
+
+  part def SignRecognitionUnit {
+    port signIn : SignPort;
+    port transliterationOut : TransliterationPort;
+
+    attribute modelName : String = "DemoticSignClassifier";
+    attribute minimumSignConfidence : Confidence = 0.82;
+  }
+
+  part def LexicalAnalysisUnit {
+    port lexiconUpdateIn : LexiconUpdatePort;
+    port transliterationIn : TransliterationPort;
+    port translationOut : TranslationPort;
+
+    attribute minimumLexicalConfidence : Confidence = 0.78;
+    attribute supportedSourceLanguage : String = "Egyptian Demotic";
+  }
+
+  part def AnnotationAssemblyUnit {
+    port transliterationIn : TransliterationPort;
+    port translationIn : TranslationPort;
+    port annotationOut : AnnotationOutputPort;
+
+    attribute minimumOverallConfidence : Confidence = 0.75;
+  }
+
+  part def OperatorControlUnit {
+    port commandIn : CommandPort;
+
+    attribute activeMode : String;
+    attribute operatorSessionId : String;
+  }
+
+  action def AcquireDemoticImage {
+    in item artifactImage : DemoticArtifactImage;
+    out item enhancedImage : EnhancedImage;
+  }
+
+  action def LocateDemoticTextRegions {
+    in item enhancedImage : EnhancedImage;
+    out item region : TextRegion;
+  }
+
+  action def SegmentDemoticSigns {
+    in item region : TextRegion;
+    out item sign : DemoticSign;
+  }
+
+  action def RecognizeAndTransliterate {
+    in item sign : DemoticSign;
+    out item transliteration : Transliteration;
+  }
+
+  action def TranslateDemoticReading {
+    in item transliteration : Transliteration;
+    out item translation : Translation;
+  }
+
+  action def AssembleAnnotation {
+    in item transliteration : Transliteration;
+    in item translation : Translation;
+    out item annotation : AnnotationPackage;
+  }
+
+  state def InterpretationLifecycle {
+    state idle;
+    state imageAcquisition;
+    state enhancement;
+    state segmentation;
+    state recognition;
+    state translation;
+    state annotationAssembly;
+    state review;
+    state errorRecovery;
+
+    transition first idle;
+
+    transition idle_to_imageAcquisition
+      first idle
+      then imageAcquisition;
+
+    transition imageAcquisition_to_enhancement
+      first imageAcquisition
+      then enhancement;
+
+    transition enhancement_to_segmentation
+      first enhancement
+      then segmentation;
+
+    transition segmentation_to_recognition
+      first segmentation
+      then recognition;
+
+    transition recognition_to_translation
+      first recognition
+      then translation;
+
+    transition translation_to_annotationAssembly
+      first translation
+      then annotationAssembly;
+
+    transition annotationAssembly_to_review
+      first annotationAssembly
+      then review;
+
+    transition review_to_idle
+      first review
+      then idle;
+
+    transition processing_to_errorRecovery
+      first imageAcquisition
+      then errorRecovery;
+
+    transition errorRecovery_to_idle
+      first errorRecovery
+      then idle;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : DemoticReadingSystem;
+
+    doc /* The system shall convert captured images of Demotic script artifacts into annotated transliteration and translation outputs that support high-level scholarly interpretation. */
+
+    require constraint {
+      system.annotationAssembler.minimumOverallConfidence >= 0.75
+    }
+  }
+
+  requirement def ImageAcceptanceRequirement {
+    subject capture : OpticalCaptureUnit;
+
+    require constraint {
+      capture.acceptedMinimumDpi >= 300.0
+    }
+  }
+
+  requirement def RecognitionConfidenceRequirement {
+    subject recognizer : SignRecognitionUnit;
+
+    require constraint {
+      recognizer.minimumSignConfidence >= 0.82
+    }
+  }
+
+  requirement def LexiconTraceabilityRequirement {
+    subject analyzer : LexicalAnalysisUnit;
+
+    doc /* Every lexicon update shall preserve a source citation for philological traceability. */
+  }
+
+  requirement def ProcessingTimeRequirement {
+    subject system : DemoticReadingSystem;
+
+    attribute maximumEndToEndProcessingTime : ProcessingTime = 45.0;
+
+    require constraint {
+      maximumEndToEndProcessingTime <= 45.0
+    }
+  }
+
+  part def DemoticReadingSystem {
+    port artifactImageIn : ImageInputPort;
+    port operatorCommandIn : CommandPort;
+    port lexiconUpdateIn : LexiconUpdatePort;
+    port annotationOut : AnnotationOutputPort;
+
+    part capture : OpticalCaptureUnit;
+    part enhancer : ImageEnhancementUnit;
+    part segmenter : DemoticSegmentationUnit;
+    part recognizer : SignRecognitionUnit;
+    part lexicalAnalyzer : LexicalAnalysisUnit;
+    part annotationAssembler : AnnotationAssemblyUnit;
+    part operatorControl : OperatorControlUnit;
+
+    attribute primaryFunction : String =
+      "Interpret Demotic script artifacts by producing annotated transliterations and translations from captured artifact images.";
+
+    attribute supportedScript : String = "Egyptian Demotic";
+    attribute targetOutputLanguage : String = "English";
+    attribute nominalProcessingTime : ProcessingTime = 30.0;
+
+    perform action AcquireDemoticImage;
+    perform action LocateDemoticTextRegions;
+    perform action SegmentDemoticSigns;
+    perform action RecognizeAndTransliterate;
+    perform action TranslateDemoticReading;
+    perform action AssembleAnnotation;
+
+    exhibit state InterpretationLifecycle;
+
+    connect artifactImageIn to capture.imageIn;
+    connect capture.enhancedOut to enhancer.enhancedIn;
+    connect enhancer.regionOut to segmenter.regionIn;
+    connect segmenter.signOut to recognizer.signIn;
+    connect recognizer.transliterationOut to lexicalAnalyzer.transliterationIn;
+    connect recognizer.transliterationOut to annotationAssembler.transliterationIn;
+    connect lexicalAnalyzer.translationOut to annotationAssembler.translationIn;
+    connect annotationAssembler.annotationOut to annotationOut;
+    connect lexiconUpdateIn to lexicalAnalyzer.lexiconUpdateIn;
+    connect operatorCommandIn to operatorControl.commandIn;
+  }
+
+  part demoticInterpreter : DemoticReadingSystem {
+    :>> supportedScript = "Egyptian Demotic";
+    :>> targetOutputLanguage = "English";
+    :>> nominalProcessingTime = 30.0;
+  }
+
+  satisfy PrimaryFunctionRequirement by demoticInterpreter;
+  satisfy ImageAcceptanceRequirement by demoticInterpreter.capture;
+  satisfy RecognitionConfidenceRequirement by demoticInterpreter.recognizer;
+  satisfy LexiconTraceabilityRequirement by demoticInterpreter.lexicalAnalyzer;
+  satisfy ProcessingTimeRequirement by demoticInterpreter;
+}

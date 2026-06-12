@@ -1,0 +1,753 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zxhl4k7e
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb502-fc44-7d71-89b5-358364e5977b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Automatic number-plate recognition and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomaticNumberPlateRecognitionModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def PixelCount :> Integer;
+  attribute def ConfidenceScore :> Real;
+  attribute def Speed_km_per_h :> Real;
+  attribute def Duration_ms :> Real;
+  attribute def Illuminance_lx :> Real;
+  attribute def DataRate_Mbps :> Real;
+  attribute def Storage_GB :> Real;
+  attribute def Temperature_C :> Real;
+
+  enum def RecognitionStateKind {
+    enum idle;
+    enum monitoring;
+    enum acquiring;
+    enum processing;
+    enum reporting;
+    enum degraded;
+    enum faulted;
+  }
+
+  item def VehiclePresenceEvent {
+    attribute laneId : Integer;
+    attribute detectionTime : String;
+    attribute estimatedSpeed : Speed_km_per_h;
+  }
+
+  item def ImageFrame {
+    attribute frameId : String;
+    attribute timestamp : String;
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute exposureTime : Duration_ms;
+    attribute infraredIlluminance : Illuminance_lx;
+  }
+
+  item def PlateCandidate {
+    attribute candidateId : String;
+    attribute boundingBoxX : PixelCount;
+    attribute boundingBoxY : PixelCount;
+    attribute boundingBoxWidth : PixelCount;
+    attribute boundingBoxHeight : PixelCount;
+    attribute detectionConfidence : ConfidenceScore;
+  }
+
+  item def PlateReading {
+    attribute plateText : String;
+    attribute jurisdiction : String;
+    attribute ocrConfidence : ConfidenceScore;
+    attribute normalizedConfidence : ConfidenceScore;
+  }
+
+  item def RecognitionReport {
+    attribute reportId : String;
+    attribute laneId : Integer;
+    attribute timestamp : String;
+    attribute plateText : String;
+    attribute jurisdiction : String;
+    attribute vehicleSpeed : Speed_km_per_h;
+    attribute confidence : ConfidenceScore;
+    attribute evidenceImageUri : String;
+  }
+
+  item def HealthStatus {
+    attribute state : RecognitionStateKind;
+    attribute cameraOnline : Boolean;
+    attribute processorOnline : Boolean;
+    attribute networkOnline : Boolean;
+    attribute enclosureTemperature : Temperature_C;
+    attribute freeStorage : Storage_GB;
+  }
+
+  port def TriggerPort {
+    out item event : VehiclePresenceEvent;
+  }
+
+  port def ImagePort {
+    out item frame : ImageFrame;
+  }
+
+  port def CandidatePort {
+    out item candidate : PlateCandidate;
+  }
+
+  port def ReadingPort {
+    out item reading : PlateReading;
+  }
+
+  port def ReportPort {
+    out item report : RecognitionReport;
+  }
+
+  port def HealthPort {
+    out item status : HealthStatus;
+  }
+
+  port def CommandPort {
+    in item command : String;
+  }
+
+  part def VehicleDetector {
+    attribute detectionRange_m : Real;
+    attribute maximumMeasuredSpeed : Speed_km_per_h;
+    port triggerOut : TriggerPort;
+  }
+
+  part def InfraredIlluminator {
+    attribute peakWavelength_nm : Real;
+    attribute maximumIlluminance : Illuminance_lx;
+    attribute pulseDuration : Duration_ms;
+    port commandIn : CommandPort;
+    port healthOut : HealthPort;
+  }
+
+  part def HighSpeedCamera {
+    attribute sensorWidth : PixelCount;
+    attribute sensorHeight : PixelCount;
+    attribute maximumFrameRate_Hz : Real;
+    attribute minimumExposureTime : Duration_ms;
+    port triggerIn : TriggerPort;
+    port imageOut : ImagePort;
+    port commandIn : CommandPort;
+    port healthOut : HealthPort;
+  }
+
+  part def ImagePreprocessor {
+    attribute maximumLatency : Duration_ms;
+    port rawImageIn : ImagePort;
+    port enhancedImageOut : ImagePort;
+    port healthOut : HealthPort;
+  }
+
+  part def PlateDetector {
+    attribute minimumPlateHeight : PixelCount;
+    attribute detectionThreshold : ConfidenceScore;
+    port imageIn : ImagePort;
+    port candidateOut : CandidatePort;
+    port healthOut : HealthPort;
+  }
+
+  part def OpticalCharacterRecognizer {
+    attribute supportedAlphabet : String;
+    attribute minimumOcrConfidence : ConfidenceScore;
+    port candidateIn : CandidatePort;
+    port imageIn : ImagePort;
+    port readingOut : ReadingPort;
+    port healthOut : HealthPort;
+  }
+
+  part def ConfidenceEvaluator {
+    attribute acceptanceThreshold : ConfidenceScore;
+    attribute reviewThreshold : ConfidenceScore;
+    port readingIn : ReadingPort;
+    port reportOut : ReportPort;
+  }
+
+  part def EvidenceStore {
+    attribute retainedCapacity : Storage_GB;
+    attribute retentionDays : Integer;
+    port imageIn : ImagePort;
+    port reportIn : ReportPort;
+    port healthOut : HealthPort;
+  }
+
+  part def NetworkGateway {
+    attribute uplinkBandwidth : DataRate_Mbps;
+    attribute retryWindow : Duration_ms;
+    port reportIn : ReportPort;
+    port healthOut : HealthPort;
+  }
+
+  part def OperatorConsole {
+    port reportIn : ReportPort;
+    port healthIn : HealthPort;
+    port commandOut : CommandPort;
+  }
+
+  action def CaptureVehicleImage {
+    in item presence : VehiclePresenceEvent;
+    out item frame : ImageFrame;
+  }
+
+  action def EnhanceImage {
+    in item rawFrame : ImageFrame;
+    out item enhancedFrame : ImageFrame;
+  }
+
+  action def LocatePlate {
+    in item enhancedFrame : ImageFrame;
+    out item candidate : PlateCandidate;
+  }
+
+  action def ReadPlateCharacters {
+    in item candidate : PlateCandidate;
+    in item enhancedFrame : ImageFrame;
+    out item reading : PlateReading;
+  }
+
+  action def BuildRecognitionReport {
+    in item reading : PlateReading;
+    in item presence : VehiclePresenceEvent;
+    out item report : RecognitionReport;
+  }
+
+  action def RecognizeNumberPlate {
+    in item presence : VehiclePresenceEvent;
+    out item report : RecognitionReport;
+
+    action capture : CaptureVehicleImage;
+    action enhance : EnhanceImage;
+    action locate : LocatePlate;
+    action read : ReadPlateCharacters;
+    action build : BuildRecognitionReport;
+
+    flow presence to capture.presence;
+    flow capture.frame to enhance.rawFrame;
+    flow enhance.enhancedFrame to locate.enhancedFrame;
+    flow locate.candidate to read.candidate;
+    flow enhance.enhancedFrame to read.enhancedFrame;
+    flow read.reading to build.reading;
+    flow presence to build.presence;
+    flow build.report to report;
+
+    succession capture then enhance;
+    succession enhance then locate;
+    succession locate then read;
+    succession read then build;
+  }
+
+  state def ANPROperatingStates {
+    entry action initializeHardware;
+    state idle;
+    state monitoring;
+    state acquiring;
+    state processing;
+    state reporting;
+    state degraded;
+    state faulted;
+
+    transition initial then idle;
+    transition idle then monitoring;
+    transition monitoring then acquiring accept VehiclePresenceEvent;
+    transition acquiring then processing;
+    transition processing then reporting;
+    transition reporting then monitoring;
+    transition monitoring then degraded if cameraOnline == false or networkOnline == false;
+    transition degraded then monitoring if cameraOnline == true and networkOnline == true;
+    transition degraded then faulted if processorOnline == false;
+    transition faulted then idle accept "reset";
+  }
+
+  part def AutomaticNumberPlateRecognitionSystem {
+    attribute primaryFunction : String = "Automatically detect a vehicle, capture plate imagery, recognize the registration number, and publish a timestamped recognition report.";
+    attribute targetRecognitionLatency : Duration_ms = 750.0;
+    attribute minimumAcceptedConfidence : ConfidenceScore = 0.92;
+    attribute operatingState : RecognitionStateKind;
+
+    part detector : VehicleDetector {
+      attribute detectionRange_m = 35.0;
+      attribute maximumMeasuredSpeed = 180.0;
+    }
+
+    part illuminator : InfraredIlluminator {
+      attribute peakWavelength_nm = 850.0;
+      attribute maximumIlluminance = 12000.0;
+      attribute pulseDuration = 4.0;
+    }
+
+    part camera : HighSpeedCamera {
+      attribute sensorWidth = 4096;
+      attribute sensorHeight = 2160;
+      attribute maximumFrameRate_Hz = 120.0;
+      attribute minimumExposureTime = 0.25;
+    }
+
+    part preprocessor : ImagePreprocessor {
+      attribute maximumLatency = 80.0;
+    }
+
+    part plateDetector : PlateDetector {
+      attribute minimumPlateHeight = 32;
+      attribute detectionThreshold = 0.85;
+    }
+
+    part ocr : OpticalCharacterRecognizer {
+      attribute supportedAlphabet = "A-Z,0-9,hyphen,space";
+      attribute minimumOcrConfidence = 0.88;
+    }
+
+    part evaluator : ConfidenceEvaluator {
+      attribute acceptanceThreshold = 0.92;
+      attribute reviewThreshold = 0.75;
+    }
+
+    part store : EvidenceStore {
+      attribute retainedCapacity = 2048.0;
+      attribute retentionDays = 90;
+    }
+
+    part gateway : NetworkGateway {
+      attribute uplinkBandwidth = 50.0;
+      attribute retryWindow = 5000.0;
+    }
+
+    part console : OperatorConsole;
+
+    perform action recognition : RecognizeNumberPlate;
+    exhibit state behavior : ANPROperatingStates;
+
+    connect detector.triggerOut to camera.triggerIn;
+    connect camera.imageOut to preprocessor.rawImageIn;
+    connect preprocessor.enhancedImageOut to plateDetector.imageIn;
+    connect preprocessor.enhancedImageOut to ocr.imageIn;
+    connect plateDetector.candidateOut to ocr.candidateIn;
+    connect ocr.readingOut to evaluator.readingIn;
+    connect evaluator.reportOut to store.reportIn;
+    connect evaluator.reportOut to gateway.reportIn;
+    connect evaluator.reportOut to console.reportIn;
+    connect camera.imageOut to store.imageIn;
+    connect console.commandOut to camera.commandIn;
+    connect console.commandOut to illuminator.commandIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    doc /* The system shall provide automatic number-plate recognition by detecting a vehicle, capturing an image of its number plate, extracting plate text, estimating confidence, storing evidence, and sending a recognition report to external users. */
+  }
+
+  requirement def RecognitionLatencyRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.targetRecognitionLatency <= 750.0 }
+  }
+
+  requirement def RecognitionConfidenceRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.minimumAcceptedConfidence >= 0.92 }
+  }
+
+  requirement def EvidenceRetentionRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.store.retentionDays >= 90 }
+  }
+
+  requirement def CameraResolutionRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint {
+      system.camera.sensorWidth >= 3840 and system.camera.sensorHeight >= 2160
+    }
+  }
+
+  requirement def NetworkThroughputRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.gateway.uplinkBandwidth >= 10.0 }
+  }
+
+  part anprSystem : AutomaticNumberPlateRecognitionSystem;
+
+  satisfy PrimaryFunctionRequirement by anprSystem;
+  satisfy RecognitionLatencyRequirement by anprSystem;
+  satisfy RecognitionConfidenceRequirement by anprSystem;
+  satisfy EvidenceRetentionRequirement by anprSystem;
+  satisfy CameraResolutionRequirement by anprSystem;
+  satisfy NetworkThroughputRequirement by anprSystem;
+}
+tokens used
+4,344
+package AutomaticNumberPlateRecognitionModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def PixelCount :> Integer;
+  attribute def ConfidenceScore :> Real;
+  attribute def Speed_km_per_h :> Real;
+  attribute def Duration_ms :> Real;
+  attribute def Illuminance_lx :> Real;
+  attribute def DataRate_Mbps :> Real;
+  attribute def Storage_GB :> Real;
+  attribute def Temperature_C :> Real;
+
+  enum def RecognitionStateKind {
+    enum idle;
+    enum monitoring;
+    enum acquiring;
+    enum processing;
+    enum reporting;
+    enum degraded;
+    enum faulted;
+  }
+
+  item def VehiclePresenceEvent {
+    attribute laneId : Integer;
+    attribute detectionTime : String;
+    attribute estimatedSpeed : Speed_km_per_h;
+  }
+
+  item def ImageFrame {
+    attribute frameId : String;
+    attribute timestamp : String;
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute exposureTime : Duration_ms;
+    attribute infraredIlluminance : Illuminance_lx;
+  }
+
+  item def PlateCandidate {
+    attribute candidateId : String;
+    attribute boundingBoxX : PixelCount;
+    attribute boundingBoxY : PixelCount;
+    attribute boundingBoxWidth : PixelCount;
+    attribute boundingBoxHeight : PixelCount;
+    attribute detectionConfidence : ConfidenceScore;
+  }
+
+  item def PlateReading {
+    attribute plateText : String;
+    attribute jurisdiction : String;
+    attribute ocrConfidence : ConfidenceScore;
+    attribute normalizedConfidence : ConfidenceScore;
+  }
+
+  item def RecognitionReport {
+    attribute reportId : String;
+    attribute laneId : Integer;
+    attribute timestamp : String;
+    attribute plateText : String;
+    attribute jurisdiction : String;
+    attribute vehicleSpeed : Speed_km_per_h;
+    attribute confidence : ConfidenceScore;
+    attribute evidenceImageUri : String;
+  }
+
+  item def HealthStatus {
+    attribute state : RecognitionStateKind;
+    attribute cameraOnline : Boolean;
+    attribute processorOnline : Boolean;
+    attribute networkOnline : Boolean;
+    attribute enclosureTemperature : Temperature_C;
+    attribute freeStorage : Storage_GB;
+  }
+
+  port def TriggerPort {
+    out item event : VehiclePresenceEvent;
+  }
+
+  port def ImagePort {
+    out item frame : ImageFrame;
+  }
+
+  port def CandidatePort {
+    out item candidate : PlateCandidate;
+  }
+
+  port def ReadingPort {
+    out item reading : PlateReading;
+  }
+
+  port def ReportPort {
+    out item report : RecognitionReport;
+  }
+
+  port def HealthPort {
+    out item status : HealthStatus;
+  }
+
+  port def CommandPort {
+    in item command : String;
+  }
+
+  part def VehicleDetector {
+    attribute detectionRange_m : Real;
+    attribute maximumMeasuredSpeed : Speed_km_per_h;
+    port triggerOut : TriggerPort;
+  }
+
+  part def InfraredIlluminator {
+    attribute peakWavelength_nm : Real;
+    attribute maximumIlluminance : Illuminance_lx;
+    attribute pulseDuration : Duration_ms;
+    port commandIn : CommandPort;
+    port healthOut : HealthPort;
+  }
+
+  part def HighSpeedCamera {
+    attribute sensorWidth : PixelCount;
+    attribute sensorHeight : PixelCount;
+    attribute maximumFrameRate_Hz : Real;
+    attribute minimumExposureTime : Duration_ms;
+    port triggerIn : TriggerPort;
+    port imageOut : ImagePort;
+    port commandIn : CommandPort;
+    port healthOut : HealthPort;
+  }
+
+  part def ImagePreprocessor {
+    attribute maximumLatency : Duration_ms;
+    port rawImageIn : ImagePort;
+    port enhancedImageOut : ImagePort;
+    port healthOut : HealthPort;
+  }
+
+  part def PlateDetector {
+    attribute minimumPlateHeight : PixelCount;
+    attribute detectionThreshold : ConfidenceScore;
+    port imageIn : ImagePort;
+    port candidateOut : CandidatePort;
+    port healthOut : HealthPort;
+  }
+
+  part def OpticalCharacterRecognizer {
+    attribute supportedAlphabet : String;
+    attribute minimumOcrConfidence : ConfidenceScore;
+    port candidateIn : CandidatePort;
+    port imageIn : ImagePort;
+    port readingOut : ReadingPort;
+    port healthOut : HealthPort;
+  }
+
+  part def ConfidenceEvaluator {
+    attribute acceptanceThreshold : ConfidenceScore;
+    attribute reviewThreshold : ConfidenceScore;
+    port readingIn : ReadingPort;
+    port reportOut : ReportPort;
+  }
+
+  part def EvidenceStore {
+    attribute retainedCapacity : Storage_GB;
+    attribute retentionDays : Integer;
+    port imageIn : ImagePort;
+    port reportIn : ReportPort;
+    port healthOut : HealthPort;
+  }
+
+  part def NetworkGateway {
+    attribute uplinkBandwidth : DataRate_Mbps;
+    attribute retryWindow : Duration_ms;
+    port reportIn : ReportPort;
+    port healthOut : HealthPort;
+  }
+
+  part def OperatorConsole {
+    port reportIn : ReportPort;
+    port healthIn : HealthPort;
+    port commandOut : CommandPort;
+  }
+
+  action def CaptureVehicleImage {
+    in item presence : VehiclePresenceEvent;
+    out item frame : ImageFrame;
+  }
+
+  action def EnhanceImage {
+    in item rawFrame : ImageFrame;
+    out item enhancedFrame : ImageFrame;
+  }
+
+  action def LocatePlate {
+    in item enhancedFrame : ImageFrame;
+    out item candidate : PlateCandidate;
+  }
+
+  action def ReadPlateCharacters {
+    in item candidate : PlateCandidate;
+    in item enhancedFrame : ImageFrame;
+    out item reading : PlateReading;
+  }
+
+  action def BuildRecognitionReport {
+    in item reading : PlateReading;
+    in item presence : VehiclePresenceEvent;
+    out item report : RecognitionReport;
+  }
+
+  action def RecognizeNumberPlate {
+    in item presence : VehiclePresenceEvent;
+    out item report : RecognitionReport;
+
+    action capture : CaptureVehicleImage;
+    action enhance : EnhanceImage;
+    action locate : LocatePlate;
+    action read : ReadPlateCharacters;
+    action build : BuildRecognitionReport;
+
+    flow presence to capture.presence;
+    flow capture.frame to enhance.rawFrame;
+    flow enhance.enhancedFrame to locate.enhancedFrame;
+    flow locate.candidate to read.candidate;
+    flow enhance.enhancedFrame to read.enhancedFrame;
+    flow read.reading to build.reading;
+    flow presence to build.presence;
+    flow build.report to report;
+
+    succession capture then enhance;
+    succession enhance then locate;
+    succession locate then read;
+    succession read then build;
+  }
+
+  state def ANPROperatingStates {
+    entry action initializeHardware;
+    state idle;
+    state monitoring;
+    state acquiring;
+    state processing;
+    state reporting;
+    state degraded;
+    state faulted;
+
+    transition initial then idle;
+    transition idle then monitoring;
+    transition monitoring then acquiring accept VehiclePresenceEvent;
+    transition acquiring then processing;
+    transition processing then reporting;
+    transition reporting then monitoring;
+    transition monitoring then degraded if cameraOnline == false or networkOnline == false;
+    transition degraded then monitoring if cameraOnline == true and networkOnline == true;
+    transition degraded then faulted if processorOnline == false;
+    transition faulted then idle accept "reset";
+  }
+
+  part def AutomaticNumberPlateRecognitionSystem {
+    attribute primaryFunction : String = "Automatically detect a vehicle, capture plate imagery, recognize the registration number, and publish a timestamped recognition report.";
+    attribute targetRecognitionLatency : Duration_ms = 750.0;
+    attribute minimumAcceptedConfidence : ConfidenceScore = 0.92;
+    attribute operatingState : RecognitionStateKind;
+
+    part detector : VehicleDetector {
+      attribute detectionRange_m = 35.0;
+      attribute maximumMeasuredSpeed = 180.0;
+    }
+
+    part illuminator : InfraredIlluminator {
+      attribute peakWavelength_nm = 850.0;
+      attribute maximumIlluminance = 12000.0;
+      attribute pulseDuration = 4.0;
+    }
+
+    part camera : HighSpeedCamera {
+      attribute sensorWidth = 4096;
+      attribute sensorHeight = 2160;
+      attribute maximumFrameRate_Hz = 120.0;
+      attribute minimumExposureTime = 0.25;
+    }
+
+    part preprocessor : ImagePreprocessor {
+      attribute maximumLatency = 80.0;
+    }
+
+    part plateDetector : PlateDetector {
+      attribute minimumPlateHeight = 32;
+      attribute detectionThreshold = 0.85;
+    }
+
+    part ocr : OpticalCharacterRecognizer {
+      attribute supportedAlphabet = "A-Z,0-9,hyphen,space";
+      attribute minimumOcrConfidence = 0.88;
+    }
+
+    part evaluator : ConfidenceEvaluator {
+      attribute acceptanceThreshold = 0.92;
+      attribute reviewThreshold = 0.75;
+    }
+
+    part store : EvidenceStore {
+      attribute retainedCapacity = 2048.0;
+      attribute retentionDays = 90;
+    }
+
+    part gateway : NetworkGateway {
+      attribute uplinkBandwidth = 50.0;
+      attribute retryWindow = 5000.0;
+    }
+
+    part console : OperatorConsole;
+
+    perform action recognition : RecognizeNumberPlate;
+    exhibit state behavior : ANPROperatingStates;
+
+    connect detector.triggerOut to camera.triggerIn;
+    connect camera.imageOut to preprocessor.rawImageIn;
+    connect preprocessor.enhancedImageOut to plateDetector.imageIn;
+    connect preprocessor.enhancedImageOut to ocr.imageIn;
+    connect plateDetector.candidateOut to ocr.candidateIn;
+    connect ocr.readingOut to evaluator.readingIn;
+    connect evaluator.reportOut to store.reportIn;
+    connect evaluator.reportOut to gateway.reportIn;
+    connect evaluator.reportOut to console.reportIn;
+    connect camera.imageOut to store.imageIn;
+    connect console.commandOut to camera.commandIn;
+    connect console.commandOut to illuminator.commandIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    doc /* The system shall provide automatic number-plate recognition by detecting a vehicle, capturing an image of its number plate, extracting plate text, estimating confidence, storing evidence, and sending a recognition report to external users. */
+  }
+
+  requirement def RecognitionLatencyRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.targetRecognitionLatency <= 750.0 }
+  }
+
+  requirement def RecognitionConfidenceRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.minimumAcceptedConfidence >= 0.92 }
+  }
+
+  requirement def EvidenceRetentionRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.store.retentionDays >= 90 }
+  }
+
+  requirement def CameraResolutionRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint {
+      system.camera.sensorWidth >= 3840 and system.camera.sensorHeight >= 2160
+    }
+  }
+
+  requirement def NetworkThroughputRequirement {
+    subject system : AutomaticNumberPlateRecognitionSystem;
+    require constraint { system.gateway.uplinkBandwidth >= 10.0 }
+  }
+
+  part anprSystem : AutomaticNumberPlateRecognitionSystem;
+
+  satisfy PrimaryFunctionRequirement by anprSystem;
+  satisfy RecognitionLatencyRequirement by anprSystem;
+  satisfy RecognitionConfidenceRequirement by anprSystem;
+  satisfy EvidenceRetentionRequirement by anprSystem;
+  satisfy CameraResolutionRequirement by anprSystem;
+  satisfy NetworkThroughputRequirement by anprSystem;
+}

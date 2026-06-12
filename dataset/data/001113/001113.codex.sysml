@@ -1,0 +1,593 @@
+package LORROS_Model {
+  import ScalarValues::*;
+
+  value type Kilogram specializes Real;
+  value type Meter specializes Real;
+  value type Second specializes Real;
+  value type Newton specializes Real;
+  value type Watt specializes Real;
+  value type Volt specializes Real;
+  value type KilogramPerSecond specializes Real;
+  value type MeterPerSecond specializes Real;
+  value type MeterPerSecondSquared specializes Real;
+  value type Degree specializes Real;
+  value type Liter specializes Real;
+  value type Percent specializes Real;
+  value type Pascal specializes Real;
+  value type BytePerSecond specializes Real;
+
+  enum def MissionPhase {
+    enum standby;
+    enum launchSupport;
+    enum orbitalCheckout;
+    enum clientRendezvous;
+    enum proximityOperations;
+    enum inspection;
+    enum docking;
+    enum refueling;
+    enum repair;
+    enum verification;
+    enum departure;
+    enum safeMode;
+    enum disposal;
+  }
+
+  enum def DockingStatus {
+    enum undocked;
+    enum softCaptured;
+    enum hardDocked;
+    enum releaseCommanded;
+  }
+
+  enum def RepairTaskKind {
+    enum connectorReseat;
+    enum panelReplacement;
+    enum thermalBlanketPatch;
+    enum antennaDeploymentAssist;
+    enum valveActuation;
+    enum sensorCleaning;
+  }
+
+  enum def PropellantKind {
+    enum hydrazine;
+    enum xenon;
+    enum nitrogenTetroxide;
+    enum monoMethylHydrazine;
+    enum greenMonopropellant;
+  }
+
+  item def Propellant {
+    attribute kind : PropellantKind;
+    attribute mass : Kilogram;
+    attribute temperature : Real;
+    attribute pressure : Pascal;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Volt;
+    attribute power : Watt;
+  }
+
+  item def TelemetryPacket {
+    attribute sourceId : String;
+    attribute timestamp : Second;
+    attribute payloadSize : BytePerSecond;
+    attribute healthSummary : String;
+  }
+
+  item def CommandPacket {
+    attribute destinationId : String;
+    attribute commandCode : String;
+    attribute issueTime : Second;
+    attribute priority : Integer;
+  }
+
+  item def RelativeNavigationSolution {
+    attribute range : Meter;
+    attribute rangeRate : MeterPerSecond;
+    attribute bearingAzimuth : Degree;
+    attribute bearingElevation : Degree;
+    attribute covarianceIndex : Real;
+  }
+
+  item def InspectionImage {
+    attribute resolutionPixels : Integer;
+    attribute captureRange : Meter;
+    attribute illuminationLevel : Percent;
+    attribute defectProbability : Percent;
+  }
+
+  item def RepairTool {
+    attribute taskKind : RepairTaskKind;
+    attribute toolMass : Kilogram;
+    attribute ratedForce : Newton;
+    attribute powerDemand : Watt;
+  }
+
+  port def CommandPort {
+    in item command : CommandPacket;
+  }
+
+  port def TelemetryPort {
+    out item telemetry : TelemetryPacket;
+  }
+
+  port def DataExchangePort {
+    in item uplink : CommandPacket;
+    out item downlink : TelemetryPacket;
+  }
+
+  port def NavigationPort {
+    out item relativeState : RelativeNavigationSolution;
+  }
+
+  port def PropellantTransferPort {
+    inout item propellant : Propellant;
+    attribute maximumFlowRate : KilogramPerSecond;
+    attribute maximumPressure : Pascal;
+  }
+
+  port def PowerPort {
+    inout item power : ElectricalPower;
+    attribute ratedVoltage : Volt;
+    attribute ratedPower : Watt;
+  }
+
+  port def RoboticToolPort {
+    out item selectedTool : RepairTool;
+    attribute availableForce : Newton;
+  }
+
+  port def ImagePort {
+    out item image : InspectionImage;
+  }
+
+  port def DockingPort {
+    attribute status : DockingStatus;
+    attribute captureLoadLimit : Newton;
+    attribute alignmentTolerance : Degree;
+  }
+
+  part def FlightComputer {
+    attribute processorLoad : Percent;
+    attribute memoryUse : Percent;
+    attribute faultCount : Integer;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def GuidanceNavigationControl {
+    attribute maximumAcceleration : MeterPerSecondSquared;
+    attribute pointingError : Degree;
+    attribute deltaVRemaining : MeterPerSecond;
+    port navOut : NavigationPort;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def PropulsionModule {
+    attribute dryMass : Kilogram;
+    attribute propellantCapacity : Kilogram;
+    attribute usablePropellant : Kilogram;
+    attribute minimumReserve : Kilogram;
+    attribute maximumThrust : Newton;
+    port transferPort : PropellantTransferPort;
+    port power : PowerPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def RefuelingModule {
+    attribute transferEfficiency : Percent;
+    attribute meteringAccuracy : Percent;
+    attribute leakRateLimit : KilogramPerSecond;
+    attribute linePurgeVolume : Liter;
+    port tankSide : PropellantTransferPort;
+    port clientSide : PropellantTransferPort;
+    port power : PowerPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def RoboticServicerArm {
+    attribute reach : Meter;
+    attribute endEffectorForce : Newton;
+    attribute jointCount : Integer;
+    attribute positioningError : Meter;
+    port toolPort : RoboticToolPort;
+    port power : PowerPort;
+    port commandIn : CommandPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def InspectionSensorSuite {
+    attribute opticalRange : Meter;
+    attribute lidarRange : Meter;
+    attribute minimumDetectableDefect : Meter;
+    attribute scanRate : Real;
+    port imageOut : ImagePort;
+    port navOut : NavigationPort;
+    port power : PowerPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def DockingAndCaptureAssembly {
+    attribute captureEnvelopeRadius : Meter;
+    attribute hardDockLoadLimit : Newton;
+    attribute sealIntegrityLimit : Pascal;
+    port activeDock : DockingPort;
+    port clientDock : DockingPort;
+    port power : PowerPort;
+    port telemetryOut : TelemetryPort;
+  }
+
+  part def PowerSubsystem {
+    attribute solarArrayPower : Watt;
+    attribute batteryCapacity : Watt;
+    attribute busVoltage : Volt;
+    attribute stateOfCharge : Percent;
+    port computerPower : PowerPort;
+    port gncPower : PowerPort;
+    port propulsionPower : PowerPort;
+    port refuelPower : PowerPort;
+    port armPower : PowerPort;
+    port sensorPower : PowerPort;
+    port dockingPower : PowerPort;
+  }
+
+  part def CommunicationSubsystem {
+    attribute downlinkRate : BytePerSecond;
+    attribute uplinkRate : BytePerSecond;
+    attribute antennaGain : Real;
+    port groundLink : DataExchangePort;
+    port computerCommand : CommandPort;
+    port telemetryIn : TelemetryPort;
+  }
+
+  part def ClientSpacecraftInterface {
+    attribute clientMassEstimate : Kilogram;
+    attribute requestedPropellantMass : Kilogram;
+    attribute compatiblePropellant : PropellantKind;
+    attribute repairRequest : RepairTaskKind;
+    port dockingAdapter : DockingPort;
+    port fuelServicePort : PropellantTransferPort;
+    port powerServicePort : PowerPort;
+    port dataLink : DataExchangePort;
+  }
+
+  part def LORROS {
+    attribute systemName : String = "Low Orbit Robotic Refueling and Repair Operations System";
+    attribute primaryFunction : String = "Autonomously rendezvous with a client spacecraft in low orbit, inspect it, dock safely, transfer compatible propellant, execute selected external repair tasks, verify service success, and depart without degrading client mission capability.";
+    attribute launchMass : Kilogram;
+    attribute serviceOrbitAltitude : Meter;
+    attribute missionElapsedTime : Second;
+    attribute currentPhase : MissionPhase;
+
+    part computer : FlightComputer {
+      attribute processorLoad = 35.0;
+      attribute memoryUse = 42.0;
+      attribute faultCount = 0;
+    }
+
+    part gnc : GuidanceNavigationControl {
+      attribute maximumAcceleration = 0.035;
+      attribute pointingError = 0.05;
+      attribute deltaVRemaining = 180.0;
+    }
+
+    part propulsion : PropulsionModule {
+      attribute dryMass = 220.0;
+      attribute propellantCapacity = 450.0;
+      attribute usablePropellant = 410.0;
+      attribute minimumReserve = 55.0;
+      attribute maximumThrust = 220.0;
+    }
+
+    part refueling : RefuelingModule {
+      attribute transferEfficiency = 98.5;
+      attribute meteringAccuracy = 0.75;
+      attribute leakRateLimit = 0.00001;
+      attribute linePurgeVolume = 1.8;
+    }
+
+    part roboticArm : RoboticServicerArm {
+      attribute reach = 3.2;
+      attribute endEffectorForce = 120.0;
+      attribute jointCount = 7;
+      attribute positioningError = 0.004;
+    }
+
+    part sensors : InspectionSensorSuite {
+      attribute opticalRange = 50.0;
+      attribute lidarRange = 120.0;
+      attribute minimumDetectableDefect = 0.002;
+      attribute scanRate = 4.0;
+    }
+
+    part docking : DockingAndCaptureAssembly {
+      attribute captureEnvelopeRadius = 0.35;
+      attribute hardDockLoadLimit = 2500.0;
+      attribute sealIntegrityLimit = 350000.0;
+    }
+
+    part power : PowerSubsystem {
+      attribute solarArrayPower = 4200.0;
+      attribute batteryCapacity = 6500.0;
+      attribute busVoltage = 120.0;
+      attribute stateOfCharge = 88.0;
+    }
+
+    part communications : CommunicationSubsystem {
+      attribute downlinkRate = 12000000.0;
+      attribute uplinkRate = 2000000.0;
+      attribute antennaGain = 22.0;
+    }
+
+    part clientInterface : ClientSpacecraftInterface {
+      attribute clientMassEstimate = 1800.0;
+      attribute requestedPropellantMass = 75.0;
+      attribute compatiblePropellant = PropellantKind::greenMonopropellant;
+      attribute repairRequest = RepairTaskKind::antennaDeploymentAssist;
+    }
+
+    connect communications.computerCommand to computer.commandIn;
+    connect computer.telemetryOut to communications.telemetryIn;
+    connect computer.commandIn to gnc.commandIn;
+    connect computer.commandIn to roboticArm.commandIn;
+    connect sensors.navOut to gnc.navOut;
+    connect propulsion.transferPort to refueling.tankSide;
+    connect refueling.clientSide to clientInterface.fuelServicePort;
+    connect docking.activeDock to clientInterface.dockingAdapter;
+    connect clientInterface.dataLink to communications.groundLink;
+    connect power.computerPower to computer.commandIn;
+    connect power.gncPower to gnc.power;
+    connect power.propulsionPower to propulsion.power;
+    connect power.refuelPower to refueling.power;
+    connect power.armPower to roboticArm.power;
+    connect power.sensorPower to sensors.power;
+    connect power.dockingPower to docking.power;
+  }
+
+  action def InitializeLORROS {
+    inout lorros : LORROS;
+    first start;
+    then checkPower;
+    then checkComputer;
+    then checkPropulsion;
+    then checkSensors;
+    then enterStandby;
+    action checkPower {
+      lorros.power.stateOfCharge >= 70.0;
+    }
+    action checkComputer {
+      lorros.computer.faultCount == 0;
+    }
+    action checkPropulsion {
+      lorros.propulsion.usablePropellant > lorros.propulsion.minimumReserve;
+    }
+    action checkSensors {
+      lorros.sensors.opticalRange >= 50.0;
+    }
+    action enterStandby {
+      lorros.currentPhase = MissionPhase::standby;
+    }
+  }
+
+  action def PerformPrimaryServiceMission {
+    inout lorros : LORROS;
+    in requestedFuelMass : Kilogram;
+    in taskKind : RepairTaskKind;
+    out serviced : Boolean;
+
+    first receiveMission;
+    then rendezvous;
+    then inspectClient;
+    then dockWithClient;
+    then transferPropellant;
+    then executeRepair;
+    then verifyService;
+    then departClient;
+
+    action receiveMission {
+      lorros.currentPhase = MissionPhase::clientRendezvous;
+      lorros.clientInterface.requestedPropellantMass = requestedFuelMass;
+      lorros.clientInterface.repairRequest = taskKind;
+    }
+
+    action rendezvous {
+      lorros.gnc.deltaVRemaining > 80.0;
+      lorros.currentPhase = MissionPhase::proximityOperations;
+    }
+
+    action inspectClient {
+      lorros.currentPhase = MissionPhase::inspection;
+      lorros.sensors.minimumDetectableDefect <= 0.005;
+    }
+
+    action dockWithClient {
+      lorros.currentPhase = MissionPhase::docking;
+      lorros.docking.activeDock.status = DockingStatus::hardDocked;
+    }
+
+    action transferPropellant {
+      lorros.currentPhase = MissionPhase::refueling;
+      lorros.propulsion.usablePropellant >= requestedFuelMass + lorros.propulsion.minimumReserve;
+      lorros.propulsion.usablePropellant = lorros.propulsion.usablePropellant - requestedFuelMass;
+    }
+
+    action executeRepair {
+      lorros.currentPhase = MissionPhase::repair;
+      lorros.roboticArm.endEffectorForce >= 60.0;
+    }
+
+    action verifyService {
+      lorros.currentPhase = MissionPhase::verification;
+      serviced = true;
+    }
+
+    action departClient {
+      lorros.docking.activeDock.status = DockingStatus::undocked;
+      lorros.currentPhase = MissionPhase::departure;
+    }
+  }
+
+  state def LORROSOperationalState {
+    inout lorros : LORROS;
+
+    state Standby;
+    state OrbitalCheckout;
+    state Rendezvous;
+    state ProximityOperations;
+    state Inspection;
+    state Docking;
+    state Refueling;
+    state Repair;
+    state Verification;
+    state Departure;
+    state SafeMode;
+    state Disposal;
+
+    initial then Standby;
+
+    transition Standby_to_OrbitalCheckout
+      first Standby
+      accept CommandPacket
+      then OrbitalCheckout;
+
+    transition OrbitalCheckout_to_Rendezvous
+      first OrbitalCheckout
+      if lorros.computer.faultCount == 0 and lorros.power.stateOfCharge >= 70.0
+      then Rendezvous;
+
+    transition Rendezvous_to_ProximityOperations
+      first Rendezvous
+      if lorros.gnc.deltaVRemaining > 90.0
+      then ProximityOperations;
+
+    transition ProximityOperations_to_Inspection
+      first ProximityOperations
+      if lorros.sensors.lidarRange >= 50.0
+      then Inspection;
+
+    transition Inspection_to_Docking
+      first Inspection
+      if lorros.docking.activeDock.alignmentTolerance <= 1.0
+      then Docking;
+
+    transition Docking_to_Refueling
+      first Docking
+      if lorros.docking.activeDock.status == DockingStatus::hardDocked
+      then Refueling;
+
+    transition Refueling_to_Repair
+      first Refueling
+      if lorros.propulsion.usablePropellant >= lorros.propulsion.minimumReserve
+      then Repair;
+
+    transition Repair_to_Verification
+      first Repair
+      if lorros.roboticArm.positioningError <= 0.01
+      then Verification;
+
+    transition Verification_to_Departure
+      first Verification
+      then Departure;
+
+    transition Any_to_SafeMode
+      first Standby
+      accept CommandPacket
+      then SafeMode;
+
+    transition Departure_to_Disposal
+      first Departure
+      if lorros.propulsion.usablePropellant < lorros.propulsion.minimumReserve
+      then Disposal;
+  }
+
+  requirement def LORROSPrimaryFunctionRequirement {
+    subject system : LORROS;
+    doc /* LORROS shall provide autonomous low-orbit robotic servicing by performing rendezvous, inspection, docking, refueling, repair, verification, and departure for a compatible client spacecraft. */
+    require constraint {
+      system.primaryFunction == "Autonomously rendezvous with a client spacecraft in low orbit, inspect it, dock safely, transfer compatible propellant, execute selected external repair tasks, verify service success, and depart without degrading client mission capability."
+    }
+  }
+
+  requirement def PropellantReserveRequirement {
+    subject system : LORROS;
+    attribute requiredReserve : Kilogram = 55.0;
+    require constraint {
+      system.propulsion.usablePropellant >= requiredReserve
+    }
+  }
+
+  requirement def RefuelingAccuracyRequirement {
+    subject system : LORROS;
+    attribute maximumMeteringError : Percent = 1.0;
+    require constraint {
+      system.refueling.meteringAccuracy <= maximumMeteringError
+    }
+  }
+
+  requirement def DockingAlignmentRequirement {
+    subject system : LORROS;
+    attribute maximumAlignmentError : Degree = 1.0;
+    require constraint {
+      system.docking.activeDock.alignmentTolerance <= maximumAlignmentError
+    }
+  }
+
+  requirement def RoboticRepairReachRequirement {
+    subject system : LORROS;
+    attribute minimumReach : Meter = 3.0;
+    require constraint {
+      system.roboticArm.reach >= minimumReach
+    }
+  }
+
+  requirement def InspectionDetectionRequirement {
+    subject system : LORROS;
+    attribute maximumDetectableDefectSize : Meter = 0.005;
+    require constraint {
+      system.sensors.minimumDetectableDefect <= maximumDetectableDefectSize
+    }
+  }
+
+  requirement def CommunicationsRequirement {
+    subject system : LORROS;
+    attribute minimumDownlinkRate : BytePerSecond = 5000000.0;
+    require constraint {
+      system.communications.downlinkRate >= minimumDownlinkRate
+    }
+  }
+
+  requirement def PowerContinuityRequirement {
+    subject system : LORROS;
+    attribute minimumServiceStateOfCharge : Percent = 35.0;
+    require constraint {
+      system.power.stateOfCharge >= minimumServiceStateOfCharge
+    }
+  }
+
+  requirement def SafeDockLoadRequirement {
+    subject system : LORROS;
+    attribute requiredHardDockLoadLimit : Newton = 2000.0;
+    require constraint {
+      system.docking.hardDockLoadLimit >= requiredHardDockLoadLimit
+    }
+  }
+
+  part lorrosFlightUnit : LORROS {
+    attribute launchMass = 1350.0;
+    attribute serviceOrbitAltitude = 550000.0;
+    attribute missionElapsedTime = 0.0;
+    attribute currentPhase = MissionPhase::standby;
+  }
+
+  satisfy LORROSPrimaryFunctionRequirement by lorrosFlightUnit;
+  satisfy PropellantReserveRequirement by lorrosFlightUnit;
+  satisfy RefuelingAccuracyRequirement by lorrosFlightUnit;
+  satisfy DockingAlignmentRequirement by lorrosFlightUnit;
+  satisfy RoboticRepairReachRequirement by lorrosFlightUnit;
+  satisfy InspectionDetectionRequirement by lorrosFlightUnit;
+  satisfy CommunicationsRequirement by lorrosFlightUnit;
+  satisfy PowerContinuityRequirement by lorrosFlightUnit;
+  satisfy SafeDockLoadRequirement by lorrosFlightUnit;
+}

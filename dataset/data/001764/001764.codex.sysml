@@ -1,0 +1,384 @@
+package CoolingTowerSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Temperature {
+        :> scalarValue;
+        unit : TemperatureUnit;
+    }
+
+    attribute def Pressure {
+        :> scalarValue;
+        unit : PressureUnit;
+    }
+
+    attribute def MassFlowRate {
+        :> scalarValue;
+        unit : MassFlowRateUnit;
+    }
+
+    attribute def VolumeFlowRate {
+        :> scalarValue;
+        unit : VolumeFlowRateUnit;
+    }
+
+    attribute def Power {
+        :> scalarValue;
+        unit : PowerUnit;
+    }
+
+    attribute def RelativeHumidity {
+        :> scalarValue;
+        unit = "%";
+    }
+
+    attribute def HeatTransferRate {
+        :> scalarValue;
+        unit : PowerUnit;
+    }
+
+    item def Water {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute massFlowRate : MassFlowRate;
+        attribute dissolvedSolids_ppm : Real;
+    }
+
+    item def Air {
+        attribute dryBulbTemperature : Temperature;
+        attribute wetBulbTemperature : Temperature;
+        attribute relativeHumidity : RelativeHumidity;
+        attribute massFlowRate : MassFlowRate;
+    }
+
+    item def Heat {
+        attribute heatRate : HeatTransferRate;
+    }
+
+    item def ElectricalEnergy {
+        attribute power : Power;
+        attribute voltage : Real;
+        attribute frequency : Real;
+    }
+
+    port def WaterPort {
+        inout water : Water;
+    }
+
+    port def AirPort {
+        inout air : Air;
+    }
+
+    port def HeatPort {
+        out heat : Heat;
+    }
+
+    port def ElectricalPort {
+        in energy : ElectricalEnergy;
+    }
+
+    part def CoolingTower {
+        attribute designHeatRejection : HeatTransferRate = 3500 [kW];
+        attribute designHotWaterTemperature : Temperature = 35 [degC];
+        attribute designColdWaterTemperature : Temperature = 29 [degC];
+        attribute designWetBulbTemperature : Temperature = 24 [degC];
+        attribute approachTemperature : Temperature = 5 [K];
+        attribute rangeTemperature : Temperature = 6 [K];
+        attribute circulatingWaterFlow : MassFlowRate = 140 [kg/s];
+        attribute fanPowerDemand : Power = 75 [kW];
+
+        port hotWaterIn : WaterPort;
+        port cooledWaterOut : WaterPort;
+        port ambientAirIn : AirPort;
+        port warmMoistAirOut : AirPort;
+        port rejectedHeatOut : HeatPort;
+        port electricalSupply : ElectricalPort;
+
+        part basin : ColdWaterBasin;
+        part fillPack : HeatExchangeFill;
+        part spraySystem : WaterDistributionSystem;
+        part fanAssembly : InducedDraftFanAssembly;
+        part driftEliminator : DriftEliminator;
+        part casing : TowerCasing;
+        part controller : CoolingTowerController;
+        part sensors : InstrumentationSet;
+
+        connect hotWaterIn to spraySystem.waterIn;
+        connect spraySystem.distributedWaterOut to fillPack.hotWaterIn;
+        connect ambientAirIn to fillPack.airIn;
+        connect fillPack.cooledWaterOut to basin.waterIn;
+        connect basin.waterOut to cooledWaterOut;
+        connect fillPack.moistAirOut to driftEliminator.airIn;
+        connect driftEliminator.airOut to fanAssembly.airIn;
+        connect fanAssembly.airOut to warmMoistAirOut;
+        connect fillPack.rejectedHeatOut to rejectedHeatOut;
+        connect electricalSupply to fanAssembly.electricalPower;
+        connect electricalSupply to controller.electricalPower;
+        connect sensors.temperatureSignalOut to controller.temperatureSignalIn;
+        connect controller.fanCommandOut to fanAssembly.speedCommandIn;
+        connect controller.makeupCommandOut to basin.makeupValveCommandIn;
+
+        action coolProcess {
+            in hotWater : Water;
+            in ambientAir : Air;
+            out cooledWater : Water;
+            out exhaustAir : Air;
+            out rejectedHeat : Heat;
+
+            first startWaterDistribution;
+            then contactWaterWithAir;
+            then evaporateFractionOfWater;
+            then rejectSensibleAndLatentHeat;
+            then collectCooledWater;
+
+            action startWaterDistribution {
+                in hotWater : Water;
+                out sprayedWater : Water;
+            }
+
+            action contactWaterWithAir {
+                in sprayedWater : Water;
+                in ambientAir : Air;
+                out mixedWaterFilm : Water;
+                out humidifiedAir : Air;
+            }
+
+            action evaporateFractionOfWater {
+                in mixedWaterFilm : Water;
+                out concentratedWater : Water;
+                out latentHeatRemoval : Heat;
+            }
+
+            action rejectSensibleAndLatentHeat {
+                in concentratedWater : Water;
+                in humidifiedAir : Air;
+                out lowerTemperatureWater : Water;
+                out warmMoistAir : Air;
+                out rejectedHeat : Heat;
+            }
+
+            action collectCooledWater {
+                in lowerTemperatureWater : Water;
+                out cooledWater : Water;
+            }
+        }
+
+        state def OperatingStateMachine {
+            state off;
+            state standby;
+            state circulating;
+            state cooling;
+            state faulted;
+
+            initial then off;
+
+            transition off_to_standby
+                first off
+                accept PowerAvailable
+                then standby;
+
+            transition standby_to_circulating
+                first standby
+                accept CoolingDemand
+                then circulating;
+
+            transition circulating_to_cooling
+                first circulating
+                accept WaterFlowConfirmed
+                then cooling;
+
+            transition cooling_to_standby
+                first cooling
+                accept CoolingDemandCleared
+                then standby;
+
+            transition any_to_faulted
+                first off
+                accept CriticalFault
+                then faulted;
+
+            transition faulted_to_standby
+                first faulted
+                accept FaultReset
+                then standby;
+        }
+
+        requirement primaryFunctionRequirement {
+            id = "CT-REQ-001";
+            text = "The cooling tower shall reject heat from warm process water to the atmosphere by direct contact with ambient air and partial evaporation, delivering cooled water back to the process loop.";
+        }
+
+        requirement heatRejectionRequirement {
+            id = "CT-REQ-002";
+            text = "The cooling tower shall reject at least 3500 kW of heat at the design circulating water flow, design inlet water temperature, and design ambient wet-bulb temperature.";
+        }
+
+        requirement outletTemperatureRequirement {
+            id = "CT-REQ-003";
+            text = "The cooling tower shall provide cooled water at or below 29 degC when operating at design conditions.";
+        }
+
+        requirement driftRequirement {
+            id = "CT-REQ-004";
+            text = "The cooling tower shall limit liquid water drift in the exhaust air to no more than 0.005 percent of circulating water flow.";
+        }
+
+        requirement controllabilityRequirement {
+            id = "CT-REQ-005";
+            text = "The cooling tower shall modulate fan speed to maintain the commanded cold-water temperature setpoint during normal operation.";
+        }
+
+        satisfy primaryFunctionRequirement by CoolingTower;
+        satisfy heatRejectionRequirement by fillPack;
+        satisfy outletTemperatureRequirement by controller;
+        satisfy driftRequirement by driftEliminator;
+        satisfy controllabilityRequirement by controller;
+    }
+
+    part def WaterDistributionSystem {
+        attribute nozzleCount : Integer = 48;
+        attribute distributionPressure : Pressure = 75 [kPa];
+
+        port waterIn : WaterPort;
+        port distributedWaterOut : WaterPort;
+    }
+
+    part def HeatExchangeFill {
+        attribute fillVolume : Real = 42.0;
+        attribute effectiveSurfaceArea : Real = 1850.0;
+        attribute evaporationFraction : Real = 0.012;
+        attribute heatTransferCapacity : HeatTransferRate = 3600 [kW];
+
+        port hotWaterIn : WaterPort;
+        port cooledWaterOut : WaterPort;
+        port airIn : AirPort;
+        port moistAirOut : AirPort;
+        port rejectedHeatOut : HeatPort;
+    }
+
+    part def ColdWaterBasin {
+        attribute storageVolume : Real = 55.0;
+        attribute minimumOperatingLevel : Real = 1.1;
+        attribute maximumOperatingLevel : Real = 2.4;
+        attribute basinWaterTemperature : Temperature;
+
+        port waterIn : WaterPort;
+        port waterOut : WaterPort;
+        port makeupValveCommandIn : ControlSignalPort;
+    }
+
+    part def InducedDraftFanAssembly {
+        attribute fanDiameter : Real = 4.8;
+        attribute ratedAirFlow : MassFlowRate = 165 [kg/s];
+        attribute ratedPower : Power = 75 [kW];
+        attribute speedCommand : Real;
+
+        port airIn : AirPort;
+        port airOut : AirPort;
+        port electricalPower : ElectricalPort;
+        port speedCommandIn : ControlSignalPort;
+    }
+
+    part def DriftEliminator {
+        attribute driftRemovalEfficiency : Real = 99.995;
+        attribute maximumDriftFraction : Real = 0.00005;
+
+        port airIn : AirPort;
+        port airOut : AirPort;
+    }
+
+    part def TowerCasing {
+        attribute material = "fiber reinforced polymer";
+        attribute corrosionAllowance : Real = 0.0;
+        attribute designWindSpeed : Real = 45.0;
+    }
+
+    part def CoolingTowerController {
+        attribute coldWaterSetpoint : Temperature = 29 [degC];
+        attribute fanSpeedMinimum : Real = 20.0;
+        attribute fanSpeedMaximum : Real = 100.0;
+        attribute controlMode = "automatic temperature control";
+
+        port electricalPower : ElectricalPort;
+        port temperatureSignalIn : SignalPort;
+        port fanCommandOut : ControlSignalPort;
+        port makeupCommandOut : ControlSignalPort;
+
+        action regulateColdWaterTemperature {
+            in measuredColdWaterTemperature : Temperature;
+            in setpoint : Temperature;
+            out fanSpeedCommand : Real;
+
+            first compareTemperature;
+            then computeFanDemand;
+            then issueFanCommand;
+
+            action compareTemperature {
+                in measuredColdWaterTemperature : Temperature;
+                in setpoint : Temperature;
+                out temperatureError : Temperature;
+            }
+
+            action computeFanDemand {
+                in temperatureError : Temperature;
+                out fanSpeedCommand : Real;
+            }
+
+            action issueFanCommand {
+                in fanSpeedCommand : Real;
+            }
+        }
+    }
+
+    part def InstrumentationSet {
+        part hotWaterTemperatureSensor : TemperatureSensor;
+        part coldWaterTemperatureSensor : TemperatureSensor;
+        part basinLevelSensor : LevelSensor;
+        part airflowSensor : FlowSensor;
+
+        port temperatureSignalOut : SignalPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeMinimum : Temperature = 0 [degC];
+        attribute measurementRangeMaximum : Temperature = 80 [degC];
+        attribute accuracy : Temperature = 0.2 [K];
+
+        port signalOut : SignalPort;
+    }
+
+    part def LevelSensor {
+        attribute measurementRangeMinimum : Real = 0.0;
+        attribute measurementRangeMaximum : Real = 3.0;
+        attribute accuracy : Real = 0.02;
+
+        port signalOut : SignalPort;
+    }
+
+    part def FlowSensor {
+        attribute measurementRangeMinimum : MassFlowRate = 0 [kg/s];
+        attribute measurementRangeMaximum : MassFlowRate = 250 [kg/s];
+        attribute accuracyPercent : Real = 1.0;
+
+        port signalOut : SignalPort;
+    }
+
+    port def SignalPort {
+        out signalValue : Real;
+    }
+
+    port def ControlSignalPort {
+        inout commandValue : Real;
+    }
+
+    part coolingTowerSystem : CoolingTower {
+        attribute designHeatRejection = 3500 [kW];
+        attribute designHotWaterTemperature = 35 [degC];
+        attribute designColdWaterTemperature = 29 [degC];
+        attribute designWetBulbTemperature = 24 [degC];
+        attribute circulatingWaterFlow = 140 [kg/s];
+    }
+
+}

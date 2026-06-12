@@ -1,0 +1,467 @@
+package FuelInjectionSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    item def Fuel {
+        attribute density : Real = 745.0;
+        attribute lowerHeatingValue : Real = 44.0;
+    }
+
+    item def Air {
+        attribute temperature : Real;
+        attribute pressure : Real;
+        attribute massFlowRate : Real;
+    }
+
+    item def FuelMist :> Fuel {
+        attribute dropletMeanDiameter : Real;
+        attribute sprayConeAngle : Real;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+    }
+
+    item def ControlSignal {
+        attribute commandValue : Real;
+        attribute timestamp : Real;
+    }
+
+    item def SensorSignal :> ControlSignal {
+        attribute measuredValue : Real;
+        attribute validity : Boolean;
+    }
+
+    item def CombustibleMixture {
+        attribute airFuelRatio : Real;
+        attribute equivalenceRatio : Real;
+        attribute mixtureTemperature : Real;
+    }
+
+    value def Pressure {
+        :>> unit = "kPa";
+        :>> quantityKind = "pressure";
+    }
+
+    value def FlowRate {
+        :>> unit = "mg/cycle";
+        :>> quantityKind = "fuel mass per engine cycle";
+    }
+
+    value def TimeDuration {
+        :>> unit = "ms";
+        :>> quantityKind = "time";
+    }
+
+    value def Temperature {
+        :>> unit = "degC";
+        :>> quantityKind = "temperature";
+    }
+
+    value def EngineSpeed {
+        :>> unit = "rpm";
+        :>> quantityKind = "rotational speed";
+    }
+
+    value def Angle {
+        :>> unit = "degCA";
+        :>> quantityKind = "crank angle";
+    }
+
+    port def FuelInletPort {
+        in item fuel : Fuel;
+    }
+
+    port def FuelOutletPort {
+        out item fuel : Fuel;
+    }
+
+    port def AtomizedFuelPort {
+        out item spray : FuelMist;
+    }
+
+    port def AirPort {
+        in item air : Air;
+    }
+
+    port def MixturePort {
+        out item mixture : CombustibleMixture;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def SensorPort {
+        out item signal : SensorSignal;
+    }
+
+    port def CommandPort {
+        in item command : ControlSignal;
+    }
+
+    port def DiagnosticPort {
+        out item diagnostic : SensorSignal;
+    }
+
+    part def FuelTank {
+        attribute usableFuelVolume : Real = 55.0;
+        attribute fuelLevel : Real;
+        port fuelOut : FuelOutletPort;
+    }
+
+    part def LowPressurePump {
+        attribute outletPressure : Pressure = 450.0;
+        attribute maximumFlowRate : FlowRate = 850.0;
+        port fuelIn : FuelInletPort;
+        port fuelOut : FuelOutletPort;
+        port powerIn : ElectricalPowerPort;
+    }
+
+    part def FuelFilter {
+        attribute filtrationRating : Real = 5.0;
+        attribute pressureDrop : Pressure;
+        port fuelIn : FuelInletPort;
+        port fuelOut : FuelOutletPort;
+    }
+
+    part def HighPressurePump {
+        attribute railTargetPressure : Pressure = 18000.0;
+        attribute maximumPressure : Pressure = 22000.0;
+        port fuelIn : FuelInletPort;
+        port fuelOut : FuelOutletPort;
+        port commandIn : CommandPort;
+    }
+
+    part def FuelRail {
+        attribute storedPressure : Pressure;
+        attribute volume : Real = 35.0;
+        port fuelIn : FuelInletPort;
+        port injectorFeed1 : FuelOutletPort;
+        port injectorFeed2 : FuelOutletPort;
+        port injectorFeed3 : FuelOutletPort;
+        port injectorFeed4 : FuelOutletPort;
+        port pressureSignal : SensorPort;
+    }
+
+    part def Injector {
+        attribute nozzleHoleCount : Integer = 6;
+        attribute nominalFlowRate : FlowRate = 42.0;
+        attribute minimumPulseWidth : TimeDuration = 0.35;
+        attribute maximumPulseWidth : TimeDuration = 8.0;
+        attribute injectionPressure : Pressure;
+        attribute commandedPulseWidth : TimeDuration;
+        attribute injectionStartAngle : Angle;
+        port fuelIn : FuelInletPort;
+        port commandIn : CommandPort;
+        port sprayOut : AtomizedFuelPort;
+
+        state def InjectorStateMachine {
+            state closed;
+            state energized;
+            state opening;
+            state injecting;
+            state closing;
+            state faulted;
+
+            initial then closed;
+
+            transition closed_to_energized
+                first closed
+                then energized
+                accept ControlSignal
+                if commandValue > 0.0;
+
+            transition energized_to_opening
+                first energized
+                then opening;
+
+            transition opening_to_injecting
+                first opening
+                then injecting;
+
+            transition injecting_to_closing
+                first injecting
+                then closing
+                accept ControlSignal
+                if commandValue <= 0.0;
+
+            transition closing_to_closed
+                first closing
+                then closed;
+
+            transition any_to_faulted
+                first closed
+                then faulted
+                if injectionPressure < 2500.0;
+        }
+    }
+
+    part def ElectronicControlUnit {
+        attribute targetAirFuelRatio : Real = 14.7;
+        attribute calculatedFuelMass : FlowRate;
+        attribute calculatedPulseWidth : TimeDuration;
+        attribute commandedInjectionAngle : Angle;
+        port powerIn : ElectricalPowerPort;
+        port railPressureIn : CommandPort;
+        port crankSensorIn : CommandPort;
+        port throttleSensorIn : CommandPort;
+        port manifoldPressureIn : CommandPort;
+        port injectorCommand1 : CommandPort;
+        port injectorCommand2 : CommandPort;
+        port injectorCommand3 : CommandPort;
+        port injectorCommand4 : CommandPort;
+        port pumpCommand : CommandPort;
+        port diagnosticOut : DiagnosticPort;
+
+        action def ComputeInjectionCommand {
+            in attribute engineSpeed : EngineSpeed;
+            in attribute manifoldPressure : Pressure;
+            in attribute airTemperature : Temperature;
+            in attribute throttlePosition : Real;
+            in attribute railPressure : Pressure;
+            out attribute fuelMassPerCycle : FlowRate;
+            out attribute pulseWidth : TimeDuration;
+            out attribute injectionAngle : Angle;
+
+            objective {
+                fuelMassPerCycle == manifoldPressure * throttlePosition / targetAirFuelRatio;
+                pulseWidth == fuelMassPerCycle / railPressure;
+                injectionAngle == 360.0;
+            }
+        }
+    }
+
+    part def IntakeManifold {
+        attribute manifoldPressure : Pressure;
+        attribute airTemperature : Temperature;
+        port airIn : AirPort;
+        port mixtureIn : MixturePort;
+    }
+
+    part def CombustionChamber {
+        attribute cylinderIndex : Integer;
+        attribute compressionRatio : Real = 10.5;
+        port airIn : AirPort;
+        port injectedFuelIn : AtomizedFuelPort;
+        port mixtureOut : MixturePort;
+
+        action def FormMixture {
+            in item airCharge : Air;
+            in item injectedFuel : FuelMist;
+            out item mixture : CombustibleMixture;
+        }
+    }
+
+    part def EngineSensors {
+        port crankshaftPosition : SensorPort;
+        port throttlePosition : SensorPort;
+        port manifoldPressure : SensorPort;
+        port oxygenFeedback : SensorPort;
+    }
+
+    part def FuelInjectionSystem {
+        attribute primaryFunction : String =
+            "Meter, pressurize, atomize, and deliver fuel into engine intake air or combustion chambers at commanded timing and quantity to support efficient combustion.";
+
+        attribute nominalRailPressure : Pressure = 16000.0;
+        attribute idleFuelQuantity : FlowRate = 8.5;
+        attribute fullLoadFuelQuantity : FlowRate = 52.0;
+        attribute responseTimeLimit : TimeDuration = 2.0;
+
+        part tank : FuelTank;
+        part liftPump : LowPressurePump;
+        part filter : FuelFilter;
+        part highPressurePump : HighPressurePump;
+        part rail : FuelRail;
+        part ecu : ElectronicControlUnit;
+        part sensors : EngineSensors;
+        part intake : IntakeManifold;
+
+        part cylinder1 : CombustionChamber {
+            :>> cylinderIndex = 1;
+        }
+
+        part cylinder2 : CombustionChamber {
+            :>> cylinderIndex = 2;
+        }
+
+        part cylinder3 : CombustionChamber {
+            :>> cylinderIndex = 3;
+        }
+
+        part cylinder4 : CombustionChamber {
+            :>> cylinderIndex = 4;
+        }
+
+        part injector1 : Injector;
+        part injector2 : Injector;
+        part injector3 : Injector;
+        part injector4 : Injector;
+
+        connect tank.fuelOut to liftPump.fuelIn;
+        connect liftPump.fuelOut to filter.fuelIn;
+        connect filter.fuelOut to highPressurePump.fuelIn;
+        connect highPressurePump.fuelOut to rail.fuelIn;
+
+        connect rail.injectorFeed1 to injector1.fuelIn;
+        connect rail.injectorFeed2 to injector2.fuelIn;
+        connect rail.injectorFeed3 to injector3.fuelIn;
+        connect rail.injectorFeed4 to injector4.fuelIn;
+
+        connect injector1.sprayOut to cylinder1.injectedFuelIn;
+        connect injector2.sprayOut to cylinder2.injectedFuelIn;
+        connect injector3.sprayOut to cylinder3.injectedFuelIn;
+        connect injector4.sprayOut to cylinder4.injectedFuelIn;
+
+        connect sensors.crankshaftPosition to ecu.crankSensorIn;
+        connect sensors.throttlePosition to ecu.throttleSensorIn;
+        connect sensors.manifoldPressure to ecu.manifoldPressureIn;
+        connect rail.pressureSignal to ecu.railPressureIn;
+
+        connect ecu.injectorCommand1 to injector1.commandIn;
+        connect ecu.injectorCommand2 to injector2.commandIn;
+        connect ecu.injectorCommand3 to injector3.commandIn;
+        connect ecu.injectorCommand4 to injector4.commandIn;
+        connect ecu.pumpCommand to highPressurePump.commandIn;
+
+        perform action MeterAndInjectFuel {
+            first perform ecu.ComputeInjectionCommand;
+            then send ecu.injectorCommand1 to injector1.commandIn;
+            then send ecu.injectorCommand2 to injector2.commandIn;
+            then send ecu.injectorCommand3 to injector3.commandIn;
+            then send ecu.injectorCommand4 to injector4.commandIn;
+        }
+
+        state def SystemOperatingState {
+            state off;
+            state priming;
+            state pressureReady;
+            state cranking;
+            state runningClosedLoop;
+            state runningOpenLoop;
+            state limpHome;
+            state shutdown;
+
+            initial then off;
+
+            transition off_to_priming
+                first off
+                then priming
+                accept ControlSignal
+                if commandValue == 1.0;
+
+            transition priming_to_pressureReady
+                first priming
+                then pressureReady
+                if rail.storedPressure >= 3500.0;
+
+            transition pressureReady_to_cranking
+                first pressureReady
+                then cranking
+                accept SensorSignal
+                if measuredValue > 50.0;
+
+            transition cranking_to_runningOpenLoop
+                first cranking
+                then runningOpenLoop
+                if rail.storedPressure >= 8000.0;
+
+            transition runningOpenLoop_to_runningClosedLoop
+                first runningOpenLoop
+                then runningClosedLoop
+                accept SensorSignal
+                if validity == true;
+
+            transition runningClosedLoop_to_limpHome
+                first runningClosedLoop
+                then limpHome
+                if rail.storedPressure < 5000.0;
+
+            transition runningOpenLoop_to_limpHome
+                first runningOpenLoop
+                then limpHome
+                if rail.storedPressure < 5000.0;
+
+            transition runningClosedLoop_to_shutdown
+                first runningClosedLoop
+                then shutdown
+                accept ControlSignal
+                if commandValue == 0.0;
+
+            transition shutdown_to_off
+                first shutdown
+                then off;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject injectionSystem : FuelInjectionSystem;
+
+        doc
+        /* The fuel injection system shall provide the primary function of delivering a controlled quantity of pressurized, atomized fuel to each cylinder at the commanded crank angle so that the engine can form a combustible air-fuel mixture. */
+
+        require constraint {
+            injectionSystem.nominalRailPressure >= 12000.0 and
+            injectionSystem.responseTimeLimit <= 2.0
+        }
+    }
+
+    requirement def FuelMeteringAccuracyRequirement {
+        subject injectionSystem : FuelInjectionSystem;
+
+        doc
+        /* The commanded injected fuel quantity shall be metered within plus or minus three percent during normal closed-loop operation. */
+
+        require constraint {
+            injectionSystem.fullLoadFuelQuantity >= injectionSystem.idleFuelQuantity
+        }
+    }
+
+    requirement def AtomizationRequirement {
+        subject injector : Injector;
+
+        doc
+        /* Each injector shall atomize fuel into a spray suitable for mixing with intake air or in-cylinder charge under normal rail pressure. */
+
+        require constraint {
+            injector.nozzleHoleCount >= 4 and
+            injector.minimumPulseWidth <= 0.5
+        }
+    }
+
+    requirement def PressureControlRequirement {
+        subject rail : FuelRail;
+
+        doc
+        /* The fuel rail shall maintain fuel pressure sufficient to support injection across idle, transient, and full-load operating conditions. */
+
+        require constraint {
+            rail.storedPressure >= 3500.0
+        }
+    }
+
+    requirement def FaultResponseRequirement {
+        subject injectionSystem : FuelInjectionSystem;
+
+        doc
+        /* The system shall enter a degraded operating state when fuel pressure is insufficient for commanded injection. */
+
+        require constraint {
+            injectionSystem.nominalRailPressure > 5000.0
+        }
+    }
+
+    part fuelInjectionArchitecture : FuelInjectionSystem;
+
+    satisfy PrimaryFunctionRequirement by fuelInjectionArchitecture;
+    satisfy FuelMeteringAccuracyRequirement by fuelInjectionArchitecture;
+    satisfy PressureControlRequirement by fuelInjectionArchitecture.rail;
+    satisfy AtomizationRequirement by fuelInjectionArchitecture.injector1;
+    satisfy AtomizationRequirement by fuelInjectionArchitecture.injector2;
+    satisfy AtomizationRequirement by fuelInjectionArchitecture.injector3;
+    satisfy AtomizationRequirement by fuelInjectionArchitecture.injector4;
+    satisfy FaultResponseRequirement by fuelInjectionArchitecture;
+}

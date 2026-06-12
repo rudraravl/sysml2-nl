@@ -1,0 +1,691 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-igdydnuk
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb60a-5ac9-7362-a8b6-7b51587c8953
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Speedometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SpeedometerModel {
+
+  attribute def VehicleSpeed {
+    attribute value : Real;
+    attribute unit : String = "km/h";
+  }
+
+  attribute def WheelAngularSpeed {
+    attribute value : Real;
+    attribute unit : String = "rad/s";
+  }
+
+  attribute def TireRadius {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def TimeInterval {
+    attribute value : Real;
+    attribute unit : String = "ms";
+  }
+
+  item def WheelRotationPulse {
+    attribute pulseCount : Integer;
+    attribute samplePeriod : TimeInterval;
+  }
+
+  item def SpeedEstimate {
+    attribute speed : VehicleSpeed;
+    attribute valid : Boolean;
+  }
+
+  item def DisplayCommand {
+    attribute indicatedSpeed : VehicleSpeed;
+    attribute warningActive : Boolean;
+  }
+
+  port def WheelSensorPort {
+    in item pulse : WheelRotationPulse;
+  }
+
+  port def PowerPort {
+    in attribute supplyVoltage : Voltage;
+  }
+
+  port def DisplayPort {
+    out item command : DisplayCommand;
+  }
+
+  port def DriverViewPort {
+    out attribute visibleSpeed : VehicleSpeed;
+  }
+
+  port def DiagnosticPort {
+    out attribute faultCode : String;
+    out attribute sensorHealthy : Boolean;
+  }
+
+  action def AcquireWheelPulses {
+    in item pulse : WheelRotationPulse;
+    out item rawPulse : WheelRotationPulse;
+  }
+
+  action def CalculateVehicleSpeed {
+    in item rawPulse : WheelRotationPulse;
+    in attribute tireRadius : TireRadius;
+    out item estimate : SpeedEstimate;
+  }
+
+  action def FilterSpeed {
+    in item estimate : SpeedEstimate;
+    out item filteredEstimate : SpeedEstimate;
+  }
+
+  action def RenderSpeed {
+    in item filteredEstimate : SpeedEstimate;
+    out item command : DisplayCommand;
+  }
+
+  action def ReportFault {
+    in attribute reason : String;
+    out attribute faultCode : String;
+  }
+
+  part def WheelSpeedSensorInterface {
+    port wheelInput : WheelSensorPort;
+    port processorOutput : WheelSensorPort;
+
+    perform action acquire : AcquireWheelPulses {
+      in pulse = wheelInput.pulse;
+      out rawPulse = processorOutput.pulse;
+    }
+  }
+
+  part def SpeedProcessor {
+    port sensorInput : WheelSensorPort;
+    port displayOutput : DisplayPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    attribute tireRadius : TireRadius = (value = 0.315, unit = "m");
+    attribute currentSpeed : VehicleSpeed = (value = 0.0, unit = "km/h");
+    attribute maximumDisplayedSpeed : VehicleSpeed = (value = 260.0, unit = "km/h");
+
+    perform action calculate : CalculateVehicleSpeed {
+      in rawPulse = sensorInput.pulse;
+      in tireRadius = tireRadius;
+    }
+
+    perform action filter : FilterSpeed {
+      in estimate = calculate.estimate;
+    }
+
+    perform action render : RenderSpeed {
+      in filteredEstimate = filter.filteredEstimate;
+      out command = displayOutput.command;
+    }
+
+    state speedProcessingState {
+      entry action initialize {
+        currentSpeed = (value = 0.0, unit = "km/h");
+      }
+
+      state WaitingForSignal;
+      state ComputingSpeed;
+      state ValidSpeed;
+      state SensorFault;
+
+      transition first WaitingForSignal;
+
+      transition WaitingForSignal_to_ComputingSpeed
+        first WaitingForSignal
+        then ComputingSpeed
+        accept sensorInput.pulse;
+
+      transition ComputingSpeed_to_ValidSpeed
+        first ComputingSpeed
+        then ValidSpeed
+        if calculate.estimate.valid == true;
+
+      transition ComputingSpeed_to_SensorFault
+        first ComputingSpeed
+        then SensorFault
+        if calculate.estimate.valid == false;
+
+      transition ValidSpeed_to_ComputingSpeed
+        first ValidSpeed
+        then ComputingSpeed
+        accept sensorInput.pulse;
+
+      transition SensorFault_to_WaitingForSignal
+        first SensorFault
+        then WaitingForSignal
+        if diagnosticOutput.sensorHealthy == true;
+    }
+  }
+
+  part def DigitalSpeedDisplay {
+    port displayInput : DisplayPort;
+    port driverView : DriverViewPort;
+
+    attribute refreshPeriod : TimeInterval = (value = 100.0, unit = "ms");
+    attribute shownSpeed : VehicleSpeed = (value = 0.0, unit = "km/h");
+
+    perform action updateDisplay {
+      in item command : DisplayCommand = displayInput.command;
+      out attribute visibleSpeed : VehicleSpeed = driverView.visibleSpeed;
+    }
+
+    state displayState {
+      state Blank;
+      state ShowingSpeed;
+      state ShowingWarning;
+
+      transition first Blank;
+
+      transition Blank_to_ShowingSpeed
+        first Blank
+        then ShowingSpeed
+        if displayInput.command.warningActive == false;
+
+      transition ShowingSpeed_to_ShowingWarning
+        first ShowingSpeed
+        then ShowingWarning
+        if displayInput.command.warningActive == true;
+
+      transition ShowingWarning_to_ShowingSpeed
+        first ShowingWarning
+        then ShowingSpeed
+        if displayInput.command.warningActive == false;
+    }
+  }
+
+  part def PowerManager {
+    port powerInput : PowerPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    attribute minimumOperatingVoltage : Voltage = (value = 9.0, unit = "V");
+    attribute nominalVoltage : Voltage = (value = 12.0, unit = "V");
+
+    state powerState {
+      state Off;
+      state Starting;
+      state Powered;
+      state Undervoltage;
+
+      transition first Off;
+
+      transition Off_to_Starting
+        first Off
+        then Starting
+        if powerInput.supplyVoltage.value >= minimumOperatingVoltage.value;
+
+      transition Starting_to_Powered
+        first Starting
+        then Powered;
+
+      transition Powered_to_Undervoltage
+        first Powered
+        then Undervoltage
+        if powerInput.supplyVoltage.value < minimumOperatingVoltage.value;
+
+      transition Undervoltage_to_Powered
+        first Undervoltage
+        then Powered
+        if powerInput.supplyVoltage.value >= minimumOperatingVoltage.value;
+    }
+  }
+
+  part def SpeedometerSystem {
+    port wheelSensorInput : WheelSensorPort;
+    port vehiclePower : PowerPort;
+    port driverOutput : DriverViewPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    part sensorInterface : WheelSpeedSensorInterface;
+    part processor : SpeedProcessor;
+    part display : DigitalSpeedDisplay;
+    part powerManager : PowerManager;
+
+    connect wheelSensorInput to sensorInterface.wheelInput;
+    connect sensorInterface.processorOutput to processor.sensorInput;
+    connect processor.displayOutput to display.displayInput;
+    connect display.driverView to driverOutput;
+    connect processor.diagnosticOutput to diagnosticOutput;
+    connect powerManager.diagnosticOutput to diagnosticOutput;
+    connect vehiclePower to powerManager.powerInput;
+
+    state systemState {
+      state Off;
+      state SelfTest;
+      state Measuring;
+      state Degraded;
+      state Failed;
+
+      transition first Off;
+
+      transition Off_to_SelfTest
+        first Off
+        then SelfTest
+        if vehiclePower.supplyVoltage.value >= 9.0;
+
+      transition SelfTest_to_Measuring
+        first SelfTest
+        then Measuring
+        if diagnosticOutput.sensorHealthy == true;
+
+      transition SelfTest_to_Failed
+        first SelfTest
+        then Failed
+        if diagnosticOutput.sensorHealthy == false;
+
+      transition Measuring_to_Degraded
+        first Measuring
+        then Degraded
+        if diagnosticOutput.faultCode != "";
+
+      transition Degraded_to_Measuring
+        first Degraded
+        then Measuring
+        if diagnosticOutput.faultCode == "";
+
+      transition Measuring_to_Off
+        first Measuring
+        then Off
+        if vehiclePower.supplyVoltage.value < 9.0;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject speedometer : SpeedometerSystem;
+
+    require constraint {
+      speedometer shall acquire wheel rotation information, compute vehicle road speed, and present a continuously updated speed indication to the driver.
+    }
+  }
+
+  requirement def SpeedAccuracyRequirement {
+    subject processor : SpeedProcessor;
+
+    require constraint {
+      processor.currentSpeed.value >= 0.0 and processor.currentSpeed.value <= processor.maximumDisplayedSpeed.value;
+    }
+  }
+
+  requirement def DisplayRefreshRequirement {
+    subject display : DigitalSpeedDisplay;
+
+    require constraint {
+      display.refreshPeriod.value <= 100.0;
+    }
+  }
+
+  requirement def PowerOperationRequirement {
+    subject powerManager : PowerManager;
+
+    require constraint {
+      powerManager.minimumOperatingVoltage.value == 9.0;
+    }
+  }
+
+  requirement def FaultDetectionRequirement {
+    subject speedometer : SpeedometerSystem;
+
+    require constraint {
+      speedometer.diagnosticOutput.sensorHealthy == false implies speedometer.diagnosticOutput.faultCode != "";
+    }
+  }
+
+  part vehicleSpeedometer : SpeedometerSystem;
+
+}
+tokens used
+3,823
+package SpeedometerModel {
+
+  attribute def VehicleSpeed {
+    attribute value : Real;
+    attribute unit : String = "km/h";
+  }
+
+  attribute def WheelAngularSpeed {
+    attribute value : Real;
+    attribute unit : String = "rad/s";
+  }
+
+  attribute def TireRadius {
+    attribute value : Real;
+    attribute unit : String = "m";
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def TimeInterval {
+    attribute value : Real;
+    attribute unit : String = "ms";
+  }
+
+  item def WheelRotationPulse {
+    attribute pulseCount : Integer;
+    attribute samplePeriod : TimeInterval;
+  }
+
+  item def SpeedEstimate {
+    attribute speed : VehicleSpeed;
+    attribute valid : Boolean;
+  }
+
+  item def DisplayCommand {
+    attribute indicatedSpeed : VehicleSpeed;
+    attribute warningActive : Boolean;
+  }
+
+  port def WheelSensorPort {
+    in item pulse : WheelRotationPulse;
+  }
+
+  port def PowerPort {
+    in attribute supplyVoltage : Voltage;
+  }
+
+  port def DisplayPort {
+    out item command : DisplayCommand;
+  }
+
+  port def DriverViewPort {
+    out attribute visibleSpeed : VehicleSpeed;
+  }
+
+  port def DiagnosticPort {
+    out attribute faultCode : String;
+    out attribute sensorHealthy : Boolean;
+  }
+
+  action def AcquireWheelPulses {
+    in item pulse : WheelRotationPulse;
+    out item rawPulse : WheelRotationPulse;
+  }
+
+  action def CalculateVehicleSpeed {
+    in item rawPulse : WheelRotationPulse;
+    in attribute tireRadius : TireRadius;
+    out item estimate : SpeedEstimate;
+  }
+
+  action def FilterSpeed {
+    in item estimate : SpeedEstimate;
+    out item filteredEstimate : SpeedEstimate;
+  }
+
+  action def RenderSpeed {
+    in item filteredEstimate : SpeedEstimate;
+    out item command : DisplayCommand;
+  }
+
+  action def ReportFault {
+    in attribute reason : String;
+    out attribute faultCode : String;
+  }
+
+  part def WheelSpeedSensorInterface {
+    port wheelInput : WheelSensorPort;
+    port processorOutput : WheelSensorPort;
+
+    perform action acquire : AcquireWheelPulses {
+      in pulse = wheelInput.pulse;
+      out rawPulse = processorOutput.pulse;
+    }
+  }
+
+  part def SpeedProcessor {
+    port sensorInput : WheelSensorPort;
+    port displayOutput : DisplayPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    attribute tireRadius : TireRadius = (value = 0.315, unit = "m");
+    attribute currentSpeed : VehicleSpeed = (value = 0.0, unit = "km/h");
+    attribute maximumDisplayedSpeed : VehicleSpeed = (value = 260.0, unit = "km/h");
+
+    perform action calculate : CalculateVehicleSpeed {
+      in rawPulse = sensorInput.pulse;
+      in tireRadius = tireRadius;
+    }
+
+    perform action filter : FilterSpeed {
+      in estimate = calculate.estimate;
+    }
+
+    perform action render : RenderSpeed {
+      in filteredEstimate = filter.filteredEstimate;
+      out command = displayOutput.command;
+    }
+
+    state speedProcessingState {
+      entry action initialize {
+        currentSpeed = (value = 0.0, unit = "km/h");
+      }
+
+      state WaitingForSignal;
+      state ComputingSpeed;
+      state ValidSpeed;
+      state SensorFault;
+
+      transition first WaitingForSignal;
+
+      transition WaitingForSignal_to_ComputingSpeed
+        first WaitingForSignal
+        then ComputingSpeed
+        accept sensorInput.pulse;
+
+      transition ComputingSpeed_to_ValidSpeed
+        first ComputingSpeed
+        then ValidSpeed
+        if calculate.estimate.valid == true;
+
+      transition ComputingSpeed_to_SensorFault
+        first ComputingSpeed
+        then SensorFault
+        if calculate.estimate.valid == false;
+
+      transition ValidSpeed_to_ComputingSpeed
+        first ValidSpeed
+        then ComputingSpeed
+        accept sensorInput.pulse;
+
+      transition SensorFault_to_WaitingForSignal
+        first SensorFault
+        then WaitingForSignal
+        if diagnosticOutput.sensorHealthy == true;
+    }
+  }
+
+  part def DigitalSpeedDisplay {
+    port displayInput : DisplayPort;
+    port driverView : DriverViewPort;
+
+    attribute refreshPeriod : TimeInterval = (value = 100.0, unit = "ms");
+    attribute shownSpeed : VehicleSpeed = (value = 0.0, unit = "km/h");
+
+    perform action updateDisplay {
+      in item command : DisplayCommand = displayInput.command;
+      out attribute visibleSpeed : VehicleSpeed = driverView.visibleSpeed;
+    }
+
+    state displayState {
+      state Blank;
+      state ShowingSpeed;
+      state ShowingWarning;
+
+      transition first Blank;
+
+      transition Blank_to_ShowingSpeed
+        first Blank
+        then ShowingSpeed
+        if displayInput.command.warningActive == false;
+
+      transition ShowingSpeed_to_ShowingWarning
+        first ShowingSpeed
+        then ShowingWarning
+        if displayInput.command.warningActive == true;
+
+      transition ShowingWarning_to_ShowingSpeed
+        first ShowingWarning
+        then ShowingSpeed
+        if displayInput.command.warningActive == false;
+    }
+  }
+
+  part def PowerManager {
+    port powerInput : PowerPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    attribute minimumOperatingVoltage : Voltage = (value = 9.0, unit = "V");
+    attribute nominalVoltage : Voltage = (value = 12.0, unit = "V");
+
+    state powerState {
+      state Off;
+      state Starting;
+      state Powered;
+      state Undervoltage;
+
+      transition first Off;
+
+      transition Off_to_Starting
+        first Off
+        then Starting
+        if powerInput.supplyVoltage.value >= minimumOperatingVoltage.value;
+
+      transition Starting_to_Powered
+        first Starting
+        then Powered;
+
+      transition Powered_to_Undervoltage
+        first Powered
+        then Undervoltage
+        if powerInput.supplyVoltage.value < minimumOperatingVoltage.value;
+
+      transition Undervoltage_to_Powered
+        first Undervoltage
+        then Powered
+        if powerInput.supplyVoltage.value >= minimumOperatingVoltage.value;
+    }
+  }
+
+  part def SpeedometerSystem {
+    port wheelSensorInput : WheelSensorPort;
+    port vehiclePower : PowerPort;
+    port driverOutput : DriverViewPort;
+    port diagnosticOutput : DiagnosticPort;
+
+    part sensorInterface : WheelSpeedSensorInterface;
+    part processor : SpeedProcessor;
+    part display : DigitalSpeedDisplay;
+    part powerManager : PowerManager;
+
+    connect wheelSensorInput to sensorInterface.wheelInput;
+    connect sensorInterface.processorOutput to processor.sensorInput;
+    connect processor.displayOutput to display.displayInput;
+    connect display.driverView to driverOutput;
+    connect processor.diagnosticOutput to diagnosticOutput;
+    connect powerManager.diagnosticOutput to diagnosticOutput;
+    connect vehiclePower to powerManager.powerInput;
+
+    state systemState {
+      state Off;
+      state SelfTest;
+      state Measuring;
+      state Degraded;
+      state Failed;
+
+      transition first Off;
+
+      transition Off_to_SelfTest
+        first Off
+        then SelfTest
+        if vehiclePower.supplyVoltage.value >= 9.0;
+
+      transition SelfTest_to_Measuring
+        first SelfTest
+        then Measuring
+        if diagnosticOutput.sensorHealthy == true;
+
+      transition SelfTest_to_Failed
+        first SelfTest
+        then Failed
+        if diagnosticOutput.sensorHealthy == false;
+
+      transition Measuring_to_Degraded
+        first Measuring
+        then Degraded
+        if diagnosticOutput.faultCode != "";
+
+      transition Degraded_to_Measuring
+        first Degraded
+        then Measuring
+        if diagnosticOutput.faultCode == "";
+
+      transition Measuring_to_Off
+        first Measuring
+        then Off
+        if vehiclePower.supplyVoltage.value < 9.0;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject speedometer : SpeedometerSystem;
+
+    require constraint {
+      speedometer shall acquire wheel rotation information, compute vehicle road speed, and present a continuously updated speed indication to the driver.
+    }
+  }
+
+  requirement def SpeedAccuracyRequirement {
+    subject processor : SpeedProcessor;
+
+    require constraint {
+      processor.currentSpeed.value >= 0.0 and processor.currentSpeed.value <= processor.maximumDisplayedSpeed.value;
+    }
+  }
+
+  requirement def DisplayRefreshRequirement {
+    subject display : DigitalSpeedDisplay;
+
+    require constraint {
+      display.refreshPeriod.value <= 100.0;
+    }
+  }
+
+  requirement def PowerOperationRequirement {
+    subject powerManager : PowerManager;
+
+    require constraint {
+      powerManager.minimumOperatingVoltage.value == 9.0;
+    }
+  }
+
+  requirement def FaultDetectionRequirement {
+    subject speedometer : SpeedometerSystem;
+
+    require constraint {
+      speedometer.diagnosticOutput.sensorHealthy == false implies speedometer.diagnosticOutput.faultCode != "";
+    }
+  }
+
+  part vehicleSpeedometer : SpeedometerSystem;
+
+}

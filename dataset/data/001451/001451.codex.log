@@ -1,0 +1,1145 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-a1qfbc9m
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6c4-a7bc-7971-9abe-dc1f9ac4dd9e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Home of the future and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HomeOfTheFuture {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        unit = "%";
+    }
+
+    attribute def Currency : Real {
+        unit = "USD";
+    }
+
+    attribute def AirQualityIndex : Real;
+
+    attribute def SecurityLevel : Integer;
+
+    attribute def Lux : Real {
+        unit = "lx";
+    }
+
+    attribute def Watts : Real {
+        unit = "W";
+    }
+
+    attribute def KilowattHours : Real {
+        unit = "kW*h";
+    }
+
+    attribute def DegreesCelsius : Real {
+        unit = "degC";
+    }
+
+    attribute def LitersPerMinute : Real {
+        unit = "L/min";
+    }
+
+    attribute def PartsPerMillion : Real {
+        unit = "ppm";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Watts;
+        attribute frequency : Real;
+    }
+
+    item def ThermalEnergy {
+        attribute heatFlow : Watts;
+        attribute temperature : DegreesCelsius;
+    }
+
+    item def PotableWater {
+        attribute flowRate : LitersPerMinute;
+        attribute pressure : Real;
+        attribute temperature : DegreesCelsius;
+    }
+
+    item def GreyWater {
+        attribute flowRate : LitersPerMinute;
+        attribute turbidity : Real;
+    }
+
+    item def IndoorAir {
+        attribute temperature : DegreesCelsius;
+        attribute humidity : Percent;
+        attribute co2 : PartsPerMillion;
+        attribute particulateIndex : AirQualityIndex;
+    }
+
+    item def OccupancyEvent {
+        attribute occupied : Boolean;
+        attribute occupantCount : Integer;
+        attribute confidence : Percent;
+    }
+
+    item def SecurityEvent {
+        attribute threatDetected : Boolean;
+        attribute sourceZone : String;
+        attribute severity : SecurityLevel;
+    }
+
+    item def UserIntent {
+        attribute requestedMode : String;
+        attribute priority : Integer;
+        attribute voiceAuthenticated : Boolean;
+    }
+
+    item def HomeTelemetry {
+        attribute netEnergyUse : KilowattHours;
+        attribute indoorTemperature : DegreesCelsius;
+        attribute indoorAirQuality : AirQualityIndex;
+        attribute waterUseToday : Real;
+        attribute securityLevel : SecurityLevel;
+        attribute comfortScore : Percent;
+    }
+
+    port def PowerPort {
+        out item power : ElectricalPower;
+    }
+
+    port def PowerLoadPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    port def WaterSupplyPort {
+        out item water : PotableWater;
+    }
+
+    port def WaterDemandPort {
+        in item water : PotableWater;
+    }
+
+    port def GreyWaterPort {
+        inout item greyWater : GreyWater;
+    }
+
+    port def AirPort {
+        inout item air : IndoorAir;
+    }
+
+    port def DataOutPort {
+        out item telemetry : HomeTelemetry;
+    }
+
+    port def DataInPort {
+        in item command : UserIntent;
+    }
+
+    port def OccupancyPort {
+        out item occupancy : OccupancyEvent;
+    }
+
+    port def SecurityPort {
+        out item securityEvent : SecurityEvent;
+    }
+
+    action def OptimizeHomeOperation {
+        in item telemetry : HomeTelemetry;
+        in item intent : UserIntent;
+        out item comfortSetpoint : IndoorAir;
+        out item energyBudget : ElectricalPower;
+        out item waterBudget : PotableWater;
+    }
+
+    action def DetectOccupancy {
+        out item occupancy : OccupancyEvent;
+    }
+
+    action def AssessSecurity {
+        in item occupancy : OccupancyEvent;
+        out item securityEvent : SecurityEvent;
+    }
+
+    action def BalanceEnergy {
+        in item demand : ElectricalPower;
+        in item storedEnergy : ElectricalPower;
+        out item suppliedPower : ElectricalPower;
+    }
+
+    action def PurifyAndRecycleWater {
+        in item usedWater : GreyWater;
+        out item recoveredWater : PotableWater;
+    }
+
+    action def MaintainComfort {
+        in item currentAir : IndoorAir;
+        in item desiredAir : IndoorAir;
+        out item conditionedAir : IndoorAir;
+    }
+
+    state def SmartHomeOperationalState {
+        entry action InitializeHomeServices;
+
+        state Initializing;
+        state AutonomousOperation;
+        state OccupantDirected;
+        state EnergySaving;
+        state SecurityLockdown;
+        state EmergencyResponse;
+        state MaintenanceMode;
+
+        transition first Initializing
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept UserIntent
+            if command.priority > 5
+            then OccupantDirected;
+
+        transition OccupantDirected
+            accept UserIntent
+            if command.requestedMode == "resume autonomous"
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            if telemetry.netEnergyUse > 45.0 [kW*h]
+            then EnergySaving;
+
+        transition EnergySaving
+            if telemetry.netEnergyUse < 30.0 [kW*h]
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept SecurityEvent
+            if securityEvent.threatDetected and securityEvent.severity >= 7
+            then SecurityLockdown;
+
+        transition SecurityLockdown
+            accept UserIntent
+            if command.requestedMode == "disarm" and command.voiceAuthenticated
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept SecurityEvent
+            if securityEvent.severity >= 9
+            then EmergencyResponse;
+
+        transition EmergencyResponse
+            accept UserIntent
+            if command.requestedMode == "all clear" and command.voiceAuthenticated
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept UserIntent
+            if command.requestedMode == "maintenance"
+            then MaintenanceMode;
+
+        transition MaintenanceMode
+            accept UserIntent
+            if command.requestedMode == "exit maintenance"
+            then AutonomousOperation;
+    }
+
+    part def AdaptiveEnergySystem {
+        port gridIn : PowerLoadPort;
+        port solarOut : PowerPort;
+        port batteryOut : PowerPort;
+        port homeLoad : PowerPort;
+        port telemetryOut : DataOutPort;
+
+        attribute solarGeneration : KilowattHours;
+        attribute batteryStateOfCharge : Percent;
+        attribute gridImport : KilowattHours;
+        attribute gridExport : KilowattHours;
+        attribute criticalLoadReserve : KilowattHours = 12.0 [kW*h];
+
+        part photovoltaicRoof {
+            port generatedPower : PowerPort;
+            attribute peakCapacity : Watts = 18000.0 [W];
+            attribute panelEfficiency : Percent = 24.0 [%];
+        }
+
+        part bidirectionalBattery {
+            port chargeDischarge : PowerPort;
+            attribute usableCapacity : KilowattHours = 80.0 [kW*h];
+            attribute stateOfCharge : Percent;
+            attribute reserveFloor : Percent = 20.0 [%];
+        }
+
+        part smartInverter {
+            port dcInput : PowerLoadPort;
+            port acOutput : PowerPort;
+            attribute conversionEfficiency : Percent = 97.5 [%];
+        }
+
+        perform action BalanceEnergy;
+    }
+
+    part def ClimateAndAirSystem {
+        port powerIn : PowerLoadPort;
+        port roomAir : AirPort;
+        port thermalExchange : ThermalPort;
+        port telemetryOut : DataOutPort;
+
+        attribute targetTemperature : DegreesCelsius = 22.0 [degC];
+        attribute targetHumidity : Percent = 45.0 [%];
+        attribute maximumCO2 : PartsPerMillion = 900.0 [ppm];
+        attribute filtrationEfficiency : Percent = 99.0 [%];
+
+        part heatPump {
+            port electricalInput : PowerLoadPort;
+            port thermalOutput : ThermalPort;
+            attribute coefficientOfPerformance : Real = 4.2;
+        }
+
+        part energyRecoveryVentilator {
+            port indoorAirPort : AirPort;
+            port outdoorAirPort : AirPort;
+            attribute heatRecoveryEfficiency : Percent = 84.0 [%];
+        }
+
+        part airPurifier {
+            port airFlow : AirPort;
+            attribute cleanAirDeliveryRate : Real = 650.0;
+        }
+
+        perform action MaintainComfort;
+    }
+
+    part def IntelligentWaterSystem {
+        port potableIn : WaterDemandPort;
+        port potableOut : WaterSupplyPort;
+        port greyWaterLoop : GreyWaterPort;
+        port powerIn : PowerLoadPort;
+        port telemetryOut : DataOutPort;
+
+        attribute potableWaterStored : Real;
+        attribute dailyWaterUse : Real;
+        attribute recycledWaterRatio : Percent;
+        attribute leakDetected : Boolean;
+
+        part smartCistern {
+            port outlet : WaterSupplyPort;
+            attribute capacity : Real = 2000.0;
+            attribute level : Percent;
+        }
+
+        part greyWaterRecycler {
+            port inlet : GreyWaterPort;
+            port outlet : WaterSupplyPort;
+            attribute recoveryEfficiency : Percent = 72.0 [%];
+        }
+
+        part leakIsolationManifold {
+            port controlledSupply : WaterSupplyPort;
+            attribute isolatedZone : String;
+            attribute shutoffResponseTime : Real = 2.0;
+        }
+
+        perform action PurifyAndRecycleWater;
+    }
+
+    part def LivingSpace {
+        port powerIn : PowerLoadPort;
+        port airExchange : AirPort;
+        port waterIn : WaterDemandPort;
+        port occupancyOut : OccupancyPort;
+        port securityOut : SecurityPort;
+        port userCommandIn : DataInPort;
+
+        attribute roomName : String;
+        attribute area : Real;
+        attribute illuminance : Lux;
+        attribute occupied : Boolean;
+
+        part adaptiveLighting {
+            port electricalInput : PowerLoadPort;
+            attribute lightLevel : Lux;
+            attribute colorTemperature : Real;
+            attribute occupancyDimmingEnabled : Boolean = true;
+        }
+
+        part embeddedSensorArray {
+            port occupancySignal : OccupancyPort;
+            port securitySignal : SecurityPort;
+            attribute motionConfidence : Percent;
+            attribute acousticAnomalyDetected : Boolean;
+            attribute airQualityReading : AirQualityIndex;
+        }
+
+        perform action DetectOccupancy;
+        perform action AssessSecurity;
+    }
+
+    part def HomeIntelligenceCore {
+        port telemetryIn : DataInPort;
+        port telemetryOut : DataOutPort;
+        port occupantIntentIn : DataInPort;
+        port occupancyIn : OccupancyPort;
+        port securityIn : SecurityPort;
+
+        attribute activeMode : String = "AutonomousOperation";
+        attribute privacyPreservingProcessing : Boolean = true;
+        attribute localDecisionLatency : Real;
+        attribute learnedComfortScore : Percent;
+        attribute forecastHorizonHours : Real = 24.0;
+
+        part edgeComputeCluster {
+            attribute processorPower : Watts = 250.0 [W];
+            attribute localStorage : Real = 64.0;
+            attribute aiModelVersion : String = "home-orchestrator-6.2";
+        }
+
+        part householdDigitalTwin {
+            attribute predictedEnergyDemand : KilowattHours;
+            attribute predictedWaterDemand : Real;
+            attribute predictedOccupancyCount : Integer;
+        }
+
+        perform action OptimizeHomeOperation;
+
+        state machine operationalState : SmartHomeOperationalState;
+    }
+
+    part def ResilientSmartHome {
+        port gridConnection : PowerLoadPort;
+        port municipalWaterConnection : WaterDemandPort;
+        port occupantCommand : DataInPort;
+        port homeStatus : DataOutPort;
+
+        attribute primaryFunction : String =
+            "Provide an adaptive, resilient, resource-efficient living environment that anticipates occupant needs, maintains comfort and safety, and autonomously optimizes energy, water, air, security, and household services.";
+
+        attribute totalFloorArea : Real = 220.0;
+        attribute maximumOccupants : Integer = 6;
+        attribute annualNetEnergyTarget : KilowattHours = 0.0 [kW*h];
+        attribute minimumComfortScore : Percent = 92.0 [%];
+        attribute minimumSecurityLevel : SecurityLevel = 8;
+        attribute maximumDailyPotableWaterUse : Real = 350.0;
+
+        part intelligence : HomeIntelligenceCore;
+        part energy : AdaptiveEnergySystem;
+        part climate : ClimateAndAirSystem;
+        part water : IntelligentWaterSystem;
+
+        part kitchen : LivingSpace {
+            attribute roomName = "Kitchen";
+            attribute area = 32.0;
+        }
+
+        part livingRoom : LivingSpace {
+            attribute roomName = "Living Room";
+            attribute area = 44.0;
+        }
+
+        part bedroomSuite : LivingSpace {
+            attribute roomName = "Bedroom Suite";
+            attribute area = 38.0;
+        }
+
+        part bathCore : LivingSpace {
+            attribute roomName = "Bath Core";
+            attribute area = 18.0;
+        }
+
+        connection gridToEnergy connect gridConnection to energy.gridIn;
+        connection municipalWaterToWaterSystem connect municipalWaterConnection to water.potableIn;
+        connection userToIntelligence connect occupantCommand to intelligence.occupantIntentIn;
+
+        connection energyToClimate connect energy.homeLoad to climate.powerIn;
+        connection energyToWater connect energy.homeLoad to water.powerIn;
+
+        connection energyToKitchen connect energy.homeLoad to kitchen.powerIn;
+        connection energyToLivingRoom connect energy.homeLoad to livingRoom.powerIn;
+        connection energyToBedroom connect energy.homeLoad to bedroomSuite.powerIn;
+        connection energyToBath connect energy.homeLoad to bathCore.powerIn;
+
+        connection climateToKitchen connect climate.roomAir to kitchen.airExchange;
+        connection climateToLivingRoom connect climate.roomAir to livingRoom.airExchange;
+        connection climateToBedroom connect climate.roomAir to bedroomSuite.airExchange;
+        connection climateToBath connect climate.roomAir to bathCore.airExchange;
+
+        connection waterToKitchen connect water.potableOut to kitchen.waterIn;
+        connection waterToBath connect water.potableOut to bathCore.waterIn;
+
+        connection kitchenOccupancyToCore connect kitchen.occupancyOut to intelligence.occupancyIn;
+        connection livingOccupancyToCore connect livingRoom.occupancyOut to intelligence.occupancyIn;
+        connection bedroomOccupancyToCore connect bedroomSuite.occupancyOut to intelligence.occupancyIn;
+        connection bathOccupancyToCore connect bathCore.occupancyOut to intelligence.occupancyIn;
+
+        connection kitchenSecurityToCore connect kitchen.securityOut to intelligence.securityIn;
+        connection livingSecurityToCore connect livingRoom.securityOut to intelligence.securityIn;
+        connection bedroomSecurityToCore connect bedroomSuite.securityOut to intelligence.securityIn;
+        connection bathSecurityToCore connect bathCore.securityOut to intelligence.securityIn;
+
+        connection intelligenceStatusToHomeStatus connect intelligence.telemetryOut to homeStatus;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject home : ResilientSmartHome;
+
+        doc /* The home shall autonomously provide safe, comfortable, resource-efficient living by coordinating energy, climate, water, security, lighting, and occupant services through a privacy-preserving intelligence core. */
+
+        require constraint {
+            home.minimumComfortScore >= 90.0 [%]
+        }
+
+        require constraint {
+            home.minimumSecurityLevel >= 8
+        }
+
+        require constraint {
+            home.annualNetEnergyTarget <= 0.0 [kW*h]
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject climate : ClimateAndAirSystem;
+
+        doc /* The climate and air system shall maintain healthy indoor air and thermal comfort across occupied spaces. */
+
+        require constraint {
+            climate.targetTemperature >= 20.0 [degC] and climate.targetTemperature <= 24.0 [degC]
+        }
+
+        require constraint {
+            climate.maximumCO2 <= 1000.0 [ppm]
+        }
+
+        require constraint {
+            climate.filtrationEfficiency >= 95.0 [%]
+        }
+    }
+
+    requirement def EnergyResilienceRequirement {
+        subject energy : AdaptiveEnergySystem;
+
+        doc /* The energy system shall prioritize renewable generation, store backup power, and maintain critical household operation during grid interruption. */
+
+        require constraint {
+            energy.criticalLoadReserve >= 10.0 [kW*h]
+        }
+
+        require constraint {
+            energy.bidirectionalBattery.usableCapacity >= 60.0 [kW*h]
+        }
+
+        require constraint {
+            energy.smartInverter.conversionEfficiency >= 95.0 [%]
+        }
+    }
+
+    requirement def WaterStewardshipRequirement {
+        subject water : IntelligentWaterSystem;
+
+        doc /* The water system shall reduce potable demand by recycling grey water and rapidly isolating leaks. */
+
+        require constraint {
+            water.greyWaterRecycler.recoveryEfficiency >= 65.0 [%]
+        }
+
+        require constraint {
+            water.leakIsolationManifold.shutoffResponseTime <= 5.0
+        }
+    }
+
+    requirement def PrivacyRequirement {
+        subject intelligence : HomeIntelligenceCore;
+
+        doc /* The intelligence core shall perform normal decision making locally and preserve household privacy while still allowing authenticated occupant control. */
+
+        require constraint {
+            intelligence.privacyPreservingProcessing == true
+        }
+
+        require constraint {
+            intelligence.forecastHorizonHours >= 24.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ResilientSmartHome;
+    satisfy ComfortRequirement by ClimateAndAirSystem;
+    satisfy EnergyResilienceRequirement by AdaptiveEnergySystem;
+    satisfy WaterStewardshipRequirement by IntelligentWaterSystem;
+    satisfy PrivacyRequirement by HomeIntelligenceCore;
+
+}
+tokens used
+4,013
+package HomeOfTheFuture {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        unit = "%";
+    }
+
+    attribute def Currency : Real {
+        unit = "USD";
+    }
+
+    attribute def AirQualityIndex : Real;
+
+    attribute def SecurityLevel : Integer;
+
+    attribute def Lux : Real {
+        unit = "lx";
+    }
+
+    attribute def Watts : Real {
+        unit = "W";
+    }
+
+    attribute def KilowattHours : Real {
+        unit = "kW*h";
+    }
+
+    attribute def DegreesCelsius : Real {
+        unit = "degC";
+    }
+
+    attribute def LitersPerMinute : Real {
+        unit = "L/min";
+    }
+
+    attribute def PartsPerMillion : Real {
+        unit = "ppm";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute power : Watts;
+        attribute frequency : Real;
+    }
+
+    item def ThermalEnergy {
+        attribute heatFlow : Watts;
+        attribute temperature : DegreesCelsius;
+    }
+
+    item def PotableWater {
+        attribute flowRate : LitersPerMinute;
+        attribute pressure : Real;
+        attribute temperature : DegreesCelsius;
+    }
+
+    item def GreyWater {
+        attribute flowRate : LitersPerMinute;
+        attribute turbidity : Real;
+    }
+
+    item def IndoorAir {
+        attribute temperature : DegreesCelsius;
+        attribute humidity : Percent;
+        attribute co2 : PartsPerMillion;
+        attribute particulateIndex : AirQualityIndex;
+    }
+
+    item def OccupancyEvent {
+        attribute occupied : Boolean;
+        attribute occupantCount : Integer;
+        attribute confidence : Percent;
+    }
+
+    item def SecurityEvent {
+        attribute threatDetected : Boolean;
+        attribute sourceZone : String;
+        attribute severity : SecurityLevel;
+    }
+
+    item def UserIntent {
+        attribute requestedMode : String;
+        attribute priority : Integer;
+        attribute voiceAuthenticated : Boolean;
+    }
+
+    item def HomeTelemetry {
+        attribute netEnergyUse : KilowattHours;
+        attribute indoorTemperature : DegreesCelsius;
+        attribute indoorAirQuality : AirQualityIndex;
+        attribute waterUseToday : Real;
+        attribute securityLevel : SecurityLevel;
+        attribute comfortScore : Percent;
+    }
+
+    port def PowerPort {
+        out item power : ElectricalPower;
+    }
+
+    port def PowerLoadPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    port def WaterSupplyPort {
+        out item water : PotableWater;
+    }
+
+    port def WaterDemandPort {
+        in item water : PotableWater;
+    }
+
+    port def GreyWaterPort {
+        inout item greyWater : GreyWater;
+    }
+
+    port def AirPort {
+        inout item air : IndoorAir;
+    }
+
+    port def DataOutPort {
+        out item telemetry : HomeTelemetry;
+    }
+
+    port def DataInPort {
+        in item command : UserIntent;
+    }
+
+    port def OccupancyPort {
+        out item occupancy : OccupancyEvent;
+    }
+
+    port def SecurityPort {
+        out item securityEvent : SecurityEvent;
+    }
+
+    action def OptimizeHomeOperation {
+        in item telemetry : HomeTelemetry;
+        in item intent : UserIntent;
+        out item comfortSetpoint : IndoorAir;
+        out item energyBudget : ElectricalPower;
+        out item waterBudget : PotableWater;
+    }
+
+    action def DetectOccupancy {
+        out item occupancy : OccupancyEvent;
+    }
+
+    action def AssessSecurity {
+        in item occupancy : OccupancyEvent;
+        out item securityEvent : SecurityEvent;
+    }
+
+    action def BalanceEnergy {
+        in item demand : ElectricalPower;
+        in item storedEnergy : ElectricalPower;
+        out item suppliedPower : ElectricalPower;
+    }
+
+    action def PurifyAndRecycleWater {
+        in item usedWater : GreyWater;
+        out item recoveredWater : PotableWater;
+    }
+
+    action def MaintainComfort {
+        in item currentAir : IndoorAir;
+        in item desiredAir : IndoorAir;
+        out item conditionedAir : IndoorAir;
+    }
+
+    state def SmartHomeOperationalState {
+        entry action InitializeHomeServices;
+
+        state Initializing;
+        state AutonomousOperation;
+        state OccupantDirected;
+        state EnergySaving;
+        state SecurityLockdown;
+        state EmergencyResponse;
+        state MaintenanceMode;
+
+        transition first Initializing
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept UserIntent
+            if command.priority > 5
+            then OccupantDirected;
+
+        transition OccupantDirected
+            accept UserIntent
+            if command.requestedMode == "resume autonomous"
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            if telemetry.netEnergyUse > 45.0 [kW*h]
+            then EnergySaving;
+
+        transition EnergySaving
+            if telemetry.netEnergyUse < 30.0 [kW*h]
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept SecurityEvent
+            if securityEvent.threatDetected and securityEvent.severity >= 7
+            then SecurityLockdown;
+
+        transition SecurityLockdown
+            accept UserIntent
+            if command.requestedMode == "disarm" and command.voiceAuthenticated
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept SecurityEvent
+            if securityEvent.severity >= 9
+            then EmergencyResponse;
+
+        transition EmergencyResponse
+            accept UserIntent
+            if command.requestedMode == "all clear" and command.voiceAuthenticated
+            then AutonomousOperation;
+
+        transition AutonomousOperation
+            accept UserIntent
+            if command.requestedMode == "maintenance"
+            then MaintenanceMode;
+
+        transition MaintenanceMode
+            accept UserIntent
+            if command.requestedMode == "exit maintenance"
+            then AutonomousOperation;
+    }
+
+    part def AdaptiveEnergySystem {
+        port gridIn : PowerLoadPort;
+        port solarOut : PowerPort;
+        port batteryOut : PowerPort;
+        port homeLoad : PowerPort;
+        port telemetryOut : DataOutPort;
+
+        attribute solarGeneration : KilowattHours;
+        attribute batteryStateOfCharge : Percent;
+        attribute gridImport : KilowattHours;
+        attribute gridExport : KilowattHours;
+        attribute criticalLoadReserve : KilowattHours = 12.0 [kW*h];
+
+        part photovoltaicRoof {
+            port generatedPower : PowerPort;
+            attribute peakCapacity : Watts = 18000.0 [W];
+            attribute panelEfficiency : Percent = 24.0 [%];
+        }
+
+        part bidirectionalBattery {
+            port chargeDischarge : PowerPort;
+            attribute usableCapacity : KilowattHours = 80.0 [kW*h];
+            attribute stateOfCharge : Percent;
+            attribute reserveFloor : Percent = 20.0 [%];
+        }
+
+        part smartInverter {
+            port dcInput : PowerLoadPort;
+            port acOutput : PowerPort;
+            attribute conversionEfficiency : Percent = 97.5 [%];
+        }
+
+        perform action BalanceEnergy;
+    }
+
+    part def ClimateAndAirSystem {
+        port powerIn : PowerLoadPort;
+        port roomAir : AirPort;
+        port thermalExchange : ThermalPort;
+        port telemetryOut : DataOutPort;
+
+        attribute targetTemperature : DegreesCelsius = 22.0 [degC];
+        attribute targetHumidity : Percent = 45.0 [%];
+        attribute maximumCO2 : PartsPerMillion = 900.0 [ppm];
+        attribute filtrationEfficiency : Percent = 99.0 [%];
+
+        part heatPump {
+            port electricalInput : PowerLoadPort;
+            port thermalOutput : ThermalPort;
+            attribute coefficientOfPerformance : Real = 4.2;
+        }
+
+        part energyRecoveryVentilator {
+            port indoorAirPort : AirPort;
+            port outdoorAirPort : AirPort;
+            attribute heatRecoveryEfficiency : Percent = 84.0 [%];
+        }
+
+        part airPurifier {
+            port airFlow : AirPort;
+            attribute cleanAirDeliveryRate : Real = 650.0;
+        }
+
+        perform action MaintainComfort;
+    }
+
+    part def IntelligentWaterSystem {
+        port potableIn : WaterDemandPort;
+        port potableOut : WaterSupplyPort;
+        port greyWaterLoop : GreyWaterPort;
+        port powerIn : PowerLoadPort;
+        port telemetryOut : DataOutPort;
+
+        attribute potableWaterStored : Real;
+        attribute dailyWaterUse : Real;
+        attribute recycledWaterRatio : Percent;
+        attribute leakDetected : Boolean;
+
+        part smartCistern {
+            port outlet : WaterSupplyPort;
+            attribute capacity : Real = 2000.0;
+            attribute level : Percent;
+        }
+
+        part greyWaterRecycler {
+            port inlet : GreyWaterPort;
+            port outlet : WaterSupplyPort;
+            attribute recoveryEfficiency : Percent = 72.0 [%];
+        }
+
+        part leakIsolationManifold {
+            port controlledSupply : WaterSupplyPort;
+            attribute isolatedZone : String;
+            attribute shutoffResponseTime : Real = 2.0;
+        }
+
+        perform action PurifyAndRecycleWater;
+    }
+
+    part def LivingSpace {
+        port powerIn : PowerLoadPort;
+        port airExchange : AirPort;
+        port waterIn : WaterDemandPort;
+        port occupancyOut : OccupancyPort;
+        port securityOut : SecurityPort;
+        port userCommandIn : DataInPort;
+
+        attribute roomName : String;
+        attribute area : Real;
+        attribute illuminance : Lux;
+        attribute occupied : Boolean;
+
+        part adaptiveLighting {
+            port electricalInput : PowerLoadPort;
+            attribute lightLevel : Lux;
+            attribute colorTemperature : Real;
+            attribute occupancyDimmingEnabled : Boolean = true;
+        }
+
+        part embeddedSensorArray {
+            port occupancySignal : OccupancyPort;
+            port securitySignal : SecurityPort;
+            attribute motionConfidence : Percent;
+            attribute acousticAnomalyDetected : Boolean;
+            attribute airQualityReading : AirQualityIndex;
+        }
+
+        perform action DetectOccupancy;
+        perform action AssessSecurity;
+    }
+
+    part def HomeIntelligenceCore {
+        port telemetryIn : DataInPort;
+        port telemetryOut : DataOutPort;
+        port occupantIntentIn : DataInPort;
+        port occupancyIn : OccupancyPort;
+        port securityIn : SecurityPort;
+
+        attribute activeMode : String = "AutonomousOperation";
+        attribute privacyPreservingProcessing : Boolean = true;
+        attribute localDecisionLatency : Real;
+        attribute learnedComfortScore : Percent;
+        attribute forecastHorizonHours : Real = 24.0;
+
+        part edgeComputeCluster {
+            attribute processorPower : Watts = 250.0 [W];
+            attribute localStorage : Real = 64.0;
+            attribute aiModelVersion : String = "home-orchestrator-6.2";
+        }
+
+        part householdDigitalTwin {
+            attribute predictedEnergyDemand : KilowattHours;
+            attribute predictedWaterDemand : Real;
+            attribute predictedOccupancyCount : Integer;
+        }
+
+        perform action OptimizeHomeOperation;
+
+        state machine operationalState : SmartHomeOperationalState;
+    }
+
+    part def ResilientSmartHome {
+        port gridConnection : PowerLoadPort;
+        port municipalWaterConnection : WaterDemandPort;
+        port occupantCommand : DataInPort;
+        port homeStatus : DataOutPort;
+
+        attribute primaryFunction : String =
+            "Provide an adaptive, resilient, resource-efficient living environment that anticipates occupant needs, maintains comfort and safety, and autonomously optimizes energy, water, air, security, and household services.";
+
+        attribute totalFloorArea : Real = 220.0;
+        attribute maximumOccupants : Integer = 6;
+        attribute annualNetEnergyTarget : KilowattHours = 0.0 [kW*h];
+        attribute minimumComfortScore : Percent = 92.0 [%];
+        attribute minimumSecurityLevel : SecurityLevel = 8;
+        attribute maximumDailyPotableWaterUse : Real = 350.0;
+
+        part intelligence : HomeIntelligenceCore;
+        part energy : AdaptiveEnergySystem;
+        part climate : ClimateAndAirSystem;
+        part water : IntelligentWaterSystem;
+
+        part kitchen : LivingSpace {
+            attribute roomName = "Kitchen";
+            attribute area = 32.0;
+        }
+
+        part livingRoom : LivingSpace {
+            attribute roomName = "Living Room";
+            attribute area = 44.0;
+        }
+
+        part bedroomSuite : LivingSpace {
+            attribute roomName = "Bedroom Suite";
+            attribute area = 38.0;
+        }
+
+        part bathCore : LivingSpace {
+            attribute roomName = "Bath Core";
+            attribute area = 18.0;
+        }
+
+        connection gridToEnergy connect gridConnection to energy.gridIn;
+        connection municipalWaterToWaterSystem connect municipalWaterConnection to water.potableIn;
+        connection userToIntelligence connect occupantCommand to intelligence.occupantIntentIn;
+
+        connection energyToClimate connect energy.homeLoad to climate.powerIn;
+        connection energyToWater connect energy.homeLoad to water.powerIn;
+
+        connection energyToKitchen connect energy.homeLoad to kitchen.powerIn;
+        connection energyToLivingRoom connect energy.homeLoad to livingRoom.powerIn;
+        connection energyToBedroom connect energy.homeLoad to bedroomSuite.powerIn;
+        connection energyToBath connect energy.homeLoad to bathCore.powerIn;
+
+        connection climateToKitchen connect climate.roomAir to kitchen.airExchange;
+        connection climateToLivingRoom connect climate.roomAir to livingRoom.airExchange;
+        connection climateToBedroom connect climate.roomAir to bedroomSuite.airExchange;
+        connection climateToBath connect climate.roomAir to bathCore.airExchange;
+
+        connection waterToKitchen connect water.potableOut to kitchen.waterIn;
+        connection waterToBath connect water.potableOut to bathCore.waterIn;
+
+        connection kitchenOccupancyToCore connect kitchen.occupancyOut to intelligence.occupancyIn;
+        connection livingOccupancyToCore connect livingRoom.occupancyOut to intelligence.occupancyIn;
+        connection bedroomOccupancyToCore connect bedroomSuite.occupancyOut to intelligence.occupancyIn;
+        connection bathOccupancyToCore connect bathCore.occupancyOut to intelligence.occupancyIn;
+
+        connection kitchenSecurityToCore connect kitchen.securityOut to intelligence.securityIn;
+        connection livingSecurityToCore connect livingRoom.securityOut to intelligence.securityIn;
+        connection bedroomSecurityToCore connect bedroomSuite.securityOut to intelligence.securityIn;
+        connection bathSecurityToCore connect bathCore.securityOut to intelligence.securityIn;
+
+        connection intelligenceStatusToHomeStatus connect intelligence.telemetryOut to homeStatus;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject home : ResilientSmartHome;
+
+        doc /* The home shall autonomously provide safe, comfortable, resource-efficient living by coordinating energy, climate, water, security, lighting, and occupant services through a privacy-preserving intelligence core. */
+
+        require constraint {
+            home.minimumComfortScore >= 90.0 [%]
+        }
+
+        require constraint {
+            home.minimumSecurityLevel >= 8
+        }
+
+        require constraint {
+            home.annualNetEnergyTarget <= 0.0 [kW*h]
+        }
+    }
+
+    requirement def ComfortRequirement {
+        subject climate : ClimateAndAirSystem;
+
+        doc /* The climate and air system shall maintain healthy indoor air and thermal comfort across occupied spaces. */
+
+        require constraint {
+            climate.targetTemperature >= 20.0 [degC] and climate.targetTemperature <= 24.0 [degC]
+        }
+
+        require constraint {
+            climate.maximumCO2 <= 1000.0 [ppm]
+        }
+
+        require constraint {
+            climate.filtrationEfficiency >= 95.0 [%]
+        }
+    }
+
+    requirement def EnergyResilienceRequirement {
+        subject energy : AdaptiveEnergySystem;
+
+        doc /* The energy system shall prioritize renewable generation, store backup power, and maintain critical household operation during grid interruption. */
+
+        require constraint {
+            energy.criticalLoadReserve >= 10.0 [kW*h]
+        }
+
+        require constraint {
+            energy.bidirectionalBattery.usableCapacity >= 60.0 [kW*h]
+        }
+
+        require constraint {
+            energy.smartInverter.conversionEfficiency >= 95.0 [%]
+        }
+    }
+
+    requirement def WaterStewardshipRequirement {
+        subject water : IntelligentWaterSystem;
+
+        doc /* The water system shall reduce potable demand by recycling grey water and rapidly isolating leaks. */
+
+        require constraint {
+            water.greyWaterRecycler.recoveryEfficiency >= 65.0 [%]
+        }
+
+        require constraint {
+            water.leakIsolationManifold.shutoffResponseTime <= 5.0
+        }
+    }
+
+    requirement def PrivacyRequirement {
+        subject intelligence : HomeIntelligenceCore;
+
+        doc /* The intelligence core shall perform normal decision making locally and preserve household privacy while still allowing authenticated occupant control. */
+
+        require constraint {
+            intelligence.privacyPreservingProcessing == true
+        }
+
+        require constraint {
+            intelligence.forecastHorizonHours >= 24.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ResilientSmartHome;
+    satisfy ComfortRequirement by ClimateAndAirSystem;
+    satisfy EnergyResilienceRequirement by AdaptiveEnergySystem;
+    satisfy WaterStewardshipRequirement by IntelligentWaterSystem;
+    satisfy PrivacyRequirement by HomeIntelligenceCore;
+
+}

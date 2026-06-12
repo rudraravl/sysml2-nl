@@ -1,0 +1,404 @@
+package PolygraphSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def ElectricPotential :> Real {
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent :> Real {
+        unit = "A";
+    }
+
+    attribute def Resistance :> Real {
+        unit = "ohm";
+    }
+
+    attribute def Conductance :> Real {
+        unit = "S";
+    }
+
+    attribute def Pressure :> Real {
+        unit = "Pa";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Frequency :> Real {
+        unit = "Hz";
+    }
+
+    attribute def HeartRate :> Real {
+        unit = "beat/min";
+    }
+
+    attribute def RespirationRate :> Real {
+        unit = "breath/min";
+    }
+
+    attribute def ConfidenceScore :> Real {
+        range = "0..1";
+    }
+
+    attribute def StressIndex :> Real {
+        range = "0..100";
+    }
+
+    item def PhysiologicalSignal {
+        attribute sampleRate : Frequency;
+        attribute timestamp : TimeDuration;
+        attribute signalQuality : ConfidenceScore;
+    }
+
+    item def CardiovascularSignal :> PhysiologicalSignal {
+        attribute cuffPressure : Pressure;
+        attribute pulseAmplitude : Pressure;
+        attribute heartRate : HeartRate;
+    }
+
+    item def RespiratorySignal :> PhysiologicalSignal {
+        attribute thoracicExpansion : Real;
+        attribute respirationRate : RespirationRate;
+    }
+
+    item def ElectrodermalSignal :> PhysiologicalSignal {
+        attribute skinConductance : Conductance;
+        attribute skinResistance : Resistance;
+    }
+
+    item def QuestionEvent {
+        attribute sequenceNumber : Integer;
+        attribute promptText : String;
+        attribute expectedResponseWindow : TimeDuration;
+    }
+
+    item def SubjectResponse {
+        attribute responseText : String;
+        attribute responseLatency : TimeDuration;
+        attribute voiceDetected : Boolean;
+    }
+
+    item def PolygraphRecord {
+        attribute sessionIdentifier : String;
+        attribute startTime : String;
+        attribute duration : TimeDuration;
+        attribute overallStressIndex : StressIndex;
+        attribute interpretationConfidence : ConfidenceScore;
+    }
+
+    port def PhysiologicalSensorPort {
+        out signal : PhysiologicalSignal;
+    }
+
+    port def CardiovascularSensorPort :> PhysiologicalSensorPort {
+        out signal : CardiovascularSignal;
+    }
+
+    port def RespiratorySensorPort :> PhysiologicalSensorPort {
+        out signal : RespiratorySignal;
+    }
+
+    port def ElectrodermalSensorPort :> PhysiologicalSensorPort {
+        out signal : ElectrodermalSignal;
+    }
+
+    port def QuestionPort {
+        out question : QuestionEvent;
+        in response : SubjectResponse;
+    }
+
+    port def RecordPort {
+        out record : PolygraphRecord;
+    }
+
+    port def PowerPort {
+        in voltage : ElectricPotential;
+        in current : ElectricCurrent;
+    }
+
+    part def PolygraphSystem {
+        attribute primaryFunction : String = "Acquire, synchronize, analyze, and record multiple physiological responses during structured questioning to support examiner assessment of stress-related response patterns.";
+        attribute nominalVoltage : ElectricPotential = 12.0;
+        attribute operatingCurrent : ElectricCurrent = 2.0;
+        attribute minimumSessionDuration : TimeDuration = 300.0;
+        attribute maximumSessionDuration : TimeDuration = 7200.0;
+
+        port power : PowerPort;
+        port examinerInterfacePort : QuestionPort;
+        port recordOutput : RecordPort;
+
+        part cardiovascularSubsystem : CardiovascularSubsystem;
+        part respirationSubsystem : RespirationSubsystem;
+        part electrodermalSubsystem : ElectrodermalSubsystem;
+        part acquisitionController : SignalAcquisitionController;
+        part questionController : QuestionController;
+        part analysisEngine : PhysiologicalAnalysisEngine;
+        part recorder : SessionRecorder;
+        part operatorConsole : OperatorConsole;
+        part subjectInterface : SubjectInterface;
+
+        connect cardiovascularSubsystem.cardiovascularOutput to acquisitionController.cardiovascularInput;
+        connect respirationSubsystem.respiratoryOutput to acquisitionController.respiratoryInput;
+        connect electrodermalSubsystem.electrodermalOutput to acquisitionController.electrodermalInput;
+        connect questionController.questionOutput to subjectInterface.questionInput;
+        connect subjectInterface.responseOutput to questionController.responseInput;
+        connect acquisitionController.synchronizedOutput to analysisEngine.signalInput;
+        connect questionController.eventOutput to analysisEngine.questionInput;
+        connect analysisEngine.analysisOutput to recorder.analysisInput;
+        connect acquisitionController.synchronizedOutput to recorder.signalInput;
+        connect questionController.eventOutput to recorder.questionInput;
+        connect recorder.recordOutput to recordOutput;
+        connect operatorConsole.questionCommandPort to questionController.operatorPort;
+    }
+
+    part def CardiovascularSubsystem {
+        attribute cuffInflationPressure : Pressure = 16000.0;
+        attribute sampleRate : Frequency = 100.0;
+
+        port cardiovascularOutput : CardiovascularSensorPort;
+
+        part pressureCuff : PressureCuff;
+        part pulseTransducer : PulseTransducer;
+        part pressureRegulator : PressureRegulator;
+
+        connect pressureCuff.pressurePort to pulseTransducer.pressureInput;
+        connect pressureRegulator.regulatedPressureOutput to pressureCuff.controlPressureInput;
+        connect pulseTransducer.signalOutput to cardiovascularOutput;
+    }
+
+    part def RespirationSubsystem {
+        attribute sampleRate : Frequency = 50.0;
+
+        port respiratoryOutput : RespiratorySensorPort;
+
+        part thoracicBand : RespirationBand;
+        part abdominalBand : RespirationBand;
+        part respirationProcessor : RespirationProcessor;
+
+        connect thoracicBand.motionSignalOutput to respirationProcessor.thoracicInput;
+        connect abdominalBand.motionSignalOutput to respirationProcessor.abdominalInput;
+        connect respirationProcessor.respiratoryOutput to respiratoryOutput;
+    }
+
+    part def ElectrodermalSubsystem {
+        attribute excitationVoltage : ElectricPotential = 0.5;
+        attribute sampleRate : Frequency = 25.0;
+
+        port electrodermalOutput : ElectrodermalSensorPort;
+
+        part fingerElectrodes : SkinConductanceElectrodes;
+        part conductanceAmplifier : ConductanceAmplifier;
+
+        connect fingerElectrodes.conductanceOutput to conductanceAmplifier.conductanceInput;
+        connect conductanceAmplifier.signalOutput to electrodermalOutput;
+    }
+
+    part def SignalAcquisitionController {
+        attribute synchronizationTolerance : TimeDuration = 0.01;
+        attribute analogResolutionBits : Integer = 24;
+
+        port cardiovascularInput : CardiovascularSensorPort;
+        port respiratoryInput : RespiratorySensorPort;
+        port electrodermalInput : ElectrodermalSensorPort;
+        port synchronizedOutput : PhysiologicalSensorPort;
+    }
+
+    part def QuestionController {
+        attribute minimumInterQuestionInterval : TimeDuration = 15.0;
+        attribute responseWindow : TimeDuration = 8.0;
+
+        port operatorPort : QuestionPort;
+        port questionOutput : QuestionPort;
+        port responseInput : QuestionPort;
+        port eventOutput : QuestionPort;
+    }
+
+    part def PhysiologicalAnalysisEngine {
+        attribute baselineWindow : TimeDuration = 60.0;
+        attribute reactionWindow : TimeDuration = 10.0;
+        attribute artifactRejectionThreshold : ConfidenceScore = 0.7;
+
+        port signalInput : PhysiologicalSensorPort;
+        port questionInput : QuestionPort;
+        port analysisOutput : RecordPort;
+
+        perform action EstablishBaseline;
+        perform action DetectPhysiologicalResponses;
+        perform action ComputeStressIndex;
+    }
+
+    part def SessionRecorder {
+        attribute storageCapacityHours : Real = 12.0;
+        attribute encryptionEnabled : Boolean = true;
+
+        port signalInput : PhysiologicalSensorPort;
+        port questionInput : QuestionPort;
+        port analysisInput : RecordPort;
+        port recordOutput : RecordPort;
+    }
+
+    part def OperatorConsole {
+        attribute displayRefreshRate : Frequency = 30.0;
+        attribute supportsLiveWaveforms : Boolean = true;
+
+        port questionCommandPort : QuestionPort;
+    }
+
+    part def SubjectInterface {
+        attribute audioPromptLevel : Real = 65.0;
+        attribute responseMicrophoneEnabled : Boolean = true;
+
+        port questionInput : QuestionPort;
+        port responseOutput : QuestionPort;
+    }
+
+    part def PressureCuff {
+        port pressurePort : CardiovascularSensorPort;
+        port controlPressureInput : CardiovascularSensorPort;
+    }
+
+    part def PulseTransducer {
+        port pressureInput : CardiovascularSensorPort;
+        port signalOutput : CardiovascularSensorPort;
+    }
+
+    part def PressureRegulator {
+        attribute maximumPressure : Pressure = 20000.0;
+        attribute pressureStability : Pressure = 50.0;
+
+        port regulatedPressureOutput : CardiovascularSensorPort;
+    }
+
+    part def RespirationBand {
+        attribute bandSensitivity : Real = 0.02;
+
+        port motionSignalOutput : RespiratorySensorPort;
+    }
+
+    part def RespirationProcessor {
+        port thoracicInput : RespiratorySensorPort;
+        port abdominalInput : RespiratorySensorPort;
+        port respiratoryOutput : RespiratorySensorPort;
+    }
+
+    part def SkinConductanceElectrodes {
+        attribute contactImpedanceLimit : Resistance = 50000.0;
+
+        port conductanceOutput : ElectrodermalSensorPort;
+    }
+
+    part def ConductanceAmplifier {
+        attribute gain : Real = 1000.0;
+        attribute noiseFloor : Conductance = 0.000001;
+
+        port conductanceInput : ElectrodermalSensorPort;
+        port signalOutput : ElectrodermalSensorPort;
+    }
+
+    action def ConductPolygraphSession {
+        in subjectIdentifier : String;
+        in plannedQuestions : QuestionEvent;
+        out sessionRecord : PolygraphRecord;
+
+        first startSession;
+        then calibrateSensors;
+        then collectBaseline;
+        then askStructuredQuestions;
+        then analyzeResponses;
+        then generateRecord;
+
+        action startSession;
+        action calibrateSensors;
+        action collectBaseline;
+        action askStructuredQuestions;
+        action analyzeResponses;
+        action generateRecord;
+    }
+
+    action def EstablishBaseline {
+        in baselineSignals : PhysiologicalSignal;
+        out baselineValid : Boolean;
+        out baselineConfidence : ConfidenceScore;
+    }
+
+    action def DetectPhysiologicalResponses {
+        in synchronizedSignals : PhysiologicalSignal;
+        in questionMarker : QuestionEvent;
+        out responseDetected : Boolean;
+        out responseMagnitude : StressIndex;
+    }
+
+    action def ComputeStressIndex {
+        in cardiovascularResponse : CardiovascularSignal;
+        in respiratoryResponse : RespiratorySignal;
+        in electrodermalResponse : ElectrodermalSignal;
+        out stressIndex : StressIndex;
+        out confidence : ConfidenceScore;
+    }
+
+    state def PolygraphOperationalState {
+        entry action InitializeHardware;
+
+        state Off;
+        state Standby;
+        state Calibrating;
+        state BaselineCollection;
+        state Questioning;
+        state Analyzing;
+        state Recording;
+        state Fault;
+
+        transition first Off then Standby;
+        transition Standby then Calibrating;
+        transition Calibrating then BaselineCollection;
+        transition BaselineCollection then Questioning;
+        transition Questioning then Analyzing;
+        transition Analyzing then Recording;
+        transition Recording then Standby;
+        transition Calibrating then Fault if calibrationFailure;
+        transition BaselineCollection then Fault if poorSignalQuality;
+        transition Questioning then Fault if sensorDisconnected;
+
+        action InitializeHardware;
+        attribute calibrationFailure : Boolean;
+        attribute poorSignalQuality : Boolean;
+        attribute sensorDisconnected : Boolean;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The polygraph system shall acquire cardiovascular, respiratory, and electrodermal physiological signals during structured questioning and produce a synchronized session record for examiner interpretation. */
+    }
+
+    requirement def SignalSynchronizationRequirement {
+        attribute maximumSynchronizationError : TimeDuration = 0.01;
+        doc /* The system shall time-align physiological signals and question events within the maximum synchronization error. */
+    }
+
+    requirement def BaselineRequirement {
+        attribute minimumBaselineDuration : TimeDuration = 60.0;
+        doc /* The system shall collect a baseline physiological segment before scored questioning begins. */
+    }
+
+    requirement def RecordingRequirement {
+        attribute minimumRecordDuration : TimeDuration = 7200.0;
+        doc /* The system shall store raw signals, question events, subject responses, derived stress indices, and analysis confidence values for the entire session. */
+    }
+
+    requirement def SignalQualityRequirement {
+        attribute minimumSignalQuality : ConfidenceScore = 0.8;
+        doc /* The system shall flag physiological channels whose signal quality falls below the minimum signal quality threshold. */
+    }
+
+    satisfy PrimaryFunctionRequirement by PolygraphSystem;
+    satisfy SignalSynchronizationRequirement by SignalAcquisitionController;
+    satisfy BaselineRequirement by PhysiologicalAnalysisEngine;
+    satisfy RecordingRequirement by SessionRecorder;
+    satisfy SignalQualityRequirement by SignalAcquisitionController;
+
+    part polygraph : PolygraphSystem;
+
+    perform ConductPolygraphSession by polygraph;
+}

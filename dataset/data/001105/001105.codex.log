@@ -1,0 +1,741 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-9igqc2tl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb572-7a56-7313-9067-88f597b042e3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a sensing unit that measures the relevant quantity using a Integrated circuit piezoelectric sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IntegratedCircuitPiezoelectricSensingUnit {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage : Real {
+        unit = V;
+    }
+
+    attribute def Current : Real {
+        unit = A;
+    }
+
+    attribute def Frequency : Real {
+        unit = Hz;
+    }
+
+    attribute def Acceleration : Real {
+        unit = "m/s^2";
+    }
+
+    attribute def Temperature : Real {
+        unit = degC;
+    }
+
+    attribute def TimeDuration : Real {
+        unit = s;
+    }
+
+    attribute def Sensitivity : Real {
+        unit = "mV/(m/s^2)";
+    }
+
+    attribute def NoiseDensity : Real {
+        unit = "ug/sqrt(Hz)";
+    }
+
+    attribute def PercentFullScale : Real {
+        unit = "%FS";
+    }
+
+    item def MechanicalAcceleration {
+        attribute axialAcceleration : Acceleration;
+        attribute transverseAcceleration : Acceleration;
+        attribute frequency : Frequency;
+    }
+
+    item def PiezoelectricCharge {
+        attribute chargeMagnitude : Real {
+            unit = pC;
+        }
+        attribute polarity : String;
+    }
+
+    item def ConditionedAnalogSignal {
+        attribute signalVoltage : Voltage;
+        attribute biasVoltage : Voltage;
+        attribute bandwidth : Frequency;
+        attribute representsAcceleration : Acceleration;
+    }
+
+    item def DigitizedAccelerationSample {
+        attribute sampleTime : TimeDuration;
+        attribute accelerationValue : Acceleration;
+        attribute diagnosticStatus : SensorDiagnosticStatus;
+    }
+
+    enum def SensorDiagnosticStatus {
+        enum nominal;
+        enum warmup;
+        enum overRange;
+        enum openCircuit;
+        enum shortCircuit;
+        enum biasOutOfRange;
+        enum selfTestFailed;
+    }
+
+    port def MechanicalInputPort {
+        in item measuredMotion : MechanicalAcceleration;
+    }
+
+    port def ChargeTransferPort {
+        out item generatedCharge : PiezoelectricCharge;
+    }
+
+    port def AnalogSignalPort {
+        out item analogMeasurement : ConditionedAnalogSignal;
+    }
+
+    port def SampleOutputPort {
+        out item measuredSample : DigitizedAccelerationSample;
+    }
+
+    port def ConstantCurrentPowerPort {
+        in attribute supplyCurrent : Current;
+        in attribute supplyVoltage : Voltage;
+        out attribute sensorBiasVoltage : Voltage;
+    }
+
+    port def DiagnosticPort {
+        out attribute status : SensorDiagnosticStatus;
+        out attribute biasVoltage : Voltage;
+        out attribute selfTestPassed : Boolean;
+    }
+
+    action def ConvertAccelerationToCharge {
+        in item inputAcceleration : MechanicalAcceleration;
+        out item outputCharge : PiezoelectricCharge;
+    }
+
+    action def ConditionPiezoelectricSignal {
+        in item inputCharge : PiezoelectricCharge;
+        in attribute excitationCurrent : Current;
+        out item conditionedSignal : ConditionedAnalogSignal;
+    }
+
+    action def SampleAnalogSignal {
+        in item analogSignal : ConditionedAnalogSignal;
+        out item digitalSample : DigitizedAccelerationSample;
+    }
+
+    action def EvaluateDiagnostics {
+        in attribute measuredBias : Voltage;
+        in attribute measuredSignal : Voltage;
+        out attribute diagnosticStatus : SensorDiagnosticStatus;
+    }
+
+    part def PiezoelectricSensingElement {
+        attribute material : String = "PZT ceramic";
+        attribute axis : String = "single axial measurement axis";
+        attribute chargeSensitivity : Real {
+            unit = "pC/(m/s^2)";
+            default = 0.45;
+        }
+        attribute resonantFrequency : Frequency = 30000 [Hz];
+        attribute maximumAcceleration : Acceleration = 4905 ["m/s^2"];
+
+        port mechanicalInput : MechanicalInputPort;
+        port chargeOutput : ChargeTransferPort;
+
+        perform action convert : ConvertAccelerationToCharge {
+            in inputAcceleration = mechanicalInput.measuredMotion;
+            out outputCharge = chargeOutput.generatedCharge;
+        }
+    }
+
+    part def IntegratedCircuitPreamplifier {
+        attribute architecture : String = "integrated impedance converter with low-noise FET input";
+        attribute nominalBiasVoltage : Voltage = 12.0 [V];
+        attribute minimumBiasVoltage : Voltage = 8.0 [V];
+        attribute maximumBiasVoltage : Voltage = 14.0 [V];
+        attribute nominalExcitationCurrent : Current = 4.0 [mA];
+        attribute outputSensitivity : Sensitivity = 10.2 ["mV/(m/s^2)"];
+        attribute lowerCutoffFrequency : Frequency = 0.5 [Hz];
+        attribute upperCutoffFrequency : Frequency = 10000 [Hz];
+        attribute noiseDensity : NoiseDensity = 120 ["ug/sqrt(Hz)"];
+
+        port chargeInput : ChargeTransferPort;
+        port powerInput : ConstantCurrentPowerPort;
+        port analogOutput : AnalogSignalPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        perform action condition : ConditionPiezoelectricSignal {
+            in inputCharge = chargeInput.generatedCharge;
+            in excitationCurrent = powerInput.supplyCurrent;
+            out conditionedSignal = analogOutput.analogMeasurement;
+        }
+    }
+
+    part def ConstantCurrentExcitationInterface {
+        attribute supplyVoltage : Voltage = 24.0 [V];
+        attribute regulatedCurrent : Current = 4.0 [mA];
+        attribute currentTolerance : PercentFullScale = 5.0 ["%FS"];
+        attribute complianceVoltageMinimum : Voltage = 18.0 [V];
+
+        port powerOutput : ConstantCurrentPowerPort;
+    }
+
+    part def AntiAliasFilter {
+        attribute filterType : String = "fourth-order low-pass Butterworth";
+        attribute cutoffFrequency : Frequency = 12500 [Hz];
+        attribute passbandRipple : Real {
+            unit = dB;
+            default = 0.1;
+        }
+
+        port analogInput : AnalogSignalPort;
+        port analogOutput : AnalogSignalPort;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute samplingFrequency : Frequency = 25600 [Hz];
+        attribute inputRange : Voltage = 5.0 [V];
+        attribute conversionLatency : TimeDuration = 40 [us];
+
+        port analogInput : AnalogSignalPort;
+        port sampleOutput : SampleOutputPort;
+
+        perform action sample : SampleAnalogSignal {
+            in analogSignal = analogInput.analogMeasurement;
+            out digitalSample = sampleOutput.measuredSample;
+        }
+    }
+
+    part def SensorHealthMonitor {
+        attribute biasLowLimit : Voltage = 8.0 [V];
+        attribute biasHighLimit : Voltage = 14.0 [V];
+        attribute overloadThreshold : Acceleration = 4905 ["m/s^2"];
+        attribute warmupTime : TimeDuration = 2.0 [s];
+
+        port diagnosticInput : DiagnosticPort;
+        port sampleInput : SampleOutputPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        perform action evaluate : EvaluateDiagnostics {
+            in measuredBias = diagnosticInput.biasVoltage;
+            out diagnosticStatus = diagnosticOutput.status;
+        }
+
+        state def HealthStateMachine {
+            entry action initialize;
+            state Off;
+            state Warmup;
+            state Measuring;
+            state Faulted;
+            state SelfTest;
+
+            transition initial then Off;
+            transition Off_to_Warmup
+                first Off
+                accept PowerApplied
+                then Warmup;
+
+            transition Warmup_to_SelfTest
+                first Warmup
+                accept WarmupElapsed
+                if diagnosticInput.biasVoltage >= biasLowLimit and diagnosticInput.biasVoltage <= biasHighLimit
+                then SelfTest;
+
+            transition SelfTest_to_Measuring
+                first SelfTest
+                accept SelfTestComplete
+                if diagnosticInput.selfTestPassed
+                then Measuring;
+
+            transition Measuring_to_Faulted
+                first Measuring
+                accept DiagnosticUpdate
+                if diagnosticInput.status != SensorDiagnosticStatus::nominal
+                then Faulted;
+
+            transition Faulted_to_Warmup
+                first Faulted
+                accept FaultCleared
+                then Warmup;
+        }
+    }
+
+    part def IntegratedCircuitPiezoelectricSensingUnit {
+        attribute measuredQuantity : String = "dynamic axial acceleration";
+        attribute measurementRange : Acceleration = 4905 ["m/s^2"];
+        attribute usableFrequencyMinimum : Frequency = 0.5 [Hz];
+        attribute usableFrequencyMaximum : Frequency = 10000 [Hz];
+        attribute nominalSensitivity : Sensitivity = 10.2 ["mV/(m/s^2)"];
+        attribute operatingTemperatureMinimum : Temperature = -40 [degC];
+        attribute operatingTemperatureMaximum : Temperature = 125 [degC];
+        attribute measurementUncertainty : PercentFullScale = 2.0 ["%FS"];
+
+        port mechanicalInput : MechanicalInputPort;
+        port excitationInput : ConstantCurrentPowerPort;
+        port measurementOutput : SampleOutputPort;
+        port analogServiceOutput : AnalogSignalPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part sensingElement : PiezoelectricSensingElement;
+        part integratedCircuit : IntegratedCircuitPreamplifier;
+        part excitationInterface : ConstantCurrentExcitationInterface;
+        part antiAliasFilter : AntiAliasFilter;
+        part adc : AnalogToDigitalConverter;
+        part healthMonitor : SensorHealthMonitor;
+
+        connect mechanicalInput to sensingElement.mechanicalInput;
+        connect sensingElement.chargeOutput to integratedCircuit.chargeInput;
+        connect excitationInput to integratedCircuit.powerInput;
+        connect excitationInterface.powerOutput to integratedCircuit.powerInput;
+        connect integratedCircuit.analogOutput to antiAliasFilter.analogInput;
+        connect antiAliasFilter.analogOutput to adc.analogInput;
+        connect adc.sampleOutput to measurementOutput;
+        connect integratedCircuit.analogOutput to analogServiceOutput;
+        connect integratedCircuit.diagnosticOutput to healthMonitor.diagnosticInput;
+        connect adc.sampleOutput to healthMonitor.sampleInput;
+        connect healthMonitor.diagnosticOutput to diagnosticOutput;
+    }
+
+    requirement def MeasureDynamicAccelerationRequirement {
+        doc /* The sensing unit shall measure dynamic axial acceleration using an integrated circuit piezoelectric sensor element and integrated preamplifier. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "dynamic axial acceleration"
+        }
+    }
+
+    requirement def FrequencyResponseRequirement {
+        doc /* The sensing unit shall provide calibrated acceleration measurements from 0.5 Hz through 10 kHz. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.usableFrequencyMinimum <= 0.5 [Hz] and
+            unit.usableFrequencyMaximum >= 10000 [Hz]
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The sensing unit shall measure acceleration up to at least 500 g without mechanical or electrical saturation. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.measurementRange >= 4905 ["m/s^2"]
+        }
+    }
+
+    requirement def ConstantCurrentExcitationRequirement {
+        doc /* The integrated circuit piezoelectric sensor shall operate from a constant-current excitation interface. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.integratedCircuit.nominalExcitationCurrent >= 2.0 [mA] and
+            unit.integratedCircuit.nominalExcitationCurrent <= 6.0 [mA]
+        }
+    }
+
+    requirement def BiasDiagnosticRequirement {
+        doc /* The sensing unit shall report a diagnostic fault when the integrated circuit bias voltage is outside the valid operating range. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.healthMonitor.biasLowLimit == unit.integratedCircuit.minimumBiasVoltage and
+            unit.healthMonitor.biasHighLimit == unit.integratedCircuit.maximumBiasVoltage
+        }
+    }
+
+    requirement def DigitalOutputRequirement {
+        doc /* The sensing unit shall output digitized acceleration samples with at least 24-bit conversion resolution and at least 25.6 kHz sample rate. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.adc.resolutionBits >= 24 and
+            unit.adc.samplingFrequency >= 25600 [Hz]
+        }
+    }
+
+    satisfy MeasureDynamicAccelerationRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy FrequencyResponseRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy MeasurementRangeRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy ConstantCurrentExcitationRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy BiasDiagnosticRequirement by SensorHealthMonitor;
+    satisfy DigitalOutputRequirement by AnalogToDigitalConverter;
+}
+tokens used
+3,148
+package IntegratedCircuitPiezoelectricSensingUnit {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage : Real {
+        unit = V;
+    }
+
+    attribute def Current : Real {
+        unit = A;
+    }
+
+    attribute def Frequency : Real {
+        unit = Hz;
+    }
+
+    attribute def Acceleration : Real {
+        unit = "m/s^2";
+    }
+
+    attribute def Temperature : Real {
+        unit = degC;
+    }
+
+    attribute def TimeDuration : Real {
+        unit = s;
+    }
+
+    attribute def Sensitivity : Real {
+        unit = "mV/(m/s^2)";
+    }
+
+    attribute def NoiseDensity : Real {
+        unit = "ug/sqrt(Hz)";
+    }
+
+    attribute def PercentFullScale : Real {
+        unit = "%FS";
+    }
+
+    item def MechanicalAcceleration {
+        attribute axialAcceleration : Acceleration;
+        attribute transverseAcceleration : Acceleration;
+        attribute frequency : Frequency;
+    }
+
+    item def PiezoelectricCharge {
+        attribute chargeMagnitude : Real {
+            unit = pC;
+        }
+        attribute polarity : String;
+    }
+
+    item def ConditionedAnalogSignal {
+        attribute signalVoltage : Voltage;
+        attribute biasVoltage : Voltage;
+        attribute bandwidth : Frequency;
+        attribute representsAcceleration : Acceleration;
+    }
+
+    item def DigitizedAccelerationSample {
+        attribute sampleTime : TimeDuration;
+        attribute accelerationValue : Acceleration;
+        attribute diagnosticStatus : SensorDiagnosticStatus;
+    }
+
+    enum def SensorDiagnosticStatus {
+        enum nominal;
+        enum warmup;
+        enum overRange;
+        enum openCircuit;
+        enum shortCircuit;
+        enum biasOutOfRange;
+        enum selfTestFailed;
+    }
+
+    port def MechanicalInputPort {
+        in item measuredMotion : MechanicalAcceleration;
+    }
+
+    port def ChargeTransferPort {
+        out item generatedCharge : PiezoelectricCharge;
+    }
+
+    port def AnalogSignalPort {
+        out item analogMeasurement : ConditionedAnalogSignal;
+    }
+
+    port def SampleOutputPort {
+        out item measuredSample : DigitizedAccelerationSample;
+    }
+
+    port def ConstantCurrentPowerPort {
+        in attribute supplyCurrent : Current;
+        in attribute supplyVoltage : Voltage;
+        out attribute sensorBiasVoltage : Voltage;
+    }
+
+    port def DiagnosticPort {
+        out attribute status : SensorDiagnosticStatus;
+        out attribute biasVoltage : Voltage;
+        out attribute selfTestPassed : Boolean;
+    }
+
+    action def ConvertAccelerationToCharge {
+        in item inputAcceleration : MechanicalAcceleration;
+        out item outputCharge : PiezoelectricCharge;
+    }
+
+    action def ConditionPiezoelectricSignal {
+        in item inputCharge : PiezoelectricCharge;
+        in attribute excitationCurrent : Current;
+        out item conditionedSignal : ConditionedAnalogSignal;
+    }
+
+    action def SampleAnalogSignal {
+        in item analogSignal : ConditionedAnalogSignal;
+        out item digitalSample : DigitizedAccelerationSample;
+    }
+
+    action def EvaluateDiagnostics {
+        in attribute measuredBias : Voltage;
+        in attribute measuredSignal : Voltage;
+        out attribute diagnosticStatus : SensorDiagnosticStatus;
+    }
+
+    part def PiezoelectricSensingElement {
+        attribute material : String = "PZT ceramic";
+        attribute axis : String = "single axial measurement axis";
+        attribute chargeSensitivity : Real {
+            unit = "pC/(m/s^2)";
+            default = 0.45;
+        }
+        attribute resonantFrequency : Frequency = 30000 [Hz];
+        attribute maximumAcceleration : Acceleration = 4905 ["m/s^2"];
+
+        port mechanicalInput : MechanicalInputPort;
+        port chargeOutput : ChargeTransferPort;
+
+        perform action convert : ConvertAccelerationToCharge {
+            in inputAcceleration = mechanicalInput.measuredMotion;
+            out outputCharge = chargeOutput.generatedCharge;
+        }
+    }
+
+    part def IntegratedCircuitPreamplifier {
+        attribute architecture : String = "integrated impedance converter with low-noise FET input";
+        attribute nominalBiasVoltage : Voltage = 12.0 [V];
+        attribute minimumBiasVoltage : Voltage = 8.0 [V];
+        attribute maximumBiasVoltage : Voltage = 14.0 [V];
+        attribute nominalExcitationCurrent : Current = 4.0 [mA];
+        attribute outputSensitivity : Sensitivity = 10.2 ["mV/(m/s^2)"];
+        attribute lowerCutoffFrequency : Frequency = 0.5 [Hz];
+        attribute upperCutoffFrequency : Frequency = 10000 [Hz];
+        attribute noiseDensity : NoiseDensity = 120 ["ug/sqrt(Hz)"];
+
+        port chargeInput : ChargeTransferPort;
+        port powerInput : ConstantCurrentPowerPort;
+        port analogOutput : AnalogSignalPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        perform action condition : ConditionPiezoelectricSignal {
+            in inputCharge = chargeInput.generatedCharge;
+            in excitationCurrent = powerInput.supplyCurrent;
+            out conditionedSignal = analogOutput.analogMeasurement;
+        }
+    }
+
+    part def ConstantCurrentExcitationInterface {
+        attribute supplyVoltage : Voltage = 24.0 [V];
+        attribute regulatedCurrent : Current = 4.0 [mA];
+        attribute currentTolerance : PercentFullScale = 5.0 ["%FS"];
+        attribute complianceVoltageMinimum : Voltage = 18.0 [V];
+
+        port powerOutput : ConstantCurrentPowerPort;
+    }
+
+    part def AntiAliasFilter {
+        attribute filterType : String = "fourth-order low-pass Butterworth";
+        attribute cutoffFrequency : Frequency = 12500 [Hz];
+        attribute passbandRipple : Real {
+            unit = dB;
+            default = 0.1;
+        }
+
+        port analogInput : AnalogSignalPort;
+        port analogOutput : AnalogSignalPort;
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolutionBits : Integer = 24;
+        attribute samplingFrequency : Frequency = 25600 [Hz];
+        attribute inputRange : Voltage = 5.0 [V];
+        attribute conversionLatency : TimeDuration = 40 [us];
+
+        port analogInput : AnalogSignalPort;
+        port sampleOutput : SampleOutputPort;
+
+        perform action sample : SampleAnalogSignal {
+            in analogSignal = analogInput.analogMeasurement;
+            out digitalSample = sampleOutput.measuredSample;
+        }
+    }
+
+    part def SensorHealthMonitor {
+        attribute biasLowLimit : Voltage = 8.0 [V];
+        attribute biasHighLimit : Voltage = 14.0 [V];
+        attribute overloadThreshold : Acceleration = 4905 ["m/s^2"];
+        attribute warmupTime : TimeDuration = 2.0 [s];
+
+        port diagnosticInput : DiagnosticPort;
+        port sampleInput : SampleOutputPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        perform action evaluate : EvaluateDiagnostics {
+            in measuredBias = diagnosticInput.biasVoltage;
+            out diagnosticStatus = diagnosticOutput.status;
+        }
+
+        state def HealthStateMachine {
+            entry action initialize;
+            state Off;
+            state Warmup;
+            state Measuring;
+            state Faulted;
+            state SelfTest;
+
+            transition initial then Off;
+            transition Off_to_Warmup
+                first Off
+                accept PowerApplied
+                then Warmup;
+
+            transition Warmup_to_SelfTest
+                first Warmup
+                accept WarmupElapsed
+                if diagnosticInput.biasVoltage >= biasLowLimit and diagnosticInput.biasVoltage <= biasHighLimit
+                then SelfTest;
+
+            transition SelfTest_to_Measuring
+                first SelfTest
+                accept SelfTestComplete
+                if diagnosticInput.selfTestPassed
+                then Measuring;
+
+            transition Measuring_to_Faulted
+                first Measuring
+                accept DiagnosticUpdate
+                if diagnosticInput.status != SensorDiagnosticStatus::nominal
+                then Faulted;
+
+            transition Faulted_to_Warmup
+                first Faulted
+                accept FaultCleared
+                then Warmup;
+        }
+    }
+
+    part def IntegratedCircuitPiezoelectricSensingUnit {
+        attribute measuredQuantity : String = "dynamic axial acceleration";
+        attribute measurementRange : Acceleration = 4905 ["m/s^2"];
+        attribute usableFrequencyMinimum : Frequency = 0.5 [Hz];
+        attribute usableFrequencyMaximum : Frequency = 10000 [Hz];
+        attribute nominalSensitivity : Sensitivity = 10.2 ["mV/(m/s^2)"];
+        attribute operatingTemperatureMinimum : Temperature = -40 [degC];
+        attribute operatingTemperatureMaximum : Temperature = 125 [degC];
+        attribute measurementUncertainty : PercentFullScale = 2.0 ["%FS"];
+
+        port mechanicalInput : MechanicalInputPort;
+        port excitationInput : ConstantCurrentPowerPort;
+        port measurementOutput : SampleOutputPort;
+        port analogServiceOutput : AnalogSignalPort;
+        port diagnosticOutput : DiagnosticPort;
+
+        part sensingElement : PiezoelectricSensingElement;
+        part integratedCircuit : IntegratedCircuitPreamplifier;
+        part excitationInterface : ConstantCurrentExcitationInterface;
+        part antiAliasFilter : AntiAliasFilter;
+        part adc : AnalogToDigitalConverter;
+        part healthMonitor : SensorHealthMonitor;
+
+        connect mechanicalInput to sensingElement.mechanicalInput;
+        connect sensingElement.chargeOutput to integratedCircuit.chargeInput;
+        connect excitationInput to integratedCircuit.powerInput;
+        connect excitationInterface.powerOutput to integratedCircuit.powerInput;
+        connect integratedCircuit.analogOutput to antiAliasFilter.analogInput;
+        connect antiAliasFilter.analogOutput to adc.analogInput;
+        connect adc.sampleOutput to measurementOutput;
+        connect integratedCircuit.analogOutput to analogServiceOutput;
+        connect integratedCircuit.diagnosticOutput to healthMonitor.diagnosticInput;
+        connect adc.sampleOutput to healthMonitor.sampleInput;
+        connect healthMonitor.diagnosticOutput to diagnosticOutput;
+    }
+
+    requirement def MeasureDynamicAccelerationRequirement {
+        doc /* The sensing unit shall measure dynamic axial acceleration using an integrated circuit piezoelectric sensor element and integrated preamplifier. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.measuredQuantity == "dynamic axial acceleration"
+        }
+    }
+
+    requirement def FrequencyResponseRequirement {
+        doc /* The sensing unit shall provide calibrated acceleration measurements from 0.5 Hz through 10 kHz. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.usableFrequencyMinimum <= 0.5 [Hz] and
+            unit.usableFrequencyMaximum >= 10000 [Hz]
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc /* The sensing unit shall measure acceleration up to at least 500 g without mechanical or electrical saturation. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.measurementRange >= 4905 ["m/s^2"]
+        }
+    }
+
+    requirement def ConstantCurrentExcitationRequirement {
+        doc /* The integrated circuit piezoelectric sensor shall operate from a constant-current excitation interface. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.integratedCircuit.nominalExcitationCurrent >= 2.0 [mA] and
+            unit.integratedCircuit.nominalExcitationCurrent <= 6.0 [mA]
+        }
+    }
+
+    requirement def BiasDiagnosticRequirement {
+        doc /* The sensing unit shall report a diagnostic fault when the integrated circuit bias voltage is outside the valid operating range. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.healthMonitor.biasLowLimit == unit.integratedCircuit.minimumBiasVoltage and
+            unit.healthMonitor.biasHighLimit == unit.integratedCircuit.maximumBiasVoltage
+        }
+    }
+
+    requirement def DigitalOutputRequirement {
+        doc /* The sensing unit shall output digitized acceleration samples with at least 24-bit conversion resolution and at least 25.6 kHz sample rate. */
+        subject unit : IntegratedCircuitPiezoelectricSensingUnit;
+
+        require constraint {
+            unit.adc.resolutionBits >= 24 and
+            unit.adc.samplingFrequency >= 25600 [Hz]
+        }
+    }
+
+    satisfy MeasureDynamicAccelerationRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy FrequencyResponseRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy MeasurementRangeRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy ConstantCurrentExcitationRequirement by IntegratedCircuitPiezoelectricSensingUnit;
+    satisfy BiasDiagnosticRequirement by SensorHealthMonitor;
+    satisfy DigitalOutputRequirement by AnalogToDigitalConverter;
+}

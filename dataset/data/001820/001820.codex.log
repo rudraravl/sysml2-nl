@@ -1,0 +1,1067 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-cou7jagx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb832-c95a-7fb0-aa93-72fa88c6f142
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Nutating disc engine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NutatingDiscEngineModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Pressure :> scalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def Temperature :> scalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def RotationalSpeed :> scalarValues::Real {
+        unit = "rpm";
+    }
+
+    attribute def Torque :> scalarValues::Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> scalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Volume :> scalarValues::Real {
+        unit = "m^3";
+    }
+
+    attribute def MassFlowRate :> scalarValues::Real {
+        unit = "kg/s";
+    }
+
+    attribute def FuelRate :> scalarValues::Real {
+        unit = "kg/s";
+    }
+
+    attribute def Angle :> scalarValues::Real {
+        unit = "deg";
+    }
+
+    attribute def Efficiency :> scalarValues::Real {
+        unit = "1";
+    }
+
+    attribute def Energy :> scalarValues::Real {
+        unit = "J";
+    }
+
+    item def AirFuelMixture {
+        attribute airMassFlow : MassFlowRate;
+        attribute fuelMassFlow : FuelRate;
+        attribute equivalenceRatio : scalarValues::Real;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def ExhaustGas {
+        attribute massFlow : MassFlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute residualOxygenFraction : scalarValues::Real;
+    }
+
+    item def Fuel {
+        attribute massFlow : FuelRate;
+        attribute lowerHeatingValue : Energy;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def Lubricant {
+        attribute flowRate : MassFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute viscosityIndex : scalarValues::Real;
+    }
+
+    item def CoolingFluid {
+        attribute flowRate : MassFlowRate;
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def MechanicalPower {
+        attribute torque : Torque;
+        attribute speed : RotationalSpeed;
+        attribute power : Power;
+    }
+
+    port def MixturePort {
+        in item mixture : AirFuelMixture;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def FuelPort {
+        in item fuel : Fuel;
+    }
+
+    port def LubricantPort {
+        inout item oil : Lubricant;
+    }
+
+    port def CoolingPort {
+        inout item coolant : CoolingFluid;
+    }
+
+    port def ShaftPort {
+        out item shaftPower : MechanicalPower;
+    }
+
+    port def SensorSignalPort {
+        out attribute pressure : Pressure;
+        out attribute temperature : Temperature;
+        out attribute speed : RotationalSpeed;
+        out attribute position : Angle;
+    }
+
+    part def IntakeManifold {
+        port mixtureOut : MixturePort;
+        attribute manifoldPressure : Pressure;
+        attribute manifoldTemperature : Temperature;
+        attribute plenumVolume : Volume;
+    }
+
+    part def FuelMeteringAssembly {
+        port fuelIn : FuelPort;
+        port mixtureOut : MixturePort;
+        attribute commandedFuelRate : FuelRate;
+        attribute maximumFuelRate : FuelRate;
+        attribute minimumFuelRate : FuelRate;
+        attribute atomizationPressure : Pressure;
+    }
+
+    part def NutatingDiscRotor {
+        port mechanicalOut : ShaftPort;
+        attribute discDiameter : Length;
+        attribute discThickness : Length;
+        attribute nutationAngle : Angle;
+        attribute instantaneousAngle : Angle;
+        attribute angularSpeed : RotationalSpeed;
+        attribute polarMoment : scalarValues::Real;
+    }
+
+    part def SphericalHousing {
+        attribute chamberVolume : Volume;
+        attribute sealContactPressure : Pressure;
+        attribute housingTemperature : Temperature;
+        attribute maximumAllowablePressure : Pressure;
+    }
+
+    part def ChamberSet {
+        attribute intakeChamberVolume : Volume;
+        attribute compressionChamberVolume : Volume;
+        attribute combustionChamberVolume : Volume;
+        attribute expansionChamberVolume : Volume;
+        attribute compressionRatio : scalarValues::Real;
+        port mixtureIn : MixturePort;
+        port exhaustOut : ExhaustPort;
+    }
+
+    part def ApexSealSystem {
+        attribute sealLeakageRate : MassFlowRate;
+        attribute sealWearDepth : Length;
+        attribute contactTemperature : Temperature;
+        attribute minimumSealContactPressure : Pressure;
+    }
+
+    part def IgnitionSystem {
+        attribute sparkEnergy : Energy;
+        attribute sparkTiming : Angle;
+        attribute enabled : Boolean;
+    }
+
+    part def ExhaustManifold {
+        port exhaustIn : ExhaustPort;
+        attribute backPressure : Pressure;
+        attribute exhaustTemperature : Temperature;
+    }
+
+    part def LubricationSystem {
+        port oilCircuit : LubricantPort;
+        attribute oilPressure : Pressure;
+        attribute oilTemperature : Temperature;
+        attribute pumpFlowRate : MassFlowRate;
+    }
+
+    part def CoolingSystem {
+        port coolantCircuit : CoolingPort;
+        attribute heatRejectionRate : Power;
+        attribute coolantPressure : Pressure;
+        attribute targetHousingTemperature : Temperature;
+    }
+
+    part def OutputShaftAssembly {
+        port shaftIn : ShaftPort;
+        port shaftOut : ShaftPort;
+        attribute outputSpeed : RotationalSpeed;
+        attribute outputTorque : Torque;
+        attribute bearingTemperature : Temperature;
+        attribute mechanicalEfficiency : Efficiency;
+    }
+
+    part def EngineController {
+        port sensed : SensorSignalPort;
+        attribute targetSpeed : RotationalSpeed;
+        attribute commandedSparkTiming : Angle;
+        attribute commandedFuelRate : FuelRate;
+        attribute shutdownRequested : Boolean;
+    }
+
+    action def MeterFuel {
+        in attribute requestedPower : Power;
+        in attribute manifoldPressure : Pressure;
+        out item meteredMixture : AirFuelMixture;
+    }
+
+    action def AdmitCharge {
+        in item mixture : AirFuelMixture;
+        out item trappedCharge : AirFuelMixture;
+    }
+
+    action def CompressCharge {
+        in item trappedCharge : AirFuelMixture;
+        out item compressedCharge : AirFuelMixture;
+        out attribute peakCompressionPressure : Pressure;
+    }
+
+    action def IgniteCharge {
+        in item compressedCharge : AirFuelMixture;
+        out attribute combustionPressure : Pressure;
+        out attribute releasedHeat : Energy;
+    }
+
+    action def ExpandWorkingGas {
+        in attribute combustionPressure : Pressure;
+        out item shaftPower : MechanicalPower;
+        out item exhaustGas : ExhaustGas;
+    }
+
+    action def ExhaustProducts {
+        in item exhaustGas : ExhaustGas;
+        out item dischargedExhaust : ExhaustGas;
+    }
+
+    action def ConvertNutationToShaftRotation {
+        in attribute discNutationAngle : Angle;
+        in attribute chamberPressure : Pressure;
+        out item shaftPower : MechanicalPower;
+    }
+
+    action def ControlEngine {
+        in attribute measuredSpeed : RotationalSpeed;
+        in attribute measuredPressure : Pressure;
+        in attribute measuredTemperature : Temperature;
+        out attribute fuelCommand : FuelRate;
+        out attribute sparkTimingCommand : Angle;
+    }
+
+    state def EngineOperatingState {
+        entry action initializeController;
+        state Off;
+        state Priming;
+        state Cranking;
+        state Idle;
+        state PowerProducing;
+        state OverspeedProtection;
+        state Cooldown;
+        state Faulted;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            then Priming
+            accept startCommand;
+
+        transition Priming_to_Cranking
+            first Priming
+            then Cranking
+            if fuelPressureReady;
+
+        transition Cranking_to_Idle
+            first Cranking
+            then Idle
+            if sustainedCombustion;
+
+        transition Idle_to_PowerProducing
+            first Idle
+            then PowerProducing
+            if throttleDemandAboveIdle;
+
+        transition PowerProducing_to_Idle
+            first PowerProducing
+            then Idle
+            if throttleDemandAtIdle;
+
+        transition Any_to_Overspeed
+            first PowerProducing
+            then OverspeedProtection
+            if rotorSpeedAboveLimit;
+
+        transition Overspeed_to_Idle
+            first OverspeedProtection
+            then Idle
+            if rotorSpeedRecovered;
+
+        transition Idle_to_Cooldown
+            first Idle
+            then Cooldown
+            accept stopCommand;
+
+        transition PowerProducing_to_Cooldown
+            first PowerProducing
+            then Cooldown
+            accept stopCommand;
+
+        transition Cooldown_to_Off
+            first Cooldown
+            then Off
+            if housingTemperatureSafe;
+
+        transition Any_to_Faulted
+            first PowerProducing
+            then Faulted
+            if oilPressureLow or chamberPressureExcessive or sealTemperatureExcessive;
+    }
+
+    part def NutatingDiscEngine {
+        port airFuelIn : MixturePort;
+        port fuelIn : FuelPort;
+        port exhaustOut : ExhaustPort;
+        port outputPower : ShaftPort;
+        port oilService : LubricantPort;
+        port coolantService : CoolingPort;
+        port telemetry : SensorSignalPort;
+
+        attribute ratedPower : Power = 45000;
+        attribute ratedSpeed : RotationalSpeed = 3600;
+        attribute ratedTorque : Torque = 119.4;
+        attribute idleSpeed : RotationalSpeed = 900;
+        attribute maximumChamberPressure : Pressure = 6500000;
+        attribute nominalCompressionRatio : scalarValues::Real = 9.5;
+        attribute brakeThermalEfficiency : Efficiency = 0.32;
+        attribute totalDisplacement : Volume = 0.0012;
+        attribute dryMass : Mass = 72;
+        attribute primaryFunction : String = "Convert chemical energy in a metered air-fuel charge into continuous rotary shaft power using a nutating disc that sequentially forms intake, compression, combustion, expansion, and exhaust working volumes.";
+
+        part intake : IntakeManifold {
+            attribute plenumVolume = 0.0025;
+            attribute manifoldPressure = 95000;
+            attribute manifoldTemperature = 305;
+        }
+
+        part fuelMeter : FuelMeteringAssembly {
+            attribute maximumFuelRate = 0.004;
+            attribute minimumFuelRate = 0.00012;
+            attribute atomizationPressure = 300000;
+        }
+
+        part housing : SphericalHousing {
+            attribute chamberVolume = 0.0012;
+            attribute maximumAllowablePressure = 8000000;
+            attribute housingTemperature = 365;
+            attribute sealContactPressure = 180000;
+        }
+
+        part chambers : ChamberSet {
+            attribute compressionRatio = 9.5;
+            attribute intakeChamberVolume = 0.00030;
+            attribute compressionChamberVolume = 0.0000316;
+            attribute combustionChamberVolume = 0.0000316;
+            attribute expansionChamberVolume = 0.00030;
+        }
+
+        part disc : NutatingDiscRotor {
+            attribute discDiameter = 0.145;
+            attribute discThickness = 0.018;
+            attribute nutationAngle = 18;
+            attribute angularSpeed = 3600;
+        }
+
+        part seals : ApexSealSystem {
+            attribute minimumSealContactPressure = 120000;
+            attribute sealLeakageRate = 0.000004;
+            attribute contactTemperature = 410;
+        }
+
+        part ignition : IgnitionSystem {
+            attribute sparkEnergy = 0.055;
+            attribute sparkTiming = 18;
+            attribute enabled = true;
+        }
+
+        part exhaust : ExhaustManifold {
+            attribute backPressure = 112000;
+            attribute exhaustTemperature = 930;
+        }
+
+        part lube : LubricationSystem {
+            attribute oilPressure = 350000;
+            attribute oilTemperature = 370;
+            attribute pumpFlowRate = 0.025;
+        }
+
+        part cooling : CoolingSystem {
+            attribute heatRejectionRate = 22000;
+            attribute coolantPressure = 180000;
+            attribute targetHousingTemperature = 385;
+        }
+
+        part shaft : OutputShaftAssembly {
+            attribute outputSpeed = 3600;
+            attribute outputTorque = 119.4;
+            attribute bearingTemperature = 360;
+            attribute mechanicalEfficiency = 0.92;
+        }
+
+        part controller : EngineController {
+            attribute targetSpeed = 3600;
+            attribute commandedSparkTiming = 18;
+            attribute commandedFuelRate = 0.0026;
+            attribute shutdownRequested = false;
+        }
+
+        connection fuelSupplyConnection connect fuelIn to fuelMeter.fuelIn;
+        connection fuelMeterToIntake connect fuelMeter.mixtureOut to intake.mixtureOut;
+        connection intakeToChambers connect intake.mixtureOut to chambers.mixtureIn;
+        connection chambersToExhaust connect chambers.exhaustOut to exhaust.exhaustIn;
+        connection exhaustOutlet connect exhaust.exhaustIn to exhaustOut;
+        connection discToShaft connect disc.mechanicalOut to shaft.shaftIn;
+        connection shaftOutput connect shaft.shaftOut to outputPower;
+        connection oilServiceConnection connect oilService to lube.oilCircuit;
+        connection coolantServiceConnection connect coolantService to cooling.coolantCircuit;
+        connection telemetryConnection connect controller.sensed to telemetry;
+
+        perform action engineCycle {
+            action meter : MeterFuel;
+            action admit : AdmitCharge;
+            action compress : CompressCharge;
+            action ignite : IgniteCharge;
+            action expand : ExpandWorkingGas;
+            action exhaustAction : ExhaustProducts;
+            action convert : ConvertNutationToShaftRotation;
+            action control : ControlEngine;
+
+            flow meter.meteredMixture to admit.mixture;
+            flow admit.trappedCharge to compress.trappedCharge;
+            flow compress.compressedCharge to ignite.compressedCharge;
+            flow ignite.combustionPressure to expand.combustionPressure;
+            flow expand.shaftPower to convert.shaftPower;
+            flow expand.exhaustGas to exhaustAction.exhaustGas;
+        }
+
+        exhibit state operatingMode : EngineOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The nutating disc engine shall convert fuel chemical energy and inducted air into rotary mechanical shaft power through controlled combustion in variable-volume chambers formed by a nutating disc and fixed housing.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.ratedPower >= 40000 and
+            engine.ratedSpeed <= 4200 and
+            engine.brakeThermalEfficiency >= 0.28
+        }
+    }
+
+    requirement def CompressionRequirement {
+        doc "The engine shall compress the admitted air-fuel charge before ignition using the decreasing chamber volume created by disc nutation.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.nominalCompressionRatio >= 8.0 and
+            engine.nominalCompressionRatio <= 11.5
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        doc "The housing, seals, and disc shall contain peak combustion pressure with margin above the maximum commanded operating pressure.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.housing.maximumAllowablePressure >= 1.2 * engine.maximumChamberPressure
+        }
+    }
+
+    requirement def ContinuousOutputRequirement {
+        doc "The output shaft assembly shall deliver continuous rotary power by converting disc nutation into shaft rotation over repeated thermodynamic cycles.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.shaft.mechanicalEfficiency >= 0.88 and
+            engine.ratedTorque >= 100
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        doc "The cooling and lubrication systems shall maintain housing, bearing, and seal temperatures within operating limits during rated operation.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.cooling.targetHousingTemperature <= 400 and
+            engine.shaft.bearingTemperature <= 390 and
+            engine.seals.contactTemperature <= 450
+        }
+    }
+
+    requirement def ControlRequirement {
+        doc "The controller shall meter fuel and ignition timing based on speed, pressure, temperature, and requested power to maintain stable operation and protect the engine from overspeed, low oil pressure, excessive pressure, and excessive seal temperature.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.controller.commandedFuelRate <= engine.fuelMeter.maximumFuelRate and
+            engine.controller.commandedFuelRate >= engine.fuelMeter.minimumFuelRate
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NutatingDiscEngine;
+    satisfy CompressionRequirement by NutatingDiscEngine;
+    satisfy PressureContainmentRequirement by NutatingDiscEngine;
+    satisfy ContinuousOutputRequirement by NutatingDiscEngine;
+    satisfy ThermalManagementRequirement by NutatingDiscEngine;
+    satisfy ControlRequirement by NutatingDiscEngine;
+}
+tokens used
+3,932
+package NutatingDiscEngineModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Pressure :> scalarValues::Real {
+        unit = "Pa";
+    }
+
+    attribute def Temperature :> scalarValues::Real {
+        unit = "K";
+    }
+
+    attribute def RotationalSpeed :> scalarValues::Real {
+        unit = "rpm";
+    }
+
+    attribute def Torque :> scalarValues::Real {
+        unit = "N*m";
+    }
+
+    attribute def Power :> scalarValues::Real {
+        unit = "W";
+    }
+
+    attribute def Volume :> scalarValues::Real {
+        unit = "m^3";
+    }
+
+    attribute def MassFlowRate :> scalarValues::Real {
+        unit = "kg/s";
+    }
+
+    attribute def FuelRate :> scalarValues::Real {
+        unit = "kg/s";
+    }
+
+    attribute def Angle :> scalarValues::Real {
+        unit = "deg";
+    }
+
+    attribute def Efficiency :> scalarValues::Real {
+        unit = "1";
+    }
+
+    attribute def Energy :> scalarValues::Real {
+        unit = "J";
+    }
+
+    item def AirFuelMixture {
+        attribute airMassFlow : MassFlowRate;
+        attribute fuelMassFlow : FuelRate;
+        attribute equivalenceRatio : scalarValues::Real;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def ExhaustGas {
+        attribute massFlow : MassFlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute residualOxygenFraction : scalarValues::Real;
+    }
+
+    item def Fuel {
+        attribute massFlow : FuelRate;
+        attribute lowerHeatingValue : Energy;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def Lubricant {
+        attribute flowRate : MassFlowRate;
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute viscosityIndex : scalarValues::Real;
+    }
+
+    item def CoolingFluid {
+        attribute flowRate : MassFlowRate;
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def MechanicalPower {
+        attribute torque : Torque;
+        attribute speed : RotationalSpeed;
+        attribute power : Power;
+    }
+
+    port def MixturePort {
+        in item mixture : AirFuelMixture;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : ExhaustGas;
+    }
+
+    port def FuelPort {
+        in item fuel : Fuel;
+    }
+
+    port def LubricantPort {
+        inout item oil : Lubricant;
+    }
+
+    port def CoolingPort {
+        inout item coolant : CoolingFluid;
+    }
+
+    port def ShaftPort {
+        out item shaftPower : MechanicalPower;
+    }
+
+    port def SensorSignalPort {
+        out attribute pressure : Pressure;
+        out attribute temperature : Temperature;
+        out attribute speed : RotationalSpeed;
+        out attribute position : Angle;
+    }
+
+    part def IntakeManifold {
+        port mixtureOut : MixturePort;
+        attribute manifoldPressure : Pressure;
+        attribute manifoldTemperature : Temperature;
+        attribute plenumVolume : Volume;
+    }
+
+    part def FuelMeteringAssembly {
+        port fuelIn : FuelPort;
+        port mixtureOut : MixturePort;
+        attribute commandedFuelRate : FuelRate;
+        attribute maximumFuelRate : FuelRate;
+        attribute minimumFuelRate : FuelRate;
+        attribute atomizationPressure : Pressure;
+    }
+
+    part def NutatingDiscRotor {
+        port mechanicalOut : ShaftPort;
+        attribute discDiameter : Length;
+        attribute discThickness : Length;
+        attribute nutationAngle : Angle;
+        attribute instantaneousAngle : Angle;
+        attribute angularSpeed : RotationalSpeed;
+        attribute polarMoment : scalarValues::Real;
+    }
+
+    part def SphericalHousing {
+        attribute chamberVolume : Volume;
+        attribute sealContactPressure : Pressure;
+        attribute housingTemperature : Temperature;
+        attribute maximumAllowablePressure : Pressure;
+    }
+
+    part def ChamberSet {
+        attribute intakeChamberVolume : Volume;
+        attribute compressionChamberVolume : Volume;
+        attribute combustionChamberVolume : Volume;
+        attribute expansionChamberVolume : Volume;
+        attribute compressionRatio : scalarValues::Real;
+        port mixtureIn : MixturePort;
+        port exhaustOut : ExhaustPort;
+    }
+
+    part def ApexSealSystem {
+        attribute sealLeakageRate : MassFlowRate;
+        attribute sealWearDepth : Length;
+        attribute contactTemperature : Temperature;
+        attribute minimumSealContactPressure : Pressure;
+    }
+
+    part def IgnitionSystem {
+        attribute sparkEnergy : Energy;
+        attribute sparkTiming : Angle;
+        attribute enabled : Boolean;
+    }
+
+    part def ExhaustManifold {
+        port exhaustIn : ExhaustPort;
+        attribute backPressure : Pressure;
+        attribute exhaustTemperature : Temperature;
+    }
+
+    part def LubricationSystem {
+        port oilCircuit : LubricantPort;
+        attribute oilPressure : Pressure;
+        attribute oilTemperature : Temperature;
+        attribute pumpFlowRate : MassFlowRate;
+    }
+
+    part def CoolingSystem {
+        port coolantCircuit : CoolingPort;
+        attribute heatRejectionRate : Power;
+        attribute coolantPressure : Pressure;
+        attribute targetHousingTemperature : Temperature;
+    }
+
+    part def OutputShaftAssembly {
+        port shaftIn : ShaftPort;
+        port shaftOut : ShaftPort;
+        attribute outputSpeed : RotationalSpeed;
+        attribute outputTorque : Torque;
+        attribute bearingTemperature : Temperature;
+        attribute mechanicalEfficiency : Efficiency;
+    }
+
+    part def EngineController {
+        port sensed : SensorSignalPort;
+        attribute targetSpeed : RotationalSpeed;
+        attribute commandedSparkTiming : Angle;
+        attribute commandedFuelRate : FuelRate;
+        attribute shutdownRequested : Boolean;
+    }
+
+    action def MeterFuel {
+        in attribute requestedPower : Power;
+        in attribute manifoldPressure : Pressure;
+        out item meteredMixture : AirFuelMixture;
+    }
+
+    action def AdmitCharge {
+        in item mixture : AirFuelMixture;
+        out item trappedCharge : AirFuelMixture;
+    }
+
+    action def CompressCharge {
+        in item trappedCharge : AirFuelMixture;
+        out item compressedCharge : AirFuelMixture;
+        out attribute peakCompressionPressure : Pressure;
+    }
+
+    action def IgniteCharge {
+        in item compressedCharge : AirFuelMixture;
+        out attribute combustionPressure : Pressure;
+        out attribute releasedHeat : Energy;
+    }
+
+    action def ExpandWorkingGas {
+        in attribute combustionPressure : Pressure;
+        out item shaftPower : MechanicalPower;
+        out item exhaustGas : ExhaustGas;
+    }
+
+    action def ExhaustProducts {
+        in item exhaustGas : ExhaustGas;
+        out item dischargedExhaust : ExhaustGas;
+    }
+
+    action def ConvertNutationToShaftRotation {
+        in attribute discNutationAngle : Angle;
+        in attribute chamberPressure : Pressure;
+        out item shaftPower : MechanicalPower;
+    }
+
+    action def ControlEngine {
+        in attribute measuredSpeed : RotationalSpeed;
+        in attribute measuredPressure : Pressure;
+        in attribute measuredTemperature : Temperature;
+        out attribute fuelCommand : FuelRate;
+        out attribute sparkTimingCommand : Angle;
+    }
+
+    state def EngineOperatingState {
+        entry action initializeController;
+        state Off;
+        state Priming;
+        state Cranking;
+        state Idle;
+        state PowerProducing;
+        state OverspeedProtection;
+        state Cooldown;
+        state Faulted;
+
+        transition first Off;
+
+        transition Off_to_Priming
+            first Off
+            then Priming
+            accept startCommand;
+
+        transition Priming_to_Cranking
+            first Priming
+            then Cranking
+            if fuelPressureReady;
+
+        transition Cranking_to_Idle
+            first Cranking
+            then Idle
+            if sustainedCombustion;
+
+        transition Idle_to_PowerProducing
+            first Idle
+            then PowerProducing
+            if throttleDemandAboveIdle;
+
+        transition PowerProducing_to_Idle
+            first PowerProducing
+            then Idle
+            if throttleDemandAtIdle;
+
+        transition Any_to_Overspeed
+            first PowerProducing
+            then OverspeedProtection
+            if rotorSpeedAboveLimit;
+
+        transition Overspeed_to_Idle
+            first OverspeedProtection
+            then Idle
+            if rotorSpeedRecovered;
+
+        transition Idle_to_Cooldown
+            first Idle
+            then Cooldown
+            accept stopCommand;
+
+        transition PowerProducing_to_Cooldown
+            first PowerProducing
+            then Cooldown
+            accept stopCommand;
+
+        transition Cooldown_to_Off
+            first Cooldown
+            then Off
+            if housingTemperatureSafe;
+
+        transition Any_to_Faulted
+            first PowerProducing
+            then Faulted
+            if oilPressureLow or chamberPressureExcessive or sealTemperatureExcessive;
+    }
+
+    part def NutatingDiscEngine {
+        port airFuelIn : MixturePort;
+        port fuelIn : FuelPort;
+        port exhaustOut : ExhaustPort;
+        port outputPower : ShaftPort;
+        port oilService : LubricantPort;
+        port coolantService : CoolingPort;
+        port telemetry : SensorSignalPort;
+
+        attribute ratedPower : Power = 45000;
+        attribute ratedSpeed : RotationalSpeed = 3600;
+        attribute ratedTorque : Torque = 119.4;
+        attribute idleSpeed : RotationalSpeed = 900;
+        attribute maximumChamberPressure : Pressure = 6500000;
+        attribute nominalCompressionRatio : scalarValues::Real = 9.5;
+        attribute brakeThermalEfficiency : Efficiency = 0.32;
+        attribute totalDisplacement : Volume = 0.0012;
+        attribute dryMass : Mass = 72;
+        attribute primaryFunction : String = "Convert chemical energy in a metered air-fuel charge into continuous rotary shaft power using a nutating disc that sequentially forms intake, compression, combustion, expansion, and exhaust working volumes.";
+
+        part intake : IntakeManifold {
+            attribute plenumVolume = 0.0025;
+            attribute manifoldPressure = 95000;
+            attribute manifoldTemperature = 305;
+        }
+
+        part fuelMeter : FuelMeteringAssembly {
+            attribute maximumFuelRate = 0.004;
+            attribute minimumFuelRate = 0.00012;
+            attribute atomizationPressure = 300000;
+        }
+
+        part housing : SphericalHousing {
+            attribute chamberVolume = 0.0012;
+            attribute maximumAllowablePressure = 8000000;
+            attribute housingTemperature = 365;
+            attribute sealContactPressure = 180000;
+        }
+
+        part chambers : ChamberSet {
+            attribute compressionRatio = 9.5;
+            attribute intakeChamberVolume = 0.00030;
+            attribute compressionChamberVolume = 0.0000316;
+            attribute combustionChamberVolume = 0.0000316;
+            attribute expansionChamberVolume = 0.00030;
+        }
+
+        part disc : NutatingDiscRotor {
+            attribute discDiameter = 0.145;
+            attribute discThickness = 0.018;
+            attribute nutationAngle = 18;
+            attribute angularSpeed = 3600;
+        }
+
+        part seals : ApexSealSystem {
+            attribute minimumSealContactPressure = 120000;
+            attribute sealLeakageRate = 0.000004;
+            attribute contactTemperature = 410;
+        }
+
+        part ignition : IgnitionSystem {
+            attribute sparkEnergy = 0.055;
+            attribute sparkTiming = 18;
+            attribute enabled = true;
+        }
+
+        part exhaust : ExhaustManifold {
+            attribute backPressure = 112000;
+            attribute exhaustTemperature = 930;
+        }
+
+        part lube : LubricationSystem {
+            attribute oilPressure = 350000;
+            attribute oilTemperature = 370;
+            attribute pumpFlowRate = 0.025;
+        }
+
+        part cooling : CoolingSystem {
+            attribute heatRejectionRate = 22000;
+            attribute coolantPressure = 180000;
+            attribute targetHousingTemperature = 385;
+        }
+
+        part shaft : OutputShaftAssembly {
+            attribute outputSpeed = 3600;
+            attribute outputTorque = 119.4;
+            attribute bearingTemperature = 360;
+            attribute mechanicalEfficiency = 0.92;
+        }
+
+        part controller : EngineController {
+            attribute targetSpeed = 3600;
+            attribute commandedSparkTiming = 18;
+            attribute commandedFuelRate = 0.0026;
+            attribute shutdownRequested = false;
+        }
+
+        connection fuelSupplyConnection connect fuelIn to fuelMeter.fuelIn;
+        connection fuelMeterToIntake connect fuelMeter.mixtureOut to intake.mixtureOut;
+        connection intakeToChambers connect intake.mixtureOut to chambers.mixtureIn;
+        connection chambersToExhaust connect chambers.exhaustOut to exhaust.exhaustIn;
+        connection exhaustOutlet connect exhaust.exhaustIn to exhaustOut;
+        connection discToShaft connect disc.mechanicalOut to shaft.shaftIn;
+        connection shaftOutput connect shaft.shaftOut to outputPower;
+        connection oilServiceConnection connect oilService to lube.oilCircuit;
+        connection coolantServiceConnection connect coolantService to cooling.coolantCircuit;
+        connection telemetryConnection connect controller.sensed to telemetry;
+
+        perform action engineCycle {
+            action meter : MeterFuel;
+            action admit : AdmitCharge;
+            action compress : CompressCharge;
+            action ignite : IgniteCharge;
+            action expand : ExpandWorkingGas;
+            action exhaustAction : ExhaustProducts;
+            action convert : ConvertNutationToShaftRotation;
+            action control : ControlEngine;
+
+            flow meter.meteredMixture to admit.mixture;
+            flow admit.trappedCharge to compress.trappedCharge;
+            flow compress.compressedCharge to ignite.compressedCharge;
+            flow ignite.combustionPressure to expand.combustionPressure;
+            flow expand.shaftPower to convert.shaftPower;
+            flow expand.exhaustGas to exhaustAction.exhaustGas;
+        }
+
+        exhibit state operatingMode : EngineOperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The nutating disc engine shall convert fuel chemical energy and inducted air into rotary mechanical shaft power through controlled combustion in variable-volume chambers formed by a nutating disc and fixed housing.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.ratedPower >= 40000 and
+            engine.ratedSpeed <= 4200 and
+            engine.brakeThermalEfficiency >= 0.28
+        }
+    }
+
+    requirement def CompressionRequirement {
+        doc "The engine shall compress the admitted air-fuel charge before ignition using the decreasing chamber volume created by disc nutation.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.nominalCompressionRatio >= 8.0 and
+            engine.nominalCompressionRatio <= 11.5
+        }
+    }
+
+    requirement def PressureContainmentRequirement {
+        doc "The housing, seals, and disc shall contain peak combustion pressure with margin above the maximum commanded operating pressure.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.housing.maximumAllowablePressure >= 1.2 * engine.maximumChamberPressure
+        }
+    }
+
+    requirement def ContinuousOutputRequirement {
+        doc "The output shaft assembly shall deliver continuous rotary power by converting disc nutation into shaft rotation over repeated thermodynamic cycles.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.shaft.mechanicalEfficiency >= 0.88 and
+            engine.ratedTorque >= 100
+        }
+    }
+
+    requirement def ThermalManagementRequirement {
+        doc "The cooling and lubrication systems shall maintain housing, bearing, and seal temperatures within operating limits during rated operation.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.cooling.targetHousingTemperature <= 400 and
+            engine.shaft.bearingTemperature <= 390 and
+            engine.seals.contactTemperature <= 450
+        }
+    }
+
+    requirement def ControlRequirement {
+        doc "The controller shall meter fuel and ignition timing based on speed, pressure, temperature, and requested power to maintain stable operation and protect the engine from overspeed, low oil pressure, excessive pressure, and excessive seal temperature.";
+        subject engine : NutatingDiscEngine;
+        require constraint {
+            engine.controller.commandedFuelRate <= engine.fuelMeter.maximumFuelRate and
+            engine.controller.commandedFuelRate >= engine.fuelMeter.minimumFuelRate
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by NutatingDiscEngine;
+    satisfy CompressionRequirement by NutatingDiscEngine;
+    satisfy PressureContainmentRequirement by NutatingDiscEngine;
+    satisfy ContinuousOutputRequirement by NutatingDiscEngine;
+    satisfy ThermalManagementRequirement by NutatingDiscEngine;
+    satisfy ControlRequirement by NutatingDiscEngine;
+}

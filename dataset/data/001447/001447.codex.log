@@ -1,0 +1,1301 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ev24k_j8
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6c0-45b0-7ed3-b736-0128b453a15d
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Home appliances and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HomeApplianceSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def TemperatureCelsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def PowerWatt :> Real {
+        unit = "W";
+    }
+
+    attribute def EnergyKiloWattHour :> Real {
+        unit = "kWh";
+    }
+
+    attribute def WaterLiter :> Real {
+        unit = "L";
+    }
+
+    attribute def TimeMinute :> Real {
+        unit = "min";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real = 120.0;
+        attribute frequency : Real = 60.0;
+        attribute availablePower : PowerWatt;
+    }
+
+    item def WaterSupply {
+        attribute flowRate : Real;
+        attribute temperature : TemperatureCelsius;
+        attribute availableVolume : WaterLiter;
+    }
+
+    item def HeatedAir {
+        attribute temperature : TemperatureCelsius;
+        attribute humidity : Percent;
+        attribute flowRate : Real;
+    }
+
+    item def FoodItem {
+        attribute storageTemperature : TemperatureCelsius;
+        attribute massKg : Real;
+        attribute freshness : Percent;
+    }
+
+    item def LaundryLoad {
+        attribute dryMassKg : Real;
+        attribute soilLevel : Percent;
+        attribute moistureLevel : Percent;
+    }
+
+    item def DishLoad {
+        attribute itemCount : Integer;
+        attribute soilLevel : Percent;
+        attribute sanitized : Boolean;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : ApplianceMode;
+        attribute targetTemperature : TemperatureCelsius;
+        attribute scheduledStartDelay : TimeMinute;
+    }
+
+    item def ApplianceStatus {
+        attribute operatingMode : ApplianceMode;
+        attribute energyConsumed : EnergyKiloWattHour;
+        attribute faultActive : Boolean;
+        attribute remainingTime : TimeMinute;
+    }
+
+    enum def ApplianceMode {
+        enum idle;
+        enum standby;
+        enum heating;
+        enum cooling;
+        enum washing;
+        enum drying;
+        enum cooking;
+        enum completed;
+        enum fault;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def WaterInPort {
+        in item water : WaterSupply;
+    }
+
+    port def AirOutPort {
+        out item air : HeatedAir;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusPort {
+        out item status : ApplianceStatus;
+    }
+
+    part def ApplianceController {
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute selectedMode : ApplianceMode = ApplianceMode::idle;
+        attribute faultDetected : Boolean = false;
+        attribute totalEnergyConsumed : EnergyKiloWattHour = 0.0;
+
+        action def InterpretCommand {
+            in item command : UserCommand;
+            out attribute mode : ApplianceMode;
+        }
+
+        action def PublishStatus {
+            in attribute mode : ApplianceMode;
+            in attribute fault : Boolean;
+            out item status : ApplianceStatus;
+        }
+
+        state def ControllerStateMachine {
+            state idle;
+            state active;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_active
+                first idle
+                then active
+                accept UserCommand
+                if command.requestedMode != ApplianceMode::idle;
+
+            transition active_to_completed
+                first active
+                then completed
+                if faultDetected == false;
+
+            transition any_to_fault
+                first idle
+                then fault
+                if faultDetected == true;
+
+            transition completed_to_idle
+                first completed
+                then idle
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::idle;
+        }
+    }
+
+    part def SmartRefrigerator {
+        port powerIn : PowerInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute compartmentTemperature : TemperatureCelsius = 4.0;
+        attribute freezerTemperature : TemperatureCelsius = -18.0;
+        attribute targetFreshFoodTemperature : TemperatureCelsius = 4.0;
+        attribute targetFreezerTemperature : TemperatureCelsius = -18.0;
+        attribute ratedPower : PowerWatt = 180.0;
+        attribute dailyEnergyLimit : EnergyKiloWattHour = 1.5;
+
+        item foodInventory[0..*] : FoodItem;
+
+        part controller : ApplianceController;
+
+        action def CoolCompartments {
+            in attribute measuredFreshFoodTemperature : TemperatureCelsius;
+            in attribute measuredFreezerTemperature : TemperatureCelsius;
+            out attribute compressorPower : PowerWatt;
+        }
+
+        action def PreserveFood {
+            in item storedFood : FoodItem;
+            out item preservedFood : FoodItem;
+        }
+
+        state def RefrigeratorOperation {
+            state standby;
+            state cooling;
+            state defrost;
+            state fault;
+
+            transition first standby;
+
+            transition standby_to_cooling
+                first standby
+                then cooling
+                if compartmentTemperature > targetFreshFoodTemperature + 1.0;
+
+            transition cooling_to_standby
+                first cooling
+                then standby
+                if compartmentTemperature <= targetFreshFoodTemperature;
+
+            transition cooling_to_defrost
+                first cooling
+                then defrost
+                after 480.0 [min];
+
+            transition defrost_to_standby
+                first defrost
+                then standby
+                after 20.0 [min];
+
+            transition standby_to_fault
+                first standby
+                then fault
+                if compartmentTemperature > 10.0;
+        }
+    }
+
+    part def WashingMachine {
+        port powerIn : PowerInPort;
+        port waterIn : WaterInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute drumCapacityKg : Real = 8.0;
+        attribute washWaterVolume : WaterLiter = 55.0;
+        attribute washTemperature : TemperatureCelsius = 40.0;
+        attribute ratedPower : PowerWatt = 1200.0;
+        attribute cycleDuration : TimeMinute = 52.0;
+
+        item currentLoad : LaundryLoad;
+
+        part controller : ApplianceController;
+
+        action def FillDrum {
+            in item water : WaterSupply;
+            out attribute filledVolume : WaterLiter;
+        }
+
+        action def WashLaundry {
+            in item load : LaundryLoad;
+            in attribute waterTemperature : TemperatureCelsius;
+            out item washedLoad : LaundryLoad;
+        }
+
+        action def SpinExtract {
+            in item washedLoad : LaundryLoad;
+            out item dampLoad : LaundryLoad;
+        }
+
+        state def WashCycle {
+            state idle;
+            state filling;
+            state washing;
+            state rinsing;
+            state spinning;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_filling
+                first idle
+                then filling
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::washing;
+
+            transition filling_to_washing
+                first filling
+                then washing
+                if washWaterVolume >= 55.0;
+
+            transition washing_to_rinsing
+                first washing
+                then rinsing
+                after 30.0 [min];
+
+            transition rinsing_to_spinning
+                first rinsing
+                then spinning
+                after 12.0 [min];
+
+            transition spinning_to_completed
+                first spinning
+                then completed
+                after 10.0 [min];
+
+            transition fault_on_overload
+                first idle
+                then fault
+                if currentLoad.dryMassKg > drumCapacityKg;
+        }
+    }
+
+    part def Dishwasher {
+        port powerIn : PowerInPort;
+        port waterIn : WaterInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute ratedPower : PowerWatt = 1500.0;
+        attribute washTemperature : TemperatureCelsius = 55.0;
+        attribute sanitizeTemperature : TemperatureCelsius = 70.0;
+        attribute waterPerCycle : WaterLiter = 13.0;
+        attribute cycleDuration : TimeMinute = 95.0;
+
+        item currentDishLoad : DishLoad;
+
+        part controller : ApplianceController;
+
+        action def SprayWash {
+            in item dishes : DishLoad;
+            in item water : WaterSupply;
+            out item washedDishes : DishLoad;
+        }
+
+        action def Sanitize {
+            in item washedDishes : DishLoad;
+            in attribute temperature : TemperatureCelsius;
+            out item sanitizedDishes : DishLoad;
+        }
+
+        action def DryDishes {
+            in item sanitizedDishes : DishLoad;
+            out item dryDishes : DishLoad;
+        }
+
+        state def DishwasherCycle {
+            state idle;
+            state prewash;
+            state mainWash;
+            state rinse;
+            state sanitize;
+            state dry;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_prewash
+                first idle
+                then prewash
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::washing;
+
+            transition prewash_to_mainWash
+                first prewash
+                then mainWash
+                after 10.0 [min];
+
+            transition mainWash_to_rinse
+                first mainWash
+                then rinse
+                after 35.0 [min];
+
+            transition rinse_to_sanitize
+                first rinse
+                then sanitize
+                after 15.0 [min];
+
+            transition sanitize_to_dry
+                first sanitize
+                then dry
+                if currentDishLoad.sanitized == true;
+
+            transition dry_to_completed
+                first dry
+                then completed
+                after 25.0 [min];
+
+            transition fault_on_low_water
+                first prewash
+                then fault
+                if waterPerCycle < 8.0;
+        }
+    }
+
+    part def ElectricOven {
+        port powerIn : PowerInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute cavityTemperature : TemperatureCelsius = 22.0;
+        attribute targetCookingTemperature : TemperatureCelsius = 180.0;
+        attribute maximumSafeTemperature : TemperatureCelsius = 260.0;
+        attribute ratedPower : PowerWatt = 3000.0;
+        attribute timerDuration : TimeMinute = 45.0;
+
+        part controller : ApplianceController;
+
+        action def Preheat {
+            in attribute targetTemperature : TemperatureCelsius;
+            out attribute achievedTemperature : TemperatureCelsius;
+        }
+
+        action def MaintainHeat {
+            in attribute currentTemperature : TemperatureCelsius;
+            in attribute targetTemperature : TemperatureCelsius;
+            out attribute heaterPower : PowerWatt;
+        }
+
+        action def ShutDownHeating {
+            out attribute heaterPower : PowerWatt;
+        }
+
+        state def OvenOperation {
+            state idle;
+            state preheating;
+            state cooking;
+            state keepWarm;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_preheating
+                first idle
+                then preheating
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::cooking;
+
+            transition preheating_to_cooking
+                first preheating
+                then cooking
+                if cavityTemperature >= targetCookingTemperature;
+
+            transition cooking_to_keepWarm
+                first cooking
+                then keepWarm
+                after timerDuration;
+
+            transition keepWarm_to_completed
+                first keepWarm
+                then completed
+                after 30.0 [min];
+
+            transition overtemperature_fault
+                first cooking
+                then fault
+                if cavityTemperature > maximumSafeTemperature;
+        }
+    }
+
+    part def ClothesDryer {
+        port powerIn : PowerInPort;
+        port airOut : AirOutPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute drumCapacityKg : Real = 8.0;
+        attribute dryingAirTemperature : TemperatureCelsius = 62.0;
+        attribute exhaustHumidity : Percent = 70.0;
+        attribute targetMoistureLevel : Percent = 5.0;
+        attribute ratedPower : PowerWatt = 2400.0;
+        attribute cycleDuration : TimeMinute = 60.0;
+
+        item currentLoad : LaundryLoad;
+
+        part controller : ApplianceController;
+
+        action def HeatAir {
+            in attribute targetTemperature : TemperatureCelsius;
+            out item heatedAir : HeatedAir;
+        }
+
+        action def TumbleDry {
+            in item wetLoad : LaundryLoad;
+            in item air : HeatedAir;
+            out item dryLoad : LaundryLoad;
+        }
+
+        state def DryerCycle {
+            state idle;
+            state heating;
+            state drying;
+            state coolDown;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_heating
+                first idle
+                then heating
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::drying;
+
+            transition heating_to_drying
+                first heating
+                then drying
+                if dryingAirTemperature >= 55.0;
+
+            transition drying_to_coolDown
+                first drying
+                then coolDown
+                if currentLoad.moistureLevel <= targetMoistureLevel;
+
+            transition coolDown_to_completed
+                first coolDown
+                then completed
+                after 8.0 [min];
+
+            transition fault_on_overload
+                first idle
+                then fault
+                if currentLoad.dryMassKg > drumCapacityKg;
+        }
+    }
+
+    part def HomeApplianceSystem {
+        port homePower : PowerInPort;
+        port homeWater : WaterInPort;
+        port userCommands : CommandPort;
+        port systemStatus : StatusPort;
+
+        attribute primaryFunction : String = "Coordinate home appliances to preserve food, clean laundry, sanitize dishes, cook meals, and dry clothing while managing energy, water, safety, and user commands.";
+        attribute maximumSimultaneousPower : PowerWatt = 7200.0;
+        attribute dailyEnergyBudget : EnergyKiloWattHour = 18.0;
+        attribute dailyWaterBudget : WaterLiter = 220.0;
+
+        part refrigerator : SmartRefrigerator;
+        part washer : WashingMachine;
+        part dishwasher : Dishwasher;
+        part oven : ElectricOven;
+        part dryer : ClothesDryer;
+        part centralController : ApplianceController;
+
+        connection power_to_refrigerator connect homePower to refrigerator.powerIn;
+        connection power_to_washer connect homePower to washer.powerIn;
+        connection power_to_dishwasher connect homePower to dishwasher.powerIn;
+        connection power_to_oven connect homePower to oven.powerIn;
+        connection power_to_dryer connect homePower to dryer.powerIn;
+
+        connection water_to_washer connect homeWater to washer.waterIn;
+        connection water_to_dishwasher connect homeWater to dishwasher.waterIn;
+
+        connection commands_to_controller connect userCommands to centralController.commandIn;
+        connection controller_status_to_system connect centralController.statusOut to systemStatus;
+
+        connection controller_to_refrigerator connect userCommands to refrigerator.commandIn;
+        connection controller_to_washer connect userCommands to washer.commandIn;
+        connection controller_to_dishwasher connect userCommands to dishwasher.commandIn;
+        connection controller_to_oven connect userCommands to oven.commandIn;
+        connection controller_to_dryer connect userCommands to dryer.commandIn;
+
+        action def AllocateEnergy {
+            in item requestedStatus[5] : ApplianceStatus;
+            in attribute energyBudget : EnergyKiloWattHour;
+            out attribute approvedPowerLimit : PowerWatt;
+        }
+
+        action def ScheduleApplianceCycle {
+            in item command : UserCommand;
+            in attribute availablePower : PowerWatt;
+            in attribute availableWater : WaterLiter;
+            out item acceptedCommand : UserCommand;
+        }
+
+        action def MonitorSafety {
+            in item refrigeratorStatus : ApplianceStatus;
+            in item washerStatus : ApplianceStatus;
+            in item dishwasherStatus : ApplianceStatus;
+            in item ovenStatus : ApplianceStatus;
+            in item dryerStatus : ApplianceStatus;
+            out attribute emergencyShutdown : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : HomeApplianceSystem;
+        doc /* The home appliance system shall provide coordinated domestic food preservation, cooking, laundry cleaning, dish sanitization, and clothes drying functions through electrically powered appliances under centralized command and monitoring. */
+    }
+
+    requirement def EnergyManagementRequirement {
+        subject system : HomeApplianceSystem;
+        require constraint {
+            system.refrigerator.ratedPower
+            + system.washer.ratedPower
+            + system.dishwasher.ratedPower
+            + system.oven.ratedPower
+            + system.dryer.ratedPower <= system.maximumSimultaneousPower;
+        }
+    }
+
+    requirement def WaterUseRequirement {
+        subject system : HomeApplianceSystem;
+        require constraint {
+            system.washer.washWaterVolume + system.dishwasher.waterPerCycle <= system.dailyWaterBudget;
+        }
+    }
+
+    requirement def RefrigeratorPreservationRequirement {
+        subject refrigerator : SmartRefrigerator;
+        require constraint {
+            refrigerator.compartmentTemperature <= 5.0 and refrigerator.freezerTemperature <= -15.0;
+        }
+    }
+
+    requirement def LaundryCleaningRequirement {
+        subject washer : WashingMachine;
+        require constraint {
+            washer.currentLoad.dryMassKg <= washer.drumCapacityKg;
+        }
+    }
+
+    requirement def DishSanitizationRequirement {
+        subject dishwasher : Dishwasher;
+        require constraint {
+            dishwasher.sanitizeTemperature >= 70.0;
+        }
+    }
+
+    requirement def OvenSafetyRequirement {
+        subject oven : ElectricOven;
+        require constraint {
+            oven.cavityTemperature <= oven.maximumSafeTemperature;
+        }
+    }
+
+    requirement def DryerSafetyRequirement {
+        subject dryer : ClothesDryer;
+        require constraint {
+            dryer.currentLoad.dryMassKg <= dryer.drumCapacityKg and dryer.dryingAirTemperature <= 75.0;
+        }
+    }
+
+    requirement def UserCommandRequirement {
+        subject system : HomeApplianceSystem;
+        doc /* The system shall accept user commands for appliance operating modes, target temperatures, and delayed start scheduling, then publish operating status including active mode, energy consumed, faults, and remaining time. */
+    }
+
+    satisfy PrimaryFunctionRequirement by HomeApplianceSystem;
+    satisfy EnergyManagementRequirement by HomeApplianceSystem;
+    satisfy WaterUseRequirement by HomeApplianceSystem;
+    satisfy RefrigeratorPreservationRequirement by SmartRefrigerator;
+    satisfy LaundryCleaningRequirement by WashingMachine;
+    satisfy DishSanitizationRequirement by Dishwasher;
+    satisfy OvenSafetyRequirement by ElectricOven;
+    satisfy DryerSafetyRequirement by ClothesDryer;
+    satisfy UserCommandRequirement by ApplianceController;
+}
+tokens used
+4,340
+package HomeApplianceSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def TemperatureCelsius :> Real {
+        unit = "degC";
+    }
+
+    attribute def PowerWatt :> Real {
+        unit = "W";
+    }
+
+    attribute def EnergyKiloWattHour :> Real {
+        unit = "kWh";
+    }
+
+    attribute def WaterLiter :> Real {
+        unit = "L";
+    }
+
+    attribute def TimeMinute :> Real {
+        unit = "min";
+    }
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Real = 120.0;
+        attribute frequency : Real = 60.0;
+        attribute availablePower : PowerWatt;
+    }
+
+    item def WaterSupply {
+        attribute flowRate : Real;
+        attribute temperature : TemperatureCelsius;
+        attribute availableVolume : WaterLiter;
+    }
+
+    item def HeatedAir {
+        attribute temperature : TemperatureCelsius;
+        attribute humidity : Percent;
+        attribute flowRate : Real;
+    }
+
+    item def FoodItem {
+        attribute storageTemperature : TemperatureCelsius;
+        attribute massKg : Real;
+        attribute freshness : Percent;
+    }
+
+    item def LaundryLoad {
+        attribute dryMassKg : Real;
+        attribute soilLevel : Percent;
+        attribute moistureLevel : Percent;
+    }
+
+    item def DishLoad {
+        attribute itemCount : Integer;
+        attribute soilLevel : Percent;
+        attribute sanitized : Boolean;
+    }
+
+    item def UserCommand {
+        attribute requestedMode : ApplianceMode;
+        attribute targetTemperature : TemperatureCelsius;
+        attribute scheduledStartDelay : TimeMinute;
+    }
+
+    item def ApplianceStatus {
+        attribute operatingMode : ApplianceMode;
+        attribute energyConsumed : EnergyKiloWattHour;
+        attribute faultActive : Boolean;
+        attribute remainingTime : TimeMinute;
+    }
+
+    enum def ApplianceMode {
+        enum idle;
+        enum standby;
+        enum heating;
+        enum cooling;
+        enum washing;
+        enum drying;
+        enum cooking;
+        enum completed;
+        enum fault;
+    }
+
+    port def PowerInPort {
+        in item power : ElectricalPower;
+    }
+
+    port def WaterInPort {
+        in item water : WaterSupply;
+    }
+
+    port def AirOutPort {
+        out item air : HeatedAir;
+    }
+
+    port def CommandPort {
+        in item command : UserCommand;
+    }
+
+    port def StatusPort {
+        out item status : ApplianceStatus;
+    }
+
+    part def ApplianceController {
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute selectedMode : ApplianceMode = ApplianceMode::idle;
+        attribute faultDetected : Boolean = false;
+        attribute totalEnergyConsumed : EnergyKiloWattHour = 0.0;
+
+        action def InterpretCommand {
+            in item command : UserCommand;
+            out attribute mode : ApplianceMode;
+        }
+
+        action def PublishStatus {
+            in attribute mode : ApplianceMode;
+            in attribute fault : Boolean;
+            out item status : ApplianceStatus;
+        }
+
+        state def ControllerStateMachine {
+            state idle;
+            state active;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_active
+                first idle
+                then active
+                accept UserCommand
+                if command.requestedMode != ApplianceMode::idle;
+
+            transition active_to_completed
+                first active
+                then completed
+                if faultDetected == false;
+
+            transition any_to_fault
+                first idle
+                then fault
+                if faultDetected == true;
+
+            transition completed_to_idle
+                first completed
+                then idle
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::idle;
+        }
+    }
+
+    part def SmartRefrigerator {
+        port powerIn : PowerInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute compartmentTemperature : TemperatureCelsius = 4.0;
+        attribute freezerTemperature : TemperatureCelsius = -18.0;
+        attribute targetFreshFoodTemperature : TemperatureCelsius = 4.0;
+        attribute targetFreezerTemperature : TemperatureCelsius = -18.0;
+        attribute ratedPower : PowerWatt = 180.0;
+        attribute dailyEnergyLimit : EnergyKiloWattHour = 1.5;
+
+        item foodInventory[0..*] : FoodItem;
+
+        part controller : ApplianceController;
+
+        action def CoolCompartments {
+            in attribute measuredFreshFoodTemperature : TemperatureCelsius;
+            in attribute measuredFreezerTemperature : TemperatureCelsius;
+            out attribute compressorPower : PowerWatt;
+        }
+
+        action def PreserveFood {
+            in item storedFood : FoodItem;
+            out item preservedFood : FoodItem;
+        }
+
+        state def RefrigeratorOperation {
+            state standby;
+            state cooling;
+            state defrost;
+            state fault;
+
+            transition first standby;
+
+            transition standby_to_cooling
+                first standby
+                then cooling
+                if compartmentTemperature > targetFreshFoodTemperature + 1.0;
+
+            transition cooling_to_standby
+                first cooling
+                then standby
+                if compartmentTemperature <= targetFreshFoodTemperature;
+
+            transition cooling_to_defrost
+                first cooling
+                then defrost
+                after 480.0 [min];
+
+            transition defrost_to_standby
+                first defrost
+                then standby
+                after 20.0 [min];
+
+            transition standby_to_fault
+                first standby
+                then fault
+                if compartmentTemperature > 10.0;
+        }
+    }
+
+    part def WashingMachine {
+        port powerIn : PowerInPort;
+        port waterIn : WaterInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute drumCapacityKg : Real = 8.0;
+        attribute washWaterVolume : WaterLiter = 55.0;
+        attribute washTemperature : TemperatureCelsius = 40.0;
+        attribute ratedPower : PowerWatt = 1200.0;
+        attribute cycleDuration : TimeMinute = 52.0;
+
+        item currentLoad : LaundryLoad;
+
+        part controller : ApplianceController;
+
+        action def FillDrum {
+            in item water : WaterSupply;
+            out attribute filledVolume : WaterLiter;
+        }
+
+        action def WashLaundry {
+            in item load : LaundryLoad;
+            in attribute waterTemperature : TemperatureCelsius;
+            out item washedLoad : LaundryLoad;
+        }
+
+        action def SpinExtract {
+            in item washedLoad : LaundryLoad;
+            out item dampLoad : LaundryLoad;
+        }
+
+        state def WashCycle {
+            state idle;
+            state filling;
+            state washing;
+            state rinsing;
+            state spinning;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_filling
+                first idle
+                then filling
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::washing;
+
+            transition filling_to_washing
+                first filling
+                then washing
+                if washWaterVolume >= 55.0;
+
+            transition washing_to_rinsing
+                first washing
+                then rinsing
+                after 30.0 [min];
+
+            transition rinsing_to_spinning
+                first rinsing
+                then spinning
+                after 12.0 [min];
+
+            transition spinning_to_completed
+                first spinning
+                then completed
+                after 10.0 [min];
+
+            transition fault_on_overload
+                first idle
+                then fault
+                if currentLoad.dryMassKg > drumCapacityKg;
+        }
+    }
+
+    part def Dishwasher {
+        port powerIn : PowerInPort;
+        port waterIn : WaterInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute ratedPower : PowerWatt = 1500.0;
+        attribute washTemperature : TemperatureCelsius = 55.0;
+        attribute sanitizeTemperature : TemperatureCelsius = 70.0;
+        attribute waterPerCycle : WaterLiter = 13.0;
+        attribute cycleDuration : TimeMinute = 95.0;
+
+        item currentDishLoad : DishLoad;
+
+        part controller : ApplianceController;
+
+        action def SprayWash {
+            in item dishes : DishLoad;
+            in item water : WaterSupply;
+            out item washedDishes : DishLoad;
+        }
+
+        action def Sanitize {
+            in item washedDishes : DishLoad;
+            in attribute temperature : TemperatureCelsius;
+            out item sanitizedDishes : DishLoad;
+        }
+
+        action def DryDishes {
+            in item sanitizedDishes : DishLoad;
+            out item dryDishes : DishLoad;
+        }
+
+        state def DishwasherCycle {
+            state idle;
+            state prewash;
+            state mainWash;
+            state rinse;
+            state sanitize;
+            state dry;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_prewash
+                first idle
+                then prewash
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::washing;
+
+            transition prewash_to_mainWash
+                first prewash
+                then mainWash
+                after 10.0 [min];
+
+            transition mainWash_to_rinse
+                first mainWash
+                then rinse
+                after 35.0 [min];
+
+            transition rinse_to_sanitize
+                first rinse
+                then sanitize
+                after 15.0 [min];
+
+            transition sanitize_to_dry
+                first sanitize
+                then dry
+                if currentDishLoad.sanitized == true;
+
+            transition dry_to_completed
+                first dry
+                then completed
+                after 25.0 [min];
+
+            transition fault_on_low_water
+                first prewash
+                then fault
+                if waterPerCycle < 8.0;
+        }
+    }
+
+    part def ElectricOven {
+        port powerIn : PowerInPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute cavityTemperature : TemperatureCelsius = 22.0;
+        attribute targetCookingTemperature : TemperatureCelsius = 180.0;
+        attribute maximumSafeTemperature : TemperatureCelsius = 260.0;
+        attribute ratedPower : PowerWatt = 3000.0;
+        attribute timerDuration : TimeMinute = 45.0;
+
+        part controller : ApplianceController;
+
+        action def Preheat {
+            in attribute targetTemperature : TemperatureCelsius;
+            out attribute achievedTemperature : TemperatureCelsius;
+        }
+
+        action def MaintainHeat {
+            in attribute currentTemperature : TemperatureCelsius;
+            in attribute targetTemperature : TemperatureCelsius;
+            out attribute heaterPower : PowerWatt;
+        }
+
+        action def ShutDownHeating {
+            out attribute heaterPower : PowerWatt;
+        }
+
+        state def OvenOperation {
+            state idle;
+            state preheating;
+            state cooking;
+            state keepWarm;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_preheating
+                first idle
+                then preheating
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::cooking;
+
+            transition preheating_to_cooking
+                first preheating
+                then cooking
+                if cavityTemperature >= targetCookingTemperature;
+
+            transition cooking_to_keepWarm
+                first cooking
+                then keepWarm
+                after timerDuration;
+
+            transition keepWarm_to_completed
+                first keepWarm
+                then completed
+                after 30.0 [min];
+
+            transition overtemperature_fault
+                first cooking
+                then fault
+                if cavityTemperature > maximumSafeTemperature;
+        }
+    }
+
+    part def ClothesDryer {
+        port powerIn : PowerInPort;
+        port airOut : AirOutPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+
+        attribute drumCapacityKg : Real = 8.0;
+        attribute dryingAirTemperature : TemperatureCelsius = 62.0;
+        attribute exhaustHumidity : Percent = 70.0;
+        attribute targetMoistureLevel : Percent = 5.0;
+        attribute ratedPower : PowerWatt = 2400.0;
+        attribute cycleDuration : TimeMinute = 60.0;
+
+        item currentLoad : LaundryLoad;
+
+        part controller : ApplianceController;
+
+        action def HeatAir {
+            in attribute targetTemperature : TemperatureCelsius;
+            out item heatedAir : HeatedAir;
+        }
+
+        action def TumbleDry {
+            in item wetLoad : LaundryLoad;
+            in item air : HeatedAir;
+            out item dryLoad : LaundryLoad;
+        }
+
+        state def DryerCycle {
+            state idle;
+            state heating;
+            state drying;
+            state coolDown;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_heating
+                first idle
+                then heating
+                accept UserCommand
+                if command.requestedMode == ApplianceMode::drying;
+
+            transition heating_to_drying
+                first heating
+                then drying
+                if dryingAirTemperature >= 55.0;
+
+            transition drying_to_coolDown
+                first drying
+                then coolDown
+                if currentLoad.moistureLevel <= targetMoistureLevel;
+
+            transition coolDown_to_completed
+                first coolDown
+                then completed
+                after 8.0 [min];
+
+            transition fault_on_overload
+                first idle
+                then fault
+                if currentLoad.dryMassKg > drumCapacityKg;
+        }
+    }
+
+    part def HomeApplianceSystem {
+        port homePower : PowerInPort;
+        port homeWater : WaterInPort;
+        port userCommands : CommandPort;
+        port systemStatus : StatusPort;
+
+        attribute primaryFunction : String = "Coordinate home appliances to preserve food, clean laundry, sanitize dishes, cook meals, and dry clothing while managing energy, water, safety, and user commands.";
+        attribute maximumSimultaneousPower : PowerWatt = 7200.0;
+        attribute dailyEnergyBudget : EnergyKiloWattHour = 18.0;
+        attribute dailyWaterBudget : WaterLiter = 220.0;
+
+        part refrigerator : SmartRefrigerator;
+        part washer : WashingMachine;
+        part dishwasher : Dishwasher;
+        part oven : ElectricOven;
+        part dryer : ClothesDryer;
+        part centralController : ApplianceController;
+
+        connection power_to_refrigerator connect homePower to refrigerator.powerIn;
+        connection power_to_washer connect homePower to washer.powerIn;
+        connection power_to_dishwasher connect homePower to dishwasher.powerIn;
+        connection power_to_oven connect homePower to oven.powerIn;
+        connection power_to_dryer connect homePower to dryer.powerIn;
+
+        connection water_to_washer connect homeWater to washer.waterIn;
+        connection water_to_dishwasher connect homeWater to dishwasher.waterIn;
+
+        connection commands_to_controller connect userCommands to centralController.commandIn;
+        connection controller_status_to_system connect centralController.statusOut to systemStatus;
+
+        connection controller_to_refrigerator connect userCommands to refrigerator.commandIn;
+        connection controller_to_washer connect userCommands to washer.commandIn;
+        connection controller_to_dishwasher connect userCommands to dishwasher.commandIn;
+        connection controller_to_oven connect userCommands to oven.commandIn;
+        connection controller_to_dryer connect userCommands to dryer.commandIn;
+
+        action def AllocateEnergy {
+            in item requestedStatus[5] : ApplianceStatus;
+            in attribute energyBudget : EnergyKiloWattHour;
+            out attribute approvedPowerLimit : PowerWatt;
+        }
+
+        action def ScheduleApplianceCycle {
+            in item command : UserCommand;
+            in attribute availablePower : PowerWatt;
+            in attribute availableWater : WaterLiter;
+            out item acceptedCommand : UserCommand;
+        }
+
+        action def MonitorSafety {
+            in item refrigeratorStatus : ApplianceStatus;
+            in item washerStatus : ApplianceStatus;
+            in item dishwasherStatus : ApplianceStatus;
+            in item ovenStatus : ApplianceStatus;
+            in item dryerStatus : ApplianceStatus;
+            out attribute emergencyShutdown : Boolean;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : HomeApplianceSystem;
+        doc /* The home appliance system shall provide coordinated domestic food preservation, cooking, laundry cleaning, dish sanitization, and clothes drying functions through electrically powered appliances under centralized command and monitoring. */
+    }
+
+    requirement def EnergyManagementRequirement {
+        subject system : HomeApplianceSystem;
+        require constraint {
+            system.refrigerator.ratedPower
+            + system.washer.ratedPower
+            + system.dishwasher.ratedPower
+            + system.oven.ratedPower
+            + system.dryer.ratedPower <= system.maximumSimultaneousPower;
+        }
+    }
+
+    requirement def WaterUseRequirement {
+        subject system : HomeApplianceSystem;
+        require constraint {
+            system.washer.washWaterVolume + system.dishwasher.waterPerCycle <= system.dailyWaterBudget;
+        }
+    }
+
+    requirement def RefrigeratorPreservationRequirement {
+        subject refrigerator : SmartRefrigerator;
+        require constraint {
+            refrigerator.compartmentTemperature <= 5.0 and refrigerator.freezerTemperature <= -15.0;
+        }
+    }
+
+    requirement def LaundryCleaningRequirement {
+        subject washer : WashingMachine;
+        require constraint {
+            washer.currentLoad.dryMassKg <= washer.drumCapacityKg;
+        }
+    }
+
+    requirement def DishSanitizationRequirement {
+        subject dishwasher : Dishwasher;
+        require constraint {
+            dishwasher.sanitizeTemperature >= 70.0;
+        }
+    }
+
+    requirement def OvenSafetyRequirement {
+        subject oven : ElectricOven;
+        require constraint {
+            oven.cavityTemperature <= oven.maximumSafeTemperature;
+        }
+    }
+
+    requirement def DryerSafetyRequirement {
+        subject dryer : ClothesDryer;
+        require constraint {
+            dryer.currentLoad.dryMassKg <= dryer.drumCapacityKg and dryer.dryingAirTemperature <= 75.0;
+        }
+    }
+
+    requirement def UserCommandRequirement {
+        subject system : HomeApplianceSystem;
+        doc /* The system shall accept user commands for appliance operating modes, target temperatures, and delayed start scheduling, then publish operating status including active mode, energy consumed, faults, and remaining time. */
+    }
+
+    satisfy PrimaryFunctionRequirement by HomeApplianceSystem;
+    satisfy EnergyManagementRequirement by HomeApplianceSystem;
+    satisfy WaterUseRequirement by HomeApplianceSystem;
+    satisfy RefrigeratorPreservationRequirement by SmartRefrigerator;
+    satisfy LaundryCleaningRequirement by WashingMachine;
+    satisfy DishSanitizationRequirement by Dishwasher;
+    satisfy OvenSafetyRequirement by ElectricOven;
+    satisfy DryerSafetyRequirement by ClothesDryer;
+    satisfy UserCommandRequirement by ApplianceController;
+}

@@ -1,0 +1,510 @@
+package KineticInductanceDetectorSystem {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Resistance :> ISQ::electricResistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def Dimensionless :> ScalarValues::Real;
+
+    item def Photon {
+        attribute frequency : Frequency;
+        attribute energy : Energy;
+        attribute arrivalTime : Time;
+        attribute sourceDirection : Dimensionless;
+    }
+
+    item def OpticalSignal {
+        attribute meanPhotonRate : Dimensionless;
+        attribute centerFrequency : Frequency;
+        attribute opticalPower : Power;
+        attribute bandwidth : Frequency;
+    }
+
+    item def MicrowaveTone {
+        attribute toneFrequency : Frequency;
+        attribute tonePower : Power;
+        attribute phase : Dimensionless;
+        attribute amplitude : Voltage;
+    }
+
+    item def ResonatorResponse {
+        attribute resonanceFrequency : Frequency;
+        attribute qualityFactor : Dimensionless;
+        attribute phaseShift : Dimensionless;
+        attribute amplitudeChange : Dimensionless;
+        attribute inferredOpticalPower : Power;
+    }
+
+    item def DigitalDetectionData {
+        attribute sampleRate : Frequency;
+        attribute timestamp : Time;
+        attribute photonCountEstimate : Dimensionless;
+        attribute opticalPowerEstimate : Power;
+        attribute detectorStateCode : Dimensionless;
+    }
+
+    port def OpticalInputPort {
+        in item incidentSignal : OpticalSignal;
+        in item photon : Photon;
+    }
+
+    port def MicrowaveProbePort {
+        in item probeTone : MicrowaveTone;
+        out item responseTone : MicrowaveTone;
+    }
+
+    port def ThermalPort {
+        inout attribute heatFlow : Power;
+        inout attribute temperature : Temperature;
+    }
+
+    port def DataPort {
+        out item detectionData : DigitalDetectionData;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    part def OpticalCoupler {
+        port aperture : OpticalInputPort;
+
+        attribute apertureDiameter : Length = 0.012 [SI::metre];
+        attribute opticalEfficiency : Dimensionless = 0.82;
+        attribute strayLightRejection : Dimensionless = 1.0e6;
+
+        action focusIncidentRadiation {
+            in item rawSignal : OpticalSignal;
+            out item coupledSignal : OpticalSignal;
+
+            first start;
+            then attenuateStrayLight;
+            then coupleToAbsorber;
+            then done;
+
+            action attenuateStrayLight;
+            action coupleToAbsorber;
+        }
+    }
+
+    part def SuperconductingAbsorber {
+        port opticalInput : OpticalInputPort;
+        port thermalInterface : ThermalPort;
+
+        attribute materialCriticalTemperature : Temperature = 1.2 [SI::kelvin];
+        attribute operatingTemperature : Temperature = 0.095 [SI::kelvin];
+        attribute superconductingGapEnergy : Energy = 2.9e-23 [SI::joule];
+        attribute quasiparticleLifetime : Time = 0.00045 [SI::second];
+        attribute absorberVolume : Dimensionless = 8.0e-17;
+        attribute absorptionEfficiency : Dimensionless = 0.76;
+        attribute quasiparticlePopulation : Dimensionless;
+
+        action absorbPhotonEnergy {
+            in item photon : Photon;
+            out attribute generatedQuasiparticles : Dimensionless;
+
+            first receivePhoton;
+            then breakCooperPairs;
+            then increaseQuasiparticlePopulation;
+            then dissipateResidualHeat;
+            then done;
+
+            action receivePhoton;
+            action breakCooperPairs;
+            action increaseQuasiparticlePopulation;
+            action dissipateResidualHeat;
+        }
+    }
+
+    part def KineticInductanceResonator {
+        port microwave : MicrowaveProbePort;
+        port thermalInterface : ThermalPort;
+
+        attribute nominalResonanceFrequency : Frequency = 5.000e9 [SI::hertz];
+        attribute instantaneousResonanceFrequency : Frequency;
+        attribute internalQualityFactor : Dimensionless = 1.0e6;
+        attribute couplingQualityFactor : Dimensionless = 7.5e4;
+        attribute kineticInductanceFraction : Dimensionless = 0.42;
+        attribute resonanceFrequencyShift : Frequency;
+        attribute surfaceResistance : Resistance = 0.00012 [SI::ohm];
+
+        part absorber : SuperconductingAbsorber;
+
+        action transduceQuasiparticlesToFrequencyShift {
+            in attribute quasiparticlePopulation : Dimensionless;
+            out item response : ResonatorResponse;
+
+            first sampleQuasiparticleDensity;
+            then reduceCooperPairDensity;
+            then increaseKineticInductance;
+            then shiftResonanceFrequency;
+            then modulateProbeTone;
+            then produceResponse;
+            then done;
+
+            action sampleQuasiparticleDensity;
+            action reduceCooperPairDensity;
+            action increaseKineticInductance;
+            action shiftResonanceFrequency;
+            action modulateProbeTone;
+            action produceResponse;
+        }
+
+        state def ResonatorOperatingState {
+            entry; then Cooling;
+            state Cooling;
+            state SuperconductingReady;
+            state PhotonSensitive;
+            state Saturated;
+            state Faulted;
+
+            transition first Cooling;
+            transition Cooling_to_Ready
+                first Cooling
+                accept when thermalInterface.temperature <= 0.12 [SI::kelvin]
+                then SuperconductingReady;
+
+            transition Ready_to_Sensitive
+                first SuperconductingReady
+                accept when internalQualityFactor >= 5.0e5
+                then PhotonSensitive;
+
+            transition Sensitive_to_Saturated
+                first PhotonSensitive
+                accept when absorber.quasiparticlePopulation > 1.0e7
+                then Saturated;
+
+            transition Saturated_to_Sensitive
+                first Saturated
+                accept after 0.005 [SI::second]
+                then PhotonSensitive;
+
+            transition Any_to_Faulted
+                first PhotonSensitive
+                accept when thermalInterface.temperature >= 0.35 [SI::kelvin]
+                then Faulted;
+        }
+
+        exhibit state resonatorState : ResonatorOperatingState;
+    }
+
+    part def CryogenicStage {
+        port detectorThermalPort : ThermalPort;
+        port coolerPower : PowerPort;
+
+        attribute baseTemperature : Temperature = 0.085 [SI::kelvin];
+        attribute maximumCoolingPower : Power = 4.0e-6 [SI::watt];
+        attribute temperatureStability : Temperature = 0.0005 [SI::kelvin];
+        attribute parasiticHeatLoad : Power = 1.1e-6 [SI::watt];
+
+        action regulateTemperature {
+            in attribute measuredTemperature : Temperature;
+            out attribute controlledTemperature : Temperature;
+
+            first measureStageTemperature;
+            then compareToSetpoint;
+            then adjustCoolingPower;
+            then stabilizeDetector;
+            then done;
+
+            action measureStageTemperature;
+            action compareToSetpoint;
+            action adjustCoolingPower;
+            action stabilizeDetector;
+        }
+    }
+
+    part def MicrowaveReadoutChain {
+        port resonatorInterface : MicrowaveProbePort;
+        port dataOutput : DataPort;
+        port electricalPower : PowerPort;
+
+        attribute probeFrequencyStart : Frequency = 4.950e9 [SI::hertz];
+        attribute probeFrequencyStop : Frequency = 5.050e9 [SI::hertz];
+        attribute nominalProbePower : Power = 2.5e-13 [SI::watt];
+        attribute amplifierNoiseTemperature : Temperature = 3.5 [SI::kelvin];
+        attribute analogBandwidth : Frequency = 2.0e6 [SI::hertz];
+
+        part toneGenerator {
+            attribute outputFrequency : Frequency;
+            attribute outputPower : Power;
+            port output : MicrowaveProbePort;
+        }
+
+        part lowNoiseAmplifier {
+            attribute gain : Dimensionless = 10000.0;
+            attribute noiseTemperature : Temperature = 3.5 [SI::kelvin];
+            port input : MicrowaveProbePort;
+            port output : MicrowaveProbePort;
+        }
+
+        part digitizer {
+            attribute samplingFrequency : Frequency = 1.0e6 [SI::hertz];
+            attribute resolutionBits : Dimensionless = 16.0;
+            port input : MicrowaveProbePort;
+            port output : DataPort;
+        }
+
+        action readResonator {
+            out item detectionData : DigitalDetectionData;
+
+            first synthesizeProbeTone;
+            then injectToneIntoResonator;
+            then receiveShiftedTone;
+            then amplifyResponse;
+            then digitizePhaseAndAmplitude;
+            then estimatePhotonSignal;
+            then publishDetectionData;
+            then done;
+
+            action synthesizeProbeTone;
+            action injectToneIntoResonator;
+            action receiveShiftedTone;
+            action amplifyResponse;
+            action digitizePhaseAndAmplitude;
+            action estimatePhotonSignal;
+            action publishDetectionData;
+        }
+    }
+
+    part def SignalProcessor {
+        port rawDataInput : DataPort;
+        port processedDataOutput : DataPort;
+
+        attribute calibrationResonanceFrequency : Frequency = 5.000e9 [SI::hertz];
+        attribute phaseToPowerGain : Dimensionless = 3.2e-16;
+        attribute eventThresholdSigma : Dimensionless = 5.0;
+        attribute maximumEventRate : Frequency = 1.0e5 [SI::hertz];
+
+        action convertReadoutToDetectionEstimate {
+            in item rawData : DigitalDetectionData;
+            out item processedData : DigitalDetectionData;
+
+            first removeBaselineDrift;
+            then applyResonatorCalibration;
+            then detectPhotonEvents;
+            then estimateOpticalPower;
+            then tagDetectorHealth;
+            then emitProcessedData;
+            then done;
+
+            action removeBaselineDrift;
+            action applyResonatorCalibration;
+            action detectPhotonEvents;
+            action estimateOpticalPower;
+            action tagDetectorHealth;
+            action emitProcessedData;
+        }
+    }
+
+    part def KineticInductanceDetectorSystem {
+        port opticalInput : OpticalInputPort;
+        port detectionOutput : DataPort;
+        port powerInput : PowerPort;
+
+        attribute primaryFunction : String = "Detect incident photons by converting absorbed optical energy into changes in superconducting kinetic inductance, measuring the resulting microwave resonator frequency shift, and reporting photon or optical power estimates.";
+        attribute operatingTemperature : Temperature = 0.095 [SI::kelvin];
+        attribute designCenterFrequency : Frequency = 5.000e9 [SI::hertz];
+        attribute detectableOpticalPowerMin : Power = 1.0e-18 [SI::watt];
+        attribute detectableOpticalPowerMax : Power = 1.0e-12 [SI::watt];
+        attribute opticalEfficiencyGoal : Dimensionless = 0.70;
+        attribute readoutLatency : Time = 0.001 [SI::second];
+
+        part opticalCoupler : OpticalCoupler;
+        part resonator : KineticInductanceResonator;
+        part cryogenicStage : CryogenicStage;
+        part readoutChain : MicrowaveReadoutChain;
+        part processor : SignalProcessor;
+
+        connect opticalInput to opticalCoupler.aperture;
+        connect opticalCoupler.aperture to resonator.absorber.opticalInput;
+        connect resonator.thermalInterface to cryogenicStage.detectorThermalPort;
+        connect readoutChain.resonatorInterface to resonator.microwave;
+        connect readoutChain.dataOutput to processor.rawDataInput;
+        connect processor.processedDataOutput to detectionOutput;
+        connect powerInput to cryogenicStage.coolerPower;
+        connect powerInput to readoutChain.electricalPower;
+
+        action performDetection {
+            in item incidentSignal : OpticalSignal;
+            out item detectionEstimate : DigitalDetectionData;
+
+            first receiveIncidentRadiation;
+            then focusRadiationOntoAbsorber;
+            then absorbPhotonEnergy;
+            then createQuasiparticlePopulation;
+            then shiftMicrowaveResonance;
+            then measureResonatorResponse;
+            then processReadoutData;
+            then outputDetectionEstimate;
+            then done;
+
+            action receiveIncidentRadiation;
+            action focusRadiationOntoAbsorber;
+            action absorbPhotonEnergy;
+            action createQuasiparticlePopulation;
+            action shiftMicrowaveResonance;
+            action measureResonatorResponse;
+            action processReadoutData;
+            action outputDetectionEstimate;
+        }
+
+        state def DetectorLifecycle {
+            entry; then Off;
+            state Off;
+            state Cooldown;
+            state ResonatorCalibration;
+            state Armed;
+            state Detecting;
+            state Degraded;
+            state Shutdown;
+            state Fault;
+
+            transition first Off;
+
+            transition PowerApplied
+                first Off
+                accept when powerInput.supplyVoltage >= 24.0 [SI::volt]
+                then Cooldown;
+
+            transition ColdAndStable
+                first Cooldown
+                accept when cryogenicStage.detectorThermalPort.temperature <= 0.10 [SI::kelvin]
+                then ResonatorCalibration;
+
+            transition CalibrationComplete
+                first ResonatorCalibration
+                accept when resonator.internalQualityFactor >= 5.0e5
+                then Armed;
+
+            transition SignalPresent
+                first Armed
+                accept when opticalInput.incidentSignal.opticalPower >= detectableOpticalPowerMin
+                then Detecting;
+
+            transition NoSignal
+                first Detecting
+                accept when opticalInput.incidentSignal.opticalPower < detectableOpticalPowerMin
+                then Armed;
+
+            transition ExcessPower
+                first Detecting
+                accept when opticalInput.incidentSignal.opticalPower > detectableOpticalPowerMax
+                then Degraded;
+
+            transition Recovery
+                first Degraded
+                accept when opticalInput.incidentSignal.opticalPower <= detectableOpticalPowerMax
+                then ResonatorCalibration;
+
+            transition ThermalFault
+                first Armed
+                accept when cryogenicStage.detectorThermalPort.temperature > 0.30 [SI::kelvin]
+                then Fault;
+
+            transition CommandShutdown
+                first Armed
+                accept after 3600.0 [SI::second]
+                then Shutdown;
+        }
+
+        exhibit state lifecycle : DetectorLifecycle;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject detector : KineticInductanceDetectorSystem;
+
+        doc /* The detector shall convert incident photon energy into a measurable change in superconducting kinetic inductance and provide a calibrated digital estimate of photon events or optical power. */
+
+        require constraint {
+            detector.detectableOpticalPowerMin <= detector.opticalInput.incidentSignal.opticalPower and
+            detector.opticalInput.incidentSignal.opticalPower <= detector.detectableOpticalPowerMax
+        }
+    }
+
+    requirement def CryogenicOperationRequirement {
+        subject detector : KineticInductanceDetectorSystem;
+
+        doc /* The detector shall maintain the superconducting resonator below its operating temperature limit during photon detection. */
+
+        require constraint {
+            detector.cryogenicStage.detectorThermalPort.temperature <= 0.12 [SI::kelvin]
+        }
+    }
+
+    requirement def ResonatorSensitivityRequirement {
+        subject detector : KineticInductanceDetectorSystem;
+
+        doc /* The resonator shall provide a quality factor sufficient to resolve photon-induced kinetic inductance changes. */
+
+        require constraint {
+            detector.resonator.internalQualityFactor >= 5.0e5
+        }
+    }
+
+    requirement def ReadoutLatencyRequirement {
+        subject detector : KineticInductanceDetectorSystem;
+
+        doc /* The readout chain and processor shall publish detection estimates within the required latency. */
+
+        require constraint {
+            detector.readoutLatency <= 0.001 [SI::second]
+        }
+    }
+
+    requirement def OpticalEfficiencyRequirement {
+        subject detector : KineticInductanceDetectorSystem;
+
+        doc /* The optical coupling and absorber shall together achieve the minimum required optical efficiency. */
+
+        require constraint {
+            detector.opticalCoupler.opticalEfficiency *
+            detector.resonator.absorber.absorptionEfficiency >=
+            detector.opticalEfficiencyGoal
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by KineticInductanceDetectorSystem;
+    satisfy CryogenicOperationRequirement by KineticInductanceDetectorSystem::cryogenicStage;
+    satisfy ResonatorSensitivityRequirement by KineticInductanceDetectorSystem::resonator;
+    satisfy ReadoutLatencyRequirement by KineticInductanceDetectorSystem::readoutChain;
+    satisfy OpticalEfficiencyRequirement by KineticInductanceDetectorSystem::opticalCoupler;
+
+    part detectorSystem : KineticInductanceDetectorSystem;
+}

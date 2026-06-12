@@ -1,0 +1,1097 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-39lfzgii
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb806-e057-7753-aa01-ab0451e7217e
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a External combustion engine and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ExternalCombustionEngineSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = K;
+    }
+
+    attribute def Pressure {
+        :>> scalar : Real;
+        unit = Pa;
+    }
+
+    attribute def MassFlowRate {
+        :>> scalar : Real;
+        unit = kg / s;
+    }
+
+    attribute def EnergyRate {
+        :>> scalar : Real;
+        unit = W;
+    }
+
+    attribute def RotationalSpeed {
+        :>> scalar : Real;
+        unit = rad / s;
+    }
+
+    attribute def Torque {
+        :>> scalar : Real;
+        unit = N * m;
+    }
+
+    attribute def Efficiency {
+        :>> scalar : Real;
+    }
+
+    attribute def Volume {
+        :>> scalar : Real;
+        unit = m^3;
+    }
+
+    item def Fuel {
+        attribute lowerHeatingValue : EnergyRate;
+        attribute fuelMassFlow : MassFlowRate;
+    }
+
+    item def Air {
+        attribute airMassFlow : MassFlowRate;
+        attribute inletTemperature : Temperature;
+        attribute oxygenFraction : Real;
+    }
+
+    item def FlueGas {
+        attribute gasMassFlow : MassFlowRate;
+        attribute gasTemperature : Temperature;
+        attribute residualOxygenFraction : Real;
+    }
+
+    item def WorkingFluid {
+        attribute fluidTemperature : Temperature;
+        attribute fluidPressure : Pressure;
+        attribute fluidMassFlow : MassFlowRate;
+        attribute phase : WorkingFluidPhase;
+    }
+
+    enum def WorkingFluidPhase {
+        enum liquid;
+        enum saturatedMixture;
+        enum vapor;
+        enum superheatedVapor;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftTorque : Torque;
+        attribute power : EnergyRate;
+    }
+
+    item def WasteHeat {
+        attribute heatRate : EnergyRate;
+        attribute rejectionTemperature : Temperature;
+    }
+
+    port def FuelInletPort {
+        in item fuel : Fuel;
+    }
+
+    port def AirInletPort {
+        in item air : Air;
+    }
+
+    port def ExhaustOutletPort {
+        out item exhaust : FlueGas;
+    }
+
+    port def WorkingFluidPort {
+        inout item fluid : WorkingFluid;
+    }
+
+    port def HeatTransferPort {
+        out item heat : EnergyRate;
+    }
+
+    port def MechanicalShaftPort {
+        out item mechanicalPower : MechanicalPower;
+    }
+
+    port def WasteHeatPort {
+        out item wasteHeat : WasteHeat;
+    }
+
+    part def ExternalCombustionEngine {
+        attribute ratedOutputPower : EnergyRate = 50000 [W];
+        attribute nominalThermalEfficiency : Efficiency = 0.28;
+        attribute maximumWorkingPressure : Pressure = 1200000 [Pa];
+        attribute maximumWorkingTemperature : Temperature = 750 [K];
+
+        port fuelInlet : FuelInletPort;
+        port airInlet : AirInletPort;
+        port exhaustOutlet : ExhaustOutletPort;
+        port shaftOutput : MechanicalShaftPort;
+        port wasteHeatOutlet : WasteHeatPort;
+
+        part combustor : CombustionChamber;
+        part heatExchanger : ExternalHeatExchanger;
+        part expander : ExpansionMachine;
+        part condenser : Condenser;
+        part feedPump : FeedPump;
+        part workingFluidLoop : ClosedWorkingFluidLoop;
+        part controller : EngineController;
+        part lubricationSystem : LubricationSystem;
+        part frame : StructuralFrame;
+
+        connect fuelInlet to combustor.fuelInlet;
+        connect airInlet to combustor.airInlet;
+        connect combustor.hotGasOutlet to heatExchanger.hotGasInlet;
+        connect heatExchanger.flueGasOutlet to exhaustOutlet;
+
+        connect workingFluidLoop.highPressureLiquidOutlet to heatExchanger.workingFluidInlet;
+        connect heatExchanger.workingFluidOutlet to expander.vaporInlet;
+        connect expander.vaporOutlet to condenser.vaporInlet;
+        connect condenser.condensateOutlet to feedPump.liquidInlet;
+        connect feedPump.pressurizedLiquidOutlet to workingFluidLoop.highPressureLiquidInlet;
+
+        connect expander.shaftOutput to shaftOutput;
+        connect condenser.wasteHeatOutlet to wasteHeatOutlet;
+        connect controller.controlOutput to combustor.controlInput;
+        connect controller.pumpCommandOutput to feedPump.commandInput;
+        connect controller.expanderCommandOutput to expander.commandInput;
+
+        perform action operate : OperateExternalCombustionEngine;
+
+        exhibit state engineState : ExternalCombustionEngineStateMachine;
+    }
+
+    part def CombustionChamber {
+        attribute combustionTemperature : Temperature = 1400 [K];
+        attribute combustionPressure : Pressure = 101325 [Pa];
+        attribute heatReleaseRate : EnergyRate;
+        attribute fuelAirRatio : Real;
+
+        port fuelInlet : FuelInletPort;
+        port airInlet : AirInletPort;
+        port hotGasOutlet : ExhaustOutletPort;
+        port controlInput : CombustionControlPort;
+
+        perform action burnFuelExternally : BurnFuelExternally;
+    }
+
+    part def ExternalHeatExchanger {
+        attribute heatTransferRate : EnergyRate;
+        attribute effectiveness : Efficiency = 0.82;
+        attribute hotSideInletTemperature : Temperature;
+        attribute hotSideOutletTemperature : Temperature;
+        attribute coldSideOutletTemperature : Temperature;
+
+        port hotGasInlet : ExhaustOutletPort;
+        port flueGasOutlet : ExhaustOutletPort;
+        port workingFluidInlet : WorkingFluidPort;
+        port workingFluidOutlet : WorkingFluidPort;
+
+        perform action transferHeatToWorkingFluid : TransferHeatToWorkingFluid;
+    }
+
+    part def ExpansionMachine {
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute inletTemperature : Temperature;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute deliveredTorque : Torque;
+        attribute isentropicEfficiency : Efficiency = 0.74;
+
+        port vaporInlet : WorkingFluidPort;
+        port vaporOutlet : WorkingFluidPort;
+        port shaftOutput : MechanicalShaftPort;
+        port commandInput : ExpanderCommandPort;
+
+        perform action expandWorkingFluid : ExpandWorkingFluid;
+    }
+
+    part def Condenser {
+        attribute condensationPressure : Pressure = 120000 [Pa];
+        attribute heatRejected : EnergyRate;
+        attribute condensateTemperature : Temperature = 330 [K];
+
+        port vaporInlet : WorkingFluidPort;
+        port condensateOutlet : WorkingFluidPort;
+        port wasteHeatOutlet : WasteHeatPort;
+
+        perform action rejectHeatAndCondense : RejectHeatAndCondense;
+    }
+
+    part def FeedPump {
+        attribute pressureRise : Pressure;
+        attribute pumpPowerDemand : EnergyRate;
+        attribute volumetricFlowRate : Volume;
+
+        port liquidInlet : WorkingFluidPort;
+        port pressurizedLiquidOutlet : WorkingFluidPort;
+        port commandInput : PumpCommandPort;
+
+        perform action pressurizeCondensate : PressurizeCondensate;
+    }
+
+    part def ClosedWorkingFluidLoop {
+        attribute inventoryMassFlow : MassFlowRate = 0.18 [kg / s];
+        attribute nominalHighPressure : Pressure = 900000 [Pa];
+        attribute nominalLowPressure : Pressure = 120000 [Pa];
+
+        port highPressureLiquidInlet : WorkingFluidPort;
+        port highPressureLiquidOutlet : WorkingFluidPort;
+    }
+
+    part def EngineController {
+        attribute demandedPower : EnergyRate;
+        attribute measuredShaftSpeed : RotationalSpeed;
+        attribute measuredWorkingPressure : Pressure;
+        attribute measuredWorkingTemperature : Temperature;
+        attribute fuelValveCommand : Real;
+        attribute pumpSpeedCommand : Real;
+        attribute expanderValveCommand : Real;
+
+        port sensorInput : SensorDataPort;
+        port controlOutput : CombustionControlPort;
+        port pumpCommandOutput : PumpCommandPort;
+        port expanderCommandOutput : ExpanderCommandPort;
+
+        perform action regulateEnginePower : RegulateEnginePower;
+    }
+
+    part def LubricationSystem {
+        attribute oilTemperature : Temperature = 360 [K];
+        attribute oilPressure : Pressure = 250000 [Pa];
+        attribute oilFlowRate : MassFlowRate = 0.015 [kg / s];
+
+        perform action reduceMechanicalFriction : ReduceMechanicalFriction;
+    }
+
+    part def StructuralFrame {
+        attribute allowableVibrationLevel : Real = 1.0;
+        attribute installedMass : Real = 450.0;
+
+        perform action supportEngineComponents : SupportEngineComponents;
+    }
+
+    port def CombustionControlPort {
+        in item fuelValvePosition : Real;
+    }
+
+    port def PumpCommandPort {
+        in item pumpCommand : Real;
+    }
+
+    port def ExpanderCommandPort {
+        in item expanderAdmissionCommand : Real;
+    }
+
+    port def SensorDataPort {
+        in item measuredTemperature : Temperature;
+        in item measuredPressure : Pressure;
+        in item measuredSpeed : RotationalSpeed;
+    }
+
+    action def OperateExternalCombustionEngine {
+        in item fuel : Fuel;
+        in item air : Air;
+        out item mechanicalOutput : MechanicalPower;
+        out item exhaust : FlueGas;
+        out item rejectedHeat : WasteHeat;
+
+        first startPump;
+        then igniteExternalCombustion;
+        then heatWorkingFluid;
+        then expandFluidForWork;
+        then condenseFluid;
+        then recirculateFluid;
+
+        action startPump : PressurizeCondensate;
+        action igniteExternalCombustion : BurnFuelExternally;
+        action heatWorkingFluid : TransferHeatToWorkingFluid;
+        action expandFluidForWork : ExpandWorkingFluid;
+        action condenseFluid : RejectHeatAndCondense;
+        action recirculateFluid : PressurizeCondensate;
+    }
+
+    action def BurnFuelExternally {
+        in item fuel : Fuel;
+        in item air : Air;
+        out item flueGas : FlueGas;
+        out heatRate : EnergyRate;
+
+        constraint combustionHeatBalance {
+            heatRate <= fuel.fuelMassFlow * fuel.lowerHeatingValue;
+        }
+    }
+
+    action def TransferHeatToWorkingFluid {
+        in item flueGasIn : FlueGas;
+        inout item workingFluid : WorkingFluid;
+        out item flueGasOut : FlueGas;
+
+        constraint heatTransferLimit {
+            workingFluid.fluidTemperature <= 750 [K];
+            workingFluid.fluidPressure <= 1200000 [Pa];
+        }
+    }
+
+    action def ExpandWorkingFluid {
+        in item vaporIn : WorkingFluid;
+        out item vaporOut : WorkingFluid;
+        out item shaftPower : MechanicalPower;
+
+        constraint expansionCondition {
+            vaporIn.phase == WorkingFluidPhase::superheatedVapor;
+            vaporIn.fluidPressure > vaporOut.fluidPressure;
+        }
+    }
+
+    action def RejectHeatAndCondense {
+        in item vapor : WorkingFluid;
+        out item liquid : WorkingFluid;
+        out item rejectedHeat : WasteHeat;
+
+        constraint condenserOutput {
+            liquid.phase == WorkingFluidPhase::liquid;
+            liquid.fluidTemperature < vapor.fluidTemperature;
+        }
+    }
+
+    action def PressurizeCondensate {
+        in item lowPressureLiquid : WorkingFluid;
+        out item highPressureLiquid : WorkingFluid;
+
+        constraint pumpCondition {
+            lowPressureLiquid.phase == WorkingFluidPhase::liquid;
+            highPressureLiquid.fluidPressure > lowPressureLiquid.fluidPressure;
+        }
+    }
+
+    action def RegulateEnginePower {
+        in demandedPower : EnergyRate;
+        in measuredSpeed : RotationalSpeed;
+        in measuredPressure : Pressure;
+        out fuelValveCommand : Real;
+        out pumpSpeedCommand : Real;
+        out expanderAdmissionCommand : Real;
+
+        constraint commandRanges {
+            fuelValveCommand >= 0.0;
+            fuelValveCommand <= 1.0;
+            pumpSpeedCommand >= 0.0;
+            pumpSpeedCommand <= 1.0;
+            expanderAdmissionCommand >= 0.0;
+            expanderAdmissionCommand <= 1.0;
+        }
+    }
+
+    action def ReduceMechanicalFriction {
+        in oilFlowRate : MassFlowRate;
+        out frictionReductionEffect : Real;
+    }
+
+    action def SupportEngineComponents {
+        in mechanicalLoad : Torque;
+        out frameDeflection : Real;
+    }
+
+    state def ExternalCombustionEngineStateMachine {
+        entry action initializeController;
+
+        state off;
+        state preheat;
+        state starting;
+        state running;
+        state loadFollowing;
+        state shutdown;
+        state fault;
+
+        transition initial then off;
+
+        transition off_to_preheat
+            first off
+            accept StartCommand
+            then preheat;
+
+        transition preheat_to_starting
+            first preheat
+            accept WorkingFluidWarm
+            then starting;
+
+        transition starting_to_running
+            first starting
+            accept StableShaftSpeed
+            then running;
+
+        transition running_to_loadFollowing
+            first running
+            accept LoadDemandChanged
+            then loadFollowing;
+
+        transition loadFollowing_to_running
+            first loadFollowing
+            accept DemandSettled
+            then running;
+
+        transition running_to_shutdown
+            first running
+            accept StopCommand
+            then shutdown;
+
+        transition shutdown_to_off
+            first shutdown
+            accept ShaftStopped
+            then off;
+
+        transition any_to_fault
+            first off
+            accept CriticalFault
+            then fault;
+
+        transition fault_to_off
+            first fault
+            accept FaultCleared
+            then off;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The external combustion engine shall convert heat released by fuel combustion outside the working-fluid expansion chamber into continuous rotary mechanical power at the shaft output. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.shaftOutput.mechanicalPower.power >= 50000 [W];
+        }
+    }
+
+    requirement def ExternalCombustionRequirement {
+        doc /* Fuel combustion shall occur in a combustion chamber physically separated from the working fluid loop. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.combustor != engine.expander;
+        }
+    }
+
+    requirement def ClosedLoopWorkingFluidRequirement {
+        doc /* The working fluid shall remain in a closed loop that receives heat through the heat exchanger, expands through the expansion machine, condenses, and is repressurized by the feed pump. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.workingFluidLoop.nominalHighPressure > engine.workingFluidLoop.nominalLowPressure;
+        }
+    }
+
+    requirement def ThermalEfficiencyRequirement {
+        doc /* The engine shall achieve a nominal thermal efficiency of at least twenty five percent at rated operating conditions. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.nominalThermalEfficiency >= 0.25;
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        doc /* The working fluid pressure shall remain below the maximum allowable working pressure during all commanded operating states. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.maximumWorkingPressure <= 1200000 [Pa];
+        }
+    }
+
+    requirement def TemperatureProtectionRequirement {
+        doc /* The working fluid temperature shall remain below the maximum allowable working temperature during all commanded operating states. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.maximumWorkingTemperature <= 750 [K];
+        }
+    }
+
+    requirement def ExhaustDischargeRequirement {
+        doc /* The system shall discharge combustion products through the exhaust outlet after heat has been transferred to the working fluid. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.heatExchanger.hotSideOutletTemperature < engine.heatExchanger.hotSideInletTemperature;
+        }
+    }
+
+    requirement def ControlRequirement {
+        doc /* The controller shall modulate fuel flow, pump speed, and expander admission to maintain demanded shaft power while respecting pressure and temperature limits. */
+        subject controller : EngineController;
+
+        require constraint {
+            controller.fuelValveCommand >= 0.0 and controller.fuelValveCommand <= 1.0;
+            controller.pumpSpeedCommand >= 0.0 and controller.pumpSpeedCommand <= 1.0;
+            controller.expanderValveCommand >= 0.0 and controller.expanderValveCommand <= 1.0;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ExternalCombustionEngine;
+    satisfy ExternalCombustionRequirement by ExternalCombustionEngine;
+    satisfy ClosedLoopWorkingFluidRequirement by ClosedWorkingFluidLoop;
+    satisfy ThermalEfficiencyRequirement by ExternalCombustionEngine;
+    satisfy PressureProtectionRequirement by ExternalCombustionEngine;
+    satisfy TemperatureProtectionRequirement by ExternalCombustionEngine;
+    satisfy ExhaustDischargeRequirement by ExternalHeatExchanger;
+    satisfy ControlRequirement by EngineController;
+
+    part externalCombustionEngineSystem : ExternalCombustionEngine {
+        :>> ratedOutputPower = 50000 [W];
+        :>> nominalThermalEfficiency = 0.28;
+        :>> maximumWorkingPressure = 1200000 [Pa];
+        :>> maximumWorkingTemperature = 750 [K];
+    }
+}
+tokens used
+4,012
+package ExternalCombustionEngineSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Temperature {
+        :>> scalar : Real;
+        unit = K;
+    }
+
+    attribute def Pressure {
+        :>> scalar : Real;
+        unit = Pa;
+    }
+
+    attribute def MassFlowRate {
+        :>> scalar : Real;
+        unit = kg / s;
+    }
+
+    attribute def EnergyRate {
+        :>> scalar : Real;
+        unit = W;
+    }
+
+    attribute def RotationalSpeed {
+        :>> scalar : Real;
+        unit = rad / s;
+    }
+
+    attribute def Torque {
+        :>> scalar : Real;
+        unit = N * m;
+    }
+
+    attribute def Efficiency {
+        :>> scalar : Real;
+    }
+
+    attribute def Volume {
+        :>> scalar : Real;
+        unit = m^3;
+    }
+
+    item def Fuel {
+        attribute lowerHeatingValue : EnergyRate;
+        attribute fuelMassFlow : MassFlowRate;
+    }
+
+    item def Air {
+        attribute airMassFlow : MassFlowRate;
+        attribute inletTemperature : Temperature;
+        attribute oxygenFraction : Real;
+    }
+
+    item def FlueGas {
+        attribute gasMassFlow : MassFlowRate;
+        attribute gasTemperature : Temperature;
+        attribute residualOxygenFraction : Real;
+    }
+
+    item def WorkingFluid {
+        attribute fluidTemperature : Temperature;
+        attribute fluidPressure : Pressure;
+        attribute fluidMassFlow : MassFlowRate;
+        attribute phase : WorkingFluidPhase;
+    }
+
+    enum def WorkingFluidPhase {
+        enum liquid;
+        enum saturatedMixture;
+        enum vapor;
+        enum superheatedVapor;
+    }
+
+    item def MechanicalPower {
+        attribute shaftSpeed : RotationalSpeed;
+        attribute shaftTorque : Torque;
+        attribute power : EnergyRate;
+    }
+
+    item def WasteHeat {
+        attribute heatRate : EnergyRate;
+        attribute rejectionTemperature : Temperature;
+    }
+
+    port def FuelInletPort {
+        in item fuel : Fuel;
+    }
+
+    port def AirInletPort {
+        in item air : Air;
+    }
+
+    port def ExhaustOutletPort {
+        out item exhaust : FlueGas;
+    }
+
+    port def WorkingFluidPort {
+        inout item fluid : WorkingFluid;
+    }
+
+    port def HeatTransferPort {
+        out item heat : EnergyRate;
+    }
+
+    port def MechanicalShaftPort {
+        out item mechanicalPower : MechanicalPower;
+    }
+
+    port def WasteHeatPort {
+        out item wasteHeat : WasteHeat;
+    }
+
+    part def ExternalCombustionEngine {
+        attribute ratedOutputPower : EnergyRate = 50000 [W];
+        attribute nominalThermalEfficiency : Efficiency = 0.28;
+        attribute maximumWorkingPressure : Pressure = 1200000 [Pa];
+        attribute maximumWorkingTemperature : Temperature = 750 [K];
+
+        port fuelInlet : FuelInletPort;
+        port airInlet : AirInletPort;
+        port exhaustOutlet : ExhaustOutletPort;
+        port shaftOutput : MechanicalShaftPort;
+        port wasteHeatOutlet : WasteHeatPort;
+
+        part combustor : CombustionChamber;
+        part heatExchanger : ExternalHeatExchanger;
+        part expander : ExpansionMachine;
+        part condenser : Condenser;
+        part feedPump : FeedPump;
+        part workingFluidLoop : ClosedWorkingFluidLoop;
+        part controller : EngineController;
+        part lubricationSystem : LubricationSystem;
+        part frame : StructuralFrame;
+
+        connect fuelInlet to combustor.fuelInlet;
+        connect airInlet to combustor.airInlet;
+        connect combustor.hotGasOutlet to heatExchanger.hotGasInlet;
+        connect heatExchanger.flueGasOutlet to exhaustOutlet;
+
+        connect workingFluidLoop.highPressureLiquidOutlet to heatExchanger.workingFluidInlet;
+        connect heatExchanger.workingFluidOutlet to expander.vaporInlet;
+        connect expander.vaporOutlet to condenser.vaporInlet;
+        connect condenser.condensateOutlet to feedPump.liquidInlet;
+        connect feedPump.pressurizedLiquidOutlet to workingFluidLoop.highPressureLiquidInlet;
+
+        connect expander.shaftOutput to shaftOutput;
+        connect condenser.wasteHeatOutlet to wasteHeatOutlet;
+        connect controller.controlOutput to combustor.controlInput;
+        connect controller.pumpCommandOutput to feedPump.commandInput;
+        connect controller.expanderCommandOutput to expander.commandInput;
+
+        perform action operate : OperateExternalCombustionEngine;
+
+        exhibit state engineState : ExternalCombustionEngineStateMachine;
+    }
+
+    part def CombustionChamber {
+        attribute combustionTemperature : Temperature = 1400 [K];
+        attribute combustionPressure : Pressure = 101325 [Pa];
+        attribute heatReleaseRate : EnergyRate;
+        attribute fuelAirRatio : Real;
+
+        port fuelInlet : FuelInletPort;
+        port airInlet : AirInletPort;
+        port hotGasOutlet : ExhaustOutletPort;
+        port controlInput : CombustionControlPort;
+
+        perform action burnFuelExternally : BurnFuelExternally;
+    }
+
+    part def ExternalHeatExchanger {
+        attribute heatTransferRate : EnergyRate;
+        attribute effectiveness : Efficiency = 0.82;
+        attribute hotSideInletTemperature : Temperature;
+        attribute hotSideOutletTemperature : Temperature;
+        attribute coldSideOutletTemperature : Temperature;
+
+        port hotGasInlet : ExhaustOutletPort;
+        port flueGasOutlet : ExhaustOutletPort;
+        port workingFluidInlet : WorkingFluidPort;
+        port workingFluidOutlet : WorkingFluidPort;
+
+        perform action transferHeatToWorkingFluid : TransferHeatToWorkingFluid;
+    }
+
+    part def ExpansionMachine {
+        attribute inletPressure : Pressure;
+        attribute outletPressure : Pressure;
+        attribute inletTemperature : Temperature;
+        attribute shaftSpeed : RotationalSpeed;
+        attribute deliveredTorque : Torque;
+        attribute isentropicEfficiency : Efficiency = 0.74;
+
+        port vaporInlet : WorkingFluidPort;
+        port vaporOutlet : WorkingFluidPort;
+        port shaftOutput : MechanicalShaftPort;
+        port commandInput : ExpanderCommandPort;
+
+        perform action expandWorkingFluid : ExpandWorkingFluid;
+    }
+
+    part def Condenser {
+        attribute condensationPressure : Pressure = 120000 [Pa];
+        attribute heatRejected : EnergyRate;
+        attribute condensateTemperature : Temperature = 330 [K];
+
+        port vaporInlet : WorkingFluidPort;
+        port condensateOutlet : WorkingFluidPort;
+        port wasteHeatOutlet : WasteHeatPort;
+
+        perform action rejectHeatAndCondense : RejectHeatAndCondense;
+    }
+
+    part def FeedPump {
+        attribute pressureRise : Pressure;
+        attribute pumpPowerDemand : EnergyRate;
+        attribute volumetricFlowRate : Volume;
+
+        port liquidInlet : WorkingFluidPort;
+        port pressurizedLiquidOutlet : WorkingFluidPort;
+        port commandInput : PumpCommandPort;
+
+        perform action pressurizeCondensate : PressurizeCondensate;
+    }
+
+    part def ClosedWorkingFluidLoop {
+        attribute inventoryMassFlow : MassFlowRate = 0.18 [kg / s];
+        attribute nominalHighPressure : Pressure = 900000 [Pa];
+        attribute nominalLowPressure : Pressure = 120000 [Pa];
+
+        port highPressureLiquidInlet : WorkingFluidPort;
+        port highPressureLiquidOutlet : WorkingFluidPort;
+    }
+
+    part def EngineController {
+        attribute demandedPower : EnergyRate;
+        attribute measuredShaftSpeed : RotationalSpeed;
+        attribute measuredWorkingPressure : Pressure;
+        attribute measuredWorkingTemperature : Temperature;
+        attribute fuelValveCommand : Real;
+        attribute pumpSpeedCommand : Real;
+        attribute expanderValveCommand : Real;
+
+        port sensorInput : SensorDataPort;
+        port controlOutput : CombustionControlPort;
+        port pumpCommandOutput : PumpCommandPort;
+        port expanderCommandOutput : ExpanderCommandPort;
+
+        perform action regulateEnginePower : RegulateEnginePower;
+    }
+
+    part def LubricationSystem {
+        attribute oilTemperature : Temperature = 360 [K];
+        attribute oilPressure : Pressure = 250000 [Pa];
+        attribute oilFlowRate : MassFlowRate = 0.015 [kg / s];
+
+        perform action reduceMechanicalFriction : ReduceMechanicalFriction;
+    }
+
+    part def StructuralFrame {
+        attribute allowableVibrationLevel : Real = 1.0;
+        attribute installedMass : Real = 450.0;
+
+        perform action supportEngineComponents : SupportEngineComponents;
+    }
+
+    port def CombustionControlPort {
+        in item fuelValvePosition : Real;
+    }
+
+    port def PumpCommandPort {
+        in item pumpCommand : Real;
+    }
+
+    port def ExpanderCommandPort {
+        in item expanderAdmissionCommand : Real;
+    }
+
+    port def SensorDataPort {
+        in item measuredTemperature : Temperature;
+        in item measuredPressure : Pressure;
+        in item measuredSpeed : RotationalSpeed;
+    }
+
+    action def OperateExternalCombustionEngine {
+        in item fuel : Fuel;
+        in item air : Air;
+        out item mechanicalOutput : MechanicalPower;
+        out item exhaust : FlueGas;
+        out item rejectedHeat : WasteHeat;
+
+        first startPump;
+        then igniteExternalCombustion;
+        then heatWorkingFluid;
+        then expandFluidForWork;
+        then condenseFluid;
+        then recirculateFluid;
+
+        action startPump : PressurizeCondensate;
+        action igniteExternalCombustion : BurnFuelExternally;
+        action heatWorkingFluid : TransferHeatToWorkingFluid;
+        action expandFluidForWork : ExpandWorkingFluid;
+        action condenseFluid : RejectHeatAndCondense;
+        action recirculateFluid : PressurizeCondensate;
+    }
+
+    action def BurnFuelExternally {
+        in item fuel : Fuel;
+        in item air : Air;
+        out item flueGas : FlueGas;
+        out heatRate : EnergyRate;
+
+        constraint combustionHeatBalance {
+            heatRate <= fuel.fuelMassFlow * fuel.lowerHeatingValue;
+        }
+    }
+
+    action def TransferHeatToWorkingFluid {
+        in item flueGasIn : FlueGas;
+        inout item workingFluid : WorkingFluid;
+        out item flueGasOut : FlueGas;
+
+        constraint heatTransferLimit {
+            workingFluid.fluidTemperature <= 750 [K];
+            workingFluid.fluidPressure <= 1200000 [Pa];
+        }
+    }
+
+    action def ExpandWorkingFluid {
+        in item vaporIn : WorkingFluid;
+        out item vaporOut : WorkingFluid;
+        out item shaftPower : MechanicalPower;
+
+        constraint expansionCondition {
+            vaporIn.phase == WorkingFluidPhase::superheatedVapor;
+            vaporIn.fluidPressure > vaporOut.fluidPressure;
+        }
+    }
+
+    action def RejectHeatAndCondense {
+        in item vapor : WorkingFluid;
+        out item liquid : WorkingFluid;
+        out item rejectedHeat : WasteHeat;
+
+        constraint condenserOutput {
+            liquid.phase == WorkingFluidPhase::liquid;
+            liquid.fluidTemperature < vapor.fluidTemperature;
+        }
+    }
+
+    action def PressurizeCondensate {
+        in item lowPressureLiquid : WorkingFluid;
+        out item highPressureLiquid : WorkingFluid;
+
+        constraint pumpCondition {
+            lowPressureLiquid.phase == WorkingFluidPhase::liquid;
+            highPressureLiquid.fluidPressure > lowPressureLiquid.fluidPressure;
+        }
+    }
+
+    action def RegulateEnginePower {
+        in demandedPower : EnergyRate;
+        in measuredSpeed : RotationalSpeed;
+        in measuredPressure : Pressure;
+        out fuelValveCommand : Real;
+        out pumpSpeedCommand : Real;
+        out expanderAdmissionCommand : Real;
+
+        constraint commandRanges {
+            fuelValveCommand >= 0.0;
+            fuelValveCommand <= 1.0;
+            pumpSpeedCommand >= 0.0;
+            pumpSpeedCommand <= 1.0;
+            expanderAdmissionCommand >= 0.0;
+            expanderAdmissionCommand <= 1.0;
+        }
+    }
+
+    action def ReduceMechanicalFriction {
+        in oilFlowRate : MassFlowRate;
+        out frictionReductionEffect : Real;
+    }
+
+    action def SupportEngineComponents {
+        in mechanicalLoad : Torque;
+        out frameDeflection : Real;
+    }
+
+    state def ExternalCombustionEngineStateMachine {
+        entry action initializeController;
+
+        state off;
+        state preheat;
+        state starting;
+        state running;
+        state loadFollowing;
+        state shutdown;
+        state fault;
+
+        transition initial then off;
+
+        transition off_to_preheat
+            first off
+            accept StartCommand
+            then preheat;
+
+        transition preheat_to_starting
+            first preheat
+            accept WorkingFluidWarm
+            then starting;
+
+        transition starting_to_running
+            first starting
+            accept StableShaftSpeed
+            then running;
+
+        transition running_to_loadFollowing
+            first running
+            accept LoadDemandChanged
+            then loadFollowing;
+
+        transition loadFollowing_to_running
+            first loadFollowing
+            accept DemandSettled
+            then running;
+
+        transition running_to_shutdown
+            first running
+            accept StopCommand
+            then shutdown;
+
+        transition shutdown_to_off
+            first shutdown
+            accept ShaftStopped
+            then off;
+
+        transition any_to_fault
+            first off
+            accept CriticalFault
+            then fault;
+
+        transition fault_to_off
+            first fault
+            accept FaultCleared
+            then off;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The external combustion engine shall convert heat released by fuel combustion outside the working-fluid expansion chamber into continuous rotary mechanical power at the shaft output. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.shaftOutput.mechanicalPower.power >= 50000 [W];
+        }
+    }
+
+    requirement def ExternalCombustionRequirement {
+        doc /* Fuel combustion shall occur in a combustion chamber physically separated from the working fluid loop. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.combustor != engine.expander;
+        }
+    }
+
+    requirement def ClosedLoopWorkingFluidRequirement {
+        doc /* The working fluid shall remain in a closed loop that receives heat through the heat exchanger, expands through the expansion machine, condenses, and is repressurized by the feed pump. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.workingFluidLoop.nominalHighPressure > engine.workingFluidLoop.nominalLowPressure;
+        }
+    }
+
+    requirement def ThermalEfficiencyRequirement {
+        doc /* The engine shall achieve a nominal thermal efficiency of at least twenty five percent at rated operating conditions. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.nominalThermalEfficiency >= 0.25;
+        }
+    }
+
+    requirement def PressureProtectionRequirement {
+        doc /* The working fluid pressure shall remain below the maximum allowable working pressure during all commanded operating states. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.maximumWorkingPressure <= 1200000 [Pa];
+        }
+    }
+
+    requirement def TemperatureProtectionRequirement {
+        doc /* The working fluid temperature shall remain below the maximum allowable working temperature during all commanded operating states. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.maximumWorkingTemperature <= 750 [K];
+        }
+    }
+
+    requirement def ExhaustDischargeRequirement {
+        doc /* The system shall discharge combustion products through the exhaust outlet after heat has been transferred to the working fluid. */
+        subject engine : ExternalCombustionEngine;
+
+        require constraint {
+            engine.heatExchanger.hotSideOutletTemperature < engine.heatExchanger.hotSideInletTemperature;
+        }
+    }
+
+    requirement def ControlRequirement {
+        doc /* The controller shall modulate fuel flow, pump speed, and expander admission to maintain demanded shaft power while respecting pressure and temperature limits. */
+        subject controller : EngineController;
+
+        require constraint {
+            controller.fuelValveCommand >= 0.0 and controller.fuelValveCommand <= 1.0;
+            controller.pumpSpeedCommand >= 0.0 and controller.pumpSpeedCommand <= 1.0;
+            controller.expanderValveCommand >= 0.0 and controller.expanderValveCommand <= 1.0;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by ExternalCombustionEngine;
+    satisfy ExternalCombustionRequirement by ExternalCombustionEngine;
+    satisfy ClosedLoopWorkingFluidRequirement by ClosedWorkingFluidLoop;
+    satisfy ThermalEfficiencyRequirement by ExternalCombustionEngine;
+    satisfy PressureProtectionRequirement by ExternalCombustionEngine;
+    satisfy TemperatureProtectionRequirement by ExternalCombustionEngine;
+    satisfy ExhaustDischargeRequirement by ExternalHeatExchanger;
+    satisfy ControlRequirement by EngineController;
+
+    part externalCombustionEngineSystem : ExternalCombustionEngine {
+        :>> ratedOutputPower = 50000 [W];
+        :>> nominalThermalEfficiency = 0.28;
+        :>> maximumWorkingPressure = 1200000 [Pa];
+        :>> maximumWorkingTemperature = 750 [K];
+    }
+}

@@ -1,0 +1,915 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-47dwmj_9
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7fe-85d2-7f72-b5f8-9e55264506da
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Diode and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DiodeBasedSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    enum def ConductionMode {
+        enum nonConducting;
+        enum forwardConducting;
+        enum reverseBlocking;
+        enum breakdownLimited;
+        enum failedOpen;
+        enum failedShort;
+    }
+
+    item def ChargeCarrierFlow {
+        attribute current : Current;
+        attribute direction : String;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    port def ElectricalTerminal {
+        inout item flow : ChargeCarrierFlow;
+        attribute terminalVoltage : Voltage;
+        attribute terminalCurrent : Current;
+    }
+
+    port def ThermalInterface {
+        out attribute dissipatedHeat : Power;
+        in attribute ambientTemperature : Temperature;
+    }
+
+    part def Diode {
+        attribute forwardVoltageDrop : Voltage = 0.7 [SI::volt];
+        attribute reverseBreakdownVoltage : Voltage = 50.0 [SI::volt];
+        attribute maxForwardCurrent : Current = 1.0 [SI::ampere];
+        attribute reverseLeakageCurrent : Current = 10.0e-6 [SI::ampere];
+        attribute junctionTemperature : Temperature = 298.15 [SI::kelvin];
+        attribute maxJunctionTemperature : Temperature = 423.15 [SI::kelvin];
+        attribute dissipatedPower : Power;
+        attribute mode : ConductionMode = ConductionMode::nonConducting;
+
+        port anode : ElectricalTerminal;
+        port cathode : ElectricalTerminal;
+        port caseThermal : ThermalInterface;
+
+        action determineConduction {
+            in attribute anodeVoltage : Voltage;
+            in attribute cathodeVoltage : Voltage;
+            out attribute conductionMode : ConductionMode;
+            out attribute diodeCurrent : Current;
+
+            first start;
+            then evaluateBias;
+
+            action evaluateBias {
+                if anodeVoltage - cathodeVoltage >= forwardVoltageDrop then forwardPath;
+                else if cathodeVoltage - anodeVoltage < reverseBreakdownVoltage then reverseBlockingPath;
+                else breakdownPath;
+            }
+
+            action forwardPath {
+                conductionMode = ConductionMode::forwardConducting;
+                diodeCurrent = min(maxForwardCurrent, (anodeVoltage - cathodeVoltage - forwardVoltageDrop) / 0.1 [SI::ohm]);
+            }
+
+            action reverseBlockingPath {
+                conductionMode = ConductionMode::reverseBlocking;
+                diodeCurrent = -reverseLeakageCurrent;
+            }
+
+            action breakdownPath {
+                conductionMode = ConductionMode::breakdownLimited;
+                diodeCurrent = -maxForwardCurrent;
+            }
+
+            then done;
+        }
+
+        action dissipateHeat {
+            in attribute diodeVoltage : Voltage;
+            in attribute diodeCurrent : Current;
+            out attribute heatPower : Power;
+
+            heatPower = abs(diodeVoltage * diodeCurrent);
+            dissipatedPower = heatPower;
+            caseThermal.dissipatedHeat = heatPower;
+        }
+
+        state def DiodeOperatingState {
+            entry action initialize {
+                mode = ConductionMode::nonConducting;
+            }
+
+            state off;
+            state forwardBiased;
+            state reverseBiased;
+            state avalanche;
+            state openFailure;
+            state shortFailure;
+
+            transition first off;
+
+            transition off_to_forward
+                first off
+                then forwardBiased
+                if anode.terminalVoltage - cathode.terminalVoltage >= forwardVoltageDrop
+                do {
+                    mode = ConductionMode::forwardConducting;
+                }
+
+            transition off_to_reverse
+                first off
+                then reverseBiased
+                if cathode.terminalVoltage > anode.terminalVoltage and
+                   cathode.terminalVoltage - anode.terminalVoltage < reverseBreakdownVoltage
+                do {
+                    mode = ConductionMode::reverseBlocking;
+                }
+
+            transition reverse_to_avalanche
+                first reverseBiased
+                then avalanche
+                if cathode.terminalVoltage - anode.terminalVoltage >= reverseBreakdownVoltage
+                do {
+                    mode = ConductionMode::breakdownLimited;
+                }
+
+            transition forward_to_off
+                first forwardBiased
+                then off
+                if anode.terminalVoltage - cathode.terminalVoltage < forwardVoltageDrop
+                do {
+                    mode = ConductionMode::nonConducting;
+                }
+
+            transition overheated_open
+                first forwardBiased
+                then openFailure
+                if junctionTemperature > maxJunctionTemperature
+                do {
+                    mode = ConductionMode::failedOpen;
+                }
+
+            transition surge_short
+                first avalanche
+                then shortFailure
+                if abs(anode.terminalCurrent) > maxForwardCurrent
+                do {
+                    mode = ConductionMode::failedShort;
+                }
+        }
+    }
+
+    part def SeriesCurrentLimiter {
+        attribute resistance : Resistance = 330.0 [SI::ohm];
+        attribute maxPower : Power = 0.25 [SI::watt];
+        attribute dissipatedPower : Power;
+
+        port input : ElectricalTerminal;
+        port output : ElectricalTerminal;
+
+        action limitCurrent {
+            in attribute appliedVoltage : Voltage;
+            out attribute limitedCurrent : Current;
+
+            limitedCurrent = appliedVoltage / resistance;
+            dissipatedPower = appliedVoltage * limitedCurrent;
+        }
+    }
+
+    part def ProtectedLoad {
+        attribute nominalVoltage : Voltage = 5.0 [SI::volt];
+        attribute nominalCurrent : Current = 0.02 [SI::ampere];
+        attribute minimumOperatingVoltage : Voltage = 2.0 [SI::volt];
+        attribute loadPower : Power;
+
+        port positive : ElectricalTerminal;
+        port negative : ElectricalTerminal;
+
+        action consumeElectricalEnergy {
+            in item suppliedEnergy : ElectricalEnergy;
+            out attribute accepted : Boolean;
+
+            accepted = suppliedEnergy.voltage >= minimumOperatingVoltage;
+            loadPower = suppliedEnergy.voltage * suppliedEnergy.current;
+        }
+    }
+
+    part def DCSource {
+        attribute sourceVoltage : Voltage = 5.0 [SI::volt];
+        attribute currentLimit : Current = 0.1 [SI::ampere];
+
+        port positive : ElectricalTerminal;
+        port return : ElectricalTerminal;
+
+        action provideEnergy {
+            out item energy : ElectricalEnergy;
+
+            energy.voltage = sourceVoltage;
+            energy.current = currentLimit;
+            energy.power = sourceVoltage * currentLimit;
+        }
+    }
+
+    part def AmbientEnvironment {
+        attribute ambientTemperature : Temperature = 298.15 [SI::kelvin];
+
+        port thermalSink : ThermalInterface;
+    }
+
+    part def DiodeBasedSystem {
+        attribute systemInputVoltage : Voltage = 5.0 [SI::volt];
+        attribute systemOutputVoltage : Voltage;
+        attribute systemCurrent : Current;
+        attribute primaryFunction : String = "Permit current flow in one direction through a semiconductor junction while blocking substantial reverse current.";
+
+        part source : DCSource;
+        part limiter : SeriesCurrentLimiter;
+        part diode : Diode;
+        part load : ProtectedLoad;
+        part environment : AmbientEnvironment;
+
+        port powerInputPositive : ElectricalTerminal;
+        port powerInputReturn : ElectricalTerminal;
+        port regulatedOutputPositive : ElectricalTerminal;
+        port regulatedOutputReturn : ElectricalTerminal;
+
+        connect powerInputPositive to source.positive;
+        connect powerInputReturn to source.return;
+        connect source.positive to limiter.input;
+        connect limiter.output to diode.anode;
+        connect diode.cathode to load.positive;
+        connect load.negative to source.return;
+        connect regulatedOutputPositive to load.positive;
+        connect regulatedOutputReturn to load.negative;
+        connect diode.caseThermal to environment.thermalSink;
+
+        action performRectifyingProtection {
+            in item inputEnergy : ElectricalEnergy;
+            out item outputEnergy : ElectricalEnergy;
+            out attribute currentPermitted : Boolean;
+
+            first receiveInput;
+            then evaluateDiode;
+            then deliverOutput;
+
+            action receiveInput {
+                systemInputVoltage = inputEnergy.voltage;
+            }
+
+            action evaluateDiode {
+                currentPermitted = inputEnergy.voltage >= diode.forwardVoltageDrop;
+                if currentPermitted then {
+                    systemCurrent = min(source.currentLimit, diode.maxForwardCurrent);
+                    systemOutputVoltage = inputEnergy.voltage - diode.forwardVoltageDrop;
+                } else {
+                    systemCurrent = diode.reverseLeakageCurrent;
+                    systemOutputVoltage = 0.0 [SI::volt];
+                }
+            }
+
+            action deliverOutput {
+                outputEnergy.voltage = systemOutputVoltage;
+                outputEnergy.current = systemCurrent;
+                outputEnergy.power = systemOutputVoltage * systemCurrent;
+            }
+        }
+
+        state def SystemOperatingState {
+            state unpowered;
+            state acceptingForwardInput;
+            state blockingReverseInput;
+            state supplyingLoad;
+            state thermalLimited;
+            state faulted;
+
+            transition first unpowered;
+
+            transition power_applied_forward
+                first unpowered
+                then acceptingForwardInput
+                if powerInputPositive.terminalVoltage > powerInputReturn.terminalVoltage
+                do {
+                    diode.mode = ConductionMode::forwardConducting;
+                }
+
+            transition power_applied_reverse
+                first unpowered
+                then blockingReverseInput
+                if powerInputPositive.terminalVoltage < powerInputReturn.terminalVoltage
+                do {
+                    diode.mode = ConductionMode::reverseBlocking;
+                }
+
+            transition forward_to_load
+                first acceptingForwardInput
+                then supplyingLoad
+                if diode.mode == ConductionMode::forwardConducting and
+                   systemOutputVoltage >= load.minimumOperatingVoltage;
+
+            transition load_to_thermal_limited
+                first supplyingLoad
+                then thermalLimited
+                if diode.junctionTemperature > diode.maxJunctionTemperature - 20.0 [SI::kelvin];
+
+            transition thermal_to_fault
+                first thermalLimited
+                then faulted
+                if diode.junctionTemperature > diode.maxJunctionTemperature
+                do {
+                    diode.mode = ConductionMode::failedOpen;
+                }
+
+            transition reverse_to_unpowered
+                first blockingReverseInput
+                then unpowered
+                if abs(powerInputPositive.terminalVoltage - powerInputReturn.terminalVoltage) < 0.1 [SI::volt];
+        }
+    }
+
+    requirement def DiodePrimaryFunctionRequirement {
+        subject system : DiodeBasedSystem;
+
+        doc
+        /*
+         * The diode-based system shall provide unidirectional current control as its primary high-level function.
+         */
+
+        require constraint {
+            system.primaryFunction == "Permit current flow in one direction through a semiconductor junction while blocking substantial reverse current."
+        }
+    }
+
+    requirement def ForwardConductionRequirement {
+        subject diode : Diode;
+
+        doc
+        /*
+         * The diode shall enter forward conduction when anode voltage exceeds cathode voltage by at least the specified forward voltage drop.
+         */
+
+        require constraint {
+            diode.anode.terminalVoltage - diode.cathode.terminalVoltage >= diode.forwardVoltageDrop implies
+            diode.mode == ConductionMode::forwardConducting
+        }
+    }
+
+    requirement def ReverseBlockingRequirement {
+        subject diode : Diode;
+
+        doc
+        /*
+         * The diode shall block reverse current below reverse breakdown voltage except for leakage current.
+         */
+
+        require constraint {
+            diode.cathode.terminalVoltage - diode.anode.terminalVoltage < diode.reverseBreakdownVoltage implies
+            abs(diode.cathode.terminalCurrent) <= diode.reverseLeakageCurrent
+        }
+    }
+
+    requirement def CurrentLimitRequirement {
+        subject system : DiodeBasedSystem;
+
+        doc
+        /*
+         * The system shall limit forward current to prevent exceeding the diode maximum forward current.
+         */
+
+        require constraint {
+            system.systemCurrent <= system.diode.maxForwardCurrent
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject diode : Diode;
+
+        doc
+        /*
+         * The diode junction temperature shall remain below its maximum rated junction temperature during normal operation.
+         */
+
+        require constraint {
+            diode.junctionTemperature <= diode.maxJunctionTemperature
+        }
+    }
+
+    requirement def LoadDeliveryRequirement {
+        subject system : DiodeBasedSystem;
+
+        doc
+        /*
+         * When forward biased from the nominal source, the system shall deliver sufficient voltage to the protected load.
+         */
+
+        require constraint {
+            system.source.sourceVoltage - system.diode.forwardVoltageDrop >= system.load.minimumOperatingVoltage
+        }
+    }
+
+    satisfy DiodePrimaryFunctionRequirement by DiodeBasedSystem;
+    satisfy ForwardConductionRequirement by Diode;
+    satisfy ReverseBlockingRequirement by Diode;
+    satisfy CurrentLimitRequirement by DiodeBasedSystem::limiter;
+    satisfy ThermalProtectionRequirement by DiodeBasedSystem::environment;
+    satisfy LoadDeliveryRequirement by DiodeBasedSystem;
+
+    part diodeProtectionSystem : DiodeBasedSystem {
+        :>> source.sourceVoltage = 5.0 [SI::volt];
+        :>> source.currentLimit = 0.05 [SI::ampere];
+        :>> limiter.resistance = 330.0 [SI::ohm];
+        :>> diode.forwardVoltageDrop = 0.7 [SI::volt];
+        :>> diode.reverseBreakdownVoltage = 50.0 [SI::volt];
+        :>> diode.maxForwardCurrent = 0.1 [SI::ampere];
+        :>> load.minimumOperatingVoltage = 2.0 [SI::volt];
+        :>> environment.ambientTemperature = 298.15 [SI::kelvin];
+    }
+}
+tokens used
+3,380
+package DiodeBasedSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Resistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Time :> ISQ::time {
+        unit = SI::second;
+    }
+
+    enum def ConductionMode {
+        enum nonConducting;
+        enum forwardConducting;
+        enum reverseBlocking;
+        enum breakdownLimited;
+        enum failedOpen;
+        enum failedShort;
+    }
+
+    item def ChargeCarrierFlow {
+        attribute current : Current;
+        attribute direction : String;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    port def ElectricalTerminal {
+        inout item flow : ChargeCarrierFlow;
+        attribute terminalVoltage : Voltage;
+        attribute terminalCurrent : Current;
+    }
+
+    port def ThermalInterface {
+        out attribute dissipatedHeat : Power;
+        in attribute ambientTemperature : Temperature;
+    }
+
+    part def Diode {
+        attribute forwardVoltageDrop : Voltage = 0.7 [SI::volt];
+        attribute reverseBreakdownVoltage : Voltage = 50.0 [SI::volt];
+        attribute maxForwardCurrent : Current = 1.0 [SI::ampere];
+        attribute reverseLeakageCurrent : Current = 10.0e-6 [SI::ampere];
+        attribute junctionTemperature : Temperature = 298.15 [SI::kelvin];
+        attribute maxJunctionTemperature : Temperature = 423.15 [SI::kelvin];
+        attribute dissipatedPower : Power;
+        attribute mode : ConductionMode = ConductionMode::nonConducting;
+
+        port anode : ElectricalTerminal;
+        port cathode : ElectricalTerminal;
+        port caseThermal : ThermalInterface;
+
+        action determineConduction {
+            in attribute anodeVoltage : Voltage;
+            in attribute cathodeVoltage : Voltage;
+            out attribute conductionMode : ConductionMode;
+            out attribute diodeCurrent : Current;
+
+            first start;
+            then evaluateBias;
+
+            action evaluateBias {
+                if anodeVoltage - cathodeVoltage >= forwardVoltageDrop then forwardPath;
+                else if cathodeVoltage - anodeVoltage < reverseBreakdownVoltage then reverseBlockingPath;
+                else breakdownPath;
+            }
+
+            action forwardPath {
+                conductionMode = ConductionMode::forwardConducting;
+                diodeCurrent = min(maxForwardCurrent, (anodeVoltage - cathodeVoltage - forwardVoltageDrop) / 0.1 [SI::ohm]);
+            }
+
+            action reverseBlockingPath {
+                conductionMode = ConductionMode::reverseBlocking;
+                diodeCurrent = -reverseLeakageCurrent;
+            }
+
+            action breakdownPath {
+                conductionMode = ConductionMode::breakdownLimited;
+                diodeCurrent = -maxForwardCurrent;
+            }
+
+            then done;
+        }
+
+        action dissipateHeat {
+            in attribute diodeVoltage : Voltage;
+            in attribute diodeCurrent : Current;
+            out attribute heatPower : Power;
+
+            heatPower = abs(diodeVoltage * diodeCurrent);
+            dissipatedPower = heatPower;
+            caseThermal.dissipatedHeat = heatPower;
+        }
+
+        state def DiodeOperatingState {
+            entry action initialize {
+                mode = ConductionMode::nonConducting;
+            }
+
+            state off;
+            state forwardBiased;
+            state reverseBiased;
+            state avalanche;
+            state openFailure;
+            state shortFailure;
+
+            transition first off;
+
+            transition off_to_forward
+                first off
+                then forwardBiased
+                if anode.terminalVoltage - cathode.terminalVoltage >= forwardVoltageDrop
+                do {
+                    mode = ConductionMode::forwardConducting;
+                }
+
+            transition off_to_reverse
+                first off
+                then reverseBiased
+                if cathode.terminalVoltage > anode.terminalVoltage and
+                   cathode.terminalVoltage - anode.terminalVoltage < reverseBreakdownVoltage
+                do {
+                    mode = ConductionMode::reverseBlocking;
+                }
+
+            transition reverse_to_avalanche
+                first reverseBiased
+                then avalanche
+                if cathode.terminalVoltage - anode.terminalVoltage >= reverseBreakdownVoltage
+                do {
+                    mode = ConductionMode::breakdownLimited;
+                }
+
+            transition forward_to_off
+                first forwardBiased
+                then off
+                if anode.terminalVoltage - cathode.terminalVoltage < forwardVoltageDrop
+                do {
+                    mode = ConductionMode::nonConducting;
+                }
+
+            transition overheated_open
+                first forwardBiased
+                then openFailure
+                if junctionTemperature > maxJunctionTemperature
+                do {
+                    mode = ConductionMode::failedOpen;
+                }
+
+            transition surge_short
+                first avalanche
+                then shortFailure
+                if abs(anode.terminalCurrent) > maxForwardCurrent
+                do {
+                    mode = ConductionMode::failedShort;
+                }
+        }
+    }
+
+    part def SeriesCurrentLimiter {
+        attribute resistance : Resistance = 330.0 [SI::ohm];
+        attribute maxPower : Power = 0.25 [SI::watt];
+        attribute dissipatedPower : Power;
+
+        port input : ElectricalTerminal;
+        port output : ElectricalTerminal;
+
+        action limitCurrent {
+            in attribute appliedVoltage : Voltage;
+            out attribute limitedCurrent : Current;
+
+            limitedCurrent = appliedVoltage / resistance;
+            dissipatedPower = appliedVoltage * limitedCurrent;
+        }
+    }
+
+    part def ProtectedLoad {
+        attribute nominalVoltage : Voltage = 5.0 [SI::volt];
+        attribute nominalCurrent : Current = 0.02 [SI::ampere];
+        attribute minimumOperatingVoltage : Voltage = 2.0 [SI::volt];
+        attribute loadPower : Power;
+
+        port positive : ElectricalTerminal;
+        port negative : ElectricalTerminal;
+
+        action consumeElectricalEnergy {
+            in item suppliedEnergy : ElectricalEnergy;
+            out attribute accepted : Boolean;
+
+            accepted = suppliedEnergy.voltage >= minimumOperatingVoltage;
+            loadPower = suppliedEnergy.voltage * suppliedEnergy.current;
+        }
+    }
+
+    part def DCSource {
+        attribute sourceVoltage : Voltage = 5.0 [SI::volt];
+        attribute currentLimit : Current = 0.1 [SI::ampere];
+
+        port positive : ElectricalTerminal;
+        port return : ElectricalTerminal;
+
+        action provideEnergy {
+            out item energy : ElectricalEnergy;
+
+            energy.voltage = sourceVoltage;
+            energy.current = currentLimit;
+            energy.power = sourceVoltage * currentLimit;
+        }
+    }
+
+    part def AmbientEnvironment {
+        attribute ambientTemperature : Temperature = 298.15 [SI::kelvin];
+
+        port thermalSink : ThermalInterface;
+    }
+
+    part def DiodeBasedSystem {
+        attribute systemInputVoltage : Voltage = 5.0 [SI::volt];
+        attribute systemOutputVoltage : Voltage;
+        attribute systemCurrent : Current;
+        attribute primaryFunction : String = "Permit current flow in one direction through a semiconductor junction while blocking substantial reverse current.";
+
+        part source : DCSource;
+        part limiter : SeriesCurrentLimiter;
+        part diode : Diode;
+        part load : ProtectedLoad;
+        part environment : AmbientEnvironment;
+
+        port powerInputPositive : ElectricalTerminal;
+        port powerInputReturn : ElectricalTerminal;
+        port regulatedOutputPositive : ElectricalTerminal;
+        port regulatedOutputReturn : ElectricalTerminal;
+
+        connect powerInputPositive to source.positive;
+        connect powerInputReturn to source.return;
+        connect source.positive to limiter.input;
+        connect limiter.output to diode.anode;
+        connect diode.cathode to load.positive;
+        connect load.negative to source.return;
+        connect regulatedOutputPositive to load.positive;
+        connect regulatedOutputReturn to load.negative;
+        connect diode.caseThermal to environment.thermalSink;
+
+        action performRectifyingProtection {
+            in item inputEnergy : ElectricalEnergy;
+            out item outputEnergy : ElectricalEnergy;
+            out attribute currentPermitted : Boolean;
+
+            first receiveInput;
+            then evaluateDiode;
+            then deliverOutput;
+
+            action receiveInput {
+                systemInputVoltage = inputEnergy.voltage;
+            }
+
+            action evaluateDiode {
+                currentPermitted = inputEnergy.voltage >= diode.forwardVoltageDrop;
+                if currentPermitted then {
+                    systemCurrent = min(source.currentLimit, diode.maxForwardCurrent);
+                    systemOutputVoltage = inputEnergy.voltage - diode.forwardVoltageDrop;
+                } else {
+                    systemCurrent = diode.reverseLeakageCurrent;
+                    systemOutputVoltage = 0.0 [SI::volt];
+                }
+            }
+
+            action deliverOutput {
+                outputEnergy.voltage = systemOutputVoltage;
+                outputEnergy.current = systemCurrent;
+                outputEnergy.power = systemOutputVoltage * systemCurrent;
+            }
+        }
+
+        state def SystemOperatingState {
+            state unpowered;
+            state acceptingForwardInput;
+            state blockingReverseInput;
+            state supplyingLoad;
+            state thermalLimited;
+            state faulted;
+
+            transition first unpowered;
+
+            transition power_applied_forward
+                first unpowered
+                then acceptingForwardInput
+                if powerInputPositive.terminalVoltage > powerInputReturn.terminalVoltage
+                do {
+                    diode.mode = ConductionMode::forwardConducting;
+                }
+
+            transition power_applied_reverse
+                first unpowered
+                then blockingReverseInput
+                if powerInputPositive.terminalVoltage < powerInputReturn.terminalVoltage
+                do {
+                    diode.mode = ConductionMode::reverseBlocking;
+                }
+
+            transition forward_to_load
+                first acceptingForwardInput
+                then supplyingLoad
+                if diode.mode == ConductionMode::forwardConducting and
+                   systemOutputVoltage >= load.minimumOperatingVoltage;
+
+            transition load_to_thermal_limited
+                first supplyingLoad
+                then thermalLimited
+                if diode.junctionTemperature > diode.maxJunctionTemperature - 20.0 [SI::kelvin];
+
+            transition thermal_to_fault
+                first thermalLimited
+                then faulted
+                if diode.junctionTemperature > diode.maxJunctionTemperature
+                do {
+                    diode.mode = ConductionMode::failedOpen;
+                }
+
+            transition reverse_to_unpowered
+                first blockingReverseInput
+                then unpowered
+                if abs(powerInputPositive.terminalVoltage - powerInputReturn.terminalVoltage) < 0.1 [SI::volt];
+        }
+    }
+
+    requirement def DiodePrimaryFunctionRequirement {
+        subject system : DiodeBasedSystem;
+
+        doc
+        /*
+         * The diode-based system shall provide unidirectional current control as its primary high-level function.
+         */
+
+        require constraint {
+            system.primaryFunction == "Permit current flow in one direction through a semiconductor junction while blocking substantial reverse current."
+        }
+    }
+
+    requirement def ForwardConductionRequirement {
+        subject diode : Diode;
+
+        doc
+        /*
+         * The diode shall enter forward conduction when anode voltage exceeds cathode voltage by at least the specified forward voltage drop.
+         */
+
+        require constraint {
+            diode.anode.terminalVoltage - diode.cathode.terminalVoltage >= diode.forwardVoltageDrop implies
+            diode.mode == ConductionMode::forwardConducting
+        }
+    }
+
+    requirement def ReverseBlockingRequirement {
+        subject diode : Diode;
+
+        doc
+        /*
+         * The diode shall block reverse current below reverse breakdown voltage except for leakage current.
+         */
+
+        require constraint {
+            diode.cathode.terminalVoltage - diode.anode.terminalVoltage < diode.reverseBreakdownVoltage implies
+            abs(diode.cathode.terminalCurrent) <= diode.reverseLeakageCurrent
+        }
+    }
+
+    requirement def CurrentLimitRequirement {
+        subject system : DiodeBasedSystem;
+
+        doc
+        /*
+         * The system shall limit forward current to prevent exceeding the diode maximum forward current.
+         */
+
+        require constraint {
+            system.systemCurrent <= system.diode.maxForwardCurrent
+        }
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject diode : Diode;
+
+        doc
+        /*
+         * The diode junction temperature shall remain below its maximum rated junction temperature during normal operation.
+         */
+
+        require constraint {
+            diode.junctionTemperature <= diode.maxJunctionTemperature
+        }
+    }
+
+    requirement def LoadDeliveryRequirement {
+        subject system : DiodeBasedSystem;
+
+        doc
+        /*
+         * When forward biased from the nominal source, the system shall deliver sufficient voltage to the protected load.
+         */
+
+        require constraint {
+            system.source.sourceVoltage - system.diode.forwardVoltageDrop >= system.load.minimumOperatingVoltage
+        }
+    }
+
+    satisfy DiodePrimaryFunctionRequirement by DiodeBasedSystem;
+    satisfy ForwardConductionRequirement by Diode;
+    satisfy ReverseBlockingRequirement by Diode;
+    satisfy CurrentLimitRequirement by DiodeBasedSystem::limiter;
+    satisfy ThermalProtectionRequirement by DiodeBasedSystem::environment;
+    satisfy LoadDeliveryRequirement by DiodeBasedSystem;
+
+    part diodeProtectionSystem : DiodeBasedSystem {
+        :>> source.sourceVoltage = 5.0 [SI::volt];
+        :>> source.currentLimit = 0.05 [SI::ampere];
+        :>> limiter.resistance = 330.0 [SI::ohm];
+        :>> diode.forwardVoltageDrop = 0.7 [SI::volt];
+        :>> diode.reverseBreakdownVoltage = 50.0 [SI::volt];
+        :>> diode.maxForwardCurrent = 0.1 [SI::ampere];
+        :>> load.minimumOperatingVoltage = 2.0 [SI::volt];
+        :>> environment.ambientTemperature = 298.15 [SI::kelvin];
+    }
+}

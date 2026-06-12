@@ -1,0 +1,705 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-dsr_kxdv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7b6-1f16-7512-a43c-70086284c2af
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a AllSeen Alliance and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AllSeenAllianceSmartHomeSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  attribute def Millisecond : Real {
+    unit = "ms";
+  }
+
+  attribute def Celsius : Real {
+    unit = "degC";
+  }
+
+  attribute def Lux : Real {
+    unit = "lx";
+  }
+
+  attribute def Watt : Real {
+    unit = "W";
+  }
+
+  enum def DeviceRole {
+    enum coordinator;
+    enum producer;
+    enum consumer;
+    enum gateway;
+  }
+
+  enum def TrustState {
+    enum unpaired;
+    enum claimed;
+    enum authenticated;
+    enum revoked;
+  }
+
+  enum def NetworkState {
+    enum offline;
+    enum discovering;
+    enum joined;
+    enum degraded;
+  }
+
+  item def AllJoynAnnouncement {
+    attribute appName : String;
+    attribute deviceId : String;
+    attribute serviceName : String;
+    attribute interfaces : String[1..*];
+    attribute role : DeviceRole;
+  }
+
+  item def ControlCommand {
+    attribute commandId : String;
+    attribute targetDeviceId : String;
+    attribute interfaceName : String;
+    attribute operation : String;
+    attribute issuedAt : Time;
+  }
+
+  item def SensorReport {
+    attribute sourceDeviceId : String;
+    attribute temperature : Celsius;
+    attribute illuminance : Lux;
+    attribute occupancyDetected : Boolean;
+    attribute powerUse : Watt;
+    attribute reportedAt : Time;
+  }
+
+  item def SecurityCredential {
+    attribute deviceId : String;
+    attribute publicKeyFingerprint : String;
+    attribute trustState : TrustState;
+    attribute expiresAt : Time;
+  }
+
+  port def AllJoynBusPort {
+    in item commands : ControlCommand;
+    out item announcements : AllJoynAnnouncement;
+    out item reports : SensorReport;
+  }
+
+  port def CredentialPort {
+    inout item credentials : SecurityCredential;
+  }
+
+  port def UserControlPort {
+    in item userCommands : ControlCommand;
+    out item statusReports : SensorReport;
+  }
+
+  part def AllSeenDevice {
+    attribute deviceId : String;
+    attribute deviceName : String;
+    attribute role : DeviceRole;
+    attribute networkState : NetworkState = NetworkState::offline;
+    attribute trustState : TrustState = TrustState::unpaired;
+    attribute discoveryTimeout : Millisecond = 3000;
+    port bus : AllJoynBusPort;
+    port security : CredentialPort;
+
+    state def DeviceLifecycle {
+      entry action initializeDevice;
+      state Offline;
+      state Discovering;
+      state Claimed;
+      state Operational;
+      state Revoked;
+
+      transition first Offline;
+      transition Offline_to_Discovering
+        first Offline then Discovering
+        accept joinRequested;
+
+      transition Discovering_to_Claimed
+        first Discovering then Claimed
+        accept credentialAccepted;
+
+      transition Claimed_to_Operational
+        first Claimed then Operational
+        accept interfacesAdvertised;
+
+      transition Operational_to_Revoked
+        first Operational then Revoked
+        accept credentialRevoked;
+
+      transition Revoked_to_Offline
+        first Revoked then Offline
+        accept resetRequested;
+    }
+  }
+
+  part def LightingDevice :> AllSeenDevice {
+    attribute brightness : Percent = 0;
+    attribute powerUse : Watt = 0;
+    attribute role : DeviceRole = DeviceRole::consumer;
+
+    action setBrightness {
+      in attribute requestedBrightness : Percent;
+      out attribute acceptedBrightness : Percent;
+      acceptedBrightness = requestedBrightness;
+    }
+
+    action turnOff {
+      brightness = 0;
+      powerUse = 0;
+    }
+  }
+
+  part def ThermostatDevice :> AllSeenDevice {
+    attribute currentTemperature : Celsius = 21.0;
+    attribute targetTemperature : Celsius = 22.0;
+    attribute hvacPower : Watt = 0;
+    attribute role : DeviceRole = DeviceRole::producer;
+
+    action publishTemperature {
+      out item report : SensorReport;
+    }
+
+    action adjustTargetTemperature {
+      in attribute requestedTarget : Celsius;
+      targetTemperature = requestedTarget;
+    }
+  }
+
+  part def OccupancySensor :> AllSeenDevice {
+    attribute occupied : Boolean = false;
+    attribute illuminance : Lux = 300;
+    attribute role : DeviceRole = DeviceRole::producer;
+
+    action detectPresence {
+      out attribute presence : Boolean;
+      presence = occupied;
+    }
+
+    action publishOccupancy {
+      out item report : SensorReport;
+    }
+  }
+
+  part def AllSeenGateway :> AllSeenDevice {
+    attribute role : DeviceRole = DeviceRole::gateway;
+    attribute maxManagedDevices : Integer = 64;
+    attribute commandLatencyBudget : Millisecond = 250;
+    port userPort : UserControlPort;
+
+    action discoverServices {
+      out item foundAnnouncements : AllJoynAnnouncement[0..*];
+    }
+
+    action routeCommand {
+      in item command : ControlCommand;
+      out item routedCommand : ControlCommand;
+      routedCommand = command;
+    }
+
+    action aggregateReports {
+      in item reports : SensorReport[0..*];
+      out item userVisibleReports : SensorReport[0..*];
+    }
+
+    state def GatewayBehavior {
+      state Booting;
+      state ServiceDiscovery;
+      state SecureOperation;
+      state DegradedOperation;
+
+      transition first Booting;
+      transition Booting_to_ServiceDiscovery
+        first Booting then ServiceDiscovery
+        accept networkAvailable;
+
+      transition ServiceDiscovery_to_SecureOperation
+        first ServiceDiscovery then SecureOperation
+        accept atLeastOneTrustedDeviceFound;
+
+      transition SecureOperation_to_DegradedOperation
+        first SecureOperation then DegradedOperation
+        accept busTimeout;
+
+      transition DegradedOperation_to_ServiceDiscovery
+        first DegradedOperation then ServiceDiscovery
+        accept recoveryRequested;
+    }
+  }
+
+  part def MobileController {
+    attribute userId : String;
+    port control : UserControlPort;
+
+    action requestScene {
+      in attribute sceneName : String;
+      out item command : ControlCommand;
+    }
+
+    action displayStatus {
+      in item report : SensorReport;
+    }
+  }
+
+  part allSeenAllianceInteroperabilitySystem {
+    attribute primaryFunction : String =
+      "Provide an interoperable local service-discovery, secure messaging, and device-control fabric for heterogeneous smart devices using AllSeen Alliance style AllJoyn concepts.";
+
+    part gateway : AllSeenGateway {
+      deviceId = "gateway-001";
+      deviceName = "Home Interoperability Gateway";
+    }
+
+    part livingRoomLight : LightingDevice {
+      deviceId = "light-101";
+      deviceName = "Living Room Dimmable Light";
+    }
+
+    part hallwaySensor : OccupancySensor {
+      deviceId = "sensor-201";
+      deviceName = "Hallway Occupancy Sensor";
+    }
+
+    part thermostat : ThermostatDevice {
+      deviceId = "thermostat-301";
+      deviceName = "Main Thermostat";
+    }
+
+    part phoneApp : MobileController {
+      userId = "resident-primary";
+    }
+
+    connect phoneApp.control to gateway.userPort;
+    connect gateway.bus to livingRoomLight.bus;
+    connect gateway.bus to hallwaySensor.bus;
+    connect gateway.bus to thermostat.bus;
+    connect gateway.security to livingRoomLight.security;
+    connect gateway.security to hallwaySensor.security;
+    connect gateway.security to thermostat.security;
+
+    perform action normalOperation {
+      first start;
+      then discover : gateway.discoverServices;
+      then observePresence : hallwaySensor.detectPresence;
+      then publishOccupancy : hallwaySensor.publishOccupancy;
+      then publishThermalStatus : thermostat.publishTemperature;
+      then aggregate : gateway.aggregateReports;
+      then routeLightingCommand : gateway.routeCommand;
+      then adjustLight : livingRoomLight.setBrightness;
+      then done;
+    }
+  }
+
+  requirement def InteroperabilityRequirement {
+    subject system : allSeenAllianceInteroperabilitySystem;
+    doc
+      /* The system shall allow devices from different vendors to discover each other and exchange control and status messages through a common AllSeen Alliance style service bus. */
+  }
+
+  requirement def SecureClaimingRequirement {
+    subject device : AllSeenDevice;
+    doc
+      /* Each managed device shall be claimed with a credential before accepting control commands. */
+  }
+
+  requirement def LocalControlRequirement {
+    subject gateway : AllSeenGateway;
+    attribute maximumCommandLatency : Millisecond = 250;
+    doc
+      /* The gateway shall route local user commands to trusted devices within the command latency budget during secure operation. */
+  }
+
+  requirement def DiscoveryRequirement {
+    subject gateway : AllSeenGateway;
+    attribute discoveryWindow : Millisecond = 3000;
+    doc
+      /* The gateway shall discover announced device services within the configured discovery window when the local network is available. */
+  }
+
+  requirement def StatusAggregationRequirement {
+    subject gateway : AllSeenGateway;
+    doc
+      /* The gateway shall aggregate sensor and device reports into user-visible status information for controller applications. */
+  }
+
+  requirement interoperabilitySatisfied : InteroperabilityRequirement {
+    subject system = allSeenAllianceInteroperabilitySystem;
+  }
+
+  requirement secureClaimingSatisfied : SecureClaimingRequirement {
+    subject device = allSeenAllianceInteroperabilitySystem::livingRoomLight;
+  }
+
+  requirement localControlSatisfied : LocalControlRequirement {
+    subject gateway = allSeenAllianceInteroperabilitySystem::gateway;
+  }
+
+  requirement discoverySatisfied : DiscoveryRequirement {
+    subject gateway = allSeenAllianceInteroperabilitySystem::gateway;
+  }
+
+  requirement statusAggregationSatisfied : StatusAggregationRequirement {
+    subject gateway = allSeenAllianceInteroperabilitySystem::gateway;
+  }
+}
+tokens used
+2,501
+package AllSeenAllianceSmartHomeSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+
+  attribute def Percent : Real {
+    unit = "%";
+  }
+
+  attribute def Millisecond : Real {
+    unit = "ms";
+  }
+
+  attribute def Celsius : Real {
+    unit = "degC";
+  }
+
+  attribute def Lux : Real {
+    unit = "lx";
+  }
+
+  attribute def Watt : Real {
+    unit = "W";
+  }
+
+  enum def DeviceRole {
+    enum coordinator;
+    enum producer;
+    enum consumer;
+    enum gateway;
+  }
+
+  enum def TrustState {
+    enum unpaired;
+    enum claimed;
+    enum authenticated;
+    enum revoked;
+  }
+
+  enum def NetworkState {
+    enum offline;
+    enum discovering;
+    enum joined;
+    enum degraded;
+  }
+
+  item def AllJoynAnnouncement {
+    attribute appName : String;
+    attribute deviceId : String;
+    attribute serviceName : String;
+    attribute interfaces : String[1..*];
+    attribute role : DeviceRole;
+  }
+
+  item def ControlCommand {
+    attribute commandId : String;
+    attribute targetDeviceId : String;
+    attribute interfaceName : String;
+    attribute operation : String;
+    attribute issuedAt : Time;
+  }
+
+  item def SensorReport {
+    attribute sourceDeviceId : String;
+    attribute temperature : Celsius;
+    attribute illuminance : Lux;
+    attribute occupancyDetected : Boolean;
+    attribute powerUse : Watt;
+    attribute reportedAt : Time;
+  }
+
+  item def SecurityCredential {
+    attribute deviceId : String;
+    attribute publicKeyFingerprint : String;
+    attribute trustState : TrustState;
+    attribute expiresAt : Time;
+  }
+
+  port def AllJoynBusPort {
+    in item commands : ControlCommand;
+    out item announcements : AllJoynAnnouncement;
+    out item reports : SensorReport;
+  }
+
+  port def CredentialPort {
+    inout item credentials : SecurityCredential;
+  }
+
+  port def UserControlPort {
+    in item userCommands : ControlCommand;
+    out item statusReports : SensorReport;
+  }
+
+  part def AllSeenDevice {
+    attribute deviceId : String;
+    attribute deviceName : String;
+    attribute role : DeviceRole;
+    attribute networkState : NetworkState = NetworkState::offline;
+    attribute trustState : TrustState = TrustState::unpaired;
+    attribute discoveryTimeout : Millisecond = 3000;
+    port bus : AllJoynBusPort;
+    port security : CredentialPort;
+
+    state def DeviceLifecycle {
+      entry action initializeDevice;
+      state Offline;
+      state Discovering;
+      state Claimed;
+      state Operational;
+      state Revoked;
+
+      transition first Offline;
+      transition Offline_to_Discovering
+        first Offline then Discovering
+        accept joinRequested;
+
+      transition Discovering_to_Claimed
+        first Discovering then Claimed
+        accept credentialAccepted;
+
+      transition Claimed_to_Operational
+        first Claimed then Operational
+        accept interfacesAdvertised;
+
+      transition Operational_to_Revoked
+        first Operational then Revoked
+        accept credentialRevoked;
+
+      transition Revoked_to_Offline
+        first Revoked then Offline
+        accept resetRequested;
+    }
+  }
+
+  part def LightingDevice :> AllSeenDevice {
+    attribute brightness : Percent = 0;
+    attribute powerUse : Watt = 0;
+    attribute role : DeviceRole = DeviceRole::consumer;
+
+    action setBrightness {
+      in attribute requestedBrightness : Percent;
+      out attribute acceptedBrightness : Percent;
+      acceptedBrightness = requestedBrightness;
+    }
+
+    action turnOff {
+      brightness = 0;
+      powerUse = 0;
+    }
+  }
+
+  part def ThermostatDevice :> AllSeenDevice {
+    attribute currentTemperature : Celsius = 21.0;
+    attribute targetTemperature : Celsius = 22.0;
+    attribute hvacPower : Watt = 0;
+    attribute role : DeviceRole = DeviceRole::producer;
+
+    action publishTemperature {
+      out item report : SensorReport;
+    }
+
+    action adjustTargetTemperature {
+      in attribute requestedTarget : Celsius;
+      targetTemperature = requestedTarget;
+    }
+  }
+
+  part def OccupancySensor :> AllSeenDevice {
+    attribute occupied : Boolean = false;
+    attribute illuminance : Lux = 300;
+    attribute role : DeviceRole = DeviceRole::producer;
+
+    action detectPresence {
+      out attribute presence : Boolean;
+      presence = occupied;
+    }
+
+    action publishOccupancy {
+      out item report : SensorReport;
+    }
+  }
+
+  part def AllSeenGateway :> AllSeenDevice {
+    attribute role : DeviceRole = DeviceRole::gateway;
+    attribute maxManagedDevices : Integer = 64;
+    attribute commandLatencyBudget : Millisecond = 250;
+    port userPort : UserControlPort;
+
+    action discoverServices {
+      out item foundAnnouncements : AllJoynAnnouncement[0..*];
+    }
+
+    action routeCommand {
+      in item command : ControlCommand;
+      out item routedCommand : ControlCommand;
+      routedCommand = command;
+    }
+
+    action aggregateReports {
+      in item reports : SensorReport[0..*];
+      out item userVisibleReports : SensorReport[0..*];
+    }
+
+    state def GatewayBehavior {
+      state Booting;
+      state ServiceDiscovery;
+      state SecureOperation;
+      state DegradedOperation;
+
+      transition first Booting;
+      transition Booting_to_ServiceDiscovery
+        first Booting then ServiceDiscovery
+        accept networkAvailable;
+
+      transition ServiceDiscovery_to_SecureOperation
+        first ServiceDiscovery then SecureOperation
+        accept atLeastOneTrustedDeviceFound;
+
+      transition SecureOperation_to_DegradedOperation
+        first SecureOperation then DegradedOperation
+        accept busTimeout;
+
+      transition DegradedOperation_to_ServiceDiscovery
+        first DegradedOperation then ServiceDiscovery
+        accept recoveryRequested;
+    }
+  }
+
+  part def MobileController {
+    attribute userId : String;
+    port control : UserControlPort;
+
+    action requestScene {
+      in attribute sceneName : String;
+      out item command : ControlCommand;
+    }
+
+    action displayStatus {
+      in item report : SensorReport;
+    }
+  }
+
+  part allSeenAllianceInteroperabilitySystem {
+    attribute primaryFunction : String =
+      "Provide an interoperable local service-discovery, secure messaging, and device-control fabric for heterogeneous smart devices using AllSeen Alliance style AllJoyn concepts.";
+
+    part gateway : AllSeenGateway {
+      deviceId = "gateway-001";
+      deviceName = "Home Interoperability Gateway";
+    }
+
+    part livingRoomLight : LightingDevice {
+      deviceId = "light-101";
+      deviceName = "Living Room Dimmable Light";
+    }
+
+    part hallwaySensor : OccupancySensor {
+      deviceId = "sensor-201";
+      deviceName = "Hallway Occupancy Sensor";
+    }
+
+    part thermostat : ThermostatDevice {
+      deviceId = "thermostat-301";
+      deviceName = "Main Thermostat";
+    }
+
+    part phoneApp : MobileController {
+      userId = "resident-primary";
+    }
+
+    connect phoneApp.control to gateway.userPort;
+    connect gateway.bus to livingRoomLight.bus;
+    connect gateway.bus to hallwaySensor.bus;
+    connect gateway.bus to thermostat.bus;
+    connect gateway.security to livingRoomLight.security;
+    connect gateway.security to hallwaySensor.security;
+    connect gateway.security to thermostat.security;
+
+    perform action normalOperation {
+      first start;
+      then discover : gateway.discoverServices;
+      then observePresence : hallwaySensor.detectPresence;
+      then publishOccupancy : hallwaySensor.publishOccupancy;
+      then publishThermalStatus : thermostat.publishTemperature;
+      then aggregate : gateway.aggregateReports;
+      then routeLightingCommand : gateway.routeCommand;
+      then adjustLight : livingRoomLight.setBrightness;
+      then done;
+    }
+  }
+
+  requirement def InteroperabilityRequirement {
+    subject system : allSeenAllianceInteroperabilitySystem;
+    doc
+      /* The system shall allow devices from different vendors to discover each other and exchange control and status messages through a common AllSeen Alliance style service bus. */
+  }
+
+  requirement def SecureClaimingRequirement {
+    subject device : AllSeenDevice;
+    doc
+      /* Each managed device shall be claimed with a credential before accepting control commands. */
+  }
+
+  requirement def LocalControlRequirement {
+    subject gateway : AllSeenGateway;
+    attribute maximumCommandLatency : Millisecond = 250;
+    doc
+      /* The gateway shall route local user commands to trusted devices within the command latency budget during secure operation. */
+  }
+
+  requirement def DiscoveryRequirement {
+    subject gateway : AllSeenGateway;
+    attribute discoveryWindow : Millisecond = 3000;
+    doc
+      /* The gateway shall discover announced device services within the configured discovery window when the local network is available. */
+  }
+
+  requirement def StatusAggregationRequirement {
+    subject gateway : AllSeenGateway;
+    doc
+      /* The gateway shall aggregate sensor and device reports into user-visible status information for controller applications. */
+  }
+
+  requirement interoperabilitySatisfied : InteroperabilityRequirement {
+    subject system = allSeenAllianceInteroperabilitySystem;
+  }
+
+  requirement secureClaimingSatisfied : SecureClaimingRequirement {
+    subject device = allSeenAllianceInteroperabilitySystem::livingRoomLight;
+  }
+
+  requirement localControlSatisfied : LocalControlRequirement {
+    subject gateway = allSeenAllianceInteroperabilitySystem::gateway;
+  }
+
+  requirement discoverySatisfied : DiscoveryRequirement {
+    subject gateway = allSeenAllianceInteroperabilitySystem::gateway;
+  }
+
+  requirement statusAggregationSatisfied : StatusAggregationRequirement {
+    subject gateway = allSeenAllianceInteroperabilitySystem::gateway;
+  }
+}

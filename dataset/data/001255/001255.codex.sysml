@@ -1,0 +1,370 @@
+package SoftSensorSensingUnitModel {
+
+    import ScalarValues::*;
+
+    value def Kelvin;
+    value def Pascal;
+    value def KilogramPerSecond;
+    value def Volt;
+    value def Second;
+    value def MolePerCubicMeter;
+    value def Percent;
+
+    value def Temperature {
+        attribute value : Real;
+        attribute unit : Kelvin;
+    }
+
+    value def Pressure {
+        attribute value : Real;
+        attribute unit : Pascal;
+    }
+
+    value def MassFlowRate {
+        attribute value : Real;
+        attribute unit : KilogramPerSecond;
+    }
+
+    value def AnalogVoltage {
+        attribute value : Real;
+        attribute unit : Volt;
+    }
+
+    value def Duration {
+        attribute value : Real;
+        attribute unit : Second;
+    }
+
+    value def Concentration {
+        attribute value : Real;
+        attribute unit : MolePerCubicMeter;
+    }
+
+    value def Confidence {
+        attribute value : Real;
+        attribute unit : Percent;
+    }
+
+    item def RawProcessSample {
+        attribute sampleTime : Duration;
+        attribute reactorTemperature : Temperature;
+        attribute reactorPressure : Pressure;
+        attribute inletMassFlow : MassFlowRate;
+        attribute outletMassFlow : MassFlowRate;
+        attribute opticalAbsorbanceVoltage : AnalogVoltage;
+    }
+
+    item def ConcentrationEstimate {
+        attribute sampleTime : Duration;
+        attribute concentration : Concentration;
+        attribute confidence : Confidence;
+        attribute modelResidual : Real;
+        attribute valid : Boolean;
+    }
+
+    item def CalibrationData {
+        attribute referenceConcentration : Concentration;
+        attribute referenceTemperature : Temperature;
+        attribute referencePressure : Pressure;
+        attribute timestamp : Duration;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogVoltage;
+    }
+
+    port def SampleInputPort {
+        in item sample : RawProcessSample;
+    }
+
+    port def EstimateOutputPort {
+        out item estimate : ConcentrationEstimate;
+    }
+
+    port def CalibrationPort {
+        in item calibration : CalibrationData;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : AnalogVoltage;
+    }
+
+    port def StatusPort {
+        out attribute healthy : Boolean;
+        out attribute degraded : Boolean;
+        out attribute faultCode : Integer;
+    }
+
+    action def AcquireRawSignals {
+        in attribute samplePeriod : Duration;
+        out item sample : RawProcessSample;
+
+        action readTemperatureVoltage;
+        action readPressureVoltage;
+        action readFlowVoltages;
+        action readOpticalVoltage;
+        action convertVoltagesToEngineeringValues;
+        action timestampSample;
+
+        first readTemperatureVoltage
+            then readPressureVoltage
+            then readFlowVoltages
+            then readOpticalVoltage
+            then convertVoltagesToEngineeringValues
+            then timestampSample;
+    }
+
+    action def ValidateRawSample {
+        in item sample : RawProcessSample;
+        out attribute valid : Boolean;
+        out attribute residual : Real;
+
+        constraint temperatureRange {
+            sample.reactorTemperature.value >= 273.15 and
+            sample.reactorTemperature.value <= 473.15
+        }
+
+        constraint pressureRange {
+            sample.reactorPressure.value >= 50000.0 and
+            sample.reactorPressure.value <= 500000.0
+        }
+
+        constraint flowBalanceRange {
+            abs(sample.inletMassFlow.value - sample.outletMassFlow.value) <= 0.05
+        }
+    }
+
+    action def EstimateQuantityWithSoftSensor {
+        in item sample : RawProcessSample;
+        out item estimate : ConcentrationEstimate;
+
+        attribute normalizedTemperature : Real;
+        attribute normalizedPressure : Real;
+        attribute normalizedFlowDelta : Real;
+        attribute normalizedOpticalSignal : Real;
+
+        action normalizeInputs;
+        action executeRegressionModel;
+        action computeConfidence;
+        action clampEstimateToPhysicalRange;
+        action publishEstimate;
+
+        constraint physicalEstimateRange {
+            estimate.concentration.value >= 0.0 and
+            estimate.concentration.value <= 2500.0
+        }
+
+        first normalizeInputs
+            then executeRegressionModel
+            then computeConfidence
+            then clampEstimateToPhysicalRange
+            then publishEstimate;
+    }
+
+    action def CalibrateSoftSensor {
+        in item calibration : CalibrationData;
+        in item latestEstimate : ConcentrationEstimate;
+        out attribute calibrationAccepted : Boolean;
+
+        action compareReferenceToEstimate;
+        action updateBiasTerm;
+        action updateConfidenceModel;
+        action storeCalibrationRecord;
+
+        constraint calibrationAcceptance {
+            abs(latestEstimate.concentration.value - calibration.referenceConcentration.value) <= 125.0
+        }
+
+        first compareReferenceToEstimate
+            then updateBiasTerm
+            then updateConfidenceModel
+            then storeCalibrationRecord;
+    }
+
+    state def SensingUnitStateMachine {
+        entry action initializeElectronics;
+        exit action persistOperatingHistory;
+
+        state Off;
+        state PowerOnSelfTest;
+        state WarmUp;
+        state Measuring;
+        state Calibrating;
+        state Degraded;
+        state Fault;
+
+        transition initial then Off;
+
+        transition powerApplied
+            first Off
+            then PowerOnSelfTest;
+
+        transition selfTestPassed
+            first PowerOnSelfTest
+            then WarmUp;
+
+        transition warmUpComplete
+            first WarmUp
+            then Measuring;
+
+        transition calibrationRequested
+            first Measuring
+            then Calibrating;
+
+        transition calibrationComplete
+            first Calibrating
+            then Measuring;
+
+        transition lowConfidenceDetected
+            first Measuring
+            then Degraded;
+
+        transition confidenceRecovered
+            first Degraded
+            then Measuring;
+
+        transition unrecoverableFault
+            first PowerOnSelfTest
+            then Fault;
+
+        transition runtimeFault
+            first Measuring
+            then Fault;
+
+        transition resetCommand
+            first Fault
+            then PowerOnSelfTest;
+    }
+
+    part def TemperatureTransducer {
+        port power : PowerPort;
+        port analogOut : AnalogInputPort;
+        attribute measurementRangeLow : Temperature = (value = 273.15, unit = Kelvin);
+        attribute measurementRangeHigh : Temperature = (value = 473.15, unit = Kelvin);
+        attribute accuracy : Temperature = (value = 0.5, unit = Kelvin);
+    }
+
+    part def PressureTransducer {
+        port power : PowerPort;
+        port analogOut : AnalogInputPort;
+        attribute measurementRangeLow : Pressure = (value = 50000.0, unit = Pascal);
+        attribute measurementRangeHigh : Pressure = (value = 500000.0, unit = Pascal);
+        attribute accuracy : Pressure = (value = 1000.0, unit = Pascal);
+    }
+
+    part def FlowTransducer {
+        port power : PowerPort;
+        port analogOut : AnalogInputPort;
+        attribute measurementRangeLow : MassFlowRate = (value = 0.0, unit = KilogramPerSecond);
+        attribute measurementRangeHigh : MassFlowRate = (value = 2.0, unit = KilogramPerSecond);
+        attribute accuracy : MassFlowRate = (value = 0.01, unit = KilogramPerSecond);
+    }
+
+    part def OpticalAbsorbanceProbe {
+        port power : PowerPort;
+        port analogOut : AnalogInputPort;
+        attribute excitationWavelengthNm : Real = 850.0;
+        attribute voltageRangeLow : AnalogVoltage = (value = 0.0, unit = Volt);
+        attribute voltageRangeHigh : AnalogVoltage = (value = 5.0, unit = Volt);
+    }
+
+    part def SignalConditioner {
+        port temperatureIn : AnalogInputPort;
+        port pressureIn : AnalogInputPort;
+        port inletFlowIn : AnalogInputPort;
+        port outletFlowIn : AnalogInputPort;
+        port opticalIn : AnalogInputPort;
+        port sampleOut : SampleInputPort;
+        perform action AcquireRawSignals;
+    }
+
+    part def SoftSensorProcessor {
+        port sampleIn : SampleInputPort;
+        port calibrationIn : CalibrationPort;
+        port estimateOut : EstimateOutputPort;
+        port statusOut : StatusPort;
+
+        attribute modelVersion : String = "concentration-soft-sensor-3.2";
+        attribute samplePeriod : Duration = (value = 1.0, unit = Second);
+        attribute minimumConfidence : Confidence = (value = 85.0, unit = Percent);
+        attribute biasCorrection : Concentration = (value = 0.0, unit = MolePerCubicMeter);
+
+        perform action ValidateRawSample;
+        perform action EstimateQuantityWithSoftSensor;
+        perform action CalibrateSoftSensor;
+        exhibit state SensingUnitStateMachine;
+    }
+
+    part def SensingUnit {
+        port powerIn : PowerPort;
+        port estimateOut : EstimateOutputPort;
+        port calibrationIn : CalibrationPort;
+        port statusOut : StatusPort;
+
+        part temperatureSensor : TemperatureTransducer;
+        part pressureSensor : PressureTransducer;
+        part inletFlowSensor : FlowTransducer;
+        part outletFlowSensor : FlowTransducer;
+        part opticalProbe : OpticalAbsorbanceProbe;
+        part conditioner : SignalConditioner;
+        part softSensor : SoftSensorProcessor;
+
+        connect powerIn to temperatureSensor.power;
+        connect powerIn to pressureSensor.power;
+        connect powerIn to inletFlowSensor.power;
+        connect powerIn to outletFlowSensor.power;
+        connect powerIn to opticalProbe.power;
+
+        connect temperatureSensor.analogOut to conditioner.temperatureIn;
+        connect pressureSensor.analogOut to conditioner.pressureIn;
+        connect inletFlowSensor.analogOut to conditioner.inletFlowIn;
+        connect outletFlowSensor.analogOut to conditioner.outletFlowIn;
+        connect opticalProbe.analogOut to conditioner.opticalIn;
+
+        connect conditioner.sampleOut to softSensor.sampleIn;
+        connect calibrationIn to softSensor.calibrationIn;
+        connect softSensor.estimateOut to estimateOut;
+        connect softSensor.statusOut to statusOut;
+    }
+
+    requirement def SoftSensorMeasurementRequirement {
+        subject unit : SensingUnit;
+
+        requirement measuredQuantity {
+            doc /* The sensing unit shall measure process concentration as the relevant quantity using a soft sensor estimate derived from temperature, pressure, mass-flow, and optical absorbance signals. */
+        }
+
+        requirement sampleRate {
+            doc /* The sensing unit shall publish one concentration estimate every 1.0 second during Measuring state. */
+            require constraint {
+                unit.softSensor.samplePeriod.value <= 1.0
+            }
+        }
+
+        requirement accuracy {
+            doc /* The soft sensor concentration estimate shall remain within 5 percent of laboratory reference concentration over the calibrated operating envelope. */
+        }
+
+        requirement confidence {
+            doc /* Each published concentration estimate shall include confidence, validity, and residual indicators. */
+            require constraint {
+                unit.softSensor.minimumConfidence.value >= 85.0
+            }
+        }
+
+        requirement operatingEnvelope {
+            doc /* The sensing unit shall operate for temperatures from 273.15 K to 473.15 K, pressures from 50000 Pa to 500000 Pa, and mass flow rates from 0 kg/s to 2 kg/s. */
+        }
+
+        requirement calibration {
+            doc /* The sensing unit shall accept reference calibration data and update soft-sensor bias without interrupting power to the hardware transducers. */
+        }
+
+        requirement faultDetection {
+            doc /* The sensing unit shall enter Degraded or Fault state when input signals exceed range, model residual is excessive, or confidence drops below the configured threshold. */
+        }
+    }
+
+    satisfy SoftSensorMeasurementRequirement by SensingUnit;
+
+}

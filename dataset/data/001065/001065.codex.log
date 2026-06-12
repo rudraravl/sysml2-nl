@@ -1,0 +1,931 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-gilv81gh
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb54d-5913-70f0-9652-3f4aadf36be5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Gas detector and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package GasDetectorSystemModel {
+
+  import ScalarValues::*;
+  import Quantities::*;
+  import MeasurementReferences::*;
+
+  attribute def PartsPerMillion :> ScalarValues::Real;
+  attribute def PercentLEL :> ScalarValues::Real;
+  attribute def Seconds :> ScalarValues::Real;
+  attribute def Volts :> ScalarValues::Real;
+  attribute def Milliamps :> ScalarValues::Real;
+  attribute def DegreesCelsius :> ScalarValues::Real;
+  attribute def PercentRelativeHumidity :> ScalarValues::Real;
+  attribute def Decibels :> ScalarValues::Real;
+
+  enum def GasKind {
+    enum methane;
+    enum propane;
+    enum carbonMonoxide;
+    enum hydrogenSulfide;
+    enum oxygen;
+    enum unknown;
+  }
+
+  enum def AlarmSeverity {
+    enum normal;
+    enum warning;
+    enum critical;
+    enum fault;
+  }
+
+  enum def DetectorOperatingMode {
+    enum powerOff;
+    enum startupSelfTest;
+    enum warmup;
+    enum monitoring;
+    enum warningAlarm;
+    enum criticalAlarm;
+    enum faulted;
+    enum maintenance;
+  }
+
+  item def AmbientAirSample {
+    attribute gasKind : GasKind;
+    attribute combustibleGasConcentration : PercentLEL;
+    attribute toxicGasConcentration : PartsPerMillion;
+    attribute oxygenConcentrationPercent : ScalarValues::Real;
+    attribute temperature : DegreesCelsius;
+    attribute relativeHumidity : PercentRelativeHumidity;
+  }
+
+  item def GasMeasurement {
+    attribute detectedGas : GasKind;
+    attribute combustibleLevel : PercentLEL;
+    attribute toxicLevel : PartsPerMillion;
+    attribute oxygenLevelPercent : ScalarValues::Real;
+    attribute sampleAge : Seconds;
+    attribute measurementValid : Boolean;
+  }
+
+  item def AlarmCommand {
+    attribute severity : AlarmSeverity;
+    attribute alarmLatched : Boolean;
+    attribute audibleEnabled : Boolean;
+    attribute visualEnabled : Boolean;
+    attribute relayEnergized : Boolean;
+    attribute message : String;
+  }
+
+  item def DiagnosticStatus {
+    attribute sensorHealthy : Boolean;
+    attribute powerHealthy : Boolean;
+    attribute calibrationValid : Boolean;
+    attribute communicationHealthy : Boolean;
+    attribute faultCode : String;
+  }
+
+  item def PowerInput {
+    attribute supplyVoltage : Volts;
+    attribute supplyCurrent : Milliamps;
+  }
+
+  port def AirIntakePort {
+    in item sample : AmbientAirSample;
+  }
+
+  port def MeasurementPort {
+    out item measurement : GasMeasurement;
+  }
+
+  port def AlarmPort {
+    out item command : AlarmCommand;
+  }
+
+  port def DiagnosticPort {
+    out item status : DiagnosticStatus;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : PowerInput;
+  }
+
+  port def UserControlPort {
+    in attribute acknowledgeAlarm : Boolean;
+    in attribute testRequest : Boolean;
+    in attribute maintenanceEnable : Boolean;
+  }
+
+  port def LocalDisplayPort {
+    out attribute displayedGasLevel : String;
+    out attribute displayedMode : DetectorOperatingMode;
+    out attribute displayedFault : String;
+  }
+
+  action def SampleGas {
+    in item air : AmbientAirSample;
+    out item rawMeasurement : GasMeasurement;
+
+    first start;
+    then readSensor;
+    then compensateForEnvironment;
+    then publishMeasurement;
+    then done;
+
+    action readSensor;
+    action compensateForEnvironment;
+    action publishMeasurement;
+  }
+
+  action def EvaluateHazard {
+    in item measurement : GasMeasurement;
+    in attribute warningThresholdLEL : PercentLEL;
+    in attribute criticalThresholdLEL : PercentLEL;
+    in attribute toxicWarningThreshold : PartsPerMillion;
+    in attribute toxicCriticalThreshold : PartsPerMillion;
+    out item alarm : AlarmCommand;
+
+    first start;
+    then validateMeasurement;
+    then compareThresholds;
+    then selectAlarmSeverity;
+    then done;
+
+    action validateMeasurement;
+    action compareThresholds;
+    action selectAlarmSeverity;
+  }
+
+  action def PerformSelfTest {
+    in item power : PowerInput;
+    out item diagnostics : DiagnosticStatus;
+
+    first start;
+    then verifyPower;
+    then verifySensorContinuity;
+    then verifyAlarmOutputs;
+    then verifyCalibrationMemory;
+    then done;
+
+    action verifyPower;
+    action verifySensorContinuity;
+    action verifyAlarmOutputs;
+    action verifyCalibrationMemory;
+  }
+
+  part def GasSensor {
+    port airIn : AirIntakePort;
+    port measurementOut : MeasurementPort;
+    port diagnosticOut : DiagnosticPort;
+
+    attribute targetGas : GasKind = GasKind::methane;
+    attribute measurementRangeLEL : PercentLEL = 100.0;
+    attribute accuracyLEL : PercentLEL = 3.0;
+    attribute responseTimeT90 : Seconds = 30.0;
+    attribute warmupTime : Seconds = 60.0;
+    attribute calibrationIntervalDays : ScalarValues::Integer = 180;
+
+    action sample : SampleGas;
+  }
+
+  part def SignalProcessor {
+    port measurementIn : MeasurementPort;
+    port alarmOut : AlarmPort;
+    port diagnosticOut : DiagnosticPort;
+
+    attribute warningThresholdLEL : PercentLEL = 10.0;
+    attribute criticalThresholdLEL : PercentLEL = 20.0;
+    attribute toxicWarningThreshold : PartsPerMillion = 35.0;
+    attribute toxicCriticalThreshold : PartsPerMillion = 100.0;
+    attribute oxygenLowWarningPercent : ScalarValues::Real = 19.5;
+    attribute oxygenLowCriticalPercent : ScalarValues::Real = 18.0;
+    attribute evaluationPeriod : Seconds = 1.0;
+
+    action evaluate : EvaluateHazard;
+  }
+
+  part def AlarmAnnunciator {
+    port alarmIn : AlarmPort;
+
+    attribute audibleSoundLevel : Decibels = 85.0;
+    attribute visualFlashRateHz : ScalarValues::Real = 2.0;
+    attribute relayContactRatingVolts : Volts = 30.0;
+    attribute relayContactRatingMilliamps : Milliamps = 1000.0;
+    attribute latchingEnabled : Boolean = true;
+  }
+
+  part def HumanInterface {
+    port userControls : UserControlPort;
+    port display : LocalDisplayPort;
+
+    attribute displayRefreshPeriod : Seconds = 1.0;
+    attribute localAcknowledgeEnabled : Boolean = true;
+    attribute testButtonEnabled : Boolean = true;
+  }
+
+  part def PowerSupply {
+    port powerIn : ElectricalPowerPort;
+    port diagnosticOut : DiagnosticPort;
+
+    attribute nominalVoltage : Volts = 24.0;
+    attribute minimumOperatingVoltage : Volts = 18.0;
+    attribute maximumOperatingVoltage : Volts = 30.0;
+    attribute maximumCurrent : Milliamps = 250.0;
+    attribute backupRuntime : Seconds = 1800.0;
+  }
+
+  part def Enclosure {
+    attribute ingressProtectionCode : String = "IP65";
+    attribute operatingTemperatureMin : DegreesCelsius = -20.0;
+    attribute operatingTemperatureMax : DegreesCelsius = 55.0;
+    attribute operatingHumidityMax : PercentRelativeHumidity = 95.0;
+    attribute hazardousAreaRated : Boolean = true;
+  }
+
+  part def GasDetector {
+    port ambientAir : AirIntakePort;
+    port supply : ElectricalPowerPort;
+    port alarmOutput : AlarmPort;
+    port diagnostics : DiagnosticPort;
+    port userInput : UserControlPort;
+    port displayOutput : LocalDisplayPort;
+
+    part sensor : GasSensor;
+    part processor : SignalProcessor;
+    part annunciator : AlarmAnnunciator;
+    part interface : HumanInterface;
+    part power : PowerSupply;
+    part housing : Enclosure;
+
+    attribute primaryFunction : String =
+      "Continuously sample ambient air, estimate hazardous gas concentration, compare the measurement with configured safety thresholds, and provide local and remote alarms when unsafe gas levels or detector faults are present.";
+
+    attribute samplePeriod : Seconds = 1.0;
+    attribute alarmActivationDelay : Seconds = 2.0;
+    attribute faultDetectionPeriod : Seconds = 5.0;
+    attribute normalCombustibleLimit : PercentLEL = 10.0;
+    attribute highCombustibleLimit : PercentLEL = 20.0;
+
+    connect ambientAir to sensor.airIn;
+    connect sensor.measurementOut to processor.measurementIn;
+    connect processor.alarmOut to annunciator.alarmIn;
+    connect processor.alarmOut to alarmOutput;
+    connect sensor.diagnosticOut to diagnostics;
+    connect processor.diagnosticOut to diagnostics;
+    connect power.diagnosticOut to diagnostics;
+    connect supply to power.powerIn;
+    connect userInput to interface.userControls;
+    connect interface.display to displayOutput;
+
+    state def OperatingStateMachine {
+      entry action initializeDetector;
+
+      state off;
+      state selfTest;
+      state warmingUp;
+      state monitor;
+      state warning;
+      state critical;
+      state fault;
+      state maintenance;
+
+      first off;
+
+      transition off_to_selfTest
+        first off
+        then selfTest
+        accept PowerApplied;
+
+      transition selfTest_to_warmup
+        first selfTest
+        then warmingUp
+        if selfTestPassed;
+
+      transition selfTest_to_fault
+        first selfTest
+        then fault
+        if not selfTestPassed;
+
+      transition warmup_to_monitor
+        first warmingUp
+        then monitor
+        if warmupComplete;
+
+      transition monitor_to_warning
+        first monitor
+        then warning
+        if gasLevel >= normalCombustibleLimit and gasLevel < highCombustibleLimit;
+
+      transition monitor_to_critical
+        first monitor
+        then critical
+        if gasLevel >= highCombustibleLimit;
+
+      transition warning_to_monitor
+        first warning
+        then monitor
+        if gasLevel < normalCombustibleLimit and alarmAcknowledged;
+
+      transition warning_to_critical
+        first warning
+        then critical
+        if gasLevel >= highCombustibleLimit;
+
+      transition critical_to_warning
+        first critical
+        then warning
+        if gasLevel < highCombustibleLimit and gasLevel >= normalCombustibleLimit;
+
+      transition critical_to_monitor
+        first critical
+        then monitor
+        if gasLevel < normalCombustibleLimit and alarmAcknowledged;
+
+      transition any_to_fault
+        first monitor
+        then fault
+        if diagnosticFailureDetected;
+
+      transition warning_to_fault
+        first warning
+        then fault
+        if diagnosticFailureDetected;
+
+      transition critical_to_fault
+        first critical
+        then fault
+        if diagnosticFailureDetected;
+
+      transition fault_to_maintenance
+        first fault
+        then maintenance
+        if maintenanceEnable;
+
+      transition maintenance_to_selfTest
+        first maintenance
+        then selfTest
+        if maintenanceComplete;
+
+      state monitor {
+        do action continuousSampling;
+      }
+
+      state warning {
+        entry action activateWarningAlarm;
+        do action latchWarningIndication;
+      }
+
+      state critical {
+        entry action activateCriticalAlarm;
+        do action energizeSafetyRelay;
+      }
+
+      state fault {
+        entry action publishFaultAlarm;
+        do action inhibitNormalReadingAsRequired;
+      }
+    }
+  }
+
+  requirement def DetectHazardousGas {
+    doc
+    /* The gas detector shall continuously monitor ambient air and determine whether configured hazardous gas thresholds have been exceeded. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.samplePeriod <= 1.0
+    }
+  }
+
+  requirement def AlarmAtWarningLevel {
+    doc
+    /* The gas detector shall issue a warning alarm when combustible gas concentration is at or above 10 percent LEL and below the critical threshold. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.normalCombustibleLimit == 10.0
+    }
+  }
+
+  requirement def AlarmAtCriticalLevel {
+    doc
+    /* The gas detector shall issue a critical alarm when combustible gas concentration is at or above 20 percent LEL. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.highCombustibleLimit == 20.0
+    }
+  }
+
+  requirement def AlarmResponseTime {
+    doc
+    /* The gas detector shall activate alarm outputs within two seconds after a validated threshold exceedance. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.alarmActivationDelay <= 2.0
+    }
+  }
+
+  requirement def FailSafeDiagnostics {
+    doc
+    /* The gas detector shall report a fault when sensor, calibration, communication, or power diagnostics are invalid. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.faultDetectionPeriod <= 5.0
+    }
+  }
+
+  requirement def EnvironmentalSurvivability {
+    doc
+    /* The gas detector shall operate in industrial ambient conditions from -20 degrees Celsius to 55 degrees Celsius and up to 95 percent relative humidity. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.housing.operatingTemperatureMin <= -20.0 and
+      detector.housing.operatingTemperatureMax >= 55.0 and
+      detector.housing.operatingHumidityMax >= 95.0
+    }
+  }
+
+  part gasDetectionSystem : GasDetector;
+
+  satisfy DetectHazardousGas by gasDetectionSystem;
+  satisfy AlarmAtWarningLevel by gasDetectionSystem;
+  satisfy AlarmAtCriticalLevel by gasDetectionSystem;
+  satisfy AlarmResponseTime by gasDetectionSystem;
+  satisfy FailSafeDiagnostics by gasDetectionSystem;
+  satisfy EnvironmentalSurvivability by gasDetectionSystem;
+}
+tokens used
+3,289
+package GasDetectorSystemModel {
+
+  import ScalarValues::*;
+  import Quantities::*;
+  import MeasurementReferences::*;
+
+  attribute def PartsPerMillion :> ScalarValues::Real;
+  attribute def PercentLEL :> ScalarValues::Real;
+  attribute def Seconds :> ScalarValues::Real;
+  attribute def Volts :> ScalarValues::Real;
+  attribute def Milliamps :> ScalarValues::Real;
+  attribute def DegreesCelsius :> ScalarValues::Real;
+  attribute def PercentRelativeHumidity :> ScalarValues::Real;
+  attribute def Decibels :> ScalarValues::Real;
+
+  enum def GasKind {
+    enum methane;
+    enum propane;
+    enum carbonMonoxide;
+    enum hydrogenSulfide;
+    enum oxygen;
+    enum unknown;
+  }
+
+  enum def AlarmSeverity {
+    enum normal;
+    enum warning;
+    enum critical;
+    enum fault;
+  }
+
+  enum def DetectorOperatingMode {
+    enum powerOff;
+    enum startupSelfTest;
+    enum warmup;
+    enum monitoring;
+    enum warningAlarm;
+    enum criticalAlarm;
+    enum faulted;
+    enum maintenance;
+  }
+
+  item def AmbientAirSample {
+    attribute gasKind : GasKind;
+    attribute combustibleGasConcentration : PercentLEL;
+    attribute toxicGasConcentration : PartsPerMillion;
+    attribute oxygenConcentrationPercent : ScalarValues::Real;
+    attribute temperature : DegreesCelsius;
+    attribute relativeHumidity : PercentRelativeHumidity;
+  }
+
+  item def GasMeasurement {
+    attribute detectedGas : GasKind;
+    attribute combustibleLevel : PercentLEL;
+    attribute toxicLevel : PartsPerMillion;
+    attribute oxygenLevelPercent : ScalarValues::Real;
+    attribute sampleAge : Seconds;
+    attribute measurementValid : Boolean;
+  }
+
+  item def AlarmCommand {
+    attribute severity : AlarmSeverity;
+    attribute alarmLatched : Boolean;
+    attribute audibleEnabled : Boolean;
+    attribute visualEnabled : Boolean;
+    attribute relayEnergized : Boolean;
+    attribute message : String;
+  }
+
+  item def DiagnosticStatus {
+    attribute sensorHealthy : Boolean;
+    attribute powerHealthy : Boolean;
+    attribute calibrationValid : Boolean;
+    attribute communicationHealthy : Boolean;
+    attribute faultCode : String;
+  }
+
+  item def PowerInput {
+    attribute supplyVoltage : Volts;
+    attribute supplyCurrent : Milliamps;
+  }
+
+  port def AirIntakePort {
+    in item sample : AmbientAirSample;
+  }
+
+  port def MeasurementPort {
+    out item measurement : GasMeasurement;
+  }
+
+  port def AlarmPort {
+    out item command : AlarmCommand;
+  }
+
+  port def DiagnosticPort {
+    out item status : DiagnosticStatus;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : PowerInput;
+  }
+
+  port def UserControlPort {
+    in attribute acknowledgeAlarm : Boolean;
+    in attribute testRequest : Boolean;
+    in attribute maintenanceEnable : Boolean;
+  }
+
+  port def LocalDisplayPort {
+    out attribute displayedGasLevel : String;
+    out attribute displayedMode : DetectorOperatingMode;
+    out attribute displayedFault : String;
+  }
+
+  action def SampleGas {
+    in item air : AmbientAirSample;
+    out item rawMeasurement : GasMeasurement;
+
+    first start;
+    then readSensor;
+    then compensateForEnvironment;
+    then publishMeasurement;
+    then done;
+
+    action readSensor;
+    action compensateForEnvironment;
+    action publishMeasurement;
+  }
+
+  action def EvaluateHazard {
+    in item measurement : GasMeasurement;
+    in attribute warningThresholdLEL : PercentLEL;
+    in attribute criticalThresholdLEL : PercentLEL;
+    in attribute toxicWarningThreshold : PartsPerMillion;
+    in attribute toxicCriticalThreshold : PartsPerMillion;
+    out item alarm : AlarmCommand;
+
+    first start;
+    then validateMeasurement;
+    then compareThresholds;
+    then selectAlarmSeverity;
+    then done;
+
+    action validateMeasurement;
+    action compareThresholds;
+    action selectAlarmSeverity;
+  }
+
+  action def PerformSelfTest {
+    in item power : PowerInput;
+    out item diagnostics : DiagnosticStatus;
+
+    first start;
+    then verifyPower;
+    then verifySensorContinuity;
+    then verifyAlarmOutputs;
+    then verifyCalibrationMemory;
+    then done;
+
+    action verifyPower;
+    action verifySensorContinuity;
+    action verifyAlarmOutputs;
+    action verifyCalibrationMemory;
+  }
+
+  part def GasSensor {
+    port airIn : AirIntakePort;
+    port measurementOut : MeasurementPort;
+    port diagnosticOut : DiagnosticPort;
+
+    attribute targetGas : GasKind = GasKind::methane;
+    attribute measurementRangeLEL : PercentLEL = 100.0;
+    attribute accuracyLEL : PercentLEL = 3.0;
+    attribute responseTimeT90 : Seconds = 30.0;
+    attribute warmupTime : Seconds = 60.0;
+    attribute calibrationIntervalDays : ScalarValues::Integer = 180;
+
+    action sample : SampleGas;
+  }
+
+  part def SignalProcessor {
+    port measurementIn : MeasurementPort;
+    port alarmOut : AlarmPort;
+    port diagnosticOut : DiagnosticPort;
+
+    attribute warningThresholdLEL : PercentLEL = 10.0;
+    attribute criticalThresholdLEL : PercentLEL = 20.0;
+    attribute toxicWarningThreshold : PartsPerMillion = 35.0;
+    attribute toxicCriticalThreshold : PartsPerMillion = 100.0;
+    attribute oxygenLowWarningPercent : ScalarValues::Real = 19.5;
+    attribute oxygenLowCriticalPercent : ScalarValues::Real = 18.0;
+    attribute evaluationPeriod : Seconds = 1.0;
+
+    action evaluate : EvaluateHazard;
+  }
+
+  part def AlarmAnnunciator {
+    port alarmIn : AlarmPort;
+
+    attribute audibleSoundLevel : Decibels = 85.0;
+    attribute visualFlashRateHz : ScalarValues::Real = 2.0;
+    attribute relayContactRatingVolts : Volts = 30.0;
+    attribute relayContactRatingMilliamps : Milliamps = 1000.0;
+    attribute latchingEnabled : Boolean = true;
+  }
+
+  part def HumanInterface {
+    port userControls : UserControlPort;
+    port display : LocalDisplayPort;
+
+    attribute displayRefreshPeriod : Seconds = 1.0;
+    attribute localAcknowledgeEnabled : Boolean = true;
+    attribute testButtonEnabled : Boolean = true;
+  }
+
+  part def PowerSupply {
+    port powerIn : ElectricalPowerPort;
+    port diagnosticOut : DiagnosticPort;
+
+    attribute nominalVoltage : Volts = 24.0;
+    attribute minimumOperatingVoltage : Volts = 18.0;
+    attribute maximumOperatingVoltage : Volts = 30.0;
+    attribute maximumCurrent : Milliamps = 250.0;
+    attribute backupRuntime : Seconds = 1800.0;
+  }
+
+  part def Enclosure {
+    attribute ingressProtectionCode : String = "IP65";
+    attribute operatingTemperatureMin : DegreesCelsius = -20.0;
+    attribute operatingTemperatureMax : DegreesCelsius = 55.0;
+    attribute operatingHumidityMax : PercentRelativeHumidity = 95.0;
+    attribute hazardousAreaRated : Boolean = true;
+  }
+
+  part def GasDetector {
+    port ambientAir : AirIntakePort;
+    port supply : ElectricalPowerPort;
+    port alarmOutput : AlarmPort;
+    port diagnostics : DiagnosticPort;
+    port userInput : UserControlPort;
+    port displayOutput : LocalDisplayPort;
+
+    part sensor : GasSensor;
+    part processor : SignalProcessor;
+    part annunciator : AlarmAnnunciator;
+    part interface : HumanInterface;
+    part power : PowerSupply;
+    part housing : Enclosure;
+
+    attribute primaryFunction : String =
+      "Continuously sample ambient air, estimate hazardous gas concentration, compare the measurement with configured safety thresholds, and provide local and remote alarms when unsafe gas levels or detector faults are present.";
+
+    attribute samplePeriod : Seconds = 1.0;
+    attribute alarmActivationDelay : Seconds = 2.0;
+    attribute faultDetectionPeriod : Seconds = 5.0;
+    attribute normalCombustibleLimit : PercentLEL = 10.0;
+    attribute highCombustibleLimit : PercentLEL = 20.0;
+
+    connect ambientAir to sensor.airIn;
+    connect sensor.measurementOut to processor.measurementIn;
+    connect processor.alarmOut to annunciator.alarmIn;
+    connect processor.alarmOut to alarmOutput;
+    connect sensor.diagnosticOut to diagnostics;
+    connect processor.diagnosticOut to diagnostics;
+    connect power.diagnosticOut to diagnostics;
+    connect supply to power.powerIn;
+    connect userInput to interface.userControls;
+    connect interface.display to displayOutput;
+
+    state def OperatingStateMachine {
+      entry action initializeDetector;
+
+      state off;
+      state selfTest;
+      state warmingUp;
+      state monitor;
+      state warning;
+      state critical;
+      state fault;
+      state maintenance;
+
+      first off;
+
+      transition off_to_selfTest
+        first off
+        then selfTest
+        accept PowerApplied;
+
+      transition selfTest_to_warmup
+        first selfTest
+        then warmingUp
+        if selfTestPassed;
+
+      transition selfTest_to_fault
+        first selfTest
+        then fault
+        if not selfTestPassed;
+
+      transition warmup_to_monitor
+        first warmingUp
+        then monitor
+        if warmupComplete;
+
+      transition monitor_to_warning
+        first monitor
+        then warning
+        if gasLevel >= normalCombustibleLimit and gasLevel < highCombustibleLimit;
+
+      transition monitor_to_critical
+        first monitor
+        then critical
+        if gasLevel >= highCombustibleLimit;
+
+      transition warning_to_monitor
+        first warning
+        then monitor
+        if gasLevel < normalCombustibleLimit and alarmAcknowledged;
+
+      transition warning_to_critical
+        first warning
+        then critical
+        if gasLevel >= highCombustibleLimit;
+
+      transition critical_to_warning
+        first critical
+        then warning
+        if gasLevel < highCombustibleLimit and gasLevel >= normalCombustibleLimit;
+
+      transition critical_to_monitor
+        first critical
+        then monitor
+        if gasLevel < normalCombustibleLimit and alarmAcknowledged;
+
+      transition any_to_fault
+        first monitor
+        then fault
+        if diagnosticFailureDetected;
+
+      transition warning_to_fault
+        first warning
+        then fault
+        if diagnosticFailureDetected;
+
+      transition critical_to_fault
+        first critical
+        then fault
+        if diagnosticFailureDetected;
+
+      transition fault_to_maintenance
+        first fault
+        then maintenance
+        if maintenanceEnable;
+
+      transition maintenance_to_selfTest
+        first maintenance
+        then selfTest
+        if maintenanceComplete;
+
+      state monitor {
+        do action continuousSampling;
+      }
+
+      state warning {
+        entry action activateWarningAlarm;
+        do action latchWarningIndication;
+      }
+
+      state critical {
+        entry action activateCriticalAlarm;
+        do action energizeSafetyRelay;
+      }
+
+      state fault {
+        entry action publishFaultAlarm;
+        do action inhibitNormalReadingAsRequired;
+      }
+    }
+  }
+
+  requirement def DetectHazardousGas {
+    doc
+    /* The gas detector shall continuously monitor ambient air and determine whether configured hazardous gas thresholds have been exceeded. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.samplePeriod <= 1.0
+    }
+  }
+
+  requirement def AlarmAtWarningLevel {
+    doc
+    /* The gas detector shall issue a warning alarm when combustible gas concentration is at or above 10 percent LEL and below the critical threshold. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.normalCombustibleLimit == 10.0
+    }
+  }
+
+  requirement def AlarmAtCriticalLevel {
+    doc
+    /* The gas detector shall issue a critical alarm when combustible gas concentration is at or above 20 percent LEL. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.highCombustibleLimit == 20.0
+    }
+  }
+
+  requirement def AlarmResponseTime {
+    doc
+    /* The gas detector shall activate alarm outputs within two seconds after a validated threshold exceedance. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.alarmActivationDelay <= 2.0
+    }
+  }
+
+  requirement def FailSafeDiagnostics {
+    doc
+    /* The gas detector shall report a fault when sensor, calibration, communication, or power diagnostics are invalid. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.faultDetectionPeriod <= 5.0
+    }
+  }
+
+  requirement def EnvironmentalSurvivability {
+    doc
+    /* The gas detector shall operate in industrial ambient conditions from -20 degrees Celsius to 55 degrees Celsius and up to 95 percent relative humidity. */
+
+    subject detector : GasDetector;
+
+    require constraint {
+      detector.housing.operatingTemperatureMin <= -20.0 and
+      detector.housing.operatingTemperatureMax >= 55.0 and
+      detector.housing.operatingHumidityMax >= 95.0
+    }
+  }
+
+  part gasDetectionSystem : GasDetector;
+
+  satisfy DetectHazardousGas by gasDetectionSystem;
+  satisfy AlarmAtWarningLevel by gasDetectionSystem;
+  satisfy AlarmAtCriticalLevel by gasDetectionSystem;
+  satisfy AlarmResponseTime by gasDetectionSystem;
+  satisfy FailSafeDiagnostics by gasDetectionSystem;
+  satisfy EnvironmentalSurvivability by gasDetectionSystem;
+}

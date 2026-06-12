@@ -1,0 +1,521 @@
+package RivetingMachineSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def ForceValue :> Real {
+        unit = "N";
+    }
+
+    attribute def PressureValue :> Real {
+        unit = "MPa";
+    }
+
+    attribute def LengthValue :> Real {
+        unit = "mm";
+    }
+
+    attribute def TimeValue :> Real {
+        unit = "s";
+    }
+
+    attribute def VoltageValue :> Real {
+        unit = "V";
+    }
+
+    attribute def CurrentValue :> Real {
+        unit = "A";
+    }
+
+    attribute def TemperatureValue :> Real {
+        unit = "degC";
+    }
+
+    attribute def RateValue :> Real {
+        unit = "rivets/min";
+    }
+
+    enum def RivetMaterial {
+        enum steel;
+        enum aluminum;
+        enum titanium;
+        enum copper;
+    }
+
+    enum def RivetMachineMode {
+        enum poweredOff;
+        enum idle;
+        enum loaded;
+        enum clamping;
+        enum riveting;
+        enum inspecting;
+        enum complete;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+    }
+
+    item def CompressedAir {
+        attribute pressure : PressureValue;
+        attribute flowRate : Real {
+            unit = "L/min";
+        }
+    }
+
+    item def HydraulicFluid {
+        attribute pressure : PressureValue;
+        attribute temperature : TemperatureValue;
+    }
+
+    item def Rivet {
+        attribute shankDiameter : LengthValue;
+        attribute length : LengthValue;
+        attribute headDiameter : LengthValue;
+        attribute material : RivetMaterial;
+        attribute minimumSetForce : ForceValue;
+    }
+
+    item def Workpiece {
+        attribute sheetCount : Integer;
+        attribute totalStackThickness : LengthValue;
+        attribute holeDiameter : LengthValue;
+        attribute requiredClampForce : ForceValue;
+    }
+
+    item def FinishedJoint {
+        attribute formedHeadDiameter : LengthValue;
+        attribute residualClampForce : ForceValue;
+        attribute acceptable : Boolean;
+    }
+
+    item def ControlSignal {
+        attribute enabled : Boolean;
+        attribute commandCode : Integer;
+    }
+
+    item def MeasurementSignal {
+        attribute valid : Boolean;
+        attribute measuredValue : Real;
+    }
+
+    port def ElectricalPowerPort {
+        in item power : ElectricalPower;
+    }
+
+    port def PneumaticSupplyPort {
+        in item air : CompressedAir;
+    }
+
+    port def HydraulicSupplyPort {
+        in item fluid : HydraulicFluid;
+    }
+
+    port def RivetFeedPort {
+        in item rivet : Rivet;
+    }
+
+    port def WorkpieceInputPort {
+        in item workpiece : Workpiece;
+    }
+
+    port def JointOutputPort {
+        out item joint : FinishedJoint;
+    }
+
+    port def ControlPort {
+        in item command : ControlSignal;
+        out item status : ControlSignal;
+    }
+
+    port def SensorPort {
+        out item measurement : MeasurementSignal;
+    }
+
+    action def FeedRivet {
+        in item inputRivet : Rivet;
+        out item positionedRivet : Rivet;
+    }
+
+    action def ClampWorkpiece {
+        in item workpiece : Workpiece;
+        in clampForceCommand : ForceValue;
+        out clamped : Boolean;
+    }
+
+    action def DriveRivet {
+        in item rivet : Rivet;
+        in item workpiece : Workpiece;
+        in setForceCommand : ForceValue;
+        out item formedJoint : FinishedJoint;
+    }
+
+    action def InspectJoint {
+        in item joint : FinishedJoint;
+        out accepted : Boolean;
+    }
+
+    action def ReleaseWorkpiece {
+        in item joint : FinishedJoint;
+        out released : Boolean;
+    }
+
+    action def EmergencyStop {
+        out stopped : Boolean;
+    }
+
+    state def RivetingCycleStateMachine {
+        attribute mode : RivetMachineMode;
+
+        entry; then poweredOff;
+
+        state poweredOff;
+        state idle;
+        state loaded;
+        state clamping;
+        state riveting;
+        state inspecting;
+        state complete;
+        state faulted;
+        state emergencyStopped;
+
+        transition powerOn
+            first poweredOff
+            then idle;
+
+        transition loadReady
+            first idle
+            then loaded;
+
+        transition startClamp
+            first loaded
+            then clamping;
+
+        transition clampConfirmed
+            first clamping
+            then riveting;
+
+        transition rivetDriven
+            first riveting
+            then inspecting;
+
+        transition inspectionAccepted
+            first inspecting
+            then complete;
+
+        transition inspectionRejected
+            first inspecting
+            then faulted;
+
+        transition resetComplete
+            first complete
+            then idle;
+
+        transition resetFault
+            first faulted
+            then idle;
+
+        transition emergencyFromIdle
+            first idle
+            then emergencyStopped;
+
+        transition emergencyFromLoaded
+            first loaded
+            then emergencyStopped;
+
+        transition emergencyFromClamping
+            first clamping
+            then emergencyStopped;
+
+        transition emergencyFromRiveting
+            first riveting
+            then emergencyStopped;
+
+        transition emergencyFromInspecting
+            first inspecting
+            then emergencyStopped;
+
+        transition clearEmergency
+            first emergencyStopped
+            then poweredOff;
+    }
+
+    part def PowerDistributionUnit {
+        port externalPower : ElectricalPowerPort;
+        port controllerPower : ElectricalPowerPort;
+        port actuatorPower : ElectricalPowerPort;
+
+        attribute nominalVoltage : VoltageValue = 480.0;
+        attribute maximumCurrent : CurrentValue = 40.0;
+    }
+
+    part def HumanMachineInterface {
+        port operatorControl : ControlPort;
+
+        attribute startButtonPressed : Boolean;
+        attribute resetButtonPressed : Boolean;
+        attribute emergencyStopPressed : Boolean;
+        attribute selectedSetForce : ForceValue;
+    }
+
+    part def ProgrammableLogicController {
+        port hmiInterface : ControlPort;
+        port feedControl : ControlPort;
+        port clampControl : ControlPort;
+        port driveControl : ControlPort;
+        port inspectionInput : SensorPort;
+
+        attribute cycleCount : Integer;
+        attribute commandedSetForce : ForceValue;
+        attribute cycleTimeTarget : TimeValue = 6.0;
+        attribute productionRateTarget : RateValue = 10.0;
+
+        behavior cycleLogic : RivetingCycleStateMachine;
+    }
+
+    part def RivetFeeder {
+        port powerInput : ElectricalPowerPort;
+        port controlInput : ControlPort;
+        port rivetInput : RivetFeedPort;
+        port rivetOutput : RivetFeedPort;
+
+        attribute bowlCapacity : Integer = 800;
+        attribute feedRate : RateValue = 30.0;
+        attribute jamDetected : Boolean;
+
+        perform action feed : FeedRivet;
+    }
+
+    part def WorkpieceFixture {
+        port workpieceInput : WorkpieceInputPort;
+        port controlInput : ControlPort;
+
+        attribute locatingPinDiameter : LengthValue = 5.0;
+        attribute workpiecePresent : Boolean;
+        attribute positionTolerance : LengthValue = 0.15;
+    }
+
+    part def ClampAssembly {
+        port airInput : PneumaticSupplyPort;
+        port controlInput : ControlPort;
+
+        attribute maximumClampForce : ForceValue = 12000.0;
+        attribute commandedClampForce : ForceValue = 6000.0;
+        attribute clampStroke : LengthValue = 50.0;
+        attribute clampEngaged : Boolean;
+
+        perform action clamp : ClampWorkpiece;
+    }
+
+    part def RivetingHead {
+        port powerInput : ElectricalPowerPort;
+        port hydraulicInput : HydraulicSupplyPort;
+        port controlInput : ControlPort;
+        port rivetInput : RivetFeedPort;
+
+        attribute maximumSetForce : ForceValue = 55000.0;
+        attribute nominalSetForce : ForceValue = 28000.0;
+        attribute ramStroke : LengthValue = 80.0;
+        attribute anvilDiameter : LengthValue = 12.0;
+        attribute cycleStrokeTime : TimeValue = 1.2;
+
+        perform action drive : DriveRivet;
+    }
+
+    part def ForceSensor {
+        port measurementOutput : SensorPort;
+
+        attribute range : ForceValue = 60000.0;
+        attribute accuracy : Real = 0.01;
+        attribute measuredForce : ForceValue;
+    }
+
+    part def PositionSensor {
+        port measurementOutput : SensorPort;
+
+        attribute range : LengthValue = 100.0;
+        attribute accuracy : LengthValue = 0.05;
+        attribute measuredRamPosition : LengthValue;
+    }
+
+    part def VisionInspectionUnit {
+        port powerInput : ElectricalPowerPort;
+        port measurementOutput : SensorPort;
+
+        attribute minimumHeadDiameter : LengthValue = 7.2;
+        attribute maximumHeadDiameter : LengthValue = 8.4;
+        attribute minimumConcentricity : Real = 0.95;
+        attribute lastInspectionPassed : Boolean;
+
+        perform action inspect : InspectJoint;
+    }
+
+    part def DischargeStation {
+        port jointOutput : JointOutputPort;
+
+        attribute releaseTime : TimeValue = 0.8;
+
+        perform action release : ReleaseWorkpiece;
+    }
+
+    part def SafetySystem {
+        port hmiSafetyInput : ControlPort;
+        port machineStopOutput : ControlPort;
+
+        attribute guardDoorClosed : Boolean;
+        attribute lightCurtainClear : Boolean;
+        attribute emergencyStopActive : Boolean;
+        attribute safetyRelayHealthy : Boolean;
+
+        perform action stopMachine : EmergencyStop;
+    }
+
+    part def RivetingMachine {
+        port electricalSupply : ElectricalPowerPort;
+        port pneumaticSupply : PneumaticSupplyPort;
+        port hydraulicSupply : HydraulicSupplyPort;
+        port rivetSupply : RivetFeedPort;
+        port workpieceInput : WorkpieceInputPort;
+        port finishedJointOutput : JointOutputPort;
+        port operatorInterface : ControlPort;
+
+        attribute ratedProductionRate : RateValue = 10.0;
+        attribute maximumRivetDiameter : LengthValue = 8.0;
+        attribute minimumRivetDiameter : LengthValue = 3.0;
+        attribute maximumStackThickness : LengthValue = 12.0;
+        attribute primaryFunction : String = "Automatically feed, position, clamp, deform, inspect, and release riveted joints by applying controlled force to a rivet installed through aligned workpiece holes.";
+
+        part powerUnit : PowerDistributionUnit;
+        part hmi : HumanMachineInterface;
+        part controller : ProgrammableLogicController;
+        part feeder : RivetFeeder;
+        part fixture : WorkpieceFixture;
+        part clampAssembly : ClampAssembly;
+        part rivetingHead : RivetingHead;
+        part forceSensor : ForceSensor;
+        part positionSensor : PositionSensor;
+        part inspectionUnit : VisionInspectionUnit;
+        part dischargeStation : DischargeStation;
+        part safetySystem : SafetySystem;
+
+        connect electricalSupply to powerUnit.externalPower;
+        connect powerUnit.controllerPower to controller.hmiInterface;
+        connect powerUnit.actuatorPower to feeder.powerInput;
+        connect powerUnit.actuatorPower to rivetingHead.powerInput;
+        connect powerUnit.controllerPower to inspectionUnit.powerInput;
+
+        connect pneumaticSupply to clampAssembly.airInput;
+        connect hydraulicSupply to rivetingHead.hydraulicInput;
+
+        connect rivetSupply to feeder.rivetInput;
+        connect feeder.rivetOutput to rivetingHead.rivetInput;
+
+        connect workpieceInput to fixture.workpieceInput;
+        connect finishedJointOutput to dischargeStation.jointOutput;
+
+        connect operatorInterface to hmi.operatorControl;
+        connect hmi.operatorControl to controller.hmiInterface;
+
+        connect controller.feedControl to feeder.controlInput;
+        connect controller.clampControl to clampAssembly.controlInput;
+        connect controller.driveControl to rivetingHead.controlInput;
+        connect fixture.controlInput to controller.clampControl;
+
+        connect forceSensor.measurementOutput to controller.inspectionInput;
+        connect positionSensor.measurementOutput to controller.inspectionInput;
+        connect inspectionUnit.measurementOutput to controller.inspectionInput;
+
+        connect safetySystem.machineStopOutput to controller.hmiInterface;
+        connect safetySystem.machineStopOutput to feeder.controlInput;
+        connect safetySystem.machineStopOutput to clampAssembly.controlInput;
+        connect safetySystem.machineStopOutput to rivetingHead.controlInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The riveting machine shall automatically create a permanent mechanical joint by feeding a rivet, positioning the workpiece, clamping the stack, applying controlled forming force, verifying joint quality, and releasing the completed assembly. */
+
+        subject machine : RivetingMachine;
+
+        require constraint {
+            machine.ratedProductionRate >= 10.0
+        }
+    }
+
+    requirement def RivetDiameterCapabilityRequirement {
+        doc /* The machine shall process rivets with shank diameters from 3 mm through 8 mm. */
+
+        subject machine : RivetingMachine;
+
+        require constraint {
+            machine.minimumRivetDiameter <= 3.0 and machine.maximumRivetDiameter >= 8.0
+        }
+    }
+
+    requirement def ClampForceRequirement {
+        doc /* The clamp assembly shall provide sufficient force to hold the workpiece stack during rivet forming. */
+
+        subject clamp : ClampAssembly;
+
+        require constraint {
+            clamp.maximumClampForce >= 12000.0
+        }
+    }
+
+    requirement def SetForceRequirement {
+        doc /* The riveting head shall apply controlled forming force sufficient for steel and aluminum rivets in the supported diameter range. */
+
+        subject head : RivetingHead;
+
+        require constraint {
+            head.maximumSetForce >= 55000.0
+        }
+    }
+
+    requirement def InspectionRequirement {
+        doc /* The inspection unit shall verify that each formed rivet head is within dimensional acceptance limits before the joint is released as acceptable. */
+
+        subject inspection : VisionInspectionUnit;
+
+        require constraint {
+            inspection.minimumHeadDiameter >= 7.2 and inspection.maximumHeadDiameter <= 8.4
+        }
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The safety system shall command an immediate stop when the emergency stop is active, the guard door is open, or the light curtain is interrupted. */
+
+        subject safety : SafetySystem;
+
+        require constraint {
+            safety.safetyRelayHealthy == true
+        }
+    }
+
+    requirement def CycleTimeRequirement {
+        doc /* The controller shall coordinate one complete riveting cycle in no more than six seconds under nominal operating conditions. */
+
+        subject controller : ProgrammableLogicController;
+
+        require constraint {
+            controller.cycleTimeTarget <= 6.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RivetingMachine;
+    satisfy RivetDiameterCapabilityRequirement by RivetingMachine;
+    satisfy ClampForceRequirement by ClampAssembly;
+    satisfy SetForceRequirement by RivetingHead;
+    satisfy InspectionRequirement by VisionInspectionUnit;
+    satisfy SafetyRequirement by SafetySystem;
+    satisfy CycleTimeRequirement by ProgrammableLogicController;
+
+    part rivetingMachineSystem : RivetingMachine {
+        attribute ratedProductionRate = 10.0;
+        attribute maximumRivetDiameter = 8.0;
+        attribute minimumRivetDiameter = 3.0;
+        attribute maximumStackThickness = 12.0;
+    }
+}

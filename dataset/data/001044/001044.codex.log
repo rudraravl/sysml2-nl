@@ -1,0 +1,701 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-c3gxi2rs
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb53b-7350-7862-9a88-fa5b95d9bc0f
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Engine knocking and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package EngineKnockControlSystem {
+
+  value def Pressure_kPa { attribute value : Real; attribute unit : String = "kPa"; }
+  value def Frequency_Hz { attribute value : Real; attribute unit : String = "Hz"; }
+  value def CrankAngle_deg { attribute value : Real; attribute unit : String = "degCA"; }
+  value def EngineSpeed_rpm { attribute value : Real; attribute unit : String = "rpm"; }
+  value def Temperature_C { attribute value : Real; attribute unit : String = "degC"; }
+  value def Torque_Nm { attribute value : Real; attribute unit : String = "N*m"; }
+  value def Time_ms { attribute value : Real; attribute unit : String = "ms"; }
+  value def Voltage_V { attribute value : Real; attribute unit : String = "V"; }
+  value def SparkAdvance_degBTDC { attribute value : Real; attribute unit : String = "degBTDC"; }
+  value def FuelMass_mg { attribute value : Real; attribute unit : String = "mg"; }
+  value def KnockIndex { attribute value : Real; attribute unit : String = "dimensionless"; }
+
+  item def CylinderPressureSample {
+    attribute cylinderId : Integer;
+    attribute pressure : Pressure_kPa;
+    attribute crankAngle : CrankAngle_deg;
+    attribute engineSpeed : EngineSpeed_rpm;
+    attribute timestamp : Time_ms;
+  }
+
+  item def VibrationSample {
+    attribute cylinderBank : Integer;
+    attribute dominantFrequency : Frequency_Hz;
+    attribute amplitude : Voltage_V;
+    attribute crankAngle : CrankAngle_deg;
+    attribute timestamp : Time_ms;
+  }
+
+  item def CrankPositionSample {
+    attribute crankAngle : CrankAngle_deg;
+    attribute engineSpeed : EngineSpeed_rpm;
+    attribute timestamp : Time_ms;
+  }
+
+  item def CombustionCondition {
+    attribute cylinderId : Integer;
+    attribute knockIntensity : KnockIndex;
+    attribute peakPressure : Pressure_kPa;
+    attribute knockFrequency : Frequency_Hz;
+    attribute safe : Boolean;
+  }
+
+  item def IgnitionCommand {
+    attribute cylinderId : Integer;
+    attribute sparkAdvance : SparkAdvance_degBTDC;
+    attribute dwellTime : Time_ms;
+  }
+
+  item def FuelCommand {
+    attribute cylinderId : Integer;
+    attribute injectedFuelMass : FuelMass_mg;
+    attribute enrichmentActive : Boolean;
+  }
+
+  item def DiagnosticEvent {
+    attribute code : String;
+    attribute severity : Integer;
+    attribute description : String;
+    attribute timestamp : Time_ms;
+  }
+
+  port def AcousticInputPort {
+    in item vibration : VibrationSample;
+  }
+
+  port def PressureInputPort {
+    in item pressure : CylinderPressureSample;
+  }
+
+  port def CrankInputPort {
+    in item crank : CrankPositionSample;
+  }
+
+  port def CombustionConditionPort {
+    out item condition : CombustionCondition;
+  }
+
+  port def IgnitionCommandPort {
+    out item command : IgnitionCommand;
+  }
+
+  port def FuelCommandPort {
+    out item command : FuelCommand;
+  }
+
+  port def DiagnosticPort {
+    out item event : DiagnosticEvent;
+  }
+
+  port def MechanicalCombustionPort {
+    out item pressure : CylinderPressureSample;
+    out item vibration : VibrationSample;
+  }
+
+  part def InternalCombustionEngine {
+    attribute cylinderCount : Integer = 4;
+    attribute compressionRatio : Real = 10.5;
+    attribute nominalTorque : Torque_Nm;
+    attribute coolantTemperature : Temperature_C;
+
+    port combustionOutput : MechanicalCombustionPort;
+
+    part cylinder[4] {
+      attribute cylinderId : Integer;
+      attribute peakCylinderPressure : Pressure_kPa;
+      attribute combustionTemperature : Temperature_C;
+    }
+  }
+
+  part def KnockSensor {
+    attribute tunedFrequency : Frequency_Hz = 6500;
+    attribute sensitivity : Real = 0.030;
+    port acousticIn : AcousticInputPort;
+    port signalOut : AcousticInputPort;
+  }
+
+  part def CylinderPressureSensor {
+    attribute rangeMaximum : Pressure_kPa = 20000;
+    attribute responseTime : Time_ms = 0.2;
+    port pressureIn : PressureInputPort;
+    port pressureOut : PressureInputPort;
+  }
+
+  part def CrankshaftPositionSensor {
+    attribute toothCount : Integer = 60;
+    attribute missingTeeth : Integer = 2;
+    attribute angularResolution : CrankAngle_deg = 6;
+    port crankOut : CrankInputPort;
+  }
+
+  part def KnockDetectionProcessor {
+    attribute knockBandLower : Frequency_Hz = 5000;
+    attribute knockBandUpper : Frequency_Hz = 9000;
+    attribute normalThreshold : KnockIndex = 0.35;
+    attribute severeThreshold : KnockIndex = 0.80;
+    attribute decisionWindow : Time_ms = 12;
+
+    port vibrationIn : AcousticInputPort;
+    port pressureIn : PressureInputPort;
+    port crankIn : CrankInputPort;
+    port conditionOut : CombustionConditionPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action def FilterKnockBand {
+      in rawSample : VibrationSample;
+      out filteredSample : VibrationSample;
+    }
+
+    action def EstimateKnockIntensity {
+      in filteredSample : VibrationSample;
+      in pressureSample : CylinderPressureSample;
+      in crankSample : CrankPositionSample;
+      out condition : CombustionCondition;
+    }
+
+    action def PublishDiagnostic {
+      in condition : CombustionCondition;
+      out event : DiagnosticEvent;
+    }
+
+    state def DetectionLifecycle {
+      state Initializing;
+      state SynchronizingToCrank;
+      state MonitoringCombustion;
+      state KnockSuspected;
+      state KnockConfirmed;
+      state SensorFault;
+      state LimpHomeDetection;
+
+      transition initial then Initializing;
+      transition Initializing then SynchronizingToCrank;
+      transition SynchronizingToCrank then MonitoringCombustion;
+      transition MonitoringCombustion then KnockSuspected;
+      transition KnockSuspected then KnockConfirmed;
+      transition KnockSuspected then MonitoringCombustion;
+      transition KnockConfirmed then MonitoringCombustion;
+      transition MonitoringCombustion then SensorFault;
+      transition SensorFault then LimpHomeDetection;
+    }
+  }
+
+  part def SparkTimingController {
+    attribute baseSparkAdvance : SparkAdvance_degBTDC = 24;
+    attribute maximumRetard : SparkAdvance_degBTDC = 12;
+    attribute recoveryStep : SparkAdvance_degBTDC = 0.5;
+    attribute knockRetardStep : SparkAdvance_degBTDC = 3;
+
+    port conditionIn : CombustionConditionPort;
+    port ignitionOut : IgnitionCommandPort;
+
+    action def RetardSpark {
+      in condition : CombustionCondition;
+      out command : IgnitionCommand;
+    }
+
+    action def RestoreSpark {
+      in condition : CombustionCondition;
+      out command : IgnitionCommand;
+    }
+
+    state def SparkControlLifecycle {
+      state NominalAdvance;
+      state RetardingForKnock;
+      state HoldingRetard;
+      state GradualRecovery;
+
+      transition initial then NominalAdvance;
+      transition NominalAdvance then RetardingForKnock;
+      transition RetardingForKnock then HoldingRetard;
+      transition HoldingRetard then GradualRecovery;
+      transition GradualRecovery then NominalAdvance;
+      transition GradualRecovery then RetardingForKnock;
+    }
+  }
+
+  part def FuelMixtureController {
+    attribute stoichiometricRatio : Real = 14.7;
+    attribute enrichmentFuelAdder : FuelMass_mg = 1.2;
+    attribute maximumEnrichmentCycles : Integer = 8;
+
+    port conditionIn : CombustionConditionPort;
+    port fuelOut : FuelCommandPort;
+
+    action def EnrichMixture {
+      in condition : CombustionCondition;
+      out command : FuelCommand;
+    }
+
+    action def ReturnToStoichiometric {
+      in condition : CombustionCondition;
+      out command : FuelCommand;
+    }
+  }
+
+  part def IgnitionCoilDriver {
+    attribute maximumDwellTime : Time_ms = 5;
+    port ignitionIn : IgnitionCommandPort;
+  }
+
+  part def FuelInjectorDriver {
+    attribute maximumPulseWidth : Time_ms = 18;
+    port fuelIn : FuelCommandPort;
+  }
+
+  part def EngineControlUnit {
+    part detector : KnockDetectionProcessor;
+    part sparkController : SparkTimingController;
+    part fuelController : FuelMixtureController;
+
+    port vibrationIn : AcousticInputPort;
+    port pressureIn : PressureInputPort;
+    port crankIn : CrankInputPort;
+    port ignitionOut : IgnitionCommandPort;
+    port fuelOut : FuelCommandPort;
+    port diagnosticOut : DiagnosticPort;
+
+    connection vibrationRoute connect vibrationIn to detector.vibrationIn;
+    connection pressureRoute connect pressureIn to detector.pressureIn;
+    connection crankRoute connect crankIn to detector.crankIn;
+    connection sparkConditionRoute connect detector.conditionOut to sparkController.conditionIn;
+    connection fuelConditionRoute connect detector.conditionOut to fuelController.conditionIn;
+    connection ignitionCommandRoute connect sparkController.ignitionOut to ignitionOut;
+    connection fuelCommandRoute connect fuelController.fuelOut to fuelOut;
+    connection diagnosticRoute connect detector.diagnosticOut to diagnosticOut;
+  }
+
+  part def KnockMitigationSystem {
+    attribute primaryFunction : String =
+      "Detect abnormal combustion pressure oscillation known as engine knock and automatically adjust ignition timing and fuel delivery to protect the engine while preserving drivability.";
+
+    part engine : InternalCombustionEngine;
+    part knockSensor : KnockSensor;
+    part pressureSensor : CylinderPressureSensor;
+    part crankSensor : CrankshaftPositionSensor;
+    part ecu : EngineControlUnit;
+    part ignitionDriver : IgnitionCoilDriver;
+    part injectorDriver : FuelInjectorDriver;
+
+    connection engineToKnockSensor connect engine.combustionOutput to knockSensor.acousticIn;
+    connection engineToPressureSensor connect engine.combustionOutput to pressureSensor.pressureIn;
+    connection knockSignalToEcu connect knockSensor.signalOut to ecu.vibrationIn;
+    connection pressureSignalToEcu connect pressureSensor.pressureOut to ecu.pressureIn;
+    connection crankSignalToEcu connect crankSensor.crankOut to ecu.crankIn;
+    connection ecuToIgnitionDriver connect ecu.ignitionOut to ignitionDriver.ignitionIn;
+    connection ecuToInjectorDriver connect ecu.fuelOut to injectorDriver.fuelIn;
+  }
+
+  requirement def HighLevelPrimaryFunction {
+    subject system : KnockMitigationSystem;
+    require constraint {
+      system.primaryFunction ==
+      "Detect abnormal combustion pressure oscillation known as engine knock and automatically adjust ignition timing and fuel delivery to protect the engine while preserving drivability."
+    }
+  }
+
+  requirement def KnockDetectionRequirement {
+    subject detector : KnockDetectionProcessor;
+    require constraint {
+      detector.decisionWindow.value <= 12.0
+    }
+  }
+
+  requirement def KnockFrequencyRequirement {
+    subject detector : KnockDetectionProcessor;
+    require constraint {
+      detector.knockBandLower.value >= 5000.0 and detector.knockBandUpper.value <= 9000.0
+    }
+  }
+
+  requirement def SevereKnockMitigationRequirement {
+    subject spark : SparkTimingController;
+    require constraint {
+      spark.maximumRetard.value >= 10.0
+    }
+  }
+
+  requirement def SensorPressureRangeRequirement {
+    subject sensor : CylinderPressureSensor;
+    require constraint {
+      sensor.rangeMaximum.value >= 18000.0
+    }
+  }
+
+  requirement def EngineProtectionRequirement {
+    subject system : KnockMitigationSystem;
+    require constraint {
+      system.ecu.detector.severeThreshold.value < 1.0
+    }
+  }
+
+  part system : KnockMitigationSystem;
+
+  satisfy HighLevelPrimaryFunction by system;
+  satisfy KnockDetectionRequirement by system.ecu.detector;
+  satisfy KnockFrequencyRequirement by system.ecu.detector;
+  satisfy SevereKnockMitigationRequirement by system.ecu.sparkController;
+  satisfy SensorPressureRangeRequirement by system.pressureSensor;
+  satisfy EngineProtectionRequirement by system;
+}
+tokens used
+4,504
+package EngineKnockControlSystem {
+
+  value def Pressure_kPa { attribute value : Real; attribute unit : String = "kPa"; }
+  value def Frequency_Hz { attribute value : Real; attribute unit : String = "Hz"; }
+  value def CrankAngle_deg { attribute value : Real; attribute unit : String = "degCA"; }
+  value def EngineSpeed_rpm { attribute value : Real; attribute unit : String = "rpm"; }
+  value def Temperature_C { attribute value : Real; attribute unit : String = "degC"; }
+  value def Torque_Nm { attribute value : Real; attribute unit : String = "N*m"; }
+  value def Time_ms { attribute value : Real; attribute unit : String = "ms"; }
+  value def Voltage_V { attribute value : Real; attribute unit : String = "V"; }
+  value def SparkAdvance_degBTDC { attribute value : Real; attribute unit : String = "degBTDC"; }
+  value def FuelMass_mg { attribute value : Real; attribute unit : String = "mg"; }
+  value def KnockIndex { attribute value : Real; attribute unit : String = "dimensionless"; }
+
+  item def CylinderPressureSample {
+    attribute cylinderId : Integer;
+    attribute pressure : Pressure_kPa;
+    attribute crankAngle : CrankAngle_deg;
+    attribute engineSpeed : EngineSpeed_rpm;
+    attribute timestamp : Time_ms;
+  }
+
+  item def VibrationSample {
+    attribute cylinderBank : Integer;
+    attribute dominantFrequency : Frequency_Hz;
+    attribute amplitude : Voltage_V;
+    attribute crankAngle : CrankAngle_deg;
+    attribute timestamp : Time_ms;
+  }
+
+  item def CrankPositionSample {
+    attribute crankAngle : CrankAngle_deg;
+    attribute engineSpeed : EngineSpeed_rpm;
+    attribute timestamp : Time_ms;
+  }
+
+  item def CombustionCondition {
+    attribute cylinderId : Integer;
+    attribute knockIntensity : KnockIndex;
+    attribute peakPressure : Pressure_kPa;
+    attribute knockFrequency : Frequency_Hz;
+    attribute safe : Boolean;
+  }
+
+  item def IgnitionCommand {
+    attribute cylinderId : Integer;
+    attribute sparkAdvance : SparkAdvance_degBTDC;
+    attribute dwellTime : Time_ms;
+  }
+
+  item def FuelCommand {
+    attribute cylinderId : Integer;
+    attribute injectedFuelMass : FuelMass_mg;
+    attribute enrichmentActive : Boolean;
+  }
+
+  item def DiagnosticEvent {
+    attribute code : String;
+    attribute severity : Integer;
+    attribute description : String;
+    attribute timestamp : Time_ms;
+  }
+
+  port def AcousticInputPort {
+    in item vibration : VibrationSample;
+  }
+
+  port def PressureInputPort {
+    in item pressure : CylinderPressureSample;
+  }
+
+  port def CrankInputPort {
+    in item crank : CrankPositionSample;
+  }
+
+  port def CombustionConditionPort {
+    out item condition : CombustionCondition;
+  }
+
+  port def IgnitionCommandPort {
+    out item command : IgnitionCommand;
+  }
+
+  port def FuelCommandPort {
+    out item command : FuelCommand;
+  }
+
+  port def DiagnosticPort {
+    out item event : DiagnosticEvent;
+  }
+
+  port def MechanicalCombustionPort {
+    out item pressure : CylinderPressureSample;
+    out item vibration : VibrationSample;
+  }
+
+  part def InternalCombustionEngine {
+    attribute cylinderCount : Integer = 4;
+    attribute compressionRatio : Real = 10.5;
+    attribute nominalTorque : Torque_Nm;
+    attribute coolantTemperature : Temperature_C;
+
+    port combustionOutput : MechanicalCombustionPort;
+
+    part cylinder[4] {
+      attribute cylinderId : Integer;
+      attribute peakCylinderPressure : Pressure_kPa;
+      attribute combustionTemperature : Temperature_C;
+    }
+  }
+
+  part def KnockSensor {
+    attribute tunedFrequency : Frequency_Hz = 6500;
+    attribute sensitivity : Real = 0.030;
+    port acousticIn : AcousticInputPort;
+    port signalOut : AcousticInputPort;
+  }
+
+  part def CylinderPressureSensor {
+    attribute rangeMaximum : Pressure_kPa = 20000;
+    attribute responseTime : Time_ms = 0.2;
+    port pressureIn : PressureInputPort;
+    port pressureOut : PressureInputPort;
+  }
+
+  part def CrankshaftPositionSensor {
+    attribute toothCount : Integer = 60;
+    attribute missingTeeth : Integer = 2;
+    attribute angularResolution : CrankAngle_deg = 6;
+    port crankOut : CrankInputPort;
+  }
+
+  part def KnockDetectionProcessor {
+    attribute knockBandLower : Frequency_Hz = 5000;
+    attribute knockBandUpper : Frequency_Hz = 9000;
+    attribute normalThreshold : KnockIndex = 0.35;
+    attribute severeThreshold : KnockIndex = 0.80;
+    attribute decisionWindow : Time_ms = 12;
+
+    port vibrationIn : AcousticInputPort;
+    port pressureIn : PressureInputPort;
+    port crankIn : CrankInputPort;
+    port conditionOut : CombustionConditionPort;
+    port diagnosticOut : DiagnosticPort;
+
+    action def FilterKnockBand {
+      in rawSample : VibrationSample;
+      out filteredSample : VibrationSample;
+    }
+
+    action def EstimateKnockIntensity {
+      in filteredSample : VibrationSample;
+      in pressureSample : CylinderPressureSample;
+      in crankSample : CrankPositionSample;
+      out condition : CombustionCondition;
+    }
+
+    action def PublishDiagnostic {
+      in condition : CombustionCondition;
+      out event : DiagnosticEvent;
+    }
+
+    state def DetectionLifecycle {
+      state Initializing;
+      state SynchronizingToCrank;
+      state MonitoringCombustion;
+      state KnockSuspected;
+      state KnockConfirmed;
+      state SensorFault;
+      state LimpHomeDetection;
+
+      transition initial then Initializing;
+      transition Initializing then SynchronizingToCrank;
+      transition SynchronizingToCrank then MonitoringCombustion;
+      transition MonitoringCombustion then KnockSuspected;
+      transition KnockSuspected then KnockConfirmed;
+      transition KnockSuspected then MonitoringCombustion;
+      transition KnockConfirmed then MonitoringCombustion;
+      transition MonitoringCombustion then SensorFault;
+      transition SensorFault then LimpHomeDetection;
+    }
+  }
+
+  part def SparkTimingController {
+    attribute baseSparkAdvance : SparkAdvance_degBTDC = 24;
+    attribute maximumRetard : SparkAdvance_degBTDC = 12;
+    attribute recoveryStep : SparkAdvance_degBTDC = 0.5;
+    attribute knockRetardStep : SparkAdvance_degBTDC = 3;
+
+    port conditionIn : CombustionConditionPort;
+    port ignitionOut : IgnitionCommandPort;
+
+    action def RetardSpark {
+      in condition : CombustionCondition;
+      out command : IgnitionCommand;
+    }
+
+    action def RestoreSpark {
+      in condition : CombustionCondition;
+      out command : IgnitionCommand;
+    }
+
+    state def SparkControlLifecycle {
+      state NominalAdvance;
+      state RetardingForKnock;
+      state HoldingRetard;
+      state GradualRecovery;
+
+      transition initial then NominalAdvance;
+      transition NominalAdvance then RetardingForKnock;
+      transition RetardingForKnock then HoldingRetard;
+      transition HoldingRetard then GradualRecovery;
+      transition GradualRecovery then NominalAdvance;
+      transition GradualRecovery then RetardingForKnock;
+    }
+  }
+
+  part def FuelMixtureController {
+    attribute stoichiometricRatio : Real = 14.7;
+    attribute enrichmentFuelAdder : FuelMass_mg = 1.2;
+    attribute maximumEnrichmentCycles : Integer = 8;
+
+    port conditionIn : CombustionConditionPort;
+    port fuelOut : FuelCommandPort;
+
+    action def EnrichMixture {
+      in condition : CombustionCondition;
+      out command : FuelCommand;
+    }
+
+    action def ReturnToStoichiometric {
+      in condition : CombustionCondition;
+      out command : FuelCommand;
+    }
+  }
+
+  part def IgnitionCoilDriver {
+    attribute maximumDwellTime : Time_ms = 5;
+    port ignitionIn : IgnitionCommandPort;
+  }
+
+  part def FuelInjectorDriver {
+    attribute maximumPulseWidth : Time_ms = 18;
+    port fuelIn : FuelCommandPort;
+  }
+
+  part def EngineControlUnit {
+    part detector : KnockDetectionProcessor;
+    part sparkController : SparkTimingController;
+    part fuelController : FuelMixtureController;
+
+    port vibrationIn : AcousticInputPort;
+    port pressureIn : PressureInputPort;
+    port crankIn : CrankInputPort;
+    port ignitionOut : IgnitionCommandPort;
+    port fuelOut : FuelCommandPort;
+    port diagnosticOut : DiagnosticPort;
+
+    connection vibrationRoute connect vibrationIn to detector.vibrationIn;
+    connection pressureRoute connect pressureIn to detector.pressureIn;
+    connection crankRoute connect crankIn to detector.crankIn;
+    connection sparkConditionRoute connect detector.conditionOut to sparkController.conditionIn;
+    connection fuelConditionRoute connect detector.conditionOut to fuelController.conditionIn;
+    connection ignitionCommandRoute connect sparkController.ignitionOut to ignitionOut;
+    connection fuelCommandRoute connect fuelController.fuelOut to fuelOut;
+    connection diagnosticRoute connect detector.diagnosticOut to diagnosticOut;
+  }
+
+  part def KnockMitigationSystem {
+    attribute primaryFunction : String =
+      "Detect abnormal combustion pressure oscillation known as engine knock and automatically adjust ignition timing and fuel delivery to protect the engine while preserving drivability.";
+
+    part engine : InternalCombustionEngine;
+    part knockSensor : KnockSensor;
+    part pressureSensor : CylinderPressureSensor;
+    part crankSensor : CrankshaftPositionSensor;
+    part ecu : EngineControlUnit;
+    part ignitionDriver : IgnitionCoilDriver;
+    part injectorDriver : FuelInjectorDriver;
+
+    connection engineToKnockSensor connect engine.combustionOutput to knockSensor.acousticIn;
+    connection engineToPressureSensor connect engine.combustionOutput to pressureSensor.pressureIn;
+    connection knockSignalToEcu connect knockSensor.signalOut to ecu.vibrationIn;
+    connection pressureSignalToEcu connect pressureSensor.pressureOut to ecu.pressureIn;
+    connection crankSignalToEcu connect crankSensor.crankOut to ecu.crankIn;
+    connection ecuToIgnitionDriver connect ecu.ignitionOut to ignitionDriver.ignitionIn;
+    connection ecuToInjectorDriver connect ecu.fuelOut to injectorDriver.fuelIn;
+  }
+
+  requirement def HighLevelPrimaryFunction {
+    subject system : KnockMitigationSystem;
+    require constraint {
+      system.primaryFunction ==
+      "Detect abnormal combustion pressure oscillation known as engine knock and automatically adjust ignition timing and fuel delivery to protect the engine while preserving drivability."
+    }
+  }
+
+  requirement def KnockDetectionRequirement {
+    subject detector : KnockDetectionProcessor;
+    require constraint {
+      detector.decisionWindow.value <= 12.0
+    }
+  }
+
+  requirement def KnockFrequencyRequirement {
+    subject detector : KnockDetectionProcessor;
+    require constraint {
+      detector.knockBandLower.value >= 5000.0 and detector.knockBandUpper.value <= 9000.0
+    }
+  }
+
+  requirement def SevereKnockMitigationRequirement {
+    subject spark : SparkTimingController;
+    require constraint {
+      spark.maximumRetard.value >= 10.0
+    }
+  }
+
+  requirement def SensorPressureRangeRequirement {
+    subject sensor : CylinderPressureSensor;
+    require constraint {
+      sensor.rangeMaximum.value >= 18000.0
+    }
+  }
+
+  requirement def EngineProtectionRequirement {
+    subject system : KnockMitigationSystem;
+    require constraint {
+      system.ecu.detector.severeThreshold.value < 1.0
+    }
+  }
+
+  part system : KnockMitigationSystem;
+
+  satisfy HighLevelPrimaryFunction by system;
+  satisfy KnockDetectionRequirement by system.ecu.detector;
+  satisfy KnockFrequencyRequirement by system.ecu.detector;
+  satisfy SevereKnockMitigationRequirement by system.ecu.sparkController;
+  satisfy SensorPressureRangeRequirement by system.pressureSensor;
+  satisfy EngineProtectionRequirement by system;
+}

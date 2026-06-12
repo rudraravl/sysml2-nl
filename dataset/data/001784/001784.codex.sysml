@@ -1,0 +1,385 @@
+package GasBasedSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  value def Pressure {
+    unit Pa;
+    quantityKind pressure;
+  }
+
+  value def Temperature {
+    unit K;
+    quantityKind thermodynamicTemperature;
+  }
+
+  value def Volume {
+    unit m^3;
+    quantityKind volume;
+  }
+
+  value def MassFlowRate {
+    unit kg/s;
+    quantityKind massFlowRate;
+  }
+
+  value def Energy {
+    unit J;
+    quantityKind energy;
+  }
+
+  value def Power {
+    unit W;
+    quantityKind power;
+  }
+
+  value def TimeDuration {
+    unit s;
+    quantityKind time;
+  }
+
+  value def Fraction {
+    unit one;
+    quantityKind dimensionless;
+  }
+
+  item def Gas {
+    attribute pressure : Pressure;
+    attribute temperature : Temperature;
+    attribute compositionPurity : Fraction;
+    attribute massFlowRate : MassFlowRate;
+  }
+
+  item def CompressedGas :> Gas {
+    attribute storagePressure : Pressure;
+  }
+
+  item def RegulatedGas :> Gas {
+    attribute outletPressure : Pressure;
+  }
+
+  item def VentGas :> Gas;
+
+  item def ElectricalPower {
+    attribute suppliedPower : Power;
+  }
+
+  item def ControlSignal {
+    attribute commandLevel : Fraction;
+  }
+
+  item def SensorSignal {
+    attribute measuredPressure : Pressure;
+    attribute measuredTemperature : Temperature;
+    attribute measuredFlow : MassFlowRate;
+  }
+
+  port def GasInletPort {
+    in item gasIn : Gas;
+  }
+
+  port def GasOutletPort {
+    out item gasOut : Gas;
+  }
+
+  port def BidirectionalGasPort {
+    inout item gas : Gas;
+  }
+
+  port def PowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def ControlPort {
+    in item command : ControlSignal;
+  }
+
+  port def SensorPort {
+    out item telemetry : SensorSignal;
+  }
+
+  part def GasStorageCylinder {
+    attribute internalVolume : Volume = 0.050 [m^3];
+    attribute maximumPressure : Pressure = 20000000 [Pa];
+    attribute nominalStoragePressure : Pressure = 15000000 [Pa];
+    attribute gasTemperature : Temperature = 293.15 [K];
+
+    port fillPort : BidirectionalGasPort;
+    port supplyPort : GasOutletPort;
+    port sensorPort : SensorPort;
+
+    item storedGas : CompressedGas;
+
+    constraint def StoragePressureLimit {
+      in p : Pressure;
+      in pMax : Pressure;
+      p <= pMax
+    }
+
+    assert constraint StoragePressureLimit {
+      p = storedGas.pressure;
+      pMax = maximumPressure;
+    }
+  }
+
+  part def ShutoffValve {
+    attribute openFraction : Fraction = 0.0 [one];
+    attribute maximumFlowRate : MassFlowRate = 0.080 [kg/s];
+
+    port gasIn : GasInletPort;
+    port gasOut : GasOutletPort;
+    port control : ControlPort;
+
+    action def Open {
+      in command : ControlSignal;
+      out valvePosition : Fraction;
+    }
+
+    action def Close {
+      out valvePosition : Fraction;
+    }
+  }
+
+  part def PressureRegulator {
+    attribute targetOutletPressure : Pressure = 500000 [Pa];
+    attribute allowablePressureError : Pressure = 25000 [Pa];
+    attribute ratedFlowRate : MassFlowRate = 0.050 [kg/s];
+
+    port highPressureIn : GasInletPort;
+    port lowPressureOut : GasOutletPort;
+    port control : ControlPort;
+    port sensorPort : SensorPort;
+
+    item regulatedGas : RegulatedGas;
+
+    constraint def OutletPressureBand {
+      in measured : Pressure;
+      in target : Pressure;
+      in tolerance : Pressure;
+      measured >= target - tolerance and measured <= target + tolerance
+    }
+
+    assert constraint OutletPressureBand {
+      measured = regulatedGas.outletPressure;
+      target = targetOutletPressure;
+      tolerance = allowablePressureError;
+    }
+  }
+
+  part def GasFilter {
+    attribute minimumPurity : Fraction = 0.995 [one];
+    attribute pressureDrop : Pressure = 8000 [Pa];
+
+    port unfilteredIn : GasInletPort;
+    port filteredOut : GasOutletPort;
+  }
+
+  part def FlowMeter {
+    attribute measuredFlowRate : MassFlowRate;
+    attribute measurementLatency : TimeDuration = 0.050 [s];
+
+    port gasIn : GasInletPort;
+    port gasOut : GasOutletPort;
+    port sensorPort : SensorPort;
+  }
+
+  part def SafetyReliefValve {
+    attribute reliefSetPressure : Pressure = 22000000 [Pa];
+    attribute reseatPressure : Pressure = 19000000 [Pa];
+
+    port protectedGasIn : GasInletPort;
+    port ventOut : GasOutletPort;
+
+    item relievedGas : VentGas;
+  }
+
+  part def GasConsumerInterface {
+    attribute requiredPressure : Pressure = 500000 [Pa];
+    attribute requiredFlowRate : MassFlowRate = 0.030 [kg/s];
+
+    port gasServiceIn : GasInletPort;
+    port demandCommand : ControlPort;
+  }
+
+  part def ElectronicController {
+    attribute updatePeriod : TimeDuration = 0.010 [s];
+    attribute commandedFlowFraction : Fraction;
+
+    port powerIn : PowerPort;
+    port storageTelemetry : SensorPort;
+    port regulatorTelemetry : SensorPort;
+    port flowTelemetry : SensorPort;
+    port valveCommand : ControlPort;
+    port regulatorCommand : ControlPort;
+
+    action def ComputeGasDeliveryCommand {
+      in requestedFlow : MassFlowRate;
+      in measuredPressure : Pressure;
+      in measuredFlow : MassFlowRate;
+      out valveCommand : ControlSignal;
+      out regulatorCommand : ControlSignal;
+    }
+  }
+
+  part def GasDeliverySystem {
+    attribute primaryFunction : String = "Store compressed gas, reduce it to a controlled service pressure, filter it, monitor its condition, and deliver regulated gas to a consumer interface.";
+    attribute maximumSystemPressure : Pressure = 22000000 [Pa];
+    attribute nominalServicePressure : Pressure = 500000 [Pa];
+    attribute nominalServiceFlow : MassFlowRate = 0.030 [kg/s];
+
+    port fillInterface : BidirectionalGasPort;
+    port serviceOutlet : GasOutletPort;
+    port electricalInput : PowerPort;
+    port demandInput : ControlPort;
+    port telemetryOutput : SensorPort;
+
+    part cylinder : GasStorageCylinder;
+    part shutoffValve : ShutoffValve;
+    part regulator : PressureRegulator;
+    part filter : GasFilter;
+    part flowMeter : FlowMeter;
+    part reliefValve : SafetyReliefValve;
+    part consumerInterface : GasConsumerInterface;
+    part controller : ElectronicController;
+
+    connection fillConnection connect fillInterface to cylinder.fillPort;
+    connection storageToValve connect cylinder.supplyPort to shutoffValve.gasIn;
+    connection valveToRegulator connect shutoffValve.gasOut to regulator.highPressureIn;
+    connection regulatorToFilter connect regulator.lowPressureOut to filter.unfilteredIn;
+    connection filterToMeter connect filter.filteredOut to flowMeter.gasIn;
+    connection meterToConsumer connect flowMeter.gasOut to consumerInterface.gasServiceIn;
+    connection outletConnection connect flowMeter.gasOut to serviceOutlet;
+    connection reliefConnection connect cylinder.supplyPort to reliefValve.protectedGasIn;
+    connection powerConnection connect electricalInput to controller.powerIn;
+    connection valveControlConnection connect controller.valveCommand to shutoffValve.control;
+    connection regulatorControlConnection connect controller.regulatorCommand to regulator.control;
+    connection demandConnection connect demandInput to consumerInterface.demandCommand;
+    connection cylinderTelemetryConnection connect cylinder.sensorPort to controller.storageTelemetry;
+    connection regulatorTelemetryConnection connect regulator.sensorPort to controller.regulatorTelemetry;
+    connection flowTelemetryConnection connect flowMeter.sensorPort to controller.flowTelemetry;
+    connection systemTelemetryConnection connect flowMeter.sensorPort to telemetryOutput;
+
+    action def DeliverRegulatedGas {
+      in sourceGas : CompressedGas;
+      in requestedFlow : MassFlowRate;
+      out deliveredGas : RegulatedGas;
+
+      first start;
+      then senseStoragePressure;
+      then openShutoffValve;
+      then reducePressure;
+      then filterGas;
+      then measureFlow;
+      then supplyConsumer;
+      then done;
+
+      action start;
+      action senseStoragePressure;
+      action openShutoffValve;
+      action reducePressure;
+      action filterGas;
+      action measureFlow;
+      action supplyConsumer;
+      action done;
+    }
+
+    state def OperatingStateMachine {
+      state Off;
+      state Standby;
+      state Pressurizing;
+      state DeliveringGas;
+      state VentingOverpressure;
+      state FaultIsolated;
+
+      transition initial then Off;
+
+      transition PowerApplied
+        first Off
+        then Standby;
+
+      transition DemandReceived
+        first Standby
+        then Pressurizing;
+
+      transition PressureStable
+        first Pressurizing
+        then DeliveringGas;
+
+      transition DemandRemoved
+        first DeliveringGas
+        then Standby;
+
+      transition OverpressureDetected
+        first Standby
+        then VentingOverpressure;
+
+      transition OverpressureDuringDelivery
+        first DeliveringGas
+        then VentingOverpressure;
+
+      transition ReliefComplete
+        first VentingOverpressure
+        then Standby;
+
+      transition CriticalFault
+        first Pressurizing
+        then FaultIsolated;
+
+      transition DeliveryFault
+        first DeliveringGas
+        then FaultIsolated;
+
+      transition ResetCommanded
+        first FaultIsolated
+        then Standby;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The gas delivery system shall provide a high-level function of storing gas and delivering it as regulated, monitored, usable gas to a downstream consumer. */
+    subject system : GasDeliverySystem;
+    require constraint {
+      system.nominalServicePressure == 500000 [Pa]
+    }
+  }
+
+  requirement def PressureSafetyRequirement {
+    doc /* The system shall prevent stored gas pressure from exceeding the maximum allowed system pressure by isolating or venting overpressure conditions. */
+    subject system : GasDeliverySystem;
+    require constraint {
+      system.cylinder.maximumPressure <= system.maximumSystemPressure
+    }
+  }
+
+  requirement def FlowDeliveryRequirement {
+    doc /* The system shall support nominal regulated gas delivery at the consumer interface. */
+    subject system : GasDeliverySystem;
+    require constraint {
+      system.nominalServiceFlow >= 0.030 [kg/s]
+    }
+  }
+
+  requirement def GasQualityRequirement {
+    doc /* The system shall filter delivered gas so that service gas purity remains suitable for the consumer interface. */
+    subject system : GasDeliverySystem;
+    require constraint {
+      system.filter.minimumPurity >= 0.995 [one]
+    }
+  }
+
+  requirement def MonitoringRequirement {
+    doc /* The system shall provide telemetry for pressure, temperature, and gas flow during operation. */
+    subject system : GasDeliverySystem;
+    require constraint {
+      system.controller.updatePeriod <= 0.010 [s]
+    }
+  }
+
+  part gasDeliverySystem : GasDeliverySystem;
+
+  satisfy PrimaryFunctionRequirement by gasDeliverySystem;
+  satisfy PressureSafetyRequirement by gasDeliverySystem;
+  satisfy FlowDeliveryRequirement by gasDeliverySystem;
+  satisfy GasQualityRequirement by gasDeliverySystem;
+  satisfy MonitoringRequirement by gasDeliverySystem;
+}

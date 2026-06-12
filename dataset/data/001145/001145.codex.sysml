@@ -1,0 +1,311 @@
+package MicrophoneSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    value def Frequency {
+        unit = "Hz";
+    }
+
+    value def SoundPressureLevel {
+        unit = "dB_SPL";
+    }
+
+    value def Voltage {
+        unit = "V";
+    }
+
+    value def Current {
+        unit = "A";
+    }
+
+    value def Power {
+        unit = "mW";
+    }
+
+    value def SampleRate {
+        unit = "Hz";
+    }
+
+    value def BitDepth {
+        unit = "bit";
+    }
+
+    value def Latency {
+        unit = "ms";
+    }
+
+    item def AcousticPressureWave {
+        attribute frequency: Frequency;
+        attribute soundPressureLevel: SoundPressureLevel;
+    }
+
+    item def MechanicalDiaphragmMotion {
+        attribute displacement: Real;
+        attribute velocity: Real;
+    }
+
+    item def AnalogAudioSignal {
+        attribute amplitude: Voltage;
+        attribute frequency: Frequency;
+        attribute noiseLevel: Voltage;
+    }
+
+    item def DigitalAudioStream {
+        attribute sampleRate: SampleRate;
+        attribute bitDepth: BitDepth;
+        attribute channelCount: Integer;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage: Voltage;
+        attribute supplyCurrent: Current;
+        attribute consumedPower: Power;
+    }
+
+    port def AcousticInputPort {
+        in item sound: AcousticPressureWave;
+    }
+
+    port def MechanicalMotionPort {
+        out item motion: MechanicalDiaphragmMotion;
+    }
+
+    port def AnalogSignalPort {
+        inout item signal: AnalogAudioSignal;
+    }
+
+    port def DigitalSignalPort {
+        out item stream: DigitalAudioStream;
+    }
+
+    port def PowerInputPort {
+        in item power: ElectricalPower;
+    }
+
+    part def Diaphragm {
+        port acousticInput: AcousticInputPort;
+        port mechanicalOutput: MechanicalMotionPort;
+
+        attribute diameter: Real;
+        attribute sensitivityToPressure: Real;
+    }
+
+    part def TransducerElement {
+        port mechanicalInput: MechanicalMotionPort;
+        port analogOutput: AnalogSignalPort;
+
+        attribute transducerType: String = "electret condenser";
+        attribute nominalSensitivity: Real;
+    }
+
+    part def Preamplifier {
+        port analogInput: AnalogSignalPort;
+        port analogOutput: AnalogSignalPort;
+        port powerInput: PowerInputPort;
+
+        attribute gain: Real;
+        attribute inputImpedance: Real;
+        attribute outputImpedance: Real;
+        attribute selfNoise: Voltage;
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogInput: AnalogSignalPort;
+        port digitalOutput: DigitalSignalPort;
+        port powerInput: PowerInputPort;
+
+        attribute sampleRate: SampleRate = 48000 [Hz];
+        attribute bitDepth: BitDepth = 24 [bit];
+        attribute conversionLatency: Latency = 1.5 [ms];
+    }
+
+    part def MicrophoneController {
+        port powerInput: PowerInputPort;
+
+        attribute enabled: Boolean;
+        attribute selectedGain: Real;
+        attribute muteRequested: Boolean;
+    }
+
+    action def ConvertAcousticEnergyToAudio {
+        in item incomingSound: AcousticPressureWave;
+        out item capturedAudio: DigitalAudioStream;
+
+        first start;
+        then receiveSound;
+        then moveDiaphragm;
+        then generateAnalogSignal;
+        then amplifySignal;
+        then digitizeSignal;
+        then outputAudio;
+        then done;
+
+        action receiveSound {
+            in item sound: AcousticPressureWave;
+        }
+
+        action moveDiaphragm {
+            in item sound: AcousticPressureWave;
+            out item motion: MechanicalDiaphragmMotion;
+        }
+
+        action generateAnalogSignal {
+            in item motion: MechanicalDiaphragmMotion;
+            out item signal: AnalogAudioSignal;
+        }
+
+        action amplifySignal {
+            in item weakSignal: AnalogAudioSignal;
+            out item lineLevelSignal: AnalogAudioSignal;
+        }
+
+        action digitizeSignal {
+            in item lineLevelSignal: AnalogAudioSignal;
+            out item stream: DigitalAudioStream;
+        }
+
+        action outputAudio {
+            in item stream: DigitalAudioStream;
+        }
+    }
+
+    state def MicrophoneOperatingState {
+        entry action initializeElectronics;
+
+        state Off;
+        state Standby;
+        state Capturing;
+        state Muted;
+        state Fault;
+
+        transition powerApplied
+            first Off
+            then Standby;
+
+        transition enableCapture
+            first Standby
+            then Capturing;
+
+        transition mute
+            first Capturing
+            then Muted;
+
+        transition unmute
+            first Muted
+            then Capturing;
+
+        transition disableCapture
+            first Capturing
+            then Standby;
+
+        transition removePower
+            first Standby
+            then Off;
+
+        transition detectFault
+            first Capturing
+            then Fault;
+
+        transition resetFault
+            first Fault
+            then Standby;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The microphone shall convert incident acoustic pressure waves into an electrical audio representation suitable for downstream recording, transmission, or processing.";
+    }
+
+    requirement def FrequencyResponseRequirement {
+        doc "The microphone shall capture human-audible speech and general audio content over the 20 Hz to 20000 Hz frequency range.";
+        require constraint {
+            minFrequency <= 20 [Hz] and maxFrequency >= 20000 [Hz]
+        }
+    }
+
+    requirement def DigitalOutputRequirement {
+        doc "The microphone shall provide a digital audio stream with at least 48000 Hz sample rate and 24-bit resolution.";
+        require constraint {
+            sampleRate >= 48000 [Hz] and bitDepth >= 24 [bit]
+        }
+    }
+
+    requirement def LatencyRequirement {
+        doc "The microphone shall produce digital audio with no more than 5 ms internal conversion latency.";
+        require constraint {
+            conversionLatency <= 5 [ms]
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc "The microphone shall operate from a regulated 5 V supply and consume no more than 100 mW during capture.";
+        require constraint {
+            supplyVoltage == 5 [V] and consumedPower <= 100 [mW]
+        }
+    }
+
+    part def Microphone {
+        port acousticInput: AcousticInputPort;
+        port digitalAudioOutput: DigitalSignalPort;
+        port powerInput: PowerInputPort;
+
+        part diaphragm: Diaphragm;
+        part transducer: TransducerElement;
+        part preamplifier: Preamplifier;
+        part adc: AnalogToDigitalConverter;
+        part controller: MicrophoneController;
+
+        attribute minFrequency: Frequency = 20 [Hz];
+        attribute maxFrequency: Frequency = 20000 [Hz];
+        attribute sampleRate: SampleRate = 48000 [Hz];
+        attribute bitDepth: BitDepth = 24 [bit];
+        attribute conversionLatency: Latency = 1.5 [ms];
+        attribute supplyVoltage: Voltage = 5 [V];
+        attribute consumedPower: Power = 72 [mW];
+
+        perform action captureAudio: ConvertAcousticEnergyToAudio;
+
+        exhibit state operatingState: MicrophoneOperatingState;
+
+        connect acousticInput to diaphragm.acousticInput;
+        connect diaphragm.mechanicalOutput to transducer.mechanicalInput;
+        connect transducer.analogOutput to preamplifier.analogInput;
+        connect preamplifier.analogOutput to adc.analogInput;
+        connect adc.digitalOutput to digitalAudioOutput;
+        connect powerInput to preamplifier.powerInput;
+        connect powerInput to adc.powerInput;
+        connect powerInput to controller.powerInput;
+
+        satisfy PrimaryFunctionRequirement by this;
+        satisfy FrequencyResponseRequirement by this;
+        satisfy DigitalOutputRequirement by this;
+        satisfy LatencyRequirement by this;
+        satisfy PowerRequirement by this;
+    }
+
+    part def AudioHostDevice {
+        port microphoneInput: DigitalSignalPort;
+        port microphonePower: PowerInputPort;
+
+        attribute acceptedSampleRate: SampleRate = 48000 [Hz];
+        attribute acceptedBitDepth: BitDepth = 24 [bit];
+    }
+
+    part systemContext {
+        part microphone: Microphone;
+        part host: AudioHostDevice;
+
+        item ambientSpeech: AcousticPressureWave {
+            attribute frequency = 1000 [Hz];
+            attribute soundPressureLevel = 74 [dB_SPL];
+        }
+
+        item regulatedPower: ElectricalPower {
+            attribute supplyVoltage = 5 [V];
+            attribute supplyCurrent = 0.0144 [A];
+            attribute consumedPower = 72 [mW];
+        }
+
+        connect microphone.digitalAudioOutput to host.microphoneInput;
+        connect host.microphonePower to microphone.powerInput;
+    }
+}

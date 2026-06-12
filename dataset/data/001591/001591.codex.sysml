@@ -1,0 +1,264 @@
+package SyntheticDiamondSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def HeatFlowRate :> ISQ::power;
+    attribute def Length :> ISQ::length;
+    attribute def Area :> ISQ::area;
+    attribute def Mass :> ISQ::mass;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def ThermalConductivity {
+        attribute value : Real;
+        attribute unit : String = "W/(m*K)";
+    }
+
+    item def HeatEnergy {
+        attribute rate : HeatFlowRate;
+        attribute sourceTemperature : Temperature;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : HeatFlowRate;
+    }
+
+    item def StatusSignal {
+        attribute operatingMode : String;
+        attribute healthState : String;
+        attribute measuredTemperature : Temperature;
+    }
+
+    port def HeatInputPort {
+        in item heatIn : HeatEnergy;
+    }
+
+    port def HeatOutputPort {
+        out item heatOut : HeatEnergy;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def StatusOutputPort {
+        out item statusOut : StatusSignal;
+    }
+
+    part def SyntheticDiamondHeatSpreader {
+        attribute materialName : String = "single-crystal synthetic diamond";
+        attribute thickness : Length = 0.0005 [m];
+        attribute surfaceArea : Area = 0.0009 [m^2];
+        attribute mass : Mass = 0.0016 [kg];
+        attribute thermalConductivity : ThermalConductivity {
+            value = 1800.0;
+            unit = "W/(m*K)";
+        }
+        attribute maximumOperatingTemperature : Temperature = 423.15 [K];
+
+        port heatInput : HeatInputPort;
+        port heatOutput : HeatOutputPort;
+
+        action transferHeat {
+            in item absorbedHeat : HeatEnergy;
+            out item distributedHeat : HeatEnergy;
+
+            first start;
+            then conductThroughDiamond;
+            then spreadAcrossSurface;
+            then emitToThermalInterface;
+            then done;
+
+            action conductThroughDiamond;
+            action spreadAcrossSurface;
+            action emitToThermalInterface;
+        }
+    }
+
+    part def HeatGeneratingDevice {
+        attribute deviceName : String = "high power semiconductor die";
+        attribute nominalHeatDissipation : HeatFlowRate = 85.0 [W];
+        attribute maximumJunctionTemperature : Temperature = 398.15 [K];
+
+        port heatOutput : HeatOutputPort;
+        port powerInput : PowerInputPort;
+
+        action generateWasteHeat {
+            in item electricalInput : ElectricalPower;
+            out item thermalOutput : HeatEnergy;
+        }
+    }
+
+    part def ThermalInterfaceLayer {
+        attribute materialName : String = "silver-filled thermal interface compound";
+        attribute bondLineThickness : Length = 0.00008 [m];
+        attribute thermalConductivity : ThermalConductivity {
+            value = 8.5;
+            unit = "W/(m*K)";
+        }
+
+        port heatInput : HeatInputPort;
+        port heatOutput : HeatOutputPort;
+    }
+
+    part def HeatSink {
+        attribute materialName : String = "copper fin heat sink";
+        attribute finArea : Area = 0.035 [m^2];
+        attribute thermalResistance : Real = 0.42;
+        attribute thermalResistanceUnit : String = "K/W";
+
+        port heatInput : HeatInputPort;
+        port heatOutput : HeatOutputPort;
+    }
+
+    part def CoolingAirflow {
+        attribute flowRate : Real = 0.018;
+        attribute flowRateUnit : String = "m^3/s";
+        attribute inletTemperature : Temperature = 298.15 [K];
+
+        port heatInput : HeatInputPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeLow : Temperature = 233.15 [K];
+        attribute measurementRangeHigh : Temperature = 473.15 [K];
+        attribute accuracy : Temperature = 0.5 [K];
+
+        port statusOutput : StatusOutputPort;
+
+        action measureDiamondTemperature {
+            out item status : StatusSignal;
+        }
+    }
+
+    part def ThermalController {
+        attribute controlPeriod : Real = 0.1;
+        attribute controlPeriodUnit : String = "s";
+        attribute warningTemperature : Temperature = 373.15 [K];
+        attribute shutdownTemperature : Temperature = 398.15 [K];
+
+        port statusInput : StatusOutputPort;
+        port statusOutput : StatusOutputPort;
+
+        state thermalManagementState {
+            entry action initializeMonitoring;
+
+            state Normal;
+            state Warning;
+            state ProtectedShutdown;
+
+            transition first Normal;
+            transition Normal to Warning
+                accept when temperatureAboveWarning;
+            transition Warning to Normal
+                accept when temperatureBelowWarning;
+            transition Warning to ProtectedShutdown
+                accept when temperatureAboveShutdown;
+            transition ProtectedShutdown to Normal
+                accept when manualResetAndTemperatureSafe;
+
+            action initializeMonitoring;
+            action temperatureAboveWarning;
+            action temperatureBelowWarning;
+            action temperatureAboveShutdown;
+            action manualResetAndTemperatureSafe;
+        }
+    }
+
+    part def SyntheticDiamondThermalManagementSystem {
+        doc /* Primary high-level function: use a synthetic diamond element as an ultra-high-conductivity thermal pathway that rapidly spreads heat from a compact heat-generating device to a larger cooling structure, reducing local hot spots and maintaining safe operating temperature. */
+
+        attribute systemName : String = "Synthetic Diamond Thermal Management System";
+        attribute requiredHeatRemoval : HeatFlowRate = 85.0 [W];
+        attribute ambientTemperature : Temperature = 298.15 [K];
+        attribute targetDeviceTemperature : Temperature = 358.15 [K];
+
+        part semiconductorDie : HeatGeneratingDevice;
+        part diamondSpreader : SyntheticDiamondHeatSpreader;
+        part interfaceLayer : ThermalInterfaceLayer;
+        part copperHeatSink : HeatSink;
+        part forcedAir : CoolingAirflow;
+        part sensor : TemperatureSensor;
+        part controller : ThermalController;
+
+        port electricalInput : PowerInputPort;
+        port systemStatus : StatusOutputPort;
+
+        connect electricalInput to semiconductorDie.powerInput;
+        connect semiconductorDie.heatOutput to diamondSpreader.heatInput;
+        connect diamondSpreader.heatOutput to interfaceLayer.heatInput;
+        connect interfaceLayer.heatOutput to copperHeatSink.heatInput;
+        connect copperHeatSink.heatOutput to forcedAir.heatInput;
+        connect sensor.statusOutput to controller.statusInput;
+        connect controller.statusOutput to systemStatus;
+
+        action operateSystem {
+            first receiveElectricalPower;
+            then generateDeviceHeat;
+            then spreadHeatInSyntheticDiamond;
+            then transferHeatToHeatSink;
+            then rejectHeatToAir;
+            then monitorThermalState;
+            then done;
+
+            action receiveElectricalPower;
+            action generateDeviceHeat;
+            action spreadHeatInSyntheticDiamond;
+            action transferHeatToHeatSink;
+            action rejectHeatToAir;
+            action monitorThermalState;
+        }
+    }
+
+    requirement def HeatSpreadingRequirement {
+        subject system : SyntheticDiamondThermalManagementSystem;
+        require constraint {
+            system.targetDeviceTemperature <= 358.15 [K]
+        }
+        doc /* The system shall maintain the heat-generating device at or below 85 degrees Celsius during nominal heat dissipation. */
+    }
+
+    requirement def DiamondMaterialRequirement {
+        subject diamond : SyntheticDiamondHeatSpreader;
+        require constraint {
+            diamond.thermalConductivity.value >= 1500.0
+        }
+        doc /* The synthetic diamond heat spreader shall provide very high thermal conductivity to reduce localized temperature gradients. */
+    }
+
+    requirement def HeatRemovalRequirement {
+        subject system : SyntheticDiamondThermalManagementSystem;
+        require constraint {
+            system.requiredHeatRemoval >= 85.0 [W]
+        }
+        doc /* The system shall remove at least 85 watts of waste heat from the protected device. */
+    }
+
+    requirement def ThermalProtectionRequirement {
+        subject controller : ThermalController;
+        require constraint {
+            controller.shutdownTemperature <= 398.15 [K]
+        }
+        doc /* The controller shall command protected shutdown before the semiconductor device exceeds its maximum junction temperature. */
+    }
+
+    requirement def CompactIntegrationRequirement {
+        subject diamond : SyntheticDiamondHeatSpreader;
+        require constraint {
+            diamond.thickness <= 0.001 [m]
+        }
+        doc /* The synthetic diamond element shall fit within a compact electronics package while preserving heat spreading performance. */
+    }
+
+    part system : SyntheticDiamondThermalManagementSystem;
+
+    satisfy HeatSpreadingRequirement by system;
+    satisfy HeatRemovalRequirement by system;
+    satisfy DiamondMaterialRequirement by system.diamondSpreader;
+    satisfy ThermalProtectionRequirement by system.controller;
+    satisfy CompactIntegrationRequirement by system.diamondSpreader;
+}

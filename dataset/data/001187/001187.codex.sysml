@@ -1,0 +1,388 @@
+package PhotoswitchSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Illuminance :> scalar quantities::Quantity {
+        unit = lx;
+    }
+
+    attribute def Voltage :> scalar quantities::Quantity {
+        unit = V;
+    }
+
+    attribute def Current :> scalar quantities::Quantity {
+        unit = A;
+    }
+
+    attribute def Power :> scalar quantities::Quantity {
+        unit = W;
+    }
+
+    attribute def Resistance :> scalar quantities::Quantity {
+        unit = Ohm;
+    }
+
+    attribute def Duration :> scalar quantities::Quantity {
+        unit = s;
+    }
+
+    attribute def Temperature :> scalar quantities::Quantity {
+        unit = degC;
+    }
+
+    attribute def Ratio :> Real;
+
+    item def OpticalRadiation {
+        attribute illuminance : Illuminance;
+        attribute spectralBand : String;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def SwitchCommand {
+        attribute requestedClosed : Boolean;
+        attribute reason : String;
+    }
+
+    item def LoadStatus {
+        attribute energized : Boolean;
+        attribute loadCurrent : Current;
+    }
+
+    port def OpticalInputPort {
+        in item incidentLight : OpticalRadiation;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalEnergy;
+    }
+
+    port def SwitchedPowerOutputPort {
+        out item switchedSupply : ElectricalEnergy;
+        out item status : LoadStatus;
+    }
+
+    port def ControlPort {
+        out item command : SwitchCommand;
+    }
+
+    port def SensePort {
+        out item measuredLight : OpticalRadiation;
+    }
+
+    action def SenseAmbientLight {
+        in item incidentLight : OpticalRadiation;
+        out item measuredLight : OpticalRadiation;
+
+        attribute sensorResistance : Resistance;
+        attribute measurementDelay : Duration = 0.05 [s];
+    }
+
+    action def EvaluateLightThreshold {
+        in item measuredLight : OpticalRadiation;
+        out item switchCommand : SwitchCommand;
+
+        attribute turnOnThreshold : Illuminance = 20 [lx];
+        attribute turnOffThreshold : Illuminance = 60 [lx];
+        attribute debounceTime : Duration = 3 [s];
+    }
+
+    action def DrivePowerSwitch {
+        in item switchCommand : SwitchCommand;
+        in item supply : ElectricalEnergy;
+        out item switchedSupply : ElectricalEnergy;
+        out item status : LoadStatus;
+
+        attribute contactVoltageDrop : Voltage = 0.15 [V];
+        attribute maximumLoadCurrent : Current = 10 [A];
+    }
+
+    action def ProtectAgainstFault {
+        in item supply : ElectricalEnergy;
+        in item status : LoadStatus;
+        out item switchCommand : SwitchCommand;
+
+        attribute overCurrentLimit : Current = 12 [A];
+        attribute resetDelay : Duration = 30 [s];
+    }
+
+    state def PhotoswitchOperatingState {
+        entry action initialize;
+
+        state PowerOff;
+        state DaylightOpen;
+        state DuskDebounce;
+        state NightClosed;
+        state DawnDebounce;
+        state FaultOpen;
+
+        transition initial then PowerOff;
+
+        transition PowerOff to DaylightOpen
+            accept PowerAvailable
+            do initialize;
+
+        transition DaylightOpen to DuskDebounce
+            accept LowIlluminanceDetected;
+
+        transition DuskDebounce to NightClosed
+            accept LowIlluminanceStable
+            do closeSwitch;
+
+        transition DuskDebounce to DaylightOpen
+            accept IlluminanceRecovered;
+
+        transition NightClosed to DawnDebounce
+            accept HighIlluminanceDetected;
+
+        transition DawnDebounce to DaylightOpen
+            accept HighIlluminanceStable
+            do openSwitch;
+
+        transition DawnDebounce to NightClosed
+            accept IlluminanceDropped;
+
+        transition DaylightOpen to FaultOpen
+            accept FaultDetected
+            do openSwitch;
+
+        transition NightClosed to FaultOpen
+            accept FaultDetected
+            do openSwitch;
+
+        transition FaultOpen to DaylightOpen
+            accept FaultCleared
+            do resetProtection;
+    }
+
+    part def PhotocellSensor {
+        port opticalIn : OpticalInputPort;
+        port sensedOut : SensePort;
+
+        attribute darkResistance : Resistance = 500000 [Ohm];
+        attribute brightResistance : Resistance = 2000 [Ohm];
+        attribute minimumDetectableIlluminance : Illuminance = 1 [lx];
+        attribute maximumRatedIlluminance : Illuminance = 100000 [lx];
+        attribute responseTime : Duration = 0.10 [s];
+        attribute operatingTemperatureMin : Temperature = -40 [degC];
+        attribute operatingTemperatureMax : Temperature = 70 [degC];
+
+        perform action sense : SenseAmbientLight {
+            in incidentLight = opticalIn.incidentLight;
+            out measuredLight = sensedOut.measuredLight;
+        }
+    }
+
+    part def ThresholdController {
+        port sensedIn : SensePort;
+        port controlOut : ControlPort;
+
+        attribute turnOnThreshold : Illuminance = 20 [lx];
+        attribute turnOffThreshold : Illuminance = 60 [lx];
+        attribute hysteresisWidth : Illuminance = 40 [lx];
+        attribute debounceTime : Duration = 3 [s];
+        attribute controlVoltage : Voltage = 5 [V];
+
+        perform action evaluate : EvaluateLightThreshold {
+            in measuredLight = sensedIn.measuredLight;
+            out switchCommand = controlOut.command;
+        }
+
+        exhibit state operating : PhotoswitchOperatingState;
+    }
+
+    part def SolidStateRelay {
+        port powerIn : PowerInputPort;
+        port controlIn : ControlPort;
+        port switchedOut : SwitchedPowerOutputPort;
+
+        attribute ratedInputVoltage : Voltage = 120 [V];
+        attribute ratedLoadCurrent : Current = 10 [A];
+        attribute offStateLeakageCurrent : Current = 0.002 [A];
+        attribute onStateVoltageDrop : Voltage = 0.15 [V];
+        attribute switchingTime : Duration = 0.02 [s];
+
+        perform action drive : DrivePowerSwitch {
+            in switchCommand = controlIn.command;
+            in supply = powerIn.supply;
+            out switchedSupply = switchedOut.switchedSupply;
+            out status = switchedOut.status;
+        }
+    }
+
+    part def FaultProtection {
+        port powerIn : PowerInputPort;
+        port loadStatusIn : SwitchedPowerOutputPort;
+        port controlOut : ControlPort;
+
+        attribute overCurrentLimit : Current = 12 [A];
+        attribute surgeWithstandCurrent : Current = 40 [A];
+        attribute thermalTripTemperature : Temperature = 90 [degC];
+        attribute resetDelay : Duration = 30 [s];
+
+        perform action protect : ProtectAgainstFault {
+            in supply = powerIn.supply;
+            in status = loadStatusIn.status;
+            out switchCommand = controlOut.command;
+        }
+    }
+
+    part def ControlledLampLoad {
+        port switchedPowerIn : SwitchedPowerOutputPort;
+
+        attribute nominalVoltage : Voltage = 120 [V];
+        attribute nominalPower : Power = 100 [W];
+        attribute nominalCurrent : Current = 0.83 [A];
+        attribute energized : Boolean;
+    }
+
+    part def Photoswitch {
+        port ambientLightIn : OpticalInputPort;
+        port supplyIn : PowerInputPort;
+        port loadOut : SwitchedPowerOutputPort;
+
+        attribute nominalSupplyVoltage : Voltage = 120 [V];
+        attribute standbyPower : Power = 0.5 [W];
+        attribute maximumLoadPower : Power = 1200 [W];
+        attribute primaryFunction : String =
+            "Automatically energize an electrical load when ambient illumination falls below a low threshold and de-energize it when illumination rises above a higher threshold.";
+
+        part sensor : PhotocellSensor;
+        part controller : ThresholdController;
+        part relay : SolidStateRelay;
+        part protection : FaultProtection;
+
+        connect ambientLightIn to sensor.opticalIn;
+        connect sensor.sensedOut to controller.sensedIn;
+        connect controller.controlOut to relay.controlIn;
+        connect supplyIn to relay.powerIn;
+        connect supplyIn to protection.powerIn;
+        connect relay.switchedOut to protection.loadStatusIn;
+        connect relay.switchedOut to loadOut;
+        connect protection.controlOut to relay.controlIn;
+    }
+
+    part def OutdoorLightingInstallation {
+        part photoswitch : Photoswitch;
+        part lampLoad : ControlledLampLoad;
+
+        port environmentLight : OpticalInputPort;
+        port utilitySupply : PowerInputPort;
+
+        connect environmentLight to photoswitch.ambientLightIn;
+        connect utilitySupply to photoswitch.supplyIn;
+        connect photoswitch.loadOut to lampLoad.switchedPowerIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         The photoswitch shall automatically control a connected electrical load according to ambient light level.
+         The load shall be energized during darkness and de-energized during sufficient daylight.
+        */
+
+        subject photoswitch : Photoswitch;
+
+        require constraint {
+            photoswitch.primaryFunction != "";
+        }
+    }
+
+    requirement def DarkTurnOnRequirement {
+        subject controller : ThresholdController;
+
+        attribute requiredTurnOnThreshold : Illuminance = 20 [lx];
+
+        require constraint {
+            controller.turnOnThreshold <= requiredTurnOnThreshold;
+        }
+    }
+
+    requirement def DaylightTurnOffRequirement {
+        subject controller : ThresholdController;
+
+        attribute requiredTurnOffThreshold : Illuminance = 60 [lx];
+
+        require constraint {
+            controller.turnOffThreshold >= requiredTurnOffThreshold;
+        }
+    }
+
+    requirement def HysteresisRequirement {
+        subject controller : ThresholdController;
+
+        attribute minimumHysteresis : Illuminance = 25 [lx];
+
+        require constraint {
+            controller.turnOffThreshold - controller.turnOnThreshold >= minimumHysteresis;
+        }
+    }
+
+    requirement def LoadCapacityRequirement {
+        subject relay : SolidStateRelay;
+
+        attribute requiredCurrentCapacity : Current = 10 [A];
+
+        require constraint {
+            relay.ratedLoadCurrent >= requiredCurrentCapacity;
+        }
+    }
+
+    requirement def StandbyPowerRequirement {
+        subject photoswitch : Photoswitch;
+
+        attribute maximumAllowedStandbyPower : Power = 1 [W];
+
+        require constraint {
+            photoswitch.standbyPower <= maximumAllowedStandbyPower;
+        }
+    }
+
+    requirement def FaultProtectionRequirement {
+        subject protection : FaultProtection;
+
+        attribute maximumTripCurrent : Current = 12 [A];
+
+        require constraint {
+            protection.overCurrentLimit <= maximumTripCurrent;
+        }
+    }
+
+    requirement def TemperatureRequirement {
+        subject sensor : PhotocellSensor;
+
+        attribute requiredLowTemperature : Temperature = -20 [degC];
+        attribute requiredHighTemperature : Temperature = 50 [degC];
+
+        require constraint {
+            sensor.operatingTemperatureMin <= requiredLowTemperature and
+            sensor.operatingTemperatureMax >= requiredHighTemperature;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by Photoswitch;
+    satisfy DarkTurnOnRequirement by ThresholdController;
+    satisfy DaylightTurnOffRequirement by ThresholdController;
+    satisfy HysteresisRequirement by ThresholdController;
+    satisfy LoadCapacityRequirement by SolidStateRelay;
+    satisfy StandbyPowerRequirement by Photoswitch;
+    satisfy FaultProtectionRequirement by FaultProtection;
+    satisfy TemperatureRequirement by PhotocellSensor;
+
+    analysis def PhotoswitchControlAnalysis {
+        subject installation : OutdoorLightingInstallation;
+
+        objective {
+            verify that installation.photoswitch load output is energized when ambient illuminance remains below 20 lx for at least 3 s;
+            verify that installation.photoswitch load output is de-energized when ambient illuminance remains above 60 lx for at least 3 s;
+            verify that load output opens immediately on detected overcurrent fault;
+        }
+    }
+
+}

@@ -1,0 +1,845 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-9ts8byvo
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb52e-14ee-7730-a3b1-19a8f230b981
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a sensing unit that measures the relevant quantity using a Dynamic torque sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DynamicTorqueSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Torque :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def AngularSpeed :> ISQ::angularVelocity {
+        unit = SI::radianPerSecond;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def TimeInterval :> ISQ::duration {
+        unit = SI::second;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    attribute def Percent :> ScalarValues::Real {
+        unit = SI::percent;
+    }
+
+    item def ShaftTorqueSignal {
+        attribute torque : Torque;
+        attribute angularSpeed : AngularSpeed;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def ConditionedTorqueSignal {
+        attribute measuredTorque : Torque;
+        attribute measuredSpeed : AngularSpeed;
+        attribute sensorTemperature : Temperature;
+        attribute signalQuality : Percent;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def DigitalTorqueFrame {
+        attribute torqueCounts : DigitalCount;
+        attribute speedCounts : DigitalCount;
+        attribute temperatureCounts : DigitalCount;
+        attribute statusWord : DigitalCount;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def TorqueMeasurement {
+        attribute torque : Torque;
+        attribute angularSpeed : AngularSpeed;
+        attribute temperature : Temperature;
+        attribute uncertainty : Torque;
+        attribute valid : Boolean;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticReport {
+        attribute sensorHealthy : Boolean;
+        attribute bridgeBalanced : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute temperatureCompensationActive : Boolean;
+        attribute lastErrorCode : DigitalCount;
+    }
+
+    port def RotatingShaftPort {
+        in item mechanicalInput : ShaftTorqueSignal;
+        out item mechanicalReaction : ShaftTorqueSignal;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : ConditionedTorqueSignal;
+    }
+
+    port def DigitalDataPort {
+        out item measurement : TorqueMeasurement;
+        out item diagnostics : DiagnosticReport;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ConfigurationPort {
+        in attribute zeroOffsetCommand : Boolean;
+        in attribute requestedSampleRate : Frequency;
+        in attribute torqueScaleFactor : Real;
+        in attribute enableSelfTest : Boolean;
+    }
+
+    action def SenseDynamicTorque {
+        in item shaftInput : ShaftTorqueSignal;
+        in attribute zeroOffset : Torque;
+        in attribute sensitivity : Real;
+        out item sensedSignal : ConditionedTorqueSignal;
+
+        bind sensedSignal.measuredTorque = shaftInput.torque - zeroOffset;
+        bind sensedSignal.measuredSpeed = shaftInput.angularSpeed;
+        bind sensedSignal.timestamp = shaftInput.timestamp;
+    }
+
+    action def ConditionDynamicTorqueSignal {
+        in item rawSignal : ConditionedTorqueSignal;
+        in attribute filterCutoff : Frequency;
+        in attribute gain : Real;
+        out item conditionedSignal : ConditionedTorqueSignal;
+
+        bind conditionedSignal.measuredTorque = rawSignal.measuredTorque * gain;
+        bind conditionedSignal.measuredSpeed = rawSignal.measuredSpeed;
+        bind conditionedSignal.sensorTemperature = rawSignal.sensorTemperature;
+        bind conditionedSignal.timestamp = rawSignal.timestamp;
+    }
+
+    action def ConvertTorqueSignalToDigital {
+        in item conditionedSignal : ConditionedTorqueSignal;
+        in attribute adcResolutionBits : DigitalCount;
+        in attribute fullScaleTorque : Torque;
+        out item frame : DigitalTorqueFrame;
+    }
+
+    action def EstimateTorqueMeasurement {
+        in item frame : DigitalTorqueFrame;
+        in attribute fullScaleTorque : Torque;
+        in attribute resolutionBits : DigitalCount;
+        in attribute calibratedUncertainty : Torque;
+        out item measurement : TorqueMeasurement;
+    }
+
+    action def RunSensorSelfTest {
+        out item report : DiagnosticReport;
+    }
+
+    state def SensingUnitOperatingState {
+        entry action initializeElectronics;
+        state Off;
+        state PoweringUp;
+        state SelfTesting;
+        state Zeroing;
+        state Measuring;
+        state Fault;
+
+        transition first Off;
+        transition powerApplied
+            first Off
+            then PoweringUp;
+
+        transition initialized
+            first PoweringUp
+            then SelfTesting;
+
+        transition selfTestPassed
+            first SelfTesting
+            then Zeroing;
+
+        transition zeroComplete
+            first Zeroing
+            then Measuring;
+
+        transition selfTestFailed
+            first SelfTesting
+            then Fault;
+
+        transition overloadFault
+            first Measuring
+            then Fault;
+
+        transition bridgeFault
+            first Measuring
+            then Fault;
+
+        transition resetFault
+            first Fault
+            then PoweringUp;
+    }
+
+    part def DynamicTorqueSensor {
+        port shaftPort : RotatingShaftPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute ratedTorque : Torque = 500 [SI::newtonMetre];
+        attribute overloadLimit : Torque = 750 [SI::newtonMetre];
+        attribute minimumDetectableTorque : Torque = 0.05 [SI::newtonMetre];
+        attribute nonLinearity : Percent = 0.1 [SI::percent];
+        attribute hysteresis : Percent = 0.05 [SI::percent];
+        attribute naturalFrequency : Frequency = 5000 [SI::hertz];
+        attribute operatingTemperatureMin : Temperature = -20 [SI::degreeCelsius];
+        attribute operatingTemperatureMax : Temperature = 85 [SI::degreeCelsius];
+        attribute bridgeExcitationVoltage : Voltage = 10 [SI::volt];
+        attribute sensitivityMillivoltPerVolt : Real = 2.0;
+
+        perform action sense : SenseDynamicTorque;
+    }
+
+    part def SignalConditioner {
+        port analogIn : AnalogSignalPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute amplifierGain : Real = 100.0;
+        attribute antiAliasFilterCutoff : Frequency = 1000 [SI::hertz];
+        attribute noiseDensity : Voltage = 0.000002 [SI::volt];
+        attribute temperatureCompensationEnabled : Boolean = true;
+
+        perform action condition : ConditionDynamicTorqueSignal;
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalDataPort;
+        port powerIn : PowerInputPort;
+
+        attribute resolutionBits : DigitalCount = 24;
+        attribute samplingRate : Frequency = 2000 [SI::hertz];
+        attribute referenceVoltage : Voltage = 5 [SI::volt];
+        attribute conversionLatency : TimeInterval = 0.0005 [SI::second];
+
+        perform action convert : ConvertTorqueSignalToDigital;
+    }
+
+    part def MeasurementProcessor {
+        port digitalIn : DigitalDataPort;
+        port measurementOut : DigitalDataPort;
+        port configuration : ConfigurationPort;
+        port powerIn : PowerInputPort;
+
+        attribute zeroOffset : Torque = 0 [SI::newtonMetre];
+        attribute fullScaleTorque : Torque = 500 [SI::newtonMetre];
+        attribute measurementUncertainty : Torque = 0.25 [SI::newtonMetre];
+        attribute updatePeriod : TimeInterval = 0.001 [SI::second];
+        attribute overloadLatched : Boolean = false;
+
+        perform action estimate : EstimateTorqueMeasurement;
+        perform action selfTest : RunSensorSelfTest;
+        exhibit state operatingState : SensingUnitOperatingState;
+    }
+
+    part def PowerRegulator {
+        port supplyInput : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port electronicsPower : PowerInputPort;
+
+        attribute nominalInputVoltage : Voltage = 24 [SI::volt];
+        attribute regulatedBridgeVoltage : Voltage = 10 [SI::volt];
+        attribute regulatedLogicVoltage : Voltage = 5 [SI::volt];
+        attribute maximumSupplyCurrent : Current = 0.25 [SI::ampere];
+        attribute rippleVoltage : Voltage = 0.005 [SI::volt];
+    }
+
+    part def SensingUnit {
+        port shaftInterface : RotatingShaftPort;
+        port measurementInterface : DigitalDataPort;
+        port powerInterface : PowerInputPort;
+        port configurationInterface : ConfigurationPort;
+
+        attribute measuredQuantity : String = "dynamic torque";
+        attribute nominalTorqueRange : Torque = 500 [SI::newtonMetre];
+        attribute maximumRotationalSpeed : AngularSpeed = 628.319 [SI::radianPerSecond];
+        attribute outputSampleRate : Frequency = 1000 [SI::hertz];
+        attribute totalMeasurementLatency : TimeInterval = 0.002 [SI::second];
+        attribute installedMass : Real = 1.8;
+
+        part sensor : DynamicTorqueSensor;
+        part conditioner : SignalConditioner;
+        part converter : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part regulator : PowerRegulator;
+
+        connect shaftInterface to sensor.shaftPort;
+        connect sensor.analogOut to conditioner.analogIn;
+        connect conditioner.analogOut to converter.analogIn;
+        connect converter.digitalOut to processor.digitalIn;
+        connect processor.measurementOut to measurementInterface;
+
+        connect powerInterface to regulator.supplyInput;
+        connect regulator.sensorPower to sensor.powerIn;
+        connect regulator.electronicsPower to conditioner.powerIn;
+        connect regulator.electronicsPower to converter.powerIn;
+        connect regulator.electronicsPower to processor.powerIn;
+
+        connect configurationInterface to processor.configuration;
+    }
+
+    requirement def MeasureDynamicTorqueRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantity == "dynamic torque"
+        }
+
+        doc /* The sensing unit shall measure shaft dynamic torque using a Dynamic torque sensor and provide a calibrated digital torque measurement. */
+    }
+
+    requirement def TorqueRangeRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.ratedTorque >= 500 [SI::newtonMetre]
+        }
+
+        doc /* The dynamic torque sensor shall support a rated bidirectional torque range of at least 500 N*m. */
+    }
+
+    requirement def BandwidthRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.naturalFrequency >= 5000 [SI::hertz] and
+            sensingUnit.conditioner.antiAliasFilterCutoff >= 1000 [SI::hertz]
+        }
+
+        doc /* The sensing chain shall preserve dynamic torque content up to 1000 Hz without aliasing into the reported measurement. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.processor.measurementUncertainty <= 0.25 [SI::newtonMetre]
+        }
+
+        doc /* The reported torque measurement uncertainty shall not exceed 0.25 N*m after calibration over the rated operating range. */
+    }
+
+    requirement def LatencyRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.totalMeasurementLatency <= 0.002 [SI::second]
+        }
+
+        doc /* The sensing unit shall report each dynamic torque measurement within 2 ms of shaft torque application. */
+    }
+
+    requirement def OverloadProtectionRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.overloadLimit >= 1.5 * sensingUnit.sensor.ratedTorque
+        }
+
+        doc /* The Dynamic torque sensor shall tolerate overload events of at least 150 percent of rated torque and report an overload diagnostic. */
+    }
+
+    requirement def TemperatureOperationRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.operatingTemperatureMin <= -20 [SI::degreeCelsius] and
+            sensingUnit.sensor.operatingTemperatureMax >= 85 [SI::degreeCelsius]
+        }
+
+        doc /* The sensing unit shall operate across the specified industrial temperature range while maintaining temperature compensation. */
+    }
+
+    satisfy MeasureDynamicTorqueRequirement by SensingUnit;
+    satisfy TorqueRangeRequirement by SensingUnit;
+    satisfy BandwidthRequirement by SensingUnit;
+    satisfy AccuracyRequirement by SensingUnit;
+    satisfy LatencyRequirement by SensingUnit;
+    satisfy OverloadProtectionRequirement by SensingUnit;
+    satisfy TemperatureOperationRequirement by SensingUnit;
+
+    part installedDynamicTorqueSensingUnit : SensingUnit {
+        attribute nominalTorqueRange = 500 [SI::newtonMetre];
+        attribute maximumRotationalSpeed = 628.319 [SI::radianPerSecond];
+        attribute outputSampleRate = 1000 [SI::hertz];
+        attribute totalMeasurementLatency = 0.002 [SI::second];
+
+        part sensor {
+            attribute ratedTorque = 500 [SI::newtonMetre];
+            attribute overloadLimit = 750 [SI::newtonMetre];
+            attribute naturalFrequency = 5000 [SI::hertz];
+        }
+
+        part conditioner {
+            attribute amplifierGain = 100.0;
+            attribute antiAliasFilterCutoff = 1000 [SI::hertz];
+            attribute temperatureCompensationEnabled = true;
+        }
+
+        part converter {
+            attribute resolutionBits = 24;
+            attribute samplingRate = 2000 [SI::hertz];
+            attribute conversionLatency = 0.0005 [SI::second];
+        }
+
+        part processor {
+            attribute fullScaleTorque = 500 [SI::newtonMetre];
+            attribute measurementUncertainty = 0.25 [SI::newtonMetre];
+            attribute updatePeriod = 0.001 [SI::second];
+        }
+    }
+}
+tokens used
+3,380
+package DynamicTorqueSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Torque :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def AngularSpeed :> ISQ::angularVelocity {
+        unit = SI::radianPerSecond;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def TimeInterval :> ISQ::duration {
+        unit = SI::second;
+    }
+
+    attribute def DigitalCount :> ScalarValues::Integer;
+
+    attribute def Percent :> ScalarValues::Real {
+        unit = SI::percent;
+    }
+
+    item def ShaftTorqueSignal {
+        attribute torque : Torque;
+        attribute angularSpeed : AngularSpeed;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def ConditionedTorqueSignal {
+        attribute measuredTorque : Torque;
+        attribute measuredSpeed : AngularSpeed;
+        attribute sensorTemperature : Temperature;
+        attribute signalQuality : Percent;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def DigitalTorqueFrame {
+        attribute torqueCounts : DigitalCount;
+        attribute speedCounts : DigitalCount;
+        attribute temperatureCounts : DigitalCount;
+        attribute statusWord : DigitalCount;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def TorqueMeasurement {
+        attribute torque : Torque;
+        attribute angularSpeed : AngularSpeed;
+        attribute temperature : Temperature;
+        attribute uncertainty : Torque;
+        attribute valid : Boolean;
+        attribute timestamp : TimeInterval;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+    }
+
+    item def DiagnosticReport {
+        attribute sensorHealthy : Boolean;
+        attribute bridgeBalanced : Boolean;
+        attribute overloadDetected : Boolean;
+        attribute temperatureCompensationActive : Boolean;
+        attribute lastErrorCode : DigitalCount;
+    }
+
+    port def RotatingShaftPort {
+        in item mechanicalInput : ShaftTorqueSignal;
+        out item mechanicalReaction : ShaftTorqueSignal;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : ConditionedTorqueSignal;
+    }
+
+    port def DigitalDataPort {
+        out item measurement : TorqueMeasurement;
+        out item diagnostics : DiagnosticReport;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def ConfigurationPort {
+        in attribute zeroOffsetCommand : Boolean;
+        in attribute requestedSampleRate : Frequency;
+        in attribute torqueScaleFactor : Real;
+        in attribute enableSelfTest : Boolean;
+    }
+
+    action def SenseDynamicTorque {
+        in item shaftInput : ShaftTorqueSignal;
+        in attribute zeroOffset : Torque;
+        in attribute sensitivity : Real;
+        out item sensedSignal : ConditionedTorqueSignal;
+
+        bind sensedSignal.measuredTorque = shaftInput.torque - zeroOffset;
+        bind sensedSignal.measuredSpeed = shaftInput.angularSpeed;
+        bind sensedSignal.timestamp = shaftInput.timestamp;
+    }
+
+    action def ConditionDynamicTorqueSignal {
+        in item rawSignal : ConditionedTorqueSignal;
+        in attribute filterCutoff : Frequency;
+        in attribute gain : Real;
+        out item conditionedSignal : ConditionedTorqueSignal;
+
+        bind conditionedSignal.measuredTorque = rawSignal.measuredTorque * gain;
+        bind conditionedSignal.measuredSpeed = rawSignal.measuredSpeed;
+        bind conditionedSignal.sensorTemperature = rawSignal.sensorTemperature;
+        bind conditionedSignal.timestamp = rawSignal.timestamp;
+    }
+
+    action def ConvertTorqueSignalToDigital {
+        in item conditionedSignal : ConditionedTorqueSignal;
+        in attribute adcResolutionBits : DigitalCount;
+        in attribute fullScaleTorque : Torque;
+        out item frame : DigitalTorqueFrame;
+    }
+
+    action def EstimateTorqueMeasurement {
+        in item frame : DigitalTorqueFrame;
+        in attribute fullScaleTorque : Torque;
+        in attribute resolutionBits : DigitalCount;
+        in attribute calibratedUncertainty : Torque;
+        out item measurement : TorqueMeasurement;
+    }
+
+    action def RunSensorSelfTest {
+        out item report : DiagnosticReport;
+    }
+
+    state def SensingUnitOperatingState {
+        entry action initializeElectronics;
+        state Off;
+        state PoweringUp;
+        state SelfTesting;
+        state Zeroing;
+        state Measuring;
+        state Fault;
+
+        transition first Off;
+        transition powerApplied
+            first Off
+            then PoweringUp;
+
+        transition initialized
+            first PoweringUp
+            then SelfTesting;
+
+        transition selfTestPassed
+            first SelfTesting
+            then Zeroing;
+
+        transition zeroComplete
+            first Zeroing
+            then Measuring;
+
+        transition selfTestFailed
+            first SelfTesting
+            then Fault;
+
+        transition overloadFault
+            first Measuring
+            then Fault;
+
+        transition bridgeFault
+            first Measuring
+            then Fault;
+
+        transition resetFault
+            first Fault
+            then PoweringUp;
+    }
+
+    part def DynamicTorqueSensor {
+        port shaftPort : RotatingShaftPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute ratedTorque : Torque = 500 [SI::newtonMetre];
+        attribute overloadLimit : Torque = 750 [SI::newtonMetre];
+        attribute minimumDetectableTorque : Torque = 0.05 [SI::newtonMetre];
+        attribute nonLinearity : Percent = 0.1 [SI::percent];
+        attribute hysteresis : Percent = 0.05 [SI::percent];
+        attribute naturalFrequency : Frequency = 5000 [SI::hertz];
+        attribute operatingTemperatureMin : Temperature = -20 [SI::degreeCelsius];
+        attribute operatingTemperatureMax : Temperature = 85 [SI::degreeCelsius];
+        attribute bridgeExcitationVoltage : Voltage = 10 [SI::volt];
+        attribute sensitivityMillivoltPerVolt : Real = 2.0;
+
+        perform action sense : SenseDynamicTorque;
+    }
+
+    part def SignalConditioner {
+        port analogIn : AnalogSignalPort;
+        port analogOut : AnalogSignalPort;
+        port powerIn : PowerInputPort;
+
+        attribute amplifierGain : Real = 100.0;
+        attribute antiAliasFilterCutoff : Frequency = 1000 [SI::hertz];
+        attribute noiseDensity : Voltage = 0.000002 [SI::volt];
+        attribute temperatureCompensationEnabled : Boolean = true;
+
+        perform action condition : ConditionDynamicTorqueSignal;
+    }
+
+    part def AnalogToDigitalConverter {
+        port analogIn : AnalogSignalPort;
+        port digitalOut : DigitalDataPort;
+        port powerIn : PowerInputPort;
+
+        attribute resolutionBits : DigitalCount = 24;
+        attribute samplingRate : Frequency = 2000 [SI::hertz];
+        attribute referenceVoltage : Voltage = 5 [SI::volt];
+        attribute conversionLatency : TimeInterval = 0.0005 [SI::second];
+
+        perform action convert : ConvertTorqueSignalToDigital;
+    }
+
+    part def MeasurementProcessor {
+        port digitalIn : DigitalDataPort;
+        port measurementOut : DigitalDataPort;
+        port configuration : ConfigurationPort;
+        port powerIn : PowerInputPort;
+
+        attribute zeroOffset : Torque = 0 [SI::newtonMetre];
+        attribute fullScaleTorque : Torque = 500 [SI::newtonMetre];
+        attribute measurementUncertainty : Torque = 0.25 [SI::newtonMetre];
+        attribute updatePeriod : TimeInterval = 0.001 [SI::second];
+        attribute overloadLatched : Boolean = false;
+
+        perform action estimate : EstimateTorqueMeasurement;
+        perform action selfTest : RunSensorSelfTest;
+        exhibit state operatingState : SensingUnitOperatingState;
+    }
+
+    part def PowerRegulator {
+        port supplyInput : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port electronicsPower : PowerInputPort;
+
+        attribute nominalInputVoltage : Voltage = 24 [SI::volt];
+        attribute regulatedBridgeVoltage : Voltage = 10 [SI::volt];
+        attribute regulatedLogicVoltage : Voltage = 5 [SI::volt];
+        attribute maximumSupplyCurrent : Current = 0.25 [SI::ampere];
+        attribute rippleVoltage : Voltage = 0.005 [SI::volt];
+    }
+
+    part def SensingUnit {
+        port shaftInterface : RotatingShaftPort;
+        port measurementInterface : DigitalDataPort;
+        port powerInterface : PowerInputPort;
+        port configurationInterface : ConfigurationPort;
+
+        attribute measuredQuantity : String = "dynamic torque";
+        attribute nominalTorqueRange : Torque = 500 [SI::newtonMetre];
+        attribute maximumRotationalSpeed : AngularSpeed = 628.319 [SI::radianPerSecond];
+        attribute outputSampleRate : Frequency = 1000 [SI::hertz];
+        attribute totalMeasurementLatency : TimeInterval = 0.002 [SI::second];
+        attribute installedMass : Real = 1.8;
+
+        part sensor : DynamicTorqueSensor;
+        part conditioner : SignalConditioner;
+        part converter : AnalogToDigitalConverter;
+        part processor : MeasurementProcessor;
+        part regulator : PowerRegulator;
+
+        connect shaftInterface to sensor.shaftPort;
+        connect sensor.analogOut to conditioner.analogIn;
+        connect conditioner.analogOut to converter.analogIn;
+        connect converter.digitalOut to processor.digitalIn;
+        connect processor.measurementOut to measurementInterface;
+
+        connect powerInterface to regulator.supplyInput;
+        connect regulator.sensorPower to sensor.powerIn;
+        connect regulator.electronicsPower to conditioner.powerIn;
+        connect regulator.electronicsPower to converter.powerIn;
+        connect regulator.electronicsPower to processor.powerIn;
+
+        connect configurationInterface to processor.configuration;
+    }
+
+    requirement def MeasureDynamicTorqueRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantity == "dynamic torque"
+        }
+
+        doc /* The sensing unit shall measure shaft dynamic torque using a Dynamic torque sensor and provide a calibrated digital torque measurement. */
+    }
+
+    requirement def TorqueRangeRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.ratedTorque >= 500 [SI::newtonMetre]
+        }
+
+        doc /* The dynamic torque sensor shall support a rated bidirectional torque range of at least 500 N*m. */
+    }
+
+    requirement def BandwidthRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.naturalFrequency >= 5000 [SI::hertz] and
+            sensingUnit.conditioner.antiAliasFilterCutoff >= 1000 [SI::hertz]
+        }
+
+        doc /* The sensing chain shall preserve dynamic torque content up to 1000 Hz without aliasing into the reported measurement. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.processor.measurementUncertainty <= 0.25 [SI::newtonMetre]
+        }
+
+        doc /* The reported torque measurement uncertainty shall not exceed 0.25 N*m after calibration over the rated operating range. */
+    }
+
+    requirement def LatencyRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.totalMeasurementLatency <= 0.002 [SI::second]
+        }
+
+        doc /* The sensing unit shall report each dynamic torque measurement within 2 ms of shaft torque application. */
+    }
+
+    requirement def OverloadProtectionRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.overloadLimit >= 1.5 * sensingUnit.sensor.ratedTorque
+        }
+
+        doc /* The Dynamic torque sensor shall tolerate overload events of at least 150 percent of rated torque and report an overload diagnostic. */
+    }
+
+    requirement def TemperatureOperationRequirement {
+        subject sensingUnit : SensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.operatingTemperatureMin <= -20 [SI::degreeCelsius] and
+            sensingUnit.sensor.operatingTemperatureMax >= 85 [SI::degreeCelsius]
+        }
+
+        doc /* The sensing unit shall operate across the specified industrial temperature range while maintaining temperature compensation. */
+    }
+
+    satisfy MeasureDynamicTorqueRequirement by SensingUnit;
+    satisfy TorqueRangeRequirement by SensingUnit;
+    satisfy BandwidthRequirement by SensingUnit;
+    satisfy AccuracyRequirement by SensingUnit;
+    satisfy LatencyRequirement by SensingUnit;
+    satisfy OverloadProtectionRequirement by SensingUnit;
+    satisfy TemperatureOperationRequirement by SensingUnit;
+
+    part installedDynamicTorqueSensingUnit : SensingUnit {
+        attribute nominalTorqueRange = 500 [SI::newtonMetre];
+        attribute maximumRotationalSpeed = 628.319 [SI::radianPerSecond];
+        attribute outputSampleRate = 1000 [SI::hertz];
+        attribute totalMeasurementLatency = 0.002 [SI::second];
+
+        part sensor {
+            attribute ratedTorque = 500 [SI::newtonMetre];
+            attribute overloadLimit = 750 [SI::newtonMetre];
+            attribute naturalFrequency = 5000 [SI::hertz];
+        }
+
+        part conditioner {
+            attribute amplifierGain = 100.0;
+            attribute antiAliasFilterCutoff = 1000 [SI::hertz];
+            attribute temperatureCompensationEnabled = true;
+        }
+
+        part converter {
+            attribute resolutionBits = 24;
+            attribute samplingRate = 2000 [SI::hertz];
+            attribute conversionLatency = 0.0005 [SI::second];
+        }
+
+        part processor {
+            attribute fullScaleTorque = 500 [SI::newtonMetre];
+            attribute measurementUncertainty = 0.25 [SI::newtonMetre];
+            attribute updatePeriod = 0.001 [SI::second];
+        }
+    }
+}

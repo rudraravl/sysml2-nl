@@ -1,0 +1,316 @@
+package BimetallicStripThermalSwitchModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Length :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Thickness :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Width :> ISQ::length {
+        unit = SI::millimetre;
+    }
+
+    attribute def Curvature :> ScalarValues::Real {
+        unit = SI::onePerMetre;
+    }
+
+    attribute def Force :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def TimeDuration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def ThermalExpansionCoefficient :> ScalarValues::Real {
+        unit = SI::onePerKelvin;
+    }
+
+    item def HeatFlow {
+        attribute temperature : Temperature;
+        attribute heatRate : ISQ::power;
+    }
+
+    item def ElectricalSignal {
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    item def MechanicalDeflection {
+        attribute tipDisplacement : Length;
+        attribute contactForce : Force;
+        attribute stripCurvature : Curvature;
+    }
+
+    port def ThermalPort {
+        in item heatInput : HeatFlow;
+    }
+
+    port def ElectricalPort {
+        inout item signal : ElectricalSignal;
+    }
+
+    port def MechanicalPort {
+        out item deflection : MechanicalDeflection;
+    }
+
+    part def MetalLayer {
+        attribute layerLength : Length;
+        attribute layerWidth : Width;
+        attribute layerThickness : Thickness;
+        attribute expansionCoefficient : ThermalExpansionCoefficient;
+        attribute elasticModulus : ISQ::pressure;
+        attribute currentTemperature : Temperature;
+    }
+
+    part def BimetallicStrip {
+        port thermalInterface : ThermalPort;
+        port motionOutput : MechanicalPort;
+
+        part highExpansionLayer : MetalLayer {
+            attribute layerLength = 45 [SI::millimetre];
+            attribute layerWidth = 8 [SI::millimetre];
+            attribute layerThickness = 0.35 [SI::millimetre];
+            attribute expansionCoefficient = 19.0e-6 [SI::onePerKelvin];
+        }
+
+        part lowExpansionLayer : MetalLayer {
+            attribute layerLength = 45 [SI::millimetre];
+            attribute layerWidth = 8 [SI::millimetre];
+            attribute layerThickness = 0.35 [SI::millimetre];
+            attribute expansionCoefficient = 11.0e-6 [SI::onePerKelvin];
+        }
+
+        attribute referenceTemperature : Temperature = 20 [SI::degreeCelsius];
+        attribute sensedTemperature : Temperature;
+        attribute freeEndDisplacement : Length;
+        attribute producedCurvature : Curvature;
+        attribute actuationThresholdDisplacement : Length = 2.0 [SI::millimetre];
+
+        action calculateThermalDeflection {
+            in attribute inputTemperature : Temperature;
+            out attribute outputDisplacement : Length;
+            out attribute outputCurvature : Curvature;
+
+            first start;
+            then computeTemperatureRise;
+            then computeCurvature;
+            then computeTipDisplacement;
+            then done;
+
+            action computeTemperatureRise {
+                in attribute ambient : Temperature = inputTemperature;
+                out attribute deltaTemperature : ScalarValues::Real;
+            }
+
+            action computeCurvature {
+                in attribute deltaTemperature : ScalarValues::Real;
+                out attribute curvatureResult : Curvature = 14.2 [SI::onePerMetre];
+            }
+
+            action computeTipDisplacement {
+                in attribute curvatureInput : Curvature = outputCurvature;
+                out attribute displacementResult : Length = outputDisplacement;
+            }
+        }
+    }
+
+    part def FixedSupport {
+        port thermalInterface : ThermalPort;
+        attribute clampLength : Length = 5 [SI::millimetre];
+        attribute maximumAllowedMotion : Length = 0.05 [SI::millimetre];
+    }
+
+    part def MovableContact {
+        port mechanicalInput : MechanicalPort;
+        port electricalTerminal : ElectricalPort;
+
+        attribute contactGap : Length = 1.8 [SI::millimetre];
+        attribute requiredClosingForce : Force = 0.15 [SI::newton];
+        attribute contactResistance : ISQ::resistance = 0.025 [SI::ohm];
+        attribute isClosed : Boolean = false;
+    }
+
+    part def FixedContact {
+        port electricalTerminal : ElectricalPort;
+        attribute contactMaterialConductivity : ISQ::conductivity;
+        attribute contactSurfaceWidth : Width = 3 [SI::millimetre];
+    }
+
+    part def ThermalLoadInterface {
+        port thermalOutput : ThermalPort;
+        attribute monitoredTemperature : Temperature;
+        attribute normalOperatingTemperature : Temperature = 40 [SI::degreeCelsius];
+        attribute tripTemperature : Temperature = 85 [SI::degreeCelsius];
+        attribute resetTemperature : Temperature = 65 [SI::degreeCelsius];
+    }
+
+    part def ElectricalCircuitInterface {
+        port sourceTerminal : ElectricalPort;
+        port loadTerminal : ElectricalPort;
+        attribute nominalVoltage : Voltage = 24 [SI::volt];
+        attribute maximumCurrent : Current = 5 [SI::ampere];
+    }
+
+    part def BimetallicStripThermalSwitch {
+        port heatSensingPort : ThermalPort;
+        port circuitInput : ElectricalPort;
+        port circuitOutput : ElectricalPort;
+
+        part thermalSource : ThermalLoadInterface;
+        part support : FixedSupport;
+        part strip : BimetallicStrip;
+        part movableContact : MovableContact;
+        part fixedContact : FixedContact;
+        part circuit : ElectricalCircuitInterface;
+
+        attribute switchTemperature : Temperature;
+        attribute switchClosed : Boolean;
+        attribute tripSetpoint : Temperature = 85 [SI::degreeCelsius];
+        attribute resetSetpoint : Temperature = 65 [SI::degreeCelsius];
+        attribute responseTime : TimeDuration <= 3 [SI::second];
+
+        connect heatSensingPort to thermalSource.thermalOutput;
+        connect thermalSource.thermalOutput to strip.thermalInterface;
+        connect thermalSource.thermalOutput to support.thermalInterface;
+        connect strip.motionOutput to movableContact.mechanicalInput;
+        connect circuitInput to circuit.sourceTerminal;
+        connect circuit.sourceTerminal to movableContact.electricalTerminal;
+        connect movableContact.electricalTerminal to fixedContact.electricalTerminal;
+        connect fixedContact.electricalTerminal to circuit.loadTerminal;
+        connect circuit.loadTerminal to circuitOutput;
+
+        action senseTemperature {
+            in item heat : HeatFlow;
+            out attribute measuredTemperature : Temperature;
+        }
+
+        action openCircuit {
+            out attribute switchClosedState : Boolean = false;
+        }
+
+        action closeCircuit {
+            out attribute switchClosedState : Boolean = true;
+        }
+
+        action convertHeatToMotion {
+            in attribute measuredTemperature : Temperature;
+            out item deflection : MechanicalDeflection;
+        }
+
+        action actuateContacts {
+            in item deflection : MechanicalDeflection;
+            out attribute contactsClosed : Boolean;
+        }
+
+        state def OperatingState {
+            entry action senseTemperature;
+
+            state ClosedConducting {
+                entry action closeCircuit;
+            }
+
+            state HeatingDeflecting {
+                do action convertHeatToMotion;
+            }
+
+            state OpenTripped {
+                entry action openCircuit;
+            }
+
+            state CoolingResetting {
+                do action convertHeatToMotion;
+            }
+
+            transition initial then ClosedConducting;
+
+            transition ClosedConducting to HeatingDeflecting
+                if switchTemperature >= resetSetpoint;
+
+            transition HeatingDeflecting to OpenTripped
+                if switchTemperature >= tripSetpoint;
+
+            transition OpenTripped to CoolingResetting
+                if switchTemperature < tripSetpoint;
+
+            transition CoolingResetting to ClosedConducting
+                if switchTemperature <= resetSetpoint;
+        }
+
+        exhibit state OperatingState;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : BimetallicStripThermalSwitch;
+
+        doc /* The system shall use differential thermal expansion in a bonded bimetallic strip to convert temperature change into mechanical bending, and shall use that bending to open or close an electrical contact at defined temperature thresholds. */
+
+        require constraint {
+            system.tripSetpoint > system.resetSetpoint
+        }
+    }
+
+    requirement def ThermalActuationRequirement {
+        subject strip : BimetallicStrip;
+
+        doc /* The strip shall produce sufficient free-end displacement to actuate the movable contact when exposed to the trip temperature. */
+
+        require constraint {
+            strip.freeEndDisplacement >= strip.actuationThresholdDisplacement
+        }
+    }
+
+    requirement def ElectricalIsolationRequirement {
+        subject system : BimetallicStripThermalSwitch;
+
+        doc /* When the system is in the OpenTripped state, the electrical path between circuitInput and circuitOutput shall be interrupted. */
+
+        require constraint {
+            system.switchClosed == false
+        }
+    }
+
+    requirement def ResetRequirement {
+        subject system : BimetallicStripThermalSwitch;
+
+        doc /* The system shall reclose the electrical contact after cooling below the reset temperature. */
+
+        require constraint {
+            system.resetSetpoint < system.tripSetpoint
+        }
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject system : BimetallicStripThermalSwitch;
+
+        doc /* The system shall complete thermal trip actuation within three seconds after the sensed temperature reaches the trip setpoint. */
+
+        require constraint {
+            system.responseTime <= 3 [SI::second]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by BimetallicStripThermalSwitch;
+    satisfy ThermalActuationRequirement by BimetallicStripThermalSwitch::strip;
+    satisfy ElectricalIsolationRequirement by BimetallicStripThermalSwitch;
+    satisfy ResetRequirement by BimetallicStripThermalSwitch;
+    satisfy ResponseTimeRequirement by BimetallicStripThermalSwitch;
+}

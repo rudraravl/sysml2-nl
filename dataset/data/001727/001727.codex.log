@@ -1,0 +1,933 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-8qkv05xp
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7d8-60e6-7ec1-ab86-d0530eec35c8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Samsung Electronics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SamsungElectronicsSmartDeviceModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  enum def SecurityMode {
+    enum none;
+    enum pin;
+    enum fingerprint;
+    enum faceRecognition;
+  }
+
+  enum def NetworkMode {
+    enum offline;
+    enum lte;
+    enum nr5g;
+    enum wifi;
+    enum bluetooth;
+  }
+
+  enum def ChargingMode {
+    enum unplugged;
+    enum wiredUsbC;
+    enum wirelessQi;
+    enum reverseWireless;
+  }
+
+  value def ElectricPotentialValue :> Real {
+    unit = "V";
+  }
+
+  value def ElectricCurrentValue :> Real {
+    unit = "A";
+  }
+
+  value def ElectricPowerValue :> Real {
+    unit = "W";
+  }
+
+  value def EnergyCapacityValue :> Real {
+    unit = "Wh";
+  }
+
+  value def FrequencyValue :> Real {
+    unit = "GHz";
+  }
+
+  value def DataRateValue :> Real {
+    unit = "Gbps";
+  }
+
+  value def StorageCapacityValue :> Real {
+    unit = "GB";
+  }
+
+  value def TemperatureValue :> Real {
+    unit = "degC";
+  }
+
+  value def ResolutionValue :> Real {
+    unit = "MP";
+  }
+
+  value def LengthValue :> Real {
+    unit = "mm";
+  }
+
+  value def MassValue :> Real {
+    unit = "g";
+  }
+
+  value def PercentageValue :> Real {
+    unit = "%";
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricPotentialValue;
+    attribute current : ElectricCurrentValue;
+    attribute power : ElectricPowerValue;
+  }
+
+  item def DigitalData {
+    attribute size : StorageCapacityValue;
+    attribute dataRate : DataRateValue;
+    attribute encrypted : Boolean;
+  }
+
+  item def RadioSignal {
+    attribute carrierFrequency : FrequencyValue;
+    attribute bandwidth : FrequencyValue;
+    attribute dataRate : DataRateValue;
+    attribute network : NetworkMode;
+  }
+
+  item def AudioSignal {
+    attribute sampleRate : FrequencyValue;
+    attribute channels : Integer;
+  }
+
+  item def ImageFrame {
+    attribute resolution : ResolutionValue;
+    attribute stabilized : Boolean;
+    attribute hdrEnabled : Boolean;
+  }
+
+  item def UserCommand {
+    attribute authenticated : Boolean;
+    attribute securityMode : SecurityMode;
+    attribute commandName : String;
+  }
+
+  port def UsbCPort {
+    in item powerIn : ElectricalEnergy;
+    inout item userData : DigitalData;
+  }
+
+  port def WirelessPowerPort {
+    in item wirelessEnergy : ElectricalEnergy;
+  }
+
+  port def RadioPort {
+    inout item rf : RadioSignal;
+  }
+
+  port def AudioPort {
+    out item speakerAudio : AudioSignal;
+    in item microphoneAudio : AudioSignal;
+  }
+
+  port def DisplayTouchPort {
+    out item imageOut : ImageFrame;
+    in item touchCommand : UserCommand;
+  }
+
+  port def CameraPort {
+    out item capturedFrame : ImageFrame;
+  }
+
+  port def InternalDataPort {
+    inout item data : DigitalData;
+  }
+
+  port def InternalPowerPort {
+    inout item power : ElectricalEnergy;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : ElectricPotentialValue = 3.88;
+    attribute capacity : EnergyCapacityValue = 19.25;
+    attribute stateOfCharge : PercentageValue;
+    attribute temperature : TemperatureValue;
+    port powerBus : InternalPowerPort;
+    port wirelessChargeInput : WirelessPowerPort;
+  }
+
+  part def PowerManagementIntegratedCircuit {
+    attribute maxWiredChargingPower : ElectricPowerValue = 45.0;
+    attribute maxWirelessChargingPower : ElectricPowerValue = 15.0;
+    attribute thermalLimit : TemperatureValue = 45.0;
+    port usbInput : UsbCPort;
+    port batteryPower : InternalPowerPort;
+    port systemPower : InternalPowerPort;
+  }
+
+  part def ApplicationProcessor {
+    attribute cpuClock : FrequencyValue = 3.39;
+    attribute neuralProcessingRate : DataRateValue = 14.7;
+    attribute operatingTemperature : TemperatureValue;
+    port power : InternalPowerPort;
+    port dataFabric : InternalDataPort;
+  }
+
+  part def MemorySubsystem {
+    attribute volatileMemory : StorageCapacityValue = 12.0;
+    attribute persistentStorage : StorageCapacityValue = 256.0;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def DisplayAssembly {
+    attribute diagonal : LengthValue = 169.0;
+    attribute refreshRate : FrequencyValue = 0.120;
+    attribute peakBrightness : Real = 1750.0;
+    port userInterface : DisplayTouchPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def CameraSubsystem {
+    attribute wideCameraResolution : ResolutionValue = 50.0;
+    attribute ultraWideCameraResolution : ResolutionValue = 12.0;
+    attribute telephotoCameraResolution : ResolutionValue = 10.0;
+    attribute opticalStabilizationAvailable : Boolean = true;
+    port cameraOut : CameraPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def CellularWifiBluetoothModem {
+    attribute cellularBandsSupported : Integer = 24;
+    attribute wifiMaxRate : DataRateValue = 5.8;
+    attribute bluetoothVersion : Real = 5.3;
+    port antenna : RadioPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def AudioSubsystem {
+    attribute speakerCount : Integer = 2;
+    attribute microphoneCount : Integer = 3;
+    port acousticInterface : AudioPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def SecureElement {
+    attribute trustedExecutionEnabled : Boolean = true;
+    attribute biometricTemplatesStored : Integer;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def ThermalManagementSystem {
+    attribute vaporChamberArea : Real = 3895.0;
+    attribute nominalSkinTemperatureLimit : TemperatureValue = 43.0;
+    port processorPowerTelemetry : InternalPowerPort;
+    port systemData : InternalDataPort;
+  }
+
+  action def AuthenticateUser {
+    in item command : UserCommand;
+    out item authenticatedCommand : UserCommand;
+    attribute allowed : Boolean;
+  }
+
+  action def CaptureAndProcessImage {
+    in item rawFrame : ImageFrame;
+    out item processedFrame : ImageFrame;
+    attribute nightModeEnabled : Boolean;
+    attribute aiEnhancementEnabled : Boolean;
+  }
+
+  action def RouteCommunication {
+    inout item networkSignal : RadioSignal;
+    inout item payload : DigitalData;
+    attribute selectedNetwork : NetworkMode;
+  }
+
+  action def ManagePowerAndThermals {
+    in item availableEnergy : ElectricalEnergy;
+    out item regulatedEnergy : ElectricalEnergy;
+    attribute chargingMode : ChargingMode;
+    attribute throttleProcessor : Boolean;
+  }
+
+  action def PresentInteractiveExperience {
+    in item applicationData : DigitalData;
+    out item displayFrame : ImageFrame;
+    in item userCommand : UserCommand;
+    out item responseData : DigitalData;
+  }
+
+  state def SmartDeviceOperatingState {
+    entry action initializeTelemetry;
+    state off;
+    state booting;
+    state locked;
+    state active;
+    state cameraMode;
+    state communicationMode;
+    state charging;
+    state lowPower;
+    state thermalProtection;
+    state fault;
+
+    transition first off;
+    transition off_to_booting
+      first off
+      then booting
+      accept UserCommand
+      if commandName == "powerButtonLongPress";
+
+    transition booting_to_locked
+      first booting
+      then locked
+      if authenticated == false;
+
+    transition locked_to_active
+      first locked
+      then active
+      accept UserCommand
+      if authenticated == true;
+
+    transition active_to_camera
+      first active
+      then cameraMode
+      accept UserCommand
+      if commandName == "openCamera";
+
+    transition camera_to_active
+      first cameraMode
+      then active
+      accept UserCommand
+      if commandName == "closeCamera";
+
+    transition active_to_communication
+      first active
+      then communicationMode
+      accept UserCommand
+      if commandName == "placeCall" or commandName == "sendData";
+
+    transition communication_to_active
+      first communicationMode
+      then active
+      accept UserCommand
+      if commandName == "endCommunication";
+
+    transition active_to_charging
+      first active
+      then charging
+      if chargingMode != ChargingMode::unplugged;
+
+    transition charging_to_active
+      first charging
+      then active
+      if chargingMode == ChargingMode::unplugged;
+
+    transition active_to_lowPower
+      first active
+      then lowPower
+      if stateOfCharge < 15.0;
+
+    transition lowPower_to_active
+      first lowPower
+      then active
+      if stateOfCharge > 25.0;
+
+    transition active_to_thermalProtection
+      first active
+      then thermalProtection
+      if operatingTemperature > 43.0;
+
+    transition thermalProtection_to_active
+      first thermalProtection
+      then active
+      if operatingTemperature < 38.0;
+
+    transition any_to_fault
+      first active
+      then fault
+      if operatingTemperature > 60.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : GalaxySmartphoneSystem;
+    require constraint {
+      device.providesMobileComputing == true
+    }
+    doc /* The system shall provide portable mobile computing by integrating communication, imaging, media, secure user interaction, application execution, and managed battery power in a handheld Samsung Electronics smartphone architecture. */
+  }
+
+  requirement def BatteryLifeRequirement {
+    subject battery : BatteryPack;
+    require constraint {
+      battery.capacity >= 18.0
+    }
+  }
+
+  requirement def SecureAccessRequirement {
+    subject secureElement : SecureElement;
+    require constraint {
+      secureElement.trustedExecutionEnabled == true
+    }
+  }
+
+  requirement def WirelessCommunicationRequirement {
+    subject modem : CellularWifiBluetoothModem;
+    require constraint {
+      modem.wifiMaxRate >= 5.0 and modem.bluetoothVersion >= 5.0
+    }
+  }
+
+  requirement def ImagingRequirement {
+    subject camera : CameraSubsystem;
+    require constraint {
+      camera.wideCameraResolution >= 50.0 and camera.opticalStabilizationAvailable == true
+    }
+  }
+
+  part def GalaxySmartphoneSystem {
+    attribute brand : String = "Samsung Electronics";
+    attribute productFamily : String = "Galaxy smartphone";
+    attribute providesMobileComputing : Boolean = true;
+    attribute mass : MassValue = 196.0;
+    attribute thickness : LengthValue = 8.6;
+    attribute ingressProtectionRated : Boolean = true;
+
+    port usbC : UsbCPort;
+    port wirelessChargingCoil : WirelessPowerPort;
+    port cellularWifiBluetoothAntenna : RadioPort;
+    port speakerMicrophoneArray : AudioPort;
+    port displayAndTouchSurface : DisplayTouchPort;
+    port cameraApertures : CameraPort;
+
+    part battery : BatteryPack;
+    part powerManager : PowerManagementIntegratedCircuit;
+    part processor : ApplicationProcessor;
+    part memory : MemorySubsystem;
+    part display : DisplayAssembly;
+    part cameras : CameraSubsystem;
+    part modem : CellularWifiBluetoothModem;
+    part audio : AudioSubsystem;
+    part secureElement : SecureElement;
+    part thermalSystem : ThermalManagementSystem;
+
+    connection usb_to_powerManager connect usbC to powerManager.usbInput;
+    connection wireless_to_battery connect wirelessChargingCoil to battery.wirelessChargeInput;
+    connection battery_to_powerManager connect battery.powerBus to powerManager.batteryPower;
+    connection powerManager_to_processor connect powerManager.systemPower to processor.power;
+    connection powerManager_to_memory connect powerManager.systemPower to memory.power;
+    connection powerManager_to_display connect powerManager.systemPower to display.power;
+    connection powerManager_to_camera connect powerManager.systemPower to cameras.power;
+    connection powerManager_to_modem connect powerManager.systemPower to modem.power;
+    connection powerManager_to_audio connect powerManager.systemPower to audio.power;
+    connection powerManager_to_secureElement connect powerManager.systemPower to secureElement.power;
+
+    connection processor_to_memory connect processor.dataFabric to memory.dataFabric;
+    connection processor_to_display connect processor.dataFabric to display.dataFabric;
+    connection processor_to_camera connect processor.dataFabric to cameras.dataFabric;
+    connection processor_to_modem connect processor.dataFabric to modem.dataFabric;
+    connection processor_to_audio connect processor.dataFabric to audio.dataFabric;
+    connection processor_to_secureElement connect processor.dataFabric to secureElement.dataFabric;
+    connection processor_to_thermal connect processor.dataFabric to thermalSystem.systemData;
+
+    connection display_external connect displayAndTouchSurface to display.userInterface;
+    connection camera_external connect cameraApertures to cameras.cameraOut;
+    connection modem_external connect cellularWifiBluetoothAntenna to modem.antenna;
+    connection audio_external connect speakerMicrophoneArray to audio.acousticInterface;
+
+    perform action authenticate : AuthenticateUser;
+    perform action powerThermalControl : ManagePowerAndThermals;
+    perform action mobileExperience : PresentInteractiveExperience;
+    perform action imagePipeline : CaptureAndProcessImage;
+    perform action communications : RouteCommunication;
+
+    exhibit state lifecycle : SmartDeviceOperatingState;
+
+    satisfy PrimaryFunctionRequirement by this;
+    satisfy BatteryLifeRequirement by battery;
+    satisfy SecureAccessRequirement by secureElement;
+    satisfy WirelessCommunicationRequirement by modem;
+    satisfy ImagingRequirement by cameras;
+  }
+
+  part samsungGalaxyDevice : GalaxySmartphoneSystem;
+
+}
+tokens used
+3,637
+package SamsungElectronicsSmartDeviceModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  enum def SecurityMode {
+    enum none;
+    enum pin;
+    enum fingerprint;
+    enum faceRecognition;
+  }
+
+  enum def NetworkMode {
+    enum offline;
+    enum lte;
+    enum nr5g;
+    enum wifi;
+    enum bluetooth;
+  }
+
+  enum def ChargingMode {
+    enum unplugged;
+    enum wiredUsbC;
+    enum wirelessQi;
+    enum reverseWireless;
+  }
+
+  value def ElectricPotentialValue :> Real {
+    unit = "V";
+  }
+
+  value def ElectricCurrentValue :> Real {
+    unit = "A";
+  }
+
+  value def ElectricPowerValue :> Real {
+    unit = "W";
+  }
+
+  value def EnergyCapacityValue :> Real {
+    unit = "Wh";
+  }
+
+  value def FrequencyValue :> Real {
+    unit = "GHz";
+  }
+
+  value def DataRateValue :> Real {
+    unit = "Gbps";
+  }
+
+  value def StorageCapacityValue :> Real {
+    unit = "GB";
+  }
+
+  value def TemperatureValue :> Real {
+    unit = "degC";
+  }
+
+  value def ResolutionValue :> Real {
+    unit = "MP";
+  }
+
+  value def LengthValue :> Real {
+    unit = "mm";
+  }
+
+  value def MassValue :> Real {
+    unit = "g";
+  }
+
+  value def PercentageValue :> Real {
+    unit = "%";
+  }
+
+  item def ElectricalEnergy {
+    attribute voltage : ElectricPotentialValue;
+    attribute current : ElectricCurrentValue;
+    attribute power : ElectricPowerValue;
+  }
+
+  item def DigitalData {
+    attribute size : StorageCapacityValue;
+    attribute dataRate : DataRateValue;
+    attribute encrypted : Boolean;
+  }
+
+  item def RadioSignal {
+    attribute carrierFrequency : FrequencyValue;
+    attribute bandwidth : FrequencyValue;
+    attribute dataRate : DataRateValue;
+    attribute network : NetworkMode;
+  }
+
+  item def AudioSignal {
+    attribute sampleRate : FrequencyValue;
+    attribute channels : Integer;
+  }
+
+  item def ImageFrame {
+    attribute resolution : ResolutionValue;
+    attribute stabilized : Boolean;
+    attribute hdrEnabled : Boolean;
+  }
+
+  item def UserCommand {
+    attribute authenticated : Boolean;
+    attribute securityMode : SecurityMode;
+    attribute commandName : String;
+  }
+
+  port def UsbCPort {
+    in item powerIn : ElectricalEnergy;
+    inout item userData : DigitalData;
+  }
+
+  port def WirelessPowerPort {
+    in item wirelessEnergy : ElectricalEnergy;
+  }
+
+  port def RadioPort {
+    inout item rf : RadioSignal;
+  }
+
+  port def AudioPort {
+    out item speakerAudio : AudioSignal;
+    in item microphoneAudio : AudioSignal;
+  }
+
+  port def DisplayTouchPort {
+    out item imageOut : ImageFrame;
+    in item touchCommand : UserCommand;
+  }
+
+  port def CameraPort {
+    out item capturedFrame : ImageFrame;
+  }
+
+  port def InternalDataPort {
+    inout item data : DigitalData;
+  }
+
+  port def InternalPowerPort {
+    inout item power : ElectricalEnergy;
+  }
+
+  part def BatteryPack {
+    attribute nominalVoltage : ElectricPotentialValue = 3.88;
+    attribute capacity : EnergyCapacityValue = 19.25;
+    attribute stateOfCharge : PercentageValue;
+    attribute temperature : TemperatureValue;
+    port powerBus : InternalPowerPort;
+    port wirelessChargeInput : WirelessPowerPort;
+  }
+
+  part def PowerManagementIntegratedCircuit {
+    attribute maxWiredChargingPower : ElectricPowerValue = 45.0;
+    attribute maxWirelessChargingPower : ElectricPowerValue = 15.0;
+    attribute thermalLimit : TemperatureValue = 45.0;
+    port usbInput : UsbCPort;
+    port batteryPower : InternalPowerPort;
+    port systemPower : InternalPowerPort;
+  }
+
+  part def ApplicationProcessor {
+    attribute cpuClock : FrequencyValue = 3.39;
+    attribute neuralProcessingRate : DataRateValue = 14.7;
+    attribute operatingTemperature : TemperatureValue;
+    port power : InternalPowerPort;
+    port dataFabric : InternalDataPort;
+  }
+
+  part def MemorySubsystem {
+    attribute volatileMemory : StorageCapacityValue = 12.0;
+    attribute persistentStorage : StorageCapacityValue = 256.0;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def DisplayAssembly {
+    attribute diagonal : LengthValue = 169.0;
+    attribute refreshRate : FrequencyValue = 0.120;
+    attribute peakBrightness : Real = 1750.0;
+    port userInterface : DisplayTouchPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def CameraSubsystem {
+    attribute wideCameraResolution : ResolutionValue = 50.0;
+    attribute ultraWideCameraResolution : ResolutionValue = 12.0;
+    attribute telephotoCameraResolution : ResolutionValue = 10.0;
+    attribute opticalStabilizationAvailable : Boolean = true;
+    port cameraOut : CameraPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def CellularWifiBluetoothModem {
+    attribute cellularBandsSupported : Integer = 24;
+    attribute wifiMaxRate : DataRateValue = 5.8;
+    attribute bluetoothVersion : Real = 5.3;
+    port antenna : RadioPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def AudioSubsystem {
+    attribute speakerCount : Integer = 2;
+    attribute microphoneCount : Integer = 3;
+    port acousticInterface : AudioPort;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def SecureElement {
+    attribute trustedExecutionEnabled : Boolean = true;
+    attribute biometricTemplatesStored : Integer;
+    port dataFabric : InternalDataPort;
+    port power : InternalPowerPort;
+  }
+
+  part def ThermalManagementSystem {
+    attribute vaporChamberArea : Real = 3895.0;
+    attribute nominalSkinTemperatureLimit : TemperatureValue = 43.0;
+    port processorPowerTelemetry : InternalPowerPort;
+    port systemData : InternalDataPort;
+  }
+
+  action def AuthenticateUser {
+    in item command : UserCommand;
+    out item authenticatedCommand : UserCommand;
+    attribute allowed : Boolean;
+  }
+
+  action def CaptureAndProcessImage {
+    in item rawFrame : ImageFrame;
+    out item processedFrame : ImageFrame;
+    attribute nightModeEnabled : Boolean;
+    attribute aiEnhancementEnabled : Boolean;
+  }
+
+  action def RouteCommunication {
+    inout item networkSignal : RadioSignal;
+    inout item payload : DigitalData;
+    attribute selectedNetwork : NetworkMode;
+  }
+
+  action def ManagePowerAndThermals {
+    in item availableEnergy : ElectricalEnergy;
+    out item regulatedEnergy : ElectricalEnergy;
+    attribute chargingMode : ChargingMode;
+    attribute throttleProcessor : Boolean;
+  }
+
+  action def PresentInteractiveExperience {
+    in item applicationData : DigitalData;
+    out item displayFrame : ImageFrame;
+    in item userCommand : UserCommand;
+    out item responseData : DigitalData;
+  }
+
+  state def SmartDeviceOperatingState {
+    entry action initializeTelemetry;
+    state off;
+    state booting;
+    state locked;
+    state active;
+    state cameraMode;
+    state communicationMode;
+    state charging;
+    state lowPower;
+    state thermalProtection;
+    state fault;
+
+    transition first off;
+    transition off_to_booting
+      first off
+      then booting
+      accept UserCommand
+      if commandName == "powerButtonLongPress";
+
+    transition booting_to_locked
+      first booting
+      then locked
+      if authenticated == false;
+
+    transition locked_to_active
+      first locked
+      then active
+      accept UserCommand
+      if authenticated == true;
+
+    transition active_to_camera
+      first active
+      then cameraMode
+      accept UserCommand
+      if commandName == "openCamera";
+
+    transition camera_to_active
+      first cameraMode
+      then active
+      accept UserCommand
+      if commandName == "closeCamera";
+
+    transition active_to_communication
+      first active
+      then communicationMode
+      accept UserCommand
+      if commandName == "placeCall" or commandName == "sendData";
+
+    transition communication_to_active
+      first communicationMode
+      then active
+      accept UserCommand
+      if commandName == "endCommunication";
+
+    transition active_to_charging
+      first active
+      then charging
+      if chargingMode != ChargingMode::unplugged;
+
+    transition charging_to_active
+      first charging
+      then active
+      if chargingMode == ChargingMode::unplugged;
+
+    transition active_to_lowPower
+      first active
+      then lowPower
+      if stateOfCharge < 15.0;
+
+    transition lowPower_to_active
+      first lowPower
+      then active
+      if stateOfCharge > 25.0;
+
+    transition active_to_thermalProtection
+      first active
+      then thermalProtection
+      if operatingTemperature > 43.0;
+
+    transition thermalProtection_to_active
+      first thermalProtection
+      then active
+      if operatingTemperature < 38.0;
+
+    transition any_to_fault
+      first active
+      then fault
+      if operatingTemperature > 60.0;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject device : GalaxySmartphoneSystem;
+    require constraint {
+      device.providesMobileComputing == true
+    }
+    doc /* The system shall provide portable mobile computing by integrating communication, imaging, media, secure user interaction, application execution, and managed battery power in a handheld Samsung Electronics smartphone architecture. */
+  }
+
+  requirement def BatteryLifeRequirement {
+    subject battery : BatteryPack;
+    require constraint {
+      battery.capacity >= 18.0
+    }
+  }
+
+  requirement def SecureAccessRequirement {
+    subject secureElement : SecureElement;
+    require constraint {
+      secureElement.trustedExecutionEnabled == true
+    }
+  }
+
+  requirement def WirelessCommunicationRequirement {
+    subject modem : CellularWifiBluetoothModem;
+    require constraint {
+      modem.wifiMaxRate >= 5.0 and modem.bluetoothVersion >= 5.0
+    }
+  }
+
+  requirement def ImagingRequirement {
+    subject camera : CameraSubsystem;
+    require constraint {
+      camera.wideCameraResolution >= 50.0 and camera.opticalStabilizationAvailable == true
+    }
+  }
+
+  part def GalaxySmartphoneSystem {
+    attribute brand : String = "Samsung Electronics";
+    attribute productFamily : String = "Galaxy smartphone";
+    attribute providesMobileComputing : Boolean = true;
+    attribute mass : MassValue = 196.0;
+    attribute thickness : LengthValue = 8.6;
+    attribute ingressProtectionRated : Boolean = true;
+
+    port usbC : UsbCPort;
+    port wirelessChargingCoil : WirelessPowerPort;
+    port cellularWifiBluetoothAntenna : RadioPort;
+    port speakerMicrophoneArray : AudioPort;
+    port displayAndTouchSurface : DisplayTouchPort;
+    port cameraApertures : CameraPort;
+
+    part battery : BatteryPack;
+    part powerManager : PowerManagementIntegratedCircuit;
+    part processor : ApplicationProcessor;
+    part memory : MemorySubsystem;
+    part display : DisplayAssembly;
+    part cameras : CameraSubsystem;
+    part modem : CellularWifiBluetoothModem;
+    part audio : AudioSubsystem;
+    part secureElement : SecureElement;
+    part thermalSystem : ThermalManagementSystem;
+
+    connection usb_to_powerManager connect usbC to powerManager.usbInput;
+    connection wireless_to_battery connect wirelessChargingCoil to battery.wirelessChargeInput;
+    connection battery_to_powerManager connect battery.powerBus to powerManager.batteryPower;
+    connection powerManager_to_processor connect powerManager.systemPower to processor.power;
+    connection powerManager_to_memory connect powerManager.systemPower to memory.power;
+    connection powerManager_to_display connect powerManager.systemPower to display.power;
+    connection powerManager_to_camera connect powerManager.systemPower to cameras.power;
+    connection powerManager_to_modem connect powerManager.systemPower to modem.power;
+    connection powerManager_to_audio connect powerManager.systemPower to audio.power;
+    connection powerManager_to_secureElement connect powerManager.systemPower to secureElement.power;
+
+    connection processor_to_memory connect processor.dataFabric to memory.dataFabric;
+    connection processor_to_display connect processor.dataFabric to display.dataFabric;
+    connection processor_to_camera connect processor.dataFabric to cameras.dataFabric;
+    connection processor_to_modem connect processor.dataFabric to modem.dataFabric;
+    connection processor_to_audio connect processor.dataFabric to audio.dataFabric;
+    connection processor_to_secureElement connect processor.dataFabric to secureElement.dataFabric;
+    connection processor_to_thermal connect processor.dataFabric to thermalSystem.systemData;
+
+    connection display_external connect displayAndTouchSurface to display.userInterface;
+    connection camera_external connect cameraApertures to cameras.cameraOut;
+    connection modem_external connect cellularWifiBluetoothAntenna to modem.antenna;
+    connection audio_external connect speakerMicrophoneArray to audio.acousticInterface;
+
+    perform action authenticate : AuthenticateUser;
+    perform action powerThermalControl : ManagePowerAndThermals;
+    perform action mobileExperience : PresentInteractiveExperience;
+    perform action imagePipeline : CaptureAndProcessImage;
+    perform action communications : RouteCommunication;
+
+    exhibit state lifecycle : SmartDeviceOperatingState;
+
+    satisfy PrimaryFunctionRequirement by this;
+    satisfy BatteryLifeRequirement by battery;
+    satisfy SecureAccessRequirement by secureElement;
+    satisfy WirelessCommunicationRequirement by modem;
+    satisfy ImagingRequirement by cameras;
+  }
+
+  part samsungGalaxyDevice : GalaxySmartphoneSystem;
+
+}

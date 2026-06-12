@@ -1,0 +1,629 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-qtwbmr5k
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb68f-6778-7c23-99b6-f1f6a08f27b5
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Digital data and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package DigitalDataProcessingSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def BitCount :> ScalarValues::Integer;
+    attribute def SampleRate :> ScalarValues::Real {
+        unit = "Hz";
+    }
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "bit/s";
+    }
+    attribute def Latency :> ScalarValues::Real {
+        unit = "ms";
+    }
+    attribute def StorageCapacity :> ScalarValues::Real {
+        unit = "GB";
+    }
+    attribute def IntegrityScore :> ScalarValues::Real;
+    attribute def Confidence :> ScalarValues::Real;
+
+    item def DigitalData {
+        attribute size : BitCount;
+        attribute encoding : String;
+        attribute sourceId : String;
+        attribute timestamp : String;
+        attribute checksum : String;
+    }
+
+    item def RawDigitalData :> DigitalData {
+        attribute acquisitionRate : SampleRate;
+        attribute formatVersion : String;
+    }
+
+    item def ValidatedDigitalData :> DigitalData {
+        attribute integrity : IntegrityScore;
+        attribute validationStatus : String;
+    }
+
+    item def ProcessedDigitalData :> DigitalData {
+        attribute classification : String;
+        attribute confidence : Confidence;
+        attribute processingLatency : Latency;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute issuedAt : String;
+    }
+
+    item def ProcessingStatus {
+        attribute stateName : String;
+        attribute queueDepth : Integer;
+        attribute currentThroughput : DataRate;
+        attribute faultCode : String;
+    }
+
+    port def DigitalInputPort {
+        in item rawData : RawDigitalData;
+    }
+
+    port def DigitalOutputPort {
+        out item processedData : ProcessedDigitalData;
+    }
+
+    port def StatusPort {
+        out item status : ProcessingStatus;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    part def DigitalDataSystem {
+        attribute nominalInputRate : DataRate = 100000000.0;
+        attribute maximumLatency : Latency = 25.0;
+        attribute retainedStorage : StorageCapacity = 512.0;
+        attribute minimumIntegrity : IntegrityScore = 0.995;
+
+        port input : DigitalInputPort;
+        port output : DigitalOutputPort;
+        port status : StatusPort;
+        port command : CommandPort;
+
+        part acquisitionUnit : DataAcquisitionUnit;
+        part validationUnit : DataValidationUnit;
+        part processingUnit : DataProcessingUnit;
+        part storageUnit : DataStorageUnit;
+        part supervisoryController : SupervisoryController;
+
+        connect input.rawData to acquisitionUnit.input.rawData;
+        connect acquisitionUnit.acquiredData to validationUnit.rawData;
+        connect validationUnit.validatedData to processingUnit.validatedData;
+        connect processingUnit.processedData to output.processedData;
+        connect validationUnit.validatedData to storageUnit.validatedInput;
+        connect processingUnit.processedData to storageUnit.processedInput;
+        connect command.command to supervisoryController.commandInput;
+        connect supervisoryController.processingCommand to processingUnit.commandInput;
+        connect supervisoryController.storageCommand to storageUnit.commandInput;
+        connect processingUnit.processingStatus to status.status;
+    }
+
+    part def DataAcquisitionUnit {
+        attribute samplingRate : SampleRate = 48000.0;
+        attribute acceptedEncoding : String = "binary-stream";
+        port input : DigitalInputPort;
+        out item acquiredData : RawDigitalData;
+
+        action acquireData {
+            in item incoming : RawDigitalData;
+            out item acquired : RawDigitalData;
+        }
+    }
+
+    part def DataValidationUnit {
+        attribute checksumAlgorithm : String = "CRC-32C";
+        attribute minimumAcceptedIntegrity : IntegrityScore = 0.995;
+
+        in item rawData : RawDigitalData;
+        out item validatedData : ValidatedDigitalData;
+
+        action validateData {
+            in item candidate : RawDigitalData;
+            out item accepted : ValidatedDigitalData;
+        }
+
+        action rejectData {
+            in item rejected : RawDigitalData;
+        }
+    }
+
+    part def DataProcessingUnit {
+        attribute targetLatency : Latency = 20.0;
+        attribute nominalThroughput : DataRate = 80000000.0;
+        attribute algorithmName : String = "deterministic-feature-extraction";
+        attribute modelVersion : String = "digital-data-profile-v3";
+
+        in item validatedData : ValidatedDigitalData;
+        in item commandInput : ControlCommand;
+        out item processedData : ProcessedDigitalData;
+        out item processingStatus : ProcessingStatus;
+
+        action transformData {
+            in item inputData : ValidatedDigitalData;
+            out item transformedData : ProcessedDigitalData;
+        }
+
+        action classifyData {
+            in item transformedData : ProcessedDigitalData;
+            out item classifiedData : ProcessedDigitalData;
+        }
+
+        action publishData {
+            in item finalData : ProcessedDigitalData;
+        }
+
+        state machine processingLifecycle {
+            state idle;
+            state receiving;
+            state validatingInput;
+            state processing;
+            state publishing;
+            state degraded;
+            state faulted;
+
+            initial then idle;
+
+            transition idle_to_receiving
+                first idle
+                accept RawDigitalData
+                then receiving;
+
+            transition receiving_to_validating
+                first receiving
+                then validatingInput;
+
+            transition validating_to_processing
+                first validatingInput
+                if validatedData.integrity >= 0.995
+                then processing;
+
+            transition validating_to_degraded
+                first validatingInput
+                if validatedData.integrity < 0.995 and validatedData.integrity >= 0.900
+                then degraded;
+
+            transition validating_to_faulted
+                first validatingInput
+                if validatedData.integrity < 0.900
+                then faulted;
+
+            transition processing_to_publishing
+                first processing
+                then publishing;
+
+            transition publishing_to_idle
+                first publishing
+                then idle;
+
+            transition degraded_to_processing
+                first degraded
+                accept ControlCommand
+                then processing;
+
+            transition degraded_to_faulted
+                first degraded
+                if processingStatus.queueDepth > 10000
+                then faulted;
+
+            transition faulted_to_idle
+                first faulted
+                accept ControlCommand
+                then idle;
+        }
+    }
+
+    part def DataStorageUnit {
+        attribute capacity : StorageCapacity = 512.0;
+        attribute retentionPolicy : String = "retain-validated-and-processed-data-for-30-days";
+        attribute encryptionMode : String = "AES-256-GCM";
+
+        in item validatedInput : ValidatedDigitalData;
+        in item processedInput : ProcessedDigitalData;
+        in item commandInput : ControlCommand;
+
+        action storeValidatedData {
+            in item data : ValidatedDigitalData;
+        }
+
+        action storeProcessedData {
+            in item data : ProcessedDigitalData;
+        }
+
+        action purgeExpiredData;
+    }
+
+    part def SupervisoryController {
+        attribute operatingMode : String = "automatic";
+        attribute maximumQueueDepth : Integer = 10000;
+
+        in item commandInput : ControlCommand;
+        out item processingCommand : ControlCommand;
+        out item storageCommand : ControlCommand;
+
+        action routeCommand {
+            in item receivedCommand : ControlCommand;
+            out item routedProcessingCommand : ControlCommand;
+            out item routedStorageCommand : ControlCommand;
+        }
+
+        action monitorHealth {
+            in item status : ProcessingStatus;
+        }
+    }
+
+    requirement def DigitalDataSystemRequirement {
+        subject system : DigitalDataSystem;
+    }
+
+    requirement highLevelFunction : DigitalDataSystemRequirement {
+        doc /* The system shall receive digital data, validate its integrity, transform it into processed digital information, store relevant data records, and publish processed results to downstream consumers. */
+        require constraint {
+            system.nominalInputRate >= 100000000.0
+        }
+    }
+
+    requirement integrityRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall accept only digital data whose computed integrity score is at least 0.995 for nominal processing. */
+        require constraint {
+            system.minimumIntegrity >= 0.995
+        }
+    }
+
+    requirement latencyRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall complete validation, transformation, classification, and publication within 25 milliseconds for nominal input conditions. */
+        require constraint {
+            system.maximumLatency <= 25.0
+        }
+    }
+
+    requirement storageRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall provide at least 512 GB of retained storage for validated and processed digital data. */
+        require constraint {
+            system.retainedStorage >= 512.0
+        }
+    }
+
+    requirement statusRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall report processing state, queue depth, throughput, and fault status during operation. */
+    }
+
+    satisfy highLevelFunction by DigitalDataSystem;
+    satisfy integrityRequirement by DataValidationUnit;
+    satisfy latencyRequirement by DataProcessingUnit;
+    satisfy storageRequirement by DataStorageUnit;
+    satisfy statusRequirement by DataProcessingUnit;
+
+    part digitalDataProcessingSystem : DigitalDataSystem {
+        attribute nominalInputRate = 100000000.0;
+        attribute maximumLatency = 25.0;
+        attribute retainedStorage = 512.0;
+        attribute minimumIntegrity = 0.995;
+    }
+}
+tokens used
+3,432
+package DigitalDataProcessingSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def BitCount :> ScalarValues::Integer;
+    attribute def SampleRate :> ScalarValues::Real {
+        unit = "Hz";
+    }
+    attribute def DataRate :> ScalarValues::Real {
+        unit = "bit/s";
+    }
+    attribute def Latency :> ScalarValues::Real {
+        unit = "ms";
+    }
+    attribute def StorageCapacity :> ScalarValues::Real {
+        unit = "GB";
+    }
+    attribute def IntegrityScore :> ScalarValues::Real;
+    attribute def Confidence :> ScalarValues::Real;
+
+    item def DigitalData {
+        attribute size : BitCount;
+        attribute encoding : String;
+        attribute sourceId : String;
+        attribute timestamp : String;
+        attribute checksum : String;
+    }
+
+    item def RawDigitalData :> DigitalData {
+        attribute acquisitionRate : SampleRate;
+        attribute formatVersion : String;
+    }
+
+    item def ValidatedDigitalData :> DigitalData {
+        attribute integrity : IntegrityScore;
+        attribute validationStatus : String;
+    }
+
+    item def ProcessedDigitalData :> DigitalData {
+        attribute classification : String;
+        attribute confidence : Confidence;
+        attribute processingLatency : Latency;
+    }
+
+    item def ControlCommand {
+        attribute commandId : String;
+        attribute priority : Integer;
+        attribute issuedAt : String;
+    }
+
+    item def ProcessingStatus {
+        attribute stateName : String;
+        attribute queueDepth : Integer;
+        attribute currentThroughput : DataRate;
+        attribute faultCode : String;
+    }
+
+    port def DigitalInputPort {
+        in item rawData : RawDigitalData;
+    }
+
+    port def DigitalOutputPort {
+        out item processedData : ProcessedDigitalData;
+    }
+
+    port def StatusPort {
+        out item status : ProcessingStatus;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    part def DigitalDataSystem {
+        attribute nominalInputRate : DataRate = 100000000.0;
+        attribute maximumLatency : Latency = 25.0;
+        attribute retainedStorage : StorageCapacity = 512.0;
+        attribute minimumIntegrity : IntegrityScore = 0.995;
+
+        port input : DigitalInputPort;
+        port output : DigitalOutputPort;
+        port status : StatusPort;
+        port command : CommandPort;
+
+        part acquisitionUnit : DataAcquisitionUnit;
+        part validationUnit : DataValidationUnit;
+        part processingUnit : DataProcessingUnit;
+        part storageUnit : DataStorageUnit;
+        part supervisoryController : SupervisoryController;
+
+        connect input.rawData to acquisitionUnit.input.rawData;
+        connect acquisitionUnit.acquiredData to validationUnit.rawData;
+        connect validationUnit.validatedData to processingUnit.validatedData;
+        connect processingUnit.processedData to output.processedData;
+        connect validationUnit.validatedData to storageUnit.validatedInput;
+        connect processingUnit.processedData to storageUnit.processedInput;
+        connect command.command to supervisoryController.commandInput;
+        connect supervisoryController.processingCommand to processingUnit.commandInput;
+        connect supervisoryController.storageCommand to storageUnit.commandInput;
+        connect processingUnit.processingStatus to status.status;
+    }
+
+    part def DataAcquisitionUnit {
+        attribute samplingRate : SampleRate = 48000.0;
+        attribute acceptedEncoding : String = "binary-stream";
+        port input : DigitalInputPort;
+        out item acquiredData : RawDigitalData;
+
+        action acquireData {
+            in item incoming : RawDigitalData;
+            out item acquired : RawDigitalData;
+        }
+    }
+
+    part def DataValidationUnit {
+        attribute checksumAlgorithm : String = "CRC-32C";
+        attribute minimumAcceptedIntegrity : IntegrityScore = 0.995;
+
+        in item rawData : RawDigitalData;
+        out item validatedData : ValidatedDigitalData;
+
+        action validateData {
+            in item candidate : RawDigitalData;
+            out item accepted : ValidatedDigitalData;
+        }
+
+        action rejectData {
+            in item rejected : RawDigitalData;
+        }
+    }
+
+    part def DataProcessingUnit {
+        attribute targetLatency : Latency = 20.0;
+        attribute nominalThroughput : DataRate = 80000000.0;
+        attribute algorithmName : String = "deterministic-feature-extraction";
+        attribute modelVersion : String = "digital-data-profile-v3";
+
+        in item validatedData : ValidatedDigitalData;
+        in item commandInput : ControlCommand;
+        out item processedData : ProcessedDigitalData;
+        out item processingStatus : ProcessingStatus;
+
+        action transformData {
+            in item inputData : ValidatedDigitalData;
+            out item transformedData : ProcessedDigitalData;
+        }
+
+        action classifyData {
+            in item transformedData : ProcessedDigitalData;
+            out item classifiedData : ProcessedDigitalData;
+        }
+
+        action publishData {
+            in item finalData : ProcessedDigitalData;
+        }
+
+        state machine processingLifecycle {
+            state idle;
+            state receiving;
+            state validatingInput;
+            state processing;
+            state publishing;
+            state degraded;
+            state faulted;
+
+            initial then idle;
+
+            transition idle_to_receiving
+                first idle
+                accept RawDigitalData
+                then receiving;
+
+            transition receiving_to_validating
+                first receiving
+                then validatingInput;
+
+            transition validating_to_processing
+                first validatingInput
+                if validatedData.integrity >= 0.995
+                then processing;
+
+            transition validating_to_degraded
+                first validatingInput
+                if validatedData.integrity < 0.995 and validatedData.integrity >= 0.900
+                then degraded;
+
+            transition validating_to_faulted
+                first validatingInput
+                if validatedData.integrity < 0.900
+                then faulted;
+
+            transition processing_to_publishing
+                first processing
+                then publishing;
+
+            transition publishing_to_idle
+                first publishing
+                then idle;
+
+            transition degraded_to_processing
+                first degraded
+                accept ControlCommand
+                then processing;
+
+            transition degraded_to_faulted
+                first degraded
+                if processingStatus.queueDepth > 10000
+                then faulted;
+
+            transition faulted_to_idle
+                first faulted
+                accept ControlCommand
+                then idle;
+        }
+    }
+
+    part def DataStorageUnit {
+        attribute capacity : StorageCapacity = 512.0;
+        attribute retentionPolicy : String = "retain-validated-and-processed-data-for-30-days";
+        attribute encryptionMode : String = "AES-256-GCM";
+
+        in item validatedInput : ValidatedDigitalData;
+        in item processedInput : ProcessedDigitalData;
+        in item commandInput : ControlCommand;
+
+        action storeValidatedData {
+            in item data : ValidatedDigitalData;
+        }
+
+        action storeProcessedData {
+            in item data : ProcessedDigitalData;
+        }
+
+        action purgeExpiredData;
+    }
+
+    part def SupervisoryController {
+        attribute operatingMode : String = "automatic";
+        attribute maximumQueueDepth : Integer = 10000;
+
+        in item commandInput : ControlCommand;
+        out item processingCommand : ControlCommand;
+        out item storageCommand : ControlCommand;
+
+        action routeCommand {
+            in item receivedCommand : ControlCommand;
+            out item routedProcessingCommand : ControlCommand;
+            out item routedStorageCommand : ControlCommand;
+        }
+
+        action monitorHealth {
+            in item status : ProcessingStatus;
+        }
+    }
+
+    requirement def DigitalDataSystemRequirement {
+        subject system : DigitalDataSystem;
+    }
+
+    requirement highLevelFunction : DigitalDataSystemRequirement {
+        doc /* The system shall receive digital data, validate its integrity, transform it into processed digital information, store relevant data records, and publish processed results to downstream consumers. */
+        require constraint {
+            system.nominalInputRate >= 100000000.0
+        }
+    }
+
+    requirement integrityRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall accept only digital data whose computed integrity score is at least 0.995 for nominal processing. */
+        require constraint {
+            system.minimumIntegrity >= 0.995
+        }
+    }
+
+    requirement latencyRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall complete validation, transformation, classification, and publication within 25 milliseconds for nominal input conditions. */
+        require constraint {
+            system.maximumLatency <= 25.0
+        }
+    }
+
+    requirement storageRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall provide at least 512 GB of retained storage for validated and processed digital data. */
+        require constraint {
+            system.retainedStorage >= 512.0
+        }
+    }
+
+    requirement statusRequirement : DigitalDataSystemRequirement {
+        doc /* The system shall report processing state, queue depth, throughput, and fault status during operation. */
+    }
+
+    satisfy highLevelFunction by DigitalDataSystem;
+    satisfy integrityRequirement by DataValidationUnit;
+    satisfy latencyRequirement by DataProcessingUnit;
+    satisfy storageRequirement by DataStorageUnit;
+    satisfy statusRequirement by DataProcessingUnit;
+
+    part digitalDataProcessingSystem : DigitalDataSystem {
+        attribute nominalInputRate = 100000000.0;
+        attribute maximumLatency = 25.0;
+        attribute retainedStorage = 512.0;
+        attribute minimumIntegrity = 0.995;
+    }
+}

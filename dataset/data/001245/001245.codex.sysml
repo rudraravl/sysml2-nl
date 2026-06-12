@@ -1,0 +1,440 @@
+package SextantNavigationModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def AngleValue {
+        attribute degrees: Real;
+    }
+
+    attribute def TimeValue {
+        attribute utcSeconds: Real;
+    }
+
+    attribute def LengthValue {
+        attribute meters: Real;
+    }
+
+    attribute def TemperatureValue {
+        attribute celsius: Real;
+    }
+
+    attribute def PressureValue {
+        attribute hectopascals: Real;
+    }
+
+    attribute def IndexErrorValue {
+        attribute arcMinutes: Real;
+    }
+
+    item def CelestialBody {
+        attribute name: String;
+        attribute apparentAltitude: AngleValue;
+        attribute declination: AngleValue;
+        attribute GreenwichHourAngle: AngleValue;
+    }
+
+    item def HorizonReference {
+        attribute visible: Boolean;
+        attribute dipCorrection: AngleValue;
+    }
+
+    item def OpticalRay {
+        attribute sourceName: String;
+        attribute elevationAngle: AngleValue;
+        attribute intensity: Real;
+    }
+
+    item def ObservationRecord {
+        attribute observedBodyName: String;
+        attribute observedAltitude: AngleValue;
+        attribute correctedAltitude: AngleValue;
+        attribute observationTime: TimeValue;
+        attribute estimatedLatitude: AngleValue;
+        attribute estimatedLongitude: AngleValue;
+        attribute qualityScore: Real;
+    }
+
+    item def NavigatorCommand {
+        attribute alignBodyWithHorizon: Boolean;
+        attribute clampReading: Boolean;
+        attribute resetIndex: Boolean;
+    }
+
+    item def EnvironmentalCondition {
+        attribute airTemperature: TemperatureValue;
+        attribute atmosphericPressure: PressureValue;
+        attribute eyeHeight: LengthValue;
+    }
+
+    port def CelestialLightPort {
+        in item incomingRay: OpticalRay;
+    }
+
+    port def HorizonSightPort {
+        in item horizon: HorizonReference;
+    }
+
+    port def ManualCommandPort {
+        in item command: NavigatorCommand;
+    }
+
+    port def ObservationOutputPort {
+        out item record: ObservationRecord;
+    }
+
+    port def EnvironmentPort {
+        in item environment: EnvironmentalCondition;
+    }
+
+    part def OpticalPath {
+        port celestialInput: CelestialLightPort;
+        port horizonInput: HorizonSightPort;
+
+        part indexMirror {
+            attribute mirrorAngle: AngleValue;
+            attribute reflectivity: Real = 0.92;
+        }
+
+        part horizonMirror {
+            attribute splitReflectivity: Real = 0.50;
+            attribute clearApertureFraction: Real = 0.50;
+        }
+
+        part telescope {
+            attribute magnification: Real = 3.5;
+            attribute fieldOfView: AngleValue;
+        }
+
+        attribute imageCoincident: Boolean;
+    }
+
+    part def GraduatedArc {
+        attribute minimumAngle: AngleValue;
+        attribute maximumAngle: AngleValue;
+        attribute graduationResolution: AngleValue;
+        attribute measuredAngle: AngleValue;
+    }
+
+    part def MicrometerDrum {
+        attribute drumResolution: AngleValue;
+        attribute fineAdjustmentAngle: AngleValue;
+        attribute locked: Boolean;
+    }
+
+    part def IndexArm {
+        attribute coarseAngle: AngleValue;
+        attribute clampEngaged: Boolean;
+
+        part arc: GraduatedArc;
+        part drum: MicrometerDrum;
+    }
+
+    part def CalibrationAssembly {
+        attribute indexError: IndexErrorValue;
+        attribute sideError: AngleValue;
+        attribute collimationError: AngleValue;
+        attribute calibrationValid: Boolean;
+    }
+
+    part def CorrectionComputer {
+        port environmentInput: EnvironmentPort;
+
+        attribute refractionCorrection: AngleValue;
+        attribute dipCorrection: AngleValue;
+        attribute semiDiameterCorrection: AngleValue;
+        attribute parallaxCorrection: AngleValue;
+
+        action computeCorrectedAltitude {
+            in rawAltitude: AngleValue;
+            in indexError: IndexErrorValue;
+            in condition: EnvironmentalCondition;
+            out correctedAltitude: AngleValue;
+        }
+    }
+
+    part def AlmanacReference {
+        attribute epochTime: TimeValue;
+        attribute selectedBody: CelestialBody;
+
+        action lookupCelestialData {
+            in bodyName: String;
+            in observationTime: TimeValue;
+            out body: CelestialBody;
+        }
+    }
+
+    part def NavigationSolver {
+        attribute assumedLatitude: AngleValue;
+        attribute assumedLongitude: AngleValue;
+        attribute interceptDistance: LengthValue;
+        attribute azimuth: AngleValue;
+
+        action computeLineOfPosition {
+            in correctedAltitude: AngleValue;
+            in body: CelestialBody;
+            in observationTime: TimeValue;
+            out latitude: AngleValue;
+            out longitude: AngleValue;
+        }
+    }
+
+    part def SextantSystem {
+        port celestialLight: CelestialLightPort;
+        port horizonSight: HorizonSightPort;
+        port manualControl: ManualCommandPort;
+        port environmentInput: EnvironmentPort;
+        port observationOutput: ObservationOutputPort;
+
+        part opticalPath: OpticalPath;
+        part indexArm: IndexArm;
+        part calibration: CalibrationAssembly;
+        part correctionComputer: CorrectionComputer;
+        part almanac: AlmanacReference;
+        part navigationSolver: NavigationSolver;
+
+        attribute readyForObservation: Boolean;
+        attribute currentBodyName: String;
+        attribute rawObservedAltitude: AngleValue;
+        attribute correctedObservedAltitude: AngleValue;
+        attribute observationTime: TimeValue;
+        attribute primaryFunction: String =
+            "Measure the angular altitude of a celestial body above the visible horizon so a navigator can determine a line of position and estimate geographic location.";
+
+        connection celestialOpticalConnection connect celestialLight to opticalPath.celestialInput;
+        connection horizonOpticalConnection connect horizonSight to opticalPath.horizonInput;
+        connection environmentCorrectionConnection connect environmentInput to correctionComputer.environmentInput;
+
+        action alignCelestialBodyWithHorizon {
+            in command: NavigatorCommand;
+            in celestialRay: OpticalRay;
+            in horizon: HorizonReference;
+            out coincident: Boolean;
+        }
+
+        action readAltitude {
+            in coarseAngle: AngleValue;
+            in fineAngle: AngleValue;
+            in indexError: IndexErrorValue;
+            out observedAltitude: AngleValue;
+        }
+
+        action reduceSight {
+            in observedAltitude: AngleValue;
+            in bodyName: String;
+            in observationTime: TimeValue;
+            in condition: EnvironmentalCondition;
+            out record: ObservationRecord;
+
+            first start;
+            then lookupBody;
+            then correctAltitude;
+            then solvePosition;
+            then publishObservation;
+
+            action start;
+            action lookupBody {
+                in bodyName: String;
+                in observationTime: TimeValue;
+                out body: CelestialBody;
+            }
+            action correctAltitude {
+                in observedAltitude: AngleValue;
+                out correctedAltitude: AngleValue;
+            }
+            action solvePosition {
+                in correctedAltitude: AngleValue;
+                in body: CelestialBody;
+                out estimatedLatitude: AngleValue;
+                out estimatedLongitude: AngleValue;
+            }
+            action publishObservation {
+                out record: ObservationRecord;
+            }
+        }
+
+        state machine ObservationLifecycle {
+            state Stowed;
+            state Calibrating;
+            state SearchingHorizon;
+            state TrackingCelestialBody;
+            state ImageCoincidence;
+            state ReadingArc;
+            state ReducingSight;
+            state ObservationComplete;
+            state Faulted;
+
+            initial then Stowed;
+
+            transition Stowed_to_Calibrating
+                first Stowed
+                accept NavigatorCommand
+                if command.resetIndex
+                then Calibrating;
+
+            transition Calibrating_to_SearchingHorizon
+                first Calibrating
+                if calibration.calibrationValid
+                then SearchingHorizon;
+
+            transition SearchingHorizon_to_TrackingCelestialBody
+                first SearchingHorizon
+                accept HorizonReference
+                if horizon.visible
+                then TrackingCelestialBody;
+
+            transition TrackingCelestialBody_to_ImageCoincidence
+                first TrackingCelestialBody
+                accept NavigatorCommand
+                if command.alignBodyWithHorizon
+                then ImageCoincidence;
+
+            transition ImageCoincidence_to_ReadingArc
+                first ImageCoincidence
+                accept NavigatorCommand
+                if command.clampReading and opticalPath.imageCoincident
+                then ReadingArc;
+
+            transition ReadingArc_to_ReducingSight
+                first ReadingArc
+                then ReducingSight;
+
+            transition ReducingSight_to_ObservationComplete
+                first ReducingSight
+                then ObservationComplete;
+
+            transition ObservationComplete_to_SearchingHorizon
+                first ObservationComplete
+                then SearchingHorizon;
+
+            transition Any_to_Faulted
+                first SearchingHorizon
+                if not horizon.visible
+                then Faulted;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject sextant: SextantSystem;
+
+        require constraint {
+            sextant.primaryFunction ==
+            "Measure the angular altitude of a celestial body above the visible horizon so a navigator can determine a line of position and estimate geographic location."
+        }
+    }
+
+    requirement def AngularMeasurementRangeRequirement {
+        subject sextant: SextantSystem;
+
+        require constraint {
+            sextant.indexArm.arc.minimumAngle.degrees <= -5.0 and
+            sextant.indexArm.arc.maximumAngle.degrees >= 120.0
+        }
+    }
+
+    requirement def AngularResolutionRequirement {
+        subject sextant: SextantSystem;
+
+        require constraint {
+            sextant.indexArm.arc.graduationResolution.degrees <= 0.1667 and
+            sextant.indexArm.drum.drumResolution.degrees <= 0.0167
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject sextant: SextantSystem;
+
+        require constraint {
+            sextant.calibration.indexError.arcMinutes >= -5.0 and
+            sextant.calibration.indexError.arcMinutes <= 5.0 and
+            sextant.calibration.calibrationValid
+        }
+    }
+
+    requirement def ObservationOutputRequirement {
+        subject sextant: SextantSystem;
+
+        require constraint {
+            sextant.correctedObservedAltitude.degrees >= -5.0 and
+            sextant.correctedObservedAltitude.degrees <= 120.0
+        }
+    }
+
+    part sextantNavigationSystem: SextantSystem {
+        attribute readyForObservation = true;
+        attribute currentBodyName = "Sun";
+
+        part opticalPath {
+            part indexMirror {
+                attribute mirrorAngle.degrees = 25.0;
+                attribute reflectivity = 0.92;
+            }
+
+            part horizonMirror {
+                attribute splitReflectivity = 0.50;
+                attribute clearApertureFraction = 0.50;
+            }
+
+            part telescope {
+                attribute magnification = 3.5;
+                attribute fieldOfView.degrees = 5.0;
+            }
+
+            attribute imageCoincident = true;
+        }
+
+        part indexArm {
+            attribute coarseAngle.degrees = 42.0;
+            attribute clampEngaged = true;
+
+            part arc {
+                attribute minimumAngle.degrees = -5.0;
+                attribute maximumAngle.degrees = 120.0;
+                attribute graduationResolution.degrees = 0.1667;
+                attribute measuredAngle.degrees = 42.3;
+            }
+
+            part drum {
+                attribute drumResolution.degrees = 0.0167;
+                attribute fineAdjustmentAngle.degrees = 0.3;
+                attribute locked = true;
+            }
+        }
+
+        part calibration {
+            attribute indexError.arcMinutes = 1.2;
+            attribute sideError.degrees = 0.0;
+            attribute collimationError.degrees = 0.0;
+            attribute calibrationValid = true;
+        }
+
+        part correctionComputer {
+            attribute refractionCorrection.degrees = -0.016;
+            attribute dipCorrection.degrees = -0.067;
+            attribute semiDiameterCorrection.degrees = 0.267;
+            attribute parallaxCorrection.degrees = 0.002;
+        }
+
+        part almanac {
+            attribute epochTime.utcSeconds = 0.0;
+
+            attribute selectedBody {
+                attribute name = "Sun";
+                attribute apparentAltitude.degrees = 42.486;
+                attribute declination.degrees = 23.10;
+                attribute GreenwichHourAngle.degrees = 74.52;
+            }
+        }
+
+        part navigationSolver {
+            attribute assumedLatitude.degrees = 36.80;
+            attribute assumedLongitude.degrees = -122.40;
+            attribute interceptDistance.meters = 1852.0;
+            attribute azimuth.degrees = 139.0;
+        }
+
+        attribute rawObservedAltitude.degrees = 42.300;
+        attribute correctedObservedAltitude.degrees = 42.486;
+        attribute observationTime.utcSeconds = 45296.0;
+    }
+}

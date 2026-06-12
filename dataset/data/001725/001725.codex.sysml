@@ -1,0 +1,474 @@
+package QiviconSmartHomeSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent :> Real {
+    unit = "%";
+  }
+
+  attribute def CurrencyEUR :> Real {
+    unit = "EUR";
+  }
+
+  item def RadioFrame {
+    attribute sourceAddress : String;
+    attribute destinationAddress : String;
+    attribute protocol : SmartHomeProtocol;
+    attribute payloadSize : Integer;
+    attribute encrypted : Boolean;
+  }
+
+  item def SensorReading {
+    attribute sensorId : String;
+    attribute readingTime : Time;
+    attribute quality : Percent;
+  }
+
+  item def TemperatureReading :> SensorReading {
+    attribute temperature : Real [unit = "Cel"];
+  }
+
+  item def HumidityReading :> SensorReading {
+    attribute humidity : Percent;
+  }
+
+  item def MotionEvent :> SensorReading {
+    attribute motionDetected : Boolean;
+  }
+
+  item def DoorWindowEvent :> SensorReading {
+    attribute open : Boolean;
+  }
+
+  item def EnergyReading :> SensorReading {
+    attribute power : Power;
+    attribute accumulatedEnergy : Energy;
+  }
+
+  item def CommandMessage {
+    attribute commandId : String;
+    attribute targetDeviceId : String;
+    attribute issuedTime : Time;
+    attribute priority : CommandPriority;
+  }
+
+  item def HeatingSetpointCommand :> CommandMessage {
+    attribute targetTemperature : Real [unit = "Cel"];
+  }
+
+  item def SwitchCommand :> CommandMessage {
+    attribute on : Boolean;
+  }
+
+  item def NotificationMessage {
+    attribute recipientUserId : String;
+    attribute severity : NotificationSeverity;
+    attribute text : String;
+    attribute createdTime : Time;
+  }
+
+  enum def SmartHomeProtocol {
+    enum ZigBee;
+    enum HomeMatic;
+    enum DECTULE;
+    enum IP;
+  }
+
+  enum def CommandPriority {
+    enum Low;
+    enum Normal;
+    enum High;
+    enum Emergency;
+  }
+
+  enum def NotificationSeverity {
+    enum Info;
+    enum Warning;
+    enum Alarm;
+  }
+
+  enum def OperatingMode {
+    enum Home;
+    enum Away;
+    enum Night;
+    enum Vacation;
+  }
+
+  port def RadioPort {
+    in item inboundFrame : RadioFrame;
+    out item outboundFrame : RadioFrame;
+  }
+
+  port def CloudPort {
+    out item telemetry : SensorReading;
+    in item remoteCommand : CommandMessage;
+    out item notification : NotificationMessage;
+  }
+
+  port def MobileAppPort {
+    in item appCommand : CommandMessage;
+    out item statusUpdate : SensorReading;
+    out item userNotification : NotificationMessage;
+  }
+
+  port def SensorPort {
+    out item reading : SensorReading;
+  }
+
+  port def ActuatorPort {
+    in item command : CommandMessage;
+  }
+
+  part def QiviconBasedSmartHomeSystem {
+    attribute primaryFunction : String = "Provide a vendor-neutral smart home hub that connects sensors, actuators, cloud services, and user applications to monitor the home, automate comfort and security functions, and remotely control connected devices.";
+    attribute mode : OperatingMode = OperatingMode::Home;
+    attribute targetIndoorTemperature : Real [unit = "Cel"] = 21.0;
+    attribute maxAllowedAlarmLatency : Duration = 5 [s];
+    attribute maxStandbyPower : Power = 8 [W];
+
+    port mobile : MobileAppPort;
+    port internet : CloudPort;
+
+    part homeBase : QiviconHomeBase;
+    part deviceNetwork : LocalDeviceNetwork;
+    part automationEngine : AutomationController;
+    part userInterface : UserAccessService;
+    part cloudGateway : QiviconCloudGateway;
+    part securityService : SecurityMonitoringService;
+    part energyService : EnergyOptimizationService;
+
+    connect homeBase.cloudPort to cloudGateway.homeBasePort;
+    connect cloudGateway.externalCloudPort to internet;
+    connect userInterface.mobilePort to mobile;
+    connect userInterface.controllerPort to automationEngine.userPort;
+    connect homeBase.controllerPort to automationEngine.gatewayPort;
+    connect homeBase.radioPort to deviceNetwork.gatewayRadioPort;
+    connect automationEngine.securityPort to securityService.controllerPort;
+    connect automationEngine.energyPort to energyService.controllerPort;
+  }
+
+  part def QiviconHomeBase {
+    attribute deviceId : String;
+    attribute firmwareVersion : String;
+    attribute uptime : Duration;
+    attribute standbyPower : Power;
+    attribute encryptedStorageEnabled : Boolean = true;
+
+    port radioPort : RadioPort;
+    port cloudPort : CloudPort;
+    port controllerPort : AutomationPort;
+
+    part protocolAdapter : MultiProtocolAdapter;
+    part localStore : EventAndConfigurationStore;
+    part ruleDispatcher : LocalRuleDispatcher;
+
+    connect radioPort to protocolAdapter.radioPort;
+    connect protocolAdapter.eventPort to ruleDispatcher.deviceEventPort;
+    connect ruleDispatcher.controllerPort to controllerPort;
+    connect ruleDispatcher.storePort to localStore.eventPort;
+  }
+
+  part def MultiProtocolAdapter {
+    attribute supportedProtocols : SmartHomeProtocol[*] = (SmartHomeProtocol::ZigBee, SmartHomeProtocol::HomeMatic, SmartHomeProtocol::DECTULE, SmartHomeProtocol::IP);
+    attribute averageFrameLatency : Duration;
+    attribute frameLossRate : Percent;
+
+    port radioPort : RadioPort;
+    port eventPort : AutomationPort;
+  }
+
+  part def EventAndConfigurationStore {
+    attribute retainedEventDays : Integer = 30;
+    attribute configuredDeviceCount : Integer;
+    attribute storageUsed : Real [unit = "MB"];
+
+    port eventPort : AutomationPort;
+  }
+
+  part def LocalRuleDispatcher {
+    port deviceEventPort : AutomationPort;
+    port controllerPort : AutomationPort;
+    port storePort : AutomationPort;
+  }
+
+  port def AutomationPort {
+    in item sensedEvent : SensorReading;
+    in item commandRequest : CommandMessage;
+    out item actuatorCommand : CommandMessage;
+    out item statusEvent : SensorReading;
+    out item notification : NotificationMessage;
+  }
+
+  part def LocalDeviceNetwork {
+    port gatewayRadioPort : RadioPort;
+
+    part livingRoomThermostat : SmartThermostat {
+      attribute deviceId = "thermostat-living-room";
+      attribute nominalPower = 1.2 [W];
+    }
+
+    part hallwayMotionSensor : MotionSensor {
+      attribute deviceId = "motion-hallway";
+      attribute batteryCapacity = 2400 [mAh];
+    }
+
+    part frontDoorContact : DoorWindowSensor {
+      attribute deviceId = "contact-front-door";
+      attribute batteryCapacity = 2200 [mAh];
+    }
+
+    part kitchenSmartPlug : SmartPlug {
+      attribute deviceId = "plug-kitchen";
+      attribute maxSwitchingPower = 2500 [W];
+    }
+
+    part bedroomLightSwitch : SmartLightSwitch {
+      attribute deviceId = "switch-bedroom-light";
+      attribute maxLoad = 400 [W];
+    }
+
+    connect gatewayRadioPort to livingRoomThermostat.radioPort;
+    connect gatewayRadioPort to hallwayMotionSensor.radioPort;
+    connect gatewayRadioPort to frontDoorContact.radioPort;
+    connect gatewayRadioPort to kitchenSmartPlug.radioPort;
+    connect gatewayRadioPort to bedroomLightSwitch.radioPort;
+  }
+
+  part def SmartDevice {
+    attribute deviceId : String;
+    attribute manufacturer : String;
+    attribute online : Boolean;
+    attribute nominalPower : Power;
+    port radioPort : RadioPort;
+  }
+
+  part def SensorDevice :> SmartDevice {
+    attribute batteryLevel : Percent;
+    attribute batteryCapacity : ElectricCharge;
+    port sensor : SensorPort;
+  }
+
+  part def ActuatorDevice :> SmartDevice {
+    attribute lastCommandTime : Time;
+    port actuator : ActuatorPort;
+  }
+
+  part def SmartThermostat :> SensorDevice, ActuatorDevice {
+    attribute currentTemperature : Real [unit = "Cel"];
+    attribute setpointTemperature : Real [unit = "Cel"];
+    attribute valveOpening : Percent;
+  }
+
+  part def MotionSensor :> SensorDevice {
+    attribute detectionRange : Length = 8 [m];
+    attribute motionActive : Boolean;
+  }
+
+  part def DoorWindowSensor :> SensorDevice {
+    attribute open : Boolean;
+  }
+
+  part def SmartPlug :> SensorDevice, ActuatorDevice {
+    attribute switchedOn : Boolean;
+    attribute measuredPower : Power;
+    attribute maxSwitchingPower : Power;
+  }
+
+  part def SmartLightSwitch :> ActuatorDevice {
+    attribute switchedOn : Boolean;
+    attribute maxLoad : Power;
+  }
+
+  part def AutomationController {
+    attribute activeMode : OperatingMode;
+    attribute occupied : Boolean;
+    attribute securityArmed : Boolean;
+    attribute energySavingEnabled : Boolean = true;
+
+    port gatewayPort : AutomationPort;
+    port userPort : AutomationPort;
+    port securityPort : AutomationPort;
+    port energyPort : AutomationPort;
+
+    perform action evaluateIncomingEvent;
+    perform action applyAutomationRule;
+    perform action dispatchDeviceCommand;
+  }
+
+  part def UserAccessService {
+    attribute registeredUserCount : Integer;
+    attribute remoteAccessEnabled : Boolean = true;
+    attribute multiFactorAuthenticationRequired : Boolean = true;
+
+    port mobilePort : MobileAppPort;
+    port controllerPort : AutomationPort;
+  }
+
+  part def QiviconCloudGateway {
+    attribute cloudEndpoint : String = "qivicon-platform-service";
+    attribute tlsEnabled : Boolean = true;
+    attribute averageRoundTripLatency : Duration;
+
+    port homeBasePort : CloudPort;
+    port externalCloudPort : CloudPort;
+  }
+
+  part def SecurityMonitoringService {
+    attribute armed : Boolean;
+    attribute alarmActive : Boolean;
+    attribute lastAlarmTime : Time;
+
+    port controllerPort : AutomationPort;
+
+    perform action detectIntrusion;
+    perform action raiseAlarm;
+    perform action clearAlarm;
+  }
+
+  part def EnergyOptimizationService {
+    attribute dailyEnergyBudget : Energy = 12 [kW*h];
+    attribute currentDailyEnergy : Energy;
+    attribute peakPowerLimit : Power = 3500 [W];
+
+    port controllerPort : AutomationPort;
+
+    perform action evaluateEnergyUse;
+    perform action reduceStandbyLoads;
+  }
+
+  action def evaluateIncomingEvent {
+    in item event : SensorReading;
+    out item normalizedEvent : SensorReading;
+  }
+
+  action def applyAutomationRule {
+    in item event : SensorReading;
+    in mode : OperatingMode;
+    out item command : CommandMessage;
+    out item notification : NotificationMessage;
+  }
+
+  action def dispatchDeviceCommand {
+    in item command : CommandMessage;
+    out item frame : RadioFrame;
+  }
+
+  action def detectIntrusion {
+    in item event : SensorReading;
+    in armed : Boolean;
+    out intrusionDetected : Boolean;
+  }
+
+  action def raiseAlarm {
+    in item event : SensorReading;
+    out item alarmNotification : NotificationMessage;
+  }
+
+  action def clearAlarm {
+    in userAuthorized : Boolean;
+    out alarmCleared : Boolean;
+  }
+
+  action def evaluateEnergyUse {
+    in item reading : EnergyReading;
+    in peakLimit : Power;
+    out reductionNeeded : Boolean;
+  }
+
+  action def reduceStandbyLoads {
+    in reductionNeeded : Boolean;
+    out item switchOffCommand : SwitchCommand;
+  }
+
+  state def SmartHomeOperatingState {
+    entry action initializeHomeBase;
+    state Initializing;
+    state NormalOperation;
+    state RemoteControl;
+    state AutomationExecution;
+    state AlarmHandling;
+    state DegradedConnectivity;
+    state Maintenance;
+
+    transition first Initializing;
+    transition Initializing then NormalOperation
+      accept after 10 [s];
+
+    transition NormalOperation then RemoteControl
+      accept CommandMessage;
+
+    transition RemoteControl then AutomationExecution
+      accept CommandMessage;
+
+    transition AutomationExecution then NormalOperation
+      accept SensorReading;
+
+    transition NormalOperation then AlarmHandling
+      accept MotionEvent
+      if securityArmed == true;
+
+    transition AlarmHandling then NormalOperation
+      accept CommandMessage
+      if alarmAcknowledged == true;
+
+    transition NormalOperation then DegradedConnectivity
+      accept after 30 [s]
+      if cloudReachable == false;
+
+    transition DegradedConnectivity then NormalOperation
+      accept after 5 [s]
+      if cloudReachable == true;
+
+    transition NormalOperation then Maintenance
+      accept CommandMessage
+      if maintenanceRequested == true;
+
+    transition Maintenance then Initializing
+      accept CommandMessage
+      if restartRequested == true;
+  }
+
+  action def initializeHomeBase {
+    out initialized : Boolean;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : QiviconBasedSmartHomeSystem;
+    doc /* The system shall provide a QIVICON-based smart home platform that centrally connects heterogeneous household devices, monitors their status, executes automation rules, and enables secure local and remote user control. */
+  }
+
+  requirement def ProtocolInteroperabilityRequirement {
+    subject hub : QiviconHomeBase;
+    doc /* The home base shall communicate with smart home devices using at least ZigBee, HomeMatic, DECT ULE, and IP-based protocols through a common automation interface. */
+  }
+
+  requirement def SecureRemoteAccessRequirement {
+    subject access : UserAccessService;
+    doc /* Remote access shall require encrypted communication and multi-factor user authentication before allowing commands to reach household actuators. */
+  }
+
+  requirement def AlarmLatencyRequirement {
+    subject security : SecurityMonitoringService;
+    attribute maximumLatency : Duration = 5 [s];
+    doc /* When the home is armed and an intrusion event is detected, the system shall create an alarm notification within five seconds. */
+  }
+
+  requirement def EnergyMonitoringRequirement {
+    subject energy : EnergyOptimizationService;
+    doc /* The system shall measure connected load power, track daily accumulated energy, and issue load reduction commands when configured limits are exceeded. */
+  }
+
+  requirement def LocalFallbackRequirement {
+    subject hub : QiviconHomeBase;
+    doc /* If cloud connectivity is unavailable, the system shall continue executing locally stored automation rules and shall synchronize retained events after connectivity is restored. */
+  }
+
+  satisfy PrimaryFunctionRequirement by QiviconBasedSmartHomeSystem;
+  satisfy ProtocolInteroperabilityRequirement by QiviconHomeBase::protocolAdapter;
+  satisfy SecureRemoteAccessRequirement by UserAccessService;
+  satisfy AlarmLatencyRequirement by SecurityMonitoringService;
+  satisfy EnergyMonitoringRequirement by EnergyOptimizationService;
+  satisfy LocalFallbackRequirement by QiviconHomeBase::ruleDispatcher;
+
+}

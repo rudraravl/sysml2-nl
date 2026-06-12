@@ -1,0 +1,417 @@
+package MobileManipulatorSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def BatteryState {
+        attribute stateOfCharge : Real;
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute temperature : ThermodynamicTemperature;
+    }
+
+    attribute def Pose2D {
+        attribute x : Length;
+        attribute y : Length;
+        attribute yaw : PlaneAngle;
+    }
+
+    attribute def Pose3D {
+        attribute x : Length;
+        attribute y : Length;
+        attribute z : Length;
+        attribute roll : PlaneAngle;
+        attribute pitch : PlaneAngle;
+        attribute yaw : PlaneAngle;
+    }
+
+    attribute def Velocity2D {
+        attribute vx : Speed;
+        attribute vy : Speed;
+        attribute yawRate : AngularVelocity;
+    }
+
+    attribute def PayloadProperties {
+        attribute mass : Mass;
+        attribute centerOfMass : Pose3D;
+        attribute maximumDimension : Length;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+        attribute power : Power;
+    }
+
+    item def MotionCommand {
+        attribute targetPose : Pose2D;
+        attribute maximumSpeed : Speed;
+        attribute maximumAcceleration : Acceleration;
+    }
+
+    item def ArmTrajectoryCommand {
+        attribute targetEndEffectorPose : Pose3D;
+        attribute maximumJointSpeed : AngularVelocity;
+        attribute gripForce : Force;
+    }
+
+    item def SensorFrame {
+        attribute timestamp : Time;
+        attribute platformPoseEstimate : Pose2D;
+    }
+
+    item def ObjectDetection {
+        attribute objectPose : Pose3D;
+        attribute confidence : Real;
+        attribute objectMassEstimate : Mass;
+    }
+
+    item def ManipulatedObject {
+        attribute properties : PayloadProperties;
+        attribute currentPose : Pose3D;
+        attribute grasped : Boolean;
+    }
+
+    port def PowerPort {
+        out item power : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item motionCommand : MotionCommand;
+        in item armCommand : ArmTrajectoryCommand;
+    }
+
+    port def TelemetryPort {
+        out item sensorFrame : SensorFrame;
+        out item batteryState : BatteryState;
+        out item poseEstimate : Pose2D;
+    }
+
+    port def ObjectPort {
+        inout item object : ManipulatedObject;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : ElectricPotential = 48 [V];
+        attribute capacity : ElectricCharge = 40 [A*h];
+        attribute maximumContinuousPower : Power = 1800 [W];
+        attribute batteryState : BatteryState;
+
+        port powerOut : PowerPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute regulatedBusVoltage : ElectricPotential = 24 [V];
+        attribute peakPowerCapacity : Power = 2200 [W];
+
+        port batteryInput : PowerPort;
+        port drivePower : PowerPort;
+        port armPower : PowerPort;
+        port computePower : PowerPort;
+        port sensorPower : PowerPort;
+    }
+
+    part def MobileBase {
+        attribute mass : Mass = 85 [kg];
+        attribute maximumSpeed : Speed = 1.8 [m/s];
+        attribute maximumSlope : PlaneAngle = 10 [deg];
+        attribute wheelRadius : Length = 0.125 [m];
+        attribute platformPose : Pose2D;
+        attribute platformVelocity : Velocity2D;
+
+        port powerIn : PowerPort;
+        port commandIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+
+        perform action executeBaseMotion {
+            in item command : MotionCommand;
+            out item poseEstimate : Pose2D;
+        }
+    }
+
+    part def ManipulatorArm {
+        attribute degreesOfFreedom : Integer = 6;
+        attribute reach : Length = 0.95 [m];
+        attribute ratedPayload : Mass = 8 [kg];
+        attribute repeatability : Length = 0.0015 [m];
+        attribute endEffectorPose : Pose3D;
+
+        port powerIn : PowerPort;
+        port commandIn : CommandPort;
+        port objectInterface : ObjectPort;
+        port telemetryOut : TelemetryPort;
+
+        perform action moveEndEffector {
+            in item command : ArmTrajectoryCommand;
+            out item reachedPose : Pose3D;
+        }
+
+        perform action graspObject {
+            inout item object : ManipulatedObject;
+            in attribute gripForce : Force;
+            out attribute graspStable : Boolean;
+        }
+
+        perform action releaseObject {
+            inout item object : ManipulatedObject;
+            out attribute released : Boolean;
+        }
+    }
+
+    part def PerceptionSuite {
+        attribute lidarRange : Length = 30 [m];
+        attribute cameraFrameRate : Frequency = 30 [Hz];
+        attribute depthRange : Length = 6 [m];
+        attribute obstacleDetectionLatency : Time = 0.08 [s];
+
+        port powerIn : PowerPort;
+        port telemetryOut : TelemetryPort;
+
+        perform action detectObjects {
+            out item detection : ObjectDetection;
+        }
+
+        perform action estimateRobotPose {
+            out item poseEstimate : Pose2D;
+        }
+    }
+
+    part def MotionPlanner {
+        attribute planningCycleTime : Time = 0.05 [s];
+        attribute obstacleClearance : Length = 0.25 [m];
+
+        port commandOut : CommandPort;
+        port telemetryIn : TelemetryPort;
+
+        perform action planMobileManipulationTask {
+            in item targetObject : ObjectDetection;
+            in attribute destination : Pose2D;
+            out item baseCommand : MotionCommand;
+            out item armCommand : ArmTrajectoryCommand;
+        }
+    }
+
+    part def SafetyController {
+        attribute emergencyStopResponseTime : Time = 0.1 [s];
+        attribute minimumHumanDistance : Length = 0.75 [m];
+        attribute maximumCollaborativeSpeed : Speed = 0.5 [m/s];
+
+        port telemetryIn : TelemetryPort;
+        port commandOut : CommandPort;
+
+        perform action evaluateSafetyEnvelope {
+            in item sensorFrame : SensorFrame;
+            out attribute safeToMove : Boolean;
+        }
+    }
+
+    part def SupervisoryController {
+        attribute taskTimeout : Time = 180 [s];
+
+        port plannerCommand : CommandPort;
+        port baseCommand : CommandPort;
+        port armCommand : CommandPort;
+        port telemetryIn : TelemetryPort;
+        port objectInterface : ObjectPort;
+
+        state def MissionStateMachine {
+            state idle;
+            state localizing;
+            state navigatingToObject;
+            state aligningBase;
+            state graspingObject;
+            state transportingObject;
+            state placingObject;
+            state completed;
+            state fault;
+
+            transition first idle;
+            transition idle_to_localizing
+                first idle
+                then localizing;
+
+            transition localizing_to_navigating
+                first localizing
+                then navigatingToObject;
+
+            transition navigating_to_aligning
+                first navigatingToObject
+                then aligningBase;
+
+            transition aligning_to_grasping
+                first aligningBase
+                then graspingObject;
+
+            transition grasping_to_transporting
+                first graspingObject
+                then transportingObject;
+
+            transition transporting_to_placing
+                first transportingObject
+                then placingObject;
+
+            transition placing_to_completed
+                first placingObject
+                then completed;
+
+            transition any_to_fault
+                first localizing
+                then fault;
+        }
+
+        perform action supervisePickTransportPlace {
+            in item requestedObject : ObjectDetection;
+            in attribute requestedDestination : Pose2D;
+            out attribute taskComplete : Boolean;
+        }
+    }
+
+    part def MobileManipulator {
+        attribute systemMass : Mass = 145 [kg];
+        attribute maximumPayload : Mass = 8 [kg];
+        attribute operatingTime : Time = 4 [h];
+        attribute navigationAccuracy : Length = 0.05 [m];
+        attribute placementAccuracy : Length = 0.01 [m];
+
+        part battery : BatteryPack;
+        part pdu : PowerDistributionUnit;
+        part base : MobileBase;
+        part arm : ManipulatorArm;
+        part perception : PerceptionSuite;
+        part planner : MotionPlanner;
+        part safety : SafetyController;
+        part supervisor : SupervisoryController;
+
+        port operatorCommand : CommandPort;
+        port systemTelemetry : TelemetryPort;
+        port workObject : ObjectPort;
+
+        connect battery.powerOut to pdu.batteryInput;
+        connect pdu.drivePower to base.powerIn;
+        connect pdu.armPower to arm.powerIn;
+        connect pdu.computePower to planner.commandOut;
+        connect pdu.sensorPower to perception.powerIn;
+
+        connect planner.commandOut to supervisor.plannerCommand;
+        connect supervisor.baseCommand to base.commandIn;
+        connect supervisor.armCommand to arm.commandIn;
+        connect safety.commandOut to base.commandIn;
+
+        connect base.telemetryOut to supervisor.telemetryIn;
+        connect arm.telemetryOut to supervisor.telemetryIn;
+        connect perception.telemetryOut to planner.telemetryIn;
+        connect perception.telemetryOut to safety.telemetryIn;
+        connect base.telemetryOut to systemTelemetry;
+
+        connect arm.objectInterface to workObject;
+        connect supervisor.objectInterface to workObject;
+
+        perform action primaryFunction {
+            in item targetObject : ObjectDetection;
+            in attribute destination : Pose2D;
+            out item deliveredObject : ManipulatedObject;
+
+            action perceiveWorkspace : PerceptionSuite::detectObjects;
+            action planTask : MotionPlanner::planMobileManipulationTask;
+            action navigate : MobileBase::executeBaseMotion;
+            action positionArm : ManipulatorArm::moveEndEffector;
+            action grasp : ManipulatorArm::graspObject;
+            action transport : MobileBase::executeBaseMotion;
+            action place : ManipulatorArm::releaseObject;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject manipulator : MobileManipulator;
+
+        doc /* The mobile manipulator shall autonomously locate a specified object, navigate to a reachable grasp pose, pick up the object, transport it to a commanded destination, and place it with controlled force and position accuracy. */
+
+        require constraint {
+            manipulator.maximumPayload >= 8 [kg]
+        }
+
+        require constraint {
+            manipulator.operatingTime >= 4 [h]
+        }
+
+        require constraint {
+            manipulator.navigationAccuracy <= 0.05 [m]
+        }
+
+        require constraint {
+            manipulator.placementAccuracy <= 0.01 [m]
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject manipulator : MobileManipulator;
+
+        doc /* The mobile manipulator shall maintain a protective operating envelope by limiting speed near humans, monitoring obstacles, and stopping motion within the emergency stop response time when unsafe conditions are detected. */
+
+        require constraint {
+            manipulator.safety.emergencyStopResponseTime <= 0.1 [s]
+        }
+
+        require constraint {
+            manipulator.safety.minimumHumanDistance >= 0.75 [m]
+        }
+
+        require constraint {
+            manipulator.safety.maximumCollaborativeSpeed <= 0.5 [m/s]
+        }
+    }
+
+    requirement def EnergyRequirement {
+        subject manipulator : MobileManipulator;
+
+        doc /* The mobile manipulator shall distribute battery power to mobility, manipulation, perception, and computation subsystems while supporting the continuous power needed for a complete pick-transport-place mission. */
+
+        require constraint {
+            manipulator.battery.maximumContinuousPower >= 1800 [W]
+        }
+
+        require constraint {
+            manipulator.pdu.peakPowerCapacity >= 2200 [W]
+        }
+    }
+
+    requirement def ManipulationRequirement {
+        subject manipulator : MobileManipulator;
+
+        doc /* The manipulator arm shall provide sufficient reach, payload capacity, repeatability, and controllable gripping force to handle objects within the defined payload envelope. */
+
+        require constraint {
+            manipulator.arm.reach >= 0.95 [m]
+        }
+
+        require constraint {
+            manipulator.arm.ratedPayload >= manipulator.maximumPayload
+        }
+
+        require constraint {
+            manipulator.arm.repeatability <= 0.0015 [m]
+        }
+    }
+
+    requirement def MobilityRequirement {
+        subject manipulator : MobileManipulator;
+
+        doc /* The mobile base shall move the manipulator through indoor workspaces at controlled speed while maintaining stable operation on moderate floor slopes. */
+
+        require constraint {
+            manipulator.base.maximumSpeed >= 1.8 [m/s]
+        }
+
+        require constraint {
+            manipulator.base.maximumSlope >= 10 [deg]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MobileManipulator;
+    satisfy SafetyRequirement by MobileManipulator;
+    satisfy EnergyRequirement by MobileManipulator;
+    satisfy ManipulationRequirement by MobileManipulator;
+    satisfy MobilityRequirement by MobileManipulator;
+
+}

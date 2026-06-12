@@ -1,0 +1,405 @@
+package ScintillationCounterSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Count;
+    attribute def CountRate :> ISQ::frequency;
+    attribute def Energy :> ISQ::energy;
+    attribute def Voltage :> ISQ::electricPotential;
+    attribute def Current :> ISQ::electricCurrent;
+    attribute def TimeDuration :> ISQ::time;
+    attribute def Temperature :> ISQ::thermodynamicTemperature;
+    attribute def Length :> ISQ::length;
+
+    item def IonizingRadiation {
+        attribute particleKind : ParticleKind;
+        attribute depositedEnergy : Energy;
+        attribute arrivalTime : TimeDuration;
+    }
+
+    enum def ParticleKind {
+        alpha;
+        beta;
+        gamma;
+        neutron;
+        xray;
+        unknown;
+    }
+
+    item def ScintillationPhoton {
+        attribute wavelength : Length;
+        attribute emissionTime : TimeDuration;
+        attribute opticalEnergy : Energy;
+    }
+
+    item def Photoelectron {
+        attribute kineticEnergy : Energy;
+    }
+
+    item def ElectronPulse {
+        attribute peakCurrent : Current;
+        attribute charge : Current;
+        attribute width : TimeDuration;
+    }
+
+    item def AnalogVoltagePulse {
+        attribute amplitude : Voltage;
+        attribute pulseWidth : TimeDuration;
+        attribute integratedCharge : Current;
+    }
+
+    item def DigitalCountEvent {
+        attribute eventTime : TimeDuration;
+        attribute channel : Integer;
+        attribute pulseHeight : Voltage;
+        attribute estimatedEnergy : Energy;
+    }
+
+    item def CountReport {
+        attribute totalCounts : Count;
+        attribute countRate : CountRate;
+        attribute liveTime : TimeDuration;
+        attribute alarmActive : Boolean;
+    }
+
+    port def RadiationInputPort {
+        in item incidentRadiation : IonizingRadiation;
+    }
+
+    port def OpticalPort {
+        out item photons : ScintillationPhoton;
+    }
+
+    port def PhotoelectronPort {
+        out item photoelectrons : Photoelectron;
+    }
+
+    port def ElectronPulsePort {
+        out item electronPulse : ElectronPulse;
+    }
+
+    port def AnalogPulsePort {
+        inout item analogPulse : AnalogVoltagePulse;
+    }
+
+    port def DigitalEventPort {
+        out item countEvent : DigitalCountEvent;
+    }
+
+    port def ReportPort {
+        out item report : CountReport;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    part def ScintillatorCrystal {
+        attribute material : String = "NaI(Tl)";
+        attribute lightYield : Real = 38000.0;
+        attribute decayTime : TimeDuration = 230 [SI::nanoSecond];
+        attribute density : Real = 3.67;
+        attribute activeDiameter : Length = 50 [SI::milliMetre];
+        attribute activeLength : Length = 50 [SI::milliMetre];
+
+        port radiationIn : RadiationInputPort;
+        port opticalOut : OpticalPort;
+
+        action convertRadiationToLight {
+            in item radiation : IonizingRadiation;
+            out item photons : ScintillationPhoton;
+
+            first start;
+            then absorbEnergy;
+            then emitScintillationPhotons;
+            then done;
+
+            action absorbEnergy;
+            action emitScintillationPhotons;
+        }
+    }
+
+    part def OpticalCoupler {
+        attribute couplingEfficiency : Real = 0.93;
+        attribute refractiveIndex : Real = 1.46;
+
+        port opticalIn : OpticalPort;
+        port opticalOut : OpticalPort;
+
+        action transmitPhotons {
+            in item incomingPhotons : ScintillationPhoton;
+            out item transmittedPhotons : ScintillationPhoton;
+        }
+    }
+
+    part def PhotomultiplierTube {
+        attribute photocathodeQuantumEfficiency : Real = 0.28;
+        attribute dynodeStages : Integer = 10;
+        attribute nominalGain : Real = 1000000.0;
+        attribute highVoltageBias : Voltage = 900 [SI::volt];
+        attribute darkCountRate : CountRate = 50 [SI::hertz];
+
+        port opticalIn : OpticalPort;
+        port highVoltagePower : PowerPort;
+        port electronPulseOut : ElectronPulsePort;
+
+        part photocathode {
+            port opticalIn : OpticalPort;
+            port photoelectronOut : PhotoelectronPort;
+        }
+
+        part dynodeChain {
+            attribute multiplicationGain : Real = 1000000.0;
+            port photoelectronIn : PhotoelectronPort;
+            port electronPulseOut : ElectronPulsePort;
+        }
+
+        connect photocathode.photoelectronOut to dynodeChain.photoelectronIn;
+        connect dynodeChain.electronPulseOut to electronPulseOut;
+
+        action convertLightToElectronPulse {
+            in item photons : ScintillationPhoton;
+            out item pulse : ElectronPulse;
+
+            first receivePhotons;
+            then releasePhotoelectrons;
+            then multiplyElectrons;
+            then outputPulse;
+
+            action receivePhotons;
+            action releasePhotoelectrons;
+            action multiplyElectrons;
+            action outputPulse;
+        }
+    }
+
+    part def Preamplifier {
+        attribute gain : Real = 10.0;
+        attribute inputImpedance : Real = 50.0;
+        attribute noiseEquivalentVoltage : Voltage = 0.5 [SI::milliVolt];
+        attribute recoveryTime : TimeDuration = 2 [SI::microSecond];
+
+        port electronPulseIn : ElectronPulsePort;
+        port analogPulseOut : AnalogPulsePort;
+        port lowVoltagePower : PowerPort;
+
+        action shapeElectronPulse {
+            in item electronPulse : ElectronPulse;
+            out item voltagePulse : AnalogVoltagePulse;
+        }
+    }
+
+    part def PulseProcessor {
+        attribute lowerLevelThreshold : Voltage = 25 [SI::milliVolt];
+        attribute upperLevelThreshold : Voltage = 10 [SI::volt];
+        attribute shapingTime : TimeDuration = 1 [SI::microSecond];
+        attribute energyCalibrationSlope : Real = 0.662;
+        attribute deadTime : TimeDuration = 5 [SI::microSecond];
+
+        port analogPulseIn : AnalogPulsePort;
+        port eventOut : DigitalEventPort;
+        port lowVoltagePower : PowerPort;
+
+        action discriminateAndDigitize {
+            in item pulse : AnalogVoltagePulse;
+            out item event : DigitalCountEvent;
+
+            first acquirePulse;
+            then compareThresholds;
+            then rejectNoise if pulse.amplitude < lowerLevelThreshold;
+            then acceptPulse if pulse.amplitude >= lowerLevelThreshold and pulse.amplitude <= upperLevelThreshold;
+            then estimateEnergy;
+            then emitDigitalEvent;
+
+            action acquirePulse;
+            action compareThresholds;
+            action rejectNoise;
+            action acceptPulse;
+            action estimateEnergy;
+            action emitDigitalEvent;
+        }
+    }
+
+    part def CounterController {
+        attribute integrationTime : TimeDuration = 1 [SI::second];
+        attribute totalCounts : Count = 0;
+        attribute currentCountRate : CountRate = 0 [SI::hertz];
+        attribute alarmThreshold : CountRate = 10000 [SI::hertz];
+        attribute liveTime : TimeDuration = 0 [SI::second];
+
+        port eventIn : DigitalEventPort;
+        port reportOut : ReportPort;
+        port lowVoltagePower : PowerPort;
+
+        state def CountingStateMachine {
+            state off;
+            state initializing;
+            state backgroundMeasure;
+            state counting;
+            state alarm;
+            state fault;
+
+            transition first off then initializing;
+            transition initializing then backgroundMeasure;
+            transition backgroundMeasure then counting;
+            transition counting then alarm if currentCountRate > alarmThreshold;
+            transition alarm then counting if currentCountRate <= alarmThreshold;
+            transition counting then fault if lowVoltagePower.supplyVoltage < 4.75 [SI::volt];
+            transition alarm then fault if lowVoltagePower.supplyVoltage < 4.75 [SI::volt];
+            transition fault then initializing if lowVoltagePower.supplyVoltage >= 4.75 [SI::volt];
+        }
+
+        action accumulateCounts {
+            in item event : DigitalCountEvent;
+            out item report : CountReport;
+
+            first receiveEvent;
+            then incrementTotal;
+            then updateLiveTime;
+            then computeRate;
+            then evaluateAlarm;
+            then publishReport;
+
+            action receiveEvent;
+            action incrementTotal;
+            action updateLiveTime;
+            action computeRate;
+            action evaluateAlarm;
+            action publishReport;
+        }
+    }
+
+    part def UserDisplay {
+        attribute refreshPeriod : TimeDuration = 250 [SI::milliSecond];
+        attribute displayedCounts : Count;
+        attribute displayedRate : CountRate;
+        attribute alarmIndicator : Boolean;
+
+        port reportIn : ReportPort;
+        port lowVoltagePower : PowerPort;
+
+        action renderMeasurement {
+            in item report : CountReport;
+        }
+    }
+
+    part def PowerSupply {
+        attribute inputVoltage : Voltage = 24 [SI::volt];
+        attribute lowVoltageOutput : Voltage = 5 [SI::volt];
+        attribute highVoltageOutput : Voltage = 900 [SI::volt];
+        attribute maxLowVoltageCurrent : Current = 2 [SI::ampere];
+        attribute maxHighVoltageCurrent : Current = 1 [SI::milliAmpere];
+
+        port lowVoltageBus : PowerPort;
+        port highVoltageBus : PowerPort;
+    }
+
+    part def ScintillationCounter {
+        doc /* A scintillation counter detects ionizing radiation by converting deposited radiation energy into brief flashes of light in a scintillator, converting those photons into electrical pulses, discriminating valid pulses from noise, and counting accepted events to report radiation intensity at a high level. */
+
+        attribute measurementRangeMin : CountRate = 0 [SI::hertz];
+        attribute measurementRangeMax : CountRate = 1000000 [SI::hertz];
+        attribute nominalEnergyReference : Energy = 662 [SI::kiloElectronVolt];
+        attribute operatingTemperatureMin : Temperature = 273 [SI::kelvin];
+        attribute operatingTemperatureMax : Temperature = 313 [SI::kelvin];
+
+        port radiationInput : RadiationInputPort;
+        port measurementOutput : ReportPort;
+        port externalPower : PowerPort;
+
+        part scintillator : ScintillatorCrystal;
+        part coupler : OpticalCoupler;
+        part detector : PhotomultiplierTube;
+        part preamplifier : Preamplifier;
+        part processor : PulseProcessor;
+        part controller : CounterController;
+        part display : UserDisplay;
+        part powerSupply : PowerSupply;
+
+        connect radiationInput to scintillator.radiationIn;
+        connect scintillator.opticalOut to coupler.opticalIn;
+        connect coupler.opticalOut to detector.opticalIn;
+        connect detector.electronPulseOut to preamplifier.electronPulseIn;
+        connect preamplifier.analogPulseOut to processor.analogPulseIn;
+        connect processor.eventOut to controller.eventIn;
+        connect controller.reportOut to display.reportIn;
+        connect controller.reportOut to measurementOutput;
+
+        connect externalPower to powerSupply.lowVoltageBus;
+        connect powerSupply.highVoltageBus to detector.highVoltagePower;
+        connect powerSupply.lowVoltageBus to preamplifier.lowVoltagePower;
+        connect powerSupply.lowVoltageBus to processor.lowVoltagePower;
+        connect powerSupply.lowVoltageBus to controller.lowVoltagePower;
+        connect powerSupply.lowVoltageBus to display.lowVoltagePower;
+
+        action performRadiationMeasurement {
+            in item incidentRadiation : IonizingRadiation;
+            out item measurementReport : CountReport;
+
+            first receiveRadiation;
+            then generateScintillationLight;
+            then convertLightToElectricalPulse;
+            then amplifyAndShapePulse;
+            then discriminatePulse;
+            then countAcceptedEvent;
+            then reportCountRate;
+
+            action receiveRadiation;
+            action generateScintillationLight;
+            action convertLightToElectricalPulse;
+            action amplifyAndShapePulse;
+            action discriminatePulse;
+            action countAcceptedEvent;
+            action reportCountRate;
+        }
+    }
+
+    requirement def DetectIonizingRadiation {
+        doc /* The system shall detect incident ionizing radiation events using a scintillation material optically coupled to a photosensor. */
+        subject counter : ScintillationCounter;
+        require constraint { counter.scintillator.lightYield >= 30000.0 }
+    }
+
+    requirement def CountValidPulses {
+        doc /* The system shall count electrical pulses that exceed the configured lower threshold and do not exceed the configured upper threshold. */
+        subject counter : ScintillationCounter;
+        require constraint { counter.processor.lowerLevelThreshold > 0 [SI::volt] }
+        require constraint { counter.processor.upperLevelThreshold > counter.processor.lowerLevelThreshold }
+    }
+
+    requirement def ReportRadiationIntensity {
+        doc /* The system shall report total counts and count rate over the configured integration interval. */
+        subject counter : ScintillationCounter;
+        require constraint { counter.controller.integrationTime >= 100 [SI::milliSecond] }
+        require constraint { counter.controller.integrationTime <= 60 [SI::second] }
+    }
+
+    requirement def AlarmOnHighCountRate {
+        doc /* The system shall assert an alarm indication when the measured count rate exceeds the configured alarm threshold. */
+        subject counter : ScintillationCounter;
+        require constraint { counter.controller.alarmThreshold <= counter.measurementRangeMax }
+    }
+
+    requirement def ProvideStableBias {
+        doc /* The system shall provide high voltage bias to the photomultiplier tube and regulated low voltage power to signal processing electronics. */
+        subject counter : ScintillationCounter;
+        require constraint { counter.powerSupply.highVoltageOutput >= 700 [SI::volt] }
+        require constraint { counter.powerSupply.highVoltageOutput <= 1200 [SI::volt] }
+        require constraint { counter.powerSupply.lowVoltageOutput == 5 [SI::volt] }
+    }
+
+    satisfy DetectIonizingRadiation by ScintillationCounter;
+    satisfy CountValidPulses by ScintillationCounter;
+    satisfy ReportRadiationIntensity by ScintillationCounter;
+    satisfy AlarmOnHighCountRate by ScintillationCounter;
+    satisfy ProvideStableBias by ScintillationCounter;
+
+    part scintillationCounterSystem : ScintillationCounter {
+        attribute measurementRangeMin = 0 [SI::hertz];
+        attribute measurementRangeMax = 1000000 [SI::hertz];
+        attribute nominalEnergyReference = 662 [SI::kiloElectronVolt];
+    }
+}

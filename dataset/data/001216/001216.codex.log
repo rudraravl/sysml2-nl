@@ -1,0 +1,733 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-7zw8r7zc
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5df-e193-7570-a181-a1575aa8011c
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Radar gun and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RadarGunSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Speed {
+        :> ScalarValues::Real;
+        unit = "m/s";
+    }
+
+    attribute def Frequency {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def Distance {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    item def ElectromagneticWave {
+        attribute carrierFrequency : Frequency;
+        attribute powerLevel : Power;
+        attribute propagationRange : Distance;
+    }
+
+    item def ReflectedRadarEcho {
+        attribute receivedFrequency : Frequency;
+        attribute signalPower : Power;
+        attribute estimatedRange : Distance;
+        attribute dopplerShift : Frequency;
+    }
+
+    item def TriggerCommand {
+        attribute pressed : Boolean;
+    }
+
+    item def SpeedMeasurement {
+        attribute measuredSpeed : Speed;
+        attribute confidence : Real;
+        attribute acquisitionTime : TimeDuration;
+    }
+
+    item def DisplayMessage {
+        attribute speedText : String;
+        attribute confidenceText : String;
+    }
+
+    item def BatteryEnergy {
+        attribute terminalVoltage : Voltage;
+        attribute availablePower : Power;
+    }
+
+    port def RadarTransmitPort {
+        out item emittedWave : ElectromagneticWave;
+    }
+
+    port def RadarReceivePort {
+        in item echo : ReflectedRadarEcho;
+    }
+
+    port def UserTriggerPort {
+        in item trigger : TriggerCommand;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : SpeedMeasurement;
+    }
+
+    port def DisplayInputPort {
+        in item message : DisplayMessage;
+    }
+
+    port def PowerSupplyPort {
+        in item energy : BatteryEnergy;
+    }
+
+    action def EmitRadarPulse {
+        in attribute transmitFrequency : Frequency;
+        in attribute transmitPower : Power;
+        out item wave : ElectromagneticWave;
+    }
+
+    action def ReceiveEcho {
+        in item echo : ReflectedRadarEcho;
+        out attribute dopplerShift : Frequency;
+        out attribute signalPower : Power;
+    }
+
+    action def CalculateTargetSpeed {
+        in attribute dopplerShift : Frequency;
+        in attribute carrierFrequency : Frequency;
+        out item measurement : SpeedMeasurement;
+    }
+
+    action def PresentMeasurement {
+        in item measurement : SpeedMeasurement;
+        out item displayMessage : DisplayMessage;
+    }
+
+    action def MonitorPower {
+        in item energy : BatteryEnergy;
+        out attribute lowPower : Boolean;
+    }
+
+    state def RadarGunOperatingState {
+        entry action MonitorPower;
+
+        state off;
+        state standby;
+        state transmitting;
+        state receiving;
+        state processing;
+        state displaying;
+        state lowBattery;
+        state fault;
+
+        transition first off;
+
+        transition powerOn
+            first off
+            then standby;
+
+        transition beginMeasurement
+            first standby
+            accept TriggerCommand
+            then transmitting;
+
+        transition pulseEmitted
+            first transmitting
+            then receiving;
+
+        transition echoDetected
+            first receiving
+            accept ReflectedRadarEcho
+            then processing;
+
+        transition speedComputed
+            first processing
+            then displaying;
+
+        transition displayComplete
+            first displaying
+            then standby;
+
+        transition noEchoTimeout
+            first receiving
+            after TimeDuration = 2.0
+            then standby;
+
+        transition lowPowerDetected
+            first standby
+            then lowBattery;
+
+        transition powerRestored
+            first lowBattery
+            then standby;
+
+        transition unrecoverableError
+            first standby
+            then fault;
+
+        transition powerOff
+            first standby
+            then off;
+    }
+
+    part def AntennaAssembly {
+        port tx : RadarTransmitPort;
+        port rx : RadarReceivePort;
+
+        attribute centerFrequency : Frequency = 24.125e9;
+        attribute beamWidthDegrees : Real = 12.0;
+        attribute effectiveRange : Distance = 300.0;
+    }
+
+    part def MicrowaveTransceiver {
+        port transmitOut : RadarTransmitPort;
+        port receiveIn : RadarReceivePort;
+        port powerIn : PowerSupplyPort;
+
+        attribute carrierFrequency : Frequency = 24.125e9;
+        attribute nominalTransmitPower : Power = 0.050;
+        attribute receiverSensitivity : Power = 1.0e-12;
+
+        action emit : EmitRadarPulse;
+        action receive : ReceiveEcho;
+    }
+
+    part def SignalProcessor {
+        port echoIn : RadarReceivePort;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerSupplyPort;
+
+        attribute minimumConfidence : Real = 0.80;
+        attribute maximumReportableSpeed : Speed = 90.0;
+        attribute processingLatency : TimeDuration = 0.050;
+
+        action calculateSpeed : CalculateTargetSpeed;
+    }
+
+    part def UserInterface {
+        port triggerIn : UserTriggerPort;
+        port displayIn : DisplayInputPort;
+
+        attribute displayRefreshTime : TimeDuration = 0.100;
+        attribute lastDisplayedSpeed : Speed;
+
+        action present : PresentMeasurement;
+    }
+
+    part def BatteryPack {
+        port powerOut : PowerSupplyPort;
+
+        attribute nominalVoltage : Voltage = 7.4;
+        attribute lowVoltageThreshold : Voltage = 6.6;
+        attribute maximumContinuousPower : Power = 8.0;
+        attribute operatingTemperature : Temperature;
+    }
+
+    part def Enclosure {
+        attribute ingressProtectionRating : String = "IP54";
+        attribute operatingTemperatureMin : Temperature = -20.0;
+        attribute operatingTemperatureMax : Temperature = 50.0;
+    }
+
+    part def MovingTarget {
+        port reflectedEchoOut : RadarReceivePort;
+
+        attribute radialSpeed : Speed;
+        attribute rangeFromRadar : Distance;
+    }
+
+    part def RadarGun {
+        port trigger : UserTriggerPort;
+        port speedOutput : MeasurementOutputPort;
+        port radarTx : RadarTransmitPort;
+        port radarRx : RadarReceivePort;
+
+        part antenna : AntennaAssembly;
+        part transceiver : MicrowaveTransceiver;
+        part processor : SignalProcessor;
+        part ui : UserInterface;
+        part battery : BatteryPack;
+        part housing : Enclosure;
+
+        attribute primaryFunction : String =
+            "Measure the radial speed of a moving target by transmitting microwave radar energy, receiving the Doppler-shifted reflection, computing target speed, and presenting the result to the operator.";
+
+        attribute measurementRangeMin : Speed = 1.0;
+        attribute measurementRangeMax : Speed = 90.0;
+        attribute speedAccuracy : Speed = 0.45;
+        attribute maximumAcquisitionTime : TimeDuration = 1.0;
+        attribute standbyPower : Power = 0.5;
+        attribute activePower : Power = 5.0;
+
+        state operatingState : RadarGunOperatingState;
+
+        connection triggerToUi connect trigger to ui.triggerIn;
+        connection batteryToTransceiver connect battery.powerOut to transceiver.powerIn;
+        connection batteryToProcessor connect battery.powerOut to processor.powerIn;
+        connection transceiverToAntennaTx connect transceiver.transmitOut to antenna.tx;
+        connection antennaToExternalTx connect antenna.tx to radarTx;
+        connection externalRxToAntenna connect radarRx to antenna.rx;
+        connection antennaToTransceiverRx connect antenna.rx to transceiver.receiveIn;
+        connection transceiverEchoToProcessor connect transceiver.receiveIn to processor.echoIn;
+        connection processorToOutput connect processor.measurementOut to speedOutput;
+    }
+
+    part def RadarSpeedMeasurementMission {
+        part radarGun : RadarGun;
+        part target : MovingTarget;
+
+        connection transmittedWave connect radarGun.radarTx to target.reflectedEchoOut;
+        connection reflectedEcho connect target.reflectedEchoOut to radarGun.radarRx;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall provide a high-level primary function of measuring target radial speed using Doppler radar and displaying the computed speed to the operator. */
+
+        require constraint {
+            radar.measurementRangeMin <= 1.0 and
+            radar.measurementRangeMax >= 90.0 and
+            radar.maximumAcquisitionTime <= 1.0
+        }
+    }
+
+    requirement def SpeedAccuracyRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall report measured radial speed with an error no greater than 0.45 m/s under nominal operating conditions. */
+
+        require constraint {
+            radar.speedAccuracy <= 0.45
+        }
+    }
+
+    requirement def MeasurementOutputRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall produce a speed measurement item containing measured speed, confidence, and acquisition time after a valid reflected radar echo is processed. */
+    }
+
+    requirement def PowerRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall support standby and active operation from an internal battery pack. */
+
+        require constraint {
+            radar.standbyPower <= 0.5 and
+            radar.activePower <= 5.0
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun enclosure shall support outdoor handheld use from -20 degC through 50 degC and provide splash and dust resistance. */
+
+        require constraint {
+            radar.housing.operatingTemperatureMin <= -20.0 and
+            radar.housing.operatingTemperatureMax >= 50.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RadarGun;
+    satisfy SpeedAccuracyRequirement by RadarGun;
+    satisfy MeasurementOutputRequirement by RadarGun;
+    satisfy PowerRequirement by RadarGun;
+    satisfy EnvironmentalRequirement by RadarGun;
+}
+tokens used
+3,610
+package RadarGunSystemModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Speed {
+        :> ScalarValues::Real;
+        unit = "m/s";
+    }
+
+    attribute def Frequency {
+        :> ScalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def Distance {
+        :> ScalarValues::Real;
+        unit = "m";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    item def ElectromagneticWave {
+        attribute carrierFrequency : Frequency;
+        attribute powerLevel : Power;
+        attribute propagationRange : Distance;
+    }
+
+    item def ReflectedRadarEcho {
+        attribute receivedFrequency : Frequency;
+        attribute signalPower : Power;
+        attribute estimatedRange : Distance;
+        attribute dopplerShift : Frequency;
+    }
+
+    item def TriggerCommand {
+        attribute pressed : Boolean;
+    }
+
+    item def SpeedMeasurement {
+        attribute measuredSpeed : Speed;
+        attribute confidence : Real;
+        attribute acquisitionTime : TimeDuration;
+    }
+
+    item def DisplayMessage {
+        attribute speedText : String;
+        attribute confidenceText : String;
+    }
+
+    item def BatteryEnergy {
+        attribute terminalVoltage : Voltage;
+        attribute availablePower : Power;
+    }
+
+    port def RadarTransmitPort {
+        out item emittedWave : ElectromagneticWave;
+    }
+
+    port def RadarReceivePort {
+        in item echo : ReflectedRadarEcho;
+    }
+
+    port def UserTriggerPort {
+        in item trigger : TriggerCommand;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : SpeedMeasurement;
+    }
+
+    port def DisplayInputPort {
+        in item message : DisplayMessage;
+    }
+
+    port def PowerSupplyPort {
+        in item energy : BatteryEnergy;
+    }
+
+    action def EmitRadarPulse {
+        in attribute transmitFrequency : Frequency;
+        in attribute transmitPower : Power;
+        out item wave : ElectromagneticWave;
+    }
+
+    action def ReceiveEcho {
+        in item echo : ReflectedRadarEcho;
+        out attribute dopplerShift : Frequency;
+        out attribute signalPower : Power;
+    }
+
+    action def CalculateTargetSpeed {
+        in attribute dopplerShift : Frequency;
+        in attribute carrierFrequency : Frequency;
+        out item measurement : SpeedMeasurement;
+    }
+
+    action def PresentMeasurement {
+        in item measurement : SpeedMeasurement;
+        out item displayMessage : DisplayMessage;
+    }
+
+    action def MonitorPower {
+        in item energy : BatteryEnergy;
+        out attribute lowPower : Boolean;
+    }
+
+    state def RadarGunOperatingState {
+        entry action MonitorPower;
+
+        state off;
+        state standby;
+        state transmitting;
+        state receiving;
+        state processing;
+        state displaying;
+        state lowBattery;
+        state fault;
+
+        transition first off;
+
+        transition powerOn
+            first off
+            then standby;
+
+        transition beginMeasurement
+            first standby
+            accept TriggerCommand
+            then transmitting;
+
+        transition pulseEmitted
+            first transmitting
+            then receiving;
+
+        transition echoDetected
+            first receiving
+            accept ReflectedRadarEcho
+            then processing;
+
+        transition speedComputed
+            first processing
+            then displaying;
+
+        transition displayComplete
+            first displaying
+            then standby;
+
+        transition noEchoTimeout
+            first receiving
+            after TimeDuration = 2.0
+            then standby;
+
+        transition lowPowerDetected
+            first standby
+            then lowBattery;
+
+        transition powerRestored
+            first lowBattery
+            then standby;
+
+        transition unrecoverableError
+            first standby
+            then fault;
+
+        transition powerOff
+            first standby
+            then off;
+    }
+
+    part def AntennaAssembly {
+        port tx : RadarTransmitPort;
+        port rx : RadarReceivePort;
+
+        attribute centerFrequency : Frequency = 24.125e9;
+        attribute beamWidthDegrees : Real = 12.0;
+        attribute effectiveRange : Distance = 300.0;
+    }
+
+    part def MicrowaveTransceiver {
+        port transmitOut : RadarTransmitPort;
+        port receiveIn : RadarReceivePort;
+        port powerIn : PowerSupplyPort;
+
+        attribute carrierFrequency : Frequency = 24.125e9;
+        attribute nominalTransmitPower : Power = 0.050;
+        attribute receiverSensitivity : Power = 1.0e-12;
+
+        action emit : EmitRadarPulse;
+        action receive : ReceiveEcho;
+    }
+
+    part def SignalProcessor {
+        port echoIn : RadarReceivePort;
+        port measurementOut : MeasurementOutputPort;
+        port powerIn : PowerSupplyPort;
+
+        attribute minimumConfidence : Real = 0.80;
+        attribute maximumReportableSpeed : Speed = 90.0;
+        attribute processingLatency : TimeDuration = 0.050;
+
+        action calculateSpeed : CalculateTargetSpeed;
+    }
+
+    part def UserInterface {
+        port triggerIn : UserTriggerPort;
+        port displayIn : DisplayInputPort;
+
+        attribute displayRefreshTime : TimeDuration = 0.100;
+        attribute lastDisplayedSpeed : Speed;
+
+        action present : PresentMeasurement;
+    }
+
+    part def BatteryPack {
+        port powerOut : PowerSupplyPort;
+
+        attribute nominalVoltage : Voltage = 7.4;
+        attribute lowVoltageThreshold : Voltage = 6.6;
+        attribute maximumContinuousPower : Power = 8.0;
+        attribute operatingTemperature : Temperature;
+    }
+
+    part def Enclosure {
+        attribute ingressProtectionRating : String = "IP54";
+        attribute operatingTemperatureMin : Temperature = -20.0;
+        attribute operatingTemperatureMax : Temperature = 50.0;
+    }
+
+    part def MovingTarget {
+        port reflectedEchoOut : RadarReceivePort;
+
+        attribute radialSpeed : Speed;
+        attribute rangeFromRadar : Distance;
+    }
+
+    part def RadarGun {
+        port trigger : UserTriggerPort;
+        port speedOutput : MeasurementOutputPort;
+        port radarTx : RadarTransmitPort;
+        port radarRx : RadarReceivePort;
+
+        part antenna : AntennaAssembly;
+        part transceiver : MicrowaveTransceiver;
+        part processor : SignalProcessor;
+        part ui : UserInterface;
+        part battery : BatteryPack;
+        part housing : Enclosure;
+
+        attribute primaryFunction : String =
+            "Measure the radial speed of a moving target by transmitting microwave radar energy, receiving the Doppler-shifted reflection, computing target speed, and presenting the result to the operator.";
+
+        attribute measurementRangeMin : Speed = 1.0;
+        attribute measurementRangeMax : Speed = 90.0;
+        attribute speedAccuracy : Speed = 0.45;
+        attribute maximumAcquisitionTime : TimeDuration = 1.0;
+        attribute standbyPower : Power = 0.5;
+        attribute activePower : Power = 5.0;
+
+        state operatingState : RadarGunOperatingState;
+
+        connection triggerToUi connect trigger to ui.triggerIn;
+        connection batteryToTransceiver connect battery.powerOut to transceiver.powerIn;
+        connection batteryToProcessor connect battery.powerOut to processor.powerIn;
+        connection transceiverToAntennaTx connect transceiver.transmitOut to antenna.tx;
+        connection antennaToExternalTx connect antenna.tx to radarTx;
+        connection externalRxToAntenna connect radarRx to antenna.rx;
+        connection antennaToTransceiverRx connect antenna.rx to transceiver.receiveIn;
+        connection transceiverEchoToProcessor connect transceiver.receiveIn to processor.echoIn;
+        connection processorToOutput connect processor.measurementOut to speedOutput;
+    }
+
+    part def RadarSpeedMeasurementMission {
+        part radarGun : RadarGun;
+        part target : MovingTarget;
+
+        connection transmittedWave connect radarGun.radarTx to target.reflectedEchoOut;
+        connection reflectedEcho connect target.reflectedEchoOut to radarGun.radarRx;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall provide a high-level primary function of measuring target radial speed using Doppler radar and displaying the computed speed to the operator. */
+
+        require constraint {
+            radar.measurementRangeMin <= 1.0 and
+            radar.measurementRangeMax >= 90.0 and
+            radar.maximumAcquisitionTime <= 1.0
+        }
+    }
+
+    requirement def SpeedAccuracyRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall report measured radial speed with an error no greater than 0.45 m/s under nominal operating conditions. */
+
+        require constraint {
+            radar.speedAccuracy <= 0.45
+        }
+    }
+
+    requirement def MeasurementOutputRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall produce a speed measurement item containing measured speed, confidence, and acquisition time after a valid reflected radar echo is processed. */
+    }
+
+    requirement def PowerRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun shall support standby and active operation from an internal battery pack. */
+
+        require constraint {
+            radar.standbyPower <= 0.5 and
+            radar.activePower <= 5.0
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject radar : RadarGun;
+
+        doc
+        /* The radar gun enclosure shall support outdoor handheld use from -20 degC through 50 degC and provide splash and dust resistance. */
+
+        require constraint {
+            radar.housing.operatingTemperatureMin <= -20.0 and
+            radar.housing.operatingTemperatureMax >= 50.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RadarGun;
+    satisfy SpeedAccuracyRequirement by RadarGun;
+    satisfy MeasurementOutputRequirement by RadarGun;
+    satisfy PowerRequirement by RadarGun;
+    satisfy EnvironmentalRequirement by RadarGun;
+}

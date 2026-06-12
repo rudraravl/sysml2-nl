@@ -1,0 +1,717 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-f1rdvapy
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7f6-11f7-7b81-90bb-a9c42767e38c
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Capacitor and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CapacitorBasedEnergyBufferModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Voltage {
+        :>> unit = "V";
+    }
+
+    value def Current {
+        :>> unit = "A";
+    }
+
+    value def Capacitance {
+        :>> unit = "F";
+    }
+
+    value def Resistance {
+        :>> unit = "ohm";
+    }
+
+    value def Energy {
+        :>> unit = "J";
+    }
+
+    value def Power {
+        :>> unit = "W";
+    }
+
+    value def Time {
+        :>> unit = "s";
+    }
+
+    item def ElectricCharge {
+        attribute quantity : Real;
+        attribute voltagePotential : Voltage;
+    }
+
+    item def Heat {
+        attribute thermalPower : Power;
+    }
+
+    port def ElectricalPort {
+        inout charge : ElectricCharge;
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def ThermalPort {
+        out heat : Heat;
+        attribute temperature : Real;
+    }
+
+    part def Capacitor {
+        attribute capacitance : Capacitance = 0.047;
+        attribute ratedVoltage : Voltage = 25.0;
+        attribute equivalentSeriesResistance : Resistance = 0.08;
+        attribute storedVoltage : Voltage;
+        attribute storedEnergy : Energy;
+
+        port positive : ElectricalPort;
+        port negative : ElectricalPort;
+        port thermal : ThermalPort;
+
+        constraint energyLaw {
+            storedEnergy == 0.5 * capacitance * storedVoltage * storedVoltage;
+        }
+
+        constraint voltageLimit {
+            storedVoltage <= ratedVoltage;
+        }
+
+        action charge {
+            in chargingCurrent : Current;
+            in duration : Time;
+            out finalVoltage : Voltage;
+
+            constraint chargeRelation {
+                finalVoltage == storedVoltage + chargingCurrent * duration / capacitance;
+            }
+        }
+
+        action discharge {
+            in loadCurrent : Current;
+            in duration : Time;
+            out finalVoltage : Voltage;
+
+            constraint dischargeRelation {
+                finalVoltage == storedVoltage - loadCurrent * duration / capacitance;
+            }
+        }
+
+        state def CapacitorOperatingState {
+            state depleted;
+            state charging;
+            state charged;
+            state discharging;
+            state overVoltageProtection;
+
+            initial then depleted;
+
+            transition depleted_to_charging
+                first depleted
+                accept ChargeCommand
+                then charging;
+
+            transition charging_to_charged
+                first charging
+                if storedVoltage >= ratedVoltage * 0.95
+                then charged;
+
+            transition charged_to_discharging
+                first charged
+                accept LoadDemand
+                then discharging;
+
+            transition discharging_to_depleted
+                first discharging
+                if storedVoltage <= ratedVoltage * 0.10
+                then depleted;
+
+            transition any_to_protection
+                first charging
+                if storedVoltage > ratedVoltage
+                then overVoltageProtection;
+        }
+    }
+
+    part def ChargeController {
+        attribute targetVoltage : Voltage = 12.0;
+        attribute maximumChargeCurrent : Current = 1.5;
+        attribute cutoffVoltage : Voltage = 12.2;
+
+        port sourceSide : ElectricalPort;
+        port capacitorSide : ElectricalPort;
+
+        action regulateCharge {
+            in measuredVoltage : Voltage;
+            out commandedCurrent : Current;
+
+            constraint currentLimit {
+                commandedCurrent <= maximumChargeCurrent;
+            }
+        }
+    }
+
+    part def LoadInterface {
+        attribute nominalOutputVoltage : Voltage = 12.0;
+        attribute maximumOutputCurrent : Current = 2.0;
+        attribute minimumUsableVoltage : Voltage = 8.0;
+
+        port capacitorSide : ElectricalPort;
+        port loadSide : ElectricalPort;
+
+        action deliverBufferedEnergy {
+            in requestedCurrent : Current;
+            out suppliedCurrent : Current;
+
+            constraint outputLimit {
+                suppliedCurrent <= maximumOutputCurrent;
+            }
+        }
+    }
+
+    part def ProtectionCircuit {
+        attribute overVoltageTrip : Voltage = 13.0;
+        attribute underVoltageTrip : Voltage = 7.5;
+        attribute maximumSafeCurrent : Current = 2.5;
+
+        port monitoredPositive : ElectricalPort;
+        port monitoredNegative : ElectricalPort;
+
+        action isolateCapacitor {
+            out switchOpened : Boolean;
+        }
+
+        state def ProtectionState {
+            state normal;
+            state isolatedForOverVoltage;
+            state isolatedForUnderVoltage;
+            state isolatedForOverCurrent;
+
+            initial then normal;
+
+            transition normal_to_overVoltage
+                first normal
+                if monitoredPositive.voltage > overVoltageTrip
+                then isolatedForOverVoltage;
+
+            transition normal_to_underVoltage
+                first normal
+                if monitoredPositive.voltage < underVoltageTrip
+                then isolatedForUnderVoltage;
+
+            transition normal_to_overCurrent
+                first normal
+                if monitoredPositive.current > maximumSafeCurrent
+                then isolatedForOverCurrent;
+        }
+    }
+
+    part def CapacitorEnergyBufferSystem {
+        attribute primaryFunction : String =
+            "Store electrical energy in an electric field and release it quickly to stabilize supply voltage during transient load demand.";
+
+        attribute nominalBusVoltage : Voltage = 12.0;
+        attribute peakBufferedPower : Power = 24.0;
+        attribute usableStoredEnergy : Energy;
+
+        part inputSource;
+        part capacitor : Capacitor {
+            :>> capacitance = 0.047;
+            :>> ratedVoltage = 25.0;
+        }
+
+        part controller : ChargeController {
+            :>> targetVoltage = 12.0;
+            :>> maximumChargeCurrent = 1.5;
+        }
+
+        part outputInterface : LoadInterface {
+            :>> nominalOutputVoltage = 12.0;
+            :>> maximumOutputCurrent = 2.0;
+        }
+
+        part protection : ProtectionCircuit {
+            :>> overVoltageTrip = 13.0;
+            :>> underVoltageTrip = 7.5;
+            :>> maximumSafeCurrent = 2.5;
+        }
+
+        port sourceInput : ElectricalPort;
+        port regulatedOutput : ElectricalPort;
+        port heatRejection : ThermalPort;
+
+        connect sourceInput to controller.sourceSide;
+        connect controller.capacitorSide to capacitor.positive;
+        connect capacitor.positive to outputInterface.capacitorSide;
+        connect outputInterface.loadSide to regulatedOutput;
+        connect capacitor.positive to protection.monitoredPositive;
+        connect capacitor.negative to protection.monitoredNegative;
+        connect capacitor.thermal to heatRejection;
+
+        constraint usableEnergyLaw {
+            usableStoredEnergy == 0.5 * capacitor.capacitance *
+                (nominalBusVoltage * nominalBusVoltage - outputInterface.minimumUsableVoltage * outputInterface.minimumUsableVoltage);
+        }
+
+        action operateAsEnergyBuffer {
+            in sourceVoltage : Voltage;
+            in loadCurrentDemand : Current;
+            out outputVoltage : Voltage;
+            out bufferCurrent : Current;
+
+            first start;
+            then measureBusVoltage;
+            then regulateCapacitorCharge;
+            then supplyTransientLoad;
+            then enforceProtectionLimits;
+            then done;
+        }
+
+        state def SystemOperatingState {
+            state idle;
+            state chargingCapacitor;
+            state voltageSupport;
+            state protectedShutdown;
+            state ready;
+
+            initial then idle;
+
+            transition idle_to_charging
+                first idle
+                if sourceInput.voltage > outputInterface.minimumUsableVoltage
+                then chargingCapacitor;
+
+            transition charging_to_ready
+                first chargingCapacitor
+                if capacitor.storedVoltage >= nominalBusVoltage
+                then ready;
+
+            transition ready_to_support
+                first ready
+                accept LoadDemand
+                then voltageSupport;
+
+            transition support_to_ready
+                first voltageSupport
+                if regulatedOutput.current <= outputInterface.maximumOutputCurrent
+                then ready;
+
+            transition any_to_shutdown
+                first ready
+                if capacitor.storedVoltage > protection.overVoltageTrip or capacitor.storedVoltage < protection.underVoltageTrip
+                then protectedShutdown;
+        }
+    }
+
+    requirement def StoreElectricalEnergyRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The system shall use a capacitor as its principal energy storage element to store electrical energy in an electric field.";
+
+        require constraint {
+            system.capacitor.capacitance >= 0.047;
+        }
+    }
+
+    requirement def VoltageStabilizationRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The system shall provide short-duration voltage support to the regulated output when load current demand changes faster than the source can respond.";
+
+        require constraint {
+            system.nominalBusVoltage == 12.0 and
+            system.outputInterface.maximumOutputCurrent >= 2.0;
+        }
+    }
+
+    requirement def SafetyProtectionRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The system shall isolate the capacitor from the source and load when voltage or current exceeds safe operating limits.";
+
+        require constraint {
+            system.protection.overVoltageTrip < system.capacitor.ratedVoltage and
+            system.protection.maximumSafeCurrent <= 2.5;
+        }
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The primary function of the capacitor-based system shall be to absorb, store, and rapidly release electrical charge to smooth transient energy demand.";
+
+        require constraint {
+            system.primaryFunction != "";
+        }
+    }
+
+    satisfy StoreElectricalEnergyRequirement by CapacitorEnergyBufferSystem.capacitor;
+    satisfy VoltageStabilizationRequirement by CapacitorEnergyBufferSystem.outputInterface;
+    satisfy SafetyProtectionRequirement by CapacitorEnergyBufferSystem.protection;
+    satisfy HighLevelFunctionRequirement by CapacitorEnergyBufferSystem;
+}
+tokens used
+2,532
+package CapacitorBasedEnergyBufferModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Voltage {
+        :>> unit = "V";
+    }
+
+    value def Current {
+        :>> unit = "A";
+    }
+
+    value def Capacitance {
+        :>> unit = "F";
+    }
+
+    value def Resistance {
+        :>> unit = "ohm";
+    }
+
+    value def Energy {
+        :>> unit = "J";
+    }
+
+    value def Power {
+        :>> unit = "W";
+    }
+
+    value def Time {
+        :>> unit = "s";
+    }
+
+    item def ElectricCharge {
+        attribute quantity : Real;
+        attribute voltagePotential : Voltage;
+    }
+
+    item def Heat {
+        attribute thermalPower : Power;
+    }
+
+    port def ElectricalPort {
+        inout charge : ElectricCharge;
+        attribute voltage : Voltage;
+        attribute current : Current;
+    }
+
+    port def ThermalPort {
+        out heat : Heat;
+        attribute temperature : Real;
+    }
+
+    part def Capacitor {
+        attribute capacitance : Capacitance = 0.047;
+        attribute ratedVoltage : Voltage = 25.0;
+        attribute equivalentSeriesResistance : Resistance = 0.08;
+        attribute storedVoltage : Voltage;
+        attribute storedEnergy : Energy;
+
+        port positive : ElectricalPort;
+        port negative : ElectricalPort;
+        port thermal : ThermalPort;
+
+        constraint energyLaw {
+            storedEnergy == 0.5 * capacitance * storedVoltage * storedVoltage;
+        }
+
+        constraint voltageLimit {
+            storedVoltage <= ratedVoltage;
+        }
+
+        action charge {
+            in chargingCurrent : Current;
+            in duration : Time;
+            out finalVoltage : Voltage;
+
+            constraint chargeRelation {
+                finalVoltage == storedVoltage + chargingCurrent * duration / capacitance;
+            }
+        }
+
+        action discharge {
+            in loadCurrent : Current;
+            in duration : Time;
+            out finalVoltage : Voltage;
+
+            constraint dischargeRelation {
+                finalVoltage == storedVoltage - loadCurrent * duration / capacitance;
+            }
+        }
+
+        state def CapacitorOperatingState {
+            state depleted;
+            state charging;
+            state charged;
+            state discharging;
+            state overVoltageProtection;
+
+            initial then depleted;
+
+            transition depleted_to_charging
+                first depleted
+                accept ChargeCommand
+                then charging;
+
+            transition charging_to_charged
+                first charging
+                if storedVoltage >= ratedVoltage * 0.95
+                then charged;
+
+            transition charged_to_discharging
+                first charged
+                accept LoadDemand
+                then discharging;
+
+            transition discharging_to_depleted
+                first discharging
+                if storedVoltage <= ratedVoltage * 0.10
+                then depleted;
+
+            transition any_to_protection
+                first charging
+                if storedVoltage > ratedVoltage
+                then overVoltageProtection;
+        }
+    }
+
+    part def ChargeController {
+        attribute targetVoltage : Voltage = 12.0;
+        attribute maximumChargeCurrent : Current = 1.5;
+        attribute cutoffVoltage : Voltage = 12.2;
+
+        port sourceSide : ElectricalPort;
+        port capacitorSide : ElectricalPort;
+
+        action regulateCharge {
+            in measuredVoltage : Voltage;
+            out commandedCurrent : Current;
+
+            constraint currentLimit {
+                commandedCurrent <= maximumChargeCurrent;
+            }
+        }
+    }
+
+    part def LoadInterface {
+        attribute nominalOutputVoltage : Voltage = 12.0;
+        attribute maximumOutputCurrent : Current = 2.0;
+        attribute minimumUsableVoltage : Voltage = 8.0;
+
+        port capacitorSide : ElectricalPort;
+        port loadSide : ElectricalPort;
+
+        action deliverBufferedEnergy {
+            in requestedCurrent : Current;
+            out suppliedCurrent : Current;
+
+            constraint outputLimit {
+                suppliedCurrent <= maximumOutputCurrent;
+            }
+        }
+    }
+
+    part def ProtectionCircuit {
+        attribute overVoltageTrip : Voltage = 13.0;
+        attribute underVoltageTrip : Voltage = 7.5;
+        attribute maximumSafeCurrent : Current = 2.5;
+
+        port monitoredPositive : ElectricalPort;
+        port monitoredNegative : ElectricalPort;
+
+        action isolateCapacitor {
+            out switchOpened : Boolean;
+        }
+
+        state def ProtectionState {
+            state normal;
+            state isolatedForOverVoltage;
+            state isolatedForUnderVoltage;
+            state isolatedForOverCurrent;
+
+            initial then normal;
+
+            transition normal_to_overVoltage
+                first normal
+                if monitoredPositive.voltage > overVoltageTrip
+                then isolatedForOverVoltage;
+
+            transition normal_to_underVoltage
+                first normal
+                if monitoredPositive.voltage < underVoltageTrip
+                then isolatedForUnderVoltage;
+
+            transition normal_to_overCurrent
+                first normal
+                if monitoredPositive.current > maximumSafeCurrent
+                then isolatedForOverCurrent;
+        }
+    }
+
+    part def CapacitorEnergyBufferSystem {
+        attribute primaryFunction : String =
+            "Store electrical energy in an electric field and release it quickly to stabilize supply voltage during transient load demand.";
+
+        attribute nominalBusVoltage : Voltage = 12.0;
+        attribute peakBufferedPower : Power = 24.0;
+        attribute usableStoredEnergy : Energy;
+
+        part inputSource;
+        part capacitor : Capacitor {
+            :>> capacitance = 0.047;
+            :>> ratedVoltage = 25.0;
+        }
+
+        part controller : ChargeController {
+            :>> targetVoltage = 12.0;
+            :>> maximumChargeCurrent = 1.5;
+        }
+
+        part outputInterface : LoadInterface {
+            :>> nominalOutputVoltage = 12.0;
+            :>> maximumOutputCurrent = 2.0;
+        }
+
+        part protection : ProtectionCircuit {
+            :>> overVoltageTrip = 13.0;
+            :>> underVoltageTrip = 7.5;
+            :>> maximumSafeCurrent = 2.5;
+        }
+
+        port sourceInput : ElectricalPort;
+        port regulatedOutput : ElectricalPort;
+        port heatRejection : ThermalPort;
+
+        connect sourceInput to controller.sourceSide;
+        connect controller.capacitorSide to capacitor.positive;
+        connect capacitor.positive to outputInterface.capacitorSide;
+        connect outputInterface.loadSide to regulatedOutput;
+        connect capacitor.positive to protection.monitoredPositive;
+        connect capacitor.negative to protection.monitoredNegative;
+        connect capacitor.thermal to heatRejection;
+
+        constraint usableEnergyLaw {
+            usableStoredEnergy == 0.5 * capacitor.capacitance *
+                (nominalBusVoltage * nominalBusVoltage - outputInterface.minimumUsableVoltage * outputInterface.minimumUsableVoltage);
+        }
+
+        action operateAsEnergyBuffer {
+            in sourceVoltage : Voltage;
+            in loadCurrentDemand : Current;
+            out outputVoltage : Voltage;
+            out bufferCurrent : Current;
+
+            first start;
+            then measureBusVoltage;
+            then regulateCapacitorCharge;
+            then supplyTransientLoad;
+            then enforceProtectionLimits;
+            then done;
+        }
+
+        state def SystemOperatingState {
+            state idle;
+            state chargingCapacitor;
+            state voltageSupport;
+            state protectedShutdown;
+            state ready;
+
+            initial then idle;
+
+            transition idle_to_charging
+                first idle
+                if sourceInput.voltage > outputInterface.minimumUsableVoltage
+                then chargingCapacitor;
+
+            transition charging_to_ready
+                first chargingCapacitor
+                if capacitor.storedVoltage >= nominalBusVoltage
+                then ready;
+
+            transition ready_to_support
+                first ready
+                accept LoadDemand
+                then voltageSupport;
+
+            transition support_to_ready
+                first voltageSupport
+                if regulatedOutput.current <= outputInterface.maximumOutputCurrent
+                then ready;
+
+            transition any_to_shutdown
+                first ready
+                if capacitor.storedVoltage > protection.overVoltageTrip or capacitor.storedVoltage < protection.underVoltageTrip
+                then protectedShutdown;
+        }
+    }
+
+    requirement def StoreElectricalEnergyRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The system shall use a capacitor as its principal energy storage element to store electrical energy in an electric field.";
+
+        require constraint {
+            system.capacitor.capacitance >= 0.047;
+        }
+    }
+
+    requirement def VoltageStabilizationRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The system shall provide short-duration voltage support to the regulated output when load current demand changes faster than the source can respond.";
+
+        require constraint {
+            system.nominalBusVoltage == 12.0 and
+            system.outputInterface.maximumOutputCurrent >= 2.0;
+        }
+    }
+
+    requirement def SafetyProtectionRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The system shall isolate the capacitor from the source and load when voltage or current exceeds safe operating limits.";
+
+        require constraint {
+            system.protection.overVoltageTrip < system.capacitor.ratedVoltage and
+            system.protection.maximumSafeCurrent <= 2.5;
+        }
+    }
+
+    requirement def HighLevelFunctionRequirement {
+        subject system : CapacitorEnergyBufferSystem;
+
+        doc
+            "The primary function of the capacitor-based system shall be to absorb, store, and rapidly release electrical charge to smooth transient energy demand.";
+
+        require constraint {
+            system.primaryFunction != "";
+        }
+    }
+
+    satisfy StoreElectricalEnergyRequirement by CapacitorEnergyBufferSystem.capacitor;
+    satisfy VoltageStabilizationRequirement by CapacitorEnergyBufferSystem.outputInterface;
+    satisfy SafetyProtectionRequirement by CapacitorEnergyBufferSystem.protection;
+    satisfy HighLevelFunctionRequirement by CapacitorEnergyBufferSystem;
+}

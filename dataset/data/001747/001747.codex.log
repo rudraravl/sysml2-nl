@@ -1,0 +1,637 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-p3u_bz7s
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7ed-07dd-7f01-aa75-17ed5e5b1167
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Atmospheric pressure and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AtmosphericPressureSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :>> quantityKind = ISQ::pressure;
+    :>> unit = SI::pascal;
+  }
+
+  attribute def Temperature {
+    :>> quantityKind = ISQ::thermodynamicTemperature;
+    :>> unit = SI::kelvin;
+  }
+
+  attribute def Altitude {
+    :>> quantityKind = ISQ::length;
+    :>> unit = SI::metre;
+  }
+
+  attribute def HumidityRatio {
+    :>> quantityKind = ISQ::dimensionless;
+    :>> unit = SI::one;
+  }
+
+  attribute def FlowRate {
+    :>> quantityKind = ISQ::volumeFlowRate;
+    :>> unit = SI::metre ^ 3 / SI::second;
+  }
+
+  attribute def Voltage {
+    :>> quantityKind = ISQ::electricPotential;
+    :>> unit = SI::volt;
+  }
+
+  attribute def TimeDuration {
+    :>> quantityKind = ISQ::time;
+    :>> unit = SI::second;
+  }
+
+  item def AmbientAir {
+    attribute staticPressure : Pressure;
+    attribute temperature : Temperature;
+    attribute relativeHumidity : HumidityRatio;
+    attribute altitude : Altitude;
+  }
+
+  item def PressureSignal {
+    attribute measuredPressure : Pressure;
+    attribute sampleAge : TimeDuration;
+    attribute signalVoltage : Voltage;
+    attribute valid : Boolean;
+  }
+
+  item def PressureReport {
+    attribute ambientPressure : Pressure;
+    attribute seaLevelEquivalentPressure : Pressure;
+    attribute pressureTrend : Pressure;
+    attribute sensorHealthy : Boolean;
+  }
+
+  port def AirSamplePort {
+    in item air : AmbientAir;
+  }
+
+  port def PressureSignalPort {
+    out item pressureSignal : PressureSignal;
+  }
+
+  port def PressureReportPort {
+    out item report : PressureReport;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute supplyVoltage : Voltage;
+  }
+
+  action def SenseAtmosphericPressure {
+    in item sampledAir : AmbientAir;
+    in attribute excitationVoltage : Voltage;
+    out item rawSignal : PressureSignal;
+
+    assert constraint {
+      rawSignal.measuredPressure == sampledAir.staticPressure
+    }
+  }
+
+  action def FilterPressureSignal {
+    in item rawSignal : PressureSignal;
+    out item filteredSignal : PressureSignal;
+
+    assert constraint {
+      filteredSignal.valid == rawSignal.valid
+    }
+  }
+
+  action def CompensateForAltitudeAndTemperature {
+    in item filteredSignal : PressureSignal;
+    in item sampledAir : AmbientAir;
+    out item pressureReport : PressureReport;
+
+    assert constraint {
+      pressureReport.ambientPressure == filteredSignal.measuredPressure
+    }
+  }
+
+  action def PublishPressureReport {
+    in item pressureReport : PressureReport;
+    out item publishedReport : PressureReport;
+
+    assert constraint {
+      publishedReport.ambientPressure == pressureReport.ambientPressure
+    }
+  }
+
+  state def PressureMonitoringStateMachine {
+    entry action initialize;
+    state Off;
+    state SelfTest;
+    state Monitoring;
+    state Fault;
+    state Standby;
+
+    transition first Off;
+
+    transition OffToSelfTest
+      first Off
+      then SelfTest;
+
+    transition SelfTestToMonitoring
+      first SelfTest
+      if selfTestPassed
+      then Monitoring;
+
+    transition SelfTestToFault
+      first SelfTest
+      if not selfTestPassed
+      then Fault;
+
+    transition MonitoringToFault
+      first Monitoring
+      if pressureSignalInvalid
+      then Fault;
+
+    transition MonitoringToStandby
+      first Monitoring
+      if lowPowerRequested
+      then Standby;
+
+    transition StandbyToMonitoring
+      first Standby
+      if measurementRequested
+      then Monitoring;
+
+    transition FaultToSelfTest
+      first Fault
+      if resetRequested
+      then SelfTest;
+
+    attribute selfTestPassed : Boolean;
+    attribute pressureSignalInvalid : Boolean;
+    attribute lowPowerRequested : Boolean;
+    attribute measurementRequested : Boolean;
+    attribute resetRequested : Boolean;
+  }
+
+  part def PressureTransducer {
+    port airIn : AirSamplePort;
+    port powerIn : ElectricalPowerPort;
+    port signalOut : PressureSignalPort;
+
+    attribute pressureRangeMin : Pressure = 30000 [SI::pascal];
+    attribute pressureRangeMax : Pressure = 110000 [SI::pascal];
+    attribute responseTime : TimeDuration = 0.05 [SI::second];
+    attribute excitationVoltage : Voltage = 3.3 [SI::volt];
+
+    perform action sense : SenseAtmosphericPressure {
+      in sampledAir = airIn.air;
+      in excitationVoltage = powerIn.supplyVoltage;
+      out rawSignal = signalOut.pressureSignal;
+    }
+  }
+
+  part def SignalConditioner {
+    port rawPressureIn : PressureSignalPort;
+    port conditionedPressureOut : PressureSignalPort;
+
+    attribute filterWindow : TimeDuration = 1.0 [SI::second];
+    attribute maximumAcceptedSampleAge : TimeDuration = 2.0 [SI::second];
+
+    perform action filter : FilterPressureSignal {
+      in rawSignal = rawPressureIn.pressureSignal;
+      out filteredSignal = conditionedPressureOut.pressureSignal;
+    }
+  }
+
+  part def AtmosphereCompensator {
+    port sampledAirIn : AirSamplePort;
+    port pressureSignalIn : PressureSignalPort;
+    port reportOut : PressureReportPort;
+
+    attribute standardSeaLevelPressure : Pressure = 101325 [SI::pascal];
+    attribute standardTemperature : Temperature = 288.15 [SI::kelvin];
+
+    perform action compensate : CompensateForAltitudeAndTemperature {
+      in filteredSignal = pressureSignalIn.pressureSignal;
+      in sampledAir = sampledAirIn.air;
+      out pressureReport = reportOut.report;
+    }
+  }
+
+  part def PressureController {
+    port compensatedReportIn : PressureReportPort;
+    port systemReportOut : PressureReportPort;
+
+    attribute reportingPeriod : TimeDuration = 1.0 [SI::second];
+
+    perform action publish : PublishPressureReport {
+      in pressureReport = compensatedReportIn.report;
+      out publishedReport = systemReportOut.report;
+    }
+
+    exhibit state behavior : PressureMonitoringStateMachine;
+  }
+
+  part def AtmosphericPressureMonitoringSystem {
+    doc
+    /* Primary high-level function:
+       measure ambient atmospheric pressure, compensate it for environmental conditions,
+       and publish a validated pressure report for weather observation, altitude estimation,
+       or environmental control use. */
+
+    port ambientAirIn : AirSamplePort;
+    port electricalPowerIn : ElectricalPowerPort;
+    port pressureReportOut : PressureReportPort;
+
+    part transducer : PressureTransducer;
+    part conditioner : SignalConditioner;
+    part compensator : AtmosphereCompensator;
+    part controller : PressureController;
+
+    attribute operatingPressureMin : Pressure = 30000 [SI::pascal];
+    attribute operatingPressureMax : Pressure = 110000 [SI::pascal];
+    attribute nominalSamplingPeriod : TimeDuration = 1.0 [SI::second];
+    attribute requiredAccuracy : Pressure = 50 [SI::pascal];
+
+    connect ambientAirIn to transducer.airIn;
+    connect ambientAirIn to compensator.sampledAirIn;
+    connect electricalPowerIn to transducer.powerIn;
+    connect transducer.signalOut to conditioner.rawPressureIn;
+    connect conditioner.conditionedPressureOut to compensator.pressureSignalIn;
+    connect compensator.reportOut to controller.compensatedReportIn;
+    connect controller.systemReportOut to pressureReportOut;
+  }
+
+  requirement def MeasureAtmosphericPressureRequirement {
+    subject system : AtmosphericPressureMonitoringSystem;
+
+    doc
+    /* The system shall measure ambient atmospheric pressure across the expected
+       terrestrial operating range and produce a validated pressure report. */
+
+    require constraint {
+      system.operatingPressureMin <= 30000 [SI::pascal] and
+      system.operatingPressureMax >= 110000 [SI::pascal]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject system : AtmosphericPressureMonitoringSystem;
+
+    doc
+    /* The system shall report atmospheric pressure with an error no greater
+       than 50 pascals under nominal operating conditions. */
+
+    require constraint {
+      system.requiredAccuracy <= 50 [SI::pascal]
+    }
+  }
+
+  requirement def ReportingLatencyRequirement {
+    subject system : AtmosphericPressureMonitoringSystem;
+
+    doc
+    /* The system shall publish a new pressure report at least once every second. */
+
+    require constraint {
+      system.nominalSamplingPeriod <= 1.0 [SI::second]
+    }
+  }
+
+  requirement def SignalValidityRequirement {
+    subject signal : PressureSignal;
+
+    doc
+    /* A pressure signal shall be considered valid only when its sample age is
+       within the accepted freshness interval. */
+
+    require constraint {
+      signal.sampleAge <= 2.0 [SI::second] implies signal.valid
+    }
+  }
+
+  satisfy MeasureAtmosphericPressureRequirement by AtmosphericPressureMonitoringSystem;
+  satisfy AccuracyRequirement by AtmosphericPressureMonitoringSystem;
+  satisfy ReportingLatencyRequirement by AtmosphericPressureMonitoringSystem;
+
+}
+tokens used
+2,384
+package AtmosphericPressureSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Pressure {
+    :>> quantityKind = ISQ::pressure;
+    :>> unit = SI::pascal;
+  }
+
+  attribute def Temperature {
+    :>> quantityKind = ISQ::thermodynamicTemperature;
+    :>> unit = SI::kelvin;
+  }
+
+  attribute def Altitude {
+    :>> quantityKind = ISQ::length;
+    :>> unit = SI::metre;
+  }
+
+  attribute def HumidityRatio {
+    :>> quantityKind = ISQ::dimensionless;
+    :>> unit = SI::one;
+  }
+
+  attribute def FlowRate {
+    :>> quantityKind = ISQ::volumeFlowRate;
+    :>> unit = SI::metre ^ 3 / SI::second;
+  }
+
+  attribute def Voltage {
+    :>> quantityKind = ISQ::electricPotential;
+    :>> unit = SI::volt;
+  }
+
+  attribute def TimeDuration {
+    :>> quantityKind = ISQ::time;
+    :>> unit = SI::second;
+  }
+
+  item def AmbientAir {
+    attribute staticPressure : Pressure;
+    attribute temperature : Temperature;
+    attribute relativeHumidity : HumidityRatio;
+    attribute altitude : Altitude;
+  }
+
+  item def PressureSignal {
+    attribute measuredPressure : Pressure;
+    attribute sampleAge : TimeDuration;
+    attribute signalVoltage : Voltage;
+    attribute valid : Boolean;
+  }
+
+  item def PressureReport {
+    attribute ambientPressure : Pressure;
+    attribute seaLevelEquivalentPressure : Pressure;
+    attribute pressureTrend : Pressure;
+    attribute sensorHealthy : Boolean;
+  }
+
+  port def AirSamplePort {
+    in item air : AmbientAir;
+  }
+
+  port def PressureSignalPort {
+    out item pressureSignal : PressureSignal;
+  }
+
+  port def PressureReportPort {
+    out item report : PressureReport;
+  }
+
+  port def ElectricalPowerPort {
+    in attribute supplyVoltage : Voltage;
+  }
+
+  action def SenseAtmosphericPressure {
+    in item sampledAir : AmbientAir;
+    in attribute excitationVoltage : Voltage;
+    out item rawSignal : PressureSignal;
+
+    assert constraint {
+      rawSignal.measuredPressure == sampledAir.staticPressure
+    }
+  }
+
+  action def FilterPressureSignal {
+    in item rawSignal : PressureSignal;
+    out item filteredSignal : PressureSignal;
+
+    assert constraint {
+      filteredSignal.valid == rawSignal.valid
+    }
+  }
+
+  action def CompensateForAltitudeAndTemperature {
+    in item filteredSignal : PressureSignal;
+    in item sampledAir : AmbientAir;
+    out item pressureReport : PressureReport;
+
+    assert constraint {
+      pressureReport.ambientPressure == filteredSignal.measuredPressure
+    }
+  }
+
+  action def PublishPressureReport {
+    in item pressureReport : PressureReport;
+    out item publishedReport : PressureReport;
+
+    assert constraint {
+      publishedReport.ambientPressure == pressureReport.ambientPressure
+    }
+  }
+
+  state def PressureMonitoringStateMachine {
+    entry action initialize;
+    state Off;
+    state SelfTest;
+    state Monitoring;
+    state Fault;
+    state Standby;
+
+    transition first Off;
+
+    transition OffToSelfTest
+      first Off
+      then SelfTest;
+
+    transition SelfTestToMonitoring
+      first SelfTest
+      if selfTestPassed
+      then Monitoring;
+
+    transition SelfTestToFault
+      first SelfTest
+      if not selfTestPassed
+      then Fault;
+
+    transition MonitoringToFault
+      first Monitoring
+      if pressureSignalInvalid
+      then Fault;
+
+    transition MonitoringToStandby
+      first Monitoring
+      if lowPowerRequested
+      then Standby;
+
+    transition StandbyToMonitoring
+      first Standby
+      if measurementRequested
+      then Monitoring;
+
+    transition FaultToSelfTest
+      first Fault
+      if resetRequested
+      then SelfTest;
+
+    attribute selfTestPassed : Boolean;
+    attribute pressureSignalInvalid : Boolean;
+    attribute lowPowerRequested : Boolean;
+    attribute measurementRequested : Boolean;
+    attribute resetRequested : Boolean;
+  }
+
+  part def PressureTransducer {
+    port airIn : AirSamplePort;
+    port powerIn : ElectricalPowerPort;
+    port signalOut : PressureSignalPort;
+
+    attribute pressureRangeMin : Pressure = 30000 [SI::pascal];
+    attribute pressureRangeMax : Pressure = 110000 [SI::pascal];
+    attribute responseTime : TimeDuration = 0.05 [SI::second];
+    attribute excitationVoltage : Voltage = 3.3 [SI::volt];
+
+    perform action sense : SenseAtmosphericPressure {
+      in sampledAir = airIn.air;
+      in excitationVoltage = powerIn.supplyVoltage;
+      out rawSignal = signalOut.pressureSignal;
+    }
+  }
+
+  part def SignalConditioner {
+    port rawPressureIn : PressureSignalPort;
+    port conditionedPressureOut : PressureSignalPort;
+
+    attribute filterWindow : TimeDuration = 1.0 [SI::second];
+    attribute maximumAcceptedSampleAge : TimeDuration = 2.0 [SI::second];
+
+    perform action filter : FilterPressureSignal {
+      in rawSignal = rawPressureIn.pressureSignal;
+      out filteredSignal = conditionedPressureOut.pressureSignal;
+    }
+  }
+
+  part def AtmosphereCompensator {
+    port sampledAirIn : AirSamplePort;
+    port pressureSignalIn : PressureSignalPort;
+    port reportOut : PressureReportPort;
+
+    attribute standardSeaLevelPressure : Pressure = 101325 [SI::pascal];
+    attribute standardTemperature : Temperature = 288.15 [SI::kelvin];
+
+    perform action compensate : CompensateForAltitudeAndTemperature {
+      in filteredSignal = pressureSignalIn.pressureSignal;
+      in sampledAir = sampledAirIn.air;
+      out pressureReport = reportOut.report;
+    }
+  }
+
+  part def PressureController {
+    port compensatedReportIn : PressureReportPort;
+    port systemReportOut : PressureReportPort;
+
+    attribute reportingPeriod : TimeDuration = 1.0 [SI::second];
+
+    perform action publish : PublishPressureReport {
+      in pressureReport = compensatedReportIn.report;
+      out publishedReport = systemReportOut.report;
+    }
+
+    exhibit state behavior : PressureMonitoringStateMachine;
+  }
+
+  part def AtmosphericPressureMonitoringSystem {
+    doc
+    /* Primary high-level function:
+       measure ambient atmospheric pressure, compensate it for environmental conditions,
+       and publish a validated pressure report for weather observation, altitude estimation,
+       or environmental control use. */
+
+    port ambientAirIn : AirSamplePort;
+    port electricalPowerIn : ElectricalPowerPort;
+    port pressureReportOut : PressureReportPort;
+
+    part transducer : PressureTransducer;
+    part conditioner : SignalConditioner;
+    part compensator : AtmosphereCompensator;
+    part controller : PressureController;
+
+    attribute operatingPressureMin : Pressure = 30000 [SI::pascal];
+    attribute operatingPressureMax : Pressure = 110000 [SI::pascal];
+    attribute nominalSamplingPeriod : TimeDuration = 1.0 [SI::second];
+    attribute requiredAccuracy : Pressure = 50 [SI::pascal];
+
+    connect ambientAirIn to transducer.airIn;
+    connect ambientAirIn to compensator.sampledAirIn;
+    connect electricalPowerIn to transducer.powerIn;
+    connect transducer.signalOut to conditioner.rawPressureIn;
+    connect conditioner.conditionedPressureOut to compensator.pressureSignalIn;
+    connect compensator.reportOut to controller.compensatedReportIn;
+    connect controller.systemReportOut to pressureReportOut;
+  }
+
+  requirement def MeasureAtmosphericPressureRequirement {
+    subject system : AtmosphericPressureMonitoringSystem;
+
+    doc
+    /* The system shall measure ambient atmospheric pressure across the expected
+       terrestrial operating range and produce a validated pressure report. */
+
+    require constraint {
+      system.operatingPressureMin <= 30000 [SI::pascal] and
+      system.operatingPressureMax >= 110000 [SI::pascal]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject system : AtmosphericPressureMonitoringSystem;
+
+    doc
+    /* The system shall report atmospheric pressure with an error no greater
+       than 50 pascals under nominal operating conditions. */
+
+    require constraint {
+      system.requiredAccuracy <= 50 [SI::pascal]
+    }
+  }
+
+  requirement def ReportingLatencyRequirement {
+    subject system : AtmosphericPressureMonitoringSystem;
+
+    doc
+    /* The system shall publish a new pressure report at least once every second. */
+
+    require constraint {
+      system.nominalSamplingPeriod <= 1.0 [SI::second]
+    }
+  }
+
+  requirement def SignalValidityRequirement {
+    subject signal : PressureSignal;
+
+    doc
+    /* A pressure signal shall be considered valid only when its sample age is
+       within the accepted freshness interval. */
+
+    require constraint {
+      signal.sampleAge <= 2.0 [SI::second] implies signal.valid
+    }
+  }
+
+  satisfy MeasureAtmosphericPressureRequirement by AtmosphericPressureMonitoringSystem;
+  satisfy AccuracyRequirement by AtmosphericPressureMonitoringSystem;
+  satisfy ReportingLatencyRequirement by AtmosphericPressureMonitoringSystem;
+
+}

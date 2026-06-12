@@ -1,0 +1,545 @@
+package AutonomousUnderwaterVehicleModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Length;
+    attribute def Mass;
+    attribute def Speed;
+    attribute def Duration;
+    attribute def Energy;
+    attribute def Power;
+    attribute def Pressure;
+    attribute def Temperature;
+    attribute def Angle;
+    attribute def Distance;
+    attribute def DataRate;
+
+    enum def MissionPhase {
+        entry;
+        initialization;
+        transit;
+        survey;
+        obstacleAvoidance;
+        stationKeeping;
+        returnTransit;
+        recovery;
+        abort;
+    }
+
+    enum def VehicleHealth {
+        nominal;
+        degraded;
+        critical;
+    }
+
+    enum def NavigationMode {
+        inertial;
+        acousticAided;
+        terrainRelative;
+        surfacingGps;
+    }
+
+    item def ElectricalEnergy {
+        attribute remainingEnergy : Energy;
+        attribute voltage : Real;
+        attribute current : Real;
+    }
+
+    item def PropulsionCommand {
+        attribute desiredSurgeSpeed : Speed;
+        attribute desiredHeading : Angle;
+        attribute desiredDepth : Length;
+        attribute maxPowerLimit : Power;
+    }
+
+    item def NavigationEstimate {
+        attribute latitude : Real;
+        attribute longitude : Real;
+        attribute depth : Length;
+        attribute heading : Angle;
+        attribute pitch : Angle;
+        attribute roll : Angle;
+        attribute positionUncertainty : Distance;
+        attribute mode : NavigationMode;
+    }
+
+    item def EnvironmentalSample {
+        attribute depth : Length;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute salinity : Real;
+        attribute turbidity : Real;
+        attribute dissolvedOxygen : Real;
+        attribute timestampSeconds : Real;
+    }
+
+    item def SonarImage {
+        attribute range : Distance;
+        attribute swathWidth : Distance;
+        attribute resolution : Distance;
+        attribute dataRate : DataRate;
+    }
+
+    item def MissionPlan {
+        attribute targetSurveyAreaName : String;
+        attribute commandedSurveyDepth : Length;
+        attribute surveyTrackSpacing : Distance;
+        attribute minimumObstacleClearance : Distance;
+        attribute maximumMissionDuration : Duration;
+        attribute reserveEnergyFraction : Real;
+    }
+
+    item def MissionStatus {
+        attribute phase : MissionPhase;
+        attribute health : VehicleHealth;
+        attribute elapsedTime : Duration;
+        attribute percentSurveyComplete : Real;
+        attribute activeFaultCount : Integer;
+    }
+
+    item def AcousticMessage {
+        attribute sourceId : String;
+        attribute destinationId : String;
+        attribute payloadBytes : Integer;
+        attribute oneWayRange : Distance;
+    }
+
+    port def PowerPort {
+        out item energyOut : ElectricalEnergy;
+        in item energyReturn : ElectricalEnergy;
+    }
+
+    port def CommandPort {
+        in item commandIn : PropulsionCommand;
+    }
+
+    port def NavigationPort {
+        out item navigationOut : NavigationEstimate;
+    }
+
+    port def SensorDataPort {
+        out item sampleOut : EnvironmentalSample;
+        out item sonarOut : SonarImage;
+    }
+
+    port def MissionPort {
+        in item missionPlanIn : MissionPlan;
+        out item missionStatusOut : MissionStatus;
+    }
+
+    port def AcousticCommsPort {
+        in item messageIn : AcousticMessage;
+        out item messageOut : AcousticMessage;
+    }
+
+    port def MechanicalThrustPort {
+        in item thrustCommand : PropulsionCommand;
+        out item achievedMotion : NavigationEstimate;
+    }
+
+    part def BatteryModule {
+        attribute storedEnergy : Energy = 18.0 [kW*h];
+        attribute usableEnergy : Energy = 15.3 [kW*h];
+        attribute nominalVoltage : Real = 300.0;
+        attribute maximumContinuousPower : Power = 5.0 [kW];
+        attribute reserveEnergy : Energy = 2.7 [kW*h];
+
+        port powerOutput : PowerPort;
+
+        action provideElectricalPower {
+            in item requestedPower : ElectricalEnergy;
+            out item suppliedPower : ElectricalEnergy;
+        }
+    }
+
+    part def PowerDistributionUnit {
+        attribute conversionEfficiency : Real = 0.94;
+        attribute maximumOutputPower : Power = 4.8 [kW];
+
+        port batteryInput : PowerPort;
+        port propulsionPowerOutput : PowerPort;
+        port payloadPowerOutput : PowerPort;
+        port avionicsPowerOutput : PowerPort;
+
+        action distributePower {
+            in item availableEnergy : ElectricalEnergy;
+            out item propulsionEnergy : ElectricalEnergy;
+            out item payloadEnergy : ElectricalEnergy;
+            out item avionicsEnergy : ElectricalEnergy;
+        }
+    }
+
+    part def PropulsionSubsystem {
+        attribute maximumForwardSpeed : Speed = 2.5 [m/s];
+        attribute cruiseSpeed : Speed = 1.4 [m/s];
+        attribute maximumOperatingDepth : Length = 600.0 [m];
+        attribute nominalPropulsivePower : Power = 1.8 [kW];
+
+        port powerInput : PowerPort;
+        port commandInput : CommandPort;
+        port thrustOutput : MechanicalThrustPort;
+
+        part portThruster {
+            attribute maximumThrust : Real = 120.0;
+            attribute efficiency : Real = 0.68;
+        }
+
+        part starboardThruster {
+            attribute maximumThrust : Real = 120.0;
+            attribute efficiency : Real = 0.68;
+        }
+
+        part verticalThruster {
+            attribute maximumThrust : Real = 80.0;
+            attribute efficiency : Real = 0.62;
+        }
+
+        action executePropulsionCommand {
+            in item command : PropulsionCommand;
+            out item achievedMotion : NavigationEstimate;
+        }
+    }
+
+    part def NavigationSubsystem {
+        attribute inertialDriftRate : Real = 0.001;
+        attribute acousticFixAccuracy : Distance = 5.0 [m];
+        attribute terrainRelativeAccuracy : Distance = 2.0 [m];
+
+        port navigationOutput : NavigationPort;
+        port avionicsPowerInput : PowerPort;
+
+        part inertialMeasurementUnit {
+            attribute headingAccuracy : Angle = 0.5 [deg];
+            attribute updateRateHz : Real = 100.0;
+        }
+
+        part dopplerVelocityLog {
+            attribute bottomLockRange : Distance = 200.0 [m];
+            attribute velocityAccuracy : Speed = 0.01 [m/s];
+        }
+
+        part depthSensor {
+            attribute depthAccuracy : Length = 0.1 [m];
+            attribute pressureRating : Pressure = 6.1 [MPa];
+        }
+
+        part acousticPositioningReceiver {
+            attribute updatePeriod : Duration = 10.0 [s];
+            attribute maximumRange : Distance = 3000.0 [m];
+        }
+
+        action estimateVehicleState {
+            out item estimate : NavigationEstimate;
+        }
+    }
+
+    part def SensorPayload {
+        attribute payloadPowerDemand : Power = 0.75 [kW];
+        attribute surveySwathWidth : Distance = 120.0 [m];
+        attribute samplePeriod : Duration = 1.0 [s];
+
+        port payloadPowerInput : PowerPort;
+        port sensorOutput : SensorDataPort;
+
+        part sideScanSonar {
+            attribute operatingFrequency : Real = 600.0;
+            attribute maximumRange : Distance = 150.0 [m];
+            attribute alongTrackResolution : Distance = 0.25 [m];
+        }
+
+        part conductivityTemperatureDepthProbe {
+            attribute temperatureAccuracy : Temperature = 0.01 [K];
+            attribute pressureAccuracy : Pressure = 0.005 [MPa];
+            attribute salinityAccuracy : Real = 0.02;
+        }
+
+        part forwardLookingSonar {
+            attribute obstacleDetectionRange : Distance = 80.0 [m];
+            attribute obstacleResolution : Distance = 0.5 [m];
+        }
+
+        action collectSurveyData {
+            in item currentNavigation : NavigationEstimate;
+            out item environmentalSample : EnvironmentalSample;
+            out item sonarImage : SonarImage;
+        }
+    }
+
+    part def AutonomyController {
+        attribute obstacleClearanceSetpoint : Distance = 15.0 [m];
+        attribute stationKeepingRadius : Distance = 3.0 [m];
+        attribute replanningPeriod : Duration = 5.0 [s];
+
+        port missionInterface : MissionPort;
+        port navigationInput : NavigationPort;
+        port propulsionCommandOutput : CommandPort;
+        port acousticInterface : AcousticCommsPort;
+        port sensorInput : SensorDataPort;
+
+        action planMissionExecution {
+            in item missionPlan : MissionPlan;
+            in item navigation : NavigationEstimate;
+            out item command : PropulsionCommand;
+            out item status : MissionStatus;
+        }
+
+        action avoidObstacle {
+            in item navigation : NavigationEstimate;
+            in item obstacleSonar : SonarImage;
+            out item evasiveCommand : PropulsionCommand;
+        }
+
+        action monitorHealthAndAbortCriteria {
+            in item status : MissionStatus;
+            in item availableEnergy : ElectricalEnergy;
+            out item abortRequired : Boolean;
+        }
+
+        state machine missionBehavior {
+            state poweredOff;
+
+            state initializing;
+            state transitingToSurveyArea;
+            state conductingSurvey;
+            state avoidingObstacle;
+            state stationKeeping;
+            state returningToRecoveryPoint;
+            state recovered;
+            state abortingMission;
+
+            transition powerOn first poweredOff then initializing;
+            transition initializationComplete first initializing then transitingToSurveyArea;
+            transition arrivedAtSurveyArea first transitingToSurveyArea then conductingSurvey;
+            transition obstacleDetected first conductingSurvey then avoidingObstacle;
+            transition obstacleCleared first avoidingObstacle then conductingSurvey;
+            transition holdCommandReceived first conductingSurvey then stationKeeping;
+            transition resumeSurvey first stationKeeping then conductingSurvey;
+            transition surveyComplete first conductingSurvey then returningToRecoveryPoint;
+            transition lowEnergyAbort first transitingToSurveyArea then abortingMission;
+            transition payloadFaultAbort first conductingSurvey then abortingMission;
+            transition navigationFaultAbort first avoidingObstacle then abortingMission;
+            transition reachedRecoveryPoint first returningToRecoveryPoint then recovered;
+            transition abortRecoveryComplete first abortingMission then recovered;
+        }
+    }
+
+    part def CommunicationsSubsystem {
+        attribute acousticDataRate : DataRate = 1200.0;
+        attribute maximumAcousticRange : Distance = 3000.0 [m];
+        attribute emergencyBeaconDuration : Duration = 72.0 [h];
+
+        port acousticPort : AcousticCommsPort;
+        port powerInput : PowerPort;
+
+        part acousticModem {
+            attribute carrierFrequency : Real = 24.0;
+            attribute nominalRange : Distance = 2000.0 [m];
+        }
+
+        part emergencyLocatorBeacon {
+            attribute beaconFrequency : Real = 37.5;
+            attribute sourceLevel : Real = 160.0;
+        }
+
+        action exchangeMissionMessages {
+            in item incoming : AcousticMessage;
+            out item outgoing : AcousticMessage;
+        }
+    }
+
+    part def PressureHull {
+        attribute length : Length = 3.2 [m];
+        attribute diameter : Length = 0.45 [m];
+        attribute dryMass : Mass = 220.0 [kg];
+        attribute maximumDepth : Length = 600.0 [m];
+        attribute collapsePressureMargin : Real = 1.5;
+    }
+
+    part def BuoyancyAndTrimSystem {
+        attribute neutralBuoyancyTolerance : Mass = 0.5 [kg];
+        attribute trimAuthority : Angle = 8.0 [deg];
+
+        action adjustTrim {
+            in item currentPitch : Angle;
+            out item correctedPitch : Angle;
+        }
+    }
+
+    part def AutonomousUnderwaterVehicle {
+        attribute vehicleName : String = "AUV-Explorer-600";
+        attribute primaryFunction : String = "Autonomously navigate underwater to execute preplanned survey missions, collect sonar and oceanographic data, avoid obstacles, and return to a recovery point without continuous human control.";
+        attribute designDepth : Length = 600.0 [m];
+        attribute endurance : Duration = 14.0 [h];
+        attribute cruiseSpeed : Speed = 1.4 [m/s];
+        attribute maximumSpeed : Speed = 2.5 [m/s];
+        attribute launchMass : Mass = 285.0 [kg];
+
+        port missionPort : MissionPort;
+        port acousticCommsPort : AcousticCommsPort;
+        port surveyDataPort : SensorDataPort;
+
+        part hull : PressureHull;
+        part buoyancyTrim : BuoyancyAndTrimSystem;
+        part battery : BatteryModule;
+        part powerDistribution : PowerDistributionUnit;
+        part propulsion : PropulsionSubsystem;
+        part navigation : NavigationSubsystem;
+        part payload : SensorPayload;
+        part autonomy : AutonomyController;
+        part communications : CommunicationsSubsystem;
+
+        connect battery.powerOutput to powerDistribution.batteryInput;
+        connect powerDistribution.propulsionPowerOutput to propulsion.powerInput;
+        connect powerDistribution.payloadPowerOutput to payload.payloadPowerInput;
+        connect powerDistribution.avionicsPowerOutput to navigation.avionicsPowerInput;
+        connect powerDistribution.avionicsPowerOutput to autonomy.missionInterface;
+        connect powerDistribution.avionicsPowerOutput to communications.powerInput;
+
+        connect navigation.navigationOutput to autonomy.navigationInput;
+        connect payload.sensorOutput to autonomy.sensorInput;
+        connect autonomy.propulsionCommandOutput to propulsion.commandInput;
+        connect autonomy.acousticInterface to communications.acousticPort;
+
+        connect missionPort to autonomy.missionInterface;
+        connect acousticCommsPort to communications.acousticPort;
+        connect surveyDataPort to payload.sensorOutput;
+
+        action executeAutonomousSurveyMission {
+            in item missionPlan : MissionPlan;
+            out item finalStatus : MissionStatus;
+            out item collectedSample : EnvironmentalSample;
+            out item collectedSonarImage : SonarImage;
+
+            first startMission;
+            then initializeVehicle;
+            then navigateToSurveyArea;
+            then collectSurveyData;
+            then returnToRecoveryPoint;
+            then reportMissionStatus;
+
+            action startMission {
+                in item plan : MissionPlan;
+            }
+
+            action initializeVehicle {
+                out item initialStatus : MissionStatus;
+            }
+
+            action navigateToSurveyArea {
+                out item transitEstimate : NavigationEstimate;
+            }
+
+            action collectSurveyData {
+                out item sample : EnvironmentalSample;
+                out item sonar : SonarImage;
+            }
+
+            action returnToRecoveryPoint {
+                out item recoveryEstimate : NavigationEstimate;
+            }
+
+            action reportMissionStatus {
+                out item status : MissionStatus;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject auv : AutonomousUnderwaterVehicle;
+
+        require constraint {
+            auv.primaryFunction == "Autonomously navigate underwater to execute preplanned survey missions, collect sonar and oceanographic data, avoid obstacles, and return to a recovery point without continuous human control."
+        }
+    }
+
+    requirement def EnduranceRequirement {
+        subject auv : AutonomousUnderwaterVehicle;
+
+        require constraint {
+            auv.endurance >= 12.0 [h]
+        }
+    }
+
+    requirement def DepthRequirement {
+        subject auv : AutonomousUnderwaterVehicle;
+
+        require constraint {
+            auv.designDepth >= 500.0 [m]
+        }
+    }
+
+    requirement def EnergyReserveRequirement {
+        subject battery : BatteryModule;
+
+        require constraint {
+            battery.reserveEnergy >= 0.15 * battery.storedEnergy
+        }
+    }
+
+    requirement def ObstacleAvoidanceRequirement {
+        subject controller : AutonomyController;
+
+        require constraint {
+            controller.obstacleClearanceSetpoint >= 10.0 [m]
+        }
+    }
+
+    requirement def NavigationAccuracyRequirement {
+        subject navigation : NavigationSubsystem;
+
+        require constraint {
+            navigation.terrainRelativeAccuracy <= 3.0 [m]
+        }
+    }
+
+    requirement def SurveyPayloadRequirement {
+        subject payload : SensorPayload;
+
+        require constraint {
+            payload.surveySwathWidth >= 100.0 [m]
+        }
+    }
+
+    requirement def CommunicationsRequirement {
+        subject communications : CommunicationsSubsystem;
+
+        require constraint {
+            communications.maximumAcousticRange >= 2000.0 [m]
+        }
+    }
+
+    part operationalAUV : AutonomousUnderwaterVehicle;
+
+    requirement primaryFunctionSatisfied : PrimaryFunctionRequirement {
+        subject auv = operationalAUV;
+    }
+
+    requirement enduranceSatisfied : EnduranceRequirement {
+        subject auv = operationalAUV;
+    }
+
+    requirement depthSatisfied : DepthRequirement {
+        subject auv = operationalAUV;
+    }
+
+    requirement energyReserveSatisfied : EnergyReserveRequirement {
+        subject battery = operationalAUV.battery;
+    }
+
+    requirement obstacleAvoidanceSatisfied : ObstacleAvoidanceRequirement {
+        subject controller = operationalAUV.autonomy;
+    }
+
+    requirement navigationAccuracySatisfied : NavigationAccuracyRequirement {
+        subject navigation = operationalAUV.navigation;
+    }
+
+    requirement surveyPayloadSatisfied : SurveyPayloadRequirement {
+        subject payload = operationalAUV.payload;
+    }
+
+    requirement communicationsSatisfied : CommunicationsRequirement {
+        subject communications = operationalAUV.communications;
+    }
+}

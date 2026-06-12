@@ -1,0 +1,446 @@
+package ImpactSensingUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Acceleration {
+        :> scalarValue;
+        unit = "m/s^2";
+    }
+
+    attribute def Force {
+        :> scalarValue;
+        unit = "N";
+    }
+
+    attribute def TimeDuration {
+        :> scalarValue;
+        unit = "s";
+    }
+
+    attribute def ElectricPotential {
+        :> scalarValue;
+        unit = "V";
+    }
+
+    attribute def ElectricCurrent {
+        :> scalarValue;
+        unit = "A";
+    }
+
+    attribute def Energy {
+        :> scalarValue;
+        unit = "J";
+    }
+
+    attribute def DataRate {
+        :> scalarValue;
+        unit = "sample/s";
+    }
+
+    attribute def Probability {
+        :> scalarValue;
+        unit = "1";
+    }
+
+    attribute def Temperature {
+        :> scalarValue;
+        unit = "degC";
+    }
+
+    attribute def DigitalCount {
+        :> scalarValue;
+        unit = "count";
+    }
+
+    attribute def ImpactEventId {
+        :> scalarValue;
+    }
+
+    item def MechanicalImpact {
+        attribute eventId : ImpactEventId;
+        attribute peakAcceleration : Acceleration;
+        attribute estimatedForce : Force;
+        attribute duration : TimeDuration;
+        attribute impactEnergy : Energy;
+        attribute occurrenceTime : TimeDuration;
+    }
+
+    item def AnalogImpactSignal {
+        attribute voltage : ElectricPotential;
+        attribute biasVoltage : ElectricPotential;
+        attribute noiseRms : ElectricPotential;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def DigitizedImpactSample {
+        attribute rawCount : DigitalCount;
+        attribute sampledVoltage : ElectricPotential;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def ImpactMeasurement {
+        attribute eventId : ImpactEventId;
+        attribute measuredPeakAcceleration : Acceleration;
+        attribute measuredImpactDuration : TimeDuration;
+        attribute measuredImpactEnergy : Energy;
+        attribute confidence : Probability;
+        attribute measurementTime : TimeDuration;
+    }
+
+    item def HealthStatus {
+        attribute supplyVoltage : ElectricPotential;
+        attribute supplyCurrent : ElectricCurrent;
+        attribute internalTemperature : Temperature;
+        attribute sensorConnected : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute faultActive : Boolean;
+    }
+
+    port def MechanicalImpactPort {
+        in item impact : MechanicalImpact;
+    }
+
+    port def AnalogSignalPort {
+        out item signal : AnalogImpactSignal;
+    }
+
+    port def SamplePort {
+        out item sample : DigitizedImpactSample;
+    }
+
+    port def MeasurementPort {
+        out item measurement : ImpactMeasurement;
+    }
+
+    port def PowerInputPort {
+        in attribute voltage : ElectricPotential;
+        in attribute currentLimit : ElectricCurrent;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    action def ConvertImpactToCharge {
+        in item impact : MechanicalImpact;
+        in attribute sensitivity : ElectricPotential;
+        out item analogSignal : AnalogImpactSignal;
+    }
+
+    action def ConditionAnalogSignal {
+        in item rawSignal : AnalogImpactSignal;
+        in attribute gain : Real;
+        in attribute filterCutoffFrequency : Real;
+        out item conditionedSignal : AnalogImpactSignal;
+    }
+
+    action def SampleAnalogSignal {
+        in item conditionedSignal : AnalogImpactSignal;
+        in attribute sampleRate : DataRate;
+        out item sample : DigitizedImpactSample;
+    }
+
+    action def EstimateImpactMeasurement {
+        in item sample : DigitizedImpactSample;
+        in attribute calibrationScale : Real;
+        in attribute calibrationOffset : Acceleration;
+        out item measurement : ImpactMeasurement;
+    }
+
+    action def PublishMeasurement {
+        in item measurement : ImpactMeasurement;
+        out item publishedMeasurement : ImpactMeasurement;
+    }
+
+    state def SensingUnitStateMachine {
+        entry action initialize;
+
+        state poweredOff;
+        state selfTest;
+        state idle;
+        state armed;
+        state measuring;
+        state reporting;
+        state fault;
+
+        transition initial then poweredOff;
+
+        transition powerApplied
+            first poweredOff
+            then selfTest;
+
+        transition selfTestPassed
+            first selfTest
+            then idle;
+
+        transition selfTestFailed
+            first selfTest
+            then fault;
+
+        transition armRequested
+            first idle
+            then armed;
+
+        transition impactDetected
+            first armed
+            then measuring;
+
+        transition measurementComplete
+            first measuring
+            then reporting;
+
+        transition reportComplete
+            first reporting
+            then armed;
+
+        transition disarmRequested
+            first armed
+            then idle;
+
+        transition faultDetected
+            first idle
+            then fault;
+
+        transition faultDetectedWhileArmed
+            first armed
+            then fault;
+
+        transition faultDetectedWhileMeasuring
+            first measuring
+            then fault;
+
+        transition resetRequested
+            first fault
+            then selfTest;
+
+        transition powerRemoved
+            first idle
+            then poweredOff;
+
+        transition powerRemovedFromFault
+            first fault
+            then poweredOff;
+    }
+
+    part def ImpactSensor {
+        attribute sensingPrinciple : String = "piezoelectric impact transduction";
+        attribute sensitivity : ElectricPotential = 0.010 [V];
+        attribute measurableAccelerationMin : Acceleration = 5.0 [m/s^2];
+        attribute measurableAccelerationMax : Acceleration = 50000.0 [m/s^2];
+        attribute resonantFrequency : Real = 25000.0;
+        attribute responseTime : TimeDuration = 0.0001 [s];
+        attribute operatingTemperatureMin : Temperature = -40.0 [degC];
+        attribute operatingTemperatureMax : Temperature = 125.0 [degC];
+
+        port impactIn : MechanicalImpactPort;
+        port analogOut : AnalogSignalPort;
+
+        action transduceImpact : ConvertImpactToCharge {
+            in impact = impactIn.impact;
+            in sensitivity = sensitivity;
+            out analogSignal = analogOut.signal;
+        }
+    }
+
+    part def SignalConditioner {
+        attribute amplifierGain : Real = 20.0;
+        attribute highPassCutoffFrequency : Real = 5.0;
+        attribute lowPassCutoffFrequency : Real = 10000.0;
+        attribute inputImpedance : Real = 1000000.0;
+        attribute outputBiasVoltage : ElectricPotential = 1.65 [V];
+
+        port analogIn : AnalogSignalPort;
+        port conditionedOut : AnalogSignalPort;
+
+        action condition : ConditionAnalogSignal {
+            in rawSignal = analogIn.signal;
+            in gain = amplifierGain;
+            in filterCutoffFrequency = lowPassCutoffFrequency;
+            out conditionedSignal = conditionedOut.signal;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        attribute resolution : DigitalCount = 4096 [count];
+        attribute referenceVoltage : ElectricPotential = 3.3 [V];
+        attribute samplingRate : DataRate = 50000.0 [sample/s];
+        attribute conversionLatency : TimeDuration = 0.00002 [s];
+
+        port analogIn : AnalogSignalPort;
+        port sampleOut : SamplePort;
+
+        action sampleSignal : SampleAnalogSignal {
+            in conditionedSignal = analogIn.signal;
+            in sampleRate = samplingRate;
+            out sample = sampleOut.sample;
+        }
+    }
+
+    part def ProcessingController {
+        attribute impactThreshold : Acceleration = 25.0 [m/s^2];
+        attribute calibrationScale : Real = 1.000;
+        attribute calibrationOffset : Acceleration = 0.0 [m/s^2];
+        attribute minimumReportConfidence : Probability = 0.95 [1];
+        attribute measurementLatencyBudget : TimeDuration = 0.010 [s];
+
+        port sampleIn : SamplePort;
+        port measurementOut : MeasurementPort;
+        port statusOut : StatusPort;
+
+        action estimateMeasurement : EstimateImpactMeasurement {
+            in sample = sampleIn.sample;
+            in calibrationScale = calibrationScale;
+            in calibrationOffset = calibrationOffset;
+            out measurement = measurementOut.measurement;
+        }
+
+        exhibit stateMachine : SensingUnitStateMachine;
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : ElectricPotential = 9.0 [V];
+        attribute inputVoltageMax : ElectricPotential = 36.0 [V];
+        attribute regulatedVoltage : ElectricPotential = 3.3 [V];
+        attribute maximumOutputCurrent : ElectricCurrent = 0.150 [A];
+        attribute conversionEfficiency : Probability = 0.88 [1];
+
+        port powerIn : PowerInputPort;
+        port statusOut : StatusPort;
+    }
+
+    part def ImpactSensingUnit {
+        attribute unitIdentifier : String = "ISU-IMPACT-001";
+        attribute measuredQuantity : String = "mechanical impact acceleration and energy";
+        attribute sampleRate : DataRate = 50000.0 [sample/s];
+        attribute measurementRangeMin : Acceleration = 5.0 [m/s^2];
+        attribute measurementRangeMax : Acceleration = 50000.0 [m/s^2];
+        attribute peakAccelerationAccuracy : Probability = 0.97 [1];
+        attribute maximumMeasurementLatency : TimeDuration = 0.010 [s];
+
+        port impactInput : MechanicalImpactPort;
+        port measurementOutput : MeasurementPort;
+        port powerInput : PowerInputPort;
+        port healthOutput : StatusPort;
+
+        part sensor : ImpactSensor;
+        part conditioner : SignalConditioner;
+        part adc : AnalogToDigitalConverter;
+        part controller : ProcessingController;
+        part regulator : PowerRegulator;
+
+        connect impactInput to sensor.impactIn;
+        connect sensor.analogOut to conditioner.analogIn;
+        connect conditioner.conditionedOut to adc.analogIn;
+        connect adc.sampleOut to controller.sampleIn;
+        connect controller.measurementOut to measurementOutput;
+        connect powerInput to regulator.powerIn;
+        connect controller.statusOut to healthOutput;
+        connect regulator.statusOut to healthOutput;
+
+        action sensingFunction {
+            in item appliedImpact : MechanicalImpact;
+            out item reportedMeasurement : ImpactMeasurement;
+
+            first start;
+            then sensor.transduceImpact;
+            then conditioner.condition;
+            then adc.sampleSignal;
+            then controller.estimateMeasurement;
+            then done;
+
+            bind appliedImpact = sensor.transduceImpact.impact;
+            bind reportedMeasurement = controller.estimateMeasurement.measurement;
+        }
+
+        exhibit stateMachine : SensingUnitStateMachine;
+    }
+
+    requirement def MeasureImpactRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The sensing unit shall measure mechanical impact using an impact sensor and provide a calibrated impact measurement. */
+
+        require constraint {
+            sensingUnit.measuredQuantity == "mechanical impact acceleration and energy"
+        }
+    }
+
+    requirement def ImpactSensorUseRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The sensing unit shall include an impact sensor as the primary transducer for the measured quantity. */
+
+        require constraint {
+            sensingUnit.sensor.sensingPrinciple == "piezoelectric impact transduction"
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The sensing unit shall measure peak impact acceleration from 5 m/s^2 through 50000 m/s^2. */
+
+        require constraint {
+            sensingUnit.measurementRangeMin <= 5.0 [m/s^2] and
+            sensingUnit.measurementRangeMax >= 50000.0 [m/s^2]
+        }
+    }
+
+    requirement def MeasurementLatencyRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The sensing unit shall publish an impact measurement within 10 ms after impact detection. */
+
+        require constraint {
+            sensingUnit.maximumMeasurementLatency <= 0.010 [s]
+        }
+    }
+
+    requirement def SamplingRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The sensing unit shall sample conditioned impact sensor output at no less than 50000 samples per second. */
+
+        require constraint {
+            sensingUnit.sampleRate >= 50000.0 [sample/s] and
+            sensingUnit.adc.samplingRate >= 50000.0 [sample/s]
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The sensing unit shall estimate peak impact acceleration with at least 0.97 confidence under calibrated operating conditions. */
+
+        require constraint {
+            sensingUnit.peakAccelerationAccuracy >= 0.97 [1]
+        }
+    }
+
+    requirement def OperatingTemperatureRequirement {
+        subject sensingUnit : ImpactSensingUnit;
+
+        doc
+        /* The impact sensor shall operate across the required industrial temperature range. */
+
+        require constraint {
+            sensingUnit.sensor.operatingTemperatureMin <= -40.0 [degC] and
+            sensingUnit.sensor.operatingTemperatureMax >= 125.0 [degC]
+        }
+    }
+
+    satisfy MeasureImpactRequirement by ImpactSensingUnit;
+    satisfy ImpactSensorUseRequirement by ImpactSensingUnit;
+    satisfy MeasurementRangeRequirement by ImpactSensingUnit;
+    satisfy MeasurementLatencyRequirement by ImpactSensingUnit;
+    satisfy SamplingRequirement by ImpactSensingUnit;
+    satisfy AccuracyRequirement by ImpactSensingUnit;
+    satisfy OperatingTemperatureRequirement by ImpactSensingUnit;
+}

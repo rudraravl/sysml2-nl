@@ -1,0 +1,449 @@
+package TouchSwitchSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Capacitance {
+        :> ScalarValues::Real;
+        unit = "pF";
+    }
+
+    attribute def Resistance {
+        :> ScalarValues::Real;
+        unit = "ohm";
+    }
+
+    attribute def TimeDuration {
+        :> ScalarValues::Real;
+        unit = "ms";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def TouchLevel {
+        :> ScalarValues::Real;
+        unit = "normalized";
+    }
+
+    enum def SwitchMode {
+        enum off;
+        enum on;
+        enum fault;
+        enum calibration;
+    }
+
+    enum def TouchEventKind {
+        enum noTouch;
+        enum touchDetected;
+        enum longTouchDetected;
+        enum releaseDetected;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    item def GroundReference {
+        attribute potential : Voltage = 0.0;
+    }
+
+    item def TouchSignal {
+        attribute rawCapacitance : Capacitance;
+        attribute baselineCapacitance : Capacitance;
+        attribute deltaCapacitance : Capacitance;
+        attribute normalizedLevel : TouchLevel;
+        attribute detected : Boolean;
+        attribute eventKind : TouchEventKind;
+    }
+
+    item def SwitchCommand {
+        attribute requestedMode : SwitchMode;
+        attribute latched : Boolean;
+        attribute commandTime : TimeDuration;
+    }
+
+    item def LoadDriveSignal {
+        attribute enabled : Boolean;
+        attribute outputVoltage : Voltage;
+        attribute outputCurrent : Current;
+        attribute deliveredPower : Power;
+    }
+
+    item def DiagnosticStatus {
+        attribute healthy : Boolean;
+        attribute sensorOpenFault : Boolean;
+        attribute sensorShortFault : Boolean;
+        attribute overCurrentFault : Boolean;
+        attribute overTemperatureFault : Boolean;
+        attribute supplyFault : Boolean;
+        attribute measuredTemperature : Temperature;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalEnergy;
+        out item ground : GroundReference;
+    }
+
+    port def LoadOutputPort {
+        out item drive : LoadDriveSignal;
+        in item loadFeedback : ElectricalEnergy;
+    }
+
+    port def TouchSensePort {
+        out item excitation : ElectricalEnergy;
+        in item sensedTouch : TouchSignal;
+    }
+
+    port def DiagnosticPort {
+        out item status : DiagnosticStatus;
+    }
+
+    port def ControlPort {
+        in item touch : TouchSignal;
+        out item command : SwitchCommand;
+    }
+
+    action def MeasureCapacitance {
+        in item electrodeSignal : TouchSignal;
+        out item measuredSignal : TouchSignal;
+
+        attribute samplePeriod : TimeDuration = 5.0;
+        attribute nominalBaseline : Capacitance = 18.0;
+        attribute minimumValidCapacitance : Capacitance = 5.0;
+        attribute maximumValidCapacitance : Capacitance = 80.0;
+    }
+
+    action def FilterTouchSignal {
+        in item measuredSignal : TouchSignal;
+        out item filteredSignal : TouchSignal;
+
+        attribute filterWindow : Integer = 8;
+        attribute debounceTime : TimeDuration = 30.0;
+        attribute touchThreshold : TouchLevel = 0.65;
+        attribute releaseThreshold : TouchLevel = 0.35;
+    }
+
+    action def ToggleLatchedCommand {
+        in item filteredSignal : TouchSignal;
+        in attribute presentMode : SwitchMode;
+        out item switchCommand : SwitchCommand;
+
+        attribute minimumTouchTime : TimeDuration = 40.0;
+        attribute longTouchTime : TimeDuration = 1200.0;
+    }
+
+    action def DriveLoad {
+        in item command : SwitchCommand;
+        in item supply : ElectricalEnergy;
+        out item drive : LoadDriveSignal;
+
+        attribute maximumLoadCurrent : Current = 2.0;
+        attribute nominalOutputVoltage : Voltage = 12.0;
+    }
+
+    action def MonitorDiagnostics {
+        in item supply : ElectricalEnergy;
+        in item loadFeedback : ElectricalEnergy;
+        in item touchSignal : TouchSignal;
+        out item diagnosticStatus : DiagnosticStatus;
+
+        attribute minimumSupplyVoltage : Voltage = 9.0;
+        attribute maximumSupplyVoltage : Voltage = 16.0;
+        attribute maximumTemperature : Temperature = 85.0;
+        attribute maximumLoadCurrent : Current = 2.2;
+    }
+
+    state def TouchSwitchControllerStateMachine {
+        in item filteredTouch : TouchSignal;
+        in item diagnosticStatus : DiagnosticStatus;
+        out item command : SwitchCommand;
+
+        state initial Calibrating;
+        state ReadyOff;
+        state TouchConfirmOff;
+        state ReadyOn;
+        state TouchConfirmOn;
+        state FaultLatched;
+
+        transition first Calibrating
+            then ReadyOff
+            accept after 250.0 [diagnosticStatus.healthy];
+
+        transition Calibrating
+            then FaultLatched
+            accept when diagnosticStatus.supplyFault or diagnosticStatus.sensorOpenFault or diagnosticStatus.sensorShortFault;
+
+        transition ReadyOff
+            then TouchConfirmOff
+            accept when filteredTouch.eventKind == TouchEventKind::touchDetected;
+
+        transition TouchConfirmOff
+            then ReadyOn
+            accept after 40.0 [filteredTouch.detected and diagnosticStatus.healthy]
+            do ToggleLatchedCommand;
+
+        transition TouchConfirmOff
+            then ReadyOff
+            accept when filteredTouch.eventKind == TouchEventKind::releaseDetected;
+
+        transition ReadyOn
+            then TouchConfirmOn
+            accept when filteredTouch.eventKind == TouchEventKind::touchDetected;
+
+        transition TouchConfirmOn
+            then ReadyOff
+            accept after 40.0 [filteredTouch.detected and diagnosticStatus.healthy]
+            do ToggleLatchedCommand;
+
+        transition TouchConfirmOn
+            then ReadyOn
+            accept when filteredTouch.eventKind == TouchEventKind::releaseDetected;
+
+        transition ReadyOff
+            then FaultLatched
+            accept when not diagnosticStatus.healthy;
+
+        transition ReadyOn
+            then FaultLatched
+            accept when not diagnosticStatus.healthy;
+
+        transition FaultLatched
+            then Calibrating
+            accept when diagnosticStatus.healthy and filteredTouch.eventKind == TouchEventKind::longTouchDetected;
+    }
+
+    part def CapacitiveTouchElectrode {
+        port sensePort : TouchSensePort;
+
+        attribute electrodeCapacitance : Capacitance = 18.0;
+        attribute touchDeltaCapacitance : Capacitance = 6.0;
+        attribute guardRingResistance : Resistance = 1000000.0;
+        attribute moistureRejectionEnabled : Boolean = true;
+        attribute overlayThickness : Real = 2.0;
+        attribute overlayThicknessUnit : String = "mm";
+    }
+
+    part def TouchSensingFrontEnd {
+        port electrodePort : TouchSensePort;
+        port controlPort : ControlPort;
+
+        part measurementAction : MeasureCapacitance;
+        part filterAction : FilterTouchSignal;
+
+        attribute excitationVoltage : Voltage = 3.3;
+        attribute samplePeriod : TimeDuration = 5.0;
+        attribute baselineTrackingEnabled : Boolean = true;
+        attribute touchThreshold : TouchLevel = 0.65;
+        attribute releaseThreshold : TouchLevel = 0.35;
+
+        flow electrodePort.sensedTouch to controlPort.touch;
+    }
+
+    part def SwitchController {
+        port controlPort : ControlPort;
+        port diagnosticPort : DiagnosticPort;
+
+        perform stateMachine : TouchSwitchControllerStateMachine;
+
+        attribute currentMode : SwitchMode = SwitchMode::off;
+        attribute latchedOutput : Boolean = false;
+        attribute debounceTime : TimeDuration = 30.0;
+        attribute longPressResetTime : TimeDuration = 1200.0;
+    }
+
+    part def LoadDriver {
+        port commandPort : ControlPort;
+        port powerPort : PowerInputPort;
+        port outputPort : LoadOutputPort;
+        port diagnosticPort : DiagnosticPort;
+
+        part driveAction : DriveLoad;
+
+        attribute nominalLoadVoltage : Voltage = 12.0;
+        attribute maximumContinuousCurrent : Current = 2.0;
+        attribute offStateLeakageCurrent : Current = 0.00001;
+        attribute shortCircuitProtectionEnabled : Boolean = true;
+        attribute thermalShutdownEnabled : Boolean = true;
+    }
+
+    part def PowerConditioner {
+        port inputPower : PowerInputPort;
+        port regulatedPower : PowerInputPort;
+        port diagnosticPort : DiagnosticPort;
+
+        attribute inputVoltageMinimum : Voltage = 9.0;
+        attribute inputVoltageNominal : Voltage = 12.0;
+        attribute inputVoltageMaximum : Voltage = 16.0;
+        attribute logicVoltage : Voltage = 3.3;
+        attribute quiescentCurrent : Current = 0.012;
+        attribute efficiency : Real = 0.88;
+    }
+
+    part def DiagnosticManager {
+        port powerMonitor : PowerInputPort;
+        port loadMonitor : LoadOutputPort;
+        port touchMonitor : ControlPort;
+        port diagnosticPort : DiagnosticPort;
+
+        part monitorAction : MonitorDiagnostics;
+
+        attribute maximumOperatingTemperature : Temperature = 85.0;
+        attribute minimumOperatingTemperature : Temperature = -20.0;
+        attribute selfTestInterval : TimeDuration = 1000.0;
+        attribute faultLatchEnabled : Boolean = true;
+    }
+
+    part def ExternalLoad {
+        port loadPort : LoadOutputPort;
+
+        attribute nominalVoltage : Voltage = 12.0;
+        attribute nominalCurrent : Current = 1.0;
+        attribute nominalPower : Power = 12.0;
+        attribute energized : Boolean = false;
+    }
+
+    part def TouchSwitchSystem {
+        port supplyInput : PowerInputPort;
+        port switchedOutput : LoadOutputPort;
+        port diagnostics : DiagnosticPort;
+
+        part electrode : CapacitiveTouchElectrode;
+        part frontEnd : TouchSensingFrontEnd;
+        part controller : SwitchController;
+        part driver : LoadDriver;
+        part powerConditioner : PowerConditioner;
+        part diagnosticManager : DiagnosticManager;
+        part load : ExternalLoad;
+
+        attribute primaryFunction : String =
+            "Detect a human touch on a capacitive surface and toggle electrical power to a connected load while maintaining debounce, fault detection, and safe output control.";
+
+        attribute supplyVoltageNominal : Voltage = 12.0;
+        attribute logicVoltageNominal : Voltage = 3.3;
+        attribute maximumLoadCurrent : Current = 2.0;
+        attribute touchResponseTime : TimeDuration = 80.0;
+        attribute standbyPower : Power = 0.15;
+
+        connect supplyInput to powerConditioner.inputPower;
+        connect powerConditioner.regulatedPower to driver.powerPort;
+        connect electrode.sensePort to frontEnd.electrodePort;
+        connect frontEnd.controlPort to controller.controlPort;
+        connect controller.controlPort to driver.commandPort;
+        connect driver.outputPort to switchedOutput;
+        connect switchedOutput to load.loadPort;
+        connect powerConditioner.diagnosticPort to diagnosticManager.diagnosticPort;
+        connect driver.diagnosticPort to diagnosticManager.diagnosticPort;
+        connect diagnosticManager.diagnosticPort to diagnostics;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject touchSwitch : TouchSwitchSystem;
+
+        doc /* The system shall detect intentional human touch input and toggle the connected load between energized and de-energized states. */
+
+        require constraint {
+            touchSwitch.touchResponseTime <= 100.0
+        }
+    }
+
+    requirement def TouchDetectionRequirement {
+        subject frontEnd : TouchSensingFrontEnd;
+
+        doc /* The touch sensing front end shall classify a touch when the normalized touch level is at or above 0.65 after debounce filtering. */
+
+        require constraint {
+            frontEnd.touchThreshold >= 0.60 and frontEnd.touchThreshold <= 0.75
+        }
+    }
+
+    requirement def ReleaseDetectionRequirement {
+        subject frontEnd : TouchSensingFrontEnd;
+
+        doc /* The touch sensing front end shall classify release below the touch threshold using hysteresis to prevent chatter. */
+
+        require constraint {
+            frontEnd.releaseThreshold < frontEnd.touchThreshold
+        }
+    }
+
+    requirement def OutputPowerRequirement {
+        subject driver : LoadDriver;
+
+        doc /* The load driver shall provide switched output power up to 2 A at nominal 12 V when commanded on. */
+
+        require constraint {
+            driver.nominalLoadVoltage == 12.0 and driver.maximumContinuousCurrent >= 2.0
+        }
+    }
+
+    requirement def SupplyToleranceRequirement {
+        subject powerConditioner : PowerConditioner;
+
+        doc /* The power conditioner shall support operation across the specified low-voltage DC supply range. */
+
+        require constraint {
+            powerConditioner.inputVoltageMinimum <= 9.0 and powerConditioner.inputVoltageMaximum >= 16.0
+        }
+    }
+
+    requirement def FaultProtectionRequirement {
+        subject diagnosticManager : DiagnosticManager;
+
+        doc /* The system shall report unsafe supply, sensor, load, and thermal conditions and prevent unsafe load energization. */
+
+        require constraint {
+            diagnosticManager.faultLatchEnabled == true
+        }
+    }
+
+    requirement def StandbyPowerRequirement {
+        subject touchSwitch : TouchSwitchSystem;
+
+        doc /* The touch switch shall consume no more than 0.20 W while waiting for touch input with the output off. */
+
+        require constraint {
+            touchSwitch.standbyPower <= 0.20
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject diagnosticManager : DiagnosticManager;
+
+        doc /* The system shall operate over the required ambient temperature range for indoor wall-mounted use. */
+
+        require constraint {
+            diagnosticManager.minimumOperatingTemperature <= -20.0 and
+            diagnosticManager.maximumOperatingTemperature >= 85.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TouchSwitchSystem;
+    satisfy TouchDetectionRequirement by TouchSensingFrontEnd;
+    satisfy ReleaseDetectionRequirement by TouchSensingFrontEnd;
+    satisfy OutputPowerRequirement by LoadDriver;
+    satisfy SupplyToleranceRequirement by PowerConditioner;
+    satisfy FaultProtectionRequirement by DiagnosticManager;
+    satisfy StandbyPowerRequirement by TouchSwitchSystem;
+    satisfy EnvironmentalRequirement by DiagnosticManager;
+}

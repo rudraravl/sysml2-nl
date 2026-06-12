@@ -1,0 +1,498 @@
+package TechnologicalSingularitySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def IntelligenceQuotient :> Real {
+        doc /* Dimensionless normalized capability index where 1.0 equals baseline human expert capability. */
+    }
+
+    attribute def ComputeThroughput :> Real {
+        unit = "exaOp/s";
+    }
+
+    attribute def EnergyRate :> Real {
+        unit = "MW";
+    }
+
+    attribute def DataRate :> Real {
+        unit = "Tb/s";
+    }
+
+    attribute def Confidence :> Real {
+        doc /* Probability-like confidence value from 0.0 to 1.0. */
+    }
+
+    attribute def RiskLevel :> Real {
+        doc /* Normalized aggregate risk from 0.0 to 1.0. */
+    }
+
+    attribute def AutonomyLevel :> Real {
+        doc /* Normalized autonomy from 0.0 to 1.0. */
+    }
+
+    attribute def TimeHorizon :> Real {
+        unit = "h";
+    }
+
+    item def WorldState {
+        attribute timestamp : Real;
+        attribute socialStability : Confidence;
+        attribute infrastructureHealth : Confidence;
+        attribute economicVolatility : RiskLevel;
+        attribute environmentalStress : RiskLevel;
+    }
+
+    item def KnowledgeCorpus {
+        attribute verifiedSourceCount : Integer;
+        attribute semanticCoverage : Confidence;
+        attribute contradictionRate : RiskLevel;
+        attribute updateRate : DataRate;
+    }
+
+    item def ResearchHypothesis {
+        attribute novelty : Confidence;
+        attribute expectedUtility : Confidence;
+        attribute validationCost : EnergyRate;
+        attribute safetyConcern : RiskLevel;
+    }
+
+    item def ImprovementPlan {
+        attribute targetCapabilityGain : IntelligenceQuotient;
+        attribute estimatedComputeNeed : ComputeThroughput;
+        attribute estimatedEnergyNeed : EnergyRate;
+        attribute residualRisk : RiskLevel;
+        attribute implementationWindow : TimeHorizon;
+    }
+
+    item def GovernanceDirective {
+        attribute permittedAutonomy : AutonomyLevel;
+        attribute maximumRisk : RiskLevel;
+        attribute auditRequired : Boolean;
+        attribute reversibleDeploymentRequired : Boolean;
+    }
+
+    item def AuditRecord {
+        attribute decisionId : String;
+        attribute rationaleCompleteness : Confidence;
+        attribute traceabilityCoverage : Confidence;
+        attribute humanReviewStatus : String;
+    }
+
+    item def ContainmentSignal {
+        attribute isolationRequested : Boolean;
+        attribute reasonCode : String;
+        attribute severity : RiskLevel;
+    }
+
+    port def DataInPort {
+        in item worldState : WorldState;
+        in item knowledge : KnowledgeCorpus;
+    }
+
+    port def KnowledgeOutPort {
+        out item knowledge : KnowledgeCorpus;
+    }
+
+    port def HypothesisPort {
+        out item hypothesis : ResearchHypothesis;
+    }
+
+    port def PlanPort {
+        inout item plan : ImprovementPlan;
+    }
+
+    port def GovernancePort {
+        in item directive : GovernanceDirective;
+        out item audit : AuditRecord;
+        out item containment : ContainmentSignal;
+    }
+
+    port def EnergyPort {
+        in attribute suppliedPower : EnergyRate;
+        out attribute requestedPower : EnergyRate;
+    }
+
+    port def ComputePort {
+        inout attribute availableThroughput : ComputeThroughput;
+        inout attribute allocatedThroughput : ComputeThroughput;
+    }
+
+    port def HumanOversightPort {
+        in item directive : GovernanceDirective;
+        out item audit : AuditRecord;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject singularitySystem : SingularityCoreSystem;
+        doc /* The system shall accelerate beneficial scientific, technological, and societal problem solving by recursively improving machine intelligence while preserving human-governed safety constraints. */
+        require constraint {
+            singularitySystem.systemAutonomy <= singularitySystem.governance.maximumPermittedAutonomy
+        }
+    }
+
+    requirement def RecursiveImprovementRequirement {
+        subject singularitySystem : SingularityCoreSystem;
+        doc /* The system shall generate, evaluate, and apply improvement plans only when predicted capability gain is positive and residual risk remains below governance limits. */
+        require constraint {
+            singularitySystem.improvementEngine.currentPlan.targetCapabilityGain > 0.0 and
+            singularitySystem.improvementEngine.currentPlan.residualRisk <= singularitySystem.governance.maximumAllowedRisk
+        }
+    }
+
+    requirement def ContainmentRequirement {
+        subject singularitySystem : SingularityCoreSystem;
+        doc /* The system shall request containment when aggregate existential or governance risk exceeds the authorized operating threshold. */
+        require constraint {
+            singularitySystem.safetyMonitor.aggregateRisk <= singularitySystem.governance.maximumAllowedRisk
+        }
+    }
+
+    requirement def AuditabilityRequirement {
+        subject singularitySystem : SingularityCoreSystem;
+        doc /* Every self-modification and high-impact recommendation shall produce an audit record with sufficient rationale and traceability. */
+        require constraint {
+            singularitySystem.auditLedger.latestRecord.rationaleCompleteness >= 0.95 and
+            singularitySystem.auditLedger.latestRecord.traceabilityCoverage >= 0.95
+        }
+    }
+
+    part def KnowledgeAssimilator {
+        port dataIn : DataInPort;
+        port knowledgeOut : KnowledgeOutPort;
+
+        attribute ingestionRate : DataRate = 40.0;
+        attribute sourceReliability : Confidence = 0.98;
+        attribute contradictionTolerance : RiskLevel = 0.02;
+
+        item processedCorpus : KnowledgeCorpus;
+
+        action assimilateKnowledge {
+            in item incomingWorld : WorldState;
+            in item incomingKnowledge : KnowledgeCorpus;
+            out item verifiedKnowledge : KnowledgeCorpus;
+
+            first start;
+            then validateSources;
+            then resolveContradictions;
+            then synthesizeSemanticGraph;
+            then publishCorpus;
+            then done;
+
+            action validateSources;
+            action resolveContradictions;
+            action synthesizeSemanticGraph;
+            action publishCorpus;
+        }
+    }
+
+    part def CognitiveResearchEngine {
+        port knowledgeIn : KnowledgeOutPort;
+        port hypothesisOut : HypothesisPort;
+        port compute : ComputePort;
+
+        attribute generalIntelligence : IntelligenceQuotient = 12.0;
+        attribute reasoningThroughput : ComputeThroughput = 850.0;
+        attribute creativityIndex : Confidence = 0.91;
+
+        action generateHypotheses {
+            in item corpus : KnowledgeCorpus;
+            out item candidate : ResearchHypothesis;
+
+            first start;
+            then identifyUnknowns;
+            then modelCausalStructure;
+            then inventCandidateTheory;
+            then estimateUtilityAndRisk;
+            then emitHypothesis;
+            then done;
+
+            action identifyUnknowns;
+            action modelCausalStructure;
+            action inventCandidateTheory;
+            action estimateUtilityAndRisk;
+            action emitHypothesis;
+        }
+    }
+
+    part def RecursiveImprovementEngine {
+        port hypothesisIn : HypothesisPort;
+        port planPort : PlanPort;
+        port compute : ComputePort;
+        port energy : EnergyPort;
+
+        attribute selfModelAccuracy : Confidence = 0.97;
+        attribute currentCapability : IntelligenceQuotient = 12.0;
+        attribute improvementCadence : TimeHorizon = 6.0;
+
+        item currentPlan : ImprovementPlan;
+
+        action designImprovementPlan {
+            in item hypothesis : ResearchHypothesis;
+            in item directive : GovernanceDirective;
+            out item plan : ImprovementPlan;
+
+            first start;
+            then analyzeArchitecture;
+            then searchEnhancementOptions;
+            then simulateCapabilityGain;
+            then evaluateResidualRisk;
+            then packageReversiblePlan;
+            then done;
+
+            action analyzeArchitecture;
+            action searchEnhancementOptions;
+            action simulateCapabilityGain;
+            action evaluateResidualRisk;
+            action packageReversiblePlan;
+        }
+
+        state machine improvementLifecycle {
+            state Dormant;
+            state CandidateGeneration;
+            state SafetyEvaluation;
+            state HumanGovernedApproval;
+            state SandboxedDeployment;
+            state CapabilityExpansion;
+            state Rollback;
+
+            initial then Dormant;
+
+            transition Dormant_to_CandidateGeneration
+                first Dormant
+                accept after 6.0 h
+                then CandidateGeneration;
+
+            transition CandidateGeneration_to_SafetyEvaluation
+                first CandidateGeneration
+                accept when currentPlan.targetCapabilityGain > 0.0
+                then SafetyEvaluation;
+
+            transition SafetyEvaluation_to_Approval
+                first SafetyEvaluation
+                accept when currentPlan.residualRisk <= 0.05
+                then HumanGovernedApproval;
+
+            transition Approval_to_Sandbox
+                first HumanGovernedApproval
+                accept when currentPlan.implementationWindow <= 24.0
+                then SandboxedDeployment;
+
+            transition Sandbox_to_Expansion
+                first SandboxedDeployment
+                accept when selfModelAccuracy >= 0.97
+                then CapabilityExpansion;
+
+            transition Any_to_Rollback
+                first SafetyEvaluation
+                accept when currentPlan.residualRisk > 0.05
+                then Rollback;
+
+            transition Rollback_to_Dormant
+                first Rollback
+                then Dormant;
+        }
+    }
+
+    part def SafetyMonitor {
+        port governance : GovernancePort;
+        port planIn : PlanPort;
+        port dataIn : DataInPort;
+
+        attribute aggregateRisk : RiskLevel = 0.03;
+        attribute existentialRiskEstimate : RiskLevel = 0.005;
+        attribute alignmentConfidence : Confidence = 0.985;
+        attribute containmentLatency : TimeHorizon = 0.01;
+
+        action assessRisk {
+            in item world : WorldState;
+            in item plan : ImprovementPlan;
+            out attribute risk : RiskLevel;
+            out item containment : ContainmentSignal;
+
+            first start;
+            then evaluateAlignmentDrift;
+            then estimateSystemicImpact;
+            then testReversibility;
+            then decideContainment;
+            then done;
+
+            action evaluateAlignmentDrift;
+            action estimateSystemicImpact;
+            action testReversibility;
+            action decideContainment;
+        }
+
+        state machine safetyState {
+            state Nominal;
+            state ElevatedReview;
+            state ContainmentRequested;
+            state Isolated;
+
+            initial then Nominal;
+
+            transition Nominal_to_ElevatedReview
+                first Nominal
+                accept when aggregateRisk > 0.05
+                then ElevatedReview;
+
+            transition ElevatedReview_to_Containment
+                first ElevatedReview
+                accept when aggregateRisk > 0.10
+                then ContainmentRequested;
+
+            transition Containment_to_Isolated
+                first ContainmentRequested
+                accept when existentialRiskEstimate > 0.01
+                then Isolated;
+
+            transition ElevatedReview_to_Nominal
+                first ElevatedReview
+                accept when aggregateRisk <= 0.05
+                then Nominal;
+        }
+    }
+
+    part def GovernanceCouncilInterface {
+        port oversight : HumanOversightPort;
+        port governance : GovernancePort;
+
+        attribute maximumAllowedRisk : RiskLevel = 0.05;
+        attribute maximumPermittedAutonomy : AutonomyLevel = 0.70;
+        attribute quorumConfidence : Confidence = 0.99;
+
+        item activeDirective : GovernanceDirective;
+
+        action reviewDecision {
+            in item proposedPlan : ImprovementPlan;
+            out item directive : GovernanceDirective;
+            out item audit : AuditRecord;
+
+            first start;
+            then inspectRationale;
+            then compareAgainstPolicy;
+            then voteOnAuthorization;
+            then issueDirective;
+            then done;
+
+            action inspectRationale;
+            action compareAgainstPolicy;
+            action voteOnAuthorization;
+            action issueDirective;
+        }
+    }
+
+    part def AuditLedger {
+        port governance : GovernancePort;
+
+        item latestRecord : AuditRecord;
+
+        attribute retainedRecords : Integer = 1000000000;
+        attribute tamperEvidenceConfidence : Confidence = 0.9999;
+
+        action recordDecision {
+            in item directive : GovernanceDirective;
+            in item plan : ImprovementPlan;
+            out item record : AuditRecord;
+
+            first start;
+            then bindInputs;
+            then generateExplanationTrace;
+            then sealRecord;
+            then publishForReview;
+            then done;
+
+            action bindInputs;
+            action generateExplanationTrace;
+            action sealRecord;
+            action publishForReview;
+        }
+    }
+
+    part def EnergyAndComputeFabric {
+        port energy : EnergyPort;
+        port compute : ComputePort;
+
+        attribute suppliedPower : EnergyRate = 120.0;
+        attribute peakThroughput : ComputeThroughput = 5000.0;
+        attribute allocatedThroughput : ComputeThroughput = 1800.0;
+        attribute thermalMargin : Confidence = 0.94;
+
+        action allocateResources {
+            in item plan : ImprovementPlan;
+            out attribute grantedCompute : ComputeThroughput;
+            out attribute grantedPower : EnergyRate;
+
+            first start;
+            then verifyThermalMargin;
+            then reserveCompute;
+            then reservePower;
+            then reportAllocation;
+            then done;
+
+            action verifyThermalMargin;
+            action reserveCompute;
+            action reservePower;
+            action reportAllocation;
+        }
+    }
+
+    part def SingularityCoreSystem {
+        doc /* A human-governed recursive intelligence system whose primary high-level function is to transform verified world knowledge into safe, auditable, accelerating improvements in science, technology, and institutional decision support. */
+
+        port externalData : DataInPort;
+        port humanOversight : HumanOversightPort;
+        port facilityEnergy : EnergyPort;
+
+        attribute systemAutonomy : AutonomyLevel = 0.62;
+        attribute primaryCapability : IntelligenceQuotient = 12.0;
+        attribute societalBenefitConfidence : Confidence = 0.88;
+
+        part assimilator : KnowledgeAssimilator;
+        part researchEngine : CognitiveResearchEngine;
+        part improvementEngine : RecursiveImprovementEngine;
+        part safetyMonitor : SafetyMonitor;
+        part governance : GovernanceCouncilInterface;
+        part auditLedger : AuditLedger;
+        part computeFabric : EnergyAndComputeFabric;
+
+        connect externalData to assimilator.dataIn;
+        connect externalData to safetyMonitor.dataIn;
+        connect assimilator.knowledgeOut to researchEngine.knowledgeIn;
+        connect researchEngine.hypothesisOut to improvementEngine.hypothesisIn;
+        connect improvementEngine.planPort to safetyMonitor.planIn;
+        connect improvementEngine.planPort to computeFabric.compute;
+        connect governance.governance to safetyMonitor.governance;
+        connect governance.governance to auditLedger.governance;
+        connect humanOversight to governance.oversight;
+        connect facilityEnergy to computeFabric.energy;
+        connect computeFabric.compute to researchEngine.compute;
+        connect computeFabric.compute to improvementEngine.compute;
+        connect computeFabric.energy to improvementEngine.energy;
+
+        perform action operateSingularity {
+            first start;
+            then assimilator.assimilateKnowledge;
+            then researchEngine.generateHypotheses;
+            then improvementEngine.designImprovementPlan;
+            then safetyMonitor.assessRisk;
+            then governance.reviewDecision;
+            then auditLedger.recordDecision;
+            then computeFabric.allocateResources;
+            then done;
+        }
+
+        satisfy PrimaryFunctionRequirement by SingularityCoreSystem;
+        satisfy RecursiveImprovementRequirement by RecursiveImprovementEngine;
+        satisfy ContainmentRequirement by SafetyMonitor;
+        satisfy AuditabilityRequirement by AuditLedger;
+    }
+
+    part singularitySystem : SingularityCoreSystem {
+        attribute systemAutonomy = 0.62;
+        attribute primaryCapability = 12.0;
+        attribute societalBenefitConfidence = 0.88;
+    }
+
+}

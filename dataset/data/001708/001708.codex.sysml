@@ -1,0 +1,634 @@
+package HomeSeerAutomationSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    doc /* Percentage value from 0 to 100. */
+  }
+
+  attribute def TemperatureCelsius : Real {
+    unit = "Cel";
+  }
+
+  attribute def PowerWatt : Real {
+    unit = "W";
+  }
+
+  attribute def EnergyKWh : Real {
+    unit = "kW*h";
+  }
+
+  attribute def LuminousFluxLumen : Real {
+    unit = "lm";
+  }
+
+  attribute def DurationSecond : Real {
+    unit = "s";
+  }
+
+  attribute def NetworkLatencyMs : Real {
+    unit = "ms";
+  }
+
+  enum def DeviceProtocol {
+    enum ZWave;
+    enum Zigbee;
+    enum WiFi;
+    enum Ethernet;
+    enum Matter;
+    enum Infrared;
+    enum CloudAPI;
+  }
+
+  enum def DeviceHealth {
+    enum Online;
+    enum Degraded;
+    enum Offline;
+    enum Unknown;
+  }
+
+  enum def SecurityMode {
+    enum Disarmed;
+    enum Stay;
+    enum Away;
+    enum Night;
+    enum Alarm;
+  }
+
+  enum def CommandPriority {
+    enum Routine;
+    enum UserRequested;
+    enum SafetyCritical;
+    enum Emergency;
+  }
+
+  item def SensorReading {
+    attribute sourceId : String;
+    attribute timestamp : DateTime;
+    attribute health : DeviceHealth;
+  }
+
+  item def TemperatureReading specializes SensorReading {
+    attribute temperature : TemperatureCelsius;
+  }
+
+  item def MotionReading specializes SensorReading {
+    attribute occupied : Boolean;
+  }
+
+  item def DoorContactReading specializes SensorReading {
+    attribute open : Boolean;
+  }
+
+  item def IlluminanceReading specializes SensorReading {
+    attribute illuminance : LuminousFluxLumen;
+  }
+
+  item def PowerReading specializes SensorReading {
+    attribute instantaneousPower : PowerWatt;
+    attribute accumulatedEnergy : EnergyKWh;
+  }
+
+  item def HomeEvent {
+    attribute eventId : String;
+    attribute eventTime : DateTime;
+    attribute priority : CommandPriority;
+    attribute description : String;
+  }
+
+  item def AutomationCommand {
+    attribute commandId : String;
+    attribute targetId : String;
+    attribute issuedAt : DateTime;
+    attribute priority : CommandPriority;
+  }
+
+  item def LightCommand specializes AutomationCommand {
+    attribute on : Boolean;
+    attribute brightness : Percent;
+  }
+
+  item def ThermostatCommand specializes AutomationCommand {
+    attribute heatSetpoint : TemperatureCelsius;
+    attribute coolSetpoint : TemperatureCelsius;
+    attribute hvacEnabled : Boolean;
+  }
+
+  item def LockCommand specializes AutomationCommand {
+    attribute locked : Boolean;
+  }
+
+  item def NotificationMessage {
+    attribute recipient : String;
+    attribute subject : String;
+    attribute body : String;
+    attribute urgent : Boolean;
+  }
+
+  port def SensorDataPort {
+    in item reading : SensorReading;
+  }
+
+  port def EventPort {
+    in item eventIn : HomeEvent;
+    out item eventOut : HomeEvent;
+  }
+
+  port def CommandPort {
+    in item commandIn : AutomationCommand;
+    out item commandOut : AutomationCommand;
+  }
+
+  port def NotificationPort {
+    out item notification : NotificationMessage;
+  }
+
+  port def NetworkPort {
+    attribute protocol : DeviceProtocol;
+    attribute linkHealth : DeviceHealth;
+    attribute latency : NetworkLatencyMs;
+    in item inboundReading : SensorReading;
+    out item outboundCommand : AutomationCommand;
+  }
+
+  part def SmartDevice {
+    attribute deviceId : String;
+    attribute displayName : String;
+    attribute protocol : DeviceProtocol;
+    attribute health : DeviceHealth;
+    attribute lastSeen : DateTime;
+    port network : NetworkPort;
+    port command : CommandPort;
+  }
+
+  part def SensorDevice specializes SmartDevice {
+    port data : SensorDataPort;
+  }
+
+  part def MotionSensor specializes SensorDevice {
+    attribute occupied : Boolean;
+    attribute batteryLevel : Percent;
+  }
+
+  part def DoorContactSensor specializes SensorDevice {
+    attribute open : Boolean;
+    attribute tamperDetected : Boolean;
+    attribute batteryLevel : Percent;
+  }
+
+  part def TemperatureSensor specializes SensorDevice {
+    attribute measuredTemperature : TemperatureCelsius;
+    attribute batteryLevel : Percent;
+  }
+
+  part def LightLevelSensor specializes SensorDevice {
+    attribute measuredIlluminance : LuminousFluxLumen;
+    attribute batteryLevel : Percent;
+  }
+
+  part def ActuatorDevice specializes SmartDevice {
+    attribute acceptsLocalOverride : Boolean;
+  }
+
+  part def SmartLight specializes ActuatorDevice {
+    attribute on : Boolean;
+    attribute brightness : Percent;
+    attribute ratedPower : PowerWatt;
+  }
+
+  part def SmartThermostat specializes ActuatorDevice {
+    attribute currentTemperature : TemperatureCelsius;
+    attribute heatSetpoint : TemperatureCelsius;
+    attribute coolSetpoint : TemperatureCelsius;
+    attribute hvacActive : Boolean;
+  }
+
+  part def SmartLock specializes ActuatorDevice {
+    attribute locked : Boolean;
+    attribute jammed : Boolean;
+  }
+
+  part def SmartPlug specializes ActuatorDevice {
+    attribute switchedOn : Boolean;
+    attribute measuredPower : PowerWatt;
+    attribute measuredEnergy : EnergyKWh;
+  }
+
+  part def HomeSeerHub {
+    doc /* Primary function: coordinate home automation by collecting device telemetry, evaluating configured events and schedules, issuing control commands, and notifying occupants of important conditions. */
+
+    attribute hubId : String;
+    attribute hostname : String;
+    attribute firmwareVersion : String;
+    attribute automationEnabled : Boolean;
+    attribute securityMode : SecurityMode;
+    attribute maxCommandLatency : NetworkLatencyMs = 500.0;
+    attribute retainedEventCount : Integer;
+
+    port zwaveNetwork : NetworkPort {
+      attribute protocol = DeviceProtocol::ZWave;
+    }
+
+    port zigbeeNetwork : NetworkPort {
+      attribute protocol = DeviceProtocol::Zigbee;
+    }
+
+    port wifiNetwork : NetworkPort {
+      attribute protocol = DeviceProtocol::WiFi;
+    }
+
+    port eventBus : EventPort;
+    port notificationOut : NotificationPort;
+    port commandBus : CommandPort;
+
+    part deviceRegistry {
+      attribute registeredDeviceCount : Integer;
+      attribute onlineDeviceCount : Integer;
+      attribute degradedDeviceCount : Integer;
+      attribute offlineDeviceCount : Integer;
+    }
+
+    part automationEngine {
+      attribute activeRuleCount : Integer;
+      attribute queuedCommandCount : Integer;
+      attribute lastEvaluationTime : DateTime;
+
+      action evaluateIncomingReading {
+        in item reading : SensorReading;
+        out item event : HomeEvent;
+      }
+
+      action selectAutomationRule {
+        in item event : HomeEvent;
+        out attribute matched : Boolean;
+        out item command : AutomationCommand;
+      }
+
+      action dispatchCommand {
+        in item command : AutomationCommand;
+        out attribute accepted : Boolean;
+      }
+    }
+
+    part scheduler {
+      attribute sunriseTime : DateTime;
+      attribute sunsetTime : DateTime;
+      attribute nextScheduledEventTime : DateTime;
+
+      action emitScheduledEvent {
+        out item event : HomeEvent;
+      }
+    }
+
+    part notificationService {
+      attribute defaultRecipient : String;
+      attribute lastNotificationTime : DateTime;
+
+      action sendNotification {
+        in item message : NotificationMessage;
+        out attribute delivered : Boolean;
+      }
+    }
+
+    part securityCoordinator {
+      attribute activeMode : SecurityMode;
+      attribute intrusionDetected : Boolean;
+      attribute entryDelay : DurationSecond = 30.0;
+      attribute alarmDelay : DurationSecond = 0.0;
+
+      action processContact {
+        in item reading : DoorContactReading;
+        out item event : HomeEvent;
+      }
+
+      action processMotion {
+        in item reading : MotionReading;
+        out item event : HomeEvent;
+      }
+
+      action raiseAlarm {
+        out item alarmEvent : HomeEvent;
+        out item message : NotificationMessage;
+      }
+    }
+
+    state def HubOperationalState {
+      state Initializing;
+      state Ready;
+      state Automating;
+      state ManualOverride;
+      state Degraded;
+      state AlarmHandling;
+      state Maintenance;
+
+      transition first Initializing;
+      transition Initializing_to_Ready
+        first Initializing then Ready;
+
+      transition Ready_to_Automating
+        first Ready
+        accept HomeEvent
+        then Automating;
+
+      transition Automating_to_Ready
+        first Automating
+        then Ready;
+
+      transition Ready_to_ManualOverride
+        first Ready
+        accept AutomationCommand
+        if commandIn.priority == CommandPriority::UserRequested
+        then ManualOverride;
+
+      transition ManualOverride_to_Ready
+        first ManualOverride
+        then Ready;
+
+      transition Ready_to_Degraded
+        first Ready
+        if deviceRegistry.offlineDeviceCount > 0
+        then Degraded;
+
+      transition Degraded_to_Ready
+        first Degraded
+        if deviceRegistry.offlineDeviceCount == 0
+        then Ready;
+
+      transition Ready_to_AlarmHandling
+        first Ready
+        if securityCoordinator.intrusionDetected == true
+        then AlarmHandling;
+
+      transition AlarmHandling_to_Ready
+        first AlarmHandling
+        if securityMode == SecurityMode::Disarmed
+        then Ready;
+
+      transition Ready_to_Maintenance
+        first Ready
+        if automationEnabled == false
+        then Maintenance;
+
+      transition Maintenance_to_Ready
+        first Maintenance
+        if automationEnabled == true
+        then Ready;
+    }
+  }
+
+  part def Home {
+    attribute addressLabel : String;
+    attribute occupied : Boolean;
+    attribute targetComfortLow : TemperatureCelsius = 19.0;
+    attribute targetComfortHigh : TemperatureCelsius = 24.0;
+
+    part hub : HomeSeerHub {
+      attribute hubId = "homeseer-main";
+      attribute hostname = "homeseer.local";
+      attribute firmwareVersion = "HS4";
+      attribute automationEnabled = true;
+      attribute securityMode = SecurityMode::Disarmed;
+      attribute retainedEventCount = 10000;
+    }
+
+    part foyerMotion : MotionSensor {
+      attribute deviceId = "sensor-motion-foyer";
+      attribute displayName = "Foyer Motion";
+      attribute protocol = DeviceProtocol::ZWave;
+      attribute health = DeviceHealth::Online;
+      attribute occupied = false;
+      attribute batteryLevel = 86.0;
+    }
+
+    part frontDoorContact : DoorContactSensor {
+      attribute deviceId = "sensor-contact-front-door";
+      attribute displayName = "Front Door Contact";
+      attribute protocol = DeviceProtocol::ZWave;
+      attribute health = DeviceHealth::Online;
+      attribute open = false;
+      attribute tamperDetected = false;
+      attribute batteryLevel = 92.0;
+    }
+
+    part livingRoomTemperature : TemperatureSensor {
+      attribute deviceId = "sensor-temp-living-room";
+      attribute displayName = "Living Room Temperature";
+      attribute protocol = DeviceProtocol::Zigbee;
+      attribute health = DeviceHealth::Online;
+      attribute measuredTemperature = 21.0;
+      attribute batteryLevel = 78.0;
+    }
+
+    part kitchenLightLevel : LightLevelSensor {
+      attribute deviceId = "sensor-light-kitchen";
+      attribute displayName = "Kitchen Light Level";
+      attribute protocol = DeviceProtocol::Zigbee;
+      attribute health = DeviceHealth::Online;
+      attribute measuredIlluminance = 320.0;
+      attribute batteryLevel = 81.0;
+    }
+
+    part porchLight : SmartLight {
+      attribute deviceId = "actuator-light-porch";
+      attribute displayName = "Porch Light";
+      attribute protocol = DeviceProtocol::ZWave;
+      attribute health = DeviceHealth::Online;
+      attribute acceptsLocalOverride = true;
+      attribute on = false;
+      attribute brightness = 0.0;
+      attribute ratedPower = 12.0;
+    }
+
+    part livingRoomLamp : SmartLight {
+      attribute deviceId = "actuator-light-living-room-lamp";
+      attribute displayName = "Living Room Lamp";
+      attribute protocol = DeviceProtocol::WiFi;
+      attribute health = DeviceHealth::Online;
+      attribute acceptsLocalOverride = true;
+      attribute on = true;
+      attribute brightness = 45.0;
+      attribute ratedPower = 9.0;
+    }
+
+    part mainThermostat : SmartThermostat {
+      attribute deviceId = "actuator-thermostat-main";
+      attribute displayName = "Main Thermostat";
+      attribute protocol = DeviceProtocol::WiFi;
+      attribute health = DeviceHealth::Online;
+      attribute acceptsLocalOverride = true;
+      attribute currentTemperature = 21.0;
+      attribute heatSetpoint = 19.0;
+      attribute coolSetpoint = 24.0;
+      attribute hvacActive = false;
+    }
+
+    part frontDoorLock : SmartLock {
+      attribute deviceId = "actuator-lock-front-door";
+      attribute displayName = "Front Door Lock";
+      attribute protocol = DeviceProtocol::ZWave;
+      attribute health = DeviceHealth::Online;
+      attribute acceptsLocalOverride = true;
+      attribute locked = true;
+      attribute jammed = false;
+    }
+
+    part mediaPlug : SmartPlug {
+      attribute deviceId = "actuator-plug-media";
+      attribute displayName = "Media Cabinet Plug";
+      attribute protocol = DeviceProtocol::Zigbee;
+      attribute health = DeviceHealth::Online;
+      attribute acceptsLocalOverride = true;
+      attribute switchedOn = true;
+      attribute measuredPower = 64.0;
+      attribute measuredEnergy = 3.4;
+    }
+
+    connect foyerMotion.network to hub.zwaveNetwork;
+    connect frontDoorContact.network to hub.zwaveNetwork;
+    connect porchLight.network to hub.zwaveNetwork;
+    connect frontDoorLock.network to hub.zwaveNetwork;
+
+    connect livingRoomTemperature.network to hub.zigbeeNetwork;
+    connect kitchenLightLevel.network to hub.zigbeeNetwork;
+    connect mediaPlug.network to hub.zigbeeNetwork;
+
+    connect livingRoomLamp.network to hub.wifiNetwork;
+    connect mainThermostat.network to hub.wifiNetwork;
+
+    connect foyerMotion.data to hub.eventBus;
+    connect frontDoorContact.data to hub.eventBus;
+    connect livingRoomTemperature.data to hub.eventBus;
+    connect kitchenLightLevel.data to hub.eventBus;
+
+    connect hub.commandBus to porchLight.command;
+    connect hub.commandBus to livingRoomLamp.command;
+    connect hub.commandBus to mainThermostat.command;
+    connect hub.commandBus to frontDoorLock.command;
+    connect hub.commandBus to mediaPlug.command;
+  }
+
+  action def ArriveHomeAutomation {
+    in part home : Home;
+    in item motion : MotionReading;
+    out item lightCommand : LightCommand;
+    out item thermostatCommand : ThermostatCommand;
+
+    first start;
+    then checkPresence;
+
+    action checkPresence {
+      if motion.occupied == true then prepareHome;
+    }
+
+    action prepareHome {
+      lightCommand.targetId = "actuator-light-living-room-lamp";
+      lightCommand.on = true;
+      lightCommand.brightness = 70.0;
+      lightCommand.priority = CommandPriority::UserRequested;
+
+      thermostatCommand.targetId = "actuator-thermostat-main";
+      thermostatCommand.heatSetpoint = 20.0;
+      thermostatCommand.coolSetpoint = 24.0;
+      thermostatCommand.hvacEnabled = true;
+      thermostatCommand.priority = CommandPriority::Routine;
+    }
+
+    then done;
+  }
+
+  action def NightSecurityAutomation {
+    in part home : Home;
+    out item lockCommand : LockCommand;
+    out item porchLightCommand : LightCommand;
+
+    first start;
+
+    action secureEntry {
+      lockCommand.targetId = "actuator-lock-front-door";
+      lockCommand.locked = true;
+      lockCommand.priority = CommandPriority::SafetyCritical;
+
+      porchLightCommand.targetId = "actuator-light-porch";
+      porchLightCommand.on = true;
+      porchLightCommand.brightness = 35.0;
+      porchLightCommand.priority = CommandPriority::Routine;
+    }
+
+    then secureEntry;
+    then done;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject hub : HomeSeerHub;
+
+    doc /* The HomeSeer hub shall provide centralized residential automation by monitoring connected home devices, evaluating events and schedules, issuing device commands, and notifying occupants of security, comfort, and energy conditions. */
+
+    require constraint {
+      hub.automationEnabled == true
+    }
+  }
+
+  requirement def DeviceConnectivityRequirement {
+    subject home : Home;
+
+    doc /* The system shall integrate Z-Wave, Zigbee, and Wi-Fi devices through the HomeSeer hub. */
+
+    require constraint {
+      home.hub.zwaveNetwork.protocol == DeviceProtocol::ZWave and
+      home.hub.zigbeeNetwork.protocol == DeviceProtocol::Zigbee and
+      home.hub.wifiNetwork.protocol == DeviceProtocol::WiFi
+    }
+  }
+
+  requirement def CommandLatencyRequirement {
+    subject hub : HomeSeerHub;
+
+    doc /* Routine automation commands shall be dispatched with a maximum internal command latency of 500 ms under normal hub operation. */
+
+    require constraint {
+      hub.maxCommandLatency <= 500.0
+    }
+  }
+
+  requirement def SecurityResponseRequirement {
+    subject home : Home;
+
+    doc /* When the system is armed and an entry sensor reports unauthorized opening, the hub shall raise an alarm event and send an urgent notification. */
+
+    require constraint {
+      home.hub.securityMode != SecurityMode::Disarmed implies
+      home.hub.securityCoordinator.intrusionDetected == true
+    }
+  }
+
+  requirement def ComfortAutomationRequirement {
+    subject home : Home;
+
+    doc /* The system shall maintain occupied living space between configured comfort temperature limits by commanding the thermostat. */
+
+    require constraint {
+      home.mainThermostat.heatSetpoint >= home.targetComfortLow and
+      home.mainThermostat.coolSetpoint <= home.targetComfortHigh
+    }
+  }
+
+  requirement def EnergyVisibilityRequirement {
+    subject home : Home;
+
+    doc /* The system shall expose instantaneous power and accumulated energy for monitored plug loads. */
+
+    require constraint {
+      home.mediaPlug.measuredPower >= 0.0 and
+      home.mediaPlug.measuredEnergy >= 0.0
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by Home::hub;
+  satisfy DeviceConnectivityRequirement by Home;
+  satisfy CommandLatencyRequirement by Home::hub;
+  satisfy SecurityResponseRequirement by Home;
+  satisfy ComfortAutomationRequirement by Home;
+  satisfy EnergyVisibilityRequirement by Home::mediaPlug;
+}

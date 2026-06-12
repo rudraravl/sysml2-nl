@@ -1,0 +1,478 @@
+package SonosHighLevelAudioSystemModel {
+
+  private import ScalarValues::*;
+  private import SI::*;
+  private import ISQ::*;
+
+  item def AudioContent {
+    attribute title : String;
+    attribute artist : String;
+    attribute codec : AudioCodec;
+    attribute sampleRate : Frequency;
+    attribute bitDepth : Integer;
+    attribute channelCount : Integer;
+    attribute duration : Time;
+  }
+
+  enum def AudioCodec {
+    enum mp3;
+    enum aac;
+    enum flac;
+    enum wav;
+    enum opus;
+  }
+
+  item def AudioFrame {
+    attribute timestamp : Time;
+    attribute sequenceNumber : Integer;
+    attribute payloadSize : DataSize;
+    attribute pcmSampleCount : Integer;
+  }
+
+  item def PlaybackCommand {
+    attribute commandType : PlaybackCommandKind;
+    attribute issuedAt : Time;
+    attribute requestedVolume : VolumeLevel;
+  }
+
+  enum def PlaybackCommandKind {
+    enum play;
+    enum pause;
+    enum stop;
+    enum nextTrack;
+    enum previousTrack;
+    enum setVolume;
+    enum mute;
+    enum unmute;
+  }
+
+  item def NetworkPacket {
+    attribute sourceAddress : String;
+    attribute destinationAddress : String;
+    attribute payloadSize : DataSize;
+    attribute latency : Time;
+  }
+
+  item def PowerFlow {
+    attribute voltage : ElectricPotential;
+    attribute current : ElectricCurrent;
+    attribute power : Power;
+  }
+
+  value def DataSize :> ScalarValues::Real {
+    unit byte;
+    unit kilobyte;
+    unit megabyte;
+  }
+
+  value def VolumeLevel :> ScalarValues::Real {
+    unit percent;
+  }
+
+  value def SignalStrength :> ScalarValues::Real {
+    unit dBm;
+  }
+
+  value def AcousticLevel :> ScalarValues::Real {
+    unit dB_SPL;
+  }
+
+  value def DistortionRatio :> ScalarValues::Real {
+    unit percent;
+  }
+
+  port def AudioStreamInputPort {
+    in item audioContent : AudioContent;
+    in item audioFrame : AudioFrame;
+  }
+
+  port def AudioSignalPort {
+    out item audioFrame : AudioFrame;
+  }
+
+  port def NetworkPort {
+    in item inboundPacket : NetworkPacket;
+    out item outboundPacket : NetworkPacket;
+    in item playbackCommand : PlaybackCommand;
+  }
+
+  port def UserControlPort {
+    in item playbackCommand : PlaybackCommand;
+  }
+
+  port def PowerInputPort {
+    in item powerFlow : PowerFlow;
+  }
+
+  port def AcousticOutputPort {
+    out item audioFrame : AudioFrame;
+    attribute soundPressureLevel : AcousticLevel;
+  }
+
+  part def SonosLikeWirelessSpeakerSystem {
+    attribute primaryFunction : String = "Receive digital audio from network or user-selected sources, synchronize playback control, amplify the signal, and reproduce room-filling sound through integrated loudspeakers.";
+    attribute maximumSoundPressureLevel : AcousticLevel = 95 [dB_SPL];
+    attribute nominalSupplyVoltage : ElectricPotential = 120 [V];
+    attribute idlePowerConsumption : Power = 4 [W];
+    attribute maximumPowerConsumption : Power = 45 [W];
+    attribute supportedSampleRateMinimum : Frequency = 44.1 [kHz];
+    attribute supportedSampleRateMaximum : Frequency = 96 [kHz];
+    attribute maximumNetworkLatencyForSynchronizedPlayback : Time = 20 [ms];
+    attribute minimumWiFiSignalStrength : SignalStrength = -70 [dBm];
+
+    port powerInput : PowerInputPort;
+    port homeNetwork : NetworkPort;
+    port localUserControls : UserControlPort;
+    port acousticOutput : AcousticOutputPort;
+
+    part networkInterface : WirelessNetworkInterface;
+    part controlProcessor : PlaybackController;
+    part streamBuffer : AudioBuffer;
+    part decoder : AudioDecoder;
+    part digitalSignalProcessor : AudioDSP;
+    part amplifier : ClassDAmplifier;
+    part speakerArray : IntegratedSpeakerArray;
+    part powerSupply : InternalPowerSupply;
+    part userInterface : LocalControlInterface;
+
+    connection powerDistribution
+      connect powerInput to powerSupply.acInput;
+
+    connection regulatedPowerToElectronics
+      connect powerSupply.dcOutput to networkInterface.powerInput,
+                              controlProcessor.powerInput,
+                              streamBuffer.powerInput,
+                              decoder.powerInput,
+                              digitalSignalProcessor.powerInput,
+                              amplifier.powerInput,
+                              userInterface.powerInput;
+
+    connection networkControl
+      connect homeNetwork to networkInterface.networkLink;
+
+    connection controlCommands
+      connect networkInterface.controlOutput to controlProcessor.networkCommandInput;
+
+    connection localCommands
+      connect localUserControls to userInterface.touchInput;
+
+    connection localCommandRoute
+      connect userInterface.commandOutput to controlProcessor.localCommandInput;
+
+    connection streamToBuffer
+      connect networkInterface.audioStreamOutput to streamBuffer.audioInput;
+
+    connection bufferedAudioToDecoder
+      connect streamBuffer.audioOutput to decoder.encodedAudioInput;
+
+    connection decodedAudioToDSP
+      connect decoder.pcmAudioOutput to digitalSignalProcessor.pcmInput;
+
+    connection processedAudioToAmplifier
+      connect digitalSignalProcessor.processedAudioOutput to amplifier.lineInput;
+
+    connection amplifiedAudioToDrivers
+      connect amplifier.speakerDriveOutput to speakerArray.electricalAudioInput;
+
+    connection roomSound
+      connect speakerArray.acousticOutput to acousticOutput;
+
+    perform action playbackPipeline : RenderSelectedAudio;
+    exhibit state playbackState : SpeakerPlaybackStateMachine;
+  }
+
+  part def WirelessNetworkInterface {
+    attribute wifiStandard : String = "IEEE 802.11ac";
+    attribute operatingBand : String = "2.4 GHz and 5 GHz";
+    attribute receivedSignalStrength : SignalStrength;
+    attribute packetLossRate : DistortionRatio;
+
+    port powerInput : PowerInputPort;
+    port networkLink : NetworkPort;
+    port audioStreamOutput : AudioStreamInputPort;
+    port controlOutput : UserControlPort;
+  }
+
+  part def PlaybackController {
+    attribute activeZoneName : String;
+    attribute currentVolume : VolumeLevel = 35 [percent];
+    attribute muted : Boolean = false;
+    attribute synchronizedGroupSize : Integer = 1;
+
+    port powerInput : PowerInputPort;
+    port networkCommandInput : UserControlPort;
+    port localCommandInput : UserControlPort;
+    port playbackControlOutput : UserControlPort;
+  }
+
+  part def AudioBuffer {
+    attribute bufferCapacity : DataSize = 16 [megabyte];
+    attribute targetBufferedDuration : Time = 2000 [ms];
+    attribute currentBufferedDuration : Time;
+
+    port powerInput : PowerInputPort;
+    port audioInput : AudioStreamInputPort;
+    port audioOutput : AudioStreamInputPort;
+  }
+
+  part def AudioDecoder {
+    attribute supportedCodecs : String = "MP3, AAC, FLAC, WAV, Opus";
+    attribute outputBitDepth : Integer = 24;
+    attribute outputSampleRate : Frequency = 48 [kHz];
+
+    port powerInput : PowerInputPort;
+    port encodedAudioInput : AudioStreamInputPort;
+    port pcmAudioOutput : AudioSignalPort;
+  }
+
+  part def AudioDSP {
+    attribute equalizationProfile : String = "room-adaptive";
+    attribute bassGain : Real = 0.0;
+    attribute trebleGain : Real = 0.0;
+    attribute loudnessCompensationEnabled : Boolean = true;
+    attribute maximumProcessingLatency : Time = 5 [ms];
+
+    port powerInput : PowerInputPort;
+    port pcmInput : AudioStreamInputPort;
+    port processedAudioOutput : AudioSignalPort;
+  }
+
+  part def ClassDAmplifier {
+    attribute channelCount : Integer = 2;
+    attribute continuousOutputPowerPerChannel : Power = 20 [W];
+    attribute efficiency : Real = 0.88;
+    attribute totalHarmonicDistortion : DistortionRatio = 0.08 [percent];
+
+    port powerInput : PowerInputPort;
+    port lineInput : AudioStreamInputPort;
+    port speakerDriveOutput : AudioSignalPort;
+  }
+
+  part def IntegratedSpeakerArray {
+    attribute wooferCount : Integer = 1;
+    attribute tweeterCount : Integer = 2;
+    attribute frequencyResponseLow : Frequency = 55 [Hz];
+    attribute frequencyResponseHigh : Frequency = 20000 [Hz];
+    attribute nominalImpedance : Resistance = 8 [Ohm];
+
+    port electricalAudioInput : AudioStreamInputPort;
+    port acousticOutput : AcousticOutputPort;
+  }
+
+  part def InternalPowerSupply {
+    attribute inputVoltageMinimum : ElectricPotential = 100 [V];
+    attribute inputVoltageMaximum : ElectricPotential = 240 [V];
+    attribute outputVoltage : ElectricPotential = 24 [V];
+    attribute ratedPower : Power = 60 [W];
+
+    port acInput : PowerInputPort;
+    port dcOutput : PowerInputPort;
+  }
+
+  part def LocalControlInterface {
+    attribute hasCapacitiveTouch : Boolean = true;
+    attribute hasStatusLed : Boolean = true;
+    attribute supportsVoiceWakeButton : Boolean = true;
+
+    port powerInput : PowerInputPort;
+    port touchInput : UserControlPort;
+    port commandOutput : UserControlPort;
+  }
+
+  action def RenderSelectedAudio {
+    in item selectedContent : AudioContent;
+    in item command : PlaybackCommand;
+    out item reproducedSound : AudioFrame;
+
+    first start;
+
+    then receiveCommand;
+
+    action receiveCommand {
+      in item command : PlaybackCommand;
+    }
+
+    then selectOrMaintainStream;
+
+    action selectOrMaintainStream {
+      in item selectedContent : AudioContent;
+    }
+
+    then bufferAudio;
+
+    action bufferAudio {
+      out item bufferedFrame : AudioFrame;
+    }
+
+    then decodeAudio;
+
+    action decodeAudio {
+      in item encodedFrame : AudioFrame;
+      out item pcmFrame : AudioFrame;
+    }
+
+    then processAudio;
+
+    action processAudio {
+      in item pcmFrame : AudioFrame;
+      out item equalizedFrame : AudioFrame;
+    }
+
+    then amplifyAudio;
+
+    action amplifyAudio {
+      in item equalizedFrame : AudioFrame;
+      out item drivenFrame : AudioFrame;
+    }
+
+    then emitAcousticOutput;
+
+    action emitAcousticOutput {
+      out item reproducedSound : AudioFrame;
+    }
+
+    then done;
+  }
+
+  state def SpeakerPlaybackStateMachine {
+    entry action initializeElectronics;
+
+    state Off;
+    state Booting;
+    state Ready;
+    state Buffering;
+    state Playing;
+    state Paused;
+    state Muted;
+    state NetworkLost;
+    state Fault;
+
+    transition initial then Off;
+
+    transition powerApplied
+      first Off
+      accept PowerFlow
+      then Booting;
+
+    transition bootComplete
+      first Booting
+      then Ready;
+
+    transition playRequested
+      first Ready
+      accept PlaybackCommand
+      if commandType == PlaybackCommandKind::play
+      then Buffering;
+
+    transition bufferFilled
+      first Buffering
+      then Playing;
+
+    transition pauseRequested
+      first Playing
+      accept PlaybackCommand
+      if commandType == PlaybackCommandKind::pause
+      then Paused;
+
+    transition resumeRequested
+      first Paused
+      accept PlaybackCommand
+      if commandType == PlaybackCommandKind::play
+      then Playing;
+
+    transition muteRequested
+      first Playing
+      accept PlaybackCommand
+      if commandType == PlaybackCommandKind::mute
+      then Muted;
+
+    transition unmuteRequested
+      first Muted
+      accept PlaybackCommand
+      if commandType == PlaybackCommandKind::unmute
+      then Playing;
+
+    transition networkUnavailable
+      first Playing
+      then NetworkLost;
+
+    transition networkRestored
+      first NetworkLost
+      then Buffering;
+
+    transition unrecoverableError
+      first Ready
+      then Fault;
+
+    transition shutdown
+      first Ready
+      then Off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject speakerSystem : SonosLikeWirelessSpeakerSystem;
+
+    doc /* The system shall provide high-level wireless music playback by receiving user-selected digital audio, processing it, and reproducing synchronized acoustic output in a residential room. */
+
+    require constraint {
+      speakerSystem.maximumSoundPressureLevel >= 90 [dB_SPL]
+    }
+
+    require constraint {
+      speakerSystem.maximumNetworkLatencyForSynchronizedPlayback <= 20 [ms]
+    }
+  }
+
+  requirement def AudioQualityRequirement {
+    subject amplifier : ClassDAmplifier;
+    subject speakerArray : IntegratedSpeakerArray;
+
+    require constraint {
+      amplifier.totalHarmonicDistortion <= 0.1 [percent]
+    }
+
+    require constraint {
+      speakerArray.frequencyResponseLow <= 60 [Hz] and
+      speakerArray.frequencyResponseHigh >= 20000 [Hz]
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject system : SonosLikeWirelessSpeakerSystem;
+
+    require constraint {
+      system.idlePowerConsumption <= 5 [W]
+    }
+
+    require constraint {
+      system.maximumPowerConsumption <= 60 [W]
+    }
+  }
+
+  requirement def NetworkPlaybackRequirement {
+    subject networkInterface : WirelessNetworkInterface;
+    subject system : SonosLikeWirelessSpeakerSystem;
+
+    require constraint {
+      networkInterface.receivedSignalStrength >= system.minimumWiFiSignalStrength
+    }
+
+    require constraint {
+      networkInterface.packetLossRate <= 1 [percent]
+    }
+  }
+
+  requirement def UserControlRequirement {
+    subject controller : PlaybackController;
+
+    doc /* The speaker shall respond to play, pause, stop, track navigation, volume, mute, and unmute commands from both network clients and local controls. */
+
+    require constraint {
+      controller.currentVolume >= 0 [percent] and
+      controller.currentVolume <= 100 [percent]
+    }
+  }
+
+  part sonosInspiredHomeSpeaker : SonosLikeWirelessSpeakerSystem;
+
+}

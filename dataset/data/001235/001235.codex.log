@@ -1,0 +1,863 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-kwjaasob
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5f0-7c11-7bf1-a79b-66d4ad7d9432
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Scintillator and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ScintillatorSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Wavelength {
+        :> ScalarValues::Real;
+        unit = "nm";
+    }
+
+    attribute def PhotonEnergy {
+        :> ScalarValues::Real;
+        unit = "keV";
+    }
+
+    attribute def RadiationDoseRate {
+        :> ScalarValues::Real;
+        unit = "uSv/h";
+    }
+
+    attribute def CountRate {
+        :> ScalarValues::Real;
+        unit = "counts/s";
+    }
+
+    attribute def LightYield {
+        :> ScalarValues::Real;
+        unit = "photons/keV";
+    }
+
+    attribute def DecayTime {
+        :> ScalarValues::Real;
+        unit = "ns";
+    }
+
+    attribute def QuantumEfficiency {
+        :> ScalarValues::Real;
+        unit = "percent";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def EnergyResolution {
+        :> ScalarValues::Real;
+        unit = "percentFWHM";
+    }
+
+    item def IonizingRadiation {
+        attribute energy : PhotonEnergy;
+        attribute doseRate : RadiationDoseRate;
+        attribute particleKind : String;
+    }
+
+    item def ScintillationPhoton {
+        attribute wavelength : Wavelength;
+        attribute energy : PhotonEnergy;
+        attribute emissionTime : DecayTime;
+    }
+
+    item def Photoelectron {
+        attribute charge : ChargeValue;
+        attribute generationTime : DecayTime;
+    }
+
+    item def AnalogPulse {
+        attribute amplitude : Voltage;
+        attribute riseTime : DecayTime;
+        attribute decayTime : DecayTime;
+        attribute integratedCharge : ChargeValue;
+    }
+
+    item def DigitalEvent {
+        attribute channel : Integer;
+        attribute timestamp : Real;
+        attribute pulseHeight : Voltage;
+        attribute estimatedRadiationEnergy : PhotonEnergy;
+        attribute valid : Boolean;
+    }
+
+    port def RadiationInputPort {
+        in item radiation : IonizingRadiation;
+    }
+
+    port def OpticalOutputPort {
+        out item photons : ScintillationPhoton;
+    }
+
+    port def OpticalInputPort {
+        in item photons : ScintillationPhoton;
+    }
+
+    port def ElectricalPulsePort {
+        out item pulse : AnalogPulse;
+    }
+
+    port def ElectricalPulseInputPort {
+        in item pulse : AnalogPulse;
+    }
+
+    port def DigitalEventPort {
+        out item event : DigitalEvent;
+    }
+
+    port def ThermalPort {
+        inout attribute temperature : Temperature;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : CurrentValue;
+    }
+
+    action def ConvertRadiationToLight {
+        in item incidentRadiation : IonizingRadiation;
+        out item emittedPhoton : ScintillationPhoton;
+
+        attribute conversionYield : LightYield;
+        attribute peakEmissionWavelength : Wavelength;
+        attribute scintillationDecayTime : DecayTime;
+    }
+
+    action def ConvertLightToCharge {
+        in item photon : ScintillationPhoton;
+        out item photoelectron : Photoelectron;
+
+        attribute quantumEfficiency : QuantumEfficiency;
+        attribute gain : Real;
+    }
+
+    action def ShapeAndAmplifyPulse {
+        in item rawPulse : AnalogPulse;
+        out item conditionedPulse : AnalogPulse;
+
+        attribute shapingTime : DecayTime;
+        attribute amplifierGain : Real;
+        attribute noiseEquivalentVoltage : Voltage;
+    }
+
+    action def ClassifyRadiationEvent {
+        in item conditionedPulse : AnalogPulse;
+        out item event : DigitalEvent;
+
+        attribute lowerEnergyThreshold : PhotonEnergy;
+        attribute upperEnergyThreshold : PhotonEnergy;
+        attribute deadTime : DecayTime;
+    }
+
+    state def DetectorOperatingState {
+        entry action initializeDetector;
+
+        state Off;
+        state BiasRamp;
+        state Ready;
+        state Detecting;
+        state Saturated;
+        state Fault;
+
+        transition first Off;
+
+        transition powerApplied
+            first Off
+            then BiasRamp;
+
+        transition biasStable
+            first BiasRamp
+            then Ready;
+
+        transition radiationInteraction
+            first Ready
+            then Detecting;
+
+        transition eventProcessed
+            first Detecting
+            then Ready;
+
+        transition excessiveCountRate
+            first Detecting
+            then Saturated;
+
+        transition countRateRecovered
+            first Saturated
+            then Ready;
+
+        transition hardwareFault
+            first Ready
+            then Fault;
+
+        transition resetCommand
+            first Fault
+            then BiasRamp;
+
+        transition powerRemoved
+            first Ready
+            then Off;
+    }
+
+    part def ScintillatorCrystal {
+        port radiationIn : RadiationInputPort;
+        port opticalOut : OpticalOutputPort;
+        port thermal : ThermalPort;
+
+        attribute material : String = "NaI(Tl)";
+        attribute density : Real = 3.67;
+        attribute peakEmission : Wavelength = 415.0;
+        attribute lightYield : LightYield = 38.0;
+        attribute decayConstant : DecayTime = 230.0;
+        attribute hygroscopic : Boolean = true;
+        attribute operatingTemperature : Temperature = 22.0;
+
+        perform action scintillate : ConvertRadiationToLight {
+            in incidentRadiation = radiationIn.radiation;
+            out emittedPhoton = opticalOut.photons;
+            attribute conversionYield = lightYield;
+            attribute peakEmissionWavelength = peakEmission;
+            attribute scintillationDecayTime = decayConstant;
+        }
+    }
+
+    part def OpticalCoupler {
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+
+        attribute refractiveIndex : Real = 1.46;
+        attribute opticalTransmission : Real = 0.94;
+        attribute couplingThickness : LengthValue = 0.5 [SI::mm];
+    }
+
+    part def Photodetector {
+        port opticalIn : OpticalInputPort;
+        port electricalOut : ElectricalPulsePort;
+        port biasPower : PowerPort;
+        port thermal : ThermalPort;
+
+        attribute detectorKind : String = "Silicon Photomultiplier";
+        attribute peakSensitivity : Wavelength = 420.0;
+        attribute photonDetectionEfficiency : QuantumEfficiency = 42.0;
+        attribute gain : Real = 1000000.0;
+        attribute biasVoltage : Voltage = 28.5;
+        attribute darkCountRate : CountRate = 50.0;
+        attribute maxLinearCountRate : CountRate = 1000000.0;
+
+        perform action photoConversion : ConvertLightToCharge {
+            in photon = opticalIn.photons;
+            attribute quantumEfficiency = photonDetectionEfficiency;
+            attribute gain = gain;
+        }
+    }
+
+    part def FrontEndElectronics {
+        port pulseIn : ElectricalPulseInputPort;
+        port pulseOut : ElectricalPulsePort;
+        port power : PowerPort;
+
+        attribute preamplifierGain : Real = 12.0;
+        attribute shapingTime : DecayTime = 1000.0;
+        attribute baselineRestorationEnabled : Boolean = true;
+        attribute equivalentInputNoise : Voltage = 0.0015;
+
+        perform action pulseConditioning : ShapeAndAmplifyPulse {
+            in rawPulse = pulseIn.pulse;
+            out conditionedPulse = pulseOut.pulse;
+            attribute shapingTime = shapingTime;
+            attribute amplifierGain = preamplifierGain;
+            attribute noiseEquivalentVoltage = equivalentInputNoise;
+        }
+    }
+
+    part def EventProcessor {
+        port pulseIn : ElectricalPulseInputPort;
+        port eventOut : DigitalEventPort;
+        port power : PowerPort;
+
+        attribute adcResolutionBits : Integer = 14;
+        attribute samplingRate : Real = 80000000.0;
+        attribute lowerThreshold : PhotonEnergy = 20.0;
+        attribute upperThreshold : PhotonEnergy = 3000.0;
+        attribute measuredCountRate : CountRate = 0.0;
+        attribute energyResolutionAt662keV : EnergyResolution = 7.0;
+
+        perform action eventClassification : ClassifyRadiationEvent {
+            in conditionedPulse = pulseIn.pulse;
+            out event = eventOut.event;
+            attribute lowerEnergyThreshold = lowerThreshold;
+            attribute upperEnergyThreshold = upperThreshold;
+            attribute deadTime = 500.0;
+        }
+    }
+
+    part def PowerSupply {
+        port detectorPower : PowerPort;
+        port electronicsPower : PowerPort;
+
+        attribute inputVoltage : Voltage = 12.0;
+        attribute photodetectorBiasVoltage : Voltage = 28.5;
+        attribute electronicsVoltage : Voltage = 5.0;
+        attribute biasRipple : Voltage = 0.003;
+    }
+
+    part def ThermalStabilizer {
+        port crystalThermal : ThermalPort;
+        port detectorThermal : ThermalPort;
+        port power : PowerPort;
+
+        attribute targetTemperature : Temperature = 22.0;
+        attribute maximumTemperatureError : Temperature = 0.5;
+        attribute controlMode : String = "closed-loop proportional";
+    }
+
+    part def ScintillationDetectorSystem {
+        port radiationInput : RadiationInputPort;
+        port detectedEventOutput : DigitalEventPort;
+        port externalPower : PowerPort;
+        port ambientThermal : ThermalPort;
+
+        part crystal : ScintillatorCrystal;
+        part coupler : OpticalCoupler;
+        part photodetector : Photodetector;
+        part frontEnd : FrontEndElectronics;
+        part processor : EventProcessor;
+        part supply : PowerSupply;
+        part thermalControl : ThermalStabilizer;
+
+        attribute primaryFunction : String =
+            "Convert incident ionizing radiation into visible scintillation light, transform that light into electrical pulses, and classify the pulses as digital radiation detection events.";
+        attribute nominalGammaEnergyRangeLow : PhotonEnergy = 20.0;
+        attribute nominalGammaEnergyRangeHigh : PhotonEnergy = 3000.0;
+        attribute nominalCountRateLimit : CountRate = 100000.0;
+        attribute nominalOperatingTemperature : Temperature = 22.0;
+
+        connect radiationInput.radiation to crystal.radiationIn.radiation;
+        connect crystal.opticalOut.photons to coupler.opticalIn.photons;
+        connect coupler.opticalOut.photons to photodetector.opticalIn.photons;
+        connect photodetector.electricalOut.pulse to frontEnd.pulseIn.pulse;
+        connect frontEnd.pulseOut.pulse to processor.pulseIn.pulse;
+        connect processor.eventOut.event to detectedEventOutput.event;
+
+        connect externalPower.supplyVoltage to supply.detectorPower.supplyVoltage;
+        connect supply.detectorPower.supplyVoltage to photodetector.biasPower.supplyVoltage;
+        connect supply.electronicsPower.supplyVoltage to frontEnd.power.supplyVoltage;
+        connect supply.electronicsPower.supplyVoltage to processor.power.supplyVoltage;
+        connect supply.electronicsPower.supplyVoltage to thermalControl.power.supplyVoltage;
+
+        connect ambientThermal.temperature to crystal.thermal.temperature;
+        connect ambientThermal.temperature to photodetector.thermal.temperature;
+        connect thermalControl.crystalThermal.temperature to crystal.thermal.temperature;
+        connect thermalControl.detectorThermal.temperature to photodetector.thermal.temperature;
+
+        exhibit state operatingState : DetectorOperatingState;
+    }
+
+    requirement def DetectIonizingRadiation {
+        subject detector : ScintillationDetectorSystem;
+
+        require constraint {
+            detector.nominalGammaEnergyRangeLow <= 20.0 and
+            detector.nominalGammaEnergyRangeHigh >= 3000.0
+        }
+
+        doc /* The system shall detect ionizing radiation interactions within the scintillator over the nominal gamma-energy range and provide a corresponding digital event. */
+    }
+
+    requirement def ConvertRadiationEnergyToOpticalPhotons {
+        subject crystal : ScintillatorCrystal;
+
+        require constraint {
+            crystal.lightYield >= 30.0 and
+            crystal.peakEmission >= 400.0 and
+            crystal.peakEmission <= 430.0
+        }
+
+        doc /* The scintillator crystal shall convert deposited radiation energy into visible photons with a peak wavelength compatible with the photodetector. */
+    }
+
+    requirement def ProduceUsableElectricalPulse {
+        subject detector : Photodetector;
+
+        require constraint {
+            detector.photonDetectionEfficiency >= 35.0 and
+            detector.biasVoltage >= 25.0 and
+            detector.biasVoltage <= 32.0
+        }
+
+        doc /* The photodetector shall convert scintillation photons into an electrical pulse suitable for analog signal conditioning. */
+    }
+
+    requirement def MaintainThermalStability {
+        subject thermalControl : ThermalStabilizer;
+
+        require constraint {
+            thermalControl.maximumTemperatureError <= 0.5
+        }
+
+        doc /* The thermal control function shall maintain the scintillator and photodetector near the nominal operating temperature to preserve gain and energy calibration. */
+    }
+
+    requirement def GenerateDigitalRadiationEvent {
+        subject processor : EventProcessor;
+
+        require constraint {
+            processor.adcResolutionBits >= 12 and
+            processor.energyResolutionAt662keV <= 8.0
+        }
+
+        doc /* The event processor shall produce a timestamped digital event containing pulse height and estimated deposited radiation energy. */
+    }
+
+    satisfy DetectIonizingRadiation by ScintillationDetectorSystem;
+    satisfy ConvertRadiationEnergyToOpticalPhotons by ScintillatorCrystal;
+    satisfy ProduceUsableElectricalPulse by Photodetector;
+    satisfy MaintainThermalStability by ThermalStabilizer;
+    satisfy GenerateDigitalRadiationEvent by EventProcessor;
+
+    part scintillatorBasedRadiationDetector : ScintillationDetectorSystem;
+}
+tokens used
+4,337
+package ScintillatorSystemModel {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Wavelength {
+        :> ScalarValues::Real;
+        unit = "nm";
+    }
+
+    attribute def PhotonEnergy {
+        :> ScalarValues::Real;
+        unit = "keV";
+    }
+
+    attribute def RadiationDoseRate {
+        :> ScalarValues::Real;
+        unit = "uSv/h";
+    }
+
+    attribute def CountRate {
+        :> ScalarValues::Real;
+        unit = "counts/s";
+    }
+
+    attribute def LightYield {
+        :> ScalarValues::Real;
+        unit = "photons/keV";
+    }
+
+    attribute def DecayTime {
+        :> ScalarValues::Real;
+        unit = "ns";
+    }
+
+    attribute def QuantumEfficiency {
+        :> ScalarValues::Real;
+        unit = "percent";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def EnergyResolution {
+        :> ScalarValues::Real;
+        unit = "percentFWHM";
+    }
+
+    item def IonizingRadiation {
+        attribute energy : PhotonEnergy;
+        attribute doseRate : RadiationDoseRate;
+        attribute particleKind : String;
+    }
+
+    item def ScintillationPhoton {
+        attribute wavelength : Wavelength;
+        attribute energy : PhotonEnergy;
+        attribute emissionTime : DecayTime;
+    }
+
+    item def Photoelectron {
+        attribute charge : ChargeValue;
+        attribute generationTime : DecayTime;
+    }
+
+    item def AnalogPulse {
+        attribute amplitude : Voltage;
+        attribute riseTime : DecayTime;
+        attribute decayTime : DecayTime;
+        attribute integratedCharge : ChargeValue;
+    }
+
+    item def DigitalEvent {
+        attribute channel : Integer;
+        attribute timestamp : Real;
+        attribute pulseHeight : Voltage;
+        attribute estimatedRadiationEnergy : PhotonEnergy;
+        attribute valid : Boolean;
+    }
+
+    port def RadiationInputPort {
+        in item radiation : IonizingRadiation;
+    }
+
+    port def OpticalOutputPort {
+        out item photons : ScintillationPhoton;
+    }
+
+    port def OpticalInputPort {
+        in item photons : ScintillationPhoton;
+    }
+
+    port def ElectricalPulsePort {
+        out item pulse : AnalogPulse;
+    }
+
+    port def ElectricalPulseInputPort {
+        in item pulse : AnalogPulse;
+    }
+
+    port def DigitalEventPort {
+        out item event : DigitalEvent;
+    }
+
+    port def ThermalPort {
+        inout attribute temperature : Temperature;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : CurrentValue;
+    }
+
+    action def ConvertRadiationToLight {
+        in item incidentRadiation : IonizingRadiation;
+        out item emittedPhoton : ScintillationPhoton;
+
+        attribute conversionYield : LightYield;
+        attribute peakEmissionWavelength : Wavelength;
+        attribute scintillationDecayTime : DecayTime;
+    }
+
+    action def ConvertLightToCharge {
+        in item photon : ScintillationPhoton;
+        out item photoelectron : Photoelectron;
+
+        attribute quantumEfficiency : QuantumEfficiency;
+        attribute gain : Real;
+    }
+
+    action def ShapeAndAmplifyPulse {
+        in item rawPulse : AnalogPulse;
+        out item conditionedPulse : AnalogPulse;
+
+        attribute shapingTime : DecayTime;
+        attribute amplifierGain : Real;
+        attribute noiseEquivalentVoltage : Voltage;
+    }
+
+    action def ClassifyRadiationEvent {
+        in item conditionedPulse : AnalogPulse;
+        out item event : DigitalEvent;
+
+        attribute lowerEnergyThreshold : PhotonEnergy;
+        attribute upperEnergyThreshold : PhotonEnergy;
+        attribute deadTime : DecayTime;
+    }
+
+    state def DetectorOperatingState {
+        entry action initializeDetector;
+
+        state Off;
+        state BiasRamp;
+        state Ready;
+        state Detecting;
+        state Saturated;
+        state Fault;
+
+        transition first Off;
+
+        transition powerApplied
+            first Off
+            then BiasRamp;
+
+        transition biasStable
+            first BiasRamp
+            then Ready;
+
+        transition radiationInteraction
+            first Ready
+            then Detecting;
+
+        transition eventProcessed
+            first Detecting
+            then Ready;
+
+        transition excessiveCountRate
+            first Detecting
+            then Saturated;
+
+        transition countRateRecovered
+            first Saturated
+            then Ready;
+
+        transition hardwareFault
+            first Ready
+            then Fault;
+
+        transition resetCommand
+            first Fault
+            then BiasRamp;
+
+        transition powerRemoved
+            first Ready
+            then Off;
+    }
+
+    part def ScintillatorCrystal {
+        port radiationIn : RadiationInputPort;
+        port opticalOut : OpticalOutputPort;
+        port thermal : ThermalPort;
+
+        attribute material : String = "NaI(Tl)";
+        attribute density : Real = 3.67;
+        attribute peakEmission : Wavelength = 415.0;
+        attribute lightYield : LightYield = 38.0;
+        attribute decayConstant : DecayTime = 230.0;
+        attribute hygroscopic : Boolean = true;
+        attribute operatingTemperature : Temperature = 22.0;
+
+        perform action scintillate : ConvertRadiationToLight {
+            in incidentRadiation = radiationIn.radiation;
+            out emittedPhoton = opticalOut.photons;
+            attribute conversionYield = lightYield;
+            attribute peakEmissionWavelength = peakEmission;
+            attribute scintillationDecayTime = decayConstant;
+        }
+    }
+
+    part def OpticalCoupler {
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalOutputPort;
+
+        attribute refractiveIndex : Real = 1.46;
+        attribute opticalTransmission : Real = 0.94;
+        attribute couplingThickness : LengthValue = 0.5 [SI::mm];
+    }
+
+    part def Photodetector {
+        port opticalIn : OpticalInputPort;
+        port electricalOut : ElectricalPulsePort;
+        port biasPower : PowerPort;
+        port thermal : ThermalPort;
+
+        attribute detectorKind : String = "Silicon Photomultiplier";
+        attribute peakSensitivity : Wavelength = 420.0;
+        attribute photonDetectionEfficiency : QuantumEfficiency = 42.0;
+        attribute gain : Real = 1000000.0;
+        attribute biasVoltage : Voltage = 28.5;
+        attribute darkCountRate : CountRate = 50.0;
+        attribute maxLinearCountRate : CountRate = 1000000.0;
+
+        perform action photoConversion : ConvertLightToCharge {
+            in photon = opticalIn.photons;
+            attribute quantumEfficiency = photonDetectionEfficiency;
+            attribute gain = gain;
+        }
+    }
+
+    part def FrontEndElectronics {
+        port pulseIn : ElectricalPulseInputPort;
+        port pulseOut : ElectricalPulsePort;
+        port power : PowerPort;
+
+        attribute preamplifierGain : Real = 12.0;
+        attribute shapingTime : DecayTime = 1000.0;
+        attribute baselineRestorationEnabled : Boolean = true;
+        attribute equivalentInputNoise : Voltage = 0.0015;
+
+        perform action pulseConditioning : ShapeAndAmplifyPulse {
+            in rawPulse = pulseIn.pulse;
+            out conditionedPulse = pulseOut.pulse;
+            attribute shapingTime = shapingTime;
+            attribute amplifierGain = preamplifierGain;
+            attribute noiseEquivalentVoltage = equivalentInputNoise;
+        }
+    }
+
+    part def EventProcessor {
+        port pulseIn : ElectricalPulseInputPort;
+        port eventOut : DigitalEventPort;
+        port power : PowerPort;
+
+        attribute adcResolutionBits : Integer = 14;
+        attribute samplingRate : Real = 80000000.0;
+        attribute lowerThreshold : PhotonEnergy = 20.0;
+        attribute upperThreshold : PhotonEnergy = 3000.0;
+        attribute measuredCountRate : CountRate = 0.0;
+        attribute energyResolutionAt662keV : EnergyResolution = 7.0;
+
+        perform action eventClassification : ClassifyRadiationEvent {
+            in conditionedPulse = pulseIn.pulse;
+            out event = eventOut.event;
+            attribute lowerEnergyThreshold = lowerThreshold;
+            attribute upperEnergyThreshold = upperThreshold;
+            attribute deadTime = 500.0;
+        }
+    }
+
+    part def PowerSupply {
+        port detectorPower : PowerPort;
+        port electronicsPower : PowerPort;
+
+        attribute inputVoltage : Voltage = 12.0;
+        attribute photodetectorBiasVoltage : Voltage = 28.5;
+        attribute electronicsVoltage : Voltage = 5.0;
+        attribute biasRipple : Voltage = 0.003;
+    }
+
+    part def ThermalStabilizer {
+        port crystalThermal : ThermalPort;
+        port detectorThermal : ThermalPort;
+        port power : PowerPort;
+
+        attribute targetTemperature : Temperature = 22.0;
+        attribute maximumTemperatureError : Temperature = 0.5;
+        attribute controlMode : String = "closed-loop proportional";
+    }
+
+    part def ScintillationDetectorSystem {
+        port radiationInput : RadiationInputPort;
+        port detectedEventOutput : DigitalEventPort;
+        port externalPower : PowerPort;
+        port ambientThermal : ThermalPort;
+
+        part crystal : ScintillatorCrystal;
+        part coupler : OpticalCoupler;
+        part photodetector : Photodetector;
+        part frontEnd : FrontEndElectronics;
+        part processor : EventProcessor;
+        part supply : PowerSupply;
+        part thermalControl : ThermalStabilizer;
+
+        attribute primaryFunction : String =
+            "Convert incident ionizing radiation into visible scintillation light, transform that light into electrical pulses, and classify the pulses as digital radiation detection events.";
+        attribute nominalGammaEnergyRangeLow : PhotonEnergy = 20.0;
+        attribute nominalGammaEnergyRangeHigh : PhotonEnergy = 3000.0;
+        attribute nominalCountRateLimit : CountRate = 100000.0;
+        attribute nominalOperatingTemperature : Temperature = 22.0;
+
+        connect radiationInput.radiation to crystal.radiationIn.radiation;
+        connect crystal.opticalOut.photons to coupler.opticalIn.photons;
+        connect coupler.opticalOut.photons to photodetector.opticalIn.photons;
+        connect photodetector.electricalOut.pulse to frontEnd.pulseIn.pulse;
+        connect frontEnd.pulseOut.pulse to processor.pulseIn.pulse;
+        connect processor.eventOut.event to detectedEventOutput.event;
+
+        connect externalPower.supplyVoltage to supply.detectorPower.supplyVoltage;
+        connect supply.detectorPower.supplyVoltage to photodetector.biasPower.supplyVoltage;
+        connect supply.electronicsPower.supplyVoltage to frontEnd.power.supplyVoltage;
+        connect supply.electronicsPower.supplyVoltage to processor.power.supplyVoltage;
+        connect supply.electronicsPower.supplyVoltage to thermalControl.power.supplyVoltage;
+
+        connect ambientThermal.temperature to crystal.thermal.temperature;
+        connect ambientThermal.temperature to photodetector.thermal.temperature;
+        connect thermalControl.crystalThermal.temperature to crystal.thermal.temperature;
+        connect thermalControl.detectorThermal.temperature to photodetector.thermal.temperature;
+
+        exhibit state operatingState : DetectorOperatingState;
+    }
+
+    requirement def DetectIonizingRadiation {
+        subject detector : ScintillationDetectorSystem;
+
+        require constraint {
+            detector.nominalGammaEnergyRangeLow <= 20.0 and
+            detector.nominalGammaEnergyRangeHigh >= 3000.0
+        }
+
+        doc /* The system shall detect ionizing radiation interactions within the scintillator over the nominal gamma-energy range and provide a corresponding digital event. */
+    }
+
+    requirement def ConvertRadiationEnergyToOpticalPhotons {
+        subject crystal : ScintillatorCrystal;
+
+        require constraint {
+            crystal.lightYield >= 30.0 and
+            crystal.peakEmission >= 400.0 and
+            crystal.peakEmission <= 430.0
+        }
+
+        doc /* The scintillator crystal shall convert deposited radiation energy into visible photons with a peak wavelength compatible with the photodetector. */
+    }
+
+    requirement def ProduceUsableElectricalPulse {
+        subject detector : Photodetector;
+
+        require constraint {
+            detector.photonDetectionEfficiency >= 35.0 and
+            detector.biasVoltage >= 25.0 and
+            detector.biasVoltage <= 32.0
+        }
+
+        doc /* The photodetector shall convert scintillation photons into an electrical pulse suitable for analog signal conditioning. */
+    }
+
+    requirement def MaintainThermalStability {
+        subject thermalControl : ThermalStabilizer;
+
+        require constraint {
+            thermalControl.maximumTemperatureError <= 0.5
+        }
+
+        doc /* The thermal control function shall maintain the scintillator and photodetector near the nominal operating temperature to preserve gain and energy calibration. */
+    }
+
+    requirement def GenerateDigitalRadiationEvent {
+        subject processor : EventProcessor;
+
+        require constraint {
+            processor.adcResolutionBits >= 12 and
+            processor.energyResolutionAt662keV <= 8.0
+        }
+
+        doc /* The event processor shall produce a timestamped digital event containing pulse height and estimated deposited radiation energy. */
+    }
+
+    satisfy DetectIonizingRadiation by ScintillationDetectorSystem;
+    satisfy ConvertRadiationEnergyToOpticalPhotons by ScintillatorCrystal;
+    satisfy ProduceUsableElectricalPulse by Photodetector;
+    satisfy MaintainThermalStability by ThermalStabilizer;
+    satisfy GenerateDigitalRadiationEvent by EventProcessor;
+
+    part scintillatorBasedRadiationDetector : ScintillationDetectorSystem;
+}

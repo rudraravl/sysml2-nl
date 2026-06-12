@@ -1,0 +1,483 @@
+package FineGuidanceSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Angle :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def AngularRate :> ISQ::angularVelocity {
+        unit = SI::radianPerSecond;
+    }
+
+    attribute def Duration :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def Frequency :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Voltage :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Current :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def BitRate {
+        unit = SI::bitPerSecond;
+        :>> scalarValues = Real;
+    }
+
+    attribute def PixelCount {
+        :>> scalarValues = Integer;
+    }
+
+    attribute def SignalToNoiseRatio {
+        :>> scalarValues = Real;
+    }
+
+    attribute def QualityIndex {
+        :>> scalarValues = Real;
+    }
+
+    item def PhotonFlux {
+        attribute irradiance : Power;
+        attribute wavelength : ISQ::length;
+        attribute incidenceAngleX : Angle;
+        attribute incidenceAngleY : Angle;
+    }
+
+    item def StarCentroidMeasurement {
+        attribute timestamp : Duration;
+        attribute centroidX : PixelCount;
+        attribute centroidY : PixelCount;
+        attribute lineOfSightAzimuth : Angle;
+        attribute lineOfSightElevation : Angle;
+        attribute signalToNoise : SignalToNoiseRatio;
+        attribute quality : QualityIndex;
+        attribute valid : Boolean;
+    }
+
+    item def FineGuidanceAttitudeEstimate {
+        attribute timestamp : Duration;
+        attribute pointingErrorX : Angle;
+        attribute pointingErrorY : Angle;
+        attribute angularRateX : AngularRate;
+        attribute angularRateY : AngularRate;
+        attribute confidence : QualityIndex;
+        attribute valid : Boolean;
+    }
+
+    item def GuidanceCommand {
+        attribute timestamp : Duration;
+        attribute targetLineOfSightAzimuth : Angle;
+        attribute targetLineOfSightElevation : Angle;
+        attribute integrationTime : Duration;
+        attribute trackingEnabled : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute timestamp : Duration;
+        attribute powered : Boolean;
+        attribute detectorTemperature : Temperature;
+        attribute electronicsTemperature : Temperature;
+        attribute faultCode : Integer;
+        attribute degraded : Boolean;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute availablePower : Power;
+    }
+
+    item def ThermalControlFlow {
+        attribute detectorTemperature : Temperature;
+        attribute heaterPower : Power;
+        attribute coolerPower : Power;
+    }
+
+    port def OpticalInputPort {
+        in item incidentFlux : PhotonFlux;
+    }
+
+    port def MeasurementOutputPort {
+        out item estimate : FineGuidanceAttitudeEstimate;
+        out item status : HealthStatus;
+    }
+
+    port def CommandInputPort {
+        in item command : GuidanceCommand;
+    }
+
+    port def PowerInputPort {
+        in item supply : ElectricalPower;
+    }
+
+    port def ThermalPort {
+        inout item thermalControl : ThermalControlFlow;
+    }
+
+    port def DetectorVideoPort {
+        out item rawCentroid : StarCentroidMeasurement;
+    }
+
+    port def ProcessingInputPort {
+        in item rawCentroid : StarCentroidMeasurement;
+    }
+
+    port def ProcessingOutputPort {
+        out item processedEstimate : FineGuidanceAttitudeEstimate;
+    }
+
+    action def AcquireStarImage {
+        in item flux : PhotonFlux;
+        in attribute integrationTime : Duration;
+        out item centroid : StarCentroidMeasurement;
+
+        attribute exposureStarted : Boolean;
+        attribute exposureCompleted : Boolean;
+    }
+
+    action def ComputeCentroid {
+        in item opticalSample : PhotonFlux;
+        out item centroid : StarCentroidMeasurement;
+
+        attribute darkFrameCorrected : Boolean;
+        attribute backgroundRemoved : Boolean;
+        attribute centroidWindowPixels : PixelCount;
+    }
+
+    action def EstimatePointingError {
+        in item centroid : StarCentroidMeasurement;
+        in item command : GuidanceCommand;
+        out item estimate : FineGuidanceAttitudeEstimate;
+
+        attribute plateScaleX : Angle;
+        attribute plateScaleY : Angle;
+        attribute previousErrorX : Angle;
+        attribute previousErrorY : Angle;
+    }
+
+    action def ValidateMeasurement {
+        in item estimateIn : FineGuidanceAttitudeEstimate;
+        in attribute minimumConfidence : QualityIndex;
+        out item estimateOut : FineGuidanceAttitudeEstimate;
+
+        attribute accepted : Boolean;
+    }
+
+    state def FineGuidanceSensorOperatingState {
+        entry action initializeSensor;
+
+        state Off;
+        state Standby;
+        state Acquire;
+        state Track;
+        state Degraded;
+        state Fault;
+
+        transition first Off;
+
+        transition powerApplied
+            first Off
+            then Standby;
+
+        transition startAcquisition
+            first Standby
+            accept GuidanceCommand
+            if trackingEnabled
+            then Acquire;
+
+        transition targetDetected
+            first Acquire
+            if validCentroid
+            then Track;
+
+        transition targetLost
+            first Track
+            if lowSignalToNoise
+            then Acquire;
+
+        transition degradedThermalCondition
+            first Track
+            if detectorTemperatureOutOfRange
+            then Degraded;
+
+        transition recoverThermalCondition
+            first Degraded
+            if detectorTemperatureWithinRange
+            then Track;
+
+        transition unrecoverableFailure
+            first Standby
+            then Fault;
+
+        transition acquisitionFailure
+            first Acquire
+            then Fault;
+
+        transition processingFailure
+            first Track
+            then Fault;
+
+        transition powerRemoved
+            first Standby
+            then Off;
+
+        transition shutdownFromFault
+            first Fault
+            then Off;
+    }
+
+    part def OpticalBaffle {
+        port opticalIn : OpticalInputPort;
+        port opticalOut : OpticalInputPort;
+
+        attribute fieldOfViewX : Angle = 0.001745 [SI::radian];
+        attribute fieldOfViewY : Angle = 0.001745 [SI::radian];
+        attribute strayLightRejectionRatio : Real = 1000000.0;
+    }
+
+    part def FineGuidanceSensor {
+        port opticalInput : OpticalInputPort;
+        port commandInput : CommandInputPort;
+        port powerInput : PowerInputPort;
+        port thermalInterface : ThermalPort;
+        port videoOutput : DetectorVideoPort;
+        port healthOutput : MeasurementOutputPort;
+
+        attribute detectorTemperature : Temperature;
+        attribute operatingTemperatureMin : Temperature = 263.15 [SI::kelvin];
+        attribute operatingTemperatureMax : Temperature = 293.15 [SI::kelvin];
+        attribute frameRate : Frequency = 50.0 [SI::hertz];
+        attribute readNoiseElectrons : Real = 3.5;
+        attribute quantumEfficiency : Real = 0.82;
+        attribute pixelRows : PixelCount = 2048;
+        attribute pixelColumns : PixelCount = 2048;
+        attribute nominalPower : Power = 18.0 [SI::watt];
+
+        perform action acquire : AcquireStarImage {
+            in flux = opticalInput.incidentFlux;
+            out centroid = videoOutput.rawCentroid;
+        }
+
+        exhibit state operatingState : FineGuidanceSensorOperatingState;
+    }
+
+    part def SignalProcessor {
+        port centroidInput : ProcessingInputPort;
+        port commandInput : CommandInputPort;
+        port estimateOutput : ProcessingOutputPort;
+        port statusOutput : MeasurementOutputPort;
+        port powerInput : PowerInputPort;
+
+        attribute processorClockRate : Frequency = 200000000.0 [SI::hertz];
+        attribute outputRate : Frequency = 20.0 [SI::hertz];
+        attribute minimumAcceptedConfidence : QualityIndex = 0.90;
+        attribute maximumLatency : Duration = 0.050 [SI::second];
+        attribute nominalPower : Power = 7.5 [SI::watt];
+
+        perform action estimate : EstimatePointingError {
+            in centroid = centroidInput.rawCentroid;
+            in command = commandInput.command;
+            out estimate = estimateOutput.processedEstimate;
+        }
+
+        perform action validate : ValidateMeasurement {
+            in estimateIn = estimateOutput.processedEstimate;
+            in minimumConfidence = minimumAcceptedConfidence;
+            out estimateOut = statusOutput.estimate;
+        }
+    }
+
+    part def PowerConditioner {
+        port inputPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port processorPower : PowerInputPort;
+
+        attribute inputVoltageMin : Voltage = 22.0 [SI::volt];
+        attribute inputVoltageMax : Voltage = 34.0 [SI::volt];
+        attribute regulatedVoltage : Voltage = 12.0 [SI::volt];
+        attribute conversionEfficiency : Real = 0.91;
+        attribute maximumOutputPower : Power = 40.0 [SI::watt];
+    }
+
+    part def ThermalController {
+        port thermalInterface : ThermalPort;
+        port powerInput : PowerInputPort;
+
+        attribute detectorSetPoint : Temperature = 273.15 [SI::kelvin];
+        attribute allowableDetectorError : Temperature = 1.0 [SI::kelvin];
+        attribute maximumHeaterPower : Power = 8.0 [SI::watt];
+        attribute maximumCoolerPower : Power = 12.0 [SI::watt];
+    }
+
+    part def GuidanceDataInterface {
+        port commandInput : CommandInputPort;
+        port estimateOutput : MeasurementOutputPort;
+
+        attribute commandRate : Frequency = 10.0 [SI::hertz];
+        attribute telemetryRate : Frequency = 20.0 [SI::hertz];
+        attribute linkBitRate : BitRate = 1000000.0 [SI::bitPerSecond];
+    }
+
+    part def FineGuidanceSensingUnit {
+        port opticalInput : OpticalInputPort;
+        port commandInput : CommandInputPort;
+        port estimateOutput : MeasurementOutputPort;
+        port powerInput : PowerInputPort;
+        port thermalInterface : ThermalPort;
+
+        part baffle : OpticalBaffle;
+        part sensor : FineGuidanceSensor;
+        part processor : SignalProcessor;
+        part powerConditioner : PowerConditioner;
+        part thermalController : ThermalController;
+        part dataInterface : GuidanceDataInterface;
+
+        attribute measuredQuantity : String = "fine pointing line-of-sight angular error";
+        attribute measurementRangeX : Angle = 0.000873 [SI::radian];
+        attribute measurementRangeY : Angle = 0.000873 [SI::radian];
+        attribute measurementAccuracy : Angle = 0.000000242 [SI::radian];
+        attribute measurementResolution : Angle = 0.0000000485 [SI::radian];
+        attribute maximumAcquisitionTime : Duration = 2.0 [SI::second];
+        attribute endToEndLatency : Duration = 0.050 [SI::second];
+        attribute totalNominalPower : Power = 25.5 [SI::watt];
+
+        connect opticalInput.incidentFlux to baffle.opticalIn.incidentFlux;
+        connect baffle.opticalOut.incidentFlux to sensor.opticalInput.incidentFlux;
+
+        connect commandInput.command to dataInterface.commandInput.command;
+        connect dataInterface.commandInput.command to sensor.commandInput.command;
+        connect dataInterface.commandInput.command to processor.commandInput.command;
+
+        connect powerInput.supply to powerConditioner.inputPower.supply;
+        connect powerConditioner.sensorPower.supply to sensor.powerInput.supply;
+        connect powerConditioner.processorPower.supply to processor.powerInput.supply;
+        connect powerConditioner.processorPower.supply to thermalController.powerInput.supply;
+
+        connect thermalInterface.thermalControl to thermalController.thermalInterface.thermalControl;
+        connect thermalController.thermalInterface.thermalControl to sensor.thermalInterface.thermalControl;
+
+        connect sensor.videoOutput.rawCentroid to processor.centroidInput.rawCentroid;
+        connect processor.estimateOutput.processedEstimate to dataInterface.estimateOutput.estimate;
+        connect processor.statusOutput.status to dataInterface.estimateOutput.status;
+        connect dataInterface.estimateOutput.estimate to estimateOutput.estimate;
+        connect dataInterface.estimateOutput.status to estimateOutput.status;
+    }
+
+    requirement def MeasureFineGuidanceQuantity {
+        subject sensingUnit : FineGuidanceSensingUnit;
+
+        require constraint {
+            sensingUnit.measuredQuantity == "fine pointing line-of-sight angular error"
+        }
+
+        require constraint {
+            sensingUnit.measurementAccuracy <= 0.000000242 [SI::radian]
+        }
+
+        require constraint {
+            sensingUnit.measurementResolution <= 0.0000000485 [SI::radian]
+        }
+    }
+
+    requirement def UseFineGuidanceSensor {
+        subject sensingUnit : FineGuidanceSensingUnit;
+
+        require constraint {
+            exists sensingUnit.sensor
+        }
+
+        require constraint {
+            sensingUnit.sensor.frameRate >= 50.0 [SI::hertz]
+        }
+    }
+
+    requirement def AcquisitionPerformance {
+        subject sensingUnit : FineGuidanceSensingUnit;
+
+        require constraint {
+            sensingUnit.maximumAcquisitionTime <= 2.0 [SI::second]
+        }
+
+        require constraint {
+            sensingUnit.endToEndLatency <= 0.050 [SI::second]
+        }
+    }
+
+    requirement def PowerLimit {
+        subject sensingUnit : FineGuidanceSensingUnit;
+
+        require constraint {
+            sensingUnit.totalNominalPower <= 30.0 [SI::watt]
+        }
+    }
+
+    requirement def ThermalOperatingRange {
+        subject sensingUnit : FineGuidanceSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.detectorTemperature >= sensingUnit.sensor.operatingTemperatureMin
+        }
+
+        require constraint {
+            sensingUnit.sensor.detectorTemperature <= sensingUnit.sensor.operatingTemperatureMax
+        }
+    }
+
+    requirement def ValidMeasurementQuality {
+        subject sensingUnit : FineGuidanceSensingUnit;
+
+        require constraint {
+            sensingUnit.processor.minimumAcceptedConfidence >= 0.90
+        }
+    }
+
+    part fineGuidanceSensingUnit : FineGuidanceSensingUnit;
+
+    requirement measureFineGuidanceQuantity : MeasureFineGuidanceQuantity {
+        subject sensingUnit = fineGuidanceSensingUnit;
+    }
+
+    requirement useFineGuidanceSensor : UseFineGuidanceSensor {
+        subject sensingUnit = fineGuidanceSensingUnit;
+    }
+
+    requirement acquisitionPerformance : AcquisitionPerformance {
+        subject sensingUnit = fineGuidanceSensingUnit;
+    }
+
+    requirement powerLimit : PowerLimit {
+        subject sensingUnit = fineGuidanceSensingUnit;
+    }
+
+    requirement thermalOperatingRange : ThermalOperatingRange {
+        subject sensingUnit = fineGuidanceSensingUnit;
+    }
+
+    requirement validMeasurementQuality : ValidMeasurementQuality {
+        subject sensingUnit = fineGuidanceSensingUnit;
+    }
+
+    satisfy fineGuidanceSensingUnit by measureFineGuidanceQuantity;
+    satisfy fineGuidanceSensingUnit by useFineGuidanceSensor;
+    satisfy fineGuidanceSensingUnit by acquisitionPerformance;
+    satisfy fineGuidanceSensingUnit by powerLimit;
+    satisfy fineGuidanceSensingUnit by thermalOperatingRange;
+    satisfy fineGuidanceSensingUnit by validMeasurementQuality;
+}

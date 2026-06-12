@@ -1,0 +1,943 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-69yd7air
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb811-790e-7a41-a050-ec775420eaba
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Gasoline and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package GasolineEnergySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::litre;
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def RotationalSpeed {
+        unit = SI::revolutionPerMinute;
+    }
+
+    attribute def AirFuelRatio {
+        unit = "1";
+    }
+
+    attribute def Efficiency {
+        unit = "1";
+    }
+
+    item def Gasoline {
+        attribute volume : Volume;
+        attribute mass : Mass;
+        attribute lowerHeatingValue : Energy;
+        attribute octaneRating : Real;
+        attribute vaporPressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def Air {
+        attribute massFlowRate : Mass;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute oxygenFraction : Real;
+    }
+
+    item def FuelVaporMixture {
+        attribute airFuelRatio : AirFuelRatio;
+        attribute fuelMass : Mass;
+        attribute airMass : Mass;
+        attribute mixtureTemperature : Temperature;
+    }
+
+    item def CombustionGas {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute residualEnergy : Energy;
+        attribute emissionsMass : Mass;
+    }
+
+    item def MechanicalEnergy {
+        attribute torqueEnergy : Energy;
+        attribute shaftPower : Power;
+        attribute rotationalSpeed : RotationalSpeed;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage;
+        attribute current;
+        attribute electricalPower : Power;
+    }
+
+    port def FuelInletPort {
+        in item fuel : Gasoline;
+    }
+
+    port def AirInletPort {
+        in item air : Air;
+    }
+
+    port def MixturePort {
+        out item mixture : FuelVaporMixture;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : CombustionGas;
+    }
+
+    port def ShaftPowerPort {
+        out item power : MechanicalEnergy;
+    }
+
+    port def ElectricalPowerPort {
+        out item electricity : ElectricalEnergy;
+    }
+
+    part def FuelTank {
+        attribute capacity : Volume = 50 [SI::litre];
+        attribute storedFuelVolume : Volume;
+        attribute fuelTemperature : Temperature;
+        attribute internalPressure : Pressure;
+
+        port outlet : FuelInletPort;
+
+        action dispenseFuel {
+            in item storedFuel : Gasoline;
+            out item meteredFuel : Gasoline;
+        }
+    }
+
+    part def FuelPump {
+        attribute outletPressure : Pressure = 350000 [SI::pascal];
+        attribute nominalFlowRate : Volume = 0.00005 [SI::metre ** 3];
+        attribute electricalDemand : Power = 80 [SI::watt];
+
+        port inlet : FuelInletPort;
+        port outlet : FuelInletPort;
+
+        action pressurizeFuel {
+            in item lowPressureFuel : Gasoline;
+            out item pressurizedFuel : Gasoline;
+        }
+    }
+
+    part def FuelInjector {
+        attribute injectionPressure : Pressure = 300000 [SI::pascal];
+        attribute pulseWidth;
+        attribute atomizationEfficiency : Efficiency = 0.92;
+
+        port inlet : FuelInletPort;
+        port outlet : MixturePort;
+
+        action atomizeGasoline {
+            in item pressurizedFuel : Gasoline;
+            in item intakeAir : Air;
+            out item vaporizedMixture : FuelVaporMixture;
+        }
+    }
+
+    part def AirIntake {
+        attribute filterEfficiency : Efficiency = 0.98;
+        attribute manifoldPressure : Pressure;
+        attribute intakeTemperature : Temperature;
+
+        port inlet : AirInletPort;
+        port outlet : AirInletPort;
+
+        action conditionAir {
+            in item ambientAir : Air;
+            out item meteredAir : Air;
+        }
+    }
+
+    part def CombustionChamber {
+        attribute compressionRatio : Real = 10.5;
+        attribute targetAirFuelRatio : AirFuelRatio = 14.7;
+        attribute peakCombustionTemperature : Temperature;
+        attribute peakCylinderPressure : Pressure;
+
+        port fuelMixtureIn : MixturePort;
+        port exhaustOut : ExhaustPort;
+        port mechanicalOut : ShaftPowerPort;
+
+        action combustMixture {
+            in item mixture : FuelVaporMixture;
+            out item gases : CombustionGas;
+            out item work : MechanicalEnergy;
+        }
+
+        state combustionCycle {
+            state Intake;
+            state Compression;
+            state Ignition;
+            state Expansion;
+            state Exhaust;
+
+            initial then Intake;
+
+            transition Intake_to_Compression
+                first Intake
+                then Compression;
+
+            transition Compression_to_Ignition
+                first Compression
+                then Ignition;
+
+            transition Ignition_to_Expansion
+                first Ignition
+                then Expansion;
+
+            transition Expansion_to_Exhaust
+                first Expansion
+                then Exhaust;
+
+            transition Exhaust_to_Intake
+                first Exhaust
+                then Intake;
+        }
+    }
+
+    part def EngineController {
+        attribute commandedAirFuelRatio : AirFuelRatio = 14.7;
+        attribute sparkAdvance;
+        attribute injectorPulseWidth;
+        attribute engineSpeed : RotationalSpeed;
+
+        action regulateCombustion {
+            in attribute measuredSpeed : RotationalSpeed;
+            in attribute measuredOxygenFraction : Real;
+            out attribute fuelCommand;
+            out attribute sparkCommand;
+        }
+
+        state operatingMode {
+            state Off;
+            state Start;
+            state Idle;
+            state Drive;
+            state Fault;
+
+            initial then Off;
+
+            transition startRequested
+                first Off
+                then Start;
+
+            transition stableCombustion
+                first Start
+                then Idle;
+
+            transition torqueRequested
+                first Idle
+                then Drive;
+
+            transition noTorqueRequested
+                first Drive
+                then Idle;
+
+            transition faultDetected
+                first Start
+                then Fault;
+
+            transition runningFaultDetected
+                first Idle
+                then Fault;
+
+            transition driveFaultDetected
+                first Drive
+                then Fault;
+
+            transition shutdown
+                first Idle
+                then Off;
+        }
+    }
+
+    part def Crankshaft {
+        attribute rotationalSpeed : RotationalSpeed;
+        attribute deliveredPower : Power;
+        attribute mechanicalEfficiency : Efficiency = 0.88;
+
+        port inputWork : ShaftPowerPort;
+        port outputWork : ShaftPowerPort;
+
+        action convertPistonWorkToShaftPower {
+            in item combustionWork : MechanicalEnergy;
+            out item shaftWork : MechanicalEnergy;
+        }
+    }
+
+    part def Generator {
+        attribute conversionEfficiency : Efficiency = 0.82;
+        attribute ratedPower : Power = 50000 [SI::watt];
+
+        port shaftIn : ShaftPowerPort;
+        port electricalOut : ElectricalPowerPort;
+
+        action generateElectricity {
+            in item shaftPower : MechanicalEnergy;
+            out item electricalPower : ElectricalEnergy;
+        }
+    }
+
+    part def ExhaustTreatment {
+        attribute catalystTemperature : Temperature;
+        attribute conversionEfficiency : Efficiency = 0.95;
+
+        port inlet : ExhaustPort;
+        port outlet : ExhaustPort;
+
+        action reduceEmissions {
+            in item rawExhaust : CombustionGas;
+            out item treatedExhaust : CombustionGas;
+        }
+    }
+
+    part def GasolinePoweredEnergySystem {
+        attribute totalFuelCapacity : Volume = 50 [SI::litre];
+        attribute maximumShaftPower : Power = 85000 [SI::watt];
+        attribute nominalEfficiency : Efficiency = 0.28;
+        attribute primaryFunction : String = "Convert chemical energy stored in gasoline into controlled mechanical and optional electrical power.";
+
+        part tank : FuelTank;
+        part pump : FuelPump;
+        part injector : FuelInjector;
+        part intake : AirIntake;
+        part chamber : CombustionChamber;
+        part controller : EngineController;
+        part crankshaft : Crankshaft;
+        part generator : Generator;
+        part exhaustTreatment : ExhaustTreatment;
+
+        port gasolineInput : FuelInletPort;
+        port ambientAirInput : AirInletPort;
+        port mechanicalPowerOutput : ShaftPowerPort;
+        port electricalPowerOutput : ElectricalPowerPort;
+        port exhaustOutput : ExhaustPort;
+
+        connect gasolineInput to tank.outlet;
+        connect tank.outlet to pump.inlet;
+        connect pump.outlet to injector.inlet;
+
+        connect ambientAirInput to intake.inlet;
+        connect intake.outlet to injector.outlet;
+
+        connect injector.outlet to chamber.fuelMixtureIn;
+        connect chamber.mechanicalOut to crankshaft.inputWork;
+        connect crankshaft.outputWork to mechanicalPowerOutput;
+        connect crankshaft.outputWork to generator.shaftIn;
+        connect generator.electricalOut to electricalPowerOutput;
+
+        connect chamber.exhaustOut to exhaustTreatment.inlet;
+        connect exhaustTreatment.outlet to exhaustOutput;
+
+        action provideUsefulPower {
+            in item gasoline : Gasoline;
+            in item air : Air;
+            out item shaftPower : MechanicalEnergy;
+            out item optionalElectricity : ElectricalEnergy;
+            out item treatedExhaust : CombustionGas;
+
+            first start tank.dispenseFuel;
+            then start pump.pressurizeFuel;
+            then start intake.conditionAir;
+            then start injector.atomizeGasoline;
+            then start chamber.combustMixture;
+            then start crankshaft.convertPistonWorkToShaftPower;
+            then start generator.generateElectricity;
+            then start exhaustTreatment.reduceEmissions;
+        }
+
+        state systemLifecycle {
+            state Stored;
+            state Fueled;
+            state Starting;
+            state Running;
+            state PowerDelivery;
+            state Shutdown;
+            state MaintenanceRequired;
+
+            initial then Stored;
+
+            transition fuelAvailable
+                first Stored
+                then Fueled;
+
+            transition startCommanded
+                first Fueled
+                then Starting;
+
+            transition combustionStable
+                first Starting
+                then Running;
+
+            transition loadConnected
+                first Running
+                then PowerDelivery;
+
+            transition loadRemoved
+                first PowerDelivery
+                then Running;
+
+            transition stopCommanded
+                first Running
+                then Shutdown;
+
+            transition shutdownComplete
+                first Shutdown
+                then Fueled;
+
+            transition serviceFault
+                first Running
+                then MaintenanceRequired;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall convert gasoline chemical energy into controlled useful power at a high level by storing gasoline, metering and mixing it with air, combusting the mixture, converting combustion work to shaft power, and treating exhaust products. */
+
+        subject system : GasolinePoweredEnergySystem;
+
+        require constraint {
+            system.nominalEfficiency >= 0.20 and
+            system.maximumShaftPower >= 50000 [SI::watt]
+        }
+    }
+
+    requirement def FuelStorageRequirement {
+        subject tank : FuelTank;
+
+        require constraint {
+            tank.capacity >= 40 [SI::litre] and
+            tank.internalPressure < 150000 [SI::pascal]
+        }
+    }
+
+    requirement def CombustionControlRequirement {
+        subject chamber : CombustionChamber;
+
+        require constraint {
+            chamber.targetAirFuelRatio >= 14.0 and
+            chamber.targetAirFuelRatio <= 15.2 and
+            chamber.compressionRatio >= 8.0
+        }
+    }
+
+    requirement def EmissionsTreatmentRequirement {
+        subject exhaustTreatment : ExhaustTreatment;
+
+        require constraint {
+            exhaustTreatment.conversionEfficiency >= 0.90
+        }
+    }
+
+    requirement def PowerGenerationRequirement {
+        subject generator : Generator;
+
+        require constraint {
+            generator.ratedPower >= 30000 [SI::watt] and
+            generator.conversionEfficiency >= 0.75
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GasolinePoweredEnergySystem;
+    satisfy FuelStorageRequirement by FuelTank;
+    satisfy CombustionControlRequirement by CombustionChamber;
+    satisfy EmissionsTreatmentRequirement by ExhaustTreatment;
+    satisfy PowerGenerationRequirement by Generator;
+}
+tokens used
+3,049
+package GasolineEnergySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Volume :> ISQ::volume {
+        unit = SI::litre;
+    }
+
+    attribute def Mass :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def Pressure :> ISQ::pressure {
+        unit = SI::pascal;
+    }
+
+    attribute def Energy :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def Power :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def RotationalSpeed {
+        unit = SI::revolutionPerMinute;
+    }
+
+    attribute def AirFuelRatio {
+        unit = "1";
+    }
+
+    attribute def Efficiency {
+        unit = "1";
+    }
+
+    item def Gasoline {
+        attribute volume : Volume;
+        attribute mass : Mass;
+        attribute lowerHeatingValue : Energy;
+        attribute octaneRating : Real;
+        attribute vaporPressure : Pressure;
+        attribute temperature : Temperature;
+    }
+
+    item def Air {
+        attribute massFlowRate : Mass;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute oxygenFraction : Real;
+    }
+
+    item def FuelVaporMixture {
+        attribute airFuelRatio : AirFuelRatio;
+        attribute fuelMass : Mass;
+        attribute airMass : Mass;
+        attribute mixtureTemperature : Temperature;
+    }
+
+    item def CombustionGas {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute residualEnergy : Energy;
+        attribute emissionsMass : Mass;
+    }
+
+    item def MechanicalEnergy {
+        attribute torqueEnergy : Energy;
+        attribute shaftPower : Power;
+        attribute rotationalSpeed : RotationalSpeed;
+    }
+
+    item def ElectricalEnergy {
+        attribute voltage;
+        attribute current;
+        attribute electricalPower : Power;
+    }
+
+    port def FuelInletPort {
+        in item fuel : Gasoline;
+    }
+
+    port def AirInletPort {
+        in item air : Air;
+    }
+
+    port def MixturePort {
+        out item mixture : FuelVaporMixture;
+    }
+
+    port def ExhaustPort {
+        out item exhaust : CombustionGas;
+    }
+
+    port def ShaftPowerPort {
+        out item power : MechanicalEnergy;
+    }
+
+    port def ElectricalPowerPort {
+        out item electricity : ElectricalEnergy;
+    }
+
+    part def FuelTank {
+        attribute capacity : Volume = 50 [SI::litre];
+        attribute storedFuelVolume : Volume;
+        attribute fuelTemperature : Temperature;
+        attribute internalPressure : Pressure;
+
+        port outlet : FuelInletPort;
+
+        action dispenseFuel {
+            in item storedFuel : Gasoline;
+            out item meteredFuel : Gasoline;
+        }
+    }
+
+    part def FuelPump {
+        attribute outletPressure : Pressure = 350000 [SI::pascal];
+        attribute nominalFlowRate : Volume = 0.00005 [SI::metre ** 3];
+        attribute electricalDemand : Power = 80 [SI::watt];
+
+        port inlet : FuelInletPort;
+        port outlet : FuelInletPort;
+
+        action pressurizeFuel {
+            in item lowPressureFuel : Gasoline;
+            out item pressurizedFuel : Gasoline;
+        }
+    }
+
+    part def FuelInjector {
+        attribute injectionPressure : Pressure = 300000 [SI::pascal];
+        attribute pulseWidth;
+        attribute atomizationEfficiency : Efficiency = 0.92;
+
+        port inlet : FuelInletPort;
+        port outlet : MixturePort;
+
+        action atomizeGasoline {
+            in item pressurizedFuel : Gasoline;
+            in item intakeAir : Air;
+            out item vaporizedMixture : FuelVaporMixture;
+        }
+    }
+
+    part def AirIntake {
+        attribute filterEfficiency : Efficiency = 0.98;
+        attribute manifoldPressure : Pressure;
+        attribute intakeTemperature : Temperature;
+
+        port inlet : AirInletPort;
+        port outlet : AirInletPort;
+
+        action conditionAir {
+            in item ambientAir : Air;
+            out item meteredAir : Air;
+        }
+    }
+
+    part def CombustionChamber {
+        attribute compressionRatio : Real = 10.5;
+        attribute targetAirFuelRatio : AirFuelRatio = 14.7;
+        attribute peakCombustionTemperature : Temperature;
+        attribute peakCylinderPressure : Pressure;
+
+        port fuelMixtureIn : MixturePort;
+        port exhaustOut : ExhaustPort;
+        port mechanicalOut : ShaftPowerPort;
+
+        action combustMixture {
+            in item mixture : FuelVaporMixture;
+            out item gases : CombustionGas;
+            out item work : MechanicalEnergy;
+        }
+
+        state combustionCycle {
+            state Intake;
+            state Compression;
+            state Ignition;
+            state Expansion;
+            state Exhaust;
+
+            initial then Intake;
+
+            transition Intake_to_Compression
+                first Intake
+                then Compression;
+
+            transition Compression_to_Ignition
+                first Compression
+                then Ignition;
+
+            transition Ignition_to_Expansion
+                first Ignition
+                then Expansion;
+
+            transition Expansion_to_Exhaust
+                first Expansion
+                then Exhaust;
+
+            transition Exhaust_to_Intake
+                first Exhaust
+                then Intake;
+        }
+    }
+
+    part def EngineController {
+        attribute commandedAirFuelRatio : AirFuelRatio = 14.7;
+        attribute sparkAdvance;
+        attribute injectorPulseWidth;
+        attribute engineSpeed : RotationalSpeed;
+
+        action regulateCombustion {
+            in attribute measuredSpeed : RotationalSpeed;
+            in attribute measuredOxygenFraction : Real;
+            out attribute fuelCommand;
+            out attribute sparkCommand;
+        }
+
+        state operatingMode {
+            state Off;
+            state Start;
+            state Idle;
+            state Drive;
+            state Fault;
+
+            initial then Off;
+
+            transition startRequested
+                first Off
+                then Start;
+
+            transition stableCombustion
+                first Start
+                then Idle;
+
+            transition torqueRequested
+                first Idle
+                then Drive;
+
+            transition noTorqueRequested
+                first Drive
+                then Idle;
+
+            transition faultDetected
+                first Start
+                then Fault;
+
+            transition runningFaultDetected
+                first Idle
+                then Fault;
+
+            transition driveFaultDetected
+                first Drive
+                then Fault;
+
+            transition shutdown
+                first Idle
+                then Off;
+        }
+    }
+
+    part def Crankshaft {
+        attribute rotationalSpeed : RotationalSpeed;
+        attribute deliveredPower : Power;
+        attribute mechanicalEfficiency : Efficiency = 0.88;
+
+        port inputWork : ShaftPowerPort;
+        port outputWork : ShaftPowerPort;
+
+        action convertPistonWorkToShaftPower {
+            in item combustionWork : MechanicalEnergy;
+            out item shaftWork : MechanicalEnergy;
+        }
+    }
+
+    part def Generator {
+        attribute conversionEfficiency : Efficiency = 0.82;
+        attribute ratedPower : Power = 50000 [SI::watt];
+
+        port shaftIn : ShaftPowerPort;
+        port electricalOut : ElectricalPowerPort;
+
+        action generateElectricity {
+            in item shaftPower : MechanicalEnergy;
+            out item electricalPower : ElectricalEnergy;
+        }
+    }
+
+    part def ExhaustTreatment {
+        attribute catalystTemperature : Temperature;
+        attribute conversionEfficiency : Efficiency = 0.95;
+
+        port inlet : ExhaustPort;
+        port outlet : ExhaustPort;
+
+        action reduceEmissions {
+            in item rawExhaust : CombustionGas;
+            out item treatedExhaust : CombustionGas;
+        }
+    }
+
+    part def GasolinePoweredEnergySystem {
+        attribute totalFuelCapacity : Volume = 50 [SI::litre];
+        attribute maximumShaftPower : Power = 85000 [SI::watt];
+        attribute nominalEfficiency : Efficiency = 0.28;
+        attribute primaryFunction : String = "Convert chemical energy stored in gasoline into controlled mechanical and optional electrical power.";
+
+        part tank : FuelTank;
+        part pump : FuelPump;
+        part injector : FuelInjector;
+        part intake : AirIntake;
+        part chamber : CombustionChamber;
+        part controller : EngineController;
+        part crankshaft : Crankshaft;
+        part generator : Generator;
+        part exhaustTreatment : ExhaustTreatment;
+
+        port gasolineInput : FuelInletPort;
+        port ambientAirInput : AirInletPort;
+        port mechanicalPowerOutput : ShaftPowerPort;
+        port electricalPowerOutput : ElectricalPowerPort;
+        port exhaustOutput : ExhaustPort;
+
+        connect gasolineInput to tank.outlet;
+        connect tank.outlet to pump.inlet;
+        connect pump.outlet to injector.inlet;
+
+        connect ambientAirInput to intake.inlet;
+        connect intake.outlet to injector.outlet;
+
+        connect injector.outlet to chamber.fuelMixtureIn;
+        connect chamber.mechanicalOut to crankshaft.inputWork;
+        connect crankshaft.outputWork to mechanicalPowerOutput;
+        connect crankshaft.outputWork to generator.shaftIn;
+        connect generator.electricalOut to electricalPowerOutput;
+
+        connect chamber.exhaustOut to exhaustTreatment.inlet;
+        connect exhaustTreatment.outlet to exhaustOutput;
+
+        action provideUsefulPower {
+            in item gasoline : Gasoline;
+            in item air : Air;
+            out item shaftPower : MechanicalEnergy;
+            out item optionalElectricity : ElectricalEnergy;
+            out item treatedExhaust : CombustionGas;
+
+            first start tank.dispenseFuel;
+            then start pump.pressurizeFuel;
+            then start intake.conditionAir;
+            then start injector.atomizeGasoline;
+            then start chamber.combustMixture;
+            then start crankshaft.convertPistonWorkToShaftPower;
+            then start generator.generateElectricity;
+            then start exhaustTreatment.reduceEmissions;
+        }
+
+        state systemLifecycle {
+            state Stored;
+            state Fueled;
+            state Starting;
+            state Running;
+            state PowerDelivery;
+            state Shutdown;
+            state MaintenanceRequired;
+
+            initial then Stored;
+
+            transition fuelAvailable
+                first Stored
+                then Fueled;
+
+            transition startCommanded
+                first Fueled
+                then Starting;
+
+            transition combustionStable
+                first Starting
+                then Running;
+
+            transition loadConnected
+                first Running
+                then PowerDelivery;
+
+            transition loadRemoved
+                first PowerDelivery
+                then Running;
+
+            transition stopCommanded
+                first Running
+                then Shutdown;
+
+            transition shutdownComplete
+                first Shutdown
+                then Fueled;
+
+            transition serviceFault
+                first Running
+                then MaintenanceRequired;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The system shall convert gasoline chemical energy into controlled useful power at a high level by storing gasoline, metering and mixing it with air, combusting the mixture, converting combustion work to shaft power, and treating exhaust products. */
+
+        subject system : GasolinePoweredEnergySystem;
+
+        require constraint {
+            system.nominalEfficiency >= 0.20 and
+            system.maximumShaftPower >= 50000 [SI::watt]
+        }
+    }
+
+    requirement def FuelStorageRequirement {
+        subject tank : FuelTank;
+
+        require constraint {
+            tank.capacity >= 40 [SI::litre] and
+            tank.internalPressure < 150000 [SI::pascal]
+        }
+    }
+
+    requirement def CombustionControlRequirement {
+        subject chamber : CombustionChamber;
+
+        require constraint {
+            chamber.targetAirFuelRatio >= 14.0 and
+            chamber.targetAirFuelRatio <= 15.2 and
+            chamber.compressionRatio >= 8.0
+        }
+    }
+
+    requirement def EmissionsTreatmentRequirement {
+        subject exhaustTreatment : ExhaustTreatment;
+
+        require constraint {
+            exhaustTreatment.conversionEfficiency >= 0.90
+        }
+    }
+
+    requirement def PowerGenerationRequirement {
+        subject generator : Generator;
+
+        require constraint {
+            generator.ratedPower >= 30000 [SI::watt] and
+            generator.conversionEfficiency >= 0.75
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by GasolinePoweredEnergySystem;
+    satisfy FuelStorageRequirement by FuelTank;
+    satisfy CombustionControlRequirement by CombustionChamber;
+    satisfy EmissionsTreatmentRequirement by ExhaustTreatment;
+    satisfy PowerGenerationRequirement by Generator;
+}

@@ -1,0 +1,907 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-pdeezqq3
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb7c6-7a75-7561-985a-fcc43b0b2af1
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Hulu and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HuluStreamingSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Bitrate :> ISQ::dataRate {
+        unit = "Mb/s";
+    }
+
+    attribute def Latency :> ISQ::duration {
+        unit = "ms";
+    }
+
+    attribute def Percentage {
+        :>> range = "0..100";
+        unit = "%";
+    }
+
+    attribute def Count {
+        :>> range = "0..*";
+    }
+
+    attribute def Identifier {
+        attribute value : String;
+    }
+
+    item def Credentials {
+        attribute userName : String;
+        attribute passwordHash : String;
+        attribute deviceId : Identifier;
+    }
+
+    item def AuthToken {
+        attribute tokenId : Identifier;
+        attribute expiresIn : SI::second;
+        attribute subscriberTier : SubscriberTier;
+    }
+
+    item def PlaybackRequest {
+        attribute profileId : Identifier;
+        attribute contentId : Identifier;
+        attribute deviceId : Identifier;
+        attribute requestedQuality : VideoQuality;
+        attribute startPosition : SI::second;
+    }
+
+    item def MediaManifest {
+        attribute contentId : Identifier;
+        attribute availableQualities : VideoQuality[1..*];
+        attribute segmentDuration : SI::second;
+        attribute drmLicenseRequired : Boolean;
+    }
+
+    item def MediaSegment {
+        attribute contentId : Identifier;
+        attribute sequenceNumber : Count;
+        attribute bitrate : Bitrate;
+        attribute duration : SI::second;
+        attribute encrypted : Boolean;
+    }
+
+    item def TelemetryEvent {
+        attribute eventTime : SI::second;
+        attribute profileId : Identifier;
+        attribute contentId : Identifier;
+        attribute eventType : PlaybackEventType;
+        attribute bufferHealth : SI::second;
+        attribute measuredLatency : Latency;
+    }
+
+    enum def SubscriberTier {
+        enum basicWithAds;
+        enum premiumNoAds;
+        enum liveTvBundle;
+    }
+
+    enum def VideoQuality {
+        enum sd480p;
+        enum hd720p;
+        enum fullHd1080p;
+        enum uhd4k;
+    }
+
+    enum def PlaybackEventType {
+        enum sessionStarted;
+        enum manifestLoaded;
+        enum segmentBuffered;
+        enum playbackStarted;
+        enum playbackPaused;
+        enum playbackEnded;
+        enum playbackError;
+    }
+
+    port def CredentialPort {
+        in credentials : Credentials;
+        out token : AuthToken;
+    }
+
+    port def PlaybackControlPort {
+        in request : PlaybackRequest;
+        in command : PlaybackCommand;
+        out manifest : MediaManifest;
+        out status : PlaybackStatus;
+    }
+
+    port def SegmentDeliveryPort {
+        in request : PlaybackRequest;
+        out segment : MediaSegment;
+    }
+
+    port def TelemetryPort {
+        in event : TelemetryEvent;
+    }
+
+    item def PlaybackCommand {
+        attribute commandName : String;
+        attribute seekPosition : SI::second;
+    }
+
+    item def PlaybackStatus {
+        attribute isPlaying : Boolean;
+        attribute currentPosition : SI::second;
+        attribute selectedQuality : VideoQuality;
+        attribute bufferHealth : SI::second;
+        attribute errorCode : String;
+    }
+
+    part def HuluSystem {
+        doc /* A subscription video streaming system whose primary function is to authenticate subscribers, present licensed video content, and deliver adaptive media streams to client devices for reliable on-demand playback. */
+
+        port userAuthPort : CredentialPort;
+        port playbackPort : PlaybackControlPort;
+        port telemetryIn : TelemetryPort;
+
+        part clientApp : ClientApplication;
+        part identityService : IdentityService;
+        part catalogService : CatalogService;
+        part entitlementService : EntitlementService;
+        part playbackOrchestrator : PlaybackOrchestrator;
+        part drmService : DigitalRightsService;
+        part adDecisionService : AdvertisingDecisionService;
+        part contentDeliveryNetwork : ContentDeliveryNetwork;
+        part telemetryPipeline : TelemetryPipeline;
+
+        connect userAuthPort to clientApp.authPort;
+        connect clientApp.identityPort to identityService.credentialPort;
+        connect clientApp.playbackPort to playbackOrchestrator.clientPlaybackPort;
+        connect playbackOrchestrator.catalogPort to catalogService.queryPort;
+        connect playbackOrchestrator.entitlementPort to entitlementService.validationPort;
+        connect playbackOrchestrator.drmPort to drmService.licensePort;
+        connect playbackOrchestrator.adPort to adDecisionService.adPort;
+        connect playbackOrchestrator.segmentPort to contentDeliveryNetwork.deliveryPort;
+        connect clientApp.telemetryPort to telemetryPipeline.ingestPort;
+        connect telemetryIn to telemetryPipeline.ingestPort;
+
+        attribute concurrentSessions : Count = 25000000;
+        attribute serviceAvailabilityTarget : Percentage = 99.95;
+        attribute maxStartupLatency : Latency = 2500;
+        attribute minimumAdaptiveBitrate : Bitrate = 1.5;
+        attribute maximumAdaptiveBitrate : Bitrate = 25.0;
+    }
+
+    part def ClientApplication {
+        port authPort : CredentialPort;
+        port identityPort : CredentialPort;
+        port playbackPort : PlaybackControlPort;
+        port telemetryPort : TelemetryPort;
+
+        attribute installedVersion : String;
+        attribute localBufferTarget : SI::second = 30;
+        attribute minimumBufferForStart : SI::second = 3;
+
+        state def ClientPlaybackStateMachine {
+            state signedOut;
+            state authenticating;
+            state browsing;
+            state requestingPlayback;
+            state buffering;
+            state playing;
+            state paused;
+            state ended;
+            state error;
+
+            transition first signedOut;
+            transition signedOut_to_authenticating
+                first signedOut
+                then authenticating
+                accept credentialsReceived;
+
+            transition authenticating_to_browsing
+                first authenticating
+                then browsing
+                accept tokenReceived;
+
+            transition browsing_to_requestingPlayback
+                first browsing
+                then requestingPlayback
+                accept titleSelected;
+
+            transition requestingPlayback_to_buffering
+                first requestingPlayback
+                then buffering
+                accept manifestReceived;
+
+            transition buffering_to_playing
+                first buffering
+                then playing
+                accept bufferReady;
+
+            transition playing_to_paused
+                first playing
+                then paused
+                accept pauseCommand;
+
+            transition paused_to_playing
+                first paused
+                then playing
+                accept playCommand;
+
+            transition playing_to_ended
+                first playing
+                then ended
+                accept streamCompleted;
+
+            transition requestingPlayback_to_error
+                first requestingPlayback
+                then error
+                accept playbackDenied;
+
+            transition buffering_to_error
+                first buffering
+                then error
+                accept segmentFailure;
+        }
+
+        action collectCredentials {
+            out credentials : Credentials;
+        }
+
+        action requestPlayback {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out request : PlaybackRequest;
+        }
+
+        action adaptQuality {
+            in measuredThroughput : Bitrate;
+            in bufferHealth : SI::second;
+            out selectedQuality : VideoQuality;
+        }
+
+        action renderVideo {
+            in segment : MediaSegment;
+            out status : PlaybackStatus;
+        }
+
+        action emitTelemetry {
+            in status : PlaybackStatus;
+            out event : TelemetryEvent;
+        }
+    }
+
+    part def IdentityService {
+        port credentialPort : CredentialPort;
+
+        attribute maximumAuthenticationLatency : Latency = 300;
+        attribute tokenLifetime : SI::second = 86400;
+
+        action authenticateSubscriber {
+            in credentials : Credentials;
+            out token : AuthToken;
+        }
+    }
+
+    part def CatalogService {
+        port queryPort : PlaybackControlPort;
+
+        attribute catalogTitleCount : Count = 85000;
+        attribute metadataFreshnessTarget : SI::second = 300;
+
+        action resolveContentMetadata {
+            in request : PlaybackRequest;
+            out manifest : MediaManifest;
+        }
+    }
+
+    part def EntitlementService {
+        port validationPort : PlaybackControlPort;
+
+        attribute maximumEntitlementLatency : Latency = 150;
+
+        action validateEntitlement {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out entitled : Boolean;
+            out subscriberTier : SubscriberTier;
+        }
+    }
+
+    part def PlaybackOrchestrator {
+        port clientPlaybackPort : PlaybackControlPort;
+        port catalogPort : PlaybackControlPort;
+        port entitlementPort : PlaybackControlPort;
+        port drmPort : PlaybackControlPort;
+        port adPort : PlaybackControlPort;
+        port segmentPort : SegmentDeliveryPort;
+
+        attribute sessionSetupLatencyTarget : Latency = 750;
+        attribute activePlaybackSessions : Count;
+
+        action startPlaybackSession {
+            in request : PlaybackRequest;
+            in token : AuthToken;
+            out manifest : MediaManifest;
+            out status : PlaybackStatus;
+        }
+
+        action selectAdaptiveStream {
+            in request : PlaybackRequest;
+            in manifest : MediaManifest;
+            out segmentRequest : PlaybackRequest;
+        }
+
+        action coordinateSegmentDelivery {
+            in segmentRequest : PlaybackRequest;
+            out segment : MediaSegment;
+        }
+    }
+
+    part def DigitalRightsService {
+        port licensePort : PlaybackControlPort;
+
+        attribute licenseResponseLatencyTarget : Latency = 200;
+
+        action issueLicense {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out licenseGranted : Boolean;
+        }
+    }
+
+    part def AdvertisingDecisionService {
+        port adPort : PlaybackControlPort;
+
+        attribute maximumAdDecisionLatency : Latency = 250;
+        attribute adBreakFillRateTarget : Percentage = 98;
+
+        action determineAdBreaks {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out adsRequired : Boolean;
+            out adBreakCount : Count;
+        }
+    }
+
+    part def ContentDeliveryNetwork {
+        port deliveryPort : SegmentDeliveryPort;
+
+        attribute edgeCacheHitRatioTarget : Percentage = 95;
+        attribute segmentDeliveryLatencyTarget : Latency = 100;
+        attribute totalEdgeCapacity : Bitrate = 120000000;
+
+        action deliverSegment {
+            in request : PlaybackRequest;
+            out segment : MediaSegment;
+        }
+    }
+
+    part def TelemetryPipeline {
+        port ingestPort : TelemetryPort;
+
+        attribute ingestLatencyTarget : Latency = 500;
+        attribute eventRetentionPeriod : SI::second = 7776000;
+
+        action ingestPlaybackEvent {
+            in event : TelemetryEvent;
+        }
+
+        action aggregateQualityMetrics {
+            in event : TelemetryEvent;
+            out startupLatency : Latency;
+            out rebufferRatio : Percentage;
+            out errorRate : Percentage;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide authenticated subscribers with high-level Hulu video streaming capability by enabling content discovery, entitlement validation, adaptive playback setup, secure media delivery, and playback telemetry collection. */
+        subject system : HuluSystem;
+        require constraint {
+            system.serviceAvailabilityTarget >= 99.95
+        }
+    }
+
+    requirement def AuthenticationRequirement {
+        doc /* The system shall authenticate a subscriber and issue an authorization token before playback begins. */
+        subject identity : IdentityService;
+        require constraint {
+            identity.maximumAuthenticationLatency <= 300
+        }
+    }
+
+    requirement def PlaybackStartupRequirement {
+        doc /* The system shall begin playback within the maximum startup latency target when network capacity and subscriber entitlement are valid. */
+        subject system : HuluSystem;
+        require constraint {
+            system.maxStartupLatency <= 2500
+        }
+    }
+
+    requirement def AdaptiveStreamingRequirement {
+        doc /* The system shall support adaptive bitrate streaming across standard definition, high definition, full high definition, and ultra high definition quality levels. */
+        subject system : HuluSystem;
+        require constraint {
+            system.minimumAdaptiveBitrate <= 1.5 and system.maximumAdaptiveBitrate >= 25.0
+        }
+    }
+
+    requirement def SecureContentRequirement {
+        doc /* The system shall prevent unauthorized playback of protected media by requiring entitlement validation and digital rights license approval before encrypted media segments are rendered. */
+        subject drm : DigitalRightsService;
+        require constraint {
+            drm.licenseResponseLatencyTarget <= 200
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The system shall collect playback telemetry events for session start, buffering, playback start, pause, end, and playback errors. */
+        subject telemetry : TelemetryPipeline;
+        require constraint {
+            telemetry.ingestLatencyTarget <= 500
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HuluSystem;
+    satisfy AuthenticationRequirement by IdentityService;
+    satisfy PlaybackStartupRequirement by PlaybackOrchestrator;
+    satisfy AdaptiveStreamingRequirement by ContentDeliveryNetwork;
+    satisfy SecureContentRequirement by DigitalRightsService;
+    satisfy TelemetryRequirement by TelemetryPipeline;
+
+    part huluStreamingPlatform : HuluSystem;
+}
+tokens used
+3,089
+package HuluStreamingSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Bitrate :> ISQ::dataRate {
+        unit = "Mb/s";
+    }
+
+    attribute def Latency :> ISQ::duration {
+        unit = "ms";
+    }
+
+    attribute def Percentage {
+        :>> range = "0..100";
+        unit = "%";
+    }
+
+    attribute def Count {
+        :>> range = "0..*";
+    }
+
+    attribute def Identifier {
+        attribute value : String;
+    }
+
+    item def Credentials {
+        attribute userName : String;
+        attribute passwordHash : String;
+        attribute deviceId : Identifier;
+    }
+
+    item def AuthToken {
+        attribute tokenId : Identifier;
+        attribute expiresIn : SI::second;
+        attribute subscriberTier : SubscriberTier;
+    }
+
+    item def PlaybackRequest {
+        attribute profileId : Identifier;
+        attribute contentId : Identifier;
+        attribute deviceId : Identifier;
+        attribute requestedQuality : VideoQuality;
+        attribute startPosition : SI::second;
+    }
+
+    item def MediaManifest {
+        attribute contentId : Identifier;
+        attribute availableQualities : VideoQuality[1..*];
+        attribute segmentDuration : SI::second;
+        attribute drmLicenseRequired : Boolean;
+    }
+
+    item def MediaSegment {
+        attribute contentId : Identifier;
+        attribute sequenceNumber : Count;
+        attribute bitrate : Bitrate;
+        attribute duration : SI::second;
+        attribute encrypted : Boolean;
+    }
+
+    item def TelemetryEvent {
+        attribute eventTime : SI::second;
+        attribute profileId : Identifier;
+        attribute contentId : Identifier;
+        attribute eventType : PlaybackEventType;
+        attribute bufferHealth : SI::second;
+        attribute measuredLatency : Latency;
+    }
+
+    enum def SubscriberTier {
+        enum basicWithAds;
+        enum premiumNoAds;
+        enum liveTvBundle;
+    }
+
+    enum def VideoQuality {
+        enum sd480p;
+        enum hd720p;
+        enum fullHd1080p;
+        enum uhd4k;
+    }
+
+    enum def PlaybackEventType {
+        enum sessionStarted;
+        enum manifestLoaded;
+        enum segmentBuffered;
+        enum playbackStarted;
+        enum playbackPaused;
+        enum playbackEnded;
+        enum playbackError;
+    }
+
+    port def CredentialPort {
+        in credentials : Credentials;
+        out token : AuthToken;
+    }
+
+    port def PlaybackControlPort {
+        in request : PlaybackRequest;
+        in command : PlaybackCommand;
+        out manifest : MediaManifest;
+        out status : PlaybackStatus;
+    }
+
+    port def SegmentDeliveryPort {
+        in request : PlaybackRequest;
+        out segment : MediaSegment;
+    }
+
+    port def TelemetryPort {
+        in event : TelemetryEvent;
+    }
+
+    item def PlaybackCommand {
+        attribute commandName : String;
+        attribute seekPosition : SI::second;
+    }
+
+    item def PlaybackStatus {
+        attribute isPlaying : Boolean;
+        attribute currentPosition : SI::second;
+        attribute selectedQuality : VideoQuality;
+        attribute bufferHealth : SI::second;
+        attribute errorCode : String;
+    }
+
+    part def HuluSystem {
+        doc /* A subscription video streaming system whose primary function is to authenticate subscribers, present licensed video content, and deliver adaptive media streams to client devices for reliable on-demand playback. */
+
+        port userAuthPort : CredentialPort;
+        port playbackPort : PlaybackControlPort;
+        port telemetryIn : TelemetryPort;
+
+        part clientApp : ClientApplication;
+        part identityService : IdentityService;
+        part catalogService : CatalogService;
+        part entitlementService : EntitlementService;
+        part playbackOrchestrator : PlaybackOrchestrator;
+        part drmService : DigitalRightsService;
+        part adDecisionService : AdvertisingDecisionService;
+        part contentDeliveryNetwork : ContentDeliveryNetwork;
+        part telemetryPipeline : TelemetryPipeline;
+
+        connect userAuthPort to clientApp.authPort;
+        connect clientApp.identityPort to identityService.credentialPort;
+        connect clientApp.playbackPort to playbackOrchestrator.clientPlaybackPort;
+        connect playbackOrchestrator.catalogPort to catalogService.queryPort;
+        connect playbackOrchestrator.entitlementPort to entitlementService.validationPort;
+        connect playbackOrchestrator.drmPort to drmService.licensePort;
+        connect playbackOrchestrator.adPort to adDecisionService.adPort;
+        connect playbackOrchestrator.segmentPort to contentDeliveryNetwork.deliveryPort;
+        connect clientApp.telemetryPort to telemetryPipeline.ingestPort;
+        connect telemetryIn to telemetryPipeline.ingestPort;
+
+        attribute concurrentSessions : Count = 25000000;
+        attribute serviceAvailabilityTarget : Percentage = 99.95;
+        attribute maxStartupLatency : Latency = 2500;
+        attribute minimumAdaptiveBitrate : Bitrate = 1.5;
+        attribute maximumAdaptiveBitrate : Bitrate = 25.0;
+    }
+
+    part def ClientApplication {
+        port authPort : CredentialPort;
+        port identityPort : CredentialPort;
+        port playbackPort : PlaybackControlPort;
+        port telemetryPort : TelemetryPort;
+
+        attribute installedVersion : String;
+        attribute localBufferTarget : SI::second = 30;
+        attribute minimumBufferForStart : SI::second = 3;
+
+        state def ClientPlaybackStateMachine {
+            state signedOut;
+            state authenticating;
+            state browsing;
+            state requestingPlayback;
+            state buffering;
+            state playing;
+            state paused;
+            state ended;
+            state error;
+
+            transition first signedOut;
+            transition signedOut_to_authenticating
+                first signedOut
+                then authenticating
+                accept credentialsReceived;
+
+            transition authenticating_to_browsing
+                first authenticating
+                then browsing
+                accept tokenReceived;
+
+            transition browsing_to_requestingPlayback
+                first browsing
+                then requestingPlayback
+                accept titleSelected;
+
+            transition requestingPlayback_to_buffering
+                first requestingPlayback
+                then buffering
+                accept manifestReceived;
+
+            transition buffering_to_playing
+                first buffering
+                then playing
+                accept bufferReady;
+
+            transition playing_to_paused
+                first playing
+                then paused
+                accept pauseCommand;
+
+            transition paused_to_playing
+                first paused
+                then playing
+                accept playCommand;
+
+            transition playing_to_ended
+                first playing
+                then ended
+                accept streamCompleted;
+
+            transition requestingPlayback_to_error
+                first requestingPlayback
+                then error
+                accept playbackDenied;
+
+            transition buffering_to_error
+                first buffering
+                then error
+                accept segmentFailure;
+        }
+
+        action collectCredentials {
+            out credentials : Credentials;
+        }
+
+        action requestPlayback {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out request : PlaybackRequest;
+        }
+
+        action adaptQuality {
+            in measuredThroughput : Bitrate;
+            in bufferHealth : SI::second;
+            out selectedQuality : VideoQuality;
+        }
+
+        action renderVideo {
+            in segment : MediaSegment;
+            out status : PlaybackStatus;
+        }
+
+        action emitTelemetry {
+            in status : PlaybackStatus;
+            out event : TelemetryEvent;
+        }
+    }
+
+    part def IdentityService {
+        port credentialPort : CredentialPort;
+
+        attribute maximumAuthenticationLatency : Latency = 300;
+        attribute tokenLifetime : SI::second = 86400;
+
+        action authenticateSubscriber {
+            in credentials : Credentials;
+            out token : AuthToken;
+        }
+    }
+
+    part def CatalogService {
+        port queryPort : PlaybackControlPort;
+
+        attribute catalogTitleCount : Count = 85000;
+        attribute metadataFreshnessTarget : SI::second = 300;
+
+        action resolveContentMetadata {
+            in request : PlaybackRequest;
+            out manifest : MediaManifest;
+        }
+    }
+
+    part def EntitlementService {
+        port validationPort : PlaybackControlPort;
+
+        attribute maximumEntitlementLatency : Latency = 150;
+
+        action validateEntitlement {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out entitled : Boolean;
+            out subscriberTier : SubscriberTier;
+        }
+    }
+
+    part def PlaybackOrchestrator {
+        port clientPlaybackPort : PlaybackControlPort;
+        port catalogPort : PlaybackControlPort;
+        port entitlementPort : PlaybackControlPort;
+        port drmPort : PlaybackControlPort;
+        port adPort : PlaybackControlPort;
+        port segmentPort : SegmentDeliveryPort;
+
+        attribute sessionSetupLatencyTarget : Latency = 750;
+        attribute activePlaybackSessions : Count;
+
+        action startPlaybackSession {
+            in request : PlaybackRequest;
+            in token : AuthToken;
+            out manifest : MediaManifest;
+            out status : PlaybackStatus;
+        }
+
+        action selectAdaptiveStream {
+            in request : PlaybackRequest;
+            in manifest : MediaManifest;
+            out segmentRequest : PlaybackRequest;
+        }
+
+        action coordinateSegmentDelivery {
+            in segmentRequest : PlaybackRequest;
+            out segment : MediaSegment;
+        }
+    }
+
+    part def DigitalRightsService {
+        port licensePort : PlaybackControlPort;
+
+        attribute licenseResponseLatencyTarget : Latency = 200;
+
+        action issueLicense {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out licenseGranted : Boolean;
+        }
+    }
+
+    part def AdvertisingDecisionService {
+        port adPort : PlaybackControlPort;
+
+        attribute maximumAdDecisionLatency : Latency = 250;
+        attribute adBreakFillRateTarget : Percentage = 98;
+
+        action determineAdBreaks {
+            in token : AuthToken;
+            in contentId : Identifier;
+            out adsRequired : Boolean;
+            out adBreakCount : Count;
+        }
+    }
+
+    part def ContentDeliveryNetwork {
+        port deliveryPort : SegmentDeliveryPort;
+
+        attribute edgeCacheHitRatioTarget : Percentage = 95;
+        attribute segmentDeliveryLatencyTarget : Latency = 100;
+        attribute totalEdgeCapacity : Bitrate = 120000000;
+
+        action deliverSegment {
+            in request : PlaybackRequest;
+            out segment : MediaSegment;
+        }
+    }
+
+    part def TelemetryPipeline {
+        port ingestPort : TelemetryPort;
+
+        attribute ingestLatencyTarget : Latency = 500;
+        attribute eventRetentionPeriod : SI::second = 7776000;
+
+        action ingestPlaybackEvent {
+            in event : TelemetryEvent;
+        }
+
+        action aggregateQualityMetrics {
+            in event : TelemetryEvent;
+            out startupLatency : Latency;
+            out rebufferRatio : Percentage;
+            out errorRate : Percentage;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The system shall provide authenticated subscribers with high-level Hulu video streaming capability by enabling content discovery, entitlement validation, adaptive playback setup, secure media delivery, and playback telemetry collection. */
+        subject system : HuluSystem;
+        require constraint {
+            system.serviceAvailabilityTarget >= 99.95
+        }
+    }
+
+    requirement def AuthenticationRequirement {
+        doc /* The system shall authenticate a subscriber and issue an authorization token before playback begins. */
+        subject identity : IdentityService;
+        require constraint {
+            identity.maximumAuthenticationLatency <= 300
+        }
+    }
+
+    requirement def PlaybackStartupRequirement {
+        doc /* The system shall begin playback within the maximum startup latency target when network capacity and subscriber entitlement are valid. */
+        subject system : HuluSystem;
+        require constraint {
+            system.maxStartupLatency <= 2500
+        }
+    }
+
+    requirement def AdaptiveStreamingRequirement {
+        doc /* The system shall support adaptive bitrate streaming across standard definition, high definition, full high definition, and ultra high definition quality levels. */
+        subject system : HuluSystem;
+        require constraint {
+            system.minimumAdaptiveBitrate <= 1.5 and system.maximumAdaptiveBitrate >= 25.0
+        }
+    }
+
+    requirement def SecureContentRequirement {
+        doc /* The system shall prevent unauthorized playback of protected media by requiring entitlement validation and digital rights license approval before encrypted media segments are rendered. */
+        subject drm : DigitalRightsService;
+        require constraint {
+            drm.licenseResponseLatencyTarget <= 200
+        }
+    }
+
+    requirement def TelemetryRequirement {
+        doc /* The system shall collect playback telemetry events for session start, buffering, playback start, pause, end, and playback errors. */
+        subject telemetry : TelemetryPipeline;
+        require constraint {
+            telemetry.ingestLatencyTarget <= 500
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by HuluSystem;
+    satisfy AuthenticationRequirement by IdentityService;
+    satisfy PlaybackStartupRequirement by PlaybackOrchestrator;
+    satisfy AdaptiveStreamingRequirement by ContentDeliveryNetwork;
+    satisfy SecureContentRequirement by DigitalRightsService;
+    satisfy TelemetryRequirement by TelemetryPipeline;
+
+    part huluStreamingPlatform : HuluSystem;
+}

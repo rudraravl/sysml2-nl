@@ -1,0 +1,1029 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-l8en3vfn
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb665-dfa7-7d33-a204-c738ef4ce534
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Automated restaurant and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package AutomatedRestaurantModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Currency;
+  attribute def OrderId;
+  attribute def TableId;
+  attribute def MenuItemId;
+  attribute def Temperature :> ScalarValues::Real;
+  attribute def Mass :> SI::mass;
+  attribute def Volume :> SI::volume;
+  attribute def Duration :> SI::duration;
+  attribute def Power :> SI::power;
+  attribute def Energy :> SI::energy;
+
+  item def CustomerRequest {
+    attribute tableId : TableId;
+    attribute partySize : Integer;
+    attribute preferredLanguage : String;
+  }
+
+  item def MenuSelection {
+    attribute orderId : OrderId;
+    attribute tableId : TableId;
+    attribute selectedItems : MenuItemId[*];
+    attribute requestedModifiers : String[*];
+    attribute estimatedPrice : Currency;
+  }
+
+  item def PaymentAuthorization {
+    attribute orderId : OrderId;
+    attribute approved : Boolean;
+    attribute paidAmount : Currency;
+    attribute transactionId : String;
+  }
+
+  item def IngredientBatch {
+    attribute ingredientName : String;
+    attribute quantityMass : Mass;
+    attribute quantityVolume : Volume;
+    attribute storageTemperature : Temperature;
+    attribute expirationTimeRemaining : Duration;
+  }
+
+  item def PreparedDish {
+    attribute orderId : OrderId;
+    attribute menuItemId : MenuItemId;
+    attribute servingTemperature : Temperature;
+    attribute mass : Mass;
+    attribute allergenFlags : String[*];
+    attribute qualityScore : Real;
+  }
+
+  item def DeliveryJob {
+    attribute orderId : OrderId;
+    attribute tableId : TableId;
+    attribute dishes : PreparedDish[*];
+    attribute priority : Integer;
+  }
+
+  item def CleaningJob {
+    attribute stationId : String;
+    attribute cleaningDuration : Duration;
+    attribute sanitizerVolume : Volume;
+  }
+
+  port def CustomerServicePort {
+    in request : CustomerRequest;
+    out selection : MenuSelection;
+    out orderStatus : String;
+  }
+
+  port def KitchenCommandPort {
+    in selection : MenuSelection;
+    in ingredients : IngredientBatch[*];
+    out preparedDish : PreparedDish;
+    out exceptionNotice : String;
+  }
+
+  port def PaymentPort {
+    in selection : MenuSelection;
+    out authorization : PaymentAuthorization;
+  }
+
+  port def InventoryPort {
+    in demandSignal : MenuSelection;
+    out ingredientBatch : IngredientBatch[*];
+    out replenishmentAlert : String;
+  }
+
+  port def DeliveryPort {
+    in deliveryJob : DeliveryJob;
+    out deliveryStatus : String;
+  }
+
+  port def SanitationPort {
+    in cleaningJob : CleaningJob;
+    out sanitationStatus : String;
+  }
+
+  part def OrderingKiosk {
+    port customerInterface : CustomerServicePort;
+    port paymentInterface : PaymentPort;
+
+    attribute screenPower : Power = 45 [W];
+    attribute maxConcurrentSessions : Integer = 8;
+    attribute averageOrderEntryTime : Duration = 180 [s];
+
+    action collectOrder {
+      in request : CustomerRequest;
+      out selection : MenuSelection;
+    }
+
+    state orderingState {
+      entry; then idle;
+
+      state idle;
+      state greetingCustomer;
+      state buildingOrder;
+      state confirmingOrder;
+      state submittingPayment;
+      state orderAccepted;
+      state orderRejected;
+
+      transition idle_to_greeting first idle then greetingCustomer
+        accept request;
+
+      transition greeting_to_building first greetingCustomer then buildingOrder;
+
+      transition building_to_confirming first buildingOrder then confirmingOrder;
+
+      transition confirming_to_payment first confirmingOrder then submittingPayment;
+
+      transition payment_approved first submittingPayment then orderAccepted
+        if authorization.approved == true;
+
+      transition payment_rejected first submittingPayment then orderRejected
+        if authorization.approved == false;
+
+      transition accepted_to_idle first orderAccepted then idle;
+      transition rejected_to_idle first orderRejected then idle;
+    }
+  }
+
+  part def PaymentProcessor {
+    port paymentService : PaymentPort;
+
+    attribute authorizationTimeout : Duration = 8 [s];
+    attribute minimumApprovedAmount : Currency;
+
+    action authorizePayment {
+      in selection : MenuSelection;
+      out authorization : PaymentAuthorization;
+    }
+  }
+
+  part def InventoryManager {
+    port inventoryService : InventoryPort;
+
+    attribute chilledStorageTemperature : Temperature = 4 [degC];
+    attribute frozenStorageTemperature : Temperature = -18 [degC];
+    attribute dryStorageTemperature : Temperature = 20 [degC];
+    attribute minimumIngredientMass : Mass = 2 [kg];
+
+    action reserveIngredients {
+      in demandSignal : MenuSelection;
+      out ingredientBatch : IngredientBatch[*];
+    }
+
+    action issueReplenishmentAlert {
+      out replenishmentAlert : String;
+    }
+
+    state inventoryState {
+      entry; then monitoring;
+
+      state monitoring;
+      state reserving;
+      state lowStock;
+      state expiredItemDetected;
+      state replenishmentRequested;
+
+      transition monitor_to_reserve first monitoring then reserving
+        accept demandSignal;
+
+      transition reserve_to_monitor first reserving then monitoring;
+
+      transition monitor_to_lowStock first monitoring then lowStock
+        if minimumIngredientMass > ingredientBatch.quantityMass;
+
+      transition lowStock_to_replenishment first lowStock then replenishmentRequested;
+
+      transition replenishment_to_monitor first replenishmentRequested then monitoring;
+
+      transition monitor_to_expired first monitoring then expiredItemDetected
+        if ingredientBatch.expirationTimeRemaining <= 0 [s];
+
+      transition expired_to_replenishment first expiredItemDetected then replenishmentRequested;
+    }
+  }
+
+  part def RoboticKitchenCell {
+    port kitchenService : KitchenCommandPort;
+    port sanitationService : SanitationPort;
+
+    part ingredientDispenser {
+      attribute dispenseAccuracy : Real = 0.98;
+      attribute maxDispenseMass : Mass = 5 [kg];
+    }
+
+    part cookingStation {
+      attribute maxCookingTemperature : Temperature = 260 [degC];
+      attribute nominalPower : Power = 6500 [W];
+      attribute maxCookDuration : Duration = 900 [s];
+    }
+
+    part platingStation {
+      attribute platingCycleTime : Duration = 35 [s];
+      attribute presentationTolerance : Real = 0.95;
+    }
+
+    part qualityScanner {
+      attribute thermalAccuracy : Temperature = 1.5 [degC];
+      attribute visualInspectionThreshold : Real = 0.92;
+    }
+
+    action prepareDish {
+      in selection : MenuSelection;
+      in ingredients : IngredientBatch[*];
+      out preparedDish : PreparedDish;
+    }
+
+    action inspectDish {
+      in preparedDish : PreparedDish;
+      out qualityScore : Real;
+    }
+
+    action requestCleaning {
+      out cleaningJob : CleaningJob;
+    }
+
+    state kitchenState {
+      entry; then available;
+
+      state available;
+      state ingredientAllocation;
+      state cooking;
+      state plating;
+      state qualityInspection;
+      state readyForDelivery;
+      state cleaningRequired;
+      state fault;
+
+      transition available_to_allocation first available then ingredientAllocation
+        accept selection;
+
+      transition allocation_to_cooking first ingredientAllocation then cooking;
+
+      transition cooking_to_plating first cooking then plating;
+
+      transition plating_to_inspection first plating then qualityInspection;
+
+      transition inspection_pass first qualityInspection then readyForDelivery
+        if preparedDish.qualityScore >= 0.92;
+
+      transition inspection_fail first qualityInspection then cooking
+        if preparedDish.qualityScore < 0.92;
+
+      transition delivery_to_available first readyForDelivery then available;
+
+      transition any_to_cleaning first cooking then cleaningRequired
+        if cookingStation.maxCookDuration < 0 [s];
+
+      transition cleaning_to_available first cleaningRequired then available;
+
+      transition any_to_fault first qualityInspection then fault
+        if qualityScanner.visualInspectionThreshold < 0.50;
+    }
+  }
+
+  part def DeliveryRobot {
+    port deliveryService : DeliveryPort;
+
+    attribute payloadCapacity : Mass = 12 [kg];
+    attribute maxSpeed : Real = 1.2;
+    attribute batteryCapacity : Energy = 900 [kJ];
+    attribute minimumBatteryForTrip : Energy = 120 [kJ];
+    attribute dockingTime : Duration = 300 [s];
+
+    action navigateToTable {
+      in deliveryJob : DeliveryJob;
+      out deliveryStatus : String;
+    }
+
+    action returnToDock {
+      out deliveryStatus : String;
+    }
+
+    state deliveryState {
+      entry; then docked;
+
+      state docked;
+      state loading;
+      state navigatingToTable;
+      state presentingOrder;
+      state returning;
+      state charging;
+      state blockedPath;
+
+      transition docked_to_loading first docked then loading
+        accept deliveryJob;
+
+      transition loading_to_navigation first loading then navigatingToTable
+        if batteryCapacity >= minimumBatteryForTrip;
+
+      transition navigation_to_presenting first navigatingToTable then presentingOrder;
+
+      transition presenting_to_returning first presentingOrder then returning;
+
+      transition returning_to_docked first returning then docked;
+
+      transition docked_to_charging first docked then charging
+        if batteryCapacity < minimumBatteryForTrip;
+
+      transition charging_to_docked first charging then docked
+        if batteryCapacity >= minimumBatteryForTrip;
+
+      transition navigation_to_blocked first navigatingToTable then blockedPath;
+
+      transition blocked_to_navigation first blockedPath then navigatingToTable;
+    }
+  }
+
+  part def SanitationUnit {
+    port sanitationService : SanitationPort;
+
+    attribute sanitizerTankVolume : Volume = 15 [L];
+    attribute uvExposureTime : Duration = 45 [s];
+    attribute washWaterTemperature : Temperature = 70 [degC];
+
+    action cleanStation {
+      in cleaningJob : CleaningJob;
+      out sanitationStatus : String;
+    }
+  }
+
+  part def RestaurantOrchestrator {
+    port customerOrders : CustomerServicePort;
+    port kitchenCommands : KitchenCommandPort;
+    port paymentCommands : PaymentPort;
+    port inventoryCommands : InventoryPort;
+    port deliveryCommands : DeliveryPort;
+    port sanitationCommands : SanitationPort;
+
+    attribute maximumOrderLatency : Duration = 600 [s];
+    attribute targetOrderAccuracy : Real = 0.995;
+    attribute targetUptime : Real = 0.99;
+
+    action coordinateOrderFulfillment {
+      in request : CustomerRequest;
+      out deliveryStatus : String;
+    }
+
+    action createDeliveryJob {
+      in dish : PreparedDish;
+      out deliveryJob : DeliveryJob;
+    }
+
+    state fulfillmentState {
+      entry; then waitingForCustomer;
+
+      state waitingForCustomer;
+      state orderCapture;
+      state paymentValidation;
+      state ingredientReservation;
+      state foodPreparation;
+      state deliveryDispatch;
+      state orderComplete;
+      state orderCanceled;
+      state exceptionHandling;
+
+      transition waiting_to_capture first waitingForCustomer then orderCapture
+        accept request;
+
+      transition capture_to_payment first orderCapture then paymentValidation;
+
+      transition payment_to_inventory first paymentValidation then ingredientReservation
+        if authorization.approved == true;
+
+      transition payment_to_cancel first paymentValidation then orderCanceled
+        if authorization.approved == false;
+
+      transition inventory_to_preparation first ingredientReservation then foodPreparation;
+
+      transition preparation_to_delivery first foodPreparation then deliveryDispatch;
+
+      transition delivery_to_complete first deliveryDispatch then orderComplete;
+
+      transition complete_to_waiting first orderComplete then waitingForCustomer;
+
+      transition cancel_to_waiting first orderCanceled then waitingForCustomer;
+
+      transition preparation_to_exception first foodPreparation then exceptionHandling;
+
+      transition exception_to_waiting first exceptionHandling then waitingForCustomer;
+    }
+  }
+
+  part def AutomatedRestaurant {
+    doc
+    /*
+     * Primary function: receive customer meal requests, accept payment,
+     * reserve ingredients, prepare food using robotic kitchen equipment,
+     * verify quality, deliver completed meals to tables, and maintain
+     * sanitary operating conditions with minimal human intervention.
+     */
+
+    part kiosk : OrderingKiosk;
+    part paymentProcessor : PaymentProcessor;
+    part inventoryManager : InventoryManager;
+    part kitchenCell : RoboticKitchenCell;
+    part deliveryRobot[4] : DeliveryRobot;
+    part sanitationUnit : SanitationUnit;
+    part orchestrator : RestaurantOrchestrator;
+
+    attribute dailyOrderCapacity : Integer = 720;
+    attribute diningRoomTableCount : Integer = 48;
+    attribute averageMealPreparationTime : Duration = 420 [s];
+    attribute peakElectricalPower : Power = 42000 [W];
+    attribute operatingTemperature : Temperature = 22 [degC];
+
+    connect kiosk.customerInterface to orchestrator.customerOrders;
+    connect kiosk.paymentInterface to paymentProcessor.paymentService;
+    connect paymentProcessor.paymentService to orchestrator.paymentCommands;
+    connect orchestrator.inventoryCommands to inventoryManager.inventoryService;
+    connect orchestrator.kitchenCommands to kitchenCell.kitchenService;
+    connect orchestrator.deliveryCommands to deliveryRobot.deliveryService;
+    connect orchestrator.sanitationCommands to sanitationUnit.sanitationService;
+    connect kitchenCell.sanitationService to sanitationUnit.sanitationService;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    doc
+    /*
+     * The automated restaurant shall convert a validated customer order
+     * into a prepared and delivered meal while coordinating ordering,
+     * payment, inventory, cooking, quality inspection, delivery, and
+     * sanitation functions.
+     */
+
+    subject restaurant : AutomatedRestaurant;
+
+    require constraint {
+      restaurant.averageMealPreparationTime <= 600 [s]
+    }
+  }
+
+  requirement def PaymentRequirement {
+    subject processor : PaymentProcessor;
+
+    require constraint {
+      processor.authorizationTimeout <= 10 [s]
+    }
+  }
+
+  requirement def KitchenPerformanceRequirement {
+    subject kitchen : RoboticKitchenCell;
+
+    require constraint {
+      kitchen.cookingStation.maxCookingTemperature >= 230 [degC]
+    }
+  }
+
+  requirement def DeliveryCapacityRequirement {
+    subject robot : DeliveryRobot;
+
+    require constraint {
+      robot.payloadCapacity >= 8 [kg]
+    }
+  }
+
+  requirement def FoodSafetyRequirement {
+    subject inventory : InventoryManager;
+
+    require constraint {
+      inventory.chilledStorageTemperature <= 5 [degC]
+    }
+  }
+
+  requirement def RestaurantThroughputRequirement {
+    subject restaurant : AutomatedRestaurant;
+
+    require constraint {
+      restaurant.dailyOrderCapacity >= 600
+    }
+  }
+
+  satisfy HighLevelFunctionRequirement by AutomatedRestaurant;
+  satisfy PaymentRequirement by AutomatedRestaurant::paymentProcessor;
+  satisfy KitchenPerformanceRequirement by AutomatedRestaurant::kitchenCell;
+  satisfy DeliveryCapacityRequirement by AutomatedRestaurant::deliveryRobot;
+  satisfy FoodSafetyRequirement by AutomatedRestaurant::inventoryManager;
+  satisfy RestaurantThroughputRequirement by AutomatedRestaurant;
+}
+tokens used
+4,511
+package AutomatedRestaurantModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Currency;
+  attribute def OrderId;
+  attribute def TableId;
+  attribute def MenuItemId;
+  attribute def Temperature :> ScalarValues::Real;
+  attribute def Mass :> SI::mass;
+  attribute def Volume :> SI::volume;
+  attribute def Duration :> SI::duration;
+  attribute def Power :> SI::power;
+  attribute def Energy :> SI::energy;
+
+  item def CustomerRequest {
+    attribute tableId : TableId;
+    attribute partySize : Integer;
+    attribute preferredLanguage : String;
+  }
+
+  item def MenuSelection {
+    attribute orderId : OrderId;
+    attribute tableId : TableId;
+    attribute selectedItems : MenuItemId[*];
+    attribute requestedModifiers : String[*];
+    attribute estimatedPrice : Currency;
+  }
+
+  item def PaymentAuthorization {
+    attribute orderId : OrderId;
+    attribute approved : Boolean;
+    attribute paidAmount : Currency;
+    attribute transactionId : String;
+  }
+
+  item def IngredientBatch {
+    attribute ingredientName : String;
+    attribute quantityMass : Mass;
+    attribute quantityVolume : Volume;
+    attribute storageTemperature : Temperature;
+    attribute expirationTimeRemaining : Duration;
+  }
+
+  item def PreparedDish {
+    attribute orderId : OrderId;
+    attribute menuItemId : MenuItemId;
+    attribute servingTemperature : Temperature;
+    attribute mass : Mass;
+    attribute allergenFlags : String[*];
+    attribute qualityScore : Real;
+  }
+
+  item def DeliveryJob {
+    attribute orderId : OrderId;
+    attribute tableId : TableId;
+    attribute dishes : PreparedDish[*];
+    attribute priority : Integer;
+  }
+
+  item def CleaningJob {
+    attribute stationId : String;
+    attribute cleaningDuration : Duration;
+    attribute sanitizerVolume : Volume;
+  }
+
+  port def CustomerServicePort {
+    in request : CustomerRequest;
+    out selection : MenuSelection;
+    out orderStatus : String;
+  }
+
+  port def KitchenCommandPort {
+    in selection : MenuSelection;
+    in ingredients : IngredientBatch[*];
+    out preparedDish : PreparedDish;
+    out exceptionNotice : String;
+  }
+
+  port def PaymentPort {
+    in selection : MenuSelection;
+    out authorization : PaymentAuthorization;
+  }
+
+  port def InventoryPort {
+    in demandSignal : MenuSelection;
+    out ingredientBatch : IngredientBatch[*];
+    out replenishmentAlert : String;
+  }
+
+  port def DeliveryPort {
+    in deliveryJob : DeliveryJob;
+    out deliveryStatus : String;
+  }
+
+  port def SanitationPort {
+    in cleaningJob : CleaningJob;
+    out sanitationStatus : String;
+  }
+
+  part def OrderingKiosk {
+    port customerInterface : CustomerServicePort;
+    port paymentInterface : PaymentPort;
+
+    attribute screenPower : Power = 45 [W];
+    attribute maxConcurrentSessions : Integer = 8;
+    attribute averageOrderEntryTime : Duration = 180 [s];
+
+    action collectOrder {
+      in request : CustomerRequest;
+      out selection : MenuSelection;
+    }
+
+    state orderingState {
+      entry; then idle;
+
+      state idle;
+      state greetingCustomer;
+      state buildingOrder;
+      state confirmingOrder;
+      state submittingPayment;
+      state orderAccepted;
+      state orderRejected;
+
+      transition idle_to_greeting first idle then greetingCustomer
+        accept request;
+
+      transition greeting_to_building first greetingCustomer then buildingOrder;
+
+      transition building_to_confirming first buildingOrder then confirmingOrder;
+
+      transition confirming_to_payment first confirmingOrder then submittingPayment;
+
+      transition payment_approved first submittingPayment then orderAccepted
+        if authorization.approved == true;
+
+      transition payment_rejected first submittingPayment then orderRejected
+        if authorization.approved == false;
+
+      transition accepted_to_idle first orderAccepted then idle;
+      transition rejected_to_idle first orderRejected then idle;
+    }
+  }
+
+  part def PaymentProcessor {
+    port paymentService : PaymentPort;
+
+    attribute authorizationTimeout : Duration = 8 [s];
+    attribute minimumApprovedAmount : Currency;
+
+    action authorizePayment {
+      in selection : MenuSelection;
+      out authorization : PaymentAuthorization;
+    }
+  }
+
+  part def InventoryManager {
+    port inventoryService : InventoryPort;
+
+    attribute chilledStorageTemperature : Temperature = 4 [degC];
+    attribute frozenStorageTemperature : Temperature = -18 [degC];
+    attribute dryStorageTemperature : Temperature = 20 [degC];
+    attribute minimumIngredientMass : Mass = 2 [kg];
+
+    action reserveIngredients {
+      in demandSignal : MenuSelection;
+      out ingredientBatch : IngredientBatch[*];
+    }
+
+    action issueReplenishmentAlert {
+      out replenishmentAlert : String;
+    }
+
+    state inventoryState {
+      entry; then monitoring;
+
+      state monitoring;
+      state reserving;
+      state lowStock;
+      state expiredItemDetected;
+      state replenishmentRequested;
+
+      transition monitor_to_reserve first monitoring then reserving
+        accept demandSignal;
+
+      transition reserve_to_monitor first reserving then monitoring;
+
+      transition monitor_to_lowStock first monitoring then lowStock
+        if minimumIngredientMass > ingredientBatch.quantityMass;
+
+      transition lowStock_to_replenishment first lowStock then replenishmentRequested;
+
+      transition replenishment_to_monitor first replenishmentRequested then monitoring;
+
+      transition monitor_to_expired first monitoring then expiredItemDetected
+        if ingredientBatch.expirationTimeRemaining <= 0 [s];
+
+      transition expired_to_replenishment first expiredItemDetected then replenishmentRequested;
+    }
+  }
+
+  part def RoboticKitchenCell {
+    port kitchenService : KitchenCommandPort;
+    port sanitationService : SanitationPort;
+
+    part ingredientDispenser {
+      attribute dispenseAccuracy : Real = 0.98;
+      attribute maxDispenseMass : Mass = 5 [kg];
+    }
+
+    part cookingStation {
+      attribute maxCookingTemperature : Temperature = 260 [degC];
+      attribute nominalPower : Power = 6500 [W];
+      attribute maxCookDuration : Duration = 900 [s];
+    }
+
+    part platingStation {
+      attribute platingCycleTime : Duration = 35 [s];
+      attribute presentationTolerance : Real = 0.95;
+    }
+
+    part qualityScanner {
+      attribute thermalAccuracy : Temperature = 1.5 [degC];
+      attribute visualInspectionThreshold : Real = 0.92;
+    }
+
+    action prepareDish {
+      in selection : MenuSelection;
+      in ingredients : IngredientBatch[*];
+      out preparedDish : PreparedDish;
+    }
+
+    action inspectDish {
+      in preparedDish : PreparedDish;
+      out qualityScore : Real;
+    }
+
+    action requestCleaning {
+      out cleaningJob : CleaningJob;
+    }
+
+    state kitchenState {
+      entry; then available;
+
+      state available;
+      state ingredientAllocation;
+      state cooking;
+      state plating;
+      state qualityInspection;
+      state readyForDelivery;
+      state cleaningRequired;
+      state fault;
+
+      transition available_to_allocation first available then ingredientAllocation
+        accept selection;
+
+      transition allocation_to_cooking first ingredientAllocation then cooking;
+
+      transition cooking_to_plating first cooking then plating;
+
+      transition plating_to_inspection first plating then qualityInspection;
+
+      transition inspection_pass first qualityInspection then readyForDelivery
+        if preparedDish.qualityScore >= 0.92;
+
+      transition inspection_fail first qualityInspection then cooking
+        if preparedDish.qualityScore < 0.92;
+
+      transition delivery_to_available first readyForDelivery then available;
+
+      transition any_to_cleaning first cooking then cleaningRequired
+        if cookingStation.maxCookDuration < 0 [s];
+
+      transition cleaning_to_available first cleaningRequired then available;
+
+      transition any_to_fault first qualityInspection then fault
+        if qualityScanner.visualInspectionThreshold < 0.50;
+    }
+  }
+
+  part def DeliveryRobot {
+    port deliveryService : DeliveryPort;
+
+    attribute payloadCapacity : Mass = 12 [kg];
+    attribute maxSpeed : Real = 1.2;
+    attribute batteryCapacity : Energy = 900 [kJ];
+    attribute minimumBatteryForTrip : Energy = 120 [kJ];
+    attribute dockingTime : Duration = 300 [s];
+
+    action navigateToTable {
+      in deliveryJob : DeliveryJob;
+      out deliveryStatus : String;
+    }
+
+    action returnToDock {
+      out deliveryStatus : String;
+    }
+
+    state deliveryState {
+      entry; then docked;
+
+      state docked;
+      state loading;
+      state navigatingToTable;
+      state presentingOrder;
+      state returning;
+      state charging;
+      state blockedPath;
+
+      transition docked_to_loading first docked then loading
+        accept deliveryJob;
+
+      transition loading_to_navigation first loading then navigatingToTable
+        if batteryCapacity >= minimumBatteryForTrip;
+
+      transition navigation_to_presenting first navigatingToTable then presentingOrder;
+
+      transition presenting_to_returning first presentingOrder then returning;
+
+      transition returning_to_docked first returning then docked;
+
+      transition docked_to_charging first docked then charging
+        if batteryCapacity < minimumBatteryForTrip;
+
+      transition charging_to_docked first charging then docked
+        if batteryCapacity >= minimumBatteryForTrip;
+
+      transition navigation_to_blocked first navigatingToTable then blockedPath;
+
+      transition blocked_to_navigation first blockedPath then navigatingToTable;
+    }
+  }
+
+  part def SanitationUnit {
+    port sanitationService : SanitationPort;
+
+    attribute sanitizerTankVolume : Volume = 15 [L];
+    attribute uvExposureTime : Duration = 45 [s];
+    attribute washWaterTemperature : Temperature = 70 [degC];
+
+    action cleanStation {
+      in cleaningJob : CleaningJob;
+      out sanitationStatus : String;
+    }
+  }
+
+  part def RestaurantOrchestrator {
+    port customerOrders : CustomerServicePort;
+    port kitchenCommands : KitchenCommandPort;
+    port paymentCommands : PaymentPort;
+    port inventoryCommands : InventoryPort;
+    port deliveryCommands : DeliveryPort;
+    port sanitationCommands : SanitationPort;
+
+    attribute maximumOrderLatency : Duration = 600 [s];
+    attribute targetOrderAccuracy : Real = 0.995;
+    attribute targetUptime : Real = 0.99;
+
+    action coordinateOrderFulfillment {
+      in request : CustomerRequest;
+      out deliveryStatus : String;
+    }
+
+    action createDeliveryJob {
+      in dish : PreparedDish;
+      out deliveryJob : DeliveryJob;
+    }
+
+    state fulfillmentState {
+      entry; then waitingForCustomer;
+
+      state waitingForCustomer;
+      state orderCapture;
+      state paymentValidation;
+      state ingredientReservation;
+      state foodPreparation;
+      state deliveryDispatch;
+      state orderComplete;
+      state orderCanceled;
+      state exceptionHandling;
+
+      transition waiting_to_capture first waitingForCustomer then orderCapture
+        accept request;
+
+      transition capture_to_payment first orderCapture then paymentValidation;
+
+      transition payment_to_inventory first paymentValidation then ingredientReservation
+        if authorization.approved == true;
+
+      transition payment_to_cancel first paymentValidation then orderCanceled
+        if authorization.approved == false;
+
+      transition inventory_to_preparation first ingredientReservation then foodPreparation;
+
+      transition preparation_to_delivery first foodPreparation then deliveryDispatch;
+
+      transition delivery_to_complete first deliveryDispatch then orderComplete;
+
+      transition complete_to_waiting first orderComplete then waitingForCustomer;
+
+      transition cancel_to_waiting first orderCanceled then waitingForCustomer;
+
+      transition preparation_to_exception first foodPreparation then exceptionHandling;
+
+      transition exception_to_waiting first exceptionHandling then waitingForCustomer;
+    }
+  }
+
+  part def AutomatedRestaurant {
+    doc
+    /*
+     * Primary function: receive customer meal requests, accept payment,
+     * reserve ingredients, prepare food using robotic kitchen equipment,
+     * verify quality, deliver completed meals to tables, and maintain
+     * sanitary operating conditions with minimal human intervention.
+     */
+
+    part kiosk : OrderingKiosk;
+    part paymentProcessor : PaymentProcessor;
+    part inventoryManager : InventoryManager;
+    part kitchenCell : RoboticKitchenCell;
+    part deliveryRobot[4] : DeliveryRobot;
+    part sanitationUnit : SanitationUnit;
+    part orchestrator : RestaurantOrchestrator;
+
+    attribute dailyOrderCapacity : Integer = 720;
+    attribute diningRoomTableCount : Integer = 48;
+    attribute averageMealPreparationTime : Duration = 420 [s];
+    attribute peakElectricalPower : Power = 42000 [W];
+    attribute operatingTemperature : Temperature = 22 [degC];
+
+    connect kiosk.customerInterface to orchestrator.customerOrders;
+    connect kiosk.paymentInterface to paymentProcessor.paymentService;
+    connect paymentProcessor.paymentService to orchestrator.paymentCommands;
+    connect orchestrator.inventoryCommands to inventoryManager.inventoryService;
+    connect orchestrator.kitchenCommands to kitchenCell.kitchenService;
+    connect orchestrator.deliveryCommands to deliveryRobot.deliveryService;
+    connect orchestrator.sanitationCommands to sanitationUnit.sanitationService;
+    connect kitchenCell.sanitationService to sanitationUnit.sanitationService;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    doc
+    /*
+     * The automated restaurant shall convert a validated customer order
+     * into a prepared and delivered meal while coordinating ordering,
+     * payment, inventory, cooking, quality inspection, delivery, and
+     * sanitation functions.
+     */
+
+    subject restaurant : AutomatedRestaurant;
+
+    require constraint {
+      restaurant.averageMealPreparationTime <= 600 [s]
+    }
+  }
+
+  requirement def PaymentRequirement {
+    subject processor : PaymentProcessor;
+
+    require constraint {
+      processor.authorizationTimeout <= 10 [s]
+    }
+  }
+
+  requirement def KitchenPerformanceRequirement {
+    subject kitchen : RoboticKitchenCell;
+
+    require constraint {
+      kitchen.cookingStation.maxCookingTemperature >= 230 [degC]
+    }
+  }
+
+  requirement def DeliveryCapacityRequirement {
+    subject robot : DeliveryRobot;
+
+    require constraint {
+      robot.payloadCapacity >= 8 [kg]
+    }
+  }
+
+  requirement def FoodSafetyRequirement {
+    subject inventory : InventoryManager;
+
+    require constraint {
+      inventory.chilledStorageTemperature <= 5 [degC]
+    }
+  }
+
+  requirement def RestaurantThroughputRequirement {
+    subject restaurant : AutomatedRestaurant;
+
+    require constraint {
+      restaurant.dailyOrderCapacity >= 600
+    }
+  }
+
+  satisfy HighLevelFunctionRequirement by AutomatedRestaurant;
+  satisfy PaymentRequirement by AutomatedRestaurant::paymentProcessor;
+  satisfy KitchenPerformanceRequirement by AutomatedRestaurant::kitchenCell;
+  satisfy DeliveryCapacityRequirement by AutomatedRestaurant::deliveryRobot;
+  satisfy FoodSafetyRequirement by AutomatedRestaurant::inventoryManager;
+  satisfy RestaurantThroughputRequirement by AutomatedRestaurant;
+}

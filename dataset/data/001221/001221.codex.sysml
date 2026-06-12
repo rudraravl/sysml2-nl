@@ -1,0 +1,401 @@
+package RainSensorSensingUnitModel {
+  import ScalarValues::*;
+  import SI::*;
+  import ISQ::*;
+
+  unit def millimeter;
+  unit def hour;
+  unit def millimeter_per_hour;
+  unit def percent;
+  unit def volt;
+  unit def milliampere;
+  unit def degree_Celsius;
+  unit def second;
+
+  attribute def RainRate :> Real {
+    unit = millimeter_per_hour;
+  }
+
+  attribute def SurfaceWetness :> Real {
+    unit = percent;
+  }
+
+  attribute def Temperature :> Real {
+    unit = degree_Celsius;
+  }
+
+  attribute def Voltage :> Real {
+    unit = volt;
+  }
+
+  attribute def Current :> Real {
+    unit = milliampere;
+  }
+
+  attribute def Duration :> Real {
+    unit = second;
+  }
+
+  item def RainMeasurement {
+    attribute rainRate : RainRate;
+    attribute wetness : SurfaceWetness;
+    attribute confidence : Real;
+    attribute timestamp : Duration;
+  }
+
+  item def RawRainSignal {
+    attribute analogVoltage : Voltage;
+    attribute sensorResistance : Real;
+    attribute sampleAge : Duration;
+  }
+
+  item def DiagnosticStatus {
+    attribute sensorOpenCircuit : Boolean;
+    attribute sensorShortCircuit : Boolean;
+    attribute heaterFault : Boolean;
+    attribute communicationFault : Boolean;
+    attribute calibrated : Boolean;
+  }
+
+  port def PowerInputPort {
+    in attribute supplyVoltage : Voltage;
+    in attribute supplyCurrentLimit : Current;
+  }
+
+  port def RainDataPort {
+    out item measurement : RainMeasurement;
+    out item status : DiagnosticStatus;
+  }
+
+  port def RawSignalPort {
+    out item rawSignal : RawRainSignal;
+  }
+
+  port def ControlPort {
+    in attribute enable : Boolean;
+    in attribute reset : Boolean;
+    in attribute calibrationCommand : Boolean;
+  }
+
+  port def HeaterPort {
+    out attribute heaterVoltage : Voltage;
+    out attribute heaterEnable : Boolean;
+  }
+
+  part def RainSensorElement {
+    attribute sensingAreaWetness : SurfaceWetness;
+    attribute electrodeVoltage : Voltage;
+    attribute nominalResistanceDry : Real = 1000000.0;
+    attribute nominalResistanceWet : Real = 10000.0;
+    attribute operatingTemperature : Temperature;
+    attribute responseTime : Duration = 2.0;
+
+    port power : PowerInputPort;
+    port rawOut : RawSignalPort;
+
+    action def SenseSurfaceWetness {
+      in attribute actualWetness : SurfaceWetness;
+      out item raw : RawRainSignal;
+    }
+
+    state def SensorElementState {
+      state Dry;
+      state Wet;
+      state Saturated;
+      state Faulted;
+
+      transition initial then Dry;
+
+      transition Dry_to_Wet
+        first Dry
+        then Wet
+        if sensingAreaWetness >= 5.0;
+
+      transition Wet_to_Dry
+        first Wet
+        then Dry
+        if sensingAreaWetness < 3.0;
+
+      transition Wet_to_Saturated
+        first Wet
+        then Saturated
+        if sensingAreaWetness >= 95.0;
+
+      transition Saturated_to_Wet
+        first Saturated
+        then Wet
+        if sensingAreaWetness < 90.0;
+
+      transition Any_to_Faulted
+        first Dry
+        then Faulted
+        if electrodeVoltage < 0.05;
+    }
+  }
+
+  part def SignalConditioner {
+    attribute excitationVoltage : Voltage = 3.3;
+    attribute lowPassCutoffHz : Real = 8.0;
+    attribute gain : Real = 1.0;
+    attribute offsetVoltage : Voltage = 0.0;
+
+    port rawIn : RawSignalPort;
+    port conditionedOut : RawSignalPort;
+
+    action def FilterAndScale {
+      in item raw : RawRainSignal;
+      out item conditioned : RawRainSignal;
+    }
+  }
+
+  part def RainEstimator {
+    attribute minimumDetectableRainRate : RainRate = 0.2;
+    attribute maximumMeasurableRainRate : RainRate = 100.0;
+    attribute wetnessToRateGain : Real = 0.85;
+    attribute dryThreshold : SurfaceWetness = 3.0;
+    attribute rainThreshold : SurfaceWetness = 5.0;
+    attribute saturationThreshold : SurfaceWetness = 95.0;
+    attribute samplePeriod : Duration = 1.0;
+
+    port signalIn : RawSignalPort;
+    port dataOut : RainDataPort;
+
+    action def EstimateRainRate {
+      in item conditionedSignal : RawRainSignal;
+      out item measurement : RainMeasurement;
+    }
+
+    action def CheckDiagnostics {
+      in item conditionedSignal : RawRainSignal;
+      out item status : DiagnosticStatus;
+    }
+
+    state def EstimationState {
+      state Idle;
+      state Sampling;
+      state MeasuringNoRain;
+      state MeasuringRain;
+      state SaturatedRain;
+      state Fault;
+
+      transition initial then Idle;
+
+      transition Idle_to_Sampling
+        first Idle
+        then Sampling;
+
+      transition Sampling_to_NoRain
+        first Sampling
+        then MeasuringNoRain
+        if dataOut.measurement.wetness < dryThreshold;
+
+      transition Sampling_to_Rain
+        first Sampling
+        then MeasuringRain
+        if dataOut.measurement.wetness >= rainThreshold and dataOut.measurement.wetness < saturationThreshold;
+
+      transition Sampling_to_Saturated
+        first Sampling
+        then SaturatedRain
+        if dataOut.measurement.wetness >= saturationThreshold;
+
+      transition MeasuringNoRain_to_Sampling
+        first MeasuringNoRain
+        then Sampling;
+
+      transition MeasuringRain_to_Sampling
+        first MeasuringRain
+        then Sampling;
+
+      transition SaturatedRain_to_Sampling
+        first SaturatedRain
+        then Sampling;
+
+      transition Sampling_to_Fault
+        first Sampling
+        then Fault
+        if dataOut.status.sensorOpenCircuit or dataOut.status.sensorShortCircuit;
+
+      transition Fault_to_Idle
+        first Fault
+        then Idle
+        if not dataOut.status.sensorOpenCircuit and not dataOut.status.sensorShortCircuit;
+    }
+  }
+
+  part def DewAndContaminationHeater {
+    attribute heaterPower : Real = 0.5;
+    attribute heaterTemperatureLimit : Temperature = 45.0;
+    attribute enabled : Boolean;
+
+    port power : PowerInputPort;
+    port heaterControl : HeaterPort;
+
+    action def DriveHeater {
+      in attribute ambientTemperature : Temperature;
+      in attribute wetness : SurfaceWetness;
+      out attribute heaterEnable : Boolean;
+    }
+  }
+
+  part def RainSensingUnit {
+    attribute supplyVoltage : Voltage = 5.0;
+    attribute activeCurrent : Current = 35.0;
+    attribute standbyCurrent : Current = 2.0;
+    attribute measurementUpdatePeriod : Duration = 1.0;
+    attribute measurementRangeLow : RainRate = 0.2;
+    attribute measurementRangeHigh : RainRate = 100.0;
+    attribute accuracyBelow20mmPerHour : RainRate = 1.0;
+    attribute accuracyAbove20mmPerHourPercent : Real = 10.0;
+    attribute operatingTemperatureLow : Temperature = -20.0;
+    attribute operatingTemperatureHigh : Temperature = 70.0;
+
+    port powerIn : PowerInputPort;
+    port controlIn : ControlPort;
+    port rainDataOut : RainDataPort;
+
+    part sensor : RainSensorElement;
+    part conditioner : SignalConditioner;
+    part estimator : RainEstimator;
+    part heater : DewAndContaminationHeater;
+
+    connection power_to_sensor connect powerIn to sensor.power;
+    connection power_to_heater connect powerIn to heater.power;
+    connection sensor_to_conditioner connect sensor.rawOut to conditioner.rawIn;
+    connection conditioner_to_estimator connect conditioner.conditionedOut to estimator.signalIn;
+    connection estimator_to_output connect estimator.dataOut to rainDataOut;
+    connection heater_drive connect heater.heaterControl to sensor.power;
+
+    action def Initialize {
+      out attribute initialized : Boolean;
+    }
+
+    action def AcquireRainMeasurement {
+      in attribute enabled : Boolean;
+      out item measurement : RainMeasurement;
+      out item status : DiagnosticStatus;
+    }
+
+    action def CalibrateDryReference {
+      in attribute calibrationCommand : Boolean;
+      out attribute calibrated : Boolean;
+    }
+
+    state def UnitState {
+      state Off;
+      state Startup;
+      state Standby;
+      state Calibrating;
+      state Measuring;
+      state Reporting;
+      state Fault;
+
+      transition initial then Off;
+
+      transition Off_to_Startup
+        first Off
+        then Startup
+        if powerIn.supplyVoltage >= 4.5 and controlIn.enable;
+
+      transition Startup_to_Standby
+        first Startup
+        then Standby
+        if rainDataOut.status.calibrated;
+
+      transition Standby_to_Calibrating
+        first Standby
+        then Calibrating
+        if controlIn.calibrationCommand;
+
+      transition Calibrating_to_Standby
+        first Calibrating
+        then Standby
+        if rainDataOut.status.calibrated;
+
+      transition Standby_to_Measuring
+        first Standby
+        then Measuring
+        if controlIn.enable;
+
+      transition Measuring_to_Reporting
+        first Measuring
+        then Reporting;
+
+      transition Reporting_to_Measuring
+        first Reporting
+        then Measuring
+        if controlIn.enable;
+
+      transition Measuring_to_Standby
+        first Measuring
+        then Standby
+        if not controlIn.enable;
+
+      transition Reporting_to_Fault
+        first Reporting
+        then Fault
+        if rainDataOut.status.sensorOpenCircuit or rainDataOut.status.sensorShortCircuit or rainDataOut.status.communicationFault;
+
+      transition Fault_to_Startup
+        first Fault
+        then Startup
+        if controlIn.reset;
+    }
+  }
+
+  requirement def MeasureRainUsingRainSensor {
+    subject unit : RainSensingUnit;
+
+    require constraint {
+      unit.sensor != null
+    }
+
+    require constraint {
+      unit.measurementRangeLow <= 0.2
+    }
+
+    require constraint {
+      unit.measurementRangeHigh >= 100.0
+    }
+
+    require constraint {
+      unit.measurementUpdatePeriod <= 1.0
+    }
+  }
+
+  requirement def RainMeasurementAccuracy {
+    subject unit : RainSensingUnit;
+
+    require constraint {
+      unit.accuracyBelow20mmPerHour <= 1.0
+    }
+
+    require constraint {
+      unit.accuracyAbove20mmPerHourPercent <= 10.0
+    }
+  }
+
+  requirement def RainSensorDiagnostics {
+    subject unit : RainSensingUnit;
+
+    require constraint {
+      unit.rainDataOut.status.calibrated implies
+      not unit.rainDataOut.status.sensorOpenCircuit and
+      not unit.rainDataOut.status.sensorShortCircuit
+    }
+  }
+
+  requirement def EnvironmentalOperation {
+    subject unit : RainSensingUnit;
+
+    require constraint {
+      unit.operatingTemperatureLow <= -20.0
+    }
+
+    require constraint {
+      unit.operatingTemperatureHigh >= 70.0
+    }
+  }
+
+  part rainSensingUnit : RainSensingUnit;
+}

@@ -1,0 +1,1147 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-rhpteznl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb699-f798-7893-bfd8-0d120d3f63db
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Electric power distribution and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package ElectricPowerDistributionSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value type Voltage {
+    unit = V;
+    quantityKind = ISQ::electricPotential;
+  }
+
+  value type Current {
+    unit = A;
+    quantityKind = ISQ::electricCurrent;
+  }
+
+  value type Power {
+    unit = W;
+    quantityKind = ISQ::power;
+  }
+
+  value type Frequency {
+    unit = Hz;
+    quantityKind = ISQ::frequency;
+  }
+
+  value type Energy {
+    unit = J;
+    quantityKind = ISQ::energy;
+  }
+
+  value type Temperature {
+    unit = K;
+    quantityKind = ISQ::thermodynamicTemperature;
+  }
+
+  value type Resistance {
+    unit = Ohm;
+    quantityKind = ISQ::resistance;
+  }
+
+  value type Availability {
+    specializes ScalarValues::Real;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute realPower : Power;
+    attribute frequency : Frequency;
+    attribute phaseCount : Integer;
+  }
+
+  item def ProtectionTripSignal {
+    attribute sourceId : String;
+    attribute faultCurrent : Current;
+    attribute tripDelay : Time;
+  }
+
+  item def MeterReading {
+    attribute deliveredEnergy : Energy;
+    attribute peakDemand : Power;
+    attribute measuredVoltage : Voltage;
+    attribute measuredCurrent : Current;
+  }
+
+  port def ThreePhasePowerPort {
+    inout powerFlow : ElectricalPower;
+  }
+
+  port def ControlPort {
+    in tripSignal : ProtectionTripSignal;
+    out statusMessage : String;
+  }
+
+  port def MeasurementPort {
+    out reading : MeterReading;
+  }
+
+  part def ElectricPowerDistributionSystem {
+    attribute nominalMediumVoltage : Voltage = 13800 [V];
+    attribute nominalLowVoltage : Voltage = 480 [V];
+    attribute nominalFrequency : Frequency = 60 [Hz];
+    attribute designPeakLoad : Power = 25000000 [W];
+    attribute targetAvailability : Availability = 0.9995;
+
+    port gridSupply : ThreePhasePowerPort;
+    port customerDelivery : ThreePhasePowerPort;
+    port operatorInterface : ControlPort;
+    port systemMeasurements : MeasurementPort;
+
+    part incomingSubstation : PrimarySubstation;
+    part feederA : MediumVoltageFeeder {
+      attribute feederName = "North Industrial Feeder";
+      attribute ratedPower = 12000000 [W];
+    }
+    part feederB : MediumVoltageFeeder {
+      attribute feederName = "South Residential Feeder";
+      attribute ratedPower = 8000000 [W];
+    }
+    part feederC : MediumVoltageFeeder {
+      attribute feederName = "Critical Services Feeder";
+      attribute ratedPower = 5000000 [W];
+    }
+    part protectionSystem : DistributionProtectionSystem;
+    part controlCenter : DistributionControlCenter;
+    part revenueMetering : MeteringSystem;
+
+    connect gridSupply to incomingSubstation.highVoltageInput;
+    connect incomingSubstation.mediumVoltageBus to feederA.sourcePort;
+    connect incomingSubstation.mediumVoltageBus to feederB.sourcePort;
+    connect incomingSubstation.mediumVoltageBus to feederC.sourcePort;
+
+    connect feederA.loadPort to customerDelivery;
+    connect feederB.loadPort to customerDelivery;
+    connect feederC.loadPort to customerDelivery;
+
+    connect protectionSystem.tripCommandPort to incomingSubstation.protectionPort;
+    connect protectionSystem.tripCommandPort to feederA.protectionPort;
+    connect protectionSystem.tripCommandPort to feederB.protectionPort;
+    connect protectionSystem.tripCommandPort to feederC.protectionPort;
+
+    connect controlCenter.controlPort to operatorInterface;
+    connect revenueMetering.measurementOutput to systemMeasurements;
+
+    perform distributeElectricPower;
+    exhibit distributionOperatingStates;
+  }
+
+  part def PrimarySubstation {
+    attribute transformerRating : Power = 30000000 [W];
+    attribute primaryVoltage : Voltage = 115000 [V];
+    attribute secondaryVoltage : Voltage = 13800 [V];
+    attribute maximumWindingTemperature : Temperature = 383.15 [K];
+
+    port highVoltageInput : ThreePhasePowerPort;
+    port mediumVoltageBus : ThreePhasePowerPort;
+    port protectionPort : ControlPort;
+
+    part mainTransformer : PowerTransformer;
+    part mainBreaker : CircuitBreaker;
+    part voltageRegulator : VoltageRegulator;
+    part busbar : MediumVoltageBus;
+
+    connect highVoltageInput to mainBreaker.lineSide;
+    connect mainBreaker.loadSide to mainTransformer.primaryPort;
+    connect mainTransformer.secondaryPort to voltageRegulator.inputPort;
+    connect voltageRegulator.outputPort to busbar.busPort;
+    connect busbar.busPort to mediumVoltageBus;
+  }
+
+  part def PowerTransformer {
+    attribute ratedPower : Power = 30000000 [W];
+    attribute primaryVoltage : Voltage = 115000 [V];
+    attribute secondaryVoltage : Voltage = 13800 [V];
+    attribute impedance : Resistance = 6.5 [Ohm];
+    attribute noLoadLoss : Power = 18000 [W];
+
+    port primaryPort : ThreePhasePowerPort;
+    port secondaryPort : ThreePhasePowerPort;
+  }
+
+  part def CircuitBreaker {
+    attribute ratedCurrent : Current = 2000 [A];
+    attribute interruptingCurrent : Current = 40000 [A];
+    attribute openingTime : Time = 0.05 [s];
+
+    port lineSide : ThreePhasePowerPort;
+    port loadSide : ThreePhasePowerPort;
+    port control : ControlPort;
+
+    state def BreakerState {
+      state closed;
+      state opening;
+      state open;
+      state lockedOut;
+
+      transition first closed;
+      transition closed_to_opening
+        first closed
+        accept ProtectionTripSignal
+        then opening;
+
+      transition opening_to_open
+        first opening
+        after 0.05 [s]
+        then open;
+
+      transition open_to_closed
+        first open
+        accept "closeCommand"
+        then closed;
+
+      transition open_to_lockedOut
+        first open
+        accept "manualLockout"
+        then lockedOut;
+    }
+
+    exhibit breakerState : BreakerState;
+  }
+
+  part def VoltageRegulator {
+    attribute tapPosition : Integer = 0;
+    attribute maximumTapPosition : Integer = 16;
+    attribute minimumTapPosition : Integer = -16;
+    attribute regulationDeadband : Voltage = 120 [V];
+
+    port inputPort : ThreePhasePowerPort;
+    port outputPort : ThreePhasePowerPort;
+
+    action regulateVoltage {
+      in measuredVoltage : Voltage;
+      in targetVoltage : Voltage;
+      out selectedTapPosition : Integer;
+
+      if measuredVoltage < targetVoltage - regulationDeadband {
+        selectedTapPosition = tapPosition + 1;
+      } else if measuredVoltage > targetVoltage + regulationDeadband {
+        selectedTapPosition = tapPosition - 1;
+      } else {
+        selectedTapPosition = tapPosition;
+      }
+    }
+  }
+
+  part def MediumVoltageBus {
+    attribute ratedVoltage : Voltage = 13800 [V];
+    attribute ratedCurrent : Current = 2500 [A];
+
+    port busPort : ThreePhasePowerPort;
+  }
+
+  part def MediumVoltageFeeder {
+    attribute feederName : String;
+    attribute ratedVoltage : Voltage = 13800 [V];
+    attribute ratedPower : Power;
+    attribute maximumLoadCurrent : Current = 600 [A];
+    attribute feederLengthResistance : Resistance = 2.1 [Ohm];
+
+    port sourcePort : ThreePhasePowerPort;
+    port loadPort : ThreePhasePowerPort;
+    port protectionPort : ControlPort;
+    port measurements : MeasurementPort;
+
+    part feederBreaker : CircuitBreaker {
+      attribute ratedCurrent = 800 [A];
+      attribute interruptingCurrent = 25000 [A];
+    }
+
+    part overheadSegment : DistributionLineSegment {
+      attribute segmentName = "Overhead main";
+      attribute lengthResistance = 1.3 [Ohm];
+    }
+
+    part undergroundSegment : DistributionLineSegment {
+      attribute segmentName = "Underground lateral";
+      attribute lengthResistance = 0.8 [Ohm];
+    }
+
+    part distributionTransformer1 : DistributionTransformer {
+      attribute serviceName = "Commercial Service Bank";
+      attribute ratedPower = 2500000 [W];
+    }
+
+    part distributionTransformer2 : DistributionTransformer {
+      attribute serviceName = "Residential Service Bank";
+      attribute ratedPower = 1500000 [W];
+    }
+
+    part feederMeter : SmartMeter;
+
+    connect sourcePort to feederBreaker.lineSide;
+    connect feederBreaker.loadSide to overheadSegment.inputPort;
+    connect overheadSegment.outputPort to undergroundSegment.inputPort;
+    connect undergroundSegment.outputPort to distributionTransformer1.primaryPort;
+    connect undergroundSegment.outputPort to distributionTransformer2.primaryPort;
+    connect distributionTransformer1.secondaryPort to loadPort;
+    connect distributionTransformer2.secondaryPort to loadPort;
+    connect feederMeter.measurementPort to measurements;
+  }
+
+  part def DistributionLineSegment {
+    attribute segmentName : String;
+    attribute ratedVoltage : Voltage = 13800 [V];
+    attribute ampacity : Current = 600 [A];
+    attribute lengthResistance : Resistance;
+
+    port inputPort : ThreePhasePowerPort;
+    port outputPort : ThreePhasePowerPort;
+
+    action calculateLineLoss {
+      in lineCurrent : Current;
+      out loss : Power;
+      loss = lineCurrent * lineCurrent * lengthResistance;
+    }
+  }
+
+  part def DistributionTransformer {
+    attribute serviceName : String;
+    attribute primaryVoltage : Voltage = 13800 [V];
+    attribute secondaryVoltage : Voltage = 480 [V];
+    attribute ratedPower : Power;
+    attribute efficiencyAtRatedLoad : Real = 0.985;
+
+    port primaryPort : ThreePhasePowerPort;
+    port secondaryPort : ThreePhasePowerPort;
+  }
+
+  part def SmartMeter {
+    attribute accumulatedEnergy : Energy = 0 [J];
+    attribute demandInterval : Time = 900 [s];
+
+    port powerInput : ThreePhasePowerPort;
+    port measurementPort : MeasurementPort;
+
+    action measurePowerQuality {
+      in sampledPower : ElectricalPower;
+      out reading : MeterReading;
+
+      reading.measuredVoltage = sampledPower.voltage;
+      reading.measuredCurrent = sampledPower.current;
+      reading.peakDemand = sampledPower.realPower;
+      reading.deliveredEnergy = accumulatedEnergy;
+    }
+  }
+
+  part def MeteringSystem {
+    attribute reportingInterval : Time = 300 [s];
+
+    port measurementOutput : MeasurementPort;
+
+    part feederAMeter : SmartMeter;
+    part feederBMeter : SmartMeter;
+    part feederCMeter : SmartMeter;
+  }
+
+  part def DistributionProtectionSystem {
+    attribute overCurrentPickup : Current = 900 [A];
+    attribute groundFaultPickup : Current = 120 [A];
+    attribute coordinationMargin : Time = 0.20 [s];
+
+    port tripCommandPort : ControlPort;
+
+    action detectFault {
+      in measuredCurrent : Current;
+      in neutralCurrent : Current;
+      out tripRequired : Boolean;
+
+      if measuredCurrent > overCurrentPickup or neutralCurrent > groundFaultPickup {
+        tripRequired = true;
+      } else {
+        tripRequired = false;
+      }
+    }
+
+    action isolateFault {
+      in faultedFeeder : String;
+      out tripSignal : ProtectionTripSignal;
+
+      tripSignal.sourceId = faultedFeeder;
+      tripSignal.faultCurrent = overCurrentPickup;
+      tripSignal.tripDelay = coordinationMargin;
+    }
+  }
+
+  part def DistributionControlCenter {
+    attribute operatorMode : String = "automatic";
+    attribute minimumAcceptableVoltage : Voltage = 456 [V];
+    attribute maximumAcceptableVoltage : Voltage = 504 [V];
+
+    port controlPort : ControlPort;
+
+    action balanceFeederLoad {
+      in feederALoad : Power;
+      in feederBLoad : Power;
+      in feederCLoad : Power;
+      out transferRecommended : Boolean;
+
+      if feederALoad > 0.90 * 12000000 [W] or feederBLoad > 0.90 * 8000000 [W] or feederCLoad > 0.90 * 5000000 [W] {
+        transferRecommended = true;
+      } else {
+        transferRecommended = false;
+      }
+    }
+  }
+
+  action def DistributeElectricPower {
+    in sourcePower : ElectricalPower;
+    out deliveredPower : ElectricalPower;
+
+    objective {
+      doc
+      /*
+       Primary high-level function: receive bulk electric power from the upstream grid,
+       transform it to distribution voltage, route it through protected feeders, regulate
+       voltage, meter delivered service, and supply usable three-phase low-voltage power
+       to connected customer loads with continuity, safety, and power-quality control.
+      */
+    }
+
+    deliveredPower.frequency = sourcePower.frequency;
+    deliveredPower.phaseCount = 3;
+  }
+
+  state def DistributionOperatingStates {
+    state deEnergized;
+    state energizing;
+    state normalDistribution;
+    state degradedDistribution;
+    state faultIsolation;
+    state restoration;
+    state emergencyShutdown;
+
+    transition first deEnergized;
+
+    transition deEnergized_to_energizing
+      first deEnergized
+      accept "startCommand"
+      then energizing;
+
+    transition energizing_to_normal
+      first energizing
+      after 30 [s]
+      then normalDistribution;
+
+    transition normal_to_degraded
+      first normalDistribution
+      accept "feederOverload"
+      then degradedDistribution;
+
+    transition degraded_to_normal
+      first degradedDistribution
+      accept "loadBalanced"
+      then normalDistribution;
+
+    transition normal_to_faultIsolation
+      first normalDistribution
+      accept ProtectionTripSignal
+      then faultIsolation;
+
+    transition degraded_to_faultIsolation
+      first degradedDistribution
+      accept ProtectionTripSignal
+      then faultIsolation;
+
+    transition faultIsolation_to_restoration
+      first faultIsolation
+      after 10 [s]
+      then restoration;
+
+    transition restoration_to_normal
+      first restoration
+      accept "serviceRestored"
+      then normalDistribution;
+
+    transition any_to_shutdown
+      first normalDistribution
+      accept "emergencyStop"
+      then emergencyShutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     The electric power distribution system shall receive electric power from an
+     upstream transmission or sub-transmission source and distribute regulated,
+     protected, metered electric power to connected customer loads.
+    */
+
+    subject system : ElectricPowerDistributionSystem;
+
+    require constraint {
+      system.nominalMediumVoltage == 13800 [V] and
+      system.nominalLowVoltage == 480 [V] and
+      system.nominalFrequency == 60 [Hz]
+    }
+  }
+
+  requirement def CapacityRequirement {
+    doc
+    /*
+     The distribution system shall support a coincident peak load of at least
+     25 MW while maintaining feeder operation within equipment ratings.
+    */
+
+    subject system : ElectricPowerDistributionSystem;
+
+    require constraint {
+      system.designPeakLoad >= 25000000 [W]
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    doc
+    /*
+     The distribution system shall provide annual service availability of at
+     least 99.95 percent for connected loads under normal utility operating
+     conditions.
+    */
+
+    subject system : ElectricPowerDistributionSystem;
+
+    require constraint {
+      system.targetAvailability >= 0.9995
+    }
+  }
+
+  requirement def ProtectionRequirement {
+    doc
+    /*
+     The protection subsystem shall detect feeder overcurrent and ground-fault
+     conditions and issue trip commands to isolate faulted equipment.
+    */
+
+    subject protection : DistributionProtectionSystem;
+
+    require constraint {
+      protection.overCurrentPickup <= 900 [A] and
+      protection.groundFaultPickup <= 120 [A]
+    }
+  }
+
+  requirement def VoltageQualityRequirement {
+    doc
+    /*
+     Customer delivery voltage shall be maintained between 456 V and 504 V
+     during normal distribution operation.
+    */
+
+    subject control : DistributionControlCenter;
+
+    require constraint {
+      control.minimumAcceptableVoltage >= 456 [V] and
+      control.maximumAcceptableVoltage <= 504 [V]
+    }
+  }
+
+  requirement def MeteringRequirement {
+    doc
+    /*
+     The metering subsystem shall provide periodic feeder energy and demand
+     measurements for operations, billing, and load management.
+    */
+
+    subject metering : MeteringSystem;
+
+    require constraint {
+      metering.reportingInterval <= 300 [s]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by ElectricPowerDistributionSystem;
+  satisfy CapacityRequirement by ElectricPowerDistributionSystem;
+  satisfy AvailabilityRequirement by ElectricPowerDistributionSystem;
+  satisfy ProtectionRequirement by DistributionProtectionSystem;
+  satisfy VoltageQualityRequirement by DistributionControlCenter;
+  satisfy MeteringRequirement by MeteringSystem;
+
+  part electricDistributionSystem : ElectricPowerDistributionSystem;
+
+  perform action distributeElectricPower : DistributeElectricPower;
+  exhibit state distributionOperatingStates : DistributionOperatingStates;
+}
+tokens used
+3,970
+package ElectricPowerDistributionSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  value type Voltage {
+    unit = V;
+    quantityKind = ISQ::electricPotential;
+  }
+
+  value type Current {
+    unit = A;
+    quantityKind = ISQ::electricCurrent;
+  }
+
+  value type Power {
+    unit = W;
+    quantityKind = ISQ::power;
+  }
+
+  value type Frequency {
+    unit = Hz;
+    quantityKind = ISQ::frequency;
+  }
+
+  value type Energy {
+    unit = J;
+    quantityKind = ISQ::energy;
+  }
+
+  value type Temperature {
+    unit = K;
+    quantityKind = ISQ::thermodynamicTemperature;
+  }
+
+  value type Resistance {
+    unit = Ohm;
+    quantityKind = ISQ::resistance;
+  }
+
+  value type Availability {
+    specializes ScalarValues::Real;
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Voltage;
+    attribute current : Current;
+    attribute realPower : Power;
+    attribute frequency : Frequency;
+    attribute phaseCount : Integer;
+  }
+
+  item def ProtectionTripSignal {
+    attribute sourceId : String;
+    attribute faultCurrent : Current;
+    attribute tripDelay : Time;
+  }
+
+  item def MeterReading {
+    attribute deliveredEnergy : Energy;
+    attribute peakDemand : Power;
+    attribute measuredVoltage : Voltage;
+    attribute measuredCurrent : Current;
+  }
+
+  port def ThreePhasePowerPort {
+    inout powerFlow : ElectricalPower;
+  }
+
+  port def ControlPort {
+    in tripSignal : ProtectionTripSignal;
+    out statusMessage : String;
+  }
+
+  port def MeasurementPort {
+    out reading : MeterReading;
+  }
+
+  part def ElectricPowerDistributionSystem {
+    attribute nominalMediumVoltage : Voltage = 13800 [V];
+    attribute nominalLowVoltage : Voltage = 480 [V];
+    attribute nominalFrequency : Frequency = 60 [Hz];
+    attribute designPeakLoad : Power = 25000000 [W];
+    attribute targetAvailability : Availability = 0.9995;
+
+    port gridSupply : ThreePhasePowerPort;
+    port customerDelivery : ThreePhasePowerPort;
+    port operatorInterface : ControlPort;
+    port systemMeasurements : MeasurementPort;
+
+    part incomingSubstation : PrimarySubstation;
+    part feederA : MediumVoltageFeeder {
+      attribute feederName = "North Industrial Feeder";
+      attribute ratedPower = 12000000 [W];
+    }
+    part feederB : MediumVoltageFeeder {
+      attribute feederName = "South Residential Feeder";
+      attribute ratedPower = 8000000 [W];
+    }
+    part feederC : MediumVoltageFeeder {
+      attribute feederName = "Critical Services Feeder";
+      attribute ratedPower = 5000000 [W];
+    }
+    part protectionSystem : DistributionProtectionSystem;
+    part controlCenter : DistributionControlCenter;
+    part revenueMetering : MeteringSystem;
+
+    connect gridSupply to incomingSubstation.highVoltageInput;
+    connect incomingSubstation.mediumVoltageBus to feederA.sourcePort;
+    connect incomingSubstation.mediumVoltageBus to feederB.sourcePort;
+    connect incomingSubstation.mediumVoltageBus to feederC.sourcePort;
+
+    connect feederA.loadPort to customerDelivery;
+    connect feederB.loadPort to customerDelivery;
+    connect feederC.loadPort to customerDelivery;
+
+    connect protectionSystem.tripCommandPort to incomingSubstation.protectionPort;
+    connect protectionSystem.tripCommandPort to feederA.protectionPort;
+    connect protectionSystem.tripCommandPort to feederB.protectionPort;
+    connect protectionSystem.tripCommandPort to feederC.protectionPort;
+
+    connect controlCenter.controlPort to operatorInterface;
+    connect revenueMetering.measurementOutput to systemMeasurements;
+
+    perform distributeElectricPower;
+    exhibit distributionOperatingStates;
+  }
+
+  part def PrimarySubstation {
+    attribute transformerRating : Power = 30000000 [W];
+    attribute primaryVoltage : Voltage = 115000 [V];
+    attribute secondaryVoltage : Voltage = 13800 [V];
+    attribute maximumWindingTemperature : Temperature = 383.15 [K];
+
+    port highVoltageInput : ThreePhasePowerPort;
+    port mediumVoltageBus : ThreePhasePowerPort;
+    port protectionPort : ControlPort;
+
+    part mainTransformer : PowerTransformer;
+    part mainBreaker : CircuitBreaker;
+    part voltageRegulator : VoltageRegulator;
+    part busbar : MediumVoltageBus;
+
+    connect highVoltageInput to mainBreaker.lineSide;
+    connect mainBreaker.loadSide to mainTransformer.primaryPort;
+    connect mainTransformer.secondaryPort to voltageRegulator.inputPort;
+    connect voltageRegulator.outputPort to busbar.busPort;
+    connect busbar.busPort to mediumVoltageBus;
+  }
+
+  part def PowerTransformer {
+    attribute ratedPower : Power = 30000000 [W];
+    attribute primaryVoltage : Voltage = 115000 [V];
+    attribute secondaryVoltage : Voltage = 13800 [V];
+    attribute impedance : Resistance = 6.5 [Ohm];
+    attribute noLoadLoss : Power = 18000 [W];
+
+    port primaryPort : ThreePhasePowerPort;
+    port secondaryPort : ThreePhasePowerPort;
+  }
+
+  part def CircuitBreaker {
+    attribute ratedCurrent : Current = 2000 [A];
+    attribute interruptingCurrent : Current = 40000 [A];
+    attribute openingTime : Time = 0.05 [s];
+
+    port lineSide : ThreePhasePowerPort;
+    port loadSide : ThreePhasePowerPort;
+    port control : ControlPort;
+
+    state def BreakerState {
+      state closed;
+      state opening;
+      state open;
+      state lockedOut;
+
+      transition first closed;
+      transition closed_to_opening
+        first closed
+        accept ProtectionTripSignal
+        then opening;
+
+      transition opening_to_open
+        first opening
+        after 0.05 [s]
+        then open;
+
+      transition open_to_closed
+        first open
+        accept "closeCommand"
+        then closed;
+
+      transition open_to_lockedOut
+        first open
+        accept "manualLockout"
+        then lockedOut;
+    }
+
+    exhibit breakerState : BreakerState;
+  }
+
+  part def VoltageRegulator {
+    attribute tapPosition : Integer = 0;
+    attribute maximumTapPosition : Integer = 16;
+    attribute minimumTapPosition : Integer = -16;
+    attribute regulationDeadband : Voltage = 120 [V];
+
+    port inputPort : ThreePhasePowerPort;
+    port outputPort : ThreePhasePowerPort;
+
+    action regulateVoltage {
+      in measuredVoltage : Voltage;
+      in targetVoltage : Voltage;
+      out selectedTapPosition : Integer;
+
+      if measuredVoltage < targetVoltage - regulationDeadband {
+        selectedTapPosition = tapPosition + 1;
+      } else if measuredVoltage > targetVoltage + regulationDeadband {
+        selectedTapPosition = tapPosition - 1;
+      } else {
+        selectedTapPosition = tapPosition;
+      }
+    }
+  }
+
+  part def MediumVoltageBus {
+    attribute ratedVoltage : Voltage = 13800 [V];
+    attribute ratedCurrent : Current = 2500 [A];
+
+    port busPort : ThreePhasePowerPort;
+  }
+
+  part def MediumVoltageFeeder {
+    attribute feederName : String;
+    attribute ratedVoltage : Voltage = 13800 [V];
+    attribute ratedPower : Power;
+    attribute maximumLoadCurrent : Current = 600 [A];
+    attribute feederLengthResistance : Resistance = 2.1 [Ohm];
+
+    port sourcePort : ThreePhasePowerPort;
+    port loadPort : ThreePhasePowerPort;
+    port protectionPort : ControlPort;
+    port measurements : MeasurementPort;
+
+    part feederBreaker : CircuitBreaker {
+      attribute ratedCurrent = 800 [A];
+      attribute interruptingCurrent = 25000 [A];
+    }
+
+    part overheadSegment : DistributionLineSegment {
+      attribute segmentName = "Overhead main";
+      attribute lengthResistance = 1.3 [Ohm];
+    }
+
+    part undergroundSegment : DistributionLineSegment {
+      attribute segmentName = "Underground lateral";
+      attribute lengthResistance = 0.8 [Ohm];
+    }
+
+    part distributionTransformer1 : DistributionTransformer {
+      attribute serviceName = "Commercial Service Bank";
+      attribute ratedPower = 2500000 [W];
+    }
+
+    part distributionTransformer2 : DistributionTransformer {
+      attribute serviceName = "Residential Service Bank";
+      attribute ratedPower = 1500000 [W];
+    }
+
+    part feederMeter : SmartMeter;
+
+    connect sourcePort to feederBreaker.lineSide;
+    connect feederBreaker.loadSide to overheadSegment.inputPort;
+    connect overheadSegment.outputPort to undergroundSegment.inputPort;
+    connect undergroundSegment.outputPort to distributionTransformer1.primaryPort;
+    connect undergroundSegment.outputPort to distributionTransformer2.primaryPort;
+    connect distributionTransformer1.secondaryPort to loadPort;
+    connect distributionTransformer2.secondaryPort to loadPort;
+    connect feederMeter.measurementPort to measurements;
+  }
+
+  part def DistributionLineSegment {
+    attribute segmentName : String;
+    attribute ratedVoltage : Voltage = 13800 [V];
+    attribute ampacity : Current = 600 [A];
+    attribute lengthResistance : Resistance;
+
+    port inputPort : ThreePhasePowerPort;
+    port outputPort : ThreePhasePowerPort;
+
+    action calculateLineLoss {
+      in lineCurrent : Current;
+      out loss : Power;
+      loss = lineCurrent * lineCurrent * lengthResistance;
+    }
+  }
+
+  part def DistributionTransformer {
+    attribute serviceName : String;
+    attribute primaryVoltage : Voltage = 13800 [V];
+    attribute secondaryVoltage : Voltage = 480 [V];
+    attribute ratedPower : Power;
+    attribute efficiencyAtRatedLoad : Real = 0.985;
+
+    port primaryPort : ThreePhasePowerPort;
+    port secondaryPort : ThreePhasePowerPort;
+  }
+
+  part def SmartMeter {
+    attribute accumulatedEnergy : Energy = 0 [J];
+    attribute demandInterval : Time = 900 [s];
+
+    port powerInput : ThreePhasePowerPort;
+    port measurementPort : MeasurementPort;
+
+    action measurePowerQuality {
+      in sampledPower : ElectricalPower;
+      out reading : MeterReading;
+
+      reading.measuredVoltage = sampledPower.voltage;
+      reading.measuredCurrent = sampledPower.current;
+      reading.peakDemand = sampledPower.realPower;
+      reading.deliveredEnergy = accumulatedEnergy;
+    }
+  }
+
+  part def MeteringSystem {
+    attribute reportingInterval : Time = 300 [s];
+
+    port measurementOutput : MeasurementPort;
+
+    part feederAMeter : SmartMeter;
+    part feederBMeter : SmartMeter;
+    part feederCMeter : SmartMeter;
+  }
+
+  part def DistributionProtectionSystem {
+    attribute overCurrentPickup : Current = 900 [A];
+    attribute groundFaultPickup : Current = 120 [A];
+    attribute coordinationMargin : Time = 0.20 [s];
+
+    port tripCommandPort : ControlPort;
+
+    action detectFault {
+      in measuredCurrent : Current;
+      in neutralCurrent : Current;
+      out tripRequired : Boolean;
+
+      if measuredCurrent > overCurrentPickup or neutralCurrent > groundFaultPickup {
+        tripRequired = true;
+      } else {
+        tripRequired = false;
+      }
+    }
+
+    action isolateFault {
+      in faultedFeeder : String;
+      out tripSignal : ProtectionTripSignal;
+
+      tripSignal.sourceId = faultedFeeder;
+      tripSignal.faultCurrent = overCurrentPickup;
+      tripSignal.tripDelay = coordinationMargin;
+    }
+  }
+
+  part def DistributionControlCenter {
+    attribute operatorMode : String = "automatic";
+    attribute minimumAcceptableVoltage : Voltage = 456 [V];
+    attribute maximumAcceptableVoltage : Voltage = 504 [V];
+
+    port controlPort : ControlPort;
+
+    action balanceFeederLoad {
+      in feederALoad : Power;
+      in feederBLoad : Power;
+      in feederCLoad : Power;
+      out transferRecommended : Boolean;
+
+      if feederALoad > 0.90 * 12000000 [W] or feederBLoad > 0.90 * 8000000 [W] or feederCLoad > 0.90 * 5000000 [W] {
+        transferRecommended = true;
+      } else {
+        transferRecommended = false;
+      }
+    }
+  }
+
+  action def DistributeElectricPower {
+    in sourcePower : ElectricalPower;
+    out deliveredPower : ElectricalPower;
+
+    objective {
+      doc
+      /*
+       Primary high-level function: receive bulk electric power from the upstream grid,
+       transform it to distribution voltage, route it through protected feeders, regulate
+       voltage, meter delivered service, and supply usable three-phase low-voltage power
+       to connected customer loads with continuity, safety, and power-quality control.
+      */
+    }
+
+    deliveredPower.frequency = sourcePower.frequency;
+    deliveredPower.phaseCount = 3;
+  }
+
+  state def DistributionOperatingStates {
+    state deEnergized;
+    state energizing;
+    state normalDistribution;
+    state degradedDistribution;
+    state faultIsolation;
+    state restoration;
+    state emergencyShutdown;
+
+    transition first deEnergized;
+
+    transition deEnergized_to_energizing
+      first deEnergized
+      accept "startCommand"
+      then energizing;
+
+    transition energizing_to_normal
+      first energizing
+      after 30 [s]
+      then normalDistribution;
+
+    transition normal_to_degraded
+      first normalDistribution
+      accept "feederOverload"
+      then degradedDistribution;
+
+    transition degraded_to_normal
+      first degradedDistribution
+      accept "loadBalanced"
+      then normalDistribution;
+
+    transition normal_to_faultIsolation
+      first normalDistribution
+      accept ProtectionTripSignal
+      then faultIsolation;
+
+    transition degraded_to_faultIsolation
+      first degradedDistribution
+      accept ProtectionTripSignal
+      then faultIsolation;
+
+    transition faultIsolation_to_restoration
+      first faultIsolation
+      after 10 [s]
+      then restoration;
+
+    transition restoration_to_normal
+      first restoration
+      accept "serviceRestored"
+      then normalDistribution;
+
+    transition any_to_shutdown
+      first normalDistribution
+      accept "emergencyStop"
+      then emergencyShutdown;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+    /*
+     The electric power distribution system shall receive electric power from an
+     upstream transmission or sub-transmission source and distribute regulated,
+     protected, metered electric power to connected customer loads.
+    */
+
+    subject system : ElectricPowerDistributionSystem;
+
+    require constraint {
+      system.nominalMediumVoltage == 13800 [V] and
+      system.nominalLowVoltage == 480 [V] and
+      system.nominalFrequency == 60 [Hz]
+    }
+  }
+
+  requirement def CapacityRequirement {
+    doc
+    /*
+     The distribution system shall support a coincident peak load of at least
+     25 MW while maintaining feeder operation within equipment ratings.
+    */
+
+    subject system : ElectricPowerDistributionSystem;
+
+    require constraint {
+      system.designPeakLoad >= 25000000 [W]
+    }
+  }
+
+  requirement def AvailabilityRequirement {
+    doc
+    /*
+     The distribution system shall provide annual service availability of at
+     least 99.95 percent for connected loads under normal utility operating
+     conditions.
+    */
+
+    subject system : ElectricPowerDistributionSystem;
+
+    require constraint {
+      system.targetAvailability >= 0.9995
+    }
+  }
+
+  requirement def ProtectionRequirement {
+    doc
+    /*
+     The protection subsystem shall detect feeder overcurrent and ground-fault
+     conditions and issue trip commands to isolate faulted equipment.
+    */
+
+    subject protection : DistributionProtectionSystem;
+
+    require constraint {
+      protection.overCurrentPickup <= 900 [A] and
+      protection.groundFaultPickup <= 120 [A]
+    }
+  }
+
+  requirement def VoltageQualityRequirement {
+    doc
+    /*
+     Customer delivery voltage shall be maintained between 456 V and 504 V
+     during normal distribution operation.
+    */
+
+    subject control : DistributionControlCenter;
+
+    require constraint {
+      control.minimumAcceptableVoltage >= 456 [V] and
+      control.maximumAcceptableVoltage <= 504 [V]
+    }
+  }
+
+  requirement def MeteringRequirement {
+    doc
+    /*
+     The metering subsystem shall provide periodic feeder energy and demand
+     measurements for operations, billing, and load management.
+    */
+
+    subject metering : MeteringSystem;
+
+    require constraint {
+      metering.reportingInterval <= 300 [s]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by ElectricPowerDistributionSystem;
+  satisfy CapacityRequirement by ElectricPowerDistributionSystem;
+  satisfy AvailabilityRequirement by ElectricPowerDistributionSystem;
+  satisfy ProtectionRequirement by DistributionProtectionSystem;
+  satisfy VoltageQualityRequirement by DistributionControlCenter;
+  satisfy MeteringRequirement by MeteringSystem;
+
+  part electricDistributionSystem : ElectricPowerDistributionSystem;
+
+  perform action distributeElectricPower : DistributeElectricPower;
+  exhibit state distributionOperatingStates : DistributionOperatingStates;
+}

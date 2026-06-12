@@ -1,0 +1,735 @@
+package MedicalRoboticSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Probability {
+        attribute value : Real;
+    }
+
+    attribute def SterilityLevel {
+        attribute bioburdenCFUPerSquareMeter : Real;
+    }
+
+    attribute def DoseRate {
+        attribute microsievertPerHour : Real;
+    }
+
+    attribute def Percent {
+        attribute value : Real;
+    }
+
+    attribute def Identifier {
+        attribute text : String;
+    }
+
+    attribute def Timestamp {
+        attribute epochSeconds : Integer;
+    }
+
+    enum def RobotMode {
+        enum idle;
+        enum preparing;
+        enum sterileReady;
+        enum navigating;
+        enum treating;
+        enum paused;
+        enum recovering;
+        enum faulted;
+        enum shutdown;
+    }
+
+    enum def ClinicalTaskStatus {
+        enum notStarted;
+        enum planned;
+        enum verified;
+        enum inProgress;
+        enum completed;
+        enum aborted;
+    }
+
+    enum def AlarmSeverity {
+        enum advisory;
+        enum warning;
+        enum critical;
+    }
+
+    item def SterileInstrument {
+        attribute instrumentId : Identifier;
+        attribute sterileBarrierIntact : Boolean;
+        attribute remainingUseCycles : Integer;
+        attribute tipDiameter : LengthValue;
+    }
+
+    item def PatientAnatomyMap {
+        attribute mapId : Identifier;
+        attribute registrationError : LengthValue;
+        attribute generatedAt : Timestamp;
+    }
+
+    item def TreatmentPlan {
+        attribute planId : Identifier;
+        attribute targetName : String;
+        attribute targetVolume : VolumeValue;
+        attribute entryPointX : LengthValue;
+        attribute entryPointY : LengthValue;
+        attribute entryPointZ : LengthValue;
+        attribute plannedDepth : LengthValue;
+        attribute maximumAllowedForce : ForceValue;
+        attribute maximumAllowedVelocity : SpeedValue;
+        attribute prescribedDuration : TimeValue;
+        attribute status : ClinicalTaskStatus;
+    }
+
+    item def MotionCommand {
+        attribute targetX : LengthValue;
+        attribute targetY : LengthValue;
+        attribute targetZ : LengthValue;
+        attribute targetRoll : PlaneAngleValue;
+        attribute targetPitch : PlaneAngleValue;
+        attribute targetYaw : PlaneAngleValue;
+        attribute speedLimit : SpeedValue;
+        attribute forceLimit : ForceValue;
+    }
+
+    item def ToolPose {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute roll : PlaneAngleValue;
+        attribute pitch : PlaneAngleValue;
+        attribute yaw : PlaneAngleValue;
+        attribute poseUncertainty : LengthValue;
+    }
+
+    item def ForceTorqueSample {
+        attribute axialForce : ForceValue;
+        attribute lateralForce : ForceValue;
+        attribute torque : TorqueValue;
+        attribute sampledAt : Timestamp;
+    }
+
+    item def VitalSigns {
+        attribute heartRatePerMinute : Real;
+        attribute systolicPressure : PressureValue;
+        attribute diastolicPressure : PressureValue;
+        attribute oxygenSaturation : Percent;
+        attribute respirationRatePerMinute : Real;
+        attribute sampledAt : Timestamp;
+    }
+
+    item def SafetyAlarm {
+        attribute alarmId : Identifier;
+        attribute severity : AlarmSeverity;
+        attribute message : String;
+        attribute active : Boolean;
+        attribute raisedAt : Timestamp;
+    }
+
+    item def OperatorCommand {
+        attribute commandId : Identifier;
+        attribute enableMotion : Boolean;
+        attribute pauseRequested : Boolean;
+        attribute resumeRequested : Boolean;
+        attribute abortRequested : Boolean;
+        attribute approveTreatment : Boolean;
+    }
+
+    port def PowerPort {
+        out item electricalPower : PowerValue;
+    }
+
+    port def NetworkPort {
+        in item inboundPlan : TreatmentPlan;
+        in item operatorCommand : OperatorCommand;
+        out item robotStatus : RobotMode;
+        out item alarm : SafetyAlarm;
+    }
+
+    port def ImagingPort {
+        out item anatomyMap : PatientAnatomyMap;
+        out item currentToolPose : ToolPose;
+    }
+
+    port def MotionCommandPort {
+        out item command : MotionCommand;
+    }
+
+    port def ActuationPort {
+        in item command : MotionCommand;
+        out item measuredPose : ToolPose;
+        out item measuredForce : ForceTorqueSample;
+    }
+
+    port def InstrumentPort {
+        inout item instrument : SterileInstrument;
+        out item measuredForce : ForceTorqueSample;
+    }
+
+    port def PatientMonitoringPort {
+        out item vitalSigns : VitalSigns;
+    }
+
+    port def SterileBarrierPort {
+        inout item instrument : SterileInstrument;
+        out item sterility : SterilityLevel;
+    }
+
+    part def MedicalRobot {
+        attribute currentMode : RobotMode;
+        attribute maximumReach : LengthValue;
+        attribute positioningAccuracy : LengthValue;
+        attribute maximumToolSpeed : SpeedValue;
+        attribute maximumToolForce : ForceValue;
+        attribute allowedLeakageCurrent : ElectricCurrentValue;
+        attribute residualRiskProbability : Probability;
+
+        port powerIn : PowerPort;
+        port hospitalNetwork : NetworkPort;
+        port imagingInterface : ImagingPort;
+        port motionOutput : MotionCommandPort;
+        port armInterface : ActuationPort;
+        port toolInterface : InstrumentPort;
+        port sterileInterface : SterileBarrierPort;
+        port monitorInput : PatientMonitoringPort;
+
+        part controller : RobotController;
+        part manipulator : RoboticManipulator;
+        part endEffector : SurgicalEndEffector;
+        part perception : MedicalPerceptionSubsystem;
+        part safety : ClinicalSafetySubsystem;
+        part userInterface : ClinicalOperatorConsole;
+        part sterileDrape : SterileBarrierSubsystem;
+        part powerUnit : MedicalPowerSubsystem;
+
+        connect controller.motionCommands to motionOutput.command;
+        connect motionOutput.command to armInterface.command;
+        connect manipulator.instrumentMount to endEffector.robotMount;
+        connect endEffector.patientTool to toolInterface.instrument;
+        connect sterileDrape.protectedInstrument to sterileInterface.instrument;
+        connect perception.imageOutput to imagingInterface.anatomyMap;
+        connect perception.poseOutput to imagingInterface.currentToolPose;
+        connect monitorInput.vitalSigns to safety.vitalInput;
+        connect armInterface.measuredPose to controller.poseFeedback;
+        connect armInterface.measuredForce to safety.forceInput;
+        connect toolInterface.measuredForce to safety.forceInput;
+        connect hospitalNetwork.inboundPlan to controller.loadedPlan;
+        connect hospitalNetwork.operatorCommand to userInterface.operatorInput;
+        connect userInterface.approvedCommand to controller.operatorCommand;
+        connect safety.activeAlarm to hospitalNetwork.alarm;
+        connect controller.modeOutput to hospitalNetwork.robotStatus;
+
+        action performPrimaryMedicalTask {
+            in item plan : TreatmentPlan;
+            in item anatomy : PatientAnatomyMap;
+            in item command : OperatorCommand;
+            out item finalStatus : ClinicalTaskStatus;
+
+            first start;
+            then validatePlan;
+            then registerPatient;
+            then verifySterility;
+            then enableRobot;
+            then navigateToTarget;
+            then executeTreatment;
+            then retractTool;
+            then completeCase;
+
+            action validatePlan {
+                in item plan : TreatmentPlan;
+                out item verifiedPlan : TreatmentPlan;
+            }
+
+            action registerPatient {
+                in item anatomy : PatientAnatomyMap;
+                out item registeredAnatomy : PatientAnatomyMap;
+            }
+
+            action verifySterility {
+                in item tool : SterileInstrument;
+                out attribute sterileReady : Boolean;
+            }
+
+            action enableRobot {
+                in item command : OperatorCommand;
+                out attribute motionEnabled : Boolean;
+            }
+
+            action navigateToTarget {
+                in item verifiedPlan : TreatmentPlan;
+                out item approachCommand : MotionCommand;
+            }
+
+            action executeTreatment {
+                in item verifiedPlan : TreatmentPlan;
+                out item treatmentForce : ForceTorqueSample;
+                out attribute treatmentComplete : Boolean;
+            }
+
+            action retractTool {
+                out item retractCommand : MotionCommand;
+            }
+
+            action completeCase {
+                out item finalStatus : ClinicalTaskStatus;
+            }
+        }
+
+        state def MedicalRobotOperationalStates {
+            entry action initializeSelfTest;
+            state idle;
+            state preparing;
+            state sterileReady;
+            state navigating;
+            state treating;
+            state paused;
+            state recovering;
+            state faulted;
+            state shutdown;
+
+            transition first idle;
+            transition idleToPreparing
+                first idle
+                accept OperatorCommand
+                if operatorCommand.enableMotion
+                then preparing;
+
+            transition preparingToSterileReady
+                first preparing
+                if safety.allInterlocksClosed and sterileDrape.barrierIntegrityOk
+                then sterileReady;
+
+            transition sterileReadyToNavigating
+                first sterileReady
+                accept TreatmentPlan
+                if controller.planVerified
+                then navigating;
+
+            transition navigatingToTreating
+                first navigating
+                if controller.targetReached and safety.patientStable
+                then treating;
+
+            transition treatingToRecovering
+                first treating
+                if controller.primaryTaskComplete
+                then recovering;
+
+            transition recoveringToIdle
+                first recovering
+                if controller.toolRetracted
+                then idle;
+
+            transition pauseFromNavigating
+                first navigating
+                accept OperatorCommand
+                if operatorCommand.pauseRequested
+                then paused;
+
+            transition pauseFromTreating
+                first treating
+                accept OperatorCommand
+                if operatorCommand.pauseRequested
+                then paused;
+
+            transition resumeFromPaused
+                first paused
+                accept OperatorCommand
+                if operatorCommand.resumeRequested and safety.patientStable
+                then navigating;
+
+            transition abortToRecovering
+                first paused
+                accept OperatorCommand
+                if operatorCommand.abortRequested
+                then recovering;
+
+            transition anyFaultToFaulted
+                first idle
+                if safety.criticalFaultActive
+                then faulted;
+
+            transition faultedToShutdown
+                first faulted
+                if powerUnit.safePowerDownComplete
+                then shutdown;
+        }
+    }
+
+    part def RobotController {
+        attribute planVerified : Boolean;
+        attribute targetReached : Boolean;
+        attribute primaryTaskComplete : Boolean;
+        attribute toolRetracted : Boolean;
+        attribute controlLoopPeriod : TimeValue;
+        attribute maximumCommandLatency : TimeValue;
+
+        in item loadedPlan : TreatmentPlan;
+        in item operatorCommand : OperatorCommand;
+        in item poseFeedback : ToolPose;
+        out item motionCommands : MotionCommand;
+        out item modeOutput : RobotMode;
+
+        action computeSafeMotion {
+            in item plan : TreatmentPlan;
+            in item pose : ToolPose;
+            out item command : MotionCommand;
+        }
+
+        action holdPosition {
+            in item pose : ToolPose;
+            out item command : MotionCommand;
+        }
+    }
+
+    part def RoboticManipulator {
+        attribute degreesOfFreedom : Integer;
+        attribute maximumPayload : MassValue;
+        attribute repeatability : LengthValue;
+        attribute jointSpeedLimit : AngularVelocityValue;
+        attribute emergencyStopReactionTime : TimeValue;
+
+        port commandInput : ActuationPort;
+        port instrumentMount : InstrumentPort;
+
+        part shoulderJoint : PrecisionJoint;
+        part elbowJoint : PrecisionJoint;
+        part wristJoint : PrecisionJoint;
+        part linearInsertionAxis : LinearActuator;
+    }
+
+    part def PrecisionJoint {
+        attribute angularRange : PlaneAngleValue;
+        attribute angularAccuracy : PlaneAngleValue;
+        attribute maximumTorque : TorqueValue;
+        attribute locked : Boolean;
+    }
+
+    part def LinearActuator {
+        attribute strokeLength : LengthValue;
+        attribute positionAccuracy : LengthValue;
+        attribute maximumInsertionForce : ForceValue;
+        attribute brakeEngaged : Boolean;
+    }
+
+    part def SurgicalEndEffector {
+        attribute toolType : String;
+        attribute tipTemperature : TemperatureValue;
+        attribute irrigationFlowRate : VolumeFlowRateValue;
+        attribute suctionPressure : PressureValue;
+
+        port robotMount : InstrumentPort;
+        port patientTool : InstrumentPort;
+
+        part sterileTool : SterileInstrument;
+        part forceSensor : ForceSensor;
+        part toolPresenceSensor : BinarySensor;
+    }
+
+    part def ForceSensor {
+        attribute range : ForceValue;
+        attribute resolution : ForceValue;
+        attribute calibrated : Boolean;
+    }
+
+    part def BinarySensor {
+        attribute active : Boolean;
+        attribute diagnosticOk : Boolean;
+    }
+
+    part def MedicalPerceptionSubsystem {
+        attribute registrationAccuracy : LengthValue;
+        attribute imageRefreshPeriod : TimeValue;
+
+        out item imageOutput : PatientAnatomyMap;
+        out item poseOutput : ToolPose;
+
+        part preoperativeImageImporter : ImageImporter;
+        part tracker : ToolTrackingCamera;
+        part registrationProcessor : RegistrationProcessor;
+    }
+
+    part def ImageImporter {
+        attribute acceptedDicomTransferSyntax : String;
+        attribute importComplete : Boolean;
+    }
+
+    part def ToolTrackingCamera {
+        attribute fieldOfView : PlaneAngleValue;
+        attribute trackingAccuracy : LengthValue;
+        attribute frameRateHertz : Real;
+    }
+
+    part def RegistrationProcessor {
+        attribute maximumRegistrationError : LengthValue;
+        attribute registrationValid : Boolean;
+
+        action registerToolToPatient {
+            in item map : PatientAnatomyMap;
+            in item pose : ToolPose;
+            out item registeredMap : PatientAnatomyMap;
+        }
+    }
+
+    part def ClinicalSafetySubsystem {
+        attribute allInterlocksClosed : Boolean;
+        attribute patientStable : Boolean;
+        attribute criticalFaultActive : Boolean;
+        attribute maximumPermittedForce : ForceValue;
+        attribute maximumPermittedDoseRate : DoseRate;
+        attribute minimumOxygenSaturation : Percent;
+        attribute maximumAllowedRegistrationError : LengthValue;
+
+        in item forceInput : ForceTorqueSample;
+        in item vitalInput : VitalSigns;
+        out item activeAlarm : SafetyAlarm;
+
+        part emergencyStop : EmergencyStopUnit;
+        part forceLimiter : ForceLimitMonitor;
+        part vitalSignsMonitor : VitalSignsMonitor;
+        part collisionMonitor : CollisionMonitor;
+        part cybersecurityGuard : CybersecurityGuard;
+
+        action evaluateSafety {
+            in item force : ForceTorqueSample;
+            in item vitals : VitalSigns;
+            out item alarm : SafetyAlarm;
+        }
+    }
+
+    part def EmergencyStopUnit {
+        attribute engaged : Boolean;
+        attribute responseTime : TimeValue;
+        attribute independentPowerCutoff : Boolean;
+    }
+
+    part def ForceLimitMonitor {
+        attribute measuredForce : ForceValue;
+        attribute limit : ForceValue;
+        attribute violationActive : Boolean;
+    }
+
+    part def VitalSignsMonitor {
+        attribute heartRateLowLimit : Real;
+        attribute heartRateHighLimit : Real;
+        attribute oxygenLowLimit : Percent;
+        attribute unstable : Boolean;
+    }
+
+    part def CollisionMonitor {
+        attribute minimumClearance : LengthValue;
+        attribute predictedCollision : Boolean;
+        attribute stopIssued : Boolean;
+    }
+
+    part def CybersecurityGuard {
+        attribute authenticatedSession : Boolean;
+        attribute messageIntegrityOk : Boolean;
+        attribute unauthorizedCommandBlocked : Boolean;
+    }
+
+    part def ClinicalOperatorConsole {
+        attribute displayRefreshPeriod : TimeValue;
+        attribute operatorAuthenticated : Boolean;
+        attribute treatmentApproved : Boolean;
+
+        in item operatorInput : OperatorCommand;
+        out item approvedCommand : OperatorCommand;
+
+        action requestTreatmentApproval {
+            in item plan : TreatmentPlan;
+            out item command : OperatorCommand;
+        }
+    }
+
+    part def SterileBarrierSubsystem {
+        attribute barrierIntegrityOk : Boolean;
+        attribute lastSterilizedAt : Timestamp;
+        attribute measuredSterility : SterilityLevel;
+
+        port protectedInstrument : SterileBarrierPort;
+
+        part sterileDrape : SterileDrape;
+        part barrierSensor : BinarySensor;
+    }
+
+    part def SterileDrape {
+        attribute punctureDetected : Boolean;
+        attribute compatibleWithRobotMotion : Boolean;
+        attribute maximumAllowedBioburden : SterilityLevel;
+    }
+
+    part def MedicalPowerSubsystem {
+        attribute inputVoltage : ElectricPotentialValue;
+        attribute batteryRuntimeRemaining : TimeValue;
+        attribute isolationImpedance : ResistanceValue;
+        attribute safePowerDownComplete : Boolean;
+
+        port outputPower : PowerPort;
+
+        part isolationTransformer : IsolationTransformer;
+        part backupBattery : BackupBattery;
+    }
+
+    part def IsolationTransformer {
+        attribute ratedPower : PowerValue;
+        attribute leakageCurrent : ElectricCurrentValue;
+    }
+
+    part def BackupBattery {
+        attribute capacity : EnergyValue;
+        attribute stateOfCharge : Percent;
+        attribute supportsControlledRetraction : Boolean;
+    }
+
+    part medicalRobotSystem {
+        attribute systemId : Identifier;
+        attribute installationSite : String;
+        attribute primaryClinicalTask : String = "Robotically assisted minimally invasive treatment";
+        attribute nominalTaskDuration : TimeValue;
+        attribute validatedSoftwareVersion : Identifier;
+
+        part medicalRobot : MedicalRobot {
+            attribute maximumReach = 1.25 [m];
+            attribute positioningAccuracy = 0.5 [mm];
+            attribute maximumToolSpeed = 40.0 [mm/s];
+            attribute maximumToolForce = 15.0 [N];
+            attribute allowedLeakageCurrent = 100.0 [uA];
+        }
+
+        part patientTable : PatientTable;
+        part hospitalImagingSystem : HospitalImagingSystem;
+        part hospitalNetworkGateway : HospitalNetworkGateway;
+        part clinician : ClinicalOperator;
+        part patient : Patient;
+
+        connect hospitalImagingSystem.robotImagingPort to medicalRobot.imagingInterface;
+        connect hospitalNetworkGateway.robotNetworkPort to medicalRobot.hospitalNetwork;
+        connect patientTable.patientMonitorPort to medicalRobot.monitorInput;
+        connect medicalRobot.powerIn to hospitalNetworkGateway.medicalPowerPort;
+    }
+
+    part def PatientTable {
+        attribute tableHeight : LengthValue;
+        attribute locked : Boolean;
+        attribute maximumPatientMass : MassValue;
+
+        port patientMonitorPort : PatientMonitoringPort;
+
+        part physiologicMonitor : PhysiologicMonitor;
+    }
+
+    part def PhysiologicMonitor {
+        attribute samplePeriod : TimeValue;
+        attribute connected : Boolean;
+        out item vitalSigns : VitalSigns;
+    }
+
+    part def HospitalImagingSystem {
+        attribute modality : String;
+        attribute imageResolution : LengthValue;
+        attribute radiationDoseRate : DoseRate;
+
+        port robotImagingPort : ImagingPort;
+    }
+
+    part def HospitalNetworkGateway {
+        attribute encrypted : Boolean;
+        attribute latency : TimeValue;
+        attribute authenticated : Boolean;
+
+        port robotNetworkPort : NetworkPort;
+        port medicalPowerPort : PowerPort;
+    }
+
+    part def ClinicalOperator {
+        attribute credentialId : Identifier;
+        attribute trainedForSystem : Boolean;
+        attribute sterileRole : Boolean;
+    }
+
+    part def Patient {
+        attribute patientId : Identifier;
+        attribute consentConfirmed : Boolean;
+        attribute weight : MassValue;
+        attribute allergyProfileReviewed : Boolean;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject robot : MedicalRobot;
+        require constraint {
+            robot.positioningAccuracy <= 1.0 [mm]
+        }
+        require constraint {
+            robot.maximumToolForce <= 20.0 [N]
+        }
+    }
+
+    requirement def MedicalRobotUseRequirement {
+        subject system : medicalRobotSystem;
+        require constraint {
+            system.medicalRobot.currentMode != RobotMode::faulted
+        }
+    }
+
+    requirement def SterilityRequirement {
+        subject barrier : SterileBarrierSubsystem;
+        require constraint {
+            barrier.barrierIntegrityOk == true
+        }
+    }
+
+    requirement def PatientSafetyRequirement {
+        subject safety : ClinicalSafetySubsystem;
+        require constraint {
+            safety.maximumPermittedForce <= 20.0 [N]
+        }
+        require constraint {
+            safety.criticalFaultActive == false
+        }
+    }
+
+    requirement def RegistrationAccuracyRequirement {
+        subject perception : MedicalPerceptionSubsystem;
+        require constraint {
+            perception.registrationAccuracy <= 1.0 [mm]
+        }
+    }
+
+    requirement def EmergencyStopRequirement {
+        subject stop : EmergencyStopUnit;
+        require constraint {
+            stop.responseTime <= 0.25 [s]
+        }
+        require constraint {
+            stop.independentPowerCutoff == true
+        }
+    }
+
+    requirement def CybersecurityRequirement {
+        subject guard : CybersecurityGuard;
+        require constraint {
+            guard.authenticatedSession == true
+        }
+        require constraint {
+            guard.messageIntegrityOk == true
+        }
+    }
+
+    requirement def BackupPowerRequirement {
+        subject power : MedicalPowerSubsystem;
+        require constraint {
+            power.batteryRuntimeRemaining >= 300.0 [s]
+        }
+    }
+
+    satisfy PrimaryTaskRequirement by medicalRobotSystem.medicalRobot;
+    satisfy MedicalRobotUseRequirement by medicalRobotSystem;
+    satisfy SterilityRequirement by medicalRobotSystem.medicalRobot.sterileDrape;
+    satisfy PatientSafetyRequirement by medicalRobotSystem.medicalRobot.safety;
+    satisfy RegistrationAccuracyRequirement by medicalRobotSystem.medicalRobot.perception;
+    satisfy EmergencyStopRequirement by medicalRobotSystem.medicalRobot.safety.emergencyStop;
+    satisfy CybersecurityRequirement by medicalRobotSystem.medicalRobot.safety.cybersecurityGuard;
+    satisfy BackupPowerRequirement by medicalRobotSystem.medicalRobot.powerUnit;
+}

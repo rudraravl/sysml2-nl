@@ -1,0 +1,406 @@
+package HydrogenSensingUnitModel {
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Concentration {
+        :> ScalarValues::Real;
+        unit = "ppm";
+    }
+
+    attribute def TemperatureCelsius {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def RelativeHumidity {
+        :> ScalarValues::Real;
+        unit = "percent";
+    }
+
+    attribute def Voltage {
+        :> ScalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> ScalarValues::Real;
+        unit = "mA";
+    }
+
+    attribute def TimeSeconds {
+        :> ScalarValues::Real;
+        unit = "s";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "W";
+    }
+
+    enum def SensorHealth {
+        enum ok;
+        enum warmingUp;
+        enum degraded;
+        enum faulted;
+        enum outOfRange;
+    }
+
+    enum def MeasurementQuality {
+        enum valid;
+        enum warming;
+        enum stale;
+        enum invalid;
+        enum saturated;
+    }
+
+    item def AmbientGasSample {
+        attribute hydrogenConcentration : Concentration;
+        attribute ambientTemperature : TemperatureCelsius;
+        attribute relativeHumidity : RelativeHumidity;
+        attribute pressure : PressureValue;
+    }
+
+    item def HydrogenMeasurement {
+        attribute hydrogenConcentration : Concentration;
+        attribute compensatedConcentration : Concentration;
+        attribute sampleTemperature : TemperatureCelsius;
+        attribute sampleHumidity : RelativeHumidity;
+        attribute quality : MeasurementQuality;
+        attribute sensorHealth : SensorHealth;
+        attribute timestamp : TimeSeconds;
+    }
+
+    item def SensorDiagnostics {
+        attribute health : SensorHealth;
+        attribute heaterVoltage : Voltage;
+        attribute sensorResistance : ResistanceValue;
+        attribute warmupRemaining : TimeSeconds;
+        attribute faultCode : Integer;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+        attribute consumedPower : Power;
+    }
+
+    item def AlarmSignal {
+        attribute active : Boolean;
+        attribute hydrogenConcentration : Concentration;
+        attribute alarmThreshold : Concentration;
+        attribute timestamp : TimeSeconds;
+    }
+
+    port def GasIntakePort {
+        in item gasSample : AmbientGasSample;
+    }
+
+    port def MeasurementOutputPort {
+        out item measurement : HydrogenMeasurement;
+    }
+
+    port def DiagnosticOutputPort {
+        out item diagnostics : SensorDiagnostics;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def AlarmOutputPort {
+        out item alarm : AlarmSignal;
+    }
+
+    port def InternalAnalogPort {
+        out attribute sensorVoltage : Voltage;
+        out attribute heaterCurrent : Current;
+    }
+
+    port def DigitalDataPort {
+        out item measurementFrame : HydrogenMeasurement;
+        out item diagnosticFrame : SensorDiagnostics;
+    }
+
+    action def HeatHydrogenSensor {
+        in attribute targetTemperature : TemperatureCelsius;
+        in attribute availablePower : ElectricalPower;
+        out attribute heaterVoltage : Voltage;
+        out attribute heaterCurrent : Current;
+    }
+
+    action def SampleHydrogenSensor {
+        in item gasSample : AmbientGasSample;
+        in attribute heaterVoltage : Voltage;
+        out attribute rawSensorVoltage : Voltage;
+        out attribute sensorResistance : ResistanceValue;
+    }
+
+    action def CompensateHydrogenMeasurement {
+        in attribute rawConcentration : Concentration;
+        in attribute sampleTemperature : TemperatureCelsius;
+        in attribute sampleHumidity : RelativeHumidity;
+        out attribute compensatedConcentration : Concentration;
+    }
+
+    action def EvaluateHydrogenAlarm {
+        in attribute concentration : Concentration;
+        in attribute threshold : Concentration;
+        out attribute alarmActive : Boolean;
+    }
+
+    action def PublishHydrogenMeasurement {
+        in item measurement : HydrogenMeasurement;
+        out item publishedMeasurement : HydrogenMeasurement;
+    }
+
+    state def SensingUnitOperatingState {
+        entry action initialize;
+
+        state off;
+        state powering;
+        state warmup;
+        state measuring;
+        state alarmActive;
+        state fault;
+
+        transition first off;
+
+        transition off_to_powering
+            first off
+            then powering;
+
+        transition powering_to_warmup
+            first powering
+            then warmup;
+
+        transition warmup_to_measuring
+            first warmup
+            then measuring;
+
+        transition measuring_to_alarm
+            first measuring
+            then alarmActive;
+
+        transition alarm_to_measuring
+            first alarmActive
+            then measuring;
+
+        transition measuring_to_fault
+            first measuring
+            then fault;
+
+        transition warmup_to_fault
+            first warmup
+            then fault;
+
+        transition fault_to_powering
+            first fault
+            then powering;
+    }
+
+    part def HydrogenSensorElement {
+        attribute detectionRangeMin : Concentration = 0.0 [ppm];
+        attribute detectionRangeMax : Concentration = 40000.0 [ppm];
+        attribute nominalSensitivity : Real = 0.85;
+        attribute responseTimeT90 : TimeSeconds = 10.0 [s];
+        attribute warmupTime : TimeSeconds = 60.0 [s];
+        attribute heaterTargetTemperature : TemperatureCelsius = 300.0 [degC];
+        attribute sensorHealth : SensorHealth = SensorHealth::warmingUp;
+        attribute rawSensorVoltage : Voltage;
+        attribute sensorResistance : ResistanceValue;
+
+        port gasIn : GasIntakePort;
+        port powerIn : PowerInputPort;
+        port analogOut : InternalAnalogPort;
+
+        action heat : HeatHydrogenSensor {
+            in targetTemperature = heaterTargetTemperature;
+            out heaterVoltage;
+            out heaterCurrent;
+        }
+
+        action sample : SampleHydrogenSensor {
+            in gasSample = gasIn.gasSample;
+            out rawSensorVoltage;
+            out sensorResistance;
+        }
+    }
+
+    part def SignalConditioningCircuit {
+        attribute excitationVoltage : Voltage = 5.0 [V];
+        attribute adcResolutionBits : Integer = 16;
+        attribute lowPassCutoffFrequency : FrequencyValue = 5.0 [Hz];
+        attribute conditionedVoltage : Voltage;
+        attribute inferredRawConcentration : Concentration;
+
+        port analogIn : InternalAnalogPort;
+        port powerIn : PowerInputPort;
+        port digitalOut : DigitalDataPort;
+    }
+
+    part def EnvironmentalCompensator {
+        attribute temperatureCoefficient : Real = -0.012;
+        attribute humidityCoefficient : Real = 0.006;
+        attribute lastCompensatedConcentration : Concentration;
+
+        action compensate : CompensateHydrogenMeasurement {
+            out compensatedConcentration = lastCompensatedConcentration;
+        }
+    }
+
+    part def MeasurementController {
+        attribute samplePeriod : TimeSeconds = 1.0 [s];
+        attribute alarmThreshold : Concentration = 10000.0 [ppm];
+        attribute warningThreshold : Concentration = 4000.0 [ppm];
+        attribute currentTime : TimeSeconds;
+        attribute currentHealth : SensorHealth = SensorHealth::warmingUp;
+        attribute currentQuality : MeasurementQuality = MeasurementQuality::warming;
+        attribute measuredHydrogen : Concentration;
+        attribute compensatedHydrogen : Concentration;
+
+        port dataIn : DigitalDataPort;
+        port measurementOut : MeasurementOutputPort;
+        port diagnosticsOut : DiagnosticOutputPort;
+        port alarmOut : AlarmOutputPort;
+
+        state operatingState : SensingUnitOperatingState;
+
+        action evaluateAlarm : EvaluateHydrogenAlarm {
+            in concentration = compensatedHydrogen;
+            in threshold = alarmThreshold;
+        }
+
+        action publishMeasurement : PublishHydrogenMeasurement {
+            out publishedMeasurement = measurementOut.measurement;
+        }
+    }
+
+    part def PowerRegulator {
+        attribute inputVoltageMin : Voltage = 9.0 [V];
+        attribute inputVoltageMax : Voltage = 30.0 [V];
+        attribute regulatedLogicVoltage : Voltage = 3.3 [V];
+        attribute regulatedHeaterVoltage : Voltage = 5.0 [V];
+        attribute maxOutputCurrent : Current = 500.0 [mA];
+
+        port externalPowerIn : PowerInputPort;
+        port sensorPowerOut : PowerInputPort;
+        port electronicsPowerOut : PowerInputPort;
+    }
+
+    part def HydrogenSensingUnit {
+        attribute enclosureIngressProtection : String = "IP54";
+        attribute measurementRangeMin : Concentration = 0.0 [ppm];
+        attribute measurementRangeMax : Concentration = 40000.0 [ppm];
+        attribute measurementAccuracy : Concentration = 100.0 [ppm];
+        attribute operatingTemperatureMin : TemperatureCelsius = -20.0 [degC];
+        attribute operatingTemperatureMax : TemperatureCelsius = 55.0 [degC];
+        attribute nominalSupplyVoltage : Voltage = 24.0 [V];
+        attribute maximumPowerConsumption : Power = 2.5 [W];
+
+        port gasIn : GasIntakePort;
+        port powerIn : PowerInputPort;
+        port measurementOut : MeasurementOutputPort;
+        port diagnosticsOut : DiagnosticOutputPort;
+        port alarmOut : AlarmOutputPort;
+
+        part sensor : HydrogenSensorElement;
+        part conditioner : SignalConditioningCircuit;
+        part compensator : EnvironmentalCompensator;
+        part controller : MeasurementController;
+        part regulator : PowerRegulator;
+
+        connect gasIn to sensor.gasIn;
+        connect powerIn to regulator.externalPowerIn;
+        connect regulator.sensorPowerOut to sensor.powerIn;
+        connect regulator.electronicsPowerOut to conditioner.powerIn;
+        connect sensor.analogOut to conditioner.analogIn;
+        connect conditioner.digitalOut to controller.dataIn;
+        connect controller.measurementOut to measurementOut;
+        connect controller.diagnosticsOut to diagnosticsOut;
+        connect controller.alarmOut to alarmOut;
+    }
+
+    requirement def HydrogenDetectionRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementRangeMin <= 0.0 [ppm] and
+            sensingUnit.measurementRangeMax >= 40000.0 [ppm]
+        }
+
+        doc /* The sensing unit shall measure hydrogen concentration in ambient gas using a hydrogen sensor over at least 0 ppm to 40000 ppm. */
+    }
+
+    requirement def AccuracyRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.measurementAccuracy <= 100.0 [ppm]
+        }
+
+        doc /* The sensing unit shall report compensated hydrogen concentration with an accuracy of 100 ppm or better under nominal environmental conditions. */
+    }
+
+    requirement def ResponseTimeRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.responseTimeT90 <= 10.0 [s]
+        }
+
+        doc /* The hydrogen sensor shall reach 90 percent of final indicated concentration within 10 seconds after a step change in hydrogen concentration. */
+    }
+
+    requirement def WarmupRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.sensor.warmupTime <= 60.0 [s]
+        }
+
+        doc /* The sensing unit shall enter valid measuring mode no later than 60 seconds after power is applied. */
+    }
+
+    requirement def AlarmRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.controller.alarmThreshold == 10000.0 [ppm]
+        }
+
+        doc /* The sensing unit shall assert an alarm output when compensated hydrogen concentration is equal to or greater than 10000 ppm. */
+    }
+
+    requirement def EnvironmentalOperatingRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.operatingTemperatureMin <= -20.0 [degC] and
+            sensingUnit.operatingTemperatureMax >= 55.0 [degC]
+        }
+
+        doc /* The sensing unit shall operate over an ambient temperature range from -20 degC to 55 degC. */
+    }
+
+    requirement def DiagnosticRequirement {
+        subject sensingUnit : HydrogenSensingUnit;
+
+        require constraint {
+            sensingUnit.controller.currentHealth == SensorHealth::ok or
+            sensingUnit.controller.currentHealth == SensorHealth::warmingUp or
+            sensingUnit.controller.currentHealth == SensorHealth::degraded or
+            sensingUnit.controller.currentHealth == SensorHealth::faulted or
+            sensingUnit.controller.currentHealth == SensorHealth::outOfRange
+        }
+
+        doc /* The sensing unit shall publish diagnostics including sensor health, heater voltage, sensor resistance, warmup remaining time, and fault code. */
+    }
+
+    satisfy HydrogenDetectionRequirement by HydrogenSensingUnit;
+    satisfy AccuracyRequirement by HydrogenSensingUnit;
+    satisfy ResponseTimeRequirement by HydrogenSensingUnit::sensor;
+    satisfy WarmupRequirement by HydrogenSensingUnit::sensor;
+    satisfy AlarmRequirement by HydrogenSensingUnit::controller;
+    satisfy EnvironmentalOperatingRequirement by HydrogenSensingUnit;
+    satisfy DiagnosticRequirement by HydrogenSensingUnit::controller;
+}

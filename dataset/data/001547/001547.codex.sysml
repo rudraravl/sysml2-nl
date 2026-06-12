@@ -1,0 +1,555 @@
+package RobotHallOfFameTaskSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        unit = "%";
+    }
+
+    attribute def Confidence :> Real {
+        range = "0..1";
+    }
+
+    attribute def HallEntryId :> String;
+    attribute def RobotName :> String;
+    attribute def Era :> String;
+    attribute def TaskCategory :> String;
+
+    item def Power {
+        attribute voltage : Real;
+        attribute current : Real;
+        attribute energyRemaining : Percent;
+    }
+
+    item def MotionCommand {
+        attribute targetX_m : Real;
+        attribute targetY_m : Real;
+        attribute targetTheta_rad : Real;
+        attribute maxSpeed_mps : Real;
+    }
+
+    item def ManipulationCommand {
+        attribute gripForce_N : Real;
+        attribute liftHeight_m : Real;
+        attribute releasePoseX_m : Real;
+        attribute releasePoseY_m : Real;
+    }
+
+    item def SensorFrame {
+        attribute timestamp_s : Real;
+        attribute range_m : Real;
+        attribute objectClass : String;
+        attribute confidence : Confidence;
+    }
+
+    item def HallOfFameProfile {
+        attribute entryId : HallEntryId;
+        attribute robotName : RobotName;
+        attribute era : Era;
+        attribute primaryTask : TaskCategory;
+        attribute locomotionPattern : String;
+        attribute manipulationPattern : String;
+        attribute safetyPrinciple : String;
+        attribute recommendedSpeed_mps : Real;
+        attribute recommendedGripForce_N : Real;
+        attribute minimumConfidence : Confidence;
+    }
+
+    item def MissionReport {
+        attribute completed : Boolean;
+        attribute selectedProfile : RobotName;
+        attribute taskDuration_s : Real;
+        attribute itemsDelivered : Integer;
+        attribute safetyStops : Integer;
+    }
+
+    port def PowerPort {
+        in item powerIn : Power;
+    }
+
+    port def CommandPort {
+        in item motionCommand : MotionCommand;
+        in item manipulationCommand : ManipulationCommand;
+    }
+
+    port def SensorPort {
+        out item frame : SensorFrame;
+    }
+
+    port def DataPort {
+        in item profileIn : HallOfFameProfile;
+        out item reportOut : MissionReport;
+    }
+
+    port def DrivePort {
+        in item command : MotionCommand;
+    }
+
+    port def ArmPort {
+        in item command : ManipulationCommand;
+    }
+
+    part def RobotHallOfFameRepository {
+        port dataOut : DataPort;
+
+        attribute entries : Integer = 5;
+
+        part sharonProfile {
+            attribute profile : HallOfFameProfile {
+                entryId = "RHOF-CARE-001";
+                robotName = "Shakey";
+                era = "1960s";
+                primaryTask = "deliberative-navigation";
+                locomotionPattern = "sense-plan-act";
+                manipulationPattern = "none";
+                safetyPrinciple = "slow planned movement with obstacle confirmation";
+                recommendedSpeed_mps = 0.35;
+                recommendedGripForce_N = 0.0;
+                minimumConfidence = 0.72;
+            }
+        }
+
+        part unimateProfile {
+            attribute profile : HallOfFameProfile {
+                entryId = "RHOF-IND-002";
+                robotName = "Unimate";
+                era = "1960s";
+                primaryTask = "industrial-transfer";
+                locomotionPattern = "fixed-base-repetition";
+                manipulationPattern = "high-repeatability-pick-place";
+                safetyPrinciple = "operate only inside cleared work envelope";
+                recommendedSpeed_mps = 0.20;
+                recommendedGripForce_N = 42.0;
+                minimumConfidence = 0.85;
+            }
+        }
+
+        part roombaProfile {
+            attribute profile : HallOfFameProfile {
+                entryId = "RHOF-SVC-003";
+                robotName = "Roomba";
+                era = "2000s";
+                primaryTask = "domestic-coverage";
+                locomotionPattern = "coverage-with-bump-recovery";
+                manipulationPattern = "none";
+                safetyPrinciple = "low-energy contact and immediate retreat";
+                recommendedSpeed_mps = 0.45;
+                recommendedGripForce_N = 0.0;
+                minimumConfidence = 0.60;
+            }
+        }
+
+        action selectProfile {
+            in task : TaskCategory;
+            out selected : HallOfFameProfile;
+
+            first start;
+            then compareTask;
+            then chooseBestMatch;
+            then emitProfile;
+            then done;
+
+            flow task from start to compareTask;
+            flow selected from chooseBestMatch to emitProfile;
+        }
+    }
+
+    part def MobileBase {
+        port power : PowerPort;
+        port drive : DrivePort;
+
+        attribute maximumSpeed_mps : Real = 1.20;
+        attribute commandedSpeed_mps : Real = 0.0;
+        attribute wheelDiameter_m : Real = 0.18;
+        attribute poseX_m : Real = 0.0;
+        attribute poseY_m : Real = 0.0;
+        attribute poseTheta_rad : Real = 0.0;
+
+        state baseState {
+            entry; then idle;
+
+            state idle;
+            state moving;
+            state stoppedForObstacle;
+            state faulted;
+
+            transition idle_to_moving
+                first idle
+                accept MotionCommand
+                then moving;
+
+            transition moving_to_idle
+                first moving
+                if commandedSpeed_mps == 0.0
+                then idle;
+
+            transition obstacle_stop
+                first moving
+                if commandedSpeed_mps > 0.0
+                then stoppedForObstacle;
+
+            transition clear_obstacle
+                first stoppedForObstacle
+                accept MotionCommand
+                then moving;
+        }
+    }
+
+    part def Manipulator {
+        port power : PowerPort;
+        port arm : ArmPort;
+
+        attribute degreesOfFreedom : Integer = 6;
+        attribute maximumPayload_kg : Real = 4.0;
+        attribute gripForce_N : Real = 0.0;
+        attribute endEffectorHeight_m : Real = 0.0;
+
+        state armState {
+            entry; then stowed;
+
+            state stowed;
+            state reaching;
+            state grasping;
+            state carrying;
+            state releasing;
+            state faulted;
+
+            transition deploy first stowed accept ManipulationCommand then reaching;
+            transition grasp first reaching if gripForce_N > 0.0 then grasping;
+            transition lift first grasping if endEffectorHeight_m > 0.25 then carrying;
+            transition release first carrying accept ManipulationCommand then releasing;
+            transition restow first releasing then stowed;
+        }
+    }
+
+    part def PerceptionSuite {
+        port sensor : SensorPort;
+        port power : PowerPort;
+
+        attribute lidarRange_m : Real = 12.0;
+        attribute cameraHorizontalFov_rad : Real = 1.57;
+        attribute objectConfidence : Confidence = 0.0;
+        attribute detectedObstacleDistance_m : Real = 12.0;
+
+        action classifyObject {
+            in frame : SensorFrame;
+            out className : String;
+            out confidence : Confidence;
+
+            first receiveFrame;
+            then extractFeatures;
+            then compareToMissionObjects;
+            then publishClassification;
+            then done;
+        }
+    }
+
+    part def MissionController {
+        port hallData : DataPort;
+        port commands : CommandPort;
+
+        attribute activeTask : TaskCategory = "museum-guide-object-delivery";
+        attribute selectedRobotName : RobotName = "Unimate";
+        attribute minimumConfidence : Confidence = 0.85;
+        attribute commandedSpeed_mps : Real = 0.20;
+        attribute commandedGripForce_N : Real = 42.0;
+        attribute deliveredItems : Integer = 0;
+        attribute safetyStops : Integer = 0;
+
+        action adaptFromHallOfFame {
+            in profile : HallOfFameProfile;
+            out motion : MotionCommand;
+            out manipulation : ManipulationCommand;
+
+            first readProfile;
+            then setSpeedFromProfile;
+            then setGripForceFromProfile;
+            then bindSafetyThreshold;
+            then emitCommands;
+            then done;
+
+            flow profile from readProfile to setSpeedFromProfile;
+            flow profile from readProfile to setGripForceFromProfile;
+            flow motion from setSpeedFromProfile to emitCommands;
+            flow manipulation from setGripForceFromProfile to emitCommands;
+        }
+
+        action performPrimaryTask {
+            in profile : HallOfFameProfile;
+            out report : MissionReport;
+
+            first initializeMission;
+            then requestHallProfile;
+            then navigateToPickup;
+            then identifyPayload;
+            then graspPayload;
+            then navigateToDestination;
+            then releasePayload;
+            then generateReport;
+            then missionComplete;
+
+            flow profile from requestHallProfile to navigateToPickup;
+            flow report from generateReport to missionComplete;
+        }
+
+        state missionState {
+            entry; then awaitingProfile;
+
+            state awaitingProfile;
+            state adaptingBehavior;
+            state navigatingToPickup;
+            state pickingItem;
+            state transportingItem;
+            state deliveringItem;
+            state reporting;
+            state complete;
+            state safeStop;
+
+            transition profile_received first awaitingProfile accept HallOfFameProfile then adaptingBehavior;
+            transition adapted first adaptingBehavior then navigatingToPickup;
+            transition arrived_pickup first navigatingToPickup then pickingItem;
+            transition item_secured first pickingItem then transportingItem;
+            transition arrived_destination first transportingItem then deliveringItem;
+            transition item_released first deliveringItem then reporting;
+            transition report_sent first reporting then complete;
+
+            transition navigation_safe_stop
+                first navigatingToPickup
+                if minimumConfidence > 0.0
+                then safeStop;
+
+            transition transport_safe_stop
+                first transportingItem
+                if minimumConfidence > 0.0
+                then safeStop;
+
+            transition resume_after_clear
+                first safeStop
+                accept SensorFrame
+                then transportingItem;
+        }
+    }
+
+    part def SafetySupervisor {
+        port sensorIn : SensorPort;
+        port commandOut : CommandPort;
+
+        attribute minimumHumanDistance_m : Real = 1.25;
+        attribute maximumAllowedSpeed_mps : Real = 0.50;
+        attribute emergencyStopActive : Boolean = false;
+
+        action evaluateSafety {
+            in frame : SensorFrame;
+            in motion : MotionCommand;
+            out allowMotion : Boolean;
+
+            first readSensorFrame;
+            then checkHumanDistance;
+            then checkSpeedLimit;
+            then decide;
+            then done;
+        }
+
+        state safetyState {
+            entry; then monitoring;
+
+            state monitoring;
+            state limitingSpeed;
+            state emergencyStopped;
+
+            transition limit_speed
+                first monitoring
+                if maximumAllowedSpeed_mps < 0.50
+                then limitingSpeed;
+
+            transition stop_for_human
+                first monitoring
+                if minimumHumanDistance_m < 1.25
+                then emergencyStopped;
+
+            transition reset
+                first emergencyStopped
+                accept SensorFrame
+                then monitoring;
+        }
+    }
+
+    part def HallOfFameInspiredRobot {
+        port externalPower : PowerPort;
+        port reportPort : DataPort;
+
+        part hall : RobotHallOfFameRepository;
+        part controller : MissionController;
+        part base : MobileBase;
+        part arm : Manipulator;
+        part perception : PerceptionSuite;
+        part safety : SafetySupervisor;
+
+        connect hall.dataOut to controller.hallData;
+        connect controller.commands to base.drive;
+        connect controller.commands to arm.arm;
+        connect perception.sensor to safety.sensorIn;
+        connect safety.commandOut to controller.commands;
+        connect externalPower to base.power;
+        connect externalPower to arm.power;
+        connect externalPower to perception.power;
+        connect controller.hallData to reportPort;
+
+        attribute missionAreaLength_m : Real = 18.0;
+        attribute missionAreaWidth_m : Real = 8.0;
+        attribute nominalPayloadMass_kg : Real = 1.5;
+        attribute batteryCapacity_Wh : Real = 620.0;
+    }
+
+    requirement def UseRobotHallOfFameRequirement {
+        subject robot : HallOfFameInspiredRobot;
+
+        require constraint {
+            robot.controller.selectedRobotName != "";
+        }
+
+        doc /* The robot shall select an operational profile from the Robot Hall of Fame repository before executing its primary mission behavior. */
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject robot : HallOfFameInspiredRobot;
+
+        require constraint {
+            robot.controller.deliveredItems >= 1;
+        }
+
+        doc /* The robot shall deliver at least one payload from pickup location to destination using behavior parameters derived from a Hall of Fame robot profile. */
+    }
+
+    requirement def SafetyRequirement {
+        subject robot : HallOfFameInspiredRobot;
+
+        require constraint {
+            robot.safety.minimumHumanDistance_m >= 1.25 and
+            robot.safety.maximumAllowedSpeed_mps <= 0.50;
+        }
+
+        doc /* The robot shall maintain human separation and speed limits while executing Hall-of-Fame-inspired navigation and manipulation behaviors. */
+    }
+
+    requirement def PerceptionRequirement {
+        subject robot : HallOfFameInspiredRobot;
+
+        require constraint {
+            robot.perception.lidarRange_m >= 10.0 and
+            robot.controller.minimumConfidence >= 0.60;
+        }
+
+        doc /* The perception subsystem shall provide sufficient range and confidence for profile-dependent autonomous operation. */
+    }
+
+    requirement def ManipulationRequirement {
+        subject robot : HallOfFameInspiredRobot;
+
+        require constraint {
+            robot.arm.maximumPayload_kg >= robot.nominalPayloadMass_kg and
+            robot.controller.commandedGripForce_N >= 20.0;
+        }
+
+        doc /* The manipulator shall grasp, lift, transport, and release the mission payload with force limits derived from the selected Hall of Fame profile. */
+    }
+
+    requirement def EnergyRequirement {
+        subject robot : HallOfFameInspiredRobot;
+
+        require constraint {
+            robot.batteryCapacity_Wh >= 500.0;
+        }
+
+        doc /* The robot shall carry sufficient stored energy to complete one full guided delivery mission in the museum operating area. */
+    }
+
+    satisfy UseRobotHallOfFameRequirement by HallOfFameInspiredRobot::controller;
+    satisfy PrimaryTaskRequirement by HallOfFameInspiredRobot;
+    satisfy SafetyRequirement by HallOfFameInspiredRobot::safety;
+    satisfy PerceptionRequirement by HallOfFameInspiredRobot::perception;
+    satisfy ManipulationRequirement by HallOfFameInspiredRobot::arm;
+    satisfy EnergyRequirement by HallOfFameInspiredRobot;
+
+    action def MuseumGuideDeliveryMission {
+        in robot : HallOfFameInspiredRobot;
+        out report : MissionReport;
+
+        first powerOn;
+        then loadHallOfFameRepository;
+        then selectUnimateTransferProfile;
+        then adaptControllerParameters;
+        then scanPickupArea;
+        then moveToPayload;
+        then graspPayload;
+        then transportPayload;
+        then releaseAtExhibitStation;
+        then publishMissionReport;
+        then shutdownReady;
+
+        flow robot.hall.unimateProfile.profile from selectUnimateTransferProfile to adaptControllerParameters;
+        flow report from publishMissionReport to shutdownReady;
+    }
+
+    package VerificationCases {
+        requirement verifyHallProfileLoaded {
+            subject robot : HallOfFameInspiredRobot;
+
+            require constraint {
+                robot.hall.entries >= 3 and
+                robot.controller.selectedRobotName == "Unimate";
+            }
+        }
+
+        requirement verifyTaskCompletion {
+            subject robot : HallOfFameInspiredRobot;
+
+            require constraint {
+                robot.controller.deliveredItems == 1 and
+                robot.controller.safetyStops <= 3;
+            }
+        }
+    }
+
+    part robotSystem : HallOfFameInspiredRobot {
+        attribute missionAreaLength_m = 18.0;
+        attribute missionAreaWidth_m = 8.0;
+        attribute nominalPayloadMass_kg = 1.5;
+        attribute batteryCapacity_Wh = 620.0;
+
+        part controller {
+            attribute selectedRobotName = "Unimate";
+            attribute activeTask = "museum-guide-object-delivery";
+            attribute minimumConfidence = 0.85;
+            attribute commandedSpeed_mps = 0.20;
+            attribute commandedGripForce_N = 42.0;
+            attribute deliveredItems = 1;
+            attribute safetyStops = 0;
+        }
+
+        part safety {
+            attribute minimumHumanDistance_m = 1.25;
+            attribute maximumAllowedSpeed_mps = 0.50;
+            attribute emergencyStopActive = false;
+        }
+
+        part base {
+            attribute maximumSpeed_mps = 1.20;
+            attribute commandedSpeed_mps = 0.20;
+        }
+
+        part arm {
+            attribute maximumPayload_kg = 4.0;
+            attribute gripForce_N = 42.0;
+            attribute endEffectorHeight_m = 0.45;
+        }
+
+        part perception {
+            attribute lidarRange_m = 12.0;
+            attribute objectConfidence = 0.91;
+            attribute detectedObstacleDistance_m = 4.8;
+        }
+    }
+}

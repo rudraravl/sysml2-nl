@@ -1,0 +1,559 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-fv5q5ypx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb824-5ec8-7143-b6ea-56ca91434caf
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Linkage and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package LinkageBasedSystem {
+
+  import ScalarValues::*;
+
+  attribute def Length_m :> Real;
+  attribute def Angle_deg :> Real;
+  attribute def AngularVelocity_rpm :> Real;
+  attribute def Force_N :> Real;
+  attribute def Torque_Nm :> Real;
+  attribute def Voltage_V :> Real;
+  attribute def Current_A :> Real;
+  attribute def Time_s :> Real;
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute current : Current_A;
+  }
+
+  item def RotaryMotion {
+    attribute angle : Angle_deg;
+    attribute speed : AngularVelocity_rpm;
+    attribute torque : Torque_Nm;
+  }
+
+  item def GuidedOutputMotion {
+    attribute displacement : Length_m;
+    attribute angle : Angle_deg;
+    attribute force : Force_N;
+  }
+
+  item def ControlCommand {
+    attribute targetPosition : Length_m;
+    attribute enable : Boolean;
+  }
+
+  item def PositionFeedback {
+    attribute measuredPosition : Length_m;
+    attribute measuredAngle : Angle_deg;
+    attribute valid : Boolean;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def FeedbackPort {
+    out item feedback : PositionFeedback;
+  }
+
+  port def RotaryMechanicalPort {
+    inout item motion : RotaryMotion;
+  }
+
+  port def GuidedMechanicalPort {
+    out item motion : GuidedOutputMotion;
+  }
+
+  part def ElectricMotor {
+    port powerIn : ElectricalPowerPort;
+    port shaft : RotaryMechanicalPort;
+
+    attribute ratedVoltage : Voltage_V = 24.0;
+    attribute stallTorque : Torque_Nm = 2.4;
+    attribute noLoadSpeed : AngularVelocity_rpm = 180.0;
+  }
+
+  part def GearReducer {
+    port inputShaft : RotaryMechanicalPort;
+    port outputShaft : RotaryMechanicalPort;
+
+    attribute gearRatio : Real = 25.0;
+    attribute efficiency : Real = 0.82;
+    attribute ratedOutputTorque : Torque_Nm = 18.0;
+  }
+
+  part def GroundLink {
+    attribute pivotSpacing : Length_m = 0.180;
+  }
+
+  part def InputCrank {
+    port drivePivot : RotaryMechanicalPort;
+
+    attribute length : Length_m = 0.045;
+    attribute allowableTorque : Torque_Nm = 16.0;
+  }
+
+  part def CouplerLink {
+    attribute length : Length_m = 0.140;
+    attribute couplerPointOffset : Length_m = 0.055;
+  }
+
+  part def OutputRocker {
+    port outputPivot : GuidedMechanicalPort;
+
+    attribute length : Length_m = 0.105;
+    attribute travelAngle : Angle_deg = 62.0;
+  }
+
+  part def FourBarLinkage {
+    port rotaryInput : RotaryMechanicalPort;
+    port guidedOutput : GuidedMechanicalPort;
+
+    part ground : GroundLink;
+    part crank : InputCrank;
+    part coupler : CouplerLink;
+    part rocker : OutputRocker;
+
+    attribute transmissionRatioNominal : Real = 0.36;
+    attribute outputStroke : Length_m = 0.095;
+    attribute maximumOutputForce : Force_N = 420.0;
+
+    connect rotaryInput to crank.drivePivot;
+    connect rocker.outputPivot to guidedOutput;
+  }
+
+  part def PositionSensor {
+    port sensedOutput : GuidedMechanicalPort;
+    port feedbackOut : FeedbackPort;
+
+    attribute resolution : Length_m = 0.0005;
+    attribute responseTime : Time_s = 0.010;
+  }
+
+  part def LinkageController {
+    port commandIn : CommandPort;
+    port feedbackIn : FeedbackPort;
+    port motorPowerOut : ElectricalPowerPort;
+
+    attribute controlLoopPeriod : Time_s = 0.005;
+    attribute positionTolerance : Length_m = 0.002;
+    attribute maxCommandedVoltage : Voltage_V = 24.0;
+  }
+
+  action def ConvertRotaryToGuidedMotion {
+    in item inputMotion : RotaryMotion;
+    out item outputMotion : GuidedOutputMotion;
+
+    attribute crankAngle : Angle_deg;
+    attribute rockerAngle : Angle_deg;
+    attribute outputDisplacement : Length_m;
+  }
+
+  action def RegulatePosition {
+    in item command : ControlCommand;
+    in item feedback : PositionFeedback;
+    out item powerRequest : ElectricalPower;
+
+    attribute positionError : Length_m;
+    attribute requestedVoltage : Voltage_V;
+  }
+
+  state def LinkageOperatingState {
+    state off;
+    state homing;
+    state ready;
+    state moving;
+    state holding;
+    state fault;
+
+    transition first off then homing
+      accept ControlCommand
+      if command.enable == true;
+
+    transition homing then ready
+      accept PositionFeedback
+      if feedback.valid == true;
+
+    transition ready then moving
+      accept ControlCommand
+      if command.enable == true;
+
+    transition moving then holding
+      accept PositionFeedback
+      if feedback.valid == true;
+
+    transition holding then moving
+      accept ControlCommand
+      if command.enable == true;
+
+    transition moving then fault
+      accept PositionFeedback
+      if feedback.valid == false;
+
+    transition holding then fault
+      accept PositionFeedback
+      if feedback.valid == false;
+
+    transition fault then off
+      accept ControlCommand
+      if command.enable == false;
+  }
+
+  part def LinkageBasedActuatorSystem {
+    port electricalSupply : ElectricalPowerPort;
+    port commandInput : CommandPort;
+    port positionFeedback : FeedbackPort;
+    port loadOutput : GuidedMechanicalPort;
+
+    part controller : LinkageController;
+    part motor : ElectricMotor;
+    part reducer : GearReducer;
+    part linkage : FourBarLinkage;
+    part sensor : PositionSensor;
+
+    attribute primaryFunction : String =
+      "Convert controlled rotary motor motion into constrained guided output motion using a four-bar linkage to position an external load.";
+    attribute commandedStroke : Length_m = 0.095;
+    attribute ratedOutputForce : Force_N = 350.0;
+    attribute fullTravelTime : Time_s = 1.8;
+
+    perform action regulate : RegulatePosition;
+    perform action transformMotion : ConvertRotaryToGuidedMotion;
+    exhibit state operatingState : LinkageOperatingState;
+
+    connect electricalSupply to motor.powerIn;
+    connect commandInput to controller.commandIn;
+    connect controller.motorPowerOut to motor.powerIn;
+    connect motor.shaft to reducer.inputShaft;
+    connect reducer.outputShaft to linkage.rotaryInput;
+    connect linkage.guidedOutput to sensor.sensedOutput;
+    connect sensor.feedbackOut to controller.feedbackIn;
+    connect sensor.feedbackOut to positionFeedback;
+    connect linkage.guidedOutput to loadOutput;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject actuator : LinkageBasedActuatorSystem;
+
+    doc
+      "The system shall use a mechanical linkage as the primary motion-conversion element and shall provide guided output motion for positioning an external load.";
+
+    require constraint {
+      actuator.commandedStroke >= 0.080 and
+      actuator.ratedOutputForce >= 300.0
+    }
+  }
+
+  requirement def FourBarArchitectureRequirement {
+    subject actuator : LinkageBasedActuatorSystem;
+
+    doc
+      "The linkage-based actuator shall include a ground link, input crank, coupler link, and output rocker connected as a four-bar linkage.";
+
+    require constraint {
+      actuator.linkage.ground.pivotSpacing > 0.0 and
+      actuator.linkage.crank.length > 0.0 and
+      actuator.linkage.coupler.length > 0.0 and
+      actuator.linkage.rocker.length > 0.0
+    }
+  }
+
+  requirement def PositionControlRequirement {
+    subject actuator : LinkageBasedActuatorSystem;
+
+    doc
+      "The controller shall regulate motor power using command input and position feedback so that output position is held within tolerance.";
+
+    require constraint {
+      actuator.controller.positionTolerance <= 0.002 and
+      actuator.sensor.resolution <= 0.001
+    }
+  }
+
+  part actuatorSystem : LinkageBasedActuatorSystem;
+
+}
+tokens used
+2,573
+package LinkageBasedSystem {
+
+  import ScalarValues::*;
+
+  attribute def Length_m :> Real;
+  attribute def Angle_deg :> Real;
+  attribute def AngularVelocity_rpm :> Real;
+  attribute def Force_N :> Real;
+  attribute def Torque_Nm :> Real;
+  attribute def Voltage_V :> Real;
+  attribute def Current_A :> Real;
+  attribute def Time_s :> Real;
+
+  item def ElectricalPower {
+    attribute voltage : Voltage_V;
+    attribute current : Current_A;
+  }
+
+  item def RotaryMotion {
+    attribute angle : Angle_deg;
+    attribute speed : AngularVelocity_rpm;
+    attribute torque : Torque_Nm;
+  }
+
+  item def GuidedOutputMotion {
+    attribute displacement : Length_m;
+    attribute angle : Angle_deg;
+    attribute force : Force_N;
+  }
+
+  item def ControlCommand {
+    attribute targetPosition : Length_m;
+    attribute enable : Boolean;
+  }
+
+  item def PositionFeedback {
+    attribute measuredPosition : Length_m;
+    attribute measuredAngle : Angle_deg;
+    attribute valid : Boolean;
+  }
+
+  port def ElectricalPowerPort {
+    in item power : ElectricalPower;
+  }
+
+  port def CommandPort {
+    in item command : ControlCommand;
+  }
+
+  port def FeedbackPort {
+    out item feedback : PositionFeedback;
+  }
+
+  port def RotaryMechanicalPort {
+    inout item motion : RotaryMotion;
+  }
+
+  port def GuidedMechanicalPort {
+    out item motion : GuidedOutputMotion;
+  }
+
+  part def ElectricMotor {
+    port powerIn : ElectricalPowerPort;
+    port shaft : RotaryMechanicalPort;
+
+    attribute ratedVoltage : Voltage_V = 24.0;
+    attribute stallTorque : Torque_Nm = 2.4;
+    attribute noLoadSpeed : AngularVelocity_rpm = 180.0;
+  }
+
+  part def GearReducer {
+    port inputShaft : RotaryMechanicalPort;
+    port outputShaft : RotaryMechanicalPort;
+
+    attribute gearRatio : Real = 25.0;
+    attribute efficiency : Real = 0.82;
+    attribute ratedOutputTorque : Torque_Nm = 18.0;
+  }
+
+  part def GroundLink {
+    attribute pivotSpacing : Length_m = 0.180;
+  }
+
+  part def InputCrank {
+    port drivePivot : RotaryMechanicalPort;
+
+    attribute length : Length_m = 0.045;
+    attribute allowableTorque : Torque_Nm = 16.0;
+  }
+
+  part def CouplerLink {
+    attribute length : Length_m = 0.140;
+    attribute couplerPointOffset : Length_m = 0.055;
+  }
+
+  part def OutputRocker {
+    port outputPivot : GuidedMechanicalPort;
+
+    attribute length : Length_m = 0.105;
+    attribute travelAngle : Angle_deg = 62.0;
+  }
+
+  part def FourBarLinkage {
+    port rotaryInput : RotaryMechanicalPort;
+    port guidedOutput : GuidedMechanicalPort;
+
+    part ground : GroundLink;
+    part crank : InputCrank;
+    part coupler : CouplerLink;
+    part rocker : OutputRocker;
+
+    attribute transmissionRatioNominal : Real = 0.36;
+    attribute outputStroke : Length_m = 0.095;
+    attribute maximumOutputForce : Force_N = 420.0;
+
+    connect rotaryInput to crank.drivePivot;
+    connect rocker.outputPivot to guidedOutput;
+  }
+
+  part def PositionSensor {
+    port sensedOutput : GuidedMechanicalPort;
+    port feedbackOut : FeedbackPort;
+
+    attribute resolution : Length_m = 0.0005;
+    attribute responseTime : Time_s = 0.010;
+  }
+
+  part def LinkageController {
+    port commandIn : CommandPort;
+    port feedbackIn : FeedbackPort;
+    port motorPowerOut : ElectricalPowerPort;
+
+    attribute controlLoopPeriod : Time_s = 0.005;
+    attribute positionTolerance : Length_m = 0.002;
+    attribute maxCommandedVoltage : Voltage_V = 24.0;
+  }
+
+  action def ConvertRotaryToGuidedMotion {
+    in item inputMotion : RotaryMotion;
+    out item outputMotion : GuidedOutputMotion;
+
+    attribute crankAngle : Angle_deg;
+    attribute rockerAngle : Angle_deg;
+    attribute outputDisplacement : Length_m;
+  }
+
+  action def RegulatePosition {
+    in item command : ControlCommand;
+    in item feedback : PositionFeedback;
+    out item powerRequest : ElectricalPower;
+
+    attribute positionError : Length_m;
+    attribute requestedVoltage : Voltage_V;
+  }
+
+  state def LinkageOperatingState {
+    state off;
+    state homing;
+    state ready;
+    state moving;
+    state holding;
+    state fault;
+
+    transition first off then homing
+      accept ControlCommand
+      if command.enable == true;
+
+    transition homing then ready
+      accept PositionFeedback
+      if feedback.valid == true;
+
+    transition ready then moving
+      accept ControlCommand
+      if command.enable == true;
+
+    transition moving then holding
+      accept PositionFeedback
+      if feedback.valid == true;
+
+    transition holding then moving
+      accept ControlCommand
+      if command.enable == true;
+
+    transition moving then fault
+      accept PositionFeedback
+      if feedback.valid == false;
+
+    transition holding then fault
+      accept PositionFeedback
+      if feedback.valid == false;
+
+    transition fault then off
+      accept ControlCommand
+      if command.enable == false;
+  }
+
+  part def LinkageBasedActuatorSystem {
+    port electricalSupply : ElectricalPowerPort;
+    port commandInput : CommandPort;
+    port positionFeedback : FeedbackPort;
+    port loadOutput : GuidedMechanicalPort;
+
+    part controller : LinkageController;
+    part motor : ElectricMotor;
+    part reducer : GearReducer;
+    part linkage : FourBarLinkage;
+    part sensor : PositionSensor;
+
+    attribute primaryFunction : String =
+      "Convert controlled rotary motor motion into constrained guided output motion using a four-bar linkage to position an external load.";
+    attribute commandedStroke : Length_m = 0.095;
+    attribute ratedOutputForce : Force_N = 350.0;
+    attribute fullTravelTime : Time_s = 1.8;
+
+    perform action regulate : RegulatePosition;
+    perform action transformMotion : ConvertRotaryToGuidedMotion;
+    exhibit state operatingState : LinkageOperatingState;
+
+    connect electricalSupply to motor.powerIn;
+    connect commandInput to controller.commandIn;
+    connect controller.motorPowerOut to motor.powerIn;
+    connect motor.shaft to reducer.inputShaft;
+    connect reducer.outputShaft to linkage.rotaryInput;
+    connect linkage.guidedOutput to sensor.sensedOutput;
+    connect sensor.feedbackOut to controller.feedbackIn;
+    connect sensor.feedbackOut to positionFeedback;
+    connect linkage.guidedOutput to loadOutput;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject actuator : LinkageBasedActuatorSystem;
+
+    doc
+      "The system shall use a mechanical linkage as the primary motion-conversion element and shall provide guided output motion for positioning an external load.";
+
+    require constraint {
+      actuator.commandedStroke >= 0.080 and
+      actuator.ratedOutputForce >= 300.0
+    }
+  }
+
+  requirement def FourBarArchitectureRequirement {
+    subject actuator : LinkageBasedActuatorSystem;
+
+    doc
+      "The linkage-based actuator shall include a ground link, input crank, coupler link, and output rocker connected as a four-bar linkage.";
+
+    require constraint {
+      actuator.linkage.ground.pivotSpacing > 0.0 and
+      actuator.linkage.crank.length > 0.0 and
+      actuator.linkage.coupler.length > 0.0 and
+      actuator.linkage.rocker.length > 0.0
+    }
+  }
+
+  requirement def PositionControlRequirement {
+    subject actuator : LinkageBasedActuatorSystem;
+
+    doc
+      "The controller shall regulate motor power using command input and position feedback so that output position is held within tolerance.";
+
+    require constraint {
+      actuator.controller.positionTolerance <= 0.002 and
+      actuator.sensor.resolution <= 0.001
+    }
+  }
+
+  part actuatorSystem : LinkageBasedActuatorSystem;
+
+}

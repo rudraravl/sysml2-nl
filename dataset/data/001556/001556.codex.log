@@ -1,0 +1,1003 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-h5psrale
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb72a-4f9d-7f93-b04b-b23f35953524
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Robotic mapping and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package RoboticMappingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def SpeedValue :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def TimeValue :> ISQ::duration {
+        unit = SI::second;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def ResolutionValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    item def MotionCommand {
+        attribute targetLinearSpeed : SpeedValue;
+        attribute targetAngularRate : AngleValue;
+        attribute commandDuration : TimeValue;
+    }
+
+    item def WheelOdometry {
+        attribute distanceTraveled : LengthValue;
+        attribute headingChange : AngleValue;
+        attribute linearSpeed : SpeedValue;
+        attribute sampleTime : TimeValue;
+    }
+
+    item def RangeScan {
+        attribute scanId : ScalarValues::Integer;
+        attribute angularStart : AngleValue;
+        attribute angularEnd : AngleValue;
+        attribute angularIncrement : AngleValue;
+        attribute maximumRange : LengthValue;
+        attribute minimumRange : LengthValue;
+        attribute scanRate : FrequencyValue;
+    }
+
+    item def InertialMeasurement {
+        attribute yawRate : AngleValue;
+        attribute pitchRate : AngleValue;
+        attribute rollRate : AngleValue;
+        attribute sampleRate : FrequencyValue;
+    }
+
+    item def PoseEstimate {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute yaw : AngleValue;
+        attribute pitch : AngleValue;
+        attribute roll : AngleValue;
+        attribute covarianceTrace : ScalarValues::Real;
+        attribute estimateTime : TimeValue;
+    }
+
+    item def OccupancyGridMap {
+        attribute width : LengthValue;
+        attribute height : LengthValue;
+        attribute resolution : ResolutionValue;
+        attribute occupiedCellCount : ScalarValues::Integer;
+        attribute freeCellCount : ScalarValues::Integer;
+        attribute unknownCellCount : ScalarValues::Integer;
+        attribute updateTime : TimeValue;
+    }
+
+    item def MappingStatus {
+        attribute localized : ScalarValues::Boolean;
+        attribute mapConsistent : ScalarValues::Boolean;
+        attribute explorationComplete : ScalarValues::Boolean;
+        attribute loopClosureDetected : ScalarValues::Boolean;
+        attribute batteryLow : ScalarValues::Boolean;
+    }
+
+    item def MissionPlan {
+        attribute targetAreaWidth : LengthValue;
+        attribute targetAreaHeight : LengthValue;
+        attribute requiredResolution : ResolutionValue;
+        attribute maximumMissionDuration : TimeValue;
+        attribute minimumCoverageRatio : ScalarValues::Real;
+    }
+
+    port def CommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def OdometryPort {
+        out item odometry : WheelOdometry;
+    }
+
+    port def RangeSensorPort {
+        out item scan : RangeScan;
+    }
+
+    port def InertialSensorPort {
+        out item imu : InertialMeasurement;
+    }
+
+    port def PosePort {
+        out item pose : PoseEstimate;
+    }
+
+    port def MapPort {
+        out item map : OccupancyGridMap;
+    }
+
+    port def StatusPort {
+        out item status : MappingStatus;
+    }
+
+    port def MissionPort {
+        in item plan : MissionPlan;
+    }
+
+    part def MobileBase {
+        attribute maximumSpeed : SpeedValue = 1.2 [SI::metrePerSecond];
+        attribute minimumTurnRadius : LengthValue = 0.35 [SI::metre];
+        attribute wheelBase : LengthValue = 0.48 [SI::metre];
+        attribute nominalDrivePower : PowerValue = 120 [SI::watt];
+
+        port commandIn : CommandPort;
+        port odometryOut : OdometryPort;
+
+        action perform Drive {
+            in item driveCommand : MotionCommand;
+            out item measuredOdometry : WheelOdometry;
+        }
+    }
+
+    part def LidarScanner {
+        attribute maximumRange : LengthValue = 30 [SI::metre];
+        attribute minimumRange : LengthValue = 0.15 [SI::metre];
+        attribute horizontalFieldOfView : AngleValue = 6.28318 [SI::radian];
+        attribute scanFrequency : FrequencyValue = 10 [SI::hertz];
+        attribute angularResolution : AngleValue = 0.00436 [SI::radian];
+        attribute operatingPower : PowerValue = 8 [SI::watt];
+
+        port scanOut : RangeSensorPort;
+
+        action perform AcquireRangeScan {
+            out item scan : RangeScan;
+        }
+    }
+
+    part def InertialMeasurementUnit {
+        attribute sampleFrequency : FrequencyValue = 100 [SI::hertz];
+        attribute yawRateNoise : AngleValue = 0.002 [SI::radian];
+        attribute operatingPower : PowerValue = 2 [SI::watt];
+
+        port imuOut : InertialSensorPort;
+
+        action perform MeasureInertialMotion {
+            out item inertialData : InertialMeasurement;
+        }
+    }
+
+    part def LocalizationProcessor {
+        attribute updateFrequency : FrequencyValue = 20 [SI::hertz];
+        attribute maximumPoseUncertainty : ScalarValues::Real = 0.25;
+
+        port odometryIn : OdometryPort;
+        port imuIn : InertialSensorPort;
+        port scanIn : RangeSensorPort;
+        port poseOut : PosePort;
+        port statusOut : StatusPort;
+
+        action perform EstimatePose {
+            in item odometry : WheelOdometry;
+            in item imu : InertialMeasurement;
+            in item scan : RangeScan;
+            out item pose : PoseEstimate;
+            out item localizationStatus : MappingStatus;
+        }
+    }
+
+    part def MappingProcessor {
+        attribute gridResolution : ResolutionValue = 0.05 [SI::metre];
+        attribute maximumMapWidth : LengthValue = 100 [SI::metre];
+        attribute maximumMapHeight : LengthValue = 100 [SI::metre];
+        attribute updateFrequency : FrequencyValue = 5 [SI::hertz];
+
+        port poseIn : PosePort;
+        port scanIn : RangeSensorPort;
+        port mapOut : MapPort;
+        port statusOut : StatusPort;
+
+        action perform UpdateOccupancyGrid {
+            in item robotPose : PoseEstimate;
+            in item rangeScan : RangeScan;
+            out item occupancyGrid : OccupancyGridMap;
+            out item mappingStatus : MappingStatus;
+        }
+    }
+
+    part def ExplorationPlanner {
+        attribute planningFrequency : FrequencyValue = 1 [SI::hertz];
+        attribute frontierClearance : LengthValue = 0.40 [SI::metre];
+        attribute coverageGoal : ScalarValues::Real = 0.95;
+
+        port missionIn : MissionPort;
+        port mapIn : MapPort;
+        port poseIn : PosePort;
+        port commandOut : CommandPort;
+        port statusOut : StatusPort;
+
+        action perform SelectNextFrontier {
+            in item plan : MissionPlan;
+            in item currentMap : OccupancyGridMap;
+            in item currentPose : PoseEstimate;
+            out item command : MotionCommand;
+            out item explorationStatus : MappingStatus;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute storedEnergy : EnergyValue = 720000 [SI::joule];
+        attribute nominalVoltage : ScalarValues::Real = 24.0;
+        attribute lowEnergyThreshold : EnergyValue = 90000 [SI::joule];
+        attribute maximumContinuousPower : PowerValue = 250 [SI::watt];
+
+        port statusOut : StatusPort;
+
+        action perform MonitorEnergy {
+            out item powerStatus : MappingStatus;
+        }
+    }
+
+    part def MapDataStore {
+        attribute retainedMapCount : ScalarValues::Integer = 25;
+        attribute maximumStoredArea : LengthValue = 10000 [SI::metre];
+
+        port mapIn : MapPort;
+        port mapOut : MapPort;
+
+        action perform StoreMapSnapshot {
+            in item map : OccupancyGridMap;
+            out item storedMap : OccupancyGridMap;
+        }
+    }
+
+    part def RoboticMappingSystem {
+        attribute primaryFunction : ScalarValues::String =
+            "Autonomously explore an assigned physical area, estimate robot pose, sense surrounding obstacles, and generate a metrically referenced occupancy map suitable for navigation and inspection.";
+        attribute nominalMissionDuration : TimeValue = 1800 [SI::second];
+        attribute requiredMapResolution : ResolutionValue = 0.05 [SI::metre];
+        attribute requiredCoverageRatio : ScalarValues::Real = 0.95;
+
+        port missionInput : MissionPort;
+        port mapOutput : MapPort;
+        port systemStatusOutput : StatusPort;
+
+        part base : MobileBase;
+        part lidar : LidarScanner;
+        part imu : InertialMeasurementUnit;
+        part localizer : LocalizationProcessor;
+        part mapper : MappingProcessor;
+        part planner : ExplorationPlanner;
+        part power : PowerSubsystem;
+        part storage : MapDataStore;
+
+        connect missionInput to planner.missionIn;
+        connect planner.commandOut to base.commandIn;
+        connect base.odometryOut to localizer.odometryIn;
+        connect imu.imuOut to localizer.imuIn;
+        connect lidar.scanOut to localizer.scanIn;
+        connect lidar.scanOut to mapper.scanIn;
+        connect localizer.poseOut to mapper.poseIn;
+        connect localizer.poseOut to planner.poseIn;
+        connect mapper.mapOut to planner.mapIn;
+        connect mapper.mapOut to storage.mapIn;
+        connect storage.mapOut to mapOutput;
+        connect mapper.statusOut to systemStatusOutput;
+        connect localizer.statusOut to systemStatusOutput;
+        connect planner.statusOut to systemStatusOutput;
+        connect power.statusOut to systemStatusOutput;
+
+        action perform ExecuteMappingMission {
+            in item mission : MissionPlan;
+            out item finalMap : OccupancyGridMap;
+            out item finalStatus : MappingStatus;
+
+            first startMission;
+            then initializeSensors;
+            then localizeRobot;
+            then exploreAndMap;
+            then validateCoverage;
+            then publishMap;
+
+            action startMission {
+                in item mission : MissionPlan;
+            }
+
+            action initializeSensors {
+                out item initialScan : RangeScan;
+                out item initialImu : InertialMeasurement;
+            }
+
+            action localizeRobot {
+                in item initialScan : RangeScan;
+                in item initialImu : InertialMeasurement;
+                out item initialPose : PoseEstimate;
+            }
+
+            action exploreAndMap {
+                in item mission : MissionPlan;
+                in item initialPose : PoseEstimate;
+                out item generatedMap : OccupancyGridMap;
+            }
+
+            action validateCoverage {
+                in item generatedMap : OccupancyGridMap;
+                out item status : MappingStatus;
+            }
+
+            action publishMap {
+                in item generatedMap : OccupancyGridMap;
+                out item finalMap : OccupancyGridMap;
+            }
+        }
+
+        state def MappingMissionStateMachine {
+            entry action initialize {
+                out item startupStatus : MappingStatus;
+            }
+
+            state Idle;
+            state Initializing;
+            state Localizing;
+            state Exploring;
+            state UpdatingMap;
+            state ClosingLoop;
+            state ReturningHome;
+            state Completed;
+            state Fault;
+
+            transition first Idle;
+            transition Idle_to_Initializing
+                first Idle
+                then Initializing
+                accept MissionPlan;
+
+            transition Initializing_to_Localizing
+                first Initializing
+                then Localizing
+                if sensorReady;
+
+            transition Localizing_to_Exploring
+                first Localizing
+                then Exploring
+                if poseConverged;
+
+            transition Exploring_to_UpdatingMap
+                first Exploring
+                then UpdatingMap
+                accept RangeScan;
+
+            transition UpdatingMap_to_ClosingLoop
+                first UpdatingMap
+                then ClosingLoop
+                if loopClosureCandidateDetected;
+
+            transition ClosingLoop_to_Exploring
+                first ClosingLoop
+                then Exploring
+                if mapOptimized;
+
+            transition UpdatingMap_to_Exploring
+                first UpdatingMap
+                then Exploring
+                if moreFrontiersAvailable;
+
+            transition Exploring_to_ReturningHome
+                first Exploring
+                then ReturningHome
+                if coverageGoalMet;
+
+            transition ReturningHome_to_Completed
+                first ReturningHome
+                then Completed
+                if robotAtStartPose;
+
+            transition Initializing_to_Fault
+                first Initializing
+                then Fault
+                if sensorFailureDetected;
+
+            transition Localizing_to_Fault
+                first Localizing
+                then Fault
+                if localizationUncertaintyTooHigh;
+
+            transition Exploring_to_Fault
+                first Exploring
+                then Fault
+                if batteryLowBeforeReturn;
+
+            transition UpdatingMap_to_Fault
+                first UpdatingMap
+                then Fault
+                if mapInconsistencyUnresolved;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.primaryFunction ==
+            "Autonomously explore an assigned physical area, estimate robot pose, sense surrounding obstacles, and generate a metrically referenced occupancy map suitable for navigation and inspection."
+        }
+    }
+
+    requirement def MapResolutionRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.requiredMapResolution <= 0.05 [SI::metre]
+        }
+    }
+
+    requirement def CoverageRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.requiredCoverageRatio >= 0.95
+        }
+    }
+
+    requirement def SensorRangeRequirement {
+        subject scanner : LidarScanner;
+
+        require constraint {
+            scanner.maximumRange >= 20 [SI::metre]
+        }
+    }
+
+    requirement def MissionDurationRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.nominalMissionDuration <= 1800 [SI::second]
+        }
+    }
+
+    requirement def LocalizationQualityRequirement {
+        subject localizer : LocalizationProcessor;
+
+        require constraint {
+            localizer.maximumPoseUncertainty <= 0.25
+        }
+    }
+
+    requirement def PowerEnduranceRequirement {
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.storedEnergy >= 600000 [SI::joule]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RoboticMappingSystem;
+    satisfy MapResolutionRequirement by RoboticMappingSystem;
+    satisfy CoverageRequirement by RoboticMappingSystem;
+    satisfy SensorRangeRequirement by LidarScanner;
+    satisfy MissionDurationRequirement by RoboticMappingSystem;
+    satisfy LocalizationQualityRequirement by LocalizationProcessor;
+    satisfy PowerEnduranceRequirement by PowerSubsystem;
+
+}
+tokens used
+4,624
+package RoboticMappingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def LengthValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def SpeedValue :> ISQ::speed {
+        unit = SI::metrePerSecond;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::radian;
+    }
+
+    attribute def TimeValue :> ISQ::duration {
+        unit = SI::second;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def FrequencyValue :> ISQ::frequency {
+        unit = SI::hertz;
+    }
+
+    attribute def ResolutionValue :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    item def MotionCommand {
+        attribute targetLinearSpeed : SpeedValue;
+        attribute targetAngularRate : AngleValue;
+        attribute commandDuration : TimeValue;
+    }
+
+    item def WheelOdometry {
+        attribute distanceTraveled : LengthValue;
+        attribute headingChange : AngleValue;
+        attribute linearSpeed : SpeedValue;
+        attribute sampleTime : TimeValue;
+    }
+
+    item def RangeScan {
+        attribute scanId : ScalarValues::Integer;
+        attribute angularStart : AngleValue;
+        attribute angularEnd : AngleValue;
+        attribute angularIncrement : AngleValue;
+        attribute maximumRange : LengthValue;
+        attribute minimumRange : LengthValue;
+        attribute scanRate : FrequencyValue;
+    }
+
+    item def InertialMeasurement {
+        attribute yawRate : AngleValue;
+        attribute pitchRate : AngleValue;
+        attribute rollRate : AngleValue;
+        attribute sampleRate : FrequencyValue;
+    }
+
+    item def PoseEstimate {
+        attribute x : LengthValue;
+        attribute y : LengthValue;
+        attribute z : LengthValue;
+        attribute yaw : AngleValue;
+        attribute pitch : AngleValue;
+        attribute roll : AngleValue;
+        attribute covarianceTrace : ScalarValues::Real;
+        attribute estimateTime : TimeValue;
+    }
+
+    item def OccupancyGridMap {
+        attribute width : LengthValue;
+        attribute height : LengthValue;
+        attribute resolution : ResolutionValue;
+        attribute occupiedCellCount : ScalarValues::Integer;
+        attribute freeCellCount : ScalarValues::Integer;
+        attribute unknownCellCount : ScalarValues::Integer;
+        attribute updateTime : TimeValue;
+    }
+
+    item def MappingStatus {
+        attribute localized : ScalarValues::Boolean;
+        attribute mapConsistent : ScalarValues::Boolean;
+        attribute explorationComplete : ScalarValues::Boolean;
+        attribute loopClosureDetected : ScalarValues::Boolean;
+        attribute batteryLow : ScalarValues::Boolean;
+    }
+
+    item def MissionPlan {
+        attribute targetAreaWidth : LengthValue;
+        attribute targetAreaHeight : LengthValue;
+        attribute requiredResolution : ResolutionValue;
+        attribute maximumMissionDuration : TimeValue;
+        attribute minimumCoverageRatio : ScalarValues::Real;
+    }
+
+    port def CommandPort {
+        in item command : MotionCommand;
+    }
+
+    port def OdometryPort {
+        out item odometry : WheelOdometry;
+    }
+
+    port def RangeSensorPort {
+        out item scan : RangeScan;
+    }
+
+    port def InertialSensorPort {
+        out item imu : InertialMeasurement;
+    }
+
+    port def PosePort {
+        out item pose : PoseEstimate;
+    }
+
+    port def MapPort {
+        out item map : OccupancyGridMap;
+    }
+
+    port def StatusPort {
+        out item status : MappingStatus;
+    }
+
+    port def MissionPort {
+        in item plan : MissionPlan;
+    }
+
+    part def MobileBase {
+        attribute maximumSpeed : SpeedValue = 1.2 [SI::metrePerSecond];
+        attribute minimumTurnRadius : LengthValue = 0.35 [SI::metre];
+        attribute wheelBase : LengthValue = 0.48 [SI::metre];
+        attribute nominalDrivePower : PowerValue = 120 [SI::watt];
+
+        port commandIn : CommandPort;
+        port odometryOut : OdometryPort;
+
+        action perform Drive {
+            in item driveCommand : MotionCommand;
+            out item measuredOdometry : WheelOdometry;
+        }
+    }
+
+    part def LidarScanner {
+        attribute maximumRange : LengthValue = 30 [SI::metre];
+        attribute minimumRange : LengthValue = 0.15 [SI::metre];
+        attribute horizontalFieldOfView : AngleValue = 6.28318 [SI::radian];
+        attribute scanFrequency : FrequencyValue = 10 [SI::hertz];
+        attribute angularResolution : AngleValue = 0.00436 [SI::radian];
+        attribute operatingPower : PowerValue = 8 [SI::watt];
+
+        port scanOut : RangeSensorPort;
+
+        action perform AcquireRangeScan {
+            out item scan : RangeScan;
+        }
+    }
+
+    part def InertialMeasurementUnit {
+        attribute sampleFrequency : FrequencyValue = 100 [SI::hertz];
+        attribute yawRateNoise : AngleValue = 0.002 [SI::radian];
+        attribute operatingPower : PowerValue = 2 [SI::watt];
+
+        port imuOut : InertialSensorPort;
+
+        action perform MeasureInertialMotion {
+            out item inertialData : InertialMeasurement;
+        }
+    }
+
+    part def LocalizationProcessor {
+        attribute updateFrequency : FrequencyValue = 20 [SI::hertz];
+        attribute maximumPoseUncertainty : ScalarValues::Real = 0.25;
+
+        port odometryIn : OdometryPort;
+        port imuIn : InertialSensorPort;
+        port scanIn : RangeSensorPort;
+        port poseOut : PosePort;
+        port statusOut : StatusPort;
+
+        action perform EstimatePose {
+            in item odometry : WheelOdometry;
+            in item imu : InertialMeasurement;
+            in item scan : RangeScan;
+            out item pose : PoseEstimate;
+            out item localizationStatus : MappingStatus;
+        }
+    }
+
+    part def MappingProcessor {
+        attribute gridResolution : ResolutionValue = 0.05 [SI::metre];
+        attribute maximumMapWidth : LengthValue = 100 [SI::metre];
+        attribute maximumMapHeight : LengthValue = 100 [SI::metre];
+        attribute updateFrequency : FrequencyValue = 5 [SI::hertz];
+
+        port poseIn : PosePort;
+        port scanIn : RangeSensorPort;
+        port mapOut : MapPort;
+        port statusOut : StatusPort;
+
+        action perform UpdateOccupancyGrid {
+            in item robotPose : PoseEstimate;
+            in item rangeScan : RangeScan;
+            out item occupancyGrid : OccupancyGridMap;
+            out item mappingStatus : MappingStatus;
+        }
+    }
+
+    part def ExplorationPlanner {
+        attribute planningFrequency : FrequencyValue = 1 [SI::hertz];
+        attribute frontierClearance : LengthValue = 0.40 [SI::metre];
+        attribute coverageGoal : ScalarValues::Real = 0.95;
+
+        port missionIn : MissionPort;
+        port mapIn : MapPort;
+        port poseIn : PosePort;
+        port commandOut : CommandPort;
+        port statusOut : StatusPort;
+
+        action perform SelectNextFrontier {
+            in item plan : MissionPlan;
+            in item currentMap : OccupancyGridMap;
+            in item currentPose : PoseEstimate;
+            out item command : MotionCommand;
+            out item explorationStatus : MappingStatus;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute storedEnergy : EnergyValue = 720000 [SI::joule];
+        attribute nominalVoltage : ScalarValues::Real = 24.0;
+        attribute lowEnergyThreshold : EnergyValue = 90000 [SI::joule];
+        attribute maximumContinuousPower : PowerValue = 250 [SI::watt];
+
+        port statusOut : StatusPort;
+
+        action perform MonitorEnergy {
+            out item powerStatus : MappingStatus;
+        }
+    }
+
+    part def MapDataStore {
+        attribute retainedMapCount : ScalarValues::Integer = 25;
+        attribute maximumStoredArea : LengthValue = 10000 [SI::metre];
+
+        port mapIn : MapPort;
+        port mapOut : MapPort;
+
+        action perform StoreMapSnapshot {
+            in item map : OccupancyGridMap;
+            out item storedMap : OccupancyGridMap;
+        }
+    }
+
+    part def RoboticMappingSystem {
+        attribute primaryFunction : ScalarValues::String =
+            "Autonomously explore an assigned physical area, estimate robot pose, sense surrounding obstacles, and generate a metrically referenced occupancy map suitable for navigation and inspection.";
+        attribute nominalMissionDuration : TimeValue = 1800 [SI::second];
+        attribute requiredMapResolution : ResolutionValue = 0.05 [SI::metre];
+        attribute requiredCoverageRatio : ScalarValues::Real = 0.95;
+
+        port missionInput : MissionPort;
+        port mapOutput : MapPort;
+        port systemStatusOutput : StatusPort;
+
+        part base : MobileBase;
+        part lidar : LidarScanner;
+        part imu : InertialMeasurementUnit;
+        part localizer : LocalizationProcessor;
+        part mapper : MappingProcessor;
+        part planner : ExplorationPlanner;
+        part power : PowerSubsystem;
+        part storage : MapDataStore;
+
+        connect missionInput to planner.missionIn;
+        connect planner.commandOut to base.commandIn;
+        connect base.odometryOut to localizer.odometryIn;
+        connect imu.imuOut to localizer.imuIn;
+        connect lidar.scanOut to localizer.scanIn;
+        connect lidar.scanOut to mapper.scanIn;
+        connect localizer.poseOut to mapper.poseIn;
+        connect localizer.poseOut to planner.poseIn;
+        connect mapper.mapOut to planner.mapIn;
+        connect mapper.mapOut to storage.mapIn;
+        connect storage.mapOut to mapOutput;
+        connect mapper.statusOut to systemStatusOutput;
+        connect localizer.statusOut to systemStatusOutput;
+        connect planner.statusOut to systemStatusOutput;
+        connect power.statusOut to systemStatusOutput;
+
+        action perform ExecuteMappingMission {
+            in item mission : MissionPlan;
+            out item finalMap : OccupancyGridMap;
+            out item finalStatus : MappingStatus;
+
+            first startMission;
+            then initializeSensors;
+            then localizeRobot;
+            then exploreAndMap;
+            then validateCoverage;
+            then publishMap;
+
+            action startMission {
+                in item mission : MissionPlan;
+            }
+
+            action initializeSensors {
+                out item initialScan : RangeScan;
+                out item initialImu : InertialMeasurement;
+            }
+
+            action localizeRobot {
+                in item initialScan : RangeScan;
+                in item initialImu : InertialMeasurement;
+                out item initialPose : PoseEstimate;
+            }
+
+            action exploreAndMap {
+                in item mission : MissionPlan;
+                in item initialPose : PoseEstimate;
+                out item generatedMap : OccupancyGridMap;
+            }
+
+            action validateCoverage {
+                in item generatedMap : OccupancyGridMap;
+                out item status : MappingStatus;
+            }
+
+            action publishMap {
+                in item generatedMap : OccupancyGridMap;
+                out item finalMap : OccupancyGridMap;
+            }
+        }
+
+        state def MappingMissionStateMachine {
+            entry action initialize {
+                out item startupStatus : MappingStatus;
+            }
+
+            state Idle;
+            state Initializing;
+            state Localizing;
+            state Exploring;
+            state UpdatingMap;
+            state ClosingLoop;
+            state ReturningHome;
+            state Completed;
+            state Fault;
+
+            transition first Idle;
+            transition Idle_to_Initializing
+                first Idle
+                then Initializing
+                accept MissionPlan;
+
+            transition Initializing_to_Localizing
+                first Initializing
+                then Localizing
+                if sensorReady;
+
+            transition Localizing_to_Exploring
+                first Localizing
+                then Exploring
+                if poseConverged;
+
+            transition Exploring_to_UpdatingMap
+                first Exploring
+                then UpdatingMap
+                accept RangeScan;
+
+            transition UpdatingMap_to_ClosingLoop
+                first UpdatingMap
+                then ClosingLoop
+                if loopClosureCandidateDetected;
+
+            transition ClosingLoop_to_Exploring
+                first ClosingLoop
+                then Exploring
+                if mapOptimized;
+
+            transition UpdatingMap_to_Exploring
+                first UpdatingMap
+                then Exploring
+                if moreFrontiersAvailable;
+
+            transition Exploring_to_ReturningHome
+                first Exploring
+                then ReturningHome
+                if coverageGoalMet;
+
+            transition ReturningHome_to_Completed
+                first ReturningHome
+                then Completed
+                if robotAtStartPose;
+
+            transition Initializing_to_Fault
+                first Initializing
+                then Fault
+                if sensorFailureDetected;
+
+            transition Localizing_to_Fault
+                first Localizing
+                then Fault
+                if localizationUncertaintyTooHigh;
+
+            transition Exploring_to_Fault
+                first Exploring
+                then Fault
+                if batteryLowBeforeReturn;
+
+            transition UpdatingMap_to_Fault
+                first UpdatingMap
+                then Fault
+                if mapInconsistencyUnresolved;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.primaryFunction ==
+            "Autonomously explore an assigned physical area, estimate robot pose, sense surrounding obstacles, and generate a metrically referenced occupancy map suitable for navigation and inspection."
+        }
+    }
+
+    requirement def MapResolutionRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.requiredMapResolution <= 0.05 [SI::metre]
+        }
+    }
+
+    requirement def CoverageRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.requiredCoverageRatio >= 0.95
+        }
+    }
+
+    requirement def SensorRangeRequirement {
+        subject scanner : LidarScanner;
+
+        require constraint {
+            scanner.maximumRange >= 20 [SI::metre]
+        }
+    }
+
+    requirement def MissionDurationRequirement {
+        subject system : RoboticMappingSystem;
+
+        require constraint {
+            system.nominalMissionDuration <= 1800 [SI::second]
+        }
+    }
+
+    requirement def LocalizationQualityRequirement {
+        subject localizer : LocalizationProcessor;
+
+        require constraint {
+            localizer.maximumPoseUncertainty <= 0.25
+        }
+    }
+
+    requirement def PowerEnduranceRequirement {
+        subject power : PowerSubsystem;
+
+        require constraint {
+            power.storedEnergy >= 600000 [SI::joule]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by RoboticMappingSystem;
+    satisfy MapResolutionRequirement by RoboticMappingSystem;
+    satisfy CoverageRequirement by RoboticMappingSystem;
+    satisfy SensorRangeRequirement by LidarScanner;
+    satisfy MissionDurationRequirement by RoboticMappingSystem;
+    satisfy LocalizationQualityRequirement by LocalizationProcessor;
+    satisfy PowerEnduranceRequirement by PowerSubsystem;
+
+}

@@ -1,0 +1,426 @@
+package TerrainabilitySystemSpecification {
+    import ScalarValues::*;
+    import ISQ::*;
+
+    attribute def Length :> ISQ::length;
+    attribute def Speed :> ISQ::speed;
+    attribute def Acceleration :> ISQ::acceleration;
+    attribute def Mass :> ISQ::mass;
+    attribute def Force :> ISQ::force;
+    attribute def Pressure :> ISQ::pressure;
+    attribute def Angle :> ISQ::planeAngle;
+    attribute def Ratio :> Real;
+    attribute def Energy :> ISQ::energy;
+    attribute def Power :> ISQ::power;
+    attribute def Time :> ISQ::time;
+
+    attribute def SlopeGrade :> Ratio;
+    attribute def SoilCohesion :> Pressure;
+    attribute def TerrainRoughness :> Length;
+    attribute def GroundClearance :> Length;
+    attribute def GroundPressure :> Pressure;
+    attribute def TractionCoefficient :> Ratio;
+    attribute def TerrainabilityIndex :> Ratio;
+    attribute def Confidence :> Ratio;
+    attribute def RouteCost :> Real;
+
+    enum def TerrainClass {
+        enum flatFirm;
+        enum looseSand;
+        enum mud;
+        enum gravel;
+        enum snow;
+        enum rock;
+        enum vegetation;
+        enum waterObstacle;
+        enum impassable;
+    }
+
+    enum def MobilityMode {
+        enum efficientCruise;
+        enum highTraction;
+        enum obstacleClimb;
+        enum lowGroundPressure;
+        enum recovery;
+        enum halted;
+    }
+
+    item def TerrainObservation {
+        attribute class: TerrainClass;
+        attribute slope: SlopeGrade;
+        attribute roughness: TerrainRoughness;
+        attribute cohesion: SoilCohesion;
+        attribute tractionEstimate: TractionCoefficient;
+        attribute waterDepth: Length;
+        attribute confidence: Confidence;
+    }
+
+    item def RouteSegment {
+        attribute length: Length;
+        attribute meanSlope: SlopeGrade;
+        attribute maxObstacleHeight: Length;
+        attribute expectedTerrain: TerrainClass;
+        attribute routeCost: RouteCost;
+        attribute passable: Boolean;
+    }
+
+    item def MobilityCommand {
+        attribute targetSpeed: Speed;
+        attribute targetMode: MobilityMode;
+        attribute maxWheelTorque: Force;
+        attribute allowedSlipRatio: Ratio;
+        attribute activeSuspensionHeight: GroundClearance;
+    }
+
+    item def VehicleMotion {
+        attribute speed: Speed;
+        attribute acceleration: Acceleration;
+        attribute headingAngle: Angle;
+        attribute slipRatio: Ratio;
+        attribute sinkage: Length;
+    }
+
+    item def HealthStatus {
+        attribute nominal: Boolean;
+        attribute degradedSensorCount: Integer;
+        attribute availableEnergy: Energy;
+        attribute thermalLimitActive: Boolean;
+    }
+
+    port def TerrainObservationPort {
+        out item observation: TerrainObservation;
+    }
+
+    port def TerrainInputPort {
+        in item observation: TerrainObservation;
+    }
+
+    port def RoutePlanPort {
+        out item segment: RouteSegment;
+    }
+
+    port def RouteCommandPort {
+        in item segment: RouteSegment;
+    }
+
+    port def MobilityCommandPort {
+        out item command: MobilityCommand;
+    }
+
+    port def ActuationCommandPort {
+        in item command: MobilityCommand;
+    }
+
+    port def MotionFeedbackPort {
+        out item motion: VehicleMotion;
+    }
+
+    port def MotionInputPort {
+        in item motion: VehicleMotion;
+    }
+
+    port def HealthPort {
+        out item status: HealthStatus;
+    }
+
+    part def TerrainabilitySystem {
+        attribute systemMass: Mass;
+        attribute maximumSpeed: Speed;
+        attribute nominalGroundClearance: GroundClearance;
+        attribute minimumGroundClearance: GroundClearance;
+        attribute maximumGroundPressure: GroundPressure;
+        attribute maximumNegotiableSlope: SlopeGrade;
+        attribute maximumObstacleHeight: Length;
+        attribute terrainabilityIndex: TerrainabilityIndex;
+
+        port terrainReport: TerrainObservationPort;
+        port routeOutput: RoutePlanPort;
+        port motionOutput: MotionFeedbackPort;
+        port healthOutput: HealthPort;
+
+        part sensing: TerrainSensingSubsystem;
+        part assessment: TerrainAssessmentController;
+        part routePlanner: TerrainAwareRoutePlanner;
+        part mobilityManager: MobilityAdaptationManager;
+        part locomotion: LocomotionSubsystem;
+        part energy: EnergySubsystem;
+        part chassis: AdaptiveChassis;
+
+        connect sensing.observationOut to assessment.observationIn;
+        connect assessment.assessedTerrainOut to routePlanner.terrainIn;
+        connect routePlanner.routeOut to mobilityManager.routeIn;
+        connect assessment.assessedTerrainOut to mobilityManager.terrainIn;
+        connect mobilityManager.commandOut to locomotion.commandIn;
+        connect mobilityManager.commandOut to chassis.commandIn;
+        connect locomotion.motionOut to assessment.motionIn;
+        connect locomotion.motionOut to motionOutput;
+        connect sensing.observationOut to terrainReport;
+        connect routePlanner.routeOut to routeOutput;
+        connect energy.healthOut to healthOutput;
+    }
+
+    part def TerrainSensingSubsystem {
+        attribute forwardLookDistance: Length;
+        attribute updatePeriod: Time;
+        attribute slopeAccuracy: Angle;
+        attribute minimumDetectableObstacle: Length;
+
+        port observationOut: TerrainObservationPort;
+
+        part lidar: LidarTerrainSensor;
+        part radar: GroundPenetratingRadar;
+        part camera: MultispectralCamera;
+        part imu: InertialMeasurementUnit;
+    }
+
+    part def LidarTerrainSensor {
+        attribute range: Length;
+        attribute angularResolution: Angle;
+        attribute scanRate: Real;
+    }
+
+    part def GroundPenetratingRadar {
+        attribute penetrationDepth: Length;
+        attribute soilMoistureSensitivity: Ratio;
+    }
+
+    part def MultispectralCamera {
+        attribute fieldOfView: Angle;
+        attribute vegetationDetectionConfidence: Confidence;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute accelerationRange: Acceleration;
+        attribute attitudeAccuracy: Angle;
+    }
+
+    part def TerrainAssessmentController {
+        attribute minimumConfidenceForAutonomy: Confidence;
+        attribute currentTerrainability: TerrainabilityIndex;
+
+        port observationIn: TerrainInputPort;
+        port motionIn: MotionInputPort;
+        port assessedTerrainOut: TerrainObservationPort;
+
+        action assessTerrain: AssessTerrainability;
+        state behavior: TerrainAssessmentStates;
+    }
+
+    part def TerrainAwareRoutePlanner {
+        attribute planningHorizon: Length;
+        attribute maximumAllowedRouteCost: RouteCost;
+
+        port terrainIn: TerrainInputPort;
+        port routeOut: RoutePlanPort;
+
+        action planRoute: GenerateTerrainAwareRoute;
+    }
+
+    part def MobilityAdaptationManager {
+        attribute commandedMode: MobilityMode;
+        attribute targetSlipRatio: Ratio;
+        attribute targetGroundClearance: GroundClearance;
+
+        port terrainIn: TerrainInputPort;
+        port routeIn: RouteCommandPort;
+        port commandOut: MobilityCommandPort;
+
+        action adaptMobility: SelectMobilityMode;
+        state behavior: MobilityModeStates;
+    }
+
+    part def LocomotionSubsystem {
+        attribute availableTractiveForce: Force;
+        attribute nominalGroundPressure: GroundPressure;
+        attribute maximumContinuousPower: Power;
+
+        port commandIn: ActuationCommandPort;
+        port motionOut: MotionFeedbackPort;
+
+        part leftTrack: TrackedDriveUnit;
+        part rightTrack: TrackedDriveUnit;
+        part tractionControl: SlipControlUnit;
+    }
+
+    part def TrackedDriveUnit {
+        attribute contactPatchLength: Length;
+        attribute contactPatchWidth: Length;
+        attribute maximumDriveForce: Force;
+        attribute measuredSlipRatio: Ratio;
+    }
+
+    part def SlipControlUnit {
+        attribute slipLimitFirmTerrain: Ratio;
+        attribute slipLimitLooseTerrain: Ratio;
+        attribute responseTime: Time;
+    }
+
+    part def AdaptiveChassis {
+        attribute currentGroundClearance: GroundClearance;
+        attribute suspensionTravel: Length;
+        attribute rollLimit: Angle;
+        attribute pitchLimit: Angle;
+
+        port commandIn: ActuationCommandPort;
+    }
+
+    part def EnergySubsystem {
+        attribute storedEnergy: Energy;
+        attribute peakPowerAvailable: Power;
+        attribute reserveEnergy: Energy;
+
+        port healthOut: HealthPort;
+    }
+
+    action def AssessTerrainability {
+        in item observation: TerrainObservation;
+        in item motion: VehicleMotion;
+        out attribute index: TerrainabilityIndex;
+        out item classifiedTerrain: TerrainObservation;
+
+        objective {
+            calculate passability from slope, roughness, cohesion, tractionEstimate, waterDepth, slipRatio, and sinkage;
+            reduce confidence when sensing disagreement or motion feedback contradicts terrain prediction;
+            assign impassable when slope, obstacle height, sinkage, or water depth exceeds system capability;
+        }
+    }
+
+    action def GenerateTerrainAwareRoute {
+        in item terrain: TerrainObservation;
+        out item selectedSegment: RouteSegment;
+
+        objective {
+            prefer passable route segments with low slope, firm soil, low roughness, and high confidence;
+            reject segments classified as impassable;
+            minimize routeCost while preserving required clearance and traction margin;
+        }
+    }
+
+    action def SelectMobilityMode {
+        in item terrain: TerrainObservation;
+        in item route: RouteSegment;
+        out item command: MobilityCommand;
+
+        objective {
+            select efficientCruise for flat firm terrain;
+            select highTraction for mud, snow, looseSand, or high slip;
+            select obstacleClimb for rock or obstacle-rich segments;
+            select lowGroundPressure when sinkage risk is high;
+            select recovery when commanded motion is not achieved;
+            select halted when no passable segment is available;
+        }
+    }
+
+    state def TerrainAssessmentStates {
+        entry action initializeAssessment;
+        state collectingObservations;
+        state classifyingTerrain;
+        state estimatingPassability;
+        state publishingAssessment;
+        state degradedAssessment;
+
+        transition first collectingObservations;
+        transition collectingObservations then classifyingTerrain;
+        transition classifyingTerrain then estimatingPassability;
+        transition estimatingPassability then publishingAssessment;
+        transition publishingAssessment then collectingObservations;
+        transition classifyingTerrain then degradedAssessment if observation.confidence < 0.60;
+        transition degradedAssessment then collectingObservations if observation.confidence >= 0.75;
+    }
+
+    state def MobilityModeStates {
+        entry action initializeMobilityControl;
+        state halted;
+        state efficientCruise;
+        state highTraction;
+        state obstacleClimb;
+        state lowGroundPressure;
+        state recovery;
+
+        transition first halted;
+        transition halted then efficientCruise if route.passable == true and terrain.class == TerrainClass::flatFirm;
+        transition efficientCruise then highTraction if terrain.tractionEstimate < 0.45;
+        transition efficientCruise then obstacleClimb if route.maxObstacleHeight > 0.25;
+        transition highTraction then lowGroundPressure if motion.sinkage > 0.12;
+        transition obstacleClimb then recovery if motion.slipRatio > 0.35;
+        transition lowGroundPressure then recovery if motion.speed < 0.05;
+        transition recovery then halted if route.passable == false;
+        transition recovery then highTraction if route.passable == true;
+        transition highTraction then efficientCruise if terrain.tractionEstimate >= 0.65 and route.meanSlope < 0.10;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system: TerrainabilitySystem;
+
+        doc
+        /*
+         The system shall provide terrainability: the high-level function of sensing terrain,
+         estimating whether terrain can be traversed, selecting a passable route segment,
+         adapting mobility configuration, and moving while maintaining traction, clearance,
+         stability, and energy margins.
+        */
+
+        require constraint {
+            system.terrainabilityIndex >= 0.70
+        }
+    }
+
+    requirement def SlopeTraversalRequirement {
+        subject system: TerrainabilitySystem;
+
+        require constraint {
+            system.maximumNegotiableSlope >= 0.35
+        }
+    }
+
+    requirement def GroundPressureRequirement {
+        subject system: TerrainabilitySystem;
+
+        require constraint {
+            system.maximumGroundPressure <= 55.0
+        }
+    }
+
+    requirement def ObstacleTraversalRequirement {
+        subject system: TerrainabilitySystem;
+
+        require constraint {
+            system.maximumObstacleHeight >= 0.40
+        }
+    }
+
+    requirement def TerrainClassificationRequirement {
+        subject sensing: TerrainSensingSubsystem;
+
+        require constraint {
+            sensing.forwardLookDistance >= 25.0 and sensing.updatePeriod <= 0.20
+        }
+    }
+
+    requirement def MobilityAdaptationRequirement {
+        subject manager: MobilityAdaptationManager;
+
+        require constraint {
+            manager.targetSlipRatio <= 0.30
+        }
+    }
+
+    requirement def EnergyReserveRequirement {
+        subject energy: EnergySubsystem;
+
+        require constraint {
+            energy.storedEnergy >= energy.reserveEnergy
+        }
+    }
+
+    part terrainabilityVehicle: TerrainabilitySystem {
+        attribute systemMass = 1800.0;
+        attribute maximumSpeed = 12.0;
+        attribute nominalGroundClearance = 0.45;
+        attribute minimumGroundClearance = 0.25;
+        attribute maximumGroundPressure = 52.0;
+        attribute maximumNegotiableSlope = 0.40;
+        attribute maximumObstacleHeight = 0.45;
+        attribute terrainabilityIndex = 0.82;
+    }
+}

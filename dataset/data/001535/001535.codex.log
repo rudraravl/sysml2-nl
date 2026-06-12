@@ -1,0 +1,1095 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-hu1frrlt
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb715-90db-7392-8738-e987dbb08f95
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Powered exoskeleton and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PoweredExoskeletonSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def TorqueValue :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def VoltageValue :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentValue :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def AngularVelocityValue :> ISQ::angularVelocity {
+        unit = SI::degreePerSecond;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def RatioValue :> ScalarValues::Real;
+
+    enum def OperatingMode {
+        enum idle;
+        enum assistWalking;
+        enum assistLifting;
+        enum stairClimb;
+        enum sitStand;
+        enum faultSafe;
+        enum maintenance;
+    }
+
+    enum def JointName {
+        enum leftHip;
+        enum rightHip;
+        enum leftKnee;
+        enum rightKnee;
+        enum leftAnkle;
+        enum rightAnkle;
+        enum lumbar;
+    }
+
+    enum def FaultSeverity {
+        enum advisory;
+        enum degraded;
+        enum critical;
+    }
+
+    item def BiomechanicalIntent {
+        attribute desiredMode : OperatingMode;
+        attribute cadence : AngularVelocityValue;
+        attribute estimatedLoad : MassValue;
+        attribute confidence : RatioValue;
+    }
+
+    item def JointMotionCommand {
+        attribute joint : JointName;
+        attribute targetAngle : AngleValue;
+        attribute targetVelocity : AngularVelocityValue;
+        attribute assistTorque : TorqueValue;
+        attribute commandAge : TimeValue;
+    }
+
+    item def JointMotionTelemetry {
+        attribute joint : JointName;
+        attribute measuredAngle : AngleValue;
+        attribute measuredVelocity : AngularVelocityValue;
+        attribute measuredTorque : TorqueValue;
+        attribute motorTemperature : TemperatureValue;
+    }
+
+    item def GroundContactTelemetry {
+        attribute leftFootForce : ForceValue;
+        attribute rightFootForce : ForceValue;
+        attribute centerOfPressureX : LengthValue;
+        attribute centerOfPressureY : LengthValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute availablePower : PowerValue;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : RatioValue;
+        attribute remainingEnergy : EnergyValue;
+        attribute packVoltage : VoltageValue;
+        attribute packTemperature : TemperatureValue;
+    }
+
+    item def SafetyFault {
+        attribute severity : FaultSeverity;
+        attribute sourceJoint : JointName;
+        attribute descriptionCode : Integer;
+        attribute timeSinceDetected : TimeValue;
+    }
+
+    port def IntentInputPort {
+        in item intent : BiomechanicalIntent;
+    }
+
+    port def JointCommandOutputPort {
+        out item command : JointMotionCommand;
+    }
+
+    port def JointTelemetryInputPort {
+        in item telemetry : JointMotionTelemetry;
+    }
+
+    port def GroundContactInputPort {
+        in item contact : GroundContactTelemetry;
+    }
+
+    port def PowerOutputPort {
+        out item power : ElectricalPower;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def BatteryStatusOutputPort {
+        out item status : BatteryStatus;
+    }
+
+    port def FaultOutputPort {
+        out item fault : SafetyFault;
+    }
+
+    port def FaultInputPort {
+        in item fault : SafetyFault;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : VoltageValue = 48 [SI::volt];
+        attribute capacity : EnergyValue = 1800000 [SI::joule];
+        attribute maxContinuousPower : PowerValue = 900 [SI::watt];
+        attribute stateOfCharge : RatioValue;
+        attribute packTemperature : TemperatureValue;
+
+        port powerOut : PowerOutputPort;
+        port statusOut : BatteryStatusOutputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute conversionEfficiency : RatioValue = 0.94;
+        attribute maxOutputCurrent : CurrentValue = 35 [SI::ampere];
+
+        port batteryPowerIn : PowerInputPort;
+        port hipPowerOut : PowerOutputPort;
+        port kneePowerOut : PowerOutputPort;
+        port anklePowerOut : PowerOutputPort;
+        port controllerPowerOut : PowerOutputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def JointActuator {
+        attribute joint : JointName;
+        attribute peakTorque : TorqueValue;
+        attribute continuousTorque : TorqueValue;
+        attribute maxSpeed : AngularVelocityValue;
+        attribute reflectedMass : MassValue;
+        attribute motorTemperature : TemperatureValue;
+
+        port powerIn : PowerInputPort;
+        port commandIn : JointTelemetryInputPort;
+        port telemetryOut : JointCommandOutputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute samplePeriod : TimeValue = 0.005 [SI::second];
+        attribute angularRateLimit : AngularVelocityValue = 1000 [SI::degreePerSecond];
+
+        port intentContributionOut : IntentInputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def FootForceSensorSet {
+        attribute maxMeasuredForce : ForceValue = 2500 [SI::newton];
+        attribute samplePeriod : TimeValue = 0.005 [SI::second];
+
+        port contactOut : GroundContactInputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def HumanInterfaceModule {
+        attribute hapticAlertDuration : TimeValue = 0.5 [SI::second];
+
+        port intentOut : IntentInputPort;
+        port faultIn : FaultInputPort;
+    }
+
+    part def ExoskeletonController {
+        attribute controlPeriod : TimeValue = 0.002 [SI::second];
+        attribute maximumAssistRatio : RatioValue = 0.65;
+        attribute faultTorqueLimit : TorqueValue = 5 [SI::newtonMetre];
+
+        port userIntentIn : IntentInputPort;
+        port imuIntentIn : IntentInputPort;
+        port groundContactIn : GroundContactInputPort;
+        port batteryStatusIn : BatteryStatusOutputPort;
+
+        port leftHipCommandOut : JointCommandOutputPort;
+        port rightHipCommandOut : JointCommandOutputPort;
+        port leftKneeCommandOut : JointCommandOutputPort;
+        port rightKneeCommandOut : JointCommandOutputPort;
+        port leftAnkleCommandOut : JointCommandOutputPort;
+        port rightAnkleCommandOut : JointCommandOutputPort;
+
+        port jointTelemetryIn : JointTelemetryInputPort;
+        port faultIn : FaultInputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def LowerLimbFrame {
+        attribute structuralMass : MassValue = 9.5 [SI::kilogram];
+        attribute maximumPayloadTransfer : MassValue = 45 [SI::kilogram];
+        attribute hipRangeOfMotion : AngleValue = 120 [SI::degree];
+        attribute kneeRangeOfMotion : AngleValue = 135 [SI::degree];
+        attribute ankleRangeOfMotion : AngleValue = 70 [SI::degree];
+    }
+
+    part def PoweredExoskeleton {
+        attribute totalMass : MassValue = 18 [SI::kilogram];
+        attribute ratedAssistPower : PowerValue = 750 [SI::watt];
+        attribute supportedUserMassMin : MassValue = 50 [SI::kilogram];
+        attribute supportedUserMassMax : MassValue = 120 [SI::kilogram];
+        attribute primaryFunction : String = "Augment the user's lower-body strength and endurance by sensing movement intent and applying coordinated powered joint assistance during walking, lifting, stair climbing, and sit-to-stand transitions.";
+
+        part frame : LowerLimbFrame;
+        part battery : BatteryPack;
+        part powerDistribution : PowerDistributionUnit;
+        part controller : ExoskeletonController;
+        part userInterface : HumanInterfaceModule;
+        part imu : InertialMeasurementUnit;
+        part footSensors : FootForceSensorSet;
+
+        part leftHipActuator : JointActuator {
+            attribute joint = JointName::leftHip;
+            attribute peakTorque = 120 [SI::newtonMetre];
+            attribute continuousTorque = 55 [SI::newtonMetre];
+            attribute maxSpeed = 360 [SI::degreePerSecond];
+            attribute reflectedMass = 1.4 [SI::kilogram];
+        }
+
+        part rightHipActuator : JointActuator {
+            attribute joint = JointName::rightHip;
+            attribute peakTorque = 120 [SI::newtonMetre];
+            attribute continuousTorque = 55 [SI::newtonMetre];
+            attribute maxSpeed = 360 [SI::degreePerSecond];
+            attribute reflectedMass = 1.4 [SI::kilogram];
+        }
+
+        part leftKneeActuator : JointActuator {
+            attribute joint = JointName::leftKnee;
+            attribute peakTorque = 100 [SI::newtonMetre];
+            attribute continuousTorque = 45 [SI::newtonMetre];
+            attribute maxSpeed = 420 [SI::degreePerSecond];
+            attribute reflectedMass = 1.2 [SI::kilogram];
+        }
+
+        part rightKneeActuator : JointActuator {
+            attribute joint = JointName::rightKnee;
+            attribute peakTorque = 100 [SI::newtonMetre];
+            attribute continuousTorque = 45 [SI::newtonMetre];
+            attribute maxSpeed = 420 [SI::degreePerSecond];
+            attribute reflectedMass = 1.2 [SI::kilogram];
+        }
+
+        part leftAnkleActuator : JointActuator {
+            attribute joint = JointName::leftAnkle;
+            attribute peakTorque = 85 [SI::newtonMetre];
+            attribute continuousTorque = 35 [SI::newtonMetre];
+            attribute maxSpeed = 500 [SI::degreePerSecond];
+            attribute reflectedMass = 1.0 [SI::kilogram];
+        }
+
+        part rightAnkleActuator : JointActuator {
+            attribute joint = JointName::rightAnkle;
+            attribute peakTorque = 85 [SI::newtonMetre];
+            attribute continuousTorque = 35 [SI::newtonMetre];
+            attribute maxSpeed = 500 [SI::degreePerSecond];
+            attribute reflectedMass = 1.0 [SI::kilogram];
+        }
+
+        connect battery.powerOut to powerDistribution.batteryPowerIn;
+        connect powerDistribution.controllerPowerOut to controller.batteryStatusIn;
+        connect powerDistribution.hipPowerOut to leftHipActuator.powerIn;
+        connect powerDistribution.hipPowerOut to rightHipActuator.powerIn;
+        connect powerDistribution.kneePowerOut to leftKneeActuator.powerIn;
+        connect powerDistribution.kneePowerOut to rightKneeActuator.powerIn;
+        connect powerDistribution.anklePowerOut to leftAnkleActuator.powerIn;
+        connect powerDistribution.anklePowerOut to rightAnkleActuator.powerIn;
+
+        connect userInterface.intentOut to controller.userIntentIn;
+        connect imu.intentContributionOut to controller.imuIntentIn;
+        connect footSensors.contactOut to controller.groundContactIn;
+
+        connect controller.leftHipCommandOut to leftHipActuator.commandIn;
+        connect controller.rightHipCommandOut to rightHipActuator.commandIn;
+        connect controller.leftKneeCommandOut to leftKneeActuator.commandIn;
+        connect controller.rightKneeCommandOut to rightKneeActuator.commandIn;
+        connect controller.leftAnkleCommandOut to leftAnkleActuator.commandIn;
+        connect controller.rightAnkleCommandOut to rightAnkleActuator.commandIn;
+
+        connect battery.faultOut to controller.faultIn;
+        connect powerDistribution.faultOut to controller.faultIn;
+        connect imu.faultOut to controller.faultIn;
+        connect footSensors.faultOut to controller.faultIn;
+        connect controller.faultOut to userInterface.faultIn;
+    }
+
+    action def EstimateUserIntent {
+        in item userInput : BiomechanicalIntent;
+        in item inertialInput : BiomechanicalIntent;
+        in item groundContact : GroundContactTelemetry;
+        out item fusedIntent : BiomechanicalIntent;
+    }
+
+    action def ComputeAssistiveJointCommands {
+        in item fusedIntent : BiomechanicalIntent;
+        in item jointFeedback : JointMotionTelemetry;
+        out item hipCommand : JointMotionCommand;
+        out item kneeCommand : JointMotionCommand;
+        out item ankleCommand : JointMotionCommand;
+    }
+
+    action def ApplyPoweredAssistance {
+        in item command : JointMotionCommand;
+        in item electricalPower : ElectricalPower;
+        out item telemetry : JointMotionTelemetry;
+    }
+
+    action def EnterFaultSafeMode {
+        in item fault : SafetyFault;
+        out item limitedCommand : JointMotionCommand;
+    }
+
+    action def AugmentLowerBodyMovement {
+        part exoskeleton : PoweredExoskeleton;
+
+        first start;
+        then estimateIntent : EstimateUserIntent;
+        then computeCommands : ComputeAssistiveJointCommands;
+        then applyAssistance : ApplyPoweredAssistance;
+        then monitorSafety;
+        then done;
+
+        flow estimateIntent.fusedIntent to computeCommands.fusedIntent;
+        flow computeCommands.hipCommand to applyAssistance.command;
+    }
+
+    state def ExoskeletonOperationalState {
+        entry action initializeController;
+        exit action storeSessionSummary;
+
+        state poweredOff;
+        state selfTest;
+        state standingIdle;
+        state walkingAssist;
+        state liftingAssist;
+        state stairAssist;
+        state sitStandAssist;
+        state degradedAssist;
+        state faultSafeShutdown;
+        state maintenanceMode;
+
+        transition first poweredOff;
+        transition poweredOff then selfTest
+            accept after 1 [SI::second];
+
+        transition selfTest then standingIdle
+            if batteryReady and sensorsReady and actuatorsReady;
+
+        transition selfTest then faultSafeShutdown
+            if not batteryReady or not sensorsReady or not actuatorsReady;
+
+        transition standingIdle then walkingAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::assistWalking;
+
+        transition standingIdle then liftingAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::assistLifting;
+
+        transition standingIdle then stairAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::stairClimb;
+
+        transition standingIdle then sitStandAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::sitStand;
+
+        transition walkingAssist then standingIdle
+            if userStopped and bothFeetStable;
+
+        transition liftingAssist then standingIdle
+            if loadReleased and postureStable;
+
+        transition stairAssist then standingIdle
+            if levelGroundDetected;
+
+        transition sitStandAssist then standingIdle
+            if uprightStable or seatedStable;
+
+        transition walkingAssist then degradedAssist
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::degraded;
+
+        transition liftingAssist then degradedAssist
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::degraded;
+
+        transition degradedAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition walkingAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition liftingAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition stairAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition faultSafeShutdown then maintenanceMode
+            accept after 5 [SI::second];
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.ratedAssistPower >= 500 [SI::watt]
+        }
+
+        doc /* The powered exoskeleton shall augment lower-body movement by sensing user intent and applying coordinated powered assistance at hip, knee, and ankle joints. */
+    }
+
+    requirement def WearableMassRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.totalMass <= 22 [SI::kilogram]
+        }
+
+        doc /* The complete wearable system shall remain light enough for practical donning, standing, walking, lifting, and stair-climb assistance. */
+    }
+
+    requirement def UserMassCompatibilityRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.supportedUserMassMin <= 50 [SI::kilogram] and
+            exoskeleton.supportedUserMassMax >= 120 [SI::kilogram]
+        }
+
+        doc /* The system shall support adult users across the specified body-mass range. */
+    }
+
+    requirement def JointAssistanceRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.leftHipActuator.peakTorque >= 100 [SI::newtonMetre] and
+            exoskeleton.rightHipActuator.peakTorque >= 100 [SI::newtonMetre] and
+            exoskeleton.leftKneeActuator.peakTorque >= 85 [SI::newtonMetre] and
+            exoskeleton.rightKneeActuator.peakTorque >= 85 [SI::newtonMetre]
+        }
+
+        doc /* Hip and knee actuators shall provide sufficient peak torque to assist gait, lifting, and sit-to-stand transitions. */
+    }
+
+    requirement def ContinuousOperationRequirement {
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.capacity >= 1500000 [SI::joule] and
+            battery.maxContinuousPower >= 750 [SI::watt]
+        }
+
+        doc /* The battery pack shall provide sufficient energy and power for sustained powered assistance under nominal duty cycles. */
+    }
+
+    requirement def SafetyFaultRequirement {
+        subject controller : ExoskeletonController;
+
+        require constraint {
+            controller.faultTorqueLimit <= 5 [SI::newtonMetre]
+        }
+
+        doc /* Upon a critical fault, commanded assistive torque shall be reduced to a safe limited value and the system shall enter fault-safe behavior. */
+    }
+
+    satisfy PrimaryFunctionRequirement by PoweredExoskeleton;
+    satisfy WearableMassRequirement by PoweredExoskeleton;
+    satisfy UserMassCompatibilityRequirement by PoweredExoskeleton;
+    satisfy JointAssistanceRequirement by PoweredExoskeleton;
+    satisfy ContinuousOperationRequirement by BatteryPack;
+    satisfy SafetyFaultRequirement by ExoskeletonController;
+}
+tokens used
+4,564
+package PoweredExoskeletonSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def MassValue :> ISQ::mass {
+        unit = SI::kilogram;
+    }
+
+    attribute def ForceValue :> ISQ::force {
+        unit = SI::newton;
+    }
+
+    attribute def TorqueValue :> ISQ::torque {
+        unit = SI::newtonMetre;
+    }
+
+    attribute def PowerValue :> ISQ::power {
+        unit = SI::watt;
+    }
+
+    attribute def EnergyValue :> ISQ::energy {
+        unit = SI::joule;
+    }
+
+    attribute def VoltageValue :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def CurrentValue :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def AngleValue :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def AngularVelocityValue :> ISQ::angularVelocity {
+        unit = SI::degreePerSecond;
+    }
+
+    attribute def TimeValue :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def TemperatureValue :> ISQ::thermodynamicTemperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def RatioValue :> ScalarValues::Real;
+
+    enum def OperatingMode {
+        enum idle;
+        enum assistWalking;
+        enum assistLifting;
+        enum stairClimb;
+        enum sitStand;
+        enum faultSafe;
+        enum maintenance;
+    }
+
+    enum def JointName {
+        enum leftHip;
+        enum rightHip;
+        enum leftKnee;
+        enum rightKnee;
+        enum leftAnkle;
+        enum rightAnkle;
+        enum lumbar;
+    }
+
+    enum def FaultSeverity {
+        enum advisory;
+        enum degraded;
+        enum critical;
+    }
+
+    item def BiomechanicalIntent {
+        attribute desiredMode : OperatingMode;
+        attribute cadence : AngularVelocityValue;
+        attribute estimatedLoad : MassValue;
+        attribute confidence : RatioValue;
+    }
+
+    item def JointMotionCommand {
+        attribute joint : JointName;
+        attribute targetAngle : AngleValue;
+        attribute targetVelocity : AngularVelocityValue;
+        attribute assistTorque : TorqueValue;
+        attribute commandAge : TimeValue;
+    }
+
+    item def JointMotionTelemetry {
+        attribute joint : JointName;
+        attribute measuredAngle : AngleValue;
+        attribute measuredVelocity : AngularVelocityValue;
+        attribute measuredTorque : TorqueValue;
+        attribute motorTemperature : TemperatureValue;
+    }
+
+    item def GroundContactTelemetry {
+        attribute leftFootForce : ForceValue;
+        attribute rightFootForce : ForceValue;
+        attribute centerOfPressureX : LengthValue;
+        attribute centerOfPressureY : LengthValue;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : VoltageValue;
+        attribute current : CurrentValue;
+        attribute availablePower : PowerValue;
+    }
+
+    item def BatteryStatus {
+        attribute stateOfCharge : RatioValue;
+        attribute remainingEnergy : EnergyValue;
+        attribute packVoltage : VoltageValue;
+        attribute packTemperature : TemperatureValue;
+    }
+
+    item def SafetyFault {
+        attribute severity : FaultSeverity;
+        attribute sourceJoint : JointName;
+        attribute descriptionCode : Integer;
+        attribute timeSinceDetected : TimeValue;
+    }
+
+    port def IntentInputPort {
+        in item intent : BiomechanicalIntent;
+    }
+
+    port def JointCommandOutputPort {
+        out item command : JointMotionCommand;
+    }
+
+    port def JointTelemetryInputPort {
+        in item telemetry : JointMotionTelemetry;
+    }
+
+    port def GroundContactInputPort {
+        in item contact : GroundContactTelemetry;
+    }
+
+    port def PowerOutputPort {
+        out item power : ElectricalPower;
+    }
+
+    port def PowerInputPort {
+        in item power : ElectricalPower;
+    }
+
+    port def BatteryStatusOutputPort {
+        out item status : BatteryStatus;
+    }
+
+    port def FaultOutputPort {
+        out item fault : SafetyFault;
+    }
+
+    port def FaultInputPort {
+        in item fault : SafetyFault;
+    }
+
+    part def BatteryPack {
+        attribute nominalVoltage : VoltageValue = 48 [SI::volt];
+        attribute capacity : EnergyValue = 1800000 [SI::joule];
+        attribute maxContinuousPower : PowerValue = 900 [SI::watt];
+        attribute stateOfCharge : RatioValue;
+        attribute packTemperature : TemperatureValue;
+
+        port powerOut : PowerOutputPort;
+        port statusOut : BatteryStatusOutputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute conversionEfficiency : RatioValue = 0.94;
+        attribute maxOutputCurrent : CurrentValue = 35 [SI::ampere];
+
+        port batteryPowerIn : PowerInputPort;
+        port hipPowerOut : PowerOutputPort;
+        port kneePowerOut : PowerOutputPort;
+        port anklePowerOut : PowerOutputPort;
+        port controllerPowerOut : PowerOutputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def JointActuator {
+        attribute joint : JointName;
+        attribute peakTorque : TorqueValue;
+        attribute continuousTorque : TorqueValue;
+        attribute maxSpeed : AngularVelocityValue;
+        attribute reflectedMass : MassValue;
+        attribute motorTemperature : TemperatureValue;
+
+        port powerIn : PowerInputPort;
+        port commandIn : JointTelemetryInputPort;
+        port telemetryOut : JointCommandOutputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute samplePeriod : TimeValue = 0.005 [SI::second];
+        attribute angularRateLimit : AngularVelocityValue = 1000 [SI::degreePerSecond];
+
+        port intentContributionOut : IntentInputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def FootForceSensorSet {
+        attribute maxMeasuredForce : ForceValue = 2500 [SI::newton];
+        attribute samplePeriod : TimeValue = 0.005 [SI::second];
+
+        port contactOut : GroundContactInputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def HumanInterfaceModule {
+        attribute hapticAlertDuration : TimeValue = 0.5 [SI::second];
+
+        port intentOut : IntentInputPort;
+        port faultIn : FaultInputPort;
+    }
+
+    part def ExoskeletonController {
+        attribute controlPeriod : TimeValue = 0.002 [SI::second];
+        attribute maximumAssistRatio : RatioValue = 0.65;
+        attribute faultTorqueLimit : TorqueValue = 5 [SI::newtonMetre];
+
+        port userIntentIn : IntentInputPort;
+        port imuIntentIn : IntentInputPort;
+        port groundContactIn : GroundContactInputPort;
+        port batteryStatusIn : BatteryStatusOutputPort;
+
+        port leftHipCommandOut : JointCommandOutputPort;
+        port rightHipCommandOut : JointCommandOutputPort;
+        port leftKneeCommandOut : JointCommandOutputPort;
+        port rightKneeCommandOut : JointCommandOutputPort;
+        port leftAnkleCommandOut : JointCommandOutputPort;
+        port rightAnkleCommandOut : JointCommandOutputPort;
+
+        port jointTelemetryIn : JointTelemetryInputPort;
+        port faultIn : FaultInputPort;
+        port faultOut : FaultOutputPort;
+    }
+
+    part def LowerLimbFrame {
+        attribute structuralMass : MassValue = 9.5 [SI::kilogram];
+        attribute maximumPayloadTransfer : MassValue = 45 [SI::kilogram];
+        attribute hipRangeOfMotion : AngleValue = 120 [SI::degree];
+        attribute kneeRangeOfMotion : AngleValue = 135 [SI::degree];
+        attribute ankleRangeOfMotion : AngleValue = 70 [SI::degree];
+    }
+
+    part def PoweredExoskeleton {
+        attribute totalMass : MassValue = 18 [SI::kilogram];
+        attribute ratedAssistPower : PowerValue = 750 [SI::watt];
+        attribute supportedUserMassMin : MassValue = 50 [SI::kilogram];
+        attribute supportedUserMassMax : MassValue = 120 [SI::kilogram];
+        attribute primaryFunction : String = "Augment the user's lower-body strength and endurance by sensing movement intent and applying coordinated powered joint assistance during walking, lifting, stair climbing, and sit-to-stand transitions.";
+
+        part frame : LowerLimbFrame;
+        part battery : BatteryPack;
+        part powerDistribution : PowerDistributionUnit;
+        part controller : ExoskeletonController;
+        part userInterface : HumanInterfaceModule;
+        part imu : InertialMeasurementUnit;
+        part footSensors : FootForceSensorSet;
+
+        part leftHipActuator : JointActuator {
+            attribute joint = JointName::leftHip;
+            attribute peakTorque = 120 [SI::newtonMetre];
+            attribute continuousTorque = 55 [SI::newtonMetre];
+            attribute maxSpeed = 360 [SI::degreePerSecond];
+            attribute reflectedMass = 1.4 [SI::kilogram];
+        }
+
+        part rightHipActuator : JointActuator {
+            attribute joint = JointName::rightHip;
+            attribute peakTorque = 120 [SI::newtonMetre];
+            attribute continuousTorque = 55 [SI::newtonMetre];
+            attribute maxSpeed = 360 [SI::degreePerSecond];
+            attribute reflectedMass = 1.4 [SI::kilogram];
+        }
+
+        part leftKneeActuator : JointActuator {
+            attribute joint = JointName::leftKnee;
+            attribute peakTorque = 100 [SI::newtonMetre];
+            attribute continuousTorque = 45 [SI::newtonMetre];
+            attribute maxSpeed = 420 [SI::degreePerSecond];
+            attribute reflectedMass = 1.2 [SI::kilogram];
+        }
+
+        part rightKneeActuator : JointActuator {
+            attribute joint = JointName::rightKnee;
+            attribute peakTorque = 100 [SI::newtonMetre];
+            attribute continuousTorque = 45 [SI::newtonMetre];
+            attribute maxSpeed = 420 [SI::degreePerSecond];
+            attribute reflectedMass = 1.2 [SI::kilogram];
+        }
+
+        part leftAnkleActuator : JointActuator {
+            attribute joint = JointName::leftAnkle;
+            attribute peakTorque = 85 [SI::newtonMetre];
+            attribute continuousTorque = 35 [SI::newtonMetre];
+            attribute maxSpeed = 500 [SI::degreePerSecond];
+            attribute reflectedMass = 1.0 [SI::kilogram];
+        }
+
+        part rightAnkleActuator : JointActuator {
+            attribute joint = JointName::rightAnkle;
+            attribute peakTorque = 85 [SI::newtonMetre];
+            attribute continuousTorque = 35 [SI::newtonMetre];
+            attribute maxSpeed = 500 [SI::degreePerSecond];
+            attribute reflectedMass = 1.0 [SI::kilogram];
+        }
+
+        connect battery.powerOut to powerDistribution.batteryPowerIn;
+        connect powerDistribution.controllerPowerOut to controller.batteryStatusIn;
+        connect powerDistribution.hipPowerOut to leftHipActuator.powerIn;
+        connect powerDistribution.hipPowerOut to rightHipActuator.powerIn;
+        connect powerDistribution.kneePowerOut to leftKneeActuator.powerIn;
+        connect powerDistribution.kneePowerOut to rightKneeActuator.powerIn;
+        connect powerDistribution.anklePowerOut to leftAnkleActuator.powerIn;
+        connect powerDistribution.anklePowerOut to rightAnkleActuator.powerIn;
+
+        connect userInterface.intentOut to controller.userIntentIn;
+        connect imu.intentContributionOut to controller.imuIntentIn;
+        connect footSensors.contactOut to controller.groundContactIn;
+
+        connect controller.leftHipCommandOut to leftHipActuator.commandIn;
+        connect controller.rightHipCommandOut to rightHipActuator.commandIn;
+        connect controller.leftKneeCommandOut to leftKneeActuator.commandIn;
+        connect controller.rightKneeCommandOut to rightKneeActuator.commandIn;
+        connect controller.leftAnkleCommandOut to leftAnkleActuator.commandIn;
+        connect controller.rightAnkleCommandOut to rightAnkleActuator.commandIn;
+
+        connect battery.faultOut to controller.faultIn;
+        connect powerDistribution.faultOut to controller.faultIn;
+        connect imu.faultOut to controller.faultIn;
+        connect footSensors.faultOut to controller.faultIn;
+        connect controller.faultOut to userInterface.faultIn;
+    }
+
+    action def EstimateUserIntent {
+        in item userInput : BiomechanicalIntent;
+        in item inertialInput : BiomechanicalIntent;
+        in item groundContact : GroundContactTelemetry;
+        out item fusedIntent : BiomechanicalIntent;
+    }
+
+    action def ComputeAssistiveJointCommands {
+        in item fusedIntent : BiomechanicalIntent;
+        in item jointFeedback : JointMotionTelemetry;
+        out item hipCommand : JointMotionCommand;
+        out item kneeCommand : JointMotionCommand;
+        out item ankleCommand : JointMotionCommand;
+    }
+
+    action def ApplyPoweredAssistance {
+        in item command : JointMotionCommand;
+        in item electricalPower : ElectricalPower;
+        out item telemetry : JointMotionTelemetry;
+    }
+
+    action def EnterFaultSafeMode {
+        in item fault : SafetyFault;
+        out item limitedCommand : JointMotionCommand;
+    }
+
+    action def AugmentLowerBodyMovement {
+        part exoskeleton : PoweredExoskeleton;
+
+        first start;
+        then estimateIntent : EstimateUserIntent;
+        then computeCommands : ComputeAssistiveJointCommands;
+        then applyAssistance : ApplyPoweredAssistance;
+        then monitorSafety;
+        then done;
+
+        flow estimateIntent.fusedIntent to computeCommands.fusedIntent;
+        flow computeCommands.hipCommand to applyAssistance.command;
+    }
+
+    state def ExoskeletonOperationalState {
+        entry action initializeController;
+        exit action storeSessionSummary;
+
+        state poweredOff;
+        state selfTest;
+        state standingIdle;
+        state walkingAssist;
+        state liftingAssist;
+        state stairAssist;
+        state sitStandAssist;
+        state degradedAssist;
+        state faultSafeShutdown;
+        state maintenanceMode;
+
+        transition first poweredOff;
+        transition poweredOff then selfTest
+            accept after 1 [SI::second];
+
+        transition selfTest then standingIdle
+            if batteryReady and sensorsReady and actuatorsReady;
+
+        transition selfTest then faultSafeShutdown
+            if not batteryReady or not sensorsReady or not actuatorsReady;
+
+        transition standingIdle then walkingAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::assistWalking;
+
+        transition standingIdle then liftingAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::assistLifting;
+
+        transition standingIdle then stairAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::stairClimb;
+
+        transition standingIdle then sitStandAssist
+            accept item intent : BiomechanicalIntent
+            if intent.desiredMode == OperatingMode::sitStand;
+
+        transition walkingAssist then standingIdle
+            if userStopped and bothFeetStable;
+
+        transition liftingAssist then standingIdle
+            if loadReleased and postureStable;
+
+        transition stairAssist then standingIdle
+            if levelGroundDetected;
+
+        transition sitStandAssist then standingIdle
+            if uprightStable or seatedStable;
+
+        transition walkingAssist then degradedAssist
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::degraded;
+
+        transition liftingAssist then degradedAssist
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::degraded;
+
+        transition degradedAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition walkingAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition liftingAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition stairAssist then faultSafeShutdown
+            accept item fault : SafetyFault
+            if fault.severity == FaultSeverity::critical;
+
+        transition faultSafeShutdown then maintenanceMode
+            accept after 5 [SI::second];
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.ratedAssistPower >= 500 [SI::watt]
+        }
+
+        doc /* The powered exoskeleton shall augment lower-body movement by sensing user intent and applying coordinated powered assistance at hip, knee, and ankle joints. */
+    }
+
+    requirement def WearableMassRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.totalMass <= 22 [SI::kilogram]
+        }
+
+        doc /* The complete wearable system shall remain light enough for practical donning, standing, walking, lifting, and stair-climb assistance. */
+    }
+
+    requirement def UserMassCompatibilityRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.supportedUserMassMin <= 50 [SI::kilogram] and
+            exoskeleton.supportedUserMassMax >= 120 [SI::kilogram]
+        }
+
+        doc /* The system shall support adult users across the specified body-mass range. */
+    }
+
+    requirement def JointAssistanceRequirement {
+        subject exoskeleton : PoweredExoskeleton;
+
+        require constraint {
+            exoskeleton.leftHipActuator.peakTorque >= 100 [SI::newtonMetre] and
+            exoskeleton.rightHipActuator.peakTorque >= 100 [SI::newtonMetre] and
+            exoskeleton.leftKneeActuator.peakTorque >= 85 [SI::newtonMetre] and
+            exoskeleton.rightKneeActuator.peakTorque >= 85 [SI::newtonMetre]
+        }
+
+        doc /* Hip and knee actuators shall provide sufficient peak torque to assist gait, lifting, and sit-to-stand transitions. */
+    }
+
+    requirement def ContinuousOperationRequirement {
+        subject battery : BatteryPack;
+
+        require constraint {
+            battery.capacity >= 1500000 [SI::joule] and
+            battery.maxContinuousPower >= 750 [SI::watt]
+        }
+
+        doc /* The battery pack shall provide sufficient energy and power for sustained powered assistance under nominal duty cycles. */
+    }
+
+    requirement def SafetyFaultRequirement {
+        subject controller : ExoskeletonController;
+
+        require constraint {
+            controller.faultTorqueLimit <= 5 [SI::newtonMetre]
+        }
+
+        doc /* Upon a critical fault, commanded assistive torque shall be reduced to a safe limited value and the system shall enter fault-safe behavior. */
+    }
+
+    satisfy PrimaryFunctionRequirement by PoweredExoskeleton;
+    satisfy WearableMassRequirement by PoweredExoskeleton;
+    satisfy UserMassCompatibilityRequirement by PoweredExoskeleton;
+    satisfy JointAssistanceRequirement by PoweredExoskeleton;
+    satisfy ContinuousOperationRequirement by BatteryPack;
+    satisfy SafetyFaultRequirement by ExoskeletonController;
+}

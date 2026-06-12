@@ -1,0 +1,456 @@
+package PhotoelasticitySystem {
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  doc /* Primary function: apply controlled mechanical loading to a transparent photoelastic specimen, illuminate it with polarized light, capture fringe patterns, and compute a calibrated full-field stress map for material and structural analysis. */
+
+  value type PixelCount specializes Natural;
+  value type FringeOrder specializes Real;
+  value type Wavelength specializes length;
+  value type ForceValue specializes force;
+  value type PressureValue specializes pressure;
+  value type AngleValue specializes planeAngle;
+  value type ExposureTime specializes time;
+  value type TemperatureValue specializes thermodynamicTemperature;
+  value type VoltageValue specializes electricPotential;
+  value type LuminousFluxValue specializes luminousFlux;
+
+  item def MechanicalLoad {
+    attribute axialForce : ForceValue;
+    attribute lateralForce : ForceValue;
+    attribute loadRate : Real;
+    attribute fixtureAngle : AngleValue;
+  }
+
+  item def PolarizedLightBeam {
+    attribute wavelength : Wavelength;
+    attribute intensity : LuminousFluxValue;
+    attribute polarizationAngle : AngleValue;
+    attribute retardationPhase : AngleValue;
+  }
+
+  item def PhotoelasticSpecimen {
+    attribute thickness : LengthValue;
+    attribute width : LengthValue;
+    attribute height : LengthValue;
+    attribute stressOpticCoefficient : Real;
+    attribute elasticModulus : PressureValue;
+    attribute poissonRatio : Real;
+    attribute maxAllowableStress : PressureValue;
+  }
+
+  item def FringeImage {
+    attribute widthPixels : PixelCount;
+    attribute heightPixels : PixelCount;
+    attribute exposure : ExposureTime;
+    attribute averageBrightness : Real;
+    attribute contrastRatio : Real;
+    attribute timestamp : TimeValue;
+  }
+
+  item def StressMap {
+    attribute widthPixels : PixelCount;
+    attribute heightPixels : PixelCount;
+    attribute peakPrincipalStressDifference : PressureValue;
+    attribute meanPrincipalStressDifference : PressureValue;
+    attribute maximumFringeOrder : FringeOrder;
+    attribute calibrationValid : Boolean;
+  }
+
+  item def CalibrationProfile {
+    attribute darkFrameOffset : Real;
+    attribute flatFieldGain : Real;
+    attribute stressOpticCoefficient : Real;
+    attribute pixelScale : Real;
+    attribute validTemperatureMin : TemperatureValue;
+    attribute validTemperatureMax : TemperatureValue;
+  }
+
+  item def AnalysisReport {
+    attribute specimenId : String;
+    attribute testId : String;
+    attribute passFail : Boolean;
+    attribute peakStress : PressureValue;
+    attribute safetyMargin : Real;
+    attribute generatedAt : TimeValue;
+  }
+
+  port def LightOutputPort {
+    out beam : PolarizedLightBeam;
+  }
+
+  port def LightInputPort {
+    in beam : PolarizedLightBeam;
+  }
+
+  port def MechanicalLoadPort {
+    in load : MechanicalLoad;
+  }
+
+  port def ImageOutputPort {
+    out image : FringeImage;
+  }
+
+  port def ImageInputPort {
+    in image : FringeImage;
+  }
+
+  port def StressMapOutputPort {
+    out stressMap : StressMap;
+  }
+
+  port def StressMapInputPort {
+    in stressMap : StressMap;
+  }
+
+  port def ReportOutputPort {
+    out report : AnalysisReport;
+  }
+
+  port def ControlPort {
+    in command : String;
+    out status : String;
+  }
+
+  port def PowerPort {
+    in voltage : VoltageValue;
+  }
+
+  action def EmitPolarizedLight {
+    in requestedWavelength : Wavelength;
+    in requestedIntensity : LuminousFluxValue;
+    in requestedAngle : AngleValue;
+    out beam : PolarizedLightBeam;
+
+    assign beam.wavelength := requestedWavelength;
+    assign beam.intensity := requestedIntensity;
+    assign beam.polarizationAngle := requestedAngle;
+    assign beam.retardationPhase := 0.0 [SI::rad];
+  }
+
+  action def ApplyControlledLoad {
+    in commandedForce : ForceValue;
+    in commandedRate : Real;
+    out load : MechanicalLoad;
+
+    assign load.axialForce := commandedForce;
+    assign load.lateralForce := 0.0 [SI::N];
+    assign load.loadRate := commandedRate;
+    assign load.fixtureAngle := 0.0 [SI::rad];
+  }
+
+  action def CaptureFringeImage {
+    in beam : PolarizedLightBeam;
+    in exposure : ExposureTime;
+    out image : FringeImage;
+
+    assign image.widthPixels := 4096;
+    assign image.heightPixels := 3000;
+    assign image.exposure := exposure;
+    assign image.averageBrightness := 0.62;
+    assign image.contrastRatio := 0.78;
+  }
+
+  action def ComputeStressMap {
+    in image : FringeImage;
+    in specimen : PhotoelasticSpecimen;
+    in calibration : CalibrationProfile;
+    out stressMap : StressMap;
+
+    assign stressMap.widthPixels := image.widthPixels;
+    assign stressMap.heightPixels := image.heightPixels;
+    assign stressMap.maximumFringeOrder := 7.5;
+    assign stressMap.peakPrincipalStressDifference := 42.0 [SI::MPa];
+    assign stressMap.meanPrincipalStressDifference := 18.0 [SI::MPa];
+    assign stressMap.calibrationValid := true;
+  }
+
+  action def GenerateAnalysisReport {
+    in stressMap : StressMap;
+    in specimen : PhotoelasticSpecimen;
+    out report : AnalysisReport;
+
+    assign report.specimenId := "PE-SPECIMEN-001";
+    assign report.testId := "PHOTOELASTIC-LOAD-CASE-A";
+    assign report.peakStress := stressMap.peakPrincipalStressDifference;
+    assign report.safetyMargin := specimen.maxAllowableStress / stressMap.peakPrincipalStressDifference;
+    assign report.passFail := stressMap.peakPrincipalStressDifference <= specimen.maxAllowableStress;
+  }
+
+  state def AnalyzerOperatingState {
+    state poweredOff;
+    state standby;
+    state calibrating;
+    state loading;
+    state imaging;
+    state processing;
+    state reporting;
+    state fault;
+
+    entry action initialPowerState {
+      then poweredOff;
+    }
+
+    transition powerOn
+      first poweredOff
+      then standby;
+
+    transition startCalibration
+      first standby
+      then calibrating;
+
+    transition calibrationComplete
+      first calibrating
+      then standby;
+
+    transition startTest
+      first standby
+      then loading;
+
+    transition loadStable
+      first loading
+      then imaging;
+
+    transition imageCaptured
+      first imaging
+      then processing;
+
+    transition processingComplete
+      first processing
+      then reporting;
+
+    transition reportDelivered
+      first reporting
+      then standby;
+
+    transition faultDetected
+      first standby
+      then fault;
+
+    transition resetFault
+      first fault
+      then standby;
+  }
+
+  part def PolarizedLightSource {
+    attribute nominalWavelength : Wavelength = 589.0 [SI::nm];
+    attribute maximumIntensity : LuminousFluxValue = 1200.0 [SI::lm];
+    attribute polarizationAngle : AngleValue = 0.0 [SI::rad];
+
+    port power : PowerPort;
+    port control : ControlPort;
+    port lightOut : LightOutputPort;
+
+    perform action emitLight : EmitPolarizedLight;
+  }
+
+  part def PolarizerAssembly {
+    attribute analyzerAngle : AngleValue = 1.5708 [SI::rad];
+    attribute quarterWavePlateEnabled : Boolean = true;
+    attribute extinctionRatio : Real = 10000.0;
+
+    port lightIn : LightInputPort;
+    port lightOut : LightOutputPort;
+    port control : ControlPort;
+  }
+
+  part def MechanicalLoadFrame {
+    attribute maximumForce : ForceValue = 5000.0 [SI::N];
+    attribute forceResolution : ForceValue = 0.1 [SI::N];
+    attribute displacementResolution : LengthValue = 0.001 [SI::mm];
+
+    port power : PowerPort;
+    port control : ControlPort;
+    port loadOut : MechanicalLoadPort;
+
+    perform action applyLoad : ApplyControlledLoad;
+  }
+
+  part def SpecimenStage {
+    attribute stageTemperature : TemperatureValue = 293.15 [SI::K];
+    attribute alignmentTolerance : AngleValue = 0.002 [SI::rad];
+
+    port incidentLight : LightInputPort;
+    port transmittedLight : LightOutputPort;
+    port mechanicalLoad : MechanicalLoadPort;
+
+    part specimen : PhotoelasticSpecimen {
+      attribute thickness = 6.0 [SI::mm];
+      attribute width = 80.0 [SI::mm];
+      attribute height = 120.0 [SI::mm];
+      attribute stressOpticCoefficient = 3.4;
+      attribute elasticModulus = 2.8 [SI::GPa];
+      attribute poissonRatio = 0.38;
+      attribute maxAllowableStress = 55.0 [SI::MPa];
+    }
+  }
+
+  part def ImagingCamera {
+    attribute sensorWidth : PixelCount = 4096;
+    attribute sensorHeight : PixelCount = 3000;
+    attribute bitDepth : Natural = 14;
+    attribute defaultExposure : ExposureTime = 0.01 [SI::s];
+
+    port power : PowerPort;
+    port control : ControlPort;
+    port opticalIn : LightInputPort;
+    port imageOut : ImageOutputPort;
+
+    perform action capture : CaptureFringeImage;
+  }
+
+  part def StressAnalysisComputer {
+    attribute processorCount : Natural = 8;
+    attribute minimumContrastRatio : Real = 0.35;
+    attribute maximumProcessingLatency : TimeValue = 2.0 [SI::s];
+
+    port power : PowerPort;
+    port control : ControlPort;
+    port imageIn : ImageInputPort;
+    port stressMapOut : StressMapOutputPort;
+    port reportOut : ReportOutputPort;
+
+    part calibration : CalibrationProfile {
+      attribute darkFrameOffset = 0.014;
+      attribute flatFieldGain = 1.006;
+      attribute stressOpticCoefficient = 3.4;
+      attribute pixelScale = 0.025;
+      attribute validTemperatureMin = 288.15 [SI::K];
+      attribute validTemperatureMax = 303.15 [SI::K];
+    }
+
+    perform action computeStress : ComputeStressMap;
+    perform action generateReport : GenerateAnalysisReport;
+  }
+
+  part def OperatorConsole {
+    attribute displayWidthPixels : PixelCount = 2560;
+    attribute displayHeightPixels : PixelCount = 1440;
+
+    port control : ControlPort;
+    port stressMapIn : StressMapInputPort;
+    port reportIn : ReportOutputPort;
+  }
+
+  part def PhotoelasticStressAnalyzer {
+    attribute systemVoltage : VoltageValue = 24.0 [SI::V];
+    attribute operatingTemperature : TemperatureValue = 293.15 [SI::K];
+
+    port externalPower : PowerPort;
+    port operatorControl : ControlPort;
+    port finalReport : ReportOutputPort;
+
+    part lightSource : PolarizedLightSource;
+    part polarizer : PolarizerAssembly;
+    part loadFrame : MechanicalLoadFrame;
+    part specimenStage : SpecimenStage;
+    part camera : ImagingCamera;
+    part computer : StressAnalysisComputer;
+    part console : OperatorConsole;
+
+    state operatingState : AnalyzerOperatingState;
+
+    connect externalPower to lightSource.power;
+    connect externalPower to loadFrame.power;
+    connect externalPower to camera.power;
+    connect externalPower to computer.power;
+
+    connect operatorControl to lightSource.control;
+    connect operatorControl to polarizer.control;
+    connect operatorControl to loadFrame.control;
+    connect operatorControl to camera.control;
+    connect operatorControl to computer.control;
+    connect operatorControl to console.control;
+
+    connect lightSource.lightOut to polarizer.lightIn;
+    connect polarizer.lightOut to specimenStage.incidentLight;
+    connect loadFrame.loadOut to specimenStage.mechanicalLoad;
+    connect specimenStage.transmittedLight to camera.opticalIn;
+    connect camera.imageOut to computer.imageIn;
+    connect computer.stressMapOut to console.stressMapIn;
+    connect computer.reportOut to finalReport;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject analyzer : PhotoelasticStressAnalyzer;
+
+    doc /* The analyzer shall determine full-field stress distribution in a transparent photoelastic specimen by converting polarized-light fringe patterns into calibrated principal stress difference maps. */
+  }
+
+  requirement def IlluminationRequirement {
+    subject source : PolarizedLightSource;
+
+    require constraint {
+      source.nominalWavelength >= 540.0 [SI::nm] and
+      source.nominalWavelength <= 650.0 [SI::nm]
+    }
+
+    require constraint {
+      source.maximumIntensity >= 500.0 [SI::lm]
+    }
+  }
+
+  requirement def LoadControlRequirement {
+    subject frame : MechanicalLoadFrame;
+
+    require constraint {
+      frame.maximumForce >= 2500.0 [SI::N]
+    }
+
+    require constraint {
+      frame.forceResolution <= 0.5 [SI::N]
+    }
+  }
+
+  requirement def ImagingRequirement {
+    subject camera : ImagingCamera;
+
+    require constraint {
+      camera.sensorWidth >= 3000 and camera.sensorHeight >= 2000
+    }
+
+    require constraint {
+      camera.bitDepth >= 12
+    }
+  }
+
+  requirement def StressAccuracyRequirement {
+    subject computer : StressAnalysisComputer;
+
+    require constraint {
+      computer.minimumContrastRatio <= 0.40
+    }
+
+    require constraint {
+      computer.maximumProcessingLatency <= 5.0 [SI::s]
+    }
+  }
+
+  requirement def SpecimenSafetyRequirement {
+    subject stage : SpecimenStage;
+
+    require constraint {
+      stage.specimen.maxAllowableStress >= 50.0 [SI::MPa]
+    }
+  }
+
+  requirement def CalibrationTemperatureRequirement {
+    subject computer : StressAnalysisComputer;
+
+    require constraint {
+      computer.calibration.validTemperatureMin <= 293.15 [SI::K] and
+      computer.calibration.validTemperatureMax >= 293.15 [SI::K]
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by PhotoelasticStressAnalyzer;
+  satisfy IlluminationRequirement by PolarizedLightSource;
+  satisfy LoadControlRequirement by MechanicalLoadFrame;
+  satisfy ImagingRequirement by ImagingCamera;
+  satisfy StressAccuracyRequirement by StressAnalysisComputer;
+  satisfy SpecimenSafetyRequirement by SpecimenStage;
+  satisfy CalibrationTemperatureRequirement by StressAnalysisComputer;
+
+  part system : PhotoelasticStressAnalyzer;
+}

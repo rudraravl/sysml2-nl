@@ -1,0 +1,1143 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-10rk042u
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5bc-6ca6-7233-8f85-4e739677b7c9
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Phosphor thermometry and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PhosphorThermometrySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    attribute def CelsiusTemperature :> Real {
+        unit = degC;
+    }
+
+    attribute def Wavelength :> Real {
+        unit = nm;
+    }
+
+    attribute def OpticalPower :> Real {
+        unit = mW;
+    }
+
+    attribute def ElectricalPower :> Real {
+        unit = W;
+    }
+
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+
+    attribute def Current :> Real {
+        unit = A;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    attribute def Frequency :> Real {
+        unit = Hz;
+    }
+
+    attribute def DigitalCount :> Integer;
+
+    attribute def SignalToNoiseRatio :> Real {
+        unit = dB;
+    }
+
+    attribute def MeasurementUncertainty :> Real {
+        unit = K;
+    }
+
+    item def ExcitationPulse {
+        attribute wavelength : Wavelength;
+        attribute pulseEnergy : OpticalPower;
+        attribute pulseWidth : TimeDuration;
+        attribute repetitionRate : Frequency;
+    }
+
+    item def PhosphorescentEmission {
+        attribute peakWavelength : Wavelength;
+        attribute intensity : OpticalPower;
+        attribute decayLifetime : TimeDuration;
+        attribute backgroundLevel : OpticalPower;
+    }
+
+    item def RawDetectorSignal {
+        attribute sampleCount : DigitalCount;
+        attribute sampleRate : Frequency;
+        attribute peakAmplitude : Voltage;
+        attribute noiseRms : Voltage;
+    }
+
+    item def TemperatureEstimate {
+        attribute temperature : CelsiusTemperature;
+        attribute uncertainty : MeasurementUncertainty;
+        attribute confidence : Real;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def ControlCommand {
+        attribute enableExcitation : Boolean;
+        attribute requestedSampleRate : Frequency;
+        attribute requestedAveragingCount : Integer;
+    }
+
+    item def HealthStatus {
+        attribute laserReady : Boolean;
+        attribute detectorReady : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute signalToNoiseRatio : SignalToNoiseRatio;
+        attribute faultActive : Boolean;
+    }
+
+    port def ExcitationOpticalPort {
+        out item pulse : ExcitationPulse;
+    }
+
+    port def EmissionOpticalPort {
+        in item emission : PhosphorescentEmission;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def DigitalCommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def DigitalDataPort {
+        out item estimate : TemperatureEstimate;
+        out item status : HealthStatus;
+    }
+
+    port def DetectorSignalPort {
+        out item signal : RawDetectorSignal;
+    }
+
+    port def ProcessingInputPort {
+        in item signal : RawDetectorSignal;
+        in item emissionMetadata : PhosphorescentEmission;
+    }
+
+    part def PhosphorCoating {
+        attribute materialName : String = "YAG:Dy phosphor";
+        attribute nominalThickness : Real = 25.0;
+        attribute maximumServiceTemperature : CelsiusTemperature = 1100.0;
+        attribute minimumServiceTemperature : CelsiusTemperature = -40.0;
+        attribute referenceLifetimeAt25C : TimeDuration = 0.0012;
+        attribute activationWavelength : Wavelength = 405.0;
+
+        port excitationIn : ExcitationOpticalPort;
+        port emissionOut : EmissionOpticalPort;
+
+        action emitTemperatureDependentLight {
+            in item excitation : ExcitationPulse;
+            in attribute surfaceTemperature : CelsiusTemperature;
+            out item emission : PhosphorescentEmission;
+
+            first start;
+            then absorbExcitation;
+            then decayEmission;
+            then outputEmission;
+            then done;
+
+            action absorbExcitation;
+            action decayEmission;
+            action outputEmission;
+        }
+    }
+
+    part def ExcitationSource {
+        attribute sourceType : String = "pulsed violet diode laser";
+        attribute centerWavelength : Wavelength = 405.0;
+        attribute maximumPulseWidth : TimeDuration = 0.00001;
+        attribute nominalRepetitionRate : Frequency = 1000.0;
+        attribute nominalOpticalPower : OpticalPower = 35.0;
+
+        port powerIn : ElectricalPowerPort;
+        port commandIn : DigitalCommandPort;
+        port opticalOut : ExcitationOpticalPort;
+
+        state def ExcitationSourceStateMachine {
+            state off;
+            state warmup;
+            state armed;
+            state pulsing;
+            state fault;
+
+            initial then off;
+
+            transition off_to_warmup first off
+                accept ControlCommand
+                if command.enableExcitation
+                then warmup;
+
+            transition warmup_to_armed first warmup
+                if supplyVoltage >= 11.0 and supplyVoltage <= 13.0
+                then armed;
+
+            transition armed_to_pulsing first armed
+                accept ControlCommand
+                if command.enableExcitation
+                then pulsing;
+
+            transition pulsing_to_armed first pulsing
+                accept ControlCommand
+                if not command.enableExcitation
+                then armed;
+
+            transition any_to_fault first off then fault
+                if supplyVoltage < 10.5 or supplyCurrent > 3.0;
+
+            transition fault_to_off first fault
+                accept ControlCommand
+                if not command.enableExcitation
+                then off;
+        }
+
+        action generatePulse {
+            in item command : ControlCommand;
+            out item pulse : ExcitationPulse;
+
+            first validateCommand;
+            then setPulseTiming;
+            then driveLaserDiode;
+            then emitPulse;
+            then done;
+
+            action validateCommand;
+            action setPulseTiming;
+            action driveLaserDiode;
+            action emitPulse;
+        }
+    }
+
+    part def OpticalAssembly {
+        attribute lensTransmission : Real = 0.91;
+        attribute dichroicCutoffWavelength : Wavelength = 450.0;
+        attribute collectionNumericalAperture : Real = 0.22;
+        attribute workingDistance : Real = 75.0;
+
+        port excitationIn : ExcitationOpticalPort;
+        port excitationOut : ExcitationOpticalPort;
+        port emissionIn : EmissionOpticalPort;
+        port emissionOut : EmissionOpticalPort;
+
+        action routeOpticalSignals {
+            in item pulse : ExcitationPulse;
+            in item emissionFromTarget : PhosphorescentEmission;
+            out item deliveredPulse : ExcitationPulse;
+            out item filteredEmission : PhosphorescentEmission;
+
+            first collimateExcitation;
+            then rejectExcitationLeakage;
+            then collectEmission;
+            then passLongWavelengthEmission;
+            then done;
+
+            action collimateExcitation;
+            action rejectExcitationLeakage;
+            action collectEmission;
+            action passLongWavelengthEmission;
+        }
+    }
+
+    part def Photodetector {
+        attribute detectorType : String = "photomultiplier tube";
+        attribute spectralResponsivityPeak : Wavelength = 575.0;
+        attribute bandwidth : Frequency = 2000000.0;
+        attribute darkNoiseRms : Voltage = 0.002;
+        attribute saturationVoltage : Voltage = 4.5;
+
+        port emissionIn : EmissionOpticalPort;
+        port signalOut : DetectorSignalPort;
+        port powerIn : ElectricalPowerPort;
+
+        action convertEmissionToSignal {
+            in item emission : PhosphorescentEmission;
+            out item signal : RawDetectorSignal;
+
+            first receivePhotons;
+            then amplifyPhotoCurrent;
+            then applyAnalogFilter;
+            then outputVoltageTrace;
+            then done;
+
+            action receivePhotons;
+            action amplifyPhotoCurrent;
+            action applyAnalogFilter;
+            action outputVoltageTrace;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute adcResolutionBits : Integer = 16;
+        attribute nominalSampleRate : Frequency = 1000000.0;
+        attribute averagingCount : Integer = 32;
+        attribute minimumAcceptableSnr : SignalToNoiseRatio = 20.0;
+        attribute calibrationPolynomialC0 : Real = 650.0;
+        attribute calibrationPolynomialC1 : Real = -210000.0;
+        attribute calibrationPolynomialC2 : Real = 18000000.0;
+
+        port processingIn : ProcessingInputPort;
+        port commandIn : DigitalCommandPort;
+        port dataOut : DigitalDataPort;
+
+        action estimateTemperatureFromDecay {
+            in item signal : RawDetectorSignal;
+            in item emissionMetadata : PhosphorescentEmission;
+            out item estimate : TemperatureEstimate;
+            out item status : HealthStatus;
+
+            first acquireSamples;
+            then subtractBackground;
+            then fitExponentialDecay;
+            then convertLifetimeToTemperature;
+            then assessUncertainty;
+            then publishResult;
+            then done;
+
+            action acquireSamples;
+            action subtractBackground;
+            action fitExponentialDecay;
+            action convertLifetimeToTemperature;
+            action assessUncertainty;
+            action publishResult;
+        }
+
+        state def MeasurementStateMachine {
+            state idle;
+            state armed;
+            state acquiring;
+            state processing;
+            state reporting;
+            state degraded;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_armed first idle
+                accept ControlCommand
+                if command.enableExcitation
+                then armed;
+
+            transition armed_to_acquiring first armed
+                then acquiring;
+
+            transition acquiring_to_processing first acquiring
+                if signal.sampleCount >= 1024
+                then processing;
+
+            transition processing_to_reporting first processing
+                if status.signalToNoiseRatio >= minimumAcceptableSnr
+                then reporting;
+
+            transition processing_to_degraded first processing
+                if status.signalToNoiseRatio < minimumAcceptableSnr and status.signalToNoiseRatio >= 10.0
+                then degraded;
+
+            transition degraded_to_reporting first degraded
+                then reporting;
+
+            transition reporting_to_armed first reporting
+                accept ControlCommand
+                if command.enableExcitation
+                then armed;
+
+            transition reporting_to_idle first reporting
+                accept ControlCommand
+                if not command.enableExcitation
+                then idle;
+
+            transition processing_to_fault first processing
+                if signal.peakAmplitude >= 4.5 or not status.calibrationValid
+                then fault;
+
+            transition fault_to_idle first fault
+                accept ControlCommand
+                if not command.enableExcitation
+                then idle;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayRefreshRate : Frequency = 5.0;
+        attribute alarmHighTemperature : CelsiusTemperature = 900.0;
+        attribute alarmUncertaintyLimit : MeasurementUncertainty = 5.0;
+
+        port commandOut : DigitalCommandPort;
+        port dataIn : DigitalDataPort;
+
+        action presentMeasurement {
+            in item estimate : TemperatureEstimate;
+            in item status : HealthStatus;
+
+            first updateNumericDisplay;
+            then evaluateAlarms;
+            then logMeasurement;
+            then done;
+
+            action updateNumericDisplay;
+            action evaluateAlarms;
+            action logMeasurement;
+        }
+    }
+
+    part def PowerSupply {
+        attribute inputVoltage : Voltage = 24.0;
+        attribute regulatedLogicVoltage : Voltage = 5.0;
+        attribute regulatedLaserVoltage : Voltage = 12.0;
+        attribute maximumOutputPower : ElectricalPower = 60.0;
+
+        port laserPowerOut : ElectricalPowerPort;
+        port detectorPowerOut : ElectricalPowerPort;
+        port processorPowerOut : ElectricalPowerPort;
+    }
+
+    part def HeatedTarget {
+        attribute actualSurfaceTemperature : CelsiusTemperature;
+        attribute emissivity : Real = 0.82;
+        attribute maximumRampRate : Real = 20.0;
+
+        part phosphor : PhosphorCoating;
+    }
+
+    part def PhosphorThermometrySystem {
+        attribute primaryFunction : String =
+            "Measure surface temperature without physical contact by exciting a phosphor coating with short optical pulses, collecting the temperature-dependent phosphorescent decay, and converting decay lifetime into a calibrated temperature estimate.";
+
+        attribute measurementRangeLow : CelsiusTemperature = -40.0;
+        attribute measurementRangeHigh : CelsiusTemperature = 1000.0;
+        attribute targetAccuracy : MeasurementUncertainty = 2.0;
+        attribute nominalMeasurementRate : Frequency = 10.0;
+
+        part powerSupply : PowerSupply;
+        part excitationSource : ExcitationSource;
+        part optics : OpticalAssembly;
+        part detector : Photodetector;
+        part processor : SignalProcessor;
+        part interface : UserInterface;
+        part target : HeatedTarget;
+
+        port externalCommandIn : DigitalCommandPort;
+        port externalDataOut : DigitalDataPort;
+
+        connect powerSupply.laserPowerOut to excitationSource.powerIn;
+        connect powerSupply.detectorPowerOut to detector.powerIn;
+        connect interface.commandOut to excitationSource.commandIn;
+        connect interface.commandOut to processor.commandIn;
+        connect externalCommandIn to excitationSource.commandIn;
+        connect externalCommandIn to processor.commandIn;
+
+        connect excitationSource.opticalOut to optics.excitationIn;
+        connect optics.excitationOut to target.phosphor.excitationIn;
+        connect target.phosphor.emissionOut to optics.emissionIn;
+        connect optics.emissionOut to detector.emissionIn;
+        connect detector.signalOut to processor.processingIn;
+        connect optics.emissionOut to processor.processingIn;
+        connect processor.dataOut to interface.dataIn;
+        connect processor.dataOut to externalDataOut;
+
+        action performTemperatureMeasurement {
+            in item command : ControlCommand;
+            out item estimate : TemperatureEstimate;
+            out item status : HealthStatus;
+
+            first acceptMeasurementCommand;
+            then energizeExcitationSource;
+            then deliverExcitationPulse;
+            then generatePhosphorescentDecay;
+            then collectFilteredEmission;
+            then detectOpticalDecay;
+            then computeTemperatureEstimate;
+            then outputMeasurement;
+            then done;
+
+            action acceptMeasurementCommand;
+            action energizeExcitationSource;
+            action deliverExcitationPulse;
+            action generatePhosphorescentDecay;
+            action collectFilteredEmission;
+            action detectOpticalDecay;
+            action computeTemperatureEstimate;
+            action outputMeasurement;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : PhosphorThermometrySystem;
+
+        doc /* The system shall determine the temperature of a surface coated with phosphor by optically exciting the coating and processing the resulting phosphorescent decay lifetime. */
+
+        require constraint {
+            system.measurementRangeLow <= -40.0 and
+            system.measurementRangeHigh >= 1000.0 and
+            system.targetAccuracy <= 2.0
+        }
+    }
+
+    requirement def NonContactMeasurementRequirement {
+        subject system : PhosphorThermometrySystem;
+
+        doc /* The system shall perform temperature measurement without requiring electrical or mechanical contact with the heated target surface. */
+
+        require constraint {
+            system.optics.workingDistance >= 25.0
+        }
+    }
+
+    requirement def ExcitationRequirement {
+        subject source : ExcitationSource;
+
+        doc /* The excitation source shall provide short optical pulses near the phosphor absorption wavelength. */
+
+        require constraint {
+            source.centerWavelength >= 395.0 and
+            source.centerWavelength <= 415.0 and
+            source.maximumPulseWidth <= 0.00001
+        }
+    }
+
+    requirement def EmissionDetectionRequirement {
+        subject detector : Photodetector;
+
+        doc /* The photodetector shall resolve phosphorescent decay fast enough to support lifetime-based temperature estimation. */
+
+        require constraint {
+            detector.bandwidth >= 1000000.0 and
+            detector.darkNoiseRms <= 0.005
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject processor : SignalProcessor;
+
+        doc /* The signal processor shall report normal measurements only when the detected decay signal meets the minimum signal-to-noise threshold. */
+
+        require constraint {
+            processor.minimumAcceptableSnr >= 20.0
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject processor : SignalProcessor;
+
+        doc /* The system shall convert measured phosphorescence lifetime to temperature using stored calibration coefficients for the selected phosphor material. */
+
+        require constraint {
+            processor.calibrationPolynomialC0 != 0.0 and
+            processor.averagingCount >= 8
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject system : PhosphorThermometrySystem;
+
+        doc /* The system shall enter a fault or degraded state when detector saturation, invalid calibration, poor signal quality, or power anomalies prevent reliable temperature reporting. */
+
+        require constraint {
+            system.detector.saturationVoltage <= 5.0 and
+            system.processor.minimumAcceptableSnr >= 20.0 and
+            system.powerSupply.maximumOutputPower <= 60.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhosphorThermometrySystem;
+    satisfy NonContactMeasurementRequirement by PhosphorThermometrySystem;
+    satisfy ExcitationRequirement by ExcitationSource;
+    satisfy EmissionDetectionRequirement by Photodetector;
+    satisfy SignalQualityRequirement by SignalProcessor;
+    satisfy CalibrationRequirement by SignalProcessor;
+    satisfy SafetyRequirement by PhosphorThermometrySystem;
+
+    part phosphorThermometer : PhosphorThermometrySystem {
+        target.actualSurfaceTemperature = 650.0;
+        processor.averagingCount = 32;
+        nominalMeasurementRate = 10.0;
+    }
+}
+tokens used
+5,113
+package PhosphorThermometrySystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+
+    attribute def CelsiusTemperature :> Real {
+        unit = degC;
+    }
+
+    attribute def Wavelength :> Real {
+        unit = nm;
+    }
+
+    attribute def OpticalPower :> Real {
+        unit = mW;
+    }
+
+    attribute def ElectricalPower :> Real {
+        unit = W;
+    }
+
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+
+    attribute def Current :> Real {
+        unit = A;
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = s;
+    }
+
+    attribute def Frequency :> Real {
+        unit = Hz;
+    }
+
+    attribute def DigitalCount :> Integer;
+
+    attribute def SignalToNoiseRatio :> Real {
+        unit = dB;
+    }
+
+    attribute def MeasurementUncertainty :> Real {
+        unit = K;
+    }
+
+    item def ExcitationPulse {
+        attribute wavelength : Wavelength;
+        attribute pulseEnergy : OpticalPower;
+        attribute pulseWidth : TimeDuration;
+        attribute repetitionRate : Frequency;
+    }
+
+    item def PhosphorescentEmission {
+        attribute peakWavelength : Wavelength;
+        attribute intensity : OpticalPower;
+        attribute decayLifetime : TimeDuration;
+        attribute backgroundLevel : OpticalPower;
+    }
+
+    item def RawDetectorSignal {
+        attribute sampleCount : DigitalCount;
+        attribute sampleRate : Frequency;
+        attribute peakAmplitude : Voltage;
+        attribute noiseRms : Voltage;
+    }
+
+    item def TemperatureEstimate {
+        attribute temperature : CelsiusTemperature;
+        attribute uncertainty : MeasurementUncertainty;
+        attribute confidence : Real;
+        attribute timestamp : TimeDuration;
+    }
+
+    item def ControlCommand {
+        attribute enableExcitation : Boolean;
+        attribute requestedSampleRate : Frequency;
+        attribute requestedAveragingCount : Integer;
+    }
+
+    item def HealthStatus {
+        attribute laserReady : Boolean;
+        attribute detectorReady : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute signalToNoiseRatio : SignalToNoiseRatio;
+        attribute faultActive : Boolean;
+    }
+
+    port def ExcitationOpticalPort {
+        out item pulse : ExcitationPulse;
+    }
+
+    port def EmissionOpticalPort {
+        in item emission : PhosphorescentEmission;
+    }
+
+    port def ElectricalPowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+    }
+
+    port def DigitalCommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def DigitalDataPort {
+        out item estimate : TemperatureEstimate;
+        out item status : HealthStatus;
+    }
+
+    port def DetectorSignalPort {
+        out item signal : RawDetectorSignal;
+    }
+
+    port def ProcessingInputPort {
+        in item signal : RawDetectorSignal;
+        in item emissionMetadata : PhosphorescentEmission;
+    }
+
+    part def PhosphorCoating {
+        attribute materialName : String = "YAG:Dy phosphor";
+        attribute nominalThickness : Real = 25.0;
+        attribute maximumServiceTemperature : CelsiusTemperature = 1100.0;
+        attribute minimumServiceTemperature : CelsiusTemperature = -40.0;
+        attribute referenceLifetimeAt25C : TimeDuration = 0.0012;
+        attribute activationWavelength : Wavelength = 405.0;
+
+        port excitationIn : ExcitationOpticalPort;
+        port emissionOut : EmissionOpticalPort;
+
+        action emitTemperatureDependentLight {
+            in item excitation : ExcitationPulse;
+            in attribute surfaceTemperature : CelsiusTemperature;
+            out item emission : PhosphorescentEmission;
+
+            first start;
+            then absorbExcitation;
+            then decayEmission;
+            then outputEmission;
+            then done;
+
+            action absorbExcitation;
+            action decayEmission;
+            action outputEmission;
+        }
+    }
+
+    part def ExcitationSource {
+        attribute sourceType : String = "pulsed violet diode laser";
+        attribute centerWavelength : Wavelength = 405.0;
+        attribute maximumPulseWidth : TimeDuration = 0.00001;
+        attribute nominalRepetitionRate : Frequency = 1000.0;
+        attribute nominalOpticalPower : OpticalPower = 35.0;
+
+        port powerIn : ElectricalPowerPort;
+        port commandIn : DigitalCommandPort;
+        port opticalOut : ExcitationOpticalPort;
+
+        state def ExcitationSourceStateMachine {
+            state off;
+            state warmup;
+            state armed;
+            state pulsing;
+            state fault;
+
+            initial then off;
+
+            transition off_to_warmup first off
+                accept ControlCommand
+                if command.enableExcitation
+                then warmup;
+
+            transition warmup_to_armed first warmup
+                if supplyVoltage >= 11.0 and supplyVoltage <= 13.0
+                then armed;
+
+            transition armed_to_pulsing first armed
+                accept ControlCommand
+                if command.enableExcitation
+                then pulsing;
+
+            transition pulsing_to_armed first pulsing
+                accept ControlCommand
+                if not command.enableExcitation
+                then armed;
+
+            transition any_to_fault first off then fault
+                if supplyVoltage < 10.5 or supplyCurrent > 3.0;
+
+            transition fault_to_off first fault
+                accept ControlCommand
+                if not command.enableExcitation
+                then off;
+        }
+
+        action generatePulse {
+            in item command : ControlCommand;
+            out item pulse : ExcitationPulse;
+
+            first validateCommand;
+            then setPulseTiming;
+            then driveLaserDiode;
+            then emitPulse;
+            then done;
+
+            action validateCommand;
+            action setPulseTiming;
+            action driveLaserDiode;
+            action emitPulse;
+        }
+    }
+
+    part def OpticalAssembly {
+        attribute lensTransmission : Real = 0.91;
+        attribute dichroicCutoffWavelength : Wavelength = 450.0;
+        attribute collectionNumericalAperture : Real = 0.22;
+        attribute workingDistance : Real = 75.0;
+
+        port excitationIn : ExcitationOpticalPort;
+        port excitationOut : ExcitationOpticalPort;
+        port emissionIn : EmissionOpticalPort;
+        port emissionOut : EmissionOpticalPort;
+
+        action routeOpticalSignals {
+            in item pulse : ExcitationPulse;
+            in item emissionFromTarget : PhosphorescentEmission;
+            out item deliveredPulse : ExcitationPulse;
+            out item filteredEmission : PhosphorescentEmission;
+
+            first collimateExcitation;
+            then rejectExcitationLeakage;
+            then collectEmission;
+            then passLongWavelengthEmission;
+            then done;
+
+            action collimateExcitation;
+            action rejectExcitationLeakage;
+            action collectEmission;
+            action passLongWavelengthEmission;
+        }
+    }
+
+    part def Photodetector {
+        attribute detectorType : String = "photomultiplier tube";
+        attribute spectralResponsivityPeak : Wavelength = 575.0;
+        attribute bandwidth : Frequency = 2000000.0;
+        attribute darkNoiseRms : Voltage = 0.002;
+        attribute saturationVoltage : Voltage = 4.5;
+
+        port emissionIn : EmissionOpticalPort;
+        port signalOut : DetectorSignalPort;
+        port powerIn : ElectricalPowerPort;
+
+        action convertEmissionToSignal {
+            in item emission : PhosphorescentEmission;
+            out item signal : RawDetectorSignal;
+
+            first receivePhotons;
+            then amplifyPhotoCurrent;
+            then applyAnalogFilter;
+            then outputVoltageTrace;
+            then done;
+
+            action receivePhotons;
+            action amplifyPhotoCurrent;
+            action applyAnalogFilter;
+            action outputVoltageTrace;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute adcResolutionBits : Integer = 16;
+        attribute nominalSampleRate : Frequency = 1000000.0;
+        attribute averagingCount : Integer = 32;
+        attribute minimumAcceptableSnr : SignalToNoiseRatio = 20.0;
+        attribute calibrationPolynomialC0 : Real = 650.0;
+        attribute calibrationPolynomialC1 : Real = -210000.0;
+        attribute calibrationPolynomialC2 : Real = 18000000.0;
+
+        port processingIn : ProcessingInputPort;
+        port commandIn : DigitalCommandPort;
+        port dataOut : DigitalDataPort;
+
+        action estimateTemperatureFromDecay {
+            in item signal : RawDetectorSignal;
+            in item emissionMetadata : PhosphorescentEmission;
+            out item estimate : TemperatureEstimate;
+            out item status : HealthStatus;
+
+            first acquireSamples;
+            then subtractBackground;
+            then fitExponentialDecay;
+            then convertLifetimeToTemperature;
+            then assessUncertainty;
+            then publishResult;
+            then done;
+
+            action acquireSamples;
+            action subtractBackground;
+            action fitExponentialDecay;
+            action convertLifetimeToTemperature;
+            action assessUncertainty;
+            action publishResult;
+        }
+
+        state def MeasurementStateMachine {
+            state idle;
+            state armed;
+            state acquiring;
+            state processing;
+            state reporting;
+            state degraded;
+            state fault;
+
+            initial then idle;
+
+            transition idle_to_armed first idle
+                accept ControlCommand
+                if command.enableExcitation
+                then armed;
+
+            transition armed_to_acquiring first armed
+                then acquiring;
+
+            transition acquiring_to_processing first acquiring
+                if signal.sampleCount >= 1024
+                then processing;
+
+            transition processing_to_reporting first processing
+                if status.signalToNoiseRatio >= minimumAcceptableSnr
+                then reporting;
+
+            transition processing_to_degraded first processing
+                if status.signalToNoiseRatio < minimumAcceptableSnr and status.signalToNoiseRatio >= 10.0
+                then degraded;
+
+            transition degraded_to_reporting first degraded
+                then reporting;
+
+            transition reporting_to_armed first reporting
+                accept ControlCommand
+                if command.enableExcitation
+                then armed;
+
+            transition reporting_to_idle first reporting
+                accept ControlCommand
+                if not command.enableExcitation
+                then idle;
+
+            transition processing_to_fault first processing
+                if signal.peakAmplitude >= 4.5 or not status.calibrationValid
+                then fault;
+
+            transition fault_to_idle first fault
+                accept ControlCommand
+                if not command.enableExcitation
+                then idle;
+        }
+    }
+
+    part def UserInterface {
+        attribute displayRefreshRate : Frequency = 5.0;
+        attribute alarmHighTemperature : CelsiusTemperature = 900.0;
+        attribute alarmUncertaintyLimit : MeasurementUncertainty = 5.0;
+
+        port commandOut : DigitalCommandPort;
+        port dataIn : DigitalDataPort;
+
+        action presentMeasurement {
+            in item estimate : TemperatureEstimate;
+            in item status : HealthStatus;
+
+            first updateNumericDisplay;
+            then evaluateAlarms;
+            then logMeasurement;
+            then done;
+
+            action updateNumericDisplay;
+            action evaluateAlarms;
+            action logMeasurement;
+        }
+    }
+
+    part def PowerSupply {
+        attribute inputVoltage : Voltage = 24.0;
+        attribute regulatedLogicVoltage : Voltage = 5.0;
+        attribute regulatedLaserVoltage : Voltage = 12.0;
+        attribute maximumOutputPower : ElectricalPower = 60.0;
+
+        port laserPowerOut : ElectricalPowerPort;
+        port detectorPowerOut : ElectricalPowerPort;
+        port processorPowerOut : ElectricalPowerPort;
+    }
+
+    part def HeatedTarget {
+        attribute actualSurfaceTemperature : CelsiusTemperature;
+        attribute emissivity : Real = 0.82;
+        attribute maximumRampRate : Real = 20.0;
+
+        part phosphor : PhosphorCoating;
+    }
+
+    part def PhosphorThermometrySystem {
+        attribute primaryFunction : String =
+            "Measure surface temperature without physical contact by exciting a phosphor coating with short optical pulses, collecting the temperature-dependent phosphorescent decay, and converting decay lifetime into a calibrated temperature estimate.";
+
+        attribute measurementRangeLow : CelsiusTemperature = -40.0;
+        attribute measurementRangeHigh : CelsiusTemperature = 1000.0;
+        attribute targetAccuracy : MeasurementUncertainty = 2.0;
+        attribute nominalMeasurementRate : Frequency = 10.0;
+
+        part powerSupply : PowerSupply;
+        part excitationSource : ExcitationSource;
+        part optics : OpticalAssembly;
+        part detector : Photodetector;
+        part processor : SignalProcessor;
+        part interface : UserInterface;
+        part target : HeatedTarget;
+
+        port externalCommandIn : DigitalCommandPort;
+        port externalDataOut : DigitalDataPort;
+
+        connect powerSupply.laserPowerOut to excitationSource.powerIn;
+        connect powerSupply.detectorPowerOut to detector.powerIn;
+        connect interface.commandOut to excitationSource.commandIn;
+        connect interface.commandOut to processor.commandIn;
+        connect externalCommandIn to excitationSource.commandIn;
+        connect externalCommandIn to processor.commandIn;
+
+        connect excitationSource.opticalOut to optics.excitationIn;
+        connect optics.excitationOut to target.phosphor.excitationIn;
+        connect target.phosphor.emissionOut to optics.emissionIn;
+        connect optics.emissionOut to detector.emissionIn;
+        connect detector.signalOut to processor.processingIn;
+        connect optics.emissionOut to processor.processingIn;
+        connect processor.dataOut to interface.dataIn;
+        connect processor.dataOut to externalDataOut;
+
+        action performTemperatureMeasurement {
+            in item command : ControlCommand;
+            out item estimate : TemperatureEstimate;
+            out item status : HealthStatus;
+
+            first acceptMeasurementCommand;
+            then energizeExcitationSource;
+            then deliverExcitationPulse;
+            then generatePhosphorescentDecay;
+            then collectFilteredEmission;
+            then detectOpticalDecay;
+            then computeTemperatureEstimate;
+            then outputMeasurement;
+            then done;
+
+            action acceptMeasurementCommand;
+            action energizeExcitationSource;
+            action deliverExcitationPulse;
+            action generatePhosphorescentDecay;
+            action collectFilteredEmission;
+            action detectOpticalDecay;
+            action computeTemperatureEstimate;
+            action outputMeasurement;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : PhosphorThermometrySystem;
+
+        doc /* The system shall determine the temperature of a surface coated with phosphor by optically exciting the coating and processing the resulting phosphorescent decay lifetime. */
+
+        require constraint {
+            system.measurementRangeLow <= -40.0 and
+            system.measurementRangeHigh >= 1000.0 and
+            system.targetAccuracy <= 2.0
+        }
+    }
+
+    requirement def NonContactMeasurementRequirement {
+        subject system : PhosphorThermometrySystem;
+
+        doc /* The system shall perform temperature measurement without requiring electrical or mechanical contact with the heated target surface. */
+
+        require constraint {
+            system.optics.workingDistance >= 25.0
+        }
+    }
+
+    requirement def ExcitationRequirement {
+        subject source : ExcitationSource;
+
+        doc /* The excitation source shall provide short optical pulses near the phosphor absorption wavelength. */
+
+        require constraint {
+            source.centerWavelength >= 395.0 and
+            source.centerWavelength <= 415.0 and
+            source.maximumPulseWidth <= 0.00001
+        }
+    }
+
+    requirement def EmissionDetectionRequirement {
+        subject detector : Photodetector;
+
+        doc /* The photodetector shall resolve phosphorescent decay fast enough to support lifetime-based temperature estimation. */
+
+        require constraint {
+            detector.bandwidth >= 1000000.0 and
+            detector.darkNoiseRms <= 0.005
+        }
+    }
+
+    requirement def SignalQualityRequirement {
+        subject processor : SignalProcessor;
+
+        doc /* The signal processor shall report normal measurements only when the detected decay signal meets the minimum signal-to-noise threshold. */
+
+        require constraint {
+            processor.minimumAcceptableSnr >= 20.0
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject processor : SignalProcessor;
+
+        doc /* The system shall convert measured phosphorescence lifetime to temperature using stored calibration coefficients for the selected phosphor material. */
+
+        require constraint {
+            processor.calibrationPolynomialC0 != 0.0 and
+            processor.averagingCount >= 8
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject system : PhosphorThermometrySystem;
+
+        doc /* The system shall enter a fault or degraded state when detector saturation, invalid calibration, poor signal quality, or power anomalies prevent reliable temperature reporting. */
+
+        require constraint {
+            system.detector.saturationVoltage <= 5.0 and
+            system.processor.minimumAcceptableSnr >= 20.0 and
+            system.powerSupply.maximumOutputPower <= 60.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PhosphorThermometrySystem;
+    satisfy NonContactMeasurementRequirement by PhosphorThermometrySystem;
+    satisfy ExcitationRequirement by ExcitationSource;
+    satisfy EmissionDetectionRequirement by Photodetector;
+    satisfy SignalQualityRequirement by SignalProcessor;
+    satisfy CalibrationRequirement by SignalProcessor;
+    satisfy SafetyRequirement by PhosphorThermometrySystem;
+
+    part phosphorThermometer : PhosphorThermometrySystem {
+        target.actualSurfaceTemperature = 650.0;
+        processor.averagingCount = 32;
+        nominalMeasurementRate = 10.0;
+    }
+}

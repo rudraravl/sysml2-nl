@@ -1,0 +1,445 @@
+package CyborgSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent :> Real {
+        doc /* Percentage value from 0 to 100. */
+    }
+
+    attribute def Confidence :> Real {
+        doc /* Normalized confidence value from 0.0 to 1.0. */
+    }
+
+    attribute def EnergyWh :> Real {
+        unit = Wh;
+    }
+
+    attribute def PowerW :> Real {
+        unit = W;
+    }
+
+    attribute def VoltageV :> Real {
+        unit = V;
+    }
+
+    attribute def CurrentA :> Real {
+        unit = A;
+    }
+
+    attribute def TemperatureC :> Real {
+        unit = degC;
+    }
+
+    attribute def LengthMm :> Real {
+        unit = mm;
+    }
+
+    attribute def ForceN :> Real {
+        unit = N;
+    }
+
+    attribute def SpeedMps :> Real {
+        unit = m / s;
+    }
+
+    attribute def DataRateMbps :> Real {
+        unit = Mb / s;
+    }
+
+    attribute def LatencyMs :> Real {
+        unit = ms;
+    }
+
+    item def NeuralSignal {
+        attribute sourceRegion : String;
+        attribute intentConfidence : Confidence;
+        attribute signalQuality : Percent;
+        attribute timestamp : Time;
+    }
+
+    item def MotorCommand {
+        attribute targetLimb : String;
+        attribute desiredForce : ForceN;
+        attribute desiredSpeed : SpeedMps;
+        attribute precisionMode : Boolean;
+    }
+
+    item def SensoryFeedback {
+        attribute modality : String;
+        attribute contactForce : ForceN;
+        attribute temperature : TemperatureC;
+        attribute painProxyLevel : Percent;
+        attribute confidence : Confidence;
+    }
+
+    item def VitalSigns {
+        attribute heartRate_bpm : Real;
+        attribute oxygenSaturation : Percent;
+        attribute bodyTemperature : TemperatureC;
+        attribute fatigueIndex : Percent;
+    }
+
+    item def DiagnosticReport {
+        attribute faultCode : String;
+        attribute severity : String;
+        attribute affectedSubsystem : String;
+        attribute recommendedAction : String;
+    }
+
+    port def NeuralInterfacePort {
+        in neuralIn : NeuralSignal;
+        out stimulationOut : SensoryFeedback;
+    }
+
+    port def CommandPort {
+        in commandIn : MotorCommand;
+        out feedbackOut : SensoryFeedback;
+    }
+
+    port def PowerPort {
+        in powerIn : PowerW;
+        out powerStatus : EnergyWh;
+    }
+
+    port def DataPort {
+        in dataIn : DiagnosticReport;
+        out dataOut : DiagnosticReport;
+        attribute maxRate : DataRateMbps;
+        attribute nominalLatency : LatencyMs;
+    }
+
+    port def VitalPort {
+        out vitals : VitalSigns;
+    }
+
+    part def BiologicalHumanCore {
+        attribute baselineStrength : ForceN = 450 [N];
+        attribute baselineReactionLatency : LatencyMs = 220 [ms];
+        attribute metabolicState : Percent;
+        attribute cognitiveLoad : Percent;
+
+        port neuralBus : NeuralInterfacePort;
+        port vitalOutput : VitalPort;
+
+        action monitorVitals {
+            out vitals : VitalSigns;
+        }
+
+        action generateIntent {
+            out intent : NeuralSignal;
+        }
+    }
+
+    part def NeuralProcessor {
+        attribute decodingAccuracy : Percent = 96.5;
+        attribute processingLatency : LatencyMs = 12 [ms];
+        attribute adaptiveLearningEnabled : Boolean = true;
+        attribute thermalLimit : TemperatureC = 42 [degC];
+
+        port neuralLink : NeuralInterfacePort;
+        port commandOut : CommandPort;
+        port diagnostics : DataPort;
+
+        action decodeIntent {
+            in rawSignal : NeuralSignal;
+            out command : MotorCommand;
+        }
+
+        action encodeFeedback {
+            in feedback : SensoryFeedback;
+            out stimulation : SensoryFeedback;
+        }
+    }
+
+    part def ProstheticLimb {
+        attribute maxGripForce : ForceN = 680 [N];
+        attribute maxArmSpeed : SpeedMps = 4.2 [m / s];
+        attribute actuatorTemperature : TemperatureC;
+        attribute limbLength : LengthMm = 760 [mm];
+
+        port commandInput : CommandPort;
+        port powerInput : PowerPort;
+        port diagnostics : DataPort;
+
+        part actuatorArray {
+            attribute peakPower : PowerW = 950 [W];
+            attribute continuousPower : PowerW = 320 [W];
+            attribute jointCount : Integer = 18;
+        }
+
+        part tactileSensorGrid {
+            attribute sensorCount : Integer = 2048;
+            attribute minimumDetectableForce : ForceN = 0.04 [N];
+            attribute sampleRate_Hz : Real = 1000;
+        }
+
+        action executeMotion {
+            in command : MotorCommand;
+            out feedback : SensoryFeedback;
+        }
+
+        action gripObject {
+            in desiredForce : ForceN;
+            out measuredForce : ForceN;
+        }
+    }
+
+    part def ExoskeletalSupport {
+        attribute liftAssistance : ForceN = 1200 [N];
+        attribute walkingSupportSpeed : SpeedMps = 2.8 [m / s];
+        attribute loadSharingRatio : Percent = 65;
+
+        port commandInput : CommandPort;
+        port powerInput : PowerPort;
+        port diagnostics : DataPort;
+
+        action stabilizePosture {
+            in vitals : VitalSigns;
+            out correctiveCommand : MotorCommand;
+        }
+    }
+
+    part def PowerSubsystem {
+        attribute storedEnergy : EnergyWh = 1800 [Wh];
+        attribute nominalVoltage : VoltageV = 48 [V];
+        attribute maxDischargeCurrent : CurrentA = 80 [A];
+        attribute reserveThreshold : Percent = 15;
+        attribute stateOfCharge : Percent;
+
+        port limbPower : PowerPort;
+        port exoskeletonPower : PowerPort;
+        port processorPower : PowerPort;
+        port diagnostics : DataPort;
+
+        action allocatePower {
+            in requestedPower : PowerW;
+            out suppliedPower : PowerW;
+        }
+
+        action enterReserveMode {
+            out reserveStatus : DiagnosticReport;
+        }
+    }
+
+    part def HealthAndSafetyMonitor {
+        attribute maxSafeBodyTemperature : TemperatureC = 39 [degC];
+        attribute maxSafeActuatorTemperature : TemperatureC = 75 [degC];
+        attribute minimumOxygenSaturation : Percent = 92;
+        attribute emergencyStopAvailable : Boolean = true;
+
+        port vitalsInput : VitalPort;
+        port diagnostics : DataPort;
+        port commandLimiter : CommandPort;
+
+        action evaluateSafety {
+            in vitals : VitalSigns;
+            out report : DiagnosticReport;
+        }
+
+        action limitMotion {
+            in command : MotorCommand;
+            out limitedCommand : MotorCommand;
+        }
+    }
+
+    part def ExternalMaintenanceInterface {
+        attribute encryptedLink : Boolean = true;
+        attribute maxDiagnosticRate : DataRateMbps = 250 [Mb / s];
+        attribute authorizedOperatorRequired : Boolean = true;
+
+        port maintenanceData : DataPort;
+
+        action uploadDiagnostics {
+            in report : DiagnosticReport;
+        }
+
+        action updateControlModel {
+            in validatedPackageId : String;
+            out accepted : Boolean;
+        }
+    }
+
+    part def Cyborg {
+        doc /* A cybernetic organism that integrates a biological human core with neural processing, powered prosthetics, exoskeletal support, sensing, and safety supervision. Its primary high-level function is to restore and augment human perception, movement, strength, and task execution while preserving biological safety and operator intent. */
+
+        attribute missionReadiness : Percent;
+        attribute augmentationLevel : Percent = 70;
+        attribute totalMass_kg : Real = 98.5;
+        attribute primaryFunction : String = "Restore and augment human sensory-motor capability through closed-loop integration of biological intent, machine actuation, sensory feedback, power management, and safety control.";
+
+        part humanCore : BiologicalHumanCore;
+        part neuralProcessor : NeuralProcessor;
+        part prostheticArm : ProstheticLimb;
+        part exoskeleton : ExoskeletalSupport;
+        part powerSystem : PowerSubsystem;
+        part safetyMonitor : HealthAndSafetyMonitor;
+        part maintenanceInterface : ExternalMaintenanceInterface;
+
+        connect humanCore.neuralBus to neuralProcessor.neuralLink;
+        connect neuralProcessor.commandOut to prostheticArm.commandInput;
+        connect neuralProcessor.commandOut to exoskeleton.commandInput;
+        connect prostheticArm.powerInput to powerSystem.limbPower;
+        connect exoskeleton.powerInput to powerSystem.exoskeletonPower;
+        connect neuralProcessor.diagnostics to powerSystem.diagnostics;
+        connect prostheticArm.diagnostics to maintenanceInterface.maintenanceData;
+        connect exoskeleton.diagnostics to maintenanceInterface.maintenanceData;
+        connect safetyMonitor.diagnostics to maintenanceInterface.maintenanceData;
+        connect humanCore.vitalOutput to safetyMonitor.vitalsInput;
+        connect safetyMonitor.commandLimiter to prostheticArm.commandInput;
+
+        action performAugmentedTask {
+            in operatorIntent : NeuralSignal;
+            out taskFeedback : SensoryFeedback;
+
+            first decode;
+            then safetyCheck;
+            then actuate;
+            then returnFeedback;
+
+            action decode : neuralProcessor.decodeIntent {
+                in rawSignal = operatorIntent;
+            }
+
+            action safetyCheck : safetyMonitor.limitMotion {
+                in command = decode.command;
+            }
+
+            action actuate : prostheticArm.executeMotion {
+                in command = safetyCheck.limitedCommand;
+            }
+
+            action returnFeedback : neuralProcessor.encodeFeedback {
+                in feedback = actuate.feedback;
+            }
+
+            bind taskFeedback = returnFeedback.stimulation;
+        }
+
+        state machine operationalState {
+            state Off;
+            state Booting;
+            state Calibration;
+            state Ready;
+            state AssistiveOperation;
+            state AugmentedOperation;
+            state ReservePower;
+            state FaultContainment;
+            state EmergencyStop;
+
+            initial then Off;
+
+            transition Off_to_Booting
+                first Off
+                accept PowerButtonPressed
+                then Booting;
+
+            transition Booting_to_Calibration
+                first Booting
+                if powerSystem.stateOfCharge > 20
+                then Calibration;
+
+            transition Calibration_to_Ready
+                first Calibration
+                if neuralProcessor.decodingAccuracy >= 90
+                then Ready;
+
+            transition Ready_to_Assistive
+                first Ready
+                accept AssistModeSelected
+                then AssistiveOperation;
+
+            transition Ready_to_Augmented
+                first Ready
+                accept AugmentModeSelected
+                then AugmentedOperation;
+
+            transition Assistive_to_Reserve
+                first AssistiveOperation
+                if powerSystem.stateOfCharge <= powerSystem.reserveThreshold
+                then ReservePower;
+
+            transition Augmented_to_Reserve
+                first AugmentedOperation
+                if powerSystem.stateOfCharge <= powerSystem.reserveThreshold
+                then ReservePower;
+
+            transition Any_to_Fault
+                first Ready
+                if safetyMonitor.minimumOxygenSaturation > 100
+                then FaultContainment;
+
+            transition Fault_to_EmergencyStop
+                first FaultContainment
+                accept EmergencyStopCommand
+                then EmergencyStop;
+
+            transition Reserve_to_Ready
+                first ReservePower
+                if powerSystem.stateOfCharge > 35
+                then Ready;
+        }
+    }
+
+    requirement def ClosedLoopControlRequirement {
+        doc /* The cyborg shall convert biological neural intent into coordinated prosthetic and exoskeletal motion with sensory feedback returned to the biological operator. */
+        attribute maxEndToEndLatency : LatencyMs = 50 [ms];
+        attribute minimumIntentAccuracy : Percent = 95;
+    }
+
+    requirement def SafetyRequirement {
+        doc /* The cyborg shall prioritize biological safety over augmentation performance. */
+        attribute maxBodyTemperature : TemperatureC = 39 [degC];
+        attribute minimumOxygenSaturation : Percent = 92;
+        attribute emergencyStopLatency : LatencyMs = 20 [ms];
+    }
+
+    requirement def PowerRequirement {
+        doc /* The cyborg shall sustain mixed assistive and augmented operation for a full mission interval before recharge. */
+        attribute minimumStoredEnergy : EnergyWh = 1500 [Wh];
+        attribute minimumReserveStateOfCharge : Percent = 15;
+        attribute minimumOperatingDuration_hr : Real = 8;
+    }
+
+    requirement def DiagnosticRequirement {
+        doc /* The cyborg shall continuously report subsystem health, detected faults, and maintenance status through an encrypted external interface. */
+        attribute maximumDiagnosticLatency : LatencyMs = 100 [ms];
+        attribute minimumDiagnosticDataRate : DataRateMbps = 50 [Mb / s];
+    }
+
+    requirement closedLoopReq : ClosedLoopControlRequirement {
+        subject cyborg : Cyborg;
+        require cyborg.neuralProcessor.processingLatency <= maxEndToEndLatency;
+        require cyborg.neuralProcessor.decodingAccuracy >= minimumIntentAccuracy;
+    }
+
+    requirement safetyReq : SafetyRequirement {
+        subject cyborg : Cyborg;
+        require cyborg.safetyMonitor.maxSafeBodyTemperature <= maxBodyTemperature;
+        require cyborg.safetyMonitor.minimumOxygenSaturation >= minimumOxygenSaturation;
+    }
+
+    requirement powerReq : PowerRequirement {
+        subject cyborg : Cyborg;
+        require cyborg.powerSystem.storedEnergy >= minimumStoredEnergy;
+        require cyborg.powerSystem.reserveThreshold >= minimumReserveStateOfCharge;
+    }
+
+    requirement diagnosticReq : DiagnosticRequirement {
+        subject cyborg : Cyborg;
+        require cyborg.maintenanceInterface.encryptedLink == true;
+        require cyborg.maintenanceInterface.maxDiagnosticRate >= minimumDiagnosticDataRate;
+    }
+
+    satisfy closedLoopReq by Cyborg::neuralProcessor;
+    satisfy closedLoopReq by Cyborg::prostheticArm;
+    satisfy safetyReq by Cyborg::safetyMonitor;
+    satisfy powerReq by Cyborg::powerSystem;
+    satisfy diagnosticReq by Cyborg::maintenanceInterface;
+
+    part cyborgSystem : Cyborg {
+        attribute missionReadiness = 88;
+        attribute augmentationLevel = 70;
+    }
+}

@@ -1,0 +1,1109 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-73s902_8
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb71a-1cb2-73d2-9bd2-d253ea8d37bd
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Quantum dot and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package QuantumDotSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def EnergyLevel;
+    attribute def Wavelength;
+    attribute def Temperature;
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Power;
+    attribute def Time;
+    attribute def Length;
+    attribute def Frequency;
+    attribute def Efficiency;
+    attribute def Charge;
+    attribute def PhotonFlux;
+    attribute def Concentration;
+
+    value type Nanometer specializes Length {
+        unit nm;
+    }
+
+    value type ElectronVolt specializes EnergyLevel {
+        unit eV;
+    }
+
+    value type Kelvin specializes Temperature {
+        unit K;
+    }
+
+    value type VoltValue specializes Voltage {
+        unit V;
+    }
+
+    value type AmpereValue specializes Current {
+        unit A;
+    }
+
+    value type WattValue specializes Power {
+        unit W;
+    }
+
+    value type SecondValue specializes Time {
+        unit s;
+    }
+
+    value type HertzValue specializes Frequency {
+        unit Hz;
+    }
+
+    value type PercentValue specializes Efficiency {
+        unit percent;
+    }
+
+    value type ElementaryChargeValue specializes Charge {
+        unit e;
+    }
+
+    value type PhotonsPerSecond specializes PhotonFlux {
+        unit photon_per_s;
+    }
+
+    item def Electron {
+        attribute charge : ElementaryChargeValue = -1 [e];
+        attribute spinState : String;
+        attribute confinementEnergy : ElectronVolt;
+    }
+
+    item def Hole {
+        attribute charge : ElementaryChargeValue = 1 [e];
+        attribute spinState : String;
+        attribute confinementEnergy : ElectronVolt;
+    }
+
+    item def Exciton {
+        attribute electron : Electron;
+        attribute hole : Hole;
+        attribute bindingEnergy : ElectronVolt;
+        attribute lifetime : SecondValue;
+    }
+
+    item def Photon {
+        attribute wavelength : Nanometer;
+        attribute energy : ElectronVolt;
+        attribute frequency : HertzValue;
+        attribute polarization : String;
+    }
+
+    item def OpticalPumpSignal {
+        attribute incidentPhotonFlux : PhotonsPerSecond;
+        attribute pumpWavelength : Nanometer;
+        attribute pumpPower : WattValue;
+    }
+
+    item def ElectricalBiasSignal {
+        attribute forwardVoltage : VoltValue;
+        attribute driveCurrent : AmpereValue;
+        attribute electricalPower : WattValue;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature : Kelvin;
+        attribute heatFlow : WattValue;
+    }
+
+    item def EmissionSpectrum {
+        attribute peakWavelength : Nanometer;
+        attribute fullWidthHalfMaximum : Nanometer;
+        attribute radiantFlux : WattValue;
+        attribute quantumYield : PercentValue;
+    }
+
+    port def OpticalInputPort {
+        in item pump : OpticalPumpSignal;
+    }
+
+    port def ElectricalInputPort {
+        in item bias : ElectricalBiasSignal;
+    }
+
+    port def OpticalOutputPort {
+        out item emittedPhoton : Photon;
+        out item spectrum : EmissionSpectrum;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute requestedPeakWavelength : Nanometer;
+        out attribute ready : Boolean;
+        out attribute faulted : Boolean;
+    }
+
+    part def QuantumDot {
+        attribute coreDiameter : Nanometer = 5.2 [nm];
+        attribute shellThickness : Nanometer = 1.4 [nm];
+        attribute bandGapEnergy : ElectronVolt = 2.10 [eV];
+        attribute excitonBohrRadius : Nanometer = 4.8 [nm];
+        attribute targetEmissionWavelength : Nanometer = 590 [nm];
+        attribute confinementRegime : String = "strong quantum confinement";
+        attribute materialCore : String = "CdSe";
+        attribute materialShell : String = "ZnS";
+        attribute surfaceLigand : String = "oleic acid";
+
+        port opticalExcitation : OpticalInputPort;
+        port electricalExcitation : ElectricalInputPort;
+        port opticalEmission : OpticalOutputPort;
+        port thermalInterface : ThermalPort;
+
+        item exciton : Exciton;
+
+        action absorbEnergy {
+            in item opticalPump : OpticalPumpSignal;
+            in item electricalBias : ElectricalBiasSignal;
+            out item generatedExciton : Exciton;
+
+            first start;
+            then evaluateExcitation;
+
+            action evaluateExcitation {
+                if opticalPump.incidentPhotonFlux > 0 [photon_per_s] then createOpticalExciton;
+                if electricalBias.driveCurrent > 0 [A] then createElectricallyInjectedExciton;
+            }
+
+            action createOpticalExciton {
+                generatedExciton.bindingEnergy = 0.025 [eV];
+                generatedExciton.lifetime = 18.0e-9 [s];
+            }
+
+            action createElectricallyInjectedExciton {
+                generatedExciton.bindingEnergy = 0.022 [eV];
+                generatedExciton.lifetime = 21.0e-9 [s];
+            }
+
+            then done;
+        }
+
+        action radiativeRecombine {
+            in item activeExciton : Exciton;
+            out item photon : Photon;
+            out item spectrum : EmissionSpectrum;
+
+            first start;
+            then computeEmissionEnergy;
+            then emitPhoton;
+            then done;
+
+            action computeEmissionEnergy {
+                photon.energy = bandGapEnergy;
+                photon.wavelength = targetEmissionWavelength;
+                photon.frequency = 5.08e14 [Hz];
+                photon.polarization = "unpolarized";
+            }
+
+            action emitPhoton {
+                spectrum.peakWavelength = targetEmissionWavelength;
+                spectrum.fullWidthHalfMaximum = 28 [nm];
+                spectrum.radiantFlux = 0.014 [W];
+                spectrum.quantumYield = 82 [percent];
+            }
+        }
+
+        state def QuantumDotLifecycle {
+            state unexcited;
+            state excited;
+            state emitting;
+            state quenched;
+
+            entry action initialize {
+                exciton.lifetime = 0 [s];
+            }
+
+            transition first unexcited;
+
+            transition unexcited_to_excited
+                first unexcited
+                accept OpticalPumpSignal
+                then excited;
+
+            transition excited_to_emitting
+                first excited
+                if exciton.lifetime > 0 [s]
+                then emitting;
+
+            transition emitting_to_unexcited
+                first emitting
+                accept Photon
+                then unexcited;
+
+            transition excited_to_quenched
+                first excited
+                if thermalInterface.heat.temperature > 360 [K]
+                then quenched;
+
+            transition quenched_to_unexcited
+                first quenched
+                if thermalInterface.heat.temperature < 330 [K]
+                then unexcited;
+        }
+    }
+
+    part def QuantumDotEmitterSystem {
+        attribute primaryFunction : String = "Convert controlled optical or electrical excitation into narrow-band, size-tunable photon emission using quantum-confined semiconductor nanocrystals.";
+        attribute nominalOperatingTemperature : Kelvin = 298 [K];
+        attribute maximumSafeTemperature : Kelvin = 360 [K];
+        attribute nominalPeakWavelength : Nanometer = 590 [nm];
+        attribute electricalToOpticalEfficiency : PercentValue = 18 [percent];
+        attribute opticalQuantumYield : PercentValue = 82 [percent];
+
+        port control : ControlPort;
+        port opticalInput : OpticalInputPort;
+        port electricalInput : ElectricalInputPort;
+        port opticalOutput : OpticalOutputPort;
+        port thermalBoundary : ThermalPort;
+
+        part quantumDotArray {
+            part dots[1000000] : QuantumDot;
+            attribute arealDensity : Concentration = 2.5e12;
+            attribute averageCoreDiameter : Nanometer = 5.2 [nm];
+            attribute wavelengthUniformity : Nanometer = 7 [nm];
+        }
+
+        part excitationDriver {
+            attribute maximumForwardVoltage : VoltValue = 3.3 [V];
+            attribute nominalDriveCurrent : AmpereValue = 0.020 [A];
+            attribute pulseFrequency : HertzValue = 1000000 [Hz];
+            attribute dutyCycle : PercentValue = 50 [percent];
+
+            port controlIn : ControlPort;
+            port electricalOut : ElectricalInputPort;
+
+            action regulateInjection {
+                in attribute enable : Boolean;
+                in attribute requestedWavelength : Nanometer;
+                out item bias : ElectricalBiasSignal;
+
+                first start;
+                then setBias;
+
+                action setBias {
+                    if enable then bias.forwardVoltage = 2.8 [V];
+                    if enable then bias.driveCurrent = 0.020 [A];
+                    if enable then bias.electricalPower = 0.056 [W];
+                    if not enable then bias.forwardVoltage = 0 [V];
+                    if not enable then bias.driveCurrent = 0 [A];
+                    if not enable then bias.electricalPower = 0 [W];
+                }
+
+                then done;
+            }
+        }
+
+        part opticalPump {
+            attribute pumpWavelength : Nanometer = 405 [nm];
+            attribute maximumPumpPower : WattValue = 0.050 [W];
+
+            port opticalOut : OpticalInputPort;
+            port controlIn : ControlPort;
+
+            action generatePump {
+                in attribute enable : Boolean;
+                out item pumpSignal : OpticalPumpSignal;
+
+                first start;
+                then configurePump;
+
+                action configurePump {
+                    if enable then pumpSignal.pumpWavelength = pumpWavelength;
+                    if enable then pumpSignal.pumpPower = 0.020 [W];
+                    if enable then pumpSignal.incidentPhotonFlux = 4.1e16 [photon_per_s];
+                    if not enable then pumpSignal.pumpPower = 0 [W];
+                    if not enable then pumpSignal.incidentPhotonFlux = 0 [photon_per_s];
+                }
+
+                then done;
+            }
+        }
+
+        part thermalManager {
+            attribute heatSinkThermalResistance : Real = 12.0;
+            attribute ambientTemperature : Kelvin = 298 [K];
+            attribute shutdownTemperature : Kelvin = 360 [K];
+
+            port deviceThermal : ThermalPort;
+            port environmentThermal : ThermalPort;
+            port controlStatus : ControlPort;
+
+            action removeHeat {
+                in item deviceHeat : ThermalEnergy;
+                out item rejectedHeat : ThermalEnergy;
+
+                first start;
+                then computeHeatFlow;
+
+                action computeHeatFlow {
+                    rejectedHeat.temperature = ambientTemperature;
+                    rejectedHeat.heatFlow = deviceHeat.heatFlow;
+                }
+
+                then done;
+            }
+
+            state def ThermalProtection {
+                state normal;
+                state warning;
+                state shutdown;
+
+                transition first normal;
+
+                transition normal_to_warning
+                    first normal
+                    if deviceThermal.heat.temperature > 340 [K]
+                    then warning;
+
+                transition warning_to_normal
+                    first warning
+                    if deviceThermal.heat.temperature <= 330 [K]
+                    then normal;
+
+                transition warning_to_shutdown
+                    first warning
+                    if deviceThermal.heat.temperature >= shutdownTemperature
+                    then shutdown;
+
+                transition shutdown_to_normal
+                    first shutdown
+                    if deviceThermal.heat.temperature < 320 [K]
+                    then normal;
+            }
+        }
+
+        part spectrumController {
+            attribute wavelengthTolerance : Nanometer = 10 [nm];
+            attribute calibrationInterval : SecondValue = 60 [s];
+
+            port command : ControlPort;
+            port measuredOutput : OpticalOutputPort;
+            port driverCommand : ControlPort;
+
+            action tuneEmission {
+                in attribute requestedPeakWavelength : Nanometer;
+                in item measuredSpectrum : EmissionSpectrum;
+                out attribute enableDriver : Boolean;
+
+                first start;
+                then compareSpectrum;
+
+                action compareSpectrum {
+                    if measuredSpectrum.peakWavelength >= requestedPeakWavelength - wavelengthTolerance then enableDriver = true;
+                    if measuredSpectrum.peakWavelength <= requestedPeakWavelength + wavelengthTolerance then enableDriver = true;
+                }
+
+                then done;
+            }
+        }
+
+        part emissionOptics {
+            attribute collectionEfficiency : PercentValue = 76 [percent];
+            attribute outputNumericalAperture : Real = 0.42;
+            attribute lensMaterial : String = "borosilicate glass";
+
+            port sourceInput : OpticalOutputPort;
+            port collectedOutput : OpticalOutputPort;
+
+            action collectAndShapeEmission {
+                in item rawPhoton : Photon;
+                in item rawSpectrum : EmissionSpectrum;
+                out item deliveredPhoton : Photon;
+                out item deliveredSpectrum : EmissionSpectrum;
+
+                first start;
+                then filterEmission;
+
+                action filterEmission {
+                    deliveredPhoton.wavelength = rawPhoton.wavelength;
+                    deliveredPhoton.energy = rawPhoton.energy;
+                    deliveredPhoton.frequency = rawPhoton.frequency;
+                    deliveredPhoton.polarization = rawPhoton.polarization;
+                    deliveredSpectrum.peakWavelength = rawSpectrum.peakWavelength;
+                    deliveredSpectrum.fullWidthHalfMaximum = rawSpectrum.fullWidthHalfMaximum;
+                    deliveredSpectrum.radiantFlux = rawSpectrum.radiantFlux * 0.76;
+                    deliveredSpectrum.quantumYield = rawSpectrum.quantumYield;
+                }
+
+                then done;
+            }
+        }
+
+        connect control to spectrumController.command;
+        connect spectrumController.driverCommand to excitationDriver.controlIn;
+        connect spectrumController.driverCommand to opticalPump.controlIn;
+        connect excitationDriver.electricalOut to quantumDotArray.dots.electricalExcitation;
+        connect opticalPump.opticalOut to quantumDotArray.dots.opticalExcitation;
+        connect quantumDotArray.dots.opticalEmission to emissionOptics.sourceInput;
+        connect emissionOptics.collectedOutput to opticalOutput;
+        connect quantumDotArray.dots.thermalInterface to thermalManager.deviceThermal;
+        connect thermalManager.environmentThermal to thermalBoundary;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject emitter : QuantumDotEmitterSystem;
+
+        doc /* The system shall use quantum-confined semiconductor dots to transform controlled excitation energy into narrow-band optical emission. */
+
+        require constraint {
+            emitter.nominalPeakWavelength >= 450 [nm] and
+            emitter.nominalPeakWavelength <= 750 [nm]
+        }
+    }
+
+    requirement def SizeTunableEmissionRequirement {
+        subject dot : QuantumDot;
+
+        doc /* The emitted wavelength shall be determined primarily by quantum dot core diameter and semiconductor band gap. */
+
+        require constraint {
+            dot.coreDiameter >= 2 [nm] and
+            dot.coreDiameter <= 10 [nm] and
+            dot.targetEmissionWavelength >= 450 [nm] and
+            dot.targetEmissionWavelength <= 750 [nm]
+        }
+    }
+
+    requirement def QuantumYieldRequirement {
+        subject emitter : QuantumDotEmitterSystem;
+
+        doc /* The quantum dot emitter shall maintain high photon conversion efficiency during nominal operation. */
+
+        require constraint {
+            emitter.opticalQuantumYield >= 70 [percent]
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject emitter : QuantumDotEmitterSystem;
+
+        doc /* The system shall prevent thermal quenching or material degradation by limiting operating temperature. */
+
+        require constraint {
+            emitter.nominalOperatingTemperature < emitter.maximumSafeTemperature and
+            emitter.maximumSafeTemperature <= 360 [K]
+        }
+    }
+
+    requirement def SpectralWidthRequirement {
+        subject spectrum : EmissionSpectrum;
+
+        doc /* The emitted spectrum shall remain narrow enough for display, sensing, or photonic signaling applications. */
+
+        require constraint {
+            spectrum.fullWidthHalfMaximum <= 35 [nm]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by QuantumDotEmitterSystem;
+    satisfy QuantumYieldRequirement by QuantumDotEmitterSystem;
+    satisfy ThermalSafetyRequirement by QuantumDotEmitterSystem;
+    satisfy SizeTunableEmissionRequirement by QuantumDot;
+    satisfy SpectralWidthRequirement by EmissionSpectrum;
+
+    analysis def EmissionEnergyAnalysis {
+        in attribute wavelength : Nanometer;
+        out attribute photonEnergy : ElectronVolt;
+
+        action computeEnergy {
+            photonEnergy = 1240 / wavelength;
+        }
+    }
+
+    use case def EmitTunablePhotons {
+        subject emitter : QuantumDotEmitterSystem;
+
+        objective {
+            emitter.primaryFunction == "Convert controlled optical or electrical excitation into narrow-band, size-tunable photon emission using quantum-confined semiconductor nanocrystals."
+        }
+
+        include use case StabilizeTemperature;
+        include use case ControlEmissionWavelength;
+    }
+
+    use case def StabilizeTemperature {
+        subject emitter : QuantumDotEmitterSystem;
+
+        objective {
+            emitter.nominalOperatingTemperature < emitter.maximumSafeTemperature
+        }
+    }
+
+    use case def ControlEmissionWavelength {
+        subject emitter : QuantumDotEmitterSystem;
+
+        objective {
+            emitter.nominalPeakWavelength >= 450 [nm] and
+            emitter.nominalPeakWavelength <= 750 [nm]
+        }
+    }
+
+    part quantumDotBasedLightSource : QuantumDotEmitterSystem;
+
+}
+tokens used
+3,922
+package QuantumDotSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def EnergyLevel;
+    attribute def Wavelength;
+    attribute def Temperature;
+    attribute def Voltage;
+    attribute def Current;
+    attribute def Power;
+    attribute def Time;
+    attribute def Length;
+    attribute def Frequency;
+    attribute def Efficiency;
+    attribute def Charge;
+    attribute def PhotonFlux;
+    attribute def Concentration;
+
+    value type Nanometer specializes Length {
+        unit nm;
+    }
+
+    value type ElectronVolt specializes EnergyLevel {
+        unit eV;
+    }
+
+    value type Kelvin specializes Temperature {
+        unit K;
+    }
+
+    value type VoltValue specializes Voltage {
+        unit V;
+    }
+
+    value type AmpereValue specializes Current {
+        unit A;
+    }
+
+    value type WattValue specializes Power {
+        unit W;
+    }
+
+    value type SecondValue specializes Time {
+        unit s;
+    }
+
+    value type HertzValue specializes Frequency {
+        unit Hz;
+    }
+
+    value type PercentValue specializes Efficiency {
+        unit percent;
+    }
+
+    value type ElementaryChargeValue specializes Charge {
+        unit e;
+    }
+
+    value type PhotonsPerSecond specializes PhotonFlux {
+        unit photon_per_s;
+    }
+
+    item def Electron {
+        attribute charge : ElementaryChargeValue = -1 [e];
+        attribute spinState : String;
+        attribute confinementEnergy : ElectronVolt;
+    }
+
+    item def Hole {
+        attribute charge : ElementaryChargeValue = 1 [e];
+        attribute spinState : String;
+        attribute confinementEnergy : ElectronVolt;
+    }
+
+    item def Exciton {
+        attribute electron : Electron;
+        attribute hole : Hole;
+        attribute bindingEnergy : ElectronVolt;
+        attribute lifetime : SecondValue;
+    }
+
+    item def Photon {
+        attribute wavelength : Nanometer;
+        attribute energy : ElectronVolt;
+        attribute frequency : HertzValue;
+        attribute polarization : String;
+    }
+
+    item def OpticalPumpSignal {
+        attribute incidentPhotonFlux : PhotonsPerSecond;
+        attribute pumpWavelength : Nanometer;
+        attribute pumpPower : WattValue;
+    }
+
+    item def ElectricalBiasSignal {
+        attribute forwardVoltage : VoltValue;
+        attribute driveCurrent : AmpereValue;
+        attribute electricalPower : WattValue;
+    }
+
+    item def ThermalEnergy {
+        attribute temperature : Kelvin;
+        attribute heatFlow : WattValue;
+    }
+
+    item def EmissionSpectrum {
+        attribute peakWavelength : Nanometer;
+        attribute fullWidthHalfMaximum : Nanometer;
+        attribute radiantFlux : WattValue;
+        attribute quantumYield : PercentValue;
+    }
+
+    port def OpticalInputPort {
+        in item pump : OpticalPumpSignal;
+    }
+
+    port def ElectricalInputPort {
+        in item bias : ElectricalBiasSignal;
+    }
+
+    port def OpticalOutputPort {
+        out item emittedPhoton : Photon;
+        out item spectrum : EmissionSpectrum;
+    }
+
+    port def ThermalPort {
+        inout item heat : ThermalEnergy;
+    }
+
+    port def ControlPort {
+        in attribute enable : Boolean;
+        in attribute requestedPeakWavelength : Nanometer;
+        out attribute ready : Boolean;
+        out attribute faulted : Boolean;
+    }
+
+    part def QuantumDot {
+        attribute coreDiameter : Nanometer = 5.2 [nm];
+        attribute shellThickness : Nanometer = 1.4 [nm];
+        attribute bandGapEnergy : ElectronVolt = 2.10 [eV];
+        attribute excitonBohrRadius : Nanometer = 4.8 [nm];
+        attribute targetEmissionWavelength : Nanometer = 590 [nm];
+        attribute confinementRegime : String = "strong quantum confinement";
+        attribute materialCore : String = "CdSe";
+        attribute materialShell : String = "ZnS";
+        attribute surfaceLigand : String = "oleic acid";
+
+        port opticalExcitation : OpticalInputPort;
+        port electricalExcitation : ElectricalInputPort;
+        port opticalEmission : OpticalOutputPort;
+        port thermalInterface : ThermalPort;
+
+        item exciton : Exciton;
+
+        action absorbEnergy {
+            in item opticalPump : OpticalPumpSignal;
+            in item electricalBias : ElectricalBiasSignal;
+            out item generatedExciton : Exciton;
+
+            first start;
+            then evaluateExcitation;
+
+            action evaluateExcitation {
+                if opticalPump.incidentPhotonFlux > 0 [photon_per_s] then createOpticalExciton;
+                if electricalBias.driveCurrent > 0 [A] then createElectricallyInjectedExciton;
+            }
+
+            action createOpticalExciton {
+                generatedExciton.bindingEnergy = 0.025 [eV];
+                generatedExciton.lifetime = 18.0e-9 [s];
+            }
+
+            action createElectricallyInjectedExciton {
+                generatedExciton.bindingEnergy = 0.022 [eV];
+                generatedExciton.lifetime = 21.0e-9 [s];
+            }
+
+            then done;
+        }
+
+        action radiativeRecombine {
+            in item activeExciton : Exciton;
+            out item photon : Photon;
+            out item spectrum : EmissionSpectrum;
+
+            first start;
+            then computeEmissionEnergy;
+            then emitPhoton;
+            then done;
+
+            action computeEmissionEnergy {
+                photon.energy = bandGapEnergy;
+                photon.wavelength = targetEmissionWavelength;
+                photon.frequency = 5.08e14 [Hz];
+                photon.polarization = "unpolarized";
+            }
+
+            action emitPhoton {
+                spectrum.peakWavelength = targetEmissionWavelength;
+                spectrum.fullWidthHalfMaximum = 28 [nm];
+                spectrum.radiantFlux = 0.014 [W];
+                spectrum.quantumYield = 82 [percent];
+            }
+        }
+
+        state def QuantumDotLifecycle {
+            state unexcited;
+            state excited;
+            state emitting;
+            state quenched;
+
+            entry action initialize {
+                exciton.lifetime = 0 [s];
+            }
+
+            transition first unexcited;
+
+            transition unexcited_to_excited
+                first unexcited
+                accept OpticalPumpSignal
+                then excited;
+
+            transition excited_to_emitting
+                first excited
+                if exciton.lifetime > 0 [s]
+                then emitting;
+
+            transition emitting_to_unexcited
+                first emitting
+                accept Photon
+                then unexcited;
+
+            transition excited_to_quenched
+                first excited
+                if thermalInterface.heat.temperature > 360 [K]
+                then quenched;
+
+            transition quenched_to_unexcited
+                first quenched
+                if thermalInterface.heat.temperature < 330 [K]
+                then unexcited;
+        }
+    }
+
+    part def QuantumDotEmitterSystem {
+        attribute primaryFunction : String = "Convert controlled optical or electrical excitation into narrow-band, size-tunable photon emission using quantum-confined semiconductor nanocrystals.";
+        attribute nominalOperatingTemperature : Kelvin = 298 [K];
+        attribute maximumSafeTemperature : Kelvin = 360 [K];
+        attribute nominalPeakWavelength : Nanometer = 590 [nm];
+        attribute electricalToOpticalEfficiency : PercentValue = 18 [percent];
+        attribute opticalQuantumYield : PercentValue = 82 [percent];
+
+        port control : ControlPort;
+        port opticalInput : OpticalInputPort;
+        port electricalInput : ElectricalInputPort;
+        port opticalOutput : OpticalOutputPort;
+        port thermalBoundary : ThermalPort;
+
+        part quantumDotArray {
+            part dots[1000000] : QuantumDot;
+            attribute arealDensity : Concentration = 2.5e12;
+            attribute averageCoreDiameter : Nanometer = 5.2 [nm];
+            attribute wavelengthUniformity : Nanometer = 7 [nm];
+        }
+
+        part excitationDriver {
+            attribute maximumForwardVoltage : VoltValue = 3.3 [V];
+            attribute nominalDriveCurrent : AmpereValue = 0.020 [A];
+            attribute pulseFrequency : HertzValue = 1000000 [Hz];
+            attribute dutyCycle : PercentValue = 50 [percent];
+
+            port controlIn : ControlPort;
+            port electricalOut : ElectricalInputPort;
+
+            action regulateInjection {
+                in attribute enable : Boolean;
+                in attribute requestedWavelength : Nanometer;
+                out item bias : ElectricalBiasSignal;
+
+                first start;
+                then setBias;
+
+                action setBias {
+                    if enable then bias.forwardVoltage = 2.8 [V];
+                    if enable then bias.driveCurrent = 0.020 [A];
+                    if enable then bias.electricalPower = 0.056 [W];
+                    if not enable then bias.forwardVoltage = 0 [V];
+                    if not enable then bias.driveCurrent = 0 [A];
+                    if not enable then bias.electricalPower = 0 [W];
+                }
+
+                then done;
+            }
+        }
+
+        part opticalPump {
+            attribute pumpWavelength : Nanometer = 405 [nm];
+            attribute maximumPumpPower : WattValue = 0.050 [W];
+
+            port opticalOut : OpticalInputPort;
+            port controlIn : ControlPort;
+
+            action generatePump {
+                in attribute enable : Boolean;
+                out item pumpSignal : OpticalPumpSignal;
+
+                first start;
+                then configurePump;
+
+                action configurePump {
+                    if enable then pumpSignal.pumpWavelength = pumpWavelength;
+                    if enable then pumpSignal.pumpPower = 0.020 [W];
+                    if enable then pumpSignal.incidentPhotonFlux = 4.1e16 [photon_per_s];
+                    if not enable then pumpSignal.pumpPower = 0 [W];
+                    if not enable then pumpSignal.incidentPhotonFlux = 0 [photon_per_s];
+                }
+
+                then done;
+            }
+        }
+
+        part thermalManager {
+            attribute heatSinkThermalResistance : Real = 12.0;
+            attribute ambientTemperature : Kelvin = 298 [K];
+            attribute shutdownTemperature : Kelvin = 360 [K];
+
+            port deviceThermal : ThermalPort;
+            port environmentThermal : ThermalPort;
+            port controlStatus : ControlPort;
+
+            action removeHeat {
+                in item deviceHeat : ThermalEnergy;
+                out item rejectedHeat : ThermalEnergy;
+
+                first start;
+                then computeHeatFlow;
+
+                action computeHeatFlow {
+                    rejectedHeat.temperature = ambientTemperature;
+                    rejectedHeat.heatFlow = deviceHeat.heatFlow;
+                }
+
+                then done;
+            }
+
+            state def ThermalProtection {
+                state normal;
+                state warning;
+                state shutdown;
+
+                transition first normal;
+
+                transition normal_to_warning
+                    first normal
+                    if deviceThermal.heat.temperature > 340 [K]
+                    then warning;
+
+                transition warning_to_normal
+                    first warning
+                    if deviceThermal.heat.temperature <= 330 [K]
+                    then normal;
+
+                transition warning_to_shutdown
+                    first warning
+                    if deviceThermal.heat.temperature >= shutdownTemperature
+                    then shutdown;
+
+                transition shutdown_to_normal
+                    first shutdown
+                    if deviceThermal.heat.temperature < 320 [K]
+                    then normal;
+            }
+        }
+
+        part spectrumController {
+            attribute wavelengthTolerance : Nanometer = 10 [nm];
+            attribute calibrationInterval : SecondValue = 60 [s];
+
+            port command : ControlPort;
+            port measuredOutput : OpticalOutputPort;
+            port driverCommand : ControlPort;
+
+            action tuneEmission {
+                in attribute requestedPeakWavelength : Nanometer;
+                in item measuredSpectrum : EmissionSpectrum;
+                out attribute enableDriver : Boolean;
+
+                first start;
+                then compareSpectrum;
+
+                action compareSpectrum {
+                    if measuredSpectrum.peakWavelength >= requestedPeakWavelength - wavelengthTolerance then enableDriver = true;
+                    if measuredSpectrum.peakWavelength <= requestedPeakWavelength + wavelengthTolerance then enableDriver = true;
+                }
+
+                then done;
+            }
+        }
+
+        part emissionOptics {
+            attribute collectionEfficiency : PercentValue = 76 [percent];
+            attribute outputNumericalAperture : Real = 0.42;
+            attribute lensMaterial : String = "borosilicate glass";
+
+            port sourceInput : OpticalOutputPort;
+            port collectedOutput : OpticalOutputPort;
+
+            action collectAndShapeEmission {
+                in item rawPhoton : Photon;
+                in item rawSpectrum : EmissionSpectrum;
+                out item deliveredPhoton : Photon;
+                out item deliveredSpectrum : EmissionSpectrum;
+
+                first start;
+                then filterEmission;
+
+                action filterEmission {
+                    deliveredPhoton.wavelength = rawPhoton.wavelength;
+                    deliveredPhoton.energy = rawPhoton.energy;
+                    deliveredPhoton.frequency = rawPhoton.frequency;
+                    deliveredPhoton.polarization = rawPhoton.polarization;
+                    deliveredSpectrum.peakWavelength = rawSpectrum.peakWavelength;
+                    deliveredSpectrum.fullWidthHalfMaximum = rawSpectrum.fullWidthHalfMaximum;
+                    deliveredSpectrum.radiantFlux = rawSpectrum.radiantFlux * 0.76;
+                    deliveredSpectrum.quantumYield = rawSpectrum.quantumYield;
+                }
+
+                then done;
+            }
+        }
+
+        connect control to spectrumController.command;
+        connect spectrumController.driverCommand to excitationDriver.controlIn;
+        connect spectrumController.driverCommand to opticalPump.controlIn;
+        connect excitationDriver.electricalOut to quantumDotArray.dots.electricalExcitation;
+        connect opticalPump.opticalOut to quantumDotArray.dots.opticalExcitation;
+        connect quantumDotArray.dots.opticalEmission to emissionOptics.sourceInput;
+        connect emissionOptics.collectedOutput to opticalOutput;
+        connect quantumDotArray.dots.thermalInterface to thermalManager.deviceThermal;
+        connect thermalManager.environmentThermal to thermalBoundary;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject emitter : QuantumDotEmitterSystem;
+
+        doc /* The system shall use quantum-confined semiconductor dots to transform controlled excitation energy into narrow-band optical emission. */
+
+        require constraint {
+            emitter.nominalPeakWavelength >= 450 [nm] and
+            emitter.nominalPeakWavelength <= 750 [nm]
+        }
+    }
+
+    requirement def SizeTunableEmissionRequirement {
+        subject dot : QuantumDot;
+
+        doc /* The emitted wavelength shall be determined primarily by quantum dot core diameter and semiconductor band gap. */
+
+        require constraint {
+            dot.coreDiameter >= 2 [nm] and
+            dot.coreDiameter <= 10 [nm] and
+            dot.targetEmissionWavelength >= 450 [nm] and
+            dot.targetEmissionWavelength <= 750 [nm]
+        }
+    }
+
+    requirement def QuantumYieldRequirement {
+        subject emitter : QuantumDotEmitterSystem;
+
+        doc /* The quantum dot emitter shall maintain high photon conversion efficiency during nominal operation. */
+
+        require constraint {
+            emitter.opticalQuantumYield >= 70 [percent]
+        }
+    }
+
+    requirement def ThermalSafetyRequirement {
+        subject emitter : QuantumDotEmitterSystem;
+
+        doc /* The system shall prevent thermal quenching or material degradation by limiting operating temperature. */
+
+        require constraint {
+            emitter.nominalOperatingTemperature < emitter.maximumSafeTemperature and
+            emitter.maximumSafeTemperature <= 360 [K]
+        }
+    }
+
+    requirement def SpectralWidthRequirement {
+        subject spectrum : EmissionSpectrum;
+
+        doc /* The emitted spectrum shall remain narrow enough for display, sensing, or photonic signaling applications. */
+
+        require constraint {
+            spectrum.fullWidthHalfMaximum <= 35 [nm]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by QuantumDotEmitterSystem;
+    satisfy QuantumYieldRequirement by QuantumDotEmitterSystem;
+    satisfy ThermalSafetyRequirement by QuantumDotEmitterSystem;
+    satisfy SizeTunableEmissionRequirement by QuantumDot;
+    satisfy SpectralWidthRequirement by EmissionSpectrum;
+
+    analysis def EmissionEnergyAnalysis {
+        in attribute wavelength : Nanometer;
+        out attribute photonEnergy : ElectronVolt;
+
+        action computeEnergy {
+            photonEnergy = 1240 / wavelength;
+        }
+    }
+
+    use case def EmitTunablePhotons {
+        subject emitter : QuantumDotEmitterSystem;
+
+        objective {
+            emitter.primaryFunction == "Convert controlled optical or electrical excitation into narrow-band, size-tunable photon emission using quantum-confined semiconductor nanocrystals."
+        }
+
+        include use case StabilizeTemperature;
+        include use case ControlEmissionWavelength;
+    }
+
+    use case def StabilizeTemperature {
+        subject emitter : QuantumDotEmitterSystem;
+
+        objective {
+            emitter.nominalOperatingTemperature < emitter.maximumSafeTemperature
+        }
+    }
+
+    use case def ControlEmissionWavelength {
+        subject emitter : QuantumDotEmitterSystem;
+
+        objective {
+            emitter.nominalPeakWavelength >= 450 [nm] and
+            emitter.nominalPeakWavelength <= 750 [nm]
+        }
+    }
+
+    part quantumDotBasedLightSource : QuantumDotEmitterSystem;
+
+}

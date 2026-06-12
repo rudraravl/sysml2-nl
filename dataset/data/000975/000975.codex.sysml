@@ -1,0 +1,319 @@
+package AngleSensitivePixelModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def DegreeAngle :> ISQ::planeAngle {
+        unit = SI::degree;
+    }
+
+    attribute def Percent {
+        :>> range = "0..100";
+        unit = "%";
+    }
+
+    attribute def ElectronCount {
+        unit = "e-";
+    }
+
+    attribute def DigitalNumber {
+        unit = "DN";
+    }
+
+    attribute def Irradiance {
+        unit = "W/m^2";
+    }
+
+    attribute def Wavelength {
+        unit = "nm";
+    }
+
+    attribute def Temperature {
+        unit = "degC";
+    }
+
+    item def IncidentPhotonFlux {
+        attribute irradiance : Irradiance;
+        attribute wavelength : Wavelength;
+        attribute incidenceAzimuth : DegreeAngle;
+        attribute incidenceElevation : DegreeAngle;
+        attribute polarizationAngle : DegreeAngle;
+    }
+
+    item def PhotoCharge {
+        attribute electrons : ElectronCount;
+        attribute integrationTime : SI::s;
+        attribute shotNoise : ElectronCount;
+    }
+
+    item def PixelSample {
+        attribute sampleValue : DigitalNumber;
+        attribute estimatedAzimuth : DegreeAngle;
+        attribute estimatedElevation : DegreeAngle;
+        attribute confidence : Percent;
+        attribute saturationFlag : Boolean;
+    }
+
+    item def BiasCommand {
+        attribute resetGateVoltage : SI::V;
+        attribute transferGateVoltage : SI::V;
+        attribute integrationTime : SI::s;
+        attribute analogGain : Real;
+    }
+
+    port def OpticalInputPort {
+        in item photons : IncidentPhotonFlux;
+    }
+
+    port def ElectricalControlPort {
+        in item command : BiasCommand;
+    }
+
+    port def SampleOutputPort {
+        out item sample : PixelSample;
+    }
+
+    port def ChargeTransferPort {
+        out item charge : PhotoCharge;
+    }
+
+    part def MicroLens {
+        port opticalIn : OpticalInputPort;
+        port focusedOut : OpticalInputPort;
+
+        attribute apertureDiameter : SI::um = 3.0 [SI::um];
+        attribute focalLength : SI::um = 4.8 [SI::um];
+        attribute transmission : Percent = 92 [%];
+
+        action focusIncidentLight {
+            in item incoming : IncidentPhotonFlux;
+            out item focused : IncidentPhotonFlux;
+        }
+    }
+
+    part def AngleSelectiveGrating {
+        port opticalIn : OpticalInputPort;
+        port filteredOut : OpticalInputPort;
+
+        attribute gratingPitch : SI::nm = 620 [SI::nm];
+        attribute gratingDepth : SI::nm = 180 [SI::nm];
+        attribute azimuthSensitivityPeak : DegreeAngle = 35 [SI::degree];
+        attribute elevationSensitivityPeak : DegreeAngle = 20 [SI::degree];
+        attribute angularFullWidthHalfMaximum : DegreeAngle = 12 [SI::degree];
+
+        action modulateByIncidenceAngle {
+            in item focused : IncidentPhotonFlux;
+            out item angleEncodedFlux : IncidentPhotonFlux;
+        }
+    }
+
+    part def Photodiode {
+        port opticalIn : OpticalInputPort;
+        port chargeOut : ChargeTransferPort;
+
+        attribute quantumEfficiency : Percent = 71 [%];
+        attribute fullWellCapacity : ElectronCount = 18000 ["e-"];
+        attribute darkCurrent : ElectronCount = 12 ["e-"];
+        attribute junctionTemperature : Temperature = 25 ["degC"];
+
+        action convertPhotonsToCharge {
+            in item angleEncodedFlux : IncidentPhotonFlux;
+            in item command : BiasCommand;
+            out item charge : PhotoCharge;
+        }
+    }
+
+    part def ReadoutCircuit {
+        port chargeIn : ChargeTransferPort;
+        port control : ElectricalControlPort;
+        port sampleOut : SampleOutputPort;
+
+        attribute conversionGain : Real = 0.18;
+        attribute readNoise : ElectronCount = 3.2 ["e-"];
+        attribute adcResolution : Integer = 12;
+        attribute maximumDigitalValue : DigitalNumber = 4095 ["DN"];
+
+        action resetPixel {
+            in item command : BiasCommand;
+        }
+
+        action integrateCharge {
+            in item charge : PhotoCharge;
+            out item integratedCharge : PhotoCharge;
+        }
+
+        action sampleAndQuantize {
+            in item integratedCharge : PhotoCharge;
+            out item rawSample : PixelSample;
+        }
+    }
+
+    part def AngleEstimator {
+        port sampleIn : SampleOutputPort;
+        port angleSampleOut : SampleOutputPort;
+
+        attribute calibrationAzimuthOffset : DegreeAngle = 0.4 [SI::degree];
+        attribute calibrationElevationOffset : DegreeAngle = -0.2 [SI::degree];
+        attribute maximumAngularError : DegreeAngle = 2.5 [SI::degree];
+
+        action estimateIncidentAngle {
+            in item rawSample : PixelSample;
+            out item angleResolvedSample : PixelSample;
+        }
+    }
+
+    part def AngleSensitivePixel {
+        port opticalInput : OpticalInputPort;
+        port electricalControl : ElectricalControlPort;
+        port sampleOutput : SampleOutputPort;
+
+        part lens : MicroLens;
+        part grating : AngleSelectiveGrating;
+        part photodiode : Photodiode;
+        part readout : ReadoutCircuit;
+        part estimator : AngleEstimator;
+
+        attribute pixelPitch : SI::um = 4.0 [SI::um];
+        attribute fillFactor : Percent = 78 [%];
+        attribute nominalFrameRate : SI::Hz = 120 [SI::Hz];
+        attribute dynamicRange : Real = 68.0;
+        attribute primaryFunction : String = "Convert incident light into a digital pixel sample whose intensity is modulated by angle of arrival, enabling high-level estimation of local light direction.";
+
+        connect opticalInput to lens.opticalIn;
+        connect lens.focusedOut to grating.opticalIn;
+        connect grating.filteredOut to photodiode.opticalIn;
+        connect photodiode.chargeOut to readout.chargeIn;
+        connect electricalControl to readout.control;
+        connect readout.sampleOut to estimator.sampleIn;
+        connect estimator.angleSampleOut to sampleOutput;
+
+        action acquireAngleSensitiveSample {
+            in item photons : IncidentPhotonFlux;
+            in item command : BiasCommand;
+            out item sample : PixelSample;
+
+            first start;
+            then reset : readout.resetPixel;
+            then focus : lens.focusIncidentLight;
+            then encode : grating.modulateByIncidenceAngle;
+            then convert : photodiode.convertPhotonsToCharge;
+            then integrate : readout.integrateCharge;
+            then quantize : readout.sampleAndQuantize;
+            then estimate : estimator.estimateIncidentAngle;
+            then done;
+        }
+
+        state def PixelOperatingState {
+            state Idle;
+            state Resetting;
+            state Integrating;
+            state TransferringCharge;
+            state Quantizing;
+            state EstimatingAngle;
+            state ReportingSample;
+            state Saturated;
+            state Fault;
+
+            entry action initializeBias;
+            transition first Idle;
+            transition Idle to Resetting
+                accept BiasCommand;
+            transition Resetting to Integrating
+                after 2 [SI::us];
+            transition Integrating to TransferringCharge
+                accept "integrationComplete";
+            transition Integrating to Saturated
+                if photodiode.fullWellCapacity <= 18000 ["e-"];
+            transition Saturated to ReportingSample
+                after 1 [SI::us];
+            transition TransferringCharge to Quantizing
+                after 0.5 [SI::us];
+            transition Quantizing to EstimatingAngle
+                after 1 [SI::us];
+            transition EstimatingAngle to ReportingSample
+                after 1 [SI::us];
+            transition ReportingSample to Idle
+                after 0.2 [SI::us];
+            transition Idle to Fault
+                if readout.readNoise > 20 ["e-"];
+            transition Fault to Idle
+                accept "clearFault";
+        }
+    }
+
+    requirement def AngleSensitivePixelPrimaryFunction {
+        doc
+        /*
+         * The pixel shall receive incident optical energy and produce a digital sample
+         * that represents local intensity and estimated light incidence angle.
+         */
+
+        subject pixel : AngleSensitivePixel;
+
+        require constraint {
+            pixel.sampleOutput.sample.confidence >= 80 [%]
+        }
+
+        require constraint {
+            pixel.estimator.maximumAngularError <= 3 [SI::degree]
+        }
+    }
+
+    requirement def AngularEncodingRequirement {
+        subject pixel : AngleSensitivePixel;
+
+        require constraint {
+            pixel.grating.angularFullWidthHalfMaximum <= 15 [SI::degree]
+        }
+
+        require constraint {
+            pixel.grating.transmission >= 0 [%]
+        }
+    }
+
+    requirement def OpticalConversionRequirement {
+        subject pixel : AngleSensitivePixel;
+
+        require constraint {
+            pixel.photodiode.quantumEfficiency >= 60 [%]
+        }
+
+        require constraint {
+            pixel.photodiode.fullWellCapacity >= 15000 ["e-"]
+        }
+    }
+
+    requirement def ReadoutRequirement {
+        subject pixel : AngleSensitivePixel;
+
+        require constraint {
+            pixel.readout.adcResolution >= 10
+        }
+
+        require constraint {
+            pixel.readout.readNoise <= 5 ["e-"]
+        }
+    }
+
+    requirement def SaturationReportingRequirement {
+        subject pixel : AngleSensitivePixel;
+
+        require constraint {
+            pixel.sampleOutput.sample.saturationFlag == true implies
+            pixel.sampleOutput.sample.confidence <= 50 [%]
+        }
+    }
+
+    satisfy AngleSensitivePixelPrimaryFunction by AngleSensitivePixel;
+    satisfy AngularEncodingRequirement by AngleSensitivePixel::grating;
+    satisfy OpticalConversionRequirement by AngleSensitivePixel::photodiode;
+    satisfy ReadoutRequirement by AngleSensitivePixel::readout;
+    satisfy SaturationReportingRequirement by AngleSensitivePixel;
+
+    part angleSensitivePixelSystem : AngleSensitivePixel {
+        :>> pixelPitch = 4.0 [SI::um];
+        :>> fillFactor = 78 [%];
+        :>> nominalFrameRate = 120 [SI::Hz];
+    }
+}

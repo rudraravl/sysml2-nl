@@ -1,0 +1,739 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2x7l__5k
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb574-6366-7591-962c-27ba7bddf9d4
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Ion-selective electrode and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package IonSelectiveElectrodeSystemModel {
+
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def AmountConcentration {
+        unit = SI::mole / SI::metre^3;
+    }
+
+    attribute def TimeInterval :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def ElectricalResistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def DimensionlessSlope {
+        unit = SI::volt;
+    }
+
+    attribute def pH {
+        unit = one;
+    }
+
+    item def SampleSolution {
+        attribute targetIonConcentration : AmountConcentration;
+        attribute interferingIonConcentration : AmountConcentration;
+        attribute sampleTemperature : Temperature;
+        attribute samplePH : pH;
+    }
+
+    item def InternalElectrolyte {
+        attribute fixedIonConcentration : AmountConcentration;
+        attribute referencePotential : ElectricPotential;
+    }
+
+    item def IonActivitySignal {
+        attribute measuredPotential : ElectricPotential;
+        attribute compensatedPotential : ElectricPotential;
+        attribute responseSlope : DimensionlessSlope;
+        attribute measurementTemperature : Temperature;
+    }
+
+    item def ConcentrationResult {
+        attribute estimatedIonConcentration : AmountConcentration;
+        attribute confidence : Real;
+        attribute valid : Boolean;
+    }
+
+    port def SolutionPort {
+        in item solution : SampleSolution;
+    }
+
+    port def ElectrolytePort {
+        inout item electrolyte : InternalElectrolyte;
+    }
+
+    port def ElectricalSignalPort {
+        out item signal : IonActivitySignal;
+    }
+
+    port def ResultPort {
+        out item result : ConcentrationResult;
+    }
+
+    part def IonSelectiveElectrodeSystem {
+        attribute operatingTemperature : Temperature = 298.15 [K];
+        attribute stabilizationTime : TimeInterval = 30 [s];
+        attribute minimumDetectableConcentration : AmountConcentration = 0.001 [mol/m^3];
+        attribute maximumMeasurableConcentration : AmountConcentration = 1000 [mol/m^3];
+
+        port sampleIn : SolutionPort;
+        port concentrationOut : ResultPort;
+
+        part electrodeAssembly : IonSelectiveElectrodeAssembly;
+        part measurementElectronics : HighImpedanceMeasurementElectronics;
+        part signalProcessor : IonConcentrationProcessor;
+
+        connect sampleIn.solution to electrodeAssembly.sampleInterface.solution;
+        connect electrodeAssembly.potentialOutput.signal to measurementElectronics.rawPotentialInput.signal;
+        connect measurementElectronics.conditionedPotentialOutput.signal to signalProcessor.potentialInput.signal;
+        connect signalProcessor.resultOutput.result to concentrationOut.result;
+
+        perform action measureIonConcentration;
+
+        state def OperatingState {
+            entry action initializeSystem;
+
+            state idle;
+            state acceptingSample;
+            state equilibratingMembrane;
+            state measuringPotential;
+            state compensatingTemperature;
+            state calculatingConcentration;
+            state reportingResult;
+            state fault;
+
+            transition first idle;
+            transition idle_to_acceptingSample
+                first idle then acceptingSample
+                accept sampleReceived;
+
+            transition acceptingSample_to_equilibratingMembrane
+                first acceptingSample then equilibratingMembrane
+                if electrodeAssembly.sampleContactEstablished;
+
+            transition equilibratingMembrane_to_measuringPotential
+                first equilibratingMembrane then measuringPotential
+                after stabilizationTime;
+
+            transition measuringPotential_to_compensatingTemperature
+                first measuringPotential then compensatingTemperature
+                if measurementElectronics.potentialStable;
+
+            transition compensatingTemperature_to_calculatingConcentration
+                first compensatingTemperature then calculatingConcentration;
+
+            transition calculatingConcentration_to_reportingResult
+                first calculatingConcentration then reportingResult
+                if signalProcessor.resultValid;
+
+            transition reportingResult_to_idle
+                first reportingResult then idle
+                accept resultAcknowledged;
+
+            transition any_to_fault
+                first idle then fault
+                if electrodeAssembly.membraneIntegrity = false;
+
+            transition fault_to_idle
+                first fault then idle
+                accept resetCommand;
+        }
+    }
+
+    part def IonSelectiveElectrodeAssembly {
+        attribute sampleContactEstablished : Boolean;
+        attribute membraneIntegrity : Boolean = true;
+        attribute nominalNernstSlope : DimensionlessSlope = 0.05916 [V];
+
+        port sampleInterface : SolutionPort;
+        port potentialOutput : ElectricalSignalPort;
+
+        part ionSelectiveMembrane : IonSelectiveMembrane;
+        part internalReferenceElectrode : InternalReferenceElectrode;
+        part internalFillingSolution : InternalFillingSolution;
+        part electrodeBody : ElectrodeBody;
+        part liquidJunction : LiquidJunction;
+
+        connect sampleInterface.solution to ionSelectiveMembrane.externalSolution.solution;
+        connect ionSelectiveMembrane.internalElectrolyte.electrolyte to internalFillingSolution.electrolyteReservoir.electrolyte;
+        connect internalFillingSolution.referenceInterface.electrolyte to internalReferenceElectrode.electrolyteContact.electrolyte;
+        connect internalReferenceElectrode.referenceSignal.signal to potentialOutput.signal;
+
+        action generateIonDependentPotential {
+            in item sample : SampleSolution;
+            in item electrolyte : InternalElectrolyte;
+            out item potentialSignal : IonActivitySignal;
+
+            assign potentialSignal.measurementTemperature := sample.sampleTemperature;
+            assign potentialSignal.responseSlope := nominalNernstSlope;
+            assign potentialSignal.measuredPotential :=
+                electrolyte.referencePotential +
+                nominalNernstSlope * log(sample.targetIonConcentration / electrolyte.fixedIonConcentration);
+            assign potentialSignal.compensatedPotential := potentialSignal.measuredPotential;
+        }
+    }
+
+    part def IonSelectiveMembrane {
+        attribute selectivityCoefficient : Real = 0.001;
+        attribute membraneResistance : ElectricalResistance = 100000000 [ohm];
+        attribute hydratedLayerThickness : LengthValue = 0.000001 [m];
+
+        port externalSolution : SolutionPort;
+        port internalElectrolyte : ElectrolytePort;
+
+        requirement membraneSelectivityRequirement {
+            id = "ISE-MEM-001";
+            text = "The ion-selective membrane shall preferentially exchange the target ion with a selectivity coefficient no greater than 0.001 relative to the specified interfering ion.";
+        }
+
+        requirement membraneImpedanceRequirement {
+            id = "ISE-MEM-002";
+            text = "The membrane resistance shall remain below 100 megaohms during normal hydrated operation.";
+        }
+    }
+
+    part def InternalReferenceElectrode {
+        attribute referencePotentialStability : ElectricPotential = 0.0002 [V];
+        attribute halfCellPotential : ElectricPotential = 0.199 [V];
+
+        port electrolyteContact : ElectrolytePort;
+        port referenceSignal : ElectricalSignalPort;
+
+        requirement referenceStabilityRequirement {
+            id = "ISE-REF-001";
+            text = "The internal reference electrode shall maintain half-cell potential drift within 0.2 millivolts during one measurement interval.";
+        }
+    }
+
+    part def InternalFillingSolution {
+        attribute electrolyteVolume : VolumeValue = 0.000001 [m^3];
+
+        port electrolyteReservoir : ElectrolytePort;
+        port referenceInterface : ElectrolytePort;
+
+        item electrolyte : InternalElectrolyte {
+            attribute fixedIonConcentration = 100 [mol/m^3];
+            attribute referencePotential = 0.199 [V];
+        }
+    }
+
+    part def ElectrodeBody {
+        attribute bodyLength : LengthValue = 0.12 [m];
+        attribute bodyDiameter : LengthValue = 0.012 [m];
+        attribute chemicallyResistant : Boolean = true;
+
+        requirement containmentRequirement {
+            id = "ISE-BODY-001";
+            text = "The electrode body shall isolate the internal electrolyte from the external sample except through the ion-selective membrane and liquid junction.";
+        }
+    }
+
+    part def LiquidJunction {
+        attribute junctionPotential : ElectricPotential = 0.002 [V];
+        attribute junctionFlowRate : Real = 0.000000001;
+
+        requirement junctionRequirement {
+            id = "ISE-JUNC-001";
+            text = "The liquid junction shall provide ionic continuity between the reference system and sample while limiting junction potential variation to less than 2 millivolts.";
+        }
+    }
+
+    part def HighImpedanceMeasurementElectronics {
+        attribute inputResistance : ElectricalResistance = 1000000000000 [ohm];
+        attribute potentialStable : Boolean;
+        attribute noiseLimit : ElectricPotential = 0.0001 [V];
+
+        port rawPotentialInput : ElectricalSignalPort;
+        port conditionedPotentialOutput : ElectricalSignalPort;
+
+        action conditionPotentialSignal {
+            in item rawSignal : IonActivitySignal;
+            out item conditionedSignal : IonActivitySignal;
+
+            assign conditionedSignal.measurementTemperature := rawSignal.measurementTemperature;
+            assign conditionedSignal.responseSlope := rawSignal.responseSlope;
+            assign conditionedSignal.measuredPotential := rawSignal.measuredPotential;
+            assign conditionedSignal.compensatedPotential := rawSignal.compensatedPotential;
+        }
+
+        requirement inputImpedanceRequirement {
+            id = "ISE-ELEC-001";
+            text = "The measurement electronics shall present an input resistance of at least 1 teraohm to prevent loading the ion-selective electrode.";
+        }
+
+        requirement noiseRequirement {
+            id = "ISE-ELEC-002";
+            text = "The measurement electronics shall contribute less than 0.1 millivolt RMS noise during stable measurement.";
+        }
+    }
+
+    part def IonConcentrationProcessor {
+        attribute calibrationOffset : ElectricPotential = 0 [V];
+        attribute calibrationSlope : DimensionlessSlope = 0.05916 [V];
+        attribute referenceConcentration : AmountConcentration = 1 [mol/m^3];
+        attribute resultValid : Boolean;
+
+        port potentialInput : ElectricalSignalPort;
+        port resultOutput : ResultPort;
+
+        action compensateForTemperature {
+            in item signal : IonActivitySignal;
+            out item compensatedSignal : IonActivitySignal;
+
+            assign compensatedSignal.measurementTemperature := signal.measurementTemperature;
+            assign compensatedSignal.responseSlope :=
+                calibrationSlope * signal.measurementTemperature / 298.15 [K];
+            assign compensatedSignal.measuredPotential := signal.measuredPotential;
+            assign compensatedSignal.compensatedPotential :=
+                signal.measuredPotential - calibrationOffset;
+        }
+
+        action calculateIonConcentration {
+            in item compensatedSignal : IonActivitySignal;
+            out item result : ConcentrationResult;
+
+            assign result.estimatedIonConcentration :=
+                referenceConcentration *
+                exp(compensatedSignal.compensatedPotential / compensatedSignal.responseSlope);
+            assign result.valid :=
+                result.estimatedIonConcentration >= 0.001 [mol/m^3] and
+                result.estimatedIonConcentration <= 1000 [mol/m^3];
+            assign result.confidence := 0.95;
+        }
+
+        requirement calculationRequirement {
+            id = "ISE-PROC-001";
+            text = "The processor shall convert stabilized electrode potential into estimated target ion concentration using a calibrated Nernst response model.";
+        }
+
+        requirement temperatureCompensationRequirement {
+            id = "ISE-PROC-002";
+            text = "The processor shall compensate the Nernst slope using measured sample temperature before calculating concentration.";
+        }
+    }
+
+    action def MeasureIonConcentration {
+        in item sample : SampleSolution;
+        out item concentration : ConcentrationResult;
+
+        first start;
+        then establishSampleContact;
+        then waitForMembraneEquilibrium;
+        then acquireElectrodePotential;
+        then compensatePotentialForTemperature;
+        then computeConcentration;
+        then publishResult;
+    }
+
+    action measureIonConcentration : MeasureIonConcentration {
+        in item sample = sampleIn.solution;
+        out item concentration = concentrationOut.result;
+    }
+
+    requirement primaryFunctionRequirement {
+        id = "ISE-SYS-001";
+        text = "The ion-selective electrode system shall provide a high-level primary function of converting target-ion activity in a liquid sample into an electrical potential and reporting the corresponding ion concentration.";
+    }
+
+    requirement measurementRangeRequirement {
+        id = "ISE-SYS-002";
+        text = "The system shall report valid concentration results from 0.001 mol per cubic metre to 1000 mol per cubic metre.";
+    }
+
+    requirement stabilizationRequirement {
+        id = "ISE-SYS-003";
+        text = "The system shall acquire concentration only after the membrane potential has stabilized for the configured measurement interval.";
+    }
+
+    requirement sampleCompatibilityRequirement {
+        id = "ISE-SYS-004";
+        text = "The wetted electrode components shall tolerate aqueous samples between pH 2 and pH 12 during normal operation.";
+    }
+
+    satisfy primaryFunctionRequirement by IonSelectiveElectrodeSystem;
+    satisfy measurementRangeRequirement by IonSelectiveElectrodeSystem;
+    satisfy stabilizationRequirement by IonSelectiveElectrodeSystem::OperatingState;
+    satisfy sampleCompatibilityRequirement by IonSelectiveElectrodeAssembly;
+}
+tokens used
+3,197
+package IonSelectiveElectrodeSystemModel {
+
+    private import ScalarValues::*;
+    private import ISQ::*;
+    private import SI::*;
+
+    attribute def ElectricPotential :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Temperature :> ISQ::thermodynamicTemperature {
+        unit = SI::kelvin;
+    }
+
+    attribute def AmountConcentration {
+        unit = SI::mole / SI::metre^3;
+    }
+
+    attribute def TimeInterval :> ISQ::time {
+        unit = SI::second;
+    }
+
+    attribute def ElectricalResistance :> ISQ::resistance {
+        unit = SI::ohm;
+    }
+
+    attribute def DimensionlessSlope {
+        unit = SI::volt;
+    }
+
+    attribute def pH {
+        unit = one;
+    }
+
+    item def SampleSolution {
+        attribute targetIonConcentration : AmountConcentration;
+        attribute interferingIonConcentration : AmountConcentration;
+        attribute sampleTemperature : Temperature;
+        attribute samplePH : pH;
+    }
+
+    item def InternalElectrolyte {
+        attribute fixedIonConcentration : AmountConcentration;
+        attribute referencePotential : ElectricPotential;
+    }
+
+    item def IonActivitySignal {
+        attribute measuredPotential : ElectricPotential;
+        attribute compensatedPotential : ElectricPotential;
+        attribute responseSlope : DimensionlessSlope;
+        attribute measurementTemperature : Temperature;
+    }
+
+    item def ConcentrationResult {
+        attribute estimatedIonConcentration : AmountConcentration;
+        attribute confidence : Real;
+        attribute valid : Boolean;
+    }
+
+    port def SolutionPort {
+        in item solution : SampleSolution;
+    }
+
+    port def ElectrolytePort {
+        inout item electrolyte : InternalElectrolyte;
+    }
+
+    port def ElectricalSignalPort {
+        out item signal : IonActivitySignal;
+    }
+
+    port def ResultPort {
+        out item result : ConcentrationResult;
+    }
+
+    part def IonSelectiveElectrodeSystem {
+        attribute operatingTemperature : Temperature = 298.15 [K];
+        attribute stabilizationTime : TimeInterval = 30 [s];
+        attribute minimumDetectableConcentration : AmountConcentration = 0.001 [mol/m^3];
+        attribute maximumMeasurableConcentration : AmountConcentration = 1000 [mol/m^3];
+
+        port sampleIn : SolutionPort;
+        port concentrationOut : ResultPort;
+
+        part electrodeAssembly : IonSelectiveElectrodeAssembly;
+        part measurementElectronics : HighImpedanceMeasurementElectronics;
+        part signalProcessor : IonConcentrationProcessor;
+
+        connect sampleIn.solution to electrodeAssembly.sampleInterface.solution;
+        connect electrodeAssembly.potentialOutput.signal to measurementElectronics.rawPotentialInput.signal;
+        connect measurementElectronics.conditionedPotentialOutput.signal to signalProcessor.potentialInput.signal;
+        connect signalProcessor.resultOutput.result to concentrationOut.result;
+
+        perform action measureIonConcentration;
+
+        state def OperatingState {
+            entry action initializeSystem;
+
+            state idle;
+            state acceptingSample;
+            state equilibratingMembrane;
+            state measuringPotential;
+            state compensatingTemperature;
+            state calculatingConcentration;
+            state reportingResult;
+            state fault;
+
+            transition first idle;
+            transition idle_to_acceptingSample
+                first idle then acceptingSample
+                accept sampleReceived;
+
+            transition acceptingSample_to_equilibratingMembrane
+                first acceptingSample then equilibratingMembrane
+                if electrodeAssembly.sampleContactEstablished;
+
+            transition equilibratingMembrane_to_measuringPotential
+                first equilibratingMembrane then measuringPotential
+                after stabilizationTime;
+
+            transition measuringPotential_to_compensatingTemperature
+                first measuringPotential then compensatingTemperature
+                if measurementElectronics.potentialStable;
+
+            transition compensatingTemperature_to_calculatingConcentration
+                first compensatingTemperature then calculatingConcentration;
+
+            transition calculatingConcentration_to_reportingResult
+                first calculatingConcentration then reportingResult
+                if signalProcessor.resultValid;
+
+            transition reportingResult_to_idle
+                first reportingResult then idle
+                accept resultAcknowledged;
+
+            transition any_to_fault
+                first idle then fault
+                if electrodeAssembly.membraneIntegrity = false;
+
+            transition fault_to_idle
+                first fault then idle
+                accept resetCommand;
+        }
+    }
+
+    part def IonSelectiveElectrodeAssembly {
+        attribute sampleContactEstablished : Boolean;
+        attribute membraneIntegrity : Boolean = true;
+        attribute nominalNernstSlope : DimensionlessSlope = 0.05916 [V];
+
+        port sampleInterface : SolutionPort;
+        port potentialOutput : ElectricalSignalPort;
+
+        part ionSelectiveMembrane : IonSelectiveMembrane;
+        part internalReferenceElectrode : InternalReferenceElectrode;
+        part internalFillingSolution : InternalFillingSolution;
+        part electrodeBody : ElectrodeBody;
+        part liquidJunction : LiquidJunction;
+
+        connect sampleInterface.solution to ionSelectiveMembrane.externalSolution.solution;
+        connect ionSelectiveMembrane.internalElectrolyte.electrolyte to internalFillingSolution.electrolyteReservoir.electrolyte;
+        connect internalFillingSolution.referenceInterface.electrolyte to internalReferenceElectrode.electrolyteContact.electrolyte;
+        connect internalReferenceElectrode.referenceSignal.signal to potentialOutput.signal;
+
+        action generateIonDependentPotential {
+            in item sample : SampleSolution;
+            in item electrolyte : InternalElectrolyte;
+            out item potentialSignal : IonActivitySignal;
+
+            assign potentialSignal.measurementTemperature := sample.sampleTemperature;
+            assign potentialSignal.responseSlope := nominalNernstSlope;
+            assign potentialSignal.measuredPotential :=
+                electrolyte.referencePotential +
+                nominalNernstSlope * log(sample.targetIonConcentration / electrolyte.fixedIonConcentration);
+            assign potentialSignal.compensatedPotential := potentialSignal.measuredPotential;
+        }
+    }
+
+    part def IonSelectiveMembrane {
+        attribute selectivityCoefficient : Real = 0.001;
+        attribute membraneResistance : ElectricalResistance = 100000000 [ohm];
+        attribute hydratedLayerThickness : LengthValue = 0.000001 [m];
+
+        port externalSolution : SolutionPort;
+        port internalElectrolyte : ElectrolytePort;
+
+        requirement membraneSelectivityRequirement {
+            id = "ISE-MEM-001";
+            text = "The ion-selective membrane shall preferentially exchange the target ion with a selectivity coefficient no greater than 0.001 relative to the specified interfering ion.";
+        }
+
+        requirement membraneImpedanceRequirement {
+            id = "ISE-MEM-002";
+            text = "The membrane resistance shall remain below 100 megaohms during normal hydrated operation.";
+        }
+    }
+
+    part def InternalReferenceElectrode {
+        attribute referencePotentialStability : ElectricPotential = 0.0002 [V];
+        attribute halfCellPotential : ElectricPotential = 0.199 [V];
+
+        port electrolyteContact : ElectrolytePort;
+        port referenceSignal : ElectricalSignalPort;
+
+        requirement referenceStabilityRequirement {
+            id = "ISE-REF-001";
+            text = "The internal reference electrode shall maintain half-cell potential drift within 0.2 millivolts during one measurement interval.";
+        }
+    }
+
+    part def InternalFillingSolution {
+        attribute electrolyteVolume : VolumeValue = 0.000001 [m^3];
+
+        port electrolyteReservoir : ElectrolytePort;
+        port referenceInterface : ElectrolytePort;
+
+        item electrolyte : InternalElectrolyte {
+            attribute fixedIonConcentration = 100 [mol/m^3];
+            attribute referencePotential = 0.199 [V];
+        }
+    }
+
+    part def ElectrodeBody {
+        attribute bodyLength : LengthValue = 0.12 [m];
+        attribute bodyDiameter : LengthValue = 0.012 [m];
+        attribute chemicallyResistant : Boolean = true;
+
+        requirement containmentRequirement {
+            id = "ISE-BODY-001";
+            text = "The electrode body shall isolate the internal electrolyte from the external sample except through the ion-selective membrane and liquid junction.";
+        }
+    }
+
+    part def LiquidJunction {
+        attribute junctionPotential : ElectricPotential = 0.002 [V];
+        attribute junctionFlowRate : Real = 0.000000001;
+
+        requirement junctionRequirement {
+            id = "ISE-JUNC-001";
+            text = "The liquid junction shall provide ionic continuity between the reference system and sample while limiting junction potential variation to less than 2 millivolts.";
+        }
+    }
+
+    part def HighImpedanceMeasurementElectronics {
+        attribute inputResistance : ElectricalResistance = 1000000000000 [ohm];
+        attribute potentialStable : Boolean;
+        attribute noiseLimit : ElectricPotential = 0.0001 [V];
+
+        port rawPotentialInput : ElectricalSignalPort;
+        port conditionedPotentialOutput : ElectricalSignalPort;
+
+        action conditionPotentialSignal {
+            in item rawSignal : IonActivitySignal;
+            out item conditionedSignal : IonActivitySignal;
+
+            assign conditionedSignal.measurementTemperature := rawSignal.measurementTemperature;
+            assign conditionedSignal.responseSlope := rawSignal.responseSlope;
+            assign conditionedSignal.measuredPotential := rawSignal.measuredPotential;
+            assign conditionedSignal.compensatedPotential := rawSignal.compensatedPotential;
+        }
+
+        requirement inputImpedanceRequirement {
+            id = "ISE-ELEC-001";
+            text = "The measurement electronics shall present an input resistance of at least 1 teraohm to prevent loading the ion-selective electrode.";
+        }
+
+        requirement noiseRequirement {
+            id = "ISE-ELEC-002";
+            text = "The measurement electronics shall contribute less than 0.1 millivolt RMS noise during stable measurement.";
+        }
+    }
+
+    part def IonConcentrationProcessor {
+        attribute calibrationOffset : ElectricPotential = 0 [V];
+        attribute calibrationSlope : DimensionlessSlope = 0.05916 [V];
+        attribute referenceConcentration : AmountConcentration = 1 [mol/m^3];
+        attribute resultValid : Boolean;
+
+        port potentialInput : ElectricalSignalPort;
+        port resultOutput : ResultPort;
+
+        action compensateForTemperature {
+            in item signal : IonActivitySignal;
+            out item compensatedSignal : IonActivitySignal;
+
+            assign compensatedSignal.measurementTemperature := signal.measurementTemperature;
+            assign compensatedSignal.responseSlope :=
+                calibrationSlope * signal.measurementTemperature / 298.15 [K];
+            assign compensatedSignal.measuredPotential := signal.measuredPotential;
+            assign compensatedSignal.compensatedPotential :=
+                signal.measuredPotential - calibrationOffset;
+        }
+
+        action calculateIonConcentration {
+            in item compensatedSignal : IonActivitySignal;
+            out item result : ConcentrationResult;
+
+            assign result.estimatedIonConcentration :=
+                referenceConcentration *
+                exp(compensatedSignal.compensatedPotential / compensatedSignal.responseSlope);
+            assign result.valid :=
+                result.estimatedIonConcentration >= 0.001 [mol/m^3] and
+                result.estimatedIonConcentration <= 1000 [mol/m^3];
+            assign result.confidence := 0.95;
+        }
+
+        requirement calculationRequirement {
+            id = "ISE-PROC-001";
+            text = "The processor shall convert stabilized electrode potential into estimated target ion concentration using a calibrated Nernst response model.";
+        }
+
+        requirement temperatureCompensationRequirement {
+            id = "ISE-PROC-002";
+            text = "The processor shall compensate the Nernst slope using measured sample temperature before calculating concentration.";
+        }
+    }
+
+    action def MeasureIonConcentration {
+        in item sample : SampleSolution;
+        out item concentration : ConcentrationResult;
+
+        first start;
+        then establishSampleContact;
+        then waitForMembraneEquilibrium;
+        then acquireElectrodePotential;
+        then compensatePotentialForTemperature;
+        then computeConcentration;
+        then publishResult;
+    }
+
+    action measureIonConcentration : MeasureIonConcentration {
+        in item sample = sampleIn.solution;
+        out item concentration = concentrationOut.result;
+    }
+
+    requirement primaryFunctionRequirement {
+        id = "ISE-SYS-001";
+        text = "The ion-selective electrode system shall provide a high-level primary function of converting target-ion activity in a liquid sample into an electrical potential and reporting the corresponding ion concentration.";
+    }
+
+    requirement measurementRangeRequirement {
+        id = "ISE-SYS-002";
+        text = "The system shall report valid concentration results from 0.001 mol per cubic metre to 1000 mol per cubic metre.";
+    }
+
+    requirement stabilizationRequirement {
+        id = "ISE-SYS-003";
+        text = "The system shall acquire concentration only after the membrane potential has stabilized for the configured measurement interval.";
+    }
+
+    requirement sampleCompatibilityRequirement {
+        id = "ISE-SYS-004";
+        text = "The wetted electrode components shall tolerate aqueous samples between pH 2 and pH 12 during normal operation.";
+    }
+
+    satisfy primaryFunctionRequirement by IonSelectiveElectrodeSystem;
+    satisfy measurementRangeRequirement by IonSelectiveElectrodeSystem;
+    satisfy stabilizationRequirement by IonSelectiveElectrodeSystem::OperatingState;
+    satisfy sampleCompatibilityRequirement by IonSelectiveElectrodeAssembly;
+}

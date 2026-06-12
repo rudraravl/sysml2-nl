@@ -1,0 +1,411 @@
+package GroundSpeedRadarSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def SpeedValue {
+        attribute value : Real;
+        attribute unit : String = "m/s";
+    }
+
+    attribute def FrequencyValue {
+        attribute value : Real;
+        attribute unit : String = "Hz";
+    }
+
+    attribute def PowerValue {
+        attribute value : Real;
+        attribute unit : String = "W";
+    }
+
+    attribute def DistanceValue {
+        attribute value : Real;
+        attribute unit : String = "m";
+    }
+
+    attribute def AngleValue {
+        attribute value : Real;
+        attribute unit : String = "deg";
+    }
+
+    attribute def ConfidenceValue {
+        attribute value : Real;
+        attribute unit : String = "percent";
+    }
+
+    attribute def VoltageValue {
+        attribute value : Real;
+        attribute unit : String = "V";
+    }
+
+    item def RadarWaveform {
+        attribute carrierFrequency : FrequencyValue;
+        attribute transmitPower : PowerValue;
+        attribute beamAngle : AngleValue;
+        attribute pulseRepetitionFrequency : FrequencyValue;
+    }
+
+    item def DopplerEcho {
+        attribute dopplerShift : FrequencyValue;
+        attribute echoPower : PowerValue;
+        attribute slantRange : DistanceValue;
+        attribute incidenceAngle : AngleValue;
+    }
+
+    item def GroundSpeedMeasurement {
+        attribute longitudinalSpeed : SpeedValue;
+        attribute lateralSpeed : SpeedValue;
+        attribute totalGroundSpeed : SpeedValue;
+        attribute confidence : ConfidenceValue;
+        attribute valid : Boolean;
+    }
+
+    item def HealthStatus {
+        attribute operational : Boolean;
+        attribute transmitterReady : Boolean;
+        attribute receiverReady : Boolean;
+        attribute processorReady : Boolean;
+        attribute faultCode : String;
+    }
+
+    item def AircraftMotionContext {
+        attribute pitchAngle : AngleValue;
+        attribute rollAngle : AngleValue;
+        attribute yawAngle : AngleValue;
+        attribute altitudeAboveGround : DistanceValue;
+    }
+
+    port def PowerPort {
+        in item supplyVoltage : VoltageValue;
+        in item supplyPower : PowerValue;
+    }
+
+    port def ControlPort {
+        in item enableCommand : Boolean;
+        in item selfTestCommand : Boolean;
+        in item calibrationCommand : Boolean;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    port def RFTransmitPort {
+        out item waveform : RadarWaveform;
+    }
+
+    port def RFReceivePort {
+        in item echo : DopplerEcho;
+    }
+
+    port def SpeedOutputPort {
+        out item measurement : GroundSpeedMeasurement;
+    }
+
+    port def MotionInputPort {
+        in item context : AircraftMotionContext;
+    }
+
+    part def AntennaAssembly {
+        attribute azimuthCoverage : AngleValue = (value = 60.0, unit = "deg");
+        attribute elevationCoverage : AngleValue = (value = 45.0, unit = "deg");
+        attribute nominalMountAngle : AngleValue = (value = 35.0, unit = "deg");
+
+        port tx : RFTransmitPort;
+        port rx : RFReceivePort;
+    }
+
+    part def RadarTransmitter {
+        attribute nominalCarrierFrequency : FrequencyValue = (value = 24.125e9, unit = "Hz");
+        attribute maximumTransmitPower : PowerValue = (value = 2.0, unit = "W");
+        attribute nominalPulseRepetitionFrequency : FrequencyValue = (value = 20000.0, unit = "Hz");
+
+        port power : PowerPort;
+        port control : ControlPort;
+        port rfOut : RFTransmitPort;
+        port statusOut : StatusPort;
+
+        action generateWaveform {
+            in item enable : Boolean;
+            out item waveform : RadarWaveform;
+
+            first start;
+            then decide;
+            if enable then emit;
+            else idle;
+
+            action emit {
+                out item waveform : RadarWaveform;
+            }
+
+            action idle {
+                out item waveform : RadarWaveform;
+            }
+        }
+    }
+
+    part def RadarReceiver {
+        attribute minimumDetectableEchoPower : PowerValue = (value = 1.0e-12, unit = "W");
+        attribute receiverNoiseFigure : Real = 4.0;
+
+        port power : PowerPort;
+        port rfIn : RFReceivePort;
+        port statusOut : StatusPort;
+
+        action detectEcho {
+            in item rawEcho : DopplerEcho;
+            out item detectedEcho : DopplerEcho;
+            out item echoDetected : Boolean;
+        }
+    }
+
+    part def SignalProcessor {
+        attribute minimumValidSpeed : SpeedValue = (value = 0.1, unit = "m/s");
+        attribute maximumValidSpeed : SpeedValue = (value = 180.0, unit = "m/s");
+        attribute minimumConfidence : ConfidenceValue = (value = 90.0, unit = "percent");
+
+        port echoIn : RFReceivePort;
+        port motionIn : MotionInputPort;
+        port speedOut : SpeedOutputPort;
+        port statusOut : StatusPort;
+
+        action computeGroundSpeed {
+            in item echo : DopplerEcho;
+            in item motion : AircraftMotionContext;
+            out item speed : GroundSpeedMeasurement;
+        }
+
+        action rejectInvalidMeasurement {
+            in item candidate : GroundSpeedMeasurement;
+            out item rejected : GroundSpeedMeasurement;
+        }
+
+        action filterMeasurement {
+            in item unfiltered : GroundSpeedMeasurement;
+            out item filtered : GroundSpeedMeasurement;
+        }
+    }
+
+    part def BuiltInTestController {
+        attribute selfTestDuration : Real = 3.0;
+        attribute calibrationInterval : Real = 600.0;
+
+        port control : ControlPort;
+        port transmitterStatus : StatusPort;
+        port receiverStatus : StatusPort;
+        port processorStatus : StatusPort;
+        port systemStatus : StatusPort;
+
+        action runPowerOnSelfTest {
+            out item status : HealthStatus;
+        }
+
+        action runContinuousMonitoring {
+            in item transmitterHealth : HealthStatus;
+            in item receiverHealth : HealthStatus;
+            in item processorHealth : HealthStatus;
+            out item systemHealth : HealthStatus;
+        }
+    }
+
+    part def GroundSpeedRadar {
+        attribute measurementUpdateRate : FrequencyValue = (value = 50.0, unit = "Hz");
+        attribute specifiedAccuracy : SpeedValue = (value = 0.25, unit = "m/s");
+        attribute operatingAltitudeMinimum : DistanceValue = (value = 0.5, unit = "m");
+        attribute operatingAltitudeMaximum : DistanceValue = (value = 2500.0, unit = "m");
+
+        port powerInput : PowerPort;
+        port controlInput : ControlPort;
+        port aircraftMotionInput : MotionInputPort;
+        port speedOutput : SpeedOutputPort;
+        port statusOutput : StatusPort;
+
+        part antenna : AntennaAssembly;
+        part transmitter : RadarTransmitter;
+        part receiver : RadarReceiver;
+        part processor : SignalProcessor;
+        part testController : BuiltInTestController;
+
+        connect transmitter.rfOut to antenna.tx;
+        connect antenna.rx to receiver.rfIn;
+        connect receiver.rfIn to processor.echoIn;
+        connect aircraftMotionInput to processor.motionIn;
+        connect processor.speedOut to speedOutput;
+
+        connect powerInput to transmitter.power;
+        connect powerInput to receiver.power;
+
+        connect controlInput to transmitter.control;
+        connect controlInput to testController.control;
+
+        connect transmitter.statusOut to testController.transmitterStatus;
+        connect receiver.statusOut to testController.receiverStatus;
+        connect processor.statusOut to testController.processorStatus;
+        connect testController.systemStatus to statusOutput;
+
+        state def OperatingStateMachine {
+            state off;
+            state powerOnSelfTest;
+            state standby;
+            state radiating;
+            state trackingGroundReturn;
+            state outputtingGroundSpeed;
+            state degraded;
+            state failed;
+
+            transition off_to_test
+                first off
+                then powerOnSelfTest
+                accept enableCommand;
+
+            transition test_to_standby
+                first powerOnSelfTest
+                then standby
+                if status.operational == true;
+
+            transition test_to_failed
+                first powerOnSelfTest
+                then failed
+                if status.operational == false;
+
+            transition standby_to_radiating
+                first standby
+                then radiating
+                accept enableCommand;
+
+            transition radiating_to_tracking
+                first radiating
+                then trackingGroundReturn
+                if receiverReady == true;
+
+            transition tracking_to_output
+                first trackingGroundReturn
+                then outputtingGroundSpeed
+                if measurement.valid == true;
+
+            transition output_to_tracking
+                first outputtingGroundSpeed
+                then trackingGroundReturn;
+
+            transition tracking_to_degraded
+                first trackingGroundReturn
+                then degraded
+                if measurement.confidence.value < 90.0;
+
+            transition degraded_to_tracking
+                first degraded
+                then trackingGroundReturn
+                if measurement.confidence.value >= 90.0;
+
+            transition any_to_failed
+                first standby
+                then failed
+                if status.operational == false;
+        }
+
+        action performPrimaryFunction {
+            in item motionContext : AircraftMotionContext;
+            out item groundSpeed : GroundSpeedMeasurement;
+
+            first transmitBeam;
+            then receiveDopplerEcho;
+            then estimateVelocity;
+            then validateVelocity;
+            then publishVelocity;
+
+            action transmitBeam {
+                out item waveform : RadarWaveform;
+            }
+
+            action receiveDopplerEcho {
+                in item waveform : RadarWaveform;
+                out item echo : DopplerEcho;
+            }
+
+            action estimateVelocity {
+                in item echo : DopplerEcho;
+                in item motionContext : AircraftMotionContext;
+                out item candidateSpeed : GroundSpeedMeasurement;
+            }
+
+            action validateVelocity {
+                in item candidateSpeed : GroundSpeedMeasurement;
+                out item validatedSpeed : GroundSpeedMeasurement;
+            }
+
+            action publishVelocity {
+                in item validatedSpeed : GroundSpeedMeasurement;
+                out item groundSpeed : GroundSpeedMeasurement;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The ground speed radar shall determine aircraft ground speed by transmitting microwave energy toward the ground, receiving Doppler-shifted ground returns, processing the Doppler shift with aircraft attitude context, and outputting a valid ground speed measurement. */
+        subject radar : GroundSpeedRadar;
+
+        require constraint {
+            radar.measurementUpdateRate.value >= 20.0
+        }
+    }
+
+    requirement def AccuracyRequirement {
+        doc /* The ground speed radar shall report total ground speed with an error no greater than 0.25 m/s under nominal operating conditions. */
+        subject radar : GroundSpeedRadar;
+
+        require constraint {
+            radar.specifiedAccuracy.value <= 0.25
+        }
+    }
+
+    requirement def SpeedRangeRequirement {
+        doc /* The ground speed radar shall measure ground speed from 0.1 m/s to 180 m/s. */
+        subject radar : GroundSpeedRadar;
+
+        require constraint {
+            radar.processor.minimumValidSpeed.value <= 0.1 and
+            radar.processor.maximumValidSpeed.value >= 180.0
+        }
+    }
+
+    requirement def ConfidenceRequirement {
+        doc /* The ground speed radar shall mark a measurement valid only when the computed confidence is at least 90 percent. */
+        subject radar : GroundSpeedRadar;
+
+        require constraint {
+            radar.processor.minimumConfidence.value >= 90.0
+        }
+    }
+
+    requirement def AltitudeEnvelopeRequirement {
+        doc /* The ground speed radar shall operate while the aircraft altitude above ground is between 0.5 m and 2500 m. */
+        subject radar : GroundSpeedRadar;
+
+        require constraint {
+            radar.operatingAltitudeMinimum.value <= 0.5 and
+            radar.operatingAltitudeMaximum.value >= 2500.0
+        }
+    }
+
+    requirement def HealthMonitoringRequirement {
+        doc /* The ground speed radar shall provide health status indicating transmitter, receiver, processor, and overall operational readiness. */
+        subject radar : GroundSpeedRadar;
+
+        require constraint {
+            radar.statusOutput.status.operational == true implies
+            radar.statusOutput.status.transmitterReady == true and
+            radar.statusOutput.status.receiverReady == true and
+            radar.statusOutput.status.processorReady == true
+        }
+    }
+
+    part groundSpeedRadarSystem : GroundSpeedRadar;
+
+    satisfy PrimaryFunctionRequirement by groundSpeedRadarSystem;
+    satisfy AccuracyRequirement by groundSpeedRadarSystem;
+    satisfy SpeedRangeRequirement by groundSpeedRadarSystem;
+    satisfy ConfidenceRequirement by groundSpeedRadarSystem;
+    satisfy AltitudeEnvelopeRequirement by groundSpeedRadarSystem;
+    satisfy HealthMonitoringRequirement by groundSpeedRadarSystem;
+}

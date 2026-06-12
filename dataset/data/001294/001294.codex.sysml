@@ -1,0 +1,633 @@
+package TransmissionControlUnitModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def GearNumber :> Integer;
+    attribute def Ratio :> Real;
+    attribute def Percent :> Real;
+    attribute def Torque_Nm :> Real;
+    attribute def Speed_rpm :> Real;
+    attribute def Pressure_kPa :> Real;
+    attribute def Temperature_C :> Real;
+    attribute def Time_ms :> Real;
+    attribute def Voltage_V :> Real;
+    attribute def Current_A :> Real;
+    attribute def VehicleSpeed_kph :> Real;
+
+    enum def GearSelectorPosition {
+        enum park;
+        enum reverse;
+        enum neutral;
+        enum drive;
+        enum manual;
+        enum sport;
+    }
+
+    enum def ShiftCommand {
+        enum hold;
+        enum upshift;
+        enum downshift;
+        enum engagePark;
+        enum engageReverse;
+        enum disengageTorqueConverterClutch;
+        enum engageTorqueConverterClutch;
+    }
+
+    enum def DiagnosticSeverity {
+        enum none;
+        enum warning;
+        enum degraded;
+        enum critical;
+    }
+
+    enum def OperatingMode {
+        enum initializing;
+        enum parkMode;
+        enum neutralMode;
+        enum driveMode;
+        enum reverseMode;
+        enum limpHomeMode;
+        enum shutdown;
+    }
+
+    item def EngineSpeedSignal {
+        attribute speed : Speed_rpm;
+        attribute validity : Boolean;
+        attribute sampleAge : Time_ms;
+    }
+
+    item def TurbineSpeedSignal {
+        attribute speed : Speed_rpm;
+        attribute validity : Boolean;
+        attribute sampleAge : Time_ms;
+    }
+
+    item def OutputSpeedSignal {
+        attribute speed : Speed_rpm;
+        attribute validity : Boolean;
+        attribute sampleAge : Time_ms;
+    }
+
+    item def VehicleSpeedSignal {
+        attribute speed : VehicleSpeed_kph;
+        attribute validity : Boolean;
+        attribute sampleAge : Time_ms;
+    }
+
+    item def AcceleratorPedalSignal {
+        attribute opening : Percent;
+        attribute validity : Boolean;
+        attribute rateOfChange : Percent;
+    }
+
+    item def BrakePedalSignal {
+        attribute applied : Boolean;
+        attribute pressure : Pressure_kPa;
+        attribute validity : Boolean;
+    }
+
+    item def GearSelectorSignal {
+        attribute position : GearSelectorPosition;
+        attribute validity : Boolean;
+    }
+
+    item def TransmissionTemperatureSignal {
+        attribute temperature : Temperature_C;
+        attribute validity : Boolean;
+    }
+
+    item def EngineTorqueSignal {
+        attribute requestedTorque : Torque_Nm;
+        attribute deliveredTorque : Torque_Nm;
+        attribute validity : Boolean;
+    }
+
+    item def ShiftDecision {
+        attribute targetGear : GearNumber;
+        attribute currentGear : GearNumber;
+        attribute command : ShiftCommand;
+        attribute requestedLinePressure : Pressure_kPa;
+        attribute torqueReductionRequest : Torque_Nm;
+        attribute converterClutchSlipTarget : Speed_rpm;
+    }
+
+    item def SolenoidDriveCommand {
+        attribute solenoidId : Integer;
+        attribute dutyCycle : Percent;
+        attribute currentTarget : Current_A;
+        attribute pressureTarget : Pressure_kPa;
+        attribute enabled : Boolean;
+    }
+
+    item def TorqueRequestCommand {
+        attribute requestedTorqueReduction : Torque_Nm;
+        attribute duration : Time_ms;
+        attribute active : Boolean;
+    }
+
+    item def DiagnosticEvent {
+        attribute code : Integer;
+        attribute severity : DiagnosticSeverity;
+        attribute confirmed : Boolean;
+        attribute freezeFrameVehicleSpeed : VehicleSpeed_kph;
+        attribute freezeFrameGear : GearNumber;
+    }
+
+    item def PowerSupply {
+        attribute voltage : Voltage_V;
+        attribute currentCapacity : Current_A;
+        attribute stable : Boolean;
+    }
+
+    port def SensorInputPort {
+        in item signal;
+    }
+
+    port def ActuatorCommandPort {
+        out item command;
+    }
+
+    port def NetworkPort {
+        in item receivedMessage;
+        out item transmittedMessage;
+    }
+
+    port def PowerPort {
+        in item supply : PowerSupply;
+    }
+
+    port def DiagnosticPort {
+        out item event : DiagnosticEvent;
+    }
+
+    port def CalibrationPort {
+        in item calibrationData;
+    }
+
+    action def AcquireSensorInputs {
+        in item engineSpeed : EngineSpeedSignal;
+        in item turbineSpeed : TurbineSpeedSignal;
+        in item outputSpeed : OutputSpeedSignal;
+        in item vehicleSpeed : VehicleSpeedSignal;
+        in item acceleratorPedal : AcceleratorPedalSignal;
+        in item brakePedal : BrakePedalSignal;
+        in item gearSelector : GearSelectorSignal;
+        in item transmissionTemperature : TransmissionTemperatureSignal;
+        out validSensorSet : Boolean;
+    }
+
+    action def EstimateTransmissionState {
+        in item turbineSpeed : TurbineSpeedSignal;
+        in item outputSpeed : OutputSpeedSignal;
+        in item transmissionTemperature : TransmissionTemperatureSignal;
+        out estimatedGear : GearNumber;
+        out clutchSlip : Speed_rpm;
+        out oilTemperature : Temperature_C;
+    }
+
+    action def SelectTargetGear {
+        in vehicleSpeed : VehicleSpeed_kph;
+        in acceleratorOpening : Percent;
+        in currentGear : GearNumber;
+        in selectorPosition : GearSelectorPosition;
+        in brakeApplied : Boolean;
+        out targetGear : GearNumber;
+        out shiftCommand : ShiftCommand;
+    }
+
+    action def CalculateHydraulicPressure {
+        in targetGear : GearNumber;
+        in currentGear : GearNumber;
+        in engineTorque : Torque_Nm;
+        in oilTemperature : Temperature_C;
+        out linePressure : Pressure_kPa;
+        out clutchPressure : Pressure_kPa;
+    }
+
+    action def CoordinateEngineTorque {
+        in shiftCommand : ShiftCommand;
+        in deliveredTorque : Torque_Nm;
+        out torqueRequest : TorqueRequestCommand;
+    }
+
+    action def CommandSolenoids {
+        in decision : ShiftDecision;
+        out pressureControlCommand : SolenoidDriveCommand;
+        out shiftSolenoidACommand : SolenoidDriveCommand;
+        out shiftSolenoidBCommand : SolenoidDriveCommand;
+        out converterClutchCommand : SolenoidDriveCommand;
+    }
+
+    action def MonitorFaults {
+        in validSensorSet : Boolean;
+        in estimatedGear : GearNumber;
+        in targetGear : GearNumber;
+        in clutchSlip : Speed_rpm;
+        in supplyVoltage : Voltage_V;
+        out diagnosticEvent : DiagnosticEvent;
+        out limpHomeRequested : Boolean;
+    }
+
+    action def ControlTransmission {
+        in item engineSpeed : EngineSpeedSignal;
+        in item turbineSpeed : TurbineSpeedSignal;
+        in item outputSpeed : OutputSpeedSignal;
+        in item vehicleSpeed : VehicleSpeedSignal;
+        in item acceleratorPedal : AcceleratorPedalSignal;
+        in item brakePedal : BrakePedalSignal;
+        in item gearSelector : GearSelectorSignal;
+        in item transmissionTemperature : TransmissionTemperatureSignal;
+        in item engineTorque : EngineTorqueSignal;
+        out item shiftDecision : ShiftDecision;
+        out item torqueRequest : TorqueRequestCommand;
+        out item diagnosticEvent : DiagnosticEvent;
+
+        first start;
+        then acquire : AcquireSensorInputs {
+            in engineSpeed = engineSpeed;
+            in turbineSpeed = turbineSpeed;
+            in outputSpeed = outputSpeed;
+            in vehicleSpeed = vehicleSpeed;
+            in acceleratorPedal = acceleratorPedal;
+            in brakePedal = brakePedal;
+            in gearSelector = gearSelector;
+            in transmissionTemperature = transmissionTemperature;
+        }
+        then estimate : EstimateTransmissionState {
+            in turbineSpeed = turbineSpeed;
+            in outputSpeed = outputSpeed;
+            in transmissionTemperature = transmissionTemperature;
+        }
+        then select : SelectTargetGear {
+            in vehicleSpeed = vehicleSpeed.speed;
+            in acceleratorOpening = acceleratorPedal.opening;
+            in currentGear = estimate.estimatedGear;
+            in selectorPosition = gearSelector.position;
+            in brakeApplied = brakePedal.applied;
+        }
+        then pressure : CalculateHydraulicPressure {
+            in targetGear = select.targetGear;
+            in currentGear = estimate.estimatedGear;
+            in engineTorque = engineTorque.deliveredTorque;
+            in oilTemperature = estimate.oilTemperature;
+        }
+        then torque : CoordinateEngineTorque {
+            in shiftCommand = select.shiftCommand;
+            in deliveredTorque = engineTorque.deliveredTorque;
+        }
+        then decision;
+        then faultMonitor : MonitorFaults {
+            in validSensorSet = acquire.validSensorSet;
+            in estimatedGear = estimate.estimatedGear;
+            in targetGear = select.targetGear;
+            in clutchSlip = estimate.clutchSlip;
+        }
+        then done;
+
+        bind decision.currentGear = estimate.estimatedGear;
+        bind decision.targetGear = select.targetGear;
+        bind decision.command = select.shiftCommand;
+        bind decision.requestedLinePressure = pressure.linePressure;
+        bind decision.torqueReductionRequest = torque.torqueRequest.requestedTorqueReduction;
+        bind torqueRequest = torque.torqueRequest;
+        bind diagnosticEvent = faultMonitor.diagnosticEvent;
+        bind shiftDecision = decision;
+    }
+
+    state def TCUOperationalStateMachine {
+        in selectorPosition : GearSelectorPosition;
+        in faultCritical : Boolean;
+        in powerStable : Boolean;
+        in vehicleSpeed : VehicleSpeed_kph;
+        in brakeApplied : Boolean;
+
+        state initializing;
+        state parkMode;
+        state neutralMode;
+        state driveMode;
+        state reverseMode;
+        state limpHomeMode;
+        state shutdown;
+
+        entry; then initializing;
+
+        transition initializing_to_park
+            first initializing
+            accept when powerStable and selectorPosition == GearSelectorPosition::park
+            then parkMode;
+
+        transition initializing_to_neutral
+            first initializing
+            accept when powerStable and selectorPosition == GearSelectorPosition::neutral
+            then neutralMode;
+
+        transition park_to_drive
+            first parkMode
+            accept when brakeApplied and selectorPosition == GearSelectorPosition::drive
+            then driveMode;
+
+        transition park_to_reverse
+            first parkMode
+            accept when brakeApplied and selectorPosition == GearSelectorPosition::reverse
+            then reverseMode;
+
+        transition drive_to_neutral
+            first driveMode
+            accept when selectorPosition == GearSelectorPosition::neutral
+            then neutralMode;
+
+        transition reverse_to_neutral
+            first reverseMode
+            accept when selectorPosition == GearSelectorPosition::neutral
+            then neutralMode;
+
+        transition neutral_to_drive
+            first neutralMode
+            accept when selectorPosition == GearSelectorPosition::drive
+            then driveMode;
+
+        transition neutral_to_reverse
+            first neutralMode
+            accept when selectorPosition == GearSelectorPosition::reverse and vehicleSpeed < 5.0
+            then reverseMode;
+
+        transition any_to_limp
+            first parkMode
+            accept when faultCritical
+            then limpHomeMode;
+
+        transition drive_to_limp
+            first driveMode
+            accept when faultCritical
+            then limpHomeMode;
+
+        transition reverse_to_limp
+            first reverseMode
+            accept when faultCritical
+            then limpHomeMode;
+
+        transition limp_to_shutdown
+            first limpHomeMode
+            accept when not powerStable
+            then shutdown;
+    }
+
+    part def SpeedSensor {
+        attribute measuredSpeed : Speed_rpm;
+        attribute accuracy : Speed_rpm = 20.0;
+        attribute updatePeriod : Time_ms = 10.0;
+        port signalOut : SensorInputPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measuredTemperature : Temperature_C;
+        attribute accuracy : Temperature_C = 2.0;
+        attribute updatePeriod : Time_ms = 100.0;
+        port signalOut : SensorInputPort;
+    }
+
+    part def GearSelectorInterface {
+        attribute selectedPosition : GearSelectorPosition;
+        port selectorOut : SensorInputPort;
+    }
+
+    part def PedalInterface {
+        attribute acceleratorOpening : Percent;
+        attribute brakeApplied : Boolean;
+        port acceleratorOut : SensorInputPort;
+        port brakeOut : SensorInputPort;
+    }
+
+    part def TransmissionControlSoftware {
+        attribute controlLoopPeriod : Time_ms = 10.0;
+        attribute minimumForwardGear : GearNumber = 1;
+        attribute maximumForwardGear : GearNumber = 8;
+        attribute defaultLimpHomeGear : GearNumber = 3;
+        attribute converterLockupMinimumSpeed : VehicleSpeed_kph = 45.0;
+        attribute maximumAllowedOilTemperature : Temperature_C = 135.0;
+
+        perform control : ControlTransmission;
+        exhibit states : TCUOperationalStateMachine;
+    }
+
+    part def Microcontroller {
+        attribute clockFrequencyMHz : Real = 200.0;
+        attribute flashMemoryKiB : Integer = 2048;
+        attribute ramMemoryKiB : Integer = 512;
+        attribute watchdogTimeout : Time_ms = 50.0;
+
+        part software : TransmissionControlSoftware;
+        port sensorNetwork : NetworkPort;
+        port actuatorNetwork : NetworkPort;
+        port diagnosticNetwork : NetworkPort;
+        port calibrationInput : CalibrationPort;
+        port powerInput : PowerPort;
+    }
+
+    part def SolenoidDriver {
+        attribute supplyVoltage : Voltage_V = 12.0;
+        attribute maximumCurrent : Current_A = 2.0;
+        attribute pwmFrequencyHz : Real = 1000.0;
+        port commandIn : SensorInputPort;
+        port driveOut : ActuatorCommandPort;
+    }
+
+    part def PressureControlSolenoid {
+        attribute commandedDutyCycle : Percent;
+        attribute targetPressure : Pressure_kPa;
+        attribute responseTime : Time_ms = 40.0;
+        port electricalInput : SensorInputPort;
+    }
+
+    part def ShiftSolenoid {
+        attribute solenoidId : Integer;
+        attribute commandedState : Boolean;
+        attribute responseTime : Time_ms = 25.0;
+        port electricalInput : SensorInputPort;
+    }
+
+    part def TorqueConverterClutchSolenoid {
+        attribute dutyCycle : Percent;
+        attribute slipTarget : Speed_rpm;
+        attribute responseTime : Time_ms = 60.0;
+        port electricalInput : SensorInputPort;
+    }
+
+    part def HydraulicControlUnit {
+        attribute linePressure : Pressure_kPa;
+        attribute clutchPressureA : Pressure_kPa;
+        attribute clutchPressureB : Pressure_kPa;
+        attribute clutchPressureC : Pressure_kPa;
+
+        part pressureControlSolenoid : PressureControlSolenoid;
+        part shiftSolenoidA : ShiftSolenoid {
+            attribute solenoidId = 1;
+        }
+        part shiftSolenoidB : ShiftSolenoid {
+            attribute solenoidId = 2;
+        }
+        part torqueConverterClutchSolenoid : TorqueConverterClutchSolenoid;
+    }
+
+    part def AutomaticTransmission {
+        attribute currentGear : GearNumber;
+        attribute inputTorque : Torque_Nm;
+        attribute outputTorque : Torque_Nm;
+        attribute oilTemperature : Temperature_C;
+        attribute forwardGearCount : Integer = 8;
+        attribute reverseRatio : Ratio = -3.20;
+        attribute firstGearRatio : Ratio = 4.71;
+        attribute secondGearRatio : Ratio = 3.14;
+        attribute thirdGearRatio : Ratio = 2.10;
+        attribute fourthGearRatio : Ratio = 1.67;
+        attribute fifthGearRatio : Ratio = 1.29;
+        attribute sixthGearRatio : Ratio = 1.00;
+        attribute seventhGearRatio : Ratio = 0.84;
+        attribute eighthGearRatio : Ratio = 0.67;
+
+        part hydraulicControlUnit : HydraulicControlUnit;
+    }
+
+    part def EngineControlUnit {
+        attribute availableTorque : Torque_Nm;
+        attribute deliveredTorque : Torque_Nm;
+        port torqueRequestIn : SensorInputPort;
+        port engineDataOut : NetworkPort;
+    }
+
+    part def VehicleNetwork {
+        port engineBus : NetworkPort;
+        port chassisBus : NetworkPort;
+        port diagnosticBus : NetworkPort;
+        port tcuBus : NetworkPort;
+    }
+
+    part def TransmissionControlUnit {
+        doc /* The transmission control unit is an embedded electronic controller whose primary high-level function is to select and execute the appropriate transmission operating state and gear ratio. It reads driver intent, vehicle motion, engine torque, and transmission condition signals; computes shift timing, hydraulic pressure, and torque-converter clutch commands; coordinates torque reduction with the engine controller; drives transmission solenoids; and detects faults that require diagnostic reporting or degraded operation. */
+
+        attribute nominalSupplyVoltage : Voltage_V = 12.0;
+        attribute minimumOperatingVoltage : Voltage_V = 9.0;
+        attribute maximumOperatingVoltage : Voltage_V = 16.0;
+        attribute controlCycle : Time_ms = 10.0;
+        attribute currentMode : OperatingMode;
+
+        port power : PowerPort;
+        port engineSpeedIn : SensorInputPort;
+        port turbineSpeedIn : SensorInputPort;
+        port outputSpeedIn : SensorInputPort;
+        port vehicleSpeedIn : SensorInputPort;
+        port acceleratorIn : SensorInputPort;
+        port brakeIn : SensorInputPort;
+        port gearSelectorIn : SensorInputPort;
+        port transmissionTemperatureIn : SensorInputPort;
+        port vehicleNetworkPort : NetworkPort;
+        port pressureSolenoidOut : ActuatorCommandPort;
+        port shiftSolenoidAOut : ActuatorCommandPort;
+        port shiftSolenoidBOut : ActuatorCommandPort;
+        port converterClutchOut : ActuatorCommandPort;
+        port torqueRequestOut : ActuatorCommandPort;
+        port diagnosticOut : DiagnosticPort;
+        port calibrationIn : CalibrationPort;
+
+        part controller : Microcontroller;
+        part pressureDriver : SolenoidDriver;
+        part shiftDriverA : SolenoidDriver;
+        part shiftDriverB : SolenoidDriver;
+        part converterClutchDriver : SolenoidDriver;
+
+        connect power to controller.powerInput;
+        connect calibrationIn to controller.calibrationInput;
+        connect vehicleNetworkPort to controller.sensorNetwork;
+        connect controller.actuatorNetwork to pressureDriver.commandIn;
+        connect controller.actuatorNetwork to shiftDriverA.commandIn;
+        connect controller.actuatorNetwork to shiftDriverB.commandIn;
+        connect controller.actuatorNetwork to converterClutchDriver.commandIn;
+        connect pressureDriver.driveOut to pressureSolenoidOut;
+        connect shiftDriverA.driveOut to shiftSolenoidAOut;
+        connect shiftDriverB.driveOut to shiftSolenoidBOut;
+        connect converterClutchDriver.driveOut to converterClutchOut;
+        connect controller.diagnosticNetwork to diagnosticOut;
+    }
+
+    part def TransmissionControlSystem {
+        part tcu : TransmissionControlUnit;
+        part transmission : AutomaticTransmission;
+        part engineControlUnit : EngineControlUnit;
+        part vehicleNetwork : VehicleNetwork;
+        part engineSpeedSensor : SpeedSensor;
+        part turbineSpeedSensor : SpeedSensor;
+        part outputSpeedSensor : SpeedSensor;
+        part transmissionTemperatureSensor : TemperatureSensor;
+        part gearSelector : GearSelectorInterface;
+        part pedals : PedalInterface;
+
+        connect engineSpeedSensor.signalOut to tcu.engineSpeedIn;
+        connect turbineSpeedSensor.signalOut to tcu.turbineSpeedIn;
+        connect outputSpeedSensor.signalOut to tcu.outputSpeedIn;
+        connect transmissionTemperatureSensor.signalOut to tcu.transmissionTemperatureIn;
+        connect gearSelector.selectorOut to tcu.gearSelectorIn;
+        connect pedals.acceleratorOut to tcu.acceleratorIn;
+        connect pedals.brakeOut to tcu.brakeIn;
+        connect tcu.vehicleNetworkPort to vehicleNetwork.tcuBus;
+        connect engineControlUnit.engineDataOut to vehicleNetwork.engineBus;
+        connect tcu.torqueRequestOut to engineControlUnit.torqueRequestIn;
+        connect tcu.pressureSolenoidOut to transmission.hydraulicControlUnit.pressureControlSolenoid.electricalInput;
+        connect tcu.shiftSolenoidAOut to transmission.hydraulicControlUnit.shiftSolenoidA.electricalInput;
+        connect tcu.shiftSolenoidBOut to transmission.hydraulicControlUnit.shiftSolenoidB.electricalInput;
+        connect tcu.converterClutchOut to transmission.hydraulicControlUnit.torqueConverterClutchSolenoid.electricalInput;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The transmission control unit shall determine the commanded transmission range, target gear, hydraulic pressure, and torque-converter clutch state from driver inputs, vehicle speed, engine torque, shaft speeds, and transmission temperature. */
+        subject tcu : TransmissionControlUnit;
+
+        require constraint {
+            tcu.controlCycle <= 10.0
+        }
+    }
+
+    requirement def ShiftQualityRequirement {
+        doc /* During an automatic upshift or downshift, the transmission control unit shall coordinate solenoid pressure control and engine torque reduction to limit clutch slip duration while maintaining drivability. */
+        subject tcu : TransmissionControlUnit;
+
+        require constraint {
+            tcu.controller.software.maximumAllowedOilTemperature <= 135.0
+        }
+    }
+
+    requirement def FaultHandlingRequirement {
+        doc /* The transmission control unit shall detect invalid critical sensor inputs, gear ratio errors, excessive clutch slip, solenoid electrical faults, and supply voltage faults, then report diagnostics and enter limp-home mode when continued normal shifting could damage the transmission. */
+        subject tcu : TransmissionControlUnit;
+
+        require constraint {
+            tcu.controller.software.defaultLimpHomeGear == 3
+        }
+    }
+
+    requirement def GearRangeRequirement {
+        doc /* The transmission control unit shall support eight forward gears, reverse, neutral, and park operating ranges. */
+        subject system : TransmissionControlSystem;
+
+        require constraint {
+            system.transmission.forwardGearCount == 8
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc /* The transmission control unit shall operate normally when supplied by a stable vehicle electrical system between 9 V and 16 V. */
+        subject tcu : TransmissionControlUnit;
+
+        require constraint {
+            tcu.minimumOperatingVoltage >= 9.0 and tcu.maximumOperatingVoltage <= 16.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by TransmissionControlSystem::tcu;
+    satisfy ShiftQualityRequirement by TransmissionControlSystem::tcu.controller.software.control;
+    satisfy FaultHandlingRequirement by TransmissionControlSystem::tcu.controller.software.states;
+    satisfy GearRangeRequirement by TransmissionControlSystem::transmission;
+    satisfy PowerRequirement by TransmissionControlSystem::tcu;
+
+}

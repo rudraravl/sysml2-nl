@@ -1,0 +1,587 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-elmxdsny
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5c8-e25e-7632-9343-da28ed3b37ed
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Define a system based on a Piezoelectric accelerometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PiezoelectricAccelerometerSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Acceleration {
+    attribute value : Real;
+    attribute unit : String = "m/s^2";
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Charge {
+    attribute value : Real;
+    attribute unit : String = "pC";
+  }
+
+  attribute def Frequency {
+    attribute value : Real;
+    attribute unit : String = "Hz";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def Time {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  attribute def Sensitivity {
+    attribute value : Real;
+    attribute unit : "mV/g";
+  }
+
+  item def MechanicalAccelerationSignal {
+    attribute acceleration : Acceleration;
+    attribute frequency : Frequency;
+    attribute timestamp : Time;
+  }
+
+  item def PiezoelectricChargeSignal {
+    attribute charge : Charge;
+    attribute timestamp : Time;
+  }
+
+  item def AnalogVoltageSignal {
+    attribute voltage : Voltage;
+    attribute timestamp : Time;
+  }
+
+  item def DigitalAccelerationSample {
+    attribute acceleration : Acceleration;
+    attribute temperature : Temperature;
+    attribute sampleTime : Time;
+    attribute valid : Boolean;
+  }
+
+  item def PowerInput {
+    attribute supplyVoltage : Voltage;
+    attribute enabled : Boolean;
+  }
+
+  port def MechanicalInputPort {
+    in item sensedMotion : MechanicalAccelerationSignal;
+  }
+
+  port def ChargeOutputPort {
+    out item generatedCharge : PiezoelectricChargeSignal;
+  }
+
+  port def ChargeInputPort {
+    in item generatedCharge : PiezoelectricChargeSignal;
+  }
+
+  port def AnalogSignalPort {
+    inout item analogSignal : AnalogVoltageSignal;
+  }
+
+  port def DigitalOutputPort {
+    out item accelerationSample : DigitalAccelerationSample;
+  }
+
+  port def PowerPort {
+    in item power : PowerInput;
+  }
+
+  part def Housing {
+    attribute resonantFrequency : Frequency = (value = 32000.0, unit = "Hz");
+    attribute sealed : Boolean = true;
+    port mountingInterface : MechanicalInputPort;
+  }
+
+  part def SeismicMass {
+    attribute proofMass : Real = 0.002;
+    attribute proofMassUnit : String = "kg";
+    port motionInput : MechanicalInputPort;
+  }
+
+  part def PiezoelectricElement {
+    attribute sensitivity : Sensitivity = (value = 100.0, unit = "mV/g");
+    attribute maximumAcceleration : Acceleration = (value = 4905.0, unit = "m/s^2");
+    port strainInput : MechanicalInputPort;
+    port chargeOutput : ChargeOutputPort;
+  }
+
+  part def ChargeAmplifier {
+    attribute gain : Real = 10.0;
+    attribute lowerCutoffFrequency : Frequency = (value = 0.5, unit = "Hz");
+    attribute upperCutoffFrequency : Frequency = (value = 10000.0, unit = "Hz");
+    port chargeInput : ChargeInputPort;
+    port voltageOutput : AnalogSignalPort;
+    port powerInput : PowerPort;
+  }
+
+  part def SignalFilter {
+    attribute filterOrder : Integer = 4;
+    attribute cutoffFrequency : Frequency = (value = 5000.0, unit = "Hz");
+    port rawAnalogInput : AnalogSignalPort;
+    port conditionedAnalogOutput : AnalogSignalPort;
+  }
+
+  part def AnalogToDigitalConverter {
+    attribute resolutionBits : Integer = 24;
+    attribute sampleRate : Frequency = (value = 25600.0, unit = "Hz");
+    port analogInput : AnalogSignalPort;
+    port digitalOutput : DigitalOutputPort;
+    port powerInput : PowerPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow : Temperature = (value = -40.0, unit = "degC");
+    attribute measurementRangeHigh : Temperature = (value = 125.0, unit = "degC");
+  }
+
+  part def PiezoelectricAccelerometer {
+    doc /* Primary function: convert mechanical acceleration applied at the mounting interface into a calibrated electrical and digital acceleration measurement suitable for vibration and motion monitoring. */
+
+    attribute measurementAxis : String = "Z";
+    attribute operatingTemperatureLow : Temperature = (value = -40.0, unit = "degC");
+    attribute operatingTemperatureHigh : Temperature = (value = 125.0, unit = "degC");
+    attribute usableBandwidthLow : Frequency = (value = 0.5, unit = "Hz");
+    attribute usableBandwidthHigh : Frequency = (value = 5000.0, unit = "Hz");
+    attribute nominalSensitivity : Sensitivity = (value = 100.0, unit = "mV/g");
+
+    port mountingPort : MechanicalInputPort;
+    port powerPort : PowerPort;
+    port measurementPort : DigitalOutputPort;
+
+    part housing : Housing;
+    part mass : SeismicMass;
+    part piezoStack : PiezoelectricElement;
+    part amplifier : ChargeAmplifier;
+    part filter : SignalFilter;
+    part adc : AnalogToDigitalConverter;
+    part temperatureSensor : TemperatureSensor;
+
+    connect mountingPort to housing.mountingInterface;
+    connect housing.mountingInterface to mass.motionInput;
+    connect mass.motionInput to piezoStack.strainInput;
+    connect piezoStack.chargeOutput to amplifier.chargeInput;
+    connect amplifier.voltageOutput to filter.rawAnalogInput;
+    connect filter.conditionedAnalogOutput to adc.analogInput;
+    connect adc.digitalOutput to measurementPort;
+    connect powerPort to amplifier.powerInput;
+    connect powerPort to adc.powerInput;
+
+    perform action convertAcceleration : ConvertMechanicalAccelerationToDigitalSample;
+    exhibit state operatingState : AccelerometerOperationalState;
+  }
+
+  action def ConvertMechanicalAccelerationToDigitalSample {
+    in item appliedAcceleration : MechanicalAccelerationSignal;
+    in item supply : PowerInput;
+    out item measuredAcceleration : DigitalAccelerationSample;
+
+    first start;
+    then generateCharge;
+    then amplifyCharge;
+    then filterSignal;
+    then digitizeSignal;
+    then compensateTemperature;
+    then publishSample;
+
+    action generateCharge {
+      in item appliedAcceleration : MechanicalAccelerationSignal;
+      out item chargeSignal : PiezoelectricChargeSignal;
+    }
+
+    action amplifyCharge {
+      in item chargeSignal : PiezoelectricChargeSignal;
+      out item voltageSignal : AnalogVoltageSignal;
+    }
+
+    action filterSignal {
+      in item voltageSignal : AnalogVoltageSignal;
+      out item conditionedVoltage : AnalogVoltageSignal;
+    }
+
+    action digitizeSignal {
+      in item conditionedVoltage : AnalogVoltageSignal;
+      out item rawSample : DigitalAccelerationSample;
+    }
+
+    action compensateTemperature {
+      in item rawSample : DigitalAccelerationSample;
+      out item correctedSample : DigitalAccelerationSample;
+    }
+
+    action publishSample {
+      in item correctedSample : DigitalAccelerationSample;
+      out item measuredAcceleration : DigitalAccelerationSample;
+    }
+  }
+
+  state def AccelerometerOperationalState {
+    entry action initializeElectronics;
+    exit action storeLastHealthStatus;
+
+    state Off;
+    state PowerOnSelfTest;
+    state Ready;
+    state Measuring;
+    state Fault;
+
+    transition first Off;
+    transition Off then PowerOnSelfTest accept PowerApplied;
+    transition PowerOnSelfTest then Ready accept SelfTestPassed;
+    transition PowerOnSelfTest then Fault accept SelfTestFailed;
+    transition Ready then Measuring accept MeasurementRequested;
+    transition Measuring then Ready accept MeasurementStopped;
+    transition Measuring then Fault accept SignalSaturated;
+    transition Ready then Fault accept TemperatureOutOfRange;
+    transition Fault then PowerOnSelfTest accept ResetRequested;
+    transition Ready then Off accept PowerRemoved;
+    transition Fault then Off accept PowerRemoved;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The accelerometer shall sense acceleration applied to its mounting port and output a calibrated digital acceleration sample representing the applied mechanical acceleration along the configured measurement axis. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.measurementPort.accelerationSample.valid == true
+    }
+  }
+
+  requirement def BandwidthRequirement {
+    doc /* The accelerometer shall measure dynamic acceleration over the usable frequency band from 0.5 Hz to 5000 Hz. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.usableBandwidthLow.value <= 0.5 and
+      sensor.usableBandwidthHigh.value >= 5000.0
+    }
+  }
+
+  requirement def SensitivityRequirement {
+    doc /* The accelerometer shall provide nominal sensitivity of 100 mV/g for conversion of mechanical acceleration into electrical signal. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.nominalSensitivity.value == 100.0
+    }
+  }
+
+  requirement def OperatingTemperatureRequirement {
+    doc /* The accelerometer shall operate from -40 degC to 125 degC. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.operatingTemperatureLow.value <= -40.0 and
+      sensor.operatingTemperatureHigh.value >= 125.0
+    }
+  }
+
+  part accelerometerSystem : PiezoelectricAccelerometer;
+
+}
+tokens used
+3,901
+package PiezoelectricAccelerometerSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Acceleration {
+    attribute value : Real;
+    attribute unit : String = "m/s^2";
+  }
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Charge {
+    attribute value : Real;
+    attribute unit : String = "pC";
+  }
+
+  attribute def Frequency {
+    attribute value : Real;
+    attribute unit : String = "Hz";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def Time {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  attribute def Sensitivity {
+    attribute value : Real;
+    attribute unit : "mV/g";
+  }
+
+  item def MechanicalAccelerationSignal {
+    attribute acceleration : Acceleration;
+    attribute frequency : Frequency;
+    attribute timestamp : Time;
+  }
+
+  item def PiezoelectricChargeSignal {
+    attribute charge : Charge;
+    attribute timestamp : Time;
+  }
+
+  item def AnalogVoltageSignal {
+    attribute voltage : Voltage;
+    attribute timestamp : Time;
+  }
+
+  item def DigitalAccelerationSample {
+    attribute acceleration : Acceleration;
+    attribute temperature : Temperature;
+    attribute sampleTime : Time;
+    attribute valid : Boolean;
+  }
+
+  item def PowerInput {
+    attribute supplyVoltage : Voltage;
+    attribute enabled : Boolean;
+  }
+
+  port def MechanicalInputPort {
+    in item sensedMotion : MechanicalAccelerationSignal;
+  }
+
+  port def ChargeOutputPort {
+    out item generatedCharge : PiezoelectricChargeSignal;
+  }
+
+  port def ChargeInputPort {
+    in item generatedCharge : PiezoelectricChargeSignal;
+  }
+
+  port def AnalogSignalPort {
+    inout item analogSignal : AnalogVoltageSignal;
+  }
+
+  port def DigitalOutputPort {
+    out item accelerationSample : DigitalAccelerationSample;
+  }
+
+  port def PowerPort {
+    in item power : PowerInput;
+  }
+
+  part def Housing {
+    attribute resonantFrequency : Frequency = (value = 32000.0, unit = "Hz");
+    attribute sealed : Boolean = true;
+    port mountingInterface : MechanicalInputPort;
+  }
+
+  part def SeismicMass {
+    attribute proofMass : Real = 0.002;
+    attribute proofMassUnit : String = "kg";
+    port motionInput : MechanicalInputPort;
+  }
+
+  part def PiezoelectricElement {
+    attribute sensitivity : Sensitivity = (value = 100.0, unit = "mV/g");
+    attribute maximumAcceleration : Acceleration = (value = 4905.0, unit = "m/s^2");
+    port strainInput : MechanicalInputPort;
+    port chargeOutput : ChargeOutputPort;
+  }
+
+  part def ChargeAmplifier {
+    attribute gain : Real = 10.0;
+    attribute lowerCutoffFrequency : Frequency = (value = 0.5, unit = "Hz");
+    attribute upperCutoffFrequency : Frequency = (value = 10000.0, unit = "Hz");
+    port chargeInput : ChargeInputPort;
+    port voltageOutput : AnalogSignalPort;
+    port powerInput : PowerPort;
+  }
+
+  part def SignalFilter {
+    attribute filterOrder : Integer = 4;
+    attribute cutoffFrequency : Frequency = (value = 5000.0, unit = "Hz");
+    port rawAnalogInput : AnalogSignalPort;
+    port conditionedAnalogOutput : AnalogSignalPort;
+  }
+
+  part def AnalogToDigitalConverter {
+    attribute resolutionBits : Integer = 24;
+    attribute sampleRate : Frequency = (value = 25600.0, unit = "Hz");
+    port analogInput : AnalogSignalPort;
+    port digitalOutput : DigitalOutputPort;
+    port powerInput : PowerPort;
+  }
+
+  part def TemperatureSensor {
+    attribute measurementRangeLow : Temperature = (value = -40.0, unit = "degC");
+    attribute measurementRangeHigh : Temperature = (value = 125.0, unit = "degC");
+  }
+
+  part def PiezoelectricAccelerometer {
+    doc /* Primary function: convert mechanical acceleration applied at the mounting interface into a calibrated electrical and digital acceleration measurement suitable for vibration and motion monitoring. */
+
+    attribute measurementAxis : String = "Z";
+    attribute operatingTemperatureLow : Temperature = (value = -40.0, unit = "degC");
+    attribute operatingTemperatureHigh : Temperature = (value = 125.0, unit = "degC");
+    attribute usableBandwidthLow : Frequency = (value = 0.5, unit = "Hz");
+    attribute usableBandwidthHigh : Frequency = (value = 5000.0, unit = "Hz");
+    attribute nominalSensitivity : Sensitivity = (value = 100.0, unit = "mV/g");
+
+    port mountingPort : MechanicalInputPort;
+    port powerPort : PowerPort;
+    port measurementPort : DigitalOutputPort;
+
+    part housing : Housing;
+    part mass : SeismicMass;
+    part piezoStack : PiezoelectricElement;
+    part amplifier : ChargeAmplifier;
+    part filter : SignalFilter;
+    part adc : AnalogToDigitalConverter;
+    part temperatureSensor : TemperatureSensor;
+
+    connect mountingPort to housing.mountingInterface;
+    connect housing.mountingInterface to mass.motionInput;
+    connect mass.motionInput to piezoStack.strainInput;
+    connect piezoStack.chargeOutput to amplifier.chargeInput;
+    connect amplifier.voltageOutput to filter.rawAnalogInput;
+    connect filter.conditionedAnalogOutput to adc.analogInput;
+    connect adc.digitalOutput to measurementPort;
+    connect powerPort to amplifier.powerInput;
+    connect powerPort to adc.powerInput;
+
+    perform action convertAcceleration : ConvertMechanicalAccelerationToDigitalSample;
+    exhibit state operatingState : AccelerometerOperationalState;
+  }
+
+  action def ConvertMechanicalAccelerationToDigitalSample {
+    in item appliedAcceleration : MechanicalAccelerationSignal;
+    in item supply : PowerInput;
+    out item measuredAcceleration : DigitalAccelerationSample;
+
+    first start;
+    then generateCharge;
+    then amplifyCharge;
+    then filterSignal;
+    then digitizeSignal;
+    then compensateTemperature;
+    then publishSample;
+
+    action generateCharge {
+      in item appliedAcceleration : MechanicalAccelerationSignal;
+      out item chargeSignal : PiezoelectricChargeSignal;
+    }
+
+    action amplifyCharge {
+      in item chargeSignal : PiezoelectricChargeSignal;
+      out item voltageSignal : AnalogVoltageSignal;
+    }
+
+    action filterSignal {
+      in item voltageSignal : AnalogVoltageSignal;
+      out item conditionedVoltage : AnalogVoltageSignal;
+    }
+
+    action digitizeSignal {
+      in item conditionedVoltage : AnalogVoltageSignal;
+      out item rawSample : DigitalAccelerationSample;
+    }
+
+    action compensateTemperature {
+      in item rawSample : DigitalAccelerationSample;
+      out item correctedSample : DigitalAccelerationSample;
+    }
+
+    action publishSample {
+      in item correctedSample : DigitalAccelerationSample;
+      out item measuredAcceleration : DigitalAccelerationSample;
+    }
+  }
+
+  state def AccelerometerOperationalState {
+    entry action initializeElectronics;
+    exit action storeLastHealthStatus;
+
+    state Off;
+    state PowerOnSelfTest;
+    state Ready;
+    state Measuring;
+    state Fault;
+
+    transition first Off;
+    transition Off then PowerOnSelfTest accept PowerApplied;
+    transition PowerOnSelfTest then Ready accept SelfTestPassed;
+    transition PowerOnSelfTest then Fault accept SelfTestFailed;
+    transition Ready then Measuring accept MeasurementRequested;
+    transition Measuring then Ready accept MeasurementStopped;
+    transition Measuring then Fault accept SignalSaturated;
+    transition Ready then Fault accept TemperatureOutOfRange;
+    transition Fault then PowerOnSelfTest accept ResetRequested;
+    transition Ready then Off accept PowerRemoved;
+    transition Fault then Off accept PowerRemoved;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The accelerometer shall sense acceleration applied to its mounting port and output a calibrated digital acceleration sample representing the applied mechanical acceleration along the configured measurement axis. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.measurementPort.accelerationSample.valid == true
+    }
+  }
+
+  requirement def BandwidthRequirement {
+    doc /* The accelerometer shall measure dynamic acceleration over the usable frequency band from 0.5 Hz to 5000 Hz. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.usableBandwidthLow.value <= 0.5 and
+      sensor.usableBandwidthHigh.value >= 5000.0
+    }
+  }
+
+  requirement def SensitivityRequirement {
+    doc /* The accelerometer shall provide nominal sensitivity of 100 mV/g for conversion of mechanical acceleration into electrical signal. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.nominalSensitivity.value == 100.0
+    }
+  }
+
+  requirement def OperatingTemperatureRequirement {
+    doc /* The accelerometer shall operate from -40 degC to 125 degC. */
+    subject sensor : PiezoelectricAccelerometer;
+
+    require constraint {
+      sensor.operatingTemperatureLow.value <= -40.0 and
+      sensor.operatingTemperatureHigh.value >= 125.0
+    }
+  }
+
+  part accelerometerSystem : PiezoelectricAccelerometer;
+
+}

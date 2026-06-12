@@ -1,0 +1,681 @@
+package AttitudeControlSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Angle :> Real {
+        unit = "deg";
+    }
+
+    attribute def AngularRate :> Real {
+        unit = "deg/s";
+    }
+
+    attribute def Torque :> Real {
+        unit = "N*m";
+    }
+
+    attribute def Force :> Real {
+        unit = "N";
+    }
+
+    attribute def Voltage :> Real {
+        unit = "V";
+    }
+
+    attribute def Current :> Real {
+        unit = "A";
+    }
+
+    attribute def Power :> Real {
+        unit = "W";
+    }
+
+    attribute def Mass :> Real {
+        unit = "kg";
+    }
+
+    attribute def TimeDuration :> Real {
+        unit = "s";
+    }
+
+    attribute def Momentum :> Real {
+        unit = "N*m*s";
+    }
+
+    item def AttitudeState {
+        attribute roll : Angle;
+        attribute pitch : Angle;
+        attribute yaw : Angle;
+        attribute rollRate : AngularRate;
+        attribute pitchRate : AngularRate;
+        attribute yawRate : AngularRate;
+    }
+
+    item def AttitudeCommand {
+        attribute targetRoll : Angle;
+        attribute targetPitch : Angle;
+        attribute targetYaw : Angle;
+        attribute slewRateLimit : AngularRate;
+        attribute pointingMode : PointingModeKind;
+    }
+
+    item def TorqueCommand {
+        attribute bodyXTorque : Torque;
+        attribute bodyYTorque : Torque;
+        attribute bodyZTorque : Torque;
+        attribute validityDuration : TimeDuration;
+    }
+
+    item def ThrusterPulseCommand {
+        attribute thrusterId : Integer;
+        attribute pulseWidth : TimeDuration;
+        attribute commandedForce : Force;
+    }
+
+    item def WheelSpeedCommand {
+        attribute wheelId : Integer;
+        attribute targetSpeed : AngularRate;
+        attribute targetTorque : Torque;
+    }
+
+    item def SensorMeasurement {
+        attribute timestamp : TimeDuration;
+        attribute validity : Boolean;
+    }
+
+    item def GyroMeasurement :> SensorMeasurement {
+        attribute rollRate : AngularRate;
+        attribute pitchRate : AngularRate;
+        attribute yawRate : AngularRate;
+        attribute biasEstimate : AngularRate;
+    }
+
+    item def StarTrackerMeasurement :> SensorMeasurement {
+        attribute roll : Angle;
+        attribute pitch : Angle;
+        attribute yaw : Angle;
+        attribute confidence : Real;
+    }
+
+    item def SunSensorMeasurement :> SensorMeasurement {
+        attribute sunAzimuth : Angle;
+        attribute sunElevation : Angle;
+        attribute illuminationValid : Boolean;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Voltage;
+        attribute current : Current;
+        attribute power : Power;
+    }
+
+    enum def PointingModeKind {
+        enum nominalEarthPointing;
+        enum inertialHold;
+        enum sunAcquisition;
+        enum safeModeDetumble;
+        enum momentumUnload;
+    }
+
+    enum def ControlModeKind {
+        enum initialization;
+        enum coarseAcquisition;
+        enum finePointing;
+        enum slew;
+        enum detumble;
+        enum faultSafe;
+    }
+
+    enum def FaultKind {
+        enum noFault;
+        enum gyroFault;
+        enum starTrackerFault;
+        enum reactionWheelSaturation;
+        enum thrusterFault;
+        enum powerFault;
+        enum processorFault;
+    }
+
+    port def AttitudeCommandPort {
+        in item command : AttitudeCommand;
+    }
+
+    port def AttitudeStatePort {
+        out item state : AttitudeState;
+    }
+
+    port def TorqueCommandPort {
+        out item torqueCommand : TorqueCommand;
+    }
+
+    port def WheelCommandPort {
+        out item command : WheelSpeedCommand;
+    }
+
+    port def ThrusterCommandPort {
+        out item command : ThrusterPulseCommand;
+    }
+
+    port def GyroMeasurementPort {
+        out item measurement : GyroMeasurement;
+    }
+
+    port def StarTrackerMeasurementPort {
+        out item measurement : StarTrackerMeasurement;
+    }
+
+    port def SunSensorMeasurementPort {
+        out item measurement : SunSensorMeasurement;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : PowerFlow;
+    }
+
+    port def PowerDistributionPort {
+        out item powerOut : PowerFlow;
+    }
+
+    port def FaultReportPort {
+        out item fault : FaultKind;
+    }
+
+    port def FaultInputPort {
+        in item fault : FaultKind;
+    }
+
+    part def InertialMeasurementUnit {
+        attribute mass : Mass = 2.4;
+        attribute nominalPower : Power = 12.0;
+        attribute rateNoise : AngularRate = 0.003;
+        attribute biasStability : AngularRate = 0.01;
+
+        port power : PowerInputPort;
+        port gyroOutput : GyroMeasurementPort;
+
+        action measureBodyRates {
+            out item measuredRates : GyroMeasurement;
+        }
+    }
+
+    part def StarTracker {
+        attribute mass : Mass = 3.1;
+        attribute nominalPower : Power = 18.0;
+        attribute attitudeAccuracy : Angle = 0.005;
+        attribute acquisitionTime : TimeDuration = 8.0;
+
+        port power : PowerInputPort;
+        port starOutput : StarTrackerMeasurementPort;
+
+        action acquireStarField {
+            out item measuredAttitude : StarTrackerMeasurement;
+        }
+    }
+
+    part def CoarseSunSensor {
+        attribute mass : Mass = 0.8;
+        attribute nominalPower : Power = 2.0;
+        attribute angularAccuracy : Angle = 1.0;
+
+        port power : PowerInputPort;
+        port sunOutput : SunSensorMeasurementPort;
+
+        action measureSunVector {
+            out item measuredSunVector : SunSensorMeasurement;
+        }
+    }
+
+    part def AttitudeDeterminationComputer {
+        attribute mass : Mass = 4.5;
+        attribute nominalPower : Power = 35.0;
+        attribute controlCyclePeriod : TimeDuration = 0.1;
+        attribute currentMode : ControlModeKind;
+        attribute activeFault : FaultKind = FaultKind::noFault;
+
+        port power : PowerInputPort;
+        port commandInput : AttitudeCommandPort;
+        port gyroInput : GyroMeasurementPort;
+        port starTrackerInput : StarTrackerMeasurementPort;
+        port sunSensorInput : SunSensorMeasurementPort;
+        port estimatedStateOutput : AttitudeStatePort;
+        port torqueCommandOutput : TorqueCommandPort;
+        port wheelCommandOutput : WheelCommandPort;
+        port thrusterCommandOutput : ThrusterCommandPort;
+        port faultOutput : FaultReportPort;
+        port faultInput : FaultInputPort;
+
+        action estimateAttitude {
+            in item gyro : GyroMeasurement;
+            in item stars : StarTrackerMeasurement;
+            in item sun : SunSensorMeasurement;
+            out item estimatedState : AttitudeState;
+        }
+
+        action computeControlTorque {
+            in item command : AttitudeCommand;
+            in item estimatedState : AttitudeState;
+            out item torque : TorqueCommand;
+        }
+
+        action allocateActuatorCommands {
+            in item torque : TorqueCommand;
+            out item wheelCommand : WheelSpeedCommand;
+            out item thrusterCommand : ThrusterPulseCommand;
+        }
+
+        state def ControlLogic {
+            entry action initializeProcessor;
+
+            state initializing;
+            state coarseAcquisition;
+            state finePointing;
+            state slewManeuver;
+            state detumbling;
+            state momentumUnloading;
+            state safeMode;
+
+            transition first initializing;
+
+            transition initializing_to_coarse
+                first initializing
+                then coarseAcquisition;
+
+            transition coarse_to_fine
+                first coarseAcquisition
+                then finePointing
+                if starTrackerInput.measurement.validity == true;
+
+            transition fine_to_slew
+                first finePointing
+                then slewManeuver
+                if commandInput.command.pointingMode == PointingModeKind::inertialHold;
+
+            transition slew_to_fine
+                first slewManeuver
+                then finePointing
+                if abs(estimatedStateOutput.state.roll - commandInput.command.targetRoll) < 0.05 and
+                   abs(estimatedStateOutput.state.pitch - commandInput.command.targetPitch) < 0.05 and
+                   abs(estimatedStateOutput.state.yaw - commandInput.command.targetYaw) < 0.05;
+
+            transition any_to_detumble
+                first finePointing
+                then detumbling
+                if abs(estimatedStateOutput.state.rollRate) > 5.0 or
+                   abs(estimatedStateOutput.state.pitchRate) > 5.0 or
+                   abs(estimatedStateOutput.state.yawRate) > 5.0;
+
+            transition detumble_to_coarse
+                first detumbling
+                then coarseAcquisition
+                if abs(estimatedStateOutput.state.rollRate) < 0.2 and
+                   abs(estimatedStateOutput.state.pitchRate) < 0.2 and
+                   abs(estimatedStateOutput.state.yawRate) < 0.2;
+
+            transition fine_to_unload
+                first finePointing
+                then momentumUnloading
+                if faultInput.fault == FaultKind::reactionWheelSaturation;
+
+            transition unload_to_fine
+                first momentumUnloading
+                then finePointing
+                if faultInput.fault == FaultKind::noFault;
+
+            transition fault_to_safe
+                first coarseAcquisition
+                then safeMode
+                if faultInput.fault != FaultKind::noFault;
+
+            transition fine_fault_to_safe
+                first finePointing
+                then safeMode
+                if faultInput.fault == FaultKind::powerFault or
+                   faultInput.fault == FaultKind::processorFault;
+
+            transition safe_to_detumble
+                first safeMode
+                then detumbling
+                if faultInput.fault == FaultKind::noFault;
+        }
+    }
+
+    part def ReactionWheelAssembly {
+        attribute wheelCount : Integer = 4;
+        attribute mass : Mass = 12.0;
+        attribute nominalPower : Power = 48.0;
+        attribute maxWheelTorque : Torque = 0.18;
+        attribute maxStoredMomentum : Momentum = 18.0;
+
+        port power : PowerInputPort;
+        port wheelCommandInput : WheelCommandPort;
+        port faultOutput : FaultReportPort;
+
+        part wheel1 : ReactionWheel {
+            attribute wheelId : Integer = 1;
+            attribute spinAxisX : Real = 1.0;
+            attribute spinAxisY : Real = 0.0;
+            attribute spinAxisZ : Real = 0.0;
+        }
+
+        part wheel2 : ReactionWheel {
+            attribute wheelId : Integer = 2;
+            attribute spinAxisX : Real = 0.0;
+            attribute spinAxisY : Real = 1.0;
+            attribute spinAxisZ : Real = 0.0;
+        }
+
+        part wheel3 : ReactionWheel {
+            attribute wheelId : Integer = 3;
+            attribute spinAxisX : Real = 0.0;
+            attribute spinAxisY : Real = 0.0;
+            attribute spinAxisZ : Real = 1.0;
+        }
+
+        part wheel4 : ReactionWheel {
+            attribute wheelId : Integer = 4;
+            attribute spinAxisX : Real = 0.577;
+            attribute spinAxisY : Real = 0.577;
+            attribute spinAxisZ : Real = 0.577;
+        }
+
+        action generateBodyTorque {
+            in item command : WheelSpeedCommand;
+            out item appliedTorque : TorqueCommand;
+        }
+    }
+
+    part def ReactionWheel {
+        attribute wheelId : Integer;
+        attribute spinAxisX : Real;
+        attribute spinAxisY : Real;
+        attribute spinAxisZ : Real;
+        attribute currentSpeed : AngularRate;
+        attribute commandedTorque : Torque;
+        attribute storedMomentum : Momentum;
+    }
+
+    part def ThrusterControlAssembly {
+        attribute thrusterCount : Integer = 8;
+        attribute mass : Mass = 9.5;
+        attribute nominalPower : Power = 20.0;
+        attribute minimumImpulseBit : TimeDuration = 0.02;
+        attribute nominalThrusterForce : Force = 1.0;
+
+        port power : PowerInputPort;
+        port thrusterCommandInput : ThrusterCommandPort;
+        port faultOutput : FaultReportPort;
+
+        part thrusterPX1 : AttitudeThruster {
+            attribute thrusterId : Integer = 1;
+            attribute bodyAxisX : Real = 1.0;
+            attribute bodyAxisY : Real = 0.0;
+            attribute bodyAxisZ : Real = 0.0;
+        }
+
+        part thrusterNX1 : AttitudeThruster {
+            attribute thrusterId : Integer = 2;
+            attribute bodyAxisX : Real = -1.0;
+            attribute bodyAxisY : Real = 0.0;
+            attribute bodyAxisZ : Real = 0.0;
+        }
+
+        part thrusterPY1 : AttitudeThruster {
+            attribute thrusterId : Integer = 3;
+            attribute bodyAxisX : Real = 0.0;
+            attribute bodyAxisY : Real = 1.0;
+            attribute bodyAxisZ : Real = 0.0;
+        }
+
+        part thrusterNY1 : AttitudeThruster {
+            attribute thrusterId : Integer = 4;
+            attribute bodyAxisX : Real = 0.0;
+            attribute bodyAxisY : Real = -1.0;
+            attribute bodyAxisZ : Real = 0.0;
+        }
+
+        part thrusterPZ1 : AttitudeThruster {
+            attribute thrusterId : Integer = 5;
+            attribute bodyAxisX : Real = 0.0;
+            attribute bodyAxisY : Real = 0.0;
+            attribute bodyAxisZ : Real = 1.0;
+        }
+
+        part thrusterNZ1 : AttitudeThruster {
+            attribute thrusterId : Integer = 6;
+            attribute bodyAxisX : Real = 0.0;
+            attribute bodyAxisY : Real = 0.0;
+            attribute bodyAxisZ : Real = -1.0;
+        }
+
+        part thrusterSkewA : AttitudeThruster {
+            attribute thrusterId : Integer = 7;
+            attribute bodyAxisX : Real = 0.707;
+            attribute bodyAxisY : Real = 0.707;
+            attribute bodyAxisZ : Real = 0.0;
+        }
+
+        part thrusterSkewB : AttitudeThruster {
+            attribute thrusterId : Integer = 8;
+            attribute bodyAxisX : Real = -0.707;
+            attribute bodyAxisY : Real = 0.707;
+            attribute bodyAxisZ : Real = 0.0;
+        }
+
+        action firePulse {
+            in item command : ThrusterPulseCommand;
+        }
+    }
+
+    part def AttitudeThruster {
+        attribute thrusterId : Integer;
+        attribute bodyAxisX : Real;
+        attribute bodyAxisY : Real;
+        attribute bodyAxisZ : Real;
+        attribute availableForce : Force = 1.0;
+        attribute valveOpenTime : TimeDuration;
+    }
+
+    part def PowerDistributionUnit {
+        attribute busVoltage : Voltage = 28.0;
+        attribute maxACSLoad : Power = 180.0;
+
+        port primaryPowerInput : PowerInputPort;
+        port imuPowerOutput : PowerDistributionPort;
+        port starTrackerPowerOutput : PowerDistributionPort;
+        port sunSensorPowerOutput : PowerDistributionPort;
+        port computerPowerOutput : PowerDistributionPort;
+        port wheelPowerOutput : PowerDistributionPort;
+        port thrusterPowerOutput : PowerDistributionPort;
+        port faultOutput : FaultReportPort;
+
+        action regulatePower {
+            in item inputPower : PowerFlow;
+            out item regulatedPower : PowerFlow;
+        }
+    }
+
+    part def VehicleBody {
+        attribute inertiaXX : Real {
+            unit = "kg*m^2";
+        } = 420.0;
+        attribute inertiaYY : Real {
+            unit = "kg*m^2";
+        } = 390.0;
+        attribute inertiaZZ : Real {
+            unit = "kg*m^2";
+        } = 510.0;
+        attribute disturbanceTorqueLimit : Torque = 0.025;
+
+        port attitudeStateOutput : AttitudeStatePort;
+
+        action respondToAppliedTorque {
+            in item appliedTorque : TorqueCommand;
+            out item updatedState : AttitudeState;
+        }
+    }
+
+    part def AttitudeControlSystem {
+        attribute totalMass : Mass = 34.3;
+        attribute nominalPower : Power = 137.0;
+        attribute pointingAccuracyRequirement : Angle = 0.1;
+        attribute maximumSlewRate : AngularRate = 2.0;
+        attribute highLevelPrimaryFunction : String =
+            "Maintain and maneuver spacecraft orientation by estimating current attitude, comparing it to commanded attitude, and commanding reaction wheels or thrusters to generate corrective body torques.";
+
+        port spacecraftCommandInput : AttitudeCommandPort;
+        port spacecraftAttitudeOutput : AttitudeStatePort;
+        port spacecraftPowerInput : PowerInputPort;
+        port systemFaultOutput : FaultReportPort;
+
+        part powerDistribution : PowerDistributionUnit;
+        part imu : InertialMeasurementUnit;
+        part starTracker : StarTracker;
+        part sunSensor : CoarseSunSensor;
+        part controller : AttitudeDeterminationComputer;
+        part reactionWheels : ReactionWheelAssembly;
+        part thrusters : ThrusterControlAssembly;
+        part vehicleBody : VehicleBody;
+
+        connect spacecraftPowerInput to powerDistribution.primaryPowerInput;
+        connect powerDistribution.imuPowerOutput to imu.power;
+        connect powerDistribution.starTrackerPowerOutput to starTracker.power;
+        connect powerDistribution.sunSensorPowerOutput to sunSensor.power;
+        connect powerDistribution.computerPowerOutput to controller.power;
+        connect powerDistribution.wheelPowerOutput to reactionWheels.power;
+        connect powerDistribution.thrusterPowerOutput to thrusters.power;
+
+        connect spacecraftCommandInput to controller.commandInput;
+        connect imu.gyroOutput to controller.gyroInput;
+        connect starTracker.starOutput to controller.starTrackerInput;
+        connect sunSensor.sunOutput to controller.sunSensorInput;
+        connect controller.estimatedStateOutput to spacecraftAttitudeOutput;
+        connect vehicleBody.attitudeStateOutput to spacecraftAttitudeOutput;
+
+        connect controller.wheelCommandOutput to reactionWheels.wheelCommandInput;
+        connect controller.thrusterCommandOutput to thrusters.thrusterCommandInput;
+
+        connect powerDistribution.faultOutput to controller.faultInput;
+        connect reactionWheels.faultOutput to controller.faultInput;
+        connect thrusters.faultOutput to controller.faultInput;
+        connect controller.faultOutput to systemFaultOutput;
+
+        action performAttitudeControl {
+            in item desiredAttitude : AttitudeCommand;
+            in item electricalPower : PowerFlow;
+            out item controlledAttitude : AttitudeState;
+
+            first start;
+            then measureRates;
+            then measureAbsoluteAttitude;
+            then estimateCurrentAttitude;
+            then calculateError;
+            then computeCorrectiveTorque;
+            then commandActuators;
+            then updateVehicleAttitude;
+            then reportState;
+
+            action start;
+            action measureRates {
+                out item gyro : GyroMeasurement;
+            }
+            action measureAbsoluteAttitude {
+                out item stars : StarTrackerMeasurement;
+                out item sun : SunSensorMeasurement;
+            }
+            action estimateCurrentAttitude {
+                in item gyro : GyroMeasurement;
+                in item stars : StarTrackerMeasurement;
+                in item sun : SunSensorMeasurement;
+                out item estimate : AttitudeState;
+            }
+            action calculateError {
+                in item desiredAttitude : AttitudeCommand;
+                in item estimate : AttitudeState;
+                out item attitudeError : AttitudeState;
+            }
+            action computeCorrectiveTorque {
+                in item attitudeError : AttitudeState;
+                out item torque : TorqueCommand;
+            }
+            action commandActuators {
+                in item torque : TorqueCommand;
+                out item wheelCommand : WheelSpeedCommand;
+                out item thrusterCommand : ThrusterPulseCommand;
+            }
+            action updateVehicleAttitude {
+                in item torque : TorqueCommand;
+                out item controlledAttitude : AttitudeState;
+            }
+            action reportState {
+                in item controlledAttitude : AttitudeState;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /* The attitude control system shall maintain and maneuver the spacecraft body attitude relative to commanded inertial or mission reference frames by sensing attitude, estimating body orientation and rates, computing control torque, and actuating wheels or thrusters. */
+
+        subject acs : AttitudeControlSystem;
+
+        require constraint {
+            acs.pointingAccuracyRequirement <= 0.1
+        }
+    }
+
+    requirement def SlewPerformanceRequirement {
+        doc
+        /* The attitude control system shall execute commanded slew maneuvers without exceeding the configured body rate limit. */
+
+        subject acs : AttitudeControlSystem;
+
+        require constraint {
+            acs.maximumSlewRate <= 2.0
+        }
+    }
+
+    requirement def DetumbleRequirement {
+        doc
+        /* The attitude control system shall enter detumble mode when body rates exceed 5 deg/s on any principal body axis and shall reduce all body rates below 0.2 deg/s before returning to acquisition. */
+
+        subject acs : AttitudeControlSystem;
+    }
+
+    requirement def FinePointingRequirement {
+        doc
+        /* During fine pointing, the attitude control system shall maintain roll, pitch, and yaw error within 0.1 degree when valid star tracker and gyro measurements are available. */
+
+        subject acs : AttitudeControlSystem;
+
+        require constraint {
+            acs.pointingAccuracyRequirement <= 0.1
+        }
+    }
+
+    requirement def FaultToleranceRequirement {
+        doc
+        /* The attitude control system shall transition to safe mode after detecting power, processor, actuator, or critical sensor faults and shall use sun acquisition and detumble control to preserve spacecraft safety. */
+
+        subject acs : AttitudeControlSystem;
+    }
+
+    requirement def PowerRequirement {
+        doc
+        /* The attitude control system shall operate all nominal sensing, computing, and wheel actuation functions within an allocated electrical power budget of 180 W. */
+
+        subject acs : AttitudeControlSystem;
+
+        require constraint {
+            acs.nominalPower <= 180.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by AttitudeControlSystem;
+    satisfy SlewPerformanceRequirement by AttitudeControlSystem;
+    satisfy DetumbleRequirement by AttitudeControlSystem;
+    satisfy FinePointingRequirement by AttitudeControlSystem;
+    satisfy FaultToleranceRequirement by AttitudeControlSystem;
+    satisfy PowerRequirement by AttitudeControlSystem;
+
+}

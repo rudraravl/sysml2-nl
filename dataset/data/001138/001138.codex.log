@@ -1,0 +1,1107 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-2ykej1wl
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb591-ff8a-7222-8600-152feb16f10b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Design a system based on a Magnetometer and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package MagnetometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def MagneticFluxDensity {
+        unit = "tesla";
+        quantityKind = "magnetic flux density";
+    }
+
+    value def MicroTesla :> MagneticFluxDensity {
+        unit = "uT";
+    }
+
+    value def ElectricPotential {
+        unit = "volt";
+        quantityKind = "electric potential";
+    }
+
+    value def ElectricCurrent {
+        unit = "ampere";
+        quantityKind = "electric current";
+    }
+
+    value def Frequency {
+        unit = "hertz";
+        quantityKind = "frequency";
+    }
+
+    value def Temperature {
+        unit = "degreeCelsius";
+        quantityKind = "thermodynamic temperature";
+    }
+
+    value def Angle {
+        unit = "degree";
+        quantityKind = "plane angle";
+    }
+
+    value def TimeDuration {
+        unit = "second";
+        quantityKind = "time";
+    }
+
+    item def Power {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    item def MagneticFieldVector {
+        attribute x : MicroTesla;
+        attribute y : MicroTesla;
+        attribute z : MicroTesla;
+        attribute magnitude : MicroTesla;
+    }
+
+    item def RawMagneticSample {
+        attribute rawX : Integer;
+        attribute rawY : Integer;
+        attribute rawZ : Integer;
+        attribute sampleTime : TimeDuration;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def CalibratedMagneticSample {
+        attribute field : MagneticFieldVector;
+        attribute heading : Angle;
+        attribute confidence : Real;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def CalibrationParameters {
+        attribute hardIronOffsetX : MicroTesla;
+        attribute hardIronOffsetY : MicroTesla;
+        attribute hardIronOffsetZ : MicroTesla;
+        attribute softIronScaleX : Real;
+        attribute softIronScaleY : Real;
+        attribute softIronScaleZ : Real;
+        attribute temperatureCoefficient : Real;
+    }
+
+    item def HealthStatus {
+        attribute sensorReady : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute dataValid : Boolean;
+        attribute faultCode : Integer;
+        attribute message : String;
+    }
+
+    port def PowerInputPort {
+        in power : Power;
+    }
+
+    port def MagneticFieldInputPort {
+        in ambientField : MagneticFieldVector;
+    }
+
+    port def RawSamplePort {
+        out sample : RawMagneticSample;
+    }
+
+    port def CalibrationPort {
+        in parameters : CalibrationParameters;
+    }
+
+    port def ProcessedDataPort {
+        out sample : CalibratedMagneticSample;
+    }
+
+    port def StatusPort {
+        out status : HealthStatus;
+    }
+
+    port def ControlPort {
+        in enable : Boolean;
+        in requestCalibration : Boolean;
+        in resetFault : Boolean;
+    }
+
+    part def MagnetometerSensor {
+        port powerIn : PowerInputPort;
+        port magneticFieldIn : MagneticFieldInputPort;
+        port rawSampleOut : RawSamplePort;
+        port statusOut : StatusPort;
+
+        attribute measurementRange : MicroTesla = 1600;
+        attribute noiseDensity : MicroTesla = 0.15;
+        attribute sampleRate : Frequency = 100;
+        attribute operatingTemperatureMin : Temperature = -40;
+        attribute operatingTemperatureMax : Temperature = 85;
+
+        action senseMagneticField {
+            in ambientField : MagneticFieldVector;
+            out rawSample : RawMagneticSample;
+        }
+
+        state def SensorStateMachine {
+            state off;
+            state powering;
+            state selfTest;
+            state measuring;
+            state sensorFault;
+
+            transition first off;
+            transition off_to_powering
+                first off
+                then powering
+                accept powerApplied;
+
+            transition powering_to_selfTest
+                first powering
+                then selfTest
+                accept voltageStable;
+
+            transition selfTest_to_measuring
+                first selfTest
+                then measuring
+                accept selfTestPassed;
+
+            transition selfTest_to_fault
+                first selfTest
+                then sensorFault
+                accept selfTestFailed;
+
+            transition measuring_to_fault
+                first measuring
+                then sensorFault
+                accept outOfRangeDetected;
+
+            transition fault_to_powering
+                first sensorFault
+                then powering
+                accept resetFault;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        port powerIn : PowerInputPort;
+        in rawSensorSignal : RawMagneticSample;
+        out conditionedSignal : RawMagneticSample;
+
+        attribute gain : Real = 8.0;
+        attribute lowPassCutoff : Frequency = 50;
+        attribute inputNoise : MicroTesla = 0.05;
+
+        action amplifyAndFilter {
+            in rawSensorSignal : RawMagneticSample;
+            out conditionedSignal : RawMagneticSample;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        in analogSample : RawMagneticSample;
+        out digitalSample : RawMagneticSample;
+
+        attribute resolutionBits : Integer = 16;
+        attribute conversionRate : Frequency = 1000;
+        attribute referenceVoltage : ElectricPotential = 3.3;
+
+        action convertSample {
+            in analogSample : RawMagneticSample;
+            out digitalSample : RawMagneticSample;
+        }
+    }
+
+    part def CalibrationProcessor {
+        port calibrationIn : CalibrationPort;
+        in uncalibratedSample : RawMagneticSample;
+        out calibratedSample : CalibratedMagneticSample;
+        out calibrationStatus : HealthStatus;
+
+        attribute calibrationAgeLimit : TimeDuration = 86400;
+        attribute minimumConfidence : Real = 0.85;
+
+        action compensateHardIronBias {
+            in sample : RawMagneticSample;
+            in parameters : CalibrationParameters;
+            out correctedField : MagneticFieldVector;
+        }
+
+        action compensateSoftIronDistortion {
+            in correctedField : MagneticFieldVector;
+            in parameters : CalibrationParameters;
+            out calibratedField : MagneticFieldVector;
+        }
+
+        action computeHeading {
+            in calibratedField : MagneticFieldVector;
+            out heading : Angle;
+        }
+    }
+
+    part def DataQualityMonitor {
+        in calibratedSample : CalibratedMagneticSample;
+        out status : HealthStatus;
+
+        attribute maximumAllowedField : MicroTesla = 1000;
+        attribute minimumAllowedField : MicroTesla = 5;
+        attribute maximumHeadingJump : Angle = 30;
+
+        action validateSample {
+            in calibratedSample : CalibratedMagneticSample;
+            out status : HealthStatus;
+        }
+
+        state def QualityStateMachine {
+            state unknown;
+            state valid;
+            state degraded;
+            state invalid;
+
+            transition first unknown;
+            transition unknown_to_valid
+                first unknown
+                then valid
+                accept sampleWithinLimits;
+
+            transition valid_to_degraded
+                first valid
+                then degraded
+                accept confidenceLow;
+
+            transition degraded_to_valid
+                first degraded
+                then valid
+                accept confidenceRecovered;
+
+            transition valid_to_invalid
+                first valid
+                then invalid
+                accept fieldOutOfBounds;
+
+            transition degraded_to_invalid
+                first degraded
+                then invalid
+                accept fieldOutOfBounds;
+
+            transition invalid_to_valid
+                first invalid
+                then valid
+                accept validSampleSequenceObserved;
+        }
+    }
+
+    part def MagnetometerController {
+        port controlIn : ControlPort;
+        port processedDataOut : ProcessedDataPort;
+        port statusOut : StatusPort;
+
+        in digitalSample : RawMagneticSample;
+        in qualityStatus : HealthStatus;
+        out calibrationRequest : Boolean;
+        out systemStatus : HealthStatus;
+
+        attribute enabled : Boolean = false;
+        attribute outputRate : Frequency = 50;
+        attribute startupTimeout : TimeDuration = 2;
+        attribute faultRecoveryAttempts : Integer = 3;
+
+        action initializeSystem {
+            out status : HealthStatus;
+        }
+
+        action publishMagneticField {
+            in sample : CalibratedMagneticSample;
+            in status : HealthStatus;
+            out publishedSample : CalibratedMagneticSample;
+        }
+
+        action requestRecalibration {
+            out calibrationRequest : Boolean;
+        }
+
+        state def ControllerStateMachine {
+            state disabled;
+            state initializing;
+            state operating;
+            state calibrating;
+            state degradedOperation;
+            state faulted;
+
+            transition first disabled;
+
+            transition disabled_to_initializing
+                first disabled
+                then initializing
+                accept enableCommand;
+
+            transition initializing_to_operating
+                first initializing
+                then operating
+                accept initializationComplete;
+
+            transition initializing_to_faulted
+                first initializing
+                then faulted
+                accept startupTimeoutExpired;
+
+            transition operating_to_calibrating
+                first operating
+                then calibrating
+                accept calibrationRequested;
+
+            transition calibrating_to_operating
+                first calibrating
+                then operating
+                accept calibrationAccepted;
+
+            transition operating_to_degraded
+                first operating
+                then degradedOperation
+                accept qualityDegraded;
+
+            transition degraded_to_operating
+                first degradedOperation
+                then operating
+                accept qualityRecovered;
+
+            transition operating_to_faulted
+                first operating
+                then faulted
+                accept criticalFaultDetected;
+
+            transition degraded_to_faulted
+                first degradedOperation
+                then faulted
+                accept criticalFaultDetected;
+
+            transition faulted_to_initializing
+                first faulted
+                then initializing
+                accept resetFaultCommand;
+
+            transition operating_to_disabled
+                first operating
+                then disabled
+                accept disableCommand;
+        }
+    }
+
+    part def MagnetometerBasedSystem {
+        port powerIn : PowerInputPort;
+        port magneticFieldIn : MagneticFieldInputPort;
+        port controlIn : ControlPort;
+        port processedDataOut : ProcessedDataPort;
+        port statusOut : StatusPort;
+
+        part sensor : MagnetometerSensor;
+        part frontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part calibrationProcessor : CalibrationProcessor;
+        part qualityMonitor : DataQualityMonitor;
+        part controller : MagnetometerController;
+
+        attribute nominalSupplyVoltage : ElectricPotential = 3.3;
+        attribute nominalCurrent : ElectricCurrent = 0.015;
+        attribute primaryFunction : String =
+            "Measure the surrounding three-axis magnetic field, compensate sensor errors, estimate magnetic heading, and provide validated magnetic field data to a host system.";
+
+        connect powerIn to sensor.powerIn;
+        connect powerIn to frontEnd.powerIn;
+        connect magneticFieldIn to sensor.magneticFieldIn;
+        connect controlIn to controller.controlIn;
+        connect sensor.rawSampleOut.sample to frontEnd.rawSensorSignal;
+        connect frontEnd.conditionedSignal to adc.analogSample;
+        connect adc.digitalSample to calibrationProcessor.uncalibratedSample;
+        connect calibrationProcessor.calibratedSample to qualityMonitor.calibratedSample;
+        connect qualityMonitor.status to controller.qualityStatus;
+        connect calibrationProcessor.calibratedSample to controller.digitalSample;
+        connect controller.processedDataOut to processedDataOut;
+        connect controller.statusOut to statusOut;
+
+        action performPrimaryFunction {
+            in ambientField : MagneticFieldVector;
+            in controlEnable : Boolean;
+            out validatedSample : CalibratedMagneticSample;
+            out health : HealthStatus;
+
+            first start;
+            then sense;
+            then condition;
+            then digitize;
+            then calibrate;
+            then validate;
+            then publish;
+            then done;
+
+            action start {
+                in controlEnable : Boolean;
+            }
+
+            action sense {
+                in ambientField : MagneticFieldVector;
+                out rawSample : RawMagneticSample;
+            }
+
+            action condition {
+                in rawSample : RawMagneticSample;
+                out conditionedSample : RawMagneticSample;
+            }
+
+            action digitize {
+                in conditionedSample : RawMagneticSample;
+                out digitalSample : RawMagneticSample;
+            }
+
+            action calibrate {
+                in digitalSample : RawMagneticSample;
+                out calibratedSample : CalibratedMagneticSample;
+            }
+
+            action validate {
+                in calibratedSample : CalibratedMagneticSample;
+                out health : HealthStatus;
+            }
+
+            action publish {
+                in calibratedSample : CalibratedMagneticSample;
+                in health : HealthStatus;
+                out validatedSample : CalibratedMagneticSample;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The system shall measure the local three-axis magnetic field and provide a validated calibrated magnetic field vector and heading estimate. */
+
+        subject system : MagnetometerBasedSystem;
+
+        require constraint {
+            system.controller.outputRate >= 10;
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc
+            /* The system shall measure magnetic flux density over at least +/-1000 microtesla on each sensing axis. */
+
+        subject sensor : MagnetometerSensor;
+
+        require constraint {
+            sensor.measurementRange >= 1000;
+        }
+    }
+
+    requirement def OutputRateRequirement {
+        doc
+            /* The system shall publish calibrated magnetic field data at no less than 50 hertz during normal operation. */
+
+        subject controller : MagnetometerController;
+
+        require constraint {
+            controller.outputRate >= 50;
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        doc
+            /* The system shall compensate hard-iron bias, soft-iron distortion, and temperature-dependent measurement error before publishing magnetic field data. */
+
+        subject processor : CalibrationProcessor;
+
+        require constraint {
+            processor.minimumConfidence >= 0.85;
+        }
+    }
+
+    requirement def HealthReportingRequirement {
+        doc
+            /* The system shall report sensor readiness, calibration validity, data validity, and active fault code through a status interface. */
+
+        subject system : MagnetometerBasedSystem;
+
+        require constraint {
+            system.controller.faultRecoveryAttempts >= 1;
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        doc
+            /* The magnetometer sensor shall operate across the industrial temperature range from -40 degree Celsius to 85 degree Celsius. */
+
+        subject sensor : MagnetometerSensor;
+
+        require constraint {
+            sensor.operatingTemperatureMin <= -40 and sensor.operatingTemperatureMax >= 85;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MagnetometerBasedSystem;
+    satisfy MeasurementRangeRequirement by MagnetometerSensor;
+    satisfy OutputRateRequirement by MagnetometerController;
+    satisfy CalibrationRequirement by CalibrationProcessor;
+    satisfy HealthReportingRequirement by MagnetometerBasedSystem;
+    satisfy EnvironmentalRequirement by MagnetometerSensor;
+
+    part systemUnderDesign : MagnetometerBasedSystem {
+        attribute nominalSupplyVoltage = 3.3;
+        attribute nominalCurrent = 0.015;
+    }
+
+}
+tokens used
+3,494
+package MagnetometerSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def MagneticFluxDensity {
+        unit = "tesla";
+        quantityKind = "magnetic flux density";
+    }
+
+    value def MicroTesla :> MagneticFluxDensity {
+        unit = "uT";
+    }
+
+    value def ElectricPotential {
+        unit = "volt";
+        quantityKind = "electric potential";
+    }
+
+    value def ElectricCurrent {
+        unit = "ampere";
+        quantityKind = "electric current";
+    }
+
+    value def Frequency {
+        unit = "hertz";
+        quantityKind = "frequency";
+    }
+
+    value def Temperature {
+        unit = "degreeCelsius";
+        quantityKind = "thermodynamic temperature";
+    }
+
+    value def Angle {
+        unit = "degree";
+        quantityKind = "plane angle";
+    }
+
+    value def TimeDuration {
+        unit = "second";
+        quantityKind = "time";
+    }
+
+    item def Power {
+        attribute voltage : ElectricPotential;
+        attribute current : ElectricCurrent;
+    }
+
+    item def MagneticFieldVector {
+        attribute x : MicroTesla;
+        attribute y : MicroTesla;
+        attribute z : MicroTesla;
+        attribute magnitude : MicroTesla;
+    }
+
+    item def RawMagneticSample {
+        attribute rawX : Integer;
+        attribute rawY : Integer;
+        attribute rawZ : Integer;
+        attribute sampleTime : TimeDuration;
+        attribute sensorTemperature : Temperature;
+    }
+
+    item def CalibratedMagneticSample {
+        attribute field : MagneticFieldVector;
+        attribute heading : Angle;
+        attribute confidence : Real;
+        attribute sampleTime : TimeDuration;
+    }
+
+    item def CalibrationParameters {
+        attribute hardIronOffsetX : MicroTesla;
+        attribute hardIronOffsetY : MicroTesla;
+        attribute hardIronOffsetZ : MicroTesla;
+        attribute softIronScaleX : Real;
+        attribute softIronScaleY : Real;
+        attribute softIronScaleZ : Real;
+        attribute temperatureCoefficient : Real;
+    }
+
+    item def HealthStatus {
+        attribute sensorReady : Boolean;
+        attribute calibrationValid : Boolean;
+        attribute dataValid : Boolean;
+        attribute faultCode : Integer;
+        attribute message : String;
+    }
+
+    port def PowerInputPort {
+        in power : Power;
+    }
+
+    port def MagneticFieldInputPort {
+        in ambientField : MagneticFieldVector;
+    }
+
+    port def RawSamplePort {
+        out sample : RawMagneticSample;
+    }
+
+    port def CalibrationPort {
+        in parameters : CalibrationParameters;
+    }
+
+    port def ProcessedDataPort {
+        out sample : CalibratedMagneticSample;
+    }
+
+    port def StatusPort {
+        out status : HealthStatus;
+    }
+
+    port def ControlPort {
+        in enable : Boolean;
+        in requestCalibration : Boolean;
+        in resetFault : Boolean;
+    }
+
+    part def MagnetometerSensor {
+        port powerIn : PowerInputPort;
+        port magneticFieldIn : MagneticFieldInputPort;
+        port rawSampleOut : RawSamplePort;
+        port statusOut : StatusPort;
+
+        attribute measurementRange : MicroTesla = 1600;
+        attribute noiseDensity : MicroTesla = 0.15;
+        attribute sampleRate : Frequency = 100;
+        attribute operatingTemperatureMin : Temperature = -40;
+        attribute operatingTemperatureMax : Temperature = 85;
+
+        action senseMagneticField {
+            in ambientField : MagneticFieldVector;
+            out rawSample : RawMagneticSample;
+        }
+
+        state def SensorStateMachine {
+            state off;
+            state powering;
+            state selfTest;
+            state measuring;
+            state sensorFault;
+
+            transition first off;
+            transition off_to_powering
+                first off
+                then powering
+                accept powerApplied;
+
+            transition powering_to_selfTest
+                first powering
+                then selfTest
+                accept voltageStable;
+
+            transition selfTest_to_measuring
+                first selfTest
+                then measuring
+                accept selfTestPassed;
+
+            transition selfTest_to_fault
+                first selfTest
+                then sensorFault
+                accept selfTestFailed;
+
+            transition measuring_to_fault
+                first measuring
+                then sensorFault
+                accept outOfRangeDetected;
+
+            transition fault_to_powering
+                first sensorFault
+                then powering
+                accept resetFault;
+        }
+    }
+
+    part def AnalogFrontEnd {
+        port powerIn : PowerInputPort;
+        in rawSensorSignal : RawMagneticSample;
+        out conditionedSignal : RawMagneticSample;
+
+        attribute gain : Real = 8.0;
+        attribute lowPassCutoff : Frequency = 50;
+        attribute inputNoise : MicroTesla = 0.05;
+
+        action amplifyAndFilter {
+            in rawSensorSignal : RawMagneticSample;
+            out conditionedSignal : RawMagneticSample;
+        }
+    }
+
+    part def AnalogToDigitalConverter {
+        in analogSample : RawMagneticSample;
+        out digitalSample : RawMagneticSample;
+
+        attribute resolutionBits : Integer = 16;
+        attribute conversionRate : Frequency = 1000;
+        attribute referenceVoltage : ElectricPotential = 3.3;
+
+        action convertSample {
+            in analogSample : RawMagneticSample;
+            out digitalSample : RawMagneticSample;
+        }
+    }
+
+    part def CalibrationProcessor {
+        port calibrationIn : CalibrationPort;
+        in uncalibratedSample : RawMagneticSample;
+        out calibratedSample : CalibratedMagneticSample;
+        out calibrationStatus : HealthStatus;
+
+        attribute calibrationAgeLimit : TimeDuration = 86400;
+        attribute minimumConfidence : Real = 0.85;
+
+        action compensateHardIronBias {
+            in sample : RawMagneticSample;
+            in parameters : CalibrationParameters;
+            out correctedField : MagneticFieldVector;
+        }
+
+        action compensateSoftIronDistortion {
+            in correctedField : MagneticFieldVector;
+            in parameters : CalibrationParameters;
+            out calibratedField : MagneticFieldVector;
+        }
+
+        action computeHeading {
+            in calibratedField : MagneticFieldVector;
+            out heading : Angle;
+        }
+    }
+
+    part def DataQualityMonitor {
+        in calibratedSample : CalibratedMagneticSample;
+        out status : HealthStatus;
+
+        attribute maximumAllowedField : MicroTesla = 1000;
+        attribute minimumAllowedField : MicroTesla = 5;
+        attribute maximumHeadingJump : Angle = 30;
+
+        action validateSample {
+            in calibratedSample : CalibratedMagneticSample;
+            out status : HealthStatus;
+        }
+
+        state def QualityStateMachine {
+            state unknown;
+            state valid;
+            state degraded;
+            state invalid;
+
+            transition first unknown;
+            transition unknown_to_valid
+                first unknown
+                then valid
+                accept sampleWithinLimits;
+
+            transition valid_to_degraded
+                first valid
+                then degraded
+                accept confidenceLow;
+
+            transition degraded_to_valid
+                first degraded
+                then valid
+                accept confidenceRecovered;
+
+            transition valid_to_invalid
+                first valid
+                then invalid
+                accept fieldOutOfBounds;
+
+            transition degraded_to_invalid
+                first degraded
+                then invalid
+                accept fieldOutOfBounds;
+
+            transition invalid_to_valid
+                first invalid
+                then valid
+                accept validSampleSequenceObserved;
+        }
+    }
+
+    part def MagnetometerController {
+        port controlIn : ControlPort;
+        port processedDataOut : ProcessedDataPort;
+        port statusOut : StatusPort;
+
+        in digitalSample : RawMagneticSample;
+        in qualityStatus : HealthStatus;
+        out calibrationRequest : Boolean;
+        out systemStatus : HealthStatus;
+
+        attribute enabled : Boolean = false;
+        attribute outputRate : Frequency = 50;
+        attribute startupTimeout : TimeDuration = 2;
+        attribute faultRecoveryAttempts : Integer = 3;
+
+        action initializeSystem {
+            out status : HealthStatus;
+        }
+
+        action publishMagneticField {
+            in sample : CalibratedMagneticSample;
+            in status : HealthStatus;
+            out publishedSample : CalibratedMagneticSample;
+        }
+
+        action requestRecalibration {
+            out calibrationRequest : Boolean;
+        }
+
+        state def ControllerStateMachine {
+            state disabled;
+            state initializing;
+            state operating;
+            state calibrating;
+            state degradedOperation;
+            state faulted;
+
+            transition first disabled;
+
+            transition disabled_to_initializing
+                first disabled
+                then initializing
+                accept enableCommand;
+
+            transition initializing_to_operating
+                first initializing
+                then operating
+                accept initializationComplete;
+
+            transition initializing_to_faulted
+                first initializing
+                then faulted
+                accept startupTimeoutExpired;
+
+            transition operating_to_calibrating
+                first operating
+                then calibrating
+                accept calibrationRequested;
+
+            transition calibrating_to_operating
+                first calibrating
+                then operating
+                accept calibrationAccepted;
+
+            transition operating_to_degraded
+                first operating
+                then degradedOperation
+                accept qualityDegraded;
+
+            transition degraded_to_operating
+                first degradedOperation
+                then operating
+                accept qualityRecovered;
+
+            transition operating_to_faulted
+                first operating
+                then faulted
+                accept criticalFaultDetected;
+
+            transition degraded_to_faulted
+                first degradedOperation
+                then faulted
+                accept criticalFaultDetected;
+
+            transition faulted_to_initializing
+                first faulted
+                then initializing
+                accept resetFaultCommand;
+
+            transition operating_to_disabled
+                first operating
+                then disabled
+                accept disableCommand;
+        }
+    }
+
+    part def MagnetometerBasedSystem {
+        port powerIn : PowerInputPort;
+        port magneticFieldIn : MagneticFieldInputPort;
+        port controlIn : ControlPort;
+        port processedDataOut : ProcessedDataPort;
+        port statusOut : StatusPort;
+
+        part sensor : MagnetometerSensor;
+        part frontEnd : AnalogFrontEnd;
+        part adc : AnalogToDigitalConverter;
+        part calibrationProcessor : CalibrationProcessor;
+        part qualityMonitor : DataQualityMonitor;
+        part controller : MagnetometerController;
+
+        attribute nominalSupplyVoltage : ElectricPotential = 3.3;
+        attribute nominalCurrent : ElectricCurrent = 0.015;
+        attribute primaryFunction : String =
+            "Measure the surrounding three-axis magnetic field, compensate sensor errors, estimate magnetic heading, and provide validated magnetic field data to a host system.";
+
+        connect powerIn to sensor.powerIn;
+        connect powerIn to frontEnd.powerIn;
+        connect magneticFieldIn to sensor.magneticFieldIn;
+        connect controlIn to controller.controlIn;
+        connect sensor.rawSampleOut.sample to frontEnd.rawSensorSignal;
+        connect frontEnd.conditionedSignal to adc.analogSample;
+        connect adc.digitalSample to calibrationProcessor.uncalibratedSample;
+        connect calibrationProcessor.calibratedSample to qualityMonitor.calibratedSample;
+        connect qualityMonitor.status to controller.qualityStatus;
+        connect calibrationProcessor.calibratedSample to controller.digitalSample;
+        connect controller.processedDataOut to processedDataOut;
+        connect controller.statusOut to statusOut;
+
+        action performPrimaryFunction {
+            in ambientField : MagneticFieldVector;
+            in controlEnable : Boolean;
+            out validatedSample : CalibratedMagneticSample;
+            out health : HealthStatus;
+
+            first start;
+            then sense;
+            then condition;
+            then digitize;
+            then calibrate;
+            then validate;
+            then publish;
+            then done;
+
+            action start {
+                in controlEnable : Boolean;
+            }
+
+            action sense {
+                in ambientField : MagneticFieldVector;
+                out rawSample : RawMagneticSample;
+            }
+
+            action condition {
+                in rawSample : RawMagneticSample;
+                out conditionedSample : RawMagneticSample;
+            }
+
+            action digitize {
+                in conditionedSample : RawMagneticSample;
+                out digitalSample : RawMagneticSample;
+            }
+
+            action calibrate {
+                in digitalSample : RawMagneticSample;
+                out calibratedSample : CalibratedMagneticSample;
+            }
+
+            action validate {
+                in calibratedSample : CalibratedMagneticSample;
+                out health : HealthStatus;
+            }
+
+            action publish {
+                in calibratedSample : CalibratedMagneticSample;
+                in health : HealthStatus;
+                out validatedSample : CalibratedMagneticSample;
+            }
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+            /* The system shall measure the local three-axis magnetic field and provide a validated calibrated magnetic field vector and heading estimate. */
+
+        subject system : MagnetometerBasedSystem;
+
+        require constraint {
+            system.controller.outputRate >= 10;
+        }
+    }
+
+    requirement def MeasurementRangeRequirement {
+        doc
+            /* The system shall measure magnetic flux density over at least +/-1000 microtesla on each sensing axis. */
+
+        subject sensor : MagnetometerSensor;
+
+        require constraint {
+            sensor.measurementRange >= 1000;
+        }
+    }
+
+    requirement def OutputRateRequirement {
+        doc
+            /* The system shall publish calibrated magnetic field data at no less than 50 hertz during normal operation. */
+
+        subject controller : MagnetometerController;
+
+        require constraint {
+            controller.outputRate >= 50;
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        doc
+            /* The system shall compensate hard-iron bias, soft-iron distortion, and temperature-dependent measurement error before publishing magnetic field data. */
+
+        subject processor : CalibrationProcessor;
+
+        require constraint {
+            processor.minimumConfidence >= 0.85;
+        }
+    }
+
+    requirement def HealthReportingRequirement {
+        doc
+            /* The system shall report sensor readiness, calibration validity, data validity, and active fault code through a status interface. */
+
+        subject system : MagnetometerBasedSystem;
+
+        require constraint {
+            system.controller.faultRecoveryAttempts >= 1;
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        doc
+            /* The magnetometer sensor shall operate across the industrial temperature range from -40 degree Celsius to 85 degree Celsius. */
+
+        subject sensor : MagnetometerSensor;
+
+        require constraint {
+            sensor.operatingTemperatureMin <= -40 and sensor.operatingTemperatureMax >= 85;
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MagnetometerBasedSystem;
+    satisfy MeasurementRangeRequirement by MagnetometerSensor;
+    satisfy OutputRateRequirement by MagnetometerController;
+    satisfy CalibrationRequirement by CalibrationProcessor;
+    satisfy HealthReportingRequirement by MagnetometerBasedSystem;
+    satisfy EnvironmentalRequirement by MagnetometerSensor;
+
+    part systemUnderDesign : MagnetometerBasedSystem {
+        attribute nominalSupplyVoltage = 3.3;
+        attribute nominalCurrent = 0.015;
+    }
+
+}

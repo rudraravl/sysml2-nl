@@ -1,0 +1,1527 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-o484p052
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb834-ecef-7322-8acd-bad99a09b722
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a Oil refinery and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package OilRefineryModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    enum def CrudeGrade {
+        lightSweet;
+        mediumSour;
+        heavySour;
+    }
+
+    enum def ProductGrade {
+        propane;
+        butane;
+        gasoline;
+        jetFuel;
+        diesel;
+        fuelOil;
+        petroleumCoke;
+        sulfur;
+    }
+
+    enum def RefineryOperatingMode {
+        startup;
+        normalOperation;
+        turndown;
+        emergencyShutdown;
+        maintenance;
+    }
+
+    enum def AlarmSeverity {
+        advisory;
+        warning;
+        trip;
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "bbl/d";
+    }
+
+    attribute def MassFlowRate {
+        :> ScalarValues::Real;
+        unit = "kg/h";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "m^3";
+    }
+
+    attribute def EnergyRate {
+        :> ScalarValues::Real;
+        unit = "MW";
+    }
+
+    attribute def SulfurContent {
+        :> ScalarValues::Real;
+        unit = "wt%";
+    }
+
+    attribute def OctaneNumber {
+        :> ScalarValues::Real;
+        unit = "RON";
+    }
+
+    attribute def CetaneNumber {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Availability {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    item def CrudeOil {
+        attribute grade : CrudeGrade;
+        attribute apiGravity : ScalarValues::Real;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def DesaltedCrude {
+        attribute saltContent : ScalarValues::Real unit "ptb";
+        attribute waterContent : ScalarValues::Real unit "vol%";
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def HydrocarbonStream {
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute sulfur : SulfurContent;
+    }
+
+    item def LightEnds :> HydrocarbonStream {
+        attribute vaporFraction : ScalarValues::Real;
+    }
+
+    item def Naphtha :> HydrocarbonStream {
+        attribute initialBoilingPoint : Temperature;
+        attribute finalBoilingPoint : Temperature;
+    }
+
+    item def Kerosene :> HydrocarbonStream {
+        attribute smokePoint : ScalarValues::Real unit "mm";
+    }
+
+    item def GasOil :> HydrocarbonStream {
+        attribute cetaneIndex : ScalarValues::Real;
+    }
+
+    item def Residuum :> HydrocarbonStream {
+        attribute metalsContent : ScalarValues::Real unit "ppm";
+    }
+
+    item def Hydrogen {
+        attribute purity : ScalarValues::Real unit "mol%";
+        attribute massFlow : MassFlowRate;
+        attribute pressure : Pressure;
+    }
+
+    item def FuelGas {
+        attribute heatingValue : ScalarValues::Real unit "MJ/Nm^3";
+        attribute flow : MassFlowRate;
+    }
+
+    item def Steam {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+    }
+
+    item def CoolingWater {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flow : MassFlowRate;
+    }
+
+    item def Electricity {
+        attribute power : EnergyRate;
+        attribute voltage : ScalarValues::Real unit "kV";
+    }
+
+    item def GasolineProduct {
+        attribute grade : ProductGrade = ProductGrade::gasoline;
+        attribute octane : OctaneNumber;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def DieselProduct {
+        attribute grade : ProductGrade = ProductGrade::diesel;
+        attribute cetane : CetaneNumber;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def JetFuelProduct {
+        attribute grade : ProductGrade = ProductGrade::jetFuel;
+        attribute freezePoint : Temperature;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def LPGProduct {
+        attribute grade : ProductGrade;
+        attribute vaporPressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    item def FuelOilProduct {
+        attribute grade : ProductGrade = ProductGrade::fuelOil;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def SulfurProduct {
+        attribute purity : ScalarValues::Real unit "wt%";
+        attribute massFlow : MassFlowRate;
+    }
+
+    item def EmissionStream {
+        attribute nox : ScalarValues::Real unit "ppm";
+        attribute sox : ScalarValues::Real unit "ppm";
+        attribute co2 : MassFlowRate;
+        attribute particulates : ScalarValues::Real unit "mg/Nm^3";
+    }
+
+    port def CrudeInletPort {
+        in item crude : CrudeOil;
+    }
+
+    port def HydrocarbonInletPort {
+        in item feed : HydrocarbonStream;
+    }
+
+    port def HydrocarbonOutletPort {
+        out item product : HydrocarbonStream;
+    }
+
+    port def HydrogenPort {
+        in item hydrogen : Hydrogen;
+    }
+
+    port def UtilityInletPort {
+        in item steam : Steam;
+        in item coolingWater : CoolingWater;
+        in item electricity : Electricity;
+    }
+
+    port def ProductOutletPort {
+        out item gasoline : GasolineProduct;
+        out item diesel : DieselProduct;
+        out item jetFuel : JetFuelProduct;
+        out item lpg : LPGProduct;
+        out item fuelOil : FuelOilProduct;
+        out item sulfur : SulfurProduct;
+    }
+
+    port def EmissionOutletPort {
+        out item emissions : EmissionStream;
+    }
+
+    port def ControlPort {
+        in attribute modeCommand : RefineryOperatingMode;
+        out attribute operatingMode : RefineryOperatingMode;
+        out attribute alarmSeverity : AlarmSeverity;
+    }
+
+    part def CrudeStorage {
+        attribute workingCapacity : Volume = 240000.0;
+        attribute maxTankPressure : Pressure = 15.0;
+        attribute inventory : Volume;
+        port crudeReceipt : CrudeInletPort;
+        port crudeToDesalter {
+            out item crude : CrudeOil;
+        }
+    }
+
+    part def Desalter {
+        attribute designFlow : FlowRate = 250000.0;
+        attribute outletSaltLimit : ScalarValues::Real unit "ptb" = 1.0;
+        port crudeFeed : CrudeInletPort;
+        port desaltedCrudeOut {
+            out item desaltedCrude : DesaltedCrude;
+        }
+        port utilityIn : UtilityInletPort;
+    }
+
+    part def AtmosphericDistillationUnit {
+        attribute towerTopPressure : Pressure = 150.0;
+        attribute furnaceDuty : EnergyRate = 120.0;
+        attribute designFeedRate : FlowRate = 250000.0;
+        port feed {
+            in item desaltedCrude : DesaltedCrude;
+        }
+        port lightEndsOut {
+            out item lightEnds : LightEnds;
+        }
+        port naphthaOut {
+            out item naphtha : Naphtha;
+        }
+        port keroseneOut {
+            out item kerosene : Kerosene;
+        }
+        port gasOilOut {
+            out item gasOil : GasOil;
+        }
+        port residOut {
+            out item residuum : Residuum;
+        }
+        port utilityIn : UtilityInletPort;
+        port emissionsOut : EmissionOutletPort;
+    }
+
+    part def VacuumDistillationUnit {
+        attribute towerPressure : Pressure = 8.0;
+        attribute furnaceDuty : EnergyRate = 85.0;
+        port residFeed {
+            in item residuum : Residuum;
+        }
+        port vacuumGasOilOut {
+            out item vacuumGasOil : GasOil;
+        }
+        port vacuumResidOut {
+            out item vacuumResiduum : Residuum;
+        }
+        port utilityIn : UtilityInletPort;
+    }
+
+    part def FluidCatalyticCracker {
+        attribute reactorTemperature : Temperature = 525.0;
+        attribute regeneratorTemperature : Temperature = 700.0;
+        attribute conversionTarget : ScalarValues::Real unit "%" = 72.0;
+        port feed {
+            in item gasOil : GasOil;
+        }
+        port crackedGasOut {
+            out item lightEnds : LightEnds;
+        }
+        port crackedNaphthaOut {
+            out item naphtha : Naphtha;
+        }
+        port cycleOilOut {
+            out item gasOil : GasOil;
+        }
+        port utilityIn : UtilityInletPort;
+        port emissionsOut : EmissionOutletPort;
+    }
+
+    part def Hydrocracker {
+        attribute reactorPressure : Pressure = 15000.0;
+        attribute reactorTemperature : Temperature = 390.0;
+        attribute conversionTarget : ScalarValues::Real unit "%" = 65.0;
+        port feed {
+            in item gasOil : GasOil;
+        }
+        port hydrogenIn : HydrogenPort;
+        port naphthaOut {
+            out item naphtha : Naphtha;
+        }
+        port dieselOut {
+            out item dieselBlendstock : GasOil;
+        }
+        port jetOut {
+            out item jetBlendstock : Kerosene;
+        }
+        port utilityIn : UtilityInletPort;
+    }
+
+    part def NaphthaHydrotreater {
+        attribute reactorPressure : Pressure = 2500.0;
+        attribute sulfurOutletLimit : SulfurContent = 0.001;
+        port naphthaFeed {
+            in item naphtha : Naphtha;
+        }
+        port hydrogenIn : HydrogenPort;
+        port treatedNaphthaOut {
+            out item naphtha : Naphtha;
+        }
+    }
+
+    part def CatalyticReformer {
+        attribute reactorTemperature : Temperature = 510.0;
+        attribute reformateOctaneTarget : OctaneNumber = 98.0;
+        port naphthaFeed {
+            in item naphtha : Naphtha;
+        }
+        port reformateOut {
+            out item reformate : Naphtha;
+        }
+        port hydrogenOut {
+            out item hydrogen : Hydrogen;
+        }
+        port fuelGasOut {
+            out item fuelGas : FuelGas;
+        }
+    }
+
+    part def DistillateHydrotreater {
+        attribute reactorPressure : Pressure = 6000.0;
+        attribute dieselSulfurLimit : SulfurContent = 0.0015;
+        port feed {
+            in item distillate : HydrocarbonStream;
+        }
+        port hydrogenIn : HydrogenPort;
+        port treatedDistillateOut {
+            out item treatedDistillate : HydrocarbonStream;
+        }
+        port sourGasOut {
+            out item sourGas : FuelGas;
+        }
+    }
+
+    part def SulfurRecoveryUnit {
+        attribute sulfurRecoveryEfficiency : ScalarValues::Real unit "%" = 99.5;
+        port sourGasFeed {
+            in item sourGas : FuelGas;
+        }
+        port sulfurOut {
+            out item sulfur : SulfurProduct;
+        }
+        port tailGasOut : EmissionOutletPort;
+    }
+
+    part def ProductBlendingSystem {
+        attribute gasolineOctaneTarget : OctaneNumber = 87.0;
+        attribute dieselCetaneTarget : CetaneNumber = 45.0;
+        attribute jetFreezePointLimit : Temperature = -47.0;
+        port reformateIn {
+            in item reformate : Naphtha;
+        }
+        port crackedNaphthaIn {
+            in item crackedNaphtha : Naphtha;
+        }
+        port treatedDieselIn {
+            in item treatedDiesel : HydrocarbonStream;
+        }
+        port jetBlendstockIn {
+            in item jetBlendstock : Kerosene;
+        }
+        port lightEndsIn {
+            in item lightEnds : LightEnds;
+        }
+        port fuelOilIn {
+            in item fuelOilBlendstock : Residuum;
+        }
+        port productsOut : ProductOutletPort;
+    }
+
+    part def HydrogenSystem {
+        attribute supplyPressure : Pressure = 16000.0;
+        attribute productionCapacity : MassFlowRate = 180000.0;
+        port reformerHydrogenIn {
+            in item hydrogen : Hydrogen;
+        }
+        port hydrogenToHydrotreaters {
+            out item hydrogen : Hydrogen;
+        }
+        port hydrogenToHydrocracker {
+            out item hydrogen : Hydrogen;
+        }
+    }
+
+    part def UtilitySystem {
+        attribute steamGenerationCapacity : MassFlowRate = 900000.0;
+        attribute electricalDemand : EnergyRate = 95.0;
+        attribute coolingWaterCapacity : MassFlowRate = 12000000.0;
+        port utilityOut : UtilityInletPort;
+    }
+
+    part def EnvironmentalControlSystem {
+        attribute soxPermitLimit : ScalarValues::Real unit "t/d" = 12.0;
+        attribute noxPermitLimit : ScalarValues::Real unit "t/d" = 9.0;
+        attribute wastewaterOilLimit : ScalarValues::Real unit "mg/L" = 15.0;
+        port processEmissionsIn {
+            in item emissions : EmissionStream;
+        }
+        port controlledEmissionsOut : EmissionOutletPort;
+    }
+
+    part def RefineryControlSystem {
+        attribute commandedMode : RefineryOperatingMode;
+        attribute currentMode : RefineryOperatingMode = RefineryOperatingMode::startup;
+        attribute highPressureTripSetpoint : Pressure = 17000.0;
+        attribute highTemperatureTripSetpoint : Temperature = 760.0;
+        port control : ControlPort;
+    }
+
+    action def ReceiveAndStoreCrude {
+        in item crudeCargo : CrudeOil;
+        out item scheduledCrude : CrudeOil;
+    }
+
+    action def RemoveWaterSaltAndSolids {
+        in item rawCrude : CrudeOil;
+        out item desaltedCrude : DesaltedCrude;
+    }
+
+    action def FractionateCrude {
+        in item desaltedCrude : DesaltedCrude;
+        out item lightEnds : LightEnds;
+        out item naphtha : Naphtha;
+        out item kerosene : Kerosene;
+        out item gasOil : GasOil;
+        out item residuum : Residuum;
+    }
+
+    action def ConvertHeavyFractions {
+        in item heavyFeed : GasOil;
+        out item lighterNaphtha : Naphtha;
+        out item distillateBlendstock : GasOil;
+        out item lightEnds : LightEnds;
+    }
+
+    action def RemoveSulfurAndNitrogen {
+        in item sourFeed : HydrocarbonStream;
+        in item hydrogen : Hydrogen;
+        out item sweetProduct : HydrocarbonStream;
+        out item sourGas : FuelGas;
+    }
+
+    action def BlendFinishedProducts {
+        in item reformate : Naphtha;
+        in item crackedNaphtha : Naphtha;
+        in item distillate : HydrocarbonStream;
+        in item jetBlendstock : Kerosene;
+        in item lightEnds : LightEnds;
+        in item residualBlendstock : Residuum;
+        out item gasoline : GasolineProduct;
+        out item diesel : DieselProduct;
+        out item jetFuel : JetFuelProduct;
+        out item lpg : LPGProduct;
+        out item fuelOil : FuelOilProduct;
+    }
+
+    action def RecoverSulfur {
+        in item sourGas : FuelGas;
+        out item sulfur : SulfurProduct;
+        out item treatedTailGas : EmissionStream;
+    }
+
+    action def RefineCrudeOil {
+        in item crudeOil : CrudeOil;
+        out item gasoline : GasolineProduct;
+        out item diesel : DieselProduct;
+        out item jetFuel : JetFuelProduct;
+        out item lpg : LPGProduct;
+        out item fuelOil : FuelOilProduct;
+        out item sulfur : SulfurProduct;
+
+        first start;
+        then receive : ReceiveAndStoreCrude;
+        then desalting : RemoveWaterSaltAndSolids;
+        then distillation : FractionateCrude;
+        then conversion : ConvertHeavyFractions;
+        then treating : RemoveSulfurAndNitrogen;
+        then blending : BlendFinishedProducts;
+        then sulfurRecovery : RecoverSulfur;
+        then done;
+    }
+
+    state def RefineryOperatingStateMachine {
+        state offline;
+        state starting;
+        state running;
+        state constrainedOperation;
+        state shuttingDown;
+        state maintenanceOutage;
+
+        transition first offline;
+        transition offline_to_starting
+            first offline
+            then starting
+            accept RefineryOperatingMode::startup;
+
+        transition starting_to_running
+            first starting
+            then running
+            if allRequiredUtilitiesAvailable and feedQualityVerified;
+
+        transition running_to_constrained
+            first running
+            then constrainedOperation
+            if crudeFeedRateBelowMinimum or utilityConstraintActive;
+
+        transition constrained_to_running
+            first constrainedOperation
+            then running
+            if constraintsCleared;
+
+        transition running_to_shutdown
+            first running
+            then shuttingDown
+            accept RefineryOperatingMode::emergencyShutdown;
+
+        transition constrained_to_shutdown
+            first constrainedOperation
+            then shuttingDown
+            accept RefineryOperatingMode::emergencyShutdown;
+
+        transition shutdown_to_offline
+            first shuttingDown
+            then offline
+            if processUnitsDepressurized and firedHeatersIsolated;
+
+        transition offline_to_maintenance
+            first offline
+            then maintenanceOutage
+            accept RefineryOperatingMode::maintenance;
+
+        transition maintenance_to_offline
+            first maintenanceOutage
+            then offline
+            if maintenanceComplete;
+    }
+
+    part def IntegratedOilRefinery {
+        attribute name : String = "Integrated Crude Oil Refinery";
+        attribute nominalCrudeCapacity : FlowRate = 250000.0;
+        attribute minimumStableThroughput : FlowRate = 125000.0;
+        attribute annualAvailabilityTarget : Availability = 96.0;
+        attribute operatingMode : RefineryOperatingMode;
+
+        port crudeReceipt : CrudeInletPort;
+        port productsShipment : ProductOutletPort;
+        port emissionsDischarge : EmissionOutletPort;
+        port controlInterface : ControlPort;
+
+        part crudeStorage : CrudeStorage;
+        part desalter : Desalter;
+        part atmosphericDistillation : AtmosphericDistillationUnit;
+        part vacuumDistillation : VacuumDistillationUnit;
+        part catalyticCracker : FluidCatalyticCracker;
+        part hydrocracker : Hydrocracker;
+        part naphthaHydrotreater : NaphthaHydrotreater;
+        part reformer : CatalyticReformer;
+        part distillateHydrotreater : DistillateHydrotreater;
+        part sulfurRecovery : SulfurRecoveryUnit;
+        part productBlending : ProductBlendingSystem;
+        part hydrogenSystem : HydrogenSystem;
+        part utilitySystem : UtilitySystem;
+        part environmentalControls : EnvironmentalControlSystem;
+        part controlSystem : RefineryControlSystem;
+
+        perform refiningFunction : RefineCrudeOil;
+        exhibit operatingStates : RefineryOperatingStateMachine;
+
+        connect crudeReceipt.crude to crudeStorage.crudeReceipt.crude;
+        connect crudeStorage.crudeToDesalter.crude to desalter.crudeFeed.crude;
+        connect desalter.desaltedCrudeOut.desaltedCrude to atmosphericDistillation.feed.desaltedCrude;
+
+        connect atmosphericDistillation.residOut.residuum to vacuumDistillation.residFeed.residuum;
+        connect atmosphericDistillation.gasOilOut.gasOil to catalyticCracker.feed.gasOil;
+        connect vacuumDistillation.vacuumGasOilOut.vacuumGasOil to hydrocracker.feed.gasOil;
+
+        connect atmosphericDistillation.naphthaOut.naphtha to naphthaHydrotreater.naphthaFeed.naphtha;
+        connect naphthaHydrotreater.treatedNaphthaOut.naphtha to reformer.naphthaFeed.naphtha;
+        connect reformer.reformateOut.reformate to productBlending.reformateIn.reformate;
+
+        connect catalyticCracker.crackedNaphthaOut.naphtha to productBlending.crackedNaphthaIn.crackedNaphtha;
+        connect catalyticCracker.crackedGasOut.lightEnds to productBlending.lightEndsIn.lightEnds;
+        connect hydrocracker.dieselOut.dieselBlendstock to distillateHydrotreater.feed.distillate;
+        connect hydrocracker.jetOut.jetBlendstock to productBlending.jetBlendstockIn.jetBlendstock;
+        connect distillateHydrotreater.treatedDistillateOut.treatedDistillate to productBlending.treatedDieselIn.treatedDiesel;
+
+        connect vacuumDistillation.vacuumResidOut.vacuumResiduum to productBlending.fuelOilIn.fuelOilBlendstock;
+
+        connect reformer.hydrogenOut.hydrogen to hydrogenSystem.reformerHydrogenIn.hydrogen;
+        connect hydrogenSystem.hydrogenToHydrotreaters.hydrogen to naphthaHydrotreater.hydrogenIn.hydrogen;
+        connect hydrogenSystem.hydrogenToHydrotreaters.hydrogen to distillateHydrotreater.hydrogenIn.hydrogen;
+        connect hydrogenSystem.hydrogenToHydrocracker.hydrogen to hydrocracker.hydrogenIn.hydrogen;
+
+        connect distillateHydrotreater.sourGasOut.sourGas to sulfurRecovery.sourGasFeed.sourGas;
+        connect sulfurRecovery.sulfurOut.sulfur to productBlending.productsOut.sulfur;
+
+        connect utilitySystem.utilityOut.steam to desalter.utilityIn.steam;
+        connect utilitySystem.utilityOut.coolingWater to atmosphericDistillation.utilityIn.coolingWater;
+        connect utilitySystem.utilityOut.electricity to catalyticCracker.utilityIn.electricity;
+        connect utilitySystem.utilityOut.steam to vacuumDistillation.utilityIn.steam;
+        connect utilitySystem.utilityOut.electricity to hydrocracker.utilityIn.electricity;
+
+        connect atmosphericDistillation.emissionsOut.emissions to environmentalControls.processEmissionsIn.emissions;
+        connect catalyticCracker.emissionsOut.emissions to environmentalControls.processEmissionsIn.emissions;
+        connect sulfurRecovery.tailGasOut.emissions to environmentalControls.processEmissionsIn.emissions;
+        connect environmentalControls.controlledEmissionsOut.emissions to emissionsDischarge.emissions;
+
+        connect productBlending.productsOut.gasoline to productsShipment.gasoline;
+        connect productBlending.productsOut.diesel to productsShipment.diesel;
+        connect productBlending.productsOut.jetFuel to productsShipment.jetFuel;
+        connect productBlending.productsOut.lpg to productsShipment.lpg;
+        connect productBlending.productsOut.fuelOil to productsShipment.fuelOil;
+        connect productBlending.productsOut.sulfur to productsShipment.sulfur;
+
+        connect controlInterface.modeCommand to controlSystem.control.modeCommand;
+        connect controlSystem.control.operatingMode to controlInterface.operatingMode;
+        connect controlSystem.control.alarmSeverity to controlInterface.alarmSeverity;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The refinery shall transform incoming crude oil into marketable transportation fuels, fuel products, liquefied petroleum gas, and sulfur by separating, converting, treating, and blending hydrocarbon streams while controlling emissions and maintaining safe operation. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.nominalCrudeCapacity >= 250000.0
+        }
+    }
+
+    requirement def ProductSlateRequirement {
+        doc /* The refinery shall produce gasoline, diesel, jet fuel, LPG, fuel oil, and sulfur from crude oil feedstock. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.productsShipment.gasoline.octane >= 87.0 and
+            refinery.productsShipment.diesel.sulfur <= 0.0015 and
+            refinery.productsShipment.jetFuel.freezePoint <= -47.0
+        }
+    }
+
+    requirement def FeedCapacityRequirement {
+        doc /* The refinery shall process crude oil at a nominal capacity of 250000 barrels per day during normal operation. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.nominalCrudeCapacity == 250000.0
+        }
+    }
+
+    requirement def DesaltingRequirement {
+        doc /* The desalting subsystem shall reduce crude salt content to no more than 1 pound per thousand barrels before atmospheric distillation. */
+        subject desalter : Desalter;
+        require constraint {
+            desalter.outletSaltLimit <= 1.0
+        }
+    }
+
+    requirement def SulfurControlRequirement {
+        doc /* Hydrotreating and sulfur recovery shall reduce sulfur in finished diesel and recover sulfur from sour gas streams. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.distillateHydrotreater.dieselSulfurLimit <= 0.0015 and
+            refinery.sulfurRecovery.sulfurRecoveryEfficiency >= 99.5
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        doc /* Controlled emissions shall remain within permitted sulfur oxides, nitrogen oxides, carbon dioxide, and particulate limits during normal operation. */
+        subject controls : EnvironmentalControlSystem;
+        require constraint {
+            controls.soxPermitLimit <= 12.0 and
+            controls.noxPermitLimit <= 9.0 and
+            controls.wastewaterOilLimit <= 15.0
+        }
+    }
+
+    requirement def SafetyShutdownRequirement {
+        doc /* The control system shall transition the refinery to emergency shutdown when process pressure or temperature exceeds trip limits. */
+        subject controlSystem : RefineryControlSystem;
+        require constraint {
+            controlSystem.highPressureTripSetpoint <= 17000.0 and
+            controlSystem.highTemperatureTripSetpoint <= 760.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The integrated refinery shall support an annual mechanical availability target of at least 96 percent. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.annualAvailabilityTarget >= 96.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by IntegratedOilRefinery;
+    satisfy ProductSlateRequirement by IntegratedOilRefinery;
+    satisfy FeedCapacityRequirement by IntegratedOilRefinery;
+    satisfy DesaltingRequirement by Desalter;
+    satisfy SulfurControlRequirement by IntegratedOilRefinery;
+    satisfy EnvironmentalRequirement by EnvironmentalControlSystem;
+    satisfy SafetyShutdownRequirement by RefineryControlSystem;
+    satisfy AvailabilityRequirement by IntegratedOilRefinery;
+
+}
+tokens used
+7,113
+package OilRefineryModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    enum def CrudeGrade {
+        lightSweet;
+        mediumSour;
+        heavySour;
+    }
+
+    enum def ProductGrade {
+        propane;
+        butane;
+        gasoline;
+        jetFuel;
+        diesel;
+        fuelOil;
+        petroleumCoke;
+        sulfur;
+    }
+
+    enum def RefineryOperatingMode {
+        startup;
+        normalOperation;
+        turndown;
+        emergencyShutdown;
+        maintenance;
+    }
+
+    enum def AlarmSeverity {
+        advisory;
+        warning;
+        trip;
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    attribute def Pressure {
+        :> ScalarValues::Real;
+        unit = "kPa";
+    }
+
+    attribute def FlowRate {
+        :> ScalarValues::Real;
+        unit = "bbl/d";
+    }
+
+    attribute def MassFlowRate {
+        :> ScalarValues::Real;
+        unit = "kg/h";
+    }
+
+    attribute def Volume {
+        :> ScalarValues::Real;
+        unit = "m^3";
+    }
+
+    attribute def EnergyRate {
+        :> ScalarValues::Real;
+        unit = "MW";
+    }
+
+    attribute def SulfurContent {
+        :> ScalarValues::Real;
+        unit = "wt%";
+    }
+
+    attribute def OctaneNumber {
+        :> ScalarValues::Real;
+        unit = "RON";
+    }
+
+    attribute def CetaneNumber {
+        :> ScalarValues::Real;
+    }
+
+    attribute def Availability {
+        :> ScalarValues::Real;
+        unit = "%";
+    }
+
+    item def CrudeOil {
+        attribute grade : CrudeGrade;
+        attribute apiGravity : ScalarValues::Real;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def DesaltedCrude {
+        attribute saltContent : ScalarValues::Real unit "ptb";
+        attribute waterContent : ScalarValues::Real unit "vol%";
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+    }
+
+    item def HydrocarbonStream {
+        attribute flow : FlowRate;
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute sulfur : SulfurContent;
+    }
+
+    item def LightEnds :> HydrocarbonStream {
+        attribute vaporFraction : ScalarValues::Real;
+    }
+
+    item def Naphtha :> HydrocarbonStream {
+        attribute initialBoilingPoint : Temperature;
+        attribute finalBoilingPoint : Temperature;
+    }
+
+    item def Kerosene :> HydrocarbonStream {
+        attribute smokePoint : ScalarValues::Real unit "mm";
+    }
+
+    item def GasOil :> HydrocarbonStream {
+        attribute cetaneIndex : ScalarValues::Real;
+    }
+
+    item def Residuum :> HydrocarbonStream {
+        attribute metalsContent : ScalarValues::Real unit "ppm";
+    }
+
+    item def Hydrogen {
+        attribute purity : ScalarValues::Real unit "mol%";
+        attribute massFlow : MassFlowRate;
+        attribute pressure : Pressure;
+    }
+
+    item def FuelGas {
+        attribute heatingValue : ScalarValues::Real unit "MJ/Nm^3";
+        attribute flow : MassFlowRate;
+    }
+
+    item def Steam {
+        attribute pressure : Pressure;
+        attribute temperature : Temperature;
+        attribute massFlow : MassFlowRate;
+    }
+
+    item def CoolingWater {
+        attribute inletTemperature : Temperature;
+        attribute outletTemperature : Temperature;
+        attribute flow : MassFlowRate;
+    }
+
+    item def Electricity {
+        attribute power : EnergyRate;
+        attribute voltage : ScalarValues::Real unit "kV";
+    }
+
+    item def GasolineProduct {
+        attribute grade : ProductGrade = ProductGrade::gasoline;
+        attribute octane : OctaneNumber;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def DieselProduct {
+        attribute grade : ProductGrade = ProductGrade::diesel;
+        attribute cetane : CetaneNumber;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def JetFuelProduct {
+        attribute grade : ProductGrade = ProductGrade::jetFuel;
+        attribute freezePoint : Temperature;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def LPGProduct {
+        attribute grade : ProductGrade;
+        attribute vaporPressure : Pressure;
+        attribute flow : FlowRate;
+    }
+
+    item def FuelOilProduct {
+        attribute grade : ProductGrade = ProductGrade::fuelOil;
+        attribute sulfur : SulfurContent;
+        attribute flow : FlowRate;
+    }
+
+    item def SulfurProduct {
+        attribute purity : ScalarValues::Real unit "wt%";
+        attribute massFlow : MassFlowRate;
+    }
+
+    item def EmissionStream {
+        attribute nox : ScalarValues::Real unit "ppm";
+        attribute sox : ScalarValues::Real unit "ppm";
+        attribute co2 : MassFlowRate;
+        attribute particulates : ScalarValues::Real unit "mg/Nm^3";
+    }
+
+    port def CrudeInletPort {
+        in item crude : CrudeOil;
+    }
+
+    port def HydrocarbonInletPort {
+        in item feed : HydrocarbonStream;
+    }
+
+    port def HydrocarbonOutletPort {
+        out item product : HydrocarbonStream;
+    }
+
+    port def HydrogenPort {
+        in item hydrogen : Hydrogen;
+    }
+
+    port def UtilityInletPort {
+        in item steam : Steam;
+        in item coolingWater : CoolingWater;
+        in item electricity : Electricity;
+    }
+
+    port def ProductOutletPort {
+        out item gasoline : GasolineProduct;
+        out item diesel : DieselProduct;
+        out item jetFuel : JetFuelProduct;
+        out item lpg : LPGProduct;
+        out item fuelOil : FuelOilProduct;
+        out item sulfur : SulfurProduct;
+    }
+
+    port def EmissionOutletPort {
+        out item emissions : EmissionStream;
+    }
+
+    port def ControlPort {
+        in attribute modeCommand : RefineryOperatingMode;
+        out attribute operatingMode : RefineryOperatingMode;
+        out attribute alarmSeverity : AlarmSeverity;
+    }
+
+    part def CrudeStorage {
+        attribute workingCapacity : Volume = 240000.0;
+        attribute maxTankPressure : Pressure = 15.0;
+        attribute inventory : Volume;
+        port crudeReceipt : CrudeInletPort;
+        port crudeToDesalter {
+            out item crude : CrudeOil;
+        }
+    }
+
+    part def Desalter {
+        attribute designFlow : FlowRate = 250000.0;
+        attribute outletSaltLimit : ScalarValues::Real unit "ptb" = 1.0;
+        port crudeFeed : CrudeInletPort;
+        port desaltedCrudeOut {
+            out item desaltedCrude : DesaltedCrude;
+        }
+        port utilityIn : UtilityInletPort;
+    }
+
+    part def AtmosphericDistillationUnit {
+        attribute towerTopPressure : Pressure = 150.0;
+        attribute furnaceDuty : EnergyRate = 120.0;
+        attribute designFeedRate : FlowRate = 250000.0;
+        port feed {
+            in item desaltedCrude : DesaltedCrude;
+        }
+        port lightEndsOut {
+            out item lightEnds : LightEnds;
+        }
+        port naphthaOut {
+            out item naphtha : Naphtha;
+        }
+        port keroseneOut {
+            out item kerosene : Kerosene;
+        }
+        port gasOilOut {
+            out item gasOil : GasOil;
+        }
+        port residOut {
+            out item residuum : Residuum;
+        }
+        port utilityIn : UtilityInletPort;
+        port emissionsOut : EmissionOutletPort;
+    }
+
+    part def VacuumDistillationUnit {
+        attribute towerPressure : Pressure = 8.0;
+        attribute furnaceDuty : EnergyRate = 85.0;
+        port residFeed {
+            in item residuum : Residuum;
+        }
+        port vacuumGasOilOut {
+            out item vacuumGasOil : GasOil;
+        }
+        port vacuumResidOut {
+            out item vacuumResiduum : Residuum;
+        }
+        port utilityIn : UtilityInletPort;
+    }
+
+    part def FluidCatalyticCracker {
+        attribute reactorTemperature : Temperature = 525.0;
+        attribute regeneratorTemperature : Temperature = 700.0;
+        attribute conversionTarget : ScalarValues::Real unit "%" = 72.0;
+        port feed {
+            in item gasOil : GasOil;
+        }
+        port crackedGasOut {
+            out item lightEnds : LightEnds;
+        }
+        port crackedNaphthaOut {
+            out item naphtha : Naphtha;
+        }
+        port cycleOilOut {
+            out item gasOil : GasOil;
+        }
+        port utilityIn : UtilityInletPort;
+        port emissionsOut : EmissionOutletPort;
+    }
+
+    part def Hydrocracker {
+        attribute reactorPressure : Pressure = 15000.0;
+        attribute reactorTemperature : Temperature = 390.0;
+        attribute conversionTarget : ScalarValues::Real unit "%" = 65.0;
+        port feed {
+            in item gasOil : GasOil;
+        }
+        port hydrogenIn : HydrogenPort;
+        port naphthaOut {
+            out item naphtha : Naphtha;
+        }
+        port dieselOut {
+            out item dieselBlendstock : GasOil;
+        }
+        port jetOut {
+            out item jetBlendstock : Kerosene;
+        }
+        port utilityIn : UtilityInletPort;
+    }
+
+    part def NaphthaHydrotreater {
+        attribute reactorPressure : Pressure = 2500.0;
+        attribute sulfurOutletLimit : SulfurContent = 0.001;
+        port naphthaFeed {
+            in item naphtha : Naphtha;
+        }
+        port hydrogenIn : HydrogenPort;
+        port treatedNaphthaOut {
+            out item naphtha : Naphtha;
+        }
+    }
+
+    part def CatalyticReformer {
+        attribute reactorTemperature : Temperature = 510.0;
+        attribute reformateOctaneTarget : OctaneNumber = 98.0;
+        port naphthaFeed {
+            in item naphtha : Naphtha;
+        }
+        port reformateOut {
+            out item reformate : Naphtha;
+        }
+        port hydrogenOut {
+            out item hydrogen : Hydrogen;
+        }
+        port fuelGasOut {
+            out item fuelGas : FuelGas;
+        }
+    }
+
+    part def DistillateHydrotreater {
+        attribute reactorPressure : Pressure = 6000.0;
+        attribute dieselSulfurLimit : SulfurContent = 0.0015;
+        port feed {
+            in item distillate : HydrocarbonStream;
+        }
+        port hydrogenIn : HydrogenPort;
+        port treatedDistillateOut {
+            out item treatedDistillate : HydrocarbonStream;
+        }
+        port sourGasOut {
+            out item sourGas : FuelGas;
+        }
+    }
+
+    part def SulfurRecoveryUnit {
+        attribute sulfurRecoveryEfficiency : ScalarValues::Real unit "%" = 99.5;
+        port sourGasFeed {
+            in item sourGas : FuelGas;
+        }
+        port sulfurOut {
+            out item sulfur : SulfurProduct;
+        }
+        port tailGasOut : EmissionOutletPort;
+    }
+
+    part def ProductBlendingSystem {
+        attribute gasolineOctaneTarget : OctaneNumber = 87.0;
+        attribute dieselCetaneTarget : CetaneNumber = 45.0;
+        attribute jetFreezePointLimit : Temperature = -47.0;
+        port reformateIn {
+            in item reformate : Naphtha;
+        }
+        port crackedNaphthaIn {
+            in item crackedNaphtha : Naphtha;
+        }
+        port treatedDieselIn {
+            in item treatedDiesel : HydrocarbonStream;
+        }
+        port jetBlendstockIn {
+            in item jetBlendstock : Kerosene;
+        }
+        port lightEndsIn {
+            in item lightEnds : LightEnds;
+        }
+        port fuelOilIn {
+            in item fuelOilBlendstock : Residuum;
+        }
+        port productsOut : ProductOutletPort;
+    }
+
+    part def HydrogenSystem {
+        attribute supplyPressure : Pressure = 16000.0;
+        attribute productionCapacity : MassFlowRate = 180000.0;
+        port reformerHydrogenIn {
+            in item hydrogen : Hydrogen;
+        }
+        port hydrogenToHydrotreaters {
+            out item hydrogen : Hydrogen;
+        }
+        port hydrogenToHydrocracker {
+            out item hydrogen : Hydrogen;
+        }
+    }
+
+    part def UtilitySystem {
+        attribute steamGenerationCapacity : MassFlowRate = 900000.0;
+        attribute electricalDemand : EnergyRate = 95.0;
+        attribute coolingWaterCapacity : MassFlowRate = 12000000.0;
+        port utilityOut : UtilityInletPort;
+    }
+
+    part def EnvironmentalControlSystem {
+        attribute soxPermitLimit : ScalarValues::Real unit "t/d" = 12.0;
+        attribute noxPermitLimit : ScalarValues::Real unit "t/d" = 9.0;
+        attribute wastewaterOilLimit : ScalarValues::Real unit "mg/L" = 15.0;
+        port processEmissionsIn {
+            in item emissions : EmissionStream;
+        }
+        port controlledEmissionsOut : EmissionOutletPort;
+    }
+
+    part def RefineryControlSystem {
+        attribute commandedMode : RefineryOperatingMode;
+        attribute currentMode : RefineryOperatingMode = RefineryOperatingMode::startup;
+        attribute highPressureTripSetpoint : Pressure = 17000.0;
+        attribute highTemperatureTripSetpoint : Temperature = 760.0;
+        port control : ControlPort;
+    }
+
+    action def ReceiveAndStoreCrude {
+        in item crudeCargo : CrudeOil;
+        out item scheduledCrude : CrudeOil;
+    }
+
+    action def RemoveWaterSaltAndSolids {
+        in item rawCrude : CrudeOil;
+        out item desaltedCrude : DesaltedCrude;
+    }
+
+    action def FractionateCrude {
+        in item desaltedCrude : DesaltedCrude;
+        out item lightEnds : LightEnds;
+        out item naphtha : Naphtha;
+        out item kerosene : Kerosene;
+        out item gasOil : GasOil;
+        out item residuum : Residuum;
+    }
+
+    action def ConvertHeavyFractions {
+        in item heavyFeed : GasOil;
+        out item lighterNaphtha : Naphtha;
+        out item distillateBlendstock : GasOil;
+        out item lightEnds : LightEnds;
+    }
+
+    action def RemoveSulfurAndNitrogen {
+        in item sourFeed : HydrocarbonStream;
+        in item hydrogen : Hydrogen;
+        out item sweetProduct : HydrocarbonStream;
+        out item sourGas : FuelGas;
+    }
+
+    action def BlendFinishedProducts {
+        in item reformate : Naphtha;
+        in item crackedNaphtha : Naphtha;
+        in item distillate : HydrocarbonStream;
+        in item jetBlendstock : Kerosene;
+        in item lightEnds : LightEnds;
+        in item residualBlendstock : Residuum;
+        out item gasoline : GasolineProduct;
+        out item diesel : DieselProduct;
+        out item jetFuel : JetFuelProduct;
+        out item lpg : LPGProduct;
+        out item fuelOil : FuelOilProduct;
+    }
+
+    action def RecoverSulfur {
+        in item sourGas : FuelGas;
+        out item sulfur : SulfurProduct;
+        out item treatedTailGas : EmissionStream;
+    }
+
+    action def RefineCrudeOil {
+        in item crudeOil : CrudeOil;
+        out item gasoline : GasolineProduct;
+        out item diesel : DieselProduct;
+        out item jetFuel : JetFuelProduct;
+        out item lpg : LPGProduct;
+        out item fuelOil : FuelOilProduct;
+        out item sulfur : SulfurProduct;
+
+        first start;
+        then receive : ReceiveAndStoreCrude;
+        then desalting : RemoveWaterSaltAndSolids;
+        then distillation : FractionateCrude;
+        then conversion : ConvertHeavyFractions;
+        then treating : RemoveSulfurAndNitrogen;
+        then blending : BlendFinishedProducts;
+        then sulfurRecovery : RecoverSulfur;
+        then done;
+    }
+
+    state def RefineryOperatingStateMachine {
+        state offline;
+        state starting;
+        state running;
+        state constrainedOperation;
+        state shuttingDown;
+        state maintenanceOutage;
+
+        transition first offline;
+        transition offline_to_starting
+            first offline
+            then starting
+            accept RefineryOperatingMode::startup;
+
+        transition starting_to_running
+            first starting
+            then running
+            if allRequiredUtilitiesAvailable and feedQualityVerified;
+
+        transition running_to_constrained
+            first running
+            then constrainedOperation
+            if crudeFeedRateBelowMinimum or utilityConstraintActive;
+
+        transition constrained_to_running
+            first constrainedOperation
+            then running
+            if constraintsCleared;
+
+        transition running_to_shutdown
+            first running
+            then shuttingDown
+            accept RefineryOperatingMode::emergencyShutdown;
+
+        transition constrained_to_shutdown
+            first constrainedOperation
+            then shuttingDown
+            accept RefineryOperatingMode::emergencyShutdown;
+
+        transition shutdown_to_offline
+            first shuttingDown
+            then offline
+            if processUnitsDepressurized and firedHeatersIsolated;
+
+        transition offline_to_maintenance
+            first offline
+            then maintenanceOutage
+            accept RefineryOperatingMode::maintenance;
+
+        transition maintenance_to_offline
+            first maintenanceOutage
+            then offline
+            if maintenanceComplete;
+    }
+
+    part def IntegratedOilRefinery {
+        attribute name : String = "Integrated Crude Oil Refinery";
+        attribute nominalCrudeCapacity : FlowRate = 250000.0;
+        attribute minimumStableThroughput : FlowRate = 125000.0;
+        attribute annualAvailabilityTarget : Availability = 96.0;
+        attribute operatingMode : RefineryOperatingMode;
+
+        port crudeReceipt : CrudeInletPort;
+        port productsShipment : ProductOutletPort;
+        port emissionsDischarge : EmissionOutletPort;
+        port controlInterface : ControlPort;
+
+        part crudeStorage : CrudeStorage;
+        part desalter : Desalter;
+        part atmosphericDistillation : AtmosphericDistillationUnit;
+        part vacuumDistillation : VacuumDistillationUnit;
+        part catalyticCracker : FluidCatalyticCracker;
+        part hydrocracker : Hydrocracker;
+        part naphthaHydrotreater : NaphthaHydrotreater;
+        part reformer : CatalyticReformer;
+        part distillateHydrotreater : DistillateHydrotreater;
+        part sulfurRecovery : SulfurRecoveryUnit;
+        part productBlending : ProductBlendingSystem;
+        part hydrogenSystem : HydrogenSystem;
+        part utilitySystem : UtilitySystem;
+        part environmentalControls : EnvironmentalControlSystem;
+        part controlSystem : RefineryControlSystem;
+
+        perform refiningFunction : RefineCrudeOil;
+        exhibit operatingStates : RefineryOperatingStateMachine;
+
+        connect crudeReceipt.crude to crudeStorage.crudeReceipt.crude;
+        connect crudeStorage.crudeToDesalter.crude to desalter.crudeFeed.crude;
+        connect desalter.desaltedCrudeOut.desaltedCrude to atmosphericDistillation.feed.desaltedCrude;
+
+        connect atmosphericDistillation.residOut.residuum to vacuumDistillation.residFeed.residuum;
+        connect atmosphericDistillation.gasOilOut.gasOil to catalyticCracker.feed.gasOil;
+        connect vacuumDistillation.vacuumGasOilOut.vacuumGasOil to hydrocracker.feed.gasOil;
+
+        connect atmosphericDistillation.naphthaOut.naphtha to naphthaHydrotreater.naphthaFeed.naphtha;
+        connect naphthaHydrotreater.treatedNaphthaOut.naphtha to reformer.naphthaFeed.naphtha;
+        connect reformer.reformateOut.reformate to productBlending.reformateIn.reformate;
+
+        connect catalyticCracker.crackedNaphthaOut.naphtha to productBlending.crackedNaphthaIn.crackedNaphtha;
+        connect catalyticCracker.crackedGasOut.lightEnds to productBlending.lightEndsIn.lightEnds;
+        connect hydrocracker.dieselOut.dieselBlendstock to distillateHydrotreater.feed.distillate;
+        connect hydrocracker.jetOut.jetBlendstock to productBlending.jetBlendstockIn.jetBlendstock;
+        connect distillateHydrotreater.treatedDistillateOut.treatedDistillate to productBlending.treatedDieselIn.treatedDiesel;
+
+        connect vacuumDistillation.vacuumResidOut.vacuumResiduum to productBlending.fuelOilIn.fuelOilBlendstock;
+
+        connect reformer.hydrogenOut.hydrogen to hydrogenSystem.reformerHydrogenIn.hydrogen;
+        connect hydrogenSystem.hydrogenToHydrotreaters.hydrogen to naphthaHydrotreater.hydrogenIn.hydrogen;
+        connect hydrogenSystem.hydrogenToHydrotreaters.hydrogen to distillateHydrotreater.hydrogenIn.hydrogen;
+        connect hydrogenSystem.hydrogenToHydrocracker.hydrogen to hydrocracker.hydrogenIn.hydrogen;
+
+        connect distillateHydrotreater.sourGasOut.sourGas to sulfurRecovery.sourGasFeed.sourGas;
+        connect sulfurRecovery.sulfurOut.sulfur to productBlending.productsOut.sulfur;
+
+        connect utilitySystem.utilityOut.steam to desalter.utilityIn.steam;
+        connect utilitySystem.utilityOut.coolingWater to atmosphericDistillation.utilityIn.coolingWater;
+        connect utilitySystem.utilityOut.electricity to catalyticCracker.utilityIn.electricity;
+        connect utilitySystem.utilityOut.steam to vacuumDistillation.utilityIn.steam;
+        connect utilitySystem.utilityOut.electricity to hydrocracker.utilityIn.electricity;
+
+        connect atmosphericDistillation.emissionsOut.emissions to environmentalControls.processEmissionsIn.emissions;
+        connect catalyticCracker.emissionsOut.emissions to environmentalControls.processEmissionsIn.emissions;
+        connect sulfurRecovery.tailGasOut.emissions to environmentalControls.processEmissionsIn.emissions;
+        connect environmentalControls.controlledEmissionsOut.emissions to emissionsDischarge.emissions;
+
+        connect productBlending.productsOut.gasoline to productsShipment.gasoline;
+        connect productBlending.productsOut.diesel to productsShipment.diesel;
+        connect productBlending.productsOut.jetFuel to productsShipment.jetFuel;
+        connect productBlending.productsOut.lpg to productsShipment.lpg;
+        connect productBlending.productsOut.fuelOil to productsShipment.fuelOil;
+        connect productBlending.productsOut.sulfur to productsShipment.sulfur;
+
+        connect controlInterface.modeCommand to controlSystem.control.modeCommand;
+        connect controlSystem.control.operatingMode to controlInterface.operatingMode;
+        connect controlSystem.control.alarmSeverity to controlInterface.alarmSeverity;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The refinery shall transform incoming crude oil into marketable transportation fuels, fuel products, liquefied petroleum gas, and sulfur by separating, converting, treating, and blending hydrocarbon streams while controlling emissions and maintaining safe operation. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.nominalCrudeCapacity >= 250000.0
+        }
+    }
+
+    requirement def ProductSlateRequirement {
+        doc /* The refinery shall produce gasoline, diesel, jet fuel, LPG, fuel oil, and sulfur from crude oil feedstock. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.productsShipment.gasoline.octane >= 87.0 and
+            refinery.productsShipment.diesel.sulfur <= 0.0015 and
+            refinery.productsShipment.jetFuel.freezePoint <= -47.0
+        }
+    }
+
+    requirement def FeedCapacityRequirement {
+        doc /* The refinery shall process crude oil at a nominal capacity of 250000 barrels per day during normal operation. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.nominalCrudeCapacity == 250000.0
+        }
+    }
+
+    requirement def DesaltingRequirement {
+        doc /* The desalting subsystem shall reduce crude salt content to no more than 1 pound per thousand barrels before atmospheric distillation. */
+        subject desalter : Desalter;
+        require constraint {
+            desalter.outletSaltLimit <= 1.0
+        }
+    }
+
+    requirement def SulfurControlRequirement {
+        doc /* Hydrotreating and sulfur recovery shall reduce sulfur in finished diesel and recover sulfur from sour gas streams. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.distillateHydrotreater.dieselSulfurLimit <= 0.0015 and
+            refinery.sulfurRecovery.sulfurRecoveryEfficiency >= 99.5
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        doc /* Controlled emissions shall remain within permitted sulfur oxides, nitrogen oxides, carbon dioxide, and particulate limits during normal operation. */
+        subject controls : EnvironmentalControlSystem;
+        require constraint {
+            controls.soxPermitLimit <= 12.0 and
+            controls.noxPermitLimit <= 9.0 and
+            controls.wastewaterOilLimit <= 15.0
+        }
+    }
+
+    requirement def SafetyShutdownRequirement {
+        doc /* The control system shall transition the refinery to emergency shutdown when process pressure or temperature exceeds trip limits. */
+        subject controlSystem : RefineryControlSystem;
+        require constraint {
+            controlSystem.highPressureTripSetpoint <= 17000.0 and
+            controlSystem.highTemperatureTripSetpoint <= 760.0
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The integrated refinery shall support an annual mechanical availability target of at least 96 percent. */
+        subject refinery : IntegratedOilRefinery;
+        require constraint {
+            refinery.annualAvailabilityTarget >= 96.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by IntegratedOilRefinery;
+    satisfy ProductSlateRequirement by IntegratedOilRefinery;
+    satisfy FeedCapacityRequirement by IntegratedOilRefinery;
+    satisfy DesaltingRequirement by Desalter;
+    satisfy SulfurControlRequirement by IntegratedOilRefinery;
+    satisfy EnvironmentalRequirement by EnvironmentalControlSystem;
+    satisfy SafetyShutdownRequirement by RefineryControlSystem;
+    satisfy AvailabilityRequirement by IntegratedOilRefinery;
+
+}

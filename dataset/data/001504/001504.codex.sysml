@@ -1,0 +1,350 @@
+package MolecularNanotechnologySystem {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def Nanometer :> Real {
+        doc "Length measured in nanometers.";
+    }
+
+    attribute def Piconewton :> Real {
+        doc "Force measured in piconewtons.";
+    }
+
+    attribute def Kelvin :> Real {
+        doc "Temperature measured in kelvin.";
+    }
+
+    attribute def MoleculesPerSecond :> Real {
+        doc "Molecular flow rate.";
+    }
+
+    attribute def Percent :> Real {
+        doc "Dimensionless percentage from 0 to 100.";
+    }
+
+    item def FeedstockMolecule {
+        attribute chemicalFormula : String;
+        attribute molecularMassDalton : Real;
+        attribute bindingSiteCount : Integer;
+    }
+
+    item def PositionalCommand {
+        attribute targetX_nm : Nanometer;
+        attribute targetY_nm : Nanometer;
+        attribute targetZ_nm : Nanometer;
+        attribute approachForce_pN : Piconewton;
+        attribute dwellTime_ms : Real;
+    }
+
+    item def AssemblyRecipe {
+        attribute productName : String;
+        attribute atomPlacementCount : Integer;
+        attribute permittedDefectRate_percent : Percent;
+        attribute nominalTemperature_K : Kelvin;
+    }
+
+    item def Nanoproduct {
+        attribute productName : String;
+        attribute featureSize_nm : Nanometer;
+        attribute structuralIntegrity_percent : Percent;
+        attribute defectDensity_ppm : Real;
+    }
+
+    item def SensorSample {
+        attribute positionError_nm : Nanometer;
+        attribute tipForce_pN : Piconewton;
+        attribute chamberTemperature_K : Kelvin;
+        attribute contaminationLevel_ppm : Real;
+    }
+
+    port def FeedstockInputPort {
+        in item molecule : FeedstockMolecule;
+    }
+
+    port def ProductOutputPort {
+        out item product : Nanoproduct;
+    }
+
+    port def CommandPort {
+        in item recipe : AssemblyRecipe;
+        in item command : PositionalCommand;
+    }
+
+    port def TelemetryPort {
+        out item sample : SensorSample;
+    }
+
+    port def VacuumServicePort {
+        in attribute vacuumPressure_Pa : Real;
+    }
+
+    port def ThermalServicePort {
+        in attribute coolantTemperature_K : Kelvin;
+        out attribute rejectedHeat_W : Real;
+    }
+
+    part def MolecularFeedstockReservoir {
+        port output : FeedstockInputPort;
+        attribute storedMoleculeCount : Integer;
+        attribute flowRate_moleculesPerSecond : MoleculesPerSecond;
+        attribute purity_percent : Percent;
+    }
+
+    part def MolecularSorter {
+        port input : FeedstockInputPort;
+        port acceptedOutput : FeedstockInputPort;
+        port rejectedOutput : FeedstockInputPort;
+        attribute massResolution_Da : Real;
+        attribute sortingEfficiency_percent : Percent;
+    }
+
+    part def VacuumReactionChamber {
+        port feedstockInput : FeedstockInputPort;
+        port productOutput : ProductOutputPort;
+        port vacuumService : VacuumServicePort;
+        port thermalService : ThermalServicePort;
+        attribute internalPressure_Pa : Real;
+        attribute contaminationLevel_ppm : Real;
+        attribute workingVolume_cm3 : Real;
+    }
+
+    part def ScanningProbeManipulator {
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        attribute positioningResolution_nm : Nanometer;
+        attribute maximumTipForce_pN : Piconewton;
+        attribute activeTipCount : Integer;
+    }
+
+    part def MechanosyntheticToolTip {
+        port commandInput : CommandPort;
+        port telemetryOutput : TelemetryPort;
+        attribute reactiveSiteCount : Integer;
+        attribute tipRadius_nm : Nanometer;
+        attribute placementAccuracy_nm : Nanometer;
+        attribute wearLevel_percent : Percent;
+    }
+
+    part def AtomicForceSensor {
+        port telemetryOutput : TelemetryPort;
+        attribute forceNoise_pN : Piconewton;
+        attribute bandwidth_Hz : Real;
+        attribute calibrationAge_hr : Real;
+    }
+
+    part def ThermalController {
+        port thermalService : ThermalServicePort;
+        attribute setPoint_K : Kelvin;
+        attribute stability_K : Kelvin;
+        attribute coolingCapacity_W : Real;
+    }
+
+    part def ControlComputer {
+        port commandOutput : CommandPort;
+        port telemetryInput : TelemetryPort;
+        attribute controlLoopFrequency_Hz : Real;
+        attribute recipeValidationEnabled : Boolean;
+        attribute faultToleranceLevel : Integer;
+    }
+
+    action def ValidateRecipe {
+        in item recipe : AssemblyRecipe;
+        out attribute accepted : Boolean;
+    }
+
+    action def SortFeedstock {
+        in item rawMolecule : FeedstockMolecule;
+        out item acceptedMolecule : FeedstockMolecule;
+    }
+
+    action def PositionToolTip {
+        in item command : PositionalCommand;
+        out item sample : SensorSample;
+    }
+
+    action def PlaceAtomOrMolecule {
+        in item molecule : FeedstockMolecule;
+        in item command : PositionalCommand;
+        out attribute placementSuccessful : Boolean;
+    }
+
+    action def InspectProduct {
+        in item product : Nanoproduct;
+        out attribute passedInspection : Boolean;
+    }
+
+    action def FabricateNanoproduct {
+        in item recipe : AssemblyRecipe;
+        in item feedstock : FeedstockMolecule;
+        out item product : Nanoproduct;
+
+        action validate : ValidateRecipe;
+        action sort : SortFeedstock;
+        action position : PositionToolTip;
+        action place : PlaceAtomOrMolecule;
+        action inspect : InspectProduct;
+
+        flow recipe to validate.recipe;
+        flow feedstock to sort.rawMolecule;
+        flow sort.acceptedMolecule to place.molecule;
+        flow recipe to product.productName;
+    }
+
+    state def NanofabricatorStateMachine {
+        state Off;
+        state Standby;
+        state PumpDown;
+        state ThermalStabilization;
+        state RecipeLoaded;
+        state Fabricating;
+        state Inspecting;
+        state ProductReady;
+        state Fault;
+
+        transition initial then Off;
+        transition Off then Standby;
+        transition Standby then PumpDown;
+        transition PumpDown then ThermalStabilization;
+        transition ThermalStabilization then RecipeLoaded;
+        transition RecipeLoaded then Fabricating;
+        transition Fabricating then Inspecting;
+        transition Inspecting then ProductReady;
+        transition ProductReady then Standby;
+        transition Standby then Fault;
+        transition PumpDown then Fault;
+        transition ThermalStabilization then Fault;
+        transition Fabricating then Fault;
+        transition Inspecting then Fault;
+        transition Fault then Standby;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The molecular nanotechnology system shall position and bond selected molecules with nanometer-scale precision to fabricate a specified nanoproduct from purified molecular feedstock.";
+        subject fabricator : MolecularNanofabricator;
+
+        require constraint {
+            fabricator.nominalPlacementAccuracy_nm <= 0.1
+        }
+
+        require constraint {
+            fabricator.nominalDefectRate_percent <= 0.01
+        }
+    }
+
+    requirement def VacuumCleanlinessRequirement {
+        subject chamber : VacuumReactionChamber;
+
+        require constraint {
+            chamber.internalPressure_Pa <= 0.000001
+        }
+
+        require constraint {
+            chamber.contaminationLevel_ppm <= 1.0
+        }
+    }
+
+    requirement def ThermalStabilityRequirement {
+        subject controller : ThermalController;
+
+        require constraint {
+            controller.stability_K <= 0.05
+        }
+    }
+
+    requirement def ThroughputRequirement {
+        subject fabricator : MolecularNanofabricator;
+
+        require constraint {
+            fabricator.nominalAtomPlacementsPerSecond >= 1000000
+        }
+    }
+
+    part def MolecularNanofabricator {
+        port feedstockIn : FeedstockInputPort;
+        port productOut : ProductOutputPort;
+        port recipeIn : CommandPort;
+        port telemetryOut : TelemetryPort;
+        port vacuumService : VacuumServicePort;
+        port thermalService : ThermalServicePort;
+
+        attribute primaryFunction : String = "Atomically precise fabrication of nanoscale products from purified molecular feedstock.";
+        attribute nominalPlacementAccuracy_nm : Nanometer = 0.1;
+        attribute nominalDefectRate_percent : Percent = 0.01;
+        attribute nominalAtomPlacementsPerSecond : Real = 1000000.0;
+        attribute maximumProductFeatureSize_nm : Nanometer = 500.0;
+
+        part reservoir : MolecularFeedstockReservoir {
+            attribute storedMoleculeCount = 500000000;
+            attribute flowRate_moleculesPerSecond = 2000000.0;
+            attribute purity_percent = 99.999;
+        }
+
+        part sorter : MolecularSorter {
+            attribute massResolution_Da = 0.01;
+            attribute sortingEfficiency_percent = 99.99;
+        }
+
+        part chamber : VacuumReactionChamber {
+            attribute internalPressure_Pa = 0.0000005;
+            attribute contaminationLevel_ppm = 0.5;
+            attribute workingVolume_cm3 = 12.0;
+        }
+
+        part manipulator : ScanningProbeManipulator {
+            attribute positioningResolution_nm = 0.05;
+            attribute maximumTipForce_pN = 500.0;
+            attribute activeTipCount = 16;
+        }
+
+        part toolTip : MechanosyntheticToolTip {
+            attribute reactiveSiteCount = 4;
+            attribute tipRadius_nm = 2.0;
+            attribute placementAccuracy_nm = 0.1;
+            attribute wearLevel_percent = 2.0;
+        }
+
+        part forceSensor : AtomicForceSensor {
+            attribute forceNoise_pN = 0.5;
+            attribute bandwidth_Hz = 50000.0;
+            attribute calibrationAge_hr = 1.0;
+        }
+
+        part thermalController : ThermalController {
+            attribute setPoint_K = 298.15;
+            attribute stability_K = 0.02;
+            attribute coolingCapacity_W = 150.0;
+        }
+
+        part controller : ControlComputer {
+            attribute controlLoopFrequency_Hz = 100000.0;
+            attribute recipeValidationEnabled = true;
+            attribute faultToleranceLevel = 2;
+        }
+
+        connection feedstockSupply connect feedstockIn to reservoir.output;
+        connection reservoirToSorter connect reservoir.output to sorter.input;
+        connection sorterToChamber connect sorter.acceptedOutput to chamber.feedstockInput;
+        connection chamberProduct connect chamber.productOutput to productOut;
+        connection recipeToController connect recipeIn to controller.commandOutput;
+        connection controllerToManipulator connect controller.commandOutput to manipulator.commandInput;
+        connection manipulatorToTip connect manipulator.commandInput to toolTip.commandInput;
+        connection tipTelemetry connect toolTip.telemetryOutput to controller.telemetryInput;
+        connection forceTelemetry connect forceSensor.telemetryOutput to controller.telemetryInput;
+        connection systemTelemetry connect controller.telemetryInput to telemetryOut;
+        connection vacuumInterface connect vacuumService to chamber.vacuumService;
+        connection thermalInterface connect thermalService to thermalController.thermalService;
+        connection chamberThermal connect thermalController.thermalService to chamber.thermalService;
+
+        perform action fabrication : FabricateNanoproduct;
+        exhibit state behavior : NanofabricatorStateMachine;
+
+        satisfy PrimaryFunctionRequirement by this;
+        satisfy ThroughputRequirement by this;
+        satisfy VacuumCleanlinessRequirement by chamber;
+        satisfy ThermalStabilityRequirement by thermalController;
+    }
+
+    part molecularNanotechnologySystem : MolecularNanofabricator;
+
+}

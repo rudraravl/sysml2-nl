@@ -1,0 +1,575 @@
+package CEBusHomeAutomationSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Voltage {
+        :> scalarValues::Real;
+        unit = "V";
+    }
+
+    attribute def Current {
+        :> scalarValues::Real;
+        unit = "A";
+    }
+
+    attribute def Power {
+        :> scalarValues::Real;
+        unit = "W";
+    }
+
+    attribute def Frequency {
+        :> scalarValues::Real;
+        unit = "Hz";
+    }
+
+    attribute def DataRate {
+        :> scalarValues::Real;
+        unit = "bps";
+    }
+
+    attribute def TimeDuration {
+        :> scalarValues::Real;
+        unit = "ms";
+    }
+
+    attribute def Address {
+        :> scalarValues::String;
+    }
+
+    attribute def MessageIdentifier {
+        :> scalarValues::String;
+    }
+
+    enum def CEBusMediumKind {
+        enum powerLine;
+        enum twistedPair;
+        enum coaxialCable;
+        enum infrared;
+        enum radioFrequency;
+    }
+
+    enum def DeviceRoleKind {
+        enum controller;
+        enum actuator;
+        enum sensor;
+        enum gateway;
+        enum repeater;
+    }
+
+    enum def MessagePriorityKind {
+        enum emergency;
+        enum high;
+        enum normal;
+        enum low;
+    }
+
+    enum def DeviceCommandKind {
+        enum discover;
+        enum statusRequest;
+        enum statusReport;
+        enum turnOn;
+        enum turnOff;
+        enum setLevel;
+        enum setTemperature;
+        enum acknowledge;
+        enum negativeAcknowledge;
+        enum diagnosticReport;
+    }
+
+    enum def DeviceStateKind {
+        enum unavailable;
+        enum idle;
+        enum receiving;
+        enum transmitting;
+        enum executingCommand;
+        enum faulted;
+    }
+
+    item def CEBusFrame {
+        attribute frameId : MessageIdentifier;
+        attribute sourceAddress : Address;
+        attribute destinationAddress : Address;
+        attribute priority : MessagePriorityKind;
+        attribute command : DeviceCommandKind;
+        attribute payloadLength : scalarValues::Integer;
+        attribute cyclicRedundancyCheck : scalarValues::Integer;
+    }
+
+    item def CEBusPayload {
+        attribute parameterName : scalarValues::String;
+        attribute numericValue : scalarValues::Real;
+        attribute textValue : scalarValues::String;
+    }
+
+    item def PowerLineSignal {
+        attribute carrierFrequency : Frequency = 100000.0;
+        attribute nominalSignalVoltage : Voltage = 5.0;
+        attribute dataRate : DataRate = 10000.0;
+    }
+
+    item def DeviceStatus {
+        attribute address : Address;
+        attribute role : DeviceRoleKind;
+        attribute operatingState : DeviceStateKind;
+        attribute availablePower : Power;
+        attribute lastResponseAge : TimeDuration;
+    }
+
+    port def CEBusNetworkPort {
+        in item receivedFrame : CEBusFrame;
+        out item transmittedFrame : CEBusFrame;
+        in item receivedPayload : CEBusPayload;
+        out item transmittedPayload : CEBusPayload;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Voltage;
+        in attribute supplyCurrent : Current;
+        out attribute consumedPower : Power;
+    }
+
+    port def UserControlPort {
+        in item requestedCommand : CEBusPayload;
+        out item displayedStatus : DeviceStatus;
+    }
+
+    port def SensorPort {
+        out item sensedStatus : DeviceStatus;
+    }
+
+    port def ActuatorPort {
+        in item actuationCommand : CEBusPayload;
+        out item actuationStatus : DeviceStatus;
+    }
+
+    action def EncodeCEBusCommand {
+        in source : Address;
+        in destination : Address;
+        in command : DeviceCommandKind;
+        in priority : MessagePriorityKind;
+        in payload : CEBusPayload;
+        out frame : CEBusFrame;
+
+        first start;
+        then assignHeader;
+        then attachPayload;
+        then computeCrc;
+        then done;
+
+        action assignHeader;
+        action attachPayload;
+        action computeCrc;
+    }
+
+    action def DecodeCEBusFrame {
+        in frame : CEBusFrame;
+        out command : DeviceCommandKind;
+        out source : Address;
+        out payload : CEBusPayload;
+        out valid : scalarValues::Boolean;
+
+        first receiveFrame;
+        then validateCrc;
+        then extractCommand;
+        then publishDecodedCommand;
+        then done;
+
+        action receiveFrame;
+        action validateCrc;
+        action extractCommand;
+        action publishDecodedCommand;
+    }
+
+    action def ArbitrateSharedMedium {
+        in requestedFrame : CEBusFrame;
+        in mediumBusy : scalarValues::Boolean;
+        out transmissionGranted : scalarValues::Boolean;
+
+        first senseMedium;
+        then comparePriority;
+        then waitForAvailableSlot;
+        then grantOrDefer;
+        then done;
+
+        action senseMedium;
+        action comparePriority;
+        action waitForAvailableSlot;
+        action grantOrDefer;
+    }
+
+    action def ExecuteDeviceCommand {
+        in command : DeviceCommandKind;
+        in payload : CEBusPayload;
+        out status : DeviceStatus;
+
+        first interpretCommand;
+        then applyLocalFunction;
+        then verifyResult;
+        then reportStatus;
+        then done;
+
+        action interpretCommand;
+        action applyLocalFunction;
+        action verifyResult;
+        action reportStatus;
+    }
+
+    state def CEBusDeviceLifecycle {
+        entry action initializeDevice;
+
+        state initializing;
+        state idle;
+        state receivingFrame;
+        state validatingFrame;
+        state executingCommand;
+        state transmittingResponse;
+        state faulted;
+
+        first initializing;
+
+        transition initializing_to_idle
+            first initializing
+            then idle;
+
+        transition idle_to_receiving
+            first idle
+            accept CEBusFrame
+            then receivingFrame;
+
+        transition receiving_to_validating
+            first receivingFrame
+            then validatingFrame;
+
+        transition valid_to_executing
+            first validatingFrame
+            if validFrame
+            then executingCommand;
+
+        transition invalid_to_idle
+            first validatingFrame
+            if invalidFrame
+            then idle;
+
+        transition executing_to_transmitting
+            first executingCommand
+            then transmittingResponse;
+
+        transition transmitting_to_idle
+            first transmittingResponse
+            then idle;
+
+        transition any_to_faulted
+            first idle
+            if unrecoverableCommunicationError
+            then faulted;
+
+        transition faulted_to_initializing
+            first faulted
+            accept resetDevice
+            then initializing;
+    }
+
+    part def CEBusMedium {
+        attribute mediumKind : CEBusMediumKind;
+        attribute nominalCarrierFrequency : Frequency;
+        attribute maximumDataRate : DataRate;
+        attribute maximumPropagationDelay : TimeDuration;
+        attribute busVoltage : Voltage;
+
+        port nodeA : CEBusNetworkPort;
+        port nodeB : CEBusNetworkPort;
+        port nodeC : CEBusNetworkPort;
+        port nodeD : CEBusNetworkPort;
+        port nodeE : CEBusNetworkPort;
+
+        item signal : PowerLineSignal;
+    }
+
+    part def CEBusTransceiver {
+        attribute localAddress : Address;
+        attribute receiverSensitivity : Voltage = 0.025;
+        attribute transmitSignalVoltage : Voltage = 5.0;
+        attribute supportedDataRate : DataRate = 10000.0;
+        attribute currentState : DeviceStateKind;
+
+        port bus : CEBusNetworkPort;
+        port device : CEBusNetworkPort;
+        port power : PowerPort;
+
+        perform action encode : EncodeCEBusCommand;
+        perform action decode : DecodeCEBusFrame;
+        perform action arbitrate : ArbitrateSharedMedium;
+        exhibit state lifecycle : CEBusDeviceLifecycle;
+    }
+
+    part def HomeController {
+        attribute deviceAddress : Address = "01.00.00.01";
+        attribute role : DeviceRoleKind = DeviceRoleKind::controller;
+        attribute standbyPower : Power = 3.0;
+        attribute activePower : Power = 7.5;
+
+        port user : UserControlPort;
+        port cebus : CEBusNetworkPort;
+        port power : PowerPort;
+
+        perform action encodeCommand : EncodeCEBusCommand;
+        perform action decodeStatus : DecodeCEBusFrame;
+    }
+
+    part def LightingActuator {
+        attribute deviceAddress : Address = "01.00.10.01";
+        attribute role : DeviceRoleKind = DeviceRoleKind::actuator;
+        attribute lampPowerRating : Power = 60.0;
+        attribute presentLevel : scalarValues::Integer = 0;
+        attribute standbyPower : Power = 1.2;
+
+        port cebus : CEBusNetworkPort;
+        port loadControl : ActuatorPort;
+        port power : PowerPort;
+
+        perform action executeLightingCommand : ExecuteDeviceCommand;
+        exhibit state lifecycle : CEBusDeviceLifecycle;
+    }
+
+    part def ThermostatSensor {
+        attribute deviceAddress : Address = "01.00.20.01";
+        attribute role : DeviceRoleKind = DeviceRoleKind::sensor;
+        attribute samplePeriod : TimeDuration = 1000.0;
+        attribute standbyPower : Power = 0.8;
+
+        port cebus : CEBusNetworkPort;
+        port sensor : SensorPort;
+        port power : PowerPort;
+
+        perform action publishTemperatureStatus : EncodeCEBusCommand;
+        exhibit state lifecycle : CEBusDeviceLifecycle;
+    }
+
+    part def HvacActuator {
+        attribute deviceAddress : Address = "01.00.30.01";
+        attribute role : DeviceRoleKind = DeviceRoleKind::actuator;
+        attribute compressorPowerRating : Power = 2500.0;
+        attribute fanPowerRating : Power = 450.0;
+        attribute standbyPower : Power = 2.5;
+
+        port cebus : CEBusNetworkPort;
+        port actuator : ActuatorPort;
+        port power : PowerPort;
+
+        perform action executeHvacCommand : ExecuteDeviceCommand;
+        exhibit state lifecycle : CEBusDeviceLifecycle;
+    }
+
+    part def ExternalGateway {
+        attribute deviceAddress : Address = "01.00.F0.01";
+        attribute role : DeviceRoleKind = DeviceRoleKind::gateway;
+        attribute standbyPower : Power = 4.0;
+        attribute activePower : Power = 12.0;
+
+        port cebus : CEBusNetworkPort;
+        port user : UserControlPort;
+        port power : PowerPort;
+
+        perform action translateUserRequest : EncodeCEBusCommand;
+        perform action translateDeviceStatus : DecodeCEBusFrame;
+    }
+
+    part def CEBusBasedHomeAutomationSystem {
+        attribute systemName : scalarValues::String = "CEBus Residential Control Network";
+        attribute primaryFunction : scalarValues::String =
+            "Coordinate residential devices over a shared Consumer Electronics Bus by transporting addressed control, status, discovery, and diagnostic messages between controllers, sensors, actuators, and gateways.";
+        attribute nominalMainsVoltage : Voltage = 120.0;
+        attribute nominalBusCarrierFrequency : Frequency = 100000.0;
+        attribute nominalNetworkDataRate : DataRate = 10000.0;
+        attribute maximumCommandLatency : TimeDuration = 500.0;
+
+        part medium : CEBusMedium {
+            attribute mediumKind = CEBusMediumKind::powerLine;
+            attribute nominalCarrierFrequency = 100000.0;
+            attribute maximumDataRate = 10000.0;
+            attribute maximumPropagationDelay = 25.0;
+            attribute busVoltage = 120.0;
+        }
+
+        part controllerTransceiver : CEBusTransceiver {
+            attribute localAddress = "01.00.00.01";
+        }
+
+        part lightTransceiver : CEBusTransceiver {
+            attribute localAddress = "01.00.10.01";
+        }
+
+        part thermostatTransceiver : CEBusTransceiver {
+            attribute localAddress = "01.00.20.01";
+        }
+
+        part hvacTransceiver : CEBusTransceiver {
+            attribute localAddress = "01.00.30.01";
+        }
+
+        part gatewayTransceiver : CEBusTransceiver {
+            attribute localAddress = "01.00.F0.01";
+        }
+
+        part controller : HomeController;
+        part lighting : LightingActuator;
+        part thermostat : ThermostatSensor;
+        part hvac : HvacActuator;
+        part gateway : ExternalGateway;
+
+        connect controller.cebus to controllerTransceiver.device;
+        connect controllerTransceiver.bus to medium.nodeA;
+
+        connect lighting.cebus to lightTransceiver.device;
+        connect lightTransceiver.bus to medium.nodeB;
+
+        connect thermostat.cebus to thermostatTransceiver.device;
+        connect thermostatTransceiver.bus to medium.nodeC;
+
+        connect hvac.cebus to hvacTransceiver.device;
+        connect hvacTransceiver.bus to medium.nodeD;
+
+        connect gateway.cebus to gatewayTransceiver.device;
+        connect gatewayTransceiver.bus to medium.nodeE;
+
+        flow of CEBusFrame
+            from controller.cebus.transmittedFrame
+            to controllerTransceiver.device.receivedFrame;
+
+        flow of CEBusFrame
+            from controllerTransceiver.bus.transmittedFrame
+            to medium.nodeA.receivedFrame;
+
+        flow of CEBusFrame
+            from medium.nodeB.transmittedFrame
+            to lightTransceiver.bus.receivedFrame;
+
+        flow of CEBusFrame
+            from lightTransceiver.device.transmittedFrame
+            to lighting.cebus.receivedFrame;
+
+        flow of CEBusFrame
+            from medium.nodeC.transmittedFrame
+            to thermostatTransceiver.bus.receivedFrame;
+
+        flow of CEBusFrame
+            from thermostatTransceiver.device.transmittedFrame
+            to thermostat.cebus.receivedFrame;
+
+        flow of CEBusFrame
+            from medium.nodeD.transmittedFrame
+            to hvacTransceiver.bus.receivedFrame;
+
+        flow of CEBusFrame
+            from hvacTransceiver.device.transmittedFrame
+            to hvac.cebus.receivedFrame;
+
+        flow of CEBusFrame
+            from gateway.cebus.transmittedFrame
+            to gatewayTransceiver.device.receivedFrame;
+
+        flow of CEBusFrame
+            from gatewayTransceiver.bus.transmittedFrame
+            to medium.nodeE.receivedFrame;
+    }
+
+    requirement def AddressedControlRequirement {
+        doc
+            /* The system shall deliver addressed CEBus control messages from any authorized controller or gateway to the selected residential device. */
+
+        attribute maximumDeliveryLatency : TimeDuration = 500.0;
+
+        require constraint {
+            maximumDeliveryLatency <= 500.0
+        }
+    }
+
+    requirement def SharedMediumArbitrationRequirement {
+        doc
+            /* The system shall arbitrate access to the shared CEBus medium so that higher priority messages are transmitted before lower priority messages when contention is detected. */
+
+        require constraint {
+            MessagePriorityKind::emergency != MessagePriorityKind::low
+        }
+    }
+
+    requirement def StatusReportingRequirement {
+        doc
+            /* Each controlled device shall transmit an acknowledgement or status report after executing a valid CEBus command. */
+
+        attribute maximumStatusAge : TimeDuration = 1000.0;
+
+        require constraint {
+            maximumStatusAge <= 1000.0
+        }
+    }
+
+    requirement def DiscoveryRequirement {
+        doc
+            /* The controller shall discover CEBus devices by sending a discovery command and recording the address, role, and operating state reported by each responding device. */
+    }
+
+    requirement def PowerLineCarrierRequirement {
+        doc
+            /* The power-line CEBus medium shall support command and status traffic while sharing the residential mains wiring with normal electrical loads. */
+
+        attribute requiredCarrierFrequency : Frequency = 100000.0;
+        attribute minimumDataRate : DataRate = 10000.0;
+
+        require constraint {
+            requiredCarrierFrequency == 100000.0
+        }
+
+        require constraint {
+            minimumDataRate >= 10000.0
+        }
+    }
+
+    requirement def FaultContainmentRequirement {
+        doc
+            /* A faulted CEBus device shall stop transmitting normal traffic, retain its address, and resume participation only after reset or recovery. */
+    }
+
+    satisfy AddressedControlRequirement by CEBusBasedHomeAutomationSystem;
+    satisfy SharedMediumArbitrationRequirement by CEBusTransceiver;
+    satisfy StatusReportingRequirement by LightingActuator;
+    satisfy StatusReportingRequirement by ThermostatSensor;
+    satisfy StatusReportingRequirement by HvacActuator;
+    satisfy DiscoveryRequirement by HomeController;
+    satisfy PowerLineCarrierRequirement by CEBusMedium;
+    satisfy FaultContainmentRequirement by CEBusDeviceLifecycle;
+
+    analysis action def HighLevelPrimaryFunctionScenario {
+        subject system : CEBusBasedHomeAutomationSystem;
+
+        in userRequestedLightingLevel : scalarValues::Integer;
+        out lightingStatus : DeviceStatus;
+        out hvacStatus : DeviceStatus;
+
+        first acceptUserCommand;
+        then encodeLightingCommand;
+        then arbitrateBusAccess;
+        then transmitOverPowerLine;
+        then receiveAtLightingActuator;
+        then executeLightingCommand;
+        then transmitLightingStatus;
+        then receiveLightingStatusAtController;
+        then monitorThermostatStatus;
+        then adjustHvacIfNeeded;
+        then done;
+
+        action acceptUserCommand;
+        action encodeLightingCommand;
+        action arbitrateBusAccess;
+        action transmitOverPowerLine;
+        action receiveAtLightingActuator;
+        action executeLightingCommand;
+        action transmitLightingStatus;
+        action receiveLightingStatusAtController;
+        action monitorThermostatStatus;
+        action adjustHvacIfNeeded;
+    }
+
+}

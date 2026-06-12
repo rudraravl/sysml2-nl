@@ -1,0 +1,1187 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-pp5q2kwx
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6fd-a3eb-7180-a6a6-da23165be482
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Nanorobotics and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package NanoroboticsSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    /* Units and Quantities */
+
+    attribute def Concentration {
+        :> ScalarValues::Real;
+        unit = "mol/m^3";
+    }
+
+    attribute def Dose {
+        :> ScalarValues::Real;
+        unit = "ng";
+    }
+
+    attribute def NanometerLength {
+        :> ScalarValues::Real;
+        unit = "nm";
+    }
+
+    attribute def MicrometerLength {
+        :> ScalarValues::Real;
+        unit = "um";
+    }
+
+    attribute def Velocity {
+        :> ScalarValues::Real;
+        unit = "um/s";
+    }
+
+    attribute def MagneticFluxDensity {
+        :> ScalarValues::Real;
+        unit = "mT";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "nW";
+    }
+
+    attribute def ElectricPotential {
+        :> ScalarValues::Real;
+        unit = "mV";
+    }
+
+    attribute def Probability {
+        :> ScalarValues::Real;
+        unit = "1";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    /* Data and Item Types */
+
+    item def BloodPlasma {
+        attribute glucoseConcentration : Concentration;
+        attribute oxygenConcentration : Concentration;
+        attribute pH : ScalarValues::Real;
+        attribute temperature : Temperature;
+    }
+
+    item def BiomarkerSample {
+        attribute tumorMarkerConcentration : Concentration;
+        attribute inflammatoryMarkerConcentration : Concentration;
+        attribute localPH : ScalarValues::Real;
+        attribute confidence : Probability;
+    }
+
+    item def NavigationCommand {
+        attribute targetX : MicrometerLength;
+        attribute targetY : MicrometerLength;
+        attribute targetZ : MicrometerLength;
+        attribute magneticFieldVectorX : MagneticFluxDensity;
+        attribute magneticFieldVectorY : MagneticFluxDensity;
+        attribute magneticFieldVectorZ : MagneticFluxDensity;
+        attribute commandedSpeed : Velocity;
+    }
+
+    item def TelemetryPacket {
+        attribute robotIdentifier : ScalarValues::Integer;
+        attribute batteryPotential : ElectricPotential;
+        attribute payloadRemaining : Dose;
+        attribute positionX : MicrometerLength;
+        attribute positionY : MicrometerLength;
+        attribute positionZ : MicrometerLength;
+        attribute detectedBiomarkerLevel : Concentration;
+        attribute faultCode : ScalarValues::Integer;
+    }
+
+    item def TherapeuticPayload {
+        attribute activeDrugMass : Dose;
+        attribute encapsulationIntegrity : Probability;
+        attribute releaseRate : Dose;
+    }
+
+    item def MagneticEnergy {
+        attribute fieldStrength : MagneticFluxDensity;
+        attribute absorbedPower : Power;
+    }
+
+    item def AcousticSignal {
+        attribute frequency : ScalarValues::Real;
+        attribute amplitude : ScalarValues::Real;
+        attribute encodedCommand : ScalarValues::Integer;
+    }
+
+    item def WasteProduct {
+        attribute polymerFragmentsMass : Dose;
+        attribute toxicityIndex : ScalarValues::Real;
+    }
+
+    /* Port Definitions */
+
+    port def FluidPort {
+        in item plasma : BloodPlasma;
+        out item waste : WasteProduct;
+    }
+
+    port def PayloadPort {
+        inout item payload : TherapeuticPayload;
+    }
+
+    port def SensorPort {
+        in item plasma : BloodPlasma;
+        out item sample : BiomarkerSample;
+    }
+
+    port def MagneticControlPort {
+        in item command : NavigationCommand;
+        in item energy : MagneticEnergy;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+        in item acousticSignal : AcousticSignal;
+    }
+
+    port def ReleasePort {
+        out item deliveredDrug : TherapeuticPayload;
+    }
+
+    /* Part Definitions */
+
+    part def MolecularSensorArray {
+        attribute detectionLimit : Concentration = 0.02;
+        attribute samplingInterval : ScalarValues::Real = 0.5;
+        attribute falsePositiveProbability : Probability = 0.01;
+
+        port sensingPort : SensorPort;
+
+        action detectBiomarkers {
+            in item incomingPlasma : BloodPlasma;
+            out item biomarkerSample : BiomarkerSample;
+
+            first start;
+            then measureLocalPH;
+            then bindTumorMarkers;
+            then estimateConfidence;
+            then outputSample;
+
+            action measureLocalPH;
+            action bindTumorMarkers;
+            action estimateConfidence;
+            action outputSample;
+        }
+    }
+
+    part def MagneticPropulsionModule {
+        attribute rotorDiameter : NanometerLength = 180.0;
+        attribute maximumSpeed : Velocity = 250.0;
+        attribute minimumSteeringField : MagneticFluxDensity = 3.0;
+        attribute propulsionEfficiency : Probability = 0.72;
+
+        port controlPort : MagneticControlPort;
+        port fluidPort : FluidPort;
+
+        action propelTowardTarget {
+            in item command : NavigationCommand;
+            in item magneticEnergy : MagneticEnergy;
+            out attribute actualSpeed : Velocity;
+
+            first alignMagneticMoment;
+            then rotateHelicalTail;
+            then compensateForFlow;
+            then updateDisplacement;
+
+            action alignMagneticMoment;
+            action rotateHelicalTail;
+            action compensateForFlow;
+            action updateDisplacement;
+        }
+    }
+
+    part def DrugReservoir {
+        attribute reservoirCapacity : Dose = 80.0;
+        attribute currentPayloadMass : Dose = 80.0;
+        attribute membraneRuptureThresholdPH : ScalarValues::Real = 6.8;
+        attribute nominalReleaseDose : Dose = 12.0;
+
+        port payloadPort : PayloadPort;
+        port releasePort : ReleasePort;
+
+        action releaseTherapeuticDose {
+            in item biomarkerSample : BiomarkerSample;
+            out item releasedPayload : TherapeuticPayload;
+
+            first verifyTargetSignature;
+            then openStimulusResponsiveValve;
+            then meterDrugMass;
+            then resealReservoir;
+
+            action verifyTargetSignature;
+            action openStimulusResponsiveValve;
+            action meterDrugMass;
+            action resealReservoir;
+        }
+    }
+
+    part def NanoPowerUnit {
+        attribute harvestedPower : Power = 14.0;
+        attribute storagePotential : ElectricPotential = 750.0;
+        attribute minimumOperatingPotential : ElectricPotential = 420.0;
+
+        port fluidPort : FluidPort;
+        port energyInputPort : MagneticControlPort;
+
+        action harvestEnergy {
+            in item plasma : BloodPlasma;
+            in item magneticEnergy : MagneticEnergy;
+            out attribute availablePower : Power;
+
+            first oxidizeGlucose;
+            then convertMagneticInduction;
+            then regulatePotential;
+            then distributePower;
+
+            action oxidizeGlucose;
+            action convertMagneticInduction;
+            action regulatePotential;
+            action distributePower;
+        }
+    }
+
+    part def BiocompatibleShell {
+        attribute outerDiameter : NanometerLength = 950.0;
+        attribute shellThickness : NanometerLength = 35.0;
+        attribute surfaceCharge : ElectricPotential = -12.0;
+        attribute immuneEvasionProbability : Probability = 0.96;
+        attribute biodegradationHalfLife : ScalarValues::Real = 48.0;
+
+        port fluidPort : FluidPort;
+
+        action protectInternalSubsystems {
+            first maintainHydrophilicCoating;
+            then suppressProteinAdsorption;
+            then filterLargeMolecules;
+
+            action maintainHydrophilicCoating;
+            action suppressProteinAdsorption;
+            action filterLargeMolecules;
+        }
+    }
+
+    part def OnboardController {
+        attribute processorClockRate : ScalarValues::Real = 12.0;
+        attribute targetConfidenceThreshold : Probability = 0.92;
+        attribute maximumAllowedTemperature : Temperature = 39.0;
+        attribute missionAbortFaultCode : ScalarValues::Integer = 99;
+
+        port sensorPort : SensorPort;
+        port controlPort : MagneticControlPort;
+        port telemetryPort : TelemetryPort;
+        port payloadPort : PayloadPort;
+
+        action decideMissionStep {
+            in item biomarkerSample : BiomarkerSample;
+            in item command : NavigationCommand;
+            out item telemetry : TelemetryPacket;
+
+            first validatePowerMargin;
+            then classifyLocalTissue;
+            then chooseNavigateOrTreat;
+            then publishTelemetry;
+
+            action validatePowerMargin;
+            action classifyLocalTissue;
+            action chooseNavigateOrTreat;
+            action publishTelemetry;
+        }
+
+        state missionStateMachine {
+            entry action initializeMission;
+
+            state Dormant;
+            state Circulating;
+            state Navigating;
+            state TargetAssessing;
+            state Treating;
+            state Reporting;
+            state Degrading;
+            state Faulted;
+
+            transition first Dormant
+                then Circulating;
+
+            transition Circulating
+                first accept commandReceived
+                then Navigating;
+
+            transition Navigating
+                first accept localBiomarkerRise
+                then TargetAssessing;
+
+            transition TargetAssessing
+                first accept targetConfirmed
+                then Treating;
+
+            transition TargetAssessing
+                first accept targetRejected
+                then Navigating;
+
+            transition Treating
+                first accept doseDelivered
+                then Reporting;
+
+            transition Reporting
+                first accept missionComplete
+                then Degrading;
+
+            transition Circulating
+                first accept criticalFault
+                then Faulted;
+
+            transition Navigating
+                first accept criticalFault
+                then Faulted;
+
+            transition Treating
+                first accept criticalFault
+                then Faulted;
+        }
+    }
+
+    part def ExternalMagneticGuidanceStation {
+        attribute maximumFieldStrength : MagneticFluxDensity = 45.0;
+        attribute positioningResolution : MicrometerLength = 5.0;
+        attribute commandUpdateRate : ScalarValues::Real = 20.0;
+
+        port guidancePort : MagneticControlPort;
+        port telemetryPort : TelemetryPort;
+
+        action guideNanorobot {
+            in item telemetry : TelemetryPacket;
+            out item command : NavigationCommand;
+            out item magneticEnergy : MagneticEnergy;
+
+            first reconstructRobotPosition;
+            then calculateFieldVector;
+            then applyRotatingField;
+            then monitorTelemetryResponse;
+
+            action reconstructRobotPosition;
+            action calculateFieldVector;
+            action applyRotatingField;
+            action monitorTelemetryResponse;
+        }
+    }
+
+    part def TherapeuticNanorobot {
+        attribute identifier : ScalarValues::Integer;
+        attribute nominalDiameter : NanometerLength = 950.0;
+        attribute dryMass : Dose = 6.5;
+        attribute maximumPayload : Dose = 80.0;
+        attribute operatingTemperatureLimit : Temperature = 39.0;
+        attribute targetDetectionConfidence : Probability = 0.92;
+
+        port fluidInterface : FluidPort;
+        port magneticInterface : MagneticControlPort;
+        port telemetryInterface : TelemetryPort;
+        port drugReleaseInterface : ReleasePort;
+
+        part shell : BiocompatibleShell;
+        part propulsion : MagneticPropulsionModule;
+        part sensors : MolecularSensorArray;
+        part reservoir : DrugReservoir;
+        part powerUnit : NanoPowerUnit;
+        part controller : OnboardController;
+
+        connect fluidInterface to shell.fluidPort;
+        connect fluidInterface to propulsion.fluidPort;
+        connect fluidInterface to powerUnit.fluidPort;
+        connect magneticInterface to propulsion.controlPort;
+        connect magneticInterface to powerUnit.energyInputPort;
+        connect magneticInterface to controller.controlPort;
+        connect telemetryInterface to controller.telemetryPort;
+        connect sensors.sensingPort to controller.sensorPort;
+        connect reservoir.payloadPort to controller.payloadPort;
+        connect reservoir.releasePort to drugReleaseInterface;
+
+        action performPrimaryFunction {
+            objective "Navigate through biological fluid, identify diseased tissue using molecular biomarkers, and release a controlled therapeutic payload only when the target signature is confirmed.";
+
+            first circulateInBloodstream;
+            then receiveMagneticGuidance;
+            then senseLocalBiomarkers;
+            then classifyTarget;
+            then releaseDoseIfConfirmed;
+            then reportTreatmentStatus;
+            then biodegradeAfterMission;
+
+            action circulateInBloodstream;
+            action receiveMagneticGuidance;
+            action senseLocalBiomarkers;
+            action classifyTarget;
+            action releaseDoseIfConfirmed;
+            action reportTreatmentStatus;
+            action biodegradeAfterMission;
+        }
+    }
+
+    part def NanoroboticTherapySystem {
+        attribute treatmentVolume : ScalarValues::Real = 5.0;
+        attribute swarmSize : ScalarValues::Integer = 1000000;
+        attribute intendedMissionDuration : ScalarValues::Real = 6.0;
+        attribute maximumSystemicDose : Dose = 80000000.0;
+
+        part guidanceStation : ExternalMagneticGuidanceStation;
+        part robotSwarm : TherapeuticNanorobot[1000000];
+
+        port patientFluidInterface : FluidPort;
+        port clinicianTelemetryInterface : TelemetryPort;
+
+        connect patientFluidInterface to robotSwarm.fluidInterface;
+        connect guidanceStation.guidancePort to robotSwarm.magneticInterface;
+        connect guidanceStation.telemetryPort to robotSwarm.telemetryInterface;
+        connect clinicianTelemetryInterface to guidanceStation.telemetryPort;
+
+        action executeTherapyMission {
+            first initializeGuidanceField;
+            then disperseRobotSwarm;
+            then navigateTowardTargetRegion;
+            then identifyDiseasedMicroenvironment;
+            then deliverTherapeuticPayload;
+            then verifyDoseDistribution;
+            then commandSafeDegradation;
+
+            action initializeGuidanceField;
+            action disperseRobotSwarm;
+            action navigateTowardTargetRegion;
+            action identifyDiseasedMicroenvironment;
+            action deliverTherapeuticPayload;
+            action verifyDoseDistribution;
+            action commandSafeDegradation;
+        }
+    }
+
+    /* Requirements */
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The nanorobotic therapy system shall provide targeted microscale therapy by navigating nanorobots through biological fluid, detecting disease-associated molecular biomarkers, and releasing a controlled drug payload at confirmed target tissue.";
+    }
+
+    requirement def SizeRequirement {
+        doc "Each therapeutic nanorobot shall have an outer diameter less than or equal to 1000 nm to permit circulation through capillary-scale biological pathways.";
+        require constraint { robotDiameter <= 1000.0 }
+    }
+
+    requirement def TargetingRequirement {
+        doc "The nanorobot shall release therapeutic payload only when the detected target confidence is greater than or equal to 0.92.";
+        require constraint { targetConfidence >= 0.92 }
+    }
+
+    requirement def DoseControlRequirement {
+        doc "Each release event shall deliver no more than 12 ng of active therapeutic payload.";
+        require constraint { releaseDose <= 12.0 }
+    }
+
+    requirement def NavigationRequirement {
+        doc "The propulsion module shall support controlled motion of at least 100 um/s in blood plasma under external magnetic guidance.";
+        require constraint { controlledSpeed >= 100.0 }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        doc "The shell shall maintain immune evasion probability of at least 0.95 during the active mission interval.";
+        require constraint { immuneEvasionProbability >= 0.95 }
+    }
+
+    requirement def SafetyRequirement {
+        doc "The nanorobot shall enter a faulted or degrading state if operating temperature exceeds 39 degC, payload containment is compromised, or telemetry reports a critical fault.";
+    }
+
+    requirement def TelemetryRequirement {
+        doc "The nanorobot shall report position estimate, payload remaining, detected biomarker level, power state, and fault code during active operation.";
+    }
+
+    requirement def DegradationRequirement {
+        doc "After mission completion, the shell and residual structures shall biodegrade into waste products with toxicity index below clinically acceptable limits.";
+        require constraint { toxicityIndex < 1.0 }
+    }
+
+    satisfy PrimaryFunctionRequirement by NanoroboticTherapySystem;
+    satisfy SizeRequirement by TherapeuticNanorobot;
+    satisfy TargetingRequirement by OnboardController;
+    satisfy DoseControlRequirement by DrugReservoir;
+    satisfy NavigationRequirement by MagneticPropulsionModule;
+    satisfy BiocompatibilityRequirement by BiocompatibleShell;
+    satisfy SafetyRequirement by OnboardController;
+    satisfy TelemetryRequirement by OnboardController;
+    satisfy DegradationRequirement by BiocompatibleShell;
+
+    /* Analysis Constraints */
+
+    constraint def TargetConfirmationConstraint {
+        in attribute marker : Concentration;
+        in attribute confidence : Probability;
+        in attribute threshold : Probability;
+        confidence >= threshold;
+    }
+
+    constraint def PayloadReleaseConstraint {
+        in attribute requestedDose : Dose;
+        in attribute availableDose : Dose;
+        in attribute maximumDose : Dose;
+        requestedDose <= availableDose and requestedDose <= maximumDose;
+    }
+
+    constraint def ThermalSafetyConstraint {
+        in attribute localTemperature : Temperature;
+        in attribute limit : Temperature;
+        localTemperature <= limit;
+    }
+
+    constraint def MissionEnergyConstraint {
+        in attribute availablePower : Power;
+        in attribute propulsionPower : Power;
+        in attribute sensingPower : Power;
+        in attribute controllerPower : Power;
+        availablePower >= propulsionPower + sensingPower + controllerPower;
+    }
+
+    /* Use Case */
+
+    use case def TargetedDrugDelivery {
+        subject therapySystem : NanoroboticTherapySystem;
+
+        objective "Provide minimally invasive targeted treatment by using magnetically guided nanorobots to locate diseased tissue and deliver therapeutic payload locally.";
+
+        actor clinician;
+        actor patient;
+
+        include use case PrepareSwarm;
+        include use case NavigateInVasculature;
+        include use case ConfirmDiseaseSignature;
+        include use case DeliverPayload;
+        include use case ReportOutcome;
+    }
+
+    use case def PrepareSwarm {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def NavigateInVasculature {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def ConfirmDiseaseSignature {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def DeliverPayload {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def ReportOutcome {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+}
+tokens used
+4,255
+package NanoroboticsSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    /* Units and Quantities */
+
+    attribute def Concentration {
+        :> ScalarValues::Real;
+        unit = "mol/m^3";
+    }
+
+    attribute def Dose {
+        :> ScalarValues::Real;
+        unit = "ng";
+    }
+
+    attribute def NanometerLength {
+        :> ScalarValues::Real;
+        unit = "nm";
+    }
+
+    attribute def MicrometerLength {
+        :> ScalarValues::Real;
+        unit = "um";
+    }
+
+    attribute def Velocity {
+        :> ScalarValues::Real;
+        unit = "um/s";
+    }
+
+    attribute def MagneticFluxDensity {
+        :> ScalarValues::Real;
+        unit = "mT";
+    }
+
+    attribute def Power {
+        :> ScalarValues::Real;
+        unit = "nW";
+    }
+
+    attribute def ElectricPotential {
+        :> ScalarValues::Real;
+        unit = "mV";
+    }
+
+    attribute def Probability {
+        :> ScalarValues::Real;
+        unit = "1";
+    }
+
+    attribute def Temperature {
+        :> ScalarValues::Real;
+        unit = "degC";
+    }
+
+    /* Data and Item Types */
+
+    item def BloodPlasma {
+        attribute glucoseConcentration : Concentration;
+        attribute oxygenConcentration : Concentration;
+        attribute pH : ScalarValues::Real;
+        attribute temperature : Temperature;
+    }
+
+    item def BiomarkerSample {
+        attribute tumorMarkerConcentration : Concentration;
+        attribute inflammatoryMarkerConcentration : Concentration;
+        attribute localPH : ScalarValues::Real;
+        attribute confidence : Probability;
+    }
+
+    item def NavigationCommand {
+        attribute targetX : MicrometerLength;
+        attribute targetY : MicrometerLength;
+        attribute targetZ : MicrometerLength;
+        attribute magneticFieldVectorX : MagneticFluxDensity;
+        attribute magneticFieldVectorY : MagneticFluxDensity;
+        attribute magneticFieldVectorZ : MagneticFluxDensity;
+        attribute commandedSpeed : Velocity;
+    }
+
+    item def TelemetryPacket {
+        attribute robotIdentifier : ScalarValues::Integer;
+        attribute batteryPotential : ElectricPotential;
+        attribute payloadRemaining : Dose;
+        attribute positionX : MicrometerLength;
+        attribute positionY : MicrometerLength;
+        attribute positionZ : MicrometerLength;
+        attribute detectedBiomarkerLevel : Concentration;
+        attribute faultCode : ScalarValues::Integer;
+    }
+
+    item def TherapeuticPayload {
+        attribute activeDrugMass : Dose;
+        attribute encapsulationIntegrity : Probability;
+        attribute releaseRate : Dose;
+    }
+
+    item def MagneticEnergy {
+        attribute fieldStrength : MagneticFluxDensity;
+        attribute absorbedPower : Power;
+    }
+
+    item def AcousticSignal {
+        attribute frequency : ScalarValues::Real;
+        attribute amplitude : ScalarValues::Real;
+        attribute encodedCommand : ScalarValues::Integer;
+    }
+
+    item def WasteProduct {
+        attribute polymerFragmentsMass : Dose;
+        attribute toxicityIndex : ScalarValues::Real;
+    }
+
+    /* Port Definitions */
+
+    port def FluidPort {
+        in item plasma : BloodPlasma;
+        out item waste : WasteProduct;
+    }
+
+    port def PayloadPort {
+        inout item payload : TherapeuticPayload;
+    }
+
+    port def SensorPort {
+        in item plasma : BloodPlasma;
+        out item sample : BiomarkerSample;
+    }
+
+    port def MagneticControlPort {
+        in item command : NavigationCommand;
+        in item energy : MagneticEnergy;
+    }
+
+    port def TelemetryPort {
+        out item telemetry : TelemetryPacket;
+        in item acousticSignal : AcousticSignal;
+    }
+
+    port def ReleasePort {
+        out item deliveredDrug : TherapeuticPayload;
+    }
+
+    /* Part Definitions */
+
+    part def MolecularSensorArray {
+        attribute detectionLimit : Concentration = 0.02;
+        attribute samplingInterval : ScalarValues::Real = 0.5;
+        attribute falsePositiveProbability : Probability = 0.01;
+
+        port sensingPort : SensorPort;
+
+        action detectBiomarkers {
+            in item incomingPlasma : BloodPlasma;
+            out item biomarkerSample : BiomarkerSample;
+
+            first start;
+            then measureLocalPH;
+            then bindTumorMarkers;
+            then estimateConfidence;
+            then outputSample;
+
+            action measureLocalPH;
+            action bindTumorMarkers;
+            action estimateConfidence;
+            action outputSample;
+        }
+    }
+
+    part def MagneticPropulsionModule {
+        attribute rotorDiameter : NanometerLength = 180.0;
+        attribute maximumSpeed : Velocity = 250.0;
+        attribute minimumSteeringField : MagneticFluxDensity = 3.0;
+        attribute propulsionEfficiency : Probability = 0.72;
+
+        port controlPort : MagneticControlPort;
+        port fluidPort : FluidPort;
+
+        action propelTowardTarget {
+            in item command : NavigationCommand;
+            in item magneticEnergy : MagneticEnergy;
+            out attribute actualSpeed : Velocity;
+
+            first alignMagneticMoment;
+            then rotateHelicalTail;
+            then compensateForFlow;
+            then updateDisplacement;
+
+            action alignMagneticMoment;
+            action rotateHelicalTail;
+            action compensateForFlow;
+            action updateDisplacement;
+        }
+    }
+
+    part def DrugReservoir {
+        attribute reservoirCapacity : Dose = 80.0;
+        attribute currentPayloadMass : Dose = 80.0;
+        attribute membraneRuptureThresholdPH : ScalarValues::Real = 6.8;
+        attribute nominalReleaseDose : Dose = 12.0;
+
+        port payloadPort : PayloadPort;
+        port releasePort : ReleasePort;
+
+        action releaseTherapeuticDose {
+            in item biomarkerSample : BiomarkerSample;
+            out item releasedPayload : TherapeuticPayload;
+
+            first verifyTargetSignature;
+            then openStimulusResponsiveValve;
+            then meterDrugMass;
+            then resealReservoir;
+
+            action verifyTargetSignature;
+            action openStimulusResponsiveValve;
+            action meterDrugMass;
+            action resealReservoir;
+        }
+    }
+
+    part def NanoPowerUnit {
+        attribute harvestedPower : Power = 14.0;
+        attribute storagePotential : ElectricPotential = 750.0;
+        attribute minimumOperatingPotential : ElectricPotential = 420.0;
+
+        port fluidPort : FluidPort;
+        port energyInputPort : MagneticControlPort;
+
+        action harvestEnergy {
+            in item plasma : BloodPlasma;
+            in item magneticEnergy : MagneticEnergy;
+            out attribute availablePower : Power;
+
+            first oxidizeGlucose;
+            then convertMagneticInduction;
+            then regulatePotential;
+            then distributePower;
+
+            action oxidizeGlucose;
+            action convertMagneticInduction;
+            action regulatePotential;
+            action distributePower;
+        }
+    }
+
+    part def BiocompatibleShell {
+        attribute outerDiameter : NanometerLength = 950.0;
+        attribute shellThickness : NanometerLength = 35.0;
+        attribute surfaceCharge : ElectricPotential = -12.0;
+        attribute immuneEvasionProbability : Probability = 0.96;
+        attribute biodegradationHalfLife : ScalarValues::Real = 48.0;
+
+        port fluidPort : FluidPort;
+
+        action protectInternalSubsystems {
+            first maintainHydrophilicCoating;
+            then suppressProteinAdsorption;
+            then filterLargeMolecules;
+
+            action maintainHydrophilicCoating;
+            action suppressProteinAdsorption;
+            action filterLargeMolecules;
+        }
+    }
+
+    part def OnboardController {
+        attribute processorClockRate : ScalarValues::Real = 12.0;
+        attribute targetConfidenceThreshold : Probability = 0.92;
+        attribute maximumAllowedTemperature : Temperature = 39.0;
+        attribute missionAbortFaultCode : ScalarValues::Integer = 99;
+
+        port sensorPort : SensorPort;
+        port controlPort : MagneticControlPort;
+        port telemetryPort : TelemetryPort;
+        port payloadPort : PayloadPort;
+
+        action decideMissionStep {
+            in item biomarkerSample : BiomarkerSample;
+            in item command : NavigationCommand;
+            out item telemetry : TelemetryPacket;
+
+            first validatePowerMargin;
+            then classifyLocalTissue;
+            then chooseNavigateOrTreat;
+            then publishTelemetry;
+
+            action validatePowerMargin;
+            action classifyLocalTissue;
+            action chooseNavigateOrTreat;
+            action publishTelemetry;
+        }
+
+        state missionStateMachine {
+            entry action initializeMission;
+
+            state Dormant;
+            state Circulating;
+            state Navigating;
+            state TargetAssessing;
+            state Treating;
+            state Reporting;
+            state Degrading;
+            state Faulted;
+
+            transition first Dormant
+                then Circulating;
+
+            transition Circulating
+                first accept commandReceived
+                then Navigating;
+
+            transition Navigating
+                first accept localBiomarkerRise
+                then TargetAssessing;
+
+            transition TargetAssessing
+                first accept targetConfirmed
+                then Treating;
+
+            transition TargetAssessing
+                first accept targetRejected
+                then Navigating;
+
+            transition Treating
+                first accept doseDelivered
+                then Reporting;
+
+            transition Reporting
+                first accept missionComplete
+                then Degrading;
+
+            transition Circulating
+                first accept criticalFault
+                then Faulted;
+
+            transition Navigating
+                first accept criticalFault
+                then Faulted;
+
+            transition Treating
+                first accept criticalFault
+                then Faulted;
+        }
+    }
+
+    part def ExternalMagneticGuidanceStation {
+        attribute maximumFieldStrength : MagneticFluxDensity = 45.0;
+        attribute positioningResolution : MicrometerLength = 5.0;
+        attribute commandUpdateRate : ScalarValues::Real = 20.0;
+
+        port guidancePort : MagneticControlPort;
+        port telemetryPort : TelemetryPort;
+
+        action guideNanorobot {
+            in item telemetry : TelemetryPacket;
+            out item command : NavigationCommand;
+            out item magneticEnergy : MagneticEnergy;
+
+            first reconstructRobotPosition;
+            then calculateFieldVector;
+            then applyRotatingField;
+            then monitorTelemetryResponse;
+
+            action reconstructRobotPosition;
+            action calculateFieldVector;
+            action applyRotatingField;
+            action monitorTelemetryResponse;
+        }
+    }
+
+    part def TherapeuticNanorobot {
+        attribute identifier : ScalarValues::Integer;
+        attribute nominalDiameter : NanometerLength = 950.0;
+        attribute dryMass : Dose = 6.5;
+        attribute maximumPayload : Dose = 80.0;
+        attribute operatingTemperatureLimit : Temperature = 39.0;
+        attribute targetDetectionConfidence : Probability = 0.92;
+
+        port fluidInterface : FluidPort;
+        port magneticInterface : MagneticControlPort;
+        port telemetryInterface : TelemetryPort;
+        port drugReleaseInterface : ReleasePort;
+
+        part shell : BiocompatibleShell;
+        part propulsion : MagneticPropulsionModule;
+        part sensors : MolecularSensorArray;
+        part reservoir : DrugReservoir;
+        part powerUnit : NanoPowerUnit;
+        part controller : OnboardController;
+
+        connect fluidInterface to shell.fluidPort;
+        connect fluidInterface to propulsion.fluidPort;
+        connect fluidInterface to powerUnit.fluidPort;
+        connect magneticInterface to propulsion.controlPort;
+        connect magneticInterface to powerUnit.energyInputPort;
+        connect magneticInterface to controller.controlPort;
+        connect telemetryInterface to controller.telemetryPort;
+        connect sensors.sensingPort to controller.sensorPort;
+        connect reservoir.payloadPort to controller.payloadPort;
+        connect reservoir.releasePort to drugReleaseInterface;
+
+        action performPrimaryFunction {
+            objective "Navigate through biological fluid, identify diseased tissue using molecular biomarkers, and release a controlled therapeutic payload only when the target signature is confirmed.";
+
+            first circulateInBloodstream;
+            then receiveMagneticGuidance;
+            then senseLocalBiomarkers;
+            then classifyTarget;
+            then releaseDoseIfConfirmed;
+            then reportTreatmentStatus;
+            then biodegradeAfterMission;
+
+            action circulateInBloodstream;
+            action receiveMagneticGuidance;
+            action senseLocalBiomarkers;
+            action classifyTarget;
+            action releaseDoseIfConfirmed;
+            action reportTreatmentStatus;
+            action biodegradeAfterMission;
+        }
+    }
+
+    part def NanoroboticTherapySystem {
+        attribute treatmentVolume : ScalarValues::Real = 5.0;
+        attribute swarmSize : ScalarValues::Integer = 1000000;
+        attribute intendedMissionDuration : ScalarValues::Real = 6.0;
+        attribute maximumSystemicDose : Dose = 80000000.0;
+
+        part guidanceStation : ExternalMagneticGuidanceStation;
+        part robotSwarm : TherapeuticNanorobot[1000000];
+
+        port patientFluidInterface : FluidPort;
+        port clinicianTelemetryInterface : TelemetryPort;
+
+        connect patientFluidInterface to robotSwarm.fluidInterface;
+        connect guidanceStation.guidancePort to robotSwarm.magneticInterface;
+        connect guidanceStation.telemetryPort to robotSwarm.telemetryInterface;
+        connect clinicianTelemetryInterface to guidanceStation.telemetryPort;
+
+        action executeTherapyMission {
+            first initializeGuidanceField;
+            then disperseRobotSwarm;
+            then navigateTowardTargetRegion;
+            then identifyDiseasedMicroenvironment;
+            then deliverTherapeuticPayload;
+            then verifyDoseDistribution;
+            then commandSafeDegradation;
+
+            action initializeGuidanceField;
+            action disperseRobotSwarm;
+            action navigateTowardTargetRegion;
+            action identifyDiseasedMicroenvironment;
+            action deliverTherapeuticPayload;
+            action verifyDoseDistribution;
+            action commandSafeDegradation;
+        }
+    }
+
+    /* Requirements */
+
+    requirement def PrimaryFunctionRequirement {
+        doc "The nanorobotic therapy system shall provide targeted microscale therapy by navigating nanorobots through biological fluid, detecting disease-associated molecular biomarkers, and releasing a controlled drug payload at confirmed target tissue.";
+    }
+
+    requirement def SizeRequirement {
+        doc "Each therapeutic nanorobot shall have an outer diameter less than or equal to 1000 nm to permit circulation through capillary-scale biological pathways.";
+        require constraint { robotDiameter <= 1000.0 }
+    }
+
+    requirement def TargetingRequirement {
+        doc "The nanorobot shall release therapeutic payload only when the detected target confidence is greater than or equal to 0.92.";
+        require constraint { targetConfidence >= 0.92 }
+    }
+
+    requirement def DoseControlRequirement {
+        doc "Each release event shall deliver no more than 12 ng of active therapeutic payload.";
+        require constraint { releaseDose <= 12.0 }
+    }
+
+    requirement def NavigationRequirement {
+        doc "The propulsion module shall support controlled motion of at least 100 um/s in blood plasma under external magnetic guidance.";
+        require constraint { controlledSpeed >= 100.0 }
+    }
+
+    requirement def BiocompatibilityRequirement {
+        doc "The shell shall maintain immune evasion probability of at least 0.95 during the active mission interval.";
+        require constraint { immuneEvasionProbability >= 0.95 }
+    }
+
+    requirement def SafetyRequirement {
+        doc "The nanorobot shall enter a faulted or degrading state if operating temperature exceeds 39 degC, payload containment is compromised, or telemetry reports a critical fault.";
+    }
+
+    requirement def TelemetryRequirement {
+        doc "The nanorobot shall report position estimate, payload remaining, detected biomarker level, power state, and fault code during active operation.";
+    }
+
+    requirement def DegradationRequirement {
+        doc "After mission completion, the shell and residual structures shall biodegrade into waste products with toxicity index below clinically acceptable limits.";
+        require constraint { toxicityIndex < 1.0 }
+    }
+
+    satisfy PrimaryFunctionRequirement by NanoroboticTherapySystem;
+    satisfy SizeRequirement by TherapeuticNanorobot;
+    satisfy TargetingRequirement by OnboardController;
+    satisfy DoseControlRequirement by DrugReservoir;
+    satisfy NavigationRequirement by MagneticPropulsionModule;
+    satisfy BiocompatibilityRequirement by BiocompatibleShell;
+    satisfy SafetyRequirement by OnboardController;
+    satisfy TelemetryRequirement by OnboardController;
+    satisfy DegradationRequirement by BiocompatibleShell;
+
+    /* Analysis Constraints */
+
+    constraint def TargetConfirmationConstraint {
+        in attribute marker : Concentration;
+        in attribute confidence : Probability;
+        in attribute threshold : Probability;
+        confidence >= threshold;
+    }
+
+    constraint def PayloadReleaseConstraint {
+        in attribute requestedDose : Dose;
+        in attribute availableDose : Dose;
+        in attribute maximumDose : Dose;
+        requestedDose <= availableDose and requestedDose <= maximumDose;
+    }
+
+    constraint def ThermalSafetyConstraint {
+        in attribute localTemperature : Temperature;
+        in attribute limit : Temperature;
+        localTemperature <= limit;
+    }
+
+    constraint def MissionEnergyConstraint {
+        in attribute availablePower : Power;
+        in attribute propulsionPower : Power;
+        in attribute sensingPower : Power;
+        in attribute controllerPower : Power;
+        availablePower >= propulsionPower + sensingPower + controllerPower;
+    }
+
+    /* Use Case */
+
+    use case def TargetedDrugDelivery {
+        subject therapySystem : NanoroboticTherapySystem;
+
+        objective "Provide minimally invasive targeted treatment by using magnetically guided nanorobots to locate diseased tissue and deliver therapeutic payload locally.";
+
+        actor clinician;
+        actor patient;
+
+        include use case PrepareSwarm;
+        include use case NavigateInVasculature;
+        include use case ConfirmDiseaseSignature;
+        include use case DeliverPayload;
+        include use case ReportOutcome;
+    }
+
+    use case def PrepareSwarm {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def NavigateInVasculature {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def ConfirmDiseaseSignature {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def DeliverPayload {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+    use case def ReportOutcome {
+        subject therapySystem : NanoroboticTherapySystem;
+    }
+
+}

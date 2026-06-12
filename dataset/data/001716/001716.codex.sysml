@@ -1,0 +1,609 @@
+package MqttMessagingSystemModel {
+
+    import ScalarValues::*;
+    import SI::*;
+
+    attribute def QoSLevel : Integer {
+        constraint validQoS {
+            0 <= self and self <= 2
+        }
+    }
+
+    attribute def TopicName : String;
+    attribute def ClientId : String;
+    attribute def SessionId : String;
+    attribute def RetainFlag : Boolean;
+    attribute def CleanStartFlag : Boolean;
+
+    attribute def MessagePayloadSize : Integer {
+        unit = "byte";
+        constraint nonNegativeSize {
+            self >= 0
+        }
+    }
+
+    attribute def MessageLatency : Real {
+        unit = "ms";
+        constraint nonNegativeLatency {
+            self >= 0.0
+        }
+    }
+
+    attribute def KeepAliveInterval : Real {
+        unit = "s";
+        constraint positiveInterval {
+            self > 0.0
+        }
+    }
+
+    attribute def ConnectionTimeout : Real {
+        unit = "s";
+        constraint positiveTimeout {
+            self > 0.0
+        }
+    }
+
+    attribute def ThroughputRate : Real {
+        unit = "message/s";
+        constraint nonNegativeRate {
+            self >= 0.0
+        }
+    }
+
+    attribute def Availability : Real {
+        unit = "%";
+        constraint validAvailability {
+            self >= 0.0 and self <= 100.0
+        }
+    }
+
+    enum def MqttControlPacketKind {
+        enum connect;
+        enum connack;
+        enum publish;
+        enum puback;
+        enum pubrec;
+        enum pubrel;
+        enum pubcomp;
+        enum subscribe;
+        enum suback;
+        enum unsubscribe;
+        enum unsuback;
+        enum pingreq;
+        enum pingresp;
+        enum disconnect;
+        enum auth;
+    }
+
+    enum def ConnectionStateKind {
+        enum disconnected;
+        enum connecting;
+        enum connected;
+        enum reconnecting;
+        enum terminating;
+    }
+
+    enum def AuthorizationDecisionKind {
+        enum permit;
+        enum deny;
+    }
+
+    item def MqttControlPacket {
+        attribute packetKind : MqttControlPacketKind;
+        attribute packetId : Integer;
+        attribute sourceClientId : ClientId;
+    }
+
+    item def ConnectPacket specializes MqttControlPacket {
+        attribute packetKind = MqttControlPacketKind::connect;
+        attribute clientId : ClientId;
+        attribute cleanStart : CleanStartFlag;
+        attribute keepAlive : KeepAliveInterval;
+        attribute userName : String;
+    }
+
+    item def ConnAckPacket specializes MqttControlPacket {
+        attribute packetKind = MqttControlPacketKind::connack;
+        attribute sessionPresent : Boolean;
+        attribute reasonCode : Integer;
+    }
+
+    item def PublishPacket specializes MqttControlPacket {
+        attribute packetKind = MqttControlPacketKind::publish;
+        attribute topic : TopicName;
+        attribute payloadSize : MessagePayloadSize;
+        attribute qos : QoSLevel;
+        attribute retained : RetainFlag;
+        attribute payload : String;
+    }
+
+    item def SubscribePacket specializes MqttControlPacket {
+        attribute packetKind = MqttControlPacketKind::subscribe;
+        attribute topicFilter : TopicName;
+        attribute requestedQoS : QoSLevel;
+    }
+
+    item def AcknowledgementPacket specializes MqttControlPacket {
+        attribute acknowledgedPacketId : Integer;
+        attribute reasonCode : Integer;
+    }
+
+    item def PingPacket specializes MqttControlPacket {
+        attribute packetKind : MqttControlPacketKind;
+    }
+
+    item def DisconnectPacket specializes MqttControlPacket {
+        attribute packetKind = MqttControlPacketKind::disconnect;
+        attribute reasonCode : Integer;
+    }
+
+    item def SubscriptionRecord {
+        attribute subscriberId : ClientId;
+        attribute topicFilter : TopicName;
+        attribute maximumQoS : QoSLevel;
+    }
+
+    item def SessionRecord {
+        attribute sessionId : SessionId;
+        attribute clientId : ClientId;
+        attribute cleanStart : CleanStartFlag;
+        attribute connected : Boolean;
+        attribute queuedMessageCount : Integer;
+    }
+
+    item def AuthorizationRequest {
+        attribute clientId : ClientId;
+        attribute topic : TopicName;
+        attribute operation : String;
+    }
+
+    item def AuthorizationDecision {
+        attribute decision : AuthorizationDecisionKind;
+        attribute reason : String;
+    }
+
+    port def MqttClientPort {
+        in item incomingPacket : MqttControlPacket;
+        out item outgoingPacket : MqttControlPacket;
+    }
+
+    port def BrokerClientPort {
+        in item clientPacket : MqttControlPacket;
+        out item brokerPacket : MqttControlPacket;
+    }
+
+    port def BrokerInternalPort {
+        in item inboundMessage : PublishPacket;
+        out item outboundMessage : PublishPacket;
+        in item subscriptionUpdate : SubscriptionRecord;
+    }
+
+    port def AuthServicePort {
+        in item request : AuthorizationRequest;
+        out item decision : AuthorizationDecision;
+    }
+
+    port def PersistencePort {
+        in item storedSession : SessionRecord;
+        in item storedSubscription : SubscriptionRecord;
+        in item queuedMessage : PublishPacket;
+        out item recoveredSession : SessionRecord;
+        out item recoveredMessage : PublishPacket;
+    }
+
+    action def EstablishMqttSession {
+        in item connectPacket : ConnectPacket;
+        out item connAckPacket : ConnAckPacket;
+        out item session : SessionRecord;
+
+        first start;
+        then validateClientIdentity;
+        then createOrResumeSession;
+        then sendConnAck;
+        then done;
+
+        action validateClientIdentity;
+        action createOrResumeSession;
+        action sendConnAck;
+    }
+
+    action def AuthorizePublish {
+        in item publishPacket : PublishPacket;
+        in attribute publisherId : ClientId;
+        out item authorizationDecision : AuthorizationDecision;
+
+        first receiveRequest;
+        then evaluateTopicPermission;
+        then returnDecision;
+        then done;
+
+        action receiveRequest;
+        action evaluateTopicPermission;
+        action returnDecision;
+    }
+
+    action def RoutePublishMessage {
+        in item publishPacket : PublishPacket;
+        in item subscriptionSet : SubscriptionRecord;
+        out item forwardedPacket : PublishPacket;
+
+        first receivePublish;
+        then matchTopicFilters;
+        then selectDeliveryQoS;
+        then forwardToSubscribers;
+        then done;
+
+        action receivePublish;
+        action matchTopicFilters;
+        action selectDeliveryQoS;
+        action forwardToSubscribers;
+    }
+
+    action def MaintainKeepAlive {
+        in attribute keepAlive : KeepAliveInterval;
+        out item pingPacket : PingPacket;
+
+        first waitForIdleInterval;
+        then sendPingReq;
+        then receivePingResp;
+        then resetTimer;
+        then done;
+
+        action waitForIdleInterval;
+        action sendPingReq;
+        action receivePingResp;
+        action resetTimer;
+    }
+
+    action def PersistSessionState {
+        in item session : SessionRecord;
+        in item subscription : SubscriptionRecord;
+        in item queuedMessage : PublishPacket;
+
+        first captureState;
+        then writeSession;
+        then writeSubscriptions;
+        then writeQueuedMessages;
+        then done;
+
+        action captureState;
+        action writeSession;
+        action writeSubscriptions;
+        action writeQueuedMessages;
+    }
+
+    state def ClientConnectionStateMachine {
+        attribute stateKind : ConnectionStateKind;
+
+        state disconnected;
+        state connecting;
+        state connected;
+        state reconnecting;
+        state terminating;
+
+        transition initial then disconnected;
+
+        transition disconnected_to_connecting
+            first disconnected
+            accept ConnectRequested
+            then connecting;
+
+        transition connecting_to_connected
+            first connecting
+            accept ConnAckAccepted
+            then connected;
+
+        transition connecting_to_disconnected
+            first connecting
+            accept ConnAckRejected
+            then disconnected;
+
+        transition connected_to_reconnecting
+            first connected
+            accept KeepAliveTimeout
+            then reconnecting;
+
+        transition reconnecting_to_connected
+            first reconnecting
+            accept ConnAckAccepted
+            then connected;
+
+        transition connected_to_terminating
+            first connected
+            accept DisconnectRequested
+            then terminating;
+
+        transition terminating_to_disconnected
+            first terminating
+            accept DisconnectComplete
+            then disconnected;
+    }
+
+    state def BrokerSessionStateMachine {
+        state idle;
+        state authenticating;
+        state active;
+        state routing;
+        state storingOfflineMessages;
+        state closing;
+
+        transition initial then idle;
+
+        transition idle_to_authenticating
+            first idle
+            accept ConnectPacketReceived
+            then authenticating;
+
+        transition authenticating_to_active
+            first authenticating
+            accept AuthenticationSucceeded
+            then active;
+
+        transition authenticating_to_closing
+            first authenticating
+            accept AuthenticationFailed
+            then closing;
+
+        transition active_to_routing
+            first active
+            accept PublishPacketReceived
+            then routing;
+
+        transition routing_to_active
+            first routing
+            accept DeliveryComplete
+            then active;
+
+        transition routing_to_storingOfflineMessages
+            first routing
+            accept SubscriberOffline
+            then storingOfflineMessages;
+
+        transition storingOfflineMessages_to_active
+            first storingOfflineMessages
+            accept PersistenceComplete
+            then active;
+
+        transition active_to_closing
+            first active
+            accept DisconnectPacketReceived
+            then closing;
+
+        transition closing_to_idle
+            first closing
+            accept SessionClosed
+            then idle;
+    }
+
+    part def MqttEndpoint {
+        attribute clientId : ClientId;
+        attribute currentState : ConnectionStateKind;
+        attribute keepAlive : KeepAliveInterval = 60.0 [s];
+        attribute maximumPayloadSize : MessagePayloadSize = 1048576 [byte];
+
+        port mqtt : MqttClientPort;
+
+        perform action maintainKeepAlive : MaintainKeepAlive;
+
+        exhibit state connectionState : ClientConnectionStateMachine;
+    }
+
+    part def PublisherClient specializes MqttEndpoint {
+        attribute defaultTopic : TopicName = "factory/line1/telemetry";
+        attribute publishQoS : QoSLevel = 1;
+        attribute retainedMessagesEnabled : Boolean = false;
+
+        perform action authorizePublish : AuthorizePublish;
+    }
+
+    part def SubscriberClient specializes MqttEndpoint {
+        attribute subscribedTopicFilter : TopicName = "factory/line1/#";
+        attribute requestedQoS : QoSLevel = 1;
+        attribute receivedMessageCount : Integer;
+    }
+
+    part def NetworkLink {
+        attribute oneWayLatency : MessageLatency = 20.0 [ms];
+        attribute packetLossRate : Real {
+            unit = "%";
+            default = 0.1;
+        }
+        attribute bandwidth : Real {
+            unit = "Mbit/s";
+            default = 100.0;
+        }
+
+        port endpointA : MqttClientPort;
+        port endpointB : BrokerClientPort;
+    }
+
+    part def AuthenticationService {
+        attribute tokenExpirySeconds : Real = 3600.0 [s];
+
+        port auth : AuthServicePort;
+    }
+
+    part def TopicRouter {
+        attribute activeSubscriptionCount : Integer;
+        attribute routedThroughput : ThroughputRate = 5000.0 [message/s];
+
+        port router : BrokerInternalPort;
+
+        perform action routeMessage : RoutePublishMessage;
+    }
+
+    part def SessionStore {
+        attribute durableSessionCount : Integer;
+        attribute retainedMessageCount : Integer;
+        attribute persistenceLatency : MessageLatency = 5.0 [ms];
+
+        port persistence : PersistencePort;
+
+        perform action persistState : PersistSessionState;
+    }
+
+    part def MqttBroker {
+        attribute brokerId : String = "broker-primary-01";
+        attribute maximumClientConnections : Integer = 10000;
+        attribute maximumThroughput : ThroughputRate = 25000.0 [message/s];
+        attribute availabilityTarget : Availability = 99.95 [%];
+        attribute connectionTimeout : ConnectionTimeout = 30.0 [s];
+
+        port clientAccess : BrokerClientPort;
+        port authAccess : AuthServicePort;
+        port persistenceAccess : PersistencePort;
+        port routingAccess : BrokerInternalPort;
+
+        part authenticator : AuthenticationService;
+        part router : TopicRouter;
+        part store : SessionStore;
+
+        connect authAccess to authenticator.auth;
+        connect routingAccess to router.router;
+        connect persistenceAccess to store.persistence;
+
+        perform action establishSession : EstablishMqttSession;
+        perform action routePublish : RoutePublishMessage;
+        perform action persistSession : PersistSessionState;
+
+        exhibit state brokerSessionState : BrokerSessionStateMachine;
+    }
+
+    part def MqttBasedTelemetrySystem {
+        attribute systemName : String = "MQTT Telemetry Messaging System";
+        attribute primaryFunction : String =
+            "Provide lightweight publish-subscribe message exchange between distributed clients through a broker that authenticates sessions, accepts topic-based publications, matches subscriptions, and forwards messages with configured quality of service.";
+        attribute endToEndLatencyBudget : MessageLatency = 250.0 [ms];
+        attribute nominalThroughput : ThroughputRate = 10000.0 [message/s];
+        attribute targetAvailability : Availability = 99.9 [%];
+
+        part publisher : PublisherClient {
+            attribute clientId = "temperature-sensor-line1";
+            attribute defaultTopic = "factory/line1/temperature";
+            attribute publishQoS = 1;
+        }
+
+        part subscriber : SubscriberClient {
+            attribute clientId = "operations-dashboard";
+            attribute subscribedTopicFilter = "factory/line1/#";
+            attribute requestedQoS = 1;
+        }
+
+        part broker : MqttBroker;
+        part publisherNetwork : NetworkLink;
+        part subscriberNetwork : NetworkLink;
+
+        connect publisher.mqtt to publisherNetwork.endpointA;
+        connect publisherNetwork.endpointB to broker.clientAccess;
+
+        connect subscriber.mqtt to subscriberNetwork.endpointA;
+        connect subscriberNetwork.endpointB to broker.clientAccess;
+
+        flow publishFlow
+            from publisher.mqtt.outgoingPacket
+            to broker.clientAccess.clientPacket;
+
+        flow routedDeliveryFlow
+            from broker.clientAccess.brokerPacket
+            to subscriber.mqtt.incomingPacket;
+
+        flow connectFlow
+            from publisher.mqtt.outgoingPacket
+            to broker.clientAccess.clientPacket;
+
+        flow subscriptionFlow
+            from subscriber.mqtt.outgoingPacket
+            to broker.clientAccess.clientPacket;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc /* The MQTT-based system shall provide lightweight topic-based publish-subscribe messaging between distributed clients through a broker. */
+
+        subject system : MqttBasedTelemetrySystem;
+
+        require constraint {
+            system.nominalThroughput >= 10000.0 [message/s]
+        }
+
+        require constraint {
+            system.endToEndLatencyBudget <= 250.0 [ms]
+        }
+    }
+
+    requirement def BrokerRoutingRequirement {
+        doc /* The broker shall route each accepted PUBLISH packet to every active subscriber whose topic filter matches the packet topic. */
+
+        subject broker : MqttBroker;
+
+        require constraint {
+            broker.maximumThroughput >= 25000.0 [message/s]
+        }
+    }
+
+    requirement def QoSRequirement {
+        doc /* The system shall support MQTT quality of service levels 0, 1, and 2 for publication and subscription negotiation. */
+
+        subject publisher : PublisherClient;
+        subject subscriber : SubscriberClient;
+
+        require constraint {
+            publisher.publishQoS >= 0 and publisher.publishQoS <= 2
+        }
+
+        require constraint {
+            subscriber.requestedQoS >= 0 and subscriber.requestedQoS <= 2
+        }
+    }
+
+    requirement def KeepAliveRequirement {
+        doc /* Each connected client shall maintain broker connectivity using MQTT keep-alive timing and shall reconnect after a keep-alive timeout. */
+
+        subject client : MqttEndpoint;
+
+        require constraint {
+            client.keepAlive > 0.0 [s]
+        }
+    }
+
+    requirement def AvailabilityRequirement {
+        doc /* The deployed MQTT messaging system shall maintain at least 99.9 percent service availability for client connection, publish, subscribe, and delivery functions. */
+
+        subject system : MqttBasedTelemetrySystem;
+
+        require constraint {
+            system.targetAvailability >= 99.9 [%]
+        }
+    }
+
+    requirement def PayloadLimitRequirement {
+        doc /* Clients shall not publish MQTT payloads larger than the configured maximum payload size. */
+
+        subject client : MqttEndpoint;
+
+        require constraint {
+            client.maximumPayloadSize <= 1048576 [byte]
+        }
+    }
+
+    requirement def DurableSessionRequirement {
+        doc /* The broker shall persist durable client sessions, subscriptions, retained messages, and queued offline messages when clean start is false. */
+
+        subject broker : MqttBroker;
+
+        require constraint {
+            broker.store.persistenceLatency <= 10.0 [ms]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MqttBasedTelemetrySystem;
+    satisfy BrokerRoutingRequirement by MqttBroker;
+    satisfy QoSRequirement by PublisherClient;
+    satisfy QoSRequirement by SubscriberClient;
+    satisfy KeepAliveRequirement by MqttEndpoint;
+    satisfy AvailabilityRequirement by MqttBasedTelemetrySystem;
+    satisfy PayloadLimitRequirement by MqttEndpoint;
+    satisfy DurableSessionRequirement by MqttBroker;
+
+    part mqttTelemetrySystem : MqttBasedTelemetrySystem;
+
+}

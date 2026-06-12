@@ -1,0 +1,412 @@
+package PlatformFragmentationSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Percent : Real {
+        :>> unit = "%";
+    }
+
+    attribute def Count : Integer;
+
+    attribute def Millisecond : Real {
+        :>> unit = "ms";
+    }
+
+    attribute def Gigabyte : Real {
+        :>> unit = "GB";
+    }
+
+    attribute def VersionString : String;
+
+    attribute def PlatformIdentifier : String;
+
+    attribute def RiskScore : Real {
+        doc /* Normalized risk score from 0.0 to 1.0. */
+    }
+
+    item def PlatformProfile {
+        attribute platformId : PlatformIdentifier;
+        attribute operatingSystem : String;
+        attribute osVersion : VersionString;
+        attribute runtimeVersion : VersionString;
+        attribute hardwareClass : String;
+        attribute screenDensity : String;
+        attribute locale : String;
+        attribute installedBaseShare : Percent;
+        attribute averageLatency : Millisecond;
+        attribute availableMemory : Gigabyte;
+    }
+
+    item def CapabilityDescriptor {
+        attribute capabilityName : String;
+        attribute minimumSupportedVersion : VersionString;
+        attribute requiredMemory : Gigabyte;
+        attribute requiresGpuAcceleration : Boolean;
+        attribute compatibilityRisk : RiskScore;
+    }
+
+    item def FragmentationFinding {
+        attribute findingId : String;
+        attribute affectedPlatformId : PlatformIdentifier;
+        attribute missingCapability : String;
+        attribute severity : RiskScore;
+        attribute impactedUsers : Count;
+        attribute recommendedMitigation : String;
+    }
+
+    item def AdaptationPolicy {
+        attribute policyId : String;
+        attribute targetPlatformId : PlatformIdentifier;
+        attribute enableFeatureFallback : Boolean;
+        attribute selectAlternateRenderingPath : Boolean;
+        attribute reduceResourceFootprint : Boolean;
+        attribute enforceMinimumVersion : Boolean;
+    }
+
+    item def DeploymentPackage {
+        attribute packageId : String;
+        attribute targetPlatformId : PlatformIdentifier;
+        attribute packageVersion : VersionString;
+        attribute estimatedSize : Gigabyte;
+        attribute expectedStartupLatency : Millisecond;
+    }
+
+    port def PlatformInventoryPort {
+        in item platformProfile : PlatformProfile;
+    }
+
+    port def CapabilityCatalogPort {
+        in item capability : CapabilityDescriptor;
+    }
+
+    port def FindingsPort {
+        out item finding : FragmentationFinding;
+    }
+
+    port def PolicyPort {
+        out item policy : AdaptationPolicy;
+    }
+
+    port def DeploymentPort {
+        out item deploymentPackage : DeploymentPackage;
+    }
+
+    port def TelemetryPort {
+        in item platformProfile : PlatformProfile;
+        out item finding : FragmentationFinding;
+    }
+
+    part def PlatformFragmentationManagementSystem {
+        doc /* Primary function: identify differences across supported platforms and produce adaptation policies and deployment packages that preserve consistent product behavior across fragmented operating systems, runtimes, hardware classes, and locales. */
+
+        port inventoryInput : PlatformInventoryPort;
+        port capabilityInput : CapabilityCatalogPort;
+        port telemetryInterface : TelemetryPort;
+        port findingsOutput : FindingsPort;
+        port policyOutput : PolicyPort;
+        port deploymentOutput : DeploymentPort;
+
+        attribute supportedPlatformCount : Count;
+        attribute fragmentationCoverage : Percent;
+        attribute maximumAllowedCompatibilityRisk : RiskScore = 0.35;
+        attribute policyGenerationLatencyLimit : Millisecond = 500.0;
+
+        part platformRegistry : PlatformRegistry;
+        part capabilityAnalyzer : CapabilityAnalyzer;
+        part fragmentationClassifier : FragmentationClassifier;
+        part mitigationPlanner : MitigationPlanner;
+        part deploymentAssembler : DeploymentAssembler;
+        part monitoringController : MonitoringController;
+
+        connect inventoryInput.platformProfile to platformRegistry.platformInput.platformProfile;
+        connect capabilityInput.capability to capabilityAnalyzer.capabilityInput.capability;
+        connect telemetryInterface.platformProfile to monitoringController.telemetryInput.platformProfile;
+        connect platformRegistry.registryOutput.platformProfile to capabilityAnalyzer.platformInput.platformProfile;
+        connect capabilityAnalyzer.analysisOutput.finding to fragmentationClassifier.findingInput.finding;
+        connect monitoringController.telemetryFindingOutput.finding to fragmentationClassifier.findingInput.finding;
+        connect fragmentationClassifier.classifiedFindingOutput.finding to mitigationPlanner.findingInput.finding;
+        connect mitigationPlanner.policyOutput.policy to deploymentAssembler.policyInput.policy;
+        connect mitigationPlanner.policyOutput.policy to policyOutput.policy;
+        connect deploymentAssembler.deploymentOutput.deploymentPackage to deploymentOutput.deploymentPackage;
+        connect fragmentationClassifier.classifiedFindingOutput.finding to findingsOutput.finding;
+    }
+
+    part def PlatformRegistry {
+        port platformInput : PlatformInventoryPort;
+        port registryOutput : PlatformInventoryPort;
+
+        attribute knownPlatforms : Count;
+        attribute staleProfileThresholdDays : Count = 30;
+
+        action ingestPlatformProfile {
+            in item incomingProfile : PlatformProfile;
+            out item acceptedProfile : PlatformProfile;
+
+            first start;
+            then validateIdentity;
+            then normalizeVersionFields;
+            then persistProfile;
+            then publishProfile;
+            then done;
+
+            action validateIdentity;
+            action normalizeVersionFields;
+            action persistProfile;
+            action publishProfile;
+        }
+    }
+
+    part def CapabilityAnalyzer {
+        port platformInput : PlatformInventoryPort;
+        port capabilityInput : CapabilityCatalogPort;
+        port analysisOutput : FindingsPort;
+
+        attribute evaluatedCapabilityCount : Count;
+        attribute averageAnalysisLatency : Millisecond;
+
+        action compareCapabilities {
+            in item platformProfile : PlatformProfile;
+            in item capability : CapabilityDescriptor;
+            out item finding : FragmentationFinding;
+
+            first start;
+            then evaluateRuntimeVersion;
+            then evaluateMemoryConstraint;
+            then evaluateAccelerationConstraint;
+            then calculateCompatibilityRisk;
+            then emitFinding;
+            then done;
+
+            action evaluateRuntimeVersion;
+            action evaluateMemoryConstraint;
+            action evaluateAccelerationConstraint;
+            action calculateCompatibilityRisk;
+            action emitFinding;
+        }
+    }
+
+    part def FragmentationClassifier {
+        port findingInput : FindingsPort;
+        port classifiedFindingOutput : FindingsPort;
+
+        attribute criticalFindingThreshold : RiskScore = 0.75;
+        attribute moderateFindingThreshold : RiskScore = 0.40;
+
+        state def ClassificationState {
+            entry action initializeClassifier;
+
+            state idle;
+            state classifying;
+            state suppressingDuplicate;
+            state emittingClassifiedFinding;
+
+            transition first idle;
+            transition idle_to_classifying
+                first idle
+                then classifying;
+
+            transition classifying_to_suppressingDuplicate
+                first classifying
+                then suppressingDuplicate;
+
+            transition classifying_to_emittingClassifiedFinding
+                first classifying
+                then emittingClassifiedFinding;
+
+            transition suppressingDuplicate_to_idle
+                first suppressingDuplicate
+                then idle;
+
+            transition emittingClassifiedFinding_to_idle
+                first emittingClassifiedFinding
+                then idle;
+        }
+
+        action classifyFinding {
+            in item rawFinding : FragmentationFinding;
+            out item classifiedFinding : FragmentationFinding;
+
+            first start;
+            then assignSeverityBand;
+            then estimateUserImpact;
+            then selectRecommendedMitigation;
+            then outputClassifiedFinding;
+            then done;
+
+            action assignSeverityBand;
+            action estimateUserImpact;
+            action selectRecommendedMitigation;
+            action outputClassifiedFinding;
+        }
+    }
+
+    part def MitigationPlanner {
+        port findingInput : FindingsPort;
+        port policyOutput : PolicyPort;
+
+        attribute generatedPolicyCount : Count;
+        attribute maximumPolicyLatency : Millisecond = 500.0;
+
+        action generateAdaptationPolicy {
+            in item finding : FragmentationFinding;
+            out item policy : AdaptationPolicy;
+
+            first start;
+            then determineFallbackNeed;
+            then determineRenderingPath;
+            then determineResourceReduction;
+            then determineVersionGate;
+            then publishPolicy;
+            then done;
+
+            action determineFallbackNeed;
+            action determineRenderingPath;
+            action determineResourceReduction;
+            action determineVersionGate;
+            action publishPolicy;
+        }
+    }
+
+    part def DeploymentAssembler {
+        port policyInput : PolicyPort;
+        port deploymentOutput : DeploymentPort;
+
+        attribute maximumPackageSize : Gigabyte = 2.0;
+        attribute baselineStartupLatency : Millisecond = 1200.0;
+
+        action assembleDeploymentPackage {
+            in item policy : AdaptationPolicy;
+            out item deploymentPackage : DeploymentPackage;
+
+            first start;
+            then selectCompatibleAssets;
+            then bindRuntimeConfiguration;
+            then validatePackageSize;
+            then validateStartupLatency;
+            then publishDeploymentPackage;
+            then done;
+
+            action selectCompatibleAssets;
+            action bindRuntimeConfiguration;
+            action validatePackageSize;
+            action validateStartupLatency;
+            action publishDeploymentPackage;
+        }
+    }
+
+    part def MonitoringController {
+        port telemetryInput : TelemetryPort;
+        port telemetryFindingOutput : FindingsPort;
+
+        attribute observedPlatformCount : Count;
+        attribute anomalyRiskThreshold : RiskScore = 0.50;
+
+        state def MonitoringState {
+            state collectingTelemetry;
+            state detectingFragmentationDrift;
+            state reportingAnomaly;
+            state awaitingNextSample;
+
+            transition first collectingTelemetry;
+            transition collectingTelemetry_to_detectingFragmentationDrift
+                first collectingTelemetry
+                then detectingFragmentationDrift;
+
+            transition detectingFragmentationDrift_to_reportingAnomaly
+                first detectingFragmentationDrift
+                then reportingAnomaly;
+
+            transition detectingFragmentationDrift_to_awaitingNextSample
+                first detectingFragmentationDrift
+                then awaitingNextSample;
+
+            transition reportingAnomaly_to_awaitingNextSample
+                first reportingAnomaly
+                then awaitingNextSample;
+
+            transition awaitingNextSample_to_collectingTelemetry
+                first awaitingNextSample
+                then collectingTelemetry;
+        }
+
+        action detectDrift {
+            in item observedProfile : PlatformProfile;
+            out item finding : FragmentationFinding;
+
+            first start;
+            then compareAgainstRegistry;
+            then computeDriftRisk;
+            then emitDriftFinding;
+            then done;
+
+            action compareAgainstRegistry;
+            action computeDriftRisk;
+            action emitDriftFinding;
+        }
+    }
+
+    requirement def ConsistentBehaviorRequirement {
+        doc /* The system shall generate platform adaptation policies so that product behavior remains consistent across supported fragmented platform profiles. */
+
+        subject managedSystem : PlatformFragmentationManagementSystem;
+
+        require constraint {
+            managedSystem.fragmentationCoverage >= 95.0
+        }
+    }
+
+    requirement def CompatibilityRiskRequirement {
+        doc /* The system shall identify fragmentation findings whose compatibility risk exceeds the configured threshold. */
+
+        subject managedSystem : PlatformFragmentationManagementSystem;
+
+        require constraint {
+            managedSystem.maximumAllowedCompatibilityRisk <= 0.35
+        }
+    }
+
+    requirement def PolicyLatencyRequirement {
+        doc /* The system shall produce an adaptation policy within the configured latency limit after a classified fragmentation finding is available. */
+
+        subject managedSystem : PlatformFragmentationManagementSystem;
+
+        require constraint {
+            managedSystem.policyGenerationLatencyLimit <= 500.0
+        }
+    }
+
+    requirement def DeploymentPackageRequirement {
+        doc /* The system shall assemble deployment packages targeted to a specific platform profile and constrained by package size and startup latency. */
+
+        subject assembler : DeploymentAssembler;
+
+        require constraint {
+            assembler.maximumPackageSize <= 2.0 and assembler.baselineStartupLatency <= 1200.0
+        }
+    }
+
+    requirement def TelemetryDriftRequirement {
+        doc /* The system shall monitor runtime telemetry to detect newly emerging platform fragmentation caused by platform updates or population shifts. */
+
+        subject monitor : MonitoringController;
+
+        require constraint {
+            monitor.anomalyRiskThreshold <= 0.50
+        }
+    }
+
+    satisfy ConsistentBehaviorRequirement by PlatformFragmentationManagementSystem;
+    satisfy CompatibilityRiskRequirement by PlatformFragmentationManagementSystem;
+    satisfy PolicyLatencyRequirement by PlatformFragmentationManagementSystem;
+    satisfy DeploymentPackageRequirement by DeploymentAssembler;
+    satisfy TelemetryDriftRequirement by MonitoringController;
+
+    part fragmentationSystem : PlatformFragmentationManagementSystem {
+        :>> supportedPlatformCount = 128;
+        :>> fragmentationCoverage = 97.5;
+        :>> maximumAllowedCompatibilityRisk = 0.35;
+        :>> policyGenerationLatencyLimit = 500.0;
+    }
+}

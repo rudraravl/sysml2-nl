@@ -1,0 +1,919 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-9dsdwbos
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6d9-cefc-7550-8a8f-7f1c4ceacc85
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Create a system based on a Insteon and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package InsteonHomeAutomationSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    doc /* 0 to 100 percent */
+  }
+
+  attribute def SignalStrength : Real {
+    unit = "dBm";
+  }
+
+  attribute def TimeDuration : Real {
+    unit = "s";
+  }
+
+  attribute def ElectricPotential : Real {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent : Real {
+    unit = "A";
+  }
+
+  attribute def ElectricPower : Real {
+    unit = "W";
+  }
+
+  attribute def Temperature : Real {
+    unit = "degC";
+  }
+
+  attribute def InsteonAddress {
+    attribute highByte : Integer;
+    attribute middleByte : Integer;
+    attribute lowByte : Integer;
+  }
+
+  item def InsteonCommand {
+    attribute source : InsteonAddress;
+    attribute destination : InsteonAddress;
+    attribute commandCode : Integer;
+    attribute group : Integer;
+    attribute hopCount : Integer;
+    attribute requiresAck : Boolean;
+  }
+
+  item def LightingCommand specializes InsteonCommand {
+    attribute targetLevel : Percent;
+    attribute rampTime : TimeDuration;
+  }
+
+  item def SensorReport specializes InsteonCommand {
+    attribute measuredTemperature : Temperature;
+    attribute motionDetected : Boolean;
+    attribute lightLevel : Percent;
+  }
+
+  item def Acknowledgement specializes InsteonCommand {
+    attribute accepted : Boolean;
+    attribute retryRequested : Boolean;
+  }
+
+  port def InsteonRfPort {
+    out item commandOut : InsteonCommand;
+    in item commandIn : InsteonCommand;
+    attribute frequencyMHz : Real = 915.0;
+    attribute transmitPower : SignalStrength;
+  }
+
+  port def InsteonPowerlinePort {
+    out item commandOut : InsteonCommand;
+    in item commandIn : InsteonCommand;
+    attribute nominalVoltage : ElectricPotential = 120.0;
+    attribute zeroCrossingSync : Boolean;
+  }
+
+  port def LoadPowerPort {
+    in attribute supplyVoltage : ElectricPotential;
+    out attribute loadCurrent : ElectricCurrent;
+    out attribute deliveredPower : ElectricPower;
+  }
+
+  port def UserAppPort {
+    in item userRequest : LightingCommand;
+    out item statusUpdate : InsteonCommand;
+  }
+
+  part def InsteonHub {
+    attribute address : InsteonAddress;
+    attribute online : Boolean;
+    attribute maxRetries : Integer = 3;
+
+    port app : UserAppPort;
+    port rf : InsteonRfPort;
+    port powerline : InsteonPowerlinePort;
+
+    action translateUserRequest {
+      in item request : LightingCommand;
+      out item insteonMessage : LightingCommand;
+    }
+
+    action retryUnacknowledgedCommand {
+      in item failedCommand : InsteonCommand;
+      out item retriedCommand : InsteonCommand;
+    }
+
+    state def HubOperation {
+      state initializing;
+      state idle;
+      state dispatchingCommand;
+      state waitingForAcknowledgement;
+      state retrying;
+      state reportingFault;
+
+      initial then initializing;
+      transition initializing_to_idle
+        first initializing
+        then idle;
+
+      transition idle_to_dispatching
+        first idle
+        accept LightingCommand
+        then dispatchingCommand;
+
+      transition dispatching_to_waiting
+        first dispatchingCommand
+        then waitingForAcknowledgement;
+
+      transition ack_received
+        first waitingForAcknowledgement
+        accept Acknowledgement
+        if accepted == true
+        then idle;
+
+      transition ack_retry
+        first waitingForAcknowledgement
+        accept Acknowledgement
+        if retryRequested == true
+        then retrying;
+
+      transition retry_complete
+        first retrying
+        then waitingForAcknowledgement;
+
+      transition retries_exhausted
+        first retrying
+        if maxRetries <= 0
+        then reportingFault;
+    }
+
+    perform HubOperation;
+  }
+
+  part def InsteonDualBandRepeater {
+    attribute address : InsteonAddress;
+    attribute rfSignalStrength : SignalStrength;
+    attribute powerlineSignalPresent : Boolean;
+
+    port rf : InsteonRfPort;
+    port powerline : InsteonPowerlinePort;
+
+    action bridgeRfToPowerline {
+      in item rfMessage : InsteonCommand;
+      out item powerlineMessage : InsteonCommand;
+    }
+
+    action bridgePowerlineToRf {
+      in item powerlineMessage : InsteonCommand;
+      out item rfMessage : InsteonCommand;
+    }
+  }
+
+  part def InsteonDimmerSwitch {
+    attribute address : InsteonAddress;
+    attribute localPaddlePressed : Boolean;
+    attribute commandedLevel : Percent;
+    attribute actualLevel : Percent;
+    attribute ratedLoad : ElectricPower = 600.0;
+
+    port rf : InsteonRfPort;
+    port powerline : InsteonPowerlinePort;
+    port load : LoadPowerPort;
+
+    action setDimLevel {
+      in attribute requestedLevel : Percent;
+      in attribute rampTime : TimeDuration;
+      out attribute appliedLevel : Percent;
+    }
+
+    action reportStatus {
+      out item status : Acknowledgement;
+    }
+
+    state def DimmerBehavior {
+      state off;
+      state rampingUp;
+      state on;
+      state dimmed;
+      state rampingDown;
+      state fault;
+
+      initial then off;
+
+      transition command_on
+        first off
+        accept LightingCommand
+        if targetLevel > 0.0
+        then rampingUp;
+
+      transition ramp_complete_on
+        first rampingUp
+        if commandedLevel == 100.0
+        then on;
+
+      transition ramp_complete_dimmed
+        first rampingUp
+        if commandedLevel > 0.0 and commandedLevel < 100.0
+        then dimmed;
+
+      transition dim_to_off
+        first dimmed
+        accept LightingCommand
+        if targetLevel == 0.0
+        then rampingDown;
+
+      transition on_to_dimmed
+        first on
+        accept LightingCommand
+        if targetLevel > 0.0 and targetLevel < 100.0
+        then dimmed;
+
+      transition off_complete
+        first rampingDown
+        then off;
+
+      transition overload
+        first on
+        if load.deliveredPower > ratedLoad
+        then fault;
+    }
+
+    perform DimmerBehavior;
+  }
+
+  part def InsteonMotionSensor {
+    attribute address : InsteonAddress;
+    attribute batteryVoltage : ElectricPotential;
+    attribute detectedMotion : Boolean;
+    attribute ambientLight : Percent;
+    attribute measuredTemperature : Temperature;
+
+    port rf : InsteonRfPort;
+
+    action senseOccupancy {
+      out attribute motion : Boolean;
+      out attribute light : Percent;
+    }
+
+    action publishSensorReport {
+      out item report : SensorReport;
+    }
+
+    state def SensorBehavior {
+      state sleeping;
+      state sensing;
+      state transmittingReport;
+      state lowBattery;
+
+      initial then sleeping;
+
+      transition wake_on_motion
+        first sleeping
+        if detectedMotion == true
+        then sensing;
+
+      transition sensing_to_transmit
+        first sensing
+        then transmittingReport;
+
+      transition transmit_complete
+        first transmittingReport
+        then sleeping;
+
+      transition battery_low
+        first sleeping
+        if batteryVoltage < 2.6
+        then lowBattery;
+    }
+
+    perform SensorBehavior;
+  }
+
+  part def SmartLampLoad {
+    attribute supplyVoltage : ElectricPotential = 120.0;
+    attribute operatingCurrent : ElectricCurrent;
+    attribute powerDraw : ElectricPower;
+    attribute luminousOutput : Percent;
+
+    port power : LoadPowerPort;
+  }
+
+  part def MobileApplication {
+    attribute authenticated : Boolean;
+    attribute selectedScene : String;
+
+    port hubLink : UserAppPort;
+
+    action requestScene {
+      in attribute sceneName : String;
+      out item command : LightingCommand;
+    }
+
+    action displayDeviceStatus {
+      in item status : InsteonCommand;
+    }
+  }
+
+  part def InsteonLightingAutomationSystem {
+    doc /* Primary function: provide reliable high-level control and automation of residential lighting by routing commands over Insteon radio-frequency and powerline links, allowing a user application, sensors, switches, and repeaters to coordinate lamp brightness, occupancy response, and device status feedback. */
+
+    part hub : InsteonHub;
+    part repeaterA : InsteonDualBandRepeater;
+    part wallDimmer : InsteonDimmerSwitch;
+    part motionSensor : InsteonMotionSensor;
+    part livingRoomLamp : SmartLampLoad;
+    part mobileApp : MobileApplication;
+
+    attribute nominalMainsVoltage : ElectricPotential = 120.0;
+    attribute commandDeliveryDeadline : TimeDuration = 2.0;
+    attribute minimumSceneReliability : Percent = 99.0;
+    attribute occupiedLightingLevel : Percent = 75.0;
+    attribute unoccupiedLightingLevel : Percent = 0.0;
+
+    connect mobileApp.hubLink to hub.app;
+    connect hub.rf to repeaterA.rf;
+    connect hub.powerline to repeaterA.powerline;
+    connect repeaterA.rf to motionSensor.rf;
+    connect repeaterA.rf to wallDimmer.rf;
+    connect repeaterA.powerline to wallDimmer.powerline;
+    connect wallDimmer.load to livingRoomLamp.power;
+
+    action executeOccupiedLightingScene {
+      in item report : SensorReport;
+      out item command : LightingCommand;
+    }
+
+    action executeUserRequestedScene {
+      in item userCommand : LightingCommand;
+      out item routedCommand : LightingCommand;
+    }
+
+    state def AutomationBehavior {
+      state systemStarting;
+      state monitoring;
+      state applyingOccupancyScene;
+      state applyingUserScene;
+      state confirmingDeviceState;
+      state degradedCommunication;
+
+      initial then systemStarting;
+
+      transition startup_complete
+        first systemStarting
+        then monitoring;
+
+      transition motion_detected
+        first monitoring
+        accept SensorReport
+        if motionDetected == true
+        then applyingOccupancyScene;
+
+      transition user_scene_requested
+        first monitoring
+        accept LightingCommand
+        then applyingUserScene;
+
+      transition occupancy_scene_sent
+        first applyingOccupancyScene
+        then confirmingDeviceState;
+
+      transition user_scene_sent
+        first applyingUserScene
+        then confirmingDeviceState;
+
+      transition confirmation_received
+        first confirmingDeviceState
+        accept Acknowledgement
+        if accepted == true
+        then monitoring;
+
+      transition communication_failed
+        first confirmingDeviceState
+        accept Acknowledgement
+        if retryRequested == true
+        then degradedCommunication;
+
+      transition communication_restored
+        first degradedCommunication
+        accept Acknowledgement
+        if accepted == true
+        then monitoring;
+    }
+
+    perform AutomationBehavior;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    subject system : InsteonLightingAutomationSystem;
+    require constraint {
+      system.minimumSceneReliability >= 99.0
+    }
+  }
+
+  requirement def DualMediumCommunicationRequirement {
+    subject hub : InsteonHub;
+    require constraint {
+      hub.rf.frequencyMHz == 915.0 and hub.powerline.nominalVoltage == 120.0
+    }
+  }
+
+  requirement def LightingResponseRequirement {
+    subject system : InsteonLightingAutomationSystem;
+    require constraint {
+      system.commandDeliveryDeadline <= 2.0
+    }
+  }
+
+  requirement def DimmerLoadSafetyRequirement {
+    subject dimmer : InsteonDimmerSwitch;
+    require constraint {
+      dimmer.load.deliveredPower <= dimmer.ratedLoad
+    }
+  }
+
+  requirement def OccupancyAutomationRequirement {
+    subject system : InsteonLightingAutomationSystem;
+    require constraint {
+      system.occupiedLightingLevel > system.unoccupiedLightingLevel
+    }
+  }
+
+  satisfy HighLevelFunctionRequirement by InsteonLightingAutomationSystem;
+  satisfy DualMediumCommunicationRequirement by InsteonHub;
+  satisfy LightingResponseRequirement by InsteonLightingAutomationSystem;
+  satisfy DimmerLoadSafetyRequirement by InsteonDimmerSwitch;
+  satisfy OccupancyAutomationRequirement by InsteonLightingAutomationSystem;
+
+}
+tokens used
+3,059
+package InsteonHomeAutomationSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percent : Real {
+    doc /* 0 to 100 percent */
+  }
+
+  attribute def SignalStrength : Real {
+    unit = "dBm";
+  }
+
+  attribute def TimeDuration : Real {
+    unit = "s";
+  }
+
+  attribute def ElectricPotential : Real {
+    unit = "V";
+  }
+
+  attribute def ElectricCurrent : Real {
+    unit = "A";
+  }
+
+  attribute def ElectricPower : Real {
+    unit = "W";
+  }
+
+  attribute def Temperature : Real {
+    unit = "degC";
+  }
+
+  attribute def InsteonAddress {
+    attribute highByte : Integer;
+    attribute middleByte : Integer;
+    attribute lowByte : Integer;
+  }
+
+  item def InsteonCommand {
+    attribute source : InsteonAddress;
+    attribute destination : InsteonAddress;
+    attribute commandCode : Integer;
+    attribute group : Integer;
+    attribute hopCount : Integer;
+    attribute requiresAck : Boolean;
+  }
+
+  item def LightingCommand specializes InsteonCommand {
+    attribute targetLevel : Percent;
+    attribute rampTime : TimeDuration;
+  }
+
+  item def SensorReport specializes InsteonCommand {
+    attribute measuredTemperature : Temperature;
+    attribute motionDetected : Boolean;
+    attribute lightLevel : Percent;
+  }
+
+  item def Acknowledgement specializes InsteonCommand {
+    attribute accepted : Boolean;
+    attribute retryRequested : Boolean;
+  }
+
+  port def InsteonRfPort {
+    out item commandOut : InsteonCommand;
+    in item commandIn : InsteonCommand;
+    attribute frequencyMHz : Real = 915.0;
+    attribute transmitPower : SignalStrength;
+  }
+
+  port def InsteonPowerlinePort {
+    out item commandOut : InsteonCommand;
+    in item commandIn : InsteonCommand;
+    attribute nominalVoltage : ElectricPotential = 120.0;
+    attribute zeroCrossingSync : Boolean;
+  }
+
+  port def LoadPowerPort {
+    in attribute supplyVoltage : ElectricPotential;
+    out attribute loadCurrent : ElectricCurrent;
+    out attribute deliveredPower : ElectricPower;
+  }
+
+  port def UserAppPort {
+    in item userRequest : LightingCommand;
+    out item statusUpdate : InsteonCommand;
+  }
+
+  part def InsteonHub {
+    attribute address : InsteonAddress;
+    attribute online : Boolean;
+    attribute maxRetries : Integer = 3;
+
+    port app : UserAppPort;
+    port rf : InsteonRfPort;
+    port powerline : InsteonPowerlinePort;
+
+    action translateUserRequest {
+      in item request : LightingCommand;
+      out item insteonMessage : LightingCommand;
+    }
+
+    action retryUnacknowledgedCommand {
+      in item failedCommand : InsteonCommand;
+      out item retriedCommand : InsteonCommand;
+    }
+
+    state def HubOperation {
+      state initializing;
+      state idle;
+      state dispatchingCommand;
+      state waitingForAcknowledgement;
+      state retrying;
+      state reportingFault;
+
+      initial then initializing;
+      transition initializing_to_idle
+        first initializing
+        then idle;
+
+      transition idle_to_dispatching
+        first idle
+        accept LightingCommand
+        then dispatchingCommand;
+
+      transition dispatching_to_waiting
+        first dispatchingCommand
+        then waitingForAcknowledgement;
+
+      transition ack_received
+        first waitingForAcknowledgement
+        accept Acknowledgement
+        if accepted == true
+        then idle;
+
+      transition ack_retry
+        first waitingForAcknowledgement
+        accept Acknowledgement
+        if retryRequested == true
+        then retrying;
+
+      transition retry_complete
+        first retrying
+        then waitingForAcknowledgement;
+
+      transition retries_exhausted
+        first retrying
+        if maxRetries <= 0
+        then reportingFault;
+    }
+
+    perform HubOperation;
+  }
+
+  part def InsteonDualBandRepeater {
+    attribute address : InsteonAddress;
+    attribute rfSignalStrength : SignalStrength;
+    attribute powerlineSignalPresent : Boolean;
+
+    port rf : InsteonRfPort;
+    port powerline : InsteonPowerlinePort;
+
+    action bridgeRfToPowerline {
+      in item rfMessage : InsteonCommand;
+      out item powerlineMessage : InsteonCommand;
+    }
+
+    action bridgePowerlineToRf {
+      in item powerlineMessage : InsteonCommand;
+      out item rfMessage : InsteonCommand;
+    }
+  }
+
+  part def InsteonDimmerSwitch {
+    attribute address : InsteonAddress;
+    attribute localPaddlePressed : Boolean;
+    attribute commandedLevel : Percent;
+    attribute actualLevel : Percent;
+    attribute ratedLoad : ElectricPower = 600.0;
+
+    port rf : InsteonRfPort;
+    port powerline : InsteonPowerlinePort;
+    port load : LoadPowerPort;
+
+    action setDimLevel {
+      in attribute requestedLevel : Percent;
+      in attribute rampTime : TimeDuration;
+      out attribute appliedLevel : Percent;
+    }
+
+    action reportStatus {
+      out item status : Acknowledgement;
+    }
+
+    state def DimmerBehavior {
+      state off;
+      state rampingUp;
+      state on;
+      state dimmed;
+      state rampingDown;
+      state fault;
+
+      initial then off;
+
+      transition command_on
+        first off
+        accept LightingCommand
+        if targetLevel > 0.0
+        then rampingUp;
+
+      transition ramp_complete_on
+        first rampingUp
+        if commandedLevel == 100.0
+        then on;
+
+      transition ramp_complete_dimmed
+        first rampingUp
+        if commandedLevel > 0.0 and commandedLevel < 100.0
+        then dimmed;
+
+      transition dim_to_off
+        first dimmed
+        accept LightingCommand
+        if targetLevel == 0.0
+        then rampingDown;
+
+      transition on_to_dimmed
+        first on
+        accept LightingCommand
+        if targetLevel > 0.0 and targetLevel < 100.0
+        then dimmed;
+
+      transition off_complete
+        first rampingDown
+        then off;
+
+      transition overload
+        first on
+        if load.deliveredPower > ratedLoad
+        then fault;
+    }
+
+    perform DimmerBehavior;
+  }
+
+  part def InsteonMotionSensor {
+    attribute address : InsteonAddress;
+    attribute batteryVoltage : ElectricPotential;
+    attribute detectedMotion : Boolean;
+    attribute ambientLight : Percent;
+    attribute measuredTemperature : Temperature;
+
+    port rf : InsteonRfPort;
+
+    action senseOccupancy {
+      out attribute motion : Boolean;
+      out attribute light : Percent;
+    }
+
+    action publishSensorReport {
+      out item report : SensorReport;
+    }
+
+    state def SensorBehavior {
+      state sleeping;
+      state sensing;
+      state transmittingReport;
+      state lowBattery;
+
+      initial then sleeping;
+
+      transition wake_on_motion
+        first sleeping
+        if detectedMotion == true
+        then sensing;
+
+      transition sensing_to_transmit
+        first sensing
+        then transmittingReport;
+
+      transition transmit_complete
+        first transmittingReport
+        then sleeping;
+
+      transition battery_low
+        first sleeping
+        if batteryVoltage < 2.6
+        then lowBattery;
+    }
+
+    perform SensorBehavior;
+  }
+
+  part def SmartLampLoad {
+    attribute supplyVoltage : ElectricPotential = 120.0;
+    attribute operatingCurrent : ElectricCurrent;
+    attribute powerDraw : ElectricPower;
+    attribute luminousOutput : Percent;
+
+    port power : LoadPowerPort;
+  }
+
+  part def MobileApplication {
+    attribute authenticated : Boolean;
+    attribute selectedScene : String;
+
+    port hubLink : UserAppPort;
+
+    action requestScene {
+      in attribute sceneName : String;
+      out item command : LightingCommand;
+    }
+
+    action displayDeviceStatus {
+      in item status : InsteonCommand;
+    }
+  }
+
+  part def InsteonLightingAutomationSystem {
+    doc /* Primary function: provide reliable high-level control and automation of residential lighting by routing commands over Insteon radio-frequency and powerline links, allowing a user application, sensors, switches, and repeaters to coordinate lamp brightness, occupancy response, and device status feedback. */
+
+    part hub : InsteonHub;
+    part repeaterA : InsteonDualBandRepeater;
+    part wallDimmer : InsteonDimmerSwitch;
+    part motionSensor : InsteonMotionSensor;
+    part livingRoomLamp : SmartLampLoad;
+    part mobileApp : MobileApplication;
+
+    attribute nominalMainsVoltage : ElectricPotential = 120.0;
+    attribute commandDeliveryDeadline : TimeDuration = 2.0;
+    attribute minimumSceneReliability : Percent = 99.0;
+    attribute occupiedLightingLevel : Percent = 75.0;
+    attribute unoccupiedLightingLevel : Percent = 0.0;
+
+    connect mobileApp.hubLink to hub.app;
+    connect hub.rf to repeaterA.rf;
+    connect hub.powerline to repeaterA.powerline;
+    connect repeaterA.rf to motionSensor.rf;
+    connect repeaterA.rf to wallDimmer.rf;
+    connect repeaterA.powerline to wallDimmer.powerline;
+    connect wallDimmer.load to livingRoomLamp.power;
+
+    action executeOccupiedLightingScene {
+      in item report : SensorReport;
+      out item command : LightingCommand;
+    }
+
+    action executeUserRequestedScene {
+      in item userCommand : LightingCommand;
+      out item routedCommand : LightingCommand;
+    }
+
+    state def AutomationBehavior {
+      state systemStarting;
+      state monitoring;
+      state applyingOccupancyScene;
+      state applyingUserScene;
+      state confirmingDeviceState;
+      state degradedCommunication;
+
+      initial then systemStarting;
+
+      transition startup_complete
+        first systemStarting
+        then monitoring;
+
+      transition motion_detected
+        first monitoring
+        accept SensorReport
+        if motionDetected == true
+        then applyingOccupancyScene;
+
+      transition user_scene_requested
+        first monitoring
+        accept LightingCommand
+        then applyingUserScene;
+
+      transition occupancy_scene_sent
+        first applyingOccupancyScene
+        then confirmingDeviceState;
+
+      transition user_scene_sent
+        first applyingUserScene
+        then confirmingDeviceState;
+
+      transition confirmation_received
+        first confirmingDeviceState
+        accept Acknowledgement
+        if accepted == true
+        then monitoring;
+
+      transition communication_failed
+        first confirmingDeviceState
+        accept Acknowledgement
+        if retryRequested == true
+        then degradedCommunication;
+
+      transition communication_restored
+        first degradedCommunication
+        accept Acknowledgement
+        if accepted == true
+        then monitoring;
+    }
+
+    perform AutomationBehavior;
+  }
+
+  requirement def HighLevelFunctionRequirement {
+    subject system : InsteonLightingAutomationSystem;
+    require constraint {
+      system.minimumSceneReliability >= 99.0
+    }
+  }
+
+  requirement def DualMediumCommunicationRequirement {
+    subject hub : InsteonHub;
+    require constraint {
+      hub.rf.frequencyMHz == 915.0 and hub.powerline.nominalVoltage == 120.0
+    }
+  }
+
+  requirement def LightingResponseRequirement {
+    subject system : InsteonLightingAutomationSystem;
+    require constraint {
+      system.commandDeliveryDeadline <= 2.0
+    }
+  }
+
+  requirement def DimmerLoadSafetyRequirement {
+    subject dimmer : InsteonDimmerSwitch;
+    require constraint {
+      dimmer.load.deliveredPower <= dimmer.ratedLoad
+    }
+  }
+
+  requirement def OccupancyAutomationRequirement {
+    subject system : InsteonLightingAutomationSystem;
+    require constraint {
+      system.occupiedLightingLevel > system.unoccupiedLightingLevel
+    }
+  }
+
+  satisfy HighLevelFunctionRequirement by InsteonLightingAutomationSystem;
+  satisfy DualMediumCommunicationRequirement by InsteonHub;
+  satisfy LightingResponseRequirement by InsteonLightingAutomationSystem;
+  satisfy DimmerLoadSafetyRequirement by InsteonDimmerSwitch;
+  satisfy OccupancyAutomationRequirement by InsteonLightingAutomationSystem;
+
+}

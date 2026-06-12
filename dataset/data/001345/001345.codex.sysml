@@ -1,0 +1,736 @@
+package ArticulatedRobotPrimaryTaskSystem {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Millimeter :> Length;
+    attribute def Degree :> PlaneAngle;
+    attribute def NewtonMeter :> Torque;
+    attribute def Kilogram :> Mass;
+    attribute def Second :> Time;
+    attribute def Watt :> Power;
+    attribute def Volt :> ElectricPotential;
+    attribute def Ampere :> ElectricCurrent;
+    attribute def Percent;
+    attribute def Celsius :> TemperatureValue;
+
+    enum def RobotMode {
+        enum idle;
+        enum homing;
+        enum ready;
+        enum executingTask;
+        enum paused;
+        enum recovering;
+        enum faulted;
+        enum emergencyStopped;
+    }
+
+    enum def TaskResult {
+        enum notStarted;
+        enum inProgress;
+        enum completed;
+        enum failed;
+        enum aborted;
+    }
+
+    enum def GripperState {
+        enum open;
+        enum closing;
+        enum closed;
+        enum holding;
+        enum releasing;
+        enum fault;
+    }
+
+    enum def SafetyZoneStatus {
+        enum clear;
+        enum warning;
+        enum violated;
+    }
+
+    enum def WorkpieceStatus {
+        enum unprocessed;
+        enum localized;
+        enum grasped;
+        enum placed;
+        enum rejected;
+    }
+
+    item def PowerFlow {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+        attribute availablePower : Watt;
+    }
+
+    item def CommandPacket {
+        attribute commandId : Integer;
+        attribute targetPoseX : Millimeter;
+        attribute targetPoseY : Millimeter;
+        attribute targetPoseZ : Millimeter;
+        attribute targetRoll : Degree;
+        attribute targetPitch : Degree;
+        attribute targetYaw : Degree;
+        attribute requestedSpeed : Percent;
+    }
+
+    item def JointCommand {
+        attribute joint1Angle : Degree;
+        attribute joint2Angle : Degree;
+        attribute joint3Angle : Degree;
+        attribute joint4Angle : Degree;
+        attribute joint5Angle : Degree;
+        attribute joint6Angle : Degree;
+        attribute jointSpeedLimit : Percent;
+    }
+
+    item def JointState {
+        attribute joint1Angle : Degree;
+        attribute joint2Angle : Degree;
+        attribute joint3Angle : Degree;
+        attribute joint4Angle : Degree;
+        attribute joint5Angle : Degree;
+        attribute joint6Angle : Degree;
+        attribute joint1Torque : NewtonMeter;
+        attribute joint2Torque : NewtonMeter;
+        attribute joint3Torque : NewtonMeter;
+        attribute joint4Torque : NewtonMeter;
+        attribute joint5Torque : NewtonMeter;
+        attribute joint6Torque : NewtonMeter;
+    }
+
+    item def PoseEstimate {
+        attribute x : Millimeter;
+        attribute y : Millimeter;
+        attribute z : Millimeter;
+        attribute roll : Degree;
+        attribute pitch : Degree;
+        attribute yaw : Degree;
+        attribute confidence : Percent;
+    }
+
+    item def Workpiece {
+        attribute id : Integer;
+        attribute mass : Kilogram;
+        attribute width : Millimeter;
+        attribute depth : Millimeter;
+        attribute height : Millimeter;
+        attribute status : WorkpieceStatus;
+    }
+
+    item def GripFeedback {
+        attribute state : GripperState;
+        attribute gripForce : NewtonMeter;
+        attribute objectDetected : Boolean;
+    }
+
+    item def SafetySignal {
+        attribute emergencyStopActive : Boolean;
+        attribute zoneStatus : SafetyZoneStatus;
+        attribute guardDoorClosed : Boolean;
+        attribute safeSpeedLimit : Percent;
+    }
+
+    item def TaskReport {
+        attribute taskId : Integer;
+        attribute result : TaskResult;
+        attribute cycleTime : Second;
+        attribute placedWorkpieceId : Integer;
+    }
+
+    port def PowerInPort {
+        in item power : PowerFlow;
+    }
+
+    port def PowerOutPort {
+        out item power : PowerFlow;
+    }
+
+    port def CommandInPort {
+        in item command : CommandPacket;
+    }
+
+    port def CommandOutPort {
+        out item command : CommandPacket;
+    }
+
+    port def JointCommandOutPort {
+        out item jointCommand : JointCommand;
+    }
+
+    port def JointCommandInPort {
+        in item jointCommand : JointCommand;
+    }
+
+    port def JointStateOutPort {
+        out item jointState : JointState;
+    }
+
+    port def JointStateInPort {
+        in item jointState : JointState;
+    }
+
+    port def PoseOutPort {
+        out item pose : PoseEstimate;
+    }
+
+    port def PoseInPort {
+        in item pose : PoseEstimate;
+    }
+
+    port def WorkpieceInPort {
+        in item workpiece : Workpiece;
+    }
+
+    port def WorkpieceOutPort {
+        out item workpiece : Workpiece;
+    }
+
+    port def GripCommandPort {
+        in item command : CommandPacket;
+        out item feedback : GripFeedback;
+    }
+
+    port def GripFeedbackInPort {
+        in item feedback : GripFeedback;
+    }
+
+    port def SafetyOutPort {
+        out item signal : SafetySignal;
+    }
+
+    port def SafetyInPort {
+        in item signal : SafetySignal;
+    }
+
+    port def ReportOutPort {
+        out item report : TaskReport;
+    }
+
+    port def ReportInPort {
+        in item report : TaskReport;
+    }
+
+    part def SixAxisArticulatedRobot {
+        attribute payloadCapacity : Kilogram = 8;
+        attribute reach : Millimeter = 1400;
+        attribute repeatability : Millimeter = 0.05;
+        attribute maximumTcpSpeed : Percent = 100;
+        attribute mode : RobotMode = RobotMode::idle;
+
+        port powerIn : PowerInPort;
+        port jointCommandIn : JointCommandInPort;
+        port jointStateOut : JointStateOutPort;
+        port safetyIn : SafetyInPort;
+
+        part base;
+        part shoulderJoint {
+            attribute rangeMin : Degree = -170;
+            attribute rangeMax : Degree = 170;
+            attribute ratedTorque : NewtonMeter = 220;
+        }
+        part elbowJoint {
+            attribute rangeMin : Degree = -120;
+            attribute rangeMax : Degree = 156;
+            attribute ratedTorque : NewtonMeter = 180;
+        }
+        part wristJoint1 {
+            attribute rangeMin : Degree = -185;
+            attribute rangeMax : Degree = 185;
+            attribute ratedTorque : NewtonMeter = 80;
+        }
+        part wristJoint2 {
+            attribute rangeMin : Degree = -120;
+            attribute rangeMax : Degree = 120;
+            attribute ratedTorque : NewtonMeter = 70;
+        }
+        part wristJoint3 {
+            attribute rangeMin : Degree = -350;
+            attribute rangeMax : Degree = 350;
+            attribute ratedTorque : NewtonMeter = 50;
+        }
+        part toolFlange {
+            attribute boltCircleDiameter : Millimeter = 50;
+            port powerOut : PowerOutPort;
+        }
+
+        action def MoveToJointTarget {
+            in item target : JointCommand;
+            out item measured : JointState;
+        }
+
+        action def HoldPosition {
+            in item current : JointState;
+        }
+
+        state def RobotMotionState {
+            state idle;
+            state enabled;
+            state moving;
+            state holding;
+            state protectiveStop;
+            state fault;
+
+            entry; then idle;
+
+            transition idle_to_enabled first idle
+                accept CommandPacket
+                then enabled;
+
+            transition enabled_to_moving first enabled
+                accept JointCommand
+                then moving;
+
+            transition moving_to_holding first moving
+                accept JointState
+                if true
+                then holding;
+
+            transition holding_to_moving first holding
+                accept JointCommand
+                then moving;
+
+            transition any_to_stop first idle
+                accept SafetySignal
+                if signal.emergencyStopActive
+                then protectiveStop;
+
+            transition enabled_to_stop first enabled
+                accept SafetySignal
+                if signal.zoneStatus == SafetyZoneStatus::violated
+                then protectiveStop;
+
+            transition moving_to_stop first moving
+                accept SafetySignal
+                if signal.zoneStatus == SafetyZoneStatus::violated
+                then protectiveStop;
+
+            transition stop_to_enabled first protectiveStop
+                accept SafetySignal
+                if not signal.emergencyStopActive and signal.guardDoorClosed
+                then enabled;
+        }
+    }
+
+    part def ServoDriveCabinet {
+        attribute inputVoltage : Volt = 480;
+        attribute continuousPower : Watt = 9000;
+        attribute cabinetTemperature : Celsius;
+
+        port powerIn : PowerInPort;
+        port powerOut : PowerOutPort;
+        port jointCommandIn : JointCommandInPort;
+        port jointCommandOut : JointCommandOutPort;
+        port jointStateIn : JointStateInPort;
+        port safetyIn : SafetyInPort;
+    }
+
+    part def EndEffectorGripper {
+        attribute maximumGripForce : NewtonMeter = 60;
+        attribute fingerStroke : Millimeter = 85;
+        attribute allowablePartMass : Kilogram = 5;
+        attribute state : GripperState = GripperState::open;
+
+        port powerIn : PowerInPort;
+        port gripControl : GripCommandPort;
+        port workpieceIn : WorkpieceInPort;
+        port workpieceOut : WorkpieceOutPort;
+        port safetyIn : SafetyInPort;
+
+        action def OpenGripper {
+            out item feedback : GripFeedback;
+        }
+
+        action def CloseOnWorkpiece {
+            in item workpiece : Workpiece;
+            out item feedback : GripFeedback;
+        }
+
+        action def ReleaseWorkpiece {
+            in item workpiece : Workpiece;
+            out item released : Workpiece;
+        }
+
+        state def GripperOperationalState {
+            state open;
+            state closing;
+            state holding;
+            state releasing;
+            state fault;
+
+            entry; then open;
+
+            transition open_to_closing first open
+                accept CommandPacket
+                then closing;
+
+            transition closing_to_holding first closing
+                accept GripFeedback
+                if feedback.objectDetected
+                then holding;
+
+            transition holding_to_releasing first holding
+                accept CommandPacket
+                then releasing;
+
+            transition releasing_to_open first releasing
+                accept GripFeedback
+                if feedback.state == GripperState::open
+                then open;
+
+            transition any_to_fault first closing
+                accept GripFeedback
+                if feedback.state == GripperState::fault
+                then fault;
+        }
+    }
+
+    part def VisionLocalizationUnit {
+        attribute fieldOfViewWidth : Millimeter = 900;
+        attribute fieldOfViewDepth : Millimeter = 700;
+        attribute localizationAccuracy : Millimeter = 0.4;
+        attribute minimumConfidence : Percent = 85;
+
+        port powerIn : PowerInPort;
+        port poseOut : PoseOutPort;
+        port workpieceOut : WorkpieceOutPort;
+
+        action def DetectWorkpiece {
+            out item detectedWorkpiece : Workpiece;
+            out item estimatedPose : PoseEstimate;
+        }
+
+        action def ValidatePlacement {
+            in item workpiece : Workpiece;
+            out item result : TaskReport;
+        }
+    }
+
+    part def RobotController {
+        attribute cycleTimeTarget : Second = 18;
+        attribute currentMode : RobotMode = RobotMode::idle;
+        attribute currentTaskResult : TaskResult = TaskResult::notStarted;
+
+        port powerIn : PowerInPort;
+        port commandIn : CommandInPort;
+        port poseIn : PoseInPort;
+        port workpieceIn : WorkpieceInPort;
+        port jointStateIn : JointStateInPort;
+        port jointCommandOut : JointCommandOutPort;
+        port gripperCommandOut : CommandOutPort;
+        port safetyIn : SafetyInPort;
+        port reportOut : ReportOutPort;
+
+        action def PlanPickPath {
+            in item pickPose : PoseEstimate;
+            out item approachCommand : JointCommand;
+            out item graspCommand : JointCommand;
+        }
+
+        action def PlanPlacePath {
+            in item workpiece : Workpiece;
+            out item transferCommand : JointCommand;
+            out item placeCommand : JointCommand;
+        }
+
+        action def ExecutePrimaryPickAndPlaceTask {
+            in item taskCommand : CommandPacket;
+            in item localizedWorkpiece : Workpiece;
+            in item localizedPose : PoseEstimate;
+            out item report : TaskReport;
+
+            action detectAndValidate;
+            action moveToApproach;
+            action closeGripper;
+            action liftWorkpiece;
+            action moveToPlace;
+            action releaseWorkpiece;
+            action retract;
+            action verifyPlacement;
+
+            first start;
+            then detectAndValidate;
+            then moveToApproach;
+            then closeGripper;
+            then liftWorkpiece;
+            then moveToPlace;
+            then releaseWorkpiece;
+            then retract;
+            then verifyPlacement;
+            then done;
+        }
+
+        state def ControllerStateMachine {
+            state idle;
+            state homing;
+            state ready;
+            state executingTask;
+            state paused;
+            state recovering;
+            state faulted;
+            state emergencyStopped;
+
+            entry; then idle;
+
+            transition idle_to_homing first idle
+                accept CommandPacket
+                then homing;
+
+            transition homing_to_ready first homing
+                accept JointState
+                then ready;
+
+            transition ready_to_executing first ready
+                accept CommandPacket
+                then executingTask;
+
+            transition executing_to_ready first executingTask
+                accept TaskReport
+                if report.result == TaskResult::completed
+                then ready;
+
+            transition executing_to_faulted first executingTask
+                accept TaskReport
+                if report.result == TaskResult::failed
+                then faulted;
+
+            transition executing_to_paused first executingTask
+                accept SafetySignal
+                if signal.zoneStatus == SafetyZoneStatus::warning
+                then paused;
+
+            transition paused_to_executing first paused
+                accept SafetySignal
+                if signal.zoneStatus == SafetyZoneStatus::clear
+                then executingTask;
+
+            transition faulted_to_recovering first faulted
+                accept CommandPacket
+                then recovering;
+
+            transition recovering_to_ready first recovering
+                accept SafetySignal
+                if signal.guardDoorClosed and not signal.emergencyStopActive
+                then ready;
+
+            transition any_to_emergency first idle
+                accept SafetySignal
+                if signal.emergencyStopActive
+                then emergencyStopped;
+
+            transition ready_to_emergency first ready
+                accept SafetySignal
+                if signal.emergencyStopActive
+                then emergencyStopped;
+
+            transition executing_to_emergency first executingTask
+                accept SafetySignal
+                if signal.emergencyStopActive
+                then emergencyStopped;
+
+            transition emergency_to_recovering first emergencyStopped
+                accept SafetySignal
+                if not signal.emergencyStopActive and signal.guardDoorClosed
+                then recovering;
+        }
+    }
+
+    part def SafetySystem {
+        attribute protectiveStopResponseTime : Second = 0.12;
+        attribute minimumSeparationDistance : Millimeter = 650;
+        attribute speedLimitInWarningZone : Percent = 25;
+
+        port powerIn : PowerInPort;
+        port safetyOut : SafetyOutPort;
+
+        part emergencyStopButton {
+            attribute activated : Boolean = false;
+        }
+
+        part lightCurtain {
+            attribute protectedHeight : Millimeter = 1600;
+            attribute zoneStatus : SafetyZoneStatus = SafetyZoneStatus::clear;
+        }
+
+        part guardDoorSwitch {
+            attribute closed : Boolean = true;
+        }
+
+        action def EvaluateSafety {
+            out item safetySignal : SafetySignal;
+        }
+    }
+
+    part def InfeedStation {
+        attribute trayCapacity : Integer = 20;
+        attribute pickupHeight : Millimeter = 120;
+
+        port workpieceOut : WorkpieceOutPort;
+    }
+
+    part def OutfeedStation {
+        attribute acceptedCapacity : Integer = 20;
+        attribute placementTolerance : Millimeter = 1.0;
+
+        port workpieceIn : WorkpieceInPort;
+    }
+
+    part def PowerDistributionUnit {
+        attribute supplyVoltage : Volt = 480;
+        attribute maximumCurrent : Ampere = 32;
+        attribute maximumPower : Watt = 15000;
+
+        port plantPowerIn : PowerInPort;
+        port controllerPowerOut : PowerOutPort;
+        port drivePowerOut : PowerOutPort;
+        port visionPowerOut : PowerOutPort;
+        port safetyPowerOut : PowerOutPort;
+    }
+
+    part def OperatorPanel {
+        attribute selectedSpeedOverride : Percent = 75;
+
+        port commandOut : CommandOutPort;
+        port reportIn : ReportInPort;
+        port safetyIn : SafetyInPort;
+
+        action def StartTask {
+            out item command : CommandPacket;
+        }
+
+        action def StopTask {
+            out item command : CommandPacket;
+        }
+
+        action def DisplayTaskReport {
+            in item report : TaskReport;
+        }
+    }
+
+    part def RoboticWorkcell {
+        attribute requiredThroughputPerHour : Integer = 180;
+        attribute nominalCycleTime : Second = 18;
+        attribute maximumWorkpieceMass : Kilogram = 4.5;
+        attribute workEnvelopeRadius : Millimeter = 1400;
+
+        port plantPower : PowerInPort;
+
+        part powerDistribution : PowerDistributionUnit;
+        part operatorPanel : OperatorPanel;
+        part controller : RobotController;
+        part driveCabinet : ServoDriveCabinet;
+        part articulatedRobot : SixAxisArticulatedRobot;
+        part gripper : EndEffectorGripper;
+        part vision : VisionLocalizationUnit;
+        part safetySystem : SafetySystem;
+        part infeed : InfeedStation;
+        part outfeed : OutfeedStation;
+
+        connect plantPower.power to powerDistribution.plantPowerIn.power;
+        connect powerDistribution.controllerPowerOut.power to controller.powerIn.power;
+        connect powerDistribution.drivePowerOut.power to driveCabinet.powerIn.power;
+        connect powerDistribution.visionPowerOut.power to vision.powerIn.power;
+        connect powerDistribution.safetyPowerOut.power to safetySystem.powerIn.power;
+
+        connect operatorPanel.commandOut.command to controller.commandIn.command;
+        connect controller.reportOut.report to operatorPanel.reportIn.report;
+
+        connect vision.poseOut.pose to controller.poseIn.pose;
+        connect vision.workpieceOut.workpiece to controller.workpieceIn.workpiece;
+        connect controller.jointCommandOut.jointCommand to driveCabinet.jointCommandIn.jointCommand;
+        connect driveCabinet.jointCommandOut.jointCommand to articulatedRobot.jointCommandIn.jointCommand;
+        connect articulatedRobot.jointStateOut.jointState to driveCabinet.jointStateIn.jointState;
+        connect articulatedRobot.jointStateOut.jointState to controller.jointStateIn.jointState;
+
+        connect driveCabinet.powerOut.power to articulatedRobot.powerIn.power;
+        connect articulatedRobot.toolFlange.powerOut.power to gripper.powerIn.power;
+
+        connect controller.gripperCommandOut.command to gripper.gripControl.command;
+        connect gripper.gripControl.feedback to controller.commandIn.command;
+
+        connect infeed.workpieceOut.workpiece to gripper.workpieceIn.workpiece;
+        connect gripper.workpieceOut.workpiece to outfeed.workpieceIn.workpiece;
+
+        connect safetySystem.safetyOut.signal to controller.safetyIn.signal;
+        connect safetySystem.safetyOut.signal to driveCabinet.safetyIn.signal;
+        connect safetySystem.safetyOut.signal to articulatedRobot.safetyIn.signal;
+        connect safetySystem.safetyOut.signal to gripper.safetyIn.signal;
+        connect safetySystem.safetyOut.signal to operatorPanel.safetyIn.signal;
+    }
+
+    requirement def PrimaryTaskRequirement {
+        subject workcell : RoboticWorkcell;
+
+        require constraint {
+            workcell.nominalCycleTime <= 20 [Second]
+        }
+
+        require constraint {
+            workcell.maximumWorkpieceMass <= workcell.gripper.allowablePartMass
+        }
+    }
+
+    requirement def ArticulatedRobotUseRequirement {
+        subject workcell : RoboticWorkcell;
+
+        doc /* The robotic system shall perform its primary pick-and-place task using a six-axis articulated robot as the motion-producing manipulator. */
+
+        require constraint {
+            workcell.articulatedRobot.reach >= workcell.workEnvelopeRadius
+        }
+
+        require constraint {
+            workcell.articulatedRobot.payloadCapacity >= workcell.maximumWorkpieceMass
+        }
+    }
+
+    requirement def PlacementAccuracyRequirement {
+        subject workcell : RoboticWorkcell;
+
+        require constraint {
+            workcell.outfeed.placementTolerance >= workcell.articulatedRobot.repeatability
+        }
+
+        require constraint {
+            workcell.vision.localizationAccuracy <= 0.5 [Millimeter]
+        }
+    }
+
+    requirement def SafetyRequirement {
+        subject workcell : RoboticWorkcell;
+
+        require constraint {
+            workcell.safetySystem.protectiveStopResponseTime <= 0.15 [Second]
+        }
+
+        require constraint {
+            workcell.safetySystem.minimumSeparationDistance >= 600 [Millimeter]
+        }
+    }
+
+    requirement def ThroughputRequirement {
+        subject workcell : RoboticWorkcell;
+
+        require constraint {
+            workcell.requiredThroughputPerHour >= 180
+        }
+
+        require constraint {
+            workcell.nominalCycleTime <= 3600 [Second] / workcell.requiredThroughputPerHour
+        }
+    }
+
+    satisfy ArticulatedRobotUseRequirement by RoboticWorkcell::articulatedRobot;
+    satisfy PrimaryTaskRequirement by RoboticWorkcell::controller;
+    satisfy PlacementAccuracyRequirement by RoboticWorkcell::vision;
+    satisfy PlacementAccuracyRequirement by RoboticWorkcell::articulatedRobot;
+    satisfy SafetyRequirement by RoboticWorkcell::safetySystem;
+    satisfy ThroughputRequirement by RoboticWorkcell::controller;
+
+    part articulatedRobotPrimaryTaskCell : RoboticWorkcell {
+        attribute requiredThroughputPerHour = 200;
+        attribute nominalCycleTime = 17 [Second];
+        attribute maximumWorkpieceMass = 4.2 [Kilogram];
+        attribute workEnvelopeRadius = 1250 [Millimeter];
+    }
+}

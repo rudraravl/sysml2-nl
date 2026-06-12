@@ -1,0 +1,903 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-9ht5h3ip
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5c3-3013-77c1-809d-6b7960a2ebf8
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Photomultiplier tube and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package PhotomultiplierTubeDetectionSystem {
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  attribute def Gain {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  attribute def Wavelength {
+    attribute value : Real;
+    attribute unit : String = "nm";
+  }
+
+  attribute def PhotonRate {
+    attribute value : Real;
+    attribute unit : String = "photons/s";
+  }
+
+  attribute def PulseAmplitude {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def PulseWidth {
+    attribute value : Real;
+    attribute unit : String = "ns";
+  }
+
+  attribute def CountRate {
+    attribute value : Real;
+    attribute unit : String = "counts/s";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def TimeInterval {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  item def Photon {
+    attribute wavelength : Wavelength;
+    attribute energy_eV : Real;
+    attribute arrivalTime : TimeInterval;
+  }
+
+  item def PhotonStream {
+    attribute rate : PhotonRate;
+    attribute wavelengthMin : Wavelength;
+    attribute wavelengthMax : Wavelength;
+  }
+
+  item def Photoelectron {
+    attribute kineticEnergy_eV : Real;
+    attribute emissionTime : TimeInterval;
+  }
+
+  item def ElectronCascade {
+    attribute electronCount : Integer;
+    attribute multiplicationGain : Gain;
+  }
+
+  item def AnalogPulse {
+    attribute amplitude : PulseAmplitude;
+    attribute width : PulseWidth;
+    attribute charge : Current;
+  }
+
+  item def DigitalCount {
+    attribute countRate : CountRate;
+    attribute thresholdUsed : PulseAmplitude;
+    attribute timestamp : TimeInterval;
+  }
+
+  port def OpticalInputPort {
+    in item photons : PhotonStream;
+  }
+
+  port def ElectronEmissionPort {
+    out item photoelectrons : Photoelectron;
+  }
+
+  port def ElectronCascadePort {
+    in item primaryElectrons : Photoelectron;
+    out item cascadedElectrons : ElectronCascade;
+  }
+
+  port def AnalogSignalPort {
+    out item pulse : AnalogPulse;
+  }
+
+  port def DigitalSignalPort {
+    out item counts : DigitalCount;
+  }
+
+  port def HighVoltagePort {
+    in attribute supplyVoltage : Voltage;
+    in attribute supplyCurrent : Current;
+  }
+
+  port def LowVoltagePowerPort {
+    in attribute controlVoltage : Voltage;
+    in attribute controlCurrent : Current;
+  }
+
+  port def ThermalPort {
+    out attribute measuredTemperature : Temperature;
+  }
+
+  part def OpticalWindow {
+    port opticalIn : OpticalInputPort;
+    attribute transmissionEfficiency : Real = 0.92;
+    attribute wavelengthLowerLimit : Wavelength = (value = 300.0; unit = "nm");
+    attribute wavelengthUpperLimit : Wavelength = (value = 650.0; unit = "nm");
+  }
+
+  part def Photocathode {
+    port opticalIn : OpticalInputPort;
+    port electronOut : ElectronEmissionPort;
+    attribute quantumEfficiency : Real = 0.27;
+    attribute darkEmissionRate : CountRate = (value = 75.0; unit = "counts/s");
+    attribute activeDiameter_mm : Real = 25.0;
+  }
+
+  part def DynodeStage {
+    port cascade : ElectronCascadePort;
+    attribute stageNumber : Integer;
+    attribute secondaryEmissionRatio : Real;
+    attribute biasVoltage : Voltage;
+  }
+
+  part def DynodeChain {
+    port cascade : ElectronCascadePort;
+    attribute numberOfStages : Integer = 10;
+    attribute nominalGain : Gain = (value = 1000000.0; unit = "1");
+
+    part dynode1 : DynodeStage {
+      attribute stageNumber = 1;
+      attribute secondaryEmissionRatio = 4.2;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode2 : DynodeStage {
+      attribute stageNumber = 2;
+      attribute secondaryEmissionRatio = 4.1;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode3 : DynodeStage {
+      attribute stageNumber = 3;
+      attribute secondaryEmissionRatio = 4.0;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode4 : DynodeStage {
+      attribute stageNumber = 4;
+      attribute secondaryEmissionRatio = 3.9;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode5 : DynodeStage {
+      attribute stageNumber = 5;
+      attribute secondaryEmissionRatio = 3.9;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode6 : DynodeStage {
+      attribute stageNumber = 6;
+      attribute secondaryEmissionRatio = 3.8;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode7 : DynodeStage {
+      attribute stageNumber = 7;
+      attribute secondaryEmissionRatio = 3.8;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode8 : DynodeStage {
+      attribute stageNumber = 8;
+      attribute secondaryEmissionRatio = 3.7;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode9 : DynodeStage {
+      attribute stageNumber = 9;
+      attribute secondaryEmissionRatio = 3.7;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode10 : DynodeStage {
+      attribute stageNumber = 10;
+      attribute secondaryEmissionRatio = 3.6;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+  }
+
+  part def Anode {
+    port cascadeIn : ElectronCascadePort;
+    port analogOut : AnalogSignalPort;
+    attribute loadResistance_ohm : Real = 50.0;
+    attribute collectionEfficiency : Real = 0.98;
+  }
+
+  part def HighVoltageDivider {
+    port hvIn : HighVoltagePort;
+    attribute totalResistance_Mohm : Real = 12.0;
+    attribute cathodeToAnodeVoltage : Voltage = (value = 950.0; unit = "V");
+    attribute dividerCurrent : Current = (value = 0.000079; unit = "A");
+  }
+
+  part def PulseDiscriminator {
+    port analogIn : AnalogSignalPort;
+    port digitalOut : DigitalSignalPort;
+    attribute threshold : PulseAmplitude = (value = 0.020; unit = "V");
+    attribute deadTime : PulseWidth = (value = 20.0; unit = "ns");
+  }
+
+  part def CounterAndController {
+    port digitalIn : DigitalSignalPort;
+    port lowVoltagePower : LowVoltagePowerPort;
+    port thermalTelemetry : ThermalPort;
+    attribute integrationPeriod : TimeInterval = (value = 1.0; unit = "s");
+    attribute measuredCountRate : CountRate;
+    attribute maximumLinearCountRate : CountRate = (value = 10000000.0; unit = "counts/s");
+  }
+
+  part def PhotomultiplierTube {
+    port opticalInput : OpticalInputPort;
+    port highVoltageInput : HighVoltagePort;
+    port signalOutput : AnalogSignalPort;
+    port temperatureOutput : ThermalPort;
+
+    attribute spectralLowerLimit : Wavelength = (value = 300.0; unit = "nm");
+    attribute spectralUpperLimit : Wavelength = (value = 650.0; unit = "nm");
+    attribute nominalOperatingVoltage : Voltage = (value = 950.0; unit = "V");
+    attribute nominalGain : Gain = (value = 1000000.0; unit = "1");
+    attribute maximumAnodeCurrent : Current = (value = 0.0001; unit = "A");
+    attribute operatingTemperature : Temperature;
+
+    part window : OpticalWindow;
+    part photocathode : Photocathode;
+    part dynodes : DynodeChain;
+    part anode : Anode;
+    part divider : HighVoltageDivider;
+
+    connection c1 connect opticalInput to window.opticalIn;
+    connection c2 connect window.opticalIn to photocathode.opticalIn;
+    connection c3 connect photocathode.electronOut to dynodes.cascade;
+    connection c4 connect dynodes.cascade to anode.cascadeIn;
+    connection c5 connect anode.analogOut to signalOutput;
+    connection c6 connect highVoltageInput to divider.hvIn;
+  }
+
+  part def PMTDetectionSubsystem {
+    port photonsIn : OpticalInputPort;
+    port hvPowerIn : HighVoltagePort;
+    port controlPowerIn : LowVoltagePowerPort;
+    port countOutput : DigitalSignalPort;
+    port temperatureOutput : ThermalPort;
+
+    attribute primaryFunction : String =
+      "Convert weak incident photon flux into measurable electrical pulses and digital count data by photoemission, electron multiplication, pulse collection, and threshold discrimination.";
+
+    part pmt : PhotomultiplierTube;
+    part discriminator : PulseDiscriminator;
+    part controller : CounterAndController;
+
+    connection opticalPath connect photonsIn to pmt.opticalInput;
+    connection highVoltagePath connect hvPowerIn to pmt.highVoltageInput;
+    connection analogSignalPath connect pmt.signalOutput to discriminator.analogIn;
+    connection digitalSignalPath connect discriminator.digitalOut to controller.digitalIn;
+    connection countTelemetryPath connect discriminator.digitalOut to countOutput;
+    connection lowVoltagePath connect controlPowerIn to controller.lowVoltagePower;
+    connection thermalPath connect pmt.temperatureOutput to controller.thermalTelemetry;
+    connection externalThermalTelemetry connect pmt.temperatureOutput to temperatureOutput;
+  }
+
+  action def ConvertPhotonsToCounts {
+    in item incidentPhotons : PhotonStream;
+    in attribute highVoltage : Voltage;
+    in attribute discriminatorThreshold : PulseAmplitude;
+    out item measuredCounts : DigitalCount;
+
+    action transmitPhotons;
+    action emitPhotoelectrons;
+    action multiplyElectrons;
+    action collectAnodePulse;
+    action discriminatePulse;
+    action accumulateCounts;
+
+    first start;
+    then transmitPhotons;
+    then emitPhotoelectrons;
+    then multiplyElectrons;
+    then collectAnodePulse;
+    then discriminatePulse;
+    then accumulateCounts;
+    then done;
+  }
+
+  state def PMTOperatingStateMachine {
+    state Off;
+    state BiasRamp;
+    state Standby;
+    state Detecting;
+    state Saturated;
+    state Fault;
+
+    transition initial then Off;
+
+    transition powerApplied
+      first Off
+      then BiasRamp;
+
+    transition voltageStable
+      first BiasRamp
+      then Standby;
+
+    transition acquisitionEnabled
+      first Standby
+      then Detecting;
+
+    transition acquisitionDisabled
+      first Detecting
+      then Standby;
+
+    transition excessiveCountRate
+      first Detecting
+      then Saturated;
+
+    transition countRateRecovered
+      first Saturated
+      then Detecting;
+
+    transition overTemperature
+      first BiasRamp
+      then Fault;
+
+    transition overCurrent
+      first Detecting
+      then Fault;
+
+    transition resetCommanded
+      first Fault
+      then Off;
+
+    transition powerRemovedFromStandby
+      first Standby
+      then Off;
+
+    transition powerRemovedFromDetecting
+      first Detecting
+      then Off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject subsystem : PMTDetectionSubsystem;
+
+    require constraint {
+      subsystem.primaryFunction ==
+      "Convert weak incident photon flux into measurable electrical pulses and digital count data by photoemission, electron multiplication, pulse collection, and threshold discrimination."
+    }
+  }
+
+  requirement def SpectralResponseRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.spectralLowerLimit.value <= 300.0 and
+      tube.spectralUpperLimit.value >= 650.0
+    }
+  }
+
+  requirement def GainRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.nominalGain.value >= 1000000.0
+    }
+  }
+
+  requirement def HighVoltageRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.nominalOperatingVoltage.value >= 800.0 and
+      tube.nominalOperatingVoltage.value <= 1200.0
+    }
+  }
+
+  requirement def LinearityRequirement {
+    subject controller : CounterAndController;
+
+    require constraint {
+      controller.maximumLinearCountRate.value >= 10000000.0
+    }
+  }
+
+  requirement def ProtectionRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.maximumAnodeCurrent.value <= 0.0001
+    }
+  }
+
+  requirement def DarkCountRequirement {
+    subject cathode : Photocathode;
+
+    require constraint {
+      cathode.darkEmissionRate.value <= 100.0
+    }
+  }
+
+  part pmtPhotonCountingSystem : PMTDetectionSubsystem {
+    attribute primaryFunction =
+      "Convert weak incident photon flux into measurable electrical pulses and digital count data by photoemission, electron multiplication, pulse collection, and threshold discrimination.";
+  }
+
+  satisfy PrimaryFunctionRequirement by pmtPhotonCountingSystem;
+  satisfy SpectralResponseRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy GainRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy HighVoltageRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy LinearityRequirement by pmtPhotonCountingSystem.controller;
+  satisfy ProtectionRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy DarkCountRequirement by pmtPhotonCountingSystem.pmt.photocathode;
+}
+tokens used
+3,716
+package PhotomultiplierTubeDetectionSystem {
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  attribute def Gain {
+    attribute value : Real;
+    attribute unit : String = "1";
+  }
+
+  attribute def Wavelength {
+    attribute value : Real;
+    attribute unit : String = "nm";
+  }
+
+  attribute def PhotonRate {
+    attribute value : Real;
+    attribute unit : String = "photons/s";
+  }
+
+  attribute def PulseAmplitude {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def PulseWidth {
+    attribute value : Real;
+    attribute unit : String = "ns";
+  }
+
+  attribute def CountRate {
+    attribute value : Real;
+    attribute unit : String = "counts/s";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def TimeInterval {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  item def Photon {
+    attribute wavelength : Wavelength;
+    attribute energy_eV : Real;
+    attribute arrivalTime : TimeInterval;
+  }
+
+  item def PhotonStream {
+    attribute rate : PhotonRate;
+    attribute wavelengthMin : Wavelength;
+    attribute wavelengthMax : Wavelength;
+  }
+
+  item def Photoelectron {
+    attribute kineticEnergy_eV : Real;
+    attribute emissionTime : TimeInterval;
+  }
+
+  item def ElectronCascade {
+    attribute electronCount : Integer;
+    attribute multiplicationGain : Gain;
+  }
+
+  item def AnalogPulse {
+    attribute amplitude : PulseAmplitude;
+    attribute width : PulseWidth;
+    attribute charge : Current;
+  }
+
+  item def DigitalCount {
+    attribute countRate : CountRate;
+    attribute thresholdUsed : PulseAmplitude;
+    attribute timestamp : TimeInterval;
+  }
+
+  port def OpticalInputPort {
+    in item photons : PhotonStream;
+  }
+
+  port def ElectronEmissionPort {
+    out item photoelectrons : Photoelectron;
+  }
+
+  port def ElectronCascadePort {
+    in item primaryElectrons : Photoelectron;
+    out item cascadedElectrons : ElectronCascade;
+  }
+
+  port def AnalogSignalPort {
+    out item pulse : AnalogPulse;
+  }
+
+  port def DigitalSignalPort {
+    out item counts : DigitalCount;
+  }
+
+  port def HighVoltagePort {
+    in attribute supplyVoltage : Voltage;
+    in attribute supplyCurrent : Current;
+  }
+
+  port def LowVoltagePowerPort {
+    in attribute controlVoltage : Voltage;
+    in attribute controlCurrent : Current;
+  }
+
+  port def ThermalPort {
+    out attribute measuredTemperature : Temperature;
+  }
+
+  part def OpticalWindow {
+    port opticalIn : OpticalInputPort;
+    attribute transmissionEfficiency : Real = 0.92;
+    attribute wavelengthLowerLimit : Wavelength = (value = 300.0; unit = "nm");
+    attribute wavelengthUpperLimit : Wavelength = (value = 650.0; unit = "nm");
+  }
+
+  part def Photocathode {
+    port opticalIn : OpticalInputPort;
+    port electronOut : ElectronEmissionPort;
+    attribute quantumEfficiency : Real = 0.27;
+    attribute darkEmissionRate : CountRate = (value = 75.0; unit = "counts/s");
+    attribute activeDiameter_mm : Real = 25.0;
+  }
+
+  part def DynodeStage {
+    port cascade : ElectronCascadePort;
+    attribute stageNumber : Integer;
+    attribute secondaryEmissionRatio : Real;
+    attribute biasVoltage : Voltage;
+  }
+
+  part def DynodeChain {
+    port cascade : ElectronCascadePort;
+    attribute numberOfStages : Integer = 10;
+    attribute nominalGain : Gain = (value = 1000000.0; unit = "1");
+
+    part dynode1 : DynodeStage {
+      attribute stageNumber = 1;
+      attribute secondaryEmissionRatio = 4.2;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode2 : DynodeStage {
+      attribute stageNumber = 2;
+      attribute secondaryEmissionRatio = 4.1;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode3 : DynodeStage {
+      attribute stageNumber = 3;
+      attribute secondaryEmissionRatio = 4.0;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode4 : DynodeStage {
+      attribute stageNumber = 4;
+      attribute secondaryEmissionRatio = 3.9;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode5 : DynodeStage {
+      attribute stageNumber = 5;
+      attribute secondaryEmissionRatio = 3.9;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode6 : DynodeStage {
+      attribute stageNumber = 6;
+      attribute secondaryEmissionRatio = 3.8;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode7 : DynodeStage {
+      attribute stageNumber = 7;
+      attribute secondaryEmissionRatio = 3.8;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode8 : DynodeStage {
+      attribute stageNumber = 8;
+      attribute secondaryEmissionRatio = 3.7;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode9 : DynodeStage {
+      attribute stageNumber = 9;
+      attribute secondaryEmissionRatio = 3.7;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+
+    part dynode10 : DynodeStage {
+      attribute stageNumber = 10;
+      attribute secondaryEmissionRatio = 3.6;
+      attribute biasVoltage = (value = 90.0; unit = "V");
+    }
+  }
+
+  part def Anode {
+    port cascadeIn : ElectronCascadePort;
+    port analogOut : AnalogSignalPort;
+    attribute loadResistance_ohm : Real = 50.0;
+    attribute collectionEfficiency : Real = 0.98;
+  }
+
+  part def HighVoltageDivider {
+    port hvIn : HighVoltagePort;
+    attribute totalResistance_Mohm : Real = 12.0;
+    attribute cathodeToAnodeVoltage : Voltage = (value = 950.0; unit = "V");
+    attribute dividerCurrent : Current = (value = 0.000079; unit = "A");
+  }
+
+  part def PulseDiscriminator {
+    port analogIn : AnalogSignalPort;
+    port digitalOut : DigitalSignalPort;
+    attribute threshold : PulseAmplitude = (value = 0.020; unit = "V");
+    attribute deadTime : PulseWidth = (value = 20.0; unit = "ns");
+  }
+
+  part def CounterAndController {
+    port digitalIn : DigitalSignalPort;
+    port lowVoltagePower : LowVoltagePowerPort;
+    port thermalTelemetry : ThermalPort;
+    attribute integrationPeriod : TimeInterval = (value = 1.0; unit = "s");
+    attribute measuredCountRate : CountRate;
+    attribute maximumLinearCountRate : CountRate = (value = 10000000.0; unit = "counts/s");
+  }
+
+  part def PhotomultiplierTube {
+    port opticalInput : OpticalInputPort;
+    port highVoltageInput : HighVoltagePort;
+    port signalOutput : AnalogSignalPort;
+    port temperatureOutput : ThermalPort;
+
+    attribute spectralLowerLimit : Wavelength = (value = 300.0; unit = "nm");
+    attribute spectralUpperLimit : Wavelength = (value = 650.0; unit = "nm");
+    attribute nominalOperatingVoltage : Voltage = (value = 950.0; unit = "V");
+    attribute nominalGain : Gain = (value = 1000000.0; unit = "1");
+    attribute maximumAnodeCurrent : Current = (value = 0.0001; unit = "A");
+    attribute operatingTemperature : Temperature;
+
+    part window : OpticalWindow;
+    part photocathode : Photocathode;
+    part dynodes : DynodeChain;
+    part anode : Anode;
+    part divider : HighVoltageDivider;
+
+    connection c1 connect opticalInput to window.opticalIn;
+    connection c2 connect window.opticalIn to photocathode.opticalIn;
+    connection c3 connect photocathode.electronOut to dynodes.cascade;
+    connection c4 connect dynodes.cascade to anode.cascadeIn;
+    connection c5 connect anode.analogOut to signalOutput;
+    connection c6 connect highVoltageInput to divider.hvIn;
+  }
+
+  part def PMTDetectionSubsystem {
+    port photonsIn : OpticalInputPort;
+    port hvPowerIn : HighVoltagePort;
+    port controlPowerIn : LowVoltagePowerPort;
+    port countOutput : DigitalSignalPort;
+    port temperatureOutput : ThermalPort;
+
+    attribute primaryFunction : String =
+      "Convert weak incident photon flux into measurable electrical pulses and digital count data by photoemission, electron multiplication, pulse collection, and threshold discrimination.";
+
+    part pmt : PhotomultiplierTube;
+    part discriminator : PulseDiscriminator;
+    part controller : CounterAndController;
+
+    connection opticalPath connect photonsIn to pmt.opticalInput;
+    connection highVoltagePath connect hvPowerIn to pmt.highVoltageInput;
+    connection analogSignalPath connect pmt.signalOutput to discriminator.analogIn;
+    connection digitalSignalPath connect discriminator.digitalOut to controller.digitalIn;
+    connection countTelemetryPath connect discriminator.digitalOut to countOutput;
+    connection lowVoltagePath connect controlPowerIn to controller.lowVoltagePower;
+    connection thermalPath connect pmt.temperatureOutput to controller.thermalTelemetry;
+    connection externalThermalTelemetry connect pmt.temperatureOutput to temperatureOutput;
+  }
+
+  action def ConvertPhotonsToCounts {
+    in item incidentPhotons : PhotonStream;
+    in attribute highVoltage : Voltage;
+    in attribute discriminatorThreshold : PulseAmplitude;
+    out item measuredCounts : DigitalCount;
+
+    action transmitPhotons;
+    action emitPhotoelectrons;
+    action multiplyElectrons;
+    action collectAnodePulse;
+    action discriminatePulse;
+    action accumulateCounts;
+
+    first start;
+    then transmitPhotons;
+    then emitPhotoelectrons;
+    then multiplyElectrons;
+    then collectAnodePulse;
+    then discriminatePulse;
+    then accumulateCounts;
+    then done;
+  }
+
+  state def PMTOperatingStateMachine {
+    state Off;
+    state BiasRamp;
+    state Standby;
+    state Detecting;
+    state Saturated;
+    state Fault;
+
+    transition initial then Off;
+
+    transition powerApplied
+      first Off
+      then BiasRamp;
+
+    transition voltageStable
+      first BiasRamp
+      then Standby;
+
+    transition acquisitionEnabled
+      first Standby
+      then Detecting;
+
+    transition acquisitionDisabled
+      first Detecting
+      then Standby;
+
+    transition excessiveCountRate
+      first Detecting
+      then Saturated;
+
+    transition countRateRecovered
+      first Saturated
+      then Detecting;
+
+    transition overTemperature
+      first BiasRamp
+      then Fault;
+
+    transition overCurrent
+      first Detecting
+      then Fault;
+
+    transition resetCommanded
+      first Fault
+      then Off;
+
+    transition powerRemovedFromStandby
+      first Standby
+      then Off;
+
+    transition powerRemovedFromDetecting
+      first Detecting
+      then Off;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject subsystem : PMTDetectionSubsystem;
+
+    require constraint {
+      subsystem.primaryFunction ==
+      "Convert weak incident photon flux into measurable electrical pulses and digital count data by photoemission, electron multiplication, pulse collection, and threshold discrimination."
+    }
+  }
+
+  requirement def SpectralResponseRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.spectralLowerLimit.value <= 300.0 and
+      tube.spectralUpperLimit.value >= 650.0
+    }
+  }
+
+  requirement def GainRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.nominalGain.value >= 1000000.0
+    }
+  }
+
+  requirement def HighVoltageRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.nominalOperatingVoltage.value >= 800.0 and
+      tube.nominalOperatingVoltage.value <= 1200.0
+    }
+  }
+
+  requirement def LinearityRequirement {
+    subject controller : CounterAndController;
+
+    require constraint {
+      controller.maximumLinearCountRate.value >= 10000000.0
+    }
+  }
+
+  requirement def ProtectionRequirement {
+    subject tube : PhotomultiplierTube;
+
+    require constraint {
+      tube.maximumAnodeCurrent.value <= 0.0001
+    }
+  }
+
+  requirement def DarkCountRequirement {
+    subject cathode : Photocathode;
+
+    require constraint {
+      cathode.darkEmissionRate.value <= 100.0
+    }
+  }
+
+  part pmtPhotonCountingSystem : PMTDetectionSubsystem {
+    attribute primaryFunction =
+      "Convert weak incident photon flux into measurable electrical pulses and digital count data by photoemission, electron multiplication, pulse collection, and threshold discrimination.";
+  }
+
+  satisfy PrimaryFunctionRequirement by pmtPhotonCountingSystem;
+  satisfy SpectralResponseRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy GainRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy HighVoltageRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy LinearityRequirement by pmtPhotonCountingSystem.controller;
+  satisfy ProtectionRequirement by pmtPhotonCountingSystem.pmt;
+  satisfy DarkCountRequirement by pmtPhotonCountingSystem.pmt.photocathode;
+}

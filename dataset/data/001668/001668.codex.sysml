@@ -1,0 +1,318 @@
+package MarataVisionSystem {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def PixelCount :> ScalarValues::Integer;
+  attribute def FrameRate :> SI::Frequency;
+  attribute def DataRate :> SI::DataRate;
+  attribute def Latency :> SI::Time;
+  attribute def Confidence :> ScalarValues::Real;
+  attribute def Temperature :> SI::TemperatureValue;
+  attribute def Power :> SI::Power;
+  attribute def Voltage :> SI::Voltage;
+  attribute def Illuminance :> SI::Illuminance;
+  attribute def Distance :> SI::Length;
+
+  item def PhotonFlux;
+  item def RawImageFrame {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute frameRate : FrameRate;
+    attribute timestamp : SI::Time;
+  }
+
+  item def ProcessedVisionFrame {
+    attribute width : PixelCount;
+    attribute height : PixelCount;
+    attribute timestamp : SI::Time;
+    attribute latency : Latency;
+  }
+
+  item def ObjectDetection {
+    attribute objectId : ScalarValues::String;
+    attribute classLabel : ScalarValues::String;
+    attribute confidence : Confidence;
+    attribute range : Distance;
+  }
+
+  item def SceneUnderstanding {
+    attribute timestamp : SI::Time;
+    attribute detectedObjects : ObjectDetection[0..*];
+    attribute sceneConfidence : Confidence;
+  }
+
+  item def PowerInput {
+    attribute supplyVoltage : Voltage;
+    attribute availablePower : Power;
+  }
+
+  item def HealthStatus {
+    attribute operatingTemperature : Temperature;
+    attribute inputVoltage : Voltage;
+    attribute processorLoad : ScalarValues::Real;
+    attribute faultActive : ScalarValues::Boolean;
+  }
+
+  port def OpticalInputPort {
+    in item light : PhotonFlux;
+  }
+
+  port def PowerPort {
+    in item power : PowerInput;
+  }
+
+  port def VisionDataPort {
+    out item scene : SceneUnderstanding;
+  }
+
+  port def DiagnosticPort {
+    out item health : HealthStatus;
+  }
+
+  port def ControlPort {
+    in item command : ScalarValues::String;
+  }
+
+  part def MarataVision {
+    attribute nominalResolutionWidth : PixelCount = 3840;
+    attribute nominalResolutionHeight : PixelCount = 2160;
+    attribute nominalFrameRate : FrameRate = 60 [Hz];
+    attribute maximumProcessingLatency : Latency = 50 [ms];
+    attribute minimumSceneConfidence : Confidence = 0.90;
+    attribute nominalPowerDraw : Power = 18 [W];
+    attribute operatingTemperatureMin : Temperature = -20 [degC];
+    attribute operatingTemperatureMax : Temperature = 55 [degC];
+
+    port opticalIn : OpticalInputPort;
+    port powerIn : PowerPort;
+    port visionOut : VisionDataPort;
+    port diagnosticsOut : DiagnosticPort;
+    port controlIn : ControlPort;
+
+    part lensAssembly {
+      attribute focalLength : Distance = 12 [mm];
+      attribute minimumIlluminance : Illuminance = 5 [lx];
+      port opticalIn : OpticalInputPort;
+      port focusedLightOut : OpticalInputPort;
+    }
+
+    part imageSensor {
+      attribute width : PixelCount = 3840;
+      attribute height : PixelCount = 2160;
+      attribute frameRate : FrameRate = 60 [Hz];
+      port lightIn : OpticalInputPort;
+      out item rawFrame : RawImageFrame;
+    }
+
+    part visionProcessor {
+      attribute processingLatency : Latency = 35 [ms];
+      attribute peakDataRate : DataRate = 4 [GB/s];
+      in item rawFrame : RawImageFrame;
+      out item processedFrame : ProcessedVisionFrame;
+      out item detections : ObjectDetection[0..*];
+    }
+
+    part sceneInterpreter {
+      attribute minimumConfidence : Confidence = 0.90;
+      in item processedFrame : ProcessedVisionFrame;
+      in item detections : ObjectDetection[0..*];
+      out item scene : SceneUnderstanding;
+    }
+
+    part powerRegulator {
+      attribute inputVoltageNominal : Voltage = 24 [V];
+      attribute regulatedPowerLimit : Power = 30 [W];
+      port powerIn : PowerPort;
+      out item regulatedPower : PowerInput;
+    }
+
+    part healthMonitor {
+      attribute temperatureLimit : Temperature = 55 [degC];
+      in item regulatedPower : PowerInput;
+      out item health : HealthStatus;
+    }
+
+    connect opticalIn to lensAssembly.opticalIn;
+    connect lensAssembly.focusedLightOut to imageSensor.lightIn;
+    connect imageSensor.rawFrame to visionProcessor.rawFrame;
+    connect visionProcessor.processedFrame to sceneInterpreter.processedFrame;
+    connect visionProcessor.detections to sceneInterpreter.detections;
+    connect sceneInterpreter.scene to visionOut.scene;
+    connect powerIn to powerRegulator.powerIn;
+    connect powerRegulator.regulatedPower to healthMonitor.regulatedPower;
+    connect healthMonitor.health to diagnosticsOut.health;
+
+    action acquireRawFrame {
+      in item light : PhotonFlux;
+      out item frame : RawImageFrame;
+    }
+
+    action processFrame {
+      in item frame : RawImageFrame;
+      out item processed : ProcessedVisionFrame;
+      out item detections : ObjectDetection[0..*];
+    }
+
+    action interpretScene {
+      in item processed : ProcessedVisionFrame;
+      in item detections : ObjectDetection[0..*];
+      out item scene : SceneUnderstanding;
+    }
+
+    action publishScene {
+      in item scene : SceneUnderstanding;
+    }
+
+    action monitorHealth {
+      out item health : HealthStatus;
+    }
+
+    state def OperationalState {
+      state off;
+      state initializing;
+      state observing;
+      state processing;
+      state publishing;
+      state degraded;
+      state faulted;
+
+      transition first off;
+      transition off_to_initializing
+        first off then initializing
+        accept controlIn.command == "powerOn";
+
+      transition initializing_to_observing
+        first initializing then observing;
+
+      transition observing_to_processing
+        first observing then processing
+        do acquireRawFrame;
+
+      transition processing_to_publishing
+        first processing then publishing
+        do processFrame;
+
+      transition publishing_to_observing
+        first publishing then observing
+        do interpretScene then publishScene;
+
+      transition any_to_degraded
+        first observing then degraded
+        if healthMonitor.health.operatingTemperature > operatingTemperatureMax;
+
+      transition degraded_to_observing
+        first degraded then observing
+        if healthMonitor.health.operatingTemperature <= operatingTemperatureMax;
+
+      transition any_to_faulted
+        first observing then faulted
+        if healthMonitor.health.faultActive == true;
+
+      transition faulted_to_initializing
+        first faulted then initializing
+        accept controlIn.command == "reset";
+    }
+
+    perform monitorHealth;
+  }
+
+  part def MarataVisionBasedSystem {
+    attribute primaryFunction : ScalarValues::String =
+      "Observe an external scene, convert optical information into digital imagery, interpret the imagery to detect relevant objects, and publish high-confidence scene understanding for downstream decision support.";
+
+    port opticalEnvironment : OpticalInputPort;
+    port externalPower : PowerPort;
+    port sceneOutput : VisionDataPort;
+    port maintenanceOutput : DiagnosticPort;
+    port operatorControl : ControlPort;
+
+    part visionCore : MarataVision;
+
+    connect opticalEnvironment to visionCore.opticalIn;
+    connect externalPower to visionCore.powerIn;
+    connect visionCore.visionOut to sceneOutput;
+    connect visionCore.diagnosticsOut to maintenanceOutput;
+    connect operatorControl to visionCore.controlIn;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc
+      /* The system shall use the Marata Vision to observe a scene and provide processed scene understanding as its primary high-level function. */
+
+    subject system : MarataVisionBasedSystem;
+
+    require constraint {
+      system.visionCore.nominalFrameRate >= 30 [Hz]
+    }
+
+    require constraint {
+      system.visionCore.maximumProcessingLatency <= 50 [ms]
+    }
+
+    require constraint {
+      system.visionCore.minimumSceneConfidence >= 0.90
+    }
+  }
+
+  requirement def OpticalAcquisitionRequirement {
+    subject vision : MarataVision;
+
+    require constraint {
+      vision.imageSensor.width == vision.nominalResolutionWidth
+    }
+
+    require constraint {
+      vision.imageSensor.height == vision.nominalResolutionHeight
+    }
+
+    require constraint {
+      vision.lensAssembly.minimumIlluminance <= 5 [lx]
+    }
+  }
+
+  requirement def ProcessingRequirement {
+    subject vision : MarataVision;
+
+    require constraint {
+      vision.visionProcessor.processingLatency <= vision.maximumProcessingLatency
+    }
+
+    require constraint {
+      vision.sceneInterpreter.minimumConfidence >= vision.minimumSceneConfidence
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject vision : MarataVision;
+
+    require constraint {
+      vision.nominalPowerDraw <= 20 [W]
+    }
+
+    require constraint {
+      vision.powerRegulator.inputVoltageNominal == 24 [V]
+    }
+  }
+
+  requirement def HealthMonitoringRequirement {
+    subject vision : MarataVision;
+
+    require constraint {
+      vision.operatingTemperatureMin <= vision.healthMonitor.health.operatingTemperature
+    }
+
+    require constraint {
+      vision.healthMonitor.health.operatingTemperature <= vision.operatingTemperatureMax
+    }
+  }
+
+  satisfy PrimaryFunctionRequirement by MarataVisionBasedSystem;
+  satisfy OpticalAcquisitionRequirement by MarataVision;
+  satisfy ProcessingRequirement by MarataVision;
+  satisfy PowerRequirement by MarataVision;
+  satisfy HealthMonitoringRequirement by MarataVision;
+
+  part marataVisionSystem : MarataVisionBasedSystem;
+}

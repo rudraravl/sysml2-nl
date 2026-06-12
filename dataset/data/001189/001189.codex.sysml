@@ -1,0 +1,343 @@
+package PhototubeSystemModel {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Wavelength :> ISQ::length {
+    unit = SI::nanometre;
+  }
+
+  attribute def OpticalPower :> ISQ::power {
+    unit = SI::watt;
+  }
+
+  attribute def ElectricPotential :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def ElectricCurrent :> ISQ::electricCurrent {
+    unit = SI::ampere;
+  }
+
+  attribute def Resistance :> ISQ::resistance {
+    unit = SI::ohm;
+  }
+
+  attribute def Responsivity {
+    attribute value : Real;
+    unit = "A/W";
+  }
+
+  item def PhotonFlux {
+    attribute opticalPower : OpticalPower;
+    attribute wavelength : Wavelength;
+    attribute modulationFrequency : ISQ::frequency;
+  }
+
+  item def ElectronFlow {
+    attribute current : ElectricCurrent;
+    attribute kineticEnergy : ISQ::energy;
+  }
+
+  item def VoltageSignal {
+    attribute voltage : ElectricPotential;
+    attribute sourceCurrent : ElectricCurrent;
+  }
+
+  port def OpticalInputPort {
+    in item incidentLight : PhotonFlux;
+  }
+
+  port def ElectronEmissionPort {
+    out item photoelectrons : ElectronFlow;
+  }
+
+  port def ElectricalTerminal {
+    inout item signal : VoltageSignal;
+  }
+
+  port def MeasurementOutputPort {
+    out item measuredSignal : VoltageSignal;
+  }
+
+  part def Photocathode {
+    attribute workFunction : ISQ::energy = 2.1 [SI::electronvolt];
+    attribute activeArea : ISQ::area = 1.5 [SI::centimetre^2];
+    attribute quantumEfficiency : Real = 0.18;
+    attribute spectralPeak : Wavelength = 420 [SI::nanometre];
+
+    port opticalInput : OpticalInputPort;
+    port emissionOutput : ElectronEmissionPort;
+
+    action emitPhotoelectrons {
+      in item photons : PhotonFlux;
+      out item electrons : ElectronFlow;
+
+      objective {
+        doc /* Absorb incident photons and emit electrons by the external photoelectric effect when photon energy exceeds the photocathode work function. */
+      }
+    }
+  }
+
+  part def VacuumEnvelope {
+    attribute internalPressure : ISQ::pressure = 1.0e-6 [SI::pascal];
+    attribute windowTransmission : Real = 0.92;
+    attribute windowCutoffWavelength : Wavelength = 280 [SI::nanometre];
+
+    port window : OpticalInputPort;
+  }
+
+  part def Anode {
+    attribute collectionEfficiency : Real = 0.96;
+
+    port electronInput : ElectronEmissionPort;
+    port electricalOutput : ElectricalTerminal;
+
+    action collectElectrons {
+      in item electrons : ElectronFlow;
+      out item outputSignal : VoltageSignal;
+    }
+  }
+
+  part def BiasSupply {
+    attribute biasVoltage : ElectricPotential = 120 [SI::volt];
+    attribute rippleVoltage : ElectricPotential = 0.01 [SI::volt];
+
+    port positiveTerminal : ElectricalTerminal;
+    port negativeTerminal : ElectricalTerminal;
+
+    action maintainElectricField {
+      out item bias : VoltageSignal;
+    }
+  }
+
+  part def LoadResistor {
+    attribute resistance : Resistance = 1.0e6 [SI::ohm];
+    attribute tolerance : Real = 0.01;
+
+    port inputTerminal : ElectricalTerminal;
+    port outputTerminal : MeasurementOutputPort;
+
+    action convertCurrentToVoltage {
+      in item photocurrent : VoltageSignal;
+      out item voltageSignal : VoltageSignal;
+    }
+  }
+
+  part def Phototube {
+    attribute nominalResponsivity : Responsivity = 0.045;
+    attribute darkCurrent : ElectricCurrent = 2.0e-9 [SI::ampere];
+    attribute maximumAnodeVoltage : ElectricPotential = 250 [SI::volt];
+    attribute responseTime : ISQ::time = 5.0e-6 [SI::second];
+
+    port lightInput : OpticalInputPort;
+    port anodeTerminal : ElectricalTerminal;
+    port cathodeTerminal : ElectricalTerminal;
+
+    part envelope : VacuumEnvelope;
+    part cathode : Photocathode;
+    part anode : Anode;
+
+    connect lightInput to envelope.window;
+    connect envelope.window to cathode.opticalInput;
+    connect cathode.emissionOutput to anode.electronInput;
+    connect anode.electricalOutput to anodeTerminal;
+
+    action transduceLightToCurrent {
+      in item incidentLight : PhotonFlux;
+      out item anodeSignal : VoltageSignal;
+
+      first start;
+      then cathode.emitPhotoelectrons;
+      then anode.collectElectrons;
+      then done;
+    }
+
+    state machine operatingBehavior {
+      state Off;
+      state Biased;
+      state Detecting;
+      state Saturated;
+      state Fault;
+
+      initial then Off;
+
+      transition Off_to_Biased
+        first Off
+        accept turnOn
+        if anodeTerminal.signal.voltage <= maximumAnodeVoltage
+        then Biased;
+
+      transition Biased_to_Detecting
+        first Biased
+        accept lightArrives
+        if lightInput.incidentLight.opticalPower > 0 [SI::watt]
+        then Detecting;
+
+      transition Detecting_to_Biased
+        first Detecting
+        accept lightRemoved
+        if lightInput.incidentLight.opticalPower == 0 [SI::watt]
+        then Biased;
+
+      transition Detecting_to_Saturated
+        first Detecting
+        if anodeTerminal.signal.sourceCurrent > 1.0e-4 [SI::ampere]
+        then Saturated;
+
+      transition Saturated_to_Detecting
+        first Saturated
+        if anodeTerminal.signal.sourceCurrent <= 8.0e-5 [SI::ampere]
+        then Detecting;
+
+      transition Biased_to_Fault
+        first Biased
+        if anodeTerminal.signal.voltage > maximumAnodeVoltage
+        then Fault;
+
+      transition Detecting_to_Fault
+        first Detecting
+        if anodeTerminal.signal.voltage > maximumAnodeVoltage
+        then Fault;
+
+      transition Fault_to_Off
+        first Fault
+        accept reset
+        then Off;
+    }
+  }
+
+  part def PhototubeDetectionSystem {
+    attribute conversionGain : Resistance = 1.0e6 [SI::ohm];
+    attribute minimumDetectablePower : OpticalPower = 5.0e-8 [SI::watt];
+    attribute maximumLinearPower : OpticalPower = 2.0e-3 [SI::watt];
+
+    port incidentRadiation : OpticalInputPort;
+    port electricalMeasurement : MeasurementOutputPort;
+
+    part tube : Phototube;
+    part supply : BiasSupply;
+    part load : LoadResistor;
+
+    connect incidentRadiation to tube.lightInput;
+    connect supply.positiveTerminal to tube.anodeTerminal;
+    connect supply.negativeTerminal to tube.cathodeTerminal;
+    connect tube.anodeTerminal to load.inputTerminal;
+    connect load.outputTerminal to electricalMeasurement;
+
+    action measureIncidentLight {
+      in item light : PhotonFlux;
+      out item measuredVoltage : VoltageSignal;
+
+      first receiveLight;
+      then tube.transduceLightToCurrent;
+      then load.convertCurrentToVoltage;
+      then publishMeasurement;
+    }
+
+    state machine systemOperation {
+      state Unpowered;
+      state Standby;
+      state Measuring;
+      state Overrange;
+      state Shutdown;
+
+      initial then Unpowered;
+
+      transition powerApplied
+        first Unpowered
+        accept powerOn
+        then Standby;
+
+      transition beginMeasurement
+        first Standby
+        accept opticalInputPresent
+        then Measuring;
+
+      transition endMeasurement
+        first Measuring
+        accept opticalInputAbsent
+        then Standby;
+
+      transition overrangeDetected
+        first Measuring
+        if incidentRadiation.incidentLight.opticalPower > maximumLinearPower
+        then Overrange;
+
+      transition returnToLinearRange
+        first Overrange
+        if incidentRadiation.incidentLight.opticalPower <= maximumLinearPower
+        then Measuring;
+
+      transition commandedShutdown
+        first Standby
+        accept powerOff
+        then Shutdown;
+
+      transition measuringShutdown
+        first Measuring
+        accept powerOff
+        then Shutdown;
+
+      transition shutdownComplete
+        first Shutdown
+        then Unpowered;
+    }
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : PhototubeDetectionSystem;
+
+    doc /* The system shall convert incident optical radiation at its phototube window into an electrical measurement signal whose current is proportional to the received optical power over the specified linear operating range. */
+
+    require constraint {
+      system.incidentRadiation.incidentLight.opticalPower >= system.minimumDetectablePower and
+      system.incidentRadiation.incidentLight.opticalPower <= system.maximumLinearPower
+    }
+
+    require constraint {
+      system.electricalMeasurement.measuredSignal.sourceCurrent >= 0 [SI::ampere]
+    }
+  }
+
+  requirement def BiasRequirement {
+    subject tube : Phototube;
+
+    doc /* The phototube shall maintain an anode-to-cathode electric field sufficient to collect emitted photoelectrons without exceeding the maximum anode voltage. */
+
+    require constraint {
+      tube.anodeTerminal.signal.voltage <= tube.maximumAnodeVoltage
+    }
+  }
+
+  requirement def DarkCurrentRequirement {
+    subject tube : Phototube;
+
+    doc /* With no incident light, the phototube shall limit output current to the specified dark-current value. */
+
+    require constraint {
+      tube.lightInput.incidentLight.opticalPower == 0 [SI::watt] implies
+      tube.anodeTerminal.signal.sourceCurrent <= tube.darkCurrent
+    }
+  }
+
+  requirement def LinearityRequirement {
+    subject system : PhototubeDetectionSystem;
+
+    doc /* Within the measurement range, output current shall increase monotonically with incident optical power. */
+
+    require constraint {
+      system.incidentRadiation.incidentLight.opticalPower >= system.minimumDetectablePower and
+      system.incidentRadiation.incidentLight.opticalPower <= system.maximumLinearPower
+    }
+  }
+
+  part phototubeInstrument : PhototubeDetectionSystem;
+
+  satisfy PrimaryFunctionRequirement by phototubeInstrument;
+  satisfy BiasRequirement by phototubeInstrument.tube;
+  satisfy DarkCurrentRequirement by phototubeInstrument.tube;
+  satisfy LinearityRequirement by phototubeInstrument;
+
+}

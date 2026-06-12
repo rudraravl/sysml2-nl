@@ -1,0 +1,384 @@
+package EvolutionaryBiologySystemModel {
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Probability : Real {
+        doc /* Dimensionless value constrained to [0, 1]. */
+    }
+
+    attribute def GenerationCount : Integer;
+    attribute def IndividualCount : Integer;
+    attribute def AlleleFrequency : Real;
+    attribute def FitnessValue : Real;
+    attribute def MutationRate : Real;
+    attribute def RecombinationRate : Real;
+    attribute def SelectionCoefficient : Real;
+    attribute def CarryingCapacity : Integer;
+    attribute def TimeInGenerations : Real;
+
+    item def DNASequence {
+        attribute length : Integer;
+        attribute codingFraction : Probability;
+        attribute regulatoryFraction : Probability;
+    }
+
+    item def Allele {
+        attribute locusId : String;
+        attribute variantId : String;
+        attribute effectOnTrait : Real;
+        attribute frequency : AlleleFrequency;
+    }
+
+    item def Gamete {
+        attribute haploidGenome : DNASequence;
+        attribute viability : Probability;
+    }
+
+    item def Offspring {
+        attribute genotype : DNASequence;
+        attribute inheritedFitnessPotential : FitnessValue;
+    }
+
+    item def EnvironmentalPressure {
+        attribute resourceAvailability : Probability;
+        attribute predationIntensity : Probability;
+        attribute climateStress : Probability;
+        attribute diseasePressure : Probability;
+    }
+
+    item def PhenotypeExpression {
+        attribute bodySize : Real;
+        attribute metabolicEfficiency : Probability;
+        attribute camouflageMatch : Probability;
+        attribute reproductiveOutput : Real;
+        attribute survivalProbability : Probability;
+    }
+
+    port def GeneticInputPort {
+        in item inheritedAlleles : Allele;
+        in item incomingGametes : Gamete;
+    }
+
+    port def GeneticOutputPort {
+        out item transmittedAlleles : Allele;
+        out item producedGametes : Gamete;
+    }
+
+    port def EnvironmentInputPort {
+        in item pressure : EnvironmentalPressure;
+    }
+
+    port def PhenotypePort {
+        out item phenotype : PhenotypeExpression;
+    }
+
+    port def PopulationExchangePort {
+        in item immigrantAlleles : Allele;
+        out item emigrantAlleles : Allele;
+    }
+
+    part def EvolutionaryBiologySystem {
+        doc /* A biological population system whose primary high-level function is adaptive evolution: preserving heritable information while changing allele frequencies across generations in response to environmental pressures, mutation, recombination, drift, migration, and natural selection. */
+
+        attribute currentGeneration : GenerationCount;
+        attribute populationSize : IndividualCount;
+        attribute effectivePopulationSize : IndividualCount;
+        attribute carryingCapacity : CarryingCapacity;
+        attribute meanFitness : FitnessValue;
+        attribute geneticDiversityIndex : Real;
+        attribute mutationRatePerLocus : MutationRate;
+        attribute recombinationRatePerGeneration : RecombinationRate;
+
+        port environmentIn : EnvironmentInputPort;
+        port migrationExchange : PopulationExchangePort;
+        port phenotypeOut : PhenotypePort;
+
+        part habitat : Habitat;
+        part population : ReproducingPopulation;
+        part genomePool : GenePool;
+        part variationEngine : HeritableVariationSubsystem;
+        part selectionEngine : NaturalSelectionSubsystem;
+        part driftEngine : GeneticDriftSubsystem;
+        part migrationEngine : GeneFlowSubsystem;
+        part inheritanceEngine : InheritanceSubsystem;
+        part fitnessAssessor : FitnessAssessmentSubsystem;
+
+        connect environmentIn.pressure to habitat.externalPressure;
+        connect habitat.activePressure to selectionEngine.selectionPressure;
+        connect population.expressedPhenotype to fitnessAssessor.phenotypeInput;
+        connect habitat.activePressure to fitnessAssessor.environmentInput;
+        connect fitnessAssessor.fitnessOutput to selectionEngine.fitnessInput;
+        connect genomePool.alleleDistribution to variationEngine.sourceAlleles;
+        connect variationEngine.variantAlleles to genomePool.newAlleles;
+        connect genomePool.alleleDistribution to driftEngine.sampledAlleles;
+        connect migrationExchange.immigrantAlleles to migrationEngine.incomingAlleles;
+        connect migrationEngine.outgoingAlleles to migrationExchange.emigrantAlleles;
+        connect inheritanceEngine.offspringGenotypes to population.newCohort;
+        connect population.gameteOutput to inheritanceEngine.parentGametes;
+        connect selectionEngine.survivorAlleles to genomePool.selectedAlleles;
+        connect driftEngine.driftedAlleles to genomePool.driftAdjustedAlleles;
+        connect migrationEngine.integratedAlleles to genomePool.migrantAlleles;
+        connect population.expressedPhenotype to phenotypeOut.phenotype;
+
+        perform action evolveAcrossGeneration;
+        exhibit state evolutionaryLifecycle;
+
+        action evolveAcrossGeneration {
+            in item pressure : EnvironmentalPressure;
+            out item nextGenerationPhenotype : PhenotypeExpression;
+
+            first start;
+            then assessEnvironment;
+            then expressPhenotypes;
+            then evaluateFitness;
+            then selectSurvivors;
+            then produceGametes;
+            then mutateAndRecombine;
+            then inheritGenotypes;
+            then updateAlleleFrequencies;
+            then publishPhenotype;
+            then done;
+
+            action assessEnvironment {
+                in item pressure : EnvironmentalPressure;
+                out item activePressure : EnvironmentalPressure;
+            }
+
+            action expressPhenotypes {
+                in item inheritedAlleles : Allele;
+                out item phenotype : PhenotypeExpression;
+            }
+
+            action evaluateFitness {
+                in item phenotype : PhenotypeExpression;
+                in item activePressure : EnvironmentalPressure;
+                out fitness : FitnessValue;
+            }
+
+            action selectSurvivors {
+                in fitness : FitnessValue;
+                in item allelesBeforeSelection : Allele;
+                out item allelesAfterSelection : Allele;
+            }
+
+            action produceGametes {
+                in item parentalGenome : DNASequence;
+                out item gametes : Gamete;
+            }
+
+            action mutateAndRecombine {
+                in item gametes : Gamete;
+                out item variantGametes : Gamete;
+            }
+
+            action inheritGenotypes {
+                in item variantGametes : Gamete;
+                out item offspring : Offspring;
+            }
+
+            action updateAlleleFrequencies {
+                in item offspring : Offspring;
+                out diversityIndex : Real;
+                out meanFitnessAfterReproduction : FitnessValue;
+            }
+
+            action publishPhenotype {
+                in diversityIndex : Real;
+                out item nextGenerationPhenotype : PhenotypeExpression;
+            }
+        }
+
+        state def EvolutionaryLifecycle {
+            state StablePopulation;
+            state EnvironmentalShift;
+            state VariationGeneration;
+            state DifferentialSurvival;
+            state Reproduction;
+            state AlleleFrequencyUpdate;
+            state AdaptedPopulation;
+            state BottleneckRisk;
+
+            transition initial then StablePopulation;
+
+            transition StablePopulation to EnvironmentalShift
+                accept EnvironmentalPressure
+                if pressure.climateStress > 0.35 or pressure.predationIntensity > 0.35;
+
+            transition EnvironmentalShift to VariationGeneration;
+
+            transition VariationGeneration to DifferentialSurvival
+                if geneticDiversityIndex > 0.05;
+
+            transition VariationGeneration to BottleneckRisk
+                if geneticDiversityIndex <= 0.05;
+
+            transition DifferentialSurvival to Reproduction
+                if meanFitness > 0.20;
+
+            transition DifferentialSurvival to BottleneckRisk
+                if meanFitness <= 0.20;
+
+            transition Reproduction to AlleleFrequencyUpdate;
+
+            transition AlleleFrequencyUpdate to AdaptedPopulation
+                if meanFitness >= 0.65;
+
+            transition AlleleFrequencyUpdate to StablePopulation
+                if meanFitness < 0.65 and populationSize > effectivePopulationSize;
+
+            transition BottleneckRisk to StablePopulation
+                if populationSize > 100 and geneticDiversityIndex > 0.10;
+        }
+    }
+
+    part def Habitat {
+        attribute resourceLevel : Probability;
+        attribute carryingCapacity : CarryingCapacity;
+        attribute predationIntensity : Probability;
+        attribute climateStress : Probability;
+        attribute diseasePressure : Probability;
+
+        in item externalPressure : EnvironmentalPressure;
+        out item activePressure : EnvironmentalPressure;
+    }
+
+    part def ReproducingPopulation {
+        attribute censusSize : IndividualCount;
+        attribute effectiveSize : IndividualCount;
+        attribute ageStructureIndex : Real;
+        attribute matingSuccessVariance : Real;
+        attribute reproductiveRate : Real;
+
+        in item newCohort : Offspring;
+        out item gameteOutput : Gamete;
+        out item expressedPhenotype : PhenotypeExpression;
+
+        port geneticIn : GeneticInputPort;
+        port geneticOut : GeneticOutputPort;
+    }
+
+    part def GenePool {
+        attribute totalLoci : Integer;
+        attribute polymorphicLoci : Integer;
+        attribute heterozygosity : Probability;
+        attribute diversityIndex : Real;
+
+        out item alleleDistribution : Allele;
+        in item newAlleles : Allele;
+        in item selectedAlleles : Allele;
+        in item driftAdjustedAlleles : Allele;
+        in item migrantAlleles : Allele;
+    }
+
+    part def HeritableVariationSubsystem {
+        attribute mutationRate : MutationRate;
+        attribute recombinationRate : RecombinationRate;
+        attribute duplicationRate : MutationRate;
+        attribute repairEfficiency : Probability;
+
+        in item sourceAlleles : Allele;
+        out item variantAlleles : Allele;
+    }
+
+    part def NaturalSelectionSubsystem {
+        attribute directionalSelectionStrength : SelectionCoefficient;
+        attribute stabilizingSelectionStrength : SelectionCoefficient;
+        attribute disruptiveSelectionStrength : SelectionCoefficient;
+
+        in item selectionPressure : EnvironmentalPressure;
+        in fitnessInput : FitnessValue;
+        out item survivorAlleles : Allele;
+    }
+
+    part def GeneticDriftSubsystem {
+        attribute samplingVariance : Real;
+        attribute bottleneckProbability : Probability;
+        attribute founderEffectProbability : Probability;
+
+        in item sampledAlleles : Allele;
+        out item driftedAlleles : Allele;
+    }
+
+    part def GeneFlowSubsystem {
+        attribute migrationRate : Probability;
+        attribute isolationIndex : Probability;
+
+        in item incomingAlleles : Allele;
+        out item outgoingAlleles : Allele;
+        out item integratedAlleles : Allele;
+    }
+
+    part def InheritanceSubsystem {
+        attribute mendelianSegregationAccuracy : Probability;
+        attribute meioticErrorRate : MutationRate;
+        attribute parentalContributionBalance : Probability;
+
+        in item parentGametes : Gamete;
+        out item offspringGenotypes : Offspring;
+    }
+
+    part def FitnessAssessmentSubsystem {
+        attribute survivalWeight : Real;
+        attribute fecundityWeight : Real;
+        attribute matingSuccessWeight : Real;
+
+        in item phenotypeInput : PhenotypeExpression;
+        in item environmentInput : EnvironmentalPressure;
+        out fitnessOutput : FitnessValue;
+    }
+
+    requirement def MaintainHeritableContinuity {
+        subject system : EvolutionaryBiologySystem;
+        require constraint {
+            system.inheritanceEngine.mendelianSegregationAccuracy >= 0.95
+        }
+    }
+
+    requirement def GenerateVariation {
+        subject system : EvolutionaryBiologySystem;
+        require constraint {
+            system.mutationRatePerLocus > 0.0 and
+            system.recombinationRatePerGeneration > 0.0
+        }
+    }
+
+    requirement def RespondToSelectionPressure {
+        subject system : EvolutionaryBiologySystem;
+        require constraint {
+            system.selectionEngine.directionalSelectionStrength >= 0.0 and
+            system.meanFitness >= 0.0
+        }
+    }
+
+    requirement def PreservePopulationViability {
+        subject system : EvolutionaryBiologySystem;
+        require constraint {
+            system.populationSize > 0 and
+            system.populationSize <= system.carryingCapacity
+        }
+    }
+
+    requirement def SupportAdaptiveEvolution {
+        subject system : EvolutionaryBiologySystem;
+        require constraint {
+            system.geneticDiversityIndex > 0.01 and
+            system.meanFitness > 0.20
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : EvolutionaryBiologySystem;
+        doc /* The system shall perform adaptive evolution by converting inherited genetic variation and environmental pressure into differential survival, reproduction, and changed allele frequencies over successive generations. */
+        require constraint {
+            system.currentGeneration >= 0
+        }
+    }
+
+    satisfy MaintainHeritableContinuity by EvolutionaryBiologySystem::inheritanceEngine;
+    satisfy GenerateVariation by EvolutionaryBiologySystem::variationEngine;
+    satisfy RespondToSelectionPressure by EvolutionaryBiologySystem::selectionEngine;
+    satisfy PreservePopulationViability by EvolutionaryBiologySystem::population;
+    satisfy SupportAdaptiveEvolution by EvolutionaryBiologySystem;
+    satisfy PrimaryFunctionRequirement by EvolutionaryBiologySystem::evolveAcrossGeneration;
+}

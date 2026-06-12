@@ -1,0 +1,813 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-h8qw5hls
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6ab-0ee1-7b30-afec-3090ff4f9c99
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a system based on a Figure AI and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package FigureAIHumanoidSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percentage : Real {
+    unit = "%";
+  }
+
+  attribute def Speed : Real {
+    unit = "m/s";
+  }
+
+  attribute def Force : Real {
+    unit = "N";
+  }
+
+  attribute def Torque : Real {
+    unit = "N*m";
+  }
+
+  attribute def Energy : Real {
+    unit = "Wh";
+  }
+
+  attribute def Power : Real {
+    unit = "W";
+  }
+
+  attribute def Latency : Real {
+    unit = "ms";
+  }
+
+  attribute def Distance : Real {
+    unit = "m";
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute power : Power;
+  }
+
+  item def SensorFrame {
+    attribute timestamp : Real;
+    attribute confidence : Percentage;
+  }
+
+  item def TaskCommand {
+    attribute taskId : String;
+    attribute naturalLanguageGoal : String;
+    attribute priority : Integer;
+  }
+
+  item def MotionCommand {
+    attribute targetVelocity : Speed;
+    attribute gripForce : Force;
+    attribute jointTorqueLimit : Torque;
+  }
+
+  item def RobotStatus {
+    attribute batteryStateOfCharge : Percentage;
+    attribute operationalMode : String;
+    attribute faultCode : String;
+  }
+
+  item def ObjectState {
+    attribute objectName : String;
+    attribute poseConfidence : Percentage;
+    attribute distanceFromRobot : Distance;
+  }
+
+  port def PowerPort {
+    out item powerOut : ElectricalPower;
+    in item powerIn : ElectricalPower;
+  }
+
+  port def DataPort {
+    in item dataIn;
+    out item dataOut;
+  }
+
+  port def CommandPort {
+    in item commandIn : TaskCommand;
+    out item commandOut : MotionCommand;
+  }
+
+  port def StatusPort {
+    out item statusOut : RobotStatus;
+  }
+
+  port def ManipulationPort {
+    out item appliedForce : Force;
+    in item objectFeedback : ObjectState;
+  }
+
+  part def FigureHumanoidRobot {
+    attribute maximumWalkingSpeed : Speed = 1.2;
+    attribute nominalRuntime : Real = 5.0;
+    attribute payloadCapacity : Force = 196.0;
+    attribute primaryFunction : String = "Perform useful human-scale physical work by perceiving the environment, understanding task intent, planning actions, walking, grasping, carrying, and manipulating objects in spaces designed for people.";
+
+    port powerInterface : PowerPort;
+    port operatorInterface : CommandPort;
+    port cloudInterface : DataPort;
+    port statusInterface : StatusPort;
+
+    part battery : BatteryPack;
+    part perception : PerceptionSubsystem;
+    part aiController : CognitiveControlSubsystem;
+    part mobility : BipedMobilitySubsystem;
+    part manipulation : DualArmManipulationSubsystem;
+    part safety : SafetySubsystem;
+    part communication : CommunicationSubsystem;
+    part thermal : ThermalManagementSubsystem;
+
+    connect battery.powerBus to perception.powerInterface;
+    connect battery.powerBus to aiController.powerInterface;
+    connect battery.powerBus to mobility.powerInterface;
+    connect battery.powerBus to manipulation.powerInterface;
+    connect battery.powerBus to safety.powerInterface;
+    connect battery.powerBus to communication.powerInterface;
+    connect battery.powerBus to thermal.powerInterface;
+
+    connect perception.sceneOutput to aiController.perceptionInput;
+    connect operatorInterface to aiController.taskInput;
+    connect aiController.motionOutput to mobility.motionInput;
+    connect aiController.manipulationOutput to manipulation.motionInput;
+    connect manipulation.objectFeedback to perception.objectInput;
+    connect safety.safeMotionOutput to mobility.safetyInput;
+    connect safety.safeManipulationOutput to manipulation.safetyInput;
+    connect communication.cloudData to cloudInterface;
+    connect safety.statusOutput to statusInterface;
+  }
+
+  part def BatteryPack {
+    attribute capacity : Energy = 2500.0;
+    attribute nominalPower : Power = 1200.0;
+    attribute stateOfCharge : Percentage;
+    port powerBus : PowerPort;
+  }
+
+  part def PerceptionSubsystem {
+    attribute perceptionLatency : Latency = 80.0;
+    attribute minimumObjectConfidence : Percentage = 90.0;
+    port powerInterface : PowerPort;
+    port sceneOutput : DataPort;
+    port objectInput : DataPort;
+
+    part vision : StereoVisionArray;
+    part depth : DepthSensorArray;
+    part audio : MicrophoneArray;
+    part proprioception : JointStateEstimator;
+  }
+
+  part def StereoVisionArray {
+    attribute horizontalFieldOfView : Real = 120.0;
+    attribute frameRate : Real = 30.0;
+    port imageFrames : DataPort;
+  }
+
+  part def DepthSensorArray {
+    attribute range : Distance = 8.0;
+    attribute depthAccuracy : Distance = 0.03;
+    port depthFrames : DataPort;
+  }
+
+  part def MicrophoneArray {
+    attribute channelCount : Integer = 6;
+    port audioFrames : DataPort;
+  }
+
+  part def JointStateEstimator {
+    attribute updateRate : Real = 500.0;
+    port jointStateFrames : DataPort;
+  }
+
+  part def CognitiveControlSubsystem {
+    attribute taskPlanningLatency : Latency = 250.0;
+    attribute localInferencePower : Power = 350.0;
+    port powerInterface : PowerPort;
+    port perceptionInput : DataPort;
+    port taskInput : CommandPort;
+    port motionOutput : CommandPort;
+    port manipulationOutput : CommandPort;
+
+    part languageGrounding : TaskUnderstandingEngine;
+    part worldModel : WorldModel;
+    part planner : TaskAndMotionPlanner;
+    part policy : WholeBodyControlPolicy;
+  }
+
+  part def TaskUnderstandingEngine {
+    attribute supportedLanguage : String = "English";
+    attribute intentConfidenceThreshold : Percentage = 85.0;
+  }
+
+  part def WorldModel {
+    attribute mapUpdateRate : Real = 20.0;
+    attribute objectTrackingConfidence : Percentage;
+  }
+
+  part def TaskAndMotionPlanner {
+    attribute planningHorizon : Real = 10.0;
+    attribute replanningPeriod : Real = 0.2;
+  }
+
+  part def WholeBodyControlPolicy {
+    attribute controlFrequency : Real = 1000.0;
+    attribute maximumCommandLatency : Latency = 20.0;
+  }
+
+  part def BipedMobilitySubsystem {
+    attribute nominalWalkingSpeed : Speed = 0.8;
+    attribute maximumStepHeight : Distance = 0.22;
+    port powerInterface : PowerPort;
+    port motionInput : CommandPort;
+    port safetyInput : CommandPort;
+
+    part leftLeg : RoboticLeg;
+    part rightLeg : RoboticLeg;
+    part balanceController : BalanceController;
+  }
+
+  part def RoboticLeg {
+    attribute hipTorqueLimit : Torque = 180.0;
+    attribute kneeTorqueLimit : Torque = 160.0;
+    attribute ankleTorqueLimit : Torque = 90.0;
+  }
+
+  part def BalanceController {
+    attribute stabilizationFrequency : Real = 1000.0;
+    attribute maximumTiltRecoveryAngle : Real = 18.0;
+  }
+
+  part def DualArmManipulationSubsystem {
+    attribute maximumGripForce : Force = 120.0;
+    attribute objectPlacementAccuracy : Distance = 0.02;
+    port powerInterface : PowerPort;
+    port motionInput : CommandPort;
+    port safetyInput : CommandPort;
+    port objectFeedback : ManipulationPort;
+
+    part leftArm : RoboticArm;
+    part rightArm : RoboticArm;
+    part leftHand : DexterousHand;
+    part rightHand : DexterousHand;
+  }
+
+  part def RoboticArm {
+    attribute shoulderTorqueLimit : Torque = 110.0;
+    attribute elbowTorqueLimit : Torque = 85.0;
+    attribute wristTorqueLimit : Torque = 35.0;
+  }
+
+  part def DexterousHand {
+    attribute fingerCount : Integer = 5;
+    attribute gripForceResolution : Force = 1.0;
+  }
+
+  part def SafetySubsystem {
+    attribute emergencyStopLatency : Latency = 30.0;
+    attribute minimumHumanSeparation : Distance = 0.5;
+    port powerInterface : PowerPort;
+    port safeMotionOutput : CommandPort;
+    port safeManipulationOutput : CommandPort;
+    port statusOutput : StatusPort;
+
+    part collisionMonitor : CollisionAvoidanceMonitor;
+    part healthMonitor : SystemHealthMonitor;
+    part emergencyStop : EmergencyStopController;
+  }
+
+  part def CollisionAvoidanceMonitor {
+    attribute scanRate : Real = 50.0;
+    attribute stopDistance : Distance = 0.35;
+  }
+
+  part def SystemHealthMonitor {
+    attribute healthCheckPeriod : Real = 0.1;
+    attribute minimumBatteryForTaskStart : Percentage = 20.0;
+  }
+
+  part def EmergencyStopController {
+    attribute maximumStopTime : Latency = 250.0;
+  }
+
+  part def CommunicationSubsystem {
+    attribute wirelessBandwidth : Real = 100.0;
+    attribute cloudRoundTripLatency : Latency = 120.0;
+    port powerInterface : PowerPort;
+    port cloudData : DataPort;
+  }
+
+  part def ThermalManagementSubsystem {
+    attribute maximumComputeTemperature : Real = 85.0;
+    attribute coolingPower : Power = 80.0;
+    port powerInterface : PowerPort;
+  }
+
+  action def ExecuteHumanScaleWork {
+    in item command : TaskCommand;
+    out item status : RobotStatus;
+
+    first start;
+    then perceiveEnvironment;
+    then interpretTask;
+    then planWork;
+    then moveToWorksite;
+    then manipulateObjects;
+    then verifyOutcome;
+    then reportCompletion;
+
+    action start;
+    action perceiveEnvironment;
+    action interpretTask;
+    action planWork;
+    action moveToWorksite;
+    action manipulateObjects;
+    action verifyOutcome;
+    action reportCompletion;
+  }
+
+  state def RobotOperationalStates {
+    entry action initializeSystem;
+
+    state Off;
+    state Booting;
+    state Idle;
+    state Listening;
+    state Planning;
+    state Navigating;
+    state Manipulating;
+    state Verifying;
+    state Charging;
+    state Fault;
+    state EmergencyStopped;
+
+    transition Off_to_Booting first Off then Booting;
+    transition Booting_to_Idle first Booting then Idle;
+    transition Idle_to_Listening first Idle then Listening;
+    transition Listening_to_Planning first Listening then Planning;
+    transition Planning_to_Navigating first Planning then Navigating;
+    transition Navigating_to_Manipulating first Navigating then Manipulating;
+    transition Manipulating_to_Verifying first Manipulating then Verifying;
+    transition Verifying_to_Idle first Verifying then Idle;
+    transition Idle_to_Charging first Idle then Charging;
+    transition Charging_to_Idle first Charging then Idle;
+    transition Any_to_Fault first Idle then Fault;
+    transition Fault_to_Idle first Fault then Idle;
+    transition Any_to_EmergencyStopped first Navigating then EmergencyStopped;
+    transition EmergencyStopped_to_Idle first EmergencyStopped then Idle;
+
+    action initializeSystem;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Figure AI based humanoid robot shall perform general-purpose, human-scale physical tasks in environments designed for people by combining language understanding, perception, autonomous planning, biped mobility, and dexterous manipulation. */
+  }
+
+  requirement def HumanEnvironmentCompatibilityRequirement {
+    doc /* The robot shall operate through ordinary indoor passages, approach standard work surfaces, and handle common objects without requiring purpose-built infrastructure. */
+  }
+
+  requirement def SafeCollaborationRequirement {
+    doc /* The robot shall detect nearby humans and limit motion or stop when separation is below the configured safety threshold. */
+  }
+
+  requirement def TaskExecutionRequirement {
+    doc /* The robot shall convert an operator task command into a sequence of navigation, grasping, carrying, placement, and verification actions. */
+  }
+
+  requirement def EnergyRequirement {
+    doc /* The robot shall track battery state of charge and reject non-emergency task starts when available charge is below the configured minimum. */
+  }
+
+  requirement def PerceptionRequirement {
+    doc /* The robot shall maintain an object and workspace model with sufficient confidence to support manipulation and navigation decisions. */
+  }
+
+  requirement def ControlLatencyRequirement {
+    doc /* The robot shall issue whole-body control commands within the configured maximum command latency during active motion. */
+  }
+
+  satisfy PrimaryFunctionRequirement by FigureHumanoidRobot;
+  satisfy HumanEnvironmentCompatibilityRequirement by FigureHumanoidRobot;
+  satisfy SafeCollaborationRequirement by SafetySubsystem;
+  satisfy TaskExecutionRequirement by CognitiveControlSubsystem;
+  satisfy EnergyRequirement by BatteryPack;
+  satisfy PerceptionRequirement by PerceptionSubsystem;
+  satisfy ControlLatencyRequirement by WholeBodyControlPolicy;
+
+  part figureAIWorkRobot : FigureHumanoidRobot;
+
+  perform action ExecuteHumanScaleWork by figureAIWorkRobot.aiController;
+  exhibit state RobotOperationalStates by figureAIWorkRobot;
+}
+tokens used
+4,235
+package FigureAIHumanoidSystem {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Percentage : Real {
+    unit = "%";
+  }
+
+  attribute def Speed : Real {
+    unit = "m/s";
+  }
+
+  attribute def Force : Real {
+    unit = "N";
+  }
+
+  attribute def Torque : Real {
+    unit = "N*m";
+  }
+
+  attribute def Energy : Real {
+    unit = "Wh";
+  }
+
+  attribute def Power : Real {
+    unit = "W";
+  }
+
+  attribute def Latency : Real {
+    unit = "ms";
+  }
+
+  attribute def Distance : Real {
+    unit = "m";
+  }
+
+  item def ElectricalPower {
+    attribute voltage : Real;
+    attribute current : Real;
+    attribute power : Power;
+  }
+
+  item def SensorFrame {
+    attribute timestamp : Real;
+    attribute confidence : Percentage;
+  }
+
+  item def TaskCommand {
+    attribute taskId : String;
+    attribute naturalLanguageGoal : String;
+    attribute priority : Integer;
+  }
+
+  item def MotionCommand {
+    attribute targetVelocity : Speed;
+    attribute gripForce : Force;
+    attribute jointTorqueLimit : Torque;
+  }
+
+  item def RobotStatus {
+    attribute batteryStateOfCharge : Percentage;
+    attribute operationalMode : String;
+    attribute faultCode : String;
+  }
+
+  item def ObjectState {
+    attribute objectName : String;
+    attribute poseConfidence : Percentage;
+    attribute distanceFromRobot : Distance;
+  }
+
+  port def PowerPort {
+    out item powerOut : ElectricalPower;
+    in item powerIn : ElectricalPower;
+  }
+
+  port def DataPort {
+    in item dataIn;
+    out item dataOut;
+  }
+
+  port def CommandPort {
+    in item commandIn : TaskCommand;
+    out item commandOut : MotionCommand;
+  }
+
+  port def StatusPort {
+    out item statusOut : RobotStatus;
+  }
+
+  port def ManipulationPort {
+    out item appliedForce : Force;
+    in item objectFeedback : ObjectState;
+  }
+
+  part def FigureHumanoidRobot {
+    attribute maximumWalkingSpeed : Speed = 1.2;
+    attribute nominalRuntime : Real = 5.0;
+    attribute payloadCapacity : Force = 196.0;
+    attribute primaryFunction : String = "Perform useful human-scale physical work by perceiving the environment, understanding task intent, planning actions, walking, grasping, carrying, and manipulating objects in spaces designed for people.";
+
+    port powerInterface : PowerPort;
+    port operatorInterface : CommandPort;
+    port cloudInterface : DataPort;
+    port statusInterface : StatusPort;
+
+    part battery : BatteryPack;
+    part perception : PerceptionSubsystem;
+    part aiController : CognitiveControlSubsystem;
+    part mobility : BipedMobilitySubsystem;
+    part manipulation : DualArmManipulationSubsystem;
+    part safety : SafetySubsystem;
+    part communication : CommunicationSubsystem;
+    part thermal : ThermalManagementSubsystem;
+
+    connect battery.powerBus to perception.powerInterface;
+    connect battery.powerBus to aiController.powerInterface;
+    connect battery.powerBus to mobility.powerInterface;
+    connect battery.powerBus to manipulation.powerInterface;
+    connect battery.powerBus to safety.powerInterface;
+    connect battery.powerBus to communication.powerInterface;
+    connect battery.powerBus to thermal.powerInterface;
+
+    connect perception.sceneOutput to aiController.perceptionInput;
+    connect operatorInterface to aiController.taskInput;
+    connect aiController.motionOutput to mobility.motionInput;
+    connect aiController.manipulationOutput to manipulation.motionInput;
+    connect manipulation.objectFeedback to perception.objectInput;
+    connect safety.safeMotionOutput to mobility.safetyInput;
+    connect safety.safeManipulationOutput to manipulation.safetyInput;
+    connect communication.cloudData to cloudInterface;
+    connect safety.statusOutput to statusInterface;
+  }
+
+  part def BatteryPack {
+    attribute capacity : Energy = 2500.0;
+    attribute nominalPower : Power = 1200.0;
+    attribute stateOfCharge : Percentage;
+    port powerBus : PowerPort;
+  }
+
+  part def PerceptionSubsystem {
+    attribute perceptionLatency : Latency = 80.0;
+    attribute minimumObjectConfidence : Percentage = 90.0;
+    port powerInterface : PowerPort;
+    port sceneOutput : DataPort;
+    port objectInput : DataPort;
+
+    part vision : StereoVisionArray;
+    part depth : DepthSensorArray;
+    part audio : MicrophoneArray;
+    part proprioception : JointStateEstimator;
+  }
+
+  part def StereoVisionArray {
+    attribute horizontalFieldOfView : Real = 120.0;
+    attribute frameRate : Real = 30.0;
+    port imageFrames : DataPort;
+  }
+
+  part def DepthSensorArray {
+    attribute range : Distance = 8.0;
+    attribute depthAccuracy : Distance = 0.03;
+    port depthFrames : DataPort;
+  }
+
+  part def MicrophoneArray {
+    attribute channelCount : Integer = 6;
+    port audioFrames : DataPort;
+  }
+
+  part def JointStateEstimator {
+    attribute updateRate : Real = 500.0;
+    port jointStateFrames : DataPort;
+  }
+
+  part def CognitiveControlSubsystem {
+    attribute taskPlanningLatency : Latency = 250.0;
+    attribute localInferencePower : Power = 350.0;
+    port powerInterface : PowerPort;
+    port perceptionInput : DataPort;
+    port taskInput : CommandPort;
+    port motionOutput : CommandPort;
+    port manipulationOutput : CommandPort;
+
+    part languageGrounding : TaskUnderstandingEngine;
+    part worldModel : WorldModel;
+    part planner : TaskAndMotionPlanner;
+    part policy : WholeBodyControlPolicy;
+  }
+
+  part def TaskUnderstandingEngine {
+    attribute supportedLanguage : String = "English";
+    attribute intentConfidenceThreshold : Percentage = 85.0;
+  }
+
+  part def WorldModel {
+    attribute mapUpdateRate : Real = 20.0;
+    attribute objectTrackingConfidence : Percentage;
+  }
+
+  part def TaskAndMotionPlanner {
+    attribute planningHorizon : Real = 10.0;
+    attribute replanningPeriod : Real = 0.2;
+  }
+
+  part def WholeBodyControlPolicy {
+    attribute controlFrequency : Real = 1000.0;
+    attribute maximumCommandLatency : Latency = 20.0;
+  }
+
+  part def BipedMobilitySubsystem {
+    attribute nominalWalkingSpeed : Speed = 0.8;
+    attribute maximumStepHeight : Distance = 0.22;
+    port powerInterface : PowerPort;
+    port motionInput : CommandPort;
+    port safetyInput : CommandPort;
+
+    part leftLeg : RoboticLeg;
+    part rightLeg : RoboticLeg;
+    part balanceController : BalanceController;
+  }
+
+  part def RoboticLeg {
+    attribute hipTorqueLimit : Torque = 180.0;
+    attribute kneeTorqueLimit : Torque = 160.0;
+    attribute ankleTorqueLimit : Torque = 90.0;
+  }
+
+  part def BalanceController {
+    attribute stabilizationFrequency : Real = 1000.0;
+    attribute maximumTiltRecoveryAngle : Real = 18.0;
+  }
+
+  part def DualArmManipulationSubsystem {
+    attribute maximumGripForce : Force = 120.0;
+    attribute objectPlacementAccuracy : Distance = 0.02;
+    port powerInterface : PowerPort;
+    port motionInput : CommandPort;
+    port safetyInput : CommandPort;
+    port objectFeedback : ManipulationPort;
+
+    part leftArm : RoboticArm;
+    part rightArm : RoboticArm;
+    part leftHand : DexterousHand;
+    part rightHand : DexterousHand;
+  }
+
+  part def RoboticArm {
+    attribute shoulderTorqueLimit : Torque = 110.0;
+    attribute elbowTorqueLimit : Torque = 85.0;
+    attribute wristTorqueLimit : Torque = 35.0;
+  }
+
+  part def DexterousHand {
+    attribute fingerCount : Integer = 5;
+    attribute gripForceResolution : Force = 1.0;
+  }
+
+  part def SafetySubsystem {
+    attribute emergencyStopLatency : Latency = 30.0;
+    attribute minimumHumanSeparation : Distance = 0.5;
+    port powerInterface : PowerPort;
+    port safeMotionOutput : CommandPort;
+    port safeManipulationOutput : CommandPort;
+    port statusOutput : StatusPort;
+
+    part collisionMonitor : CollisionAvoidanceMonitor;
+    part healthMonitor : SystemHealthMonitor;
+    part emergencyStop : EmergencyStopController;
+  }
+
+  part def CollisionAvoidanceMonitor {
+    attribute scanRate : Real = 50.0;
+    attribute stopDistance : Distance = 0.35;
+  }
+
+  part def SystemHealthMonitor {
+    attribute healthCheckPeriod : Real = 0.1;
+    attribute minimumBatteryForTaskStart : Percentage = 20.0;
+  }
+
+  part def EmergencyStopController {
+    attribute maximumStopTime : Latency = 250.0;
+  }
+
+  part def CommunicationSubsystem {
+    attribute wirelessBandwidth : Real = 100.0;
+    attribute cloudRoundTripLatency : Latency = 120.0;
+    port powerInterface : PowerPort;
+    port cloudData : DataPort;
+  }
+
+  part def ThermalManagementSubsystem {
+    attribute maximumComputeTemperature : Real = 85.0;
+    attribute coolingPower : Power = 80.0;
+    port powerInterface : PowerPort;
+  }
+
+  action def ExecuteHumanScaleWork {
+    in item command : TaskCommand;
+    out item status : RobotStatus;
+
+    first start;
+    then perceiveEnvironment;
+    then interpretTask;
+    then planWork;
+    then moveToWorksite;
+    then manipulateObjects;
+    then verifyOutcome;
+    then reportCompletion;
+
+    action start;
+    action perceiveEnvironment;
+    action interpretTask;
+    action planWork;
+    action moveToWorksite;
+    action manipulateObjects;
+    action verifyOutcome;
+    action reportCompletion;
+  }
+
+  state def RobotOperationalStates {
+    entry action initializeSystem;
+
+    state Off;
+    state Booting;
+    state Idle;
+    state Listening;
+    state Planning;
+    state Navigating;
+    state Manipulating;
+    state Verifying;
+    state Charging;
+    state Fault;
+    state EmergencyStopped;
+
+    transition Off_to_Booting first Off then Booting;
+    transition Booting_to_Idle first Booting then Idle;
+    transition Idle_to_Listening first Idle then Listening;
+    transition Listening_to_Planning first Listening then Planning;
+    transition Planning_to_Navigating first Planning then Navigating;
+    transition Navigating_to_Manipulating first Navigating then Manipulating;
+    transition Manipulating_to_Verifying first Manipulating then Verifying;
+    transition Verifying_to_Idle first Verifying then Idle;
+    transition Idle_to_Charging first Idle then Charging;
+    transition Charging_to_Idle first Charging then Idle;
+    transition Any_to_Fault first Idle then Fault;
+    transition Fault_to_Idle first Fault then Idle;
+    transition Any_to_EmergencyStopped first Navigating then EmergencyStopped;
+    transition EmergencyStopped_to_Idle first EmergencyStopped then Idle;
+
+    action initializeSystem;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Figure AI based humanoid robot shall perform general-purpose, human-scale physical tasks in environments designed for people by combining language understanding, perception, autonomous planning, biped mobility, and dexterous manipulation. */
+  }
+
+  requirement def HumanEnvironmentCompatibilityRequirement {
+    doc /* The robot shall operate through ordinary indoor passages, approach standard work surfaces, and handle common objects without requiring purpose-built infrastructure. */
+  }
+
+  requirement def SafeCollaborationRequirement {
+    doc /* The robot shall detect nearby humans and limit motion or stop when separation is below the configured safety threshold. */
+  }
+
+  requirement def TaskExecutionRequirement {
+    doc /* The robot shall convert an operator task command into a sequence of navigation, grasping, carrying, placement, and verification actions. */
+  }
+
+  requirement def EnergyRequirement {
+    doc /* The robot shall track battery state of charge and reject non-emergency task starts when available charge is below the configured minimum. */
+  }
+
+  requirement def PerceptionRequirement {
+    doc /* The robot shall maintain an object and workspace model with sufficient confidence to support manipulation and navigation decisions. */
+  }
+
+  requirement def ControlLatencyRequirement {
+    doc /* The robot shall issue whole-body control commands within the configured maximum command latency during active motion. */
+  }
+
+  satisfy PrimaryFunctionRequirement by FigureHumanoidRobot;
+  satisfy HumanEnvironmentCompatibilityRequirement by FigureHumanoidRobot;
+  satisfy SafeCollaborationRequirement by SafetySubsystem;
+  satisfy TaskExecutionRequirement by CognitiveControlSubsystem;
+  satisfy EnergyRequirement by BatteryPack;
+  satisfy PerceptionRequirement by PerceptionSubsystem;
+  satisfy ControlLatencyRequirement by WholeBodyControlPolicy;
+
+  part figureAIWorkRobot : FigureHumanoidRobot;
+
+  perform action ExecuteHumanScaleWork by figureAIWorkRobot.aiController;
+  exhibit state RobotOperationalStates by figureAIWorkRobot;
+}

@@ -1,0 +1,440 @@
+package AlternatingCurrentSystemModel {
+
+  import ScalarValues::*;
+  import SI::*;
+
+  attribute def Voltage {
+    attribute value : Real;
+    attribute unit : String = "V";
+  }
+
+  attribute def Current {
+    attribute value : Real;
+    attribute unit : String = "A";
+  }
+
+  attribute def Frequency {
+    attribute value : Real;
+    attribute unit : String = "Hz";
+  }
+
+  attribute def Power {
+    attribute value : Real;
+    attribute unit : String = "W";
+  }
+
+  attribute def PhaseAngle {
+    attribute value : Real;
+    attribute unit : String = "deg";
+  }
+
+  attribute def Temperature {
+    attribute value : Real;
+    attribute unit : String = "degC";
+  }
+
+  attribute def TimeDuration {
+    attribute value : Real;
+    attribute unit : String = "s";
+  }
+
+  enum def PhaseKind {
+    enum singlePhase;
+    enum splitPhase;
+    enum threePhase;
+  }
+
+  enum def WaveformQuality {
+    enum nominal;
+    enum undervoltage;
+    enum overvoltage;
+    enum underfrequency;
+    enum overfrequency;
+    enum distorted;
+    enum interrupted;
+  }
+
+  item def AlternatingCurrentEnergy {
+    attribute rmsVoltage : Voltage;
+    attribute rmsCurrent : Current;
+    attribute frequency : Frequency;
+    attribute activePower : Power;
+    attribute phaseAngle : PhaseAngle;
+    attribute phaseKind : PhaseKind;
+    attribute quality : WaveformQuality;
+  }
+
+  item def ProtectionTripSignal {
+    attribute tripRequested : Boolean;
+    attribute reason : String;
+    attribute detectionTime : TimeDuration;
+  }
+
+  item def ControlCommand {
+    attribute energizeRequested : Boolean;
+    attribute resetRequested : Boolean;
+    attribute requestedVoltage : Voltage;
+    attribute requestedFrequency : Frequency;
+  }
+
+  item def HealthStatus {
+    attribute available : Boolean;
+    attribute faultPresent : Boolean;
+    attribute temperature : Temperature;
+    attribute quality : WaveformQuality;
+  }
+
+  port def ACPowerInputPort {
+    in item acIn : AlternatingCurrentEnergy;
+  }
+
+  port def ACPowerOutputPort {
+    out item acOut : AlternatingCurrentEnergy;
+  }
+
+  port def BidirectionalACPort {
+    inout item ac : AlternatingCurrentEnergy;
+  }
+
+  port def CommandInputPort {
+    in item command : ControlCommand;
+  }
+
+  port def StatusOutputPort {
+    out item status : HealthStatus;
+  }
+
+  port def TripSignalPort {
+    out item trip : ProtectionTripSignal;
+  }
+
+  port def TripInputPort {
+    in item trip : ProtectionTripSignal;
+  }
+
+  action def GenerateAlternatingCurrent {
+    out item generatedAC : AlternatingCurrentEnergy;
+
+    attribute targetVoltage : Voltage = 120.0;
+    attribute targetFrequency : Frequency = 60.0;
+    attribute targetPhaseKind : PhaseKind = PhaseKind::singlePhase;
+
+    objective {
+      generatedAC.rmsVoltage.value == targetVoltage.value;
+      generatedAC.frequency.value == targetFrequency.value;
+      generatedAC.phaseKind == targetPhaseKind;
+      generatedAC.quality == WaveformQuality::nominal;
+    }
+  }
+
+  action def ConditionAlternatingCurrent {
+    in item unconditionedAC : AlternatingCurrentEnergy;
+    out item conditionedAC : AlternatingCurrentEnergy;
+
+    attribute regulatedVoltage : Voltage = 120.0;
+    attribute regulatedFrequency : Frequency = 60.0;
+
+    objective {
+      conditionedAC.rmsVoltage.value >= 114.0;
+      conditionedAC.rmsVoltage.value <= 126.0;
+      conditionedAC.frequency.value >= 59.5;
+      conditionedAC.frequency.value <= 60.5;
+      conditionedAC.quality == WaveformQuality::nominal;
+    }
+  }
+
+  action def DistributeAlternatingCurrent {
+    in item supplyAC : AlternatingCurrentEnergy;
+    out item deliveredAC : AlternatingCurrentEnergy;
+
+    objective {
+      deliveredAC.rmsVoltage.value >= 114.0;
+      deliveredAC.rmsVoltage.value <= 126.0;
+      deliveredAC.frequency.value >= 59.5;
+      deliveredAC.frequency.value <= 60.5;
+      deliveredAC.activePower.value <= supplyAC.activePower.value;
+    }
+  }
+
+  action def DetectElectricalFault {
+    in item monitoredAC : AlternatingCurrentEnergy;
+    out item tripSignal : ProtectionTripSignal;
+
+    attribute maximumCurrent : Current = 20.0;
+    attribute maximumVoltage : Voltage = 132.0;
+    attribute minimumVoltage : Voltage = 108.0;
+    attribute maximumDetectionTime : TimeDuration = 0.05;
+
+    objective {
+      if monitoredAC.rmsCurrent.value > maximumCurrent.value or
+         monitoredAC.rmsVoltage.value > maximumVoltage.value or
+         monitoredAC.rmsVoltage.value < minimumVoltage.value {
+        tripSignal.tripRequested == true;
+        tripSignal.detectionTime.value <= maximumDetectionTime.value;
+      }
+    }
+  }
+
+  state def ACSystemOperationalState {
+    entry; then deEnergized;
+
+    state deEnergized;
+    state starting;
+    state energized;
+    state regulating;
+    state faulted;
+    state shutdown;
+
+    transition deEnergized_to_starting
+      first deEnergized
+      accept ControlCommand
+      if command.energizeRequested
+      then starting;
+
+    transition starting_to_energized
+      first starting
+      if noFaultPresent
+      then energized;
+
+    transition energized_to_regulating
+      first energized
+      if loadConnected
+      then regulating;
+
+    transition regulating_to_faulted
+      first regulating
+      accept ProtectionTripSignal
+      if trip.tripRequested
+      then faulted;
+
+    transition energized_to_faulted
+      first energized
+      accept ProtectionTripSignal
+      if trip.tripRequested
+      then faulted;
+
+    transition faulted_to_deEnergized
+      first faulted
+      accept ControlCommand
+      if command.resetRequested
+      then deEnergized;
+
+    transition energized_to_shutdown
+      first energized
+      accept ControlCommand
+      if not command.energizeRequested
+      then shutdown;
+
+    transition shutdown_to_deEnergized
+      first shutdown
+      then deEnergized;
+  }
+
+  part def ACSource {
+    port commandIn : CommandInputPort;
+    port acOut : ACPowerOutputPort;
+    port statusOut : StatusOutputPort;
+
+    attribute nominalVoltage : Voltage = 120.0;
+    attribute nominalFrequency : Frequency = 60.0;
+    attribute maximumPower : Power = 2400.0;
+    attribute phaseKind : PhaseKind = PhaseKind::singlePhase;
+
+    perform action generateAC : GenerateAlternatingCurrent {
+      targetVoltage = nominalVoltage;
+      targetFrequency = nominalFrequency;
+      targetPhaseKind = phaseKind;
+    }
+  }
+
+  part def VoltageRegulator {
+    port acIn : ACPowerInputPort;
+    port acOut : ACPowerOutputPort;
+    port statusOut : StatusOutputPort;
+
+    attribute minimumInputVoltage : Voltage = 102.0;
+    attribute maximumInputVoltage : Voltage = 138.0;
+    attribute regulatedOutputVoltage : Voltage = 120.0;
+    attribute regulatedOutputFrequency : Frequency = 60.0;
+
+    perform action conditionAC : ConditionAlternatingCurrent {
+      regulatedVoltage = regulatedOutputVoltage;
+      regulatedFrequency = regulatedOutputFrequency;
+    }
+  }
+
+  part def CircuitBreaker {
+    port acIn : ACPowerInputPort;
+    port acOut : ACPowerOutputPort;
+    port tripIn : TripInputPort;
+    port statusOut : StatusOutputPort;
+
+    attribute ratedCurrent : Current = 20.0;
+    attribute interruptTime : TimeDuration = 0.03;
+    attribute closed : Boolean = false;
+  }
+
+  part def ProtectionController {
+    port monitoredACIn : ACPowerInputPort;
+    port tripOut : TripSignalPort;
+    port statusOut : StatusOutputPort;
+
+    attribute overcurrentLimit : Current = 20.0;
+    attribute overvoltageLimit : Voltage = 132.0;
+    attribute undervoltageLimit : Voltage = 108.0;
+    attribute requiredTripTime : TimeDuration = 0.05;
+
+    perform action detectFault : DetectElectricalFault {
+      maximumCurrent = overcurrentLimit;
+      maximumVoltage = overvoltageLimit;
+      minimumVoltage = undervoltageLimit;
+      maximumDetectionTime = requiredTripTime;
+    }
+  }
+
+  part def ACDistributionBus {
+    port sourceIn : ACPowerInputPort;
+    port loadOut1 : ACPowerOutputPort;
+    port loadOut2 : ACPowerOutputPort;
+    port monitorOut : ACPowerOutputPort;
+
+    attribute busVoltage : Voltage = 120.0;
+    attribute busFrequency : Frequency = 60.0;
+    attribute maximumBusCurrent : Current = 20.0;
+  }
+
+  part def ACLoad {
+    port acIn : ACPowerInputPort;
+    port statusOut : StatusOutputPort;
+
+    attribute ratedVoltage : Voltage = 120.0;
+    attribute ratedFrequency : Frequency = 60.0;
+    attribute ratedPower : Power = 600.0;
+    attribute powerFactor : Real = 0.95;
+  }
+
+  part def GroundReference {
+    port bondedAC : BidirectionalACPort;
+
+    attribute neutralBonded : Boolean = true;
+    attribute leakageCurrentLimit : Current = 0.005;
+  }
+
+  part def ACSystem {
+    port externalCommand : CommandInputPort;
+    port deliveredPowerA : ACPowerOutputPort;
+    port deliveredPowerB : ACPowerOutputPort;
+    port systemStatus : StatusOutputPort;
+
+    attribute nominalVoltage : Voltage = 120.0;
+    attribute nominalFrequency : Frequency = 60.0;
+    attribute maximumContinuousPower : Power = 1800.0;
+    attribute maximumContinuousCurrent : Current = 15.0;
+    attribute supportedPhaseKind : PhaseKind = PhaseKind::singlePhase;
+
+    part source : ACSource;
+    part regulator : VoltageRegulator;
+    part breaker : CircuitBreaker;
+    part protection : ProtectionController;
+    part bus : ACDistributionBus;
+    part loadA : ACLoad {
+      ratedPower = 900.0;
+    }
+    part loadB : ACLoad {
+      ratedPower = 600.0;
+    }
+    part ground : GroundReference;
+
+    perform action distributeAC : DistributeAlternatingCurrent;
+
+    exhibit state operationalState : ACSystemOperationalState;
+
+    connect externalCommand to source.commandIn;
+    connect source.acOut to regulator.acIn;
+    connect regulator.acOut to breaker.acIn;
+    connect breaker.acOut to bus.sourceIn;
+    connect bus.monitorOut to protection.monitoredACIn;
+    connect protection.tripOut to breaker.tripIn;
+    connect bus.loadOut1 to loadA.acIn;
+    connect bus.loadOut2 to loadB.acIn;
+    connect bus.loadOut1 to deliveredPowerA;
+    connect bus.loadOut2 to deliveredPowerB;
+    connect bus.monitorOut to ground.bondedAC;
+    connect protection.statusOut to systemStatus;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    subject system : ACSystem;
+
+    doc /* The AC system shall generate, regulate, protect, and distribute alternating-current electrical energy to connected loads. */
+
+    require constraint {
+      system.nominalVoltage.value == 120.0;
+      system.nominalFrequency.value == 60.0;
+      system.supportedPhaseKind == PhaseKind::singlePhase;
+    }
+  }
+
+  requirement def VoltageRegulationRequirement {
+    subject system : ACSystem;
+
+    doc /* Delivered RMS voltage shall remain within plus or minus five percent of nominal voltage during normal operation. */
+
+    require constraint {
+      system.deliveredPowerA.acOut.rmsVoltage.value >= 114.0;
+      system.deliveredPowerA.acOut.rmsVoltage.value <= 126.0;
+      system.deliveredPowerB.acOut.rmsVoltage.value >= 114.0;
+      system.deliveredPowerB.acOut.rmsVoltage.value <= 126.0;
+    }
+  }
+
+  requirement def FrequencyRegulationRequirement {
+    subject system : ACSystem;
+
+    doc /* Delivered AC frequency shall remain within 59.5 Hz and 60.5 Hz during normal operation. */
+
+    require constraint {
+      system.deliveredPowerA.acOut.frequency.value >= 59.5;
+      system.deliveredPowerA.acOut.frequency.value <= 60.5;
+      system.deliveredPowerB.acOut.frequency.value >= 59.5;
+      system.deliveredPowerB.acOut.frequency.value <= 60.5;
+    }
+  }
+
+  requirement def OvercurrentProtectionRequirement {
+    subject system : ACSystem;
+
+    doc /* The system shall interrupt output power within 50 ms when load current exceeds the rated protection threshold. */
+
+    require constraint {
+      system.protection.overcurrentLimit.value == 20.0;
+      system.protection.requiredTripTime.value <= 0.05;
+      system.breaker.interruptTime.value <= 0.03;
+    }
+  }
+
+  requirement def LoadCapacityRequirement {
+    subject system : ACSystem;
+
+    doc /* The system shall supply both connected loads without exceeding continuous current or power limits. */
+
+    require constraint {
+      system.loadA.ratedPower.value + system.loadB.ratedPower.value <= system.maximumContinuousPower.value;
+      system.maximumContinuousCurrent.value <= 15.0;
+    }
+  }
+
+  requirement def GroundingRequirement {
+    subject system : ACSystem;
+
+    doc /* The system shall provide a bonded neutral reference and limit leakage current under normal operation. */
+
+    require constraint {
+      system.ground.neutralBonded == true;
+      system.ground.leakageCurrentLimit.value <= 0.005;
+    }
+  }
+
+  part acSystem : ACSystem;
+
+}

@@ -1,0 +1,351 @@
+package MiWiSensorNetworkSystem {
+
+    import ScalarValues::*;
+    import SI::*;
+    import ISQ::*;
+
+    attribute def Percent : Real {
+        :>> unit = "%";
+    }
+
+    attribute def dBm : Real {
+        :>> unit = "dBm";
+    }
+
+    attribute def ByteCount : Integer {
+        :>> unit = "byte";
+    }
+
+    attribute def BitRate : Real {
+        :>> unit = "bit/s";
+    }
+
+    attribute def Millisecond : Real {
+        :>> unit = "ms";
+    }
+
+    attribute def Celsius : Real {
+        :>> unit = "degC";
+    }
+
+    attribute def Volt : Real {
+        :>> unit = "V";
+    }
+
+    attribute def Meter : Real {
+        :>> unit = "m";
+    }
+
+    item def SensorSample {
+        attribute nodeId : String;
+        attribute sequenceNumber : Integer;
+        attribute temperature : Celsius;
+        attribute humidity : Percent;
+        attribute batteryVoltage : Volt;
+        attribute sampleTime : Millisecond;
+    }
+
+    item def MiWiFrame {
+        attribute sourceAddress : Integer;
+        attribute destinationAddress : Integer;
+        attribute networkId : Integer;
+        attribute payloadLength : ByteCount;
+        attribute receivedSignalStrength : dBm;
+        attribute payload : SensorSample;
+    }
+
+    item def ControlCommand {
+        attribute commandId : Integer;
+        attribute destinationAddress : Integer;
+        attribute reportingInterval : Millisecond;
+        attribute requestAcknowledge : Boolean;
+    }
+
+    port def MiWiRadioPort {
+        out item frameOut : MiWiFrame;
+        in item frameIn : MiWiFrame;
+        in item commandIn : ControlCommand;
+        out item commandOut : ControlCommand;
+    }
+
+    port def SensorPort {
+        out item sample : SensorSample;
+    }
+
+    port def PowerPort {
+        in attribute supplyVoltage : Volt;
+        out attribute loadCurrent : Current;
+    }
+
+    port def DataServicePort {
+        out item telemetry : SensorSample;
+        in item command : ControlCommand;
+    }
+
+    part def TemperatureHumiditySensor {
+        port sensorOutput : SensorPort;
+        port power : PowerPort;
+
+        attribute measurementPeriod : Millisecond = 60000;
+        attribute temperatureAccuracy : Celsius = 0.5;
+        attribute humidityAccuracy : Percent = 3.0;
+
+        action collectSample {
+            out item sample : SensorSample;
+        }
+    }
+
+    part def MiWiEndDevice {
+        port radio : MiWiRadioPort;
+        port power : PowerPort;
+
+        part sensor : TemperatureHumiditySensor;
+        connect sensor.power to power;
+
+        attribute nodeAddress : Integer;
+        attribute networkId : Integer = 2457;
+        attribute transmitPower : dBm = 0.0;
+        attribute nominalRange : Meter = 120.0;
+        attribute sleepCurrent : Current = 0.000002;
+        attribute activeCurrent : Current = 0.018;
+        attribute reportingInterval : Millisecond = 60000;
+
+        state def EndDeviceStateMachine {
+            state off;
+            state joining;
+            state sleeping;
+            state sampling;
+            state transmitting;
+            state waitingForAck;
+            state fault;
+
+            transition first off then joining;
+            transition joining then sleeping
+                accept JoinAccepted;
+            transition joining then fault
+                accept JoinRejected;
+            transition sleeping then sampling
+                accept SampleTimerExpired;
+            transition sampling then transmitting
+                accept SampleReady;
+            transition transmitting then waitingForAck
+                accept FrameSent;
+            transition waitingForAck then sleeping
+                accept AckReceived;
+            transition waitingForAck then transmitting
+                accept AckTimeout;
+            transition transmitting then fault
+                accept RadioFailure;
+            transition fault then joining
+                accept ResetRequested;
+        }
+
+        action senseAndReport {
+            first start;
+            then collect via sensor.collectSample;
+            then packageFrame;
+            then transmitFrame;
+            then done;
+
+            action packageFrame {
+                in item sample : SensorSample;
+                out item frame : MiWiFrame;
+            }
+
+            action transmitFrame {
+                in item frame : MiWiFrame;
+            }
+        }
+    }
+
+    part def MiWiCoordinator {
+        port radio : MiWiRadioPort;
+        port service : DataServicePort;
+        port power : PowerPort;
+
+        attribute coordinatorAddress : Integer = 1;
+        attribute networkId : Integer = 2457;
+        attribute maximumEndDevices : Integer = 64;
+        attribute channel : Integer = 15;
+        attribute dataRate : BitRate = 250000.0;
+        attribute receiveSensitivity : dBm = -94.0;
+
+        state def CoordinatorStateMachine {
+            state initializing;
+            state formingNetwork;
+            state acceptingDevices;
+            state routingTelemetry;
+            state degraded;
+            state maintenance;
+
+            transition first initializing then formingNetwork;
+            transition formingNetwork then acceptingDevices
+                accept NetworkFormed;
+            transition acceptingDevices then routingTelemetry
+                accept DeviceJoined;
+            transition routingTelemetry then degraded
+                accept LinkQualityLow;
+            transition degraded then routingTelemetry
+                accept LinkRecovered;
+            transition routingTelemetry then maintenance
+                accept ServiceUpdateRequested;
+            transition maintenance then acceptingDevices
+                accept ServiceUpdateComplete;
+        }
+
+        action receiveAndForwardTelemetry {
+            in item frame : MiWiFrame;
+            out item telemetry : SensorSample;
+        }
+
+        action issueConfigurationCommand {
+            in item command : ControlCommand;
+            out item outboundCommand : ControlCommand;
+        }
+    }
+
+    part def GatewayApplication {
+        port data : DataServicePort;
+        port power : PowerPort;
+
+        attribute retainedSampleCount : Integer = 100000;
+        attribute alarmTemperatureLimit : Celsius = 45.0;
+        attribute minimumBatteryVoltage : Volt = 2.4;
+
+        action storeTelemetry {
+            in item telemetry : SensorSample;
+        }
+
+        action evaluateAlarm {
+            in item telemetry : SensorSample;
+            out attribute alarmRaised : Boolean;
+        }
+
+        action configureNode {
+            in attribute nodeAddress : Integer;
+            in attribute interval : Millisecond;
+            out item command : ControlCommand;
+        }
+    }
+
+    part def MiWiBasedMonitoringSystem {
+        port externalData : DataServicePort;
+        port supply : PowerPort;
+
+        part coordinator : MiWiCoordinator;
+        part gateway : GatewayApplication;
+        part nodeA : MiWiEndDevice {
+            :>> nodeAddress = 101;
+        }
+        part nodeB : MiWiEndDevice {
+            :>> nodeAddress = 102;
+        }
+        part nodeC : MiWiEndDevice {
+            :>> nodeAddress = 103;
+        }
+
+        connect coordinator.service to gateway.data;
+        connect gateway.data to externalData;
+
+        connect supply to coordinator.power;
+        connect supply to gateway.power;
+        connect supply to nodeA.power;
+        connect supply to nodeB.power;
+        connect supply to nodeC.power;
+
+        connection radioLinkA connect nodeA.radio to coordinator.radio;
+        connection radioLinkB connect nodeB.radio to coordinator.radio;
+        connection radioLinkC connect nodeC.radio to coordinator.radio;
+
+        attribute systemNetworkId : Integer = 2457;
+        attribute supportedTopology : String = "MiWi star network";
+        attribute primaryFunction : String =
+            "Collect environmental measurements from low-power wireless end devices using MiWi radio links and deliver validated telemetry to a gateway application for monitoring, storage, alarms, and device configuration.";
+
+        action operateNetwork {
+            first powerOn;
+            then formMiWiNetwork;
+            then joinEndDevices;
+            then collectPeriodicTelemetry;
+            then forwardTelemetry;
+            then monitorHealth;
+
+            action powerOn;
+            action formMiWiNetwork;
+            action joinEndDevices;
+            action collectPeriodicTelemetry;
+            action forwardTelemetry;
+            action monitorHealth;
+        }
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : MiWiBasedMonitoringSystem;
+
+        doc /* The system shall provide a MiWi-based wireless monitoring network that collects sensor data from distributed end devices and forwards the data to a gateway application. */
+
+        require constraint {
+            system.primaryFunction ==
+            "Collect environmental measurements from low-power wireless end devices using MiWi radio links and deliver validated telemetry to a gateway application for monitoring, storage, alarms, and device configuration."
+        }
+    }
+
+    requirement def NetworkCapacityRequirement {
+        subject coordinator : MiWiCoordinator;
+
+        doc /* The MiWi coordinator shall support at least sixty-four joined end devices. */
+
+        require constraint {
+            coordinator.maximumEndDevices >= 64
+        }
+    }
+
+    requirement def TelemetryLatencyRequirement {
+        subject system : MiWiBasedMonitoringSystem;
+
+        attribute maximumEndToGatewayLatency : Millisecond = 2000.0;
+
+        doc /* A sensor sample generated by an end device shall be available to the gateway within two seconds during normal network operation. */
+
+        require constraint {
+            maximumEndToGatewayLatency <= 2000.0
+        }
+    }
+
+    requirement def LowPowerEndDeviceRequirement {
+        subject node : MiWiEndDevice;
+
+        doc /* Each end device shall support low-power sleep operation between periodic sensor reports. */
+
+        require constraint {
+            node.sleepCurrent <= 0.000005
+        }
+    }
+
+    requirement def RadioRangeRequirement {
+        subject node : MiWiEndDevice;
+
+        doc /* Each MiWi end device shall support a nominal unobstructed communication range of at least one hundred meters. */
+
+        require constraint {
+            node.nominalRange >= 100.0
+        }
+    }
+
+    requirement def AlarmEvaluationRequirement {
+        subject gateway : GatewayApplication;
+
+        doc /* The gateway application shall evaluate incoming telemetry against configured environmental and battery thresholds. */
+
+        require constraint {
+            gateway.alarmTemperatureLimit <= 50.0 and gateway.minimumBatteryVoltage >= 2.0
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by MiWiBasedMonitoringSystem;
+    satisfy NetworkCapacityRequirement by MiWiCoordinator;
+    satisfy LowPowerEndDeviceRequirement by MiWiEndDevice;
+    satisfy RadioRangeRequirement by MiWiEndDevice;
+    satisfy AlarmEvaluationRequirement by GatewayApplication;
+
+}

@@ -1,0 +1,370 @@
+package PLC_Control_System_Model {
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    value def Voltage :> ISQ::electricPotential {
+        unit = "V";
+    }
+
+    value def Current :> ISQ::electricCurrent {
+        unit = "A";
+    }
+
+    value def Temperature :> ISQ::thermodynamicTemperature {
+        unit = "degC";
+    }
+
+    value def Pressure :> ISQ::pressure {
+        unit = "kPa";
+    }
+
+    value def Duration :> ISQ::duration {
+        unit = "ms";
+    }
+
+    value def Percent {
+        unit = "%";
+    }
+
+    value def Count {
+        unit = "count";
+    }
+
+    enum def SignalHealth {
+        enum ok;
+        enum degraded;
+        enum failed;
+    }
+
+    enum def ControllerMode {
+        enum stopped;
+        enum starting;
+        enum automatic;
+        enum manual;
+        enum faulted;
+        enum safeShutdown;
+    }
+
+    item def DigitalSignal {
+        attribute state : Boolean;
+        attribute health : SignalHealth;
+    }
+
+    item def AnalogSignal {
+        attribute value : Real;
+        attribute health : SignalHealth;
+    }
+
+    item def ControlCommand {
+        attribute enable : Boolean;
+        attribute setpoint : Real;
+        attribute issuedAt : Duration;
+    }
+
+    item def AlarmMessage {
+        attribute active : Boolean;
+        attribute code : String;
+        attribute severity : Count;
+    }
+
+    item def NetworkFrame {
+        attribute sourceAddress : String;
+        attribute destinationAddress : String;
+        attribute payloadBytes : Count;
+        attribute validChecksum : Boolean;
+    }
+
+    port def DigitalInputPort {
+        in item signal : DigitalSignal;
+    }
+
+    port def DigitalOutputPort {
+        out item signal : DigitalSignal;
+    }
+
+    port def AnalogInputPort {
+        in item signal : AnalogSignal;
+    }
+
+    port def AnalogOutputPort {
+        out item signal : AnalogSignal;
+    }
+
+    port def CommandPort {
+        in item command : ControlCommand;
+    }
+
+    port def AlarmPort {
+        out item alarm : AlarmMessage;
+    }
+
+    port def EthernetPort {
+        inout item frame : NetworkFrame;
+    }
+
+    port def PowerInputPort {
+        in item supplyVoltage : Voltage;
+        in item supplyCurrent : Current;
+    }
+
+    port def PowerOutputPort {
+        out item supplyVoltage : Voltage;
+        out item supplyCurrent : Current;
+    }
+
+    part def PowerSupply {
+        attribute nominalInputVoltage : Voltage = 120 [V];
+        attribute outputVoltage : Voltage = 24 [V];
+        attribute maximumOutputCurrent : Current = 5 [A];
+
+        port acInput : PowerInputPort;
+        port dcOutput : PowerOutputPort;
+    }
+
+    part def EmergencyStopStation {
+        attribute normallyClosed : Boolean = true;
+
+        port stopSignal : DigitalOutputPort;
+    }
+
+    part def TemperatureSensor {
+        attribute measurementRangeLow : Temperature = -20 [degC];
+        attribute measurementRangeHigh : Temperature = 150 [degC];
+        attribute accuracy : Temperature = 0.5 [degC];
+
+        port measuredTemperature : AnalogOutputPort;
+    }
+
+    part def PressureSensor {
+        attribute measurementRangeLow : Pressure = 0 [kPa];
+        attribute measurementRangeHigh : Pressure = 1000 [kPa];
+        attribute accuracy : Pressure = 2 [kPa];
+
+        port measuredPressure : AnalogOutputPort;
+    }
+
+    part def LevelSwitch {
+        attribute tripLevelPercent : Percent = 90 [%];
+
+        port highLevelSignal : DigitalOutputPort;
+    }
+
+    part def MotorContactor {
+        attribute coilVoltage : Voltage = 24 [V];
+        attribute ratedMotorCurrent : Current = 12 [A];
+
+        port coilCommand : DigitalInputPort;
+        port auxiliaryFeedback : DigitalOutputPort;
+    }
+
+    part def ControlValve {
+        attribute commandRangeLow : Percent = 0 [%];
+        attribute commandRangeHigh : Percent = 100 [%];
+        attribute failPosition : Percent = 0 [%];
+
+        port positionCommand : AnalogInputPort;
+        port openFeedback : DigitalOutputPort;
+    }
+
+    part def HumanMachineInterface {
+        attribute displayVoltage : Voltage = 24 [V];
+        attribute operatorCommandTimeout : Duration = 5000 [ms];
+
+        port operatorCommandOut : CommandPort;
+        port alarmIn : AlarmPort;
+        port plantNetwork : EthernetPort;
+    }
+
+    part def RemoteScadaGateway {
+        attribute updatePeriod : Duration = 1000 [ms];
+
+        port controlNetwork : EthernetPort;
+    }
+
+    part def ProgrammableLogicController {
+        attribute scanTimeLimit : Duration = 20 [ms];
+        attribute watchdogTimeout : Duration = 100 [ms];
+        attribute controllerMode : ControllerMode = ControllerMode::stopped;
+        attribute automaticTemperatureSetpoint : Temperature = 80 [degC];
+        attribute maximumAllowedPressure : Pressure = 850 [kPa];
+        attribute motorStartDelay : Duration = 3000 [ms];
+
+        port powerIn : PowerInputPort;
+        port emergencyStopIn : DigitalInputPort;
+        port temperatureIn : AnalogInputPort;
+        port pressureIn : AnalogInputPort;
+        port highLevelIn : DigitalInputPort;
+        port operatorCommandIn : CommandPort;
+        port networkPort : EthernetPort;
+
+        port motorRunOut : DigitalOutputPort;
+        port valvePositionOut : AnalogOutputPort;
+        port alarmOut : AlarmPort;
+
+        action def ReadInputs {
+            in item temperature : AnalogSignal;
+            in item pressure : AnalogSignal;
+            in item highLevel : DigitalSignal;
+            in item emergencyStop : DigitalSignal;
+            out item validInputs : Boolean;
+        }
+
+        action def ExecuteControlLogic {
+            in item temperature : AnalogSignal;
+            in item pressure : AnalogSignal;
+            in item highLevel : DigitalSignal;
+            in item emergencyStop : DigitalSignal;
+            in item operatorCommand : ControlCommand;
+            out item motorCommand : DigitalSignal;
+            out item valveCommand : AnalogSignal;
+            out item alarm : AlarmMessage;
+        }
+
+        action def UpdateOutputs {
+            in item motorCommand : DigitalSignal;
+            in item valveCommand : AnalogSignal;
+            in item alarm : AlarmMessage;
+        }
+
+        action def ControlScanCycle {
+            action read : ReadInputs;
+            then action compute : ExecuteControlLogic;
+            then action write : UpdateOutputs;
+        }
+
+        state def ControllerLifecycle {
+            state stopped;
+            state starting;
+            state automatic;
+            state manual;
+            state faulted;
+            state safeShutdown;
+
+            transition first stopped;
+            transition stopped_to_starting
+                first stopped
+                then starting
+                accept ControlCommand
+                if command.enable;
+
+            transition starting_to_automatic
+                first starting
+                then automatic
+                if powerIn.supplyVoltage >= 21.6 [V] and powerIn.supplyVoltage <= 26.4 [V];
+
+            transition automatic_to_manual
+                first automatic
+                then manual
+                accept ControlCommand
+                if command.enable == false;
+
+            transition manual_to_automatic
+                first manual
+                then automatic
+                accept ControlCommand
+                if command.enable == true;
+
+            transition automatic_to_faulted
+                first automatic
+                then faulted
+                if pressureIn.signal.value > maximumAllowedPressure or emergencyStopIn.signal.state == false;
+
+            transition manual_to_faulted
+                first manual
+                then faulted
+                if pressureIn.signal.health == SignalHealth::failed or temperatureIn.signal.health == SignalHealth::failed;
+
+            transition faulted_to_safeShutdown
+                first faulted
+                then safeShutdown;
+
+            transition safeShutdown_to_stopped
+                first safeShutdown
+                then stopped
+                if motorRunOut.signal.state == false and valvePositionOut.signal.value == 0.0;
+        }
+    }
+
+    part def PLCBasedProcessControlSystem {
+        attribute primaryFunction : String =
+            "Continuously read industrial process inputs, execute deterministic control logic, command actuators, and place the process in a safe state when abnormal conditions are detected.";
+
+        part powerSupply : PowerSupply;
+        part plc : ProgrammableLogicController;
+        part hmi : HumanMachineInterface;
+        part scada : RemoteScadaGateway;
+        part emergencyStop : EmergencyStopStation;
+        part temperatureSensor : TemperatureSensor;
+        part pressureSensor : PressureSensor;
+        part highLevelSwitch : LevelSwitch;
+        part motorContactor : MotorContactor;
+        part controlValve : ControlValve;
+
+        connect powerSupply.dcOutput to plc.powerIn;
+        connect emergencyStop.stopSignal to plc.emergencyStopIn;
+        connect temperatureSensor.measuredTemperature to plc.temperatureIn;
+        connect pressureSensor.measuredPressure to plc.pressureIn;
+        connect highLevelSwitch.highLevelSignal to plc.highLevelIn;
+        connect hmi.operatorCommandOut to plc.operatorCommandIn;
+        connect plc.networkPort to hmi.plantNetwork;
+        connect hmi.plantNetwork to scada.controlNetwork;
+        connect plc.motorRunOut to motorContactor.coilCommand;
+        connect motorContactor.auxiliaryFeedback to plc.highLevelIn;
+        connect plc.valvePositionOut to controlValve.positionCommand;
+        connect plc.alarmOut to hmi.alarmIn;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        subject system : PLCBasedProcessControlSystem;
+
+        doc
+            /* The PLC-based control system shall provide deterministic high-level control of an industrial process by acquiring sensor and operator inputs, evaluating programmed logic, driving motor and valve actuators, reporting alarms, and enforcing safe shutdown behavior. */
+
+        require constraint {
+            system.plc.scanTimeLimit <= 20 [ms]
+        }
+    }
+
+    requirement def SafeShutdownRequirement {
+        subject system : PLCBasedProcessControlSystem;
+
+        require constraint {
+            system.plc.emergencyStopIn.signal.state == false implies
+            system.plc.motorRunOut.signal.state == false and
+            system.plc.valvePositionOut.signal.value == 0.0
+        }
+    }
+
+    requirement def OverPressureProtectionRequirement {
+        subject system : PLCBasedProcessControlSystem;
+
+        require constraint {
+            system.plc.pressureIn.signal.value > system.plc.maximumAllowedPressure implies
+            system.plc.alarmOut.alarm.active == true
+        }
+    }
+
+    requirement def PowerCompatibilityRequirement {
+        subject system : PLCBasedProcessControlSystem;
+
+        require constraint {
+            system.powerSupply.outputVoltage == 24 [V]
+        }
+    }
+
+    requirement def OperatorVisibilityRequirement {
+        subject system : PLCBasedProcessControlSystem;
+
+        require constraint {
+            system.plc.alarmOut.alarm.active == true implies
+            system.hmi.alarmIn.alarm.active == true
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by PLCBasedProcessControlSystem;
+    satisfy SafeShutdownRequirement by PLCBasedProcessControlSystem;
+    satisfy OverPressureProtectionRequirement by PLCBasedProcessControlSystem;
+    satisfy PowerCompatibilityRequirement by PLCBasedProcessControlSystem;
+    satisfy OperatorVisibilityRequirement by PLCBasedProcessControlSystem;
+}

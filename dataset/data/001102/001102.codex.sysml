@@ -1,0 +1,427 @@
+package InfraRedSensingSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Celsius :> ISQ::temperature {
+        unit = SI::degreeCelsius;
+    }
+
+    attribute def Meter :> ISQ::length {
+        unit = SI::metre;
+    }
+
+    attribute def WattPerSquareMeter :> ISQ::powerDensity {
+        unit = SI::watt / SI::metre^2;
+    }
+
+    attribute def Nanometer :> ISQ::length {
+        unit = SI::nano * SI::metre;
+    }
+
+    attribute def Millisecond :> ISQ::time {
+        unit = SI::milli * SI::second;
+    }
+
+    attribute def Volt :> ISQ::electricPotential {
+        unit = SI::volt;
+    }
+
+    attribute def Ampere :> ISQ::electricCurrent {
+        unit = SI::ampere;
+    }
+
+    attribute def Percent {
+        :>> range = "0..100";
+    }
+
+    item def InfraRedRadiation {
+        attribute wavelength : Nanometer;
+        attribute irradiance : WattPerSquareMeter;
+        attribute sourceTemperature : Celsius;
+    }
+
+    item def ThermalMeasurement {
+        attribute measuredTemperature : Celsius;
+        attribute confidence : Percent;
+        attribute rangeToTarget : Meter;
+        attribute sampleAge : Millisecond;
+    }
+
+    item def ElectricalPower {
+        attribute voltage : Volt;
+        attribute current : Ampere;
+    }
+
+    item def DigitalSample {
+        attribute sampleVoltage : Volt;
+        attribute integrationTime : Millisecond;
+        attribute detectorTemperature : Celsius;
+    }
+
+    item def TemperatureReport {
+        attribute objectTemperature : Celsius;
+        attribute ambientTemperature : Celsius;
+        attribute valid : Boolean;
+        attribute alarmActive : Boolean;
+    }
+
+    port def RadiationInputPort {
+        in radiation : InfraRedRadiation;
+    }
+
+    port def SamplePort {
+        out sample : DigitalSample;
+    }
+
+    port def MeasurementPort {
+        out measurement : ThermalMeasurement;
+    }
+
+    port def ReportPort {
+        out report : TemperatureReport;
+    }
+
+    port def PowerInputPort {
+        in power : ElectricalPower;
+    }
+
+    port def ControlPort {
+        in enable : Boolean;
+        in reset : Boolean;
+        out ready : Boolean;
+        out fault : Boolean;
+    }
+
+    action def ConvertRadiationToSample {
+        in radiation : InfraRedRadiation;
+        in detectorTemperature : Celsius;
+        out sample : DigitalSample;
+
+        first start;
+        then integrate;
+        then compensateOffset;
+        then publishSample;
+        then done;
+
+        action integrate {
+            sample.integrationTime = 12 [SI::milli * SI::second];
+            sample.sampleVoltage = radiation.irradiance * 0.85;
+        }
+
+        action compensateOffset {
+            sample.detectorTemperature = detectorTemperature;
+        }
+    }
+
+    action def EstimateTargetTemperature {
+        in sample : DigitalSample;
+        in rangeToTarget : Meter;
+        in ambientTemperature : Celsius;
+        out measurement : ThermalMeasurement;
+
+        first start;
+        then linearizeSignal;
+        then compensateAmbient;
+        then calculateConfidence;
+        then done;
+
+        action linearizeSignal {
+            measurement.rangeToTarget = rangeToTarget;
+            measurement.sampleAge = 0 [SI::milli * SI::second];
+        }
+
+        action compensateAmbient {
+            measurement.measuredTemperature = ambientTemperature + sample.sampleVoltage * 18;
+        }
+
+        action calculateConfidence {
+            measurement.confidence = 95;
+        }
+    }
+
+    action def GenerateTemperatureReport {
+        in measurement : ThermalMeasurement;
+        in ambientTemperature : Celsius;
+        in alarmThreshold : Celsius;
+        out report : TemperatureReport;
+
+        first start;
+        then validateMeasurement;
+        then compareThreshold;
+        then publishReport;
+        then done;
+
+        action validateMeasurement {
+            report.valid = measurement.confidence >= 80;
+            report.objectTemperature = measurement.measuredTemperature;
+            report.ambientTemperature = ambientTemperature;
+        }
+
+        action compareThreshold {
+            report.alarmActive = report.valid and measurement.measuredTemperature >= alarmThreshold;
+        }
+    }
+
+    state def InfraRedOperatingState {
+        entry action initialize;
+
+        state Off;
+        state SelfTest;
+        state Standby;
+        state Acquiring;
+        state Processing;
+        state Reporting;
+        state Fault;
+
+        transition first Off;
+
+        transition Off_to_SelfTest
+            first Off
+            accept enable
+            then SelfTest;
+
+        transition SelfTest_to_Standby
+            first SelfTest
+            if selfTestPassed
+            then Standby;
+
+        transition SelfTest_to_Fault
+            first SelfTest
+            if not selfTestPassed
+            then Fault;
+
+        transition Standby_to_Acquiring
+            first Standby
+            accept enable
+            then Acquiring;
+
+        transition Acquiring_to_Processing
+            first Acquiring
+            if sampleAvailable
+            then Processing;
+
+        transition Processing_to_Reporting
+            first Processing
+            if measurementCalculated
+            then Reporting;
+
+        transition Reporting_to_Acquiring
+            first Reporting
+            if enable
+            then Acquiring;
+
+        transition Reporting_to_Standby
+            first Reporting
+            if not enable
+            then Standby;
+
+        transition Any_to_Fault
+            first Off, SelfTest, Standby, Acquiring, Processing, Reporting
+            if internalFaultDetected
+            then Fault;
+
+        transition Fault_to_SelfTest
+            first Fault
+            accept reset
+            then SelfTest;
+
+        attribute enable : Boolean;
+        attribute reset : Boolean;
+        attribute selfTestPassed : Boolean;
+        attribute sampleAvailable : Boolean;
+        attribute measurementCalculated : Boolean;
+        attribute internalFaultDetected : Boolean;
+    }
+
+    part def InfraRedDetector {
+        port opticalIn : RadiationInputPort;
+        port sampleOut : SamplePort;
+        port powerIn : PowerInputPort;
+
+        attribute spectralRangeMin : Nanometer = 800 [SI::nano * SI::metre];
+        attribute spectralRangeMax : Nanometer = 14000 [SI::nano * SI::metre];
+        attribute detectorTemperature : Celsius = 25 [SI::degreeCelsius];
+        attribute noiseEquivalentTemperatureDifference : Celsius = 0.08 [SI::degreeCelsius];
+
+        perform action ConvertRadiationToSample;
+    }
+
+    part def OpticalWindow {
+        port externalRadiationIn : RadiationInputPort;
+        port filteredRadiationOut : RadiationInputPort;
+
+        attribute transmittance : Percent = 92;
+        attribute lowerPassWavelength : Nanometer = 800 [SI::nano * SI::metre];
+        attribute upperPassWavelength : Nanometer = 14000 [SI::nano * SI::metre];
+    }
+
+    part def SignalProcessor {
+        port sampleIn : SamplePort;
+        port measurementOut : MeasurementPort;
+        port control : ControlPort;
+        port powerIn : PowerInputPort;
+
+        attribute ambientTemperature : Celsius = 22 [SI::degreeCelsius];
+        attribute maximumValidRange : Meter = 5 [SI::metre];
+        attribute processingLatency : Millisecond = 18 [SI::milli * SI::second];
+
+        perform action EstimateTargetTemperature;
+    }
+
+    part def ThermalController {
+        port measurementIn : MeasurementPort;
+        port reportOut : ReportPort;
+        port control : ControlPort;
+        port powerIn : PowerInputPort;
+
+        attribute alarmThreshold : Celsius = 60 [SI::degreeCelsius];
+        attribute ready : Boolean = false;
+        attribute fault : Boolean = false;
+
+        perform action GenerateTemperatureReport;
+        exhibit state InfraRedOperatingState;
+    }
+
+    part def PowerRegulator {
+        port powerIn : PowerInputPort;
+        port detectorPowerOut : PowerInputPort;
+        port processorPowerOut : PowerInputPort;
+        port controllerPowerOut : PowerInputPort;
+
+        attribute inputVoltage : Volt = 12 [SI::volt];
+        attribute regulatedVoltage : Volt = 3.3 [SI::volt];
+        attribute maximumCurrent : Ampere = 0.75 [SI::ampere];
+    }
+
+    part def InfraRedSystem {
+        port targetRadiationIn : RadiationInputPort;
+        port externalPowerIn : PowerInputPort;
+        port operatorControl : ControlPort;
+        port temperatureReportOut : ReportPort;
+
+        part window : OpticalWindow;
+        part detector : InfraRedDetector;
+        part processor : SignalProcessor;
+        part controller : ThermalController;
+        part regulator : PowerRegulator;
+
+        attribute primaryFunction : String =
+            "Detect incident infra-red radiation emitted by a target, convert it into an electrical signal, estimate target temperature, and report validated thermal status.";
+
+        attribute nominalDetectionRange : Meter = 3 [SI::metre];
+        attribute measurementUpdatePeriod : Millisecond = 100 [SI::milli * SI::second];
+        attribute operatingAmbientMin : Celsius = -20 [SI::degreeCelsius];
+        attribute operatingAmbientMax : Celsius = 55 [SI::degreeCelsius];
+
+        connect targetRadiationIn to window.externalRadiationIn;
+        connect window.filteredRadiationOut to detector.opticalIn;
+        connect detector.sampleOut to processor.sampleIn;
+        connect processor.measurementOut to controller.measurementIn;
+        connect controller.reportOut to temperatureReportOut;
+
+        connect externalPowerIn to regulator.powerIn;
+        connect regulator.detectorPowerOut to detector.powerIn;
+        connect regulator.processorPowerOut to processor.powerIn;
+        connect regulator.controllerPowerOut to controller.powerIn;
+
+        connect operatorControl to processor.control;
+        connect operatorControl to controller.control;
+    }
+
+    requirement def PrimaryFunctionRequirement {
+        doc
+        /*
+         * The infra-red system shall detect infra-red radiation from a target
+         * and produce a validated temperature report representing the target
+         * thermal state.
+         */
+
+        subject system : InfraRedSystem;
+
+        require constraint {
+            system.nominalDetectionRange >= 3 [SI::metre]
+        }
+    }
+
+    requirement def SpectralSensitivityRequirement {
+        doc
+        /*
+         * The detector shall accept infra-red wavelengths from 800 nm through
+         * 14000 nm to cover near, mid, and long-wave infra-red sensing bands.
+         */
+
+        subject detector : InfraRedDetector;
+
+        require constraint {
+            detector.spectralRangeMin <= 800 [SI::nano * SI::metre] and
+            detector.spectralRangeMax >= 14000 [SI::nano * SI::metre]
+        }
+    }
+
+    requirement def ThermalAccuracyRequirement {
+        doc
+        /*
+         * The infra-red system shall maintain detector noise equivalent
+         * temperature difference below 0.10 degrees Celsius.
+         */
+
+        subject detector : InfraRedDetector;
+
+        require constraint {
+            detector.noiseEquivalentTemperatureDifference <= 0.10 [SI::degreeCelsius]
+        }
+    }
+
+    requirement def UpdateRateRequirement {
+        doc
+        /*
+         * The infra-red system shall publish a temperature report at least
+         * every 100 milliseconds while enabled and not faulted.
+         */
+
+        subject system : InfraRedSystem;
+
+        require constraint {
+            system.measurementUpdatePeriod <= 100 [SI::milli * SI::second]
+        }
+    }
+
+    requirement def PowerRequirement {
+        doc
+        /*
+         * The power regulator shall provide regulated low-voltage power to
+         * detector, signal processor, and controller electronics.
+         */
+
+        subject regulator : PowerRegulator;
+
+        require constraint {
+            regulator.regulatedVoltage == 3.3 [SI::volt] and
+            regulator.maximumCurrent >= 0.75 [SI::ampere]
+        }
+    }
+
+    requirement def AlarmRequirement {
+        doc
+        /*
+         * The controller shall assert an alarm in the output report when the
+         * validated estimated target temperature equals or exceeds 60 degrees
+         * Celsius.
+         */
+
+        subject controller : ThermalController;
+
+        require constraint {
+            controller.alarmThreshold == 60 [SI::degreeCelsius]
+        }
+    }
+
+    satisfy PrimaryFunctionRequirement by InfraRedSystem;
+    satisfy SpectralSensitivityRequirement by InfraRedDetector;
+    satisfy ThermalAccuracyRequirement by InfraRedDetector;
+    satisfy UpdateRateRequirement by InfraRedSystem;
+    satisfy PowerRequirement by PowerRegulator;
+    satisfy AlarmRequirement by ThermalController;
+}

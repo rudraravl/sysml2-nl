@@ -1,0 +1,777 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-etegwx2p
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb5f9-901a-70d2-ab67-319f0b1b3382
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Describe a sensing unit that measures the relevant quantity using a Sensor node.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package SensingUnitModel {
+
+  enum def UnitSymbol {
+    enum Pa;
+    enum degC;
+    enum V;
+    enum count;
+    enum s;
+    enum percent;
+  }
+
+  attribute def QuantityValue {
+    attribute magnitude : Real;
+    attribute unit : UnitSymbol;
+  }
+
+  attribute def RelevantQuantity :> QuantityValue {
+    attribute redefines unit = UnitSymbol::degC;
+  }
+
+  attribute def Voltage :> QuantityValue {
+    attribute redefines unit = UnitSymbol::V;
+  }
+
+  attribute def DigitalCount :> QuantityValue {
+    attribute redefines unit = UnitSymbol::count;
+  }
+
+  attribute def Duration :> QuantityValue {
+    attribute redefines unit = UnitSymbol::s;
+  }
+
+  attribute def Percent :> QuantityValue {
+    attribute redefines unit = UnitSymbol::percent;
+  }
+
+  item def PhysicalStimulus {
+    attribute quantity : RelevantQuantity;
+  }
+
+  item def ExcitationPower {
+    attribute supplyVoltage : Voltage;
+    attribute currentLimit : Real;
+  }
+
+  item def RawSensorSample {
+    attribute adcCode : DigitalCount;
+    attribute sampleTime : Duration;
+    attribute sensorTemperature : RelevantQuantity;
+  }
+
+  item def CalibratedMeasurement {
+    attribute measuredValue : RelevantQuantity;
+    attribute uncertainty : RelevantQuantity;
+    attribute confidence : Percent;
+    attribute timestamp : Duration;
+    attribute valid : Boolean;
+  }
+
+  item def HealthStatus {
+    attribute operational : Boolean;
+    attribute saturated : Boolean;
+    attribute disconnected : Boolean;
+    attribute calibrationExpired : Boolean;
+  }
+
+  port def StimulusInputPort {
+    in item stimulus : PhysicalStimulus;
+  }
+
+  port def PowerInputPort {
+    in item power : ExcitationPower;
+  }
+
+  port def RawSamplePort {
+    out item rawSample : RawSensorSample;
+  }
+
+  port def MeasurementOutputPort {
+    out item measurement : CalibratedMeasurement;
+  }
+
+  port def HealthOutputPort {
+    out item health : HealthStatus;
+  }
+
+  part def SensorNode {
+    port stimulusIn : StimulusInputPort;
+    port powerIn : PowerInputPort;
+    port rawOut : RawSamplePort;
+    port healthOut : HealthOutputPort;
+
+    attribute sensingRangeMin : RelevantQuantity = (magnitude = -40.0, unit = UnitSymbol::degC);
+    attribute sensingRangeMax : RelevantQuantity = (magnitude = 125.0, unit = UnitSymbol::degC);
+    attribute resolution : RelevantQuantity = (magnitude = 0.05, unit = UnitSymbol::degC);
+    attribute responseTime : Duration = (magnitude = 0.25, unit = UnitSymbol::s);
+    attribute adcBits : Integer = 16;
+    attribute nominalSupply : Voltage = (magnitude = 3.3, unit = UnitSymbol::V);
+
+    perform action senseStimulus : SenseStimulus;
+  }
+
+  part def SignalConditioner {
+    port rawIn {
+      in item rawSample : RawSensorSample;
+    }
+
+    port measurementOut : MeasurementOutputPort;
+    port healthIn {
+      in item health : HealthStatus;
+    }
+
+    attribute offset : RelevantQuantity = (magnitude = 0.0, unit = UnitSymbol::degC);
+    attribute gain : Real = 1.0;
+    attribute lowPassTimeConstant : Duration = (magnitude = 0.5, unit = UnitSymbol::s);
+    attribute maxPermittedUncertainty : RelevantQuantity = (magnitude = 0.5, unit = UnitSymbol::degC);
+
+    perform action calibrateAndFilter : CalibrateAndFilter;
+  }
+
+  part def SensingController {
+    port measurementIn {
+      in item measurement : CalibratedMeasurement;
+    }
+
+    port healthIn {
+      in item health : HealthStatus;
+    }
+
+    port measurementOut : MeasurementOutputPort;
+
+    attribute samplePeriod : Duration = (magnitude = 1.0, unit = UnitSymbol::s);
+    attribute lastValidMeasurement : CalibratedMeasurement;
+
+    perform action publishMeasurement : PublishMeasurement;
+    perform state sensingState : SensingUnitStateMachine;
+  }
+
+  part def PowerRegulator {
+    port powerOut {
+      out item power : ExcitationPower;
+    }
+
+    attribute outputVoltage : Voltage = (magnitude = 3.3, unit = UnitSymbol::V);
+    attribute currentLimit : Real = 0.020;
+  }
+
+  part def SensingUnit {
+    port stimulusIn : StimulusInputPort;
+    port measurementOut : MeasurementOutputPort;
+    port healthOut : HealthOutputPort;
+
+    part powerRegulator : PowerRegulator;
+    part sensorNode : SensorNode;
+    part signalConditioner : SignalConditioner;
+    part controller : SensingController;
+
+    connect stimulusIn to sensorNode.stimulusIn;
+    connect powerRegulator.powerOut to sensorNode.powerIn;
+    connect sensorNode.rawOut to signalConditioner.rawIn;
+    connect sensorNode.healthOut to signalConditioner.healthIn;
+    connect sensorNode.healthOut to controller.healthIn;
+    connect sensorNode.healthOut to healthOut;
+    connect signalConditioner.measurementOut to controller.measurementIn;
+    connect controller.measurementOut to measurementOut;
+
+    attribute operatingTemperatureMin : RelevantQuantity = (magnitude = -20.0, unit = UnitSymbol::degC);
+    attribute operatingTemperatureMax : RelevantQuantity = (magnitude = 70.0, unit = UnitSymbol::degC);
+    attribute endToEndLatency : Duration = (magnitude = 0.75, unit = UnitSymbol::s);
+    attribute requiredAccuracy : RelevantQuantity = (magnitude = 1.0, unit = UnitSymbol::degC);
+  }
+
+  action def SenseStimulus {
+    in item stimulus : PhysicalStimulus;
+    in item power : ExcitationPower;
+    out item rawSample : RawSensorSample;
+    out item health : HealthStatus;
+
+    first start;
+    then validatePower;
+    then transduceQuantity;
+    then digitizeSignal;
+    then reportHealth;
+    then done;
+
+    action validatePower {
+      in item power : ExcitationPower;
+      out item health : HealthStatus;
+    }
+
+    action transduceQuantity {
+      in item stimulus : PhysicalStimulus;
+      out attribute bridgeVoltage : Voltage;
+    }
+
+    action digitizeSignal {
+      in attribute bridgeVoltage : Voltage;
+      out item rawSample : RawSensorSample;
+    }
+
+    action reportHealth {
+      in item rawSample : RawSensorSample;
+      out item health : HealthStatus;
+    }
+  }
+
+  action def CalibrateAndFilter {
+    in item rawSample : RawSensorSample;
+    in item health : HealthStatus;
+    out item measurement : CalibratedMeasurement;
+
+    first receiveRawSample;
+    then applyCalibration;
+    then filterNoise;
+    then evaluateValidity;
+    then outputMeasurement;
+
+    action receiveRawSample {
+      in item rawSample : RawSensorSample;
+    }
+
+    action applyCalibration {
+      in item rawSample : RawSensorSample;
+      out attribute calibratedValue : RelevantQuantity;
+    }
+
+    action filterNoise {
+      in attribute calibratedValue : RelevantQuantity;
+      out attribute filteredValue : RelevantQuantity;
+    }
+
+    action evaluateValidity {
+      in attribute filteredValue : RelevantQuantity;
+      in item health : HealthStatus;
+      out item measurement : CalibratedMeasurement;
+    }
+
+    action outputMeasurement {
+      in item measurement : CalibratedMeasurement;
+    }
+  }
+
+  action def PublishMeasurement {
+    in item measurement : CalibratedMeasurement;
+    in item health : HealthStatus;
+    out item publishedMeasurement : CalibratedMeasurement;
+
+    first checkHealth;
+    then selectOutput;
+    then publish;
+
+    action checkHealth {
+      in item health : HealthStatus;
+      out attribute usable : Boolean;
+    }
+
+    action selectOutput {
+      in item measurement : CalibratedMeasurement;
+      in attribute usable : Boolean;
+      out item publishedMeasurement : CalibratedMeasurement;
+    }
+
+    action publish {
+      in item publishedMeasurement : CalibratedMeasurement;
+    }
+  }
+
+  state def SensingUnitStateMachine {
+    entry action initialize;
+
+    state Off;
+    state Initializing;
+    state Measuring;
+    state Faulted;
+    state Calibrating;
+
+    transition startUp
+      first Off
+      accept after Duration(magnitude = 0.0, unit = UnitSymbol::s)
+      then Initializing;
+
+    transition initializationComplete
+      first Initializing
+      accept when true
+      then Measuring;
+
+    transition calibrationRequested
+      first Measuring
+      accept when true
+      then Calibrating;
+
+    transition calibrationComplete
+      first Calibrating
+      accept when true
+      then Measuring;
+
+    transition sensorFaultDetected
+      first Measuring
+      accept when true
+      then Faulted;
+
+    transition recoverAfterFault
+      first Faulted
+      accept when true
+      then Initializing;
+
+    state Measuring {
+      entry action startSampling;
+      do action periodicAcquisition;
+      exit action stopSampling;
+    }
+
+    state Faulted {
+      entry action inhibitMeasurementOutput;
+    }
+  }
+
+  requirement def UseSensorNodeRequirement {
+    doc /* The sensing unit shall measure the relevant physical quantity using an internal SensorNode part as the only direct interface to the physical stimulus. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.sensorNode.stimulusIn != null
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    doc /* The SensorNode shall accept relevant quantity values from -40 degC through 125 degC. */
+
+    subject sensorNode : SensorNode;
+
+    require constraint {
+      sensorNode.sensingRangeMin.magnitude <= -40.0 and
+      sensorNode.sensingRangeMax.magnitude >= 125.0 and
+      sensorNode.sensingRangeMin.unit == UnitSymbol::degC and
+      sensorNode.sensingRangeMax.unit == UnitSymbol::degC
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    doc /* The sensing unit shall provide calibrated measurements with uncertainty no greater than 1.0 degC during nominal operation. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.requiredAccuracy.magnitude <= 1.0 and
+      sensingUnit.requiredAccuracy.unit == UnitSymbol::degC
+    }
+  }
+
+  requirement def LatencyRequirement {
+    doc /* The sensing unit shall publish each valid calibrated measurement within 0.75 seconds of physical stimulus sampling. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.endToEndLatency.magnitude <= 0.75 and
+      sensingUnit.endToEndLatency.unit == UnitSymbol::s
+    }
+  }
+
+  requirement def HealthReportingRequirement {
+    doc /* The sensing unit shall report operational, saturation, disconnection, and calibration-expiration health status. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.healthOut != null
+    }
+  }
+
+  satisfy UseSensorNodeRequirement by SensingUnit::sensorNode;
+  satisfy MeasurementRangeRequirement by SensorNode;
+  satisfy AccuracyRequirement by SensingUnit::signalConditioner;
+  satisfy LatencyRequirement by SensingUnit::controller;
+  satisfy HealthReportingRequirement by SensingUnit::healthOut;
+
+}
+tokens used
+4,303
+package SensingUnitModel {
+
+  enum def UnitSymbol {
+    enum Pa;
+    enum degC;
+    enum V;
+    enum count;
+    enum s;
+    enum percent;
+  }
+
+  attribute def QuantityValue {
+    attribute magnitude : Real;
+    attribute unit : UnitSymbol;
+  }
+
+  attribute def RelevantQuantity :> QuantityValue {
+    attribute redefines unit = UnitSymbol::degC;
+  }
+
+  attribute def Voltage :> QuantityValue {
+    attribute redefines unit = UnitSymbol::V;
+  }
+
+  attribute def DigitalCount :> QuantityValue {
+    attribute redefines unit = UnitSymbol::count;
+  }
+
+  attribute def Duration :> QuantityValue {
+    attribute redefines unit = UnitSymbol::s;
+  }
+
+  attribute def Percent :> QuantityValue {
+    attribute redefines unit = UnitSymbol::percent;
+  }
+
+  item def PhysicalStimulus {
+    attribute quantity : RelevantQuantity;
+  }
+
+  item def ExcitationPower {
+    attribute supplyVoltage : Voltage;
+    attribute currentLimit : Real;
+  }
+
+  item def RawSensorSample {
+    attribute adcCode : DigitalCount;
+    attribute sampleTime : Duration;
+    attribute sensorTemperature : RelevantQuantity;
+  }
+
+  item def CalibratedMeasurement {
+    attribute measuredValue : RelevantQuantity;
+    attribute uncertainty : RelevantQuantity;
+    attribute confidence : Percent;
+    attribute timestamp : Duration;
+    attribute valid : Boolean;
+  }
+
+  item def HealthStatus {
+    attribute operational : Boolean;
+    attribute saturated : Boolean;
+    attribute disconnected : Boolean;
+    attribute calibrationExpired : Boolean;
+  }
+
+  port def StimulusInputPort {
+    in item stimulus : PhysicalStimulus;
+  }
+
+  port def PowerInputPort {
+    in item power : ExcitationPower;
+  }
+
+  port def RawSamplePort {
+    out item rawSample : RawSensorSample;
+  }
+
+  port def MeasurementOutputPort {
+    out item measurement : CalibratedMeasurement;
+  }
+
+  port def HealthOutputPort {
+    out item health : HealthStatus;
+  }
+
+  part def SensorNode {
+    port stimulusIn : StimulusInputPort;
+    port powerIn : PowerInputPort;
+    port rawOut : RawSamplePort;
+    port healthOut : HealthOutputPort;
+
+    attribute sensingRangeMin : RelevantQuantity = (magnitude = -40.0, unit = UnitSymbol::degC);
+    attribute sensingRangeMax : RelevantQuantity = (magnitude = 125.0, unit = UnitSymbol::degC);
+    attribute resolution : RelevantQuantity = (magnitude = 0.05, unit = UnitSymbol::degC);
+    attribute responseTime : Duration = (magnitude = 0.25, unit = UnitSymbol::s);
+    attribute adcBits : Integer = 16;
+    attribute nominalSupply : Voltage = (magnitude = 3.3, unit = UnitSymbol::V);
+
+    perform action senseStimulus : SenseStimulus;
+  }
+
+  part def SignalConditioner {
+    port rawIn {
+      in item rawSample : RawSensorSample;
+    }
+
+    port measurementOut : MeasurementOutputPort;
+    port healthIn {
+      in item health : HealthStatus;
+    }
+
+    attribute offset : RelevantQuantity = (magnitude = 0.0, unit = UnitSymbol::degC);
+    attribute gain : Real = 1.0;
+    attribute lowPassTimeConstant : Duration = (magnitude = 0.5, unit = UnitSymbol::s);
+    attribute maxPermittedUncertainty : RelevantQuantity = (magnitude = 0.5, unit = UnitSymbol::degC);
+
+    perform action calibrateAndFilter : CalibrateAndFilter;
+  }
+
+  part def SensingController {
+    port measurementIn {
+      in item measurement : CalibratedMeasurement;
+    }
+
+    port healthIn {
+      in item health : HealthStatus;
+    }
+
+    port measurementOut : MeasurementOutputPort;
+
+    attribute samplePeriod : Duration = (magnitude = 1.0, unit = UnitSymbol::s);
+    attribute lastValidMeasurement : CalibratedMeasurement;
+
+    perform action publishMeasurement : PublishMeasurement;
+    perform state sensingState : SensingUnitStateMachine;
+  }
+
+  part def PowerRegulator {
+    port powerOut {
+      out item power : ExcitationPower;
+    }
+
+    attribute outputVoltage : Voltage = (magnitude = 3.3, unit = UnitSymbol::V);
+    attribute currentLimit : Real = 0.020;
+  }
+
+  part def SensingUnit {
+    port stimulusIn : StimulusInputPort;
+    port measurementOut : MeasurementOutputPort;
+    port healthOut : HealthOutputPort;
+
+    part powerRegulator : PowerRegulator;
+    part sensorNode : SensorNode;
+    part signalConditioner : SignalConditioner;
+    part controller : SensingController;
+
+    connect stimulusIn to sensorNode.stimulusIn;
+    connect powerRegulator.powerOut to sensorNode.powerIn;
+    connect sensorNode.rawOut to signalConditioner.rawIn;
+    connect sensorNode.healthOut to signalConditioner.healthIn;
+    connect sensorNode.healthOut to controller.healthIn;
+    connect sensorNode.healthOut to healthOut;
+    connect signalConditioner.measurementOut to controller.measurementIn;
+    connect controller.measurementOut to measurementOut;
+
+    attribute operatingTemperatureMin : RelevantQuantity = (magnitude = -20.0, unit = UnitSymbol::degC);
+    attribute operatingTemperatureMax : RelevantQuantity = (magnitude = 70.0, unit = UnitSymbol::degC);
+    attribute endToEndLatency : Duration = (magnitude = 0.75, unit = UnitSymbol::s);
+    attribute requiredAccuracy : RelevantQuantity = (magnitude = 1.0, unit = UnitSymbol::degC);
+  }
+
+  action def SenseStimulus {
+    in item stimulus : PhysicalStimulus;
+    in item power : ExcitationPower;
+    out item rawSample : RawSensorSample;
+    out item health : HealthStatus;
+
+    first start;
+    then validatePower;
+    then transduceQuantity;
+    then digitizeSignal;
+    then reportHealth;
+    then done;
+
+    action validatePower {
+      in item power : ExcitationPower;
+      out item health : HealthStatus;
+    }
+
+    action transduceQuantity {
+      in item stimulus : PhysicalStimulus;
+      out attribute bridgeVoltage : Voltage;
+    }
+
+    action digitizeSignal {
+      in attribute bridgeVoltage : Voltage;
+      out item rawSample : RawSensorSample;
+    }
+
+    action reportHealth {
+      in item rawSample : RawSensorSample;
+      out item health : HealthStatus;
+    }
+  }
+
+  action def CalibrateAndFilter {
+    in item rawSample : RawSensorSample;
+    in item health : HealthStatus;
+    out item measurement : CalibratedMeasurement;
+
+    first receiveRawSample;
+    then applyCalibration;
+    then filterNoise;
+    then evaluateValidity;
+    then outputMeasurement;
+
+    action receiveRawSample {
+      in item rawSample : RawSensorSample;
+    }
+
+    action applyCalibration {
+      in item rawSample : RawSensorSample;
+      out attribute calibratedValue : RelevantQuantity;
+    }
+
+    action filterNoise {
+      in attribute calibratedValue : RelevantQuantity;
+      out attribute filteredValue : RelevantQuantity;
+    }
+
+    action evaluateValidity {
+      in attribute filteredValue : RelevantQuantity;
+      in item health : HealthStatus;
+      out item measurement : CalibratedMeasurement;
+    }
+
+    action outputMeasurement {
+      in item measurement : CalibratedMeasurement;
+    }
+  }
+
+  action def PublishMeasurement {
+    in item measurement : CalibratedMeasurement;
+    in item health : HealthStatus;
+    out item publishedMeasurement : CalibratedMeasurement;
+
+    first checkHealth;
+    then selectOutput;
+    then publish;
+
+    action checkHealth {
+      in item health : HealthStatus;
+      out attribute usable : Boolean;
+    }
+
+    action selectOutput {
+      in item measurement : CalibratedMeasurement;
+      in attribute usable : Boolean;
+      out item publishedMeasurement : CalibratedMeasurement;
+    }
+
+    action publish {
+      in item publishedMeasurement : CalibratedMeasurement;
+    }
+  }
+
+  state def SensingUnitStateMachine {
+    entry action initialize;
+
+    state Off;
+    state Initializing;
+    state Measuring;
+    state Faulted;
+    state Calibrating;
+
+    transition startUp
+      first Off
+      accept after Duration(magnitude = 0.0, unit = UnitSymbol::s)
+      then Initializing;
+
+    transition initializationComplete
+      first Initializing
+      accept when true
+      then Measuring;
+
+    transition calibrationRequested
+      first Measuring
+      accept when true
+      then Calibrating;
+
+    transition calibrationComplete
+      first Calibrating
+      accept when true
+      then Measuring;
+
+    transition sensorFaultDetected
+      first Measuring
+      accept when true
+      then Faulted;
+
+    transition recoverAfterFault
+      first Faulted
+      accept when true
+      then Initializing;
+
+    state Measuring {
+      entry action startSampling;
+      do action periodicAcquisition;
+      exit action stopSampling;
+    }
+
+    state Faulted {
+      entry action inhibitMeasurementOutput;
+    }
+  }
+
+  requirement def UseSensorNodeRequirement {
+    doc /* The sensing unit shall measure the relevant physical quantity using an internal SensorNode part as the only direct interface to the physical stimulus. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.sensorNode.stimulusIn != null
+    }
+  }
+
+  requirement def MeasurementRangeRequirement {
+    doc /* The SensorNode shall accept relevant quantity values from -40 degC through 125 degC. */
+
+    subject sensorNode : SensorNode;
+
+    require constraint {
+      sensorNode.sensingRangeMin.magnitude <= -40.0 and
+      sensorNode.sensingRangeMax.magnitude >= 125.0 and
+      sensorNode.sensingRangeMin.unit == UnitSymbol::degC and
+      sensorNode.sensingRangeMax.unit == UnitSymbol::degC
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    doc /* The sensing unit shall provide calibrated measurements with uncertainty no greater than 1.0 degC during nominal operation. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.requiredAccuracy.magnitude <= 1.0 and
+      sensingUnit.requiredAccuracy.unit == UnitSymbol::degC
+    }
+  }
+
+  requirement def LatencyRequirement {
+    doc /* The sensing unit shall publish each valid calibrated measurement within 0.75 seconds of physical stimulus sampling. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.endToEndLatency.magnitude <= 0.75 and
+      sensingUnit.endToEndLatency.unit == UnitSymbol::s
+    }
+  }
+
+  requirement def HealthReportingRequirement {
+    doc /* The sensing unit shall report operational, saturation, disconnection, and calibration-expiration health status. */
+
+    subject sensingUnit : SensingUnit;
+
+    require constraint {
+      sensingUnit.healthOut != null
+    }
+  }
+
+  satisfy UseSensorNodeRequirement by SensingUnit::sensorNode;
+  satisfy MeasurementRangeRequirement by SensorNode;
+  satisfy AccuracyRequirement by SensingUnit::signalConditioner;
+  satisfy LatencyRequirement by SensingUnit::controller;
+  satisfy HealthReportingRequirement by SensingUnit::healthOut;
+
+}

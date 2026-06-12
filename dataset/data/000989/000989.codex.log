@@ -1,0 +1,1051 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-zlv4kwug
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb509-6841-7fb0-bde4-341c3d3e780b
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a system based on a Bio-FET and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package BioFET_Sensing_System {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Concentration {
+    :> ISQ::amountOfSubstanceConcentration;
+    unit = mol / m^3;
+  }
+
+  attribute def MolarConcentration {
+    :> Concentration;
+    unit = mol / L;
+  }
+
+  attribute def SurfaceChargeDensity {
+    :> ISQ::electricChargeDensity;
+    unit = C / m^2;
+  }
+
+  attribute def ElectricPotential {
+    :> ISQ::electricPotential;
+    unit = V;
+  }
+
+  attribute def ElectricCurrent {
+    :> ISQ::electricCurrent;
+    unit = A;
+  }
+
+  attribute def Conductance {
+    :> ISQ::conductance;
+    unit = S;
+  }
+
+  attribute def Temperature {
+    :> ISQ::thermodynamicTemperature;
+    unit = K;
+  }
+
+  attribute def TimeDuration {
+    :> ISQ::time;
+    unit = s;
+  }
+
+  attribute def DigitalCount {
+    :> ScalarValues::Integer;
+  }
+
+  attribute def DimensionlessRatio {
+    :> ScalarValues::Real;
+  }
+
+  item def LiquidSample {
+    attribute analyteConcentration : MolarConcentration;
+    attribute ionicStrength : MolarConcentration;
+    attribute pH : ScalarValues::Real;
+    attribute temperature : Temperature;
+    attribute volume : ISQ::volume;
+  }
+
+  item def FunctionalizedSurfaceCharge {
+    attribute chargeDensity : SurfaceChargeDensity;
+    attribute bindingFraction : DimensionlessRatio;
+    attribute targetMoleculesBound : DigitalCount;
+  }
+
+  item def GatePotentialSignal {
+    attribute potential : ElectricPotential;
+    attribute noiseRms : ElectricPotential;
+  }
+
+  item def DrainSourceCurrentSignal {
+    attribute current : ElectricCurrent;
+    attribute noiseRms : ElectricCurrent;
+  }
+
+  item def DigitizedMeasurement {
+    attribute rawCode : DigitalCount;
+    attribute sampledCurrent : ElectricCurrent;
+    attribute sampleTime : TimeDuration;
+  }
+
+  item def AnalyteEstimate {
+    attribute estimatedConcentration : MolarConcentration;
+    attribute confidence : DimensionlessRatio;
+    attribute limitOfDetection : MolarConcentration;
+    attribute valid : Boolean;
+  }
+
+  port def FluidInletPort {
+    in item sample : LiquidSample;
+  }
+
+  port def FluidOutletPort {
+    out item waste : LiquidSample;
+  }
+
+  port def ChemicalInterfacePort {
+    in item sample : LiquidSample;
+    out item surfaceCharge : FunctionalizedSurfaceCharge;
+  }
+
+  port def ElectricalGatePort {
+    in item gateSignal : GatePotentialSignal;
+  }
+
+  port def CurrentPort {
+    out item drainSourceCurrent : DrainSourceCurrentSignal;
+  }
+
+  port def DigitalMeasurementPort {
+    out item measurement : DigitizedMeasurement;
+  }
+
+  port def EstimatePort {
+    out item result : AnalyteEstimate;
+  }
+
+  port def ControlPort {
+    in item command : ControlCommand;
+    out item status : InstrumentStatus;
+  }
+
+  item def ControlCommand {
+    attribute startMeasurement : Boolean;
+    attribute resetBaseline : Boolean;
+    attribute calibrationMode : Boolean;
+    attribute integrationTime : TimeDuration;
+  }
+
+  item def InstrumentStatus {
+    attribute ready : Boolean;
+    attribute measuring : Boolean;
+    attribute faultPresent : Boolean;
+    attribute stabilized : Boolean;
+  }
+
+  part def MicrofluidicCartridge {
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+    port reactionInterface : ChemicalInterfacePort;
+
+    attribute channelVolume : ISQ::volume = 25 [uL];
+    attribute nominalFlowRate : ISQ::volumeFlowRate = 5 [uL] / s;
+    attribute maximumPressure : ISQ::pressure = 150 [kPa];
+
+    part sampleChannel {
+      attribute width : ISQ::length = 400 [um];
+      attribute height : ISQ::length = 80 [um];
+      attribute length : ISQ::length = 18 [mm];
+    }
+
+    action transportSample {
+      in item incomingSample : LiquidSample;
+      out item conditionedSample : LiquidSample;
+      out item wasteSample : LiquidSample;
+    }
+  }
+
+  part def BioFunctionalLayer {
+    port chemicalPort : ChemicalInterfacePort;
+
+    attribute receptorDensity : DigitalCount = 1000000000000;
+    attribute associationRate : ScalarValues::Real = 100000 [L] / (mol * s);
+    attribute dissociationRate : ScalarValues::Real = 0.001 / s;
+    attribute debyeLength : ISQ::length = 3 [nm];
+    attribute maximumBindingFraction : DimensionlessRatio = 0.95;
+
+    action bindAnalyte {
+      in item sample : LiquidSample;
+      out item surfaceCharge : FunctionalizedSurfaceCharge;
+    }
+
+    state def BindingStateMachine {
+      state CleanSurface;
+      state Equilibrating;
+      state Bound;
+      state Saturated;
+      state Regenerating;
+
+      transition first CleanSurface;
+      transition CleanSurface_to_Equilibrating
+        first CleanSurface
+        then Equilibrating;
+
+      transition Equilibrating_to_Bound
+        first Equilibrating
+        then Bound;
+
+      transition Bound_to_Saturated
+        first Bound
+        then Saturated;
+
+      transition Bound_to_Regenerating
+        first Bound
+        then Regenerating;
+
+      transition Saturated_to_Regenerating
+        first Saturated
+        then Regenerating;
+
+      transition Regenerating_to_CleanSurface
+        first Regenerating
+        then CleanSurface;
+    }
+
+    perform bindingBehavior : BindingStateMachine;
+  }
+
+  part def BioFETTransducer {
+    port chemicalGate : ChemicalInterfacePort;
+    port electricalGate : ElectricalGatePort;
+    port currentOutput : CurrentPort;
+
+    attribute thresholdVoltageBaseline : ElectricPotential = 0.42 [V];
+    attribute gateSensitivity : ElectricPotential = 58 [mV];
+    attribute transconductance : Conductance = 1.2 [mS];
+    attribute drainSourceBias : ElectricPotential = 0.1 [V];
+    attribute channelConductanceBaseline : Conductance = 250 [uS];
+    attribute operatingTemperature : Temperature = 298.15 [K];
+
+    part semiconductorChannel {
+      attribute material : String = "silicon nanowire";
+      attribute length : ISQ::length = 5 [um];
+      attribute width : ISQ::length = 80 [nm];
+      attribute height : ISQ::length = 30 [nm];
+      attribute carrierType : String = "n-type";
+    }
+
+    part gateOxide {
+      attribute material : String = "hafnium dioxide";
+      attribute thickness : ISQ::length = 8 [nm];
+      attribute dielectricConstant : ScalarValues::Real = 20.0;
+    }
+
+    part sourceElectrode {
+      attribute material : String = "gold";
+    }
+
+    part drainElectrode {
+      attribute material : String = "gold";
+    }
+
+    action transduceBindingToCurrent {
+      in item surfaceCharge : FunctionalizedSurfaceCharge;
+      in item gateBias : GatePotentialSignal;
+      out item currentSignal : DrainSourceCurrentSignal;
+    }
+  }
+
+  part def BiasAndReadoutElectronics {
+    port gateDrive : ElectricalGatePort;
+    port currentInput : CurrentPort;
+    port digitalOutput : DigitalMeasurementPort;
+    port control : ControlPort;
+
+    attribute gateBiasSetpoint : ElectricPotential = 0.7 [V];
+    attribute drainBiasSetpoint : ElectricPotential = 0.1 [V];
+    attribute adcResolution : DigitalCount = 24;
+    attribute currentNoiseFloor : ElectricCurrent = 5 [pA];
+    attribute maximumInputCurrent : ElectricCurrent = 50 [uA];
+    attribute samplingRate : ISQ::frequency = 100 [Hz];
+
+    part lowNoiseAmplifier {
+      attribute gain : DimensionlessRatio = 1000000.0;
+      attribute inputReferredNoise : ElectricCurrent = 3 [pA];
+      attribute bandwidth : ISQ::frequency = 10 [kHz];
+    }
+
+    part analogToDigitalConverter {
+      attribute resolutionBits : DigitalCount = 24;
+      attribute referenceVoltage : ElectricPotential = 2.5 [V];
+      attribute conversionTime : TimeDuration = 2 [ms];
+    }
+
+    action applyBias {
+      out item gateSignal : GatePotentialSignal;
+    }
+
+    action acquireCurrent {
+      in item currentSignal : DrainSourceCurrentSignal;
+      out item measurement : DigitizedMeasurement;
+    }
+  }
+
+  part def SignalProcessor {
+    port measurementInput : DigitalMeasurementPort;
+    port estimateOutput : EstimatePort;
+    port control : ControlPort;
+
+    attribute baselineCurrent : ElectricCurrent = 0 [A];
+    attribute calibrationSlope : ScalarValues::Real = 1.0;
+    attribute calibrationOffset : MolarConcentration = 0 [mol] / L;
+    attribute minimumConfidence : DimensionlessRatio = 0.9;
+    attribute responseTimeLimit : TimeDuration = 60 [s];
+
+    action removeBaseline {
+      in item measurement : DigitizedMeasurement;
+      out item correctedMeasurement : DigitizedMeasurement;
+    }
+
+    action estimateAnalyteConcentration {
+      in item correctedMeasurement : DigitizedMeasurement;
+      out item estimate : AnalyteEstimate;
+    }
+
+    state def MeasurementProcessingStateMachine {
+      state Idle;
+      state BaselineAcquisition;
+      state SampleMeasurement;
+      state ConcentrationEstimation;
+      state ResultAvailable;
+      state Fault;
+
+      transition initial_to_Idle
+        first Idle;
+
+      transition Idle_to_BaselineAcquisition
+        first Idle
+        then BaselineAcquisition;
+
+      transition BaselineAcquisition_to_SampleMeasurement
+        first BaselineAcquisition
+        then SampleMeasurement;
+
+      transition SampleMeasurement_to_ConcentrationEstimation
+        first SampleMeasurement
+        then ConcentrationEstimation;
+
+      transition ConcentrationEstimation_to_ResultAvailable
+        first ConcentrationEstimation
+        then ResultAvailable;
+
+      transition ResultAvailable_to_Idle
+        first ResultAvailable
+        then Idle;
+
+      transition Any_to_Fault
+        first Idle
+        then Fault;
+    }
+
+    perform processingBehavior : MeasurementProcessingStateMachine;
+  }
+
+  part def BioFETAnalyteSensorSystem {
+    port sampleIn : FluidInletPort;
+    port wasteOut : FluidOutletPort;
+    port resultOut : EstimatePort;
+    port externalControl : ControlPort;
+
+    attribute targetAnalyteName : String = "specific charged biomolecular target";
+    attribute measurableRangeLow : MolarConcentration = 1 [pM];
+    attribute measurableRangeHigh : MolarConcentration = 10 [uM];
+    attribute requiredLimitOfDetection : MolarConcentration = 10 [pM];
+    attribute maximumAssayTime : TimeDuration = 120 [s];
+    attribute nominalOperatingTemperature : Temperature = 298.15 [K];
+
+    part cartridge : MicrofluidicCartridge;
+    part recognitionLayer : BioFunctionalLayer;
+    part transducer : BioFETTransducer;
+    part readout : BiasAndReadoutElectronics;
+    part processor : SignalProcessor;
+
+    connect sampleIn to cartridge.inlet;
+    connect cartridge.outlet to wasteOut;
+    connect cartridge.reactionInterface to recognitionLayer.chemicalPort;
+    connect recognitionLayer.chemicalPort to transducer.chemicalGate;
+    connect readout.gateDrive to transducer.electricalGate;
+    connect transducer.currentOutput to readout.currentInput;
+    connect readout.digitalOutput to processor.measurementInput;
+    connect processor.estimateOutput to resultOut;
+    connect externalControl to readout.control;
+    connect externalControl to processor.control;
+
+    action senseAnalyte {
+      in item sample : LiquidSample;
+      out item estimate : AnalyteEstimate;
+
+      first start;
+      then transport : cartridge.transportSample;
+      then binding : recognitionLayer.bindAnalyte;
+      then bias : readout.applyBias;
+      then transduction : transducer.transduceBindingToCurrent;
+      then acquisition : readout.acquireCurrent;
+      then baselineCorrection : processor.removeBaseline;
+      then estimation : processor.estimateAnalyteConcentration;
+      then done;
+    }
+
+    state def SystemOperationalStateMachine {
+      state PoweredOff;
+      state Initializing;
+      state Ready;
+      state Measuring;
+      state Reporting;
+      state Regenerating;
+      state Faulted;
+
+      transition powerOn
+        first PoweredOff
+        then Initializing;
+
+      transition initializationComplete
+        first Initializing
+        then Ready;
+
+      transition measurementRequested
+        first Ready
+        then Measuring;
+
+      transition measurementComplete
+        first Measuring
+        then Reporting;
+
+      transition reportDelivered
+        first Reporting
+        then Regenerating;
+
+      transition regenerationComplete
+        first Regenerating
+        then Ready;
+
+      transition detectedFaultFromReady
+        first Ready
+        then Faulted;
+
+      transition detectedFaultFromMeasuring
+        first Measuring
+        then Faulted;
+
+      transition resetAfterFault
+        first Faulted
+        then Initializing;
+    }
+
+    perform operationalBehavior : SystemOperationalStateMachine;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Bio-FET analyte sensor system shall convert selective biomolecular binding at a functionalized field-effect transistor gate into a calibrated electrical measurement and report the estimated analyte concentration in a liquid sample. */
+  }
+
+  requirement def SelectiveBindingRequirement {
+    doc /* The functionalized gate surface shall bind the target analyte and produce a surface charge change that modulates the Bio-FET channel conductance. */
+  }
+
+  requirement def ElectricalTransductionRequirement {
+    doc /* The Bio-FET transducer shall generate a drain-source current change proportional to the effective gate potential shift caused by bound target molecules. */
+  }
+
+  requirement def ConcentrationReportingRequirement {
+    doc /* The processor shall estimate analyte concentration from the digitized drain-source current after baseline correction and calibration. */
+  }
+
+  requirement def DetectionLimitRequirement {
+    attribute requiredLOD : MolarConcentration = 10 [pM];
+    doc /* The system shall detect the target analyte at or below the required limit of detection under nominal operating conditions. */
+  }
+
+  requirement def AssayTimeRequirement {
+    attribute maximumTime : TimeDuration = 120 [s];
+    doc /* The system shall complete sample transport, molecular binding, electrical acquisition, and concentration reporting within the maximum assay time. */
+  }
+
+  requirement def SampleCompatibilityRequirement {
+    attribute allowedPHLow : ScalarValues::Real = 6.0;
+    attribute allowedPHHigh : ScalarValues::Real = 8.5;
+    attribute maximumIonicStrength : MolarConcentration = 200 [mM];
+    doc /* The system shall accept liquid samples within the specified pH and ionic strength limits without invalidating the Bio-FET measurement. */
+  }
+
+  requirement def NoiseRequirement {
+    attribute maximumReadoutNoise : ElectricCurrent = 10 [pA];
+    doc /* The readout electronics shall maintain input-referred current noise below the maximum readout noise during measurement acquisition. */
+  }
+
+  satisfy PrimaryFunctionRequirement by BioFETAnalyteSensorSystem;
+  satisfy SelectiveBindingRequirement by BioFunctionalLayer;
+  satisfy ElectricalTransductionRequirement by BioFETTransducer;
+  satisfy ConcentrationReportingRequirement by SignalProcessor;
+  satisfy DetectionLimitRequirement by BioFETAnalyteSensorSystem;
+  satisfy AssayTimeRequirement by BioFETAnalyteSensorSystem;
+  satisfy SampleCompatibilityRequirement by MicrofluidicCartridge;
+  satisfy NoiseRequirement by BiasAndReadoutElectronics;
+
+  analysis def BioFETMeasurementPrinciple {
+    in attribute analyteConcentration : MolarConcentration;
+    in attribute bindingFraction : DimensionlessRatio;
+    in attribute surfaceCharge : SurfaceChargeDensity;
+    in attribute gatePotentialShift : ElectricPotential;
+    out attribute drainCurrentChange : ElectricCurrent;
+    out attribute reportedConcentration : MolarConcentration;
+
+    objective {
+      doc /* Relate target analyte concentration to receptor binding, surface charge, gate potential modulation, drain-source current change, and reported concentration. */
+    }
+  }
+
+  verification def AssayTimeVerification {
+    subject systemUnderTest : BioFETAnalyteSensorSystem;
+    objective {
+      doc /* Verify that the complete sensing action produces a valid concentration estimate within 120 seconds. */
+    }
+  }
+
+  verification def LimitOfDetectionVerification {
+    subject systemUnderTest : BioFETAnalyteSensorSystem;
+    objective {
+      doc /* Verify that samples containing 10 pM target analyte produce a valid concentration estimate with confidence at or above 0.9. */
+    }
+  }
+
+}
+tokens used
+4,950
+package BioFET_Sensing_System {
+
+  import ScalarValues::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Concentration {
+    :> ISQ::amountOfSubstanceConcentration;
+    unit = mol / m^3;
+  }
+
+  attribute def MolarConcentration {
+    :> Concentration;
+    unit = mol / L;
+  }
+
+  attribute def SurfaceChargeDensity {
+    :> ISQ::electricChargeDensity;
+    unit = C / m^2;
+  }
+
+  attribute def ElectricPotential {
+    :> ISQ::electricPotential;
+    unit = V;
+  }
+
+  attribute def ElectricCurrent {
+    :> ISQ::electricCurrent;
+    unit = A;
+  }
+
+  attribute def Conductance {
+    :> ISQ::conductance;
+    unit = S;
+  }
+
+  attribute def Temperature {
+    :> ISQ::thermodynamicTemperature;
+    unit = K;
+  }
+
+  attribute def TimeDuration {
+    :> ISQ::time;
+    unit = s;
+  }
+
+  attribute def DigitalCount {
+    :> ScalarValues::Integer;
+  }
+
+  attribute def DimensionlessRatio {
+    :> ScalarValues::Real;
+  }
+
+  item def LiquidSample {
+    attribute analyteConcentration : MolarConcentration;
+    attribute ionicStrength : MolarConcentration;
+    attribute pH : ScalarValues::Real;
+    attribute temperature : Temperature;
+    attribute volume : ISQ::volume;
+  }
+
+  item def FunctionalizedSurfaceCharge {
+    attribute chargeDensity : SurfaceChargeDensity;
+    attribute bindingFraction : DimensionlessRatio;
+    attribute targetMoleculesBound : DigitalCount;
+  }
+
+  item def GatePotentialSignal {
+    attribute potential : ElectricPotential;
+    attribute noiseRms : ElectricPotential;
+  }
+
+  item def DrainSourceCurrentSignal {
+    attribute current : ElectricCurrent;
+    attribute noiseRms : ElectricCurrent;
+  }
+
+  item def DigitizedMeasurement {
+    attribute rawCode : DigitalCount;
+    attribute sampledCurrent : ElectricCurrent;
+    attribute sampleTime : TimeDuration;
+  }
+
+  item def AnalyteEstimate {
+    attribute estimatedConcentration : MolarConcentration;
+    attribute confidence : DimensionlessRatio;
+    attribute limitOfDetection : MolarConcentration;
+    attribute valid : Boolean;
+  }
+
+  port def FluidInletPort {
+    in item sample : LiquidSample;
+  }
+
+  port def FluidOutletPort {
+    out item waste : LiquidSample;
+  }
+
+  port def ChemicalInterfacePort {
+    in item sample : LiquidSample;
+    out item surfaceCharge : FunctionalizedSurfaceCharge;
+  }
+
+  port def ElectricalGatePort {
+    in item gateSignal : GatePotentialSignal;
+  }
+
+  port def CurrentPort {
+    out item drainSourceCurrent : DrainSourceCurrentSignal;
+  }
+
+  port def DigitalMeasurementPort {
+    out item measurement : DigitizedMeasurement;
+  }
+
+  port def EstimatePort {
+    out item result : AnalyteEstimate;
+  }
+
+  port def ControlPort {
+    in item command : ControlCommand;
+    out item status : InstrumentStatus;
+  }
+
+  item def ControlCommand {
+    attribute startMeasurement : Boolean;
+    attribute resetBaseline : Boolean;
+    attribute calibrationMode : Boolean;
+    attribute integrationTime : TimeDuration;
+  }
+
+  item def InstrumentStatus {
+    attribute ready : Boolean;
+    attribute measuring : Boolean;
+    attribute faultPresent : Boolean;
+    attribute stabilized : Boolean;
+  }
+
+  part def MicrofluidicCartridge {
+    port inlet : FluidInletPort;
+    port outlet : FluidOutletPort;
+    port reactionInterface : ChemicalInterfacePort;
+
+    attribute channelVolume : ISQ::volume = 25 [uL];
+    attribute nominalFlowRate : ISQ::volumeFlowRate = 5 [uL] / s;
+    attribute maximumPressure : ISQ::pressure = 150 [kPa];
+
+    part sampleChannel {
+      attribute width : ISQ::length = 400 [um];
+      attribute height : ISQ::length = 80 [um];
+      attribute length : ISQ::length = 18 [mm];
+    }
+
+    action transportSample {
+      in item incomingSample : LiquidSample;
+      out item conditionedSample : LiquidSample;
+      out item wasteSample : LiquidSample;
+    }
+  }
+
+  part def BioFunctionalLayer {
+    port chemicalPort : ChemicalInterfacePort;
+
+    attribute receptorDensity : DigitalCount = 1000000000000;
+    attribute associationRate : ScalarValues::Real = 100000 [L] / (mol * s);
+    attribute dissociationRate : ScalarValues::Real = 0.001 / s;
+    attribute debyeLength : ISQ::length = 3 [nm];
+    attribute maximumBindingFraction : DimensionlessRatio = 0.95;
+
+    action bindAnalyte {
+      in item sample : LiquidSample;
+      out item surfaceCharge : FunctionalizedSurfaceCharge;
+    }
+
+    state def BindingStateMachine {
+      state CleanSurface;
+      state Equilibrating;
+      state Bound;
+      state Saturated;
+      state Regenerating;
+
+      transition first CleanSurface;
+      transition CleanSurface_to_Equilibrating
+        first CleanSurface
+        then Equilibrating;
+
+      transition Equilibrating_to_Bound
+        first Equilibrating
+        then Bound;
+
+      transition Bound_to_Saturated
+        first Bound
+        then Saturated;
+
+      transition Bound_to_Regenerating
+        first Bound
+        then Regenerating;
+
+      transition Saturated_to_Regenerating
+        first Saturated
+        then Regenerating;
+
+      transition Regenerating_to_CleanSurface
+        first Regenerating
+        then CleanSurface;
+    }
+
+    perform bindingBehavior : BindingStateMachine;
+  }
+
+  part def BioFETTransducer {
+    port chemicalGate : ChemicalInterfacePort;
+    port electricalGate : ElectricalGatePort;
+    port currentOutput : CurrentPort;
+
+    attribute thresholdVoltageBaseline : ElectricPotential = 0.42 [V];
+    attribute gateSensitivity : ElectricPotential = 58 [mV];
+    attribute transconductance : Conductance = 1.2 [mS];
+    attribute drainSourceBias : ElectricPotential = 0.1 [V];
+    attribute channelConductanceBaseline : Conductance = 250 [uS];
+    attribute operatingTemperature : Temperature = 298.15 [K];
+
+    part semiconductorChannel {
+      attribute material : String = "silicon nanowire";
+      attribute length : ISQ::length = 5 [um];
+      attribute width : ISQ::length = 80 [nm];
+      attribute height : ISQ::length = 30 [nm];
+      attribute carrierType : String = "n-type";
+    }
+
+    part gateOxide {
+      attribute material : String = "hafnium dioxide";
+      attribute thickness : ISQ::length = 8 [nm];
+      attribute dielectricConstant : ScalarValues::Real = 20.0;
+    }
+
+    part sourceElectrode {
+      attribute material : String = "gold";
+    }
+
+    part drainElectrode {
+      attribute material : String = "gold";
+    }
+
+    action transduceBindingToCurrent {
+      in item surfaceCharge : FunctionalizedSurfaceCharge;
+      in item gateBias : GatePotentialSignal;
+      out item currentSignal : DrainSourceCurrentSignal;
+    }
+  }
+
+  part def BiasAndReadoutElectronics {
+    port gateDrive : ElectricalGatePort;
+    port currentInput : CurrentPort;
+    port digitalOutput : DigitalMeasurementPort;
+    port control : ControlPort;
+
+    attribute gateBiasSetpoint : ElectricPotential = 0.7 [V];
+    attribute drainBiasSetpoint : ElectricPotential = 0.1 [V];
+    attribute adcResolution : DigitalCount = 24;
+    attribute currentNoiseFloor : ElectricCurrent = 5 [pA];
+    attribute maximumInputCurrent : ElectricCurrent = 50 [uA];
+    attribute samplingRate : ISQ::frequency = 100 [Hz];
+
+    part lowNoiseAmplifier {
+      attribute gain : DimensionlessRatio = 1000000.0;
+      attribute inputReferredNoise : ElectricCurrent = 3 [pA];
+      attribute bandwidth : ISQ::frequency = 10 [kHz];
+    }
+
+    part analogToDigitalConverter {
+      attribute resolutionBits : DigitalCount = 24;
+      attribute referenceVoltage : ElectricPotential = 2.5 [V];
+      attribute conversionTime : TimeDuration = 2 [ms];
+    }
+
+    action applyBias {
+      out item gateSignal : GatePotentialSignal;
+    }
+
+    action acquireCurrent {
+      in item currentSignal : DrainSourceCurrentSignal;
+      out item measurement : DigitizedMeasurement;
+    }
+  }
+
+  part def SignalProcessor {
+    port measurementInput : DigitalMeasurementPort;
+    port estimateOutput : EstimatePort;
+    port control : ControlPort;
+
+    attribute baselineCurrent : ElectricCurrent = 0 [A];
+    attribute calibrationSlope : ScalarValues::Real = 1.0;
+    attribute calibrationOffset : MolarConcentration = 0 [mol] / L;
+    attribute minimumConfidence : DimensionlessRatio = 0.9;
+    attribute responseTimeLimit : TimeDuration = 60 [s];
+
+    action removeBaseline {
+      in item measurement : DigitizedMeasurement;
+      out item correctedMeasurement : DigitizedMeasurement;
+    }
+
+    action estimateAnalyteConcentration {
+      in item correctedMeasurement : DigitizedMeasurement;
+      out item estimate : AnalyteEstimate;
+    }
+
+    state def MeasurementProcessingStateMachine {
+      state Idle;
+      state BaselineAcquisition;
+      state SampleMeasurement;
+      state ConcentrationEstimation;
+      state ResultAvailable;
+      state Fault;
+
+      transition initial_to_Idle
+        first Idle;
+
+      transition Idle_to_BaselineAcquisition
+        first Idle
+        then BaselineAcquisition;
+
+      transition BaselineAcquisition_to_SampleMeasurement
+        first BaselineAcquisition
+        then SampleMeasurement;
+
+      transition SampleMeasurement_to_ConcentrationEstimation
+        first SampleMeasurement
+        then ConcentrationEstimation;
+
+      transition ConcentrationEstimation_to_ResultAvailable
+        first ConcentrationEstimation
+        then ResultAvailable;
+
+      transition ResultAvailable_to_Idle
+        first ResultAvailable
+        then Idle;
+
+      transition Any_to_Fault
+        first Idle
+        then Fault;
+    }
+
+    perform processingBehavior : MeasurementProcessingStateMachine;
+  }
+
+  part def BioFETAnalyteSensorSystem {
+    port sampleIn : FluidInletPort;
+    port wasteOut : FluidOutletPort;
+    port resultOut : EstimatePort;
+    port externalControl : ControlPort;
+
+    attribute targetAnalyteName : String = "specific charged biomolecular target";
+    attribute measurableRangeLow : MolarConcentration = 1 [pM];
+    attribute measurableRangeHigh : MolarConcentration = 10 [uM];
+    attribute requiredLimitOfDetection : MolarConcentration = 10 [pM];
+    attribute maximumAssayTime : TimeDuration = 120 [s];
+    attribute nominalOperatingTemperature : Temperature = 298.15 [K];
+
+    part cartridge : MicrofluidicCartridge;
+    part recognitionLayer : BioFunctionalLayer;
+    part transducer : BioFETTransducer;
+    part readout : BiasAndReadoutElectronics;
+    part processor : SignalProcessor;
+
+    connect sampleIn to cartridge.inlet;
+    connect cartridge.outlet to wasteOut;
+    connect cartridge.reactionInterface to recognitionLayer.chemicalPort;
+    connect recognitionLayer.chemicalPort to transducer.chemicalGate;
+    connect readout.gateDrive to transducer.electricalGate;
+    connect transducer.currentOutput to readout.currentInput;
+    connect readout.digitalOutput to processor.measurementInput;
+    connect processor.estimateOutput to resultOut;
+    connect externalControl to readout.control;
+    connect externalControl to processor.control;
+
+    action senseAnalyte {
+      in item sample : LiquidSample;
+      out item estimate : AnalyteEstimate;
+
+      first start;
+      then transport : cartridge.transportSample;
+      then binding : recognitionLayer.bindAnalyte;
+      then bias : readout.applyBias;
+      then transduction : transducer.transduceBindingToCurrent;
+      then acquisition : readout.acquireCurrent;
+      then baselineCorrection : processor.removeBaseline;
+      then estimation : processor.estimateAnalyteConcentration;
+      then done;
+    }
+
+    state def SystemOperationalStateMachine {
+      state PoweredOff;
+      state Initializing;
+      state Ready;
+      state Measuring;
+      state Reporting;
+      state Regenerating;
+      state Faulted;
+
+      transition powerOn
+        first PoweredOff
+        then Initializing;
+
+      transition initializationComplete
+        first Initializing
+        then Ready;
+
+      transition measurementRequested
+        first Ready
+        then Measuring;
+
+      transition measurementComplete
+        first Measuring
+        then Reporting;
+
+      transition reportDelivered
+        first Reporting
+        then Regenerating;
+
+      transition regenerationComplete
+        first Regenerating
+        then Ready;
+
+      transition detectedFaultFromReady
+        first Ready
+        then Faulted;
+
+      transition detectedFaultFromMeasuring
+        first Measuring
+        then Faulted;
+
+      transition resetAfterFault
+        first Faulted
+        then Initializing;
+    }
+
+    perform operationalBehavior : SystemOperationalStateMachine;
+  }
+
+  requirement def PrimaryFunctionRequirement {
+    doc /* The Bio-FET analyte sensor system shall convert selective biomolecular binding at a functionalized field-effect transistor gate into a calibrated electrical measurement and report the estimated analyte concentration in a liquid sample. */
+  }
+
+  requirement def SelectiveBindingRequirement {
+    doc /* The functionalized gate surface shall bind the target analyte and produce a surface charge change that modulates the Bio-FET channel conductance. */
+  }
+
+  requirement def ElectricalTransductionRequirement {
+    doc /* The Bio-FET transducer shall generate a drain-source current change proportional to the effective gate potential shift caused by bound target molecules. */
+  }
+
+  requirement def ConcentrationReportingRequirement {
+    doc /* The processor shall estimate analyte concentration from the digitized drain-source current after baseline correction and calibration. */
+  }
+
+  requirement def DetectionLimitRequirement {
+    attribute requiredLOD : MolarConcentration = 10 [pM];
+    doc /* The system shall detect the target analyte at or below the required limit of detection under nominal operating conditions. */
+  }
+
+  requirement def AssayTimeRequirement {
+    attribute maximumTime : TimeDuration = 120 [s];
+    doc /* The system shall complete sample transport, molecular binding, electrical acquisition, and concentration reporting within the maximum assay time. */
+  }
+
+  requirement def SampleCompatibilityRequirement {
+    attribute allowedPHLow : ScalarValues::Real = 6.0;
+    attribute allowedPHHigh : ScalarValues::Real = 8.5;
+    attribute maximumIonicStrength : MolarConcentration = 200 [mM];
+    doc /* The system shall accept liquid samples within the specified pH and ionic strength limits without invalidating the Bio-FET measurement. */
+  }
+
+  requirement def NoiseRequirement {
+    attribute maximumReadoutNoise : ElectricCurrent = 10 [pA];
+    doc /* The readout electronics shall maintain input-referred current noise below the maximum readout noise during measurement acquisition. */
+  }
+
+  satisfy PrimaryFunctionRequirement by BioFETAnalyteSensorSystem;
+  satisfy SelectiveBindingRequirement by BioFunctionalLayer;
+  satisfy ElectricalTransductionRequirement by BioFETTransducer;
+  satisfy ConcentrationReportingRequirement by SignalProcessor;
+  satisfy DetectionLimitRequirement by BioFETAnalyteSensorSystem;
+  satisfy AssayTimeRequirement by BioFETAnalyteSensorSystem;
+  satisfy SampleCompatibilityRequirement by MicrofluidicCartridge;
+  satisfy NoiseRequirement by BiasAndReadoutElectronics;
+
+  analysis def BioFETMeasurementPrinciple {
+    in attribute analyteConcentration : MolarConcentration;
+    in attribute bindingFraction : DimensionlessRatio;
+    in attribute surfaceCharge : SurfaceChargeDensity;
+    in attribute gatePotentialShift : ElectricPotential;
+    out attribute drainCurrentChange : ElectricCurrent;
+    out attribute reportedConcentration : MolarConcentration;
+
+    objective {
+      doc /* Relate target analyte concentration to receptor binding, surface charge, gate potential modulation, drain-source current change, and reported concentration. */
+    }
+  }
+
+  verification def AssayTimeVerification {
+    subject systemUnderTest : BioFETAnalyteSensorSystem;
+    objective {
+      doc /* Verify that the complete sensing action produces a valid concentration estimate within 120 seconds. */
+    }
+  }
+
+  verification def LimitOfDetectionVerification {
+    subject systemUnderTest : BioFETAnalyteSensorSystem;
+    objective {
+      doc /* Verify that samples containing 10 pM target analyte produce a valid concentration estimate with confidence at or above 0.9. */
+    }
+  }
+
+}

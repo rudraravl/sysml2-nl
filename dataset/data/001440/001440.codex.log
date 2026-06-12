@@ -1,0 +1,1343 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-ddf8lrtv
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb6b8-c380-7e70-a05f-e79a473491e3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Model a system based on a HVAC and describe its primary function at a high level.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package HVACSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::temperature {
+        unit = "degC";
+    }
+
+    attribute def RelativeHumidity {
+        :>> scalarType = Real;
+        unit = "%";
+    }
+
+    attribute def Pressure {
+        :>> scalarType = Real;
+        unit = "Pa";
+    }
+
+    attribute def AirFlowRate {
+        :>> scalarType = Real;
+        unit = "m^3/s";
+    }
+
+    attribute def Power {
+        :>> scalarType = Real;
+        unit = "W";
+    }
+
+    attribute def Energy {
+        :>> scalarType = Real;
+        unit = "J";
+    }
+
+    attribute def Efficiency {
+        :>> scalarType = Real;
+        unit = "%";
+    }
+
+    attribute def TimeDuration {
+        :>> scalarType = Real;
+        unit = "s";
+    }
+
+    item def Air {
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute pressure : Pressure;
+        attribute flowRate : AirFlowRate;
+    }
+
+    item def Refrigerant {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute massFlowRate {
+            :>> scalarType = Real;
+            unit = "kg/s";
+        }
+        attribute phase : RefrigerantPhase;
+    }
+
+    enum def RefrigerantPhase {
+        enum vapor;
+        enum liquid;
+        enum twoPhase;
+    }
+
+    item def ElectricalPower {
+        attribute voltage {
+            :>> scalarType = Real;
+            unit = "V";
+        }
+        attribute current {
+            :>> scalarType = Real;
+            unit = "A";
+        }
+        attribute frequency {
+            :>> scalarType = Real;
+            unit = "Hz";
+        }
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute command : ControlCommand;
+        attribute targetTemperature : Temperature;
+        attribute fanSpeedCommand {
+            :>> scalarType = Real;
+            unit = "%";
+        }
+        attribute compressorCommand {
+            :>> scalarType = Real;
+            unit = "%";
+        }
+    }
+
+    enum def ControlCommand {
+        enum off;
+        enum heat;
+        enum cool;
+        enum ventilate;
+        enum dehumidify;
+        enum faultShutdown;
+    }
+
+    port def AirPort {
+        inout air : Air;
+    }
+
+    port def RefrigerantPort {
+        inout refrigerant : Refrigerant;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    port def SignalPort {
+        inout signal : ControlSignal;
+    }
+
+    port def CondensateDrainPort {
+        out condensateFlow {
+            :>> scalarType = Real;
+            unit = "kg/s";
+        }
+    }
+
+    part def TemperatureSensor {
+        port sensedAirPort : AirPort;
+        port signalOut : SignalPort;
+
+        attribute measuredTemperature : Temperature;
+        attribute measurementAccuracy : Temperature = 0.3;
+        attribute samplePeriod : TimeDuration = 2.0;
+
+        action measureTemperature {
+            in airSample : Air;
+            out temperatureReading : Temperature;
+        }
+    }
+
+    part def HumiditySensor {
+        port sensedAirPort : AirPort;
+        port signalOut : SignalPort;
+
+        attribute measuredHumidity : RelativeHumidity;
+        attribute measurementAccuracy : RelativeHumidity = 2.0;
+        attribute samplePeriod : TimeDuration = 5.0;
+
+        action measureHumidity {
+            in airSample : Air;
+            out humidityReading : RelativeHumidity;
+        }
+    }
+
+    part def ThermostatController {
+        port roomAirInput : AirPort;
+        port temperatureSensorInput : SignalPort;
+        port humiditySensorInput : SignalPort;
+        port equipmentCommandOutput : SignalPort;
+
+        attribute heatingSetpoint : Temperature = 20.0;
+        attribute coolingSetpoint : Temperature = 24.0;
+        attribute humidityLimit : RelativeHumidity = 60.0;
+        attribute deadband : Temperature = 1.0;
+        attribute currentMode : ControlCommand = ControlCommand::off;
+
+        action evaluateComfortDemand {
+            in roomTemperature : Temperature;
+            in roomHumidity : RelativeHumidity;
+            out command : ControlCommand;
+        }
+
+        state def ControllerStateMachine {
+            state off;
+            state heatingDemand;
+            state coolingDemand;
+            state ventilationDemand;
+            state dehumidificationDemand;
+            state faultLockout;
+
+            transition first off;
+
+            transition off_to_heat
+                first off
+                then heatingDemand
+                if roomAirInput.air.temperature < heatingSetpoint - deadband;
+
+            transition off_to_cool
+                first off
+                then coolingDemand
+                if roomAirInput.air.temperature > coolingSetpoint + deadband;
+
+            transition cool_to_off
+                first coolingDemand
+                then off
+                if roomAirInput.air.temperature <= coolingSetpoint;
+
+            transition heat_to_off
+                first heatingDemand
+                then off
+                if roomAirInput.air.temperature >= heatingSetpoint;
+
+            transition off_to_dehumidify
+                first off
+                then dehumidificationDemand
+                if roomAirInput.air.humidity > humidityLimit;
+
+            transition any_to_fault
+                first off
+                then faultLockout
+                if equipmentCommandOutput.signal.command == ControlCommand::faultShutdown;
+        }
+    }
+
+    part def SupplyFan {
+        port returnAirIn : AirPort;
+        port conditionedAirOut : AirPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute ratedAirFlow : AirFlowRate = 1.2;
+        attribute commandedSpeed {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 65.0;
+        attribute electricPower : Power = 550.0;
+        attribute staticPressureRise : Pressure = 450.0;
+
+        action moveAir {
+            in inletAir : Air;
+            in speedCommand {
+                :>> scalarType = Real;
+                unit = "%";
+            }
+            out outletAir : Air;
+        }
+    }
+
+    part def Filter {
+        port dirtyAirIn : AirPort;
+        port cleanAirOut : AirPort;
+
+        attribute pressureDrop : Pressure = 125.0;
+        attribute particulateRemovalEfficiency : Efficiency = 85.0;
+        attribute replacementInterval : TimeDuration = 7776000.0;
+
+        action removeParticulates {
+            in dirtyAir : Air;
+            out cleanAir : Air;
+        }
+    }
+
+    part def CoolingCoil {
+        port warmAirIn : AirPort;
+        port coolAirOut : AirPort;
+        port refrigerantIn : RefrigerantPort;
+        port refrigerantOut : RefrigerantPort;
+        port drain : CondensateDrainPort;
+
+        attribute sensibleCapacity : Power = 8000.0;
+        attribute latentCapacity : Power = 2200.0;
+        attribute leavingAirTargetTemperature : Temperature = 13.0;
+        attribute condensateRate {
+            :>> scalarType = Real;
+            unit = "kg/s";
+        } = 0.0015;
+
+        action coolAndDehumidifyAir {
+            in warmHumidAir : Air;
+            in evaporatingRefrigerant : Refrigerant;
+            out coolDryAir : Air;
+            out vaporRefrigerant : Refrigerant;
+        }
+    }
+
+    part def HeatingCoil {
+        port coolAirIn : AirPort;
+        port warmAirOut : AirPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute heatingCapacity : Power = 9000.0;
+        attribute leavingAirTargetTemperature : Temperature = 35.0;
+        attribute electricPower : Power = 9300.0;
+
+        action heatAir {
+            in inletAir : Air;
+            out heatedAir : Air;
+        }
+    }
+
+    part def Compressor {
+        port refrigerantSuctionIn : RefrigerantPort;
+        port refrigerantDischargeOut : RefrigerantPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute ratedCoolingPower : Power = 10500.0;
+        attribute electricPower : Power = 3200.0;
+        attribute coefficientOfPerformance {
+            :>> scalarType = Real;
+        } = 3.2;
+        attribute commandedCapacity {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 75.0;
+
+        action compressRefrigerant {
+            in lowPressureVapor : Refrigerant;
+            out highPressureVapor : Refrigerant;
+        }
+    }
+
+    part def CondenserCoil {
+        port hotRefrigerantIn : RefrigerantPort;
+        port liquidRefrigerantOut : RefrigerantPort;
+        port outdoorAirIn : AirPort;
+        port outdoorAirOut : AirPort;
+
+        attribute heatRejectionCapacity : Power = 13700.0;
+        attribute condensingTemperature : Temperature = 45.0;
+
+        action rejectHeat {
+            in hotVapor : Refrigerant;
+            in outdoorAir : Air;
+            out liquidRefrigerant : Refrigerant;
+            out warmedOutdoorAir : Air;
+        }
+    }
+
+    part def ExpansionValve {
+        port liquidRefrigerantIn : RefrigerantPort;
+        port lowPressureRefrigerantOut : RefrigerantPort;
+        port commandIn : SignalPort;
+
+        attribute superheatSetpoint : Temperature = 6.0;
+        attribute valveOpening {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 42.0;
+
+        action meterRefrigerant {
+            in highPressureLiquid : Refrigerant;
+            out lowPressureMixture : Refrigerant;
+        }
+    }
+
+    part def OutdoorFan {
+        port outdoorAirIn : AirPort;
+        port condenserAirOut : AirPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute ratedAirFlow : AirFlowRate = 1.8;
+        attribute electricPower : Power = 420.0;
+
+        action moveOutdoorAir {
+            in ambientAir : Air;
+            out exhaustAir : Air;
+        }
+    }
+
+    part def DuctNetwork {
+        port supplyAirIn : AirPort;
+        port zoneSupplyAirOut : AirPort;
+        port zoneReturnAirIn : AirPort;
+        port returnAirOut : AirPort;
+
+        attribute supplyPressureDrop : Pressure = 180.0;
+        attribute returnPressureDrop : Pressure = 140.0;
+        attribute leakageFraction {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 3.0;
+
+        action distributeAir {
+            in conditionedAir : Air;
+            out deliveredAir : Air;
+        }
+
+        action collectReturnAir {
+            in roomAir : Air;
+            out returnAir : Air;
+        }
+    }
+
+    part def ConditionedZone {
+        port supplyAirIn : AirPort;
+        port returnAirOut : AirPort;
+
+        attribute zoneAirTemperature : Temperature = 22.0;
+        attribute zoneRelativeHumidity : RelativeHumidity = 45.0;
+        attribute zoneVolume {
+            :>> scalarType = Real;
+            unit = "m^3";
+        } = 350.0;
+        attribute occupancyHeatLoad : Power = 1200.0;
+        attribute envelopeHeatGain : Power = 2500.0;
+
+        action exchangeHeatAndMoisture {
+            in supplyAir : Air;
+            out returnAir : Air;
+        }
+    }
+
+    part def ElectricalPanel {
+        port utilityPowerIn : PowerPort;
+        port controllerPowerOut : PowerPort;
+        port compressorPowerOut : PowerPort;
+        port fanPowerOut : PowerPort;
+        port heatingPowerOut : PowerPort;
+
+        attribute supplyVoltage {
+            :>> scalarType = Real;
+            unit = "V";
+        } = 240.0;
+        attribute maxCurrent {
+            :>> scalarType = Real;
+            unit = "A";
+        } = 60.0;
+        attribute breakerTripCurrent {
+            :>> scalarType = Real;
+            unit = "A";
+        } = 65.0;
+
+        action distributeElectricalPower {
+            in utilityPower : ElectricalPower;
+            out equipmentPower : ElectricalPower;
+        }
+    }
+
+    part def HVACSystem {
+        port utilityPower : PowerPort;
+        port outdoorAirIntake : AirPort;
+        port outdoorAirExhaust : AirPort;
+        port zoneSupply : AirPort;
+        port zoneReturn : AirPort;
+        port condensateDrain : CondensateDrainPort;
+
+        part controller : ThermostatController;
+        part temperatureSensor : TemperatureSensor;
+        part humiditySensor : HumiditySensor;
+        part supplyFan : SupplyFan;
+        part filter : Filter;
+        part coolingCoil : CoolingCoil;
+        part heatingCoil : HeatingCoil;
+        part compressor : Compressor;
+        part condenser : CondenserCoil;
+        part expansionValve : ExpansionValve;
+        part outdoorFan : OutdoorFan;
+        part ducts : DuctNetwork;
+        part zone : ConditionedZone;
+        part electricalPanel : ElectricalPanel;
+
+        attribute systemCoolingCapacity : Power = 10200.0;
+        attribute systemHeatingCapacity : Power = 9000.0;
+        attribute nominalSupplyAirFlow : AirFlowRate = 1.1;
+        attribute comfortTemperatureLow : Temperature = 20.0;
+        attribute comfortTemperatureHigh : Temperature = 24.0;
+        attribute comfortHumidityHigh : RelativeHumidity = 60.0;
+        attribute seasonalEnergyEfficiencyRatio {
+            :>> scalarType = Real;
+            unit = "Btu/Wh";
+        } = 16.0;
+
+        connect utilityPower to electricalPanel.utilityPowerIn;
+        connect electricalPanel.compressorPowerOut to compressor.powerIn;
+        connect electricalPanel.fanPowerOut to supplyFan.powerIn;
+        connect electricalPanel.fanPowerOut to outdoorFan.powerIn;
+        connect electricalPanel.heatingPowerOut to heatingCoil.powerIn;
+
+        connect controller.equipmentCommandOutput to compressor.commandIn;
+        connect controller.equipmentCommandOutput to supplyFan.commandIn;
+        connect controller.equipmentCommandOutput to outdoorFan.commandIn;
+        connect controller.equipmentCommandOutput to heatingCoil.commandIn;
+        connect controller.equipmentCommandOutput to expansionValve.commandIn;
+
+        connect zone.returnAirOut to ducts.zoneReturnAirIn;
+        connect ducts.returnAirOut to filter.dirtyAirIn;
+        connect filter.cleanAirOut to supplyFan.returnAirIn;
+        connect supplyFan.conditionedAirOut to coolingCoil.warmAirIn;
+        connect coolingCoil.coolAirOut to heatingCoil.coolAirIn;
+        connect heatingCoil.warmAirOut to ducts.supplyAirIn;
+        connect ducts.zoneSupplyAirOut to zone.supplyAirIn;
+
+        connect zoneSupply to ducts.zoneSupplyAirOut;
+        connect zoneReturn to ducts.zoneReturnAirIn;
+
+        connect coolingCoil.drain to condensateDrain;
+
+        connect coolingCoil.refrigerantOut to compressor.refrigerantSuctionIn;
+        connect compressor.refrigerantDischargeOut to condenser.hotRefrigerantIn;
+        connect condenser.liquidRefrigerantOut to expansionValve.liquidRefrigerantIn;
+        connect expansionValve.lowPressureRefrigerantOut to coolingCoil.refrigerantIn;
+
+        connect outdoorAirIntake to outdoorFan.outdoorAirIn;
+        connect outdoorFan.condenserAirOut to condenser.outdoorAirIn;
+        connect condenser.outdoorAirOut to outdoorAirExhaust;
+
+        connect zone.returnAirOut to temperatureSensor.sensedAirPort;
+        connect zone.returnAirOut to humiditySensor.sensedAirPort;
+        connect temperatureSensor.signalOut to controller.temperatureSensorInput;
+        connect humiditySensor.signalOut to controller.humiditySensorInput;
+        connect zone.returnAirOut to controller.roomAirInput;
+
+        action maintainIndoorComfort {
+            in outdoorAir : Air;
+            in returnAir : Air;
+            in electricPower : ElectricalPower;
+            out supplyAir : Air;
+
+            first startMonitoring;
+            then determineOperatingMode;
+            then conditionAir;
+            then distributeConditionedAir;
+
+            action startMonitoring;
+            action determineOperatingMode;
+            action conditionAir;
+            action distributeConditionedAir;
+        }
+
+        state def HVACOperatingStateMachine {
+            state idle;
+            state cooling;
+            state heating;
+            state ventilationOnly;
+            state dehumidifying;
+            state faulted;
+
+            transition initial_to_idle
+                first idle;
+
+            transition idle_to_cooling
+                first idle
+                then cooling
+                if zone.zoneAirTemperature > comfortTemperatureHigh;
+
+            transition cooling_to_idle
+                first cooling
+                then idle
+                if zone.zoneAirTemperature <= comfortTemperatureHigh;
+
+            transition idle_to_heating
+                first idle
+                then heating
+                if zone.zoneAirTemperature < comfortTemperatureLow;
+
+            transition heating_to_idle
+                first heating
+                then idle
+                if zone.zoneAirTemperature >= comfortTemperatureLow;
+
+            transition idle_to_dehumidifying
+                first idle
+                then dehumidifying
+                if zone.zoneRelativeHumidity > comfortHumidityHigh;
+
+            transition dehumidifying_to_idle
+                first dehumidifying
+                then idle
+                if zone.zoneRelativeHumidity <= comfortHumidityHigh;
+
+            transition any_operating_to_faulted
+                first cooling
+                then faulted
+                if compressor.powerIn.power.current > electricalPanel.breakerTripCurrent;
+        }
+    }
+
+    requirement def PrimaryHVACFunction {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         The HVAC system shall maintain indoor thermal comfort by circulating zone air,
+         filtering particulates, heating or cooling the air as needed, reducing humidity
+         during cooling or dehumidification operation, and distributing conditioned air
+         back to the occupied zone while rejecting unwanted heat to the outdoor air.
+        */
+
+        require constraint {
+            hvac.zone.zoneAirTemperature >= hvac.comfortTemperatureLow and
+            hvac.zone.zoneAirTemperature <= hvac.comfortTemperatureHigh and
+            hvac.zone.zoneRelativeHumidity <= hvac.comfortHumidityHigh
+        }
+    }
+
+    requirement def CoolingPerformanceRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         When the occupied zone temperature exceeds the cooling comfort limit,
+         the HVAC system shall enter cooling operation and provide at least
+         10 kW of total cooling capacity.
+        */
+
+        require constraint {
+            hvac.zone.zoneAirTemperature > hvac.comfortTemperatureHigh implies
+            hvac.systemCoolingCapacity >= 10000.0
+        }
+    }
+
+    requirement def HeatingPerformanceRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         When the occupied zone temperature falls below the heating comfort limit,
+         the HVAC system shall enter heating operation and provide at least
+         8 kW of heating capacity.
+        */
+
+        require constraint {
+            hvac.zone.zoneAirTemperature < hvac.comfortTemperatureLow implies
+            hvac.systemHeatingCapacity >= 8000.0
+        }
+    }
+
+    requirement def AirDistributionRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         The HVAC system shall deliver sufficient supply airflow to the occupied
+         zone for comfort conditioning and ventilation.
+        */
+
+        require constraint {
+            hvac.nominalSupplyAirFlow >= 1.0
+        }
+    }
+
+    requirement def HumidityControlRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         The HVAC system shall remove moisture from return air when indoor
+         relative humidity exceeds the specified maximum comfort threshold.
+        */
+
+        require constraint {
+            hvac.zone.zoneRelativeHumidity > hvac.comfortHumidityHigh implies
+            hvac.coolingCoil.latentCapacity >= 2000.0
+        }
+    }
+
+    satisfy PrimaryHVACFunction by HVACSystem::maintainIndoorComfort;
+    satisfy CoolingPerformanceRequirement by HVACSystem::coolingCoil;
+    satisfy CoolingPerformanceRequirement by HVACSystem::compressor;
+    satisfy HeatingPerformanceRequirement by HVACSystem::heatingCoil;
+    satisfy AirDistributionRequirement by HVACSystem::supplyFan;
+    satisfy AirDistributionRequirement by HVACSystem::ducts;
+    satisfy HumidityControlRequirement by HVACSystem::coolingCoil;
+
+    part hvacSystem : HVACSystem;
+}
+tokens used
+5,682
+package HVACSystemModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def Temperature :> ISQ::temperature {
+        unit = "degC";
+    }
+
+    attribute def RelativeHumidity {
+        :>> scalarType = Real;
+        unit = "%";
+    }
+
+    attribute def Pressure {
+        :>> scalarType = Real;
+        unit = "Pa";
+    }
+
+    attribute def AirFlowRate {
+        :>> scalarType = Real;
+        unit = "m^3/s";
+    }
+
+    attribute def Power {
+        :>> scalarType = Real;
+        unit = "W";
+    }
+
+    attribute def Energy {
+        :>> scalarType = Real;
+        unit = "J";
+    }
+
+    attribute def Efficiency {
+        :>> scalarType = Real;
+        unit = "%";
+    }
+
+    attribute def TimeDuration {
+        :>> scalarType = Real;
+        unit = "s";
+    }
+
+    item def Air {
+        attribute temperature : Temperature;
+        attribute humidity : RelativeHumidity;
+        attribute pressure : Pressure;
+        attribute flowRate : AirFlowRate;
+    }
+
+    item def Refrigerant {
+        attribute temperature : Temperature;
+        attribute pressure : Pressure;
+        attribute massFlowRate {
+            :>> scalarType = Real;
+            unit = "kg/s";
+        }
+        attribute phase : RefrigerantPhase;
+    }
+
+    enum def RefrigerantPhase {
+        enum vapor;
+        enum liquid;
+        enum twoPhase;
+    }
+
+    item def ElectricalPower {
+        attribute voltage {
+            :>> scalarType = Real;
+            unit = "V";
+        }
+        attribute current {
+            :>> scalarType = Real;
+            unit = "A";
+        }
+        attribute frequency {
+            :>> scalarType = Real;
+            unit = "Hz";
+        }
+        attribute power : Power;
+    }
+
+    item def ControlSignal {
+        attribute command : ControlCommand;
+        attribute targetTemperature : Temperature;
+        attribute fanSpeedCommand {
+            :>> scalarType = Real;
+            unit = "%";
+        }
+        attribute compressorCommand {
+            :>> scalarType = Real;
+            unit = "%";
+        }
+    }
+
+    enum def ControlCommand {
+        enum off;
+        enum heat;
+        enum cool;
+        enum ventilate;
+        enum dehumidify;
+        enum faultShutdown;
+    }
+
+    port def AirPort {
+        inout air : Air;
+    }
+
+    port def RefrigerantPort {
+        inout refrigerant : Refrigerant;
+    }
+
+    port def PowerPort {
+        in power : ElectricalPower;
+    }
+
+    port def SignalPort {
+        inout signal : ControlSignal;
+    }
+
+    port def CondensateDrainPort {
+        out condensateFlow {
+            :>> scalarType = Real;
+            unit = "kg/s";
+        }
+    }
+
+    part def TemperatureSensor {
+        port sensedAirPort : AirPort;
+        port signalOut : SignalPort;
+
+        attribute measuredTemperature : Temperature;
+        attribute measurementAccuracy : Temperature = 0.3;
+        attribute samplePeriod : TimeDuration = 2.0;
+
+        action measureTemperature {
+            in airSample : Air;
+            out temperatureReading : Temperature;
+        }
+    }
+
+    part def HumiditySensor {
+        port sensedAirPort : AirPort;
+        port signalOut : SignalPort;
+
+        attribute measuredHumidity : RelativeHumidity;
+        attribute measurementAccuracy : RelativeHumidity = 2.0;
+        attribute samplePeriod : TimeDuration = 5.0;
+
+        action measureHumidity {
+            in airSample : Air;
+            out humidityReading : RelativeHumidity;
+        }
+    }
+
+    part def ThermostatController {
+        port roomAirInput : AirPort;
+        port temperatureSensorInput : SignalPort;
+        port humiditySensorInput : SignalPort;
+        port equipmentCommandOutput : SignalPort;
+
+        attribute heatingSetpoint : Temperature = 20.0;
+        attribute coolingSetpoint : Temperature = 24.0;
+        attribute humidityLimit : RelativeHumidity = 60.0;
+        attribute deadband : Temperature = 1.0;
+        attribute currentMode : ControlCommand = ControlCommand::off;
+
+        action evaluateComfortDemand {
+            in roomTemperature : Temperature;
+            in roomHumidity : RelativeHumidity;
+            out command : ControlCommand;
+        }
+
+        state def ControllerStateMachine {
+            state off;
+            state heatingDemand;
+            state coolingDemand;
+            state ventilationDemand;
+            state dehumidificationDemand;
+            state faultLockout;
+
+            transition first off;
+
+            transition off_to_heat
+                first off
+                then heatingDemand
+                if roomAirInput.air.temperature < heatingSetpoint - deadband;
+
+            transition off_to_cool
+                first off
+                then coolingDemand
+                if roomAirInput.air.temperature > coolingSetpoint + deadband;
+
+            transition cool_to_off
+                first coolingDemand
+                then off
+                if roomAirInput.air.temperature <= coolingSetpoint;
+
+            transition heat_to_off
+                first heatingDemand
+                then off
+                if roomAirInput.air.temperature >= heatingSetpoint;
+
+            transition off_to_dehumidify
+                first off
+                then dehumidificationDemand
+                if roomAirInput.air.humidity > humidityLimit;
+
+            transition any_to_fault
+                first off
+                then faultLockout
+                if equipmentCommandOutput.signal.command == ControlCommand::faultShutdown;
+        }
+    }
+
+    part def SupplyFan {
+        port returnAirIn : AirPort;
+        port conditionedAirOut : AirPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute ratedAirFlow : AirFlowRate = 1.2;
+        attribute commandedSpeed {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 65.0;
+        attribute electricPower : Power = 550.0;
+        attribute staticPressureRise : Pressure = 450.0;
+
+        action moveAir {
+            in inletAir : Air;
+            in speedCommand {
+                :>> scalarType = Real;
+                unit = "%";
+            }
+            out outletAir : Air;
+        }
+    }
+
+    part def Filter {
+        port dirtyAirIn : AirPort;
+        port cleanAirOut : AirPort;
+
+        attribute pressureDrop : Pressure = 125.0;
+        attribute particulateRemovalEfficiency : Efficiency = 85.0;
+        attribute replacementInterval : TimeDuration = 7776000.0;
+
+        action removeParticulates {
+            in dirtyAir : Air;
+            out cleanAir : Air;
+        }
+    }
+
+    part def CoolingCoil {
+        port warmAirIn : AirPort;
+        port coolAirOut : AirPort;
+        port refrigerantIn : RefrigerantPort;
+        port refrigerantOut : RefrigerantPort;
+        port drain : CondensateDrainPort;
+
+        attribute sensibleCapacity : Power = 8000.0;
+        attribute latentCapacity : Power = 2200.0;
+        attribute leavingAirTargetTemperature : Temperature = 13.0;
+        attribute condensateRate {
+            :>> scalarType = Real;
+            unit = "kg/s";
+        } = 0.0015;
+
+        action coolAndDehumidifyAir {
+            in warmHumidAir : Air;
+            in evaporatingRefrigerant : Refrigerant;
+            out coolDryAir : Air;
+            out vaporRefrigerant : Refrigerant;
+        }
+    }
+
+    part def HeatingCoil {
+        port coolAirIn : AirPort;
+        port warmAirOut : AirPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute heatingCapacity : Power = 9000.0;
+        attribute leavingAirTargetTemperature : Temperature = 35.0;
+        attribute electricPower : Power = 9300.0;
+
+        action heatAir {
+            in inletAir : Air;
+            out heatedAir : Air;
+        }
+    }
+
+    part def Compressor {
+        port refrigerantSuctionIn : RefrigerantPort;
+        port refrigerantDischargeOut : RefrigerantPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute ratedCoolingPower : Power = 10500.0;
+        attribute electricPower : Power = 3200.0;
+        attribute coefficientOfPerformance {
+            :>> scalarType = Real;
+        } = 3.2;
+        attribute commandedCapacity {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 75.0;
+
+        action compressRefrigerant {
+            in lowPressureVapor : Refrigerant;
+            out highPressureVapor : Refrigerant;
+        }
+    }
+
+    part def CondenserCoil {
+        port hotRefrigerantIn : RefrigerantPort;
+        port liquidRefrigerantOut : RefrigerantPort;
+        port outdoorAirIn : AirPort;
+        port outdoorAirOut : AirPort;
+
+        attribute heatRejectionCapacity : Power = 13700.0;
+        attribute condensingTemperature : Temperature = 45.0;
+
+        action rejectHeat {
+            in hotVapor : Refrigerant;
+            in outdoorAir : Air;
+            out liquidRefrigerant : Refrigerant;
+            out warmedOutdoorAir : Air;
+        }
+    }
+
+    part def ExpansionValve {
+        port liquidRefrigerantIn : RefrigerantPort;
+        port lowPressureRefrigerantOut : RefrigerantPort;
+        port commandIn : SignalPort;
+
+        attribute superheatSetpoint : Temperature = 6.0;
+        attribute valveOpening {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 42.0;
+
+        action meterRefrigerant {
+            in highPressureLiquid : Refrigerant;
+            out lowPressureMixture : Refrigerant;
+        }
+    }
+
+    part def OutdoorFan {
+        port outdoorAirIn : AirPort;
+        port condenserAirOut : AirPort;
+        port powerIn : PowerPort;
+        port commandIn : SignalPort;
+
+        attribute ratedAirFlow : AirFlowRate = 1.8;
+        attribute electricPower : Power = 420.0;
+
+        action moveOutdoorAir {
+            in ambientAir : Air;
+            out exhaustAir : Air;
+        }
+    }
+
+    part def DuctNetwork {
+        port supplyAirIn : AirPort;
+        port zoneSupplyAirOut : AirPort;
+        port zoneReturnAirIn : AirPort;
+        port returnAirOut : AirPort;
+
+        attribute supplyPressureDrop : Pressure = 180.0;
+        attribute returnPressureDrop : Pressure = 140.0;
+        attribute leakageFraction {
+            :>> scalarType = Real;
+            unit = "%";
+        } = 3.0;
+
+        action distributeAir {
+            in conditionedAir : Air;
+            out deliveredAir : Air;
+        }
+
+        action collectReturnAir {
+            in roomAir : Air;
+            out returnAir : Air;
+        }
+    }
+
+    part def ConditionedZone {
+        port supplyAirIn : AirPort;
+        port returnAirOut : AirPort;
+
+        attribute zoneAirTemperature : Temperature = 22.0;
+        attribute zoneRelativeHumidity : RelativeHumidity = 45.0;
+        attribute zoneVolume {
+            :>> scalarType = Real;
+            unit = "m^3";
+        } = 350.0;
+        attribute occupancyHeatLoad : Power = 1200.0;
+        attribute envelopeHeatGain : Power = 2500.0;
+
+        action exchangeHeatAndMoisture {
+            in supplyAir : Air;
+            out returnAir : Air;
+        }
+    }
+
+    part def ElectricalPanel {
+        port utilityPowerIn : PowerPort;
+        port controllerPowerOut : PowerPort;
+        port compressorPowerOut : PowerPort;
+        port fanPowerOut : PowerPort;
+        port heatingPowerOut : PowerPort;
+
+        attribute supplyVoltage {
+            :>> scalarType = Real;
+            unit = "V";
+        } = 240.0;
+        attribute maxCurrent {
+            :>> scalarType = Real;
+            unit = "A";
+        } = 60.0;
+        attribute breakerTripCurrent {
+            :>> scalarType = Real;
+            unit = "A";
+        } = 65.0;
+
+        action distributeElectricalPower {
+            in utilityPower : ElectricalPower;
+            out equipmentPower : ElectricalPower;
+        }
+    }
+
+    part def HVACSystem {
+        port utilityPower : PowerPort;
+        port outdoorAirIntake : AirPort;
+        port outdoorAirExhaust : AirPort;
+        port zoneSupply : AirPort;
+        port zoneReturn : AirPort;
+        port condensateDrain : CondensateDrainPort;
+
+        part controller : ThermostatController;
+        part temperatureSensor : TemperatureSensor;
+        part humiditySensor : HumiditySensor;
+        part supplyFan : SupplyFan;
+        part filter : Filter;
+        part coolingCoil : CoolingCoil;
+        part heatingCoil : HeatingCoil;
+        part compressor : Compressor;
+        part condenser : CondenserCoil;
+        part expansionValve : ExpansionValve;
+        part outdoorFan : OutdoorFan;
+        part ducts : DuctNetwork;
+        part zone : ConditionedZone;
+        part electricalPanel : ElectricalPanel;
+
+        attribute systemCoolingCapacity : Power = 10200.0;
+        attribute systemHeatingCapacity : Power = 9000.0;
+        attribute nominalSupplyAirFlow : AirFlowRate = 1.1;
+        attribute comfortTemperatureLow : Temperature = 20.0;
+        attribute comfortTemperatureHigh : Temperature = 24.0;
+        attribute comfortHumidityHigh : RelativeHumidity = 60.0;
+        attribute seasonalEnergyEfficiencyRatio {
+            :>> scalarType = Real;
+            unit = "Btu/Wh";
+        } = 16.0;
+
+        connect utilityPower to electricalPanel.utilityPowerIn;
+        connect electricalPanel.compressorPowerOut to compressor.powerIn;
+        connect electricalPanel.fanPowerOut to supplyFan.powerIn;
+        connect electricalPanel.fanPowerOut to outdoorFan.powerIn;
+        connect electricalPanel.heatingPowerOut to heatingCoil.powerIn;
+
+        connect controller.equipmentCommandOutput to compressor.commandIn;
+        connect controller.equipmentCommandOutput to supplyFan.commandIn;
+        connect controller.equipmentCommandOutput to outdoorFan.commandIn;
+        connect controller.equipmentCommandOutput to heatingCoil.commandIn;
+        connect controller.equipmentCommandOutput to expansionValve.commandIn;
+
+        connect zone.returnAirOut to ducts.zoneReturnAirIn;
+        connect ducts.returnAirOut to filter.dirtyAirIn;
+        connect filter.cleanAirOut to supplyFan.returnAirIn;
+        connect supplyFan.conditionedAirOut to coolingCoil.warmAirIn;
+        connect coolingCoil.coolAirOut to heatingCoil.coolAirIn;
+        connect heatingCoil.warmAirOut to ducts.supplyAirIn;
+        connect ducts.zoneSupplyAirOut to zone.supplyAirIn;
+
+        connect zoneSupply to ducts.zoneSupplyAirOut;
+        connect zoneReturn to ducts.zoneReturnAirIn;
+
+        connect coolingCoil.drain to condensateDrain;
+
+        connect coolingCoil.refrigerantOut to compressor.refrigerantSuctionIn;
+        connect compressor.refrigerantDischargeOut to condenser.hotRefrigerantIn;
+        connect condenser.liquidRefrigerantOut to expansionValve.liquidRefrigerantIn;
+        connect expansionValve.lowPressureRefrigerantOut to coolingCoil.refrigerantIn;
+
+        connect outdoorAirIntake to outdoorFan.outdoorAirIn;
+        connect outdoorFan.condenserAirOut to condenser.outdoorAirIn;
+        connect condenser.outdoorAirOut to outdoorAirExhaust;
+
+        connect zone.returnAirOut to temperatureSensor.sensedAirPort;
+        connect zone.returnAirOut to humiditySensor.sensedAirPort;
+        connect temperatureSensor.signalOut to controller.temperatureSensorInput;
+        connect humiditySensor.signalOut to controller.humiditySensorInput;
+        connect zone.returnAirOut to controller.roomAirInput;
+
+        action maintainIndoorComfort {
+            in outdoorAir : Air;
+            in returnAir : Air;
+            in electricPower : ElectricalPower;
+            out supplyAir : Air;
+
+            first startMonitoring;
+            then determineOperatingMode;
+            then conditionAir;
+            then distributeConditionedAir;
+
+            action startMonitoring;
+            action determineOperatingMode;
+            action conditionAir;
+            action distributeConditionedAir;
+        }
+
+        state def HVACOperatingStateMachine {
+            state idle;
+            state cooling;
+            state heating;
+            state ventilationOnly;
+            state dehumidifying;
+            state faulted;
+
+            transition initial_to_idle
+                first idle;
+
+            transition idle_to_cooling
+                first idle
+                then cooling
+                if zone.zoneAirTemperature > comfortTemperatureHigh;
+
+            transition cooling_to_idle
+                first cooling
+                then idle
+                if zone.zoneAirTemperature <= comfortTemperatureHigh;
+
+            transition idle_to_heating
+                first idle
+                then heating
+                if zone.zoneAirTemperature < comfortTemperatureLow;
+
+            transition heating_to_idle
+                first heating
+                then idle
+                if zone.zoneAirTemperature >= comfortTemperatureLow;
+
+            transition idle_to_dehumidifying
+                first idle
+                then dehumidifying
+                if zone.zoneRelativeHumidity > comfortHumidityHigh;
+
+            transition dehumidifying_to_idle
+                first dehumidifying
+                then idle
+                if zone.zoneRelativeHumidity <= comfortHumidityHigh;
+
+            transition any_operating_to_faulted
+                first cooling
+                then faulted
+                if compressor.powerIn.power.current > electricalPanel.breakerTripCurrent;
+        }
+    }
+
+    requirement def PrimaryHVACFunction {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         The HVAC system shall maintain indoor thermal comfort by circulating zone air,
+         filtering particulates, heating or cooling the air as needed, reducing humidity
+         during cooling or dehumidification operation, and distributing conditioned air
+         back to the occupied zone while rejecting unwanted heat to the outdoor air.
+        */
+
+        require constraint {
+            hvac.zone.zoneAirTemperature >= hvac.comfortTemperatureLow and
+            hvac.zone.zoneAirTemperature <= hvac.comfortTemperatureHigh and
+            hvac.zone.zoneRelativeHumidity <= hvac.comfortHumidityHigh
+        }
+    }
+
+    requirement def CoolingPerformanceRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         When the occupied zone temperature exceeds the cooling comfort limit,
+         the HVAC system shall enter cooling operation and provide at least
+         10 kW of total cooling capacity.
+        */
+
+        require constraint {
+            hvac.zone.zoneAirTemperature > hvac.comfortTemperatureHigh implies
+            hvac.systemCoolingCapacity >= 10000.0
+        }
+    }
+
+    requirement def HeatingPerformanceRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         When the occupied zone temperature falls below the heating comfort limit,
+         the HVAC system shall enter heating operation and provide at least
+         8 kW of heating capacity.
+        */
+
+        require constraint {
+            hvac.zone.zoneAirTemperature < hvac.comfortTemperatureLow implies
+            hvac.systemHeatingCapacity >= 8000.0
+        }
+    }
+
+    requirement def AirDistributionRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         The HVAC system shall deliver sufficient supply airflow to the occupied
+         zone for comfort conditioning and ventilation.
+        */
+
+        require constraint {
+            hvac.nominalSupplyAirFlow >= 1.0
+        }
+    }
+
+    requirement def HumidityControlRequirement {
+        subject hvac : HVACSystem;
+
+        doc
+        /*
+         The HVAC system shall remove moisture from return air when indoor
+         relative humidity exceeds the specified maximum comfort threshold.
+        */
+
+        require constraint {
+            hvac.zone.zoneRelativeHumidity > hvac.comfortHumidityHigh implies
+            hvac.coolingCoil.latentCapacity >= 2000.0
+        }
+    }
+
+    satisfy PrimaryHVACFunction by HVACSystem::maintainIndoorComfort;
+    satisfy CoolingPerformanceRequirement by HVACSystem::coolingCoil;
+    satisfy CoolingPerformanceRequirement by HVACSystem::compressor;
+    satisfy HeatingPerformanceRequirement by HVACSystem::heatingCoil;
+    satisfy AirDistributionRequirement by HVACSystem::supplyFan;
+    satisfy AirDistributionRequirement by HVACSystem::ducts;
+    satisfy HumidityControlRequirement by HVACSystem::coolingCoil;
+
+    part hvacSystem : HVACSystem;
+}

@@ -1,0 +1,422 @@
+package SiliconBandgapTemperatureSensingUnit {
+
+  import ScalarValues::*;
+  import MeasurementReferences::*;
+  import ISQ::*;
+  import SI::*;
+
+  attribute def Temperature :> ISQ::temperature {
+    unit = SI::degreeCelsius;
+  }
+
+  attribute def AbsoluteTemperature :> ISQ::temperature {
+    unit = SI::kelvin;
+  }
+
+  attribute def Voltage :> ISQ::electricPotential {
+    unit = SI::volt;
+  }
+
+  attribute def Current :> ISQ::electricCurrent {
+    unit = SI::milliampere;
+  }
+
+  attribute def Power :> ISQ::power {
+    unit = SI::milliwatt;
+  }
+
+  attribute def Time :> ISQ::time {
+    unit = SI::second;
+  }
+
+  attribute def SampleRate :> ISQ::frequency {
+    unit = SI::hertz;
+  }
+
+  attribute def Resolution :> ISQ::temperature {
+    unit = SI::degreeCelsius;
+  }
+
+  attribute def TemperatureError :> ISQ::temperature {
+    unit = SI::degreeCelsius;
+  }
+
+  attribute def DigitalCode :> ScalarValues::Integer;
+
+  attribute def StatusCode :> ScalarValues::String;
+
+  item def ElectricalPower {
+    attribute supplyVoltage : Voltage;
+    attribute supplyCurrent : Current;
+  }
+
+  item def TemperatureSample {
+    attribute measuredTemperature : Temperature;
+    attribute sensorJunctionTemperature : Temperature;
+    attribute timestamp : Time;
+    attribute validity : Boolean;
+    attribute status : StatusCode;
+  }
+
+  item def RawBandgapSignal {
+    attribute vbe : Voltage;
+    attribute deltaVbe : Voltage;
+    attribute proportionalToAbsoluteTemperatureVoltage : Voltage;
+    attribute complementaryToAbsoluteTemperatureVoltage : Voltage;
+  }
+
+  item def DigitalTemperatureFrame {
+    attribute rawCode : DigitalCode;
+    attribute calibratedCode : DigitalCode;
+    attribute temperatureValue : Temperature;
+    attribute crcValid : Boolean;
+    attribute status : StatusCode;
+  }
+
+  port def PowerInputPort {
+    in item power : ElectricalPower;
+  }
+
+  port def TemperatureOutputPort {
+    out item sample : TemperatureSample;
+  }
+
+  port def DiagnosticPort {
+    out item frame : DigitalTemperatureFrame;
+  }
+
+  port def AnalogSignalPort {
+    out item signal : RawBandgapSignal;
+  }
+
+  port def DigitalSignalPort {
+    out item frame : DigitalTemperatureFrame;
+  }
+
+  port def ControlPort {
+    in attribute enable : Boolean;
+    in attribute requestedSampleRate : SampleRate;
+    out attribute ready : Boolean;
+    out attribute fault : Boolean;
+  }
+
+  action def GenerateBandgapVoltages {
+    in attribute junctionTemperature : Temperature;
+    in attribute biasCurrent : Current;
+    out item signal : RawBandgapSignal;
+
+    action computeVbe;
+    action computeDeltaVbe;
+    action combinePtAtAndCtAt;
+  }
+
+  action def ConvertAnalogToDigital {
+    in item signal : RawBandgapSignal;
+    in attribute referenceVoltage : Voltage;
+    out attribute rawCode : DigitalCode;
+  }
+
+  action def ApplyCalibration {
+    in attribute rawCode : DigitalCode;
+    in attribute trimOffset : TemperatureError;
+    in attribute trimGain : Real;
+    out attribute calibratedTemperature : Temperature;
+  }
+
+  action def ValidateTemperatureSample {
+    in attribute calibratedTemperature : Temperature;
+    in attribute minimumMeasurableTemperature : Temperature;
+    in attribute maximumMeasurableTemperature : Temperature;
+    out attribute valid : Boolean;
+    out attribute status : StatusCode;
+  }
+
+  action def ProduceTemperatureSample {
+    in attribute calibratedTemperature : Temperature;
+    in attribute junctionTemperature : Temperature;
+    in attribute valid : Boolean;
+    in attribute status : StatusCode;
+    in attribute sampleTime : Time;
+    out item sample : TemperatureSample;
+  }
+
+  action def MeasureTemperatureCycle {
+    in attribute junctionTemperature : Temperature;
+    in attribute referenceVoltage : Voltage;
+    in attribute trimOffset : TemperatureError;
+    in attribute trimGain : Real;
+    in attribute minimumMeasurableTemperature : Temperature;
+    in attribute maximumMeasurableTemperature : Temperature;
+    in attribute sampleTime : Time;
+    out item sample : TemperatureSample;
+    out item diagnosticFrame : DigitalTemperatureFrame;
+
+    first start;
+    then generate : GenerateBandgapVoltages {
+      in junctionTemperature = MeasureTemperatureCycle::junctionTemperature;
+    }
+    then convert : ConvertAnalogToDigital {
+      in signal = generate.signal;
+      in referenceVoltage = MeasureTemperatureCycle::referenceVoltage;
+    }
+    then calibrate : ApplyCalibration {
+      in rawCode = convert.rawCode;
+      in trimOffset = MeasureTemperatureCycle::trimOffset;
+      in trimGain = MeasureTemperatureCycle::trimGain;
+    }
+    then validate : ValidateTemperatureSample {
+      in calibratedTemperature = calibrate.calibratedTemperature;
+      in minimumMeasurableTemperature = MeasureTemperatureCycle::minimumMeasurableTemperature;
+      in maximumMeasurableTemperature = MeasureTemperatureCycle::maximumMeasurableTemperature;
+    }
+    then produce : ProduceTemperatureSample {
+      in calibratedTemperature = calibrate.calibratedTemperature;
+      in junctionTemperature = MeasureTemperatureCycle::junctionTemperature;
+      in valid = validate.valid;
+      in status = validate.status;
+      in sampleTime = MeasureTemperatureCycle::sampleTime;
+    }
+    then done;
+
+    binding sample = produce.sample;
+  }
+
+  state def SensingUnitOperatingState {
+    in attribute enable : Boolean;
+    in attribute supplyVoltage : Voltage;
+    in attribute selfTestPassed : Boolean;
+    in attribute conversionComplete : Boolean;
+    in attribute faultDetected : Boolean;
+
+    state off;
+    state initializing;
+    state selfTesting;
+    state ready;
+    state measuring;
+    state publishing;
+    state fault;
+
+    initial then off;
+
+    transition off_to_initializing
+      first off
+      accept when enable
+      then initializing;
+
+    transition initializing_to_selfTesting
+      first initializing
+      accept after 0.010 [s]
+      then selfTesting;
+
+    transition selfTesting_to_ready
+      first selfTesting
+      accept when selfTestPassed
+      then ready;
+
+    transition ready_to_measuring
+      first ready
+      accept when enable
+      then measuring;
+
+    transition measuring_to_publishing
+      first measuring
+      accept when conversionComplete
+      then publishing;
+
+    transition publishing_to_ready
+      first publishing
+      accept after 0.001 [s]
+      then ready;
+
+    transition any_to_fault
+      first off
+      accept when faultDetected
+      then fault;
+
+    transition fault_to_initializing
+      first fault
+      accept when enable and not faultDetected
+      then initializing;
+  }
+
+  part def SiliconBandgapTemperatureSensor {
+    attribute minimumOperatingTemperature : Temperature = -55 [SI::degreeCelsius];
+    attribute maximumOperatingTemperature : Temperature = 150 [SI::degreeCelsius];
+    attribute nominalSupplyVoltage : Voltage = 3.3 [SI::volt];
+    attribute biasCurrent : Current = 0.080 [SI::milliampere];
+    attribute nominalVbeAt25C : Voltage = 0.700 [SI::volt];
+    attribute deltaVbeAt25C : Voltage = 0.085 [SI::volt];
+    attribute sensorAccuracy : TemperatureError = 1.0 [SI::degreeCelsius];
+
+    port powerIn : PowerInputPort;
+    port analogOut : AnalogSignalPort;
+
+    perform action generateBandgapVoltages : GenerateBandgapVoltages;
+  }
+
+  part def PrecisionBiasAndReference {
+    attribute referenceVoltage : Voltage = 1.200 [SI::volt];
+    attribute referenceTolerance : Voltage = 0.0012 [SI::volt];
+    attribute availableBiasCurrent : Current = 0.100 [SI::milliampere];
+    attribute startupTime : Time = 0.005 [SI::second];
+
+    port powerIn : PowerInputPort;
+  }
+
+  part def AnalogFrontEnd {
+    attribute gain : Real = 8.0;
+    attribute offsetVoltage : Voltage = 0.0005 [SI::volt];
+    attribute inputReferredNoise : Voltage = 0.0001 [SI::volt];
+    attribute bandwidth : SampleRate = 1000 [SI::hertz];
+
+    port analogIn : AnalogSignalPort;
+    port analogOut : AnalogSignalPort;
+  }
+
+  part def AnalogToDigitalConverter {
+    attribute resolutionBits : Integer = 14;
+    attribute referenceVoltage : Voltage = 1.200 [SI::volt];
+    attribute conversionTime : Time = 0.002 [SI::second];
+    attribute maximumSampleRate : SampleRate = 100 [SI::hertz];
+
+    port analogIn : AnalogSignalPort;
+    port digitalOut : DigitalSignalPort;
+
+    perform action convert : ConvertAnalogToDigital;
+  }
+
+  part def CalibrationProcessor {
+    attribute trimOffset : TemperatureError = 0.0 [SI::degreeCelsius];
+    attribute trimGain : Real = 1.000;
+    attribute factoryCalibrationTemperature : Temperature = 25.0 [SI::degreeCelsius];
+    attribute calibratedAccuracy : TemperatureError = 0.5 [SI::degreeCelsius];
+
+    port digitalIn : DigitalSignalPort;
+    port digitalOut : DigitalSignalPort;
+
+    perform action applyCalibration : ApplyCalibration;
+  }
+
+  part def SampleController {
+    attribute configuredSampleRate : SampleRate = 10 [SI::hertz];
+    attribute samplePeriod : Time = 0.100 [SI::second];
+    attribute measurementTimeout : Time = 0.020 [SI::second];
+
+    port control : ControlPort;
+  }
+
+  part def HealthMonitor {
+    attribute undervoltageThreshold : Voltage = 2.7 [SI::volt];
+    attribute overtemperatureThreshold : Temperature = 160 [SI::degreeCelsius];
+    attribute faultDetected : Boolean;
+    attribute status : StatusCode;
+
+    port diagnosticOut : DiagnosticPort;
+  }
+
+  part def SiliconBandgapTemperatureSensingUnit {
+    attribute minimumMeasurableTemperature : Temperature = -40 [SI::degreeCelsius];
+    attribute maximumMeasurableTemperature : Temperature = 125 [SI::degreeCelsius];
+    attribute measurementResolution : Resolution = 0.0625 [SI::degreeCelsius];
+    attribute totalAccuracy : TemperatureError = 1.0 [SI::degreeCelsius];
+    attribute maximumPowerConsumption : Power = 2.5 [SI::milliwatt];
+    attribute nominalSampleRate : SampleRate = 10 [SI::hertz];
+
+    port powerIn : PowerInputPort;
+    port control : ControlPort;
+    port temperatureOut : TemperatureOutputPort;
+    port diagnosticOut : DiagnosticPort;
+
+    part reference : PrecisionBiasAndReference;
+    part sensor : SiliconBandgapTemperatureSensor;
+    part analogFrontEnd : AnalogFrontEnd;
+    part adc : AnalogToDigitalConverter;
+    part calibrationProcessor : CalibrationProcessor;
+    part controller : SampleController;
+    part healthMonitor : HealthMonitor;
+
+    connect powerIn to reference.powerIn;
+    connect powerIn to sensor.powerIn;
+    connect sensor.analogOut to analogFrontEnd.analogIn;
+    connect analogFrontEnd.analogOut to adc.analogIn;
+    connect adc.digitalOut to calibrationProcessor.digitalIn;
+    connect calibrationProcessor.digitalOut to diagnosticOut;
+    connect controller.control to control;
+    connect healthMonitor.diagnosticOut to diagnosticOut;
+
+    exhibit state operatingState : SensingUnitOperatingState;
+
+    perform action measurementCycle : MeasureTemperatureCycle {
+      in referenceVoltage = reference.referenceVoltage;
+      in trimOffset = calibrationProcessor.trimOffset;
+      in trimGain = calibrationProcessor.trimGain;
+      in minimumMeasurableTemperature = SiliconBandgapTemperatureSensingUnit::minimumMeasurableTemperature;
+      in maximumMeasurableTemperature = SiliconBandgapTemperatureSensingUnit::maximumMeasurableTemperature;
+    }
+  }
+
+  requirement def MeasureTemperatureRequirement {
+    subject sensingUnit : SiliconBandgapTemperatureSensingUnit;
+    require constraint {
+      sensingUnit.minimumMeasurableTemperature <= -40 [SI::degreeCelsius] and
+      sensingUnit.maximumMeasurableTemperature >= 125 [SI::degreeCelsius]
+    }
+  }
+
+  requirement def SiliconBandgapSensorRequirement {
+    subject sensor : SiliconBandgapTemperatureSensor;
+    require constraint {
+      sensor.nominalVbeAt25C > 0.600 [SI::volt] and
+      sensor.nominalVbeAt25C < 0.800 [SI::volt] and
+      sensor.deltaVbeAt25C > 0.050 [SI::volt]
+    }
+  }
+
+  requirement def AccuracyRequirement {
+    subject sensingUnit : SiliconBandgapTemperatureSensingUnit;
+    require constraint {
+      sensingUnit.totalAccuracy <= 1.0 [SI::degreeCelsius]
+    }
+  }
+
+  requirement def ResolutionRequirement {
+    subject sensingUnit : SiliconBandgapTemperatureSensingUnit;
+    require constraint {
+      sensingUnit.measurementResolution <= 0.0625 [SI::degreeCelsius]
+    }
+  }
+
+  requirement def SampleRateRequirement {
+    subject sensingUnit : SiliconBandgapTemperatureSensingUnit;
+    require constraint {
+      sensingUnit.nominalSampleRate >= 10 [SI::hertz]
+    }
+  }
+
+  requirement def PowerRequirement {
+    subject sensingUnit : SiliconBandgapTemperatureSensingUnit;
+    require constraint {
+      sensingUnit.maximumPowerConsumption <= 2.5 [SI::milliwatt]
+    }
+  }
+
+  requirement def ValidOutputRequirement {
+    subject sensingUnit : SiliconBandgapTemperatureSensingUnit;
+    require constraint {
+      sensingUnit.temperatureOut.sample.validity == true implies
+      sensingUnit.temperatureOut.sample.measuredTemperature >= sensingUnit.minimumMeasurableTemperature and
+      sensingUnit.temperatureOut.sample.measuredTemperature <= sensingUnit.maximumMeasurableTemperature
+    }
+  }
+
+  satisfy MeasureTemperatureRequirement by SiliconBandgapTemperatureSensingUnit;
+  satisfy SiliconBandgapSensorRequirement by SiliconBandgapTemperatureSensor;
+  satisfy AccuracyRequirement by SiliconBandgapTemperatureSensingUnit;
+  satisfy ResolutionRequirement by SiliconBandgapTemperatureSensingUnit;
+  satisfy SampleRateRequirement by SiliconBandgapTemperatureSensingUnit;
+  satisfy PowerRequirement by SiliconBandgapTemperatureSensingUnit;
+  satisfy ValidOutputRequirement by SiliconBandgapTemperatureSensingUnit;
+
+  part sensingUnit : SiliconBandgapTemperatureSensingUnit;
+
+}

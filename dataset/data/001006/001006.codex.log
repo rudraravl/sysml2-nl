@@ -1,0 +1,957 @@
+OpenAI Codex v0.139.0
+--------
+workdir: /tmp/codex-gpt55-hue_b47u
+model: gpt-5.5
+provider: openai
+approval: never
+sandbox: read-only
+reasoning effort: none
+reasoning summaries: none
+session id: 019eb518-7039-79d0-a9a5-dc9c166342b3
+--------
+user
+You are acting as a single-shot LLM completion. Do not use tools, do not inspect files, do not run commands. Answer directly with SysML v2 textual notation only. Do not include markdown fences, commentary, or explanations.
+
+Generate SysML v2 code for the following requirement. Produce a complete, detailed, non-trivial model with appropriate parts, ports, connections, item/value types (with units), behaviors (state machines/actions), and requirements as applicable. Avoid placeholders. Requirement: Specify a sensing unit that measures the relevant quantity using a Catadioptric sensor.
+warning: Codex could not find bubblewrap on PATH. Install bubblewrap with your OS package manager. See the sandbox prerequisites: https://developers.openai.com/codex/concepts/sandboxing#prerequisites. Codex will use the bundled bubblewrap in the meantime.
+codex
+package CatadioptricSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PixelCount :> Natural;
+    attribute def FrameRate :> Real {
+        unit = Hz;
+    }
+    attribute def Resolution :> Real {
+        unit = m;
+    }
+    attribute def Angle :> Real {
+        unit = deg;
+    }
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+    attribute def Current :> Real {
+        unit = A;
+    }
+    attribute def Power :> Real {
+        unit = W;
+    }
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+    attribute def Distance :> Real {
+        unit = m;
+    }
+    attribute def Confidence :> Real;
+    attribute def TimeStamp :> Real {
+        unit = s;
+    }
+
+    item def IncidentLight {
+        attribute wavelength : Real[1..*] {
+            unit = nm;
+        }
+        attribute radiantFlux : Real {
+            unit = W;
+        }
+        attribute bearingAzimuth : Angle;
+        attribute bearingElevation : Angle;
+    }
+
+    item def CatadioptricImageFrame {
+        attribute frameId : Natural;
+        attribute capturedAt : TimeStamp;
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute bitDepth : Natural;
+        attribute annularImageValid : Boolean;
+        attribute exposureTime : Real {
+            unit = ms;
+        }
+    }
+
+    item def OmnidirectionalRangeObservation {
+        attribute observedDistance : Distance;
+        attribute azimuth : Angle;
+        attribute elevation : Angle;
+        attribute confidence : Confidence;
+        attribute measuredAt : TimeStamp;
+    }
+
+    item def HealthStatus {
+        attribute opticalAlignmentOk : Boolean;
+        attribute detectorTemperatureOk : Boolean;
+        attribute mirrorContaminationLevel : Real;
+        attribute calibrationValid : Boolean;
+        attribute faultCode : Natural;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+        attribute availablePower : Power;
+    }
+
+    item def MeasurementCommand {
+        attribute requestedFrameRate : FrameRate;
+        attribute maximumRange : Distance;
+        attribute minimumConfidence : Confidence;
+        attribute enableSelfTest : Boolean;
+    }
+
+    item def CalibrationData {
+        attribute mirrorProfileCoefficient : Real[1..8];
+        attribute intrinsicMatrixElement : Real[1..9];
+        attribute distortionCoefficient : Real[1..6];
+        attribute validUntil : TimeStamp;
+    }
+
+    port def OpticalAperturePort {
+        in item incomingLight : IncidentLight;
+    }
+
+    port def ImageDataPort {
+        out item frame : CatadioptricImageFrame;
+    }
+
+    port def ObservationPort {
+        out item observation : OmnidirectionalRangeObservation;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : MeasurementCommand;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    port def CalibrationPort {
+        in item calibration : CalibrationData;
+    }
+
+    action def ReflectAndRefractLight {
+        in item incident : IncidentLight;
+        out item focused : IncidentLight;
+        attribute mirrorAzimuthCoverage : Angle = 360 [deg];
+        attribute verticalFieldOfView : Angle = 95 [deg];
+    }
+
+    action def CaptureAnnularImage {
+        in item focused : IncidentLight;
+        out item rawFrame : CatadioptricImageFrame;
+        attribute detectorWidth : PixelCount = 4096;
+        attribute detectorHeight : PixelCount = 3000;
+        attribute nominalFrameRate : FrameRate = 30 [Hz];
+    }
+
+    action def UnwrapCatadioptricImage {
+        in item rawFrame : CatadioptricImageFrame;
+        in item calibration : CalibrationData;
+        out item panoramicFrame : CatadioptricImageFrame;
+        attribute outputAzimuthSamples : PixelCount = 2048;
+        attribute outputElevationSamples : PixelCount = 512;
+    }
+
+    action def EstimateOmnidirectionalRange {
+        in item panoramicFrame : CatadioptricImageFrame;
+        out item observation : OmnidirectionalRangeObservation;
+        attribute rangeNoiseStdDev : Distance = 0.05 [m];
+        attribute minimumRange : Distance = 0.20 [m];
+        attribute maximumRange : Distance = 80.0 [m];
+    }
+
+    action def ValidateMeasurement {
+        in item observation : OmnidirectionalRangeObservation;
+        out valid : Boolean;
+        attribute minimumConfidence : Confidence = 0.85;
+    }
+
+    action def RunOpticalSelfTest {
+        out item status : HealthStatus;
+        attribute referenceTargetDistance : Distance = 5.0 [m];
+        attribute allowedRangeError : Distance = 0.10 [m];
+    }
+
+    state def SensingUnitStateMachine {
+        entry action initialize;
+        state Off;
+        state PowerStabilizing;
+        state Calibrating;
+        state Ready;
+        state Measuring;
+        state SelfTesting;
+        state Faulted;
+
+        transition first Off;
+        transition Off_to_PowerStabilizing
+            first Off
+            then PowerStabilizing;
+
+        transition PowerStabilizing_to_Calibrating
+            first PowerStabilizing
+            accept after 2 [s]
+            then Calibrating;
+
+        transition Calibrating_to_Ready
+            first Calibrating
+            accept when calibrationValid
+            then Ready;
+
+        transition Ready_to_Measuring
+            first Ready
+            accept MeasurementCommand
+            then Measuring;
+
+        transition Measuring_to_Ready
+            first Measuring
+            accept when measurementComplete
+            then Ready;
+
+        transition Ready_to_SelfTesting
+            first Ready
+            accept when selfTestRequested
+            then SelfTesting;
+
+        transition SelfTesting_to_Ready
+            first SelfTesting
+            accept when selfTestPassed
+            then Ready;
+
+        transition any_to_Faulted
+            first Off, PowerStabilizing, Calibrating, Ready, Measuring, SelfTesting
+            accept when criticalFaultDetected
+            then Faulted;
+    }
+
+    part def HyperbolicMirror {
+        attribute reflectiveCoatingReflectance : Real = 0.94;
+        attribute apertureDiameter : Distance = 0.075 [m];
+        attribute vertexOffset : Distance = 0.032 [m];
+        attribute azimuthCoverage : Angle = 360 [deg];
+        attribute verticalFieldOfView : Angle = 95 [deg];
+
+        port opticalIn : OpticalAperturePort;
+        port reflectedOut : OpticalAperturePort;
+    }
+
+    part def RefractiveLensGroup {
+        attribute focalLength : Distance = 0.012 [m];
+        attribute fNumber : Real = 2.8;
+        attribute transmissionEfficiency : Real = 0.88;
+        attribute focusRangeMinimum : Distance = 0.20 [m];
+        attribute focusRangeMaximum : Distance = 80.0 [m];
+
+        port opticalIn : OpticalAperturePort;
+        port opticalOut : OpticalAperturePort;
+    }
+
+    part def ImageDetector {
+        attribute sensorWidth : PixelCount = 4096;
+        attribute sensorHeight : PixelCount = 3000;
+        attribute pixelPitch : Distance = 0.00000345 [m];
+        attribute quantumEfficiency : Real = 0.71;
+        attribute maximumFrameRate : FrameRate = 60 [Hz];
+        attribute operatingTemperature : Temperature = 313.15 [K];
+
+        port opticalIn : OpticalAperturePort;
+        port imageOut : ImageDataPort;
+        port power : PowerInputPort;
+    }
+
+    part def IlluminationEmitter {
+        attribute wavelength : Real = 905 [nm];
+        attribute pulsePower : Power = 25 [W];
+        attribute pulseWidth : Real = 8 [ns];
+        attribute repetitionRate : FrameRate = 30 [Hz];
+
+        port power : PowerInputPort;
+        port emittedLight : OpticalAperturePort;
+    }
+
+    part def CatadioptricSensor {
+        attribute nominalAzimuthCoverage : Angle = 360 [deg];
+        attribute nominalVerticalFieldOfView : Angle = 95 [deg];
+        attribute rangeResolution : Resolution = 0.05 [m];
+        attribute angularResolution : Angle = 0.18 [deg];
+        attribute measurementRangeMinimum : Distance = 0.20 [m];
+        attribute measurementRangeMaximum : Distance = 80.0 [m];
+
+        port aperture : OpticalAperturePort;
+        port image : ImageDataPort;
+        port power : PowerInputPort;
+        port calibrationIn : CalibrationPort;
+
+        part mirror : HyperbolicMirror;
+        part lensGroup : RefractiveLensGroup;
+        part detector : ImageDetector;
+
+        flow aperture.incomingLight to mirror.opticalIn.incomingLight;
+        flow mirror.reflectedOut.incomingLight to lensGroup.opticalIn.incomingLight;
+        flow lensGroup.opticalOut.incomingLight to detector.opticalIn.incomingLight;
+        flow detector.imageOut.frame to image.frame;
+        flow power.powerIn to detector.power.powerIn;
+
+        perform action opticalPath : ReflectAndRefractLight;
+        perform action capture : CaptureAnnularImage;
+    }
+
+    part def SignalProcessor {
+        attribute processorClock : Real {
+            unit = Hz;
+        } = 800000000 [Hz];
+        attribute memoryCapacity : Real {
+            unit = byte;
+        } = 536870912 [byte];
+        attribute processingLatency : Real {
+            unit = ms;
+        } = 18 [ms];
+
+        port rawImageIn : ImageDataPort;
+        port observationOut : ObservationPort;
+        port calibrationIn : CalibrationPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+        port power : PowerInputPort;
+
+        perform action unwrap : UnwrapCatadioptricImage;
+        perform action estimateRange : EstimateOmnidirectionalRange;
+        perform action validate : ValidateMeasurement;
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltageMinimum : Voltage = 9 [V];
+        attribute inputVoltageMaximum : Voltage = 36 [V];
+        attribute regulatedVoltage : Voltage = 12 [V];
+        attribute maximumOutputPower : Power = 18 [W];
+        attribute conversionEfficiency : Real = 0.91;
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port processorPower : PowerInputPort;
+        port emitterPower : PowerInputPort;
+    }
+
+    part def ThermalController {
+        attribute maximumDetectorTemperature : Temperature = 323.15 [K];
+        attribute heaterPower : Power = 3 [W];
+        attribute coolerPower : Power = 8 [W];
+
+        port power : PowerInputPort;
+        port status : StatusPort;
+    }
+
+    part def SensingUnit {
+        attribute unitMass : Real {
+            unit = kg;
+        } = 0.85 [kg];
+        attribute enclosureIngressProtectionRating : Natural = 67;
+        attribute operatingTemperatureMinimum : Temperature = 233.15 [K];
+        attribute operatingTemperatureMaximum : Temperature = 358.15 [K];
+        attribute outputFrameRate : FrameRate = 30 [Hz];
+        attribute nominalPowerConsumption : Power = 12 [W];
+
+        port opticalInput : OpticalAperturePort;
+        port powerInput : PowerInputPort;
+        port commandInput : CommandPort;
+        port calibrationInput : CalibrationPort;
+        port measurementOutput : ObservationPort;
+        port statusOutput : StatusPort;
+
+        part sensor : CatadioptricSensor;
+        part processor : SignalProcessor;
+        part powerConditioner : PowerConditioner;
+        part emitter : IlluminationEmitter;
+        part thermalController : ThermalController;
+
+        flow opticalInput.incomingLight to sensor.aperture.incomingLight;
+        flow powerInput.powerIn to powerConditioner.externalPower.powerIn;
+        flow powerConditioner.sensorPower.powerIn to sensor.power.powerIn;
+        flow powerConditioner.processorPower.powerIn to processor.power.powerIn;
+        flow powerConditioner.emitterPower.powerIn to emitter.power.powerIn;
+        flow commandInput.command to processor.commandIn.command;
+        flow calibrationInput.calibration to sensor.calibrationIn.calibration;
+        flow calibrationInput.calibration to processor.calibrationIn.calibration;
+        flow sensor.image.frame to processor.rawImageIn.frame;
+        flow processor.observationOut.observation to measurementOutput.observation;
+        flow processor.statusOut.status to statusOutput.status;
+        flow thermalController.status.status to statusOutput.status;
+
+        exhibit state behavior : SensingUnitStateMachine;
+
+        perform action selfTest : RunOpticalSelfTest;
+    }
+
+    requirement def OmnidirectionalMeasurementRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.sensor.nominalAzimuthCoverage >= 360 [deg]
+        }
+    }
+
+    requirement def RangePerformanceRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.sensor.measurementRangeMinimum <= 0.20 [m] and
+            sensingUnit.sensor.measurementRangeMaximum >= 50.0 [m] and
+            sensingUnit.sensor.rangeResolution <= 0.10 [m]
+        }
+    }
+
+    requirement def CatadioptricSensorRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.sensor.mirror.reflectiveCoatingReflectance >= 0.90 and
+            sensingUnit.sensor.lensGroup.transmissionEfficiency >= 0.80
+        }
+    }
+
+    requirement def FrameRateRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.outputFrameRate >= 25 [Hz]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.nominalPowerConsumption <= 15 [W]
+        }
+    }
+
+    requirement def MeasurementValidityRequirement {
+        subject observation : OmnidirectionalRangeObservation;
+        require constraint {
+            observation.confidence >= 0.85 and
+            observation.observedDistance >= 0.20 [m] and
+            observation.observedDistance <= 80.0 [m]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.operatingTemperatureMinimum <= 253.15 [K] and
+            sensingUnit.operatingTemperatureMaximum >= 333.15 [K]
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject calibration : CalibrationData;
+        require constraint {
+            size(calibration.mirrorProfileCoefficient) == 8 and
+            size(calibration.intrinsicMatrixElement) == 9 and
+            size(calibration.distortionCoefficient) == 6
+        }
+    }
+
+    satisfy OmnidirectionalMeasurementRequirement by SensingUnit::sensor;
+    satisfy RangePerformanceRequirement by SensingUnit::sensor;
+    satisfy CatadioptricSensorRequirement by SensingUnit::sensor;
+    satisfy FrameRateRequirement by SensingUnit::processor;
+    satisfy PowerRequirement by SensingUnit::powerConditioner;
+    satisfy EnvironmentalRequirement by SensingUnit::thermalController;
+
+    part sensingUnitInstance : SensingUnit {
+        attribute outputFrameRate = 30 [Hz];
+        attribute nominalPowerConsumption = 12 [W];
+
+        part sensor {
+            attribute nominalAzimuthCoverage = 360 [deg];
+            attribute nominalVerticalFieldOfView = 95 [deg];
+            attribute rangeResolution = 0.05 [m];
+            attribute angularResolution = 0.18 [deg];
+            attribute measurementRangeMinimum = 0.20 [m];
+            attribute measurementRangeMaximum = 80.0 [m];
+        }
+
+        part processor {
+            attribute processingLatency = 18 [ms];
+        }
+
+        part powerConditioner {
+            attribute regulatedVoltage = 12 [V];
+            attribute maximumOutputPower = 18 [W];
+        }
+    }
+}
+tokens used
+3,785
+package CatadioptricSensingUnitModel {
+
+    import ScalarValues::*;
+    import ISQ::*;
+    import SI::*;
+
+    attribute def PixelCount :> Natural;
+    attribute def FrameRate :> Real {
+        unit = Hz;
+    }
+    attribute def Resolution :> Real {
+        unit = m;
+    }
+    attribute def Angle :> Real {
+        unit = deg;
+    }
+    attribute def Voltage :> Real {
+        unit = V;
+    }
+    attribute def Current :> Real {
+        unit = A;
+    }
+    attribute def Power :> Real {
+        unit = W;
+    }
+    attribute def Temperature :> Real {
+        unit = K;
+    }
+    attribute def Distance :> Real {
+        unit = m;
+    }
+    attribute def Confidence :> Real;
+    attribute def TimeStamp :> Real {
+        unit = s;
+    }
+
+    item def IncidentLight {
+        attribute wavelength : Real[1..*] {
+            unit = nm;
+        }
+        attribute radiantFlux : Real {
+            unit = W;
+        }
+        attribute bearingAzimuth : Angle;
+        attribute bearingElevation : Angle;
+    }
+
+    item def CatadioptricImageFrame {
+        attribute frameId : Natural;
+        attribute capturedAt : TimeStamp;
+        attribute width : PixelCount;
+        attribute height : PixelCount;
+        attribute bitDepth : Natural;
+        attribute annularImageValid : Boolean;
+        attribute exposureTime : Real {
+            unit = ms;
+        }
+    }
+
+    item def OmnidirectionalRangeObservation {
+        attribute observedDistance : Distance;
+        attribute azimuth : Angle;
+        attribute elevation : Angle;
+        attribute confidence : Confidence;
+        attribute measuredAt : TimeStamp;
+    }
+
+    item def HealthStatus {
+        attribute opticalAlignmentOk : Boolean;
+        attribute detectorTemperatureOk : Boolean;
+        attribute mirrorContaminationLevel : Real;
+        attribute calibrationValid : Boolean;
+        attribute faultCode : Natural;
+    }
+
+    item def ElectricalPower {
+        attribute supplyVoltage : Voltage;
+        attribute supplyCurrent : Current;
+        attribute availablePower : Power;
+    }
+
+    item def MeasurementCommand {
+        attribute requestedFrameRate : FrameRate;
+        attribute maximumRange : Distance;
+        attribute minimumConfidence : Confidence;
+        attribute enableSelfTest : Boolean;
+    }
+
+    item def CalibrationData {
+        attribute mirrorProfileCoefficient : Real[1..8];
+        attribute intrinsicMatrixElement : Real[1..9];
+        attribute distortionCoefficient : Real[1..6];
+        attribute validUntil : TimeStamp;
+    }
+
+    port def OpticalAperturePort {
+        in item incomingLight : IncidentLight;
+    }
+
+    port def ImageDataPort {
+        out item frame : CatadioptricImageFrame;
+    }
+
+    port def ObservationPort {
+        out item observation : OmnidirectionalRangeObservation;
+    }
+
+    port def PowerInputPort {
+        in item powerIn : ElectricalPower;
+    }
+
+    port def CommandPort {
+        in item command : MeasurementCommand;
+    }
+
+    port def StatusPort {
+        out item status : HealthStatus;
+    }
+
+    port def CalibrationPort {
+        in item calibration : CalibrationData;
+    }
+
+    action def ReflectAndRefractLight {
+        in item incident : IncidentLight;
+        out item focused : IncidentLight;
+        attribute mirrorAzimuthCoverage : Angle = 360 [deg];
+        attribute verticalFieldOfView : Angle = 95 [deg];
+    }
+
+    action def CaptureAnnularImage {
+        in item focused : IncidentLight;
+        out item rawFrame : CatadioptricImageFrame;
+        attribute detectorWidth : PixelCount = 4096;
+        attribute detectorHeight : PixelCount = 3000;
+        attribute nominalFrameRate : FrameRate = 30 [Hz];
+    }
+
+    action def UnwrapCatadioptricImage {
+        in item rawFrame : CatadioptricImageFrame;
+        in item calibration : CalibrationData;
+        out item panoramicFrame : CatadioptricImageFrame;
+        attribute outputAzimuthSamples : PixelCount = 2048;
+        attribute outputElevationSamples : PixelCount = 512;
+    }
+
+    action def EstimateOmnidirectionalRange {
+        in item panoramicFrame : CatadioptricImageFrame;
+        out item observation : OmnidirectionalRangeObservation;
+        attribute rangeNoiseStdDev : Distance = 0.05 [m];
+        attribute minimumRange : Distance = 0.20 [m];
+        attribute maximumRange : Distance = 80.0 [m];
+    }
+
+    action def ValidateMeasurement {
+        in item observation : OmnidirectionalRangeObservation;
+        out valid : Boolean;
+        attribute minimumConfidence : Confidence = 0.85;
+    }
+
+    action def RunOpticalSelfTest {
+        out item status : HealthStatus;
+        attribute referenceTargetDistance : Distance = 5.0 [m];
+        attribute allowedRangeError : Distance = 0.10 [m];
+    }
+
+    state def SensingUnitStateMachine {
+        entry action initialize;
+        state Off;
+        state PowerStabilizing;
+        state Calibrating;
+        state Ready;
+        state Measuring;
+        state SelfTesting;
+        state Faulted;
+
+        transition first Off;
+        transition Off_to_PowerStabilizing
+            first Off
+            then PowerStabilizing;
+
+        transition PowerStabilizing_to_Calibrating
+            first PowerStabilizing
+            accept after 2 [s]
+            then Calibrating;
+
+        transition Calibrating_to_Ready
+            first Calibrating
+            accept when calibrationValid
+            then Ready;
+
+        transition Ready_to_Measuring
+            first Ready
+            accept MeasurementCommand
+            then Measuring;
+
+        transition Measuring_to_Ready
+            first Measuring
+            accept when measurementComplete
+            then Ready;
+
+        transition Ready_to_SelfTesting
+            first Ready
+            accept when selfTestRequested
+            then SelfTesting;
+
+        transition SelfTesting_to_Ready
+            first SelfTesting
+            accept when selfTestPassed
+            then Ready;
+
+        transition any_to_Faulted
+            first Off, PowerStabilizing, Calibrating, Ready, Measuring, SelfTesting
+            accept when criticalFaultDetected
+            then Faulted;
+    }
+
+    part def HyperbolicMirror {
+        attribute reflectiveCoatingReflectance : Real = 0.94;
+        attribute apertureDiameter : Distance = 0.075 [m];
+        attribute vertexOffset : Distance = 0.032 [m];
+        attribute azimuthCoverage : Angle = 360 [deg];
+        attribute verticalFieldOfView : Angle = 95 [deg];
+
+        port opticalIn : OpticalAperturePort;
+        port reflectedOut : OpticalAperturePort;
+    }
+
+    part def RefractiveLensGroup {
+        attribute focalLength : Distance = 0.012 [m];
+        attribute fNumber : Real = 2.8;
+        attribute transmissionEfficiency : Real = 0.88;
+        attribute focusRangeMinimum : Distance = 0.20 [m];
+        attribute focusRangeMaximum : Distance = 80.0 [m];
+
+        port opticalIn : OpticalAperturePort;
+        port opticalOut : OpticalAperturePort;
+    }
+
+    part def ImageDetector {
+        attribute sensorWidth : PixelCount = 4096;
+        attribute sensorHeight : PixelCount = 3000;
+        attribute pixelPitch : Distance = 0.00000345 [m];
+        attribute quantumEfficiency : Real = 0.71;
+        attribute maximumFrameRate : FrameRate = 60 [Hz];
+        attribute operatingTemperature : Temperature = 313.15 [K];
+
+        port opticalIn : OpticalAperturePort;
+        port imageOut : ImageDataPort;
+        port power : PowerInputPort;
+    }
+
+    part def IlluminationEmitter {
+        attribute wavelength : Real = 905 [nm];
+        attribute pulsePower : Power = 25 [W];
+        attribute pulseWidth : Real = 8 [ns];
+        attribute repetitionRate : FrameRate = 30 [Hz];
+
+        port power : PowerInputPort;
+        port emittedLight : OpticalAperturePort;
+    }
+
+    part def CatadioptricSensor {
+        attribute nominalAzimuthCoverage : Angle = 360 [deg];
+        attribute nominalVerticalFieldOfView : Angle = 95 [deg];
+        attribute rangeResolution : Resolution = 0.05 [m];
+        attribute angularResolution : Angle = 0.18 [deg];
+        attribute measurementRangeMinimum : Distance = 0.20 [m];
+        attribute measurementRangeMaximum : Distance = 80.0 [m];
+
+        port aperture : OpticalAperturePort;
+        port image : ImageDataPort;
+        port power : PowerInputPort;
+        port calibrationIn : CalibrationPort;
+
+        part mirror : HyperbolicMirror;
+        part lensGroup : RefractiveLensGroup;
+        part detector : ImageDetector;
+
+        flow aperture.incomingLight to mirror.opticalIn.incomingLight;
+        flow mirror.reflectedOut.incomingLight to lensGroup.opticalIn.incomingLight;
+        flow lensGroup.opticalOut.incomingLight to detector.opticalIn.incomingLight;
+        flow detector.imageOut.frame to image.frame;
+        flow power.powerIn to detector.power.powerIn;
+
+        perform action opticalPath : ReflectAndRefractLight;
+        perform action capture : CaptureAnnularImage;
+    }
+
+    part def SignalProcessor {
+        attribute processorClock : Real {
+            unit = Hz;
+        } = 800000000 [Hz];
+        attribute memoryCapacity : Real {
+            unit = byte;
+        } = 536870912 [byte];
+        attribute processingLatency : Real {
+            unit = ms;
+        } = 18 [ms];
+
+        port rawImageIn : ImageDataPort;
+        port observationOut : ObservationPort;
+        port calibrationIn : CalibrationPort;
+        port commandIn : CommandPort;
+        port statusOut : StatusPort;
+        port power : PowerInputPort;
+
+        perform action unwrap : UnwrapCatadioptricImage;
+        perform action estimateRange : EstimateOmnidirectionalRange;
+        perform action validate : ValidateMeasurement;
+    }
+
+    part def PowerConditioner {
+        attribute inputVoltageMinimum : Voltage = 9 [V];
+        attribute inputVoltageMaximum : Voltage = 36 [V];
+        attribute regulatedVoltage : Voltage = 12 [V];
+        attribute maximumOutputPower : Power = 18 [W];
+        attribute conversionEfficiency : Real = 0.91;
+
+        port externalPower : PowerInputPort;
+        port sensorPower : PowerInputPort;
+        port processorPower : PowerInputPort;
+        port emitterPower : PowerInputPort;
+    }
+
+    part def ThermalController {
+        attribute maximumDetectorTemperature : Temperature = 323.15 [K];
+        attribute heaterPower : Power = 3 [W];
+        attribute coolerPower : Power = 8 [W];
+
+        port power : PowerInputPort;
+        port status : StatusPort;
+    }
+
+    part def SensingUnit {
+        attribute unitMass : Real {
+            unit = kg;
+        } = 0.85 [kg];
+        attribute enclosureIngressProtectionRating : Natural = 67;
+        attribute operatingTemperatureMinimum : Temperature = 233.15 [K];
+        attribute operatingTemperatureMaximum : Temperature = 358.15 [K];
+        attribute outputFrameRate : FrameRate = 30 [Hz];
+        attribute nominalPowerConsumption : Power = 12 [W];
+
+        port opticalInput : OpticalAperturePort;
+        port powerInput : PowerInputPort;
+        port commandInput : CommandPort;
+        port calibrationInput : CalibrationPort;
+        port measurementOutput : ObservationPort;
+        port statusOutput : StatusPort;
+
+        part sensor : CatadioptricSensor;
+        part processor : SignalProcessor;
+        part powerConditioner : PowerConditioner;
+        part emitter : IlluminationEmitter;
+        part thermalController : ThermalController;
+
+        flow opticalInput.incomingLight to sensor.aperture.incomingLight;
+        flow powerInput.powerIn to powerConditioner.externalPower.powerIn;
+        flow powerConditioner.sensorPower.powerIn to sensor.power.powerIn;
+        flow powerConditioner.processorPower.powerIn to processor.power.powerIn;
+        flow powerConditioner.emitterPower.powerIn to emitter.power.powerIn;
+        flow commandInput.command to processor.commandIn.command;
+        flow calibrationInput.calibration to sensor.calibrationIn.calibration;
+        flow calibrationInput.calibration to processor.calibrationIn.calibration;
+        flow sensor.image.frame to processor.rawImageIn.frame;
+        flow processor.observationOut.observation to measurementOutput.observation;
+        flow processor.statusOut.status to statusOutput.status;
+        flow thermalController.status.status to statusOutput.status;
+
+        exhibit state behavior : SensingUnitStateMachine;
+
+        perform action selfTest : RunOpticalSelfTest;
+    }
+
+    requirement def OmnidirectionalMeasurementRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.sensor.nominalAzimuthCoverage >= 360 [deg]
+        }
+    }
+
+    requirement def RangePerformanceRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.sensor.measurementRangeMinimum <= 0.20 [m] and
+            sensingUnit.sensor.measurementRangeMaximum >= 50.0 [m] and
+            sensingUnit.sensor.rangeResolution <= 0.10 [m]
+        }
+    }
+
+    requirement def CatadioptricSensorRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.sensor.mirror.reflectiveCoatingReflectance >= 0.90 and
+            sensingUnit.sensor.lensGroup.transmissionEfficiency >= 0.80
+        }
+    }
+
+    requirement def FrameRateRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.outputFrameRate >= 25 [Hz]
+        }
+    }
+
+    requirement def PowerRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.nominalPowerConsumption <= 15 [W]
+        }
+    }
+
+    requirement def MeasurementValidityRequirement {
+        subject observation : OmnidirectionalRangeObservation;
+        require constraint {
+            observation.confidence >= 0.85 and
+            observation.observedDistance >= 0.20 [m] and
+            observation.observedDistance <= 80.0 [m]
+        }
+    }
+
+    requirement def EnvironmentalRequirement {
+        subject sensingUnit : SensingUnit;
+        require constraint {
+            sensingUnit.operatingTemperatureMinimum <= 253.15 [K] and
+            sensingUnit.operatingTemperatureMaximum >= 333.15 [K]
+        }
+    }
+
+    requirement def CalibrationRequirement {
+        subject calibration : CalibrationData;
+        require constraint {
+            size(calibration.mirrorProfileCoefficient) == 8 and
+            size(calibration.intrinsicMatrixElement) == 9 and
+            size(calibration.distortionCoefficient) == 6
+        }
+    }
+
+    satisfy OmnidirectionalMeasurementRequirement by SensingUnit::sensor;
+    satisfy RangePerformanceRequirement by SensingUnit::sensor;
+    satisfy CatadioptricSensorRequirement by SensingUnit::sensor;
+    satisfy FrameRateRequirement by SensingUnit::processor;
+    satisfy PowerRequirement by SensingUnit::powerConditioner;
+    satisfy EnvironmentalRequirement by SensingUnit::thermalController;
+
+    part sensingUnitInstance : SensingUnit {
+        attribute outputFrameRate = 30 [Hz];
+        attribute nominalPowerConsumption = 12 [W];
+
+        part sensor {
+            attribute nominalAzimuthCoverage = 360 [deg];
+            attribute nominalVerticalFieldOfView = 95 [deg];
+            attribute rangeResolution = 0.05 [m];
+            attribute angularResolution = 0.18 [deg];
+            attribute measurementRangeMinimum = 0.20 [m];
+            attribute measurementRangeMaximum = 80.0 [m];
+        }
+
+        part processor {
+            attribute processingLatency = 18 [ms];
+        }
+
+        part powerConditioner {
+            attribute regulatedVoltage = 12 [V];
+            attribute maximumOutputPower = 18 [W];
+        }
+    }
+}
